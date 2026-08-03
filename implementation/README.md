@@ -1,6 +1,6 @@
 # `implementation/` — the companion implementation guide
 
-[`concepta-okf-implementation-guide.md`](concepta-okf-implementation-guide.md) — **2026.1**,
+[`okf-implementation-guide.md`](okf-implementation-guide.md) — **2026.1**,
 binding profile 2026.1.
 
 The profile specifies *what a bundle is*. This document specifies *how one is built, checked,

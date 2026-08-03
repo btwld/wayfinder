@@ -98,5 +98,5 @@ When a profile rule changes, grep this tree for the old rule before shipping the
    for now: Guide concepts inside the bundle.
 2. **Migration is not skill-resident.** These skills describe the target structure only;
    converting an existing `docs/` layout is a one-off task run against the profile skill and the
-   generic method in [implementation guide §5](../implementation/concepta-okf-implementation-guide.md), not a permanent branch
+   generic method in [implementation guide §5](../implementation/okf-implementation-guide.md), not a permanent branch
    inside `setup-repo`.

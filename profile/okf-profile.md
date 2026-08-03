@@ -28,7 +28,7 @@ as described in RFC 2119.
 
 Adoption planning, validator construction, migration, and tooling rollout are
 out of scope here. They belong to the companion implementation guide,
-`concepta-okf-implementation-guide.md`, which binds this release. Where the two appear to
+`okf-implementation-guide.md`, which binds this release. Where the two appear to
 differ, this document governs.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
