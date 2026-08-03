@@ -52,7 +52,7 @@ for Claude Code that is `~/.claude/skills/`, either by copying the directories o
 symlinking them so updates here reach you with a `git pull`:
 
 ```bash
-git clone git@github.com:btwld/repo-template.git ~/lab/concepta-okf
+git clone git@github.com:btwld/okf-profile.git ~/lab/concepta-okf
 for s in ~/lab/concepta-okf/skills/okf-profile ~/lab/concepta-okf/skills/engineering/*/; do
   ln -s "$s" ~/.claude/skills/"$(basename "$s")"
 done
