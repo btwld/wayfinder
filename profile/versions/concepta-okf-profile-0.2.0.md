@@ -1,0 +1,1434 @@
+# Concepta OKF Profile
+
+**Version 0.2.0** — profiles **OKF 0.2**
+
+Status: Proposed
+
+The Concepta OKF Profile is a set of conventions for keeping durable project
+knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
+code it describes. It is a *profile*, not a format: it defines no file type, no
+frontmatter field, and no metadata semantics of its own. Every mechanism it uses
+— bundles, concepts, frontmatter families, cross-links, indexes, logs — is
+defined by OKF and used with its OKF meaning.
+
+OKF is authoritative. Where this profile and OKF appear to differ, OKF wins, and
+the profile is in error. What the profile contributes is narrower: **which**
+knowledge is worth storing, **where** it goes, **how** concepts link to each
+other and to the systems where work happens, and a **version** that tooling can
+bind to.
+
+This document specifies the profile and does not restate OKF; read it alongside
+the pinned [OKF 0.2 specification][spec]. **Where this profile is silent, OKF
+governs** — silence is deference to a spec that already settles the point, never an
+invitation to invent a local convention (§1.3). §1.3 lists what the profile
+inherits unchanged, and §14 defines conformance.
+
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted
+as described in RFC 2119.
+
+Adoption planning, validator construction, migration, and tooling rollout are
+out of scope here. They belong to a companion implementation specification,
+`concepta-okf-profile-spec.md`, which is **not yet written**; until it exists this
+document is the only normative Concepta text.
+
+[okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
+[spec]: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/3fcbb9f828c2f23d109c855ee403c3a4c81f3a96/okf/SPEC.md
+
+---
+
+## 1. Motivation
+
+Concepta runs many codebases with many contributors, and durable project
+knowledge arrives from two directions. Engineering knowledge — terminology,
+architectural decisions, operational guidance — has long lived in repository
+documents. Business-facing knowledge — client requests, planning outcomes, demo
+feedback, investigations — lives in calls, Basecamp, WhatsApp, and meeting
+transcripts, and rarely survives the system it was born in.
+
+Without one model spanning both:
+
+- Durable client and project context stays scattered across external systems,
+  and leaves with the tool or the person.
+- A request, an analysis, a decision, a specification, an issue, and an
+  implementation describe one concern with no durable link between them.
+- Source ceremonies get confused with the knowledge that survives them: either
+  every meeting becomes a document, or nothing does.
+- Document folders mix organizational and conceptual categories, so a path name
+  carries no reliable meaning, and everything about one subject scatters across
+  folders named after document kinds.
+- Documents expose too little metadata for discovery, trust assessment, or
+  graph construction.
+- Repository setup, engineering skills, and agents each know a local layout
+  rather than one shared, versioned standard.
+
+A proprietary format would address none of these better than an open one, while
+costing interoperability and permanent maintenance. So the profile adds
+conventions to OKF instead of replacing it.
+
+### 1.1 Goals
+
+1. Give durable project knowledge one Git-versioned home beside the code.
+2. Capture engineering and business knowledge in one model, without requiring
+   every meeting, message, or transcript to become a document.
+3. Establish one vocabulary and one structural model across repositories, teams,
+   and agents, so a reader arriving at any Concepta repository already knows how
+   the bundle is put together, even where the subjects differ.
+4. Keep execution systems authoritative: specifications, issues, and delivery
+   records stay in GitHub and Linear and are linked, never mirrored.
+5. Remain interoperable — a Concepta bundle MUST be readable by any OKF
+   consumer with no knowledge of this profile.
+6. Make conventions versioned, declared in-bundle, and mechanically checkable.
+
+### 1.2 Non-goals
+
+- Redefining, extending, or narrowing any OKF field's meaning.
+- Ingesting source events: no transcript pipeline, outcome detection, or
+  classification is specified.
+- A graph database, graph API, or graph as a source of truth.
+- Per-concept access control, sensitivity classification, or redaction.
+- Prescribing a human review step, or forbidding agents from verifying.
+- Binary lifecycle management: Git LFS, asset replication, archival guarantees.
+- Prescribing how the profile is packaged or distributed.
+- Naming any project's subjects. The profile fixes the structural model and the
+  type vocabulary; what a project has knowledge *about* is the project's to name.
+
+### 1.3 Inherited from OKF unchanged
+
+The profile selects and constrains OKF; it never redefines it. Every mechanism
+below keeps its OKF meaning. "Constrained" means the profile narrows *when or
+how* Concepta uses it, never *what it means*.
+
+| OKF | Mechanism | In this profile |
+|-----|-----------|-----------------|
+| §2 | Bundle, concept, concept ID, frontmatter, body, link, source, provenance | Inherited verbatim (§2) |
+| §3 | Directory tree of markdown, domain-independent structure | Constrained: one bundle per repository, fixed root files, directories name subjects (§3) |
+| §3.1 | Reserved `index.md` / `log.md` | Inherited; usage constrained (§9, §10) |
+| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained: a baseline is required, types declared in-bundle, no custom fields added (§5.1, §5.2) |
+| §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the in-bundle type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
+| §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Constrained: recommended body shapes (§5.3) |
+| §5.1 | `sources`, credibility signals, `usage_window`, per-claim footnotes | Inherited unchanged; mechanisms surfaced rather than summarized (§6.1) |
+| §5.2 | `generated`, `verified` | Constrained: `generated` in the baseline; verification expected where a concept asserts confirmed fact, and its absence is a signal (§6.2) |
+| §5.3 | Trust tiers derived, not stored | Inherited unchanged; the actor registry makes organizational identity legible without touching tiers (§6.1.1) |
+| §5.4 | `status`: `draft` / `stable` / `deprecated` | Constrained to the knowledge lifecycle of the document only; assessing the subject is body content, with no field and no derivation (§6.3, §6.3.1) |
+| §5.5 | `stale_after` as an absolute date | Constrained: evidence-based, conditional (§6.4) |
+| §6.1 | Markdown links, bundle-relative preferred, broken links tolerated | Inherited; labelled subset added (§7) |
+| §6.2 | Path-valued fields | Inherited unchanged |
+| §6.3 | `references/` mirrors external material as concepts | Inherited; mirroring policy added (§12) |
+| §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and affiliation lives in a registry (§6.1.1) |
+| §8 | Index files, `okf_version` at bundle root only | Constrained: required per nonempty directory, deterministic, grouped by type (§9) |
+| §9 | Date-grouped log entries, newest first | Constrained: knowledge lifecycle events only (§10) |
+| §10 | Attested Computation and its computation keys | Inherited, currently unused (§14.3) |
+| §11 | Tolerant-reader conformance | Inherited and reinforced (§14.2) |
+| §12 | `okf_version` declaration and version semantics | Inherited; profile binds one OKF version (§15) |
+
+**The table is not a boundary.** It enumerates the mechanisms Concepta constrains;
+it does not limit what a bundle may use. Anything OKF 0.2 defines that this
+document never mentions — a frontmatter key, a body convention, a structural
+affordance, or a whole family such as Attested Computation (§14.3) — is available
+unchanged and carries its OKF meaning. A producer facing a question this profile
+does not answer MUST read the pinned specification and follow it, and MUST NOT mint
+a Concepta convention in its place. That failure mode is the one this profile is
+least able to detect, because a locally invented rule looks like a convention
+rather than a divergence, and it is how a profile quietly becomes the competing
+standard §1.2 forbids.
+
+Silence is also not prohibition. Where OKF permits something and this document says
+nothing, it is permitted. The narrowings are the ones stated as such — custom
+frontmatter fields (§5.1), directory names (§3), `status` semantics (§6.3), index
+presence and descriptions (§9) — and each is written as an explicit MUST or MUST
+NOT. Absence of a rule is never one of them.
+
+### 1.4 Prior art
+
+The working model this profile assumes — a persistent, agent-maintained markdown
+knowledge base that compounds over time, navigated through an index, historized
+through a log, grounded in curated raw sources, and projected into disposable
+views — is the LLM Wiki pattern described in [Andrej Karpathy's llm-wiki
+note][wiki], the pattern that inspired OKF and inspires this profile alongside
+it.
+
+That note is inspiration and carries no normative weight. This profile's sole
+normative upstream is OKF; its conventions are defined for OKF, not for the LLM
+Wiki. The profile invents neither the format nor the pattern — it selects, binds,
+and versions existing practice for Concepta projects.
+
+[wiki]: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+
+---
+
+## 2. Terminology
+
+Terms defined in OKF §2 — **bundle**, **concept**, **concept ID**,
+**frontmatter**, **body**, **link**, **source**, **provenance**, **actor**,
+**credibility signal**, **trust tier** — are used with their OKF meanings
+throughout. This profile adds:
+
+- **Profile**: a versioned set of conventions layered on OKF that constrains
+  usage without changing meaning. This document is one.
+- **Area**: a directory holding every concept whose subject is one thing —
+  a domain term, a capability, the system, the way the team works. An area is
+  named after its subject and is not a nested bundle (§3.1).
+- **Type**: the kind of document a concept is, carried by the OKF `type` field
+  and declared in the bundle's type registry (§5.2). Kind is never carried by a
+  directory name.
+- **Type registry**: the root concept enumerating the types a bundle uses
+  (§5.2).
+- **Actor registry**: the root concept mapping every actor ID used in the bundle
+  to its organization and role (§6.1.1).
+- **Durable knowledge**: an outcome worth preserving in the project after the
+  activity that produced it has ended. The subject matter of the bundle.
+- **Source event**: an activity that may produce knowledge — a call, daily,
+  planning session, demo, message, thread, or transcript. A source event is
+  never itself a concept (§4).
+- **Execution record**: an artifact in a work-tracking system — a
+  specification, issue, ticket, or pull request. Execution records live outside
+  the bundle and are linked, never mirrored (§7.3).
+- **Projection**: an artifact derived mechanically from concepts, discardable
+  and rebuildable. Indexes, logs, diagnostics, and graph views are projections
+  (§13).
+- **Mirror**: a copy of external source material committed under `references/`
+  so provenance survives the external system (§12).
+- **Promotion**: moving an outcome recorded inside one concept into a concept of
+  its own, because it acquired an independent identity (§4.2).
+
+---
+
+## 3. Bundle structure
+
+A repository owns exactly one bundle, rooted at `knowledge/`. A bundle MUST NOT
+contain a nested bundle: directories inside the root organize concepts, they do
+not subdivide distribution.
+
+```text
+knowledge/
+  index.md              # Root index (§9). Carries okf_version.
+  log.md                # Root log (§10).
+  profile.md            # Profile declaration (§11).
+  types.md              # Type registry (§5.2).
+  actors.md             # Actor registry (§6.1.1).
+
+  <concept>.md          # A concept whose subject has no area yet (§3.1).
+
+  <area>/               # Area (§3.1). Mixed types, project-named.
+    index.md            # The area's index (§9). No concept describes the area itself.
+    <concept>.md        # Every other file is an ordinary concept. None is privileged.
+    <sub-area>/         # Nested areas are permitted (§3.1).
+      index.md
+      <concept>.md
+
+  architecture/         # Default areas (§3.2). Created lazily.
+  ways-of-working/
+  interactions/         # Time-axis directory (§3.3).
+  references/           # Mirrored source material (§3.4, §12).
+```
+
+Every directory in the tree names a **subject**, not a kind of document. Kind is
+carried by `type` (§5.2), so a directory named after a document kind — `decisions/`,
+`analyses/`, `guides/`, `adr/` — duplicates metadata the concept already carries and
+scatters one subject across many folders. The two exceptions are `interactions/` and
+`references/`, whose organizing axis is time rather than subject (§3.3, §3.4).
+
+### 3.1 Areas
+
+An area is a directory holding every concept whose subject is one thing. Areas
+obey five rules:
+
+1. **Named after what its concepts share.** An area's name names the one subject
+   common to everything inside it, in the project's own vocabulary — a capability,
+   a domain, the system, the way the team works. No file sits beside the directory:
+   OKF reserves exactly two directory-level filenames, `index.md` and `log.md`, and
+   neither is a concept, while every other `.md` file is a concept document (OKF
+   §3.1) — so OKF gives a *concept* no way to describe a directory. A sibling would
+   also list one subject twice in the parent index. No file inside it holds a
+   privileged position either; every concept in an area is an ordinary concept.
+
+   An area name that matches one member concept's title is a signal the name is too
+   narrow — named after a part of the set rather than what the set shares. Prefer
+   the broader subject, and let the term keep its own concept as a peer.
+2. **Mixed types.** An area holds concepts of any type. A glossary definition, the
+   rules deriving it, the open questions about it, and the specification covering
+   it belong in the same area, because they share a subject.
+3. **Earned, not predicted.** An area is created when at least **three** concepts
+   share its subject. Below that, concepts sit in the parent directory — including
+   the bundle root. Structure grows out of accumulated knowledge; it is not laid
+   out in advance.
+4. **Indexed.** A nonempty area MUST contain an `index.md` (§9).
+5. **Nestable.** An area MAY contain sub-areas, under the same five rules. Nest
+   only when a subject genuinely subdivides *and* the parent index has passed the
+   grouping threshold in §9; every path segment is identity (§8.1), so depth is
+   surface for a breaking move.
+
+An area is described by its `index.md` and by the one-line description the parent
+index gives it (§9) — OKF's own pattern for a subdirectory (OKF §8). An area MUST
+NOT invent a concept to explain itself: no `overview.md`, no summary, and no
+concept whose content is the area's own contents. Where an area's subject is a
+term the project defines, that term's Glossary Definition is one concept among its
+peers, listed first (§9) because definitions read first, not because it outranks
+them.
+
+**Creating an area is a deliberate act.** Agents SHOULD file a new concept into an
+existing area, or into the parent directory, and SHOULD NOT create an area. Area
+creation is recorded in `log.md` (§10). The cost of a wrong area is not a wrong
+folder — it is a path, and a path is identity.
+
+### 3.2 Default areas
+
+Two subjects recur in every project, so the profile names them rather than leaving
+each repository to invent a name. Both are created lazily and both are ordinary
+areas under §3.1:
+
+| Area | Subject |
+|------|---------|
+| `architecture/` | The system being built. Holds Architecture Documents and Architecture Decision Records. |
+| `ways-of-working/` | How the team works: process decisions, conventions, engineering and operational guidance, and decisions about the knowledge bundle itself. |
+
+Both are exempt from §3.1 rule 3: a default area MAY be created for its first
+concept. The three-concept rule exists because a wrong area name is a wrong path
+and a path is identity (§8.2) — but these two names are fixed by this profile, so
+the name cannot be wrong and waiting observes nothing. Every other rule in §3.1
+applies to them unchanged. The same reasoning covers `interactions/` and
+`references/` (§3.3, §3.4). No project-named area gets this exemption, because no
+other name is fixed in advance.
+
+Architecture Decision Records live in `architecture/` because an ADR is an
+architecture concept — its subject is the system, and `Architecture Decision
+Record` is its type. Reading the ADR set as a set is an index filtered by type
+(§13), not a directory.
+
+`architecture/` holds architecture whose subject is **the system as a whole** —
+its structure, technology, boundaries, integration contracts, and the ADRs that
+shaped them. Architecture whose subject is one capability lives in that
+capability's area, by §3.3: a data model for billing is billing knowledge that
+happens to be architectural, and separating it from the rules and questions it
+serves is the scattering §3 exists to prevent. The type stays `Architecture
+Document` in both places — placement follows subject, never type.
+
+**These two, plus `interactions/` and `references/`, are the only directory names this
+profile specifies.** Every other directory name in this document, including in the
+examples and in Appendix A, is illustrative — a plausible name for one project's
+subject, never a name another project should adopt. Naming subjects is a non-goal
+(§1.2): a profile that shipped a domain vocabulary would be prescribing what its
+users have knowledge about.
+
+### 3.3 Placement, and the time-axis exception
+
+The placement rule is one sentence: **a concept lives with its subject.** A
+decision about billing goes in the billing area; a decision about how the team
+captures knowledge goes in `ways-of-working/`; a term, the rule deriving it, and
+the question about it all sit together.
+
+`interactions/` is the exception, and it is principled rather than convenient.
+Interaction Records (§4.3) are organized by **time**: a dated record ordinarily
+spans several subjects, so no single subject can host it, and §8.1 already permits
+dates in paths only for Interaction Records and mirrored snapshots. `interactions/`
+MAY nest by cadence or kind of interaction — `interactions/dailies/`,
+`interactions/plannings/` — under §3.1 rule 5, and it is exempt from rule 3 by the
+reasoning in §3.2: this profile fixes the name, so it cannot turn out to be wrong.
+
+Its name matches its type, which §3 otherwise bans. The ban's two reasons both
+fail here: the folder duplicates nothing, because time is the organizing axis and
+`type` is not, and it scatters no subject, because a record that spans subjects has
+no single area to be scattered from. A directory whose entire membership is one type
+*by construction* is a different thing from a directory that sorts mixed knowledge
+by kind. `interactions/` rather than `meetings/` because the qualifying set is
+wider than ceremonies: a document markup or a message thread that produced several
+linked outcomes is an Interaction Record too, and needs the same home.
+
+The durable-capture rules still apply inside it (§4.1, §4.3): an interaction earns a
+concept only when its combined context is durable, and one that produced a single
+durable outcome contributes that outcome to *its* subject's area, not a record to
+`interactions/`. A thin `interactions/` is the expected shape.
+
+### 3.4 The `references/` directory
+
+`references/` carries the OKF §6.3 convention — external material mirrored into
+the bundle as first-class concepts — and is **not** an area. It is therefore exempt
+from the naming and three-concept rules of §3.1: mirrored material is
+heterogeneous, is organized by source and date rather than by subject, and MAY be
+organized into subdirectories. A nonempty `references/` MUST still carry an
+`index.md`, and so MUST each of its nonempty subdirectories.
+
+What may be mirrored, and when, is specified in §12.
+
+### 3.5 Root files
+
+Five files at the bundle root have defined meaning, and a bundle MUST NOT use
+those names for anything else:
+
+| File | Purpose |
+|------|---------|
+| `index.md` | Root index; carries `okf_version` (§9). Reserved by OKF §3.1. |
+| `log.md` | Root log (§10). Reserved by OKF §3.1. |
+| `profile.md` | Profile declaration (§11). An ordinary concept. |
+| `types.md` | Type registry (§5.2). An ordinary concept. |
+| `actors.md` | Actor registry (§6.1.1). An ordinary concept. |
+
+`profile.md`, `types.md`, and `actors.md` are concepts, so a bundle carrying them
+stays plainly OKF-conformant (OKF §3.1, §11): each has frontmatter and a `type`,
+and a consumer that knows nothing of this profile reads them as three documents.
+
+Concepts other than these MAY sit at the root. That is the mechanism §3.1 rule 3
+depends on: a subject with one or two concepts has a home without minting an area
+for it. Every other `.md` file in the tree is a concept.
+
+---
+
+## 4. Durable capture
+
+The profile governs stored knowledge, not event ingestion. This section is what
+keeps a bundle from degenerating into a meeting archive.
+
+### 4.1 What earns a concept
+
+A source event is only a source. A daily, planning session, demo, call, message,
+or transcript MUST NOT become a concept merely because it occurred.
+
+A concept is created when a source event produces durable knowledge worth
+preserving: a meaningful request, a decision, an investigation and its findings,
+an architectural constraint, a term, a standing rule, a named unknown, or reusable
+guidance. A source event that produces none leaves nothing behind, and that is a
+correct outcome, not a gap.
+
+Requests are ordinarily first-class concepts. A request outlives the interaction
+that expressed it and can later be analyzed, specified, implemented, rejected,
+superseded, or revisited — a lifecycle of its own, which is exactly what earns a
+concept.
+
+### 4.2 The promotion rule
+
+Decisions, answers, questions, and other outcomes are placed by **identity**,
+not by importance:
+
+- **Keep the outcome inside an existing concept** when it has no meaningful
+  identity or lifecycle outside that concept.
+- **Promote it to its own concept** when it needs independent status,
+  provenance, relationships, reuse, replacement, or history.
+
+A small outcome that will never be referenced, verified, or superseded on its
+own SHOULD stay where it arose. Promotion is reversible in practice only before
+a concept stabilizes (§8.2), so a genuinely ambiguous outcome SHOULD start
+embedded.
+
+The same test decides an open question. A named unknown with an evidence trail,
+several dependents, or an ID cited outside the bundle is a concept of type
+`Question`. A single unknown belonging to one concept, with nothing recorded about
+it but the gap itself, is a heading in that concept's body.
+
+### 4.2.1 The inverse: when to split a concept
+
+Promotion moves an outcome *out of* a concept. The opposite pressure arises as a
+concept grows, and it has a different trigger.
+
+A concept SHOULD be split when parts of it would carry materially different
+**provenance**, **verification**, or **lifecycle**. Frontmatter applies to the whole
+concept: one `sources` list, one `verified` history, one `status`. A concept holding
+both confirmed and unconfirmed material cannot express that difference in frontmatter,
+and averaging it is lossy in the one direction that matters — the unconfirmed parts
+inherit the confidence of the confirmed ones.
+
+Per-claim **provenance** does have a mechanism: footnotes keyed to a `sources[].id`
+(§6.1). Per-claim **verification** does not. So mixed provenance inside one concept is
+workable, and mixed verification is the signal to split.
+
+Size alone is not a reason to split, and neither is heading count.
+
+### 4.3 Interaction Records
+
+An Interaction Record is optional. It is appropriate when an interaction's
+*combined* context is itself durable — several linked outcomes, a negotiation,
+a demo whose overall shape matters.
+
+When only one outcome matters, that outcome SHOULD link directly to its original
+external source, and no Interaction Record is required. An Interaction Record
+MUST NOT be produced as routine minutes.
+
+Interaction Records live in `interactions/` (§3.3).
+
+---
+
+## 5. Concept documents
+
+Every concept is an OKF concept document (OKF §4): UTF-8 markdown, YAML
+frontmatter, free-form body.
+
+### 5.1 Baseline frontmatter
+
+The profile introduces **no** frontmatter fields. Every key used is defined by
+OKF, with its OKF meaning.
+
+A concept SHOULD carry this baseline:
+
+```yaml
+---
+type: <Concept type>
+title: <Human-readable display name>
+description: <One sentence summarizing the concept>
+status: draft | stable | deprecated
+generated: { by: <actor>, at: <ISO 8601 datetime> }
+---
+```
+
+Only `type` is required for OKF conformance (OKF §4.1); the remaining four make
+a concept's identity and lifecycle legible without opening the body, and
+`description` is what indexes project (§9).
+
+The optional OKF fields `resource`, `tags`, `sources`, `verified`, and
+`stale_after` SHOULD be added whenever their OKF-defined meaning applies (§6).
+Producers MUST NOT introduce Concepta-namespaced or otherwise custom fields.
+Establishing conventions before extending the schema keeps the profile
+interoperable by construction.
+
+### 5.2 Types and the type registry
+
+`type` carries the kind of document a concept is, and it is the **only** place kind
+is carried: not the directory (§3), not the filename, not a tag.
+
+A bundle MUST contain a **type registry** at `types.md`, an ordinary concept of
+`type: Type Registry`, enumerating every type the bundle uses with a one-line
+meaning. Every concept's `type` SHOULD resolve there. The registry is what makes
+the invented-type failure visible: without it, kind is unconstrained free text and
+`Buisness Rule` reads as a new kind of thing.
+
+The default vocabulary:
+
+| Type | Intended content |
+|------|------------------|
+| `Glossary Definition` | One project or domain term |
+| `Business Rule` | One standing business rule, constraint, invariant, or policy |
+| `Question` | One named unknown, with what is known, what is missing, and what would close it |
+| `Request` | A durable request from any relevant source |
+| `Analysis` | An investigation, feasibility study, comparison, or recommendation |
+| `Decision` | A durable non-architectural decision with an independent lifecycle |
+| `Architecture Decision Record` | An architectural decision in ADR form |
+| `Architecture Document` | A durable description of the system architecture |
+| `Specification` | A specification intentionally stored inside the bundle |
+| `Guide` | Durable operational or engineering guidance |
+| `Interaction Record` | An interaction whose combined context is itself durable |
+| `Knowledge Profile` | The profile declaration (§11) |
+| `Type Registry` | This registry |
+| `Actor Registry` | The actor registry (§6.1.1) |
+
+Projects MAY add types, and MUST add them to the registry when they do. A locally
+useful type MAY be promoted into a later profile release. Consumers MUST tolerate
+types they do not recognize (OKF §11, §14.2): the registry is a producer-side
+declaration for the bundle's own tooling and is never grounds for rejecting a
+concept, a bundle, or a type the registry does not list.
+
+Two boundaries are worth stating, because both were routinely blurred before they
+were written down:
+
+- **A `Business Rule` is not a `Decision`.** A rule describes how the business
+  already works and nobody chose it; a decision records a choice with alternatives.
+  A rule that turns out to be a policy someone selected is a Decision, and the rule
+  concept SHOULD link to it with `Depends on`.
+- **An `Architecture Decision Record` is not a `Decision`.** Use `Architecture
+  Decision Record` when the decision shapes the software's structure and an engineer
+  deciding how to build would want to read it; use `Decision` for every other
+  durable decision — process, commercial, scope, sequencing, or governance. When a
+  decision plausibly fits both, prefer `Decision`, so the ADR set stays readable as
+  the architecture record it is.
+
+`Business Rule` is deliberately formalism-neutral. A project MAY structure rule
+concepts using SBVR — vocabulary, fact types, and definitional, derivation, and
+behavioral rule classes — or any other notation that suits its domain. The type
+commits to *one standing rule per concept*, not to a particular way of writing one.
+
+`Question` carries no state in its type or its path. Whether a question is still
+open is read from inbound relationships (§7.2): a `Resolves` edge means closed, a
+`Partially resolves` edge means narrowed, neither means open. A resolved question
+stays `stable` rather than becoming `deprecated` — how understanding arrived at an
+answer is knowledge in its own right.
+
+### 5.3 Body conventions
+
+Bodies remain free-form, as OKF permits. The profile recommends these shapes:
+
+| Type | Recommended headings |
+|------|----------------------|
+| Request | Request, Context, Constraints, Relationships |
+| Decision, Architecture Decision Record | Context, Decision, Consequences, Alternatives considered, Relationships |
+| Analysis | Question, Findings, Recommendation, Relationships |
+| Glossary Definition | Definition, Avoid, Relationships |
+| Business Rule | Rule, Rationale, Consequences, Relationships |
+| Question | Question, What is known, Still missing, What would close it, Relationships |
+
+These are advisory. A missing recommended heading is not a conformance failure
+(§14.1). Of the body, only the `# Relationships` section (§7.2) carries
+profile-specific machine meaning.
+
+### 5.4 Example
+
+```markdown
+---
+type: Request
+title: Include PDF annotations in the export
+description: Client asks that reviewer annotations survive the PDF export.
+status: stable
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
+tags: [reporting, export]
+sources:
+  - id: demo-0730
+    resource: /references/2026-07-30-reporting-demo-transcript.md
+    title: Reporting demo transcript, 30 July 2026
+    author: human:chris
+    last_modified: 2026-07-30
+---
+
+# Request
+
+Reviewer annotations must appear in the exported PDF, positioned as they are
+on screen.[^demo-0730]
+
+# Context
+
+Raised during the reporting demo while reviewing a draft export. Reviewers
+currently re-enter annotations by hand after export.
+
+# Constraints
+
+Export must stay within the existing generation budget.
+
+# Relationships
+
+- Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
+
+[^demo-0730]: Reporting demo transcript, 30 July 2026
+```
+
+---
+
+## 6. Provenance, trust, and lifecycle
+
+The OKF frontmatter families (OKF §5) are used with their upstream semantics.
+This section states only *when* Concepta applies them.
+
+### 6.1 Provenance: `sources`
+
+`sources` owns provenance. A concept derived from a source event SHOULD record
+that source, whether it is external (a call recording, a thread, a document) or
+internal (a mirrored artifact under `references/`, another concept).
+
+OKF §5 is required reading. The four mechanisms most often missed:
+
+- **`sources[].author` is an authority signal**, written in the actor convention
+  (OKF §7). It records who produced the *source*, which is a different question from
+  who wrote the concept (`generated.by`) or who confirmed it (`verified`).
+- **`sources[].resource` may be a scope descriptor**, not only a followable artifact.
+  OKF §5.1 permits a population or scope description a consumer cannot dereference —
+  useful when material is deliberately not mirrored (§12). A top-level `resource` has
+  no such exemption and stays a path (OKF §6.2).
+- **Per-claim attribution** uses footnotes keyed to a `sources[].id`, so one concept
+  can carry claims of differing provenance without splitting (§4.2.1).
+- **Credibility is inferred, never stored.** OKF records objective per-source signals
+  — `author`, `usage_count` over a `usage_window`, `last_modified` — and leaves the
+  judgment to the consumer, because a stored score is subjective, unportable, and goes
+  stale. The profile adds no scoring, and producers MUST NOT add a confidence,
+  credibility, maturity, or evidence-tier field of their own (§5.1).
+
+### 6.1.1 The actor registry
+
+Trust tiers distinguish **human from machine** (OKF §5.3). Most projects also need
+to distinguish **whose assertion this is** — client or internal, first-party or
+derived — and OKF provides no mechanism for it: a client's operations lead and an
+internal analyst both derive as *human-reviewed*, collapsing exactly the
+distinction an evidence model rests on.
+
+A bundle whose concepts distinguish sources by organization MUST carry an **actor
+registry** at `actors.md`, an ordinary concept of `type: Actor Registry`, mapping
+every actor ID the bundle uses to its organization and role. Other bundles SHOULD
+carry one.
+
+```markdown
+| Actor ID | Name | Organization | Side | Role | Active |
+|----------|------|--------------|------|------|--------|
+| `human:chris` | Christiano Higuto | Concepta | internal | Engineering lead | 2026-01 – |
+| `human:d-okonkwo` | Dara Okonkwo | Northwind | client | Operations authority | 2026-05 – |
+| `claude-code/opus-5` | — | Anthropic | tool | Authoring agent | 2026-06 – |
+```
+
+`Side` uses `client`, `internal`, `vendor`, `tool`, or `unknown`. `tool` marks an
+actor that is not a party to the work at all — a third-party authoring agent, say —
+and it is distinct from `vendor` because a vendor makes assertions and a tool does
+not. An automated process the project itself runs is `internal`, not `tool`: its
+output is the project's own assertion. The `Active` range is what
+makes the registry strictly better than encoding affiliation in the ID: a person who
+changes organization gets a new row range, and every historical attribution stays
+true, because the actor who confirmed something in June was who they were in June.
+
+Three rules follow:
+
+- **Actor IDs stay opaque.** Affiliation MUST NOT be encoded into an actor ID —
+  `human:northwind/d-okonkwo` places a mutable attribute inside an immutable key
+  (§8.2), forces a rewrite of every `generated.by`, `verified[].by`, and
+  `sources[].author` that cites it when affiliation changes, and still means nothing
+  to a consumer without a registry to interpret it. Organizational namespacing of
+  actor IDs, if it is ever right, belongs upstream in OKF §7.
+- **Unresolved actors degrade, never fail.** A consumer encountering an actor absent
+  from the registry MUST treat its organization as unknown and MUST still read the
+  concept, the field, and any derived edge. Tooling MAY report the gap (§14.1).
+- **The registry is a lookup, not an edge.** OKF's trust fields take actor strings,
+  not paths, so no link exists from a concept to an actor and none SHOULD be authored
+  to simulate one. A graph loader lifts registry rows into actor nodes and synthesizes
+  the edges from frontmatter (§13).
+
+What the registry enables is a **derived** answer to the organizational question:
+which concepts rest only on internal assertion, which areas carry no client-authored
+source. That is a projection (§13), computed at read time and never stored — the same
+discipline OKF applies to credibility.
+
+### 6.2 Trust: `generated` and `verified`
+
+`generated` belongs to the baseline (§5.1) and records how the current content
+was produced.
+
+A concept whose content **asserts confirmed fact** SHOULD have at least one
+`verified` event, so its trust history is visible. The verifier MAY be a
+person, an agent, or a process, expressed in the OKF actor convention. Recording
+verification does not imply human review; the actor prefix says which kind it
+was, and consumers derive trust tiers from that (OKF §5.3). The profile does not
+require a human in the loop and does not forbid one.
+
+**Absence of `verified` is a signal, not a defect.** OKF §5 is explicit that
+absence carries meaning and that an unverified concept is never rejected, and
+§5.3 makes *unverified* a first-class tier. A concept that deliberately records
+unconfirmed material — an assumption, an internal reading, a claim awaiting
+external validation — is **correctly** unverified, and its lack of a `verified`
+event MUST NOT be reported as a deviation (§14.1).
+
+A `verified` event is written when a named actor genuinely confirmed the content
+against its sources, and at no other time: where a project expresses "not yet
+confirmed by X" as the absence of an entry from X, any convention that pressures an
+author to fill the field converts unconfirmed material into apparent sign-off.
+
+### 6.3 Lifecycle: `status`
+
+`status` uses the OKF values `draft`, `stable`, and `deprecated`, and expresses
+the **knowledge** lifecycle only. It sits in the baseline (§5.1) because an omitted
+`status` reads as `stable` (OKF §5.4), so a draft that leaves it out misrepresents
+itself.
+
+Workflow states — accepted, blocked, in progress, done, shipped — MUST NOT be
+encoded in `status`. They describe execution, and execution state belongs to the
+tracker (§7.3). Owner and due date are execution state by the same reasoning. Which
+*party* is able to answer a question is durable knowledge and MAY stay in the body;
+which person owes it by when is the tracker's.
+
+`status` describes the **document**, not the subject it describes. OKF's `draft`
+means "not yet reviewed; possibly incomplete" — a statement about the record. A
+well-written, reviewed, `stable` concept can perfectly describe a subject that is
+itself only partly settled, and a `draft` concept can describe something fully
+settled. Do not stretch `status` to carry how settled the subject matter is; see
+§6.3.1.
+
+### 6.3.1 Assessing how settled the subject is
+
+Projects often need to say how settled the **subject** is — whether the business
+behaviour, design, or decision a concept describes is fully pinned down, and what
+would pin it down. The profile defines no mechanism for this, deliberately.
+
+Such an assessment belongs in the **body**, stated next to the reasoning that
+justifies it and the pointers to whatever would settle it. A project MAY adopt a
+vocabulary for it and SHOULD define that vocabulary once, in a `ways-of-working/`
+concept, rather than leaving each author to invent one.
+
+It MUST NOT go in frontmatter (§5.1). OKF's reasons for refusing to store a
+credibility verdict apply here unchanged: such a judgment is subjective, unportable
+between consumers, and goes stale (OKF §5.1). An assessment separated from its
+reasoning is the thing that rots; written beside its evidence, it does not.
+
+**Nor is it derivable from links.** `Constrained by` edges toward open items are
+useful navigation — a reader following one finds what is missing — but they encode no
+assessment: the label means the target limits this concept, which a fully settled
+constraint also does, and a link MAY be knowledge not yet written (§7.1). Absence of
+such edges is silence, not evidence, and cannot distinguish a settled subject from an
+unexamined one. `verified` differs only because OKF §5.3 *defines* its absence as
+meaningful. OKF §11 points the same way: derive trust tiers and staleness "only from
+the fields specified here" — from specified fields, not from graph shape.
+
+Assessment and trust are independent axes, and conflating them is the common error: a
+concept can be first-party, verified, and still describe a subject whose detail is
+unsettled.
+
+### 6.4 Freshness: `stale_after`
+
+`stale_after` is evidence-based and conditional: it is declared only when the
+content has a real freshness horizon.
+
+Historical records — requests, decisions, ADRs, interactions, mirrored source
+snapshots — describe something that happened and normally have no expiry; they
+SHOULD omit `stale_after`. Time-sensitive analyses and architecture descriptions
+MAY declare one. A concept MUST NOT be given an arbitrary expiry to satisfy a
+convention.
+
+---
+
+## 7. Cross-linking and relationships
+
+### 7.1 Links
+
+Links between concepts follow OKF §6.1. Bundle-relative links (a leading `/`)
+SHOULD be preferred for internal targets, because they survive document moves
+within a subdirectory. Broken links are tolerated (OKF §6.1) and MAY represent
+knowledge not yet written.
+
+Provenance and navigation stay separate mechanisms: `sources` records where
+content came from, links record how a reader traverses the knowledge.
+
+### 7.2 The Relationships section
+
+A concept MAY carry a `# Relationships` section giving selected links a stable
+semantic label. Each bullet MUST carry exactly one label and one target:
+
+```markdown
+# Relationships
+
+- Superseded by: [Token contract](/architecture/token-contract.md)
+- Depends on: [Offline mode decision](/architecture/support-offline-mode.md)
+- Implemented by: [PR #142](https://github.com/conceptadev/example/pull/142)
+```
+
+The core labels are:
+
+| Label | Meaning, read from the containing concept outward |
+|-------|---------------------------------------------------|
+| Superseded by | This concept has been replaced by the target |
+| Depends on | This concept is only valid while the target holds |
+| Constrained by | The target limits what this concept may do |
+| Part of | This concept is a constituent of the target, which is incomplete without it |
+| Refines | This concept narrows or sharpens the target |
+| Specified by | The target is the specification of this concept |
+| Implemented by | The target is the work that delivers this concept |
+| Resolves | This concept fully answers or closes the target |
+| Partially resolves | This concept answers part of the target, which remains open |
+| Related to | An unlabelled association worth surfacing |
+
+`Part of` is written in one direction only. Backlinks are computed, never authored
+(§13), so a reciprocal "composed of" label would be redundant. Use it where a
+concept is a constituent rather than a narrowing: two buckets that sum to a balance
+are `Part of` it, not `Refines` of it and not peers of it.
+
+`Resolves` and `Partially resolves` are distinguished because most evidence narrows
+an open item without closing it. Reserve `Resolves` for genuine closure; a source
+that moves a question forward while leaving it open uses `Partially resolves`. Using
+`Resolves` loosely makes open items read as settled. Together they are how a
+`Question`'s openness is read (§5.2), which is why the distinction is load-bearing
+rather than stylistic.
+
+Reaching for `Related to` repeatedly signals a missing label. A project finding it on
+a large share of its edges is better served naming the relationship — with a
+project-specific label, or by proposing one for a later profile release.
+
+Projects MAY use additional labels, and consumers MUST tolerate labels they do
+not recognize. Markdown links elsewhere in the body remain valid untyped edges;
+labelling is a way to add meaning, never a requirement to link.
+
+This profile defines no frontmatter relationship schema.
+
+### 7.3 Execution records
+
+Execution systems stay authoritative and external. GitHub specifications,
+issues, and pull requests, and Linear records, are linked from concepts —
+ordinarily with `Specified by` or `Implemented by` — and MUST NOT be mirrored
+into the bundle. Their state is read from the tracker, never copied into
+frontmatter or body.
+
+One concept MAY accumulate several execution records over time, and a concept
+MAY never produce any. Neither is an inconsistency.
+
+---
+
+## 8. Identity and lifecycle
+
+### 8.1 Concept IDs
+
+A concept's ID is its path relative to the bundle root with `.md` removed (OKF
+§2). IDs are therefore paths, and path choices are identity choices.
+
+Paths use readable lowercase kebab-case. Dates appear only where chronology is
+part of identity — Interaction Records and mirrored source snapshots. ADRs retain
+their conventional sequence numbers. Status, owner, and priority MUST NOT appear in a
+filename; they are metadata and would make identity churn.
+
+Example IDs:
+
+- `reporting/annotation` — a term, one concept among the area's peers
+- `reporting/include-pdf-annotations`
+- `reporting/pdf-export-feasibility`
+- `reporting/annotation-types-in-scope`
+- `architecture/0008-direct-token-consumption`
+- `ways-of-working/evidence-and-provenance`
+- `interactions/2026-07-30-reporting-demo`
+- `references/2026-07-30-reporting-demo-transcript`
+
+### 8.2 Immutability
+
+Once a concept reaches `stable`, its path MUST NOT change. Links, history, and
+future graph identities all key off the path, and a rename breaks them silently.
+
+Draft concepts MAY be moved freely.
+
+This is why §3.1 grows areas rather than predicting them. Creating an area moves
+concepts into it, and moving a stable concept is a deprecation with a successor
+(§8.3), not a rename. Let a subject accumulate three concepts in the parent
+directory and the area's boundary is observed rather than guessed.
+
+### 8.3 Deprecation and deletion
+
+The normal retirement path for a stable concept is deprecation, not deletion:
+set `status: deprecated` and, where a successor exists, link it with
+`Superseded by`. Historical meaning stays inspectable.
+
+Draft concepts MAY be deleted outright. Hard deletion of a stable concept is
+reserved for security, privacy, legal, or secret-removal obligations, which
+override the preference for historical preservation.
+
+---
+
+## 9. Index files
+
+Index files follow the OKF index format (OKF §8) exactly: no frontmatter, except
+that the bundle-root `index.md` MAY carry `okf_version`.
+
+A nonempty directory MUST contain an `index.md`: every area, every sub-area,
+`references/`, and any nonempty subdirectory of `references/`. Indexes are what make
+a bundle navigable without reading it, so an agent reaches the root index, then an
+area index, then a concept.
+
+The root index MUST carry `okf_version`, which §11 requires to agree with the
+profile declaration, and it enumerates the bundle: the three defined root concepts
+(§3.5), every other root-level concept, every nonempty area, and `references/` when
+present.
+
+```markdown
+---
+okf_version: "0.2"
+---
+
+# Bundle
+
+* [Concepta OKF Profile](profile.md) - Profile and OKF versions this bundle follows.
+* [Types](types.md) - The concept types this bundle uses.
+* [Actors](actors.md) - Actor IDs mapped to organization and role.
+
+# Areas
+
+* [Reporting](reporting/) - How the product renders, annotates, and exports reports.
+* [Architecture](architecture/) - The system being built.
+* [Ways of working](ways-of-working/) - How the team works and captures knowledge.
+
+# Elsewhere
+
+* [Retention window](retention-window.md) - How long generated exports are kept before deletion.
+* [References](references/) - Mirrored source material cited by concepts.
+```
+
+An area index enumerates the concepts immediately inside it, in the same form.
+
+A directory has no frontmatter, so an entry linking one carries an authored
+one-line description of its subject rather than a copied `description`, per OKF
+§8. That single line is navigation, not knowledge: it MUST NOT be the only place
+something is recorded, and where the subject has a defining concept the line
+SHOULD restate that concept's `description`.
+
+**Grouping.** OKF §8 permits an index body to use *one or more* sections, each
+grouping entries under a heading, and the stated purpose of an index is progressive
+disclosure. Because an area holds mixed types, an area index SHOULD group its entries
+**by type** — the axis the directory no longer carries:
+
+```markdown
+# Glossary
+
+* [Annotation](annotation.md) - A reviewer comment anchored to a region of a rendered report.
+* [Export profile](export-profile.md) - The named settings bundle an export is rendered under.
+
+# Rules
+
+* [Annotations are immutable once exported](annotations-immutable-once-exported.md) - An exported annotation is never edited in place.
+
+# Questions
+
+* [Annotation types in scope](annotation-types-in-scope.md) - Which annotation kinds must survive the PDF export.
+
+# Requests
+
+* [Include PDF annotations in the export](include-pdf-annotations.md) - Client asks that reviewer annotations survive the PDF export.
+```
+
+Definitions come first where the area has them, so a reader meets the vocabulary
+before the claims made in it. That ordering is the only privilege a definition
+gets: no special filename, no special location, just a section listed first.
+
+Above roughly **20 entries** an index SHOULD group under a second axis as well —
+subdomain or lifecycle — or the area SHOULD be nested (§3.1 rule 5). Grouping
+headings are navigation, not content. They MUST NOT carry knowledge found nowhere
+else, and MUST be reproducible from concept metadata — ordinarily `type`, otherwise
+`tags`, or `status` when grouping by lifecycle.
+
+Indexes are **deterministic projections** (§13): each entry that links a concept
+MUST carry that concept's `description` copied exactly — a directory entry is the
+one exception, per the paragraph above — and an index MUST NOT contain knowledge
+found nowhere else. An index that becomes a source of truth
+has stopped being regenerable.
+
+The verbatim-description rule deliberately tightens OKF §8's SHOULD to a MUST,
+because that is what makes an index mechanically checkable and safely regenerable. It
+carries a cost: a concept and its index entry must be written as one operation.
+
+---
+
+## 10. Log files
+
+The root `log.md` follows the OKF log format (OKF §9): date-grouped entries,
+newest first, `YYYY-MM-DD` headings, with the conventional `**Initialization**`,
+`**Creation**`, `**Update**`, `**Area created**`, and `**Deprecation**` lead words.
+OKF makes the lead word a convention rather than a requirement (OKF §9), so this is
+a default vocabulary and not a closed one.
+
+The log records **knowledge lifecycle events only**: concept creation,
+substantive change, deprecation, replacement, and the creation of an area (§3.1),
+which is a structural commitment worth a dated record. It MUST NOT record source
+events that produced no durable knowledge, formatting-only edits, or unrelated
+repository activity.
+
+```markdown
+# Knowledge Log
+
+## 2026-07-31
+* **Update**: Verified [Include PDF annotations in the export](/include-pdf-annotations.md).
+
+## 2026-07-30
+* **Creation**: Recorded [Include PDF annotations in the export](/include-pdf-annotations.md) from the reporting demo.
+* **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
+```
+
+The concepts and Git history remain authoritative; the log is a discovery aid
+that answers "how did understanding here evolve" without a `git log` archaeology
+session. Additional scoped logs at lower levels are permitted (OKF §9) and
+optional.
+
+---
+
+## 11. The profile declaration
+
+A bundle following this profile MUST contain `profile.md` at its root: an
+ordinary concept of `type: Knowledge Profile`.
+
+Its body records the profile identity and the OKF version it binds to. The
+**first fenced `yaml` block in the body** is the machine-readable declaration,
+and tools MUST read exactly that block:
+
+```yaml
+concepta_profile: "0.2.0"
+okf_version: "0.2"
+```
+
+The declared `okf_version` MUST agree with the root index (§9). Declaring the
+profile in a concept body rather than a frontmatter field is deliberate: it
+keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
+OKF to every other consumer. `types.md` and `actors.md` follow the same reasoning
+— tables in a body, not schema in frontmatter.
+
+`profile.md` is not an extension registry, a second schema, or a place to
+restate or override OKF.
+
+---
+
+## 12. Mirrored source material
+
+External material enters the bundle only through `references/` (§3.4), and only
+**pull-based**: an artifact is mirrored when a concept's `sources` needs to cite
+it *and* its external home is ephemeral or outside project control — a chat
+thread, a recording platform with a retention limit, a system the project does
+not administer.
+
+Nothing is mirrored because a meeting, call, or thread happened. Confirming that
+the content may live at repository visibility is part of mirroring: the bundle
+inherits the repository's access controls (the profile defines no per-concept
+scheme), so mirroring widens who can read the material.
+
+Mirrored markdown artifacts are concepts. They carry minimal frontmatter — for
+example `type: Meeting Transcript` with `title`, `description`, `generated`, and
+a `sources` entry naming the original — and are immutable snapshots once cited.
+A mirrored transcript is not knowledge: an Interaction Record *interprets* an
+interaction, a transcript merely *preserves* one.
+
+Non-markdown assets under `references/` are not concepts and carry no
+frontmatter; the concepts citing them supply their context.
+
+By medium:
+
+| Medium | Policy |
+|--------|--------|
+| Text — transcripts, exported documents, chat threads | MAY be mirrored in full; sanitized where confidentiality demands |
+| Images | MAY be mirrored when a concept cites them; MUST be optimized first |
+| Video, audio, other heavy binaries | MUST NOT be committed; stay external and linked. When their content must survive the external system, mirror the transcript instead |
+
+Curated context about an external system that stays external is an ordinary
+concept whose `resource` names that system — no mirror required.
+
+**Recording a decision not to mirror.** Deciding *against* mirroring is as durable as
+deciding for it, and it should be visible where a reader goes looking for the source.
+When an artifact is deliberately not mirrored — confidentiality, repository
+visibility, size, or a policy that keeps it external — cite it as an OKF §5.1 **scope
+descriptor** in `sources[].resource`, a value the consumer cannot dereference, and
+state the reason in the body.
+
+```yaml
+sources:
+  - id: demo-0730
+    resource: Client demo recording, 30 July 2026 — retained outside this repository
+    title: Reporting demo, 30 July 2026
+    author: human:chris
+    last_modified: 2026-07-30
+```
+
+A scope descriptor is preferable to a path that does not resolve: it is honest about
+being unfollowable, and it avoids minting a link that a later mirroring decision would
+have to repair.
+
+Because heavy binaries never enter the bundle, the profile needs no Git LFS,
+replication, or archival policy, and defines none.
+
+---
+
+## 13. Derived projections
+
+Indexes (§9), logs (§10), validator diagnostics, and any future graph view are
+**projections**: derived mechanically from concepts, discardable, and rebuildable
+at any time. A projection MUST NOT become a source of truth.
+
+A knowledge graph, when built, derives entirely from the markdown bundle:
+
+- Concepts become nodes, keyed by their path-based IDs (§8.1).
+- Frontmatter contributes node metadata.
+- `sources` entries pointing inside the bundle become provenance edges.
+- Labelled Relationships bullets become typed edges (§7.2).
+- Other markdown links become untyped edges.
+- Backlinks are computed, never authored.
+- External URLs and execution records become external nodes.
+- Registry rows become nodes: each `types.md` row a type node, each `actors.md` row
+  an actor node, with `generated.by`, `verified[].by`, and `sources[].author`
+  resolved against the actor registry to produce edges OKF's fields cannot express
+  directly (§6.1.1).
+
+Reading a kind as a set — every ADR, the whole glossary, all open questions — is a
+projection filtered by `type`, not a directory. That is what allows directories to
+name subjects (§3) without losing kind-first navigation.
+
+The graph MUST be completely rebuildable from the bundle. Nothing may exist only
+in the graph.
+
+---
+
+## 14. Conformance
+
+### 14.1 Two levels
+
+**OKF conformance** is inherited verbatim from OKF §11. A bundle is
+OKF-conformant if every non-reserved `.md` file has parseable YAML frontmatter,
+every frontmatter block carries a non-empty `type`, and every reserved file
+follows the OKF index or log structure. These are the only conditions a
+consumer may **reject** a bundle for.
+
+**Profile conformance** is the additional bar set by this document: the MUST
+requirements of §3 through §13. A bundle may be OKF-conformant while failing
+profile conformance.
+
+Tooling MUST keep those levels distinct in severity:
+
+- An OKF §11 violation is a **hard failure**. The document cannot be
+  interpreted, so it cannot be accepted.
+- A profile deviation is an **advisory finding**: reported, attributed to the
+  affected concept, and never a reason to reject a bundle that is valid OKF.
+
+That asymmetry is deliberate. A profile that could reject valid OKF would have
+made itself a competing standard, which §1.2 forbids.
+
+Advisory findings include: missing baseline metadata; an area holding fewer than
+three concepts, unless this profile fixes its name (§3.2, §3.3, §3.4); a concept
+sitting beside an area of the same name rather than inside it; a directory named after a type rather than a subject, outside the `interactions/`
+and `references/` exceptions (§3.3, §3.4); a directory named after one of the concepts
+it contains (§3.1 rule 1); a `type` absent from `types.md`; an actor absent from
+`actors.md`; a missing
+or stale index; a description that disagrees with its concept; a broken internal link;
+a changed stable path; a root index carrying no `okf_version`; a missing,
+unparseable, or disagreeing profile declaration;
+disallowed media under `references/`; and a mirrored artifact with no source
+provenance.
+
+**A concept without a `verified` event is not a finding.** Absence of verification is
+meaningful information, not a deviation (§6.2, OKF §5.3). Tooling MUST NOT report it,
+because the only way an author can clear such a report is to record a verification
+that did not happen — turning a diagnostic into a corruption of the trust model.
+
+Tooling MAY *summarize* trust tiers and organizational provenance across a bundle,
+since knowing how much of a bundle is unverified or internally asserted is useful. A
+summary is not a finding and MUST NOT affect exit status.
+
+### 14.2 Tolerant reading
+
+Consumers MUST preserve OKF's tolerant-reader behaviour (OKF §11). Unknown
+concept types, unknown frontmatter keys, unknown relationship labels, unregistered
+actors, missing optional content, and broken links MUST remain loadable, and unknown
+data MUST remain available to downstream consumers rather than being dropped on
+round-trip.
+
+The type and actor registries are producer-side declarations. They make drift
+visible inside a bundle; they MUST NOT be read as closed vocabularies that license
+rejecting a concept, and a consumer encountering an unlisted type or actor behaves
+exactly as OKF §11 requires.
+
+External resource availability MUST NOT be a conformance gate: a link that
+404s today is a link, not a malformed document.
+
+Valid OKF that this profile does not describe is content to carry forward
+untouched. It may come from a producer outside Concepta, or from a Concepta author
+using an OKF mechanism this document simply never mentions (§1.3) — the two are
+indistinguishable and both are correct. Tooling MUST NOT report a concept for using
+an OKF 0.2 mechanism the profile is silent about: a validator that treats profile
+silence as a closed world converts deference into a diagnostic, and pressures
+authors away from the upstream spec this profile binds to.
+
+### 14.3 OKF families currently unused
+
+The profile uses no Attested Computation concepts (OKF §10) and defines no
+convention for `runtime`, `parameters`, `computation`, `executor`, or `attester`.
+This is a deliberate silence of the kind §1.3 describes, not an oversight:
+Concepta has no sanctioned-value attestation need yet.
+
+A Concepta bundle MAY nonetheless contain such concepts — exchange across
+organizations is what OKF is for — and consumers MUST treat them per OKF §10
+rather than as unknown content. Should the need arise, adopting them is an
+additive minor release (§15.2).
+
+---
+
+## 15. Versioning
+
+### 15.1 Binding to OKF
+
+Every profile release binds to **exactly one** OKF version. This release binds to
+OKF 0.2.
+
+An upstream OKF release requires a new profile release and a compatibility
+review, even when no Concepta convention otherwise changes, so that a
+compatibility claim is always explicit and testable. A profile release MUST NOT
+claim compatibility with an OKF version it has not been reviewed against.
+
+Because the binding is exact, references to the upstream specification SHOULD be
+pinned to the commit or tag carrying that version rather than to a moving branch.
+
+The profile and OKF are separately versioned documents that currently share the
+number 0.2. Prose MUST name which document a version refers to; the machine-readable
+declaration (§11) is unambiguous because it carries both keys.
+
+### 15.2 Profile versions
+
+Profile versions are `<major>.<minor>.<patch>`:
+
+- A **patch** release corrects wording, examples, or internal references without
+  changing a requirement.
+- A **minor** release changes conventions: a new type, a new relationship label, an
+  additional recommended heading, the adoption of a previously unused OKF family
+  (§14.3), or — while the major version is `0` — a structural change that existing
+  bundles must migrate to follow.
+- A **major** release, once the profile reaches `1.0`, makes changes that require
+  existing conformant bundles to migrate. Below `1.0` the structural model is still
+  being established, and a minor release MAY change it.
+
+The profile is deliberately below `1.0`: it has been used on a small number of
+bundles, and its structural model should be allowed to change on evidence rather
+than be frozen early. Reaching `1.0` is a statement that the model has survived
+real use, after which structural change costs a major release.
+
+OKF's normative requirements always take precedence over any profile release
+(§1).
+
+### Considered and deferred
+
+Intentionally left to a later release:
+
+- A frontmatter relationship schema, and any `x-concepta` extension namespace.
+- Per-concept access control, sensitivity classification, or redaction.
+- Cross-bundle references between repositories.
+- A convention for recording deliberately omitted content, distinct from the
+  non-mirroring convention in §12.
+- Organizational namespacing of actor IDs, which would belong upstream in OKF §7
+  rather than here (§6.1.1).
+- Directories named after a type, beyond the time-axis exceptions in §3.3 and §3.4.
+  A project needing kind-first navigation uses a type-filtered projection (§13).
+- A concept that describes a directory — a sibling `<area>.md`, an `overview.md`,
+  a front-matter-bearing index. OKF reserves two directory-level filenames,
+  `index.md` and `log.md`, and neither is a concept (OKF §3.1, §8, §9); a sibling
+  would also list a single subject twice in the parent index. An area is described
+  by its index and by the concept inside it that defines its subject (§3.1, §9).
+- Adoption of Attested Computation (§14.3).
+- Automatic projection between concepts and execution records in either
+  direction.
+- A distribution mechanism for the profile itself — package, plugin, or
+  repository. Whatever is chosen MUST NOT alter OKF compatibility.
+
+---
+
+## Appendix A: Worked example
+
+One bundle showing the profile's central separations: a **source event** produces
+**durable knowledge**, which links to an **execution record**, with **indexes and a
+log** as projections — and structure that has not yet been invented, because the
+subject has only two concepts.
+
+A client raises a request during a demo; the recording platform expires in 30 days,
+so the transcript is mirrored; an analysis follows; the request is specified in
+GitHub.
+
+```text
+knowledge/
+  index.md
+  log.md
+  profile.md
+  types.md
+  actors.md
+  include-pdf-annotations.md          # Request
+  pdf-export-feasibility.md           # Analysis
+  references/index.md, 2026-07-30-reporting-demo-transcript.md
+```
+
+Both concepts sit at the root. Reporting has two concepts, and §3.1 rule 3 creates
+an area at three — so there is no `reporting/` yet, and no `requests/` or
+`analyses/` ever, because those name kinds, not subjects. When a third reporting
+concept arrives, `reporting/` is created and all three move into it in one logged
+operation (§10), while they are still `draft` and free to move (§8.2).
+
+The demo itself is not a concept, and no Interaction Record was written: only one
+outcome mattered, so the request links straight to its source (§4.3), and
+`interactions/` does not exist.
+
+`include-pdf-annotations.md` — the durable outcome, verified by a human,
+citing the mirrored transcript, and linked to execution:
+
+```markdown
+---
+type: Request
+title: Include PDF annotations in the export
+description: Client asks that reviewer annotations survive the PDF export.
+status: draft
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
+tags: [reporting, export]
+sources:
+  - id: demo-0730
+    resource: /references/2026-07-30-reporting-demo-transcript.md
+    title: Reporting demo transcript, 30 July 2026
+    author: human:chris
+    last_modified: 2026-07-30
+---
+
+# Request
+
+Reviewer annotations must appear in the exported PDF, positioned as they are on
+screen.[^demo-0730]
+
+# Context
+
+Raised while reviewing a draft export during the reporting demo.
+
+# Relationships
+
+- Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
+- Related to: [PDF export feasibility](/pdf-export-feasibility.md)
+
+[^demo-0730]: Reporting demo transcript, 30 July 2026
+```
+
+`pdf-export-feasibility.md` — a separate concept because findings are
+reusable independently of the request, with a real freshness horizon (§6.4):
+
+```markdown
+---
+type: Analysis
+title: PDF export feasibility for annotations
+description: Whether the current renderer can place annotations without exceeding the generation budget.
+status: draft
+generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
+stale_after: 2026-10-31
+---
+
+# Question
+
+Can annotations be positioned in the exported PDF within the existing
+generation budget?
+
+# Findings
+
+The renderer exposes absolute placement; annotation geometry is already
+persisted alongside review state.
+
+# Recommendation
+
+Proceed. Budget headroom is adequate at current document sizes.
+
+# Relationships
+
+- Refines: [Include PDF annotations in the export](/include-pdf-annotations.md)
+```
+
+`references/2026-07-30-reporting-demo-transcript.md` — mirrored because the
+recording expires; a snapshot, not knowledge (§12):
+
+```markdown
+---
+type: Meeting Transcript
+title: Reporting demo transcript, 30 July 2026
+description: Verbatim transcript of the reporting demo with the client review team.
+status: stable
+generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
+sources:
+  - resource: https://example-meetings.test/recordings/8412
+    title: Reporting demo recording (retention: 30 days)
+    last_modified: 2026-07-30
+---
+
+# Transcript
+
+[15:02] ...
+```
+
+`actors.md` — three actors, so the organizational question is answerable (§6.1.1):
+
+```markdown
+---
+type: Actor Registry
+title: Actors
+description: Actor IDs mapped to organization, side, and role.
+status: stable
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+---
+
+| Actor ID | Name | Organization | Side | Role | Active |
+|----------|------|--------------|------|------|--------|
+| `human:chris` | Christiano Higuto | Concepta | internal | Engineering lead | 2026-01 – |
+| `claude-code/opus-5` | — | Anthropic | tool | Authoring agent | 2026-06 – |
+| `process:meeting-transcription` | — | Concepta | internal | Transcription process | 2026-03 – |
+```
+
+`log.md` — lifecycle events only. The demo appears nowhere; its outcomes do:
+
+```markdown
+# Knowledge Log
+
+## 2026-07-31
+* **Creation**: Recorded [PDF export feasibility](/pdf-export-feasibility.md).
+* **Update**: Verified [Include PDF annotations in the export](/include-pdf-annotations.md).
+
+## 2026-07-30
+* **Creation**: Recorded [Include PDF annotations in the export](/include-pdf-annotations.md) from the reporting demo.
+* **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
+```
+
+Reading the bundle back out: the graph (§13) has three internal nodes, one
+provenance edge from the request to the transcript, two typed edges
+(`Refines`, `Related to`), one external node for the GitHub issue via
+`Specified by`, one external node for the expiring recording, and three actor nodes
+lifted from `actors.md` carrying the `generated`, `verified`, and `author` edges.
+Delete the graph and every edge above rebuilds from these files.
