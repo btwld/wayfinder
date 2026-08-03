@@ -30,7 +30,7 @@ one.
 This is the failure mode the profile is least able to detect, because a locally invented rule
 looks like a convention rather than a divergence — and it is how a profile quietly becomes the
 competing standard its §1.2 forbids. The pinned OKF 0.2 text is in the repository at
-`skills/concepta-okf-profile/OKF-0.2.md`; consult it rather than guessing.
+`skills/okf-profile/OKF-0.2.md`; consult it rather than guessing.
 
 Silence is also not prohibition. Where OKF permits something and the profile says nothing, it
 is permitted. The narrowings are the ones written as an explicit MUST or MUST NOT.
@@ -74,7 +74,7 @@ repository that has never seen it. Two consequences:
 - **A skill that restates a withdrawn rule is worse than a skill that says nothing.** It
   produces conforming files that teach the wrong thing, and no validator catches it. When a
   profile rule changes, grep the skills for the old rule before shipping.
-- **Concept mechanics live in `concepta-okf-profile` and nowhere else.** Every other skill
+- **Concept mechanics live in `okf-profile` and nowhere else.** Every other skill
   delegates to it. Do not restate bundle structure, frontmatter, or the type vocabulary in a
   second skill.
 

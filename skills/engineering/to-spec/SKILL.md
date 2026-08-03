@@ -18,7 +18,7 @@ Check with the user that these seams match their expectations.
 
 3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `afk` and `ready` triage labels - no need for additional triage.
 
-4. Link knowledge to execution. If the spec realizes a bundle concept — usually one of `type: Request` — add a `Specified by` relationship bullet on that concept pointing at the published issue, following the `concepta-okf-profile` skill for the edit and its log entry. The tracker stays authoritative for execution: link, never copy the spec into the bundle.
+4. Link knowledge to execution. If the spec realizes a bundle concept — usually one of `type: Request` — add a `Specified by` relationship bullet on that concept pointing at the published issue, following the `okf-profile` skill for the edit and its log entry. The tracker stays authoritative for execution: link, never copy the spec into the bundle.
 
    A spec published this way is an execution record because the tracker owns its state, which is this skill's whole shape. That is not the only kind of spec: one the project maintains as durable knowledge — it outlives the work it scoped, later concepts cite it, and its only state is `status` — is a `Specification` concept living in the bundle (profile §5.2, §7.3). Don't read this step as "specs never live in a bundle"; read it as "this one has a tracker, so it does not." Never both.
 

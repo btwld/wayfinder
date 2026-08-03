@@ -30,7 +30,7 @@ knowledge/
 
 An area is earned when three concepts share its subject — until then write concepts at the bundle root, where they cost nothing to move. **Don't create a directory to hold your first term.** Read `knowledge/index.md` to find the area a subject already has. The exception is the four names the profile fixes — `architecture/`, `ways-of-working/`, `interactions/`, and `references/` — which may be created for their first concept, since a profile-fixed name can't turn out to be the wrong one.
 
-The `concepta-okf-profile` skill owns the mechanics of every write: baseline frontmatter, path IDs, relationship labels, placement, and the area-index and root-log entries that complete a concept write. Follow it for each concept you create, update, or deprecate here.
+The `okf-profile` skill owns the mechanics of every write: baseline frontmatter, path IDs, relationship labels, placement, and the area-index and root-log entries that complete a concept write. Follow it for each concept you create, update, or deprecate here.
 
 ## During the session
 

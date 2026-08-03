@@ -1,5 +1,5 @@
 ---
-name: concepta-okf-profile
+name: okf-profile
 description: Read and write the knowledge bundle at knowledge/ per the Concepta OKF Profile (OKF 0.2). Use before creating, editing, deprecating, or moving any concept under knowledge/, when mirroring source material into references/, or when another skill needs the profile's conventions.
 ---
 

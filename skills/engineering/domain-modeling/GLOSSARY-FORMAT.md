@@ -25,7 +25,7 @@ A request for payment sent to a customer after delivery.
 - Payment request
 ```
 
-Add a `# Relationships` section (per the `concepta-okf-profile` skill) when a term relates to or supersedes another.
+Add a `# Relationships` section (per the `okf-profile` skill) when a term relates to or supersedes another.
 
 ## Rules
 

@@ -71,7 +71,7 @@ Do NOT close or modify any parent issue.
 
 ### 6. Link knowledge to execution
 
-If the work traces to a bundle concept — usually one of `type: Request` — add a `Specified by` relationship bullet on that concept pointing at the parent spec or issue, following the `concepta-okf-profile` skill for the edit and its log entry. Link individual tickets only when a single ticket alone delivers the concept. The tracker stays authoritative for execution state: link, never mirror ticket state into the bundle.
+If the work traces to a bundle concept — usually one of `type: Request` — add a `Specified by` relationship bullet on that concept pointing at the parent spec or issue, following the `okf-profile` skill for the edit and its log entry. Link individual tickets only when a single ticket alone delivers the concept. The tracker stays authoritative for execution state: link, never mirror ticket state into the bundle.
 
 A ticket that **chases an open item** rather than delivering a concept takes `Tracked by` instead: a `type: Question` concept holds the question, what is known, and its evidence trail, while the issue holds who owes the answer and by when. Openness is still read from inbound `Resolves` / `Partially resolves` edges, never from the ticket's status.
 

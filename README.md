@@ -53,7 +53,7 @@ symlinking them so updates here reach you with a `git pull`:
 
 ```bash
 git clone git@github.com:btwld/repo-template.git ~/lab/concepta-okf
-for s in ~/lab/concepta-okf/skills/*/; do
+for s in ~/lab/concepta-okf/skills/okf-profile ~/lab/concepta-okf/skills/engineering/*/; do
   ln -s "$s" ~/.claude/skills/"$(basename "$s")"
 done
 ```
@@ -91,13 +91,13 @@ it:
 
 | Skill | Invocation | What it does |
 | --- | --- | --- |
-| `concepta-okf-profile` | model-invoked | The profile as a skill. Any agent about to create, edit, deprecate, or move a file under `knowledge/` reaches it automatically |
+| `okf-profile` | model-invoked | The profile as a skill. Any agent about to create, edit, deprecate, or move a file under `knowledge/` reaches it automatically |
 | `domain-modeling` | model-invoked | Pins down terminology and records decisions — one Glossary Definition per term, ADRs into `architecture/`, durable non-architectural decisions as `Decision` concepts |
 | `to-spec` | user-invoked | Turns a shaped problem into a specification, linked back to the concept it realizes |
 | `to-tickets` | user-invoked | Slices a spec into tickets, linked to the concept that motivated them |
 | `implement` | user-invoked | Reads the constraining concepts before coding, and links the work back with `Implemented by` |
 
-You never invoke `concepta-okf-profile` yourself. It is model-invoked precisely because
+You never invoke `okf-profile` yourself. It is model-invoked precisely because
 structure an agent cannot see is structure an agent invents: a subject-named tree is not
 self-inferrable, so an agent that skips the profile will confidently create `decisions/`.
 
@@ -130,7 +130,7 @@ subject, and an area is earned at three.
 ## Reading order
 
 - Adopting the profile in a project → [Getting started](#getting-started), then [`implementation/`](implementation/) §2
-- Writing or editing a concept → the `concepta-okf-profile` skill; it delegates to
+- Writing or editing a concept → the `okf-profile` skill; it delegates to
   [`profile/`](profile/) and carries the pinned OKF 0.2 text alongside it
 - Building tooling → [`implementation/`](implementation/) §3 (index generation) and §4 (validation)
 - Converting an existing `docs/` tree → [`implementation/`](implementation/) §5 (migration)

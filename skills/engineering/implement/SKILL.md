@@ -30,4 +30,4 @@ Re-run typechecking and the full test suite after it returns.
 
 ## Link knowledge to execution
 
-If this work implements a bundle concept — a Request, Decision, or ADR — add an `Implemented by` relationship bullet on that concept pointing at the PR (or branch), following the `concepta-okf-profile` skill for the edit and its log entry. The tracker and PR stay authoritative for execution state: link, never mirror it into the bundle.
+If this work implements a bundle concept — a Request, Decision, or ADR — add an `Implemented by` relationship bullet on that concept pointing at the PR (or branch), following the `okf-profile` skill for the edit and its log entry. The tracker and PR stay authoritative for execution state: link, never mirror it into the bundle.
