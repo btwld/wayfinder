@@ -37,7 +37,7 @@ CI at the verifier, and let each project repository carry only its own knowledge
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`docs/ways-of-working.md`](docs/ways-of-working.md) | The shared engineering process, canonical here |
 
-`profile/concepta-okf-profile.md` is always the current release; the version is declared on
+`profile/okf-profile.md` is always the current release; the version is declared on
 its third line and in every bundle's `profile.md`, never in the filename. Superseded releases
 are snapshotted under `profile/versions/`. That is the profile's own §8.1 rule — version and
 status are metadata and do not belong in an identity — applied to the profile document

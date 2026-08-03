@@ -13,7 +13,7 @@ Read [README.md](README.md) for the layout, then the part of the tree you are ch
 
 Every link is one-directional and none of them is negotiable.
 
-- `profile/concepta-okf-profile.md` MUST NOT redefine, extend, or narrow any OKF field's
+- `profile/okf-profile.md` MUST NOT redefine, extend, or narrow any OKF field's
   meaning. Where it appears to, OKF governs and the profile is in error.
 - `implementation/concepta-okf-implementation-guide.md` MUST NOT restate, extend, or narrow a
   profile rule. What it may do is bind behaviour the profile deliberately leaves open. It is

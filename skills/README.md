@@ -1,6 +1,6 @@
 # Skills
 
-The agent skills for the [Concepta OKF Profile](../profile/concepta-okf-profile.md) (2026.1):
+The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.1):
 the profile itself as a skill ([`okf-profile/`](okf-profile/)), plus the engineering skills
 that read from and write into a knowledge bundle ([`engineering/`](engineering/)). The split
 mirrors the roles: `okf-profile` is the standard's own skill; everything under `engineering/`
