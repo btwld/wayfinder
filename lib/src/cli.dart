@@ -47,30 +47,31 @@ final class OkfpCli {
         return 0;
       }
 
+      // An unregistered word is not parsed as a command; it lands in `rest`.
       final command = results.command;
       if (command == null) {
-        throw const _OkfpUsageException('A command is required.');
+        throw _OkfpUsageException(
+          results.rest.isEmpty
+              ? 'A command is required.'
+              : 'Unknown command: ${results.rest.first}',
+        );
       }
       if (command.flag('help')) {
         _out(_commandUsage(command.name ?? ''));
         return 0;
       }
-
-      return switch (command.name) {
-        'validate' => _validate(command),
-        _ => throw _OkfpUsageException(
-            'Unknown command: ${command.name ?? ''}',
-          ),
-      };
+      return _validate(command);
     } on ArgParserException catch (error) {
-      _err('okfp: ${_terminalSafe(error.message)}');
-      _err('Run "okfp --help" for usage.');
-      return 2;
+      return _usageError(error.message);
     } on _OkfpUsageException catch (error) {
-      _err('okfp: ${_terminalSafe(error.message)}');
-      _err('Run "okfp --help" for usage.');
-      return 2;
+      return _usageError(error.message);
     }
+  }
+
+  int _usageError(String message) {
+    _err('okfp: ${_terminalSafe(message)}');
+    _err('Run "okfp --help" for usage.');
+    return 2;
   }
 
   int _validate(ArgResults command) {

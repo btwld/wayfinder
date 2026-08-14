@@ -35,6 +35,7 @@ void main() {
 
     final unknownCommand = await _run(<String>['bogus']);
     expect(unknownCommand.exitCode, 2);
+    expect(unknownCommand.stderr, contains('Unknown command: bogus'));
 
     final unknownOption = await _run(<String>['validate', '--bogus']);
     expect(unknownOption.exitCode, 2);
