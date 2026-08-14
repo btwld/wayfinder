@@ -6,3 +6,6 @@ pubspec.lock
 # Local path override onto a sibling okf checkout during development;
 # the committed dependency stays hosted.
 pubspec_overrides.yaml
+# Local migration staging (unreconciled copy from the Anago working tree).
+incoming-local-okf/
+HANDOFF.md
