@@ -84,12 +84,12 @@ final class OkfpCli {
   }
 
   String _rootUsage() => '''
-Concepta OKF Profile toolchain
+OKF profile toolchain
 
 Usage: okfp <command> [arguments]
 
 Commands:
-  validate   Check a knowledge bundle against the Concepta OKF Profile
+  validate   Check a knowledge bundle against its declared OKF profile
 
 Global options:
 ${_parser.usage}

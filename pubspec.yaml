@@ -1,5 +1,5 @@
 name: okf_profile
-description: The Concepta OKF Profile toolchain — checks knowledge bundles against the profile through the okfp command-line interface.
+description: The OKF profile toolchain — checks a knowledge bundle against its declared profile through the okfp command-line interface.
 version: 0.1.0
 repository: https://github.com/btwld/okf-profile
 issue_tracker: https://github.com/btwld/okf-profile/issues
