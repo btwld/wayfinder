@@ -75,9 +75,8 @@ final class OkfpCli {
   }
 
   int _validate(ArgResults command) {
-    // Exit codes for validation are owned by the Verdict from `okf`
-    // (btwld/okf-profile#6); until that lands, the stub only refuses, and 2 —
-    // the usage-error code — is the one exit code the CLI may compute itself.
+    // Validation exit codes belong to the Verdict from `okf`, so the CLI may
+    // not compute one; 2, the usage-error code, is the only code it owns.
     throw const _OkfpUsageException(
       'validate is not implemented yet (btwld/okf-profile#6).',
     );
