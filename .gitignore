@@ -1,0 +1,6 @@
+.dart_tool/
+build/
+coverage/
+# Local path override onto a sibling okf checkout during development;
+# the committed dependency stays hosted.
+pubspec_overrides.yaml

@@ -1,0 +1,26 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    # Reference sources migrated from conceptadev/okf; not part of the package.
+    - implementation/**
+    # Unreconciled staging copy from the Anago working tree (see HANDOFF.md).
+    - incoming-local-okf/**
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    missing_required_param: error
+    missing_return: error
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - avoid_print
+    - directives_ordering
+    - prefer_final_locals
+    - sort_constructors_first
+    - sort_pub_dependencies
+    - unawaited_futures
