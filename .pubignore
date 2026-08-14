@@ -1,0 +1,15 @@
+.claude/
+.dart_tool/
+.git/
+.github/
+AGENTS.md
+HANDOFF.md
+build/
+coverage/
+docs/
+examples/
+implementation/
+incoming-local-okf/
+profile/
+skills/
+tools/
