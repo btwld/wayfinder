@@ -1,0 +1,6 @@
+dependency_overrides:
+  # Hosted okf 0.2 is not published yet; pin its reviewed contract commit.
+  okf:
+    git:
+      url: https://github.com/conceptadev/okf.git
+      ref: 68a3a52a61f172b3ff4feb9f0629b5f543ef6105

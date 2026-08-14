@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 /// The package version reported by `okfp --version`.
-const okfpPackageVersion = '0.1.0';
+const okfpPackageVersion = '0.2.0';
 
 /// A destination for one complete CLI output line.
 typedef OkfpCliOutput = void Function(String line);
