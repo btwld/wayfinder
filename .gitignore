@@ -1,6 +1,8 @@
 .dart_tool/
 build/
 coverage/
+# Published library package: the lockfile stays local (okf convention).
+pubspec.lock
 # Local path override onto a sibling okf checkout during development;
 # the committed dependency stays hosted.
 pubspec_overrides.yaml
