@@ -24,14 +24,14 @@ final class OkfProfileRuleActivation {
   /// Creates an activation with its manifest-supplied parameters.
   OkfProfileRuleActivation({
     required this.id,
-    Map<String, Object?> parameters = const <String, Object?>{},
+    OkfRuleParameters parameters = const <String, Object?>{},
   }) : parameters = deepUnmodifiableJsonMap(parameters);
 
   /// The stable ID of the catalog rule to activate.
   final OkfFindingId id;
 
   /// Parameter values to validate against the catalog entry's schema.
-  final Map<String, Object?> parameters;
+  final OkfRuleParameters parameters;
 }
 
 /// A human-judgment declaration retained without execution semantics.

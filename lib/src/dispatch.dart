@@ -1,7 +1,6 @@
 import 'package:okf/okf.dart';
 
 import 'declaration.dart';
-import 'json_data.dart';
 import 'manifest.dart';
 import 'rule.dart';
 
@@ -54,19 +53,22 @@ final class OkfUnknownProfileRelease extends OkfDegradedProfileResolution {
   OkfFindingId get findingId => OkfProfileFindingIds.unknownProfileRelease;
 }
 
-/// A resolved catalog entry paired with manifest-supplied parameters.
+/// A manifest rule activation paired with its resolved catalog entry.
 final class OkfActivatedProfileRule {
   /// Creates one activated, parameterized profile rule.
-  OkfActivatedProfileRule({
+  const OkfActivatedProfileRule({
+    required this.activation,
     required this.entry,
-    Map<String, Object?> parameters = const <String, Object?>{},
-  }) : parameters = deepUnmodifiableJsonMap(parameters);
+  });
+
+  /// The manifest activation that selected [entry].
+  final OkfProfileRuleActivation activation;
 
   /// The upstream catalog entry selected by the manifest.
   final OkfRuleCatalogEntry entry;
 
   /// Parameters validated for execution with [entry].
-  final OkfRuleParameters parameters;
+  OkfRuleParameters get parameters => activation.parameters;
 }
 
 /// A resolved profile whose catalog rules have been activated.

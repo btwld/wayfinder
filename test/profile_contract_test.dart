@@ -144,13 +144,14 @@ void main() {
       declaration: declaration,
       manifest: manifest,
     );
+    final activation = OkfProfileRuleActivation(
+      id: entry.id,
+      parameters: <String, Object?>{'enabled': true},
+    );
     final activated = OkfActivatedProfile(
       resolved: resolved,
       rules: <OkfActivatedProfileRule>[
-        OkfActivatedProfileRule(
-          entry: entry,
-          parameters: <String, Object?>{'enabled': true},
-        ),
+        OkfActivatedProfileRule(activation: activation, entry: entry),
       ],
     );
     final report = OkfReport();
@@ -158,6 +159,11 @@ void main() {
 
     expect(declaration.release, manifest.release);
     expect(activated.resolved.manifest, same(manifest));
+    expect(activated.rules.single.parameters['enabled'], true);
+    expect(
+      () => activated.rules.single.parameters['enabled'] = false,
+      throwsUnsupportedError,
+    );
     expect(activated.rules.single.entry, same(entry));
     expect(verdict.report, same(report));
     expect(verdict.result, OkfExitCode.success);
