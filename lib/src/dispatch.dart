@@ -72,6 +72,9 @@ final class OkfActivatedProfileRule {
 }
 
 /// A resolved profile whose catalog rules have been activated.
+///
+/// Executing these rules into an [OkfReport] and [OkfVerdict] is a later
+/// slice; this contract freezes the data shape only.
 final class OkfActivatedProfile {
   /// Creates an activated profile in manifest rule order.
   OkfActivatedProfile({
