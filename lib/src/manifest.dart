@@ -1,6 +1,7 @@
 import 'package:okf/okf.dart';
 
 import 'json_data.dart';
+import 'release.dart';
 
 /// The concept-type and relationship-label registries in a profile manifest.
 final class OkfProfileVocabularies {
@@ -55,8 +56,7 @@ final class OkfJudgmentDeclaration {
 final class OkfProfileManifest {
   /// Creates an in-memory profile manifest.
   OkfProfileManifest({
-    required this.profile,
-    required this.version,
+    required this.release,
     required this.extendsBase,
     OkfProfileVocabularies? vocabularies,
     Map<String, Map<String, Object?>> schemas =
@@ -75,11 +75,8 @@ final class OkfProfileManifest {
         rules = List<OkfProfileRuleActivation>.unmodifiable(rules),
         judgment = List<OkfJudgmentDeclaration>.unmodifiable(judgment);
 
-  /// The profile name from the manifest's `profile` field.
-  final String profile;
-
-  /// The profile release from the manifest's `version` field.
-  final String version;
+  /// The release declared by the manifest's `profile` and `version` fields.
+  final OkfProfileRelease release;
 
   /// The base specification and version named by the `extends` field.
   final String extendsBase;

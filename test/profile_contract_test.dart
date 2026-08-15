@@ -10,8 +10,7 @@ void main() {
       'profile/frontmatter-required',
     );
     final manifest = OkfProfileManifest(
-      profile: 'example',
-      version: '2026.2',
+      release: const OkfProfileRelease(name: 'example', version: '2026.2'),
       extendsBase: 'okf/0.2',
       vocabularies: OkfProfileVocabularies(
         conceptTypes: <String>['Metric'],
@@ -73,8 +72,7 @@ void main() {
       note: 'Migration in progress.',
     );
     final declaration = OkfProfileDeclaration(
-      profile: 'example',
-      version: '2026.2',
+      release: const OkfProfileRelease(name: 'example', version: '2026.2'),
       okfVersion: '0.2',
       suppressions: <OkfFindingSuppression>[suppression],
     );
@@ -125,13 +123,11 @@ void main() {
 
   test('dispatch types connect resolution, activation, and Verdict', () {
     final declaration = OkfProfileDeclaration(
-      profile: 'example',
-      version: '2026.2',
+      release: const OkfProfileRelease(name: 'example', version: '2026.2'),
       okfVersion: '0.2',
     );
     final manifest = OkfProfileManifest(
-      profile: 'example',
-      version: '2026.2',
+      release: const OkfProfileRelease(name: 'example', version: '2026.2'),
       extendsBase: 'okf/0.2',
     );
     final catalog = OkfRuleCatalog();
@@ -160,6 +156,7 @@ void main() {
     final report = OkfReport();
     final verdict = OkfVerdict.of(report);
 
+    expect(declaration.release, manifest.release);
     expect(activated.resolved.manifest, same(manifest));
     expect(activated.rules.single.entry, same(entry));
     expect(verdict.report, same(report));
