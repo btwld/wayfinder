@@ -26,3 +26,4 @@ behaviour per unit of interface a caller must learn.
 | [0001](0001-ack-behind-interpreter-seam.md) | okf_profile owns frontmatter finding IDs; ack hides behind the interpreter seam |
 | [0002](0002-judgment-parse-and-preserve.md) | The manifest `judgment` section is parse-and-preserve |
 | [0003](0003-suppressions-in-profile-yaml.md) | Suppressions declare in `profile.yaml` |
+| [0004](0004-profile-yaml-owned-by-profile-layer.md) | `profile.yaml` belongs to the profile layer; base okf never learns the name |
