@@ -104,6 +104,18 @@ when a third concept appears. Authors and agents should not create speculative
 areas, but Profile Review evaluates that guidance from the actual corpus rather
 than from a count.
 
+A Profiled Bundle may use every frontmatter field defined by its pinned OKF
+release but must not introduce producer-defined fields. Automated validation
+checks the keys against OKF. Information with no OKF field belongs in the body
+or another existing OKF mechanism; a new structured field must be added
+upstream before a later Profile release can rely on it. The Profile cannot
+extend OKF's schema on its own.
+
+Tags express topics only. They must not duplicate a concept's type, lifecycle,
+trust, or resolution state. Automated validation catches literal duplication
+with machine-readable fields and values; Profile Review catches semantic aliases
+that would create a second source of truth.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
