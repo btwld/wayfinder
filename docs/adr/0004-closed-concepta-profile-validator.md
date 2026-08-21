@@ -54,13 +54,20 @@ table shape and that every actor identifier used by the bundle is represented;
 Profile Review assesses whether the recorded identity, affiliation, role, and
 active period are true in context.
 
+`Side` is the closed vocabulary `client`, `internal`, `vendor`, `tool`, and
+`unknown`. Automated validation checks membership in that vocabulary; Profile
+Review checks whether the selected value is truthful. Authors and agents use
+`unknown` rather than infer an affiliation without evidence.
+
 The root `log.md` is authored bundle history, not a projection of current
 concept state. This is consistent with OKF 0.2 §9, which defines logs as
 date-grouped history and does not require them to be derived. Automated
 validation checks its presence and mechanically decidable format and ordering
-rules; Profile Review assesses whether material lifecycle events were recorded.
-Version-control history may corroborate that review but is not the log's source
-of truth.
+rules. Every entry has a bold lead word. The Profile supplies a preferred but
+extensible vocabulary including `Creation`, `Update`, `Move`, and
+`Deprecation`; an unfamiliar lead word is not by itself a failure. Profile
+Review assesses whether material lifecycle events were recorded. Version-control
+history may corroborate that review but is not the log's source of truth.
 
 Indexes are fully derived, discardable navigation. Their membership, grouping,
 ordering, labels, and descriptions must be recoverable deterministically from
@@ -70,6 +77,14 @@ therefore regenerate them through generic OKF write operations without a
 Profile-specific write planner. The next Profile release must define the
 projection's inputs and result; the implementation guide may describe tool
 mechanics but cannot change that result.
+
+Index conformance is semantic rather than byte-for-byte. Automated validation
+compares parsed membership, grouping, ordering, labels, targets, and
+descriptions while ignoring harmless Markdown presentation differences. A
+later linting phase may diagnose or normalize presentation without changing
+conformance. The root index covers `log.md`, `profile.md`, `types.md`, optional
+`actors.md`, every other root concept, and every immediate directory; it omits
+only itself. `log.md` belongs to the fixed `Bundle` group.
 
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
@@ -138,6 +153,8 @@ issue #17.
   projection in the next Profile release.
 - Existing authored directory descriptions and ordering in indexes require an
   explicit migration when the deterministic projection algorithm is released.
+- Canonical index presentation and automatic formatting are deferred to a
+  separate linting phase; the first validator needs only the semantic check.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
