@@ -188,6 +188,29 @@ relationship when one exists. Draft concepts may be deleted. Hard deletion of a
 stable concept is reserved for security, privacy, legal, secret-removal, or
 genuinely erroneous-content cases and is assessed through Profile Review.
 
+The root `profile.md` declaration remains compact Markdown whose first fenced
+YAML block declares both `concepta_profile` and `okf_version`. The latter must
+match the root index declaration and the OKF release bound by the selected
+Profile release. Automated validation checks all three values for agreement.
+
+The first validator implements only the new Profile release. A declaration for
+an older or newer release produces a distinct `UNSUPPORTED PROFILE RELEASE`
+result rather than a Profile-conformance verdict, while the independent OKF
+result is still exposed. Historical validators are added only when a real
+migration demonstrates the need.
+
+Material is mirrored under `references/` only when a concept cites it, its
+availability is genuinely at risk, and repository visibility is appropriate.
+Text and necessary optimized images may be mirrored; heavy audio, video, and
+other binaries stay external, with a transcript mirrored when preservation is
+needed. Automated validation checks placement and prohibited media; Profile
+Review assesses need, availability risk, confidentiality, and sanitization.
+
+The Profile does not enumerate unused OKF mechanisms. Where the Profile is
+silent, every mechanism allowed by the pinned OKF release remains allowed and
+is interpreted only by OKF. In particular, the existing Attested Computation
+inventory is removed rather than maintained as a parallel compatibility list.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -265,6 +288,9 @@ issue #17.
   do not become nonconformant.
 - Broadening date-bearing identities and the exceptional reasons for deleting a
   stable concept invalidates no existing conformant bundle.
+- A bundle declaring an older Profile release must update its declaration and
+  complete that release's stated migration before the first validator can assess
+  Profile conformance. Until then its Profile result is unsupported, not failed.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
