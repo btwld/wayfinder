@@ -1,6 +1,6 @@
 # ADR-0003: Suppressions declare in `profile.yaml`
 
-- Status: accepted
+- Status: superseded by [ADR-0004](0004-closed-concepta-profile-validator.md)
 - Date: 2026-08-14
 - Issues: [#10](https://github.com/btwld/okf-profile/issues/10), #5, #12
 

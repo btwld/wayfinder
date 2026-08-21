@@ -1,6 +1,6 @@
 # ADR-0001: okf_profile owns frontmatter finding IDs; ack hides behind the interpreter seam
 
-- Status: accepted
+- Status: superseded by [ADR-0004](0004-closed-concepta-profile-validator.md)
 - Date: 2026-08-14
 - Issues: [#7](https://github.com/btwld/okf-profile/issues/7)
 

@@ -1,7 +1,7 @@
 # Architecture decision records
 
-One file per decision. Decisions here bind the profile-toolchain work specced
-in [#3](https://github.com/btwld/okf-profile/issues/3) and its sub-issues. A
+One file per decision. Decisions here bind the Concepta Profile and its
+tooling. A
 future architecture review must not re-litigate an accepted ADR unless real
 friction warrants reopening it; supersede with a new record instead of editing
 history.
@@ -23,6 +23,7 @@ behaviour per unit of interface a caller must learn.
 
 | # | Decision |
 |---|----------|
-| [0001](0001-ack-behind-interpreter-seam.md) | okf_profile owns frontmatter finding IDs; ack hides behind the interpreter seam |
-| [0002](0002-judgment-parse-and-preserve.md) | The manifest `judgment` section is parse-and-preserve |
-| [0003](0003-suppressions-in-profile-yaml.md) | Suppressions declare in `profile.yaml` |
+| [0001](0001-ack-behind-interpreter-seam.md) | Superseded — ack and manifest-era finding IDs |
+| [0002](0002-judgment-parse-and-preserve.md) | Superseded — manifest `judgment` declarations |
+| [0003](0003-suppressions-in-profile-yaml.md) | Superseded — suppressions in `profile.yaml` |
+| [0004](0004-closed-concepta-profile-validator.md) | First implement a closed Concepta Profile validator; defer the generic platform |
