@@ -38,6 +38,16 @@ A Profiled Bundle always contains root `index.md`, `log.md`, `profile.md`, and
 identifier in an OKF actor-valued field. The CLI can determine this condition
 from bundle state; an actor-free bundle need not carry an empty registry.
 
+`types.md` must declare every type used by the bundle. The Profile publishes a
+preferred standard vocabulary but does not close that vocabulary: a project may
+register a type that the Profile does not yet define. An unregistered used type
+fails deterministic Profile validation. A registered nonstandard type produces
+a non-blocking advisory, and Profile Review determines whether an existing
+standard type would have expressed the concept accurately. Repeated extensions
+are evidence for a later Profile release, not an implicit change to the current
+release. OKF consumers remain required to tolerate every type; these are
+producer-side Profile rules only.
+
 When present, `actors.md` uses the fixed columns `Actor ID`, `Name`,
 `Organization`, `Side`, `Role`, and `Active`. Automated validation checks the
 table shape and that every actor identifier used by the bundle is represented;
@@ -128,6 +138,9 @@ issue #17.
   projection in the next Profile release.
 - Existing authored directory descriptions and ordering in indexes require an
   explicit migration when the deterministic projection algorithm is released.
+- Bundles using a type absent from `types.md` become nonconformant under the next
+  Profile release and must register it. Already registered project-specific
+  types remain conformant and gain only an advisory.
 - The first `okfp` interface validates only. Authoring and generic bundle
   mutation are not added to it.
 - `okfp validate` obtains and exposes the closed OKF validation result before
