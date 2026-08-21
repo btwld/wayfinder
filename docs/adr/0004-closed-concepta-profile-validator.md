@@ -39,6 +39,10 @@ and Profile results separately, and its composed validation succeeds only when
 both are conformant. A bundle cannot inject, omit, replace, or parameterize the
 release's rules.
 
+The CLI may also report deterministic `SHOULD` and `SHOULD NOT` advice, but
+advisories do not affect conformance or exit status. The first interface has no
+global `--strict` mode that promotes every recommendation into a requirement.
+
 Normative `MUST` and `MUST NOT` requirements are reserved for bundle invariants
 whose satisfaction can be determined reliably. Judgment-heavy conventions use
 `SHOULD` and `SHOULD NOT`; they remain available to authors and agents through
