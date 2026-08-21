@@ -154,6 +154,12 @@ or durable knowledge is determined by which system owns its lifecycle, and a
 durable specification has exactly one authoritative home. This is a mandatory
 judgment rule assessed by Profile Review.
 
+The Profile publishes a preferred relationship-label vocabulary but permits a
+project to introduce another label. Automated validation reports a nonstandard
+label as a non-blocking advisory. Its meaning is defined once in a durable
+project Guide and Profile Review checks its use; the first implementation adds
+neither a relationship registry nor a label-provider mechanism.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
