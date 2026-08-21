@@ -86,6 +86,15 @@ conformance. The root index covers `log.md`, `profile.md`, `types.md`, optional
 `actors.md`, every other root concept, and every immediate directory; it omits
 only itself. `log.md` belongs to the fixed `Bundle` group.
 
+The canonical semantic projection uses a root `Bundle` group for `log.md`,
+`profile.md`, `types.md`, and optional `actors.md`. Other concepts are grouped
+under their exact registered type name. Immediate subdirectories appear under
+`Directories`; that name avoids misclassifying the special `references/`
+directory as an area. Type groups follow registry order, with custom types
+afterward in lexical order. Entries within a group sort by title and then path.
+Directory labels derive from their paths and carry no invented description.
+Non-Markdown files under `references/` appear in an `Assets` group.
+
 Every nonempty directory must contain an `index.md`; automated validation can
 assess that rule completely. The Profile continues to define four optional,
 lazily created directory names: `architecture/` and `ways-of-working/` are
@@ -103,6 +112,15 @@ numeric threshold cannot establish a shared subject and would force path churn
 when a third concept appears. Authors and agents should not create speculative
 areas, but Profile Review evaluates that guidance from the actual corpus rather
 than from a count.
+
+The Profile sets no numeric threshold for further index grouping or directory
+nesting. Type grouping is already deterministic; additional subject nesting is
+a contextual navigation decision assessed by Profile Review.
+
+An area may contain an ordinary, specifically named concept with durable
+knowledge about its subject. It must not contain a generic `overview.md` that
+merely duplicates the generated index. Profile Review distinguishes a real
+subject concept from a second navigation artifact.
 
 A Profiled Bundle may use every frontmatter field defined by its pinned OKF
 release but must not introduce producer-defined fields. Automated validation
@@ -296,8 +314,10 @@ issue #17.
   concept; it does not become a rule configuration surface.
 - `log.md` must be removed from every definition and example of a derived
   projection in the next Profile release.
-- Existing authored directory descriptions and ordering in indexes require an
-  explicit migration when the deterministic projection algorithm is released.
+- Existing indexes must remove authored directory descriptions and regenerate
+  into the canonical semantic groups and ordering. Removing the large-index
+  numeric threshold and allowing genuine subject concepts otherwise relaxes the
+  Profile.
 - Canonical index presentation and automatic formatting are deferred to a
   separate linting phase; the first validator needs only the semantic check.
 - No typed-relationship graph, graph adapter, or upstream OKF request is added
