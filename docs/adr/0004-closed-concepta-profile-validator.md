@@ -42,6 +42,12 @@ The CLI may also report deterministic `SHOULD` and `SHOULD NOT` advice, but
 advisories do not affect conformance or exit status. The first interface has no
 global `--strict` mode that promotes every recommendation into a requirement.
 
+A successful CLI run claims only that OKF conformance and the deterministic
+Profile checks passed. It explicitly reports judgment rules as unassessed and
+has no model dependency. Complete Profile assessment combines that automated
+result with a separate Profile Review; the CLI does not claim complete Profile
+conformance on its own.
+
 Normative force and assessment mode are independent. A rule is a `MUST`, `MUST
 NOT`, `SHOULD`, or `SHOULD NOT` because of its policy force, not because code can
 evaluate it. Deterministic rules are assessed by the CLI; judgment rules are
@@ -53,6 +59,12 @@ Profile Review workflows. It teaches only the Concepta delta and explicitly
 delegates OKF mechanics to the OKF documentation and tools. Other engineering
 skills delegate to it rather than copying its rules, because copied upstream or
 Profile instructions can drift.
+
+The normative Profile states bundle rules without naming their implementation.
+The implementation guide carries an exhaustive coverage matrix mapping every
+normative clause to deterministic CLI validation or contextual Profile Review,
+and the skill implements the review side of that mapping. Assessment mode is
+therefore explicit without making tool architecture part of bundle conformance.
 
 A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in

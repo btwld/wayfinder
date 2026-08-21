@@ -35,10 +35,10 @@ The judgment that an OKF-conformant Profiled Bundle satisfies every `MUST` and
 `MUST NOT` in its declared Concepta OKF Profile release, regardless of assessment mode.
 _Avoid_: OKF conformance, policy acceptance
 
-**Profile Validation**:
-The composed judgment that succeeds only when a Profiled Bundle is both
-OKF-conformant and Profile-conformant.
-_Avoid_: OKF validation
+**Automated Profile Validation**:
+The model-independent CLI operation that reports OKF conformance and evaluates
+the Profile's Deterministic Rules while explicitly leaving Judgment Rules unassessed.
+_Avoid_: Complete Profile Assessment, Profile Review
 
 **Deterministic Rule**:
 A Profile rule whose satisfaction can be determined reliably from the bundle
@@ -53,4 +53,14 @@ _Avoid_: Deterministic Rule, automatic rule
 **Profile Review**:
 A contextual assessment by a human or agent against the Profile's Judgment
 Rules. It is distinct from deterministic validation.
-_Avoid_: Profile Validation, deterministic finding
+_Avoid_: Automated Profile Validation, deterministic finding
+
+**Complete Profile Assessment**:
+The combined evidence from Automated Profile Validation and Profile Review used
+to assess all requirements of a Profiled Bundle.
+_Avoid_: CLI result, OKF conformance
+
+**Profile Toolchain**:
+The validator, skill, and guides that apply the Concepta OKF Profile through
+deterministic validation and contextual review.
+_Avoid_: Concepta OKF Profile, OKF toolkit
