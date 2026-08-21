@@ -169,6 +169,25 @@ not reinterpret or enrich it. The Profile skill authors the section through a
 generic OKF concept update rather than depending on `link-concepts`, whose
 producer-defined `sources` representation is different from this convention.
 
+Concept paths use readable lowercase kebab-case and exclude mutable metadata
+such as status, owner, priority, and Profile version. An identifier already
+cited outside the bundle may lead a readable slug and must not be renumbered.
+Dates may appear whenever chronology is part of the subject's stable identity;
+they must not encode mere creation time, freshness, workflow state, or an
+editable version. Automated validation checks the mechanical path shape while
+Profile Review assesses identity and date meaning.
+
+A move repairs known inbound links, regenerates affected indexes, and records
+the event in the authored root log. A path freezes only when a known external
+citation cannot be repaired. The skill performs those coordinated authoring
+steps; the final validator checks the resulting bundle state and reports any
+unresolved internal link as the non-blocking advisory already defined above.
+
+Stable concepts are normally retired with `status: deprecated` and a successor
+relationship when one exists. Draft concepts may be deleted. Hard deletion of a
+stable concept is reserved for security, privacy, legal, secret-removal, or
+genuinely erroneous-content cases and is assessed through Profile Review.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -244,6 +263,8 @@ issue #17.
 - Removing the three-concept area threshold relaxes the Profile. Existing
   conformant bundles require no migration, and smaller existing subject areas
   do not become nonconformant.
+- Broadening date-bearing identities and the exceptional reasons for deleting a
+  stable concept invalidates no existing conformant bundle.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
