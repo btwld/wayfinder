@@ -160,6 +160,15 @@ label as a non-blocking advisory. Its meaning is defined once in a durable
 project Guide and Profile Review checks its use; the first implementation adds
 neither a relationship registry nor a label-provider mechanism.
 
+Profile relationships remain structured Markdown in the optional
+`# Relationships` section. Automated validation checks that each entry has one
+label and one target, and Profile Review assesses its meaning. The ordinary OKF
+graph discovers each target as a body-link edge and remains the only graph
+implementation; its edge contract is intentionally untyped and the Profile does
+not reinterpret or enrich it. The Profile skill authors the section through a
+generic OKF concept update rather than depending on `link-concepts`, whose
+producer-defined `sources` representation is different from this convention.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -229,6 +238,9 @@ issue #17.
   explicit migration when the deterministic projection algorithm is released.
 - Canonical index presentation and automatic formatting are deferred to a
   separate linting phase; the first validator needs only the semantic check.
+- No typed-relationship graph, graph adapter, or upstream OKF request is added
+  now. A concrete consumer that cannot operate on OKF's untyped edges is the
+  trigger to revisit that decision.
 - Removing the three-concept area threshold relaxes the Profile. Existing
   conformant bundles require no migration, and smaller existing subject areas
   do not become nonconformant.
