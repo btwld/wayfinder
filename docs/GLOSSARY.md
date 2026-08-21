@@ -31,8 +31,8 @@ OKF's conformance requirements.
 _Avoid_: Base acceptance
 
 **Profile Conformance**:
-The judgment that an OKF-conformant Profiled Bundle satisfies the enforceable
-requirements of its declared Concepta OKF Profile release.
+The judgment that an OKF-conformant Profiled Bundle satisfies every `MUST` and
+`MUST NOT` in its declared Concepta OKF Profile release, regardless of assessment mode.
 _Avoid_: OKF conformance, policy acceptance
 
 **Profile Validation**:
