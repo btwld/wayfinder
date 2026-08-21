@@ -38,6 +38,29 @@ A Profiled Bundle always contains root `index.md`, `log.md`, `profile.md`, and
 identifier in an OKF actor-valued field. The CLI can determine this condition
 from bundle state; an actor-free bundle need not carry an empty registry.
 
+When present, `actors.md` uses the fixed columns `Actor ID`, `Name`,
+`Organization`, `Side`, `Role`, and `Active`. Automated validation checks the
+table shape and that every actor identifier used by the bundle is represented;
+Profile Review assesses whether the recorded identity, affiliation, role, and
+active period are true in context.
+
+The root `log.md` is authored bundle history, not a projection of current
+concept state. This is consistent with OKF 0.2 §9, which defines logs as
+date-grouped history and does not require them to be derived. Automated
+validation checks its presence and mechanically decidable format and ordering
+rules; Profile Review assesses whether material lifecycle events were recorded.
+Version-control history may corroborate that review but is not the log's source
+of truth.
+
+Indexes are fully derived, discardable navigation. Their membership, grouping,
+ordering, labels, and descriptions must be recoverable deterministically from
+paths, concept metadata, and the type registry. They contain no authored
+directory description or ordering that exists only in an index. A caller may
+therefore regenerate them through generic OKF write operations without a
+Profile-specific write planner. The next Profile release must define the
+projection's inputs and result; the implementation guide may describe tool
+mechanics but cannot change that result.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -101,6 +124,10 @@ issue #17.
   concrete authoring workflow that plain OKF operations cannot support.
 - `profile.md` remains the in-bundle release declaration and ordinary OKF
   concept; it does not become a rule configuration surface.
+- `log.md` must be removed from every definition and example of a derived
+  projection in the next Profile release.
+- Existing authored directory descriptions and ordering in indexes require an
+  explicit migration when the deterministic projection algorithm is released.
 - The first `okfp` interface validates only. Authoring and generic bundle
   mutation are not added to it.
 - `okfp validate` obtains and exposes the closed OKF validation result before
