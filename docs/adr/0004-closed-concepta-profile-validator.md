@@ -142,6 +142,18 @@ context. `stale_after` is similarly evidence-based: the Profile does not prohibi
 it by concept type, and authors use it only when the content has a genuine
 freshness horizon.
 
+Unresolved internal links remain non-blocking advisories. Automated validation
+reports them while preserving OKF's unresolved-edge representation; neither OKF
+nor Profile conformance fails solely because a target is absent. Profile Review
+may still identify an unresolved edge as a concern in its context.
+
+Tracker-owned issues, pull requests, and other execution records stay external
+and must not be mirrored as bundle concepts. Their workflow state remains in the
+tracker, while durable concepts link to them. Whether an artifact is execution
+or durable knowledge is determined by which system owns its lifecycle, and a
+durable specification has exactly one authoritative home. This is a mandatory
+judgment rule assessed by Profile Review.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
