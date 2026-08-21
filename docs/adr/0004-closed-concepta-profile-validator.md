@@ -211,6 +211,26 @@ silent, every mechanism allowed by the pinned OKF release remains allowed and
 is interpreted only by OKF. In particular, the existing Attested Computation
 inventory is removed rather than maintained as a parallel compatibility list.
 
+A source event becomes a concept only when it produces durable knowledge worth
+preserving. Meetings, messages, recordings, and transcripts must not become
+concepts merely because they occurred. This is a mandatory judgment rule
+applied by the authoring skill and Profile Review, never inferred by the CLI.
+
+Promotion and splitting remain recommendations because legitimate boundary
+cases exist. An outcome should become its own concept when it needs independent
+lifecycle, provenance, relationships, reuse, or history; a concept should split
+when its parts need materially different lifecycle or verification. Their
+`SHOULD` force reflects acceptable variation rather than assessment difficulty.
+
+An Interaction Record must not be routine minutes. It is created only when an
+interaction's combined context is itself durable; otherwise authors capture its
+durable outcomes with provenance and leave the source event external.
+
+Type-specific body shapes move to compact authoring guidance in the Profile
+skill. Their headings are not validated and are not bundle-conformance rules.
+Bodies retain OKF's freedom except for the optional machine-readable
+`# Relationships` section defined above.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -288,6 +308,8 @@ issue #17.
   do not become nonconformant.
 - Broadening date-bearing identities and the exceptional reasons for deleting a
   stable concept invalidates no existing conformant bundle.
+- Removing type-specific body templates from Profile assessment relaxes the
+  Profile and requires no migration of existing content.
 - A bundle declaring an older Profile release must update its declaration and
   complete that release's stated migration before the first validator can assess
   Profile conformance. Until then its Profile result is unsupported, not failed.
