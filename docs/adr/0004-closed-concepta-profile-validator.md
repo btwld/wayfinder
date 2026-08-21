@@ -60,6 +60,14 @@ delegates OKF mechanics to the OKF documentation and tools. Other engineering
 skills delegate to it rather than copying its rules, because copied upstream or
 Profile instructions can drift.
 
+An agent may complete Profile Review autonomously when the judgment rules are
+clear and the required context is available. It escalates ambiguous mandatory
+rules, apparent rule conflicts, missing external context, and proposed
+exceptions to a human. The skill emits a standardized Profile Review Report in
+the active interaction or pull request; it does not add a generic review
+certificate to the bundle. Only independently durable decisions or rationale
+belong in bundle content.
+
 The normative Profile states bundle rules without naming their implementation.
 The implementation guide carries an exhaustive coverage matrix mapping every
 normative clause to deterministic CLI validation or contextual Profile Review,
@@ -84,5 +92,7 @@ issue #17.
 - `okfp validate` obtains and exposes the closed OKF validation result before
   applying Concepta checks. Running `okf validate` separately remains useful for
   focused base diagnostics but is not required for a complete Profile gate.
+- CI runs the model-independent automated gate only. It must not claim that
+  judgment rules or complete Profile conformance were assessed.
 - The next Profile release and implementation slices must be reshaped through a
   new design session rather than revived from the superseded issue set.

@@ -55,6 +55,11 @@ A contextual assessment by a human or agent against the Profile's Judgment
 Rules. It is distinct from deterministic validation.
 _Avoid_: Automated Profile Validation, deterministic finding
 
+**Profile Review Report**:
+A structured, non-bundle summary of a Profile Review, suitable for the active
+interaction or pull request. It records reasoning and escalations without becoming knowledge content.
+_Avoid_: Bundle concept, conformance certificate
+
 **Complete Profile Assessment**:
 The combined evidence from Automated Profile Validation and Profile Review used
 to assess all requirements of a Profiled Bundle.
