@@ -28,16 +28,22 @@ one direction over the public `okf` library. `okf` remains independently
 responsible for OKF loading, models, Spec conformance, and generic bundle
 operations; it never knows that the Concepta Profile exists.
 
+Only a bundle conforms to the Profile. Repository adoption choices such as the
+bundle's location, the number of bundles in a repository, installation, and CI
+belong to the implementation guide and setup skills rather than bundle
+conformance.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable enforceable requirements. It exposes the OKF
 and Profile results separately, and its composed validation succeeds only when
 both are conformant. A bundle cannot inject, omit, replace, or parameterize the
 release's rules.
 
-Judgment-heavy conventions remain available to authors and agents through the
-normative Profile, skills, and guides, but the deterministic CLI does not claim
-to prove them. The Profile must distinguish enforceable requirements from
-judgment guidance as its next release is shaped.
+Normative `MUST` and `MUST NOT` requirements are reserved for bundle invariants
+whose satisfaction can be determined reliably. Judgment-heavy conventions use
+`SHOULD` and `SHOULD NOT`; they remain available to authors and agents through
+the Profile, skills, and guides, but do not participate in CLI conformance. The
+deterministic CLI therefore does not claim to prove contextual judgment.
 
 A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in
@@ -52,5 +58,7 @@ issue #17.
   concrete authoring workflow that plain OKF operations cannot support.
 - `profile.md` remains the in-bundle release declaration and ordinary OKF
   concept; it does not become a rule configuration surface.
+- The first `okfp` interface validates only. Authoring and generic bundle
+  mutation are not added to it.
 - The next Profile release and implementation slices must be reshaped through a
   new design session rather than revived from the superseded issue set.

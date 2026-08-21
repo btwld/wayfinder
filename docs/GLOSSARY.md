@@ -41,11 +41,13 @@ OKF-conformant and Profile-conformant.
 _Avoid_: OKF validation
 
 **Enforceable Requirement**:
-A Profile requirement whose satisfaction can be determined reliably from the
-bundle and its declared release.
+A Profile `MUST` or `MUST NOT` whose satisfaction can be determined reliably
+from the bundle and its declared release and therefore participates in CLI
+conformance.
 _Avoid_: Heuristic, judgment guidance
 
 **Judgment Guidance**:
-A Profile convention that requires contextual interpretation and is taught or
-reviewed through skills and guides rather than claimed as a deterministic CLI check.
+A Profile `SHOULD` or `SHOULD NOT` that requires contextual interpretation and
+is taught or reviewed by humans and agents through skills and guides rather than
+claimed as a deterministic CLI check.
 _Avoid_: Enforceable Requirement, automatic rule
