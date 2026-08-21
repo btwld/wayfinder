@@ -86,6 +86,24 @@ conformance. The root index covers `log.md`, `profile.md`, `types.md`, optional
 `actors.md`, every other root concept, and every immediate directory; it omits
 only itself. `log.md` belongs to the fixed `Bundle` group.
 
+Every nonempty directory must contain an `index.md`; automated validation can
+assess that rule completely. The Profile continues to define four optional,
+lazily created directory names: `architecture/` and `ways-of-working/` are
+ordinary conventional subject areas, while `interactions/` and `references/`
+retain their special time- and source-oriented organization.
+
+Project-named directories must name the subject their contents share rather
+than a document type. This remains a mandatory Profile rule even though its
+full meaning requires judgment. Automated validation checks only mechanically
+provable collisions with registered type names; Profile Review assesses whether
+the claimed shared subject and each concept's placement are truthful.
+
+The Profile no longer requires three concepts before an area may exist. A
+numeric threshold cannot establish a shared subject and would force path churn
+when a third concept appears. Authors and agents should not create speculative
+areas, but Profile Review evaluates that guidance from the actual corpus rather
+than from a count.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -155,6 +173,9 @@ issue #17.
   explicit migration when the deterministic projection algorithm is released.
 - Canonical index presentation and automatic formatting are deferred to a
   separate linting phase; the first validator needs only the semantic check.
+- Removing the three-concept area threshold relaxes the Profile. Existing
+  conformant bundles require no migration, and smaller existing subject areas
+  do not become nonconformant.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
