@@ -34,26 +34,25 @@ belong to the implementation guide and setup skills rather than bundle
 conformance.
 
 The validator dispatches by the Concepta release selected in `profile.md` and
-applies that release's immutable enforceable requirements. It exposes the OKF
-and Profile results separately, and its composed validation succeeds only when
-both are conformant. A bundle cannot inject, omit, replace, or parameterize the
-release's rules.
+applies that release's immutable deterministic rules. It exposes the OKF and
+automated Profile results separately. A bundle cannot inject, omit, replace, or
+parameterize the release's rules.
 
 The CLI may also report deterministic `SHOULD` and `SHOULD NOT` advice, but
 advisories do not affect conformance or exit status. The first interface has no
 global `--strict` mode that promotes every recommendation into a requirement.
 
-Normative `MUST` and `MUST NOT` requirements are reserved for bundle invariants
-whose satisfaction can be determined reliably. Judgment-heavy conventions use
-`SHOULD` and `SHOULD NOT`; they remain available to authors and agents through
-the Profile, skills, and guides, but do not participate in CLI conformance. The
-deterministic CLI has no model dependency and does not claim to prove contextual
-judgment. Humans and agents may perform a separate Profile Review whose
-observations do not change either conformance result.
+Normative force and assessment mode are independent. A rule is a `MUST`, `MUST
+NOT`, `SHOULD`, or `SHOULD NOT` because of its policy force, not because code can
+evaluate it. Deterministic rules are assessed by the CLI; judgment rules are
+assessed contextually by humans and agents. The deterministic CLI has no model
+dependency and does not claim to prove contextual judgment.
 
-Profile skills teach only the Concepta delta and explicitly delegate OKF
-mechanics to the OKF documentation and tools. They must not restate OKF bundle
-operations or semantics, because copied upstream instructions can drift.
+One model-invoked `okf-profile` skill owns both the authoring and post-write
+Profile Review workflows. It teaches only the Concepta delta and explicitly
+delegates OKF mechanics to the OKF documentation and tools. Other engineering
+skills delegate to it rather than copying its rules, because copied upstream or
+Profile instructions can drift.
 
 A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in

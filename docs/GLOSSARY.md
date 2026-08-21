@@ -40,19 +40,17 @@ The composed judgment that succeeds only when a Profiled Bundle is both
 OKF-conformant and Profile-conformant.
 _Avoid_: OKF validation
 
-**Enforceable Requirement**:
-A Profile `MUST` or `MUST NOT` whose satisfaction can be determined reliably
-from the bundle and its declared release and therefore participates in CLI
-conformance.
-_Avoid_: Heuristic, judgment guidance
+**Deterministic Rule**:
+A Profile rule whose satisfaction can be determined reliably from the bundle
+and its declared release. Its normative force is independent of its assessment mode.
+_Avoid_: Judgment Rule, heuristic
 
-**Judgment Guidance**:
-A Profile `SHOULD` or `SHOULD NOT` that requires contextual interpretation and
-is taught or reviewed by humans and agents through skills and guides rather than
-claimed as a deterministic CLI check.
-_Avoid_: Enforceable Requirement, automatic rule
+**Judgment Rule**:
+A Profile rule that requires contextual interpretation by a human or agent. It
+may be a requirement or a recommendation and is not claimed as a CLI check.
+_Avoid_: Deterministic Rule, automatic rule
 
 **Profile Review**:
-A contextual assessment by a human or agent against Judgment Guidance. It may
-recommend corrections but does not change OKF or Profile conformance.
+A contextual assessment by a human or agent against the Profile's Judgment
+Rules. It is distinct from deterministic validation.
 _Avoid_: Profile Validation, deterministic finding
