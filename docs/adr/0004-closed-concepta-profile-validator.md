@@ -116,6 +116,14 @@ trust, or resolution state. Automated validation catches literal duplication
 with machine-readable fields and values; Profile Review catches semantic aliases
 that would create a second source of truth.
 
+Every Concepta concept must carry nonempty `type`, `title`, `description`, and
+`status` fields using their OKF-defined meanings. Automated validation checks
+presence, shape, and closed values; Profile Review assesses whether the title,
+description, and lifecycle state are accurate. `generated` remains recommended:
+its absence produces a non-blocking advisory, and neither a tool nor an agent may
+fabricate provenance to clear it. Other OKF fields are used when their upstream
+meaning applies.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -191,6 +199,9 @@ issue #17.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
+- Concepts missing `title`, `description`, or `status` become nonconformant under
+  the next Profile release and must add truthful values. Missing `generated`
+  remains conformant and gains only an advisory.
 - The first `okfp` interface validates only. Authoring and generic bundle
   mutation are not added to it.
 - `okfp validate` obtains and exposes the closed OKF validation result before
