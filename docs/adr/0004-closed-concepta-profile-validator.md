@@ -124,6 +124,24 @@ its absence produces a non-blocking advisory, and neither a tool nor an agent ma
 fabricate provenance to clear it. Other OKF fields are used when their upstream
 meaning applies.
 
+A concept that materially derives claims from identifiable source material must
+record that material with OKF `sources`. Automated validation checks source
+shape and joins from attribution footnotes; Profile Review assesses whether
+material provenance is missing. Original analysis, guidance, and decisions do
+not invent sources merely to satisfy the rule.
+
+`verified` is recorded only when an actor actually performed the verification
+OKF defines. Its absence is meaningful trust data and produces neither a failure
+nor an advisory. The Profile therefore removes any recommendation that confirmed
+facts should carry a verification event.
+
+`status` describes the document lifecycle using only OKF's meanings. It must not
+encode execution workflow or an assessment of how settled the subject is.
+Automated validation checks its value; Profile Review checks its meaning in
+context. `stale_after` is similarly evidence-based: the Profile does not prohibit
+it by concept type, and authors use it only when the content has a genuine
+freshness horizon.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
@@ -202,6 +220,10 @@ issue #17.
 - Concepts missing `title`, `description`, or `status` become nonconformant under
   the next Profile release and must add truthful values. Missing `generated`
   remains conformant and gains only an advisory.
+- Concepts materially derived from identifiable sources become nonconformant if
+  that provenance is omitted and must add truthful `sources` entries. Removing
+  verification pressure and type-based freshness advice invalidates no existing
+  conformant bundle.
 - The first `okfp` interface validates only. Authoring and generic bundle
   mutation are not added to it.
 - `okfp validate` obtains and exposes the closed OKF validation result before
