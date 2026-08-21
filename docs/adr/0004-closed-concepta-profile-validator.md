@@ -33,6 +33,11 @@ bundle's location, the number of bundles in a repository, installation, and CI
 belong to the implementation guide and setup skills rather than bundle
 conformance.
 
+A Profiled Bundle always contains root `index.md`, `log.md`, `profile.md`, and
+`types.md`. It also contains root `actors.md` whenever any concept uses an actor
+identifier in an OKF actor-valued field. The CLI can determine this condition
+from bundle state; an actor-free bundle need not carry an empty registry.
+
 The validator dispatches by the Concepta release selected in `profile.md` and
 applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
