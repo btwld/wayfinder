@@ -68,6 +68,15 @@ the active interaction or pull request; it does not add a generic review
 certificate to the bundle. Only independently durable decisions or rationale
 belong in bundle content.
 
+The report is concise Markdown. It identifies the Profile release, review
+scope, automated-validation state, reviewed judgment-rule references, and one
+outcome: `PASS`, `CHANGES REQUIRED`, or `NEEDS HUMAN`. It gives detailed prose
+only for concerns, decisions, or uncertainty. Routine review covers changed
+concepts and their directly affected placement, indexes, relationships, and
+dependents; adoption, Profile upgrades, migrations, and structural
+reorganizations review the whole bundle. Automated validation always checks the
+whole bundle.
+
 The normative Profile states bundle rules without naming their implementation.
 The implementation guide carries an exhaustive coverage matrix mapping every
 normative clause to deterministic CLI validation or contextual Profile Review,
