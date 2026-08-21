@@ -43,7 +43,13 @@ Normative `MUST` and `MUST NOT` requirements are reserved for bundle invariants
 whose satisfaction can be determined reliably. Judgment-heavy conventions use
 `SHOULD` and `SHOULD NOT`; they remain available to authors and agents through
 the Profile, skills, and guides, but do not participate in CLI conformance. The
-deterministic CLI therefore does not claim to prove contextual judgment.
+deterministic CLI has no model dependency and does not claim to prove contextual
+judgment. Humans and agents may perform a separate Profile Review whose
+observations do not change either conformance result.
+
+Profile skills teach only the Concepta delta and explicitly delegate OKF
+mechanics to the OKF documentation and tools. They must not restate OKF bundle
+operations or semantics, because copied upstream instructions can drift.
 
 A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in
@@ -60,5 +66,8 @@ issue #17.
   concept; it does not become a rule configuration surface.
 - The first `okfp` interface validates only. Authoring and generic bundle
   mutation are not added to it.
+- `okfp validate` obtains and exposes the closed OKF validation result before
+  applying Concepta checks. Running `okf validate` separately remains useful for
+  focused base diagnostics but is not required for a complete Profile gate.
 - The next Profile release and implementation slices must be reshaped through a
   new design session rather than revived from the superseded issue set.

@@ -51,3 +51,8 @@ A Profile `SHOULD` or `SHOULD NOT` that requires contextual interpretation and
 is taught or reviewed by humans and agents through skills and guides rather than
 claimed as a deterministic CLI check.
 _Avoid_: Enforceable Requirement, automatic rule
+
+**Profile Review**:
+A contextual assessment by a human or agent against Judgment Guidance. It may
+recommend corrections but does not change OKF or Profile conformance.
+_Avoid_: Profile Validation, deterministic finding
