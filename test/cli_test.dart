@@ -347,6 +347,258 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
+  test('validates structure, indexes, logs, and referenced assets', () async {
+    final arguments = <String>[
+      'validate',
+      '--output',
+      'json',
+      _fixture('invalid-structure'),
+    ];
+    final result = await _runProcess(arguments);
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/directory-index-present analyses/index.md',
+        'error concepta-profile/index-semantic-projection index.md',
+        'error concepta-profile/index-semantic-projection references/index.md',
+        'error concepta-profile/log-entry-lead-word log.md',
+      ],
+    );
+    expect(profile['state'], 'FAIL');
+    expect(output['judgment_rules'], <String, Object?>{
+      'state': 'UNASSESSED',
+    });
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('invalid-structure')],
+    );
+    expect(text.exitCode, 1);
+    expect(text.stdout, contains('concepta-profile/index-semantic-projection'));
+    expect(text.stdout, contains('concepta-profile/log-entry-lead-word'));
+    expect(text.stdout, endsWith('Automated gate: FAIL'));
+  });
+
+  test('preserves OKF log date and ordering failures without Profile cascades',
+      () async {
+    final result = await _runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        _fixture('invalid-log-okf'),
+      ],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final okf = output['okf']! as Map<String, Object?>;
+    final report = okf['report']! as Map<String, Object?>;
+    expect(
+      (report['diagnostics']! as List<Object?>)
+          .map((value) => (value! as Map<String, Object?>)['code'])
+          .toList(),
+      <String>['invalid_log_date', 'log_not_newest_first'],
+    );
+    expect(output['profile'], <String, Object?>{
+      'release': null,
+      'state': 'BLOCKED BY OKF',
+      'findings': <Object?>[],
+    });
+  });
+
+  test('preserves OKF index-shape failures without Profile cascades', () async {
+    final result = await _runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        _fixture('invalid-index-okf'),
+      ],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final okf = output['okf']! as Map<String, Object?>;
+    final report = okf['report']! as Map<String, Object?>;
+    final codes = (report['diagnostics']! as List<Object?>)
+        .map((value) => (value! as Map<String, Object?>)['code'])
+        .toList();
+    expect(codes, contains('invalid_index_structure'));
+    expect(codes, contains('missing_index_section'));
+    expect(output['profile'], <String, Object?>{
+      'release': null,
+      'state': 'BLOCKED BY OKF',
+      'findings': <Object?>[],
+    });
+  });
+
+  test('accepts presentation-equivalent indexes and contextual boundaries',
+      () async {
+    final result = await _runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        _fixture('structure-boundary'),
+      ],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'PASS');
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'advisory concepta-profile/registered-type-extension types.md',
+        'advisory concepta-profile/concept-area-name-collision topic.md',
+      ],
+    );
+    expect(output['judgment_rules'], <String, Object?>{
+      'state': 'UNASSESSED',
+    });
+    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('structure-boundary')],
+    );
+    expect(text.exitCode, 0);
+    expect(text.stdout, contains('concept-area-name-collision'));
+    expect(text.stdout, endsWith('Automated gate: PASS'));
+  });
+
+  test('checks every semantic index projection dimension independently',
+      () async {
+    final rootIndexCases = <String, String Function(String)>{
+      'membership': (source) => source.replaceFirst(
+          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n',
+          ''),
+      'group identity': (source) =>
+          source.replaceFirst('# Guide', '# Analysis'),
+      'group order': (source) => source.replaceFirst(
+          '# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n\n# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.',
+          '# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.\n\n# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.'),
+      'entry order': (source) => source.replaceFirst(
+          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.',
+          '- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.'),
+      'label': (source) =>
+          source.replaceFirst('[Alpha guide]', '[Wrong label]'),
+      'target': (source) => source.replaceFirst('(alpha.md)', '(wrong.md)'),
+      'description': (source) => source.replaceFirst(
+          'Sorts before the same-type topic entry.',
+          'Changes copied navigation.'),
+      'directory entry': (source) =>
+          source.replaceFirst('- [references](references/)\n', ''),
+    };
+    for (final entry in rootIndexCases.entries) {
+      final bundle = await _copyFixture('structure-boundary');
+      addTearDown(() => bundle.delete(recursive: true));
+      final index = File(p.join(bundle.path, 'index.md'));
+      await index.writeAsString(entry.value(await index.readAsString()));
+
+      final result = await _runProcess(
+        <String>['validate', '--output', 'json', bundle.path],
+      );
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(result.exitCode, 1, reason: entry.key);
+      expect(
+        _findingSummary(profile),
+        contains('error concepta-profile/index-semantic-projection index.md'),
+        reason: entry.key,
+      );
+    }
+
+    for (final path in <String>[
+      'references/index.md',
+      'references/vendor/index.md',
+    ]) {
+      final bundle = await _copyFixture('structure-boundary');
+      addTearDown(() => bundle.delete(recursive: true));
+      final index = File(p.join(bundle.path, path));
+      await index.writeAsString(
+        (await index.readAsString()).replaceFirst('.txt)', '-wrong.txt)'),
+      );
+      if (path == 'references/index.md') {
+        await index.writeAsString(
+          (await index.readAsString())
+              .replaceFirst('(clip.mp4)', '(wrong.mp4)'),
+        );
+      }
+
+      final result = await _runProcess(
+        <String>['validate', '--output', 'json', bundle.path],
+      );
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(result.exitCode, 1, reason: path);
+      expect(
+        _findingSummary(profile),
+        contains('error concepta-profile/index-semantic-projection $path'),
+        reason: path,
+      );
+    }
+  });
+
+  test('requires the root structural files without repository discovery',
+      () async {
+    final result = await _runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        _fixture('missing-structure-root'),
+      ],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/okf-release-binding profile.md',
+        'error concepta-profile/root-structure-files index.md',
+      ],
+    );
+  });
+
+  test('keeps structure finding order independent of file creation order',
+      () async {
+    final source = Directory(_fixture('invalid-structure'));
+    final reversed = await Directory.systemTemp.createTemp('okfp-structure-');
+    addTearDown(() => reversed.delete(recursive: true));
+    final files = await source
+        .list(recursive: true)
+        .where((entity) => entity is File)
+        .cast<File>()
+        .toList();
+    for (final file in files.reversed) {
+      final relative = p.relative(file.path, from: source.path);
+      final destination = File(p.join(reversed.path, relative));
+      await destination.parent.create(recursive: true);
+      await file.copy(destination.path);
+    }
+
+    final original = await _runProcess(
+      <String>['validate', '--output', 'json', source.path],
+    );
+    final reordered = await _runProcess(
+      <String>['validate', '--output', 'json', reversed.path],
+    );
+
+    expect(reordered.exitCode, original.exitCode);
+    expect(reordered.stdout, original.stdout);
+    expect(reordered.stderr, original.stderr);
+  });
+
   test('validates declaration and registry identities and table columns',
       () async {
     final result = await _runProcess(
@@ -485,6 +737,19 @@ List<String> _findingSummary(Map<String, Object?> profile) =>
     }).toList();
 
 String _fixture(String name) => p.join('test', 'fixtures', name);
+
+Future<Directory> _copyFixture(String name) async {
+  final source = Directory(_fixture(name));
+  final destination = await Directory.systemTemp.createTemp('okfp-fixture-');
+  await for (final entity in source.list(recursive: true)) {
+    if (entity is! File) continue;
+    final relative = p.relative(entity.path, from: source.path);
+    final copy = File(p.join(destination.path, relative));
+    await copy.parent.create(recursive: true);
+    await entity.copy(copy.path);
+  }
+  return destination;
+}
 
 Future<_CliResult> _runProcess(List<String> arguments) async {
   final result = await Process.run(
