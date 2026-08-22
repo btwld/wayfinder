@@ -56,11 +56,15 @@ If it is installed, ask exactly one question:
 
 The defaults are two axes — **audience** (`afk`, `hitl`) and **state** (`needs-triage`, `ready`) — each label string equal to its name. On **yes**, write them as-is. Only if the user says no — usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`) — collect the overrides so `triage` applies existing labels instead of creating duplicates.
 
-**Section C — Knowledge bundle.** The Concepta OKF Profile fixes the structural model, so there's nothing to ask — just state it. Durable project knowledge lives as OKF concepts under `knowledge/`: a root `index.md` and `log.md`, a `profile.md` declaring the profile and OKF versions, a `types.md` listing every concept type the bundle uses, an `actors.md` mapping actor IDs to organization and role, and subject directories that appear as knowledge accumulates. The profile names four of them — `architecture/`, `ways-of-working/`, `interactions/`, `references/` — and leaves every other name to the project.
+**Section C — Knowledge bundle.** The Concepta OKF Profile fixes the structural model, so there's nothing to ask — just state it. Durable project knowledge lives as OKF concepts under `knowledge/`: a root `index.md` and `log.md`, a `profile.md` declaring the profile and OKF versions, a `types.md` listing every concept type the bundle uses, an `actors.md` whenever OKF actor-valued fields are used, and subject directories that appear as knowledge accumulates. The profile names four optional lazy directories — `architecture/`, `ways-of-working/`, `interactions/`, `references/` — and leaves every other name to the project.
 
 Report the versions declared in `knowledge/profile.md` when the bundle is already there. Otherwise seed its five root files per the `okf-profile` skill ([SEEDING.md](../../okf-profile/SEEDING.md)).
 
-**Create no directories here.** Under the profile a directory names a *subject*, and a subject earns one only once three concepts share it — so the tree cannot be laid out before the knowledge exists. The knowledge-writing skills put their first concepts at the bundle root and move them into an area when one is earned. A repo whose `knowledge/` is five files is correctly set up, not half-finished.
+**Create no directories here.** Under the profile a directory names a *subject*,
+and generic setup has no corpus from which to judge one. A genuine subject area
+may later be any size; the knowledge-writing skills make that contextual placement
+decision. A repo whose `knowledge/` is only its root files is correctly set up,
+not half-finished.
 
 ### 3. Confirm and edit
 

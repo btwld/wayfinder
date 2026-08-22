@@ -5,6 +5,10 @@ description: Whether the current renderer can place annotations without exceedin
 status: draft
 generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
 stale_after: 2026-10-31
+sources:
+  - id: layout-sample
+    resource: /references/annotation-layout.json
+    title: Exported annotation layout sample
 ---
 
 # Question
@@ -15,7 +19,7 @@ generation budget?
 # Findings
 
 The renderer exposes absolute placement; annotation geometry is already
-persisted alongside review state.
+persisted alongside review state.[^layout-sample]
 
 # Recommendation
 
@@ -23,4 +27,6 @@ Proceed. Budget headroom is adequate at current document sizes.
 
 # Relationships
 
-- Refines: [Include PDF annotations in the export](/include-pdf-annotations.md)
+- Refines: [Include PDF annotations in the export](/reporting/include-pdf-annotations.md)
+
+[^layout-sample]: Exported annotation layout sample

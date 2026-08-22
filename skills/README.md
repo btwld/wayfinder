@@ -21,7 +21,7 @@ install path, and nothing depends on a particular prefix.
 | Skill | Invocation | What it does |
 | --- | --- | --- |
 | `okf-profile` | model-invoked | The profile as a skill: bundle structure and the area rules, the type vocabulary and the two registries, baseline frontmatter and the actor convention, path IDs and lifecycle, relationship labels, the index-and-log write, `references/` mirroring rules, and the execution-stays-external boundary. A closing `## Beyond this profile` section states that profile silence defers to OKF 0.2 rather than licensing a local convention, and names the families to look up. [SEEDING.md](okf-profile/SEEDING.md) holds the five root files for a new bundle; [OKF-0.2.md](okf-profile/OKF-0.2.md) is the pinned upstream spec. |
-| `setup-repo` | user-invoked | Configures a repository for the other skills: issue tracker, triage labels, and the knowledge bundle. Seeds the five root files and creates **no** directories — a subject earns one only at three concepts, and even the profile-fixed names (`architecture/` and friends) are created lazily, on their first concept — so the tree cannot be laid out in advance. Writes the `AGENTS.md` blocks that point agents into the bundle and tell them to follow the profile skill before writing under `knowledge/`. |
+| `setup-repo` | user-invoked | Configures a repository for the other skills: issue tracker, triage labels, and the knowledge bundle. The literal templates seed five root files because they use actor metadata; `actors.md` is structurally conditional. It creates **no** directories because generic setup has no corpus from which to judge a subject. Writes the `AGENTS.md` blocks that point agents into the bundle and tell them to follow the profile skill before writing under `knowledge/`. |
 | `domain-modeling` | model-invoked | Writes concepts: one Glossary Definition per term, ADRs into `architecture/`, and a Decision route for durable non-architectural decisions. Terms are filed with their subject, or at the bundle root until a subject earns an area. Bounded contexts are areas, so a word meaning two things needs no filename suffix — `ordering/order.md` and `billing/order.md`. Mechanics delegate to the profile skill. |
 | `to-spec` | user-invoked | Turns a shaped problem into a specification. Discovery reads the area covering the subject, plus `architecture/` for system-wide structure; the published spec links back to the concept it realizes with `Specified by`. |
 | `to-tickets` | user-invoked | Slices a spec into tickets, and links the breakdown to its motivating concept. A ticket chasing an open question takes `Tracked by`, not `Specified by`. |
@@ -40,8 +40,8 @@ conforming instead of merely plausible.
 It matters more under a subject-named tree than it would under a kind-named one. A kind-named
 tree is self-documenting: an agent can infer that a Decision goes in `decisions/` without
 reading anything. A subject-named tree cannot be inferred, so an agent that skips this skill
-will invent a directory. The three-concept gate, the ban on kind-named directories, and "agents
-file, humans create" only work if they are read.
+will invent a directory. Subject-based placement and the contextual prohibition on
+speculative structure only work if they are read.
 
 It is also the single source of truth for concept mechanics: every other skill delegates
 write mechanics to it. Where a skill restates structure so it can stand alone — the bundle

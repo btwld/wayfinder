@@ -8,10 +8,10 @@ run the verifier against it:
 cd examples && python3 ../tools/verify_knowledge_bundle.py --strict .
 ```
 
-**This is not this repository's bundle.** A repository owns exactly one bundle, rooted at
-`knowledge/` (profile §3). This one is illustrative material that happens to be shaped like a
-bundle, and it lives under `examples/` so it can never be mistaken for the standard's own
-durable knowledge.
+**This is not this repository's adopted bundle.** Profile conformance does not
+fix repository location or bundle count; Concepta adoption places its working
+bundle at `knowledge/`. This illustrative bundle lives under `examples/` so it
+cannot be mistaken for the standard's own durable knowledge.
 
 ## The story it tells
 
@@ -25,11 +25,14 @@ knowledge/
   profile.md                          # Profile and OKF versions
   types.md                            # Every type in use, including the one added
   actors.md                           # Three actors: a person, an agent, a process
-  include-pdf-annotations.md          # Request
-  pdf-export-feasibility.md           # Analysis
+  reporting/
+    index.md                          # Generated semantic navigation
+    include-pdf-annotations.md        # Request
+    pdf-export-feasibility.md         # Analysis
   references/
     index.md
     2026-07-30-reporting-demo-transcript.md   # Mirrored, immutable
+    annotation-layout.json                    # Referenced non-Markdown asset
 ```
 
 What to look for:
@@ -45,6 +48,9 @@ What to look for:
 - **A mirror is not knowledge.** The transcript *preserves* an interaction; a concept
   *interprets* one. It is mirrored only because the recording expires — pull-based, never
   because a meeting occurred (§12).
+- **Assets stay assets.** The layout sample is referenced through `sources`, has no
+  concept frontmatter, and appears under the `Assets` index group with a path-derived
+  label and no invented description (§9, §12).
 - **`types.md` catches invention.** `Meeting Transcript` is not in the default vocabulary, so
   it needed a row. That is the mechanism that stops a typo'd type from passing as a new kind of
   thing (§5.2).
@@ -52,21 +58,18 @@ What to look for:
   and the verifier reports it as information, never as a finding — the only way to clear such a
   report would be to record a verification that did not happen (§6.2, §14.1).
 
-## Why there are no subject directories
+## Why there is a small subject directory
 
-This is the part most readers expect to find and shouldn't. The two subject concepts — the
-request and the analysis, as distinct from the root registries the verifier also counts —
-share a subject, reporting, and an area is earned at **three** (§3.1 rule 3). Two is not three, so they sit at
-the bundle root, and there is no `reporting/`.
+The request and analysis share the reporting subject, so both live in `reporting/`.
+Two concepts are enough when the subject is genuine: a count cannot prove or
+disprove the placement, and waiting for a third would create avoidable path churn.
 
 There is no `requests/` or `analyses/` either, and there never will be: those name *kinds*, and
 kind is carried by `type`. Reading every request as a set is an index filtered by type, not a
 directory (§13).
 
-When a third reporting concept arrives, `reporting/` is created and all three move into it in
-one logged operation — inbound links repointed, indexes regenerated, a `**Move**` entry each
-(§8.2, §10). Their `status` is irrelevant to that; what freezes a path is citation from outside
-the bundle, not review state.
-
-A set cannot be named before it is observed. That is the whole argument for waiting, and this
-bundle is what waiting looks like.
+The directory was not seeded speculatively: the two durable concepts provide the
+corpus from which the subject was observed. Its index groups concepts under exact
+registered types in registry order, while the root index derives the directory
+label from `reporting/` and supplies no authored description. The authored log is
+history, not another generated projection.

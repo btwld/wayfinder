@@ -17,9 +17,11 @@ immutable text is
 The canonical profile and implementation guide currently hold the **unpublished
 2026.2 integration draft** for issues #22 through #25. They are not a
 distribution surface and MUST NOT be presented as the current release until
-issue #19 verifies and publishes the complete release atomically. Skills,
-seeding material, examples, and the legacy verifier continue to describe 2026.1
-until that integration gate passes.
+issue #19 verifies and publishes the complete release atomically. Changes to
+skills, seeding material, examples, and compatibility evidence on the stacked
+integration branches remain unpublished draft material until that gate passes;
+the legacy verifier remains deprecated and is removed only when its replacement
+assumes the CI gate.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
@@ -90,10 +92,12 @@ it proposes, and writes only after you confirm. It configures three things —
 - **Knowledge bundle** — seeds the five root files of `knowledge/`, and writes the `AGENTS.md`
   blocks that point agents into it
 
-**It creates no directories under `knowledge/`, and that is correct.** A directory names a
-*subject*, and a subject earns one only once three concepts share it (profile §3.1). A
-repository whose `knowledge/` is five files is fully set up, not half-finished — the tree
-grows out of what the project actually learns rather than a guess made on day one.
+**It creates no directories under `knowledge/`, and that is correct.** A directory
+names a *subject*, and generic setup has no corpus from which to judge one (profile
+§3.1). A repository whose `knowledge/` is only its root files is fully set up, not
+half-finished — the tree grows out of what the project actually learns rather than
+a guess made on day one. A genuine subject area may be small; no numeric threshold
+decides it.
 
 ### 3. Work the flow
 
@@ -133,10 +137,10 @@ competing standard, which the profile's §1.2 forbids.
 
 [`examples/knowledge/`](examples/knowledge/) is a complete bundle, small enough to read in one
 sitting, showing the profile's central separations: a source event produces durable knowledge,
-which links to an execution record, with indexes and a log as projections.
+which links to an execution record, with generated indexes and an authored log.
 
-It has no subject areas, and that is the lesson rather than an omission — two concepts share a
-subject, and an area is earned at three.
+It includes a two-concept subject area to show that truthful placement, not a
+numeric threshold, determines structure.
 
 ## Reading order
 
@@ -175,7 +179,7 @@ profile, which wins over the implementation guide.
 Two normative documents, and the difference is *what conforms to each*:
 
 - The **profile** is normative on **bundles**. A bundle either conforms or it does not.
-  "An area is earned at three concepts" belongs here.
+  "A project directory MUST name the subject its concepts genuinely share" belongs here.
 - The **implementation guide** is normative on **implementations** — tools, adoptions,
   migrations. "A generator MUST be idempotent" constrains a program, never a bundle, which is
   why it could not have been written in the profile.
@@ -187,7 +191,8 @@ the bundle, or someone acting on the bundle?
 
 Two pieces are specified and unimplemented:
 
-- **The index generator** (guide §3). The profile tightens OKF §8's verbatim-description SHOULD
-  into a MUST, which past a few dozen concepts is affordable only with generation. Until it
-  exists, indexes are hand-maintained and the verifier catches drift (guide §3.4).
+- **The index generator** (guide §3). The profile defines deterministic semantic
+  membership, grouping, ordering, labels, links, and descriptions. Until a
+  generator exists, indexes are hand-maintained and validation catches drift
+  (guide §3.4).
 - **Stable finding IDs** (guide §4.2).
