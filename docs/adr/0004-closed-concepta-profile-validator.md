@@ -278,6 +278,27 @@ applies that release's immutable deterministic rules. It exposes the OKF and
 automated Profile results separately. A bundle cannot inject, omit, replace, or
 parameterize the release's rules.
 
+The first command surface is `okfp validate <bundle> [--output text|json]`.
+The bundle path is required. There is no `--profile`, `--strict`, or equivalent
+caller-selected policy option; the release comes only from the bundle's
+`profile.md`, and advisories never change the exit status.
+
+Exit code `0` means both OKF and deterministic Profile checks passed. Exit code
+`1` means either set of checks failed. Exit code `2` means the invocation could
+not assess the declared Profile release, including usage, I/O, and unsupported
+release outcomes; unsupported is never described as nonconformance.
+
+Text and JSON expose four explicit states: OKF is `PASS` or `FAIL`;
+deterministic Profile validation is `PASS`, `FAIL`, or `UNSUPPORTED`; judgment
+rules are `UNASSESSED`; and the automated gate is `PASS`, `FAIL`, or
+`UNSUPPORTED`. The OKF Report is preserved exactly and Profile findings cannot
+reclassify it.
+
+Each deterministic Profile finding has a stable semantic identifier in the
+`concepta-profile/<rule-slug>` namespace and also names the Profile release and
+normative rule reference. Identifiers do not depend on section numbering or
+implementation class names.
+
 The CLI may also report deterministic `SHOULD` and `SHOULD NOT` advice, but
 advisories do not affect conformance or exit status. The first interface has no
 global `--strict` mode that promotes every recommendation into a requirement.
