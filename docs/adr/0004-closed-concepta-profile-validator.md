@@ -289,10 +289,22 @@ not assess the declared Profile release, including usage, I/O, and unsupported
 release outcomes; unsupported is never described as nonconformance.
 
 Text and JSON expose four explicit states: OKF is `PASS` or `FAIL`;
-deterministic Profile validation is `PASS`, `FAIL`, or `UNSUPPORTED`; judgment
-rules are `UNASSESSED`; and the automated gate is `PASS`, `FAIL`, or
-`UNSUPPORTED`. The OKF Report is preserved exactly and Profile findings cannot
-reclassify it.
+deterministic Profile validation is `PASS`, `FAIL`, `UNSUPPORTED`, or `BLOCKED
+BY OKF`; judgment rules are `UNASSESSED`; and the automated gate is `PASS`,
+`FAIL`, or `UNSUPPORTED`. The OKF Report is preserved exactly and Profile
+findings cannot reclassify it.
+
+`okfp` loads and validates through the public `okf` Dart library exactly once;
+it does not spawn the `okf` executable or reproduce OKF parsing, models,
+findings, graph behavior, or filesystem rules. When OKF fails, deterministic
+Profile validation stops with `BLOCKED BY OKF`, emits no cascading Profile
+findings from the partial bundle, and the automated gate exits `1`.
+
+Validation inspects exactly the bundle directory supplied by the caller. It
+does not walk upward for `knowledge/` or assume any repository layout. A single
+`okfp validate <bundle>` invocation is the complete automated CI gate because it
+already includes and exposes OKF validation; a separate `okf validate` remains
+optional for focused base diagnostics.
 
 Each deterministic Profile finding has a stable semantic identifier in the
 `concepta-profile/<rule-slug>` namespace and also names the Profile release and
