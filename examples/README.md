@@ -1,12 +1,16 @@
 # Examples
 
 [`knowledge/`](knowledge/) is a complete, conformant bundle you can read end to end in a few
-minutes. It is the worked example from the profile's Appendix A, kept as real files so you can
-run the verifier against it:
+minutes. It is the worked example from the profile's Appendix A, kept as real files.
+The deprecated Python verifier remains useful only as a transition smoke test:
 
 ```bash
 cd examples && python3 ../tools/verify_knowledge_bundle.py --strict .
 ```
+
+That command is not the Profile 2026.2 validator or a complete conformance
+assessment. The replacement `okfp validate <bundle>` gate lands in #20; contextual
+rules always require the Profile Review defined by the canonical skill.
 
 **This is not this repository's adopted bundle.** Profile conformance does not
 fix repository location or bundle count; Concepta adoption places its working

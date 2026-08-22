@@ -63,9 +63,6 @@ OKF is authoritative: when the profile and OKF differ, OKF wins.
 and the OKF version it binds to. Their **formats** differ so they can never be
 confused: the profile uses `<year>.<serial>` (`2026.2`), OKF uses
 `<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other.
-This seeding text belongs to the unpublished integration draft and is not a
-published distribution surface until issue #19 completes the release.
-
 ## `knowledge/types.md`
 
 Seed all fourteen standard types in the canonical order below, including unused

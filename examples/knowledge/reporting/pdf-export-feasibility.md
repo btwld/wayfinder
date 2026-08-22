@@ -4,7 +4,7 @@ title: PDF export feasibility for annotations
 description: Whether the current renderer can place annotations without exceeding the generation budget.
 status: draft
 generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
-stale_after: 2026-10-31
+stale_after: 2026-11-01
 sources:
   - id: layout-sample
     resource: /references/annotation-layout.json
@@ -14,7 +14,8 @@ sources:
 # Question
 
 Can annotations be positioned in the exported PDF within the existing
-generation budget?
+generation budget? This analysis applies to the current renderer contract
+through 31 October 2026; the contract changes on 1 November.
 
 # Findings
 

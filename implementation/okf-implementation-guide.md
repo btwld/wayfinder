@@ -1,15 +1,9 @@
 # Concepta OKF Profile — Implementation Guide
 
-**Version 2026.2** — binds the unpublished **Concepta OKF Profile 2026.2**,
-which profiles **OKF 0.2 exactly**
+**Version 2026.2** — binds **Concepta OKF Profile 2026.2**, which profiles
+**OKF 0.2 exactly**
 
-Status: Integration draft — unpublished
-
-This guide is the implementation integration surface for issues #22 through
-#25. It MUST NOT be published as the current guide until issue #19 verifies it
-against the completed Profile, compatibility review, coverage matrix, skill,
-guidance, and examples. The preserved 2026.1 Profile remains the release that
-current distribution surfaces implement.
+Status: Proposed
 
 ---
 
@@ -239,6 +233,11 @@ evidence for freshness, and semantic tag aliases to Profile Review. A registered
 project-specific type and missing `generated` produce advisories; missing
 `verified` produces no finding.
 
+A concept beside an area of the same name produces only the non-blocking
+placement advisory named by Profile §14.1. It MUST NOT change Profile
+conformance, the automated gate, or exit status; Profile Review decides whether
+the concept should move into the area.
+
 For external boundaries, validation MUST check the one-label/one-target
 Relationships shape as a deterministic rule. It MUST report a non-bundle-relative
 internal target, an additional relationship label, and an unresolved internal target
@@ -302,8 +301,8 @@ Profile 2026.2 has two non-normative release artifacts with different jobs:
 
 The compatibility review MUST NOT stand in for implementation coverage, and the
 coverage matrix MUST NOT imply that a rule is compatible merely because an
-assessment exists. Issue #19 MUST NOT publish the release until both artifacts
-account for every normative rule.
+assessment exists. Issue #19 verified that both artifacts account for every
+normative rule before publishing the release.
 
 ---
 
@@ -451,8 +450,8 @@ stated here:
 
 - **The agent skill must reach every environment that writes to a bundle.** A subject-named
   tree is not self-inferrable: an agent that has never read the profile skill invents a
-  kind-named directory, and that is a knowledge defect a validator reports only as an
-  advisory about an area name. Skill distribution is what makes conformance achievable
+  kind-named directory, and only contextual Profile Review can establish that placement
+  defect. Skill distribution is what makes conformance achievable
   rather than merely checkable.
 - **The tools must be pinned per repository and dispatch on the declared release** (§4.4),
   so repositories on different profile releases can share one implementation.
@@ -488,7 +487,7 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 
 ## 9. Change record
 
-**2026.2 — integration draft, unpublished.** Establishes the closed validation
+**2026.2.** Establishes the closed validation
 result model, release dispatch, and separate compatibility and coverage evidence
 for the Profile 2026.2 integration. The driver was implementation work that
 could not distinguish an independent OKF result, a deterministic Profile result,
@@ -519,11 +518,10 @@ enriched ordinary OKF edges, and either mirrored confidential heavy sources
 indiscriminately or weakened their OKF provenance when leaving them external.
 
 An implementation conformant to guide 2026.1 does not automatically conform to
-this draft. To migrate after Profile 2026.2 is published, it MUST adopt the
+this release. To migrate, it MUST adopt the
 explicit command, result, exit, and unsupported-release contract in §4 and the
 structural obligations in §§2–3 and the external-boundary validation and migration
-obligations in §§4–5. Until then, the
-2026.1 implementation remains the supported surface.
+obligations in §§4–5.
 
 **2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index
 generator contract (§3), the validation process contract (§4), and the migration method

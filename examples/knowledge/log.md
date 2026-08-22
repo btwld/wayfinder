@@ -1,6 +1,8 @@
 # Knowledge Log
 
 ## 2026-07-31
+* **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
+* **Area created**: Established `ways-of-working/` for durable project conventions.
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
 * **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).

@@ -1,6 +1,6 @@
 # Skills
 
-The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.1):
+The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.2):
 the profile itself as a skill ([`okf-profile/`](okf-profile/)), plus the engineering skills
 that read from and write into a knowledge bundle ([`engineering/`](engineering/)). The split
 mirrors the roles: `okf-profile` is the standard's own skill; everything under `engineering/`
@@ -20,7 +20,7 @@ install path, and nothing depends on a particular prefix.
 
 | Skill | Invocation | What it does |
 | --- | --- | --- |
-| `okf-profile` | model-invoked | The profile as a skill: bundle structure and the area rules, the type vocabulary and the two registries, baseline frontmatter and the actor convention, path IDs and lifecycle, relationship labels, the index-and-log write, `references/` mirroring rules, and the execution-stays-external boundary. A closing `## Beyond this profile` section states that profile silence defers to OKF 0.2 rather than licensing a local convention, and names the families to look up. [SEEDING.md](okf-profile/SEEDING.md) holds the five root files for a new bundle; [OKF-0.2.md](okf-profile/OKF-0.2.md) is the pinned upstream spec. |
+| `okf-profile` | model-invoked | The Profile's Concepta-only authoring delta and contextual Profile Review workflow. It emits the standard compact Profile Review Report and delegates all upstream mechanics and meaning to pinned OKF 0.2. [SEEDING.md](okf-profile/SEEDING.md) holds the five root files for a new bundle; [OKF-0.2.md](okf-profile/OKF-0.2.md) is the pinned upstream spec. |
 | `setup-repo` | user-invoked | Configures a repository for the other skills: issue tracker, triage labels, and the knowledge bundle. The literal templates seed five root files because they use actor metadata; `actors.md` is structurally conditional. It creates **no** directories because generic setup has no corpus from which to judge a subject. Writes the `AGENTS.md` blocks that point agents into the bundle and tell them to follow the profile skill before writing under `knowledge/`. |
 | `domain-modeling` | model-invoked | Writes concepts: one Glossary Definition per term, ADRs into `architecture/`, and a Decision route for durable non-architectural decisions. Terms are filed with their subject, or at the bundle root until a subject earns an area. Bounded contexts are areas, so a word meaning two things needs no filename suffix — `ordering/order.md` and `billing/order.md`. Mechanics delegate to the profile skill. |
 | `to-spec` | user-invoked | Turns a shaped problem into a specification. Discovery reads the area covering the subject, plus `architecture/` for system-wide structure; the published spec links back to the concept it realizes with `Specified by`. |
@@ -89,11 +89,11 @@ version format became `<year>.<serial>`. Five skills changed: `okf-profile`,
 `setup-repo` (its `AGENTS.md` template carried the old specification sentence verbatim, so every
 repository it seeded inherited the defect), `to-spec`, `to-tickets`, and `domain-modeling`.
 
-**2026.2 integration draft** — relationships remain ordinary untyped OKF edges,
+**2026.2** — relationships remain ordinary untyped OKF edges,
 including unresolved targets; external citations freeze a path only when they cannot
 be repaired; stable concepts normally deprecate; and mirroring requires a cited
 source at genuine availability risk whose material is suitable for repository
-visibility. The canonical `okf-profile` skill carries these unpublished authoring and
+visibility. The canonical `okf-profile` skill carries these authoring and
 Profile Review boundaries while downstream engineering skills continue to delegate
 the mechanics.
 

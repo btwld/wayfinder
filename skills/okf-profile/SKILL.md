@@ -7,6 +7,15 @@ description: Read and write the knowledge bundle at knowledge/ per the Concepta 
 
 The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the Concepta OKF Profile — versions declared in `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type, no frontmatter field, and no metadata semantics of its own. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/3fcbb9f828c2f23d109c855ee403c3a4c81f3a96/okf/SPEC.md), pinned to the 0.2 commit and vendored at [OKF-0.2.md](./OKF-0.2.md).
 
+Before applying any rule below, read the first fenced `yaml` block in
+`knowledge/profile.md`. This skill implements only `concepta_profile: "2026.2"`
+with `okf_version: "0.2"`. If the declaration differs, do not write, reassess,
+or silently migrate the bundle under 2026.2. Report the declared release as
+unsupported by this skill and ask for the matching historical skill or an
+explicit whole-bundle migration. Generic OKF reading remains available.
+The declaration is only a release selector: never turn `profile.md` into a
+standalone definition, extension registry, second schema, or OKF override.
+
 **Where this skill is silent, OKF 0.2 governs.** Silence means the upstream spec already settles the point, so read it and follow it — never invent a Concepta convention to fill a gap. See [Beyond this profile](#beyond-this-profile) for what that covers in practice. Within what the profile *does* specify, concepts take these shapes and never invented ones.
 
 ## Bundle structure
@@ -17,6 +26,9 @@ root. Add `actors.md` whenever `generated.by`, `verified[].by`, or
 uses exactly `Type | Intended content`; `actors.md` uses exactly `Actor ID | Name
 | Organization | Side | Role | Active`. Both are ordinary body tables with no
 custom frontmatter or graph meaning.
+
+A bundle is one distribution unit and never contains a nested independently
+distributed bundle.
 
 ```text
 knowledge/
@@ -97,6 +109,7 @@ Project-specific types are allowed and must be registered before use. A register
 - **`Business Rule` is formalism-neutral.** One standing rule per concept. Structure them with SBVR or any other notation the domain suits; the type commits to one-rule-per-concept, not to a notation.
 - **`Architecture Decision Record` versus `Decision`:** use the ADR type when the decision shapes the software's structure and an engineer deciding how to build would read it; `Decision` for every other durable decision — process, commercial, scope, governance. When both fit, prefer `Decision`.
 - **A `Business Rule` is not a `Decision`.** A rule describes how the business already works; a decision records a choice with alternatives.
+- When a Decision selects a Business Rule, the rule should link outward to that Decision with `Depends on`.
 - **A `Question` carries no state in its type or its path.** Whether it is still open is read from inbound relationships: `Resolves` means closed, `Partially resolves` means narrowed, neither means open. A resolved question stays `stable` — how understanding arrived at an answer is knowledge in its own right.
 - **Splitting a concept:** the Profile recommends splitting when parts would carry materially different verification or lifecycle — frontmatter applies to the whole concept, and averaging trust across it is lossy. Mixed *provenance* is fine because footnotes handle it; mixed *verification* is the signal to consider a split. Size alone is not.
 
@@ -129,7 +142,6 @@ status: draft | stable | deprecated
 ```
 
 - Add `generated: { by: <actor>, at: <ISO 8601 datetime> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory.
-- **Actor convention**: `<producer>/<version>` for agents (e.g. `claude-code/fable-5`), `human:<id>` for people, `process:<id>` for automation.
 - **Status** is knowledge lifecycle only — `draft`, `stable`, `deprecated`. Workflow states (accepted, blocked, in progress, done) belong to the issue tracker.
 - Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
 - **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.
@@ -137,33 +149,14 @@ status: draft | stable | deprecated
 
 ## Provenance and trust
 
-OKF §5 defines these fields and their meanings. When a claim materially derives from identifiable source material, record that material with `sources`; original analysis, guidance, and decisions do not invent sources just to satisfy the rule. Profile Review judges whether material provenance is missing, while tools check only present source structure and footnote joins. Never invent a maturity, confidence, or credibility field.
+Read OKF §5 before writing provenance or trust fields; it owns their syntax and
+meaning. The Concepta delta is narrower:
 
-```yaml
-sources:
-  - id: demo-0730                                        # needed when the body cites this source
-    resource: /references/2026-07-30-demo-transcript.md  # REQUIRED: URL, bundle path, or scope descriptor
-    title: Reporting demo transcript, 30 July 2026
-    author: process:meeting-transcription                # who produced the source — an authority signal
-    last_modified: 2026-07-30                            # recency of the source itself
-verified:
-  - { by: human:chris, at: 2026-07-31T09:00:00Z }
-  - { by: process:finance-nightly, at: 2026-08-01T02:00:00Z }
-```
-
-- **`generated` vs `verified`**: `generated` records who *wrote* the current content; `verified` records who *confirmed* it against its sources or `resource`. Write a verification event only when that confirmation genuinely occurred, never because content sounds factual, was reviewed editorially, migrated, or needs to pass a check.
-- **`verified` is a list** of independent confirmation events, so a human sign-off and a nightly process can both appear. A bare `{ by, at }` mapping is a one-element list. "How recently" is the latest `at`.
-- **Trust tiers are derived, not stored** (OKF §5.3): no `verified` ⇒ *unverified*; non-`human:` actors only ⇒ *machine-confirmed*; any `human:<id>` ⇒ *human-reviewed*. So "this is not signed off by X" is expressed by the **absence** of a `verified` entry from X — write one only when someone genuinely confirmed the content, never as a migration formality.
+- When a claim materially derives from identifiable source material, record that material with OKF `sources`; original analysis, guidance, and decisions do not invent sources just to satisfy the rule. Profile Review judges whether material provenance is missing, while tools check only present source structure and attribution joins.
+- Write `generated` or `verified` only when the upstream event genuinely occurred. Editorial review, migration, or a desire to clear a check is not generation or verification.
 - **Absence of `verified` is a signal, not a defect.** A concept deliberately recording unconfirmed material is *correctly* unverified. Never add a verification event to satisfy a convention, a checklist, or a linter; tooling must not report missing verification as a finding.
 - **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, whose `Side` is exactly `client`, `internal`, `vendor`, `tool`, or `unknown`. Never guess an affiliation: use `unknown`. `Active` is `YYYY-MM-DD – YYYY-MM-DD` (start inclusive, end exclusive), `YYYY-MM-DD –`, or `unknown`; repeated rows for one ID must not overlap. Resolve `generated` and `verified` at their event timestamps, and a source author at `last_modified` when available; otherwise affiliation stays unknown. A third-party authoring agent is `tool`; a process the project itself runs is `internal`. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite when it changes. Registry lookup never changes the actor string, its OKF prefix, or its derived trust tier.
-- **Credibility is inferred, never scored.** OKF records objective per-source signals — `author`, `last_modified`, and `usage_count` over a `usage_window` — and leaves the judgment to the consumer, because a stored score is subjective, unportable, and goes stale. Adding a confidence, maturity, or evidence-tier field is the one thing OKF deliberately refuses.
-- **Per-claim attribution** uses a markdown footnote whose label is a `sources[].id`, so one concept can carry claims of differing provenance:
-
-  ```markdown
-  Reviewer annotations must survive the PDF export.[^demo-0730]
-
-  [^demo-0730]: Reporting demo transcript, 30 July 2026
-  ```
+- Never invent a maturity, confidence, credibility, or evidence-tier frontmatter field. Use the upstream signals and attribution mechanism without restating or extending them.
 
 - **How settled the *subject* is belongs in the body, not in frontmatter and not in `status`.** `status` describes the document — OKF's `draft` means "not yet reviewed". State the assessment beside the reasoning that justifies it, with pointers to what would settle it; define the vocabulary once in a `ways-of-working/` concept. It is **not derivable from links**: `Constrained by` may target a fully settled constraint, broken links are valid, and absence of links is silence rather than evidence. A concept can be first-party, verified, and still describe an unsettled subject.
 - **Freshness needs evidence.** Add `stale_after` only when the content has a real horizon supported by evidence, never as a default for a type or as a conformance placeholder.
@@ -191,6 +184,10 @@ An optional `# Relationships` section gives selected links a stable label — on
 ```
 
 Preferred labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Specified by, Implemented by, Resolves, **Partially resolves**, **Tracked by**, Related to — each read from the containing concept outward. Additional labels are permitted and produce only a non-blocking advisory; a project should define one once in a durable `Guide` so later authors use it consistently. Prefer bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. The ordinary OKF graph exposes every link, labelled or not, as the same untyped body edge; never add frontmatter or graph enrichment for a Profile relationship. `sources` carries provenance; Relationships carry body context — keep them separate.
+
+Any graph view is disposable: rebuild every node, edge, and datum completely
+from bundle artifacts. Registry rows and relationship labels add no Profile-only
+nodes or typed edges, and graph-only state is prohibited.
 
 - **`Part of`** for composition — a constituent, not a narrowing. Two buckets that sum to a balance are `Part of` it, not `Refines` and not peers. One direction only; backlinks are computed.
 - **`Resolves` versus `Partially resolves`:** `Resolves` is genuine closure only. Evidence that moves an open item forward while leaving it open uses `Partially resolves`. Loose `Resolves` makes open items read as settled — the same class of error as an unearned `verified`.
@@ -220,8 +217,48 @@ Mirror an external artifact only when a durable concept cites it through `source
 ## Execution stays external
 
 Tickets, issues, and PRs live in the issue tracker. Concepts link to them (`Specified by`, `Implemented by`) — the bundle never mirrors their state, and a linked record's status lives only in the tracker.
+One concept may link to several execution records or none; cardinality alone is
+never a finding.
 
 **"Specification" is a genre, not a location.** What makes something an execution record is that a tracker owns its state — a status, an assignee, a workflow the bundle does not advance. A spec opened as a GitHub issue is an execution record: link it, never mirror it. A spec the project maintains as durable knowledge — it outlives the work it scoped, later concepts cite it, and its only state is `status` — is a `Specification` concept, filed with its subject like anything else. Every durable specification has exactly one lifecycle owner. Never both: one artifact, one home.
+
+## Profile Review
+
+After a write, run automated validation over the whole bundle when `okfp validate`
+is available, then assess every contextual rule taught in this skill for the
+review scope. In a source checkout, the canonical assignment audit is
+[`../../implementation/profile-coverage-2026.2.md`](../../implementation/profile-coverage-2026.2.md);
+the review map below keeps a copied skill self-contained.
+Routine review covers changed concepts and their directly affected placement,
+indexes, relationships, and dependents. Adoption, release upgrades, migrations,
+and structural reorganizations cover the whole bundle.
+
+Use this compact review map to enumerate the contextual surface: structure and
+placement (§§3, 9–10, 13); durable capture and concept boundaries (§4);
+metadata, type fit, provenance, actor history, trust, lifecycle, and freshness
+(§§5–6); relationship meaning, execution ownership, identity, moves, and
+retirement (§§7–8); and source mirroring (§12). Mark a section not applicable
+only after checking it against the scope.
+
+Complete the review autonomously when the required context is present and every
+judgment is clear. Use `NEEDS HUMAN` for an ambiguous mandatory rule, apparent
+Profile/OKF conflict, missing external context, or proposed exception. Fix clear
+defects and review again. Emit this compact report in the interaction or pull
+request, never as a blanket certificate inside the bundle:
+
+```markdown
+## Profile Review Report
+
+- Profile: 2026.2 (OKF 0.2)
+- Scope: <changed concepts and affected neighbors | whole bundle>
+- Automated: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
+- Reviewed: <applicable Judgment Rule Profile sections, comma-separated>
+- Outcome: <PASS | CHANGES REQUIRED | NEEDS HUMAN>
+- Concerns: <none | compact actionable findings or uncertainty>
+```
+
+`PASS` means every Judgment Rule in scope was assessed with sufficient context;
+it does not replace or reinterpret the independent OKF or automated Profile result.
 
 ## Beyond this profile
 

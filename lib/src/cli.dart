@@ -78,7 +78,7 @@ final class OkfpCli {
     // Validation exit codes belong to the Verdict from `okf`, so the CLI may
     // not compute one; 2, the usage-error code, is the only code it owns.
     throw const _OkfpUsageException(
-      'validate is not implemented yet (btwld/okf-profile#6).',
+      'validate is not implemented yet (conceptadev/okf-profile#20).',
     );
   }
 
@@ -132,16 +132,6 @@ ArgParser _buildParser() {
         allowed: const <String>['text', 'json'],
         defaultsTo: 'text',
         help: 'Finding output format.',
-      )
-      ..addOption(
-        'profile',
-        valueHelp: 'path',
-        help: 'Path to the profile release to check against.',
-      )
-      ..addFlag(
-        'strict',
-        negatable: false,
-        help: 'Treat advisory findings as failures.',
       ),
   );
   return parser;

@@ -1,11 +1,9 @@
 # `implementation/` — the companion implementation guide
 
-[`okf-implementation-guide.md`](okf-implementation-guide.md) — unpublished
-**2026.2 integration draft**, binding the matching draft Profile exactly to OKF
-0.2. The current distribution surfaces remain on Profile 2026.1 until issue #19
-publishes the integrated release.
+[`okf-implementation-guide.md`](okf-implementation-guide.md) — current
+**2026.2 guide**, binding Profile 2026.2 exactly to OKF 0.2.
 
-[`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) is the draft
+[`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) is the complete
 rule-to-assessment matrix. It is separate from the OKF compatibility review
 because implementation coverage cannot prove specification compatibility.
 
@@ -36,8 +34,9 @@ appear to differ, the profile wins and this text is defective.
 
 - **The index generator itself.** §3 specifies it; `../tools/` does not contain it. Until it
   exists, indexes are hand-written and the validator catches the drift.
-- **Finding IDs in the validator.** §4.2 requires them; `verify_knowledge_bundle.py` emits
-  prose only.
+- **The Profile 2026.2 validator.** Guide §4 is the contract; #20 completes the
+  new `okfp` gate and removes the deprecated Python verifier. The Python tool's
+  prose-only findings are legacy behavior, not a partial implementation of §4.2.
 
 ## What §5 does not carry
 
