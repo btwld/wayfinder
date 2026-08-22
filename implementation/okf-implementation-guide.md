@@ -1,8 +1,15 @@
 # Concepta OKF Profile — Implementation Guide
 
-**Version 2026.1** — binds **Concepta OKF Profile 2026.1**, which profiles **OKF 0.2**
+**Version 2026.2** — binds the unpublished **Concepta OKF Profile 2026.2**,
+which profiles **OKF 0.2 exactly**
 
-Status: Proposed
+Status: Integration draft — unpublished
+
+This guide is the implementation integration surface for issues #22 through
+#25. It MUST NOT be published as the current guide until issue #19 verifies it
+against the completed Profile, compatibility review, coverage matrix, skill,
+guidance, and examples. The preserved 2026.1 Profile remains the release that
+current distribution surfaces implement.
 
 ---
 
@@ -152,33 +159,42 @@ non-conformant for lacking one.
 
 ## 4. Validation
 
-### 4.1 Severities and exit codes
+### 4.1 Results and exit codes
 
-The two severities are the profile's (§14.1) and are not restated here. What this document
-fixes is the process contract, so that CI behaves the same way everywhere:
+The command surface for Profile 2026.2 is `okfp validate <bundle> [--output
+text|json]`. The bundle path is required and implementations MUST inspect
+exactly that directory. They MUST NOT discover a repository bundle by walking
+upward, accept a caller-selected Profile or rule set, or provide `--strict` or
+another switch that promotes recommendations into requirements.
 
-| Condition | Exit |
+Text and JSON MUST expose four distinct components:
+
+| Component | States |
 | --- | --- |
-| No OKF violations, no advisories | `0` |
-| Advisories only, without `--strict` | `0` |
-| Advisories only, with `--strict` | `1` |
-| One or more OKF §11 violations | `1` |
-| No bundle found | `2` |
+| OKF conformance | `PASS`, `FAIL` |
+| Deterministic Profile validation | `PASS`, `FAIL`, `UNSUPPORTED`, `BLOCKED BY OKF` |
+| Judgment Rules | `UNASSESSED` |
+| Automated gate | `PASS`, `FAIL`, `UNSUPPORTED` |
 
-A validator MUST accept `--strict` with exactly this meaning, and MUST locate the bundle by
-walking up from a given path for `knowledge/index.md` rather than assuming its own location
-in the tree. That is what lets one installed tool serve every repository.
+The independent OKF report MUST remain intact and Profile findings MUST NOT
+reclassify it. If OKF fails, deterministic Profile validation MUST stop as
+`BLOCKED BY OKF` without cascading findings from partial content. Exit `0`
+means OKF and deterministic Profile checks passed; exit `1` means either failed;
+exit `2` means the invocation could not assess the declared release, including
+usage, I/O, and unsupported-release outcomes. Advisories MUST NOT change the
+automated gate or exit status.
 
 ### 4.2 Findings carry stable identifiers
 
-Every finding MUST carry a stable machine-readable ID alongside its prose, namespaced by
-the level that owns it — `okf/type-missing`, `profile/area-below-minimum`,
-`profile/index-description-mismatch`. Prose is for the author; the ID is what a repository
-suppresses in CI when it has accepted a deviation deliberately, and a diagnostic that can
-only be suppressed by text match is one that gets suppressed by disabling the tool.
+Every deterministic Profile finding MUST carry a stable machine-readable ID
+alongside its prose in the `concepta-profile/<rule-slug>` namespace, and MUST
+name the Profile release and normative rule reference it assesses. The ID MUST
+describe the semantic rule rather than a section number, implementation class,
+or message text, so integrations can depend on it across refactoring.
 
-A validator SHOULD support suppressing a finding ID for a path, and MUST record any
-suppression somewhere a reader of the repository can see it.
+The closed validator MUST NOT accept suppressions or exceptions. A bundle cannot
+change the immutable rules selected by its declaration, and a caller cannot
+change them through command options or repository configuration.
 
 ### 4.3 What a validator must never report
 
@@ -203,23 +219,45 @@ MUST NOT affect exit status.
 ### 4.4 Version dispatch
 
 A validator MUST read `concepta_profile` from `profile.md` and apply the rules of that
-release.
+release. It MUST read the first fenced `yaml` block in the body as the Profile
+declaration and MUST NOT infer release values from another block or from
+frontmatter.
 
 - An **unrecognized version format** is not an error. The value is opaque; a validator that
   parsed it as semver would have broken on the 2026.1 release, which is exactly the reason
   the format changed.
-- An **unknown release** — well-formed but not implemented — means the validator checks OKF
-  conformance only, reports the unknown release as an advisory, and exits accordingly. It
-  MUST NOT fall back to the newest rules it knows, because a bundle written against an older
-  release would then be reported for deviating from a rule that did not exist when it was
-  written.
-- A **missing declaration** is an advisory, and validation proceeds at OKF level.
+- The first validator MUST implement only Profile 2026.2. Any other declared
+  value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
+  `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
+  exposing the independent OKF result. Unsupported is tool capability, not a
+  Profile-conformance verdict.
+- A validator MUST NOT fall back to the newest rules it knows. A declaration
+  selects an immutable release; neither the caller nor the bundle may inject,
+  omit, replace, or parameterize its rules.
+- A missing or unreadable declaration prevents release dispatch and is reported
+  without claiming a Profile-conformance result. Any OKF result available from
+  the independent validation remains separately visible.
 
 ### 4.5 Where it runs
 
-A validator SHOULD run in CI on any change touching the bundle, and SHOULD run with
-`--strict` there once a repository's advisories are at zero. Adopting `--strict` before that
-point trains everyone to ignore a red build.
+A validator SHOULD run in CI on any change touching the bundle. One `okfp
+validate <bundle>` invocation is the complete model-independent automated gate;
+a separate OKF command MAY still be useful for focused upstream diagnostics.
+CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
+
+### 4.6 Release evidence
+
+Profile 2026.2 has two non-normative release artifacts with different jobs:
+
+- [`../docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md)
+  records the rule-level compatibility review against pinned OKF 0.2.
+- [`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) assigns each normative Profile
+  clause to deterministic validation or contextual Profile Review.
+
+The compatibility review MUST NOT stand in for implementation coverage, and the
+coverage matrix MUST NOT imply that a rule is compatible merely because an
+assessment exists. Issue #19 MUST NOT publish the release until both artifacts
+account for every normative rule.
 
 ---
 
@@ -367,6 +405,19 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+**2026.2 — integration draft, unpublished.** Establishes the closed validation
+result model, release dispatch, and separate compatibility and coverage evidence
+for the Profile 2026.2 integration. The driver was implementation work that
+could not distinguish an independent OKF result, a deterministic Profile result,
+and contextual judgment while the earlier guide treated all Profile findings as
+advisories and allowed callers to promote them through `--strict`.
+
+An implementation conformant to guide 2026.1 does not automatically conform to
+this draft. To migrate after Profile 2026.2 is published, it MUST adopt the
+explicit command, result, exit, and unsupported-release contract in §4 and the
+domain-specific obligations added by issues #23 through #25. Until then, the
+2026.1 implementation remains the supported surface.
 
 **2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index
 generator contract (§3), the validation process contract (§4), and the migration method

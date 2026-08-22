@@ -1,15 +1,8 @@
 # Concepta OKF Profile
 
-**Version 2026.2** — profiles **OKF 0.2 exactly**
+**Version 2026.1** — profiles **OKF 0.2**
 
-Status: Integration draft — unpublished
-
-This draft is the integration surface for issues #22 through #25. It MUST NOT be
-published or presented as the current Concepta Profile release until issue #19
-has verified the normative text, compatibility evidence, implementation
-coverage, skill, guidance, and examples together. Concepta Profile 2026.1
-remains the current proposed release and is preserved at
-[`versions/okf-profile-2026.1.md`](versions/okf-profile-2026.1.md).
+Status: Proposed
 
 The Concepta OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
@@ -201,19 +194,6 @@ throughout. This profile adds:
   so provenance survives the external system (§12).
 - **Promotion**: moving an outcome recorded inside one concept into a concept of
   its own, because it acquired an independent identity (§4.2).
-- **Profiled Bundle**: an OKF bundle that selects a Concepta Profile release in
-  its profile declaration and is assessed against both OKF and that release.
-- **Deterministic Rule**: a profile rule whose satisfaction can be determined
-  reliably from the bundle and its declared release.
-- **Judgment Rule**: a profile rule that requires contextual interpretation by
-  a human or agent. Assessment mode does not change the rule's normative force.
-- **Automated Profile Validation**: the model-independent operation that
-  preserves the independent OKF result and assesses Deterministic Rules.
-- **Profile Review**: contextual assessment of Judgment Rules by a human or
-  agent, separate from Automated Profile Validation.
-- **Complete Profile Assessment**: the combined evidence from Automated Profile
-  Validation and Profile Review used to assess all requirements of a Profiled
-  Bundle.
 
 ---
 
@@ -1144,27 +1124,23 @@ optional.
 A bundle following this profile MUST contain `profile.md` at its root: an
 ordinary concept of `type: Knowledge Profile`.
 
-Its body MUST use the **first fenced `yaml` block** as the machine-readable
-declaration, and that block MUST declare both release values shown here:
+Its body records the profile identity and the OKF version it binds to. The
+**first fenced `yaml` block in the body** is the machine-readable declaration,
+and tools MUST read exactly that block:
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 
-The declared `concepta_profile` MUST be `"2026.2"`. The declared `okf_version`
-MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.2
-binds exactly to OKF 0.2. Declaring the
+The declared `okf_version` MUST agree with the root index (§9). Declaring the
 profile in a concept body rather than a frontmatter field is deliberate: it
 keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
 OKF to every other consumer. `types.md` and `actors.md` follow the same reasoning
 — tables in a body, not schema in frontmatter.
 
-The declaration selects one immutable Profile release; it does not define,
-inject, omit, replace, or parameterize that release's rules. `profile.md` MUST
-NOT act as a standalone Profile definition, extension registry, second schema,
-or place to restate or override OKF. Whether an implementation accepts caller
-policy belongs exclusively to the companion guide.
+`profile.md` is not an extension registry, a second schema, or a place to
+restate or override OKF.
 
 ---
 
@@ -1257,7 +1233,7 @@ in the graph.
 
 ## 14. Conformance
 
-### 14.1 Distinct conformance and assessment results
+### 14.1 Two levels
 
 **OKF conformance** is inherited verbatim from OKF §11. A bundle is
 OKF-conformant if every non-reserved `.md` file has parseable YAML frontmatter,
@@ -1265,26 +1241,19 @@ every frontmatter block carries a non-empty `type`, and every reserved file
 follows the OKF index or log structure. These are the only conditions a
 consumer may **reject** a bundle for.
 
-**Profile conformance** is the additional bar set by this document: an
-OKF-conformant Profiled Bundle satisfies every MUST and MUST NOT in its declared
-release, regardless of whether a Deterministic Rule or Judgment Rule assesses
-it. A bundle may pass OKF conformance while failing Profile conformance. The two
-results are independent: a Profile result does not alter, reclassify, or replace
-the OKF result.
+**Profile conformance** is the additional bar set by this document: the MUST
+requirements of §3 through §13. A bundle may be OKF-conformant while failing
+profile conformance.
 
-**Automated Profile Validation** exposes the independent OKF result and the
-Deterministic Rule result separately and leaves Judgment Rules explicitly
-unassessed. Its orchestration and result-state contract belongs exclusively to
-the companion guide.
+Tooling MUST keep those levels distinct in severity:
 
-**Profile Review** assesses Judgment Rules contextually and reports its result
-separately from Automated Profile Validation. **Complete Profile Assessment**
-combines both bodies of evidence; neither one alone claims complete Profile
-conformance.
+- An OKF §11 violation is a **hard failure**. The document cannot be
+  interpreted, so it cannot be accepted.
+- A profile deviation is an **advisory finding**: reported, attributed to the
+  affected concept, and never a reason to reject a bundle that is valid OKF.
 
-Normative force and assessment mode are independent. A mandatory Judgment Rule
-remains mandatory, and an automated advisory remains non-blocking. Neither
-assessment mode changes or reinterprets OKF conformance.
+That asymmetry is deliberate. A profile that could reject valid OKF would have
+made itself a competing standard, which §1.2 forbids.
 
 Advisory findings include: missing baseline metadata; an area holding fewer than
 three concepts, unless this profile fixes its name (§3.2, §3.3, §3.4); a concept
@@ -1346,29 +1315,13 @@ additive minor release (§15.2).
 
 ---
 
-## 15. Versioning and release evidence
+## 15. Versioning
 
 ### 15.1 Binding to OKF
 
 Every profile release binds to **exactly one** OKF version. This release binds to
-OKF 0.2 exactly.
-
-Every normative Profile rule MUST pass the same rule-level compatibility test:
-it uses only constructs OKF 0.2 permits, preserves every OKF field and reserved
-file's upstream meaning, leaves the OKF graph contract uninterpreted, keeps the
-independent OKF result unchanged, and leaves the bundle normally readable by a
-generic OKF consumer. A rule that needs a new OKF field or meaning MUST be
-rejected or pursued upstream before a later Profile release adopts it.
-
-The release-specific, non-normative compatibility review records that test for
-each rule at
-[`docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md).
-Compatibility evidence answers whether each rule preserves OKF. The separate
-implementation coverage matrix at
-[`implementation/profile-coverage-2026.2.md`](../implementation/profile-coverage-2026.2.md)
-assigns each rule to Automated Profile Validation or Profile Review and answers
-how Concepta assesses it. Neither artifact substitutes for the other, and the
-release MUST NOT be published while either is incomplete.
+OKF 0.2, which it also bound at 0.2.0; nothing in §15.3 touched an OKF mechanism, so
+no compatibility review was owed.
 
 An upstream OKF release requires a new profile release and a compatibility
 review, even when no Concepta convention otherwise changes, so that a
@@ -1414,27 +1367,6 @@ OKF's normative requirements always take precedence over any profile release
 (§1).
 
 ### 15.3 Change record
-
-**2026.2 — integration draft, unpublished.** Establishes the closed Concepta
-Profile release frame before the domain conventions are aligned. Issues #23,
-#24, and #25 will complete the rule changes and migration entries; issue #19
-will verify the integrated release and is the only step that may publish it.
-
-| Change | Sections | Driver |
-| --- | --- | --- |
-| Profile 2026.2 binds exactly to OKF 0.2 and every rule receives an explicit compatibility review | §1, §11, §14, §15.1 | Work on the first validator found that the Profile mixed inherited OKF behavior, Profile policy, and implementation claims, so maintainers could not prove rule by rule that generic OKF meaning and results remained untouched |
-| OKF conformance, Automated Profile Validation, Profile Review, and Complete Profile Assessment are separate results | §2, §14.1 | Real rules such as subject-based placement require contextual judgment, while treating all Profile deviations as advisories prevented deterministic MUST violations from producing an honest Profile result |
-| The in-bundle declaration selects an immutable release without becoming a policy surface | §11 | The generic-platform design introduced caller-selected rules and a standalone definition even though only one real Profile exists; the closed release needs one reproducible selector instead |
-| Compatibility evidence and implementation coverage are separate release artifacts | §15.1 | A single matrix could say either that a rule preserves OKF or that a tool assesses it, but not demonstrate both responsibilities without conflating specification safety with implementation completeness |
-
-**Migration framework.** A bundle conformant to Profile 2026.1 remains
-conformant to Profile 2026.1; this draft does not silently reassess it under
-2026.2. A bundle migrates only after the 2026.2 release is published: it MUST
-complete every migration action recorded in this section by the domain slices,
-then update `concepta_profile` to `"2026.2"` while retaining `okf_version:
-"0.2"`. Until then its older declaration remains a claim about that older
-release and MUST NOT be reassessed under 2026.2. The known migration actions are
-intentionally not declared complete in this release-frame slice.
 
 **2026.1** — three conventions promoted from first use; the semver series retired.
 

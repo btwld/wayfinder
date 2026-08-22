@@ -1,7 +1,13 @@
 # `implementation/` — the companion implementation guide
 
-[`okf-implementation-guide.md`](okf-implementation-guide.md) — **2026.1**,
-binding profile 2026.1.
+[`okf-implementation-guide.md`](okf-implementation-guide.md) — unpublished
+**2026.2 integration draft**, binding the matching draft Profile exactly to OKF
+0.2. The current distribution surfaces remain on Profile 2026.1 until issue #19
+publishes the integrated release.
+
+[`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) is the draft
+rule-to-assessment matrix. It is separate from the OKF compatibility review
+because implementation coverage cannot prove specification compatibility.
 
 The profile specifies *what a bundle is*. This document specifies *how one is built, checked,
 and kept*: adoption, the index generator's contract, the validation process contract, and the

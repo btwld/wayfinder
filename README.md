@@ -10,7 +10,16 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.1**, profiling **OKF 0.2**. Status: Proposed.
+Current release: **2026.1**, profiling **OKF 0.2**. Status: Proposed. Its
+immutable text is
+[`profile/versions/okf-profile-2026.1.md`](profile/versions/okf-profile-2026.1.md).
+
+The canonical profile and implementation guide currently hold the **unpublished
+2026.2 integration draft** for issues #22 through #25. They are not a
+distribution surface and MUST NOT be presented as the current release until
+issue #19 verifies and publishes the complete release atomically. Skills,
+seeding material, examples, and the legacy verifier continue to describe 2026.1
+until that integration gate passes.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
@@ -37,11 +46,13 @@ CI at the verifier, and let each project repository carry only its own knowledge
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`docs/ways-of-working.md`](docs/ways-of-working.md) | The shared engineering process, canonical here |
 
-`profile/okf-profile.md` is always the current release; the version is declared on
-its third line and in every bundle's `profile.md`, never in the filename. Superseded releases
-are snapshotted under `profile/versions/`. That is the profile's own §8.1 rule — version and
-status are metadata and do not belong in an identity — applied to the profile document
-itself, and it means the canonical path never rots.
+`profile/okf-profile.md` is the canonical release-integration path; its version
+and publication status are declared at the top, never in the filename. During a
+release integration it may therefore contain an explicitly unpublished draft
+while the current release remains immutable under `profile/versions/`. When the
+integration is published, the canonical path again names the current release.
+That applies the profile's own §8.1 rule — version and status are metadata and do
+not belong in an identity — without silently replacing an identified release.
 
 ## Getting started
 

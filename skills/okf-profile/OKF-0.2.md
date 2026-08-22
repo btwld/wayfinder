@@ -6,10 +6,10 @@ Vendored reference — not Concepta content.
   Pin:     3fcbb9f828c2f23d109c855ee403c3a4c81f3a96 (2026-07-24)
   License: Apache-2.0, (c) Google LLC.
 
-Pinned because Concepta OKF Profile 2026.1 binds to exactly OKF 0.2. Upstream stays
-authoritative for the record; refresh this file only when a new profile release
-adopts a new OKF version. Everything below this comment is upstream text,
-unmodified.
+Pinned because Concepta OKF Profile 2026.1 and the unpublished 2026.2 integration
+draft bind to exactly OKF 0.2. Upstream stays authoritative for the record;
+refresh this file only when a new profile release adopts a new OKF version.
+Everything below this comment is upstream text, unmodified.
 -->
 
 # Open Knowledge Format (OKF)
