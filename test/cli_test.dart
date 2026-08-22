@@ -99,6 +99,13 @@ void main() {
       'judgment_rules': <String, Object?>{'state': 'UNASSESSED'},
       'automated_gate': <String, Object?>{'state': 'PASS'},
     });
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('conformant')],
+    );
+    expect(text.exitCode, 0);
+    expect(text.stdout, contains('Profile 2026.2: PASS'));
+    expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
   test('blocks Profile validation when OKF fails', () async {
@@ -218,6 +225,214 @@ void main() {
     expect(result.stdout, endsWith('Automated gate: FAIL'));
   });
 
+  test('validates concept metadata through text and JSON output', () async {
+    final jsonResult = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('invalid-concepts')],
+    );
+
+    expect(jsonResult.exitCode, 1);
+    expect(jsonResult.stderr, isEmpty);
+    final output = jsonDecode(jsonResult.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'FAIL');
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/concept-baseline-fields bad.md',
+        'error concepta-profile/frontmatter-fields-okf bad.md',
+        'error concepta-profile/status-value bad.md',
+        'error concepta-profile/tag-literal-duplication bad.md',
+        'advisory concepta-profile/generation-provenance-recommended '
+            'profile.md',
+        'advisory concepta-profile/generation-provenance-recommended types.md',
+      ],
+    );
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final textResult = await _runProcess(
+      <String>['validate', _fixture('invalid-concepts')],
+    );
+    expect(textResult.exitCode, 1);
+    expect(textResult.stderr, isEmpty);
+    for (final id in <String>[
+      'concepta-profile/concept-baseline-fields',
+      'concepta-profile/frontmatter-fields-okf',
+      'concepta-profile/status-value',
+      'concepta-profile/tag-literal-duplication',
+      'concepta-profile/generation-provenance-recommended',
+    ]) {
+      expect(textResult.stdout, contains(id));
+    }
+  });
+
+  test('validates registries, sources, and relationships deterministically',
+      () async {
+    final arguments = <String>[
+      'validate',
+      '--output',
+      'json',
+      _fixture('invalid-conventions'),
+    ];
+    final result = await _runProcess(arguments);
+    final repeated = await _runProcess(arguments);
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    expect(repeated.stdout, result.stdout);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/type-registry-standards types.md',
+        'error concepta-profile/type-registry-order types.md',
+        'error concepta-profile/used-type-registered bad.md',
+        'advisory concepta-profile/registered-type-extension types.md',
+        'error concepta-profile/actor-row-complete actors.md',
+        'error concepta-profile/actor-side-value actors.md',
+        'error concepta-profile/actor-active-interval actors.md',
+        'error concepta-profile/actor-active-overlap actors.md',
+        'error concepta-profile/used-actor-registered bad.md',
+        'error concepta-profile/source-entry-shape bad.md',
+        'error concepta-profile/source-id-unique bad.md',
+        'error concepta-profile/source-attribution-join bad.md',
+        'error concepta-profile/relationships-shape bad.md',
+        'error concepta-profile/relationships-shape numbered.md',
+        'error concepta-profile/relationships-shape plain.md',
+      ],
+    );
+    for (final finding in profile['findings']! as List<Object?>) {
+      final value = finding! as Map<String, Object?>;
+      expect(value['profile_release'], '2026.2');
+      expect(value['rule'], isNotEmpty);
+    }
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('invalid-conventions')],
+    );
+    expect(text.exitCode, 1);
+    expect(text.stdout, contains('Profile 2026.2: FAIL'));
+    expect(text.stdout, contains('concepta-profile/relationships-shape'));
+  });
+
+  test('keeps concept advisories and absence boundaries gate-neutral',
+      () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('advisory-concepts')],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'PASS');
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'advisory concepta-profile/generation-provenance-recommended note.md',
+        'advisory concepta-profile/registered-type-extension types.md',
+        'advisory concepta-profile/relationship-label-extension note.md',
+        'advisory concepta-profile/internal-link-bundle-relative note.md',
+        'advisory concepta-profile/internal-link-unresolved note.md',
+      ],
+    );
+    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('advisory-concepts')],
+    );
+    expect(text.exitCode, 0);
+    expect(text.stdout, contains('advisory concepta-profile/'));
+    expect(text.stdout, endsWith('Automated gate: PASS'));
+  });
+
+  test('validates declaration and registry identities and table columns',
+      () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('invalid-registries')],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/profile-declaration-kind profile.md',
+        'error concepta-profile/type-registry-kind types.md',
+        'error concepta-profile/type-registry-columns types.md',
+        'error concepta-profile/actor-registry-kind actors.md',
+        'error concepta-profile/actor-registry-columns actors.md',
+      ],
+    );
+  });
+
+  test('requires the actor registry only when actor fields are used', () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('missing-actors')],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+        _findingSummary(profile),
+        contains(
+          'error concepta-profile/actor-registry-required actors.md',
+        ));
+  });
+
+  test('requires every actor row cell before validating its values', () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('empty-actor-cells')],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'error concepta-profile/actor-row-complete actors.md',
+        'error concepta-profile/actor-side-value actors.md',
+        'error concepta-profile/actor-active-interval actors.md',
+      ],
+    );
+  });
+
+  test('requires the type registry before resolving used types', () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('missing-types')],
+    );
+
+    expect(result.exitCode, 1);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      contains('error concepta-profile/type-registry-present types.md'),
+    );
+  });
+
+  test('allows an actor-free bundle without an empty registry', () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('actor-free')],
+    );
+
+    expect(result.exitCode, 0);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'PASS');
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'advisory concepta-profile/generation-provenance-recommended profile.md',
+        'advisory concepta-profile/generation-provenance-recommended types.md',
+      ],
+    );
+  });
+
   test('reports an unsupported release without a conformance verdict',
       () async {
     final result = await _runProcess(
@@ -262,6 +477,12 @@ Automated gate: UNSUPPORTED''',
     expect(result.stderr, isNot(contains('Unhandled exception')));
   });
 }
+
+List<String> _findingSummary(Map<String, Object?> profile) =>
+    (profile['findings']! as List<Object?>).map((value) {
+      final finding = value! as Map<String, Object?>;
+      return '${finding['severity']} ${finding['id']} ${finding['path']}';
+    }).toList();
 
 String _fixture(String name) => p.join('test', 'fixtures', name);
 

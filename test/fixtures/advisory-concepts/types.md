@@ -1,12 +1,10 @@
 ---
 type: Type Registry
 title: Types
-description: The standard and project-specific types available to this bundle.
+description: Lists standard types and one registered extension.
 status: stable
 generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
 ---
-
-# Types
 
 | Type | Intended content |
 | --- | --- |
@@ -24,3 +22,4 @@ generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
 | `Knowledge Profile` | The Concepta Profile and OKF release declaration |
 | `Type Registry` | The standard and project-specific types available to the bundle |
 | `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
+| `Field Note` | One durable observation recorded by a project |

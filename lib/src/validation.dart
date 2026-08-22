@@ -2,6 +2,9 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:yaml/yaml.dart';
 
+import 'concept_rules_2026_2.dart';
+import 'profile_finding.dart';
+
 const supportedProfileRelease = '2026.2';
 const supportedOkfRelease = '0.2';
 
@@ -10,7 +13,6 @@ enum OkfState {
   fail('FAIL');
 
   const OkfState(this.wireValue);
-
   final String wireValue;
 }
 
@@ -21,7 +23,6 @@ enum ProfileState {
   blockedByOkf('BLOCKED BY OKF');
 
   const ProfileState(this.wireValue);
-
   final String wireValue;
 }
 
@@ -31,39 +32,8 @@ enum AutomatedGateState {
   unsupported('UNSUPPORTED', 2);
 
   const AutomatedGateState(this.wireValue, this.exitCode);
-
   final String wireValue;
   final int exitCode;
-}
-
-final class ProfileFinding {
-  const ProfileFinding({
-    required this.id,
-    required this.message,
-    required this.rule,
-    this.profileRelease,
-    this.path = 'profile.md',
-  });
-
-  final String id;
-  final String message;
-  final String rule;
-  final String? profileRelease;
-  final String path;
-
-  Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'severity': 'error',
-        'profile_release': profileRelease,
-        'rule': rule,
-        'path': path,
-        'message': message,
-      };
-
-  String toText() {
-    final release = profileRelease == null ? '' : '$profileRelease ';
-    return '$path: error $id ($release$rule): $message';
-  }
 }
 
 final class ProfileValidationResult {
@@ -120,17 +90,22 @@ final class ProfileValidationResult {
   factory ProfileValidationResult.assessed(
     OkfBundleLoadResult loaded,
     OkfValidationReport report,
-    ProfileFinding? finding,
-  ) =>
-      ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
-        profileRelease: supportedProfileRelease,
-        profileState: finding == null ? ProfileState.pass : ProfileState.fail,
-        findings: <ProfileFinding>[if (finding != null) finding],
-        automatedGateState:
-            finding == null ? AutomatedGateState.pass : AutomatedGateState.fail,
-      );
+    Iterable<ProfileFinding> findings,
+  ) {
+    final stableFindings = List<ProfileFinding>.unmodifiable(findings);
+    final failed = stableFindings.any(
+      (finding) => finding.severity == ProfileFindingSeverity.error,
+    );
+    return ProfileValidationResult._(
+      okfLoadIssues: loaded.issues,
+      okfReport: report,
+      profileRelease: supportedProfileRelease,
+      profileState: failed ? ProfileState.fail : ProfileState.pass,
+      findings: stableFindings,
+      automatedGateState:
+          failed ? AutomatedGateState.fail : AutomatedGateState.pass,
+    );
+  }
 
   final List<OkfBundleLoadIssue> okfLoadIssues;
   final OkfValidationReport okfReport;
@@ -142,7 +117,6 @@ final class ProfileValidationResult {
   OkfState get okfState => okfLoadIssues.isEmpty && okfReport.isValid
       ? OkfState.pass
       : OkfState.fail;
-
   int get exitCode => automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -200,22 +174,22 @@ final class ProfileValidator {
     if (loaded.hasIssues || !okfReport.isValid) {
       return ProfileValidationResult.blockedByOkf(loaded, okfReport);
     }
-
     final declaration = _readDeclaration(loaded);
     if (declaration.finding case final finding?) {
       return ProfileValidationResult.undispatched(loaded, okfReport, finding);
     }
-
     final values = declaration.values!;
     final release = values['concepta_profile']!;
     if (release != supportedProfileRelease) {
       return ProfileValidationResult.unsupported(loaded, okfReport, release);
     }
-
     return ProfileValidationResult.assessed(
       loaded,
       okfReport,
-      _validateOkfBinding(values, loaded),
+      <ProfileFinding>[
+        if (_validateOkfBinding(values, loaded) case final finding?) finding,
+        ...validateConceptRules2026_2(loaded),
+      ],
     );
   }
 }
@@ -231,7 +205,6 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
       ),
     );
   }
-
   final yamlSource = _firstYamlFence(document.body);
   if (yamlSource == null) {
     return const _DeclarationRead.finding(
@@ -242,7 +215,6 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
       ),
     );
   }
-
   Object? parsed;
   try {
     parsed = loadYaml(yamlSource);
@@ -264,13 +236,12 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
       ),
     );
   }
-
   final values = <String, String>{};
   for (final key in const <String>['concepta_profile', 'okf_version']) {
     final value = parsed[key];
     if (value is! String || value.trim().isEmpty) {
-      return _DeclarationRead.finding(
-        const ProfileFinding(
+      return const _DeclarationRead.finding(
+        ProfileFinding(
           id: 'concepta-profile/profile-declaration-fields',
           message: 'The Profile declaration must contain non-empty string '
               'values for concepta_profile and okf_version.',
@@ -321,9 +292,7 @@ String? _firstYamlFence(String body) {
         }
         if (children != null) {
           final nested = find(children);
-          if (nested != null) {
-            return nested;
-          }
+          if (nested != null) return nested;
         }
       }
     }
@@ -344,7 +313,6 @@ Map<String, Object> _loadIssueJson(OkfBundleLoadIssue issue) =>
 
 final class _DeclarationRead {
   const _DeclarationRead.values(this.values) : finding = null;
-
   const _DeclarationRead.finding(this.finding) : values = null;
 
   final Map<String, String>? values;

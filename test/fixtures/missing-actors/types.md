@@ -1,12 +1,9 @@
 ---
 type: Type Registry
 title: Types
-description: The standard and project-specific types available to this bundle.
+description: Lists every standard type.
 status: stable
-generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
 ---
-
-# Types
 
 | Type | Intended content |
 | --- | --- |
