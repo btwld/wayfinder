@@ -219,8 +219,9 @@ such as status, owner, priority, and Profile version. An identifier already
 cited outside the bundle may lead a readable slug and must not be renumbered.
 Dates may appear whenever chronology is part of the subject's stable identity;
 they must not encode mere creation time, freshness, workflow state, or an
-editable version. Automated validation checks the mechanical path shape while
-Profile Review assesses identity and date meaning.
+editable version. Profile Review assesses the complete path rule because an
+externally cited ID has no Profile-specific syntax that deterministic validation
+can distinguish from the authored slug.
 
 A move repairs known inbound links, regenerates affected indexes, and records
 the event in the authored root log. A path freezes only when a known external
@@ -247,9 +248,12 @@ migration demonstrates the need.
 Material is mirrored under `references/` only when a concept cites it, its
 availability is genuinely at risk, and repository visibility is appropriate.
 Text and necessary optimized images may be mirrored; heavy audio, video, and
-other binaries stay external, with a transcript mirrored when preservation is
-needed. Automated validation checks placement and prohibited media; Profile
-Review assesses need, availability risk, confidentiality, and sanitization.
+other binaries stay external, with a transcript preferred when preservation is
+needed. Automated validation checks baseline and original-source provenance for
+content identified as a mirror. Profile Review assesses mirror classification and
+placement, need, availability risk, confidentiality, sanitization, optimization,
+and media classification because the Profile defines no canonical detector or
+weight threshold.
 
 The Profile does not enumerate unused OKF mechanisms. Where the Profile is
 silent, every mechanism allowed by the pinned OKF release remains allowed and

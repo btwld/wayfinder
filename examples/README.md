@@ -29,6 +29,9 @@ knowledge/
     index.md                          # Generated semantic navigation
     include-pdf-annotations.md        # Request
     pdf-export-feasibility.md         # Analysis
+  ways-of-working/
+    index.md
+    relationship-labels.md            # Guide defining the project label Assessed by
   references/
     index.md
     2026-07-30-reporting-demo-transcript.md   # Mirrored, immutable
@@ -43,13 +46,20 @@ What to look for:
   links straight to the mirrored source artifact (§4.3).
 - **Execution stays external.** The request carries `Specified by` toward a GitHub issue. The
   issue's state is never copied into the bundle (§7.3).
+- **Relationships are body context over ordinary OKF edges.** Each labelled bullet
+  has one target. The request's project-specific `Assessed by` label is defined once
+  in a durable Guide and produces only a non-blocking advisory. The analysis
+  deliberately links to a not-yet-written pagination contract: OKF still exposes that
+  untyped edge, and the Profile reports the unresolved target only as a non-blocking
+  advisory (§7, §13, §14.1).
 - **Provenance is per-claim.** The request's one substantive sentence carries a footnote keyed
   to a `sources[].id`, so the claim points at the transcript rather than the concept vaguely
   citing it (§6.1).
 - **A mirror is a source concept, not an interpreted outcome.** The transcript
   preserves an artifact from the interaction; an Interaction Record would interpret
   its combined context. It is mirrored only because a durable concept cites it and
-  the recording expires — pull-based, never merely because a meeting occurred (§12).
+  the recording expires, after confirming the content is suitable for repository
+  visibility — pull-based, never merely because a meeting occurred (§12).
 - **Assets stay assets.** The layout sample is referenced through `sources`, has no
   concept frontmatter, and appears under the `Assets` index group with a path-derived
   label and no invented description (§9, §12).
@@ -61,7 +71,7 @@ What to look for:
   non-overlapping internal and vendor periods, while an undated source author stays
   explicitly `unknown`. The July generation event resolves to the internal row; none
   of this changes the OKF actor strings or their prefix-derived trust tiers (§6.1.1).
-- **Absence of `verified` is a signal, not a defect.** Five of the six concepts are unverified
+- **Absence of `verified` is a signal, not a defect.** Six of the seven concepts are unverified
   and the verifier reports it as information, never as a finding — the only way to clear such a
   report would be to record a verification that did not happen (§6.2, §14.1).
 

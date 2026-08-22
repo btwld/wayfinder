@@ -12,6 +12,9 @@ sources:
 
 # Transcript
 
+The original recording expires after 30 days. This transcript is retained because
+the request cites it and its content is suitable for this repository's visibility.
+
 [15:02] **Reviewer:** …so this is the draft export as it stands today.
 
 [15:04] **Client:** The annotations are gone. Everything we marked up on screen —

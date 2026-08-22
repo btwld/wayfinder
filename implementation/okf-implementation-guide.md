@@ -239,6 +239,29 @@ evidence for freshness, and semantic tag aliases to Profile Review. A registered
 project-specific type and missing `generated` produce advisories; missing
 `verified` produces no finding.
 
+For external boundaries, validation MUST check the one-label/one-target
+Relationships shape as a deterministic rule. It MUST report a non-bundle-relative
+internal target, an additional relationship label, and an unresolved internal target
+only as advisories that do not affect the automated gate or exit status,
+and it MUST preserve the unresolved edge exposed by the OKF graph. It MUST NOT infer
+relationship meaning, lifecycle ownership, path conformance, whether a date is
+intrinsic identity, or whether an external citation can be repaired. The complete
+path rule belongs to Profile Review because a preserved external ID has no
+Profile-specific syntax that separates it mechanically from the authored slug.
+
+The implementation MUST use the ordinary OKF graph without an adapter. It exposes
+Relationships targets and unresolved links as the same untyped body edges as any
+other Markdown link and MUST NOT enrich, reinterpret, or replace those edges with
+Profile labels.
+
+Profile Review assesses whether a cited artifact faces genuine availability risk,
+whether repository visibility and sanitization are appropriate, whether images are
+optimized, whether media is heavy enough to stay external, and whether an exceptional
+stable-concept deletion is justified. The Profile deliberately defines no mechanical
+media inventory or threshold. Network availability MUST NOT be probed as a
+conformance check; an external resource that no longer resolves remains ordinary OKF
+provenance or a body link.
+
 ### 4.4 Version dispatch
 
 A validator MUST read `concepta_profile` from `profile.md` and apply the rules of that
@@ -388,6 +411,19 @@ the migration SHOULD apply the Profile's promotion and splitting recommendations
 legitimate reviewed exceptions may remain embedded or combined. A filename or type
 cannot make that decision mechanically.
 
+The migration MUST inventory labelled relationships, tracker-owned artifacts,
+specifications, externally cited concept IDs, planned moves, stable concepts selected
+for retirement, and mirrored material. It mechanically reshapes malformed
+Relationships entries, but Profile Review decides path conformance, label meaning,
+lifecycle ownership, intrinsic chronology, citation repairability, deletion exceptions,
+mirror classification and placement, availability risk, visibility, sanitization,
+image optimization, and media classification. It externalizes media that Profile
+Review identifies as prohibited. Repairable moves update known links, indexes, and
+authored history together; an unrepairable known external citation freezes the path.
+A followable external source remains a followable OKF resource when it is not
+mirrored; migration MUST NOT replace it with a scope descriptor merely to avoid an
+availability advisory.
+
 A project MAY add invariants — a sanitization boundary excluding credentials, prices, or
 raw transcripts is common — and SHOULD record them where the migration is executed, not in
 the bundle's knowledge.
@@ -474,11 +510,19 @@ migration preserve unknown provenance while reviewing event-derived concepts
 verification and affiliation to clear mechanical expectations, while sparse type
 seeding and metadata left agents without a reliable vocabulary or index input.
 
+The external-boundary slice assigns relationship shape plus unresolved-link,
+non-bundle-relative-link, and label advisories to deterministic validation while
+leaving semantic relationships, lifecycle ownership, path identity, move
+repairability, deletion, and media and mirroring judgments to Profile Review. The
+driver was real authoring work that duplicated tracker state, froze repairable paths,
+enriched ordinary OKF edges, and either mirrored confidential heavy sources
+indiscriminately or weakened their OKF provenance when leaving them external.
+
 An implementation conformant to guide 2026.1 does not automatically conform to
 this draft. To migrate after Profile 2026.2 is published, it MUST adopt the
 explicit command, result, exit, and unsupported-release contract in §4 and the
-structural obligations in §§2–3 and the remaining domain-specific obligations
-added by issue #25. Until then, the
+structural obligations in §§2–3 and the external-boundary validation and migration
+obligations in §§4–5. Until then, the
 2026.1 implementation remains the supported surface.
 
 **2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index

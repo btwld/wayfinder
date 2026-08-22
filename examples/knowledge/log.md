@@ -2,6 +2,7 @@
 
 ## 2026-07-31
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
+* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
