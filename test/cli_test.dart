@@ -269,6 +269,8 @@ Future<_CliResult> _runProcess(List<String> arguments) async {
   final result = await Process.run(
     Platform.resolvedExecutable,
     <String>['run', 'bin/okfp.dart', ...arguments],
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
   );
   return _CliResult(
     result.exitCode,
