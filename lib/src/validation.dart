@@ -4,8 +4,10 @@ import 'package:yaml/yaml.dart';
 
 import 'concept_rules_2026_2.dart';
 import 'profile_finding.dart';
+import 'profile_release_2026_2.dart';
+import 'structure_rules_2026_2.dart';
 
-const supportedProfileRelease = '2026.2';
+const supportedProfileRelease = profileRelease2026_2;
 const supportedOkfRelease = '0.2';
 
 enum OkfState {
@@ -189,6 +191,7 @@ final class ProfileValidator {
       <ProfileFinding>[
         if (_validateOkfBinding(values, loaded) case final finding?) finding,
         ...validateConceptRules2026_2(loaded),
+        ...validateStructureRules2026_2(loaded),
       ],
     );
   }
