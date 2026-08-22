@@ -501,7 +501,12 @@ void main() {
       final bundle = await _copyFixture('structure-boundary');
       addTearDown(() => bundle.delete(recursive: true));
       final index = File(p.join(bundle.path, 'index.md'));
-      await index.writeAsString(entry.value(await index.readAsString()));
+      final windowsSource =
+          (await index.readAsString()).replaceAll('\n', '\r\n');
+      final source = windowsSource.replaceAll('\r\n', '\n');
+      final mutated = entry.value(source);
+      expect(mutated, isNot(source), reason: entry.key);
+      await index.writeAsString(mutated);
 
       final result = await _runProcess(
         <String>['validate', '--output', 'json', bundle.path],
