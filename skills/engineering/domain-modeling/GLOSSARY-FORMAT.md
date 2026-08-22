@@ -37,4 +37,7 @@ Add a `# Relationships` section (per the `okf-profile` skill) when a term relate
 
 A bounded context is usually already an area, so the structure does the disambiguating. When the same word means different things in two contexts, write one concept per meaning in each context's area — `ordering/order.md` and `billing/order.md` — keeping the bare word as `title` and letting the `description` and the path disambiguate. No filename suffix, no context tag.
 
-Where a context has fewer than three concepts it has no area yet, so its terms sit at the bundle root. If two meanings of one word collide there, that collision is the signal that at least one of those subjects is ready for its area.
+A context may have an area at any size when the corpus demonstrates a genuine
+shared subject. If two meanings of one word collide at the root, that is evidence
+to review whether subject placement is now justified, not an automatic directory
+creation rule.

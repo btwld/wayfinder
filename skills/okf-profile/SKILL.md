@@ -11,14 +11,21 @@ The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle fo
 
 ## Bundle structure
 
-```
+`index.md`, `log.md`, `profile.md`, and `types.md` are required at the bundle
+root. Add `actors.md` whenever `generated.by`, `verified[].by`, or
+`sources[].author` uses an actor ID; it must represent every used ID. `types.md`
+uses exactly `Type | Intended content`; `actors.md` uses exactly `Actor ID | Name
+| Organization | Side | Role | Active`. Both are ordinary body tables with no
+custom frontmatter or graph meaning.
+
+```text
 knowledge/
   index.md          ← root index: okf_version frontmatter, one entry per root concept, area, and references/
   log.md            ← root log: dated lifecycle entries, newest first
   profile.md        ← Knowledge Profile concept declaring the profile and OKF versions
   types.md          ← Type Registry concept: every type this bundle uses, one line each
-  actors.md         ← Actor Registry concept: every actor ID → organization, side, role
-  <concept>.md      ← a concept whose subject has not earned an area yet
+  actors.md         ← Actor Registry when any OKF actor-valued field is used
+  <concept>.md      ← a root concept
   <area>/           ← a subject directory: mixed types, its own index.md, may nest
   architecture/     ← the system as a whole: Architecture Documents and ADRs
   ways-of-working/  ← how the team works: process, conventions, guides, decisions about the bundle
@@ -26,7 +33,7 @@ knowledge/
   references/       ← OKF mirrored-source convention (mixed types allowed, may nest)
 ```
 
-**Every directory names a subject, never a kind of document.** Kind is carried by `type` and nowhere else, so there is no `decisions/`, `analyses/`, `guides/`, `rules/`, `questions/`, or `adr/` — a term, the rules deriving it, the questions about it, and the specification covering it all sit in one directory because they share a subject. Reading a kind as a set is an index filtered by `type`, not a directory.
+**Every project directory names a subject, never a kind of document.** Kind is carried by `type` and nowhere else, so there is no `decisions/`, `analyses/`, `guides/`, `rules/`, `questions/`, or `adr/` — a term, the rules deriving it, the questions about it, and the specification covering it all sit in one directory because they share a subject. `interactions/` and `references/` retain their Profile-defined time and source axes. Reading a kind as a set is an index filtered by `type`, not a directory.
 
 `architecture/`, `ways-of-working/`, `interactions/`, and `references/` are the **only** directory names the profile fixes. Every other area name is the project's own vocabulary.
 
@@ -34,11 +41,11 @@ knowledge/
 
 - **Named after what its concepts share** — a capability, a domain, the system, the way the team works. An area name that matches one member concept's title is a signal the name is too narrow: it is named after a part of the set rather than the whole.
 - **Mixed types.** An area holds any types. That is the point of it.
-- **Earned at three.** Create an area when at least three concepts share its subject. Below that, concepts sit in the parent directory — including the bundle root, which is what makes waiting cheap. The four profile-fixed names are exempt: `architecture/`, `ways-of-working/`, `interactions/`, and `references/` may be created for their first concept, because a name the profile fixes cannot turn out to be the wrong name.
+- **Earned, not predicted.** A genuine shared subject may have an area at any size; a numeric threshold cannot prove the placement. Do not create speculative areas for a taxonomy the current corpus does not demonstrate.
 - **Indexed.** A nonempty area needs its own `index.md`.
 - **Nestable** under the same rules, but every path segment is identity, so nest only when a subject genuinely subdivides.
 - **File, don't create.** Put a new concept into an existing area or at the root. Creating an area is a deliberate act, recorded in `log.md` — the cost of a wrong area is not a wrong folder, it is a path, and a path is identity.
-- **No concept describes a directory.** OKF reserves two directory-level filenames, `index.md` and `log.md`, and neither is a concept — so never a sibling `<area>.md`, never an `overview.md`, never a concept whose content is the area's own contents. An area is described by its index and by the one-line description its parent index gives it.
+- **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries have path-derived labels and no authored descriptions.
 
 ### Placement
 
@@ -131,7 +138,7 @@ verified:
 - **`verified` is a list** of independent confirmation events, so a human sign-off and a nightly process can both appear. A bare `{ by, at }` mapping is a one-element list. "How recently" is the latest `at`.
 - **Trust tiers are derived, not stored** (OKF §5.3): no `verified` ⇒ *unverified*; non-`human:` actors only ⇒ *machine-confirmed*; any `human:<id>` ⇒ *human-reviewed*. So "this is not signed off by X" is expressed by the **absence** of a `verified` entry from X — write one only when someone genuinely confirmed the content, never as a migration formality.
 - **Absence of `verified` is a signal, not a defect.** A concept deliberately recording unconfirmed material is *correctly* unverified. Never add a verification event to satisfy a convention, a checklist, or a linter; tooling must not report missing verification as a finding.
-- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, which maps every actor ID to its organization, side (`client` / `internal` / `vendor` / `tool` / `unknown`), role, and active range. A third-party authoring agent is `tool`; a process the project itself runs is `internal`, because its output is the project's own assertion. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite of every field citing it when affiliation changes. Never guess an affiliation: an actor missing from the registry reads as unknown, and the concept still reads fine.
+- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, which maps every actor ID to its organization, side (`client` / `internal` / `vendor` / `tool` / `unknown`), role, and active range. A third-party authoring agent is `tool`; a process the project itself runs is `internal`, because its output is the project's own assertion. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite of every field citing it when affiliation changes. Never guess an affiliation: an actor missing from the registry reads as unknown and the concept remains valid OKF, but the Profile registry requirement fails until the truthful row is added.
 - **Credibility is inferred, never scored.** OKF records objective per-source signals — `author`, `last_modified`, and `usage_count` over a `usage_window` — and leaves the judgment to the consumer, because a stored score is subjective, unportable, and goes stale. Adding a confidence, maturity, or evidence-tier field is the one thing OKF deliberately refuses.
 - **Per-claim attribution** uses a markdown footnote whose label is a `sources[].id`, so one concept can carry claims of differing provenance:
 
@@ -151,7 +158,7 @@ verified:
 - **A path freezes once it has been cited outside the bundle** — a tracker issue, a client deliverable, another repo, anywhere you cannot repair the citation. From then on, retire by `status: deprecated` plus a `Superseded by` link, never by moving. A concept carrying `Specified by`, `Tracked by`, or `Implemented by` toward an execution record has usually crossed that line already; treat it as frozen unless you know otherwise.
 - Inside the bundle a broken link is tolerated by OKF and repairable by you, which is why the freeze sits at the boundary where neither is true.
 - Hard deletion is reserved for security, privacy, legal, or secret-removal needs; drafts may simply be deleted.
-- **Moving concepts into a newly earned area is ordinary work**, not a migration. The three-concept rule lets them wait at the root so the area's name is *observed* rather than guessed — a set cannot be named before you have seen it.
+- **Moving concepts into a newly justified area is ordinary work**, not a migration. The current corpus, not a count, must make the shared subject truthful.
 
 ## Relationships
 
@@ -178,15 +185,15 @@ Core labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Sp
 A concept write is complete when three things exist:
 
 1. The concept file.
-2. Its area `index.md` entry — `* [Title](file.md) - description`, description copied exactly from frontmatter. **Group an area index by `type`**, definitions first, since the directory no longer carries kind; grouping headings must be reproducible from concept metadata. A concept written at the bundle root gets its entry in `knowledge/index.md` instead, and a newly created area adds its own `* [Area](area/) - <subject>` line there — the one index entry that is authored rather than copied, because a directory has no frontmatter. Above ~20 entries, group under a second axis (`tags`, or `status` for lifecycle) or nest a sub-area; beyond a few dozen, generate the index from frontmatter rather than hand-maintaining it.
-3. Its `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or `* **Area created**: …` with a link. Log meaningful lifecycle events only, never formatting edits.
+2. Every affected `index.md` semantic projection. At root, `Bundle` contains `log.md`, `profile.md`, `types.md`, and conditional `actors.md`; other concepts group under exact types; immediate directories group under `Directories`; non-Markdown files under `references/` group under `Assets`. Standard type groups follow the Profile order and project types follow lexically; entries sort by title then path. Concept labels and descriptions copy `title` and `description`; directory and asset labels derive exactly from their final path segment and carry no description. Indexes contain no authored ordering or prose.
+3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
 
 ## Mirroring sources into `references/`
 
 Mirror an external artifact only when a concept's `sources` needs to cite it and its external home is ephemeral — never merely because a meeting, call, or thread happened. Confirm the content may live at repository visibility before committing.
 
 - Mirrored markdown artifacts are concepts (e.g. `type: Meeting Transcript`, registered in `types.md`) with a `sources` entry naming the original recording, thread, or document. They are immutable snapshots.
-- `references/` is not an area: it is organized by source and date, is exempt from the area-naming and three-concept rules, and may nest — but a nonempty `references/` and each nonempty subdirectory still needs an `index.md`.
+- `references/` is not an area: it is organized by source and date, is exempt from subject naming, and may nest — but a nonempty `references/` and each nonempty subdirectory still needs an `index.md`.
 - Text may be mirrored in full, sanitized where confidentiality demands. Images only when cited, optimized first. Video and audio never — link them externally and mirror the transcript instead.
 - Non-markdown assets under `references/` are not concepts; the concepts citing them provide their context.
 - **Deciding not to mirror is also durable.** Cite the artifact as an OKF §5.1 scope descriptor in `sources[].resource` — a value the consumer cannot dereference, e.g. `Client demo recording, 30 July 2026 — retained outside this repository` — and state the reason in the body. A scope descriptor beats a path that does not resolve: it is honest about being unfollowable and mints no link a later mirroring decision must repair.

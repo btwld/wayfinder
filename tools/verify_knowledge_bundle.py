@@ -34,11 +34,7 @@ _args = [a for a in sys.argv[1:] if not a.startswith("-")]
 ROOT = find_root(Path(_args[0] if _args else ".").resolve())
 BUNDLE = ROOT / "knowledge"
 RESERVED = {"index.md", "log.md"}
-ROOT_CONCEPTS = {"profile.md", "types.md", "actors.md"}
-# Directories the profile names, exempt from the three-concept rule (§3.2–§3.4)
-# because a name the profile fixes cannot turn out to be the wrong name.
-FIXED_DIRS = {"architecture", "ways-of-working", "interactions", "references"}
-AREA_MINIMUM = 3
+ROOT_CONCEPTS = {"profile.md", "types.md"}
 # Kind is carried by `type`, never by a directory (§3). `interactions/` is the
 # one type-named directory the profile allows, on the time axis.
 TYPE_NAMED = {
@@ -146,11 +142,10 @@ def _concept_title(path: Path) -> str:
 
 
 def check_areas() -> None:
-    """Areas name subjects, are earned at three concepts, and are indexed (§3.1).
+    """Areas name subjects and are indexed (§3.1).
 
     Mixed types inside an area are the point of it, so there is no type check
-    here. Placement is reviewed by a person, not verified — the only mechanical
-    signals available are the directory's name and its size.
+    here. Placement is reviewed by a person, not inferred from a numeric minimum.
     """
     references = BUNDLE / "references"
     if references.is_dir():
@@ -171,12 +166,6 @@ def check_areas() -> None:
             advise(d, "nonempty area has no index.md")
         if d.name in TYPE_NAMED:
             advise(d, f"`{d.name}/` names a document kind, not a subject (profile §3)")
-        if d.name not in FIXED_DIRS and len(concepts) < AREA_MINIMUM and not subareas:
-            advise(
-                d,
-                f"area holds {len(concepts)} concept(s); an area is earned at "
-                f"{AREA_MINIMUM} (profile §3.1 rule 3)",
-            )
         # An area named after one of its members is named after a part of the
         # set rather than what the set shares (§3.1 rule 1).
         for c in concepts:
@@ -215,7 +204,7 @@ def check_registries() -> None:
                 used_actors.update(re.findall(r"by:\s*([^,}\s]+)", m.group(1)))
         used_actors.update(re.findall(r"^\s+author:\s*(\S+)", block, re.M))
 
-    if declared_actors:
+    if actors_md.exists():
         for actor in sorted(used_actors - declared_actors):
             advise(actors_md, f"actor `{actor}` is used in the bundle but absent from actors.md")
     elif used_actors:
@@ -225,10 +214,10 @@ def check_registries() -> None:
 def check_indexes() -> None:
     """Every index covers its directory: each concept verbatim, each sub-directory named.
 
-    A directory has no frontmatter, so its entry carries an authored one-line
-    description rather than a copied one (§9) — checked for presence, not text.
+    This deprecated verifier checks coverage and concept descriptions only. The
+    closed validator owns Profile 2026.2 semantic grouping and ordering.
     """
-    entry = re.compile(r"^\*\s*\[([^\]]+)\]\(([^)]+)\)\s*-\s*(.+?)\s*$")
+    entry = re.compile(r"^\*\s*\[([^\]]+)\]\(([^)]+)\)(?:\s*-\s*(.+?))?\s*$")
     references = BUNDLE / "references"
     for index in sorted(BUNDLE.rglob("index.md")):
         d = index.parent
@@ -245,13 +234,15 @@ def check_indexes() -> None:
                 continue
             m = entry.match(line)
             if not m:
-                advise(f"{_rel(index)}:{n}", "entry is not `* [Title](target) - description`")
+                advise(f"{_rel(index)}:{n}", "entry is not a Markdown index bullet")
                 continue
             _, target, desc = m.groups()
             listed.add(target)
             if target.endswith("/"):
                 if target not in subdirs:
                     advise(f"{_rel(index)}:{n}", f"entry targets missing or empty directory `{target}`")
+                continue
+            if d == BUNDLE and target == "log.md":
                 continue
             if target not in described:
                 advise(f"{_rel(index)}:{n}", f"entry targets missing concept `{target}`")
@@ -343,6 +334,8 @@ def check_root_index() -> None:
     for name in sorted(ROOT_CONCEPTS):
         if not (BUNDLE / name).exists():
             advise(BUNDLE, f"root concept `{name}` is missing (profile §3.5)")
+    if not (BUNDLE / "log.md").exists():
+        advise(BUNDLE, "root log `log.md` is missing (profile §3.5)")
 
 
 def main() -> int:
