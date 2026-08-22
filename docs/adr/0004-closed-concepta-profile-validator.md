@@ -4,7 +4,8 @@
 - Date: 2026-08-21
 - Deferred exploration: [#17](https://github.com/conceptadev/okf-profile/issues/17)
 - Specification: [#21](https://github.com/conceptadev/okf-profile/issues/21)
-- Delivery: [#19](https://github.com/conceptadev/okf-profile/issues/19), [#20](https://github.com/conceptadev/okf-profile/issues/20)
+- Release delivery: [#22](https://github.com/conceptadev/okf-profile/issues/22), [#23](https://github.com/conceptadev/okf-profile/issues/23), [#24](https://github.com/conceptadev/okf-profile/issues/24), [#25](https://github.com/conceptadev/okf-profile/issues/25), [#19](https://github.com/conceptadev/okf-profile/issues/19)
+- Validator delivery: [#26](https://github.com/conceptadev/okf-profile/issues/26), [#27](https://github.com/conceptadev/okf-profile/issues/27), [#28](https://github.com/conceptadev/okf-profile/issues/28), [#20](https://github.com/conceptadev/okf-profile/issues/20)
 - Supersedes: [ADR-0001](0001-ack-behind-interpreter-seam.md), [ADR-0002](0002-judgment-parse-and-preserve.md), [ADR-0003](0003-suppressions-in-profile-yaml.md)
 
 ## Context
@@ -373,11 +374,13 @@ evidence; the separate implementation coverage matrix maps each normative rule
 to automated validation or Profile Review. Compatibility evidence answers
 whether a rule preserves OKF, while coverage answers how Concepta assesses it.
 
-Delivery uses two dependent issues. The first ships the Profile snapshot and
-2026.2 rewrite, migration, compatibility review, implementation guide, coverage
-matrix, skill, README, and examples atomically so no distribution surface teaches
-stale rules. The second implements the closed validator, tests, and CI against
-that finalized release.
+Delivery uses tracer-bullet slices under specification #21. A release-frame
+slice gates three domain slices covering structure, concepts, and external
+boundaries; #19 integrates and publishes them atomically so no distribution
+surface teaches stale rules. An OKF-backed validator tracer then gates concept
+and structure validation slices; #20 integrates their coverage, installs CI,
+and removes the legacy validator. Each slice fits one fresh context while the
+two integration tickets preserve atomic release and gate outcomes.
 
 ## Consequences
 
