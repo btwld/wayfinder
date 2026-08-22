@@ -108,6 +108,35 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
+  test('validates the complete released example through the shipped gate',
+      () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', p.join('examples', 'knowledge')],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    expect((output['okf']! as Map<String, Object?>)['state'], 'PASS');
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['release'], '2026.2');
+    expect(profile['state'], 'PASS');
+    expect(
+      _findingSummary(profile),
+      <String>[
+        'advisory concepta-profile/registered-type-extension types.md',
+        'advisory concepta-profile/relationship-label-extension '
+            'reporting/include-pdf-annotations.md',
+        'advisory concepta-profile/internal-link-unresolved '
+            'reporting/pdf-export-feasibility.md',
+      ],
+    );
+    expect(output['judgment_rules'], <String, Object?>{
+      'state': 'UNASSESSED',
+    });
+    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+  });
+
   test('blocks Profile validation when OKF fails', () async {
     final failed = await _runProcess(
       <String>['validate', '--output', 'json', _fixture('invalid-okf')],
@@ -760,7 +789,7 @@ Future<Directory> _copyFixture(String name) async {
 Future<_CliResult> _runProcess(List<String> arguments) async {
   final result = await Process.run(
     Platform.resolvedExecutable,
-    <String>['run', 'bin/okfp.dart', ...arguments],
+    <String>['run', 'okf_profile:okfp', ...arguments],
     stdoutEncoding: utf8,
     stderrEncoding: utf8,
   );

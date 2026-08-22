@@ -26,4 +26,6 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart run okf_profile:okfp validate examples/knowledge
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
