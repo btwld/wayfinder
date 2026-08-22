@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
+
+import 'validation.dart';
 
 /// The package version reported by `okfp --version`.
 const okfpPackageVersion = '0.1.0';
@@ -60,11 +63,14 @@ final class OkfpCli {
         _out(_commandUsage(command.name ?? ''));
         return 0;
       }
-      return _validate(command);
+      return await _validate(command);
     } on ArgParserException catch (error) {
       return _usageError(error.message);
     } on _OkfpUsageException catch (error) {
       return _usageError(error.message);
+    } on FileSystemException catch (error) {
+      _err('okfp: ${_terminalSafe(error.message)}');
+      return 2;
     }
   }
 
@@ -74,12 +80,21 @@ final class OkfpCli {
     return 2;
   }
 
-  int _validate(ArgResults command) {
-    // Validation exit codes belong to the Verdict from `okf`, so the CLI may
-    // not compute one; 2, the usage-error code, is the only code it owns.
-    throw const _OkfpUsageException(
-      'validate is not implemented yet (conceptadev/okf-profile#20).',
-    );
+  Future<int> _validate(ArgResults command) async {
+    if (command.rest.length != 1) {
+      throw const _OkfpUsageException(
+        'validate requires exactly one bundle directory.',
+      );
+    }
+    final result = await const ProfileValidator().validate(command.rest.single);
+    if (command.option('output') == 'json') {
+      _out(const JsonEncoder.withIndent('  ').convert(result.toJson()));
+    } else {
+      for (final line in result.toTextLines()) {
+        _out(line);
+      }
+    }
+    return result.exitCode;
   }
 
   String _rootUsage() => '''
