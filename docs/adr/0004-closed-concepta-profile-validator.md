@@ -74,6 +74,15 @@ active period are true in context.
 Review checks whether the selected value is truthful. Authors and agents use
 `unknown` rather than infer an affiliation without evidence.
 
+One OKF actor ID may have multiple registry rows with non-overlapping `Active`
+periods when affiliation changes. `generated` and `verified` resolve the row at
+their event timestamp; `sources[].author` may use an applicable
+`last_modified`, but without a reliable date its affiliation remains `unknown`.
+The registry never changes the actor string, its OKF prefix, or OKF-derived trust
+tier, and ambiguity never invalidates the underlying OKF value. Automated
+validation checks interval shape and overlap; Profile Review checks historical
+truth.
+
 The root `log.md` is authored bundle history, not a projection of current
 concept state. This is consistent with OKF 0.2 §9, which defines logs as
 date-grouped history and does not require them to be derived. Automated
