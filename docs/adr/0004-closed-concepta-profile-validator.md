@@ -360,6 +360,11 @@ A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in
 issue #17.
 
+These decisions ship as Concepta Profile `2026.2`. The current proposed
+`2026.1` text is snapshotted before the canonical Profile is rewritten. The new
+release carries its own change record, driver, and explicit migration rather
+than silently replacing an already identified release.
+
 ## Consequences
 
 - The first implementation has no public Profile provider seam, executable rule
