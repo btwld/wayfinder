@@ -1,16 +1,14 @@
 ---
 type: Type Registry
 title: Types
-description: The standard and project-specific types available to this bundle.
+description: Contains deliberate canonical registry errors.
 status: stable
 generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
 ---
 
-# Types
-
 | Type | Intended content |
 | --- | --- |
-| `Glossary Definition` | One project or domain term |
+| `Glossary Definition` | Wrong meaning |
 | `Business Rule` | One standing business rule, constraint, invariant, or policy |
 | `Question` | One named unknown, with what is known, what is missing, and what would close it |
 | `Request` | A durable request from any relevant source |
@@ -19,8 +17,9 @@ generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
 | `Architecture Decision Record` | An architectural decision in ADR form |
 | `Architecture Document` | A durable description of the system architecture |
 | `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
-| `Guide` | Durable operational or engineering guidance |
 | `Interaction Record` | An interaction whose combined context is itself durable |
 | `Knowledge Profile` | The Concepta Profile and OKF release declaration |
 | `Type Registry` | The standard and project-specific types available to the bundle |
 | `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
+| `Zulu` | A project extension sorted incorrectly |
+| `Alpha` | Another project extension |
