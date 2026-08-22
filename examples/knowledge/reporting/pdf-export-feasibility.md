@@ -28,5 +28,6 @@ Proceed. Budget headroom is adequate at current document sizes.
 # Relationships
 
 - Refines: [Include PDF annotations in the export](/reporting/include-pdf-annotations.md)
+- Constrained by: [Pagination contract](/reporting/pagination-contract.md)
 
 [^layout-sample]: Exported annotation layout sample

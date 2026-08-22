@@ -89,6 +89,14 @@ version format became `<year>.<serial>`. Five skills changed: `okf-profile`,
 `setup-repo` (its `AGENTS.md` template carried the old specification sentence verbatim, so every
 repository it seeded inherited the defect), `to-spec`, `to-tickets`, and `domain-modeling`.
 
+**2026.2 integration draft** — relationships remain ordinary untyped OKF edges,
+including unresolved targets; external citations freeze a path only when they cannot
+be repaired; stable concepts normally deprecate; and mirroring requires a cited
+source at genuine availability risk whose material is suitable for repository
+visibility. The canonical `okf-profile` skill carries these unpublished authoring and
+Profile Review boundaries while downstream engineering skills continue to delegate
+the mechanics.
+
 When a profile rule changes, grep this tree for the old rule before shipping the release.
 
 ## Standing decisions

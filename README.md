@@ -128,7 +128,9 @@ anywhere inside it. It keeps the profile's two severities distinct (profile §14
 - An **OKF §11 violation** is a hard failure — the document cannot be interpreted, so it
   cannot be accepted. Exits nonzero.
 - A **profile deviation** is an advisory finding — reported and attributed, never a reason to
-  reject a bundle that is valid OKF. Exits nonzero only under `--strict`.
+  reject a bundle that is valid OKF. This deprecated verifier's `--strict` mode promotes
+  legacy deviations, except the two advisories Profile 2026.2 explicitly keeps
+  gate-neutral: unresolved internal edges and nonstandard relationship labels.
 
 That asymmetry is deliberate. A profile that could reject valid OKF would have made itself a
 competing standard, which the profile's §1.2 forbids.

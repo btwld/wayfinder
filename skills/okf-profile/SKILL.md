@@ -170,12 +170,12 @@ verified:
 
 ## IDs and lifecycle
 
-- A concept's ID is its path from the bundle root without `.md`: `reporting/token-contract`. Lowercase kebab-case; dates only where chronology is identity (Interaction Records, mirrored snapshots). Status, owner, and priority never appear in filenames.
+- A concept's ID is its path from the bundle root without `.md`: `reporting/token-contract`. Use readable lowercase kebab-case for each authored slug. Put a date in the path only when chronology is intrinsic to stable identity (for example, Interaction Records and mirrored snapshots), never for creation time, freshness, workflow, or an editable version. Status, owner, priority, and Profile version never appear in filenames.
 - **An ID other systems already cite is part of identity — preserve it verbatim, leading the path.** `d11-collected-revenue-basis`, `architecture/0008-direct-token-consumption`. Requirement numbers, rule codes, question numbers, ADR sequence numbers: never renumber, never trade one for a nicer name. They are cited in trackers, matrices, client documents, and scripts that grep them, so they are already frozen by citation — the concept adopts a frozen identity rather than minting a rival.
 - **A concept may move at any `status`**, for as long as every reference to it can be repaired. A move is complete in one operation: inbound bundle links repointed, affected indexes regenerated, and a `* **Move**:` entry in `log.md` naming both paths. `status` never decides this — movability is about who points at the path, not how reviewed the document is, and holding a finished concept at `draft` to keep it movable is the `status` abuse the profile forbids.
-- **A path freezes once it has been cited outside the bundle** — a tracker issue, a client deliverable, another repo, anywhere you cannot repair the citation. From then on, retire by `status: deprecated` plus a `Superseded by` link, never by moving. A concept carrying `Specified by`, `Tracked by`, or `Implemented by` toward an execution record has usually crossed that line already; treat it as frozen unless you know otherwise.
+- **A path freezes when a known citation outside the bundle cannot be repaired** — a tracker issue, a client deliverable, another repo, anywhere you cannot coordinate the update. A repairable external citation does not freeze it merely by crossing the boundary. Before moving a concept carrying `Specified by`, `Tracked by`, or `Implemented by`, you should inspect the linked execution record for citations; the relationship alone is not proof. If a citation cannot be repaired, retain the path and retire by `status: deprecated` plus a `Superseded by` link when a successor exists.
 - Inside the bundle a broken link is tolerated by OKF and repairable by you, which is why the freeze sits at the boundary where neither is true.
-- Hard deletion is reserved for security, privacy, legal, or secret-removal needs; drafts may simply be deleted.
+- Stable concepts normally deprecate, and link an available successor with `Superseded by`. Drafts may simply be deleted. Hard-delete stable content only for an exceptional security, privacy, legal, secret-removal, or genuinely erroneous-content reason; Profile Review must assess the reason and known citations.
 - **Moving concepts into a newly justified area is ordinary work**, not a migration. The current corpus, not a count, must make the shared subject truthful.
 
 ## Relationships
@@ -190,13 +190,14 @@ An optional `# Relationships` section gives selected links a stable label — on
 - Implemented by: [PR #42](https://github.com/org/repo/pull/42)
 ```
 
-Core labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Specified by, Implemented by, Resolves, **Partially resolves**, **Tracked by**, Related to — each read from the containing concept outward. Use bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. `sources` carries provenance; Relationships carry meaning — keep them separate.
+Preferred labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Specified by, Implemented by, Resolves, **Partially resolves**, **Tracked by**, Related to — each read from the containing concept outward. Additional labels are permitted and produce only a non-blocking advisory; a project should define one once in a durable `Guide` so later authors use it consistently. Prefer bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. The ordinary OKF graph exposes every link, labelled or not, as the same untyped body edge; never add frontmatter or graph enrichment for a Profile relationship. `sources` carries provenance; Relationships carry body context — keep them separate.
 
 - **`Part of`** for composition — a constituent, not a narrowing. Two buckets that sum to a balance are `Part of` it, not `Refines` and not peers. One direction only; backlinks are computed.
 - **`Resolves` versus `Partially resolves`:** `Resolves` is genuine closure only. Evidence that moves an open item forward while leaving it open uses `Partially resolves`. Loose `Resolves` makes open items read as settled — the same class of error as an unearned `verified`.
 - **`Tracked by`** points at the work-tracking record chasing this concept — the issue that carries who owes an open question and by when, while the question itself stays here. It is not `Specified by` or `Implemented by`, and it carries no state: openness is still read from `Resolves` / `Partially resolves`.
 - **Never write the same label back.** Labels read outward, so `Refines` both ways says each concept narrows the other, and `Constrained by` both ways says a question and a rule gate each other. Backlinks are computed, never authored. `Related to` pointed back along an edge that already has a precise label is the same redundancy wearing a weaker one. Fine: `Related to` between genuine peers, and two *different* complementary labels.
 - Reaching for `Related to` repeatedly means a label is missing. If it carries a large share of your edges, name the relationship instead.
+- An unresolved internal target stays a loadable OKF edge and receives only a non-blocking advisory. Preserve a deliberate planned link; repair a mistaken one. Profile Review makes that contextual distinction.
 
 ## Every write updates index and log
 
@@ -208,19 +209,19 @@ A concept write is complete when three things exist:
 
 ## Mirroring sources into `references/`
 
-Mirror an external artifact only when a concept's `sources` needs to cite it and its external home is ephemeral — never merely because a meeting, call, or thread happened. Confirm the content may live at repository visibility before committing.
+Mirror an external artifact only when a durable concept cites it through `sources`, its availability is genuinely at risk, and the material may live at repository visibility. A source being outside project control is evidence to consider, not enough by itself. Never mirror merely because a meeting, call, or thread happened.
 
 - Mirrored markdown artifacts are concepts (e.g. `type: Meeting Transcript`, registered in `types.md`) with a `sources` entry naming the original recording, thread, or document. They are immutable snapshots.
 - `references/` is not an area: it is organized by source and date, is exempt from subject naming, and may nest — but a nonempty `references/` and each nonempty subdirectory still needs an `index.md`.
-- Text may be mirrored in full, sanitized where confidentiality demands. Images only when cited, optimized first. Video and audio never — link them externally and mirror the transcript instead.
+- Text may be mirrored in full and must be sanitized where confidentiality demands. Images only when cited, optimized first. Video, audio, and other heavy binaries never — keep the followable source external and prefer an appropriate transcript when preservation is needed.
 - Non-markdown assets under `references/` are not concepts; the concepts citing them provide their context.
-- **Deciding not to mirror is also durable.** Cite the artifact as an OKF §5.1 scope descriptor in `sources[].resource` — a value the consumer cannot dereference, e.g. `Client demo recording, 30 July 2026 — retained outside this repository` — and state the reason in the body. A scope descriptor beats a path that does not resolve: it is honest about being unfollowable and mints no link a later mirroring decision must repair.
+- **Deciding not to mirror is also durable.** Preserve ordinary OKF source meaning: keep a known followable URL or path in `sources[].resource`; use a scope descriptor only when the source is inherently unfollowable. A material non-mirroring reason should be stated in the body. Never replace a followable resource with a descriptor merely to silence availability concerns.
 
 ## Execution stays external
 
 Tickets, issues, and PRs live in the issue tracker. Concepts link to them (`Specified by`, `Implemented by`) — the bundle never mirrors their state, and a linked record's status lives only in the tracker.
 
-**"Specification" is a genre, not a location.** What makes something an execution record is that a tracker owns its state — a status, an assignee, a workflow the bundle does not advance. A spec opened as a GitHub issue is an execution record: link it, never mirror it. A spec the project maintains as durable knowledge — it outlives the work it scoped, later concepts cite it, and its only state is `status` — is a `Specification` concept, filed with its subject like anything else. Never both: one artifact, one home.
+**"Specification" is a genre, not a location.** What makes something an execution record is that a tracker owns its state — a status, an assignee, a workflow the bundle does not advance. A spec opened as a GitHub issue is an execution record: link it, never mirror it. A spec the project maintains as durable knowledge — it outlives the work it scoped, later concepts cite it, and its only state is `status` — is a `Specification` concept, filed with its subject like anything else. Every durable specification has exactly one lifecycle owner. Never both: one artifact, one home.
 
 ## Beyond this profile
 
