@@ -28,6 +28,14 @@ one direction over the public `okf` library. `okf` remains independently
 responsible for OKF loading, models, Spec conformance, and generic bundle
 operations; it never knows that the Concepta Profile exists.
 
+Every Profile rule must pass an OKF 0.2 compatibility test. It may require or
+discourage an OKF-permitted producer choice, but it must use only OKF-permitted
+constructs, preserve every OKF field and reserved file's upstream meaning, leave
+the OKF graph contract uninterpreted, and never turn a Profile result into an OKF
+result. A generic OKF consumer must remain able to read the bundle normally. A
+rule that needs a new OKF field or meaning is rejected or pursued upstream before
+the Profile can adopt it.
+
 Only a bundle conforms to the Profile. Repository adoption choices such as the
 bundle's location, the number of bundles in a repository, installation, and CI
 belong to the implementation guide and setup skills rather than bundle
@@ -47,6 +55,13 @@ standard type would have expressed the concept accurately. Repeated extensions
 are evidence for a later Profile release, not an implicit change to the current
 release. OKF consumers remain required to tolerate every type; these are
 producer-side Profile rules only.
+
+Every bundle seeds and retains all fourteen standard Profile types in
+`types.md`, including types it has not used yet, in the Profile's canonical
+order and with their standard meanings. Project-specific types follow in lexical
+order when introduced. Indexes form groups only for types actually present in
+concepts. A concept using a standard type must match that type's meaning; this is
+a mandatory judgment rule assessed by Profile Review.
 
 When present, `actors.md` uses the fixed columns `Actor ID`, `Name`,
 `Organization`, `Side`, `Role`, and `Active`. Automated validation checks the
@@ -336,6 +351,8 @@ issue #17.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
+- Type registries missing any standard Profile type must add the canonical row;
+  unused standard rows do not require placeholder concepts or index groups.
 - Concepts missing `title`, `description`, or `status` become nonconformant under
   the next Profile release and must add truthful values. Missing `generated`
   remains conformant and gains only an advisory.
