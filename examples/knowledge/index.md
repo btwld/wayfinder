@@ -6,8 +6,8 @@ okf_version: "0.2"
 
 * [Knowledge Log](log.md)
 * [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
-* [Types](types.md) - The concept types this bundle uses.
-* [Actors](actors.md) - Actor IDs mapped to organization, side, and role.
+* [Types](types.md) - The standard and project-specific types available to this bundle.
+* [Actors](actors.md) - Actor IDs mapped to identity, affiliation, role, and active period.
 
 # Directories
 

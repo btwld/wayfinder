@@ -10,7 +10,7 @@ sources:
   - id: demo-0730
     resource: /references/2026-07-30-reporting-demo-transcript.md
     title: Reporting demo transcript, 30 July 2026
-    author: human:chris
+    author: process:meeting-transcription
     last_modified: 2026-07-30
 ---
 
