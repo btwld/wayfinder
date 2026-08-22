@@ -365,6 +365,18 @@ These decisions ship as Concepta Profile `2026.2`. The current proposed
 release carries its own change record, driver, and explicit migration rather
 than silently replacing an already identified release.
 
+The release includes a non-normative, rule-by-rule OKF compatibility review at
+`docs/compatibility/2026.2-okf-0.2.md`. Profile §15.3 summarizes and links that
+evidence; the separate implementation coverage matrix maps each normative rule
+to automated validation or Profile Review. Compatibility evidence answers
+whether a rule preserves OKF, while coverage answers how Concepta assesses it.
+
+Delivery uses two dependent issues. The first ships the Profile snapshot and
+2026.2 rewrite, migration, compatibility review, implementation guide, coverage
+matrix, skill, README, and examples atomically so no distribution surface teaches
+stale rules. The second implements the closed validator, tests, and CI against
+that finalized release.
+
 ## Consequences
 
 - The first implementation has no public Profile provider seam, executable rule
@@ -395,6 +407,9 @@ than silently replacing an already identified release.
 - A bundle declaring an older Profile release must update its declaration and
   complete that release's stated migration before the first validator can assess
   Profile conformance. Until then its Profile result is unsupported, not failed.
+- `tools/verify_knowledge_bundle.py` is deprecated as an implementation surface
+  and is deleted in the validator change once `okfp validate` replaces its CI
+  responsibilities. It does not remain as a fallback validator.
 - Bundles using a type absent from `types.md` become nonconformant under the next
   Profile release and must register it. Already registered project-specific
   types remain conformant and gain only an advisory.
