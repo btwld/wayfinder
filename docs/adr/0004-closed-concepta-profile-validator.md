@@ -2,7 +2,9 @@
 
 - Status: accepted
 - Date: 2026-08-21
-- Issues: [#17](https://github.com/conceptadev/okf-profile/issues/17)
+- Deferred exploration: [#17](https://github.com/conceptadev/okf-profile/issues/17)
+- Specification: [#21](https://github.com/conceptadev/okf-profile/issues/21)
+- Delivery: [#19](https://github.com/conceptadev/okf-profile/issues/19), [#20](https://github.com/conceptadev/okf-profile/issues/20)
 - Supersedes: [ADR-0001](0001-ack-behind-interpreter-seam.md), [ADR-0002](0002-judgment-parse-and-preserve.md), [ADR-0003](0003-suppressions-in-profile-yaml.md)
 
 ## Context
