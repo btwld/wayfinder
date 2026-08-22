@@ -56,7 +56,7 @@ If it is installed, ask exactly one question:
 
 The defaults are two axes — **audience** (`afk`, `hitl`) and **state** (`needs-triage`, `ready`) — each label string equal to its name. On **yes**, write them as-is. Only if the user says no — usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`) — collect the overrides so `triage` applies existing labels instead of creating duplicates.
 
-**Section C — Knowledge bundle.** The Concepta OKF Profile fixes the structural model, so there's nothing to ask — just state it. Durable project knowledge lives as OKF concepts under `knowledge/`: a root `index.md` and `log.md`, a `profile.md` declaring the profile and OKF versions, a `types.md` listing every concept type the bundle uses, an `actors.md` whenever OKF actor-valued fields are used, and subject directories that appear as knowledge accumulates. The profile names four optional lazy directories — `architecture/`, `ways-of-working/`, `interactions/`, `references/` — and leaves every other name to the project.
+**Section C — Knowledge bundle.** The Concepta OKF Profile fixes the structural model, so there's nothing to ask — just state it. Durable project knowledge lives as OKF concepts under `knowledge/`: a root `index.md` and `log.md`, a `profile.md` declaring the profile and OKF versions, a `types.md` carrying the standard vocabulary and every project-specific type in use, an `actors.md` whenever OKF actor-valued fields are used, and subject directories that appear as knowledge accumulates. The profile names four optional lazy directories — `architecture/`, `ways-of-working/`, `interactions/`, `references/` — and leaves every other name to the project.
 
 Report the versions declared in `knowledge/profile.md` when the bundle is already there. Otherwise seed its five root files per the `okf-profile` skill ([SEEDING.md](../../okf-profile/SEEDING.md)).
 
@@ -114,8 +114,9 @@ Concepta OKF Profile (versions declared in `knowledge/profile.md`). Start at
 
 Directories name subjects, not kinds of document: a term, the decisions about
 it, and the rules deriving it sit together, and `type` carries what each one
-is. `knowledge/types.md` lists the types in use and `knowledge/actors.md` maps
-actor IDs to organization, side, and role. System-wide architecture and ADRs go
+is. `knowledge/types.md` carries the standard vocabulary and registered extensions;
+`knowledge/actors.md` maps actor IDs to identity, affiliation, role, and active
+period. System-wide architecture and ADRs go
 in `knowledge/architecture/`; how the team works goes in
 `knowledge/ways-of-working/`.
 

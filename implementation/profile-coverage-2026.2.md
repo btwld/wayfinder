@@ -43,7 +43,7 @@ The Profile remains the source of every rule and its normative force.
 | §3.3: Interaction Records may nest by cadence or interaction kind | MAY | Profile Review | Nested time-axis placement remains contextual and does not sort general knowledge by type |
 | §3.4: nonempty `references/` and each nonempty descendant contain `index.md` | MUST | Automated Profile Validation | Index presence at every nonempty referenced-source level |
 | §3.5: root contains `index.md`, `log.md`, `profile.md`, and `types.md` and reserves all five structural names | MUST / MUST NOT | Automated Profile Validation | Required paths present with no conflicting use |
-| §3.5, §6.1.1: root `actors.md` exists when required by any used OKF actor-valued field, may otherwise be retained, and every used actor is represented | MUST / MAY | Automated Profile Validation | Actor-field scan, conditional file presence, and registry row membership |
+| §3.5, §6.1.1: root `actors.md` exists when required by any used OKF actor-valued field, may otherwise be retained, has exact `type: Actor Registry`, and represents every used actor | MUST / MAY | Automated Profile Validation | Actor-field scan, conditional file presence, parsed exact registry type, and registry row membership |
 | §6.1.1: actor and type registries use their fixed ordered table columns | MUST | Automated Profile Validation | Parsed header equality for six actor columns and two type columns |
 | §9: every nonempty directory contains an index | MUST | Automated Profile Validation | Recursive directory and index inventory |
 | §9: every index matches the exact immediate semantic projection and contains no unique authored navigation knowledge | MUST / MUST NOT | Automated Profile Validation | Parsed groups, membership, order, labels, relative targets, exact concept descriptions, directory entries, and referenced assets |
@@ -54,6 +54,44 @@ The Profile remains the source of every rule and its normative force.
 | §13: indexes remain rebuildable projections and the authored log is not treated as one | MUST / MUST NOT | Profile Review | No index-only source of truth and no claim that current state mechanically reconstructs history |
 | §13: graph consumers keep Markdown edges untyped and registry rows add no Profile-only nodes or edges | MUST / MUST NOT | Profile Review | Graph views preserve ordinary OKF links and do not reinterpret structural tables |
 | §13: a graph is completely rebuildable from the bundle and carries no graph-only state | MUST / MUST NOT | Profile Review | Graph design and outputs identify the bundle artifacts from which every node, edge, and datum rebuilds |
+
+## Concepts, trust, and durable-capture coverage
+
+| Profile clause | Force | Assessment | Expected evidence |
+| --- | --- | --- | --- |
+| §4.1: a source event does not become a concept merely because it occurred; creation follows the durable-knowledge test | MUST NOT / MUST | Profile Review | Source context and retained outcome show an independently durable unit rather than ceremony capture |
+| §4.2: embed or promote an outcome according to independent identity, lifecycle, provenance, relationships, reuse, replacement, and history | SHOULD | Profile Review | Concept boundary reflects the outcome's contextual reuse and lifecycle needs |
+| §4.2.1: split parts needing materially different verification or lifecycle; do not split for size or heading count alone | SHOULD | Profile Review | Frontmatter scope remains truthful without averaging materially different trust or lifecycle state |
+| §4.3: an Interaction Record is optional but prohibited without durable combined context, a single outcome links directly to its source, and routine minutes are prohibited | MAY / MUST NOT / SHOULD / MUST NOT | Profile Review | Interaction context justifies a combined record; routine source events do not create one |
+| §5.1: every concept has nonempty `type`, `title`, `description`, and an allowed `status` | MUST | Automated Profile Validation | Parsed presence, scalar shape, nonempty values, and `draft` / `stable` / `deprecated` membership |
+| §5.1: title, description, and lifecycle metadata are truthful | MUST | Profile Review | Values accurately identify, summarize, and describe the document lifecycle in context |
+| §5.1: `generated` is recommended | SHOULD | Automated Profile Validation | Missing field produces a non-blocking advisory |
+| §5.1, §6.2: generation provenance is never fabricated | MUST NOT | Profile Review | A present event represents known production and meaningful-change time rather than a conformance placeholder |
+| §5.1: Concepta producers add no producer-defined frontmatter fields | MUST NOT | Automated Profile Validation | Parsed keys are defined by pinned OKF 0.2; unknown keys remain preserved and loadable and do not alter the OKF result |
+| §5.1: tags do not exactly duplicate type, lifecycle, trust, or relationship labels | MUST NOT | Automated Profile Validation | Parsed tag values are compared with machine-readable values and the standard relationship vocabulary |
+| §5.1: tags remain topics rather than semantic aliases for type, lifecycle, trust, or subject-resolution state | MUST NOT | Profile Review | Contextual meaning carries a topic rather than a second source of truth |
+| §5.2: root `types.md` has exact `type: Type Registry` and contains all fourteen exact standard rows in canonical order, followed by project rows in lexical order | MUST / MAY | Automated Profile Validation | Parsed exact registry type, row values, and order match the release vocabulary and extension ordering |
+| §5.2: every used type is registered; a registered project type is allowed with an advisory | MUST / MAY | Automated Profile Validation | Used-type membership; extension advisory does not affect the automated gate |
+| §5.2: each standard type matches its canonical meaning and each extension has a truthful one-line meaning | MUST | Profile Review | Concept content fits the selected kind; review does not infer fit from headings, paths, or keywords |
+| §5.2: a Business Rule selected by a Decision links to it with `Depends on` | SHOULD | Profile Review | Rule history and relationship meaning support the outward link when the rule records a chosen policy |
+| §5.2: a project may use SBVR or another notation for Business Rule bodies | MAY | Profile Review | No notation is required or treated as changing the one-rule-per-concept type boundary |
+| §6.1: materially derived claims record identifiable material with OKF `sources`; original work does not invent sources | MUST / MUST NOT | Profile Review | Claims and evidence show complete truthful material provenance or an original contribution |
+| §6.1: present sources use required resources and unique IDs; recognized source-attribution footnotes join to those IDs | MUST | Automated Profile Validation | Source shape and ID uniqueness parse deterministically; only labels matching a declared source ID are attribution, so ordinary footnotes remain untouched |
+| §6.1: producers do not add stored confidence, credibility, maturity, or evidence-tier fields | MUST NOT | Automated Profile Validation | Frontmatter-key inventory contains no producer-defined verdict field |
+| §6.1.1: every actor `Side` belongs to the closed vocabulary and every `Active` value has valid syntax; dated rows for one ID do not overlap | MUST | Automated Profile Validation | Parsed side membership, range grammar, start-before-end, and interval overlap checks |
+| §6.1.1: actor identity, affiliation, role, side, and active periods are truthful; unknown replaces unsupported inference | MUST | Profile Review | Evidence supports each registry cell and unresolved affiliation is recorded as `unknown` |
+| §6.1.1: affiliation is absent from actor IDs and registry rows do not simulate graph edges | MUST NOT / SHOULD NOT | Profile Review | Stable opaque actor strings and ordinary lookup rows preserve OKF actor and graph contracts |
+| §6.2: `verified` records only genuine confirmation and is never inferred from review, migration, status, or affiliation | MUST NOT | Profile Review | Verification evidence supports every event and actor; no event exists solely to satisfy policy |
+| §6.2, §14.1: missing `verified` and derived trust tiers produce no finding | MUST NOT | Automated Profile Validation | Unverified fixtures emit neither failure nor advisory; optional trust summaries do not affect exit status |
+| §6.3: `status` describes document lifecycle only and does not carry workflow, ownership, due date, movability, or subject certainty | MUST NOT | Profile Review | Contextual reading confirms the OKF lifecycle meaning and external ownership of execution state |
+| §6.3.1: subject-settlement assessment stays in body prose and is not stored in frontmatter or derived from links | MUST NOT / MAY / SHOULD | Profile Review | Assessment appears beside reasoning when used; no stored or graph-derived verdict exists |
+| §6.4: `stale_after` appears only for an evidenced freshness horizon and never as a type default or placeholder | MUST / MUST NOT | Profile Review | Evidence supports the absolute date and historical type alone neither requires nor prohibits it |
+
+Profile §5.3 deliberately defines no type-specific body-template rule, so missing
+skill-prompt headings receive no coverage row and no finding. Actor affiliation
+lookup is likewise not an additional bundle requirement: implementations may expose
+the row selected at an event time, but unresolved or ambiguous affiliation remains
+`unknown` without a finding and never changes the OKF actor value or trust tier.
 
 ## Non-bundle frame clauses
 
@@ -69,6 +107,8 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |
 | §15.2: precedence and migration impact remain explicit for every release | Release integration | Profile binding and §15.3 migration text |
 | §15.3: a 2026.1 bundle completes every published 2026.2 migration action before changing its declaration | Migration implementation | Whole-bundle migration review after publication |
+| §6.1.1, §14.1: unresolved or ambiguous actor affiliation remains non-finding `unknown` | Validator implementation | Lookup tests preserve actor strings and trust tiers while emitting no finding for unresolved history |
+| §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
 
 Unsupported-release behavior and caller-policy prohibitions are implementation
 rules owned by guide §§4.1, 4.2, and 4.4. They are tested by the validator
@@ -77,8 +117,9 @@ delivery slices and are not restated as Profile bundle clauses.
 ## Completion gate
 
 This matrix is intentionally incomplete while the canonical Profile still
-contains unaligned 2026.1 domain text. Issues #24 and #25 MUST inventory and
-assign every retained or introduced normative bundle clause in their scope; the
-structure and navigation inventory is recorded above.
+contains unaligned external-boundary text. Issue #25 MUST inventory and assign
+every retained or introduced normative bundle clause in that scope; the
+release-frame, structure, navigation, concept, trust, and durable-capture
+inventories are recorded above.
 Issue #19 MUST verify exact, duplicate-free coverage before publication. No
 unlisted rule is implicitly covered.

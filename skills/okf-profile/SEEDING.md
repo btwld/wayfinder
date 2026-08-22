@@ -20,8 +20,8 @@ okf_version: "0.2"
 
 * [Knowledge Log](log.md)
 * [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
-* [Types](types.md) - The concept types this bundle uses.
-* [Actors](actors.md) - Actor IDs mapped to organization, side, and role.
+* [Types](types.md) - The standard and project-specific types available to this bundle.
+* [Actors](actors.md) - Actor IDs mapped to identity, affiliation, role, and active period.
 ````
 
 Other root concepts are grouped under their exact registered `type`. Immediate
@@ -68,49 +68,68 @@ published distribution surface until issue #19 completes the release.
 
 ## `knowledge/types.md`
 
-Seed only the types the bundle actually uses and add rows as it grows; the full default vocabulary is in [SKILL.md](./SKILL.md).
+Seed all fourteen standard types in the canonical order below, including unused
+types. Add project-specific types after them in case-sensitive lexical order before
+first use.
 
 ````markdown
 ---
 type: Type Registry
 title: Types
-description: The concept types this bundle uses.
+description: The standard and project-specific types available to this bundle.
 status: stable
 generated: { by: <actor>, at: <ISO 8601 datetime> }
 ---
 
 Every concept's `type` resolves here. Kind is carried by `type` alone, never by a
-directory name. Add a row before using a new type.
+directory name. Standard rows stay present even when unused; add an extension row
+before using a project-specific type.
 
 | Type | Intended content |
 |------|------------------|
-| `Knowledge Profile` | The profile declaration |
-| `Type Registry` | This registry |
-| `Actor Registry` | Actor IDs mapped to organization, side, and role |
+| `Glossary Definition` | One project or domain term |
+| `Business Rule` | One standing business rule, constraint, invariant, or policy |
+| `Question` | One named unknown, with what is known, what is missing, and what would close it |
+| `Request` | A durable request from any relevant source |
+| `Analysis` | An investigation, feasibility study, comparison, or recommendation |
+| `Decision` | A durable non-architectural decision with an independent lifecycle |
+| `Architecture Decision Record` | An architectural decision in ADR form |
+| `Architecture Document` | A durable description of the system architecture |
+| `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
+| `Guide` | Durable operational or engineering guidance |
+| `Interaction Record` | An interaction whose combined context is itself durable |
+| `Knowledge Profile` | The Concepta Profile and OKF release declaration |
+| `Type Registry` | The standard and project-specific types available to the bundle |
+| `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
 ````
 
 ## `knowledge/actors.md`
 
-Required once concepts distinguish their sources by organization; worth seeding either way, so the first `generated.by` actor is already legible.
+Required whenever any concept uses `generated.by`, `verified[].by`, or
+`sources[].author`. These literal templates use `generated.by`, so the seeded bundle
+includes the registry and the actor below.
 
 ````markdown
 ---
 type: Actor Registry
 title: Actors
-description: Actor IDs mapped to organization, side, and role.
+description: Actor IDs mapped to identity, affiliation, role, and active period.
 status: stable
 generated: { by: <actor>, at: <ISO 8601 datetime> }
 ---
 
 Actor IDs are opaque and stable: affiliation is looked up here, never encoded into
-the ID. Someone who changes organization gets a new row range, so historical
-attributions stay true. An actor missing from this table reads as unknown — that
-degrades a lookup, it never invalidates a concept.
+the ID. Someone who changes organization gets a new non-overlapping row range, so
+historical attributions resolve at event time. An actor missing from this table reads
+as unknown to a generic consumer; it never invalidates the OKF actor value, though
+the missing Profile row must still be repaired.
 
-`Side` is one of `client`, `internal`, `vendor`, `tool`, `unknown`. A third-party
+`Side` is one of `client`, `internal`, `vendor`, `tool`, `unknown`; use `unknown`
+rather than infer affiliation. `Active` is `YYYY-MM-DD – YYYY-MM-DD` with the end
+exclusive, `YYYY-MM-DD –`, or `unknown`. A third-party
 authoring agent is `tool`; a process the project itself runs is `internal`.
 
 | Actor ID | Name | Organization | Side | Role | Active |
 |----------|------|--------------|------|------|--------|
-| `<actor>` | <Name> | <Org> | internal | <Role> | <YYYY-MM> – |
+| `<actor>` | <Name> | <Org or unknown> | <Side or unknown> | <Role or unknown> | <YYYY-MM-DD> – |
 ````
