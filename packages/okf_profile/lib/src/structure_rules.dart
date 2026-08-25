@@ -262,8 +262,8 @@ _IndexProjection? _parseIndex(String source, {required bool root}) {
       return null;
     }
   }
-  // encodeHtml keeps labels and headings comparable to raw frontmatter and
-  // filenames: with it on, an `&` in either parses as `&amp;`.
+  // With encodeHtml on, an `&` in a label or heading would parse as `&amp;`;
+  // off keeps both comparable to raw frontmatter and filenames.
   final nodes = markdown.Document(
     encodeHtml: false,
     extensionSet: markdown.ExtensionSet.gitHubFlavored,
@@ -328,37 +328,26 @@ _IndexEntry? _parseIndexEntry(markdown.Node node, String? description) {
     return null;
   }
   final decoded = _decodeTarget(target);
-  if (decoded == null || decoded.isEmpty) return null;
+  if (decoded == null) return null;
   return _IndexEntry(label, decoded, description);
 }
 
 final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
+final RegExp _strayPercent = RegExp(r'%(?![0-9A-Fa-f]{2})');
 
 /// Percent-decodes a parsed target so §9 compares every valid spelling of a
 /// path against its raw projection; null when an escape is malformed.
 ///
-/// Not [Uri.decodeComponent] directly: it throws [ArgumentError] on raw
-/// non-ASCII input, which is a legitimate already-decoded target character.
+/// Not [Uri.decodeComponent] on the whole target: it throws [ArgumentError] on
+/// raw non-ASCII input, which is a legitimate already-decoded target character.
 String? _decodeTarget(String target) {
-  final decoded = StringBuffer();
-  var index = 0;
-  while (index < target.length) {
-    final run = _percentEscapeRun.matchAsPrefix(target, index);
-    if (run != null) {
-      try {
-        decoded.write(Uri.decodeComponent(run.group(0)!));
-      } on FormatException {
-        return null;
-      }
-      index = run.end;
-    } else {
-      final character = target[index];
-      if (character == '%') return null;
-      decoded.write(character);
-      index++;
-    }
+  if (target.contains(_strayPercent)) return null;
+  try {
+    return target.replaceAllMapped(
+        _percentEscapeRun, (match) => Uri.decodeComponent(match[0]!));
+  } on FormatException {
+    return null;
   }
-  return decoded.toString();
 }
 
 List<String?> _rawIndexDescriptions(String body) {
