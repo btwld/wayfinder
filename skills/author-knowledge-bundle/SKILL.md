@@ -1,0 +1,67 @@
+---
+name: author-knowledge-bundle
+description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.2 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
+---
+
+# Authoring the knowledge bundle
+
+The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the Concepta OKF Profile — versions declared in `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type, no frontmatter field, and no metadata semantics of its own. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/3fcbb9f828c2f23d109c855ee403c3a4c81f3a96/okf/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
+
+## Release dispatch
+
+Before applying any rule in this skill, read the first fenced `yaml` block in
+`knowledge/profile.md`. This skill implements only `concepta_profile: "2026.2"`
+with `okf_version: "0.2"`. If the declaration differs, do not write, reassess,
+or silently migrate the bundle under 2026.2. Report the declared release as
+unsupported by this skill and ask for the matching historical skill or an
+explicit whole-bundle migration. Generic OKF reading remains available.
+The declaration is only a release selector: never turn `profile.md` into a
+standalone definition, extension registry, second schema, or OKF override.
+
+**Where this skill is silent, OKF 0.2 governs.** Silence means the upstream spec already settles the point, so read it and follow it — never invent a Concepta convention to fill a gap. See [Beyond this profile](#beyond-this-profile) for what that covers in practice. Within what the profile *does* specify, concepts take the shapes taught in the references below and never invented ones.
+
+## Route by operation
+
+Read the reference covering the write before making it. One operation commonly
+touches several — a new concept in a new directory needs the first two at least.
+
+| Doing | Read first |
+| --- | --- |
+| Creating or editing a concept — capture bar, types, frontmatter, provenance, execution links | [references/concept-authoring.md](./references/concept-authoring.md) |
+| Creating or naming a directory, placing a concept, moving, deprecating, deleting | [references/structure-and-lifecycle.md](./references/structure-and-lifecycle.md) |
+| Giving links a labelled meaning in `# Relationships` | [references/relationships.md](./references/relationships.md) |
+| Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
+| Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
+| Seeding a new bundle from nothing | the `adopt-knowledge-bundle` skill |
+| Anything the profile says nothing about | [references/OKF-0.2.md](./references/OKF-0.2.md) |
+
+## The atomic bundle write
+
+Every write follows this sequence, and is complete only when all of it exists:
+
+1. The concept file, conforming to the routed references above.
+2. Every affected `index.md` semantic projection. At root, `Bundle` contains `log.md`, `profile.md`, `types.md`, and conditional `actors.md`; other concepts group under exact types; immediate directories group under `Directories`; non-Markdown files under `references/` group under `Assets`. Standard type groups follow the Profile order and project types follow lexically; entries sort by title then path. Concept labels and descriptions copy `title` and `description`; directory and asset labels derive exactly from their final path segment and carry no description. Indexes contain no authored ordering or prose.
+3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
+4. Automated validation, when `okfp validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
+5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
+
+Do not stop after step 1: a concept file without its indexes, log entry, and
+review is an incomplete write, not a smaller one.
+
+## Beyond this profile
+
+The profile constrains a subset of OKF and leaves the rest alone. When you need something this skill doesn't cover, the answer is in [references/OKF-0.2.md](./references/OKF-0.2.md) — the pinned spec, vendored so it is readable without a network fetch. Read it and follow it; do not invent a convention, and do not assume the omission means the mechanism is unavailable.
+
+What the profile deliberately says little or nothing about:
+
+| Look up | OKF § |
+| --- | --- |
+| **Attested Computation** — `runtime`, `parameters`, `computation`, `executor`, `attester`, the `# Computation` heading, and how a consumer executes and attests | §10 |
+| **`usage_count` and `usage_window`** — adoption and liveness signals on a source, and why they read as trend rather than score | §5.1 |
+| **Lineage through links** — recursing into a source that is itself a concept, so credibility propagates without a `derived_from` field | §5.1 |
+| **Conventional body headings** `# Schema` and `# Examples` | §4.2 |
+| **`resource`** as the canonical URI of the asset a concept describes | §4.1, §6.2 |
+| **Tag-based views**, synthesized at consumption time rather than stored as files | §3.1 |
+| **v0.1 fallbacks** — legacy `timestamp` and body `# Citations` in inherited bundles | §13 |
+
+Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no custom frontmatter fields, no kind-named directories, `status` as knowledge lifecycle only, an `index.md` in every nonempty directory with descriptions copied verbatim.
