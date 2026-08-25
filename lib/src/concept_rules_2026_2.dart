@@ -330,8 +330,8 @@ Iterable<ProfileFinding> _validateSources(
         entry.key,
       );
     }
-    final ids = maps
-        .map((source) => _nonEmptyString(source['id']))
+    final ids = entry.value.metadata.sources
+        .map((source) => source.id)
         .whereType<String>()
         .toList();
     if (ids.toSet().length != ids.length) {
