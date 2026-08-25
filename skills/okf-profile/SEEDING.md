@@ -91,7 +91,8 @@ directory name. Add a row before using a new type.
 
 ## `knowledge/actors.md`
 
-Required once concepts distinguish their sources by organization; worth seeding either way, so the first `generated.by` actor is already legible.
+Required for these literal templates because they use `generated.by`; represent
+`<actor>` in the table below.
 
 ````markdown
 ---

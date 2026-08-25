@@ -1233,24 +1233,17 @@ replication, or archival policy, and defines none.
 
 ## 13. Derived projections
 
-Indexes (§9), validator diagnostics, and any future graph view are
-**projections**: derived mechanically from concepts, discardable, and rebuildable
-at any time. A projection MUST NOT become a source of truth. The authored root log
-is history and is expressly outside this category (§10).
+Indexes (§9) are **projections**: derived mechanically from concepts, discardable,
+and rebuildable at any time. An index MUST NOT become a source of truth. The
+authored root log is history and is expressly outside this category (§10).
 
-A knowledge graph, when built, MUST follow OKF without a Profile adapter.
-Markdown links, including links in a labelled Relationships bullet, remain the
-ordinary untyped edges OKF §6.1 defines; a label is body context and MUST NOT enrich
-the graph contract. Provenance through a `sources[].resource` that points to
-another concept follows OKF §5.1. Registry rows MUST remain table rows and MUST
-NOT add graph nodes or edges.
+The Profile adds no graph contract. Markdown links and provenance retain their
+OKF meanings; relationship labels and registry tables remain ordinary body
+Markdown. Graph consumers follow OKF directly.
 
 Reading a kind as a set — every ADR, the whole glossary, all open questions — is a
 projection filtered by `type`, not a directory. That is what allows directories to
 name subjects (§3) without losing kind-first navigation.
-
-The graph MUST be completely rebuildable from the bundle. Nothing may exist only
-in the graph.
 
 ---
 
@@ -1432,6 +1425,7 @@ will verify the integrated release and is the only step that may publish it.
 | Project-named areas have no numeric minimum, discourage speculative structure contextually, and may contain genuine subject concepts | §3.1–§3.4, §14.1 | Applying the three-concept threshold forced identity churn when a third concept arrived without proving that the proposed subject was genuine, while the blanket overview prohibition excluded durable knowledge merely because it explained the area's subject |
 | Indexes use one deterministic semantic projection with fixed groups, ordering, derived labels, exact descriptions, and referenced assets | §9, §13, §14.1 | Hand-authored directory descriptions and ordering made indexes a second source of truth, so generators could neither reproduce them from the bundle nor distinguish semantic drift from harmless Markdown presentation |
 | The required root log is authored history with a mechanically checkable, extensible lead-word shape and is not a projection | §2, §10, §13, §14.1 | Treating history as a projection implied that current bundle state could reconstruct which changes were material, producing false completeness claims and erasing the author's curated account |
+| Profile-specific graph projections are withdrawn; graph behavior defers entirely to OKF | §13 | Validator integration exposed that the earlier graph sketch constrained consumers rather than bundles and required a Profile adapter despite no concrete consumer need |
 
 **Migration framework.** A bundle conformant to Profile 2026.1 remains
 conformant to Profile 2026.1; this draft does not silently reassess it under
@@ -1451,6 +1445,10 @@ and add `actors.md` with the fixed table when an actor-valued field is used. It 
 retain an actor registry when none is required. Removing the area-size and
 large-index thresholds and allowing genuine subject concepts are relaxations, so
 they require no migration and make no previously conformant bundle invalid.
+With respect to the withdrawn graph sketch, an existing conformant bundle stays
+conformant and requires no migration because graph projection state was never
+bundle state; the Profile now defers graph behavior to OKF rather than replacing
+that sketch with a new convention.
 
 **2026.1** — three conventions promoted from first use; the semver series retired.
 
