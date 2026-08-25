@@ -1,6 +1,6 @@
 ---
 name: okf-profile
-description: Read and write the knowledge bundle at knowledge/ per the Concepta OKF Profile (OKF 0.2). Use before creating, editing, deprecating, or moving any concept under knowledge/, when mirroring source material into references/, or when another skill needs the profile's conventions.
+description: Author and review the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.2 (OKF 0.2). Use before creating, editing, deprecating, moving, or mirroring bundle content; when auditing Profile conformance or producing a Profile Review Report; or when another skill needs Profile conventions.
 ---
 
 # Concepta OKF Profile
@@ -220,10 +220,10 @@ never a finding.
 
 ## Profile Review
 
-After a write, run automated validation over the whole bundle when `okfp validate`
-is available, then assess every contextual rule taught in this skill for the
-review scope. In a source checkout, the canonical assignment audit is
-[`../../implementation/profile-coverage-2026.2.md`](../../implementation/profile-coverage-2026.2.md);
+After a write or when asked for Profile Review, run automated validation over the
+whole bundle when `okfp validate` is available, then assess every contextual rule
+taught in this skill for the review scope. In a source checkout, the canonical
+assignment audit is [`../../implementation/profile-coverage-2026.2.md`](../../implementation/profile-coverage-2026.2.md);
 the review map below keeps a copied skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,
@@ -233,8 +233,8 @@ Use this compact review map to enumerate the contextual surface: structure and
 placement (§§3, 9–10, 13); durable capture and concept boundaries (§4);
 metadata, type fit, provenance, actor history, trust, lifecycle, and freshness
 (§§5–6); relationship meaning, execution ownership, identity, moves, and
-retirement (§§7–8); and source mirroring (§12). Mark a section not applicable
-only after checking it against the scope.
+retirement (§§7–8); Profile declaration semantics (§11); and source mirroring
+(§12). Mark a section not applicable only after checking it against the scope.
 
 Complete the review autonomously when the required context is present and every
 judgment is clear. Use `NEEDS HUMAN` for an ambiguous mandatory rule, apparent

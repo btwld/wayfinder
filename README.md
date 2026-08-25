@@ -99,15 +99,16 @@ it:
 
 | Skill | Invocation | What it does |
 | --- | --- | --- |
-| `okf-profile` | model-invoked | The profile as a skill. Any agent about to create, edit, deprecate, or move a file under `knowledge/` reaches it automatically |
+| `okf-profile` | model-invoked | Authors and reviews a Profiled Bundle. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
 | `domain-modeling` | model-invoked | Pins down terminology and records decisions — one Glossary Definition per term, ADRs into `architecture/`, durable non-architectural decisions as `Decision` concepts |
 | `to-spec` | user-invoked | Turns a shaped problem into a specification, linked back to the concept it realizes |
 | `to-tickets` | user-invoked | Slices a spec into tickets, linked to the concept that motivated them |
 | `implement` | user-invoked | Reads the constraining concepts before coding, and links the work back with `Implemented by` |
 
-You never invoke `okf-profile` yourself. It is model-invoked precisely because
-structure an agent cannot see is structure an agent invents: a subject-named tree is not
-self-inferrable, so an agent that skips the profile will confidently create `decisions/`.
+You do not need to invoke `okf-profile` yourself. It is model-invoked so authoring mechanics
+are loaded before a bundle write and contextual rules are loaded for Profile Review. A
+subject-named tree is not self-inferrable, so an agent that skips the profile will confidently
+create `decisions/`.
 
 ### 4. Legacy verification during validator replacement
 
