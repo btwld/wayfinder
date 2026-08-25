@@ -23,7 +23,7 @@ The Profile remains the source of every rule and its normative force.
 
 The publication review normalized repeated statements of the same semantic rule
 to one row and retained distinct deterministic and contextual obligations as
-separate rules. The tables below contain 69 bundle-rule assignments and 11
+separate rules. The tables below contain 71 bundle-rule assignments and 11
 non-bundle frame assignments. Every bundle row names exactly one assessment mode;
 none is duplicated between Automated Profile Validation and Profile Review.
 
@@ -50,6 +50,8 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §3.2–§3.4: `architecture/`, `ways-of-working/`, `interactions/`, and `references/` are optional and lazy, with their stated ordinary or special roles | MAY | Profile Review | Present fixed directories follow their subject-, time-, or source-axis role; absent names produce no finding |
 | §3.3: Interaction Records may nest by cadence or interaction kind | MAY | Profile Review | Nested time-axis placement remains contextual and does not sort general knowledge by type |
 | §3.4: nonempty `references/` and each nonempty descendant contain `index.md` | MUST | Automated Profile Validation | Index presence at every nonempty referenced-source level |
+| §3.4: within a `raw/` tier and its subdirectories the only markdown file is each directory's own `index.md`, and `raw` never names a source directory | MAY / MUST NOT | Automated Profile Validation | Non-index markdown under any `raw/` directory in `references/` fails deterministically; declining the optional tier produces no finding |
+| §3.4, §12: a `raw/` tier holds verbatim originals byte-for-byte, and the derived mirror sits beside `raw/` naming the original through `sources` | MUST | Profile Review | Whether tier contents are unmodified originals of cited sources needs source context no path rule can prove |
 | §3.5: root contains `index.md`, `log.md`, `profile.md`, and `types.md` and reserves all five structural names | MUST / MUST NOT | Automated Profile Validation | Required paths present with no conflicting use |
 | §3.5, §6.1.1: root `actors.md` exists when required by any used OKF actor-valued field, may otherwise be retained, has exact `type: Actor Registry`, and represents every used actor | MUST / MAY | Automated Profile Validation | Actor-field scan, conditional file presence, parsed exact registry type, and registry row membership |
 | §6.1.1: actor and type registries use their fixed ordered table columns | MUST | Automated Profile Validation | Parsed header equality for six actor columns and two type columns |

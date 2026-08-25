@@ -23,7 +23,7 @@ ship in the Profile. It must be removed or pursued upstream first.
 ## Inventory audit
 
 The publication review traced every normative clause in the canonical Profile
-through this artifact and the separate coverage matrix. This review has 60
+through this artifact and the separate coverage matrix. This review has 61
 compatibility records: a record may group adjacent clauses only when they use the
 same OKF construct and all five answers are identical. The coverage matrix keeps
 assessment assignments separate and exactly once. No compatibility record is
@@ -54,6 +54,7 @@ implicit, unassessed, or inherited merely by silence.
 | §3.2 defines optional lazy `architecture/` and `ways-of-working/` as ordinary subject areas | §3 permits producer-chosen directory names | Pass | The names select two optional organization choices and carry no OKF semantics for generic readers. |
 | §3.3 defines optional lazy `interactions/` as a time-axis exception | §3 permits domain-independent organization; §6 permits ordinary links | Pass | Interaction Records remain ordinary concepts and the exception changes neither their type meaning nor graph edges. |
 | §3.4 defines optional lazy `references/`, including nesting and per-directory indexes | §6.3 already defines the `references/` convention; §8 permits indexes at every level | Pass | The Profile narrows use of the upstream convention without redefining mirrored concepts or path-valued fields. |
+| §3.4 permits a per-source `raw/` tier whose only markdown is each directory's `index.md`, reserves the name within `references/`, and keeps derived mirrors outside it | §3.1 leaves subdirectory organization to producers and makes only markdown files concepts; §8 permits indexes at every level | Pass | The rule narrows directory organization and markdown placement OKF leaves free; assets stay non-concepts, every index keeps its upstream meaning, and the independent OKF verdict is unchanged. |
 | §3.5 requires root `index.md`, `log.md`, `profile.md`, and `types.md`, with `actors.md` conditional on actor-valued fields | §3.1 reserves `index.md` and `log.md`; every other Markdown file is an ordinary concept | Pass | Required presence is a producer constraint; the reserved files retain their upstream meanings and both registries remain ordinary concepts. |
 | §6.1.1 requires every used actor in root `actors.md` and fixes its six-column table; root `types.md` uses its fixed two-column table | §4.2 leaves body Markdown free-form; §7 keeps actor IDs as strings | Pass | Body tables add lookup structure without changing actor strings, trust tiers, frontmatter, or graph meaning; missing rows affect only the Profile result. |
 | §9 requires `index.md` in every nonempty directory | §8 makes indexes optional for OKF and §11 forbids base rejection when absent | Pass | This is an additional Profile producer requirement; a missing index never changes the independent OKF result. |
