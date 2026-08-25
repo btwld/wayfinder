@@ -1,12 +1,10 @@
 # Concepta OKF Profile
 
-**Version 2026.2** — profiles **OKF 0.2 exactly**
+**Version 2026.1** — profiles **OKF 0.2 exactly**
 
 Status: Proposed
 
-Concepta Profile 2026.2 is the current release. The superseded 2026.1 text is
-preserved byte-for-byte at
-[`versions/okf-profile-2026.1.md`](versions/okf-profile-2026.1.md).
+Concepta Profile 2026.1 is the current release.
 
 The Concepta OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
@@ -1198,7 +1196,7 @@ stale finds out where the concept went:
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
@@ -1220,12 +1218,12 @@ Its body MUST use the **first fenced `yaml` block** as the machine-readable
 declaration, and that block MUST declare both release values shown here:
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 
-The declared `concepta_profile` MUST be `"2026.2"`. The declared `okf_version`
-MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.2
+The declared `concepta_profile` MUST be `"2026.1"`. The declared `okf_version`
+MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.1
 binds exactly to OKF 0.2. Declaring the
 profile in a concept body rather than a frontmatter field is deliberate: it
 keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
@@ -1441,10 +1439,10 @@ rejected or pursued upstream before a later Profile release adopts it.
 
 The release-specific, non-normative compatibility review records that test for
 each rule at
-[`docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md).
+[`docs/compatibility-review.md`](../docs/compatibility-review.md).
 Compatibility evidence answers whether each rule preserves OKF. The separate
 implementation coverage matrix at
-[`implementation/profile-coverage-2026.2.md`](../implementation/profile-coverage-2026.2.md)
+[`implementation/profile-coverage.md`](../implementation/profile-coverage.md)
 assigns each rule to Automated Profile Validation or Profile Review and answers
 how Concepta assesses it. Neither artifact substitutes for the other, and the
 release MUST NOT be published while either is incomplete.
@@ -1469,20 +1467,16 @@ the second. The serial does not reset against anything but the year, and version
 naturally.
 
 **The format is deliberately not `<major>.<minor>` or `<major>.<minor>.<patch>`,
-because OKF uses the first of those.** Through release `0.3.0` the profile used semver,
-and every declaration read `concepta_profile: "0.2.0"` beside `okf_version: "0.2"` —
-two unrelated numbers in one shape, one of them a leading zero the reader had to know
-was about a different document. Prose was worse: "profile 0.2.0 binds OKF 0.2" is a
-sentence that has to be read twice. A dated serial cannot collide with an OKF version
-now or after any future OKF release, which is a property no semver discipline can
-promise, since it would require predicting upstream's numbering.
+because OKF uses the first of those.** A semver profile version would put two
+unrelated numbers in one shape beside `okf_version` — "profile 0.2.0 binds OKF 0.2"
+is a sentence that has to be read twice. A dated serial cannot collide with an OKF
+version now or after any future OKF release, which is a property no semver
+discipline can promise, since it would require predicting upstream's numbering.
 
-What semver was carrying is carried better in words. Each release states its own
-migration impact in §15.3 — whether an existing conformant bundle stays conformant, and
-what it must do if not — and that sentence is what a reader actually needs. A number
-could not have carried it honestly here in any case: under the old scheme the profile
-sat below `1.0` precisely so that a *minor* release could still change the structural
-model, which meant the number was already not communicating breaking-ness.
+What semver would carry is carried better in words. Each release states its own
+migration impact in §15.3 — whether an existing conformant bundle stays conformant,
+and what it must do if not — and that sentence is what a reader actually needs; a
+lone digit could not carry it honestly.
 
 **The structural model is not frozen.** The profile has been used on a small number of
 bundles, and a release MAY still change how bundles are shaped, stating the migration
@@ -1494,149 +1488,12 @@ OKF's normative requirements always take precedence over any profile release
 
 ### 15.3 Change record
 
-**2026.2.** Establishes the closed Concepta Profile release frame and integrates
-the structure/navigation, concept/trust/durable-capture, and external-boundary
-slices. Issue #19 verified and published these surfaces as one release.
+**2026.1.** Initial release. Binds OKF 0.2 exactly, published together with the
+rule-level compatibility review and the implementation coverage matrix (§15.1).
 
-| Change | Sections | Driver |
-| --- | --- | --- |
-| Profile 2026.2 binds exactly to OKF 0.2 and every rule receives an explicit compatibility review | §1, §11, §14, §15.1 | Work on the first validator found that the Profile mixed inherited OKF behavior, Profile policy, and implementation claims, so maintainers could not prove rule by rule that generic OKF meaning and results remained untouched |
-| OKF conformance, Automated Profile Validation, Profile Review, and Complete Profile Assessment are separate results | §2, §14.1 | Real rules such as subject-based placement require contextual judgment, while treating all Profile deviations as advisories prevented deterministic MUST violations from producing an honest Profile result |
-| The in-bundle declaration selects an immutable release without becoming a policy surface | §11 | The generic-platform design introduced caller-selected rules and a standalone definition even though only one real Profile exists; the closed release needs one reproducible selector instead |
-| Compatibility evidence and implementation coverage are separate release artifacts | §15.1 | A single matrix could say either that a rule preserves OKF or that a tool assesses it, but not demonstrate both responsibilities without conflating specification safety with implementation completeness |
-| Root structure uses four required files plus `actors.md` whenever an OKF actor-valued field is used; registry table shapes are fixed | §3.5, §6.1.1 | Real bundles without actor-valued metadata carried an empty registry, while bundles using actors could omit it; tools and authors therefore disagreed about both when the lookup existed and which columns were structural |
-| Project-named areas have no numeric minimum, discourage speculative structure contextually, and may contain genuine subject concepts | §3.1–§3.4, §14.1 | Applying the three-concept threshold forced identity churn when a third concept arrived without proving that the proposed subject was genuine, while the blanket overview prohibition excluded durable knowledge merely because it explained the area's subject |
-| Indexes use one deterministic semantic projection with fixed groups, ordering, derived labels, exact descriptions, and referenced assets | §9, §13, §14.1 | Hand-authored directory descriptions and ordering made indexes a second source of truth, so generators could neither reproduce them from the bundle nor distinguish semantic drift from harmless Markdown presentation |
-| The required root log is authored history with a mechanically checkable, extensible lead-word shape and is not a projection | §2, §10, §13, §14.1 | Treating history as a projection implied that current bundle state could reconstruct which changes were material, producing false completeness claims and erasing the author's curated account |
-| Profile-specific graph projections are withdrawn; graph behavior defers entirely to OKF | §13 | Validator integration exposed that the earlier graph sketch constrained consumers rather than bundles and required a Profile adapter despite no concrete consumer need |
-| Concept boundaries follow durable identity; routine source-event capture is prohibited and Interaction Records require durable combined context | §4, §14.1 | Real use alternated between archiving every ceremony and losing reusable outcomes inside minutes, while document size proved unrelated to whether provenance, verification, lifecycle, and reuse needed an independent identity |
-| Every concept requires truthful discovery and lifecycle metadata; generation provenance stays advisory; all fourteen standard types are retained canonically while registered extensions remain permitted | §5, §14.1 | Sparse concepts made indexes and lifecycle claims unreliable, while seeding only types already used caused agents to invent near-duplicates and treating type fit as machine-provable confused vocabulary judgment with syntax |
-| Actor history uses closed sides, explicit non-overlapping active periods, event-time resolution, and `unknown` when affiliation lacks evidence without changing OKF actor strings or trust tiers | §6.1.1, §14.1–§14.2 | Real actor affiliation changed over time and undated source authors could not be assigned truthfully; encoding affiliation in IDs or trust tiers rewrote history and contradicted OKF's prefix-derived trust model |
-| Material derivation uses truthful OKF sources; verification absence remains meaningful; status, freshness, and tags each keep one upstream-defined responsibility | §5.1, §6, §14.1–§14.2 | Review pressure produced fabricated confirmations, arbitrary expiry dates, workflow statuses, and topic tags that duplicated mutable state, while materially sourced claims could omit the provenance needed to assess them |
-| Labelled relationships use one label and target, prefer an extensible vocabulary, and remain ordinary untyped OKF body edges; unresolved targets stay non-blocking | §7, §13, §14.1–§14.2 | Projects needed consistent traceability labels, but treating labels or unresolved plans as a second graph schema made generic OKF consumers and Profile tooling disagree about the same Markdown edge |
-| Tracker-owned execution stays external, every durable specification has one lifecycle owner, and stable identity coordinates known citations before a move | §7.3, §8.1–§8.2, §14.1 | Real specifications drifted between tracker and bundle copies, while blanket freezes on every external link prevented repairable moves and mutable metadata or renumbering churned identifiers already used by other systems |
-| Stable concepts normally deprecate with an available successor; exceptional deletion is reviewable | §8.3, §14.1 | Real cleanup work needed both inspectable supersession and a narrow escape for secrets, legal obligations, and genuinely erroneous content that should not remain authoritative history |
-| Mirroring is pull-based on citation, genuine availability risk, and suitable repository visibility; heavy media remains external without changing OKF source meaning | §12, §14.1–§14.2 | Real source systems expired while indiscriminate capture widened confidential access and bloated repositories, and using scope descriptors merely to hide a followable external source weakened provenance |
-
-**Migration framework.** A bundle conformant to Profile 2026.1 remains
-conformant to Profile 2026.1 and is not silently reassessed under 2026.2. To
-migrate, it MUST complete every migration action recorded in this section,
-then update `concepta_profile` to `"2026.2"` while retaining `okf_version:
-"0.2"`. Until then its older declaration remains a claim about that older
-release and MUST NOT be reassessed under 2026.2.
-
-For the structure and navigation slice, a bundle conformant to Profile 2026.1
-does not necessarily conform to 2026.2. It MUST regenerate every index into the
-§9 semantic projection, including the root log entry, derived directory labels,
-and any referenced assets; remove directory descriptions and authored ordering
-that exist only in indexes; ensure the root log uses the required lead-word shape;
-and add `actors.md` with the fixed table when an actor-valued field is used. It MAY
-retain an actor registry when none is required. Removing the area-size and
-large-index thresholds and allowing genuine subject concepts are relaxations, so
-they require no migration and make no previously conformant bundle invalid.
-With respect to the withdrawn graph sketch, an existing conformant bundle stays
-conformant and requires no migration because graph projection state was never
-bundle state; the Profile now defers graph behavior to OKF rather than replacing
-that sketch with a new convention.
-
-For the concept, trust, and durable-capture slice, a bundle conformant to Profile
-2026.1 does not necessarily conform to 2026.2. It MUST add truthful nonempty
-`title`, `description`, and `status` to every concept; replace `types.md` with all
-fourteen canonical standard rows followed by any project-specific rows in lexical
-order; register every used extension; normalize actor sides and active periods,
-split overlapping affiliation history, and use `unknown` wherever evidence cannot
-support a value; adjudicate every producer-defined frontmatter value and move it to
-an applicable native OKF mechanism or body prose before removing its key; remove
-tags that duplicate type, lifecycle, trust, or resolution state; and add truthful
-`sources` for materially derived claims. It MUST review existing event-derived
-concepts and Interaction Records against §4, retire or reshape routine minutes that
-lack durable combined context, and assess outcome boundaries. That review SHOULD
-apply §4.2's promotion and splitting recommendations where independent identity,
-verification, or lifecycle supports them; legitimate boundary cases MAY remain as
-they are. The migration MUST NOT add `generated`, `verified`, `stale_after`, actor
-affiliation, or source provenance by inference merely to complete the migration.
-Removing verification pressure, type-based freshness advice, and conformance force
-from body templates are relaxations and require no content change.
-
-For the relationship and external-boundary slice, a bundle conformant to Profile
-2026.1 does not necessarily conform to 2026.2. It MUST reshape every labelled
-relationship to one label and one target; it SHOULD document each project-specific
-label once in a durable `Guide`; it MUST choose exactly one authoritative lifecycle
-owner for every specification and remove any mirrored tracker state. It MUST use
-Profile Review to adjudicate every path without renumbering externally cited IDs and
-to review every planned move against known internal and external citations. It MUST
-deprecate retained stable superseded
-concepts and add `Superseded by` wherever a successor exists. It MUST review mirrored
-material for a citing concept, genuine availability risk, repository visibility,
-sanitization, required image optimization, source provenance, and heavy-media
-classification, removing or externalizing
-material that fails those checks without replacing a known followable OKF source with
-a scope descriptor. Additional labels and unresolved internal links remain permitted
-and non-blocking, so those relaxations require no repair merely to migrate.
-
-The entries below record superseded releases for historical traceability only.
-Their migration prose is not normative for Profile 2026.2; a bundle still using
-one of those declarations is assessed under that immutable snapshotted release.
-
-**2026.1** — three conventions promoted from first use; the semver series retired.
-
-| Change | Sections | Driver |
-| --- | --- | --- |
-| `tags` carry topic only — never kind, lifecycle, trust, or an assessment | §5.1 | The pilot bundle tagged a `Question` concept `open-question` and `partially-resolved`: the first restated `type`, the second restated an inbound edge and would have gone stale the moment a second one landed |
-| An identifier other systems already cite is preserved verbatim in the path | §8.1 | The rule existed only as a sentence about ADR sequence numbers, while every project carrying requirement, rule, or question IDs had to decide it locally; it is §8.2's external-citation freeze seen from the other side |
-| `Tracked by` added to the core labels, for the tracker record chasing a concept | §7.2, §7.3 | Splitting an open item between bundle knowledge and tracker state is a profile-wide convention (§6.3, §7.3) with no label to link the halves, so projects reached for `Related to` — the smell §7.2 names |
-| Version format changed to `<year>.<serial>` | §15.1, §15.2 | `concepta_profile: "0.2.0"` beside `okf_version: "0.2"` put two unrelated numbers in one shape; a dated serial cannot collide with any future OKF release |
-
-A bundle conformant under 0.3.0 stays conformant. All three conventions describe what a
-bundle SHOULD already have been doing under rules stated elsewhere in the profile; none
-invalidates existing content, and `Tracked by` is an addition to a vocabulary consumers
-already MUST tolerate extensions to (§7.2, §14.2). Bundles SHOULD update their declared
-`concepta_profile` (§11) when convenient. A bundle still declaring a semver value is not
-a deviation, and tooling MUST continue to accept one.
-
-**0.3.0** — path stability decoupled from `status`; the `Specification` boundary drawn
-at state ownership. The last release of the semver series.
-
-| Change | Sections | Driver |
-| --- | --- | --- |
-| A concept MAY move at any `status`, provided inbound internal links are repaired, indexes regenerated, and the move logged | §8.2, §10, §14.1 | Freezing at `stable` pressured authors to hold finished concepts at `draft` to keep them movable — the stretching of `status` §6.3 forbids |
-| A path freezes on citation **outside** the bundle, not on review state | §8.2 | The only place repair is impossible; OKF §6.1 and §11 already tolerate a broken link inside a bundle, so the old rule was stricter than its normative upstream against a non-fatal failure |
-| `**Move**` added to the log lead words, with both paths recorded | §10 | A reader whose link went stale needs somewhere to look |
-| Three-concept rule rejustified as observation over prediction rather than path cost | §3.1, §3.2, §8.2 | Its old justification was the identity cost this release removes; the surviving reason — a set cannot be named before it is observed — was always the stronger one |
-| A `Specification` is separated from an execution record by which system owns the artifact's state, not by the genre of document it is | §1.1, §2, §5.2, §7.3 | §1.1 and §7.3 listed "specifications" among the things that stay in the tracker while §5.2 defined a type for a specification stored in the bundle, so the two readings contradicted each other and every project had to adjudicate it locally |
-
-A bundle conformant under 0.2.0 stays conformant. The path-stability change removes a
-MUST NOT and adds no requirement an existing bundle can retroactively fail. The
-`Specification` change adds no obligation either: it narrows a prohibition that §7.3
-already carried, so the only bundle it can newly fault is one keeping a single
-specification in both the tracker and the bundle — which the unamended §7.3 forbade in
-the reading that made "specifications" execution records at all. Bundles SHOULD update
-their declared `concepta_profile` (§11) when convenient, and a bundle still declaring
-`0.2.0` is not a deviation.
-
-Releases before 0.3.0 — `0.1.0` and `0.2.0` — predate this change-record format;
-their full texts are snapshotted in `profile/versions/`.
-
-### Considered and deferred
-
-Intentionally left to a later release:
-
-- A frontmatter relationship schema, and any `x-concepta` extension namespace.
-- Per-concept access control, sensitivity classification, or redaction.
-- Cross-bundle references between repositories.
-- A convention for recording deliberately omitted content, distinct from the
-  non-mirroring convention in §12.
-- Organizational namespacing of actor IDs, which would belong upstream in OKF §7
-  rather than here (§6.1.1).
-- Directories named after a type, beyond the time-axis exceptions in §3.3 and §3.4.
-  A project needing kind-first navigation uses a type-filtered projection (§13).
-- A second navigation artifact such as a generic `overview.md`. A specifically
-  named concept containing durable knowledge about an area's subject is already
-  permitted by §3.1; duplicating the generated index is not.
-- Automatic projection between concepts and execution records in either
-  direction.
-- A distribution mechanism for the profile itself — package, plugin, or
-  repository. Whatever is chosen MUST NOT alter OKF compatibility.
+Future releases add one entry each here, newest first, naming the sections
+touched, the **driver** — what real use revealed the gap — and the migration
+impact for bundles conformant to the release before it.
 
 ---
 
@@ -1816,7 +1673,7 @@ generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```

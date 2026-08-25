@@ -1,6 +1,6 @@
 # Concepta OKF Profile — Implementation Guide
 
-**Version 2026.2** — binds **Concepta OKF Profile 2026.2**, which profiles
+**Version 2026.1** — binds **Concepta OKF Profile 2026.1**, which profiles
 **OKF 0.2 exactly**
 
 Status: Proposed
@@ -47,12 +47,12 @@ Adoption is four required files, one conditional file, and one paragraph, in thi
 order:
 
 1. **Seed the required root.** `index.md`, `log.md`, `profile.md`, and `types.md`,
-   exactly as the profile's §3.5 defines them. The skill's `SEEDING.md` carries the
-   literal text.
+   exactly as the profile's §3.5 defines them. The adoption skill's `SEEDING.md` carries
+   the literal text.
 2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
    `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
    `okf_version` (profile §11).
-3. **Seed the type registry.** Use the Profile skill's canonical `SEEDING.md`
+3. **Seed the type registry.** Use the canonical `SEEDING.md` type-registry
    template so the adopted bundle satisfies Profile §5.2 before project concepts
    are added.
 4. **Apply the actor condition.** Evaluate the seeded concepts under Profile
@@ -153,7 +153,7 @@ indexes themselves remain required for every nonempty directory.
 
 ### 4.1 Results and exit codes
 
-The command surface for Profile 2026.2 is `okfp validate <bundle> [--output
+The command surface for Profile 2026.1 is `okfp validate <bundle> [--output
 text|json]`. The bundle path is required and implementations MUST inspect
 exactly that directory. They MUST NOT discover a repository bundle by walking
 upward, accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -263,10 +263,10 @@ release. It MUST read the first fenced `yaml` block in the body as the Profile
 declaration and MUST NOT infer release values from another block or from
 frontmatter.
 
-- An **unrecognized version format** is not an error. The value is opaque; a validator that
-  parsed it as semver would have broken on the 2026.1 release, which is exactly the reason
-  the format changed.
-- The first validator MUST implement only Profile 2026.2. Any other declared
+- An **unrecognized version format** is not an error. The value is opaque: the
+  `<year>.<serial>` scheme is not semver, and a validator MUST NOT parse the value
+  under any format assumption.
+- The first validator MUST implement only Profile 2026.1. Any other declared
   value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
   `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
   exposing the independent OKF result. Unsupported is tool capability, not a
@@ -287,11 +287,11 @@ CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
 
 ### 4.6 Release evidence
 
-Profile 2026.2 has two non-normative release artifacts with different jobs:
+Profile 2026.1 has two non-normative release artifacts with different jobs:
 
-- [`../docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md)
+- [`../docs/compatibility-review.md`](../docs/compatibility-review.md)
   records the rule-level compatibility review against pinned OKF 0.2.
-- [`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) assigns each normative Profile
+- [`profile-coverage.md`](profile-coverage.md) assigns each normative Profile
   clause to deterministic validation or contextual Profile Review.
 
 Profile §15.1 owns their separation and the publication gate. Implementations
@@ -385,7 +385,7 @@ Three migration invariants are not project-specific and every migration MUST car
    concepts with `Superseded by` links, so the history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
 
-For a 2026.2 migration, the implementation MUST inventory missing baseline
+For a 2026.1 migration, the implementation MUST inventory missing baseline
 metadata, used and standard types, producer-defined fields, actor history, tags,
 and materially derived claims before editing. Mechanical normalization may add
 canonical type rows and reshape supported syntax; it MUST NOT guess a title,
@@ -439,7 +439,7 @@ each needs a bundle-sourced replacement before the documents it reads disappear.
 
 Distribution is owned by the repository that hosts the profile — the same one hosting this
 guide — and its mechanics are documented there, in the root `README.md` and `skills/README.md`.
-Consumers install the skills into their own agent's skills directory and pin the tools; no
+Consumers install the skills per that documented distribution and pin the tools; no
 project repository vendors a copy of the profile. Two requirements bear on bundles and so are
 stated here:
 
@@ -482,49 +482,13 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 
 ## 9. Change record
 
-**2026.2.** Establishes the closed validation
-result model, release dispatch, and separate compatibility and coverage evidence
-for the Profile 2026.2 integration. The driver was implementation work that
-could not distinguish an independent OKF result, a deterministic Profile result,
-and contextual judgment while the earlier guide treated all Profile findings as
-advisories and allowed callers to promote them through `--strict`.
+**2026.1.** First release. Binds Profile 2026.1. Establishes adoption (§2), the
+index generator contract (§3), the validation process contract (§4) with its
+closed result model and release dispatch, the migration method (§5), and
+distribution (§6). Cross-bundle references (§7) remain deferred, as the profile
+leaves them.
 
-The structure slice also replaces preservation of authored index ordering and
-directory descriptions with semantic generation and comparison, keeps authored
-history outside generation, makes actor-registry seeding conditional, and removes
-count-based clustering. The driver was real generator work that could not
-reproduce index-only knowledge and real bundles that churned paths at arbitrary
-concept counts without making subject placement more truthful.
-
-The concept, trust, and durable-capture slice assigns syntactic metadata, type,
-source, tag, and actor checks to validation while leaving semantic truth to Profile
-Review (§4.3), seeds the complete standard type vocabulary (§2.1), and makes
-migration preserve unknown provenance while reviewing event-derived concepts
-(§5.5). The driver was real authoring and migration work that fabricated
-verification and affiliation to clear mechanical expectations, while sparse type
-seeding and metadata left agents without a reliable vocabulary or index input.
-
-The external-boundary slice assigns relationship shape plus unresolved-link,
-non-bundle-relative-link, and label advisories to deterministic validation while
-leaving semantic relationships, lifecycle ownership, path identity, move
-repairability, deletion, and media and mirroring judgments to Profile Review. The
-driver was real authoring work that duplicated tracker state, froze repairable paths,
-enriched ordinary OKF edges, and either mirrored confidential heavy sources
-indiscriminately or weakened their OKF provenance when leaving them external.
-
-An implementation conformant to guide 2026.1 does not automatically conform to
-this release. To migrate, it MUST adopt the
-explicit command, result, exit, and unsupported-release contract in §4 and the
-structural obligations in §§2–3 and the external-boundary validation and migration
-obligations in §§4–5.
-
-**2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index
-generator contract (§3), the validation process contract (§4), and the migration method
-(§5), each of which existed only as project-local practice or as an unwritten obligation
-beforehand. Cross-bundle references (§7) remain deferred, as the profile leaves them.
-
-Titled *Implementation Guide* rather than *Implementation Specification*, and filed under
-`implementation/`. The profile is also a specification, so a subordinate document called "the
-spec" inverted the precedence it was trying to state, and the two filenames differed by one
-suffix. The rename is editorial and carries no rule change; §1 states why "guide" does not
-mean advisory.
+Titled *Implementation Guide* and filed under `implementation/`: the profile is
+itself a specification, so a subordinate document called "the spec" would invert
+the precedence it is trying to state. §1 states why "guide" does not mean
+advisory.

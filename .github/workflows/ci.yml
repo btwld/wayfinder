@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        sdk: ["3.4.0", stable]
+        sdk: ["3.6.0", stable]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,9 +23,12 @@ jobs:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
       - run: dart format --output=none --set-exit-if-changed bin lib test
+        working-directory: packages/okf_profile
       - run: dart analyze --fatal-infos
       - run: dart test
+        working-directory: packages/okf_profile
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run okf_profile:okfp validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
+        working-directory: packages/okf_profile

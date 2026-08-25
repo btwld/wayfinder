@@ -6,7 +6,6 @@
 - Specification: [#21](https://github.com/conceptadev/okf-profile/issues/21)
 - Release delivery: [#22](https://github.com/conceptadev/okf-profile/issues/22), [#23](https://github.com/conceptadev/okf-profile/issues/23), [#24](https://github.com/conceptadev/okf-profile/issues/24), [#25](https://github.com/conceptadev/okf-profile/issues/25), [#19](https://github.com/conceptadev/okf-profile/issues/19)
 - Validator delivery: [#26](https://github.com/conceptadev/okf-profile/issues/26), [#27](https://github.com/conceptadev/okf-profile/issues/27), [#28](https://github.com/conceptadev/okf-profile/issues/28), [#20](https://github.com/conceptadev/okf-profile/issues/20)
-- Supersedes: [ADR-0001](0001-ack-behind-interpreter-seam.md), [ADR-0002](0002-judgment-parse-and-preserve.md), [ADR-0003](0003-suppressions-in-profile-yaml.md)
 
 ## Context
 
@@ -367,13 +366,11 @@ A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in
 issue #17.
 
-These decisions ship as Concepta Profile `2026.2`. The current proposed
-`2026.1` text is snapshotted before the canonical Profile is rewritten. The new
-release carries its own change record, driver, and explicit migration rather
-than silently replacing an already identified release.
+These decisions ship as Concepta Profile `2026.1`, which carries its own change
+record and driver in §15.3.
 
 The release includes a non-normative, rule-by-rule OKF compatibility review at
-`docs/compatibility/2026.2-okf-0.2.md`. Profile §15.3 summarizes and links that
+`docs/compatibility-review.md`. Profile §15.3 summarizes and links that
 evidence; the separate implementation coverage matrix maps each normative rule
 to automated validation or Profile Review. Compatibility evidence answers
 whether a rule preserves OKF, while coverage answers how Concepta assesses it.

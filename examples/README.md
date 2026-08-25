@@ -8,7 +8,7 @@ Run the shipped automated gate from the repository root:
 dart run okf_profile:okfp validate examples/knowledge
 ```
 
-Success proves OKF conformance and the deterministic Profile 2026.2 rules only.
+Success proves OKF conformance and the deterministic Profile 2026.1 rules only.
 The command reports Judgment Rules as `UNASSESSED`; complete Profile conformance
 also requires the contextual Profile Review defined by the canonical skill.
 

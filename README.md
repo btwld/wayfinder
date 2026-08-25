@@ -10,10 +10,8 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
-Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md). The
-superseded 2026.1 release remains byte-identical at
-[`profile/versions/okf-profile-2026.1.md`](profile/versions/okf-profile-2026.1.md).
+Current release: **2026.1**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
@@ -35,9 +33,8 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | --- | --- |
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
-| [`skills/`](skills/) | The agent skills — the profile skill plus the engineering skills that write into a bundle |
+| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
-| [`docs/ways-of-working.md`](docs/ways-of-working.md) | The shared engineering process, canonical here |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
 and publication status are declared at the top, never in the filename. During a
@@ -51,38 +48,32 @@ not belong in an identity — without silently replacing an identified release.
 
 ### 1. Install the skills
 
-The skills live in [`skills/`](skills/). Install them wherever your agent reads skills from —
-for Claude Code that is `~/.claude/skills/`, either by copying the directories or by
-symlinking them so updates here reach you with a `git pull`:
+The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
 
-```bash
-git clone git@github.com:conceptadev/okf-profile.git ~/lab/concepta-okf
-for s in ~/lab/concepta-okf/skills/okf-profile ~/lab/concepta-okf/skills/engineering/*/; do
-  ln -s "$s" ~/.claude/skills/"$(basename "$s")"
-done
+```
+/plugin marketplace add conceptadev/okf-profile
+/plugin install concepta-knowledge@okf-profile
 ```
 
-Symlinking is the better default — the skills are versioned with the profile they describe,
-and a copy silently ages past it. See [skills/README.md](skills/README.md) for the full set
-and what each one does.
+Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
+all three as a unit, since they reference each other by sibling path. Symlinking is the
+better fallback: the skills are versioned with the profile they describe, and a copy
+silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
+each one does.
 
 ### 2. Set up a project repository
 
 In the repository you want to adopt the profile, run:
 
 ```
-/setup-repo
+/adopt-knowledge-bundle
 ```
 
 It is prompt-driven, not a script: it explores what the repository already has, shows you what
-it proposes, and writes only after you confirm. It configures three things —
-
-- **Issue tracker** — where issues live, so the engineering skills know whether to call `gh`,
-  write markdown under `.scratch/`, or follow a workflow you describe
-- **Triage labels** — the label vocabulary, if the `triage` skill is installed
-- **Knowledge bundle** — seeds the root files of `knowledge/` — the four the profile requires,
-  plus `actors.md` because the seed templates use actor metadata — and writes the `AGENTS.md`
-  blocks that point agents into it
+it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` —
+the four the profile requires, plus `actors.md` because the seed templates use actor
+metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
+Issue-tracker and triage-label setup are out of its scope.
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory
 names a *subject*, and generic setup has no corpus from which to judge one (profile
@@ -93,21 +84,18 @@ decides it.
 
 ### 3. Work the flow
 
-Once a repository is set up, the engineering skills read from the bundle and write back into
-it:
+Once a repository is set up, the skill family covers the bundle's whole lifecycle:
 
 | Skill | Invocation | What it does |
 | --- | --- | --- |
-| `okf-profile` | model-invoked | Authors and reviews a Profiled Bundle. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
-| `domain-modeling` | model-invoked | Pins down terminology and records decisions — one Glossary Definition per term, ADRs into `architecture/`, durable non-architectural decisions as `Decision` concepts |
-| `to-spec` | user-invoked | Turns a shaped problem into a specification, linked back to the concept it realizes |
-| `to-tickets` | user-invoked | Slices a spec into tickets, linked to the concept that motivated them |
-| `implement` | user-invoked | Reads the constraining concepts before coding, and links the work back with `Implemented by` |
+| `author-knowledge-bundle` | model-invoked | Creates, edits, moves, deprecates, and mirrors bundle content, and reviews the result. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
+| `adopt-knowledge-bundle` | user-invoked | Seeds the bundle and points agents at it (step 2 above) |
+| `assess-knowledge-bundle` | user-invoked | Deliberate whole-bundle assessment, emitting the Profile Review Report |
 
-You do not need to invoke `okf-profile` yourself. It is model-invoked so authoring mechanics
-are loaded before a bundle write and contextual rules are loaded for Profile Review. A
-subject-named tree is not self-inferrable, so an agent that skips the profile will confidently
-create `decisions/`.
+You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
+authoring mechanics are loaded before a bundle write and contextual rules are loaded for
+Profile Review. A subject-named tree is not self-inferrable, so an agent that skips the
+profile will confidently create `decisions/`.
 
 ### 4. Validate the bundle
 
@@ -127,7 +115,7 @@ release.
 Automated success is not complete Profile conformance. The output keeps Judgment
 Rules explicitly `UNASSESSED`; contextual rules such as subject placement,
 metadata truth, and source or relationship meaning require the Profile Review in
-the canonical `okf-profile` skill. One `okfp validate <bundle>` invocation is the
+the canonical `author-knowledge-bundle` skill. One `okfp validate <bundle>` invocation is the
 single supported automated CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
 
@@ -143,7 +131,7 @@ numeric threshold, determines structure.
 ## Reading order
 
 - Adopting the profile in a project → [Getting started](#getting-started), then [`implementation/`](implementation/) §2
-- Writing or editing a concept → the `okf-profile` skill; it delegates to
+- Writing or editing a concept → the `author-knowledge-bundle` skill; it delegates to
   [`profile/`](profile/) and carries the pinned OKF 0.2 text alongside it
 - Building tooling → [`implementation/`](implementation/) §3 (index generation) and §4 (validation)
 - Converting an existing `docs/` tree → [`implementation/`](implementation/) §5 (migration)

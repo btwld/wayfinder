@@ -30,7 +30,7 @@ one.
 This is the failure mode the profile is least able to detect, because a locally invented rule
 looks like a convention rather than a divergence — and it is how a profile quietly becomes the
 competing standard its §1.2 forbids. The pinned OKF 0.2 text is in the repository at
-`skills/okf-profile/OKF-0.2.md`; consult it rather than guessing.
+`skills/author-knowledge-bundle/references/OKF-0.2.md`; consult it rather than guessing.
 
 Silence is also not prohibition. Where OKF permits something and the profile says nothing, it
 is permitted. The narrowings are the ones written as an explicit MUST or MUST NOT.
@@ -60,7 +60,12 @@ A convention change is not a text edit. It needs, in the same change:
    distinct so a profile release can never be mistaken for an OKF one.
 
 Superseded releases are snapshotted into `profile/versions/`. The canonical path never changes,
-because version and status are metadata and do not belong in an identity (profile §8.1).
+because version and status are metadata and do not belong in an identity (profile §8.1). That
+rule governs this repository's own files too: the release lives in document headers and in the
+validator's `supportedProfileRelease` constant, never in a filename or a symbol name. Only an
+immutable snapshot — a `profile/versions/` entry, the vendored OKF spec — carries its version
+in its name, because there the version is the identity. A release bump is an edit, not a
+rename sweep.
 
 An upstream OKF release requires a new profile release **and** a compatibility review, even
 when no Concepta convention otherwise changes. A release MUST NOT claim compatibility with an
@@ -74,12 +79,15 @@ repository that has never seen it. Two consequences:
 - **A skill that restates a withdrawn rule is worse than a skill that says nothing.** It
   produces conforming files that teach the wrong thing, and no validator catches it. When a
   profile rule changes, grep the skills for the old rule before shipping.
-- **Concept mechanics live in `okf-profile` and nowhere else.** Every other skill
-  delegates to it. Do not restate bundle structure, frontmatter, or the type vocabulary in a
-  second skill.
+- **Concept mechanics live in `author-knowledge-bundle` and nowhere else.** Every other
+  skill delegates to it. Do not restate bundle structure, frontmatter, or the type
+  vocabulary in a second skill; shared rule text lives once under its `references/`. The
+  one exemption is a literal seed template — `adopt-knowledge-bundle`'s `SEEDING.md`
+  carries the root-file contents verbatim because a template cannot delegate. Its tables
+  are restatements by construction, and first in the grep sweep when a rule changes.
 
-Consumers install these by copy or symlink into their own agent's skills directory. Assume
-someone is running a copy from an older commit.
+Consumers install these as the `concepta-knowledge` plugin, or by copy or symlink into their
+own agent's skills directory. Assume someone is running a copy from an older commit.
 
 ## Rules
 
@@ -92,10 +100,3 @@ someone is running a copy from an older commit.
   rather than assume.
 - This repository holds no client data and no project knowledge. Store nothing of a client's;
   read client data live and read-only via an MCP.
-
-## Ways of working
-
-The shared engineering process — intake, triage, spec, tickets, implement, review, done — is
-[docs/ways-of-working.md](docs/ways-of-working.md), canonical here. A human-readable mirror
-lives in the MS 365 business registry; if the two disagree, this copy wins. Update here first,
-then re-sync the mirror.
