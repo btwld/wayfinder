@@ -80,7 +80,7 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
 ) sync* {
-  final directories = inventory.nonRootDirectories.toSet();
+  final directories = inventory.areaDirectories.toSet();
   for (final path in loaded.documents.keys) {
     if (_structuralConcepts.contains(path)) continue;
     final directory = p.posix.dirname(path);
@@ -351,8 +351,16 @@ final class _BundleInventory {
 
   final List<String> nonRootDirectories;
 
+  Iterable<String> get areaDirectories =>
+      nonRootDirectories.where(_isAreaDirectory);
+
   Iterable<String> immediateDirectories(String parent) =>
       nonRootDirectories.where((directory) => _parent(directory) == parent);
+}
+
+bool _isAreaDirectory(String directory) {
+  final root = p.posix.split(directory).first;
+  return root != 'interactions' && root != 'references';
 }
 
 List<String> _directories(Iterable<String> paths) {

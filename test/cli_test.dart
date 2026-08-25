@@ -483,11 +483,11 @@ void main() {
       'group identity': (source) =>
           source.replaceFirst('# Guide', '# Analysis'),
       'group order': (source) => source.replaceFirst(
-          '# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n\n# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.',
-          '# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.\n\n# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.'),
+          '# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n\n# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.',
+          '# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.\n\n# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.'),
       'entry order': (source) => source.replaceFirst(
-          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.',
-          '- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.'),
+          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.',
+          '- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.'),
       'label': (source) =>
           source.replaceFirst('[Alpha guide]', '[Wrong label]'),
       'target': (source) => source.replaceFirst('(alpha.md)', '(wrong.md)'),
@@ -637,31 +637,36 @@ void main() {
 
   test('keeps structure finding order independent of file creation order',
       () async {
-    final source = Directory(_fixture('invalid-structure'));
-    final reversed = await Directory.systemTemp.createTemp('okfp-structure-');
-    addTearDown(() => reversed.delete(recursive: true));
-    final files = await source
-        .list(recursive: true)
-        .where((entity) => entity is File)
-        .cast<File>()
-        .toList();
-    for (final file in files.reversed) {
-      final relative = p.relative(file.path, from: source.path);
-      final destination = File(p.join(reversed.path, relative));
-      await destination.parent.create(recursive: true);
-      await file.copy(destination.path);
+    for (final fixture in <String>[
+      'invalid-structure',
+      'structure-boundary',
+    ]) {
+      final source = Directory(_fixture(fixture));
+      final reversed = await Directory.systemTemp.createTemp('okfp-structure-');
+      addTearDown(() => reversed.delete(recursive: true));
+      final files = await source
+          .list(recursive: true)
+          .where((entity) => entity is File)
+          .cast<File>()
+          .toList();
+      for (final file in files.reversed) {
+        final relative = p.relative(file.path, from: source.path);
+        final destination = File(p.join(reversed.path, relative));
+        await destination.parent.create(recursive: true);
+        await file.copy(destination.path);
+      }
+
+      final original = await _runProcess(
+        <String>['validate', '--output', 'json', source.path],
+      );
+      final reordered = await _runProcess(
+        <String>['validate', '--output', 'json', reversed.path],
+      );
+
+      expect(reordered.exitCode, original.exitCode, reason: fixture);
+      expect(reordered.stdout, original.stdout, reason: fixture);
+      expect(reordered.stderr, original.stderr, reason: fixture);
     }
-
-    final original = await _runProcess(
-      <String>['validate', '--output', 'json', source.path],
-    );
-    final reordered = await _runProcess(
-      <String>['validate', '--output', 'json', reversed.path],
-    );
-
-    expect(reordered.exitCode, original.exitCode);
-    expect(reordered.stdout, original.stdout);
-    expect(reordered.stderr, original.stderr);
   });
 
   test('validates declaration and registry identities and table columns',

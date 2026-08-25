@@ -12,6 +12,7 @@ okf_version: "0.2"
 # Guide
 
 - [Alpha guide](alpha.md) - Sorts before the same-type topic entry.
+- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.
 - [Topic](topic.md) - Durable knowledge that happens to share a name with an area.
 
 # Field Note
@@ -20,5 +21,6 @@ okf_version: "0.2"
 
 # Directories
 
+- [interactions](interactions/)
 - [references](references/)
 - [topic](topic/)
