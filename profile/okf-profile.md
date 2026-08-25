@@ -1118,6 +1118,15 @@ entries MUST sort by `title` and then target path, both case-sensitive. Director
 and asset entries MUST sort by target path. Every target MUST be relative to the
 index containing it.
 
+A target is written as a relative URL (OKF §8): a character a plain Markdown link
+destination cannot carry literally — a space, a parenthesis, a character outside
+ASCII — MUST be percent-encoded (RFC 3986) or carried by the angle-bracket
+destination form (CommonMark). Conformance compares each target percent-decoded
+against the projected path, so every valid spelling of the same target matches
+the projection; a percent sign outside a valid escape sequence does not parse as
+a target. Labels are not URLs and stay verbatim — an asset's label is its
+filename exactly as written even when its target is encoded.
+
 The root index MUST carry `okf_version`, which §11 requires to agree with the
 profile declaration. A complete root index therefore covers the root log, the two
 required root registry/declaration concepts, conditional actor registry, every
@@ -1510,6 +1519,12 @@ first migration QA showed originals and derived mirrors mixing in one tier with
 nothing structural marking the boundary. Migration impact: none — the tier is a
 MAY, and its markdown restriction binds only bundles that adopt it; a bundle
 conformant before the amendment remains conformant unchanged.
+A second QA-period amendment (ADR-0007): §9 writes targets as relative URLs and
+compares them percent-decoded. Driver: the same migration's verbatim originals
+carry filenames — spaces, parentheses, characters outside ASCII — that no target
+spelling could satisfy, because Markdown parsing normalizes destinations to a
+percent-encoded form the raw-path comparison then rejected. Migration impact:
+none — every previously conformant target decodes to itself.
 
 Future releases add one entry each here, newest first, naming the sections
 touched, the **driver** — what real use revealed the gap — and the migration
