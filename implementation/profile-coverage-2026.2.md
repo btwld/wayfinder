@@ -87,9 +87,8 @@ The Profile remains the source of every rule and its normative force.
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing
 skill-prompt headings receive no coverage row and no finding. Actor affiliation
-lookup is likewise not an additional bundle requirement: implementations may expose
-the row selected at an event time, but unresolved or ambiguous affiliation remains
-`unknown` without a finding and never changes the OKF actor value or trust tier.
+lookup is likewise not an additional bundle requirement; its implementation owner
+and evidence are recorded in the non-bundle frame below.
 
 ## Non-bundle frame clauses
 
@@ -105,7 +104,7 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |
 | §15.2: precedence and migration impact remain explicit for every release | Release integration | Profile binding and §15.3 migration text |
 | §15.3: a 2026.1 bundle completes every published 2026.2 migration action before changing its declaration | Migration implementation | Whole-bundle migration review after publication |
-| §6.1.1, §14.1: unresolved or ambiguous actor affiliation remains non-finding `unknown` | Validator implementation | Lookup tests preserve actor strings and trust tiers while emitting no finding for unresolved history |
+| §6.1.1, §14.1: an implementation that exposes organizational affiliation resolves the row at the applicable event timestamp or source `last_modified`; unresolved or ambiguous history remains non-finding `unknown` without changing the actor string or trust tier | Consumer implementation | Lookup tests cover `generated`, `verified`, and source-author dates before, at, and after period boundaries plus missing and ambiguous dates, while preserving actor strings and trust tiers |
 | §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
 
 Unsupported-release behavior and caller-policy prohibitions are implementation
