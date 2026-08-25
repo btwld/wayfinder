@@ -2,6 +2,7 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import 'finding_helpers_2026_2.dart';
 import 'profile_finding.dart';
 import 'profile_release_2026_2.dart';
 
@@ -29,7 +30,7 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
         !_structuralConcepts.contains(p.posix.basename(path))) {
       continue;
     }
-    yield _error(
+    yield profileError(
       'root-structure-files',
       'profile.md, types.md, and actors.md are reserved for their bundle-root '
           'structural purposes.',
@@ -49,7 +50,7 @@ Iterable<ProfileFinding> _validateRootFiles(
     if (!loaded.documents.containsKey('types.md')) 'types.md',
   ];
   if (missing.isNotEmpty) {
-    yield _error(
+    yield profileError(
       'root-structure-files',
       'The bundle root must contain index.md, log.md, profile.md, and types.md; '
           'missing ${missing.join(', ')}.',
@@ -66,7 +67,7 @@ Iterable<ProfileFinding> _validateDirectoryIndexes(
   for (final directory in inventory.nonRootDirectories) {
     final indexPath = '$directory/index.md';
     if (!loaded.indexes.containsKey(indexPath)) {
-      yield _error(
+      yield profileError(
         'directory-index-present',
         'Every nonempty directory must contain index.md.',
         '§3.1, §3.4, §9',
@@ -88,7 +89,7 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
     final basename = p.posix.basenameWithoutExtension(path);
     final sibling = parent.isEmpty ? basename : '$parent/$basename';
     if (directories.contains(sibling)) {
-      yield _advisory(
+      yield profileAdvisory(
         'concept-area-name-collision',
         'A concept beside an area of the same name needs contextual placement '
             'review.',
@@ -111,7 +112,7 @@ Iterable<ProfileFinding> _validateIndexes(
     if (expected == null) continue;
     final actual = _parseIndex(entry.value, root: normalizedDirectory.isEmpty);
     if (actual == null || actual != expected) {
-      yield _error(
+      yield profileError(
         'index-semantic-projection',
         'The index must exactly match its immediate semantic projection.',
         '§9',
@@ -125,7 +126,7 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   final source = loaded.logs['log.md'];
   if (source == null) return;
   if (!_entriesHaveLeadWords(source)) {
-    yield _error(
+    yield profileError(
       'log-entry-lead-word',
       'Every root log entry must begin with a nonempty bold lead word and a '
           'colon.',
@@ -207,7 +208,7 @@ _IndexProjection? _expectedProjection(
 }
 
 _IndexEntry? _conceptEntry(String path, OkfDocument document) {
-  final type = _nonEmptyString(document.frontmatter['type']);
+  final type = nonEmptyString(document.frontmatter['type']);
   final title = document.frontmatter['title'];
   final description = document.frontmatter['description'];
   if (type == null ||
@@ -379,33 +380,6 @@ String _parent(String path) {
   final directory = p.posix.dirname(path);
   return directory == '.' ? '' : directory;
 }
-
-String? _nonEmptyString(Object? value) =>
-    value is String && value.trim().isNotEmpty ? value.trim() : null;
-
-ProfileFinding _error(String slug, String message, String rule, String path) =>
-    ProfileFinding(
-      id: 'concepta-profile/$slug',
-      message: message,
-      rule: rule,
-      profileRelease: profileRelease2026_2,
-      path: path,
-    );
-
-ProfileFinding _advisory(
-  String slug,
-  String message,
-  String rule,
-  String path,
-) =>
-    ProfileFinding(
-      id: 'concepta-profile/$slug',
-      message: message,
-      rule: rule,
-      severity: ProfileFindingSeverity.advisory,
-      profileRelease: profileRelease2026_2,
-      path: path,
-    );
 
 final class _IndexProjection {
   const _IndexProjection(this.groups);

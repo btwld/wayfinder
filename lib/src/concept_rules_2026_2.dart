@@ -1,6 +1,7 @@
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 
+import 'finding_helpers_2026_2.dart';
 import 'profile_finding.dart';
 import 'profile_release_2026_2.dart';
 
@@ -36,7 +37,7 @@ List<ProfileFinding> validateConceptRules2026_2(OkfBundleLoadResult loaded) {
 Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
   final profile = loaded.documents['profile.md'];
   if (profile != null && profile.type != 'Knowledge Profile') {
-    yield _error('profile-declaration-kind',
+    yield profileError('profile-declaration-kind',
         'profile.md must have type Knowledge Profile.', '§11', 'profile.md');
   }
   for (final entry in loaded.documents.entries) {
@@ -44,8 +45,8 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
     final document = entry.value;
     final frontmatter = document.frontmatter;
     if (!const {'type', 'title', 'description', 'status'}
-        .every((key) => _nonEmptyString(frontmatter[key]) != null)) {
-      yield _error(
+        .every((key) => nonEmptyString(frontmatter[key]) != null)) {
+      yield profileError(
         'concept-baseline-fields',
         'Every concept must contain non-empty string values for type, title, description, and status.',
         '§5.1',
@@ -56,27 +57,27 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
         .where((key) => !okfKnownFrontmatterKeys.contains(key))
         .toList();
     if (extensionKeys.isNotEmpty) {
-      yield _error(
+      yield profileError(
         'frontmatter-fields-okf',
         'Concepta producers may use only OKF 0.2 frontmatter fields; found ${extensionKeys.join(', ')}.',
         '§5.1',
         path,
       );
     }
-    final status = _nonEmptyString(frontmatter['status']);
+    final status = nonEmptyString(frontmatter['status']);
     if (status != null &&
         !const {'draft', 'stable', 'deprecated'}.contains(status)) {
-      yield _error('status-value',
+      yield profileError('status-value',
           'Status must be draft, stable, or deprecated.', '§5.1', path);
     }
     final duplicatedTags = document.tags.toSet().intersection(<String>{
-      if (_nonEmptyString(frontmatter['type']) case final type?) type,
+      if (nonEmptyString(frontmatter['type']) case final type?) type,
       if (status != null) status,
       document.trustTier.wireValue,
       ..._relationshipLabels,
     });
     if (duplicatedTags.isNotEmpty) {
-      yield _error(
+      yield profileError(
         'tag-literal-duplication',
         'Tags must not duplicate type, status, trust, or standard relationship values; found ${duplicatedTags.join(', ')}.',
         '§5.1',
@@ -84,7 +85,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
       );
     }
     if (!frontmatter.containsKey('generated')) {
-      yield _advisory(
+      yield profileAdvisory(
         'generation-provenance-recommended',
         'Generation provenance is recommended when it is known.',
         '§5.1',
@@ -98,18 +99,18 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     OkfBundleLoadResult loaded) sync* {
   final registry = loaded.documents['types.md'];
   if (registry == null) {
-    yield _error('type-registry-present', 'The bundle must contain types.md.',
-        '§5.2', 'types.md');
+    yield profileError('type-registry-present',
+        'The bundle must contain types.md.', '§5.2', 'types.md');
     return;
   }
   if (registry.type != 'Type Registry') {
-    yield _error('type-registry-kind', 'types.md must have type Type Registry.',
-        '§5.2', 'types.md');
+    yield profileError('type-registry-kind',
+        'types.md must have type Type Registry.', '§5.2', 'types.md');
   }
   final table = _firstTable(registry.body);
   if (table == null ||
       !_sameStrings(table.header, const ['Type', 'Intended content'])) {
-    yield _error(
+    yield profileError(
       'type-registry-columns',
       'The type registry must use exactly Type and Intended content columns.',
       '§6.1.1',
@@ -121,7 +122,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   final standardRows = rows.take(standardTypes2026_2.length).toList();
   if (standardRows.length != standardTypes2026_2.length ||
       !_sameTypeRows(standardRows, standardTypes2026_2)) {
-    yield _error(
+    yield profileError(
       'type-registry-standards',
       'The type registry must contain all fourteen canonical standard rows.',
       '§5.2',
@@ -138,7 +139,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     ...sortedExtensions
   ];
   if (!_sameStrings(rows.map((row) => row.first).toList(), expectedOrder)) {
-    yield _error(
+    yield profileError(
       'type-registry-order',
       'Project type rows must follow the standards in lexical order.',
       '§5.2',
@@ -149,12 +150,12 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   for (final entry in loaded.documents.entries) {
     final type = entry.value.type;
     if (type != null && !registered.contains(type)) {
-      yield _error('used-type-registered',
+      yield profileError('used-type-registered',
           'Used type $type must be registered in types.md.', '§5.2', entry.key);
     }
   }
   if (extensionRows.isNotEmpty) {
-    yield _advisory(
+    yield profileAdvisory(
       'registered-type-extension',
       'Registered project types are conformant and should inform later Profile releases.',
       '§5.2',
@@ -174,7 +175,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   final registry = loaded.documents['actors.md'];
   if (registry == null) {
     if (usedActors.isNotEmpty) {
-      yield _error(
+      yield profileError(
         'actor-registry-required',
         'actors.md is required whenever an OKF actor-valued field is used.',
         '§3.5, §6.1.1',
@@ -184,7 +185,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
     return;
   }
   if (registry.type != 'Actor Registry') {
-    yield _error(
+    yield profileError(
       'actor-registry-kind',
       'actors.md must have type Actor Registry.',
       '§3.5, §6.1.1',
@@ -201,7 +202,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
         'Role',
         'Active',
       ])) {
-    yield _error(
+    yield profileError(
       'actor-registry-columns',
       'The actor registry must use the six fixed columns in canonical order.',
       '§6.1.1',
@@ -211,7 +212,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   }
   final rows = table.rows.where((row) => row.length == 6).toList();
   if (rows.any((row) => row.any((cell) => cell.isEmpty))) {
-    yield _error(
+    yield profileError(
       'actor-row-complete',
       'Actor rows must contain an ID, name, organization, side, role, and active value.',
       '§3.5, §6.1.1',
@@ -225,7 +226,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
         'tool',
         'unknown'
       }.contains(row[3]))) {
-    yield _error(
+    yield profileError(
         'actor-side-value',
         'Actor Side must use the closed Profile vocabulary.',
         '§6.1.1',
@@ -242,7 +243,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
     }
   }
   if (invalidPeriod) {
-    yield _error(
+    yield profileError(
       'actor-active-interval',
       'Actor Active values must be unknown or valid inclusive-exclusive date ranges.',
       '§6.1.1',
@@ -250,7 +251,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
     );
   }
   if (periods.values.any(_hasOverlap)) {
-    yield _error(
+    yield profileError(
         'actor-active-overlap',
         'Dated Active periods for one actor must not overlap.',
         '§6.1.1',
@@ -259,7 +260,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   final registered = rows.map((row) => row.first).toSet();
   for (final entry in usedActors.entries) {
     if (!registered.contains(entry.key)) {
-      yield _error(
+      yield profileError(
         'used-actor-registered',
         'Used actor ${entry.key} must be represented in actors.md.',
         '§3.5, §6.1.1',
@@ -280,8 +281,8 @@ Iterable<ProfileFinding> _validateSources(
     final maps = values.whereType<Map<Object?, Object?>>();
     if (raw is! List ||
         maps.length != values.length ||
-        maps.any((source) => _nonEmptyString(source['resource']) == null)) {
-      yield _error(
+        maps.any((source) => nonEmptyString(source['resource']) == null)) {
+      yield profileError(
         'source-entry-shape',
         'Every present source entry must be a mapping with a non-empty resource.',
         '§6.1',
@@ -293,11 +294,11 @@ Iterable<ProfileFinding> _validateSources(
         .whereType<String>()
         .toList();
     if (ids.toSet().length != ids.length) {
-      yield _error('source-id-unique',
+      yield profileError('source-id-unique',
           'Source IDs must be unique within a concept.', '§6.1', entry.key);
     }
     if (ids.any(bodies[entry.key]!.hasUnresolvedFootnote)) {
-      yield _error(
+      yield profileError(
         'source-attribution-join',
         'A recognized source-attribution reference must join to its footnote definition.',
         '§6.1',
@@ -315,7 +316,7 @@ Iterable<ProfileFinding> _validateRelationships(
     final section = bodies[entry.key]!.relationships;
     if (section == null) continue;
     if (section.malformed) {
-      yield _error(
+      yield profileError(
         'relationships-shape',
         'Each Relationships entry must contain exactly one label and one Markdown target.',
         '§7.2',
@@ -325,7 +326,7 @@ Iterable<ProfileFinding> _validateRelationships(
     }
     for (final label in section.labels) {
       if (!_relationshipLabels.contains(label)) {
-        yield _advisory(
+        yield profileAdvisory(
           'relationship-label-extension',
           'The relationship label $label is a permitted project extension.',
           '§7.2',
@@ -350,7 +351,7 @@ Iterable<ProfileFinding> _validateInternalLinks(
     if (!edge.rawTarget.startsWith('/') &&
         emitted
             .add((edge.source.documentPath, 'internal-link-bundle-relative'))) {
-      yield _advisory(
+      yield profileAdvisory(
         'internal-link-bundle-relative',
         'Internal links should use bundle-relative targets.',
         '§7.1',
@@ -359,7 +360,7 @@ Iterable<ProfileFinding> _validateInternalLinks(
     }
     if (edge.resolution == OkfGraphResolution.unresolved &&
         emitted.add((edge.source.documentPath, 'internal-link-unresolved'))) {
-      yield _advisory(
+      yield profileAdvisory(
         'internal-link-unresolved',
         'An unresolved internal link is permitted and remains an OKF graph edge.',
         '§7.1, §14.1–§14.2',
@@ -369,44 +370,21 @@ Iterable<ProfileFinding> _validateInternalLinks(
   }
 }
 
-ProfileFinding _error(String slug, String message, String rule, String path) =>
-    ProfileFinding(
-      id: 'concepta-profile/$slug',
-      message: message,
-      rule: rule,
-      profileRelease: profileRelease2026_2,
-      path: path,
-    );
-
-ProfileFinding _advisory(
-        String slug, String message, String rule, String path) =>
-    ProfileFinding(
-      id: 'concepta-profile/$slug',
-      message: message,
-      rule: rule,
-      severity: ProfileFindingSeverity.advisory,
-      profileRelease: profileRelease2026_2,
-      path: path,
-    );
-
-String? _nonEmptyString(Object? value) =>
-    value is String && value.trim().isNotEmpty ? value.trim() : null;
-
 Iterable<String> _actorsIn(OkfDocument document) sync* {
   final generated = document.frontmatter['generated'];
   if (generated is Map<Object?, Object?>) {
-    final actor = _nonEmptyString(generated['by']);
+    final actor = nonEmptyString(generated['by']);
     if (actor != null) yield actor;
   }
   final verified = document.frontmatter['verified'];
   final events = verified is List ? verified : <Object?>[verified];
   for (final event in events.whereType<Map<Object?, Object?>>()) {
-    if (_nonEmptyString(event['by']) case final actor?) yield actor;
+    if (nonEmptyString(event['by']) case final actor?) yield actor;
   }
   final sources = document.frontmatter['sources'];
   if (sources is List) {
     for (final source in sources.whereType<Map<Object?, Object?>>()) {
-      if (_nonEmptyString(source['author']) case final actor?) yield actor;
+      if (nonEmptyString(source['author']) case final actor?) yield actor;
     }
   }
 }
