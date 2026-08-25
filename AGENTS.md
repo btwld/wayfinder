@@ -92,7 +92,6 @@ someone is running a copy from an older commit.
 
 ## Ways of working
 
-The shared engineering process — intake, triage, spec, tickets, implement, review, done — is
-[docs/ways-of-working.md](docs/ways-of-working.md), canonical here. A human-readable mirror
-lives in the MS 365 business registry; if the two disagree, this copy wins. Update here first,
-then re-sync the mirror.
+The shared engineering process — intake, triage, spec, tickets, implement, review, done —
+is canonical in the [concepta-engineering](https://github.com/conceptadev/concepta-engineering)
+repository (`docs/ways-of-working.md` there), alongside the workflow skills that run it.
