@@ -52,14 +52,13 @@ order:
 2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
    `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
    `okf_version` (profile §11).
-3. **Seed `types.md` with the complete standard vocabulary.** Retain all fourteen
-   canonical rows in Profile order, including unused standards. Add a
-   project-specific row before first use and keep extensions in lexical order.
-4. **Apply the actor condition.** If any seeded concept records `generated.by` or
-   another OKF actor-valued field, seed `actors.md` with every used actor. Record
-   only evidenced identity and affiliation, using `unknown` rather than guessing,
-   and give each dated row a non-overlapping active period. If no actor-valued field
-   is present, omit the registry or seed it voluntarily.
+3. **Seed the type registry.** Use the Profile skill's canonical `SEEDING.md`
+   template so the adopted bundle satisfies Profile §5.2 before project concepts
+   are added.
+4. **Apply the actor condition.** Evaluate the seeded concepts under Profile
+   §6.1.1 and use the canonical `SEEDING.md` actor template when that rule requires
+   the registry. The literal seed currently uses an actor-valued field, so following
+   it includes `actors.md`.
 5. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the equivalent)
    MUST say that durable documentation lives in the bundle, that the reader starts at
    `knowledge/index.md`, and that execution records stay in the tracker. Without it an
@@ -225,9 +224,10 @@ registration, actor side membership and non-overlapping period syntax,
 source structure, unique source IDs, recognized attribution joins, and literal
 tag duplication. A footnote is source attribution only when its label matches a
 declared source ID; ordinary Markdown footnotes are not findings. It MAY expose
-the organizational row selected at an event timestamp, but unresolved or ambiguous
-affiliation remains `unknown` and MUST NOT produce a finding. Validation MUST leave
-durable-capture boundaries, standard-type fit,
+organizational affiliation; when it does, it MUST resolve the applicable registry
+row through Profile §6.1.1. Unresolved or ambiguous affiliation remains `unknown`
+and MUST NOT produce a finding. Validation MUST leave durable-capture boundaries,
+type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
 metadata truth, actor identity and affiliation, missing material provenance,
 evidence for freshness, and semantic tag aliases to Profile Review. A registered
 project-specific type and missing `generated` produce advisories; missing
@@ -299,10 +299,13 @@ Profile 2026.2 has two non-normative release artifacts with different jobs:
 - [`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) assigns each normative Profile
   clause to deterministic validation or contextual Profile Review.
 
-The compatibility review MUST NOT stand in for implementation coverage, and the
-coverage matrix MUST NOT imply that a rule is compatible merely because an
-assessment exists. Issue #19 verified that both artifacts account for every
-normative rule before publishing the release.
+Profile §15.1 owns their separation and the publication gate. Implementations
+MUST use the coverage matrix, not the compatibility review, to determine whether
+each normative clause is assessed by Automated Profile Validation or contextual
+Profile Review. The compatibility review MUST NOT stand in for implementation
+coverage, and the coverage matrix MUST NOT imply that a rule is compatible merely
+because an assessment exists. Issue #19 verified that both artifacts account for
+every normative rule before publishing the release.
 
 ---
 
