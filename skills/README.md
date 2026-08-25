@@ -39,7 +39,8 @@ contextual prohibition on speculative structure only work if they are read.
 It is also the single source of truth for concept mechanics: every other skill
 delegates write mechanics to it. Where a skill
 restates structure so it can stand alone — the boundary prose in
-`adopt-knowledge-bundle`'s `AGENTS.md` template, the tree in
+`adopt-knowledge-bundle`'s `AGENTS.md` template, the seed templates and type table in
+its `SEEDING.md`, the tree in
 `references/structure-and-lifecycle.md` — the restatement must stay word-for-word
 true to the profile, and those restatements are the first grep targets when a release
 changes a rule (see below). That is what the implementation guide's §6 requires when

@@ -81,7 +81,10 @@ repository that has never seen it. Two consequences:
   profile rule changes, grep the skills for the old rule before shipping.
 - **Concept mechanics live in `author-knowledge-bundle` and nowhere else.** Every other
   skill delegates to it. Do not restate bundle structure, frontmatter, or the type
-  vocabulary in a second skill; shared rule text lives once under its `references/`.
+  vocabulary in a second skill; shared rule text lives once under its `references/`. The
+  one exemption is a literal seed template — `adopt-knowledge-bundle`'s `SEEDING.md`
+  carries the root-file contents verbatim because a template cannot delegate. Its tables
+  are restatements by construction, and first in the grep sweep when a rule changes.
 
 Consumers install these as the `concepta-knowledge` plugin, or by copy or symlink into their
 own agent's skills directory. Assume someone is running a copy from an older commit.
