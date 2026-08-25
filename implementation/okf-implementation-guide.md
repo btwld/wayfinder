@@ -232,7 +232,8 @@ tag duplication. A footnote is source attribution only when its label matches a
 declared source ID; ordinary Markdown footnotes are not findings. It MAY expose
 the organizational row selected at an event timestamp, but unresolved or ambiguous
 affiliation remains `unknown` and MUST NOT produce a finding. Validation MUST leave
-durable-capture boundaries, standard-type fit,
+durable-capture boundaries,
+type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
 metadata truth, actor identity and affiliation, missing material provenance,
 evidence for freshness, and semantic tag aliases to Profile Review. A registered
 project-specific type and missing `generated` produce advisories; missing
