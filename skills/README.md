@@ -34,8 +34,8 @@ over them — need no changes to work alongside these, and none are shipped here
 
 Structure and conventions an agent can't see are structure an agent invents. The profile skill
 is **model-invoked** so any agent about to create, edit, deprecate, or move a file under
-`knowledge/` reaches it without being asked — the mechanism that keeps written concepts
-conforming instead of merely plausible.
+`knowledge/`, or asked to run Profile Review, reaches it without being asked — the mechanism
+that keeps written concepts conforming and contextual assessment complete.
 
 It matters more under a subject-named tree than it would under a kind-named one. A kind-named
 tree is self-documenting: an agent can infer that a Decision goes in `decisions/` without

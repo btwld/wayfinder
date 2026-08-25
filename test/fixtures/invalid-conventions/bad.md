@@ -5,8 +5,9 @@ description: Exercises deterministic convention failures.
 status: stable
 generated: {by: human:missing, at: 2026-08-22T00:00:00Z}
 sources:
-  - {id: source-a, author: human:missing}
-  - {id: source-a, resource: /profile.md}
+  - {id: 1, author: human:missing}
+  - {id: "1", resource: /profile.md}
+  - {id: source-a, resource: /types.md}
 ---
 
 Claim with an attribution reference but no definition.[^source-a]

@@ -13,11 +13,30 @@ List<ProfileFinding> validateStructureRules2026_2(
   final inventory = _BundleInventory(loaded);
   return <ProfileFinding>[
     ..._validateRootFiles(loaded),
+    ..._validateReservedStructureNames(loaded),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
     ..._validateIndexes(loaded, inventory),
     ..._validateLog(loaded),
   ];
+}
+
+Iterable<ProfileFinding> _validateReservedStructureNames(
+  OkfBundleLoadResult loaded,
+) sync* {
+  for (final path in loaded.documents.keys) {
+    if (!path.contains('/') ||
+        !_structuralConcepts.contains(p.posix.basename(path))) {
+      continue;
+    }
+    yield _error(
+      'root-structure-files',
+      'profile.md, types.md, and actors.md are reserved for their bundle-root '
+          'structural purposes.',
+      '§3.5',
+      path,
+    );
+  }
 }
 
 Iterable<ProfileFinding> _validateRootFiles(
@@ -61,7 +80,7 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
 ) sync* {
-  final directories = inventory.nonRootDirectories.toSet();
+  final directories = inventory.areaDirectories.toSet();
   for (final path in loaded.documents.keys) {
     if (_structuralConcepts.contains(path)) continue;
     final directory = p.posix.dirname(path);
@@ -332,8 +351,16 @@ final class _BundleInventory {
 
   final List<String> nonRootDirectories;
 
+  Iterable<String> get areaDirectories =>
+      nonRootDirectories.where(_isAreaDirectory);
+
   Iterable<String> immediateDirectories(String parent) =>
       nonRootDirectories.where((directory) => _parent(directory) == parent);
+}
+
+bool _isAreaDirectory(String directory) {
+  final root = p.posix.split(directory).first;
+  return root != 'interactions' && root != 'references';
 }
 
 List<String> _directories(Iterable<String> paths) {

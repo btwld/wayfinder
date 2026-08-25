@@ -1,6 +1,6 @@
 ---
 name: okf-profile
-description: Read and write the knowledge bundle at knowledge/ per the Concepta OKF Profile (OKF 0.2). Use before creating, editing, deprecating, or moving any concept under knowledge/, when mirroring source material into references/, or when another skill needs the profile's conventions.
+description: Author and review the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.2 (OKF 0.2). Use before creating, editing, deprecating, moving, or mirroring bundle content; when auditing Profile conformance or producing a Profile Review Report; or when another skill needs Profile conventions.
 ---
 
 # Concepta OKF Profile
@@ -104,7 +104,7 @@ An **Interaction Record** is the narrower case of the same rule: write one only 
 | `Type Registry` | The standard and project-specific types available to the bundle |
 | `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
 
-Project-specific types are allowed and must be registered before use. A registered extension receives a non-blocking advisory so repeated needs can inform a later Profile release; it is not prohibited because a reviewer might prefer a standard type. Choosing whether a standard type truthfully fits is a mandatory Profile Review judgment, never something inferred mechanically from headings, paths, or keywords. When reading, tolerate unknown types, fields, and relationship labels — valid OKF you don't recognize is content to preserve, not an OKF error, and the registry is never grounds for rejecting a concept.
+Project-specific types are allowed and must be registered before use. A registered extension receives a non-blocking advisory so repeated needs can inform a later Profile release; it is not prohibited because a reviewer might prefer a standard type. Choosing whether a standard or project-specific type and its registered meaning truthfully fit the concept is a mandatory Profile Review judgment, never something inferred mechanically from headings, paths, or keywords. When reading, tolerate unknown types, fields, and relationship labels — valid OKF you don't recognize is content to preserve, not an OKF error, and the registry is never grounds for rejecting a concept.
 
 - **`Business Rule` is formalism-neutral.** One standing rule per concept. Structure them with SBVR or any other notation the domain suits; the type commits to one-rule-per-concept, not to a notation.
 - **`Architecture Decision Record` versus `Decision`:** use the ADR type when the decision shapes the software's structure and an engineer deciding how to build would read it; `Decision` for every other durable decision — process, commercial, scope, governance. When both fit, prefer `Decision`.
@@ -185,10 +185,6 @@ An optional `# Relationships` section gives selected links a stable label — on
 
 Preferred labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Specified by, Implemented by, Resolves, **Partially resolves**, **Tracked by**, Related to — each read from the containing concept outward. Additional labels are permitted and produce only a non-blocking advisory; a project should define one once in a durable `Guide` so later authors use it consistently. Prefer bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. The ordinary OKF graph exposes every link, labelled or not, as the same untyped body edge; never add frontmatter or graph enrichment for a Profile relationship. `sources` carries provenance; Relationships carry body context — keep them separate.
 
-Any graph view is disposable: rebuild every node, edge, and datum completely
-from bundle artifacts. Registry rows and relationship labels add no Profile-only
-nodes or typed edges, and graph-only state is prohibited.
-
 - **`Part of`** for composition — a constituent, not a narrowing. Two buckets that sum to a balance are `Part of` it, not `Refines` and not peers. One direction only; backlinks are computed.
 - **`Resolves` versus `Partially resolves`:** `Resolves` is genuine closure only. Evidence that moves an open item forward while leaving it open uses `Partially resolves`. Loose `Resolves` makes open items read as settled — the same class of error as an unearned `verified`.
 - **`Tracked by`** points at the work-tracking record chasing this concept — the issue that carries who owes an open question and by when, while the question itself stays here. It is not `Specified by` or `Implemented by`, and it carries no state: openness is still read from `Resolves` / `Partially resolves`.
@@ -224,10 +220,10 @@ never a finding.
 
 ## Profile Review
 
-After a write, run automated validation over the whole bundle when `okfp validate`
-is available, then assess every contextual rule taught in this skill for the
-review scope. In a source checkout, the canonical assignment audit is
-[`../../implementation/profile-coverage-2026.2.md`](../../implementation/profile-coverage-2026.2.md);
+After a write or when asked for Profile Review, run automated validation over the
+whole bundle when `okfp validate` is available, then assess every contextual rule
+taught in this skill for the review scope. In a source checkout, the canonical
+assignment audit is [`../../implementation/profile-coverage-2026.2.md`](../../implementation/profile-coverage-2026.2.md);
 the review map below keeps a copied skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,
@@ -237,8 +233,8 @@ Use this compact review map to enumerate the contextual surface: structure and
 placement (§§3, 9–10, 13); durable capture and concept boundaries (§4);
 metadata, type fit, provenance, actor history, trust, lifecycle, and freshness
 (§§5–6); relationship meaning, execution ownership, identity, moves, and
-retirement (§§7–8); and source mirroring (§12). Mark a section not applicable
-only after checking it against the scope.
+retirement (§§7–8); Profile declaration semantics (§11); and source mirroring
+(§12). Mark a section not applicable only after checking it against the scope.
 
 Complete the review autonomously when the required context is present and every
 judgment is clear. Use `NEEDS HUMAN` for an ambiguous mandatory rule, apparent
