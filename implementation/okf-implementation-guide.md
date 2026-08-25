@@ -528,5 +528,3 @@ Titled *Implementation Guide* rather than *Implementation Specification*, and fi
 spec" inverted the precedence it was trying to state, and the two filenames differed by one
 suffix. The rename is editorial and carries no rule change; §1 states why "guide" does not
 mean advisory.
-
-Current known gap: the index generator described in §3 is specified but not yet implemented.

@@ -76,9 +76,10 @@ In the repository you want to adopt the profile, run:
 ```
 
 It is prompt-driven, not a script: it explores what the repository already has, shows you what
-it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` and
-writes the `AGENTS.md` blocks that point agents into the bundle. (Issue-tracker and
-triage-label setup belong to `setup-repo` in the
+it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` —
+the four the profile requires, plus `actors.md` because the seed templates use actor
+metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
+(Issue-tracker and triage-label setup belong to `setup-repo` in the
 [concepta-engineering](https://github.com/conceptadev/concepta-engineering) plugin.)
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory

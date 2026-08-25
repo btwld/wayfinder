@@ -84,10 +84,13 @@ own agent's skills directory. Assume someone is running a copy from an older com
 
 ## Rules
 
-- The issue is your task, the document you are changing is your context, the validation gate is
-  your check.
-- Propose a PR that references the issue and updates the affected document in the same change.
-- Do not widen scope beyond the issue. If anything is unclear, ask rather than assume.
+- The issue, when one drives the work, is your task; the document you are changing is your
+  context; the validation gate is your check.
+- Propose a PR that updates the affected document in the same change. Reference the driving
+  issue when one exists; small maintenance changes may come as a PR without one, and the PR
+  description then owns the scope.
+- Do not widen scope beyond the issue or the PR's stated scope. If anything is unclear, ask
+  rather than assume.
 - This repository holds no client data and no project knowledge. Store nothing of a client's;
   read client data live and read-only via an MCP.
 

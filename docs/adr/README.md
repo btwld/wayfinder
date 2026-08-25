@@ -27,5 +27,5 @@ behaviour per unit of interface a caller must learn.
 | [0001](0001-ack-behind-interpreter-seam.md) | Superseded — ack and manifest-era finding IDs |
 | [0002](0002-judgment-parse-and-preserve.md) | Superseded — manifest `judgment` declarations |
 | [0003](0003-suppressions-in-profile-yaml.md) | Superseded — suppressions in `profile.yaml` |
-| [0004](0004-closed-concepta-profile-validator.md) | First implement a closed Concepta Profile validator; defer the generic platform |
-| [0005](0005-skill-family-and-plugin-distribution.md) | Action-named skill family, plugin distribution, engineering extraction |
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted — first implement a closed Concepta Profile validator; defer the generic platform |
+| [0005](0005-skill-family-and-plugin-distribution.md) | Accepted — action-named skill family, plugin distribution, engineering extraction |
