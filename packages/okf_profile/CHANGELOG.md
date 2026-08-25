@@ -3,6 +3,12 @@
 Release history of the `okf_profile` Dart package (the `okfp` toolchain).
 This is package semver; profile releases are recorded in `profile/`, not here.
 
+## Unreleased
+
+- Move the package to `packages/okf_profile/` under a pub workspace; git
+  dependencies now need `path: packages/okf_profile`.
+- Raise the SDK floor to 3.6.0 (workspace resolution requires it).
+
 ## 0.1.0
 
 - Bootstrap the `okf_profile` package and the `okfp` command-line interface.

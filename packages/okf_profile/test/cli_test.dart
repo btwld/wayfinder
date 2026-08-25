@@ -111,7 +111,12 @@ void main() {
   test('validates the complete released example through the shipped gate',
       () async {
     final result = await _runProcess(
-      <String>['validate', '--output', 'json', p.join('examples', 'knowledge')],
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        p.join('..', '..', 'examples', 'knowledge'),
+      ],
     );
 
     expect(result.exitCode, 0);
