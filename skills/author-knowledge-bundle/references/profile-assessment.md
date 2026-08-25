@@ -33,11 +33,15 @@ request, never as a blanket certificate inside the bundle:
 
 - Profile: 2026.1 (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
-- Automated: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
+- Automated gate: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>
 - Outcome: <PASS | CHANGES REQUIRED | NEEDS HUMAN>
 - Concerns: <none | compact actionable findings or uncertainty>
 ```
 
-`PASS` means every Judgment Rule in scope was assessed with sufficient context;
-it does not replace or reinterpret the independent OKF or automated Profile result.
+`Automated gate` is the CLI's combined state. When it is not `PASS`, name the
+failing component in Concerns — OKF conformance, deterministic Profile
+validation, or `BLOCKED BY OKF` — so the reader knows which bar failed.
+Outcome `PASS` means every Judgment Rule in scope was assessed with sufficient
+context; it does not replace or reinterpret the independent OKF or automated
+Profile result.
