@@ -254,10 +254,10 @@ Profile 2026.2 has two non-normative release artifacts with different jobs:
 - [`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) assigns each normative Profile
   clause to deterministic validation or contextual Profile Review.
 
-The compatibility review MUST NOT stand in for implementation coverage, and the
-coverage matrix MUST NOT imply that a rule is compatible merely because an
-assessment exists. Issue #19 MUST NOT publish the release until both artifacts
-account for every normative rule.
+Profile §15.1 owns their separation and the publication gate. Implementations
+MUST use the coverage matrix, not the compatibility review, to determine whether
+each normative clause is assessed by Automated Profile Validation or contextual
+Profile Review.
 
 ---
 
