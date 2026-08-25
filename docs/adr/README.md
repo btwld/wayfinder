@@ -18,3 +18,4 @@ behaviour per unit of interface a caller must learn.
 | # | Decision |
 |---|----------|
 | [0004](0004-closed-concepta-profile-validator.md) | Accepted — first implement a closed Concepta Profile validator; defer the generic platform |
+| [0006](0006-raw-tier-under-references.md) | Accepted — a per-source `raw/` tier under `references/` for verbatim originals; no markdown inside but each directory's index |
