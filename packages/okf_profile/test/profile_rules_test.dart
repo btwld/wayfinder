@@ -144,6 +144,34 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
+  test('degrades a link-graph construction failure to an error finding',
+      () async {
+    final result = await runProcess(
+      <String>['validate', '--output', 'json', fixture('graph-failure')],
+    );
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final okf = output['okf']! as Map<String, Object?>;
+    expect(okf['state'], 'PASS');
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'FAIL');
+    expect(
+      findingSummary(profile),
+      <String>['error concepta-profile/link-graph-unavailable profile.md'],
+    );
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final text = await runProcess(
+      <String>['validate', fixture('graph-failure')],
+    );
+    expect(text.exitCode, 1);
+    expect(text.stdout, contains('concepta-profile/link-graph-unavailable'));
+    expect(text.stdout, contains('link rules were not assessed'));
+    expect(text.stdout, endsWith('Automated gate: FAIL'));
+  });
+
   test('validates structure, indexes, logs, and referenced assets', () async {
     final arguments = <String>[
       'validate',

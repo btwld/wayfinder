@@ -339,7 +339,21 @@ Iterable<ProfileFinding> _validateRelationships(
 
 Iterable<ProfileFinding> _validateInternalLinks(
     OkfBundleLoadResult loaded) sync* {
-  final graph = OkfGraph.fromBundle(loaded.bundle);
+  final OkfGraph graph;
+  try {
+    graph = OkfGraph.fromBundle(loaded.bundle);
+  } catch (error) {
+    // A toolchain throw must not take down the whole assessment, and a pass
+    // may not be claimed while the §7.1 rules went unassessed.
+    yield profileError(
+      'link-graph-unavailable',
+      'The OKF link graph could not be built ($error); '
+          'the §7.1 link rules were not assessed.',
+      '§7.1',
+      'profile.md',
+    );
+    return;
+  }
   final emitted = <(String, String)>{};
   for (final edge in graph.edges
       .where((edge) => edge.origin == OkfGraphEdgeOrigin.bodyLink)) {
