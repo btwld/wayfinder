@@ -291,7 +291,7 @@ Profile 2026.1 has two non-normative release artifacts with different jobs:
 
 - [`../docs/compatibility-review.md`](../docs/compatibility-review.md)
   records the rule-level compatibility review against pinned OKF 0.2.
-- [`profile-coverage-2026.1.md`](profile-coverage-2026.1.md) assigns each normative Profile
+- [`profile-coverage.md`](profile-coverage.md) assigns each normative Profile
   clause to deterministic validation or contextual Profile Review.
 
 Profile §15.1 owns their separation and the publication gate. Implementations

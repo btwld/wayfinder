@@ -1442,7 +1442,7 @@ each rule at
 [`docs/compatibility-review.md`](../docs/compatibility-review.md).
 Compatibility evidence answers whether each rule preserves OKF. The separate
 implementation coverage matrix at
-[`implementation/profile-coverage-2026.1.md`](../implementation/profile-coverage-2026.1.md)
+[`implementation/profile-coverage.md`](../implementation/profile-coverage.md)
 assigns each rule to Automated Profile Validation or Profile Review and answers
 how Concepta assesses it. Neither artifact substitutes for the other, and the
 release MUST NOT be published while either is incomplete.
