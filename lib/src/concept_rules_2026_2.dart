@@ -569,15 +569,15 @@ String? _relationshipLabel(markdown.Node node) {
   final after = StringBuffer();
   var links = 0;
   for (final child in inline) {
-    if (child case final markdown.Text text) {
-      (links == 0 ? before : after).write(text.text);
-    } else if (child case final markdown.Element element
+    if (child case final markdown.Element element
         when element.tag == 'a' &&
             element.attributes['href']?.trim().isNotEmpty == true &&
             element.textContent.trim().isNotEmpty) {
       links++;
     } else {
-      return null;
+      final text = _relationshipText(child);
+      if (text == null) return null;
+      (links == 0 ? before : after).write(text);
     }
   }
   final match = RegExp(r'^\s*([^:\n]+):\s*$').firstMatch(before.toString());
@@ -585,6 +585,21 @@ String? _relationshipLabel(markdown.Node node) {
     return null;
   }
   return match.group(1)!.trim();
+}
+
+String? _relationshipText(markdown.Node node) {
+  if (node case final markdown.Text text) return text.text;
+  if (node is! markdown.Element ||
+      const {'a', 'img', 'br'}.contains(node.tag)) {
+    return null;
+  }
+  final text = StringBuffer();
+  for (final child in node.children ?? const <markdown.Node>[]) {
+    final value = _relationshipText(child);
+    if (value == null) return null;
+    text.write(value);
+  }
+  return text.toString();
 }
 
 final class _Relationships {

@@ -32,6 +32,6 @@ The declaration remains an ordinary OKF concept.[^okf-reference]
 
 # Relationships
 
-* Depends on: [Type registry](/types.md)
+* **Depends on**: [Type registry](/types.md)
 
 [^okf-reference]: Open Knowledge Format reference implementation
