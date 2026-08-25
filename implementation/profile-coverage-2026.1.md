@@ -5,7 +5,7 @@ Status: Complete — Profile 2026.1 release evidence
 This non-normative matrix assigns each normative Concepta Profile 2026.1 bundle
 rule to its assessment mode. It does not decide whether a rule preserves OKF;
 that evidence lives in
-[`../docs/compatibility/2026.1-okf-0.2.md`](../docs/compatibility/2026.1-okf-0.2.md).
+[`../docs/compatibility-review.md`](../docs/compatibility-review.md).
 The Profile remains the source of every rule and its normative force.
 
 ## Assignment rules

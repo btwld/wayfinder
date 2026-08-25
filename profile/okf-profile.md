@@ -1439,7 +1439,7 @@ rejected or pursued upstream before a later Profile release adopts it.
 
 The release-specific, non-normative compatibility review records that test for
 each rule at
-[`docs/compatibility/2026.1-okf-0.2.md`](../docs/compatibility/2026.1-okf-0.2.md).
+[`docs/compatibility-review.md`](../docs/compatibility-review.md).
 Compatibility evidence answers whether each rule preserves OKF. The separate
 implementation coverage matrix at
 [`implementation/profile-coverage-2026.1.md`](../implementation/profile-coverage-2026.1.md)

@@ -6,7 +6,7 @@ docs/GLOSSARY.md — Glossary (Current) — Canonical language for the Profile, 
 
 ## Compatibility
 
-docs/compatibility/2026.1-okf-0.2.md — Compatibility Review (Complete) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2. Topics: compatibility, OKF, release.
+docs/compatibility-review.md — Compatibility Review (Complete) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2. Topics: compatibility, OKF, release.
 
 ## ADRs
 
