@@ -19,25 +19,6 @@ const _relationshipLabels = <String>{
   'Related to',
 };
 
-const _allowedFrontmatterFields = <String>{
-  'type',
-  'title',
-  'description',
-  'resource',
-  'tags',
-  'sources',
-  'usage_window',
-  'generated',
-  'verified',
-  'status',
-  'stale_after',
-  'runtime',
-  'parameters',
-  'computation',
-  'executor',
-  'attester',
-};
-
 const _standardTypes = <(String, String)>[
   ('Glossary Definition', 'One project or domain term'),
   (
@@ -114,7 +95,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
       );
     }
     final extensionKeys = frontmatter.keys
-        .where((key) => !_allowedFrontmatterFields.contains(key))
+        .where((key) => !okfKnownFrontmatterKeys.contains(key))
         .toList();
     if (extensionKeys.isNotEmpty) {
       yield _error(

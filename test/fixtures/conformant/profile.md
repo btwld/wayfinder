@@ -3,6 +3,7 @@ type: Knowledge Profile
 title: Concepta OKF Profile
 description: Declares the Concepta profile and OKF versions this bundle follows.
 status: stable
+timestamp: '2026-08-22T00:00:00Z'
 resource: https://example.com/profile
 tags: [governance]
 generated: {by: process:fixture, at: 2026-08-22T00:00:00Z}
