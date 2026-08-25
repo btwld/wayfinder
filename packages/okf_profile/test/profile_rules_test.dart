@@ -396,7 +396,8 @@ void main() {
     }
   });
 
-  test('compares index entry targets percent-decoded', () async {
+  test('rejects index entry targets that decode wrong or diverge as URLs',
+      () async {
     final result = await runProcess(
       <String>[
         'validate',
@@ -419,6 +420,12 @@ void main() {
         // A well-formed escape decoding to a name the projection lacks.
         'error concepta-profile/index-semantic-projection '
             'references/encoded/index.md',
+        // A raw `#`, which a URL consumer would split as a fragment.
+        'error concepta-profile/index-semantic-projection '
+            'references/fragmented/index.md',
+        // `%2F`, an escape aliasing the path separator.
+        'error concepta-profile/index-semantic-projection '
+            'references/slashed/index.md',
         // A stray `%` outside any valid escape sequence.
         'error concepta-profile/index-semantic-projection '
             'references/stray/index.md',

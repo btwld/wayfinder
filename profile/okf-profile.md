@@ -1124,7 +1124,11 @@ ASCII — MUST be percent-encoded (RFC 3986) or carried by the angle-bracket
 destination form (CommonMark). Conformance compares each target percent-decoded
 against the projected path, so every valid spelling of the same target matches
 the projection; a percent sign outside a valid escape sequence does not parse as
-a target. Labels are not URLs and stay verbatim — an asset's label is its
+a target. A spelling a relative-URL consumer reads differently from the decoded
+comparison does not parse as a target either: a raw `?` or `#` MUST be
+percent-encoded — a URL splits at them into query and fragment — and an escape
+MUST NOT decode to `/`, which a URL reads as data, never as a path separator.
+Labels are not URLs and stay verbatim — an asset's label is its
 filename exactly as written even when its target is encoded.
 
 The root index MUST carry `okf_version`, which §11 requires to agree with the
@@ -1520,11 +1524,14 @@ nothing structural marking the boundary. Migration impact: none — the tier is 
 MAY, and its markdown restriction binds only bundles that adopt it; a bundle
 conformant before the amendment remains conformant unchanged.
 A second QA-period amendment (ADR-0007): §9 writes targets as relative URLs and
-compares them percent-decoded. Driver: the same migration's verbatim originals
-carry filenames — spaces, parentheses, characters outside ASCII — that no target
-spelling could satisfy, because Markdown parsing normalizes destinations to a
-percent-encoded form the raw-path comparison then rejected. Migration impact:
-none — every previously conformant target decodes to itself.
+compares them percent-decoded, rejecting the spellings a URL reads differently —
+raw `?`/`#`, escapes decoding to `/`. Driver: the same migration's verbatim
+originals carry filenames — spaces, parentheses, characters outside ASCII — that
+no target spelling could satisfy, because Markdown parsing normalizes
+destinations to a percent-encoded form the raw-path comparison then rejected.
+Migration impact: a previously conformant target decodes to itself and stays
+conformant unless it carried a raw `?` or `#`, which now needs the encoded
+spelling a URL consumer actually resolves to the file.
 
 Future releases add one entry each here, newest first, naming the sections
 touched, the **driver** — what real use revealed the gap — and the migration

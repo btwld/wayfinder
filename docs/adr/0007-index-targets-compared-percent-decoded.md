@@ -33,6 +33,13 @@ target spelling would chase parser internals rather than state a rule.
   what the entry identifies, not in which escape the author chose.
 - A percent sign outside a valid escape sequence does not parse as a target,
   and a decoding failure is a projection finding, never a crash.
+- A spelling a relative-URL consumer reads differently from the decoded
+  comparison does not parse as a target either: a raw `?` or `#` must be
+  percent-encoded — a URL splits at them into query and fragment — and no
+  escape may decode to `/`, which a URL reads as data, never as a path
+  separator. Without this, `vendor%2F` or a raw `#` would validate while
+  resolving elsewhere as a URL, and the compatibility claim below would fail
+  exactly where it matters.
 - Labels are not URLs. An asset's label remains its filename exactly as
   written even when its target is encoded.
 
@@ -49,7 +56,9 @@ it. Once adopted bundles exist, a change of this kind takes a new release.
 ## Consequences
 
 - Existing conformant bundles stay conformant: a target that matched before
-  contains no escapes and decodes to itself.
+  contains no escapes and decodes to itself. The one exception is a target
+  that carried a raw `?` or `#` and matched byte-for-byte; it now needs the
+  encoded spelling — the only one a URL consumer resolves to the file.
 - Reference directories holding verbatim originals with real-world filenames
   become expressible; the authoring skill's index-projection reference teaches
   the encoded spelling.

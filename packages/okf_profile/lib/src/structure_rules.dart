@@ -333,18 +333,27 @@ _IndexEntry? _parseIndexEntry(markdown.Node node, String? description) {
 }
 
 final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
-final RegExp _strayPercent = RegExp(r'%(?![0-9A-Fa-f]{2})');
+
+// A spelling a relative-URL consumer reads differently from the decoded
+// comparison: a stray `%`, or a raw query/fragment delimiter (RFC 3986).
+final RegExp _nonTargetSpelling = RegExp(r'[?#]|%(?![0-9A-Fa-f]{2})');
 
 /// Percent-decodes a parsed target so §9 compares every valid spelling of a
-/// path against its raw projection; null when an escape is malformed.
+/// path against its raw projection; null when the spelling is not a target —
+/// a malformed escape, a raw `?` or `#`, or an escape hiding a `/`.
 ///
 /// Not [Uri.decodeComponent] on the whole target: it throws [ArgumentError] on
 /// raw non-ASCII input, which is a legitimate already-decoded target character.
 String? _decodeTarget(String target) {
-  if (target.contains(_strayPercent)) return null;
+  if (target.contains(_nonTargetSpelling)) return null;
   try {
-    return target.replaceAllMapped(
-        _percentEscapeRun, (match) => Uri.decodeComponent(match[0]!));
+    return target.replaceAllMapped(_percentEscapeRun, (match) {
+      final decoded = Uri.decodeComponent(match[0]!);
+      // An escape decoding to `/` would alias a path separator the URL reads
+      // as data, so the entry would validate yet resolve elsewhere.
+      if (decoded.contains('/')) throw const FormatException();
+      return decoded;
+    });
   } on FormatException {
     return null;
   }
