@@ -29,10 +29,11 @@ touches several — a new concept in a new directory needs the first two at leas
 | --- | --- |
 | Creating or editing a concept — capture bar, types, frontmatter, provenance, execution links | [references/concept-authoring.md](./references/concept-authoring.md) |
 | Creating or naming a directory, placing a concept, moving, deprecating, deleting | [references/structure-and-lifecycle.md](./references/structure-and-lifecycle.md) |
+| Creating or regenerating an `index.md` — every write touches at least one | [references/index-projection.md](./references/index-projection.md) |
 | Giving links a labelled meaning in `# Relationships` | [references/relationships.md](./references/relationships.md) |
 | Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
 | Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
-| Seeding a new bundle from nothing | the `adopt-knowledge-bundle` skill |
+| Seeding a new bundle from nothing | the [`adopt-knowledge-bundle` skill](../adopt-knowledge-bundle/SKILL.md) |
 | Anything the profile says nothing about | [references/OKF-0.2.md](./references/OKF-0.2.md) |
 
 ## The atomic bundle write
@@ -40,7 +41,7 @@ touches several — a new concept in a new directory needs the first two at leas
 Every write follows this sequence, and is complete only when all of it exists:
 
 1. The concept file, conforming to the routed references above.
-2. Every affected `index.md` semantic projection. At root, `Bundle` contains `log.md`, `profile.md`, `types.md`, and conditional `actors.md`; other concepts group under exact types; immediate directories group under `Directories`; non-Markdown files under `references/` group under `Assets`. Standard type groups follow the Profile order and project types follow lexically; entries sort by title then path. Concept labels and descriptions copy `title` and `description`; directory and asset labels derive exactly from their final path segment and carry no description. Indexes contain no authored ordering or prose.
+2. Every affected `index.md`, rewritten as the deterministic projection defined in [references/index-projection.md](./references/index-projection.md). Nothing generates indexes for you — follow that reference exactly.
 3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
 4. Automated validation, when `okfp validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
 5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
