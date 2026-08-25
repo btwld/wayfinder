@@ -17,9 +17,31 @@ List<ProfileFinding> validateStructureRules(
     ..._validateReservedStructureNames(loaded),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
+    ..._validateRawTierMarkdown(loaded),
     ..._validateIndexes(loaded, inventory),
     ..._validateLog(loaded),
   ];
+}
+
+Iterable<ProfileFinding> _validateRawTierMarkdown(
+  OkfBundleLoadResult loaded,
+) sync* {
+  for (final path in loaded.paths) {
+    if (!path.endsWith('.md') || p.posix.basename(path) == 'index.md') {
+      continue;
+    }
+    final directories = p.posix.split(p.posix.dirname(path));
+    if (directories.first != 'references' || !directories.contains('raw')) {
+      continue;
+    }
+    yield profileError(
+      'raw-directory-markdown',
+      'A raw/ tier holds verbatim originals; the only markdown permitted in '
+          'it is each directory\'s own index.md.',
+      '§3.4',
+      path,
+    );
+  }
 }
 
 Iterable<ProfileFinding> _validateReservedStructureNames(

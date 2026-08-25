@@ -3,6 +3,12 @@
 Release history of the `okf_profile` Dart package (the `okfp` toolchain).
 This is package semver; profile releases are recorded in `profile/`, not here.
 
+## 0.1.1
+
+- Enforce the Profile 2026.1 `raw/` tier amendment (ADR-0006): non-index
+  markdown under a `raw/` directory in `references/` fails deterministically
+  as `concepta-profile/raw-directory-markdown`.
+
 ## 0.1.0
 
 - Bootstrap the `okf_profile` package and the `okfp` command-line interface,

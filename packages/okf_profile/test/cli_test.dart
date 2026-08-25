@@ -418,6 +418,38 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: FAIL'));
   });
 
+  test('flags non-index markdown inside a references raw/ tier', () async {
+    final result = await _runProcess(
+      <String>['validate', '--output', 'json', _fixture('invalid-raw')],
+    );
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      contains('error concepta-profile/raw-directory-markdown '
+          'references/walkthrough-2026-08-25/raw/stray.md'),
+    );
+    expect(
+      _findingSummary(profile).where((line) => line.startsWith('error')),
+      hasLength(1),
+    );
+    expect(profile['state'], 'FAIL');
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('invalid-raw')],
+    );
+    expect(text.exitCode, 1);
+    expect(
+      text.stdout,
+      contains('raw/stray.md: error concepta-profile/raw-directory-markdown'),
+    );
+    expect(text.stdout, endsWith('Automated gate: FAIL'));
+  });
+
   test('preserves OKF log date and ordering failures without Profile cascades',
       () async {
     final result = await _runProcess(
