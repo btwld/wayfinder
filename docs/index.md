@@ -14,3 +14,4 @@ docs/adr/0001-ack-behind-interpreter-seam.md — ADR (Superseded) — Earlier ma
 docs/adr/0002-judgment-parse-and-preserve.md — ADR (Superseded) — Earlier manifest judgment declaration decision, superseded by ADR-0004. Topics: manifest, judgment, compatibility.
 docs/adr/0003-suppressions-in-profile-yaml.md — ADR (Superseded) — Earlier profile.yaml suppression design, deferred and superseded by ADR-0004. Topics: suppressions, declaration, policy.
 docs/adr/0004-closed-concepta-profile-validator.md — ADR (Accepted) — Define the closed validator, model-independent CI, contextual review, required root registries, authored logs, and derived indexes. Topics: validation, review, agents, CI, registries, logs, indexes, deferral.
+docs/adr/0005-skill-family-and-plugin-distribution.md — ADR (Accepted) — Action-named skill family, single-plugin distribution, engineering-skill extraction, and package workspace placement. Topics: skills, distribution, plugins, repository-scope.
