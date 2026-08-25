@@ -13,7 +13,23 @@ An optional `# Relationships` section gives selected links a stable label — on
 - Implemented by: [PR #42](https://github.com/org/repo/pull/42)
 ```
 
-Preferred labels: Superseded by, Depends on, Constrained by, **Part of**, Refines, Specified by, Implemented by, Resolves, **Partially resolves**, **Tracked by**, Related to — each read from the containing concept outward. Additional labels are permitted and produce only a non-blocking advisory; a project should define one once in a durable `Guide` so later authors use it consistently. Prefer bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. The ordinary OKF graph exposes every link, labelled or not, as the same untyped body edge; never add frontmatter or graph enrichment for a Profile relationship. `sources` carries provenance; Relationships carry body context — keep them separate.
+The preferred labels, each read from the containing concept outward:
+
+| Label | Meaning |
+| --- | --- |
+| Superseded by | This concept has been replaced by the target |
+| Depends on | This concept is only valid while the target holds |
+| Constrained by | The target limits what this concept may do |
+| Part of | This concept is a constituent of the target, which is incomplete without it |
+| Refines | This concept narrows or sharpens the target |
+| Specified by | The target is the specification of this concept |
+| Implemented by | The target is the work that delivers this concept |
+| Resolves | This concept fully answers or closes the target |
+| Partially resolves | This concept answers part of the target, which remains open |
+| Tracked by | The target is the work-tracking record that chases this concept |
+| Related to | An unlabelled association worth surfacing |
+
+Additional labels are permitted and produce only a non-blocking advisory; a project should define one once in a durable `Guide` so later authors use it consistently. Prefer bundle-relative links (leading `/`) for internal targets. Ordinary markdown links elsewhere in the body are valid untyped edges. The ordinary OKF graph exposes every link, labelled or not, as the same untyped body edge; never add frontmatter or graph enrichment for a Profile relationship. `sources` carries provenance; Relationships carry body context — keep them separate.
 
 - **`Part of`** for composition — a constituent, not a narrowing. Two buckets that sum to a balance are `Part of` it, not `Refines` and not peers. One direction only; backlinks are computed.
 - **`Resolves` versus `Partially resolves`:** `Resolves` is genuine closure only. Evidence that moves an open item forward while leaving it open uses `Partially resolves`. Loose `Resolves` makes open items read as settled — the same class of error as an unearned `verified`.
