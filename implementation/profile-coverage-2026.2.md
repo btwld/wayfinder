@@ -52,8 +52,6 @@ The Profile remains the source of every rule and its normative force.
 | §10: log lead words use the preferred vocabulary without closing it | SHOULD | Profile Review | Unfamiliar words are reviewed for clarity and never fail solely for being unfamiliar |
 | §10: log records material knowledge lifecycle history and omits source-only, formatting-only, and unrelated events | MUST / MUST NOT | Profile Review | Context and, when useful, version history support authored significance and completeness |
 | §13: indexes remain rebuildable projections and the authored log is not treated as one | MUST / MUST NOT | Profile Review | No index-only source of truth and no claim that current state mechanically reconstructs history |
-| §7.2, §13: the bundle keeps labelled and ordinary Markdown links as untyped OKF graph edges, and registry rows add no Profile-only nodes or edges | MUST / MUST NOT | Profile Review | Bundle representation uses ordinary OKF links and tables without stored label enrichment or reinterpretation |
-| §13: a graph is completely rebuildable from the bundle and carries no graph-only state | MUST / MUST NOT | Profile Review | Graph design and outputs identify the bundle artifacts from which every node, edge, and datum rebuilds |
 
 ## Concepts, trust, and durable-capture coverage
 
@@ -72,7 +70,7 @@ The Profile remains the source of every rule and its normative force.
 | §5.1: tags remain topics rather than semantic aliases for type, lifecycle, trust, or subject-resolution state | MUST NOT | Profile Review | Contextual meaning carries a topic rather than a second source of truth |
 | §5.2: root `types.md` has exact `type: Type Registry` and contains all fourteen exact standard rows in canonical order, followed by project rows in lexical order | MUST / MAY | Automated Profile Validation | Parsed exact registry type, row values, and order match the release vocabulary and extension ordering |
 | §5.2: every used type is registered; a registered project type is allowed with an advisory | MUST / MAY | Automated Profile Validation | Used-type membership; extension advisory does not affect the automated gate |
-| §5.2: each standard type matches its canonical meaning and each extension has a truthful one-line meaning | MUST | Profile Review | Concept content fits the selected kind; review does not infer fit from headings, paths, or keywords |
+| §5.1, §5.2, §14.1: each standard or project-specific type and its registered meaning truthfully fit the concept | MUST | Profile Review | Concept content fits the selected kind and its registered meaning; review does not infer fit from headings, paths, or keywords |
 | §5.2: a Business Rule selected by a Decision links to it with `Depends on` | SHOULD | Profile Review | Rule history and relationship meaning support the outward link when the rule records a chosen policy |
 | §5.2: a project may use SBVR or another notation for Business Rule bodies | MAY | Profile Review | No notation is required or treated as changing the one-rule-per-concept type boundary |
 | §6.1: materially derived claims record identifiable material with OKF `sources`; original work does not invent sources | MUST / MUST NOT | Profile Review | Claims and evidence show complete truthful material provenance or an original contribution |
@@ -89,9 +87,8 @@ The Profile remains the source of every rule and its normative force.
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing
 skill-prompt headings receive no coverage row and no finding. Actor affiliation
-lookup is likewise not an additional bundle requirement: implementations may expose
-the row selected at an event time, but unresolved or ambiguous affiliation remains
-`unknown` without a finding and never changes the OKF actor value or trust tier.
+lookup is likewise not an additional bundle requirement; its implementation owner
+and evidence are recorded in the non-bundle frame below.
 
 ## Relationships and external-boundary coverage
 
@@ -129,7 +126,7 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |
 | §15.2: precedence and migration impact remain explicit for every release | Release integration | Profile binding and §15.3 migration text |
 | §15.3: a 2026.1 bundle completes every published 2026.2 migration action before changing its declaration | Migration implementation | Whole-bundle migration review after publication |
-| §6.1.1, §14.1: unresolved or ambiguous actor affiliation remains non-finding `unknown` | Validator implementation | Lookup tests preserve actor strings and trust tiers while emitting no finding for unresolved history |
+| §6.1.1, §14.1: an implementation that exposes organizational affiliation resolves the row at the applicable event timestamp or source `last_modified`; unresolved or ambiguous history remains non-finding `unknown` without changing the actor string or trust tier | Consumer implementation | Lookup tests cover `generated`, `verified`, and source-author dates before, at, and after period boundaries plus missing and ambiguous dates, while preserving actor strings and trust tiers |
 | §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
 | §7.1–§7.2, §13, §14.2: tolerant readers preserve unknown relationship labels, unresolved targets, and ordinary untyped graph edges | Reader implementation | Unknown-label and unresolved-target fixtures remain loadable and expose the unchanged OKF edge through the public OKF graph |
 | §8.2: tooling checks known inbound bundle links during coordinated moves without making unresolved edges blocking | Authoring and validator implementation | Move workflow repairs discovered references; final validation retains any unresolved edge as a non-blocking advisory |

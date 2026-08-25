@@ -215,7 +215,7 @@ def check_registries() -> None:
         for actor in sorted(used_actors - declared_actors):
             advise(actors_md, f"actor `{actor}` is used in the bundle but absent from actors.md")
     elif used_actors:
-        advise(BUNDLE, "concepts distinguish sources by actor but there is no actors.md (§6.1.1)")
+        advise(BUNDLE, "an OKF actor-valued field is used but there is no actors.md (§6.1.1)")
 
 
 def check_indexes() -> None:
