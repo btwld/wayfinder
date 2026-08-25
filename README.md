@@ -80,7 +80,8 @@ it proposes, and writes only after you confirm. It configures three things —
 - **Issue tracker** — where issues live, so the engineering skills know whether to call `gh`,
   write markdown under `.scratch/`, or follow a workflow you describe
 - **Triage labels** — the label vocabulary, if the `triage` skill is installed
-- **Knowledge bundle** — seeds the five root files of `knowledge/`, and writes the `AGENTS.md`
+- **Knowledge bundle** — seeds the root files of `knowledge/` — the four the profile requires,
+  plus `actors.md` because the seed templates use actor metadata — and writes the `AGENTS.md`
   blocks that point agents into it
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory

@@ -4,6 +4,10 @@
 
 docs/GLOSSARY.md — Glossary (Current) — Canonical language for the Profile, automated validation, contextual review, review reports, and complete assessment. Topics: OKF, profile, conformance, validation, review.
 
+## Process
+
+docs/ways-of-working.md — Ways of Working (Current) — The shared engineering process — intake, triage, spec, tickets, implement, review, done — canonical here so agents read it in context. Topics: process, delivery, review.
+
 ## Compatibility
 
 docs/compatibility/2026.2-okf-0.2.md — Compatibility Review (Complete) — Rule-level evidence that Concepta Profile 2026.2 preserves pinned OKF 0.2. Topics: compatibility, OKF, release.

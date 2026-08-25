@@ -72,7 +72,7 @@ Show the user a draft of:
 
 - The `## Agent skills` and `## Documentation` blocks to add to `AGENTS.md` (see step 4)
 - The `@AGENTS.md` line for `CLAUDE.md`, if it isn't already there
-- The bundle's five root files, when they need seeding
+- The bundle's root files, when they need seeding
 - The contents of `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md` (the latter only when `triage` is installed)
 
 Let them edit before writing.
