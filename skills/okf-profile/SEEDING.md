@@ -1,6 +1,7 @@
 # Seeding a bundle
 
-The root files of a new bundle at `knowledge/`. Replace `<...>` placeholders; `generated.by` uses the actor convention from [SKILL.md](./SKILL.md).
+The root files of a new bundle at `knowledge/`. Replace `<...>` placeholders;
+`generated.by` follows the [OKF §7 actor convention](./OKF-0.2.md#7-actor-convention).
 
 The structural minimum is `index.md`, `log.md`, `profile.md`, and `types.md`.
 These templates also use `generated.by`, so their literal seeded form requires
@@ -63,9 +64,6 @@ OKF is authoritative: when the profile and OKF differ, OKF wins.
 and the OKF version it binds to. Their **formats** differ so they can never be
 confused: the profile uses `<year>.<serial>` (`2026.2`), OKF uses
 `<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other.
-This seeding text belongs to the unpublished integration draft and is not a
-published distribution surface until issue #19 completes the release.
-
 ## `knowledge/types.md`
 
 Seed all fourteen standard types in the canonical order below, including unused

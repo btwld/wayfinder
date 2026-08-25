@@ -13,7 +13,7 @@ Closes #
 - [ ] `skills/` grepped for the old rule — a skill teaching a withdrawn rule produces conforming files that are wrong, and no validator catches it
 
 ## Checks
-- [ ] `python3 tools/verify_knowledge_bundle.py --strict examples` passes
+- [ ] Dart format, analysis, and tests pass; the deprecated Python example smoke check also passes while pending removal in #20
 - [ ] Nothing added that names a client, a domain, or a project's own vocabulary
 - [ ] Precedence respected: OKF over the profile, the profile over the implementation guide
 - [ ] Scope not widened beyond the issue

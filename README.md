@@ -10,18 +10,10 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.1**, profiling **OKF 0.2**. Status: Proposed. Its
-immutable text is
+Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md). The
+superseded 2026.1 release remains byte-identical at
 [`profile/versions/okf-profile-2026.1.md`](profile/versions/okf-profile-2026.1.md).
-
-The canonical profile and implementation guide currently hold the **unpublished
-2026.2 integration draft** for issues #22 through #25. They are not a
-distribution surface and MUST NOT be presented as the current release until
-issue #19 verifies and publishes the complete release atomically. Changes to
-skills, seeding material, examples, and compatibility evidence on the stacked
-integration branches remain unpublished draft material until that gate passes;
-the legacy verifier remains deprecated and is removed only when its replacement
-assumes the CI gate.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
@@ -34,8 +26,9 @@ decisions, its open questions. Nothing here is ever a prerequisite for reading o
 must stay readable on its own when a client receives only their project repository, so the
 profile is referenced by version, never copied in.
 
-That is why this repository is consumed rather than vendored: install the skills once, point
-CI at the verifier, and let each project repository carry only its own knowledge.
+That is why this repository is consumed rather than vendored: install the skills once, add
+the `okfp` validation gate when #20 lands, and let each project repository carry only its own
+knowledge.
 
 ## What is in here
 
@@ -44,7 +37,7 @@ CI at the verifier, and let each project repository carry only its own knowledge
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skills — the profile skill plus the engineering skills that write into a bundle |
-| [`tools/`](tools/) | Repo-side tooling: the bundle verifier |
+| [`tools/`](tools/) | Deprecated pre-2026.2 verifier retained only until #20 |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`docs/ways-of-working.md`](docs/ways-of-working.md) | The shared engineering process, canonical here |
 
@@ -65,7 +58,7 @@ for Claude Code that is `~/.claude/skills/`, either by copying the directories o
 symlinking them so updates here reach you with a `git pull`:
 
 ```bash
-git clone git@github.com:btwld/okf-profile.git ~/lab/concepta-okf
+git clone git@github.com:conceptadev/okf-profile.git ~/lab/concepta-okf
 for s in ~/lab/concepta-okf/skills/okf-profile ~/lab/concepta-okf/skills/engineering/*/; do
   ln -s "$s" ~/.claude/skills/"$(basename "$s")"
 done
@@ -106,34 +99,41 @@ it:
 
 | Skill | Invocation | What it does |
 | --- | --- | --- |
-| `okf-profile` | model-invoked | The profile as a skill. Any agent about to create, edit, deprecate, or move a file under `knowledge/` reaches it automatically |
+| `okf-profile` | model-invoked | Authors and reviews a Profiled Bundle. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
 | `domain-modeling` | model-invoked | Pins down terminology and records decisions — one Glossary Definition per term, ADRs into `architecture/`, durable non-architectural decisions as `Decision` concepts |
 | `to-spec` | user-invoked | Turns a shaped problem into a specification, linked back to the concept it realizes |
 | `to-tickets` | user-invoked | Slices a spec into tickets, linked to the concept that motivated them |
 | `implement` | user-invoked | Reads the constraining concepts before coding, and links the work back with `Implemented by` |
 
-You never invoke `okf-profile` yourself. It is model-invoked precisely because
-structure an agent cannot see is structure an agent invents: a subject-named tree is not
-self-inferrable, so an agent that skips the profile will confidently create `decisions/`.
+You do not need to invoke `okf-profile` yourself. It is model-invoked so authoring mechanics
+are loaded before a bundle write and contextual rules are loaded for Profile Review. A
+subject-named tree is not self-inferrable, so an agent that skips the profile will confidently
+create `decisions/`.
 
-### 4. Verify
+### 4. Legacy verification during validator replacement
 
 ```bash
 python3 tools/verify_knowledge_bundle.py [--strict] [<repo-root>]
 ```
 
-The verifier walks up for `knowledge/index.md`, so it runs against any repository from
-anywhere inside it. It keeps the profile's two severities distinct (profile §14.1):
+This Python command is a deprecated 2026.1-era transition aid. It is not the
+Profile 2026.2 validator contract, cannot produce a complete 2026.2 automated
+result, and will be removed when `okfp validate <bundle>` assumes the CI gate in
+#20. New integrations MUST target the `okfp` contract in implementation guide
+§4.
+
+The legacy verifier walks up for `knowledge/index.md` and keeps its historical
+two severities distinct:
 
 - An **OKF §11 violation** is a hard failure — the document cannot be interpreted, so it
   cannot be accepted. Exits nonzero.
 - A **profile deviation** is an advisory finding — reported and attributed, never a reason to
-  reject a bundle that is valid OKF. This deprecated verifier's `--strict` mode promotes
-  legacy deviations, except the two advisories Profile 2026.2 explicitly keeps
-  gate-neutral: unresolved internal edges and nonstandard relationship labels.
+  reject a bundle that is valid OKF. Its legacy `--strict` option promotes historical
+  deviations, except the two advisories Profile 2026.2 explicitly keeps gate-neutral:
+  unresolved internal edges and nonstandard relationship labels.
 
-That asymmetry is deliberate. A profile that could reject valid OKF would have made itself a
-competing standard, which the profile's §1.2 forbids.
+`--strict` is not part of `okfp` and MUST NOT be used to infer the Profile 2026.2
+automated gate.
 
 ## Examples
 

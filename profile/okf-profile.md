@@ -2,13 +2,10 @@
 
 **Version 2026.2** — profiles **OKF 0.2 exactly**
 
-Status: Integration draft — unpublished
+Status: Proposed
 
-This draft is the integration surface for issues #22 through #25. It MUST NOT be
-published or presented as the current Concepta Profile release until issue #19
-has verified the normative text, compatibility evidence, implementation
-coverage, skill, guidance, and examples together. Concepta Profile 2026.1
-remains the current proposed release and is preserved at
+Concepta Profile 2026.2 is the current release. The superseded 2026.1 text is
+preserved byte-for-byte at
 [`versions/okf-profile-2026.1.md`](versions/okf-profile-2026.1.md).
 
 The Concepta OKF Profile is a set of conventions for keeping durable project
@@ -126,14 +123,14 @@ how* Concepta uses it, never *what it means*.
 | §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and affiliation lives in a registry (§6.1.1) |
 | §8 | Index files, `okf_version` at bundle root only | Constrained: required per nonempty directory, deterministic, grouped by type (§9) |
 | §9 | Date-grouped log entries, newest first | Constrained: knowledge lifecycle events only (§10) |
-| §10 | Attested Computation and its computation keys | Inherited, currently unused (§14.3) |
+| §10 | Attested Computation and its computation keys | Inherited unchanged (§1.3) |
 | §11 | Tolerant-reader conformance | Inherited and reinforced (§14.2) |
 | §12 | `okf_version` declaration and version semantics | Inherited; profile binds one OKF version (§15) |
 
 **The table is not a boundary.** It enumerates the mechanisms Concepta constrains;
 it does not limit what a bundle may use. Anything OKF 0.2 defines that this
 document never mentions — a frontmatter key, a body convention, a structural
-affordance, or a whole family such as Attested Computation (§14.3) — is available
+affordance, or a whole family such as Attested Computation — is available
 unchanged and carries its OKF meaning. A producer facing a question this profile
 does not answer MUST read the pinned specification and follow it, and MUST NOT mint
 a Concepta convention in its place. That failure mode is the one this profile is
@@ -1194,6 +1191,8 @@ stale finds out where the concept went:
 # Knowledge Log
 
 ## 2026-07-31
+* **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
+* **Area created**: Established `ways-of-working/` for durable project conventions.
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
 * **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
@@ -1426,20 +1425,6 @@ an OKF 0.2 mechanism the profile is silent about: a validator that treats profil
 silence as a closed world converts deference into a diagnostic, and pressures
 authors away from the upstream spec this profile binds to.
 
-### 14.3 OKF families currently unused
-
-The profile uses no Attested Computation concepts (OKF §10) and defines no
-convention for `runtime`, `parameters`, `computation`, `executor`, or `attester`.
-This is a deliberate silence of the kind §1.3 describes, not an oversight:
-Concepta has no sanctioned-value attestation need yet.
-
-A Concepta bundle MAY nonetheless contain such concepts — exchange across
-organizations is what OKF is for — and consumers MUST treat them per OKF §10
-rather than as unknown content. Should the need arise, adopting them is an
-additive minor release (§15.2).
-
----
-
 ## 15. Versioning and release evidence
 
 ### 15.1 Binding to OKF
@@ -1509,10 +1494,9 @@ OKF's normative requirements always take precedence over any profile release
 
 ### 15.3 Change record
 
-**2026.2 — integration draft, unpublished.** Establishes the closed Concepta
-Profile release frame and integrates the structure/navigation,
-concept/trust/durable-capture, and external-boundary slices. Issue #19 will verify
-the integrated release and is the only step that may publish it.
+**2026.2.** Establishes the closed Concepta Profile release frame and integrates
+the structure/navigation, concept/trust/durable-capture, and external-boundary
+slices. Issue #19 verified and published these surfaces as one release.
 
 | Change | Sections | Driver |
 | --- | --- | --- |
@@ -1535,13 +1519,11 @@ the integrated release and is the only step that may publish it.
 | Mirroring is pull-based on citation, genuine availability risk, and suitable repository visibility; heavy media remains external without changing OKF source meaning | §12, §14.1–§14.2 | Real source systems expired while indiscriminate capture widened confidential access and bloated repositories, and using scope descriptors merely to hide a followable external source weakened provenance |
 
 **Migration framework.** A bundle conformant to Profile 2026.1 remains
-conformant to Profile 2026.1; this draft does not silently reassess it under
-2026.2. A bundle migrates only after the 2026.2 release is published: it MUST
-complete every migration action recorded in this section by the domain slices,
+conformant to Profile 2026.1 and is not silently reassessed under 2026.2. To
+migrate, it MUST complete every migration action recorded in this section,
 then update `concepta_profile` to `"2026.2"` while retaining `okf_version:
 "0.2"`. Until then its older declaration remains a claim about that older
-release and MUST NOT be reassessed under 2026.2. The known migration actions are
-complete across the domain slices; issue #19 still verifies the integrated release.
+release and MUST NOT be reassessed under 2026.2.
 
 For the structure and navigation slice, a bundle conformant to Profile 2026.1
 does not necessarily conform to 2026.2. It MUST regenerate every index into the
@@ -1591,6 +1573,10 @@ classification, removing or externalizing
 material that fails those checks without replacing a known followable OKF source with
 a scope descriptor. Additional labels and unresolved internal links remain permitted
 and non-blocking, so those relaxations require no repair merely to migrate.
+
+The entries below record superseded releases for historical traceability only.
+Their migration prose is not normative for Profile 2026.2; a bundle still using
+one of those declarations is assessed under that immutable snapshotted release.
 
 **2026.1** — three conventions promoted from first use; the semver series retired.
 
@@ -1647,7 +1633,6 @@ Intentionally left to a later release:
 - A second navigation artifact such as a generic `overview.md`. A specifically
   named concept containing durable knowledge about an area's subject is already
   permitted by §3.1; duplicating the generated index is not.
-- Adoption of Attested Computation (§14.3).
 - Automatic projection between concepts and execution records in either
   direction.
 - A distribution mechanism for the profile itself — package, plugin, or
@@ -1742,7 +1727,7 @@ title: PDF export feasibility for annotations
 description: Whether the current renderer can place annotations without exceeding the generation budget.
 status: draft
 generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
-stale_after: 2026-10-31
+stale_after: 2026-11-01
 sources:
   - id: layout-sample
     resource: /references/annotation-layout.json
@@ -1752,7 +1737,8 @@ sources:
 # Question
 
 Can annotations be positioned in the exported PDF within the existing
-generation budget?
+generation budget? This analysis applies to the current renderer contract
+through 31 October 2026; the contract changes on 1 November.
 
 # Findings
 
@@ -1823,7 +1809,10 @@ generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 # Knowledge Log
 
 ## 2026-07-31
+* **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
+* **Area created**: Established `ways-of-working/` for durable project conventions.
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
+* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30

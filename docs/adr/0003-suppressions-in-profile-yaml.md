@@ -2,7 +2,7 @@
 
 - Status: superseded by [ADR-0004](0004-closed-concepta-profile-validator.md)
 - Date: 2026-08-14
-- Issues: [#10](https://github.com/btwld/okf-profile/issues/10), #5, #12
+- Issues: [#10](https://github.com/conceptadev/okf-profile/issues/10), #5, #12
 
 ## Context
 

@@ -15,8 +15,8 @@ void main() {
     expect(commandHelp.exitCode, 0);
     expect(commandHelp.stdout, contains('Usage: okfp validate <bundle>'));
     expect(commandHelp.stdout, contains('--output'));
-    expect(commandHelp.stdout, contains('--profile'));
-    expect(commandHelp.stdout, contains('--strict'));
+    expect(commandHelp.stdout, isNot(contains('--profile')));
+    expect(commandHelp.stdout, isNot(contains('--strict')));
 
     final version = await _run(<String>['--version']);
     expect(version.exitCode, 0);
@@ -44,11 +44,19 @@ void main() {
       <String>['validate', '--output', 'xml', 'bundle'],
     );
     expect(badOutputValue.exitCode, 2);
+
+    final strict = await _run(<String>['validate', '--strict', 'bundle']);
+    expect(strict.exitCode, 2);
+
+    final callerSelectedProfile = await _run(
+      <String>['validate', '--profile', 'profile.md', 'bundle'],
+    );
+    expect(callerSelectedProfile.exitCode, 2);
   });
 
   test('validate is a stub until the Verdict wiring lands', () async {
     final result = await _run(
-      <String>['validate', '--strict', '--profile', 'profile', 'bundle'],
+      <String>['validate', '--output', 'json', 'bundle'],
     );
     expect(result.exitCode, 2);
     expect(result.stderr, contains('validate is not implemented yet'));

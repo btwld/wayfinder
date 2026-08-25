@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Run the deprecated knowledge-bundle checks during Profile 2026.2 integration.
+"""Run deprecated pre-2026.2 knowledge-bundle checks during replacement.
+
+This script is a transition smoke test, not an implementation of the Profile
+2026.2 validation contract. It remains only until #20 installs the OKF-backed
+`okfp validate <bundle>` CI gate, then it is deleted rather than retained as a
+fallback validator.
 
 Two severities, kept distinct as profile §14.1 requires:
 
   ERROR    an OKF §11 violation. The document cannot be interpreted, so it
            cannot be accepted. Exits nonzero.
-  ADVISORY a profile deviation. Reported and attributed, but never a reason to
-           reject a bundle that is valid OKF. Exits nonzero only with --strict,
+  ADVISORY a legacy profile check. Reported and attributed, but never a reason
+           to reject a bundle that is valid OKF. Exits nonzero only with --strict,
            except unresolved OKF edges and nonstandard relationship labels,
            which Profile 2026.2 explicitly keeps gate-neutral.
 
 Usage:
     python3 tools/verify_knowledge_bundle.py [--strict] [<repo-root>]
 
-The bundle is located by walking up from <repo-root> (default: the working
-directory) for a directory containing knowledge/index.md, so the tool runs
-against any repository rather than only the one it ships in.
+Its upward repository discovery and `--strict` mode are legacy behavior and are
+not available in the Profile 2026.2 validator contract.
 """
 
 from __future__ import annotations
