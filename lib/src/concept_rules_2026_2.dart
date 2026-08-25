@@ -2,8 +2,7 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 
 import 'profile_finding.dart';
-
-const _profileRelease = '2026.2';
+import 'profile_release_2026_2.dart';
 
 const _relationshipLabels = <String>{
   'Superseded by',
@@ -18,47 +17,6 @@ const _relationshipLabels = <String>{
   'Tracked by',
   'Related to',
 };
-
-const _standardTypes = <(String, String)>[
-  ('Glossary Definition', 'One project or domain term'),
-  (
-    'Business Rule',
-    'One standing business rule, constraint, invariant, or policy'
-  ),
-  (
-    'Question',
-    'One named unknown, with what is known, what is missing, and what would close it'
-  ),
-  ('Request', 'A durable request from any relevant source'),
-  (
-    'Analysis',
-    'An investigation, feasibility study, comparison, or recommendation'
-  ),
-  (
-    'Decision',
-    'A durable non-architectural decision with an independent lifecycle'
-  ),
-  ('Architecture Decision Record', 'An architectural decision in ADR form'),
-  ('Architecture Document', 'A durable description of the system architecture'),
-  (
-    'Specification',
-    'A specification the project maintains as durable knowledge, not one a tracker owns the state of'
-  ),
-  ('Guide', 'Durable operational or engineering guidance'),
-  (
-    'Interaction Record',
-    'An interaction whose combined context is itself durable'
-  ),
-  ('Knowledge Profile', 'The Concepta Profile and OKF release declaration'),
-  (
-    'Type Registry',
-    'The standard and project-specific types available to the bundle'
-  ),
-  (
-    'Actor Registry',
-    'Actor IDs mapped to identity, affiliation, role, and active period'
-  ),
-];
 
 List<ProfileFinding> validateConceptRules2026_2(OkfBundleLoadResult loaded) {
   final bodies = <String, _ParsedBody>{
@@ -160,9 +118,9 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     return;
   }
   final rows = table.rows.where((row) => row.length == 2).toList();
-  final standardRows = rows.take(_standardTypes.length).toList();
-  if (standardRows.length != _standardTypes.length ||
-      !_sameTypeRows(standardRows, _standardTypes)) {
+  final standardRows = rows.take(standardTypes2026_2.length).toList();
+  if (standardRows.length != standardTypes2026_2.length ||
+      !_sameTypeRows(standardRows, standardTypes2026_2)) {
     yield _error(
       'type-registry-standards',
       'The type registry must contain all fourteen canonical standard rows.',
@@ -170,13 +128,13 @@ Iterable<ProfileFinding> _validateTypeRegistry(
       'types.md',
     );
   }
-  final standardNames = _standardTypes.map((row) => row.$1).toSet();
+  final standardNames = standardTypes2026_2.map((row) => row.$1).toSet();
   final extensionRows =
       rows.where((row) => !standardNames.contains(row.first)).toList();
   final extensionNames = extensionRows.map((row) => row.first).toList();
   final sortedExtensions = [...extensionNames]..sort();
   final expectedOrder = <String>[
-    ..._standardTypes.map((row) => row.$1),
+    ...standardTypes2026_2.map((row) => row.$1),
     ...sortedExtensions
   ];
   if (!_sameStrings(rows.map((row) => row.first).toList(), expectedOrder)) {
@@ -416,7 +374,7 @@ ProfileFinding _error(String slug, String message, String rule, String path) =>
       id: 'concepta-profile/$slug',
       message: message,
       rule: rule,
-      profileRelease: _profileRelease,
+      profileRelease: profileRelease2026_2,
       path: path,
     );
 
@@ -427,7 +385,7 @@ ProfileFinding _advisory(
       message: message,
       rule: rule,
       severity: ProfileFindingSeverity.advisory,
-      profileRelease: _profileRelease,
+      profileRelease: profileRelease2026_2,
       path: path,
     );
 
