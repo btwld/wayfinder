@@ -52,8 +52,6 @@ The Profile remains the source of every rule and its normative force.
 | §10: log lead words use the preferred vocabulary without closing it | SHOULD | Profile Review | Unfamiliar words are reviewed for clarity and never fail solely for being unfamiliar |
 | §10: log records material knowledge lifecycle history and omits source-only, formatting-only, and unrelated events | MUST / MUST NOT | Profile Review | Context and, when useful, version history support authored significance and completeness |
 | §13: indexes remain rebuildable projections and the authored log is not treated as one | MUST / MUST NOT | Profile Review | No index-only source of truth and no claim that current state mechanically reconstructs history |
-| §13: graph consumers keep Markdown edges untyped and registry rows add no Profile-only nodes or edges | MUST / MUST NOT | Profile Review | Graph views preserve ordinary OKF links and do not reinterpret structural tables |
-| §13: a graph is completely rebuildable from the bundle and carries no graph-only state | MUST / MUST NOT | Profile Review | Graph design and outputs identify the bundle artifacts from which every node, edge, and datum rebuilds |
 
 ## Concepts, trust, and durable-capture coverage
 
