@@ -47,6 +47,14 @@ verbatim — the Profile deliberately tightens OKF §8's SHOULD to a MUST here s
 an index is mechanically checkable and safely regenerable without becoming a
 second source of truth.
 
+A target is a relative URL. When a filename carries a character a plain link
+destination cannot — a space, a parenthesis, a character outside ASCII —
+percent-encode it in the target (`%20`, `%28`, `%29`, UTF-8 escapes for
+non-ASCII). Conformance compares targets percent-decoded, so any valid spelling
+matches, but prefer the fully percent-encoded one: it is the spelling every
+layer of tooling accepts today. The label is not a URL and stays exactly as
+written; sorting uses the decoded target path.
+
 A complete root index therefore covers the root log, the two required
 registry/declaration concepts, the conditional actor registry, every other root
 concept, and every immediate directory.
@@ -97,4 +105,14 @@ headings:
 # Request
 
 * [Include PDF annotations in the export](include-pdf-annotations.md) - Client asks that reviewer annotations survive the PDF export.
+```
+
+A `references/` index lists assets; a verbatim filename that needs it is
+percent-encoded in the target and exact in the label:
+
+```markdown
+# Assets
+
+* [board deck (1).pdf](board%20deck%20%281%29.pdf)
+* [notes.txt](notes.txt)
 ```
