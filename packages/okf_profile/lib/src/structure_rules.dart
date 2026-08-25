@@ -262,7 +262,10 @@ _IndexProjection? _parseIndex(String source, {required bool root}) {
       return null;
     }
   }
+  // encodeHtml keeps labels and headings comparable to raw frontmatter and
+  // filenames: with it on, an `&` in either parses as `&amp;`.
   final nodes = markdown.Document(
+    encodeHtml: false,
     extensionSet: markdown.ExtensionSet.gitHubFlavored,
   ).parse(body);
   final descriptions = _rawIndexDescriptions(body);
@@ -324,7 +327,38 @@ _IndexEntry? _parseIndexEntry(markdown.Node node, String? description) {
       label.isEmpty) {
     return null;
   }
-  return _IndexEntry(label, target, description);
+  final decoded = _decodeTarget(target);
+  if (decoded == null || decoded.isEmpty) return null;
+  return _IndexEntry(label, decoded, description);
+}
+
+final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
+
+/// Percent-decodes a parsed target so §9 compares every valid spelling of a
+/// path against its raw projection; null when an escape is malformed.
+///
+/// Not [Uri.decodeComponent] directly: it throws [ArgumentError] on raw
+/// non-ASCII input, which is a legitimate already-decoded target character.
+String? _decodeTarget(String target) {
+  final decoded = StringBuffer();
+  var index = 0;
+  while (index < target.length) {
+    final run = _percentEscapeRun.matchAsPrefix(target, index);
+    if (run != null) {
+      try {
+        decoded.write(Uri.decodeComponent(run.group(0)!));
+      } on FormatException {
+        return null;
+      }
+      index = run.end;
+    } else {
+      final character = target[index];
+      if (character == '%') return null;
+      decoded.write(character);
+      index++;
+    }
+  }
+  return decoded.toString();
 }
 
 List<String?> _rawIndexDescriptions(String body) {

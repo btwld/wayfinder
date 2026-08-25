@@ -396,6 +396,33 @@ void main() {
     }
   });
 
+  test('compares index entry targets percent-decoded', () async {
+    final result = await runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        fixture('invalid-index-encoding'),
+      ],
+    );
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final okf = output['okf']! as Map<String, Object?>;
+    expect(okf['state'], 'PASS');
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'FAIL');
+    expect(
+      findingSummary(profile),
+      <String>[
+        'error concepta-profile/index-semantic-projection '
+            'references/index.md',
+      ],
+    );
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+  });
+
   test('requires the root structural files without repository discovery',
       () async {
     final result = await runProcess(
