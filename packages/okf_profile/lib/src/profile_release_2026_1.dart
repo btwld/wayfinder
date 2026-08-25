@@ -1,6 +1,6 @@
-const profileRelease2026_2 = '2026.2';
+const profileRelease2026_1 = '2026.1';
 
-const standardTypes2026_2 = <(String, String)>[
+const standardTypes2026_1 = <(String, String)>[
   ('Glossary Definition', 'One project or domain term'),
   (
     'Business Rule',

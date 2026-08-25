@@ -1,11 +1,11 @@
-# Concepta Profile 2026.2 implementation coverage
+# Concepta Profile 2026.1 implementation coverage
 
-Status: Complete — Profile 2026.2 release evidence
+Status: Complete — Profile 2026.1 release evidence
 
-This non-normative matrix assigns each normative Concepta Profile 2026.2 bundle
+This non-normative matrix assigns each normative Concepta Profile 2026.1 bundle
 rule to its assessment mode. It does not decide whether a rule preserves OKF;
 that evidence lives in
-[`../docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md).
+[`../docs/compatibility/2026.1-okf-0.2.md`](../docs/compatibility/2026.1-okf-0.2.md).
 The Profile remains the source of every rule and its normative force.
 
 ## Assignment rules
@@ -32,7 +32,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | Profile clause | Force | Assessment | Expected evidence |
 | --- | --- | --- | --- |
 | §11: a Profiled Bundle contains root `profile.md` of type `Knowledge Profile` | MUST | Automated Profile Validation | Presence, path, and parsed type |
-| §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.2"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
+| §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.1"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
 | §11: declaration OKF version agrees with root index | MUST | Automated Profile Validation | Equality of both parsed values |
 | §11: `profile.md` is not used as a standalone definition, extension registry, second schema, or OKF override | MUST NOT | Profile Review | Contextual review of declaration content |
 

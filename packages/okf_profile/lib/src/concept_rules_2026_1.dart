@@ -1,9 +1,9 @@
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 
-import 'finding_helpers_2026_2.dart';
+import 'finding_helpers_2026_1.dart';
 import 'profile_finding.dart';
-import 'profile_release_2026_2.dart';
+import 'profile_release_2026_1.dart';
 
 const _relationshipLabels = <String>{
   'Superseded by',
@@ -19,7 +19,7 @@ const _relationshipLabels = <String>{
   'Related to',
 };
 
-List<ProfileFinding> validateConceptRules2026_2(OkfBundleLoadResult loaded) {
+List<ProfileFinding> validateConceptRules2026_1(OkfBundleLoadResult loaded) {
   final bodies = <String, _ParsedBody>{
     for (final entry in loaded.documents.entries)
       entry.key: _ParsedBody(entry.value.body),
@@ -119,9 +119,9 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     return;
   }
   final rows = table.rows.where((row) => row.length == 2).toList();
-  final standardRows = rows.take(standardTypes2026_2.length).toList();
-  if (standardRows.length != standardTypes2026_2.length ||
-      !_sameTypeRows(standardRows, standardTypes2026_2)) {
+  final standardRows = rows.take(standardTypes2026_1.length).toList();
+  if (standardRows.length != standardTypes2026_1.length ||
+      !_sameTypeRows(standardRows, standardTypes2026_1)) {
     yield profileError(
       'type-registry-standards',
       'The type registry must contain all fourteen canonical standard rows.',
@@ -129,13 +129,13 @@ Iterable<ProfileFinding> _validateTypeRegistry(
       'types.md',
     );
   }
-  final standardNames = standardTypes2026_2.map((row) => row.$1).toSet();
+  final standardNames = standardTypes2026_1.map((row) => row.$1).toSet();
   final extensionRows =
       rows.where((row) => !standardNames.contains(row.first)).toList();
   final extensionNames = extensionRows.map((row) => row.first).toList();
   final sortedExtensions = [...extensionNames]..sort();
   final expectedOrder = <String>[
-    ...standardTypes2026_2.map((row) => row.$1),
+    ...standardTypes2026_1.map((row) => row.$1),
     ...sortedExtensions
   ];
   if (!_sameStrings(rows.map((row) => row.first).toList(), expectedOrder)) {

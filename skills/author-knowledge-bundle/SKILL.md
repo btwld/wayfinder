@@ -1,6 +1,6 @@
 ---
 name: author-knowledge-bundle
-description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.2 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
+description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.1 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
 ---
 
 # Authoring the knowledge bundle
@@ -10,9 +10,9 @@ The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle fo
 ## Release dispatch
 
 Before applying any rule in this skill, read the first fenced `yaml` block in
-`knowledge/profile.md`. This skill implements only `concepta_profile: "2026.2"`
+`knowledge/profile.md`. This skill implements only `concepta_profile: "2026.1"`
 with `okf_version: "0.2"`. If the declaration differs, do not write, reassess,
-or silently migrate the bundle under 2026.2. Report the declared release as
+or silently migrate the bundle under 2026.1. Report the declared release as
 unsupported by this skill and ask for the matching historical skill or an
 explicit whole-bundle migration. Generic OKF reading remains available.
 The declaration is only a release selector: never turn `profile.md` into a

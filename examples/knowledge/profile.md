@@ -10,7 +10,7 @@ This bundle follows the Concepta OKF Profile. The block below is the
 machine-readable declaration; tools read exactly this block.
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 

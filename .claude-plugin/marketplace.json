@@ -7,7 +7,7 @@
     {
       "name": "concepta-knowledge",
       "source": "./",
-      "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.2 (OKF 0.2). Installs as a unit; the skills share versioned references."
+      "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.1 (OKF 0.2). Installs as a unit; the skills share versioned references."
     }
   ]
 }

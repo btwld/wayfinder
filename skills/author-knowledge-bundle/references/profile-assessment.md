@@ -8,7 +8,7 @@ assessment the `assess-knowledge-bundle` skill runs.
 After a write or when asked for Profile Review, run automated validation over the
 whole bundle when `okfp validate` is available, then assess every contextual rule
 taught in this skill's references for the review scope. The canonical assignment
-audit is `implementation/profile-coverage-2026.2.md` in the
+audit is `implementation/profile-coverage-2026.1.md` in the
 [okf-profile repository](https://github.com/conceptadev/okf-profile); the review
 map below keeps this installed skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
@@ -31,7 +31,7 @@ request, never as a blanket certificate inside the bundle:
 ```markdown
 ## Profile Review Report
 
-- Profile: 2026.2 (OKF 0.2)
+- Profile: 2026.1 (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
 - Automated: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>

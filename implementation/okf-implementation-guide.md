@@ -1,6 +1,6 @@
 # Concepta OKF Profile — Implementation Guide
 
-**Version 2026.2** — binds **Concepta OKF Profile 2026.2**, which profiles
+**Version 2026.1** — binds **Concepta OKF Profile 2026.1**, which profiles
 **OKF 0.2 exactly**
 
 Status: Proposed
@@ -153,7 +153,7 @@ indexes themselves remain required for every nonempty directory.
 
 ### 4.1 Results and exit codes
 
-The command surface for Profile 2026.2 is `okfp validate <bundle> [--output
+The command surface for Profile 2026.1 is `okfp validate <bundle> [--output
 text|json]`. The bundle path is required and implementations MUST inspect
 exactly that directory. They MUST NOT discover a repository bundle by walking
 upward, accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -266,7 +266,7 @@ frontmatter.
 - An **unrecognized version format** is not an error. The value is opaque: the
   `<year>.<serial>` scheme is not semver, and a validator MUST NOT parse the value
   under any format assumption.
-- The first validator MUST implement only Profile 2026.2. Any other declared
+- The first validator MUST implement only Profile 2026.1. Any other declared
   value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
   `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
   exposing the independent OKF result. Unsupported is tool capability, not a
@@ -287,11 +287,11 @@ CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
 
 ### 4.6 Release evidence
 
-Profile 2026.2 has two non-normative release artifacts with different jobs:
+Profile 2026.1 has two non-normative release artifacts with different jobs:
 
-- [`../docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md)
+- [`../docs/compatibility/2026.1-okf-0.2.md`](../docs/compatibility/2026.1-okf-0.2.md)
   records the rule-level compatibility review against pinned OKF 0.2.
-- [`profile-coverage-2026.2.md`](profile-coverage-2026.2.md) assigns each normative Profile
+- [`profile-coverage-2026.1.md`](profile-coverage-2026.1.md) assigns each normative Profile
   clause to deterministic validation or contextual Profile Review.
 
 Profile §15.1 owns their separation and the publication gate. Implementations
@@ -385,7 +385,7 @@ Three migration invariants are not project-specific and every migration MUST car
    concepts with `Superseded by` links, so the history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
 
-For a 2026.2 migration, the implementation MUST inventory missing baseline
+For a 2026.1 migration, the implementation MUST inventory missing baseline
 metadata, used and standard types, producer-defined fields, actor history, tags,
 and materially derived claims before editing. Mechanical normalization may add
 canonical type rows and reshape supported syntax; it MUST NOT guess a title,
@@ -482,7 +482,7 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 
 ## 9. Change record
 
-**2026.2.** First release. Binds Profile 2026.2. Establishes adoption (§2), the
+**2026.1.** First release. Binds Profile 2026.1. Establishes adoption (§2), the
 index generator contract (§3), the validation process contract (§4) with its
 closed result model and release dispatch, the migration method (§5), and
 distribution (§6). Cross-bundle references (§7) remain deferred, as the profile

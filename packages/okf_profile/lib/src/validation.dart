@@ -2,12 +2,12 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:yaml/yaml.dart';
 
-import 'concept_rules_2026_2.dart';
+import 'concept_rules_2026_1.dart';
 import 'profile_finding.dart';
-import 'profile_release_2026_2.dart';
-import 'structure_rules_2026_2.dart';
+import 'profile_release_2026_1.dart';
+import 'structure_rules_2026_1.dart';
 
-const supportedProfileRelease = profileRelease2026_2;
+const supportedProfileRelease = profileRelease2026_1;
 const supportedOkfRelease = '0.2';
 
 enum OkfState {
@@ -190,8 +190,8 @@ final class ProfileValidator {
       okfReport,
       <ProfileFinding>[
         if (_validateOkfBinding(values, loaded) case final finding?) finding,
-        ...validateConceptRules2026_2(loaded),
-        ...validateStructureRules2026_2(loaded),
+        ...validateConceptRules2026_1(loaded),
+        ...validateStructureRules2026_1(loaded),
       ],
     );
   }

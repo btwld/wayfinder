@@ -1,6 +1,6 @@
 # Skills
 
-The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.2):
+The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.1):
 one action-named family, shipped as the `concepta-knowledge` plugin. Rule text lives
 once, under `author-knowledge-bundle/references/`; the other skills are entry points
 that read it by sibling path.

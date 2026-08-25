@@ -2,13 +2,13 @@ import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
-import 'finding_helpers_2026_2.dart';
+import 'finding_helpers_2026_1.dart';
 import 'profile_finding.dart';
-import 'profile_release_2026_2.dart';
+import 'profile_release_2026_1.dart';
 
 const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
-List<ProfileFinding> validateStructureRules2026_2(
+List<ProfileFinding> validateStructureRules2026_1(
   OkfBundleLoadResult loaded,
 ) {
   final inventory = _BundleInventory(loaded);
@@ -169,11 +169,11 @@ _IndexProjection? _expectedProjection(
     byType.putIfAbsent(entry.value.type!, () => <_IndexEntry>[]).add(concept);
   }
   final customTypes = byType.keys
-      .where((type) => !standardTypes2026_2.any((row) => row.$1 == type))
+      .where((type) => !standardTypes2026_1.any((row) => row.$1 == type))
       .toList()
     ..sort();
   for (final type in <String>[
-    ...standardTypes2026_2.map((row) => row.$1),
+    ...standardTypes2026_1.map((row) => row.$1),
     ...customTypes,
   ]) {
     final entries = byType[type];

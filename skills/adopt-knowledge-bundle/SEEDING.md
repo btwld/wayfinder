@@ -35,7 +35,7 @@ label and no description. The root `Bundle` entries remain in the order shown.
 # Knowledge Log
 
 ## <YYYY-MM-DD>
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 ````
 
 ## `knowledge/profile.md`
@@ -53,7 +53,7 @@ This bundle follows the Concepta OKF Profile. The block below is the
 machine-readable declaration; tools read exactly this block.
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 
@@ -62,7 +62,7 @@ OKF is authoritative: when the profile and OKF differ, OKF wins.
 
 `concepta_profile` and `okf_version` mean different things — the profile release,
 and the OKF version it binds to. Their **formats** differ so they can never be
-confused: the profile uses `<year>.<serial>` (`2026.2`), OKF uses
+confused: the profile uses `<year>.<serial>` (`2026.1`), OKF uses
 `<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other.
 ## `knowledge/types.md`
 

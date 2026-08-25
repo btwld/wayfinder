@@ -92,7 +92,7 @@ void main() {
         },
       },
       'profile': <String, Object?>{
-        'release': '2026.2',
+        'release': '2026.1',
         'state': 'PASS',
         'findings': <Object?>[],
       },
@@ -104,7 +104,7 @@ void main() {
       <String>['validate', _fixture('conformant')],
     );
     expect(text.exitCode, 0);
-    expect(text.stdout, contains('Profile 2026.2: PASS'));
+    expect(text.stdout, contains('Profile 2026.1: PASS'));
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
@@ -124,7 +124,7 @@ void main() {
     final output = jsonDecode(result.stdout) as Map<String, Object?>;
     expect((output['okf']! as Map<String, Object?>)['state'], 'PASS');
     final profile = output['profile']! as Map<String, Object?>;
-    expect(profile['release'], '2026.2');
+    expect(profile['release'], '2026.1');
     expect(profile['state'], 'PASS');
     expect(
       _findingSummary(profile),
@@ -251,10 +251,10 @@ void main() {
 
     expect(result.exitCode, 1);
     expect(result.stderr, isEmpty);
-    expect(result.stdout, contains('Profile 2026.2: FAIL'));
+    expect(result.stdout, contains('Profile 2026.1: FAIL'));
     expect(
       result.stdout,
-      contains('concepta-profile/okf-release-binding (2026.2 §11)'),
+      contains('concepta-profile/okf-release-binding (2026.1 §11)'),
     );
     expect(result.stdout, endsWith('Automated gate: FAIL'));
   });
@@ -337,7 +337,7 @@ void main() {
     );
     for (final finding in profile['findings']! as List<Object?>) {
       final value = finding! as Map<String, Object?>;
-      expect(value['profile_release'], '2026.2');
+      expect(value['profile_release'], '2026.1');
       expect(value['rule'], isNotEmpty);
     }
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
@@ -346,7 +346,7 @@ void main() {
       <String>['validate', _fixture('invalid-conventions')],
     );
     expect(text.exitCode, 1);
-    expect(text.stdout, contains('Profile 2026.2: FAIL'));
+    expect(text.stdout, contains('Profile 2026.1: FAIL'));
     expect(text.stdout, contains('concepta-profile/relationships-shape'));
   });
 

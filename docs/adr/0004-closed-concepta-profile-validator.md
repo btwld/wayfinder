@@ -366,11 +366,11 @@ A generic Profile protocol and the related machinery are deferred until real
 use supplies at least a second Profile or another concrete trigger recorded in
 issue #17.
 
-These decisions ship as Concepta Profile `2026.2`, which carries its own change
+These decisions ship as Concepta Profile `2026.1`, which carries its own change
 record and driver in §15.3.
 
 The release includes a non-normative, rule-by-rule OKF compatibility review at
-`docs/compatibility/2026.2-okf-0.2.md`. Profile §15.3 summarizes and links that
+`docs/compatibility/2026.1-okf-0.2.md`. Profile §15.3 summarizes and links that
 evidence; the separate implementation coverage matrix maps each normative rule
 to automated validation or Profile Review. Compatibility evidence answers
 whether a rule preserves OKF, while coverage answers how Concepta assesses it.

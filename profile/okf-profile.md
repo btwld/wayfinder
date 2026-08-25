@@ -1,10 +1,10 @@
 # Concepta OKF Profile
 
-**Version 2026.2** — profiles **OKF 0.2 exactly**
+**Version 2026.1** — profiles **OKF 0.2 exactly**
 
 Status: Proposed
 
-Concepta Profile 2026.2 is the current release.
+Concepta Profile 2026.1 is the current release.
 
 The Concepta OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
@@ -1196,7 +1196,7 @@ stale finds out where the concept went:
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
@@ -1218,12 +1218,12 @@ Its body MUST use the **first fenced `yaml` block** as the machine-readable
 declaration, and that block MUST declare both release values shown here:
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 
-The declared `concepta_profile` MUST be `"2026.2"`. The declared `okf_version`
-MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.2
+The declared `concepta_profile` MUST be `"2026.1"`. The declared `okf_version`
+MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.1
 binds exactly to OKF 0.2. Declaring the
 profile in a concept body rather than a frontmatter field is deliberate: it
 keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
@@ -1439,10 +1439,10 @@ rejected or pursued upstream before a later Profile release adopts it.
 
 The release-specific, non-normative compatibility review records that test for
 each rule at
-[`docs/compatibility/2026.2-okf-0.2.md`](../docs/compatibility/2026.2-okf-0.2.md).
+[`docs/compatibility/2026.1-okf-0.2.md`](../docs/compatibility/2026.1-okf-0.2.md).
 Compatibility evidence answers whether each rule preserves OKF. The separate
 implementation coverage matrix at
-[`implementation/profile-coverage-2026.2.md`](../implementation/profile-coverage-2026.2.md)
+[`implementation/profile-coverage-2026.1.md`](../implementation/profile-coverage-2026.1.md)
 assigns each rule to Automated Profile Validation or Profile Review and answers
 how Concepta assesses it. Neither artifact substitutes for the other, and the
 release MUST NOT be published while either is incomplete.
@@ -1488,7 +1488,7 @@ OKF's normative requirements always take precedence over any profile release
 
 ### 15.3 Change record
 
-**2026.2.** Initial release. Binds OKF 0.2 exactly, published together with the
+**2026.1.** Initial release. Binds OKF 0.2 exactly, published together with the
 rule-level compatibility review and the implementation coverage matrix (§15.1).
 
 Future releases add one entry each here, newest first, naming the sections
@@ -1673,7 +1673,7 @@ generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
