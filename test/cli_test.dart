@@ -576,6 +576,65 @@ void main() {
     );
   });
 
+  test('reserves structural concept names for the bundle root', () async {
+    for (final filename in <String>['profile.md', 'types.md', 'actors.md']) {
+      final bundle = await _copyFixture('structure-boundary');
+      addTearDown(() => bundle.delete(recursive: true));
+      final source = File(
+        p.join(bundle.path, 'topic', 'Upper-ID-2026-08-22.md'),
+      );
+      final title = 'Reserved $filename';
+      final description =
+          'Uses reserved structural name $filename outside the bundle root.';
+      final concept = File(p.join(bundle.path, 'topic', filename));
+      await concept.writeAsString(
+        (await source.readAsString())
+            .replaceFirst('title: Legacy Identifier', 'title: $title')
+            .replaceFirst(
+              'description: Keeps a path whose identity cannot be judged from syntax alone.',
+              'description: $description',
+            )
+            .replaceFirst('# Legacy Identifier', '# $title'),
+      );
+      final index = File(p.join(bundle.path, 'topic', 'index.md'));
+      await index.writeAsString(
+        '${(await index.readAsString()).trimRight()}\n'
+        '- [$title]($filename) - $description\n',
+      );
+
+      final result = await _runProcess(
+        <String>['validate', '--output', 'json', bundle.path],
+      );
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final okf = output['okf']! as Map<String, Object?>;
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(okf['state'], 'PASS', reason: filename);
+      expect(result.exitCode, 1, reason: filename);
+      expect(profile['state'], 'FAIL', reason: filename);
+      expect(
+        _findingSummary(profile),
+        contains(
+          'error concepta-profile/root-structure-files topic/$filename',
+        ),
+        reason: filename,
+      );
+      expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+      if (filename == 'profile.md') {
+        final text = await _runProcess(
+          <String>['validate', bundle.path],
+        );
+        expect(text.exitCode, 1);
+        expect(
+          text.stdout,
+          contains('topic/profile.md: error '
+              'concepta-profile/root-structure-files'),
+        );
+        expect(text.stdout, endsWith('Automated gate: FAIL'));
+      }
+    }
+  });
+
   test('keeps structure finding order independent of file creation order',
       () async {
     final source = Directory(_fixture('invalid-structure'));
