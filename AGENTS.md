@@ -60,7 +60,12 @@ A convention change is not a text edit. It needs, in the same change:
    distinct so a profile release can never be mistaken for an OKF one.
 
 Superseded releases are snapshotted into `profile/versions/`. The canonical path never changes,
-because version and status are metadata and do not belong in an identity (profile §8.1).
+because version and status are metadata and do not belong in an identity (profile §8.1). That
+rule governs this repository's own files too: the release lives in document headers and in the
+validator's `supportedProfileRelease` constant, never in a filename or a symbol name. Only an
+immutable snapshot — a `profile/versions/` entry, the vendored OKF spec — carries its version
+in its name, because there the version is the identity. A release bump is an edit, not a
+rename sweep.
 
 An upstream OKF release requires a new profile release **and** a compatibility review, even
 when no Concepta convention otherwise changes. A release MUST NOT claim compatibility with an
