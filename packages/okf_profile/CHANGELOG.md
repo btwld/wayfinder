@@ -7,7 +7,10 @@ This is package semver; profile releases are recorded in `profile/`, not here.
 
 - Enforce the Profile 2026.1 `raw/` tier amendment (ADR-0006): non-index
   markdown under a `raw/` directory in `references/` fails deterministically
-  as `concepta-profile/raw-directory-markdown`.
+  as `concepta-profile/raw-directory-markdown`, and a `raw/` directory sitting
+  directly under `references/` fails as
+  `concepta-profile/raw-directory-placement` — the tier is per source
+  directory, and `references/` itself is not one.
 
 ## 0.1.0
 

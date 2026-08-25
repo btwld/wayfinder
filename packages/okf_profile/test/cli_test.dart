@@ -450,6 +450,46 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: FAIL'));
   });
 
+  test('flags a raw/ tier sitting directly under references/', () async {
+    final result = await _runProcess(
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        _fixture('invalid-raw-placement'),
+      ],
+    );
+
+    expect(result.exitCode, 1);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(
+      _findingSummary(profile),
+      contains(
+        'error concepta-profile/raw-directory-placement references/raw',
+      ),
+    );
+    expect(
+      _findingSummary(profile).where((line) => line.startsWith('error')),
+      hasLength(1),
+    );
+    expect(profile['state'], 'FAIL');
+    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+
+    final text = await _runProcess(
+      <String>['validate', _fixture('invalid-raw-placement')],
+    );
+    expect(text.exitCode, 1);
+    expect(
+      text.stdout,
+      contains(
+        'references/raw: error concepta-profile/raw-directory-placement',
+      ),
+    );
+    expect(text.stdout, endsWith('Automated gate: FAIL'));
+  });
+
   test('preserves OKF log date and ordering failures without Profile cascades',
       () async {
     final result = await _runProcess(

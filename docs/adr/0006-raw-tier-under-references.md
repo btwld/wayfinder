@@ -34,8 +34,9 @@ leaves to producers: file extension and directory organization.
 - The tier is **per source directory**, not a single bundle-level tree. The
   original stays next to its mirror, and `references/`' source-and-date
   grouping exists once instead of being duplicated in a parallel hierarchy.
-- The markdown restriction is deterministic and enforced by `okfp validate`
-  (finding `concepta-profile/raw-directory-markdown`).
+- The markdown and placement restrictions are deterministic and enforced by
+  `okfp validate` (findings `concepta-profile/raw-directory-markdown` and
+  `concepta-profile/raw-directory-placement`).
 
 The rule passes ADR-0004's five-question OKF compatibility test: it narrows a
 producer organization choice OKF explicitly leaves free, adds no field,
@@ -57,6 +58,10 @@ this exception is the QA period, not a precedent.
   MUST NOT binds only bundles that adopt it.
 - `raw` becomes a reserved directory name within `references/`: a source
   directory must not itself be named `raw/`, because the rule keys on the name.
+  For the same reason `raw/` directly under `references/` is rejected
+  deterministically — the tier is per source directory, and `references/`
+  itself is not one. A flat `references/` organizes into source directories
+  before adopting the tier.
 - The validator gains one deterministic structure rule; the authoring skill's
   source-mirroring reference teaches the tier as part of mirroring.
 - Deciding not to create `raw/` remains ordinary: a source directory with no

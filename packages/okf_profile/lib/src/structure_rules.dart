@@ -17,15 +17,25 @@ List<ProfileFinding> validateStructureRules(
     ..._validateReservedStructureNames(loaded),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
-    ..._validateRawTierMarkdown(loaded),
+    ..._validateRawTier(loaded, inventory),
     ..._validateIndexes(loaded, inventory),
     ..._validateLog(loaded),
   ];
 }
 
-Iterable<ProfileFinding> _validateRawTierMarkdown(
+Iterable<ProfileFinding> _validateRawTier(
   OkfBundleLoadResult loaded,
+  _BundleInventory inventory,
 ) sync* {
+  if (inventory.nonRootDirectories.contains('references/raw')) {
+    yield profileError(
+      'raw-directory-placement',
+      'A raw/ tier belongs to a source directory; raw/ must not sit directly '
+          'under references/.',
+      '§3.4',
+      'references/raw',
+    );
+  }
   for (final path in loaded.paths) {
     if (!path.endsWith('.md') || p.posix.basename(path) == 'index.md') {
       continue;

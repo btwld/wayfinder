@@ -368,7 +368,10 @@ file permitted is each directory's own `index.md`: everything else in the tier
 is a non-concept asset (§12) and stays byte-for-byte. A readable mirror derived
 from an original is a sibling of `raw/` in its source directory, never inside
 it. Because this rule keys on the name, `raw` is reserved within `references/`
-and MUST NOT name a source directory.
+and MUST NOT name a source directory. The tier belongs to a source directory
+alone: `raw/` MUST NOT sit directly under `references/`, which is not a source
+directory — a flat `references/` organizes into source directories before
+adopting the tier.
 
 What may be mirrored, and when, is specified in §12.
 
