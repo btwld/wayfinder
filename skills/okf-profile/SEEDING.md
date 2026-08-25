@@ -2,7 +2,12 @@
 
 The root files of a new bundle at `knowledge/`. Replace `<...>` placeholders; `generated.by` uses the actor convention from [SKILL.md](./SKILL.md).
 
-Seed these five and nothing else. **Do not create areas up front** — an area is earned when three concepts share its subject, so the first concepts sit at the bundle root and move into an area once one is earned. Moving them is cheap and does not depend on their `status`; what waiting buys is an area name that was *observed* rather than guessed. Laying out a directory tree in advance is what the profile exists to prevent.
+The structural minimum is `index.md`, `log.md`, `profile.md`, and `types.md`.
+These templates also use `generated.by`, so their literal seeded form requires
+`actors.md` and represents that actor. Seed these five and nothing else. **Do not
+create areas up front** — generic setup has no corpus from which to judge a shared
+subject. A genuine area may later be any size; the actual knowledge, not a numeric
+threshold, must justify it.
 
 ## `knowledge/index.md`
 
@@ -13,12 +18,15 @@ okf_version: "0.2"
 
 # Bundle
 
+* [Knowledge Log](log.md)
 * [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
 * [Types](types.md) - The concept types this bundle uses.
 * [Actors](actors.md) - Actor IDs mapped to organization, side, and role.
 ````
 
-Concepts written at the root are listed under an `# Elsewhere` heading, alongside `references/` when it exists — only the three defined root concepts sit under `# Bundle`. An area adds its own `* [Area](area/) - <subject>` line under an `# Areas` heading when it is created.
+Other root concepts are grouped under their exact registered `type`. Immediate
+directories are listed under `# Directories` with their final path segment as the
+label and no description. The root `Bundle` entries remain in the order shown.
 
 ## `knowledge/log.md`
 
@@ -26,7 +34,7 @@ Concepts written at the root are listed under an `# Elsewhere` heading, alongsid
 # Knowledge Log
 
 ## <YYYY-MM-DD>
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
 ````
 
 ## `knowledge/profile.md`
@@ -44,14 +52,19 @@ This bundle follows the Concepta OKF Profile. The block below is the
 machine-readable declaration; tools read exactly this block.
 
 ```yaml
-concepta_profile: "2026.1"
+concepta_profile: "2026.2"
 okf_version: "0.2"
 ```
 
 OKF is authoritative: when the profile and OKF differ, OKF wins.
 ````
 
-`concepta_profile` and `okf_version` mean different things — the profile release, and the OKF version it binds to. Their **formats** differ so they can never be confused: the profile uses `<year>.<serial>` (`2026.1`), OKF uses `<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other. A bundle seeded before 2026.1 carries a semver profile value, which stays valid.
+`concepta_profile` and `okf_version` mean different things — the profile release,
+and the OKF version it binds to. Their **formats** differ so they can never be
+confused: the profile uses `<year>.<serial>` (`2026.2`), OKF uses
+`<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other.
+This seeding text belongs to the unpublished integration draft and is not a
+published distribution surface until issue #19 completes the release.
 
 ## `knowledge/types.md`
 
@@ -78,7 +91,8 @@ directory name. Add a row before using a new type.
 
 ## `knowledge/actors.md`
 
-Required once concepts distinguish their sources by organization; worth seeding either way, so the first `generated.by` actor is already legible.
+Required for these literal templates because they use `generated.by`; represent
+`<actor>` in the table below.
 
 ````markdown
 ---

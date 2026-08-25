@@ -110,7 +110,7 @@ how* Concepta uses it, never *what it means*.
 | OKF | Mechanism | In this profile |
 |-----|-----------|-----------------|
 | §2 | Bundle, concept, concept ID, frontmatter, body, link, source, provenance | Inherited verbatim (§2) |
-| §3 | Directory tree of markdown, domain-independent structure | Constrained: one bundle per repository, fixed root files, directories name subjects (§3) |
+| §3 | Directory tree of markdown, domain-independent structure | Constrained: fixed bundle-root files and project directories name subjects (§3) |
 | §3.1 | Reserved `index.md` / `log.md` | Inherited; usage constrained (§9, §10) |
 | §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained: a baseline is required, types declared in-bundle, no custom fields added (§5.1, §5.2) |
 | §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the in-bundle type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
@@ -195,8 +195,8 @@ throughout. This profile adds:
   (§7.3). A specification the project maintains as durable knowledge is not one;
   it is a `Specification` concept (§5.2).
 - **Projection**: an artifact derived mechanically from concepts, discardable
-  and rebuildable. Indexes, logs, diagnostics, and graph views are projections
-  (§13).
+  and rebuildable. Indexes, diagnostics, and graph views are projections
+  (§13). The authored root log is not one (§10).
 - **Mirror**: a copy of external source material committed under `references/`
   so provenance survives the external system (§12).
 - **Promotion**: moving an outcome recorded inside one concept into a concept of
@@ -219,22 +219,24 @@ throughout. This profile adds:
 
 ## 3. Bundle structure
 
-A repository owns exactly one bundle, rooted at `knowledge/`. A bundle MUST NOT
-contain a nested bundle: directories inside the root organize concepts, they do
-not subdivide distribution.
+Profile conformance applies to a bundle, independent of its repository location
+or whether a repository distributes other bundles. A Profiled Bundle MUST NOT
+contain a nested bundle: directories inside its root organize concepts, they do
+not subdivide distribution. Concepta adoption binds one such bundle to
+`knowledge/` in the companion guide; that repository choice is not a bundle rule.
 
 ```text
-knowledge/
+<bundle>/
   index.md              # Root index (§9). Carries okf_version.
   log.md                # Root log (§10).
   profile.md            # Profile declaration (§11).
   types.md              # Type registry (§5.2).
-  actors.md             # Actor registry (§6.1.1).
+  actors.md             # Actor registry when an OKF actor-valued field is used (§6.1.1).
 
   <concept>.md          # A concept whose subject has no area yet (§3.1).
 
   <area>/               # Area (§3.1). Mixed types, project-named.
-    index.md            # The area's index (§9). No concept describes the area itself.
+    index.md            # The area's generated semantic index (§9).
     <concept>.md        # Every other file is an ordinary concept. None is privileged.
     <sub-area>/         # Nested areas are permitted (§3.1).
       index.md
@@ -246,7 +248,8 @@ knowledge/
   references/           # Mirrored source material (§3.4, §12).
 ```
 
-Every directory in the tree names a **subject**, not a kind of document. Kind is
+Every project directory in the tree MUST name the **subject** its contents share,
+not a kind of document. Kind is
 carried by `type` (§5.2), so a directory named after a document kind — `decisions/`,
 `analyses/`, `guides/`, `adr/` — duplicates metadata the concept already carries and
 scatters one subject across many folders. The two exceptions are `interactions/` and
@@ -259,12 +262,8 @@ obey five rules:
 
 1. **Named after what its concepts share.** An area's name names the one subject
    common to everything inside it, in the project's own vocabulary — a capability,
-   a domain, the system, the way the team works. No file sits beside the directory:
-   OKF reserves exactly two directory-level filenames, `index.md` and `log.md`, and
-   neither is a concept, while every other `.md` file is a concept document (OKF
-   §3.1) — so OKF gives a *concept* no way to describe a directory. A sibling would
-   also list one subject twice in the parent index. No file inside it holds a
-   privileged position either; every concept in an area is an ordinary concept.
+   a domain, the system, the way the team works. Every concept in an area is an
+   ordinary concept; none holds a privileged navigation role.
 
    An area name that matches one member concept's title is a signal the name is too
    narrow — named after a part of the set rather than what the set shares. Prefer
@@ -272,29 +271,28 @@ obey five rules:
 2. **Mixed types.** An area holds concepts of any type. A glossary definition, the
    rules deriving it, the open questions about it, and the specification covering
    it belong in the same area, because they share a subject.
-3. **Earned, not predicted.** An area is created when at least **three** concepts
-   share its subject. Below that, concepts sit in the parent directory — including
-   the bundle root. Structure grows out of accumulated knowledge; it is not laid
-   out in advance.
+3. **Earned, not predicted.** A project-named area MAY contain any number of
+   concepts when they genuinely share the subject its path names. Authors SHOULD
+   NOT create speculative structure for subjects the current corpus does not
+   demonstrate. Structure grows out of knowledge rather than a predicted taxonomy;
+   a numeric threshold cannot establish whether a subject is genuine.
 4. **Indexed.** A nonempty area MUST contain an `index.md` (§9).
-5. **Nestable.** An area MAY contain sub-areas, under the same five rules. Nest
-   only when a subject genuinely subdivides *and* the parent index has passed the
-   grouping threshold in §9; every path segment is identity (§8.1), so depth
-   multiplies the paths an external citation can freeze (§8.2).
+5. **Nestable.** An area MAY contain sub-areas under the same five rules. Authors
+   SHOULD nest only when a subject genuinely subdivides; every path segment is
+   identity (§8.1), so depth multiplies the paths an external citation can freeze
+   (§8.2).
 
-An area is described by its `index.md` and by the one-line description the parent
-index gives it (§9) — OKF's own pattern for a subdirectory (OKF §8). An area MUST
-NOT invent a concept to explain itself: no `overview.md`, no summary, and no
-concept whose content is the area's own contents. Where an area's subject is a
-term the project defines, that term's Glossary Definition is one concept among its
-peers, listed first (§9) because definitions read first, not because it outranks
-them.
+An area's indexes navigate it but do not describe it (§9). An area MAY contain an
+ordinary, specifically named concept with durable knowledge about its subject. It
+MUST NOT contain a generic `overview.md` or other concept that merely duplicates
+the generated index. Where the subject is a term the project defines, its Glossary
+Definition is one ordinary concept among its peers.
 
 **Creating an area is a deliberate act.** Agents SHOULD file a new concept into an
-existing area, or into the parent directory, and SHOULD NOT create an area. Area
-creation is recorded in `log.md` (§10). The cost of a wrong area is not a wrong
-folder — it is a name asserted before the set it names was observed, and every
-concept filed under it inherits the claim.
+existing area or the parent directory unless the current corpus supports a genuine
+shared subject. Area creation is recorded in `log.md` (§10). The cost of a wrong
+area is not a wrong folder — every concept filed under it inherits a false claim
+about its subject.
 
 ### 3.2 Default areas
 
@@ -307,14 +305,9 @@ areas under §3.1:
 | `architecture/` | The system being built. Holds Architecture Documents and Architecture Decision Records. |
 | `ways-of-working/` | How the team works: process decisions, conventions, engineering and operational guidance, and decisions about the knowledge bundle itself. |
 
-Both are exempt from §3.1 rule 3: a default area MAY be created for its first
-concept. The three-concept rule exists because an area name is a claim about what
-several concepts share, and one concept cannot evidence it (§8.2) — but these two
-names are fixed by this profile, so the name cannot be wrong and waiting observes
-nothing. Every other rule in §3.1
-applies to them unchanged. The same reasoning covers `interactions/` and
-`references/` (§3.3, §3.4). No project-named area gets this exemption, because no
-other name is fixed in advance.
+Both are optional, created lazily, and otherwise follow §3.1. The same lazy rule
+covers `interactions/` and `references/` (§3.3, §3.4): a bundle MAY omit any or
+all of these four Profile-defined directories.
 
 Architecture Decision Records live in `architecture/` because an ADR is an
 architecture concept — its subject is the system, and `Architecture Decision
@@ -338,7 +331,7 @@ users have knowledge about.
 
 ### 3.3 Placement, and the time-axis exception
 
-The placement rule is one sentence: **a concept lives with its subject.** A
+The placement rule is one sentence: **a concept MUST live with its subject.** A
 decision about billing goes in the billing area; a decision about how the team
 captures knowledge goes in `ways-of-working/`; a term, the rule deriving it, and
 the question about it all sit together.
@@ -348,8 +341,7 @@ Interaction Records (§4.3) are organized by **time**: a dated record ordinarily
 spans several subjects, so no single subject can host it, and §8.1 already permits
 dates in paths only for Interaction Records and mirrored snapshots. `interactions/`
 MAY nest by cadence or kind of interaction — `interactions/dailies/`,
-`interactions/plannings/` — under §3.1 rule 5, and it is exempt from rule 3 by the
-reasoning in §3.2: this profile fixes the name, so it cannot turn out to be wrong.
+`interactions/plannings/` — under §3.1 rule 5.
 
 Its name matches its type, which §3 otherwise bans. The ban's two reasons both
 fail here: the folder duplicates nothing, because time is the organizing axis and
@@ -369,7 +361,7 @@ durable outcome contributes that outcome to *its* subject's area, not a record t
 
 `references/` carries the OKF §6.3 convention — external material mirrored into
 the bundle as first-class concepts — and is **not** an area. It is therefore exempt
-from the naming and three-concept rules of §3.1: mirrored material is
+from the subject-naming rule of §3.1: mirrored material is
 heterogeneous, is organized by source and date rather than by subject, and MAY be
 organized into subdirectories. A nonempty `references/` MUST still carry an
 `index.md`, and so MUST each of its nonempty subdirectories.
@@ -378,8 +370,9 @@ What may be mirrored, and when, is specified in §12.
 
 ### 3.5 Root files
 
-Five files at the bundle root have defined meaning, and a bundle MUST NOT use
-those names for anything else:
+A bundle MUST contain `index.md`, `log.md`, `profile.md`, and `types.md` at its
+root. `actors.md` is conditional. A bundle MUST NOT use any of these names for
+another purpose:
 
 | File | Purpose |
 |------|---------|
@@ -387,15 +380,15 @@ those names for anything else:
 | `log.md` | Root log (§10). Reserved by OKF §3.1. |
 | `profile.md` | Profile declaration (§11). An ordinary concept. |
 | `types.md` | Type registry (§5.2). An ordinary concept. |
-| `actors.md` | Actor registry (§6.1.1). An ordinary concept. |
+| `actors.md` | Actor registry (§6.1.1). Required when any concept uses an OKF actor-valued field; otherwise optional. An ordinary concept. |
 
-`profile.md`, `types.md`, and `actors.md` are concepts, so a bundle carrying them
-stays plainly OKF-conformant (OKF §3.1, §11): each has frontmatter and a `type`,
-and a consumer that knows nothing of this profile reads them as three documents.
+`profile.md`, `types.md`, and optional `actors.md` are concepts, so a bundle
+carrying them stays plainly OKF-conformant (OKF §3.1, §11): each has frontmatter
+and a `type`, and a consumer that knows nothing of this profile reads ordinary
+documents.
 
-Concepts other than these MAY sit at the root. That is the mechanism §3.1 rule 3
-depends on: a subject with one or two concepts has a home without minting an area
-for it. Every other `.md` file in the tree is a concept.
+Concepts other than these MAY sit at the root. Every other `.md` file in the tree
+is a concept.
 
 ---
 
@@ -682,10 +675,11 @@ derived — and OKF provides no mechanism for it: a client's operations lead and
 internal analyst both derive as *human-reviewed*, collapsing exactly the
 distinction an evidence model rests on.
 
-A bundle whose concepts distinguish sources by organization MUST carry an **actor
-registry** at `actors.md`, an ordinary concept of `type: Actor Registry`, mapping
-every actor ID the bundle uses to its organization and role. Other bundles SHOULD
-carry one.
+A bundle MUST carry an **actor registry** at root `actors.md` whenever any concept
+uses an actor identifier in `generated.by`, `verified[].by`, or
+`sources[].author`. An actor-free bundle MAY omit it. The registry is an ordinary
+concept of `type: Actor Registry` and maps every actor ID the bundle uses to its
+identity, affiliation, role, and active period.
 
 ```markdown
 | Actor ID | Name | Organization | Side | Role | Active |
@@ -704,6 +698,11 @@ makes the registry strictly better than encoding affiliation in the ID: a person
 changes organization gets a new row range, and every historical attribution stays
 true, because the actor who confirmed something in June was who they were in June.
 
+The table MUST have exactly the columns `Actor ID`, `Name`, `Organization`,
+`Side`, `Role`, and `Active`, in that order. The type registry at root `types.md`
+likewise MUST use exactly `Type` and `Intended content`, in that order. These
+tables remain ordinary body Markdown and add no OKF frontmatter or graph meaning.
+
 Three rules follow:
 
 - **Actor IDs stay opaque.** Affiliation MUST NOT be encoded into an actor ID —
@@ -712,13 +711,14 @@ Three rules follow:
   `sources[].author` that cites it when affiliation changes, and still means nothing
   to a consumer without a registry to interpret it. Organizational namespacing of
   actor IDs, if it is ever right, belongs upstream in OKF §7.
-- **Unresolved actors degrade, never fail.** A consumer encountering an actor absent
-  from the registry MUST treat its organization as unknown and MUST still read the
-  concept, the field, and any derived edge. Tooling MAY report the gap (§14.1).
+- **Every used actor is represented.** When the registry is required, it MUST
+  contain every actor ID used by the bundle. A generic consumer encountering a
+  missing row MUST still treat the organization as unknown and read the concept,
+  and field; the missing row is a Profile failure and never changes
+  the independent OKF result (§14.1).
 - **The registry is a lookup, not an edge.** OKF's trust fields take actor strings,
   not paths, so no link exists from a concept to an actor and none SHOULD be authored
-  to simulate one. A graph loader lifts registry rows into actor nodes and synthesizes
-  the edges from frontmatter (§13).
+  to simulate one. Registry rows add no nodes or edges to the OKF graph (§13).
 
 What the registry enables is a **derived** answer to the organizational question:
 which concepts rest only on internal assertion, which areas carry no client-authored
@@ -990,10 +990,9 @@ A concept carrying `Specified by` or `Implemented by` toward an execution record
 SHOULD be treated as frozen unless the project knows otherwise.
 
 This is also why §3.1 grows areas rather than predicting them — but not because a
-move is expensive, since by the rule above it is cheap. It is that **a set cannot be
-named before it is observed.** An area name is a claim about what several concepts
-share, and one concept is no evidence of a shared subject. Let three accumulate and
-the boundary is observed rather than guessed.
+move is expensive, since by the rule above it is cheap. An area name is a claim
+about the subject its contents share, and the current corpus must support that
+claim. Counting concepts cannot establish it.
 
 ### 8.3 Deprecation and deletion
 
@@ -1012,15 +1011,46 @@ override the preference for historical preservation.
 Index files follow the OKF index format (OKF §8) exactly: no frontmatter, except
 that the bundle-root `index.md` MAY carry `okf_version`.
 
-A nonempty directory MUST contain an `index.md`: every area, every sub-area,
-`references/`, and any nonempty subdirectory of `references/`. Indexes are what make
-a bundle navigable without reading it, so an agent reaches the root index, then an
-area index, then a concept.
+A nonempty directory MUST contain an `index.md`, including every area, sub-area,
+`references/`, and nonempty subdirectory of `references/`. Indexes are what make a
+bundle navigable without reading it, so an agent reaches the root index, then a
+directory index, then a concept.
+
+Every index MUST be the deterministic semantic projection of its directory defined
+below. Conformance compares the parsed groups, membership, order, labels, targets,
+and descriptions; harmless Markdown presentation differences do not affect it.
+An index MUST NOT carry authored ordering, directory descriptions, or other unique
+knowledge.
+
+The projection includes immediate children only and omits the index itself:
+
+1. At the root, `log.md`, `profile.md`, `types.md`, and `actors.md` when present
+   form `Bundle`, in that order. `log.md` has the fixed label `Knowledge Log` and
+   no description; concept labels are their `title` and their descriptions are
+   copied exactly from frontmatter.
+2. Every other concept is grouped under its exact `type`. Standard type groups
+   follow the canonical order in §5.2. Registered project-specific type groups
+   follow afterward in case-sensitive lexical order; an unregistered used type
+   also sorts there so the projection remains reproducible while that separate
+   registry defect is repaired.
+3. Immediate subdirectories form `Directories`. Each label is the final path
+   segment exactly as written, each target is the relative directory path with a
+   trailing slash, and directory entries carry no description.
+4. An immediate non-Markdown file under `references/` or one of its descendants
+   forms `Assets`. Its label is its filename exactly as written, its target is the
+   relative file path, and it carries no description. Other non-Markdown files are
+   outside this Profile projection.
+
+Empty groups MUST be omitted. Present groups MUST appear in this order: `Bundle`
+when applicable, type groups, `Directories`, then `Assets`. Within each type group,
+entries MUST sort by `title` and then target path, both case-sensitive. Directory
+and asset entries MUST sort by target path. Every target MUST be relative to the
+index containing it.
 
 The root index MUST carry `okf_version`, which §11 requires to agree with the
-profile declaration, and it enumerates the bundle: the three defined root concepts
-(§3.5), every other root-level concept, every nonempty area, and `references/` when
-present.
+profile declaration. A complete root index therefore covers the root log, the two
+required root registry/declaration concepts, conditional actor registry, every
+other root concept, and every immediate directory.
 
 ```markdown
 ---
@@ -1029,83 +1059,57 @@ okf_version: "0.2"
 
 # Bundle
 
+* [Knowledge Log](log.md)
 * [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
 * [Types](types.md) - The concept types this bundle uses.
 * [Actors](actors.md) - Actor IDs mapped to organization, side, and role.
 
-# Areas
-
-* [Reporting](reporting/) - How the product renders, annotates, and exports reports.
-* [Architecture](architecture/) - The system being built.
-* [Ways of working](ways-of-working/) - How the team works and captures knowledge.
-
-# Elsewhere
+# Analysis
 
 * [Retention window](retention-window.md) - How long generated exports are kept before deletion.
-* [References](references/) - Mirrored source material cited by concepts.
+
+# Directories
+
+* [references](references/)
+* [reporting](reporting/)
 ```
 
-An area index enumerates the concepts immediately inside it, in the same form.
-
-A directory has no frontmatter, so an entry linking one carries an authored
-one-line description of its subject rather than a copied `description`, per OKF
-§8. That single line is navigation, not knowledge: it MUST NOT be the only place
-something is recorded, and where the subject has a defining concept the line
-SHOULD restate that concept's `description`.
-
-**Grouping.** OKF §8 permits an index body to use *one or more* sections, each
-grouping entries under a heading, and the stated purpose of an index is progressive
-disclosure. Because an area holds mixed types, an area index SHOULD group its entries
-**by type** — the axis the directory no longer carries:
+An area index uses the same projection. Exact registered type names are headings:
 
 ```markdown
-# Glossary
+# Glossary Definition
 
 * [Annotation](annotation.md) - A reviewer comment anchored to a region of a rendered report.
 * [Export profile](export-profile.md) - The named settings bundle an export is rendered under.
 
-# Rules
+# Business Rule
 
 * [Annotations are immutable once exported](annotations-immutable-once-exported.md) - An exported annotation is never edited in place.
 
-# Questions
+# Question
 
 * [Annotation types in scope](annotation-types-in-scope.md) - Which annotation kinds must survive the PDF export.
 
-# Requests
+# Request
 
 * [Include PDF annotations in the export](include-pdf-annotations.md) - Client asks that reviewer annotations survive the PDF export.
 ```
 
-Definitions come first where the area has them, so a reader meets the vocabulary
-before the claims made in it. That ordering is the only privilege a definition
-gets: no special filename, no special location, just a section listed first.
-
-Above roughly **20 entries** an index SHOULD group under a second axis as well —
-subdomain or lifecycle — or the area SHOULD be nested (§3.1 rule 5). Grouping
-headings are navigation, not content. They MUST NOT carry knowledge found nowhere
-else, and MUST be reproducible from concept metadata — ordinarily `type`, otherwise
-`tags`, or `status` when grouping by lifecycle.
-
-Indexes are **deterministic projections** (§13): each entry that links a concept
-MUST carry that concept's `description` copied exactly — a directory entry is the
-one exception, per the paragraph above — and an index MUST NOT contain knowledge
-found nowhere else. An index that becomes a source of truth
-has stopped being regenerable.
-
-The verbatim-description rule deliberately tightens OKF §8's SHOULD to a MUST,
-because that is what makes an index mechanically checkable and safely regenerable. It
-carries a cost: a concept and its index entry must be written as one operation.
+The verbatim-description rule deliberately tightens OKF §8's SHOULD to a MUST.
+Together with derived membership, grouping, ordering, labels, and targets, it makes
+an index mechanically checkable and safely regenerable without a second source of
+truth.
 
 ---
 
 ## 10. Log files
 
 The root `log.md` follows the OKF log format (OKF §9): date-grouped entries,
-newest first, `YYYY-MM-DD` headings, with the conventional `**Initialization**`,
-`**Creation**`, `**Update**`, `**Move**`, `**Area created**`, and `**Deprecation**`
-lead words. OKF makes the lead word a convention rather than a requirement (OKF §9),
-so this is a default vocabulary and not a closed one.
+newest first, with `YYYY-MM-DD` headings. Every entry MUST start with a nonempty
+bold lead word followed by a colon: `* **<lead word>**:`. The preferred vocabulary
+includes `Initialization`, `Creation`, `Update`, `Move`, `Area created`, and
+`Deprecation`, and entries SHOULD use one when it expresses the event. Unfamiliar
+lead words remain conformant because OKF makes the vocabulary extensible (OKF §9).
 
 The log records **knowledge lifecycle events only**: concept creation,
 substantive change, deprecation, replacement, a move (§8.2), and the creation of an
@@ -1125,16 +1129,17 @@ stale finds out where the concept went:
 # Knowledge Log
 
 ## 2026-07-31
-* **Update**: Verified [Include PDF annotations in the export](/include-pdf-annotations.md).
+* **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Creation**: Recorded [Include PDF annotations in the export](/include-pdf-annotations.md) from the reporting demo.
+* **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
 
-The concepts and Git history remain authoritative; the log is a discovery aid
-that answers "how did understanding here evolve" without a `git log` archaeology
-session. Additional scoped logs at lower levels are permitted (OKF §9) and
+The log is authored history, not a projection of current bundle state. It is the
+source of truth for the curated account of how knowledge evolved; concepts and Git
+history may corroborate it but cannot mechanically reconstruct significance or
+completeness. Additional scoped logs at lower levels are permitted (OKF §9) and
 optional.
 
 ---
@@ -1228,30 +1233,17 @@ replication, or archival policy, and defines none.
 
 ## 13. Derived projections
 
-Indexes (§9), logs (§10), validator diagnostics, and any future graph view are
-**projections**: derived mechanically from concepts, discardable, and rebuildable
-at any time. A projection MUST NOT become a source of truth.
+Indexes (§9) are **projections**: derived mechanically from concepts, discardable,
+and rebuildable at any time. An index MUST NOT become a source of truth. The
+authored root log is history and is expressly outside this category (§10).
 
-A knowledge graph, when built, derives entirely from the markdown bundle:
-
-- Concepts become nodes, keyed by their path-based IDs (§8.1).
-- Frontmatter contributes node metadata.
-- `sources` entries pointing inside the bundle become provenance edges.
-- Labelled Relationships bullets become typed edges (§7.2).
-- Other markdown links become untyped edges.
-- Backlinks are computed, never authored.
-- External URLs and execution records become external nodes.
-- Registry rows become nodes: each `types.md` row a type node, each `actors.md` row
-  an actor node, with `generated.by`, `verified[].by`, and `sources[].author`
-  resolved against the actor registry to produce edges OKF's fields cannot express
-  directly (§6.1.1).
+The Profile adds no graph contract. Markdown links and provenance retain their
+OKF meanings; relationship labels and registry tables remain ordinary body
+Markdown. Graph consumers follow OKF directly.
 
 Reading a kind as a set — every ADR, the whole glossary, all open questions — is a
 projection filtered by `type`, not a directory. That is what allows directories to
 name subjects (§3) without losing kind-first navigation.
-
-The graph MUST be completely rebuildable from the bundle. Nothing may exist only
-in the graph.
 
 ---
 
@@ -1286,18 +1278,21 @@ Normative force and assessment mode are independent. A mandatory Judgment Rule
 remains mandatory, and an automated advisory remains non-blocking. Neither
 assessment mode changes or reinterprets OKF conformance.
 
-Advisory findings include: missing baseline metadata; an area holding fewer than
-three concepts, unless this profile fixes its name (§3.2, §3.3, §3.4); a concept
-sitting beside an area of the same name rather than inside it; a directory named after a type rather than a subject, outside the `interactions/`
-and `references/` exceptions (§3.3, §3.4); a directory named after one of the concepts
-it contains (§3.1 rule 1); a `type` absent from `types.md`; an actor absent from
-`actors.md`; a missing
-or stale index; a description that disagrees with its concept; a broken internal link;
-a move of a concept that links to an execution record (§8.2); a root index carrying no
-`okf_version`; a missing,
-unparseable, or disagreeing profile declaration;
-disallowed media under `references/`; and a mirrored artifact with no source
-provenance.
+Deterministic structural failures include a missing required root file; a missing
+conditional actor registry; a registry with the wrong structural table shape; a
+missing or semantically stale index; a malformed or out-of-order root log; a root
+index carrying no `okf_version`; and a missing, unparseable, or disagreeing profile
+declaration. Contextual Profile Review assesses whether a project directory names a
+genuine shared subject, whether placement follows that subject, whether structure
+is speculative, whether a purported subject concept contains durable knowledge
+rather than duplicating navigation, and whether the authored log records material
+lifecycle events. A small genuine area is not a finding.
+
+Other advisories include missing baseline metadata; a concept sitting beside an
+area of the same name rather than inside it; a `type` absent from `types.md`; a
+broken internal link; a move of a concept
+that links to an execution record (§8.2); disallowed media under `references/`; and
+a mirrored artifact with no source provenance.
 
 **A concept without a `verified` event is not a finding.** Absence of verification is
 meaningful information, not a deviation (§6.2, OKF §5.3). Tooling MUST NOT report it,
@@ -1426,6 +1421,11 @@ will verify the integrated release and is the only step that may publish it.
 | OKF conformance, Automated Profile Validation, Profile Review, and Complete Profile Assessment are separate results | §2, §14.1 | Real rules such as subject-based placement require contextual judgment, while treating all Profile deviations as advisories prevented deterministic MUST violations from producing an honest Profile result |
 | The in-bundle declaration selects an immutable release without becoming a policy surface | §11 | The generic-platform design introduced caller-selected rules and a standalone definition even though only one real Profile exists; the closed release needs one reproducible selector instead |
 | Compatibility evidence and implementation coverage are separate release artifacts | §15.1 | A single matrix could say either that a rule preserves OKF or that a tool assesses it, but not demonstrate both responsibilities without conflating specification safety with implementation completeness |
+| Root structure uses four required files plus `actors.md` whenever an OKF actor-valued field is used; registry table shapes are fixed | §3.5, §6.1.1 | Real bundles without actor-valued metadata carried an empty registry, while bundles using actors could omit it; tools and authors therefore disagreed about both when the lookup existed and which columns were structural |
+| Project-named areas have no numeric minimum, discourage speculative structure contextually, and may contain genuine subject concepts | §3.1–§3.4, §14.1 | Applying the three-concept threshold forced identity churn when a third concept arrived without proving that the proposed subject was genuine, while the blanket overview prohibition excluded durable knowledge merely because it explained the area's subject |
+| Indexes use one deterministic semantic projection with fixed groups, ordering, derived labels, exact descriptions, and referenced assets | §9, §13, §14.1 | Hand-authored directory descriptions and ordering made indexes a second source of truth, so generators could neither reproduce them from the bundle nor distinguish semantic drift from harmless Markdown presentation |
+| The required root log is authored history with a mechanically checkable, extensible lead-word shape and is not a projection | §2, §10, §13, §14.1 | Treating history as a projection implied that current bundle state could reconstruct which changes were material, producing false completeness claims and erasing the author's curated account |
+| Profile-specific graph projections are withdrawn; graph behavior defers entirely to OKF | §13 | Validator integration exposed that the earlier graph sketch constrained consumers rather than bundles and required a Profile adapter despite no concrete consumer need |
 
 **Migration framework.** A bundle conformant to Profile 2026.1 remains
 conformant to Profile 2026.1; this draft does not silently reassess it under
@@ -1435,6 +1435,20 @@ then update `concepta_profile` to `"2026.2"` while retaining `okf_version:
 "0.2"`. Until then its older declaration remains a claim about that older
 release and MUST NOT be reassessed under 2026.2. The known migration actions are
 intentionally not declared complete in this release-frame slice.
+
+For the structure and navigation slice, a bundle conformant to Profile 2026.1
+does not necessarily conform to 2026.2. It MUST regenerate every index into the
+§9 semantic projection, including the root log entry, derived directory labels,
+and any referenced assets; remove directory descriptions and authored ordering
+that exist only in indexes; ensure the root log uses the required lead-word shape;
+and add `actors.md` with the fixed table when an actor-valued field is used. It MAY
+retain an actor registry when none is required. Removing the area-size and
+large-index thresholds and allowing genuine subject concepts are relaxations, so
+they require no migration and make no previously conformant bundle invalid.
+With respect to the withdrawn graph sketch, an existing conformant bundle stays
+conformant and requires no migration because graph projection state was never
+bundle state; the Profile now defers graph behavior to OKF rather than replacing
+that sketch with a new convention.
 
 **2026.1** — three conventions promoted from first use; the semver series retired.
 
@@ -1488,11 +1502,9 @@ Intentionally left to a later release:
   rather than here (§6.1.1).
 - Directories named after a type, beyond the time-axis exceptions in §3.3 and §3.4.
   A project needing kind-first navigation uses a type-filtered projection (§13).
-- A concept that describes a directory — a sibling `<area>.md`, an `overview.md`,
-  a front-matter-bearing index. OKF reserves two directory-level filenames,
-  `index.md` and `log.md`, and neither is a concept (OKF §3.1, §8, §9); a sibling
-  would also list a single subject twice in the parent index. An area is described
-  by its index and by the concept inside it that defines its subject (§3.1, §9).
+- A second navigation artifact such as a generic `overview.md`. A specifically
+  named concept containing durable knowledge about an area's subject is already
+  permitted by §3.1; duplicating the generated index is not.
 - Adoption of Attested Computation (§14.3).
 - Automatic projection between concepts and execution records in either
   direction.
@@ -1505,8 +1517,9 @@ Intentionally left to a later release:
 
 One bundle showing the profile's central separations: a **source event** produces
 **durable knowledge**, which links to an **execution record**, with **indexes and a
-log** as projections — and structure that has not yet been invented, because the
-subject has only two concepts.
+log** serving different roles: indexes are generated navigation, while the log is
+authored history. Its two reporting concepts form a small genuine subject area;
+there is no numeric minimum.
 
 A client raises a request during a demo; the recording platform expires in 30 days,
 so the transcript is mirrored; an analysis follows; the request is specified in
@@ -1519,25 +1532,19 @@ knowledge/
   profile.md
   types.md
   actors.md
-  include-pdf-annotations.md          # Request
-  pdf-export-feasibility.md           # Analysis
-  references/index.md, 2026-07-30-reporting-demo-transcript.md
+  reporting/
+    index.md
+    include-pdf-annotations.md        # Request
+    pdf-export-feasibility.md         # Analysis
+  references/
+    index.md
+    2026-07-30-reporting-demo-transcript.md
+    annotation-layout.json            # Referenced asset, not a concept
 ```
 
-Both concepts sit at the root. Reporting has two concepts, and §3.1 rule 3 creates
-an area at three — so there is no `reporting/` yet, and no `requests/` or
-`analyses/` ever, because those name kinds, not subjects. When a third reporting
-concept arrives, `reporting/` is created and all three move into it in one logged
-operation: inbound links repointed, indexes regenerated, a `**Move**` entry each
-(§8.2, §10). Their `status` is irrelevant to that.
-
-The request is the case §8.2 flags. It carries `Specified by` toward a GitHub issue,
-so its path may already be cited somewhere the project cannot reach — and a concept
-that has crossed that line stays put. Here the project can see that the citation runs
-the other way, from the concept to the issue, and that nothing in the tracker names
-the file path; so it checks, finds nothing to break, and moves it. That is what
-"unless the project knows otherwise" means, and where it cannot check, the concept
-does not move.
+The two concepts live in `reporting/` because the existing corpus demonstrates
+their shared subject. The count neither earns nor forbids that placement. There is
+no `requests/` or `analyses/`, because those name kinds rather than subjects.
 
 The demo itself is not a concept, and no Interaction Record was written: only one
 outcome mattered, so the request links straight to its source (§4.3), and
@@ -1575,7 +1582,7 @@ Raised while reviewing a draft export during the reporting demo.
 # Relationships
 
 - Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
-- Related to: [PDF export feasibility](/pdf-export-feasibility.md)
+- Related to: [PDF export feasibility](/reporting/pdf-export-feasibility.md)
 
 [^demo-0730]: Reporting demo transcript, 30 July 2026
 ```
@@ -1591,6 +1598,10 @@ description: Whether the current renderer can place annotations without exceedin
 status: draft
 generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
 stale_after: 2026-10-31
+sources:
+  - id: layout-sample
+    resource: /references/annotation-layout.json
+    title: Exported annotation layout sample
 ---
 
 # Question
@@ -1601,7 +1612,7 @@ generation budget?
 # Findings
 
 The renderer exposes absolute placement; annotation geometry is already
-persisted alongside review state.
+persisted alongside review state.[^layout-sample]
 
 # Recommendation
 
@@ -1609,7 +1620,9 @@ Proceed. Budget headroom is adequate at current document sizes.
 
 # Relationships
 
-- Refines: [Include PDF annotations in the export](/include-pdf-annotations.md)
+- Refines: [Include PDF annotations in the export](/reporting/include-pdf-annotations.md)
+
+[^layout-sample]: Exported annotation layout sample
 ```
 
 `references/2026-07-30-reporting-demo-transcript.md` — mirrored because the
@@ -1657,17 +1670,15 @@ generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 # Knowledge Log
 
 ## 2026-07-31
-* **Creation**: Recorded [PDF export feasibility](/pdf-export-feasibility.md).
-* **Update**: Verified [Include PDF annotations in the export](/include-pdf-annotations.md).
+* **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
+* **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Creation**: Recorded [Include PDF annotations in the export](/include-pdf-annotations.md) from the reporting demo.
+* **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
 
-Reading the bundle back out: the graph (§13) has three internal nodes, one
-provenance edge from the request to the transcript, two typed edges
-(`Refines`, `Related to`), one external node for the GitHub issue via
-`Specified by`, one external node for the expiring recording, and three actor nodes
-lifted from `actors.md` carrying the `generated`, `verified`, and `author` edges.
-Delete the graph and every edge above rebuilds from these files.
+Reading the bundle back out, an ordinary OKF graph consumer discovers the
+Markdown links as untyped edges and the request's internal source as the
+provenance edge OKF §5.1 defines. Relationship labels remain readable body context;
+registry rows remain lookup data and create no Profile-only nodes or edges.

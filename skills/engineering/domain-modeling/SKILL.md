@@ -9,28 +9,17 @@ Actively build and sharpen the project's domain model as you design. This is the
 
 ## Where the model lives
 
-The knowledge bundle at `knowledge/` (Concepta OKF Profile — versions declared in `knowledge/profile.md`):
+The model lives as concepts in the knowledge bundle at `knowledge/`; its selected
+Profile and OKF releases are declared in `knowledge/profile.md`. Read
+`knowledge/index.md` to navigate it, and follow the `okf-profile` skill for all
+bundle structure and concept mechanics.
 
-```
-knowledge/
-├── index.md          ← root index: root concepts, areas, references/
-├── log.md            ← root log: one entry per concept lifecycle event
-├── profile.md        ← the profile and OKF versions this bundle follows
-├── types.md          ← every type the bundle uses
-├── actors.md         ← every actor ID → organization, side, role
-├── <concept>.md      ← a concept whose subject has not earned an area yet
-├── <area>/           ← a subject directory: mixed types, its own index.md
-├── architecture/     ← the system as a whole: Architecture Documents and ADRs
-├── ways-of-working/  ← how the team works: process, conventions, decisions about the bundle
-├── interactions/     ← Interaction Records, organized by date
-└── references/       ← mirrored source material cited by concepts
-```
+An area is justified when the current corpus demonstrates a genuine shared
+subject, regardless of count. File a term with that subject's existing concepts;
+otherwise use the bundle root unless the actual knowledge supports creating an
+area. Do not create a kind-named directory merely to hold glossary definitions.
 
-**Directories name subjects, not kinds.** There is no `glossary/`, `decisions/`, or `adr/`: a term, the decisions about it, and the rules deriving it share a directory because they share a subject. Kind lives in `type`.
-
-An area is earned when three concepts share its subject — until then write concepts at the bundle root, where they cost nothing to move. **Don't create a directory to hold your first term.** Read `knowledge/index.md` to find the area a subject already has. The exception is the four names the profile fixes — `architecture/`, `ways-of-working/`, `interactions/`, and `references/` — which may be created for their first concept, since a profile-fixed name can't turn out to be the wrong one.
-
-The `okf-profile` skill owns the mechanics of every write: baseline frontmatter, path IDs, relationship labels, placement, and the area-index and root-log entries that complete a concept write. Follow it for each concept you create, update, or deprecate here.
+Follow the `okf-profile` skill for each concept you create, update, or deprecate.
 
 ## During the session
 

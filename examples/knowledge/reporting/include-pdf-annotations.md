@@ -26,6 +26,6 @@ Raised while reviewing a draft export during the reporting demo.
 # Relationships
 
 - Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
-- Related to: [PDF export feasibility](/pdf-export-feasibility.md)
+- Related to: [PDF export feasibility](/reporting/pdf-export-feasibility.md)
 
 [^demo-0730]: Reporting demo transcript, 30 July 2026

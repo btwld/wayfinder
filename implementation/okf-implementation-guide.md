@@ -25,9 +25,9 @@ Precedence is a chain, and every link is one-directional:
 
 This document therefore MUST NOT restate, extend, or narrow a profile rule. Where it
 appears to, the profile governs and this text is defective. What it may do is bind
-behaviour the profile deliberately leaves open — the profile says an index MUST carry each
-concept's `description` verbatim; this document says what a generator does about the one
-line an index carries that no concept can supply.
+behaviour the profile deliberately leaves open — for example, the Profile defines
+the semantic index result while this guide requires a generator to be idempotent
+and choose a deterministic Markdown rendering.
 
 **"Guide" does not mean advisory.** The requirements below are normative and carry their
 RFC 2119 force; what distinguishes this document from the profile is not strictness but
@@ -49,28 +49,30 @@ any program that reads or writes a bundle. "Bundle" always means the one at `kno
 
 ### 2.1 What a repository does
 
-Adoption is five files and one paragraph, in this order:
+Adoption is four required files, one conditional file, and one paragraph, in this
+order:
 
-1. **Seed the root.** `index.md`, `log.md`, `profile.md`, `types.md`, `actors.md`, exactly
-   as the profile's §3.5 defines them. The skill's `SEEDING.md` carries the literal text.
+1. **Seed the required root.** `index.md`, `log.md`, `profile.md`, and `types.md`,
+   exactly as the profile's §3.5 defines them. The skill's `SEEDING.md` carries the
+   literal text.
 2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
    `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
    `okf_version` (profile §11).
-3. **Seed `types.md` with the types actually used** — three rows on day one, since the
-   three root concepts are the only concepts. Add a row before first use of a new type,
+3. **Seed `types.md` with the types actually used.** Add a row before first use of a new type,
    never after.
-4. **Seed `actors.md`** with whoever authored those files. It is cheap now and awkward
-   later, because the first `generated.by` is already an actor.
+4. **Apply the actor condition.** If any seeded concept records `generated.by` or
+   another OKF actor-valued field, seed `actors.md` with every used actor. If no
+   actor-valued field is present, omit it or seed it voluntarily.
 5. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the equivalent)
    MUST say that durable documentation lives in the bundle, that the reader starts at
    `knowledge/index.md`, and that execution records stay in the tracker. Without it an
    agent will write a `docs/` file beside the bundle and both will be half right.
 
-**Create no directories.** Not `architecture/`, not `ways-of-working/`, not a subject area
-— an area is earned at three concepts (profile §3.1), and the four profile-fixed names are
-*permitted* early, not *recommended* early. A seeded tree of empty directories is the
-prediction the profile exists to prevent, and it also trips the validator, which reports an
-empty area.
+**Create no directories during generic seeding.** `architecture/`,
+`ways-of-working/`, `interactions/`, and `references/` are optional lazy names, not
+required layout. A subject directory is created only when the repository's actual
+knowledge gives the adopter enough context to make that placement judgment; setup
+has none and MUST NOT predict it.
 
 ### 2.2 What adoption does not include
 
@@ -101,59 +103,53 @@ A generator MUST:
 
 - **Be deterministic.** The same tree produces byte-identical output.
 - **Be idempotent.** Running it on its own output changes nothing.
-- **Copy `description` verbatim** from each concept's frontmatter into its entry.
-- **Emit an entry for every non-reserved `.md` file** in the directory, and for every
-  nonempty subdirectory.
+- **Build the semantic projection in profile §9.** Parse concepts, the root type
+  registry, immediate directories, and eligible referenced assets as inputs; do
+  not treat an existing index as authored input.
 - **Preserve the root index's frontmatter**, including `okf_version`, unchanged.
 - **Write an `index.md` for every nonempty directory**, including each nonempty level of
   `references/`.
+- **Choose one deterministic Markdown rendering** of the semantic result. Formatting
+  is an implementation choice until a later lint contract fixes presentation.
 
 A generator MUST NOT:
 
-- **Invent a description.** A concept with no `description` gets an entry with an empty
-  description and an advisory, never a description synthesized from its title or body.
-- **Discard anything it did not generate.** See §3.3.
-- **Reorder existing entries.** See §3.2.
+- **Invent missing semantic data.** It reports a missing title, description, type
+  registration, or other required projection input instead of synthesizing one.
+- **Preserve authored index-only state.** Existing group order, entry order,
+  directory descriptions, and extra prose are drift from a generated projection,
+  not state to carry forward.
 
-### 3.2 Order is authored; membership and descriptions are generated
+### 3.2 Semantic comparison
 
-Entry order carries meaning a generator cannot reconstruct. `initial-business/` lists its
-glossary as package, balance, then the two buckets — the order the domain is learned in,
-not the order the filenames sort in. Alphabetizing it would be a silent loss.
+A validator MUST parse an index into groups and entries and compare that model with
+the profile §9 projection. It MUST compare membership, group identity and order,
+entry order, labels, targets, and descriptions. It MUST NOT fail semantic
+conformance for bullets, whitespace, heading markers, or other Markdown
+presentation that parses to the same model.
 
-So the split is:
+This comparison keeps two responsibilities separate:
 
-- **Grouping** is generated: entries group by `type` under headings, definitions first
-  (profile §9).
-- **Membership and descriptions** are generated: exactly the concepts present, described
-  exactly as their frontmatter describes them.
-- **Order within a group** is preserved. Entries already present keep their relative order;
-  a concept new to the group is appended to the end of it, where a human can move it.
+- generation may choose and normalize presentation; and
+- validation decides only whether the parsed navigation semantics are correct.
 
-Heading text for a type group MUST be derivable from `types.md` — ordinarily the pluralized
-type name. A generator MAY carry a display map, which MUST live in the tool, never in a
-bundle file, because a bundle file holding it would be a projection that became a source of
-truth (profile §13).
+Presentation lint and automatic formatting are deferred. They MUST NOT be smuggled
+into semantic validation as byte comparison.
 
-### 3.3 The line no concept can supply
+### 3.3 Authored history stays outside generation
 
-An entry linking a *directory* carries an authored one-line description of the area's
-subject, because a directory has no frontmatter (profile §9). It is the one line in an
-index that is not derived, and a generator that regenerated it would either delete it or
-invent it.
-
-A generator MUST therefore read the existing index before writing it, carry every
-directory line forward verbatim, and for a directory that has no line yet emit a
-placeholder and report it as needing an author. This is the only state an index generator
-carries across runs, and keeping the list of exceptions at exactly one is deliberate.
+The root log is not an index input or output. A generator MUST preserve it
+unchanged; an author or authoring workflow records meaningful history separately.
+Current concepts and version-control diffs may assist that workflow, but an
+implementation MUST NOT claim they can reconstruct the log's significance or
+completeness mechanically.
 
 ### 3.4 Verification without generation
 
-A validator checks the same invariants a generator maintains (profile §14.1: a missing or
-stale index, a description that disagrees with its concept). A repository MAY therefore
-hand-maintain its indexes indefinitely and rely on the validator to catch drift. The
-generator is a convenience for scale, not a conformance requirement, and no bundle is
-non-conformant for lacking one.
+A validator checks the semantic result a generator maintains (profile §9). A
+repository MAY hand-maintain indexes and rely on validation to catch drift. The
+generator is an implementation convenience, not a required bundle artifact; the
+indexes themselves remain required for every nonempty directory.
 
 ---
 
@@ -204,7 +200,6 @@ reading (§14.2). Concretely, a conforming validator MUST NOT report, at any sev
 - a concept with no `verified` event, or any derived trust tier;
 - an unrecognized `type`, relationship label, or frontmatter key, as anything other than
   the registry advisories the profile names;
-- an actor absent from `actors.md`, as anything more than an advisory;
 - an external URL that does not resolve;
 - a concept using an OKF 0.2 mechanism the profile is silent about.
 
@@ -215,6 +210,11 @@ is built to prevent.
 
 A validator MAY summarize trust tiers and organizational provenance, and such a summary
 MUST NOT affect exit status.
+
+The conditional registry and complete actor-row requirements in profile §6.1.1
+are Deterministic Rules. Reporting their absence as a Profile failure does not
+reject the concept as invalid OKF, alter its actor string, or change its derived
+trust tier.
 
 ### 4.4 Version dispatch
 
@@ -280,9 +280,9 @@ parsing `FR-*` out of markdown has constraints that no reading of the documents 
 **Classify** each candidate node by the `type` it would carry. This is a judgment about what
 a document *is*, made independently of where it will live.
 
-**Then cluster** by subject. Areas fall out of the clusters, subject to the three-concept
-rule; a cluster of one or two is not an area, and its concepts sit at the bundle root until
-the third arrives.
+**Then cluster** by subject. Areas fall out of genuine shared subjects in the
+actual corpus. No count establishes that judgment: a small coherent cluster may
+be an area, while a large assortment with no truthful shared subject may not.
 
 Doing these in the other order reproduces the kind-named tree, because a set of documents
 sorted by what they are will always look like it wants folders named after what they are.
@@ -413,10 +413,18 @@ could not distinguish an independent OKF result, a deterministic Profile result,
 and contextual judgment while the earlier guide treated all Profile findings as
 advisories and allowed callers to promote them through `--strict`.
 
+The structure slice also replaces preservation of authored index ordering and
+directory descriptions with semantic generation and comparison, keeps authored
+history outside generation, makes actor-registry seeding conditional, and removes
+count-based clustering. The driver was real generator work that could not
+reproduce index-only knowledge and real bundles that churned paths at arbitrary
+concept counts without making subject placement more truthful.
+
 An implementation conformant to guide 2026.1 does not automatically conform to
 this draft. To migrate after Profile 2026.2 is published, it MUST adopt the
 explicit command, result, exit, and unsupported-release contract in §4 and the
-domain-specific obligations added by issues #23 through #25. Until then, the
+structural obligations in §§2–3 and the remaining domain-specific obligations
+added by issues #24 and #25. Until then, the
 2026.1 implementation remains the supported surface.
 
 **2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index
