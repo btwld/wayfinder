@@ -90,6 +90,28 @@ skill-prompt headings receive no coverage row and no finding. Actor affiliation
 lookup is likewise not an additional bundle requirement; its implementation owner
 and evidence are recorded in the non-bundle frame below.
 
+## Relationships and external-boundary coverage
+
+| Profile clause | Force | Assessment | Expected evidence |
+| --- | --- | --- | --- |
+| §7.1: bundle-relative internal links are preferred | SHOULD | Automated Profile Validation | Non-bundle-relative internal targets produce a non-blocking advisory; either form remains an ordinary OKF link |
+| §7.1, §14.1–§14.2: unresolved internal links are permitted and produce only a non-blocking advisory | MAY / MUST NOT | Automated Profile Validation | Missing-target fixture leaves both conformance results unchanged and emits an advisory with no exit effect |
+| §7.2: a concept may carry an optional Relationships section, each entry has exactly one label and one target, and no relationship schema appears in producer-defined frontmatter | MAY / MUST / MUST NOT | Automated Profile Validation | Parsed section accepts absence and checks one label plus one Markdown target per bullet; frontmatter inventory rejects producer-defined relationship fields without changing OKF tolerance |
+| §7.2: preferred labels retain their outward meanings; additional labels are permitted, advised, and defined once in a durable Guide | MAY / SHOULD | Profile Review | Context supports label semantics and a project label has one durable definition; deterministic output only notes the extension |
+| §7.3: tracker-owned execution records remain external, their state is not copied, and every durable specification has one lifecycle owner | MUST / MUST NOT | Profile Review | Tracker and bundle inspection shows one authoritative artifact and links rather than mirrored workflow state |
+| §7.3: one concept may accumulate several execution records or none | MAY | Profile Review | No cardinality finding; contextual traceability distinguishes independent work records from copied state |
+| §8.1: authored path slugs use readable lowercase kebab-case, paths exclude mutable metadata, dates appear only for intrinsic chronology, and externally cited IDs are preserved verbatim | MUST / MUST NOT | Profile Review | Subject history and external references identify the slug/ID boundary and justify the path; creation time, freshness, workflow, editable versions, mutable metadata, and renumbering are rejected contextually |
+| §8.2: a concept may move at any status; a repairable move coordinates known inbound links, affected indexes, and authored history; an unrepairable known external citation freezes the path | MAY / MUST / MUST NOT / SHOULD | Profile Review | Move review inspects status independence, known citations, and the coordinated update; an execution relationship prompts review but is not itself a finding |
+| §8.3: stable concepts normally deprecate and link an available successor; drafts may be deleted; exceptional stable hard deletion is narrowly justified and reviewed | SHOULD / MUST / MAY / MUST | Profile Review | Lifecycle history, successor availability, deletion reason, and treatment of known citations support the retirement choice |
+| §12: mirrored external material enters only through `references/` | MUST | Profile Review | Source context distinguishes a mirror from authored context and confirms its placement without inferring from path alone |
+| §12: Markdown identified as a mirror has baseline metadata and original-source provenance | MUST | Automated Profile Validation | Parsed concept baseline and present OKF source entry for reviewed mirror candidates |
+| §12: mirrored Markdown remains immutable once cited | MUST | Profile Review | Authored history and citing concepts establish the snapshot boundary and whether later edits altered source content |
+| §12: mirroring is pull-based on a durable citation, genuine availability risk, and suitable repository visibility | MUST / MAY / MUST NOT | Profile Review | Source context supports preservation need and access; occurrence alone never triggers capture |
+| §12: text and cited images may be mirrored, with confidentiality sanitization and image optimization | MAY / MUST | Profile Review | Review confirms that retained content and image representation are suitable without inventing a generic size threshold |
+| §12: video, audio, and other heavy binaries remain external; an appropriate transcript is preferred when their content must survive | MUST NOT / SHOULD | Profile Review | Repository context and artifact characteristics identify impractical media and a suitable preservation form without inventing an extension, MIME, signature, or byte threshold |
+| §12: curated external-system context may remain an ordinary resource-bound concept; a non-mirrored source retains a followable OKF resource when known, uses a scope descriptor only when inherently unfollowable, and records a material preservation reason | MAY / MUST / MUST NOT / SHOULD | Profile Review | Source representation preserves upstream semantics and body context explains a durable preservation choice when useful |
+| §14.2: external resource availability never becomes a conformance gate | MUST NOT | Automated Profile Validation | Validation performs no network probe and a dead external URL creates no finding |
+
 ## Non-bundle frame clauses
 
 These clauses constrain releases, migrations, or implementations rather than a
@@ -106,6 +128,8 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.3: a 2026.1 bundle completes every published 2026.2 migration action before changing its declaration | Migration implementation | Whole-bundle migration review after publication |
 | §6.1.1, §14.1: an implementation that exposes organizational affiliation resolves the row at the applicable event timestamp or source `last_modified`; unresolved or ambiguous history remains non-finding `unknown` without changing the actor string or trust tier | Consumer implementation | Lookup tests cover `generated`, `verified`, and source-author dates before, at, and after period boundaries plus missing and ambiguous dates, while preserving actor strings and trust tiers |
 | §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
+| §7.1–§7.2, §13, §14.2: tolerant readers preserve unknown relationship labels, unresolved targets, and ordinary untyped graph edges | Reader implementation | Unknown-label and unresolved-target fixtures remain loadable and expose the unchanged OKF edge through the public OKF graph |
+| §8.2: tooling checks known inbound bundle links during coordinated moves without making unresolved edges blocking | Authoring and validator implementation | Move workflow repairs discovered references; final validation retains any unresolved edge as a non-blocking advisory |
 
 Unsupported-release behavior and caller-policy prohibitions are implementation
 rules owned by guide §§4.1, 4.2, and 4.4. They are tested by the validator
@@ -113,10 +137,8 @@ delivery slices and are not restated as Profile bundle clauses.
 
 ## Completion gate
 
-This matrix is intentionally incomplete while the canonical Profile still
-contains unaligned external-boundary text. Issue #25 MUST inventory and assign
-every retained or introduced normative bundle clause in that scope; the
-release-frame, structure, navigation, concept, trust, and durable-capture
-inventories are recorded above.
+This matrix now inventories the release-frame, structure, navigation, concept,
+trust, durable-capture, relationship, identity, execution, lifecycle, and mirroring
+clauses. It remains unpublished integration evidence.
 Issue #19 MUST verify exact, duplicate-free coverage before publication. No
 unlisted rule is implicitly covered.

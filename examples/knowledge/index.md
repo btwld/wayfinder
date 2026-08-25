@@ -13,3 +13,4 @@ okf_version: "0.2"
 
 * [references](references/)
 * [reporting](reporting/)
+* [ways-of-working](ways-of-working/)

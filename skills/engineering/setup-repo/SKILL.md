@@ -126,8 +126,9 @@ into the bundle.
 
 "Specification" is a genre, not a location. A specification the project
 maintains as durable knowledge, whose only state is `status`, is a
-`Specification` concept filed with its subject. One artifact never lives in
-both places (profile §5.2, §7.3).
+`Specification` concept filed with its subject. Every durable specification has
+exactly one lifecycle owner; one artifact never lives in both places (profile
+§5.2, §7.3).
 ```
 
 Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.

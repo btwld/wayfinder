@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Verify the knowledge/ bundle against OKF 0.2 and the Concepta OKF Profile 2026.1.
+"""Run the deprecated knowledge-bundle checks during Profile 2026.2 integration.
 
 Two severities, kept distinct as profile §14.1 requires:
 
   ERROR    an OKF §11 violation. The document cannot be interpreted, so it
            cannot be accepted. Exits nonzero.
   ADVISORY a profile deviation. Reported and attributed, but never a reason to
-           reject a bundle that is valid OKF. Exits nonzero only with --strict.
+           reject a bundle that is valid OKF. Exits nonzero only with --strict,
+           except unresolved OKF edges and nonstandard relationship labels,
+           which Profile 2026.2 explicitly keeps gate-neutral.
 
 Usage:
     python3 tools/verify_knowledge_bundle.py [--strict] [<repo-root>]
@@ -41,7 +43,7 @@ TYPE_NAMED = {
     "glossary", "rules", "questions", "decisions", "analyses", "analysis",
     "specifications", "specs", "guides", "adr", "adrs", "requests",
 }
-CORE_LABELS = {
+PREFERRED_LABELS = {
     "Superseded by", "Depends on", "Constrained by", "Part of", "Refines",
     "Specified by", "Implemented by", "Resolves", "Partially resolves",
     "Tracked by", "Related to",
@@ -50,6 +52,7 @@ ACTOR = re.compile(r"^(?:human:[a-z0-9][a-z0-9-]*|process:[a-z0-9][a-z0-9-]*|[a-
 
 errors: list[str] = []
 advisories: list[str] = []
+gate_neutral_advisories: list[str] = []
 
 
 def error(where: Path | str, msg: str) -> None:
@@ -58,6 +61,10 @@ def error(where: Path | str, msg: str) -> None:
 
 def advise(where: Path | str, msg: str) -> None:
     advisories.append(f"{_rel(where)}: {msg}")
+
+
+def advise_gate_neutral(where: Path | str, msg: str) -> None:
+    gate_neutral_advisories.append(f"{_rel(where)}: {msg}")
 
 
 def _rel(where: Path | str) -> str:
@@ -284,7 +291,10 @@ def check_links() -> None:
                 base = BUNDLE if clean.startswith("/") else path.parent
                 resolved = (base / clean.lstrip("/")).resolve()
                 if not resolved.exists():
-                    advise(f"{_rel(path)}:{n}", f"broken link -> {target}")
+                    advise_gate_neutral(
+                        f"{_rel(path)}:{n}",
+                        f"unresolved OKF edge -> {target} (non-blocking)",
+                    )
 
 
 def check_relationships() -> None:
@@ -301,8 +311,11 @@ def check_relationships() -> None:
             m = bullet.match(line)
             if not m:
                 advise(path, f"Relationships bullet is not `- Label: [target](path)`: {line[:60]}")
-            elif m.group(1).strip() not in CORE_LABELS:
-                advise(path, f"non-core relationship label `{m.group(1).strip()}` (permitted; noting)")
+            elif m.group(1).strip() not in PREFERRED_LABELS:
+                advise_gate_neutral(
+                    path,
+                    f"nonstandard relationship label `{m.group(1).strip()}` (permitted; non-blocking)",
+                )
 
 
 def check_profile_declaration() -> None:
@@ -372,7 +385,9 @@ def main() -> int:
         print(f"  ERROR    {e}")
     for a in advisories:
         print(f"  ADVISORY {a}")
-    if not errors and not advisories:
+    for a in gate_neutral_advisories:
+        print(f"  ADVISORY {a}")
+    if not errors and not advisories and not gate_neutral_advisories:
         print("  clean")
 
     if errors:

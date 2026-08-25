@@ -862,8 +862,10 @@ its sources decide whether `stale_after` is truthful.
 
 Links between concepts follow OKF §6.1. Bundle-relative links (a leading `/`)
 SHOULD be preferred for internal targets, because they survive document moves
-within a subdirectory. Broken links are tolerated (OKF §6.1) and MAY represent
-knowledge not yet written.
+within a subdirectory. An internal link whose target is absent MAY remain in a
+conformant bundle and MAY represent knowledge not yet written. It is a
+non-blocking advisory; Profile Review decides whether it is a useful planned edge
+or a repairable mistake in context.
 
 Provenance and navigation stay separate mechanisms: `sources` records where
 content came from, links record how a reader traverses the knowledge.
@@ -881,7 +883,7 @@ semantic label. Each bullet MUST carry exactly one label and one target:
 - Implemented by: [PR #142](https://github.com/conceptadev/example/pull/142)
 ```
 
-The core labels are:
+The preferred, extensible labels are:
 
 | Label | Meaning, read from the containing concept outward |
 |-------|---------------------------------------------------|
@@ -920,11 +922,16 @@ Reaching for `Related to` repeatedly signals a missing label. A project finding 
 a large share of its edges is better served naming the relationship — with a
 project-specific label, or by proposing one for a later profile release.
 
-Projects MAY use additional labels, and consumers MUST tolerate labels they do
-not recognize. Markdown links elsewhere in the body remain valid untyped edges;
-labelling is a way to add meaning, never a requirement to link.
+Projects MAY use additional labels. A project using one SHOULD define its meaning
+once in a durable `Guide` concept so authors apply it consistently. A nonstandard
+label is only a non-blocking advisory. Profile Review assesses whether the label and
+target express the intended relationship. Consumers MUST tolerate labels they do not
+recognize. Markdown links elsewhere in the body remain valid untyped edges; labelling
+adds body context, not a link requirement or a new graph type.
 
-This profile defines no frontmatter relationship schema.
+A Profiled Bundle MUST NOT encode relationship labels or targets in
+producer-defined frontmatter. The Profile defines no relationship schema beyond
+ordinary Markdown body links.
 
 ### 7.3 Execution records
 
@@ -954,6 +961,11 @@ than at the word:
   belongs in the bundle. Most projects have both, and the choice is made per
   artifact.
 
+Every durable specification MUST therefore have exactly one authoritative
+lifecycle owner: either the tracker owns its execution workflow, or the bundle
+owns its OKF document lifecycle. A link between the two systems preserves
+traceability; copied state does not share ownership.
+
 One concept MAY accumulate several execution records over time, and a concept
 MAY never produce any. Neither is an inconsistency.
 
@@ -966,12 +978,16 @@ MAY never produce any. Neither is an inconsistency.
 A concept's ID is its path relative to the bundle root with `.md` removed (OKF
 §2). IDs are therefore paths, and path choices are identity choices.
 
-Paths use readable lowercase kebab-case. Dates appear only where chronology is
-part of identity — Interaction Records and mirrored source snapshots. Status, owner,
-and priority MUST NOT appear in a filename; they are metadata and would make identity
-churn.
+The authored slug portion of a concept path MUST use readable lowercase
+kebab-case; an externally cited identifier that leads it retains its exact spelling
+and case. A date MUST appear only
+where chronology is intrinsic to the subject's stable identity — for example, an
+Interaction Record or a mirrored source snapshot — and MUST NOT encode mere
+creation time, freshness, workflow state, or an editable version. Status, owner,
+priority, and Profile version MUST NOT appear in a filename; they are mutable
+metadata and would make identity churn.
 
-**An identifier other systems already cite is part of identity and is preserved
+**An identifier other systems already cite is part of identity and MUST be preserved
 verbatim.** Where a project carries its own IDs — requirement numbers, rule codes,
 question numbers, ADR sequence numbers — the concept's path leads with the ID and
 follows it with a readable slug: `d11-collected-revenue-basis`,
@@ -996,15 +1012,16 @@ Example IDs:
 
 ### 8.2 Moving a concept
 
-A concept's path MAY change for as long as every reference to it can be repaired.
+A concept's path MAY change for as long as every known citation to it can be repaired.
 A move is complete when three things hold, in one operation:
 
-1. Every inbound link inside the bundle points at the new path.
+1. Every known inbound link inside the bundle points at the new path.
 2. Every affected index entry is regenerated (§9).
 3. `log.md` records the move (§10).
 
-Tooling MUST check the first, and a move that leaves a broken internal link is an
-advisory finding (§14.1).
+A move that leaves a known inbound internal link unchanged is incomplete. The
+unresolved edge remains loadable and advisory under §7.1; it does not become an OKF
+or Profile conformance failure merely because it reveals unfinished move work.
 
 **`status` does not enter into it.** Movability is a property of who is pointing at
 the path, never of how reviewed the document is. A rule that froze paths at `stable`
@@ -1013,10 +1030,15 @@ which is exactly the stretching of `status` §6.3 forbids — a profile corrupti
 one field OKF defines precisely in order to protect an identity OKF does not treat as
 fixed.
 
-**A path freezes once it has been cited outside the bundle.** A tracker issue, a
-client deliverable, a published document, another repository — anywhere the citation
-is beyond this repository's reach to repair. From that point the path MUST NOT
-change; retire the concept by deprecation with a successor (§8.3) instead.
+A concept MAY therefore move at any `status` when §8.2's citation and coordinated-
+update conditions hold.
+
+**A path freezes when a known citation outside the bundle cannot be repaired.** A
+tracker issue, a client deliverable, a published document, another repository —
+wherever the project cannot coordinate the citation. From that point the path MUST
+NOT change; retire the concept by deprecation with a successor (§8.3) instead. An
+external citation the project can update does not freeze identity merely because it
+crosses the bundle boundary.
 
 That is the only line worth drawing, because it is the only place where repair is
 impossible. Inside the bundle, OKF already tolerates a broken link — it is a link,
@@ -1026,9 +1048,9 @@ normative upstream against a failure that upstream declined to treat as fatal.
 Outside the bundle there is no tolerant reader on the other end, and that asymmetry
 is real rather than stipulated.
 
-A concept carrying `Specified by` or `Implemented by` toward an execution record
-(§7.3) has ordinarily been drawn into a system the project does not control, and
-SHOULD be treated as frozen unless the project knows otherwise.
+A concept carrying `Specified by`, `Tracked by`, or `Implemented by` toward an
+execution record (§7.3) SHOULD be reviewed for external citations before a move;
+the relationship alone does not prove that its path is frozen.
 
 This is also why §3.1 grows areas rather than predicting them — but not because a
 move is expensive, since by the rule above it is cheap. An area name is a claim
@@ -1037,13 +1059,15 @@ claim. Counting concepts cannot establish it.
 
 ### 8.3 Deprecation and deletion
 
-The normal retirement path for a stable concept is deprecation, not deletion:
-set `status: deprecated` and, where a successor exists, link it with
-`Superseded by`. Historical meaning stays inspectable.
+The normal retirement path for a stable concept SHOULD be deprecation, not
+deletion: set `status: deprecated`. Where a successor exists, the deprecated
+concept MUST link it with `Superseded by`. Historical meaning stays inspectable.
 
-Draft concepts MAY be deleted outright. Hard deletion of a stable concept is
-reserved for security, privacy, legal, or secret-removal obligations, which
-override the preference for historical preservation.
+Draft concepts MAY be deleted outright. A stable concept MAY be hard-deleted only
+for an exceptional security, privacy, legal, secret-removal, or genuinely erroneous-
+content reason that outweighs historical preservation. Profile Review MUST assess
+that exception and the treatment of known citations and successors; deletion cannot
+be inferred safely from final bundle state alone.
 
 ---
 
@@ -1171,6 +1195,7 @@ stale finds out where the concept went:
 
 ## 2026-07-31
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
+* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
@@ -1218,20 +1243,20 @@ policy belongs exclusively to the companion guide.
 
 ## 12. Mirrored source material
 
-External material enters the bundle only through `references/` (§3.4), and only
-**pull-based**: an artifact is mirrored when a concept's `sources` needs to cite
-it *and* its external home is ephemeral or outside project control — a chat
-thread, a recording platform with a retention limit, a system the project does
-not administer.
+External material MUST enter the bundle only through `references/` (§3.4), and
+mirroring MUST be **pull-based**. An artifact MAY be mirrored only when a durable
+concept cites it through OKF `sources`, its availability is genuinely at risk, and
+the repository's visibility is appropriate for the material. Being outside project
+control is evidence to consider, not by itself an availability risk.
 
-Nothing is mirrored because a meeting, call, or thread happened. Confirming that
-the content may live at repository visibility is part of mirroring: the bundle
-inherits the repository's access controls (the profile defines no per-concept
-scheme), so mirroring widens who can read the material.
+An artifact MUST NOT be mirrored merely because a meeting, call, or thread
+happened. Confirming that the content may live at repository visibility is part of
+mirroring: the bundle inherits the repository's access controls (the profile defines
+no per-concept scheme), so mirroring widens who can read the material.
 
-Mirrored markdown artifacts are concepts. They carry minimal frontmatter — for
-example `type: Meeting Transcript` with `title`, `description`, `generated`, and
-a `sources` entry naming the original — and are immutable snapshots once cited.
+Mirrored markdown artifacts are concepts. They MUST carry the Profile baseline and
+an OKF `sources` entry naming the original; they MUST remain immutable snapshots
+once cited.
 A mirrored transcript is an ordinary source concept: it *preserves* an artifact
 produced by the interaction, while an Interaction Record *interprets* the durable
 combined context. The mirror does not substitute for that interpretation.
@@ -1243,19 +1268,21 @@ By medium:
 
 | Medium | Policy |
 |--------|--------|
-| Text — transcripts, exported documents, chat threads | MAY be mirrored in full; sanitized where confidentiality demands |
+| Text — transcripts, exported documents, chat threads | MAY be mirrored in full; MUST be sanitized where confidentiality demands |
 | Images | MAY be mirrored when a concept cites them; MUST be optimized first |
-| Video, audio, other heavy binaries | MUST NOT be committed; stay external and linked. When their content must survive the external system, mirror the transcript instead |
+| Video, audio, other heavy binaries | MUST NOT be committed; stay external and linked. When their content must survive the external system, authors SHOULD mirror an appropriate transcript instead |
 
-Curated context about an external system that stays external is an ordinary
-concept whose `resource` names that system — no mirror required.
+Curated context about an external system that stays external MAY be an ordinary
+concept whose `resource` names that system; no mirror is required.
 
 **Recording a decision not to mirror.** Deciding *against* mirroring is as durable as
 deciding for it, and it should be visible where a reader goes looking for the source.
 When an artifact is deliberately not mirrored — confidentiality, repository
-visibility, size, or a policy that keeps it external — cite it as an OKF §5.1 **scope
-descriptor** in `sources[].resource`, a value the consumer cannot dereference, and
-state the reason in the body.
+visibility, size, or a policy that keeps it external — its `sources[].resource`
+MUST retain ordinary OKF §5.1 meaning: use its followable URL or path when one is
+available, or a scope descriptor when the source is inherently unfollowable. Authors
+SHOULD state the reason for non-mirroring in the body when it is material to future
+preservation.
 
 ```yaml
 sources:
@@ -1266,9 +1293,9 @@ sources:
     last_modified: 2026-07-30
 ```
 
-A scope descriptor is preferable to a path that does not resolve: it is honest about
-being unfollowable, and it avoids minting a link that a later mirroring decision would
-have to repair.
+A scope descriptor is preferable to pretending an unfollowable source has a path,
+but it MUST NOT replace a known followable resource merely to avoid an availability
+advisory. Mirroring policy never weakens or reinterprets OKF provenance.
 
 Because heavy binaries never enter the bundle, the profile needs no Git LFS,
 replication, or archival policy, and defines none.
@@ -1334,6 +1361,10 @@ or `Active` value; overlapping periods for one actor; and malformed source entri
 or attribution joins. Literal tag duplication with machine-readable type, status, or
 trust values is also deterministic.
 
+Deterministic external-boundary failures include a malformed Relationships entry
+that does not contain exactly one label and one target. Contextual meaning is not
+inferred merely because this shape is mechanically visible.
+
 Contextual Profile Review assesses whether a project directory names a
 genuine shared subject, whether placement follows that subject, whether structure
 is speculative, whether a purported subject concept contains durable knowledge
@@ -1341,14 +1372,26 @@ rather than duplicating navigation, and whether the authored log records materia
 lifecycle events. It also assesses the durable-capture and concept-boundary rules;
 whether a standard or project-specific type and its registered meaning fit the
 content; whether metadata, actor identity and history, sources, status, freshness,
-and tags are truthful in context. Neither assessment mode checks type-specific
+and tags are truthful in context. For external boundaries it assesses relationship
+meaning, project-label definitions, execution and specification lifecycle ownership,
+the identity meaning of dates and preserved external IDs, repairability of known
+external citations during moves, stable-concept deletion exceptions, and whether a
+mirror is cited, genuinely at availability risk, safe at repository visibility, and
+appropriately sanitized and, where required, optimized. It also assesses media
+classification: the Profile defines no extension, MIME, signature, or byte threshold
+from which a validator could consistently identify audio, video, or another heavy
+binary.
+Profile Review assesses the complete path rule because an externally cited ID has no
+Profile-specific syntax that a validator could distinguish from the authored slug.
+Neither assessment mode checks type-specific
 body templates; §5.3 defines none. A small genuine area is not a finding.
 
 Other advisories include missing `generated` provenance; a registered
 project-specific type; a concept sitting beside an area of the same name rather
-than inside it; a broken internal link; a move of a concept
-that links to an execution record (§8.2); disallowed media under `references/`; and
-a mirrored artifact with no source provenance.
+than inside it; a nonstandard relationship label; and an unresolved internal link.
+These advisories MUST NOT affect Profile conformance, the automated gate, or exit
+status. A relationship to an execution record may prompt contextual move review but
+is not itself a finding (§8.2).
 
 **A concept without a `verified` event is not a finding.** Absence of verification is
 meaningful information, not a deviation (§6.2, OKF §5.3). Tooling MUST NOT report it,
@@ -1467,10 +1510,9 @@ OKF's normative requirements always take precedence over any profile release
 ### 15.3 Change record
 
 **2026.2 — integration draft, unpublished.** Establishes the closed Concepta
-Profile release frame and integrates the structure/navigation and
-concept/trust/durable-capture slices. Issue #25 will complete the remaining rule
-changes and migration entries; issue #19 will verify the integrated release and
-is the only step that may publish it.
+Profile release frame and integrates the structure/navigation,
+concept/trust/durable-capture, and external-boundary slices. Issue #19 will verify
+the integrated release and is the only step that may publish it.
 
 | Change | Sections | Driver |
 | --- | --- | --- |
@@ -1487,6 +1529,10 @@ is the only step that may publish it.
 | Every concept requires truthful discovery and lifecycle metadata; generation provenance stays advisory; all fourteen standard types are retained canonically while registered extensions remain permitted | §5, §14.1 | Sparse concepts made indexes and lifecycle claims unreliable, while seeding only types already used caused agents to invent near-duplicates and treating type fit as machine-provable confused vocabulary judgment with syntax |
 | Actor history uses closed sides, explicit non-overlapping active periods, event-time resolution, and `unknown` when affiliation lacks evidence without changing OKF actor strings or trust tiers | §6.1.1, §14.1–§14.2 | Real actor affiliation changed over time and undated source authors could not be assigned truthfully; encoding affiliation in IDs or trust tiers rewrote history and contradicted OKF's prefix-derived trust model |
 | Material derivation uses truthful OKF sources; verification absence remains meaningful; status, freshness, and tags each keep one upstream-defined responsibility | §5.1, §6, §14.1–§14.2 | Review pressure produced fabricated confirmations, arbitrary expiry dates, workflow statuses, and topic tags that duplicated mutable state, while materially sourced claims could omit the provenance needed to assess them |
+| Labelled relationships use one label and target, prefer an extensible vocabulary, and remain ordinary untyped OKF body edges; unresolved targets stay non-blocking | §7, §13, §14.1–§14.2 | Projects needed consistent traceability labels, but treating labels or unresolved plans as a second graph schema made generic OKF consumers and Profile tooling disagree about the same Markdown edge |
+| Tracker-owned execution stays external, every durable specification has one lifecycle owner, and stable identity coordinates known citations before a move | §7.3, §8.1–§8.2, §14.1 | Real specifications drifted between tracker and bundle copies, while blanket freezes on every external link prevented repairable moves and mutable metadata or renumbering churned identifiers already used by other systems |
+| Stable concepts normally deprecate with an available successor; exceptional deletion is reviewable | §8.3, §14.1 | Real cleanup work needed both inspectable supersession and a narrow escape for secrets, legal obligations, and genuinely erroneous content that should not remain authoritative history |
+| Mirroring is pull-based on citation, genuine availability risk, and suitable repository visibility; heavy media remains external without changing OKF source meaning | §12, §14.1–§14.2 | Real source systems expired while indiscriminate capture widened confidential access and bloated repositories, and using scope descriptors merely to hide a followable external source weakened provenance |
 
 **Migration framework.** A bundle conformant to Profile 2026.1 remains
 conformant to Profile 2026.1; this draft does not silently reassess it under
@@ -1495,8 +1541,7 @@ complete every migration action recorded in this section by the domain slices,
 then update `concepta_profile` to `"2026.2"` while retaining `okf_version:
 "0.2"`. Until then its older declaration remains a claim about that older
 release and MUST NOT be reassessed under 2026.2. The known migration actions are
-intentionally incomplete until issue #25 finishes the domain slices and issue #19
-verifies the integrated release.
+complete across the domain slices; issue #19 still verifies the integrated release.
 
 For the structure and navigation slice, a bundle conformant to Profile 2026.1
 does not necessarily conform to 2026.2. It MUST regenerate every index into the
@@ -1530,6 +1575,22 @@ they are. The migration MUST NOT add `generated`, `verified`, `stale_after`, act
 affiliation, or source provenance by inference merely to complete the migration.
 Removing verification pressure, type-based freshness advice, and conformance force
 from body templates are relaxations and require no content change.
+
+For the relationship and external-boundary slice, a bundle conformant to Profile
+2026.1 does not necessarily conform to 2026.2. It MUST reshape every labelled
+relationship to one label and one target; it SHOULD document each project-specific
+label once in a durable `Guide`; it MUST choose exactly one authoritative lifecycle
+owner for every specification and remove any mirrored tracker state. It MUST use
+Profile Review to adjudicate every path without renumbering externally cited IDs and
+to review every planned move against known internal and external citations. It MUST
+deprecate retained stable superseded
+concepts and add `Superseded by` wherever a successor exists. It MUST review mirrored
+material for a citing concept, genuine availability risk, repository visibility,
+sanitization, required image optimization, source provenance, and heavy-media
+classification, removing or externalizing
+material that fails those checks without replacing a known followable OKF source with
+a scope descriptor. Additional labels and unresolved internal links remain permitted
+and non-blocking, so those relaxations require no repair merely to migrate.
 
 **2026.1** — three conventions promoted from first use; the semver series retired.
 
@@ -1617,6 +1678,9 @@ knowledge/
     index.md
     include-pdf-annotations.md        # Request
     pdf-export-feasibility.md         # Analysis
+  ways-of-working/
+    index.md
+    relationship-labels.md            # Guide defining the project label Assessed by
   references/
     index.md
     2026-07-30-reporting-demo-transcript.md
@@ -1663,7 +1727,7 @@ Raised while reviewing a draft export during the reporting demo.
 # Relationships
 
 - Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
-- Related to: [PDF export feasibility](/reporting/pdf-export-feasibility.md)
+- Assessed by: [PDF export feasibility](/reporting/pdf-export-feasibility.md)
 
 [^demo-0730]: Reporting demo transcript, 30 July 2026
 ```
@@ -1702,6 +1766,7 @@ Proceed. Budget headroom is adequate at current document sizes.
 # Relationships
 
 - Refines: [Include PDF annotations in the export](/reporting/include-pdf-annotations.md)
+- Constrained by: [Pagination contract](/reporting/pagination-contract.md)
 
 [^layout-sample]: Exported annotation layout sample
 ```
@@ -1723,6 +1788,9 @@ sources:
 ---
 
 # Transcript
+
+The original recording expires after 30 days. This transcript is retained because
+the request cites it and its content is suitable for this repository's visibility.
 
 [15:02] ...
 ```
@@ -1767,4 +1835,10 @@ generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 Reading the bundle back out, an ordinary OKF graph consumer discovers the
 Markdown links as untyped edges and the request's internal source as the
 provenance edge OKF §5.1 defines. Relationship labels remain readable body context;
-registry rows remain lookup data and create no Profile-only nodes or edges.
+registry rows remain lookup data and create no Profile-only nodes or edges. The
+not-yet-written pagination target remains an unresolved OKF edge and produces only
+the non-blocking Profile advisory §7.1 requires.
+
+The project-specific `Assessed by` label is defined once in
+`ways-of-working/relationship-labels.md`. It remains ordinary body context and
+produces the non-blocking extension advisory §7.2 requires.
