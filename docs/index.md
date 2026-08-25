@@ -4,6 +4,10 @@
 
 docs/GLOSSARY.md — Glossary (Current) — Canonical language for the Profile, automated validation, contextual review, review reports, and complete assessment. Topics: OKF, profile, conformance, validation, review.
 
+## Compatibility
+
+docs/compatibility/2026.2-okf-0.2.md — Compatibility Review (Integration Draft) — Rule-level evidence that Concepta Profile 2026.2 preserves pinned OKF 0.2; incomplete until the domain slices and publication gate finish. Topics: compatibility, OKF, release.
+
 ## ADRs
 
 docs/adr/0001-ack-behind-interpreter-seam.md — ADR (Superseded) — Earlier manifest-era schema interpreter and Profile finding-ID decision, superseded by ADR-0004. Topics: validation, findings, schema.
