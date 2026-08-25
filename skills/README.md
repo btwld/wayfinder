@@ -14,11 +14,7 @@ that read it by sibling path (ADR-0005).
 | [`assess-knowledge-bundle`](assess-knowledge-bundle/) | user-invoked | Deliberate whole-bundle assessment: `okfp validate` plus every contextual judgment rule, emitting the standard Profile Review Report. An entry point into the shared assessment reference, not a second copy of it. |
 
 There is no `migrate-knowledge-bundle` — migration stays a one-off task, not a resident
-skill ([ADR-0005](../docs/adr/0005-skill-family-and-plugin-distribution.md)). The
-engineering workflow skills — repo setup, domain modeling, spec, tickets,
-implementation — live in
-[concepta-engineering](https://github.com/conceptadev/concepta-engineering); they
-delegate every bundle write here.
+skill ([ADR-0005](../docs/adr/0005-skill-family-and-plugin-distribution.md)).
 
 ## Installing
 
@@ -40,8 +36,8 @@ kind-named tree is self-documenting: an agent can infer that a Decision goes in
 agent that skips this skill will invent a directory. Subject-based placement and the
 contextual prohibition on speculative structure only work if they are read.
 
-It is also the single source of truth for concept mechanics: every other skill —
-here and in concepta-engineering — delegates write mechanics to it. Where a skill
+It is also the single source of truth for concept mechanics: every other skill
+delegates write mechanics to it. Where a skill
 restates structure so it can stand alone — the boundary prose in
 `adopt-knowledge-bundle`'s `AGENTS.md` template, the tree in
 `references/structure-and-lifecycle.md` — the restatement must stay word-for-word
@@ -98,5 +94,5 @@ visibility. `author-knowledge-bundle` carries these authoring and
 Profile Review boundaries while downstream engineering skills continue to delegate
 the mechanics.
 
-When a profile rule changes, grep this tree **and the concepta-engineering
-repository** for the old rule before shipping the release.
+When a profile rule changes, grep this tree for the old rule before shipping
+the release.

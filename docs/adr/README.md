@@ -13,9 +13,8 @@ conceptadev/okf scrubbed them before its ADR set landed, so this is the only
 record of the mapping: 0005 → 0001, 0007 → 0002, 0008 → 0003.
 
 Format note: the lightweight header (Status / Date / Issues) is deliberate.
-The knowledge-bundle ADR template (`domain-modeling`'s `ADR-FORMAT.md`, in the
-concepta-engineering repository) governs `knowledge/architecture/` in project
-bundles, not this directory.
+These records govern this repository only; a project bundle's
+`knowledge/architecture/` follows its own ADR conventions.
 
 Vocabulary: these records use *module*, *interface*, *seam*, *adapter*, *depth*,
 *leverage*, and *locality* in the deep-module sense — a module is anything with

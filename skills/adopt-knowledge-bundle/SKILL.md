@@ -55,8 +55,8 @@ Agent instructions live in **`AGENTS.md`**, with `CLAUDE.md` importing it via a
 already exist — don't append duplicates, and don't overwrite user edits to
 surrounding sections. The `### Knowledge bundle` block belongs under an
 `## Agent skills` heading; create that heading if no other skill has, and leave
-its other sub-blocks (issue tracker, triage labels) alone — the
-`setup-repo` skill from the `concepta-engineering` plugin owns those.
+its other sub-blocks (issue tracker, triage labels) alone — they are another
+tool's concern, out of this skill's scope.
 
 ```markdown
 ### Knowledge bundle

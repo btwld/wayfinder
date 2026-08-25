@@ -38,10 +38,6 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 
-The engineering workflow skills and the shared ways of working live in
-[concepta-engineering](https://github.com/conceptadev/concepta-engineering);
-they consume this repository's skills for every bundle write (ADR-0005).
-
 `profile/okf-profile.md` is the canonical release-integration path; its version
 and publication status are declared at the top, never in the filename. During a
 release integration it may therefore contain an explicitly unpublished draft
@@ -79,8 +75,7 @@ It is prompt-driven, not a script: it explores what the repository already has, 
 it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` —
 the four the profile requires, plus `actors.md` because the seed templates use actor
 metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
-(Issue-tracker and triage-label setup belong to `setup-repo` in the
-[concepta-engineering](https://github.com/conceptadev/concepta-engineering) plugin.)
+Issue-tracker and triage-label setup are out of its scope.
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory
 names a *subject*, and generic setup has no corpus from which to judge one (profile
@@ -103,10 +98,6 @@ You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoke
 authoring mechanics are loaded before a bundle write and contextual rules are loaded for
 Profile Review. A subject-named tree is not self-inferrable, so an agent that skips the
 profile will confidently create `decisions/`.
-
-The engineering workflow around the bundle — domain modeling, spec, tickets,
-implementation — is the [concepta-engineering](https://github.com/conceptadev/concepta-engineering)
-skill set, which delegates every bundle write back here.
 
 ### 4. Validate the bundle
 

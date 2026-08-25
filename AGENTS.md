@@ -75,9 +75,8 @@ repository that has never seen it. Two consequences:
   produces conforming files that teach the wrong thing, and no validator catches it. When a
   profile rule changes, grep the skills for the old rule before shipping.
 - **Concept mechanics live in `author-knowledge-bundle` and nowhere else.** Every other
-  skill — here and in the concepta-engineering repository — delegates to it. Do not restate
-  bundle structure, frontmatter, or the type vocabulary in a second skill; shared rule text
-  lives once under its `references/`.
+  skill delegates to it. Do not restate bundle structure, frontmatter, or the type
+  vocabulary in a second skill; shared rule text lives once under its `references/`.
 
 Consumers install these as the `concepta-knowledge` plugin, or by copy or symlink into their
 own agent's skills directory. Assume someone is running a copy from an older commit.
@@ -93,9 +92,3 @@ own agent's skills directory. Assume someone is running a copy from an older com
   rather than assume.
 - This repository holds no client data and no project knowledge. Store nothing of a client's;
   read client data live and read-only via an MCP.
-
-## Ways of working
-
-The shared engineering process — intake, triage, spec, tickets, implement, review, done —
-is canonical in the [concepta-engineering](https://github.com/conceptadev/concepta-engineering)
-repository (`docs/ways-of-working.md` there), alongside the workflow skills that run it.
