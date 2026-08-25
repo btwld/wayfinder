@@ -1,3 +1,5 @@
-# Assets
+# Directories
 
-- [report v2.txt](report%2Cv2.txt)
+- [encoded](encoded/)
+- [stray](stray/)
+- [undecodable](undecodable/)

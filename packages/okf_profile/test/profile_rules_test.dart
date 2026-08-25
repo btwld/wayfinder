@@ -416,8 +416,15 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
+        // A well-formed escape decoding to a name the projection lacks.
         'error concepta-profile/index-semantic-projection '
-            'references/index.md',
+            'references/encoded/index.md',
+        // A stray `%` outside any valid escape sequence.
+        'error concepta-profile/index-semantic-projection '
+            'references/stray/index.md',
+        // `%FF`: valid hex, undecodable as UTF-8 — a finding, not a crash.
+        'error concepta-profile/index-semantic-projection '
+            'references/undecodable/index.md',
       ],
     );
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
