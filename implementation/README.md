@@ -32,11 +32,8 @@ appear to differ, the profile wins and this text is defective.
 
 ## Still owed
 
-- **The index generator itself.** §3 specifies it; `../tools/` does not contain it. Until it
+- **The index generator itself.** §3 specifies it, but no generator is shipped. Until one
   exists, indexes are hand-written and the validator catches the drift.
-- **The Profile 2026.2 validator.** Guide §4 is the contract; #20 completes the
-  new `okfp` gate and removes the deprecated Python verifier. The Python tool's
-  prose-only findings are legacy behavior, not a partial implementation of §4.2.
 
 ## What §5 does not carry
 

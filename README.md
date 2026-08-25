@@ -26,9 +26,8 @@ decisions, its open questions. Nothing here is ever a prerequisite for reading o
 must stay readable on its own when a client receives only their project repository, so the
 profile is referenced by version, never copied in.
 
-That is why this repository is consumed rather than vendored: install the skills once, add
-the `okfp` validation gate when #20 lands, and let each project repository carry only its own
-knowledge.
+That is why this repository is consumed rather than vendored: install the skills once, pin
+the `okfp` validation gate, and let each project repository carry only its own knowledge.
 
 ## What is in here
 
@@ -37,7 +36,6 @@ knowledge.
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skills — the profile skill plus the engineering skills that write into a bundle |
-| [`tools/`](tools/) | Deprecated pre-2026.2 verifier retained only until #20 |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`docs/ways-of-working.md`](docs/ways-of-working.md) | The shared engineering process, canonical here |
 
@@ -110,30 +108,27 @@ are loaded before a bundle write and contextual rules are loaded for Profile Rev
 subject-named tree is not self-inferrable, so an agent that skips the profile will confidently
 create `decisions/`.
 
-### 4. Legacy verification during validator replacement
+### 4. Validate the bundle
 
 ```bash
-python3 tools/verify_knowledge_bundle.py [--strict] [<repo-root>]
+dart run okf_profile:okfp validate knowledge
+# Machine-readable output:
+dart run okf_profile:okfp validate knowledge --output json
 ```
 
-This Python command is a deprecated 2026.1-era transition aid. It is not the
-Profile 2026.2 validator contract, cannot produce a complete 2026.2 automated
-result, and will be removed when `okfp validate <bundle>` assumes the CI gate in
-#20. New integrations MUST target the `okfp` contract in implementation guide
-§4.
+The command requires exactly one explicit bundle directory and inspects only that
+directory. It runs the independent OKF check and every deterministic rule selected
+by the bundle's Profile declaration. Exit `0` means those automated checks passed;
+advisories remain non-blocking. Exit `1` means OKF or deterministic Profile
+validation failed, and exit `2` reports usage, I/O, or an unsupported Profile
+release.
 
-The legacy verifier walks up for `knowledge/index.md` and keeps its historical
-two severities distinct:
-
-- An **OKF §11 violation** is a hard failure — the document cannot be interpreted, so it
-  cannot be accepted. Exits nonzero.
-- A **profile deviation** is an advisory finding — reported and attributed, never a reason to
-  reject a bundle that is valid OKF. Its legacy `--strict` option promotes historical
-  deviations, except the two advisories Profile 2026.2 explicitly keeps gate-neutral:
-  unresolved internal edges and nonstandard relationship labels.
-
-`--strict` is not part of `okfp` and MUST NOT be used to infer the Profile 2026.2
-automated gate.
+Automated success is not complete Profile conformance. The output keeps Judgment
+Rules explicitly `UNASSESSED`; contextual rules such as subject placement,
+metadata truth, and source or relationship meaning require the Profile Review in
+the canonical `okf-profile` skill. One `okfp validate <bundle>` invocation is the
+single supported automated CI gate. A separate upstream `okf validate` invocation
+is optional when focused OKF diagnostics are useful.
 
 ## Examples
 
@@ -191,10 +186,7 @@ the bundle, or someone acting on the bundle?
 
 ## Still owed
 
-Two pieces are specified and unimplemented:
-
 - **The index generator** (guide §3). The profile defines deterministic semantic
   membership, grouping, ordering, labels, links, and descriptions. Until a
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
-- **Stable finding IDs** (guide §4.2).

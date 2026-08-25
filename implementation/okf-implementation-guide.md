@@ -529,6 +529,4 @@ spec" inverted the precedence it was trying to state, and the two filenames diff
 suffix. The rename is editorial and carries no rule change; §1 states why "guide" does not
 mean advisory.
 
-Known gaps, stated rather than hidden: the index generator described in §3 is specified but
-not yet written, and §4.2's finding IDs are specified but not yet carried by
-`tools/verify_knowledge_bundle.py`.
+Current known gap: the index generator described in §3 is specified but not yet implemented.
