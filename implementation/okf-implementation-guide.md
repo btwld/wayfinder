@@ -58,11 +58,13 @@ order:
 2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
    `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
    `okf_version` (profile §11).
-3. **Seed `types.md` with the types actually used.** Add a row before first use of a new type,
-   never after.
-4. **Apply the actor condition.** If any seeded concept records `generated.by` or
-   another OKF actor-valued field, seed `actors.md` with every used actor. If no
-   actor-valued field is present, omit it or seed it voluntarily.
+3. **Seed the type registry.** Use the Profile skill's canonical `SEEDING.md`
+   template so the adopted bundle satisfies Profile §5.2 before project concepts
+   are added.
+4. **Apply the actor condition.** Evaluate the seeded concepts under Profile
+   §6.1.1 and use the canonical `SEEDING.md` actor template when that rule requires
+   the registry. The literal seed currently uses an actor-valued field, so following
+   it includes `actors.md`.
 5. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the equivalent)
    MUST say that durable documentation lives in the bundle, that the reader starts at
    `knowledge/index.md`, and that execution records stay in the tracker. Without it an
@@ -198,10 +200,16 @@ The profile forbids reporting a missing `verified` event (§14.1) and requires t
 reading (§14.2). Concretely, a conforming validator MUST NOT report, at any severity:
 
 - a concept with no `verified` event, or any derived trust tier;
-- an unrecognized `type`, relationship label, or frontmatter key, as anything other than
-  the registry advisories the profile names;
+- an unrecognized `type` or relationship label as anything other than the
+  producer-side registry advisories the Profile names;
 - an external URL that does not resolve;
 - a concept using an OKF 0.2 mechanism the profile is silent about.
+
+The producer-defined-frontmatter prohibition is different: the validator MUST
+report a Profile failure when a Profiled Bundle contains a key that OKF 0.2 does
+not define, while preserving the unknown key and leaving the independent OKF
+result unchanged. Tolerant reading governs consumption; the Profile rule governs
+what Concepta producers write.
 
 The first is the load-bearing one. The only way an author can clear a "missing
 verification" report is to record a verification that did not happen, which converts a
@@ -215,6 +223,21 @@ The conditional registry and complete actor-row requirements in profile §6.1.1
 are Deterministic Rules. Reporting their absence as a Profile failure does not
 reject the concept as invalid OKF, alter its actor string, or change its derived
 trust tier.
+
+Validation MUST keep syntax separate from contextual truth. It checks required
+metadata presence and shape, canonical type rows and ordering, used-type
+registration, actor side membership and non-overlapping period syntax,
+source structure, unique source IDs, recognized attribution joins, and literal
+tag duplication. A footnote is source attribution only when its label matches a
+declared source ID; ordinary Markdown footnotes are not findings. It MAY expose
+organizational affiliation; when it does, it MUST resolve the applicable registry
+row through Profile §6.1.1. Unresolved or ambiguous affiliation remains `unknown`
+and MUST NOT produce a finding. Validation MUST leave durable-capture boundaries,
+type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
+metadata truth, actor identity and affiliation, missing material provenance,
+evidence for freshness, and semantic tag aliases to Profile Review. A registered
+project-specific type and missing `generated` produce advisories; missing
+`verified` produces no finding.
 
 ### 4.4 Version dispatch
 
@@ -292,21 +315,23 @@ sorted by what they are will always look like it wants folders named after what 
 Migration is where the promotion rule (profile §4.2) does its heaviest work, because the
 source tree's granularity is an artifact of how it was written, not of what has a lifecycle.
 
-The test is unchanged: an outcome earns a concept when it needs independent status,
-provenance, relationships, reuse, replacement, or history.
+The recommendation is unchanged: an outcome normally earns a concept when it needs
+independent status, provenance, relationships, reuse, replacement, or history.
+Migration applies that guidance contextually and may retain a legitimate reviewed
+exception.
 
 *Worked example.* A software requirements specification carrying 149 atomic requirements
 across 17 capability areas. One concept per requirement gives each its own `sources`,
 `verified`, and derived trust tier — the highest fidelity available — and is wrong: 149
 concepts swamp the areas they sit in, and an atomic requirement has no lifecycle apart from
-the capability area and the rule it formalizes. One concept per *capability area*, with
-requirements in the body and their IDs preserved verbatim, is the granularity the rule
-selects. Mixed provenance inside the concept is then handled by footnotes keyed to
+the capability area and the rule it formalizes. In this corpus, Profile Review recommends
+one concept per *capability area*, with requirements in the body and their IDs preserved
+verbatim. Mixed provenance inside the concept is then handled by footnotes keyed to
 `sources[].id` (profile §6.1), and the split test that would override this — materially
 different *verification* across parts of one concept (profile §4.2.1) — does not apply,
 because a capability area is signed off as a unit or not at all.
 
-The same reasoning goes the other way for standing rules: one rule per concept, because each
+The same reasoning normally goes the other way for standing rules: one rule per concept, because each
 carries its own provenance and its own trust tier, and averaging them would let a
 well-evidenced rule lend its confidence to a thin one.
 
@@ -331,16 +356,37 @@ wrong subject; only a person reading the area index does.
 
 Three migration invariants are not project-specific and every migration MUST carry them:
 
-1. **Never promote evidence.** Reformatting is not confirmation. A migrated assertion gets
-   no `verified` entry — adding one as a formality silently converts an internal reading
-   into a client sign-off, and it is unrecoverable, because nothing in the record
-   distinguishes a genuine confirmation from a clerical one.
+1. **Never promote evidence.** Reformatting is not confirmation. Preserve every
+   truthful existing `verified` event, but add a new one only when an actor genuinely
+   confirms the content against its sources or `resource`. Adding one as a migration
+   formality silently converts an internal reading into apparent sign-off, and nothing
+   in the record distinguishes genuine confirmation from a clerical event.
 2. **IDs survive verbatim.** Any identifier the outside world cites is already frozen
    (profile §8.1, §8.2). Never renumber during a migration; a migration is exactly when it
    is most tempting and most damaging.
 3. **Supersession is preserved, not deleted.** Superseded material migrates as `deprecated`
    concepts with `Superseded by` links, so the history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
+
+For a 2026.2 migration, the implementation MUST inventory missing baseline
+metadata, used and standard types, producer-defined fields, actor history, tags,
+and materially derived claims before editing. Mechanical normalization may add
+canonical type rows and reshape supported syntax; it MUST NOT guess a title,
+description, lifecycle state, generation actor, verification event, affiliation,
+freshness horizon, or source. Those truth-bearing gaps require Profile Review and
+remain visible until evidence supplies the value.
+
+For each producer-defined field, migration MUST adjudicate the value before
+removing the key. It moves the information to an applicable OKF-defined field or
+to body prose, preserving unknown provenance and meaning; when no truthful mapping
+is known, the gap stays visible for Profile Review rather than being deleted.
+
+The migration MUST also review existing meeting notes, source-event documents, and
+Interaction Records against the durable-capture boundary. It retires or reshapes
+routine minutes that have no durable combined context. For other outcome boundaries,
+the migration SHOULD apply the Profile's promotion and splitting recommendations;
+legitimate reviewed exceptions may remain embedded or combined. A filename or type
+cannot make that decision mechanically.
 
 A project MAY add invariants — a sanitization boundary excluding credentials, prices, or
 raw transcripts is common — and SHOULD record them where the migration is executed, not in
@@ -420,11 +466,19 @@ count-based clustering. The driver was real generator work that could not
 reproduce index-only knowledge and real bundles that churned paths at arbitrary
 concept counts without making subject placement more truthful.
 
+The concept, trust, and durable-capture slice assigns syntactic metadata, type,
+source, tag, and actor checks to validation while leaving semantic truth to Profile
+Review (§4.3), seeds the complete standard type vocabulary (§2.1), and makes
+migration preserve unknown provenance while reviewing event-derived concepts
+(§5.5). The driver was real authoring and migration work that fabricated
+verification and affiliation to clear mechanical expectations, while sparse type
+seeding and metadata left agents without a reliable vocabulary or index input.
+
 An implementation conformant to guide 2026.1 does not automatically conform to
 this draft. To migrate after Profile 2026.2 is published, it MUST adopt the
 explicit command, result, exit, and unsupported-release contract in §4 and the
 structural obligations in §§2–3 and the remaining domain-specific obligations
-added by issues #24 and #25. Until then, the
+added by issue #25. Until then, the
 2026.1 implementation remains the supported surface.
 
 **2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index

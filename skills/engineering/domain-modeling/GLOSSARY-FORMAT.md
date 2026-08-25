@@ -6,15 +6,10 @@ The bundle holds the project's ubiquitous language as one Glossary Definition co
 
 `knowledge/<area>/<term>.md`:
 
-```markdown
----
-type: Glossary Definition
-title: Invoice
-description: A request for payment sent to a customer after delivery.
-status: stable
-generated: { by: human:chris, at: 2026-07-30T14:00:00Z }
----
+Create it as `type: Glossary Definition`, using the `okf-profile` skill for all
+frontmatter and lifecycle mechanics. Its body starts compactly:
 
+```markdown
 # Definition
 
 A request for payment sent to a customer after delivery.
@@ -25,7 +20,7 @@ A request for payment sent to a customer after delivery.
 - Payment request
 ```
 
-Add a `# Relationships` section (per the `okf-profile` skill) when a term relates to or supersedes another.
+Follow the `okf-profile` skill when the term needs relationships.
 
 ## Rules
 

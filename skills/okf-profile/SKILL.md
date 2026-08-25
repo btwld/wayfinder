@@ -23,7 +23,7 @@ knowledge/
   index.md          ← root index: okf_version frontmatter, one entry per root concept, area, and references/
   log.md            ← root log: dated lifecycle entries, newest first
   profile.md        ← Knowledge Profile concept declaring the profile and OKF versions
-  types.md          ← Type Registry concept: every type this bundle uses, one line each
+  types.md          ← Type Registry concept: all standards plus registered extensions
   actors.md         ← Actor Registry when any OKF actor-valued field is used
   <concept>.md      ← a root concept
   <area>/           ← a subject directory: mixed types, its own index.md, may nest
@@ -58,28 +58,28 @@ Creating a bundle from nothing: [SEEDING.md](./SEEDING.md) holds the root files.
 
 ## What earns a concept
 
-A source event is only a source. A daily, planning session, demo, call, message, or transcript **never** becomes a concept merely because it happened. A concept is earned when the event produced durable knowledge: a meaningful request, a decision, an investigation and its findings, an architectural constraint, a term, a standing rule, a named unknown, or reusable guidance. An event that produced none of those leaves nothing behind, and that is a correct outcome rather than a gap — the bar is what keeps the bundle from degenerating into a meeting archive.
+A source event is an activity: a daily, planning session, demo, call, or conversation. It **never** becomes a concept merely because it happened. An artifact the event produced, such as a transcript, may be mirrored as an ordinary source concept when the mirroring rule applies. An interpreted concept is earned when the event produced durable knowledge: a meaningful request, decision, investigation and findings, architectural constraint, term, standing rule, named unknown, or reusable guidance. An event that produced none leaves no interpreted outcome behind, and that is correct rather than a gap — the bar keeps the bundle from degenerating into routine minutes.
 
 Requests are ordinarily first-class: a request outlives the conversation that expressed it and can later be analyzed, specified, implemented, rejected, or superseded, which is a lifecycle of its own.
 
-**Promotion is decided by identity, not importance.** Given an outcome — a decision, an answer, an unknown — ask whether it has a lifecycle outside the concept where it arose:
+**Promotion is decided by identity, not importance.** The Profile recommends promotion when an outcome needs independent status, provenance, relationships, reuse, replacement, or history; genuine boundary cases may stay embedded. Given an outcome — a decision, an answer, an unknown — ask whether it has a lifecycle outside the concept where it arose:
 
-- **Keep it embedded** when it has no meaningful identity of its own. A small outcome that will never be referenced, verified, or superseded on its own stays where it arose, as a heading in that concept's body.
-- **Promote it to its own concept** when it needs independent status, provenance, relationships, reuse, replacement, or history.
+- **Normally keep it embedded** when it has no meaningful identity of its own. A small outcome that will never be referenced, verified, or superseded on its own can stay where it arose, as a heading in that concept's body.
+- **Prefer its own concept** when it needs independent status, provenance, relationships, reuse, replacement, or history.
 
-An ambiguous outcome starts embedded, because un-promoting it is free until something outside the bundle cites its path. The same test decides a `Question`: a named unknown with an evidence trail, several dependents, or an ID cited outside the bundle is a concept; a single unknown belonging to one concept, with nothing recorded but the gap itself, is a heading in that concept's body.
+An ambiguous outcome should normally start embedded, because un-promoting it is free until something outside the bundle cites its path. The same test decides a `Question`: a named unknown with an evidence trail, several dependents, or an ID cited outside the bundle is normally a concept; a single unknown belonging to one concept, with nothing recorded but the gap itself, can remain a heading in that concept's body.
 
 An **Interaction Record** is the narrower case of the same rule: write one only when an interaction's *combined* context is itself durable — several linked outcomes, a negotiation, a demo whose overall shape matters. When one outcome mattered, that outcome links straight to its external source and no record is written. Never produce one as routine minutes.
 
 ## Types
 
-`type` is the only place kind is carried — not the directory, not the filename, not a tag. Every type a bundle uses is listed in `knowledge/types.md` with a one-line meaning. The default vocabulary:
+`type` is the only place kind is carried — not the directory, not the filename, not a tag. `knowledge/types.md` always retains all fourteen standard rows below, in this order and with these meanings, including unused standards. Every additional used type is registered after them in case-sensitive lexical order.
 
 | Type | Intended content |
 | --- | --- |
 | `Glossary Definition` | One project or domain term |
 | `Business Rule` | One standing business rule, constraint, invariant, or policy |
-| `Question` | One named unknown: what is known, what is missing, what would close it |
+| `Question` | One named unknown, with what is known, what is missing, and what would close it |
 | `Request` | A durable request from any relevant source |
 | `Analysis` | An investigation, feasibility study, comparison, or recommendation |
 | `Decision` | A durable non-architectural decision with an independent lifecycle |
@@ -88,19 +88,36 @@ An **Interaction Record** is the narrower case of the same rule: write one only 
 | `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
 | `Guide` | Durable operational or engineering guidance |
 | `Interaction Record` | An interaction whose combined context is itself durable |
-| `Knowledge Profile` · `Type Registry` · `Actor Registry` | The three defined root concepts |
+| `Knowledge Profile` | The Concepta Profile and OKF release declaration |
+| `Type Registry` | The standard and project-specific types available to the bundle |
+| `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
 
-Add a project-specific type only when the defaults genuinely don't fit, and register it in `types.md` when you do. When reading, tolerate unknown types, fields, and relationship labels — valid OKF you don't recognize is content to preserve, not an error, and the registry is never grounds for rejecting a concept.
+Project-specific types are allowed and must be registered before use. A registered extension receives a non-blocking advisory so repeated needs can inform a later Profile release; it is not prohibited because a reviewer might prefer a standard type. Choosing whether a standard or project-specific type and its registered meaning truthfully fit the concept is a mandatory Profile Review judgment, never something inferred mechanically from headings, paths, or keywords. When reading, tolerate unknown types, fields, and relationship labels — valid OKF you don't recognize is content to preserve, not an OKF error, and the registry is never grounds for rejecting a concept.
 
 - **`Business Rule` is formalism-neutral.** One standing rule per concept. Structure them with SBVR or any other notation the domain suits; the type commits to one-rule-per-concept, not to a notation.
 - **`Architecture Decision Record` versus `Decision`:** use the ADR type when the decision shapes the software's structure and an engineer deciding how to build would read it; `Decision` for every other durable decision — process, commercial, scope, governance. When both fit, prefer `Decision`.
 - **A `Business Rule` is not a `Decision`.** A rule describes how the business already works; a decision records a choice with alternatives.
 - **A `Question` carries no state in its type or its path.** Whether it is still open is read from inbound relationships: `Resolves` means closed, `Partially resolves` means narrowed, neither means open. A resolved question stays `stable` — how understanding arrived at an answer is knowledge in its own right.
-- **Splitting a concept:** split when parts would carry materially different provenance, verification, or lifecycle — frontmatter applies to the whole concept, and averaging trust across it is lossy. Mixed *provenance* is fine (footnotes handle it); mixed *verification* is the signal to split. Size alone is not.
+- **Splitting a concept:** the Profile recommends splitting when parts would carry materially different verification or lifecycle — frontmatter applies to the whole concept, and averaging trust across it is lossy. Mixed *provenance* is fine because footnotes handle it; mixed *verification* is the signal to consider a split. Size alone is not.
+
+Use only the headings that help the concept. Useful compact starting shapes are:
+
+| Type | Starting headings |
+| --- | --- |
+| Request | Request, Context, Constraints |
+| Decision / Architecture Decision Record | Context, Decision, Consequences |
+| Analysis | Question, Findings, Recommendation |
+| Glossary Definition | Definition, Avoid |
+| Business Rule | Rule, Rationale, Consequences |
+| Question | Question, What is known, Still missing, What would close it |
+
+These are authoring prompts, not conformance rules. Bodies remain free-form; omit,
+rename, or add headings as the knowledge requires. Add `# Relationships` only when
+the concept has labelled links.
 
 ## Baseline frontmatter
 
-Every concept carries:
+Every concept carries truthful, nonempty discovery and lifecycle metadata:
 
 ```yaml
 ---
@@ -108,37 +125,37 @@ type: <Concept type, e.g. Glossary Definition>
 title: <Display name>
 description: <One sentence; copied verbatim into the area index>
 status: draft | stable | deprecated
-generated: { by: <actor>, at: <ISO 8601 datetime> }
 ---
 ```
 
+- Add `generated: { by: <actor>, at: <ISO 8601 datetime> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory.
 - **Actor convention**: `<producer>/<version>` for agents (e.g. `claude-code/fable-5`), `human:<id>` for people, `process:<id>` for automation.
 - **Status** is knowledge lifecycle only — `draft`, `stable`, `deprecated`. Workflow states (accepted, blocked, in progress, done) belong to the issue tracker.
 - Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
-- **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `generated`/`verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.
-- Only OKF-defined fields, ever — the profile adds no custom frontmatter.
+- **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.
+- Concepta producers write only OKF-defined fields. Readers still preserve unknown fields and keep the concept loadable, because the producer restriction does not change OKF's tolerant-reader contract.
 
 ## Provenance and trust
 
-The profile defines nothing here — OKF §5 does, and these signals are what make a concept's credibility judgeable. Use them; never invent a maturity, confidence, or credibility field.
+OKF §5 defines these fields and their meanings. When a claim materially derives from identifiable source material, record that material with `sources`; original analysis, guidance, and decisions do not invent sources just to satisfy the rule. Profile Review judges whether material provenance is missing, while tools check only present source structure and footnote joins. Never invent a maturity, confidence, or credibility field.
 
 ```yaml
 sources:
   - id: demo-0730                                        # needed when the body cites this source
     resource: /references/2026-07-30-demo-transcript.md  # REQUIRED: URL, bundle path, or scope descriptor
     title: Reporting demo transcript, 30 July 2026
-    author: human:chris                                  # who produced the source — an authority signal
+    author: process:meeting-transcription                # who produced the source — an authority signal
     last_modified: 2026-07-30                            # recency of the source itself
 verified:
   - { by: human:chris, at: 2026-07-31T09:00:00Z }
   - { by: process:finance-nightly, at: 2026-08-01T02:00:00Z }
 ```
 
-- **`generated` vs `verified`**: `generated` records who *wrote* the current content; `verified` records who *confirmed* it against its sources. A concept whose content **asserts confirmed fact** should carry at least one `verified` event. The trigger is the content, never the `status` — a reviewed, `stable` concept that deliberately records an assumption is correctly unverified.
+- **`generated` vs `verified`**: `generated` records who *wrote* the current content; `verified` records who *confirmed* it against its sources or `resource`. Write a verification event only when that confirmation genuinely occurred, never because content sounds factual, was reviewed editorially, migrated, or needs to pass a check.
 - **`verified` is a list** of independent confirmation events, so a human sign-off and a nightly process can both appear. A bare `{ by, at }` mapping is a one-element list. "How recently" is the latest `at`.
 - **Trust tiers are derived, not stored** (OKF §5.3): no `verified` ⇒ *unverified*; non-`human:` actors only ⇒ *machine-confirmed*; any `human:<id>` ⇒ *human-reviewed*. So "this is not signed off by X" is expressed by the **absence** of a `verified` entry from X — write one only when someone genuinely confirmed the content, never as a migration formality.
 - **Absence of `verified` is a signal, not a defect.** A concept deliberately recording unconfirmed material is *correctly* unverified. Never add a verification event to satisfy a convention, a checklist, or a linter; tooling must not report missing verification as a finding.
-- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, which maps every actor ID to its organization, side (`client` / `internal` / `vendor` / `tool` / `unknown`), role, and active range. A third-party authoring agent is `tool`; a process the project itself runs is `internal`, because its output is the project's own assertion. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite of every field citing it when affiliation changes. Never guess an affiliation: an actor missing from the registry reads as unknown and the concept remains valid OKF, but the Profile registry requirement fails until the truthful row is added.
+- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, whose `Side` is exactly `client`, `internal`, `vendor`, `tool`, or `unknown`. Never guess an affiliation: use `unknown`. `Active` is `YYYY-MM-DD – YYYY-MM-DD` (start inclusive, end exclusive), `YYYY-MM-DD –`, or `unknown`; repeated rows for one ID must not overlap. Resolve `generated` and `verified` at their event timestamps, and a source author at `last_modified` when available; otherwise affiliation stays unknown. A third-party authoring agent is `tool`; a process the project itself runs is `internal`. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite when it changes. Registry lookup never changes the actor string, its OKF prefix, or its derived trust tier.
 - **Credibility is inferred, never scored.** OKF records objective per-source signals — `author`, `last_modified`, and `usage_count` over a `usage_window` — and leaves the judgment to the consumer, because a stored score is subjective, unportable, and goes stale. Adding a confidence, maturity, or evidence-tier field is the one thing OKF deliberately refuses.
 - **Per-claim attribution** uses a markdown footnote whose label is a `sources[].id`, so one concept can carry claims of differing provenance:
 
@@ -149,6 +166,7 @@ verified:
   ```
 
 - **How settled the *subject* is belongs in the body, not in frontmatter and not in `status`.** `status` describes the document — OKF's `draft` means "not yet reviewed". State the assessment beside the reasoning that justifies it, with pointers to what would settle it; define the vocabulary once in a `ways-of-working/` concept. It is **not derivable from links**: `Constrained by` may target a fully settled constraint, broken links are valid, and absence of links is silence rather than evidence. A concept can be first-party, verified, and still describe an unsettled subject.
+- **Freshness needs evidence.** Add `stale_after` only when the content has a real horizon supported by evidence, never as a default for a type or as a conformance placeholder.
 
 ## IDs and lifecycle
 

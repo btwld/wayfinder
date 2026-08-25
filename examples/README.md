@@ -23,8 +23,8 @@ knowledge/
   index.md                            # Root index, carries okf_version
   log.md                              # Knowledge lifecycle events only
   profile.md                          # Profile and OKF versions
-  types.md                            # Every type in use, including the one added
-  actors.md                           # Three actors: a person, an agent, a process
+  types.md                            # All standards plus one registered extension
+  actors.md                           # Actors with dated history and unknown affiliation
   reporting/
     index.md                          # Generated semantic navigation
     include-pdf-annotations.md        # Request
@@ -37,23 +37,30 @@ knowledge/
 
 What to look for:
 
-- **A source event is not a concept.** The demo happened; it left behind a request and an
-  analysis, and no record of itself. No Interaction Record was written, because only one
-  outcome mattered — so the request links straight to its source (§4.3).
+- **A source event is not a concept.** The demo produced a request, and an analysis
+  followed, but there is no interpreted record of the event itself. No Interaction Record was
+  written, because its combined context was not independently durable — the request
+  links straight to the mirrored source artifact (§4.3).
 - **Execution stays external.** The request carries `Specified by` toward a GitHub issue. The
   issue's state is never copied into the bundle (§7.3).
 - **Provenance is per-claim.** The request's one substantive sentence carries a footnote keyed
   to a `sources[].id`, so the claim points at the transcript rather than the concept vaguely
   citing it (§6.1).
-- **A mirror is not knowledge.** The transcript *preserves* an interaction; a concept
-  *interprets* one. It is mirrored only because the recording expires — pull-based, never
-  because a meeting occurred (§12).
+- **A mirror is a source concept, not an interpreted outcome.** The transcript
+  preserves an artifact from the interaction; an Interaction Record would interpret
+  its combined context. It is mirrored only because a durable concept cites it and
+  the recording expires — pull-based, never merely because a meeting occurred (§12).
 - **Assets stay assets.** The layout sample is referenced through `sources`, has no
   concept frontmatter, and appears under the `Assets` index group with a path-derived
   label and no invented description (§9, §12).
-- **`types.md` catches invention.** `Meeting Transcript` is not in the default vocabulary, so
+- **`types.md` catches invention.** `Meeting Transcript` is not in the standard vocabulary, so
   it needed a row. That is the mechanism that stops a typo'd type from passing as a new kind of
-  thing (§5.2).
+  thing. All fourteen standard rows remain seeded even when unused, so authors see the
+  canonical choices before inventing an extension (§5.2).
+- **Affiliation is time-aware and never trust.** The transcription process has
+  non-overlapping internal and vendor periods, while an undated source author stays
+  explicitly `unknown`. The July generation event resolves to the internal row; none
+  of this changes the OKF actor strings or their prefix-derived trust tiers (§6.1.1).
 - **Absence of `verified` is a signal, not a defect.** Five of the six concepts are unverified
   and the verifier reports it as information, never as a finding — the only way to clear such a
   report would be to record a verification that did not happen (§6.2, §14.1).

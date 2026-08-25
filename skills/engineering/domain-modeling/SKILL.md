@@ -47,8 +47,11 @@ Glossary concepts stay devoid of implementation details. A definition is not a s
 
 ### Promote decisions by identity
 
-A decision earns its own concept only by identity — when it needs independent status, provenance, relationships, or history. Route it:
+Follow the `okf-profile` skill's recommendation to decide whether an outcome is
+promoted or remains embedded. When a decision is promoted, route it by subject and
+kind:
 
-- **`Architecture Decision Record`** when all three hold: **hard to reverse**, **surprising without context**, **the result of a real trade-off**. If any is missing, it's not an ADR. It goes in `knowledge/architecture/`, whose subject is the system. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
-- **`Decision`** for a durable non-architectural decision with an independent lifecycle — it will be referenced, verified, deprecated, or superseded on its own. Same concept mechanics; it goes in the area of whatever the decision is *about*, which is rarely the same place as the last one.
-- **Embedded** everywhere else: record the outcome inside the concept where it arose. A small outcome doesn't get its own file.
+- Follow `okf-profile` for the mandatory contextual choice between the standard
+  `Architecture Decision Record` and `Decision` meanings and for subject placement.
+- When it selects `Architecture Decision Record`, use the body guidance in
+  [ADR-FORMAT.md](./ADR-FORMAT.md).

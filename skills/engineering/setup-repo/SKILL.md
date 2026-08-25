@@ -56,15 +56,15 @@ If it is installed, ask exactly one question:
 
 The defaults are two axes — **audience** (`afk`, `hitl`) and **state** (`needs-triage`, `ready`) — each label string equal to its name. On **yes**, write them as-is. Only if the user says no — usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`) — collect the overrides so `triage` applies existing labels instead of creating duplicates.
 
-**Section C — Knowledge bundle.** The Concepta OKF Profile fixes the structural model, so there's nothing to ask — just state it. Durable project knowledge lives as OKF concepts under `knowledge/`: a root `index.md` and `log.md`, a `profile.md` declaring the profile and OKF versions, a `types.md` listing every concept type the bundle uses, an `actors.md` whenever OKF actor-valued fields are used, and subject directories that appear as knowledge accumulates. The profile names four optional lazy directories — `architecture/`, `ways-of-working/`, `interactions/`, `references/` — and leaves every other name to the project.
+**Section C — Knowledge bundle.** The Concepta OKF Profile fixes this configuration,
+so there is nothing to ask. Report the versions declared in
+`knowledge/profile.md` when the bundle already exists. Otherwise follow the
+`okf-profile` skill's canonical [SEEDING.md](../../okf-profile/SEEDING.md) exactly;
+it owns the root-file contents and the conditions they implement.
 
-Report the versions declared in `knowledge/profile.md` when the bundle is already there. Otherwise seed its five root files per the `okf-profile` skill ([SEEDING.md](../../okf-profile/SEEDING.md)).
-
-**Create no directories here.** Under the profile a directory names a *subject*,
-and generic setup has no corpus from which to judge one. A genuine subject area
-may later be any size; the knowledge-writing skills make that contextual placement
-decision. A repo whose `knowledge/` is only its root files is correctly set up,
-not half-finished.
+**Create no directories here.** Canonical seeding creates only the bundle root;
+the `okf-profile` skill decides later structure from the project's actual
+knowledge.
 
 ### 3. Confirm and edit
 
@@ -111,13 +111,6 @@ The blocks for `AGENTS.md`:
 Durable project knowledge is an OKF bundle at `knowledge/`, following the
 Concepta OKF Profile (versions declared in `knowledge/profile.md`). Start at
 `knowledge/index.md`, then the area index, then the concept.
-
-Directories name subjects, not kinds of document: a term, the decisions about
-it, and the rules deriving it sit together, and `type` carries what each one
-is. `knowledge/types.md` lists the types in use and `knowledge/actors.md` maps
-actor IDs to organization, side, and role. System-wide architecture and ADRs go
-in `knowledge/architecture/`; how the team works goes in
-`knowledge/ways-of-working/`.
 
 Follow the `okf-profile` skill before writing anything under
 `knowledge/` — including before creating a directory there.

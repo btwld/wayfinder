@@ -7,7 +7,7 @@ generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
 sources:
   - resource: https://example-meetings.test/recordings/8412
     title: Reporting demo recording (retention: 30 days)
-    last_modified: 2026-07-30
+    author: process:meeting-platform
 ---
 
 # Transcript
