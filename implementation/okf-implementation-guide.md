@@ -263,9 +263,9 @@ release. It MUST read the first fenced `yaml` block in the body as the Profile
 declaration and MUST NOT infer release values from another block or from
 frontmatter.
 
-- An **unrecognized version format** is not an error. The value is opaque; a validator that
-  parsed it as semver would have broken on the 2026.1 release, which is exactly the reason
-  the format changed.
+- An **unrecognized version format** is not an error. The value is opaque: the
+  `<year>.<serial>` scheme is not semver, and a validator MUST NOT parse the value
+  under any format assumption.
 - The first validator MUST implement only Profile 2026.2. Any other declared
   value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
   `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
@@ -482,49 +482,13 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 
 ## 9. Change record
 
-**2026.2.** Establishes the closed validation
-result model, release dispatch, and separate compatibility and coverage evidence
-for the Profile 2026.2 integration. The driver was implementation work that
-could not distinguish an independent OKF result, a deterministic Profile result,
-and contextual judgment while the earlier guide treated all Profile findings as
-advisories and allowed callers to promote them through `--strict`.
+**2026.2.** First release. Binds Profile 2026.2. Establishes adoption (§2), the
+index generator contract (§3), the validation process contract (§4) with its
+closed result model and release dispatch, the migration method (§5), and
+distribution (§6). Cross-bundle references (§7) remain deferred, as the profile
+leaves them.
 
-The structure slice also replaces preservation of authored index ordering and
-directory descriptions with semantic generation and comparison, keeps authored
-history outside generation, makes actor-registry seeding conditional, and removes
-count-based clustering. The driver was real generator work that could not
-reproduce index-only knowledge and real bundles that churned paths at arbitrary
-concept counts without making subject placement more truthful.
-
-The concept, trust, and durable-capture slice assigns syntactic metadata, type,
-source, tag, and actor checks to validation while leaving semantic truth to Profile
-Review (§4.3), seeds the complete standard type vocabulary (§2.1), and makes
-migration preserve unknown provenance while reviewing event-derived concepts
-(§5.5). The driver was real authoring and migration work that fabricated
-verification and affiliation to clear mechanical expectations, while sparse type
-seeding and metadata left agents without a reliable vocabulary or index input.
-
-The external-boundary slice assigns relationship shape plus unresolved-link,
-non-bundle-relative-link, and label advisories to deterministic validation while
-leaving semantic relationships, lifecycle ownership, path identity, move
-repairability, deletion, and media and mirroring judgments to Profile Review. The
-driver was real authoring work that duplicated tracker state, froze repairable paths,
-enriched ordinary OKF edges, and either mirrored confidential heavy sources
-indiscriminately or weakened their OKF provenance when leaving them external.
-
-An implementation conformant to guide 2026.1 does not automatically conform to
-this release. To migrate, it MUST adopt the
-explicit command, result, exit, and unsupported-release contract in §4 and the
-structural obligations in §§2–3 and the external-boundary validation and migration
-obligations in §§4–5.
-
-**2026.1** — first release. Binds profile 2026.1. Establishes adoption (§2), the index
-generator contract (§3), the validation process contract (§4), and the migration method
-(§5), each of which existed only as project-local practice or as an unwritten obligation
-beforehand. Cross-bundle references (§7) remain deferred, as the profile leaves them.
-
-Titled *Implementation Guide* rather than *Implementation Specification*, and filed under
-`implementation/`. The profile is also a specification, so a subordinate document called "the
-spec" inverted the precedence it was trying to state, and the two filenames differed by one
-suffix. The rename is editorial and carries no rule change; §1 states why "guide" does not
-mean advisory.
+Titled *Implementation Guide* and filed under `implementation/`: the profile is
+itself a specification, so a subordinate document called "the spec" would invert
+the precedence it is trying to state. §1 states why "guide" does not mean
+advisory.

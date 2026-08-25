@@ -23,7 +23,7 @@ The Profile remains the source of every rule and its normative force.
 
 The publication review normalized repeated statements of the same semantic rule
 to one row and retained distinct deterministic and contextual obligations as
-separate rules. The tables below contain 69 bundle-rule assignments and 26
+separate rules. The tables below contain 69 bundle-rule assignments and 11
 non-bundle frame assignments. Every bundle row names exactly one assessment mode;
 none is duplicated between Automated Profile Validation and Profile Review.
 
@@ -133,21 +133,6 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.1: do not publish while compatibility or coverage evidence is incomplete | Release integration | #19 completeness review of both artifacts |
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |
 | §15.2: precedence and migration impact remain explicit for every release | Release integration | Profile binding and §15.3 migration text |
-| §15.3: a 2026.1 bundle remains assessed as 2026.1 and completes every published 2026.2 migration action before changing only `concepta_profile` while retaining OKF 0.2 | Migration implementation | Whole-bundle migration review completes before the declaration is changed last, and both release values match the published binding |
-| §15.3 structure: regenerate every index to §9 semantics and remove index-only descriptions and authored ordering | Migration implementation | Whole-tree semantic index comparison after regeneration |
-| §15.3 structure: normalize the root log lead-word shape without treating history as generated state | Migration implementation | Log syntax passes while authored event content is preserved |
-| §15.3 structure: add the conditional actor registry when actor-valued fields are used; an unnecessary existing registry may remain | Migration implementation | Actor-field inventory controls presence without deleting a conforming optional registry |
-| §15.3 concepts: add truthful nonempty title, description, and status and seed all canonical type rows plus registered extensions | Migration implementation | Metadata and type inventory is complete without guessed values |
-| §15.3 actors: normalize sides and active periods, split overlaps, and use `unknown` without unsupported inference | Migration implementation | Registry history passes syntax and contextual truth review |
-| §15.3 fields, tags, and sources: adjudicate producer fields before removal, remove semantic tag aliases, and add truthful material provenance | Migration implementation | Before/after inventory preserves information through OKF mechanisms or body prose and supplies evidenced sources |
-| §15.3 capture: review event-derived concepts and Interaction Records, retiring or reshaping routine minutes without durable combined context | Migration implementation | Whole-bundle Profile Review records each retained boundary |
-| §15.3 boundaries: apply promotion and splitting recommendations while allowing legitimate reviewed exceptions | Migration implementation | Review evidence records boundary decisions and exceptions |
-| §15.3 truth: do not infer generation, verification, freshness, affiliation, or provenance to complete migration | Migration implementation | Diff and evidence review find no fabricated truth-bearing values |
-| §15.3 relationships: reshape labelled entries and document project labels when the recommendation applies | Migration implementation | Relationship inventory has deterministic shape and reviewed extension definitions |
-| §15.3 ownership and paths: choose one specification owner and review every path and move against known citations | Migration implementation | Tracker/bundle ownership inventory and citation review show one home and coordinated moves |
-| §15.3 retirement: deprecate retained stable superseded concepts and link every available successor | Migration implementation | Retirement inventory preserves history and successor navigation |
-| §15.3 mirrors: review citation, risk, visibility, sanitization, images, media, and provenance; remove or externalize failures without weakening a followable resource | Migration implementation | Source inventory and whole-bundle Profile Review preserve OKF resource meaning |
-| §15.3 relaxations: removed thresholds, verification pressure, body-template force, extra-label restrictions, and unresolved-link restrictions require no repair | Migration implementation | Migration does not manufacture work for rules 2026.2 relaxed |
 | §6.1.1, §14.1: an implementation that exposes organizational affiliation resolves the row at the applicable event timestamp or source `last_modified`; unresolved or ambiguous history remains non-finding `unknown` without changing the actor string or trust tier | Consumer implementation | Lookup tests cover `generated`, `verified`, and source-author dates before, at, and after period boundaries plus missing and ambiguous dates, while preserving actor strings and trust tiers |
 | §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
 | §7.1–§7.2, §13, §14.2: tolerant readers preserve unknown relationship labels, unresolved targets, and ordinary untyped graph edges | Reader implementation | Unknown-label and unresolved-target fixtures remain loadable and expose the unchanged OKF edge through the public OKF graph |

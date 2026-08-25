@@ -11,9 +11,7 @@ OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins a
 is in error.
 
 Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
-Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md). The
-superseded 2026.1 release remains byte-identical at
-[`profile/versions/okf-profile-2026.1.md`](profile/versions/okf-profile-2026.1.md).
+Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 

@@ -3,7 +3,7 @@
 The agent skills for the [Concepta OKF Profile](../profile/okf-profile.md) (2026.2):
 one action-named family, shipped as the `concepta-knowledge` plugin. Rule text lives
 once, under `author-knowledge-bundle/references/`; the other skills are entry points
-that read it by sibling path (ADR-0005).
+that read it by sibling path.
 
 ## The family
 
@@ -13,8 +13,8 @@ that read it by sibling path (ADR-0005).
 | [`adopt-knowledge-bundle`](adopt-knowledge-bundle/) | user-invoked | Initialize a repository: declare the release, seed the root files ([SEEDING.md](adopt-knowledge-bundle/SEEDING.md)), write the `AGENTS.md` blocks that point agents at `author-knowledge-bundle`. Creates **no** directories — generic setup has no corpus from which to judge a subject. |
 | [`assess-knowledge-bundle`](assess-knowledge-bundle/) | user-invoked | Deliberate whole-bundle assessment: `okfp validate` plus every contextual judgment rule, emitting the standard Profile Review Report. An entry point into the shared assessment reference, not a second copy of it. |
 
-There is no `migrate-knowledge-bundle` — migration stays a one-off task, not a resident
-skill ([ADR-0005](../docs/adr/0005-skill-family-and-plugin-distribution.md)).
+There is no `migrate-knowledge-bundle` — migration stays a one-off task, not a
+resident skill.
 
 ## Installing
 
@@ -72,27 +72,5 @@ own — it is only ever reached from the profile.
 
 A skill that restates a withdrawn rule is worse than a skill that says nothing: it
 produces conforming files that teach the wrong thing, and no validator catches it.
-Releases have already changed skill text for exactly this reason.
-
-**0.3.0** — a path freezes on citation *outside* the bundle, not at `status: stable`.
-The profile skill had carried "stable paths are immutable"; `SEEDING.md` had told
-authors to move concepts "while they are still `draft`", which is the pressure the release
-removed.
-
-**2026.1** — `tags` carry topic only; an identifier other systems already cite is preserved
-verbatim in the path; `Tracked by` joins the core labels; a `Specification` is separated from an
-execution record by which system owns the artifact's state rather than by the word; and the
-version format became `<year>.<serial>`. Five skills changed, including `setup-repo`, whose
-`AGENTS.md` template carried the old specification sentence verbatim — so every
-repository it seeded inherited the defect.
-
-**2026.2** — relationships remain ordinary untyped OKF edges,
-including unresolved targets; external citations freeze a path only when they cannot
-be repaired; stable concepts normally deprecate; and mirroring requires a cited
-source at genuine availability risk whose material is suitable for repository
-visibility. `author-knowledge-bundle` carries these authoring and
-Profile Review boundaries while downstream engineering skills continue to delegate
-the mechanics.
-
 When a profile rule changes, grep this tree for the old rule before shipping
 the release.
