@@ -65,9 +65,7 @@ Copying or symlinking the skill directories into `~/.claude/skills/` also works 
 all three as a unit, since they reference each other by sibling path. Symlinking is the
 better fallback: the skills are versioned with the profile they describe, and a copy
 silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
-each one does. Repositories that also run the Concepta engineering workflow install the
-`concepta-engineering` plugin from
-[its repository](https://github.com/conceptadev/concepta-engineering) alongside.
+each one does.
 
 ### 2. Set up a project repository
 

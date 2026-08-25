@@ -439,7 +439,7 @@ each needs a bundle-sourced replacement before the documents it reads disappear.
 
 Distribution is owned by the repository that hosts the profile — the same one hosting this
 guide — and its mechanics are documented there, in the root `README.md` and `skills/README.md`.
-Consumers install the skills into their own agent's skills directory and pin the tools; no
+Consumers install the skills per that documented distribution and pin the tools; no
 project repository vendors a copy of the profile. Two requirements bear on bundles and so are
 stated here:
 

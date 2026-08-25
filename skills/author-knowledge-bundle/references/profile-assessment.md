@@ -7,10 +7,10 @@ assessment the `assess-knowledge-bundle` skill runs.
 
 After a write or when asked for Profile Review, run automated validation over the
 whole bundle when `okfp validate` is available, then assess every contextual rule
-taught in this skill's references for the review scope. In a source checkout, the
-canonical assignment audit is
-[`../../../implementation/profile-coverage-2026.2.md`](../../../implementation/profile-coverage-2026.2.md);
-the review map below keeps a copied skill self-contained.
+taught in this skill's references for the review scope. The canonical assignment
+audit is `implementation/profile-coverage-2026.2.md` in the
+[okf-profile repository](https://github.com/conceptadev/okf-profile); the review
+map below keeps this installed skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,
 and structural reorganizations cover the whole bundle.

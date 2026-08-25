@@ -14,8 +14,7 @@ Review for both scopes.
 ## Process
 
 1. Read [`../author-knowledge-bundle/SKILL.md`](../author-knowledge-bundle/SKILL.md)
-   and perform its release dispatch — this skill likewise implements only
-   `concepta_profile: "2026.2"` with `okf_version: "0.2"`, and an unsupported
+   and perform its release dispatch before anything else — an unsupported
    declaration is reported, never assessed.
 2. Run `dart run okf_profile:okfp validate knowledge` when available and record
    its result. It exposes the OKF result, the deterministic Profile result, and
@@ -30,7 +29,3 @@ Review for both scopes.
 4. Emit its Profile Review Report in the interaction or pull request, never as
    a certificate inside the bundle. Fix clear defects and re-assess; escalate
    with `NEEDS HUMAN` per the assessment reference.
-
-Automated success is not complete Profile conformance, and this assessment does
-not reinterpret the automated result: complete assessment is the combination of
-both, which is exactly what the report records.

@@ -3,20 +3,11 @@
   "owner": {
     "name": "Concepta"
   },
-  "metadata": {
-    "description": "The Concepta OKF Profile skill family: author, adopt, and assess a profiled knowledge bundle.",
-    "version": "1.0.0"
-  },
   "plugins": [
     {
       "name": "concepta-knowledge",
       "source": "./",
-      "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.2 (OKF 0.2). Installs as a unit; the skills share versioned references.",
-      "skills": [
-        "./skills/author-knowledge-bundle",
-        "./skills/adopt-knowledge-bundle",
-        "./skills/assess-knowledge-bundle"
-      ]
+      "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.2 (OKF 0.2). Installs as a unit; the skills share versioned references."
     }
   ]
 }

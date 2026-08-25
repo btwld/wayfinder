@@ -13,28 +13,18 @@ that read it by sibling path (ADR-0005).
 | [`adopt-knowledge-bundle`](adopt-knowledge-bundle/) | user-invoked | Initialize a repository: declare the release, seed the root files ([SEEDING.md](adopt-knowledge-bundle/SEEDING.md)), write the `AGENTS.md` blocks that point agents at `author-knowledge-bundle`. Creates **no** directories — generic setup has no corpus from which to judge a subject. |
 | [`assess-knowledge-bundle`](assess-knowledge-bundle/) | user-invoked | Deliberate whole-bundle assessment: `okfp validate` plus every contextual judgment rule, emitting the standard Profile Review Report. An entry point into the shared assessment reference, not a second copy of it. |
 
-There is no `migrate-knowledge-bundle`: converting an existing documentation tree is a
-one-off task run against `author-knowledge-bundle` and the generic method in
-[implementation guide §5](../implementation/okf-implementation-guide.md), not a resident
-skill. The engineering workflow skills — repo setup, domain modeling, spec, tickets,
+There is no `migrate-knowledge-bundle` — migration stays a one-off task, not a resident
+skill ([ADR-0005](../docs/adr/0005-skill-family-and-plugin-distribution.md)). The
+engineering workflow skills — repo setup, domain modeling, spec, tickets,
 implementation — live in
 [concepta-engineering](https://github.com/conceptadev/concepta-engineering); they
 delegate every bundle write here.
 
 ## Installing
 
-Install as one plugin:
-
-```
-/plugin marketplace add conceptadev/okf-profile
-/plugin install concepta-knowledge@okf-profile
-```
-
-Copying or symlinking the three directories into your agent's skills directory
-(`~/.claude/skills/` for Claude Code) also works — but install the family as a unit:
-the skills reference each other by sibling path, so a partial install breaks the
-routing. Symlinking keeps you current with `git pull`; a copy silently ages past the
-profile it describes.
+See the [root README](../README.md#1-install-the-skills) for the commands. Install the
+family as a unit — the skills reference each other by sibling path, so a partial
+install breaks the routing.
 
 ## Why the profile is a skill
 
@@ -77,7 +67,7 @@ pointer that names the families to look up. Pinning also fixes a real drift bug 
 to 0.2.
 
 A file beats a second skill on invocation economics. A *user-invoked* OKF skill could
-not be reached by the profile skill at all; a *model-invoked* one would pay permanent
+not be reached by `author-knowledge-bundle` at all; a *model-invoked* one would pay permanent
 context load for a description that fires rarely. A disclosed sibling file costs
 nothing until the pointer fires, and nobody needs to invoke "the OKF spec" on its
 own — it is only ever reached from the profile.
@@ -104,7 +94,7 @@ repository it seeded inherited the defect.
 including unresolved targets; external citations freeze a path only when they cannot
 be repaired; stable concepts normally deprecate; and mirroring requires a cited
 source at genuine availability risk whose material is suitable for repository
-visibility. The canonical profile skill carries these authoring and
+visibility. `author-knowledge-bundle` carries these authoring and
 Profile Review boundaries while downstream engineering skills continue to delegate
 the mechanics.
 
