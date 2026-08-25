@@ -47,12 +47,12 @@ Adoption is four required files, one conditional file, and one paragraph, in thi
 order:
 
 1. **Seed the required root.** `index.md`, `log.md`, `profile.md`, and `types.md`,
-   exactly as the profile's §3.5 defines them. The skill's `SEEDING.md` carries the
-   literal text.
+   exactly as the profile's §3.5 defines them. The adoption skill's `SEEDING.md` carries
+   the literal text.
 2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
    `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
    `okf_version` (profile §11).
-3. **Seed the type registry.** Use the Profile skill's canonical `SEEDING.md`
+3. **Seed the type registry.** Use the canonical `SEEDING.md` type-registry
    template so the adopted bundle satisfies Profile §5.2 before project concepts
    are added.
 4. **Apply the actor condition.** Evaluate the seeded concepts under Profile
