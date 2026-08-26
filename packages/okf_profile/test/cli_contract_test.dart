@@ -138,6 +138,45 @@ void main() {
     expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
   });
 
+  test('keeps OKF advisories gate-neutral in the merged report', () async {
+    final result = await runProcess(
+      <String>['validate', '--output', 'json', fixture('okf-advisory')],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    expect(jsonDecode(result.stdout), <String, Object?>{
+      'okf': <String, Object?>{
+        'state': 'PASS',
+        'report': <String, Object?>{
+          'findings': <Object?>[
+            <String, Object?>{
+              'id': 'okf/invalid-stale-after',
+              'severity': 'advisory',
+              'message': 'stale_after should be an ISO 8601 YYYY-MM-DD date.',
+              'location': <String, Object?>{'path': 'types.md'},
+            },
+          ],
+        },
+      },
+      'profile': <String, Object?>{
+        'release': '2026.1',
+        'state': 'PASS',
+        'findings': <Object?>[],
+      },
+      'judgment_rules': <String, Object?>{'state': 'UNASSESSED'},
+      'automated_gate': <String, Object?>{'state': 'PASS'},
+    });
+
+    final text = await runProcess(
+      <String>['validate', fixture('okf-advisory')],
+    );
+    expect(text.exitCode, 0);
+    expect(text.stdout, contains('advisory okf/invalid-stale-after'));
+    expect(text.stdout, contains('OKF Report: 0 error(s), 1 advisory(ies).'));
+    expect(text.stdout, endsWith('Automated gate: PASS'));
+  });
+
   test('blocks Profile validation when OKF fails', () async {
     final failed = await runProcess(
       <String>['validate', '--output', 'json', fixture('invalid-okf')],

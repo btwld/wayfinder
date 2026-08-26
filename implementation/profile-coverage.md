@@ -33,7 +33,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | --- | --- | --- | --- |
 | §11: a Profiled Bundle contains root `profile.md` of type `Knowledge Profile` | MUST | Automated Profile Validation | Presence, path, and parsed type |
 | §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.1"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
-| §11: declaration OKF version agrees with root index | MUST | Automated Profile Validation | Equality of both parsed values |
+| §11: declaration OKF version agrees with root index | MUST | Automated Profile Validation | Equality of both parsed values; okf 0.2.0's own advisory `okf/unsupported-okf-version` may co-report on the root index without displacing the Profile's error-level `concepta-profile/okf-release-binding` (see "OKF co-reporting") |
 | §11: `profile.md` is not used as a standalone definition, extension registry, second schema, or OKF override | MUST NOT | Profile Review | Contextual review of declaration content |
 
 ## Structure and navigation coverage
@@ -56,7 +56,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §3.5, §6.1.1: root `actors.md` exists when required by any used OKF actor-valued field, may otherwise be retained, has exact `type: Actor Registry`, and represents every used actor | MUST / MAY | Automated Profile Validation | Actor-field scan, conditional file presence, parsed exact registry type, and registry row membership |
 | §6.1.1: actor and type registries use their fixed ordered table columns | MUST | Automated Profile Validation | Parsed header equality for six actor columns and two type columns |
 | §9: every nonempty directory contains an index | MUST | Automated Profile Validation | Recursive directory and index inventory |
-| §9: every index matches the exact immediate semantic projection and contains no unique authored navigation knowledge | MUST / MUST NOT | Automated Profile Validation | Parsed groups, membership, order, labels, relative targets compared percent-decoded with URL-divergent spellings rejected, exact concept descriptions, directory entries, and referenced assets |
+| §9: every index matches the exact immediate semantic projection and contains no unique authored navigation knowledge | MUST / MUST NOT | Automated Profile Validation | Parsed groups, membership, order, labels, relative targets compared percent-decoded with URL-divergent spellings rejected, exact concept descriptions, directory entries, and referenced assets; okf 0.2.0's advisory `okf/non-portable-index-link` may co-report on the same entry (see "OKF co-reporting") |
 | §9: harmless Markdown presentation differences do not affect semantic conformance | MUST NOT | Automated Profile Validation | Equivalent parsed index fixtures yield the same result |
 | §10: root log uses newest-first ISO date groups and each entry begins `* **<lead word>**:` | MUST | Automated Profile Validation | Nonempty lead-word shape is a deterministic Profile finding; heading-date validity and descending order are diagnostics of the independent OKF check within the same `okfp validate` invocation |
 | §10: log lead words use the preferred vocabulary without closing it | SHOULD | Profile Review | Unfamiliar words are reviewed for clarity and never fail solely for being unfamiliar |
@@ -145,6 +145,21 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 Unsupported-release behavior and caller-policy prohibitions are implementation
 rules owned by guide §§4.1, 4.2, and 4.4. They are tested by the validator
 delivery slices and are not restated as Profile bundle clauses.
+
+## OKF co-reporting
+
+okf 0.2.0 checks some territory the Profile also rules on, always at advisory
+severity in the independent OKF report: `okf/unsupported-okf-version` (root
+index `okf_version`) under the Profile's error-level
+`concepta-profile/okf-release-binding`, and `okf/non-portable-index-link`
+under the §9 target rules. The audit of the 0.1.2 → 0.2.0 severity re-tiering
+found no rule crossing the blocking boundary — every 0.1.2 `error` remains an
+`error`, every `warning` became a non-gating `advisory` — so no assignment in
+this matrix moved. Duplicate reporting is deliberate and stays: the OKF
+report is preserved unreclassified (ADR-0004, ADR-0008), the Profile keeps
+its own stricter rule, and neither layer filters the other's findings. An OKF
+advisory never changes OKF conformance, the automated gate, or the exit
+status; the `okf-advisory` fixture pins this.
 
 ## Completion gate
 
