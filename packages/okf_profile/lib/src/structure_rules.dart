@@ -27,11 +27,10 @@ Iterable<ProfileFinding> _validateRawTier(
   _BundleInventory inventory,
 ) sync* {
   if (inventory.nonRootDirectories.contains('references/raw')) {
-    yield profileError(
+    yield profileFinding(
       'raw-directory-placement',
       'A raw/ tier belongs to a source directory; raw/ must not sit directly '
           'under references/.',
-      '§3.4',
       'references/raw',
     );
   }
@@ -43,11 +42,10 @@ Iterable<ProfileFinding> _validateRawTier(
     if (directories.first != 'references' || !directories.contains('raw')) {
       continue;
     }
-    yield profileError(
+    yield profileFinding(
       'raw-directory-markdown',
       'A raw/ tier holds verbatim originals; the only markdown permitted in '
           'it is each directory\'s own index.md.',
-      '§3.4',
       path,
     );
   }
@@ -61,11 +59,10 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
         !_structuralConcepts.contains(p.posix.basename(path))) {
       continue;
     }
-    yield profileError(
+    yield profileFinding(
       'root-structure-files',
       'profile.md, types.md, and actors.md are reserved for their bundle-root '
           'structural purposes.',
-      '§3.5',
       path,
     );
   }
@@ -81,11 +78,10 @@ Iterable<ProfileFinding> _validateRootFiles(
     if (!loaded.documents.containsKey('types.md')) 'types.md',
   ];
   if (missing.isNotEmpty) {
-    yield profileError(
+    yield profileFinding(
       'root-structure-files',
       'The bundle root must contain index.md, log.md, profile.md, and types.md; '
           'missing ${missing.join(', ')}.',
-      '§3.5',
       missing.first,
     );
   }
@@ -98,10 +94,9 @@ Iterable<ProfileFinding> _validateDirectoryIndexes(
   for (final directory in inventory.nonRootDirectories) {
     final indexPath = '$directory/index.md';
     if (!loaded.indexes.containsKey(indexPath)) {
-      yield profileError(
+      yield profileFinding(
         'directory-index-present',
         'Every nonempty directory must contain index.md.',
-        '§3.1, §3.4, §9',
         indexPath,
       );
     }
@@ -120,11 +115,10 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
     final basename = p.posix.basenameWithoutExtension(path);
     final sibling = parent.isEmpty ? basename : '$parent/$basename';
     if (directories.contains(sibling)) {
-      yield profileAdvisory(
+      yield profileFinding(
         'concept-area-name-collision',
         'A concept beside an area of the same name needs contextual placement '
             'review.',
-        '§14.1',
         path,
       );
     }
@@ -143,10 +137,9 @@ Iterable<ProfileFinding> _validateIndexes(
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
     if (actual == null || !_sameEntries(actual, expected)) {
-      yield profileError(
+      yield profileFinding(
         'index-semantic-projection',
         'The index must exactly match its immediate semantic projection.',
-        '§9',
         entry.key,
       );
     }
@@ -166,11 +159,10 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   }
   if (parsed.entries.isEmpty ||
       parsed.entries.any((entry) => entry.action.isEmpty)) {
-    yield profileError(
+    yield profileFinding(
       'log-entry-lead-word',
       'Every root log entry must begin with a nonempty bold lead word and a '
           'colon.',
-      '§10',
       'log.md',
     );
   }
@@ -193,7 +185,8 @@ List<OkfIndexEntry>? _expectedProjection(
         ),
       for (final path in _structuralConcepts)
         if (loaded.documents[path] case final document?)
-          if (_conceptEntry('Bundle', path, document) case final concept?)
+          if (_conceptEntry(path, document, group: 'Bundle')
+              case final concept?)
             concept,
     ];
     if (bundleEntries.length !=
@@ -208,9 +201,7 @@ List<OkfIndexEntry>? _expectedProjection(
     final parent = p.posix.dirname(entry.key);
     if ((parent == '.' ? '' : parent) != directory) continue;
     if (directory.isEmpty && _structuralConcepts.contains(entry.key)) continue;
-    final type = entry.value.type;
-    final concept =
-        type == null ? null : _conceptEntry(type, entry.key, entry.value);
+    final concept = _conceptEntry(entry.key, entry.value);
     if (concept == null) return null;
     byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
@@ -259,7 +250,8 @@ List<OkfIndexEntry>? _expectedProjection(
   return projection;
 }
 
-OkfIndexEntry? _conceptEntry(String group, String path, OkfDocument document) {
+OkfIndexEntry? _conceptEntry(String path, OkfDocument document,
+    {String? group}) {
   final type = nonEmptyString(document.frontmatter['type']);
   final title = document.frontmatter['title'];
   final description = document.frontmatter['description'];
@@ -271,7 +263,7 @@ OkfIndexEntry? _conceptEntry(String group, String path, OkfDocument document) {
     return null;
   }
   return OkfIndexEntry(
-    type: group,
+    type: group ?? type,
     title: title,
     link: p.posix.basename(path),
     description: description,
@@ -372,4 +364,3 @@ String _parent(String path) {
   final directory = p.posix.dirname(path);
   return directory == '.' ? '' : directory;
 }
-

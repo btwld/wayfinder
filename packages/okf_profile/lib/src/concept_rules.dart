@@ -37,8 +37,8 @@ List<ProfileFinding> validateConceptRules(OkfBundleLoadResult loaded) {
 Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
   final profile = loaded.documents['profile.md'];
   if (profile != null && profile.type != 'Knowledge Profile') {
-    yield profileError('profile-declaration-kind',
-        'profile.md must have type Knowledge Profile.', '§11', 'profile.md');
+    yield profileFinding('profile-declaration-kind',
+        'profile.md must have type Knowledge Profile.', 'profile.md');
   }
   for (final entry in loaded.documents.entries) {
     final path = entry.key;
@@ -46,10 +46,9 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
     final frontmatter = document.frontmatter;
     if (!const {'type', 'title', 'description', 'status'}
         .every((key) => nonEmptyString(frontmatter[key]) != null)) {
-      yield profileError(
+      yield profileFinding(
         'concept-baseline-fields',
         'Every concept must contain non-empty string values for type, title, description, and status.',
-        '§5.1',
         path,
       );
     }
@@ -57,18 +56,17 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
         .where((key) => !okfKnownFrontmatterKeys.contains(key))
         .toList();
     if (extensionKeys.isNotEmpty) {
-      yield profileError(
+      yield profileFinding(
         'frontmatter-fields-okf',
         'Concepta producers may use only OKF 0.2 frontmatter fields; found ${extensionKeys.join(', ')}.',
-        '§5.1',
         path,
       );
     }
     final status = nonEmptyString(frontmatter['status']);
     if (status != null &&
         !const {'draft', 'stable', 'deprecated'}.contains(status)) {
-      yield profileError('status-value',
-          'Status must be draft, stable, or deprecated.', '§5.1', path);
+      yield profileFinding(
+          'status-value', 'Status must be draft, stable, or deprecated.', path);
     }
     final duplicatedTags = document.tags.toSet().intersection(<String>{
       if (nonEmptyString(frontmatter['type']) case final type?) type,
@@ -77,18 +75,16 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
       ..._relationshipLabels,
     });
     if (duplicatedTags.isNotEmpty) {
-      yield profileError(
+      yield profileFinding(
         'tag-literal-duplication',
         'Tags must not duplicate type, status, trust, or standard relationship values; found ${duplicatedTags.join(', ')}.',
-        '§5.1',
         path,
       );
     }
     if (!frontmatter.containsKey('generated')) {
-      yield profileAdvisory(
+      yield profileFinding(
         'generation-provenance-recommended',
         'Generation provenance is recommended when it is known.',
-        '§5.1',
         path,
       );
     }
@@ -99,21 +95,20 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     OkfBundleLoadResult loaded) sync* {
   final registry = loaded.documents['types.md'];
   if (registry == null) {
-    yield profileError('type-registry-present',
-        'The bundle must contain types.md.', '§5.2', 'types.md');
+    yield profileFinding('type-registry-present',
+        'The bundle must contain types.md.', 'types.md');
     return;
   }
   if (registry.type != 'Type Registry') {
-    yield profileError('type-registry-kind',
-        'types.md must have type Type Registry.', '§5.2', 'types.md');
+    yield profileFinding('type-registry-kind',
+        'types.md must have type Type Registry.', 'types.md');
   }
   final table = _firstTable(registry.body);
   if (table == null ||
       !_sameStrings(table.header, const ['Type', 'Intended content'])) {
-    yield profileError(
+    yield profileFinding(
       'type-registry-columns',
       'The type registry must use exactly Type and Intended content columns.',
-      '§6.1.1',
       'types.md',
     );
     return;
@@ -122,10 +117,9 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   final standardRows = rows.take(standardTypes.length).toList();
   if (standardRows.length != standardTypes.length ||
       !_sameTypeRows(standardRows, standardTypes)) {
-    yield profileError(
+    yield profileFinding(
       'type-registry-standards',
       'The type registry must contain all fourteen canonical standard rows.',
-      '§5.2',
       'types.md',
     );
   }
@@ -139,10 +133,9 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     ...sortedExtensions
   ];
   if (!_sameStrings(rows.map((row) => row.first).toList(), expectedOrder)) {
-    yield profileError(
+    yield profileFinding(
       'type-registry-order',
       'Project type rows must follow the standards in lexical order.',
-      '§5.2',
       'types.md',
     );
   }
@@ -150,15 +143,14 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   for (final entry in loaded.documents.entries) {
     final type = entry.value.type;
     if (type != null && !registered.contains(type)) {
-      yield profileError('used-type-registered',
-          'Used type $type must be registered in types.md.', '§5.2', entry.key);
+      yield profileFinding('used-type-registered',
+          'Used type $type must be registered in types.md.', entry.key);
     }
   }
   if (extensionRows.isNotEmpty) {
-    yield profileAdvisory(
+    yield profileFinding(
       'registered-type-extension',
       'Registered project types are conformant and should inform later Profile releases.',
-      '§5.2',
       'types.md',
     );
   }
@@ -175,20 +167,18 @@ Iterable<ProfileFinding> _validateActorRegistry(
   final registry = loaded.documents['actors.md'];
   if (registry == null) {
     if (usedActors.isNotEmpty) {
-      yield profileError(
+      yield profileFinding(
         'actor-registry-required',
         'actors.md is required whenever an OKF actor-valued field is used.',
-        '§3.5, §6.1.1',
         'actors.md',
       );
     }
     return;
   }
   if (registry.type != 'Actor Registry') {
-    yield profileError(
+    yield profileFinding(
       'actor-registry-kind',
       'actors.md must have type Actor Registry.',
-      '§3.5, §6.1.1',
       'actors.md',
     );
   }
@@ -202,20 +192,18 @@ Iterable<ProfileFinding> _validateActorRegistry(
         'Role',
         'Active',
       ])) {
-    yield profileError(
+    yield profileFinding(
       'actor-registry-columns',
       'The actor registry must use the six fixed columns in canonical order.',
-      '§6.1.1',
       'actors.md',
     );
     return;
   }
   final rows = table.rows.where((row) => row.length == 6).toList();
   if (rows.any((row) => row.any((cell) => cell.isEmpty))) {
-    yield profileError(
+    yield profileFinding(
       'actor-row-complete',
       'Actor rows must contain an ID, name, organization, side, role, and active value.',
-      '§3.5, §6.1.1',
       'actors.md',
     );
   }
@@ -226,11 +214,8 @@ Iterable<ProfileFinding> _validateActorRegistry(
         'tool',
         'unknown'
       }.contains(row[3]))) {
-    yield profileError(
-        'actor-side-value',
-        'Actor Side must use the closed Profile vocabulary.',
-        '§6.1.1',
-        'actors.md');
+    yield profileFinding('actor-side-value',
+        'Actor Side must use the closed Profile vocabulary.', 'actors.md');
   }
   final periods = <String, List<_ActivePeriod>>{};
   var invalidPeriod = false;
@@ -243,27 +228,22 @@ Iterable<ProfileFinding> _validateActorRegistry(
     }
   }
   if (invalidPeriod) {
-    yield profileError(
+    yield profileFinding(
       'actor-active-interval',
       'Actor Active values must be unknown or valid inclusive-exclusive date ranges.',
-      '§6.1.1',
       'actors.md',
     );
   }
   if (periods.values.any(_hasOverlap)) {
-    yield profileError(
-        'actor-active-overlap',
-        'Dated Active periods for one actor must not overlap.',
-        '§6.1.1',
-        'actors.md');
+    yield profileFinding('actor-active-overlap',
+        'Dated Active periods for one actor must not overlap.', 'actors.md');
   }
   final registered = rows.map((row) => row.first).toSet();
   for (final entry in usedActors.entries) {
     if (!registered.contains(entry.key)) {
-      yield profileError(
+      yield profileFinding(
         'used-actor-registered',
         'Used actor ${entry.key} must be represented in actors.md.',
-        '§3.5, §6.1.1',
         entry.value,
       );
     }
@@ -282,10 +262,9 @@ Iterable<ProfileFinding> _validateSources(
     if (raw is! List ||
         maps.length != values.length ||
         maps.any((source) => nonEmptyString(source['resource']) == null)) {
-      yield profileError(
+      yield profileFinding(
         'source-entry-shape',
         'Every present source entry must be a mapping with a non-empty resource.',
-        '§6.1',
         entry.key,
       );
     }
@@ -294,14 +273,13 @@ Iterable<ProfileFinding> _validateSources(
         .whereType<String>()
         .toList();
     if (ids.toSet().length != ids.length) {
-      yield profileError('source-id-unique',
-          'Source IDs must be unique within a concept.', '§6.1', entry.key);
+      yield profileFinding('source-id-unique',
+          'Source IDs must be unique within a concept.', entry.key);
     }
     if (ids.any(bodies[entry.key]!.hasUnresolvedFootnote)) {
-      yield profileError(
+      yield profileFinding(
         'source-attribution-join',
         'A recognized source-attribution reference must join to its footnote definition.',
-        '§6.1',
         entry.key,
       );
     }
@@ -316,20 +294,18 @@ Iterable<ProfileFinding> _validateRelationships(
     final section = bodies[entry.key]!.relationships;
     if (section == null) continue;
     if (section.malformed) {
-      yield profileError(
+      yield profileFinding(
         'relationships-shape',
         'Each Relationships entry must contain exactly one label and one Markdown target.',
-        '§7.2',
         entry.key,
       );
       continue;
     }
     for (final label in section.labels) {
       if (!_relationshipLabels.contains(label)) {
-        yield profileAdvisory(
+        yield profileFinding(
           'relationship-label-extension',
           'The relationship label $label is a permitted project extension.',
-          '§7.2',
           entry.key,
         );
       }
@@ -345,11 +321,10 @@ Iterable<ProfileFinding> _validateInternalLinks(
   } catch (error) {
     // A toolchain throw must not take down the whole assessment, and a pass
     // may not be claimed while the §7.1 rules went unassessed.
-    yield profileError(
+    yield profileFinding(
       'link-graph-unavailable',
       'The OKF link graph could not be built ($error); '
           'the §7.1 link rules were not assessed.',
-      '§7.1',
       'profile.md',
     );
     return;
@@ -365,19 +340,17 @@ Iterable<ProfileFinding> _validateInternalLinks(
     if (!edge.rawTarget.startsWith('/') &&
         emitted
             .add((edge.source.documentPath, 'internal-link-bundle-relative'))) {
-      yield profileAdvisory(
+      yield profileFinding(
         'internal-link-bundle-relative',
         'Internal links should use bundle-relative targets.',
-        '§7.1',
         edge.source.documentPath,
       );
     }
     if (edge.resolution == OkfGraphResolution.unresolved &&
         emitted.add((edge.source.documentPath, 'internal-link-unresolved'))) {
-      yield profileAdvisory(
+      yield profileFinding(
         'internal-link-unresolved',
         'An unresolved internal link is permitted and remains an OKF graph edge.',
-        '§7.1, §14.1–§14.2',
         edge.source.documentPath,
       );
     }
