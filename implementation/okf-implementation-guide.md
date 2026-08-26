@@ -169,12 +169,18 @@ Text and JSON MUST expose four distinct components:
 | Automated gate | `PASS`, `FAIL`, `UNSUPPORTED` |
 
 The independent OKF report MUST remain intact and Profile findings MUST NOT
-reclassify it. If OKF fails, deterministic Profile validation MUST stop as
-`BLOCKED BY OKF` without cascading findings from partial content. Exit `0`
-means OKF and deterministic Profile checks passed; exit `1` means either failed;
-exit `2` means the invocation could not assess the declared release, including
-usage, I/O, and unsupported-release outcomes. Advisories MUST NOT change the
-automated gate or exit status.
+reclassify it. The OKF component is okf's own report projection: one
+canonically ordered findings array with namespaced identifiers and the
+two-tier error/advisory severity model, in which a file that failed to load
+is an error finding like any other. OKF conformance is `PASS` exactly when
+that report holds no error-severity finding; the validator judges it
+non-strict, so an OKF advisory never fails OKF conformance. If OKF fails,
+deterministic Profile validation MUST stop as `BLOCKED BY OKF` without
+cascading findings from partial content. Exit `0` means OKF and deterministic
+Profile checks passed; exit `1` means either failed; exit `2` means the
+invocation could not assess the declared release, including usage, I/O, and
+unsupported-release outcomes. Advisories — OKF's or the Profile's — MUST NOT
+change the automated gate or exit status.
 
 ### 4.2 Findings carry stable identifiers
 
@@ -486,7 +492,10 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 index generator contract (§3), the validation process contract (§4) with its
 closed result model and release dispatch, the migration method (§5), and
 distribution (§6). Cross-bundle references (§7) remain deferred, as the profile
-leaves them.
+leaves them. Amended in place when the okf toolchain released 0.2.0: §4.1's
+OKF-component wording is restated over okf's finding contract (ADR-0008) — a
+toolchain clarification, with the result model, exit codes, and rules
+unchanged.
 
 Titled *Implementation Guide* and filed under `implementation/`: the profile is
 itself a specification, so a subordinate document called "the spec" would invert

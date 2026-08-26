@@ -85,13 +85,7 @@ void main() {
     expect(jsonDecode(result.stdout), <String, Object?>{
       'okf': <String, Object?>{
         'state': 'PASS',
-        'load_issues': <Object?>[],
-        'report': <String, Object?>{
-          'valid': true,
-          'error_count': 0,
-          'warning_count': 0,
-          'diagnostics': <Object?>[],
-        },
+        'report': <String, Object?>{'findings': <Object?>[]},
       },
       'profile': <String, Object?>{
         'release': '2026.1',
@@ -154,18 +148,14 @@ void main() {
     expect(jsonDecode(failed.stdout), <String, Object?>{
       'okf': <String, Object?>{
         'state': 'FAIL',
-        'load_issues': <Object?>[],
         'report': <String, Object?>{
-          'valid': false,
-          'error_count': 1,
-          'warning_count': 0,
-          'diagnostics': <Object?>[
+          'findings': <Object?>[
             <String, Object?>{
-              'code': 'missing_type',
+              'id': 'okf/missing-type',
               'severity': 'error',
               'message':
                   'Concept frontmatter must contain a non-empty type field.',
-              'path': 'types.md',
+              'location': <String, Object?>{'path': 'types.md'},
             },
           ],
         },
@@ -191,13 +181,7 @@ void main() {
     final output = jsonDecode(result.stdout) as Map<String, Object?>;
     expect(output['okf'], <String, Object?>{
       'state': 'PASS',
-      'load_issues': <Object?>[],
-      'report': <String, Object?>{
-        'valid': true,
-        'error_count': 0,
-        'warning_count': 0,
-        'diagnostics': <Object?>[],
-      },
+      'report': <String, Object?>{'findings': <Object?>[]},
     });
     expect(output['profile'], <String, Object?>{
       'release': null,
@@ -262,10 +246,10 @@ void main() {
     final okf = output['okf']! as Map<String, Object?>;
     final report = okf['report']! as Map<String, Object?>;
     expect(
-      (report['diagnostics']! as List<Object?>)
-          .map((value) => (value! as Map<String, Object?>)['code'])
+      (report['findings']! as List<Object?>)
+          .map((value) => (value! as Map<String, Object?>)['id'])
           .toList(),
-      <String>['invalid_log_date', 'log_not_newest_first'],
+      <String>['okf/invalid-log-date', 'okf/log-not-newest-first'],
     );
     expect(output['profile'], <String, Object?>{
       'release': null,
@@ -288,11 +272,11 @@ void main() {
     final output = jsonDecode(result.stdout) as Map<String, Object?>;
     final okf = output['okf']! as Map<String, Object?>;
     final report = okf['report']! as Map<String, Object?>;
-    final codes = (report['diagnostics']! as List<Object?>)
-        .map((value) => (value! as Map<String, Object?>)['code'])
+    final ids = (report['findings']! as List<Object?>)
+        .map((value) => (value! as Map<String, Object?>)['id'])
         .toList();
-    expect(codes, contains('invalid_index_structure'));
-    expect(codes, contains('missing_index_section'));
+    expect(ids, contains('okf/invalid-index-structure'));
+    expect(ids, contains('okf/missing-index-section'));
     expect(output['profile'], <String, Object?>{
       'release': null,
       'state': 'BLOCKED BY OKF',
@@ -311,7 +295,7 @@ void main() {
     expect(
       result.stdout,
       '''OKF: PASS
-OKF Report: 0 error(s), 0 warning(s).
+OKF Report: 0 error(s), 0 advisory(ies).
 Profile 2027.1: UNSUPPORTED
 UNSUPPORTED PROFILE RELEASE: 2027.1
 Judgment Rules: UNASSESSED

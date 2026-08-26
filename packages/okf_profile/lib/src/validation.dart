@@ -39,21 +39,16 @@ enum AutomatedGateState {
 
 final class ProfileValidationResult {
   ProfileValidationResult._({
-    required this.okfLoadIssues,
-    required this.okfReport,
+    required this.okfValidation,
     required this.profileRelease,
     required this.profileState,
     required Iterable<ProfileFinding> findings,
     required this.automatedGateState,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
-  factory ProfileValidationResult.blockedByOkf(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
-  ) =>
+  factory ProfileValidationResult.blockedByOkf(OkfSpecValidation validation) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: null,
         profileState: ProfileState.blockedByOkf,
         findings: const <ProfileFinding>[],
@@ -61,13 +56,11 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.undispatched(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     ProfileFinding finding,
   ) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: null,
         profileState: ProfileState.unsupported,
         findings: <ProfileFinding>[finding],
@@ -75,13 +68,11 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.unsupported(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     String release,
   ) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: release,
         profileState: ProfileState.unsupported,
         findings: const <ProfileFinding>[],
@@ -89,8 +80,7 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.assessed(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
   ) {
     final stableFindings = List<ProfileFinding>.unmodifiable(findings);
@@ -98,8 +88,7 @@ final class ProfileValidationResult {
       (finding) => finding.severity == ProfileFindingSeverity.error,
     );
     return ProfileValidationResult._(
-      okfLoadIssues: loaded.issues,
-      okfReport: report,
+      okfValidation: validation,
       profileRelease: supportedProfileRelease,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
@@ -108,22 +97,20 @@ final class ProfileValidationResult {
     );
   }
 
-  final List<OkfBundleLoadIssue> okfLoadIssues;
-  final OkfValidationReport okfReport;
+  final OkfSpecValidation okfValidation;
   final String? profileRelease;
   final ProfileState profileState;
   final List<ProfileFinding> findings;
   final AutomatedGateState automatedGateState;
 
-  OkfState get okfState => okfLoadIssues.isEmpty && okfReport.isValid
-      ? OkfState.pass
-      : OkfState.fail;
+  OkfReport get okfReport => okfValidation.report;
+  OkfState get okfState =>
+      okfValidation.isConformant ? OkfState.pass : OkfState.fail;
   int get exitCode => automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
         'okf': <String, Object?>{
           'state': okfState.wireValue,
-          'load_issues': okfLoadIssues.map(_loadIssueJson).toList(),
           'report': okfReport.toJson(),
         },
         'profile': <String, Object?>{
@@ -139,14 +126,10 @@ final class ProfileValidationResult {
 
   Iterable<String> toTextLines() sync* {
     yield 'OKF: ${okfState.wireValue}';
-    for (final issue in okfLoadIssues) {
-      yield issue.toString();
-    }
-    for (final diagnostic in okfReport.diagnostics) {
-      yield diagnostic.toString();
-    }
-    yield 'OKF Report: ${okfReport.errorCount} error(s), '
-        '${okfReport.warningCount} warning(s).';
+    yield* okfReport.toTextLines();
+    final errors = _countBySeverity(OkfFindingSeverity.error);
+    final advisories = _countBySeverity(OkfFindingSeverity.advisory);
+    yield 'OKF Report: $errors error(s), $advisories advisory(ies).';
     final release = profileRelease ?? 'UNDECLARED';
     yield 'Profile $release: ${profileState.wireValue}';
     if (profileState == ProfileState.unsupported && profileRelease != null) {
@@ -158,35 +141,34 @@ final class ProfileValidationResult {
     yield 'Judgment Rules: UNASSESSED';
     yield 'Automated gate: ${automatedGateState.wireValue}';
   }
+
+  int _countBySeverity(OkfFindingSeverity severity) => okfReport.findings
+      .where((finding) => finding.severity == severity)
+      .length;
 }
 
 final class ProfileValidator {
-  const ProfileValidator({
-    this.loader = const OkfBundleLoader(),
-    this.okfValidator = const OkfValidator(),
-  });
+  const ProfileValidator({this.loader = const OkfBundleLoader()});
 
   final OkfBundleLoader loader;
-  final OkfValidator okfValidator;
 
   Future<ProfileValidationResult> validate(String bundlePath) async {
     final loaded = await loader.inspect(bundlePath);
-    final okfReport = okfValidator.validate(loaded.bundle);
-    if (loaded.hasIssues || !okfReport.isValid) {
-      return ProfileValidationResult.blockedByOkf(loaded, okfReport);
+    final validation = loaded.validate();
+    if (!validation.isConformant) {
+      return ProfileValidationResult.blockedByOkf(validation);
     }
     final declaration = _readDeclaration(loaded);
     if (declaration.finding case final finding?) {
-      return ProfileValidationResult.undispatched(loaded, okfReport, finding);
+      return ProfileValidationResult.undispatched(validation, finding);
     }
     final values = declaration.values!;
     final release = values['concepta_profile']!;
     if (release != supportedProfileRelease) {
-      return ProfileValidationResult.unsupported(loaded, okfReport, release);
+      return ProfileValidationResult.unsupported(validation, release);
     }
     return ProfileValidationResult.assessed(
-      loaded,
-      okfReport,
+      validation,
       <ProfileFinding>[
         if (_validateOkfBinding(values, loaded) case final finding?) finding,
         ...validateConceptRules(loaded),
@@ -303,15 +285,6 @@ String? _firstYamlFence(String body) {
 
   return find(nodes);
 }
-
-Map<String, Object> _loadIssueJson(OkfBundleLoadIssue issue) =>
-    <String, Object>{
-      'code': issue.code,
-      'message': issue.message,
-      'path': issue.path,
-      if (issue.line != null) 'line': issue.line!,
-      if (issue.column != null) 'column': issue.column!,
-    };
 
 final class _DeclarationRead {
   const _DeclarationRead.values(this.values) : finding = null;

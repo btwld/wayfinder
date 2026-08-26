@@ -144,32 +144,25 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
-  test('degrades a link-graph construction failure to an error finding',
+  test('validates prose source descriptors with slashes and non-ASCII cleanly',
       () async {
+    // Regression for the okf 0.1.2 graph-builder crash: a sources[].resource
+    // prose descriptor containing both a slash and an em dash killed okfp
+    // mid-assessment. okf 0.2.0 resolves it as a descriptor edge; the
+    // link-graph guard stays as defense in depth.
     final result = await runProcess(
       <String>['validate', '--output', 'json', fixture('graph-failure')],
     );
 
-    expect(result.exitCode, 1);
+    expect(result.exitCode, 0);
     expect(result.stderr, isEmpty);
     final output = jsonDecode(result.stdout) as Map<String, Object?>;
     final okf = output['okf']! as Map<String, Object?>;
     expect(okf['state'], 'PASS');
     final profile = output['profile']! as Map<String, Object?>;
-    expect(profile['state'], 'FAIL');
-    expect(
-      findingSummary(profile),
-      <String>['error concepta-profile/link-graph-unavailable profile.md'],
-    );
-    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
-
-    final text = await runProcess(
-      <String>['validate', fixture('graph-failure')],
-    );
-    expect(text.exitCode, 1);
-    expect(text.stdout, contains('concepta-profile/link-graph-unavailable'));
-    expect(text.stdout, contains('link rules were not assessed'));
-    expect(text.stdout, endsWith('Automated gate: FAIL'));
+    expect(profile['state'], 'PASS');
+    expect(findingSummary(profile), isEmpty);
+    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
   });
 
   test('validates structure, indexes, logs, and referenced assets', () async {

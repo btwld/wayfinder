@@ -9,3 +9,4 @@ pubspec_overrides.yaml
 # Local migration staging (unreconciled copy from the Anago working tree).
 incoming-local-okf/
 HANDOFF.md
+*.okf-apply.lock

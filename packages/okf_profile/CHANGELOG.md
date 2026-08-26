@@ -3,6 +3,19 @@
 Release history of the `okf_profile` Dart package (the `okfp` toolchain).
 This is package semver; profile releases are recorded in `profile/`, not here.
 
+## 0.2.0
+
+- Migrate to okf 0.2.0 and adopt its finding contract as the wire format
+  (ADR-0008): the `okf.report` JSON object is now okf's own projection — a
+  canonically ordered `findings` array of `{id, severity, message, location}`
+  objects with namespaced kebab-case IDs — and the separate `okf.load_issues`
+  channel is retired, because load failures are error-severity findings in the
+  same report.
+- Text output reports the OKF component as `N error(s), N advisory(ies)`;
+  the `warning` tier no longer exists upstream.
+- `ProfileValidator` validates through okf's single report-composition seam
+  (`OkfBundleLoadResult.validate()`) and no longer takes an okf validator.
+
 ## 0.1.1
 
 - Enforce the Profile 2026.1 `raw/` tier amendment (ADR-0006): non-index
