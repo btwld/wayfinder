@@ -273,10 +273,10 @@ OkfIndexEntry? _conceptEntry(String path, OkfDocument document,
   );
 }
 
-/// Parses an index through okf's entry format, targets percent-decoded per
-/// ADR-0007; null when the document is not a clean projection — a structural
-/// issue, a non-portable destination, or a target spelling that is not a
-/// relative URL for the decoded path.
+/// Parses an index through okf's entry format with targets percent-decoded;
+/// null when the document is not a clean projection — a structural issue, a
+/// non-portable destination, or a target spelling that is not a relative URL
+/// for the decoded path.
 List<OkfIndexEntry>? _parseIndex(String source) {
   OkfIndexParseResult parsed;
   try {

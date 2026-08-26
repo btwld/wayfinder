@@ -146,10 +146,9 @@ void main() {
 
   test('validates prose source descriptors with slashes and non-ASCII cleanly',
       () async {
-    // Regression for the okf 0.1.2 graph-builder crash: a sources[].resource
-    // prose descriptor containing both a slash and an em dash killed okfp
-    // mid-assessment. okf 0.2.0 resolves it as a descriptor edge; the
-    // link-graph guard stays as defense in depth.
+    // A sources[].resource descriptor carrying both a slash and a non-ASCII
+    // character reads as a link the graph builder must resolve; the whole
+    // assessment dies if it throws instead of treating it as a descriptor.
     final result = await runProcess(
       <String>['validate', '--output', 'json', fixture('graph-failure')],
     );

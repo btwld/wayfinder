@@ -29,7 +29,7 @@ final class ProfileRuleDescriptor {
   final String rule;
 }
 
-// Release dispatch and declaration (validation.dart).
+// Release dispatch and declaration.
 const profileDeclarationPresent =
     ProfileRuleDescriptor.error('profile-declaration-present', '§11');
 const profileDeclarationReadable =
