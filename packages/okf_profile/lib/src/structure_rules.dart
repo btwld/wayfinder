@@ -307,8 +307,12 @@ bool _sameEntries(List<OkfIndexEntry> left, List<OkfIndexEntry> right) =>
 final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
 
 // A spelling a relative-URL consumer reads differently from the decoded
-// comparison: a stray `%`, or a raw query/fragment delimiter (RFC 3986).
-final RegExp _nonTargetSpelling = RegExp(r'[?#]|%(?![0-9A-Fa-f]{2})');
+// comparison: a stray `%`, a raw query/fragment delimiter (RFC 3986), or a
+// `%2F` escape — a `/` a URL reads as data would alias a path separator, so
+// the entry would validate yet resolve elsewhere. Because every other `%`
+// must start a valid escape, `%2F` is the only spelling an escape run can
+// decode a `/` from.
+final RegExp _nonTargetSpelling = RegExp(r'[?#]|%2[Ff]|%(?![0-9A-Fa-f]{2})');
 
 /// Percent-decodes a parsed target so §9 compares every valid spelling of a
 /// path against its raw projection; null when the spelling is not a target —
@@ -319,13 +323,8 @@ final RegExp _nonTargetSpelling = RegExp(r'[?#]|%(?![0-9A-Fa-f]{2})');
 String? _decodeTarget(String target) {
   if (target.contains(_nonTargetSpelling)) return null;
   try {
-    return target.replaceAllMapped(_percentEscapeRun, (match) {
-      final decoded = Uri.decodeComponent(match[0]!);
-      // An escape decoding to `/` would alias a path separator the URL reads
-      // as data, so the entry would validate yet resolve elsewhere.
-      if (decoded.contains('/')) throw const FormatException();
-      return decoded;
-    });
+    return target.replaceAllMapped(
+        _percentEscapeRun, (match) => Uri.decodeComponent(match[0]!));
   } on FormatException {
     return null;
   }
