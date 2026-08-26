@@ -125,11 +125,11 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
-        'advisory concepta-profile/registered-type-extension types.md',
         'advisory concepta-profile/relationship-label-extension '
             'reporting/include-pdf-annotations.md',
         'advisory concepta-profile/internal-link-unresolved '
             'reporting/pdf-export-feasibility.md',
+        'advisory concepta-profile/registered-type-extension types.md',
       ],
     );
     expect(output['judgment_rules'], <String, Object?>{
@@ -229,11 +229,11 @@ void main() {
         <String, Object?>{
           'id': 'concepta-profile/profile-declaration-readable',
           'severity': 'error',
-          'profile_release': null,
-          'rule': '§11',
-          'path': 'profile.md',
           'message':
               'The first fenced yaml declaration in profile.md is invalid.',
+          'location': <String, Object?>{'path': 'profile.md'},
+          'profile_release': null,
+          'rule': '§11',
         },
       ],
     });

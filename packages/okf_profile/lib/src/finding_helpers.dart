@@ -1,3 +1,5 @@
+import 'package:okf/okf.dart';
+
 import 'profile_finding.dart';
 import 'profile_release.dart';
 
@@ -25,7 +27,7 @@ ProfileFinding profileAdvisory(
       id: 'concepta-profile/$slug',
       message: message,
       rule: rule,
-      severity: ProfileFindingSeverity.advisory,
+      severity: OkfFindingSeverity.advisory,
       profileRelease: supportedProfileRelease,
       path: path,
     );

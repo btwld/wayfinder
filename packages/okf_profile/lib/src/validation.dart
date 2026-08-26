@@ -28,13 +28,19 @@ enum ProfileState {
 }
 
 enum AutomatedGateState {
-  pass('PASS', 0),
-  fail('FAIL', 1),
-  unsupported('UNSUPPORTED', 2);
+  pass('PASS', OkfExitCode.success),
+  fail('FAIL', OkfExitCode.findings),
+  unsupported('UNSUPPORTED', OkfExitCode.usage);
 
-  const AutomatedGateState(this.wireValue, this.exitCode);
+  const AutomatedGateState(this.wireValue, this.okfExitCode);
   final String wireValue;
-  final int exitCode;
+
+  /// The process outcome under okf's exit-code contract: gate failure exits
+  /// through `findings`, and an invocation that could not assess the declared
+  /// release exits through `usage`.
+  final OkfExitCode okfExitCode;
+
+  int get exitCode => okfExitCode.value;
 }
 
 final class ProfileValidationResult {
@@ -83,9 +89,17 @@ final class ProfileValidationResult {
     OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
   ) {
-    final stableFindings = List<ProfileFinding>.unmodifiable(findings);
+    final stableFindings = List<ProfileFinding>.unmodifiable(
+      findings.toList()
+        ..sort(
+          (left, right) => OkfReport.compareFindings(
+            left.toOkfFinding(),
+            right.toOkfFinding(),
+          ),
+        ),
+    );
     final failed = stableFindings.any(
-      (finding) => finding.severity == ProfileFindingSeverity.error,
+      (finding) => finding.severity == OkfFindingSeverity.error,
     );
     return ProfileValidationResult._(
       okfValidation: validation,

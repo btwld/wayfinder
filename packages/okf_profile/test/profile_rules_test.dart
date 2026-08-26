@@ -81,21 +81,21 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
-        'error concepta-profile/type-registry-standards types.md',
-        'error concepta-profile/type-registry-order types.md',
-        'error concepta-profile/used-type-registered bad.md',
-        'advisory concepta-profile/registered-type-extension types.md',
-        'error concepta-profile/actor-row-complete actors.md',
-        'error concepta-profile/actor-side-value actors.md',
         'error concepta-profile/actor-active-interval actors.md',
         'error concepta-profile/actor-active-overlap actors.md',
-        'error concepta-profile/used-actor-registered bad.md',
+        'error concepta-profile/actor-row-complete actors.md',
+        'error concepta-profile/actor-side-value actors.md',
+        'error concepta-profile/relationships-shape bad.md',
+        'error concepta-profile/source-attribution-join bad.md',
         'error concepta-profile/source-entry-shape bad.md',
         'error concepta-profile/source-id-unique bad.md',
-        'error concepta-profile/source-attribution-join bad.md',
-        'error concepta-profile/relationships-shape bad.md',
+        'error concepta-profile/used-actor-registered bad.md',
+        'error concepta-profile/used-type-registered bad.md',
         'error concepta-profile/relationships-shape numbered.md',
         'error concepta-profile/relationships-shape plain.md',
+        'advisory concepta-profile/registered-type-extension types.md',
+        'error concepta-profile/type-registry-order types.md',
+        'error concepta-profile/type-registry-standards types.md',
       ],
     );
     for (final finding in profile['findings']! as List<Object?>) {
@@ -128,10 +128,10 @@ void main() {
       findingSummary(profile),
       <String>[
         'advisory concepta-profile/generation-provenance-recommended note.md',
-        'advisory concepta-profile/registered-type-extension types.md',
-        'advisory concepta-profile/relationship-label-extension note.md',
         'advisory concepta-profile/internal-link-bundle-relative note.md',
         'advisory concepta-profile/internal-link-unresolved note.md',
+        'advisory concepta-profile/relationship-label-extension note.md',
+        'advisory concepta-profile/registered-type-extension types.md',
       ],
     );
     expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
@@ -183,8 +183,8 @@ void main() {
       <String>[
         'error concepta-profile/directory-index-present analyses/index.md',
         'error concepta-profile/index-semantic-projection index.md',
-        'error concepta-profile/index-semantic-projection references/index.md',
         'error concepta-profile/log-entry-lead-word log.md',
+        'error concepta-profile/index-semantic-projection references/index.md',
       ],
     );
     expect(profile['state'], 'FAIL');
@@ -293,8 +293,8 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
-        'advisory concepta-profile/registered-type-extension types.md',
         'advisory concepta-profile/concept-area-name-collision topic.md',
+        'advisory concepta-profile/registered-type-extension types.md',
       ],
     );
     expect(output['judgment_rules'], <String, Object?>{
@@ -447,8 +447,8 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
-        'error concepta-profile/okf-release-binding profile.md',
         'error concepta-profile/root-structure-files index.md',
+        'error concepta-profile/okf-release-binding profile.md',
       ],
     );
   });
@@ -558,11 +558,11 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
-        'error concepta-profile/profile-declaration-kind profile.md',
-        'error concepta-profile/type-registry-kind types.md',
-        'error concepta-profile/type-registry-columns types.md',
-        'error concepta-profile/actor-registry-kind actors.md',
         'error concepta-profile/actor-registry-columns actors.md',
+        'error concepta-profile/actor-registry-kind actors.md',
+        'error concepta-profile/profile-declaration-kind profile.md',
+        'error concepta-profile/type-registry-columns types.md',
+        'error concepta-profile/type-registry-kind types.md',
       ],
     );
   });
@@ -593,9 +593,9 @@ void main() {
     expect(
       findingSummary(profile),
       <String>[
+        'error concepta-profile/actor-active-interval actors.md',
         'error concepta-profile/actor-row-complete actors.md',
         'error concepta-profile/actor-side-value actors.md',
-        'error concepta-profile/actor-active-interval actors.md',
       ],
     );
   });

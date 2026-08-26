@@ -8,7 +8,8 @@ import 'package:path/path.dart' as p;
 List<String> findingSummary(Map<String, Object?> profile) =>
     (profile['findings']! as List<Object?>).map((value) {
       final finding = value! as Map<String, Object?>;
-      return '${finding['severity']} ${finding['id']} ${finding['path']}';
+      final location = finding['location']! as Map<String, Object?>;
+      return '${finding['severity']} ${finding['id']} ${location['path']}';
     }).toList();
 
 String fixture(String name) => p.join('test', 'fixtures', name);
