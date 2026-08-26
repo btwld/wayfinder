@@ -1,6 +1,6 @@
 name: okf_profile
 description: The OKF profile toolchain — checks a knowledge bundle against its declared profile through the okfp command-line interface.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/conceptadev/okf-profile
 issue_tracker: https://github.com/conceptadev/okf-profile/issues
 topics:
@@ -20,8 +20,9 @@ executables:
 
 dependencies:
   args: ^2.7.0
+  collection: ^1.19.0
   markdown: ^7.3.0
-  okf: ^0.1.2
+  okf: ^0.2.0
   path: ^1.9.1
   yaml: ^3.1.3
 

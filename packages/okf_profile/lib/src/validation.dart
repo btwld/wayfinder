@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 import 'concept_rules.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
+import 'profile_rule_descriptors.dart' as rules;
 import 'structure_rules.dart';
 
 const supportedOkfRelease = '0.2';
@@ -28,32 +29,33 @@ enum ProfileState {
 }
 
 enum AutomatedGateState {
-  pass('PASS', 0),
-  fail('FAIL', 1),
-  unsupported('UNSUPPORTED', 2);
+  pass('PASS', OkfExitCode.success),
+  fail('FAIL', OkfExitCode.findings),
+  unsupported('UNSUPPORTED', OkfExitCode.usage);
 
-  const AutomatedGateState(this.wireValue, this.exitCode);
+  const AutomatedGateState(this.wireValue, this.okfExitCode);
   final String wireValue;
-  final int exitCode;
+
+  /// The process outcome under okf's exit-code contract: gate failure exits
+  /// through `findings`, and an invocation that could not assess the declared
+  /// release exits through `usage`.
+  final OkfExitCode okfExitCode;
+
+  int get exitCode => okfExitCode.value;
 }
 
 final class ProfileValidationResult {
   ProfileValidationResult._({
-    required this.okfLoadIssues,
-    required this.okfReport,
+    required this.okfValidation,
     required this.profileRelease,
     required this.profileState,
     required Iterable<ProfileFinding> findings,
     required this.automatedGateState,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
-  factory ProfileValidationResult.blockedByOkf(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
-  ) =>
+  factory ProfileValidationResult.blockedByOkf(OkfSpecValidation validation) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: null,
         profileState: ProfileState.blockedByOkf,
         findings: const <ProfileFinding>[],
@@ -61,13 +63,11 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.undispatched(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     ProfileFinding finding,
   ) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: null,
         profileState: ProfileState.unsupported,
         findings: <ProfileFinding>[finding],
@@ -75,13 +75,11 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.unsupported(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     String release,
   ) =>
       ProfileValidationResult._(
-        okfLoadIssues: loaded.issues,
-        okfReport: report,
+        okfValidation: validation,
         profileRelease: release,
         profileState: ProfileState.unsupported,
         findings: const <ProfileFinding>[],
@@ -89,17 +87,23 @@ final class ProfileValidationResult {
       );
 
   factory ProfileValidationResult.assessed(
-    OkfBundleLoadResult loaded,
-    OkfValidationReport report,
+    OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
   ) {
-    final stableFindings = List<ProfileFinding>.unmodifiable(findings);
+    final stableFindings = List<ProfileFinding>.unmodifiable(
+      findings.toList()
+        ..sort(
+          (left, right) => OkfReport.compareFindings(
+            left.toOkfFinding(),
+            right.toOkfFinding(),
+          ),
+        ),
+    );
     final failed = stableFindings.any(
-      (finding) => finding.severity == ProfileFindingSeverity.error,
+      (finding) => finding.severity == OkfFindingSeverity.error,
     );
     return ProfileValidationResult._(
-      okfLoadIssues: loaded.issues,
-      okfReport: report,
+      okfValidation: validation,
       profileRelease: supportedProfileRelease,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
@@ -108,22 +112,20 @@ final class ProfileValidationResult {
     );
   }
 
-  final List<OkfBundleLoadIssue> okfLoadIssues;
-  final OkfValidationReport okfReport;
+  final OkfSpecValidation okfValidation;
   final String? profileRelease;
   final ProfileState profileState;
   final List<ProfileFinding> findings;
   final AutomatedGateState automatedGateState;
 
-  OkfState get okfState => okfLoadIssues.isEmpty && okfReport.isValid
-      ? OkfState.pass
-      : OkfState.fail;
+  OkfReport get okfReport => okfValidation.report;
+  OkfState get okfState =>
+      okfValidation.isConformant ? OkfState.pass : OkfState.fail;
   int get exitCode => automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
         'okf': <String, Object?>{
           'state': okfState.wireValue,
-          'load_issues': okfLoadIssues.map(_loadIssueJson).toList(),
           'report': okfReport.toJson(),
         },
         'profile': <String, Object?>{
@@ -139,14 +141,10 @@ final class ProfileValidationResult {
 
   Iterable<String> toTextLines() sync* {
     yield 'OKF: ${okfState.wireValue}';
-    for (final issue in okfLoadIssues) {
-      yield issue.toString();
-    }
-    for (final diagnostic in okfReport.diagnostics) {
-      yield diagnostic.toString();
-    }
-    yield 'OKF Report: ${okfReport.errorCount} error(s), '
-        '${okfReport.warningCount} warning(s).';
+    yield* okfReport.toTextLines();
+    final errors = _countBySeverity(OkfFindingSeverity.error);
+    final advisories = _countBySeverity(OkfFindingSeverity.advisory);
+    yield 'OKF Report: $errors error(s), $advisories advisory(ies).';
     final release = profileRelease ?? 'UNDECLARED';
     yield 'Profile $release: ${profileState.wireValue}';
     if (profileState == ProfileState.unsupported && profileRelease != null) {
@@ -158,35 +156,34 @@ final class ProfileValidationResult {
     yield 'Judgment Rules: UNASSESSED';
     yield 'Automated gate: ${automatedGateState.wireValue}';
   }
+
+  int _countBySeverity(OkfFindingSeverity severity) => okfReport.findings
+      .where((finding) => finding.severity == severity)
+      .length;
 }
 
 final class ProfileValidator {
-  const ProfileValidator({
-    this.loader = const OkfBundleLoader(),
-    this.okfValidator = const OkfValidator(),
-  });
+  const ProfileValidator({this.loader = const OkfBundleLoader()});
 
   final OkfBundleLoader loader;
-  final OkfValidator okfValidator;
 
   Future<ProfileValidationResult> validate(String bundlePath) async {
     final loaded = await loader.inspect(bundlePath);
-    final okfReport = okfValidator.validate(loaded.bundle);
-    if (loaded.hasIssues || !okfReport.isValid) {
-      return ProfileValidationResult.blockedByOkf(loaded, okfReport);
+    final validation = loaded.validate();
+    if (!validation.isConformant) {
+      return ProfileValidationResult.blockedByOkf(validation);
     }
     final declaration = _readDeclaration(loaded);
     if (declaration.finding case final finding?) {
-      return ProfileValidationResult.undispatched(loaded, okfReport, finding);
+      return ProfileValidationResult.undispatched(validation, finding);
     }
     final values = declaration.values!;
     final release = values['concepta_profile']!;
     if (release != supportedProfileRelease) {
-      return ProfileValidationResult.unsupported(loaded, okfReport, release);
+      return ProfileValidationResult.unsupported(validation, release);
     }
     return ProfileValidationResult.assessed(
-      loaded,
-      okfReport,
+      validation,
       <ProfileFinding>[
         if (_validateOkfBinding(values, loaded) case final finding?) finding,
         ...validateConceptRules(loaded),
@@ -201,9 +198,9 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (document == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-present',
+        descriptor: rules.profileDeclarationPresent,
         message: 'The bundle must contain profile.md.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -211,9 +208,9 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (yamlSource == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-readable',
+        descriptor: rules.profileDeclarationReadable,
         message: 'profile.md must contain a fenced yaml declaration.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -223,18 +220,18 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   } on YamlException {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-readable',
+        descriptor: rules.profileDeclarationReadable,
         message: 'The first fenced yaml declaration in profile.md is invalid.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
   if (parsed is! Map) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-fields',
+        descriptor: rules.profileDeclarationFields,
         message: 'The Profile declaration must be a YAML mapping.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -244,10 +241,10 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
     if (value is! String || value.trim().isEmpty) {
       return const _DeclarationRead.finding(
         ProfileFinding(
-          id: 'concepta-profile/profile-declaration-fields',
+          descriptor: rules.profileDeclarationFields,
           message: 'The Profile declaration must contain non-empty string '
               'values for concepta_profile and okf_version.',
-          rule: '§11',
+          path: 'profile.md',
         ),
       );
     }
@@ -263,17 +260,22 @@ ProfileFinding? _validateOkfBinding(
   Object? rootVersion;
   final rootIndex = loaded.indexes['index.md'];
   if (rootIndex != null) {
-    rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+    try {
+      rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+    } on OkfDocumentException {
+      // The independent OKF result reports the malformed reserved document;
+      // with no readable root binding, the finding below reports.
+    }
   }
   if (declaration['okf_version'] == supportedOkfRelease &&
       rootVersion == supportedOkfRelease) {
     return null;
   }
   return const ProfileFinding(
-    id: 'concepta-profile/okf-release-binding',
+    descriptor: rules.okfReleaseBinding,
     message: 'The declaration, root index, and Profile release must all bind '
         'to OKF 0.2.',
-    rule: '§11',
+    path: 'profile.md',
     profileRelease: supportedProfileRelease,
   );
 }
@@ -303,15 +305,6 @@ String? _firstYamlFence(String body) {
 
   return find(nodes);
 }
-
-Map<String, Object> _loadIssueJson(OkfBundleLoadIssue issue) =>
-    <String, Object>{
-      'code': issue.code,
-      'message': issue.message,
-      'path': issue.path,
-      if (issue.line != null) 'line': issue.line!,
-      if (issue.column != null) 'column': issue.column!,
-    };
 
 final class _DeclarationRead {
   const _DeclarationRead.values(this.values) : finding = null;

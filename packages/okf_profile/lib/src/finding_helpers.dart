@@ -1,33 +1,20 @@
 import 'profile_finding.dart';
 import 'profile_release.dart';
+import 'profile_rule_descriptors.dart';
 
-ProfileFinding profileError(
-  String slug,
-  String message,
-  String rule,
-  String path,
-) =>
+/// Builds the finding for one deterministic Profile rule assessed under the
+/// supported release.
+///
+/// The descriptor is the finding's authority for id, severity, and rule
+/// reference, so a call site names only the rule, the observation, and where
+/// it was made.
+ProfileFinding profileFinding(
+        ProfileRuleDescriptor rule, String message, String path) =>
     ProfileFinding(
-      id: 'concepta-profile/$slug',
+      descriptor: rule,
       message: message,
-      rule: rule,
-      profileRelease: supportedProfileRelease,
       path: path,
-    );
-
-ProfileFinding profileAdvisory(
-  String slug,
-  String message,
-  String rule,
-  String path,
-) =>
-    ProfileFinding(
-      id: 'concepta-profile/$slug',
-      message: message,
-      rule: rule,
-      severity: ProfileFindingSeverity.advisory,
       profileRelease: supportedProfileRelease,
-      path: path,
     );
 
 String? nonEmptyString(Object? value) =>

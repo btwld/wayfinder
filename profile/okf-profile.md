@@ -362,6 +362,17 @@ heterogeneous, is organized by source and date rather than by subject, and MAY b
 organized into subdirectories. A nonempty `references/` MUST still carry an
 `index.md`, and so MUST each of its nonempty subdirectories.
 
+A source directory MAY keep the verbatim originals it preserves in a `raw/`
+subdirectory. Within `raw/` and any of its subdirectories, the only markdown
+file permitted is each directory's own `index.md`: everything else in the tier
+is a non-concept asset (§12) and stays byte-for-byte. A readable mirror derived
+from an original is a sibling of `raw/` in its source directory, never inside
+it. Because this rule keys on the name, `raw` is reserved within `references/`
+and MUST NOT name a source directory. The tier belongs to a source directory
+alone: `raw/` MUST NOT sit directly under `references/`, which is not a source
+directory — a flat `references/` organizes into source directories before
+adopting the tier.
+
 What may be mirrored, and when, is specified in §12.
 
 ### 3.5 Root files
@@ -1107,6 +1118,19 @@ entries MUST sort by `title` and then target path, both case-sensitive. Director
 and asset entries MUST sort by target path. Every target MUST be relative to the
 index containing it.
 
+A target is written as a relative URL (OKF §8): a character a plain Markdown link
+destination cannot carry literally — a space, a parenthesis, a character outside
+ASCII — MUST be percent-encoded (RFC 3986) or carried by the angle-bracket
+destination form (CommonMark). Conformance compares each target percent-decoded
+against the projected path, so every valid spelling of the same target matches
+the projection; a percent sign outside a valid escape sequence does not parse as
+a target. A spelling a relative-URL consumer reads differently from the decoded
+comparison does not parse as a target either: a raw `?` or `#` MUST be
+percent-encoded — a URL splits at them into query and fragment — and an escape
+MUST NOT decode to `/`, which a URL reads as data, never as a path separator.
+Labels are not URLs and stay verbatim — an asset's label is its
+filename exactly as written even when its target is encoded.
+
 The root index MUST carry `okf_version`, which §11 requires to agree with the
 profile declaration. A complete root index therefore covers the root log, the two
 required root registry/declaration concepts, conditional actor registry, every
@@ -1259,7 +1283,10 @@ produced by the interaction, while an Interaction Record *interprets* the durabl
 combined context. The mirror does not substitute for that interpretation.
 
 Non-markdown assets under `references/` are not concepts and carry no
-frontmatter; the concepts citing them supply their context.
+frontmatter; the concepts citing them supply their context. A source directory
+MAY separate the originals it preserves into its `raw/` tier (§3.4); the mirror
+derived from an original then sits beside `raw/`, its `sources` entry naming
+the original.
 
 By medium:
 
@@ -1490,6 +1517,21 @@ OKF's normative requirements always take precedence over any profile release
 
 **2026.1.** Initial release. Binds OKF 0.2 exactly, published together with the
 rule-level compatibility review and the implementation coverage matrix (§15.1).
+Amended in place during its QA period (ADR-0006): §3.4 and §12 add the optional
+per-source `raw/` tier for verbatim originals under `references/`. Driver: the
+first migration QA showed originals and derived mirrors mixing in one tier with
+nothing structural marking the boundary. Migration impact: none — the tier is a
+MAY, and its markdown restriction binds only bundles that adopt it; a bundle
+conformant before the amendment remains conformant unchanged.
+A second QA-period amendment (ADR-0007): §9 writes targets as relative URLs and
+compares them percent-decoded, rejecting the spellings a URL reads differently —
+raw `?`/`#`, escapes decoding to `/`. Driver: the same migration's verbatim
+originals carry filenames — spaces, parentheses, characters outside ASCII — that
+no target spelling could satisfy, because Markdown parsing normalizes
+destinations to a percent-encoded form the raw-path comparison then rejected.
+Migration impact: a previously conformant target decodes to itself and stays
+conformant unless it carried a raw `?` or `#`, which now needs the encoded
+spelling a URL consumer actually resolves to the file.
 
 Future releases add one entry each here, newest first, naming the sections
 touched, the **driver** — what real use revealed the gap — and the migration

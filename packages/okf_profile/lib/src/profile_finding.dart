@@ -1,40 +1,59 @@
-enum ProfileFindingSeverity {
-  error('error'),
-  advisory('advisory');
+import 'package:okf/okf.dart';
 
-  const ProfileFindingSeverity(this.wireValue);
+import 'profile_rule_descriptors.dart';
 
-  final String wireValue;
-}
-
+/// A deterministic Concepta Profile finding.
+///
+/// Built from the descriptor of the rule that reported it, which is the
+/// finding's single authority for id, severity, and normative rule reference.
+/// Projects into okf's finding model ([toOkfFinding]): the id uses okf's
+/// frozen `<namespace>/<code>` grammar in the `concepta-profile` namespace,
+/// severities are okf's two tiers, and the location is an okf location. The
+/// Profile release and normative rule reference ride alongside, because guide
+/// §4.2 requires every Profile finding to name them.
 final class ProfileFinding {
   const ProfileFinding({
-    required this.id,
+    required this.descriptor,
     required this.message,
-    required this.rule,
-    this.severity = ProfileFindingSeverity.error,
+    required this.path,
     this.profileRelease,
-    this.path = 'profile.md',
   });
 
-  final String id;
+  /// The rule that reported this finding.
+  final ProfileRuleDescriptor descriptor;
+
   final String message;
-  final String rule;
-  final ProfileFindingSeverity severity;
-  final String? profileRelease;
+
+  /// Bundle-relative path of the observation.
   final String path;
 
+  /// The Profile release the rule assessed under; null when the finding
+  /// precedes release dispatch.
+  final String? profileRelease;
+
+  String get id => descriptor.id;
+  OkfFindingSeverity get severity => descriptor.severity;
+  String get rule => descriptor.rule;
+
+  OkfFindingLocation get _location => OkfFindingLocation(path: path);
+
+  /// This finding as an okf finding value, for canonical ordering and any
+  /// consumer that speaks the okf contract.
+  OkfFinding toOkfFinding() => OkfFinding(
+        id: OkfFindingId.parse(id),
+        severity: severity,
+        message: message,
+        location: _location,
+      );
+
   Map<String, Object?> toJson() => <String, Object?>{
-        'id': id,
-        'severity': severity.wireValue,
+        ...toOkfFinding().toJson(),
         'profile_release': profileRelease,
         'rule': rule,
-        'path': path,
-        'message': message,
       };
 
   String toText() {
     final release = profileRelease == null ? '' : '$profileRelease ';
-    return '$path: ${severity.wireValue} $id ($release$rule): $message';
+    return '$_location: ${severity.wireValue} $id ($release$rule): $message';
   }
 }
