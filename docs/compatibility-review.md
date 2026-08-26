@@ -23,7 +23,7 @@ ship in the Profile. It must be removed or pursued upstream first.
 ## Inventory audit
 
 The publication review traced every normative clause in the canonical Profile
-through this artifact and the separate coverage matrix. This review has 61
+through this artifact and the separate coverage matrix. This review has 62
 compatibility records: a record may group adjacent clauses only when they use the
 same OKF construct and all five answers are identical. The coverage matrix keeps
 assessment assignments separate and exactly once. No compatibility record is
@@ -61,6 +61,7 @@ implicit, unassessed, or inherited merely by silence.
 | §9 defines exact immediate membership and fixed `Bundle`, type, `Directories`, and `Assets` groups | §8 permits one or more grouped sections and directory entries | Pass | Every projected item is represented with the existing OKF index syntax; non-Markdown assets remain files rather than concepts. |
 | §9 derives group and entry order, labels, relative targets, and descriptions and omits empty groups | §8 permits generated indexes and recommends concept descriptions | Pass | Tightening producer output to deterministic values changes no upstream field or index-entry meaning. |
 | §9 treats semantic equivalence rather than Markdown presentation as conformance | §8 specifies structural Markdown rather than canonical bytes | Pass | Parsed comparison preserves the upstream format and avoids inventing a stricter presentation language. |
+| §9 writes each index target as a relative URL — percent-encoding (or the angle-bracket destination) carries characters a plain destination cannot, and a raw `?`/`#` or an escape decoding to `/` does not parse as a target — and compares targets percent-decoded against the projected path | §8 writes index entries as `[Title](relative-url)` links, leaving target spelling to standard Markdown and URL syntax | Pass | Encoding selects among valid spellings of one relative target without adding a field or changing any path's meaning; labels stay verbatim, and a rejected spelling affects only the Profile result, never the independent OKF verdict. |
 | §10 requires the root log, OKF date ordering, and a nonempty bold lead word followed by a colon while keeping the vocabulary extensible | §9 defines newest-first ISO date groups and conventional bold lead words | Pass | The Profile requires a shape OKF already permits and does not close or reinterpret the upstream lead-word convention. |
 | §10 limits log entries to knowledge lifecycle history and prohibits unrelated events; §13 excludes the authored log from projections | §9 defines logs as history, not as generated state | Pass | Authorship and content selection narrow producer practice without changing reserved-file syntax or claiming that current concepts can reconstruct history. |
 

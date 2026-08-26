@@ -68,8 +68,10 @@ in its name, because there the version is the identity. A release bump is an edi
 rename sweep.
 
 An upstream OKF release requires a new profile release **and** a compatibility review, even
-when no Concepta convention otherwise changes. A release MUST NOT claim compatibility with an
-OKF version it has not been reviewed against.
+when no Concepta convention otherwise changes. An OKF release here is a release of the OKF
+*specification*; a toolchain-only release of the `okf` package that changes no spec text
+triggers neither. A release MUST NOT claim compatibility with an OKF version it has not been
+reviewed against.
 
 ## Changing the skills
 
