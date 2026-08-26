@@ -1,4 +1,3 @@
-import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
@@ -142,8 +141,8 @@ Iterable<ProfileFinding> _validateIndexes(
     final expected =
         _expectedProjection(loaded, inventory, normalizedDirectory);
     if (expected == null) continue;
-    final actual = _parseIndex(entry.value, root: normalizedDirectory.isEmpty);
-    if (actual == null || actual != expected) {
+    final actual = _parseIndex(entry.value);
+    if (actual == null || !_sameEntries(actual, expected)) {
       yield profileError(
         'index-semantic-projection',
         'The index must exactly match its immediate semantic projection.',
@@ -157,7 +156,16 @@ Iterable<ProfileFinding> _validateIndexes(
 Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   final source = loaded.logs['log.md'];
   if (source == null) return;
-  if (!_entriesHaveLeadWords(source)) {
+  OkfLogParseResult parsed;
+  try {
+    parsed = OkfLogDocument.parse(source, sourcePath: 'log.md');
+  } on OkfDocumentException {
+    // The independent OKF result reports the malformed reserved document and
+    // blocks Profile assessment; there is no lead word left to judge.
+    return;
+  }
+  if (parsed.entries.isEmpty ||
+      parsed.entries.any((entry) => entry.action.isEmpty)) {
     yield profileError(
       'log-entry-lead-word',
       'Every root log entry must begin with a nonempty bold lead word and a '
@@ -168,37 +176,43 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   }
 }
 
-_IndexProjection? _expectedProjection(
+List<OkfIndexEntry>? _expectedProjection(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
   String directory,
 ) {
-  final groups = <_IndexGroup>[];
+  final projection = <OkfIndexEntry>[];
   if (directory.isEmpty) {
-    final bundleEntries = <_IndexEntry>[
+    final bundleEntries = <OkfIndexEntry>[
       if (loaded.logs.containsKey('log.md'))
-        const _IndexEntry('Knowledge Log', 'log.md', null),
+        const OkfIndexEntry(
+          type: 'Bundle',
+          title: 'Knowledge Log',
+          link: 'log.md',
+          description: '',
+        ),
       for (final path in _structuralConcepts)
         if (loaded.documents[path] case final document?)
-          if (_conceptEntry(path, document) case final concept?) concept,
+          if (_conceptEntry('Bundle', path, document) case final concept?)
+            concept,
     ];
     if (bundleEntries.length !=
         1 + _structuralConcepts.where(loaded.documents.containsKey).length) {
       return null;
     }
-    if (bundleEntries.isNotEmpty) {
-      groups.add(_IndexGroup('Bundle', bundleEntries));
-    }
+    projection.addAll(bundleEntries);
   }
 
-  final byType = <String, List<_IndexEntry>>{};
+  final byType = <String, List<OkfIndexEntry>>{};
   for (final entry in loaded.documents.entries) {
     final parent = p.posix.dirname(entry.key);
     if ((parent == '.' ? '' : parent) != directory) continue;
     if (directory.isEmpty && _structuralConcepts.contains(entry.key)) continue;
-    final concept = _conceptEntry(entry.key, entry.value);
+    final type = entry.value.type;
+    final concept =
+        type == null ? null : _conceptEntry(type, entry.key, entry.value);
     if (concept == null) return null;
-    byType.putIfAbsent(entry.value.type!, () => <_IndexEntry>[]).add(concept);
+    byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
   final customTypes = byType.keys
       .where((type) => !standardTypes.any((row) => row.$1 == type))
@@ -211,35 +225,41 @@ _IndexProjection? _expectedProjection(
     final entries = byType[type];
     if (entries == null) continue;
     entries.sort((left, right) {
-      final title = left.label.compareTo(right.label);
-      return title != 0 ? title : left.target.compareTo(right.target);
+      final title = left.title.compareTo(right.title);
+      return title != 0 ? title : left.link.compareTo(right.link);
     });
-    groups.add(_IndexGroup(type, entries));
+    projection.addAll(entries);
   }
 
   final directories = inventory
       .immediateDirectories(directory)
-      .map((path) => _IndexEntry(
-          p.posix.basename(path), '${p.posix.basename(path)}/', null))
+      .map((path) => OkfIndexEntry(
+            type: 'Directories',
+            title: p.posix.basename(path),
+            link: '${p.posix.basename(path)}/',
+            description: '',
+          ))
       .toList()
-    ..sort((left, right) => left.target.compareTo(right.target));
-  if (directories.isNotEmpty) {
-    groups.add(_IndexGroup('Directories', directories));
-  }
+    ..sort((left, right) => left.link.compareTo(right.link));
+  projection.addAll(directories);
 
   if (directory == 'references' || directory.startsWith('references/')) {
     final assets = loaded.assets
         .where((path) => _parent(path) == directory)
-        .map((path) =>
-            _IndexEntry(p.posix.basename(path), p.posix.basename(path), null))
+        .map((path) => OkfIndexEntry(
+              type: 'Assets',
+              title: p.posix.basename(path),
+              link: p.posix.basename(path),
+              description: '',
+            ))
         .toList()
-      ..sort((left, right) => left.target.compareTo(right.target));
-    if (assets.isNotEmpty) groups.add(_IndexGroup('Assets', assets));
+      ..sort((left, right) => left.link.compareTo(right.link));
+    projection.addAll(assets);
   }
-  return _IndexProjection(groups);
+  return projection;
 }
 
-_IndexEntry? _conceptEntry(String path, OkfDocument document) {
+OkfIndexEntry? _conceptEntry(String group, String path, OkfDocument document) {
   final type = nonEmptyString(document.frontmatter['type']);
   final title = document.frontmatter['title'];
   final description = document.frontmatter['description'];
@@ -250,87 +270,46 @@ _IndexEntry? _conceptEntry(String path, OkfDocument document) {
       description.trim().isEmpty) {
     return null;
   }
-  return _IndexEntry(title, p.posix.basename(path), description);
+  return OkfIndexEntry(
+    type: group,
+    title: title,
+    link: p.posix.basename(path),
+    description: description,
+  );
 }
 
-_IndexProjection? _parseIndex(String source, {required bool root}) {
-  String body = source;
-  if (root) {
-    try {
-      body = OkfDocument.parse(source, sourcePath: 'index.md').body;
-    } on FormatException {
-      return null;
-    }
-  }
-  // With encodeHtml on, an `&` in a label or heading would parse as `&amp;`;
-  // off keeps both comparable to raw frontmatter and filenames.
-  final nodes = markdown.Document(
-    encodeHtml: false,
-    extensionSet: markdown.ExtensionSet.gitHubFlavored,
-  ).parse(body);
-  final descriptions = _rawIndexDescriptions(body);
-  var descriptionIndex = 0;
-  final groups = <_IndexGroup>[];
-  _IndexGroup? current;
-  for (final node in nodes) {
-    if (node case final markdown.Element element when element.tag == 'h1') {
-      current = _IndexGroup(element.textContent.trim(), <_IndexEntry>[]);
-      groups.add(current);
-      continue;
-    }
-    if (node case final markdown.Element element when element.tag == 'ul') {
-      if (current == null) return null;
-      for (final child in element.children ?? const <markdown.Node>[]) {
-        if (descriptionIndex >= descriptions.length) return null;
-        final entry = _parseIndexEntry(
-          child,
-          descriptions[descriptionIndex++],
-        );
-        if (entry == null) return null;
-        current.entries.add(entry);
-      }
-      continue;
-    }
+/// Parses an index through okf's entry format, targets percent-decoded per
+/// ADR-0007; null when the document is not a clean projection — a structural
+/// issue, a non-portable destination, or a target spelling that is not a
+/// relative URL for the decoded path.
+List<OkfIndexEntry>? _parseIndex(String source) {
+  OkfIndexParseResult parsed;
+  try {
+    parsed = OkfIndexDocument.parse(source);
+  } on OkfDocumentException {
     return null;
   }
-  if (groups.any((group) => group.name.isEmpty || group.entries.isEmpty)) {
-    return null;
+  if (parsed.issues.isNotEmpty) return null;
+  final entries = <OkfIndexEntry>[];
+  for (final entry in parsed.entries) {
+    final decoded = _decodeTarget(entry.link);
+    if (decoded == null) return null;
+    entries.add(
+      OkfIndexEntry(
+        type: entry.type,
+        title: entry.title,
+        link: decoded,
+        description: entry.description,
+      ),
+    );
   }
-  if (descriptionIndex != descriptions.length) return null;
-  return _IndexProjection(groups);
+  return entries;
 }
 
-_IndexEntry? _parseIndexEntry(markdown.Node node, String? description) {
-  if (node is! markdown.Element || node.tag != 'li') return null;
-  var inline = node.children ?? const <markdown.Node>[];
-  if (inline.length == 1 &&
-      inline.single is markdown.Element &&
-      (inline.single as markdown.Element).tag == 'p') {
-    inline =
-        (inline.single as markdown.Element).children ?? const <markdown.Node>[];
-  }
-  markdown.Element? link;
-  final before = StringBuffer();
-  for (final child in inline) {
-    if (link == null && child is markdown.Element && child.tag == 'a') {
-      link = child;
-    } else if (link == null) {
-      before.write(child.textContent);
-    }
-  }
-  final target = link?.attributes['href'];
-  final label = link?.textContent.trim();
-  if (before.toString().trim().isNotEmpty ||
-      target == null ||
-      target.isEmpty ||
-      label == null ||
-      label.isEmpty) {
-    return null;
-  }
-  final decoded = _decodeTarget(target);
-  if (decoded == null) return null;
-  return _IndexEntry(label, decoded, description);
-}
+bool _sameEntries(List<OkfIndexEntry> left, List<OkfIndexEntry> right) =>
+    left.length == right.length &&
+    Iterable<int>.generate(left.length)
+        .every((index) => left[index] == right[index]);
 
 final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
 
@@ -357,60 +336,6 @@ String? _decodeTarget(String target) {
   } on FormatException {
     return null;
   }
-}
-
-List<String?> _rawIndexDescriptions(String body) {
-  final descriptions = <String?>[];
-  for (final rawLine in body.split(RegExp(r'\r?\n'))) {
-    final line = rawLine.trim();
-    if (!line.startsWith('* ') && !line.startsWith('- ')) continue;
-    final linkStart = line.indexOf('](');
-    // The first `)` ends the target only because okf's entry-line grammar
-    // rejects a raw `)` inside one: an angle-bracket destination
-    // carrying `)` never reaches this scanner. Widen both together.
-    final targetEnd = linkStart < 0 ? -1 : line.indexOf(')', linkStart + 2);
-    if (targetEnd < 0) continue;
-    final suffix = line.substring(targetEnd + 1).trim();
-    if (suffix.isEmpty) {
-      descriptions.add(null);
-      continue;
-    }
-    final match = RegExp(r'^-\s+(.+)$').firstMatch(suffix);
-    descriptions.add(match?.group(1)?.trim());
-  }
-  return descriptions;
-}
-
-bool _entriesHaveLeadWords(String source) {
-  final nodes = markdown.Document(
-    extensionSet: markdown.ExtensionSet.gitHubFlavored,
-  ).parse(source);
-  final listItems = nodes
-      .whereType<markdown.Element>()
-      .where((node) => node.tag == 'ul')
-      .expand((list) => list.children ?? const <markdown.Node>[])
-      .toList();
-  return listItems.isNotEmpty && listItems.every(_hasLeadWord);
-}
-
-bool _hasLeadWord(markdown.Node node) {
-  if (node is! markdown.Element || node.tag != 'li') return false;
-  var inline = node.children ?? const <markdown.Node>[];
-  if (inline.length == 1 &&
-      inline.single is markdown.Element &&
-      (inline.single as markdown.Element).tag == 'p') {
-    inline =
-        (inline.single as markdown.Element).children ?? const <markdown.Node>[];
-  }
-  if (inline.isEmpty || inline.first is! markdown.Element) return false;
-  final strong = inline.first as markdown.Element;
-  if (strong.tag != 'strong' || strong.textContent.trim().isEmpty) return false;
-  return inline
-      .skip(1)
-      .map((node) => node.textContent)
-      .join()
-      .trimLeft()
-      .startsWith(':');
 }
 
 final class _BundleInventory {
@@ -448,54 +373,3 @@ String _parent(String path) {
   return directory == '.' ? '' : directory;
 }
 
-final class _IndexProjection {
-  const _IndexProjection(this.groups);
-
-  final List<_IndexGroup> groups;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _IndexProjection && _sameList(groups, other.groups);
-
-  @override
-  int get hashCode => Object.hashAll(groups);
-}
-
-final class _IndexGroup {
-  const _IndexGroup(this.name, this.entries);
-
-  final String name;
-  final List<_IndexEntry> entries;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _IndexGroup &&
-      name == other.name &&
-      _sameList(entries, other.entries);
-
-  @override
-  int get hashCode => Object.hash(name, Object.hashAll(entries));
-}
-
-final class _IndexEntry {
-  const _IndexEntry(this.label, this.target, this.description);
-
-  final String label;
-  final String target;
-  final String? description;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _IndexEntry &&
-      label == other.label &&
-      target == other.target &&
-      description == other.description;
-
-  @override
-  int get hashCode => Object.hash(label, target, description);
-}
-
-bool _sameList<T>(List<T> left, List<T> right) =>
-    left.length == right.length &&
-    Iterable<int>.generate(left.length)
-        .every((index) => left[index] == right[index]);

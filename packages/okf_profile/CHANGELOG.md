@@ -25,6 +25,13 @@ This is package semver; profile releases are recorded in `profile/`, not here.
   emitted findings and descriptors consistent.
 - The automated gate's exit codes are okf's `OkfExitCode` contract:
   `success`/`findings`/`usage` for PASS/FAIL/UNSUPPORTED (values unchanged).
+- Index and log parsing go through okf's `OkfIndexDocument`/`OkfLogDocument`
+  entry format instead of a hand-rolled markdown-AST parallel; ADR-0007's
+  percent-decoded target comparison is unchanged on top of it. okf 0.2.0's
+  angle-bracket destination form means a raw `)` no longer forces the
+  percent-encoded spelling; the authoring skill teaches both. The §9 expected
+  projection stays profile-owned — okf's generic index generator synthesizes
+  directory descriptions the Concepta projection deliberately leaves empty.
 
 ## 0.1.1
 

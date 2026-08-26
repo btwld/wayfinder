@@ -54,9 +54,11 @@ non-ASCII). Percent-encode `#` and `?` too (`%23`, `%3F`) even though a
 destination can carry them raw — a URL splits at them into fragment and query —
 and never write `%2F` for a slash: both raw-`#`/`?` and slash-escape spellings
 are rejected. Conformance compares targets percent-decoded, so any valid
-spelling matches, but prefer the fully percent-encoded one: it is the spelling
-every layer of tooling accepts today. The label is not a URL and stays exactly
-as written; sorting uses the decoded target path.
+spelling matches. CommonMark's angle-bracket destination
+(`<board deck (1).pdf>`) is accepted too — okf reads it as the same encoded
+target — but the percent-encoded form is the canonical spelling okf's own
+tooling writes. The label is not a URL and stays exactly as written; sorting
+uses the decoded target path.
 
 A complete root index therefore covers the root log, the two required
 registry/declaration concepts, the conditional actor registry, every other root
