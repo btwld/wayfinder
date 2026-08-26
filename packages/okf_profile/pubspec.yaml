@@ -21,7 +21,7 @@ executables:
 dependencies:
   args: ^2.7.0
   markdown: ^7.3.0
-  okf: ^0.1.2
+  okf: ^0.2.0
   path: ^1.9.1
   yaml: ^3.1.3
 
