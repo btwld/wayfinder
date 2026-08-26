@@ -16,15 +16,16 @@ This is package semver; profile releases are recorded in `profile/`, not here.
 - `ProfileValidator` validates through okf's single report-composition seam
   (`OkfBundleLoadResult.validate()`) and no longer takes an okf validator.
 - Profile findings speak the same finding grammar (ADR-0008): each JSON
-  finding is the okf projection — `{id, severity, message, location}`, with
-  line/column capability — plus the `profile_release` and `rule` references
-  guide §4.2 requires, and findings sort in okf's canonical report order
-  (path, line, column, id, severity, message) instead of emission order.
+  finding is the okf projection — `{id, severity, message, location}` — plus
+  the `profile_release` and `rule` references guide §4.2 requires, and
+  findings sort in okf's canonical report order (path, line, column, id,
+  severity, message) instead of emission order.
 - Add the profile rule descriptor registry (id, severity, normative rule
-  reference), mirroring okf's `okfSpecRuleDescriptors`. The registry is the
-  single source of each rule's severity and rule reference — rule call sites
-  name only the rule, the observation, and its path — and a corpus test holds
-  emitted findings and descriptors consistent.
+  reference), mirroring okf's `okfSpecRuleDescriptors`. Every finding is
+  built from its rule's descriptor, so id, severity, and rule reference
+  cannot drift from the registry — a call site names only the rule, the
+  observation, and its path — and a corpus test holds every emitted finding
+  to a registered rule.
 - The automated gate's exit codes are okf's `OkfExitCode` contract:
   `success`/`findings`/`usage` for PASS/FAIL/UNSUPPORTED (values unchanged).
 - Index and log parsing go through okf's `OkfIndexDocument`/`OkfLogDocument`

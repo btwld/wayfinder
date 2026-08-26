@@ -16,7 +16,7 @@ void main() {
     }
   });
 
-  test('every finding emitted over the fixture corpus matches its descriptor',
+  test('every finding emitted over the fixture corpus is a registered rule',
       () async {
     final fixtures = Directory('test/fixtures')
         .listSync()
@@ -30,21 +30,10 @@ void main() {
       final result = await const ProfileValidator().validate(fixtureDir.path);
       for (final finding in result.findings) {
         emitted.add(finding.id);
-        final descriptor = profileRuleDescriptor(finding.id);
         expect(
-          descriptor,
-          isNotNull,
-          reason: '${finding.id} (${fixtureDir.path}) has no descriptor',
-        );
-        expect(
-          finding.severity,
-          descriptor!.severity,
-          reason: '${finding.id} (${fixtureDir.path}) severity drifted',
-        );
-        expect(
-          finding.rule,
-          descriptor.rule,
-          reason: '${finding.id} (${fixtureDir.path}) rule reference drifted',
+          profileRuleDescriptors,
+          contains(same(finding.descriptor)),
+          reason: '${finding.id} (${fixtureDir.path}) is not in the registry',
         );
       }
     }

@@ -3,18 +3,21 @@ import 'package:okf/okf.dart';
 /// Read-only metadata describing one deterministic Concepta Profile rule,
 /// mirroring okf's `okfSpecRuleDescriptors`.
 ///
-/// Descriptors are the single source of each rule's severity and normative
-/// Profile clause reference — `profileFinding` reads them when a rule
-/// reports — and carry no prose: the Profile document owns each rule's
+/// A descriptor is the single authority for its rule's finding ID, severity,
+/// and normative Profile clause reference: every finding is built from the
+/// descriptor of the rule that reports it, so none of the three can drift.
+/// Descriptors carry no prose — the Profile document owns each rule's
 /// statement, and restating it here would be a second copy to drift.
 /// Execution stays fixed inside the closed validator; a descriptor cannot
 /// alter validation.
 final class ProfileRuleDescriptor {
-  const ProfileRuleDescriptor({
-    required this.id,
-    required this.severity,
-    required this.rule,
-  });
+  const ProfileRuleDescriptor.error(String slug, this.rule)
+      : id = 'concepta-profile/$slug',
+        severity = OkfFindingSeverity.error;
+
+  const ProfileRuleDescriptor.advisory(String slug, this.rule)
+      : id = 'concepta-profile/$slug',
+        severity = OkfFindingSeverity.advisory;
 
   /// Stable `concepta-profile/<rule-slug>` finding ID.
   final String id;
@@ -26,71 +29,130 @@ final class ProfileRuleDescriptor {
   final String rule;
 }
 
-const OkfFindingSeverity _error = OkfFindingSeverity.error;
-const OkfFindingSeverity _advisory = OkfFindingSeverity.advisory;
+// Release dispatch and declaration (validation.dart).
+const profileDeclarationPresent =
+    ProfileRuleDescriptor.error('profile-declaration-present', '§11');
+const profileDeclarationReadable =
+    ProfileRuleDescriptor.error('profile-declaration-readable', '§11');
+const profileDeclarationFields =
+    ProfileRuleDescriptor.error('profile-declaration-fields', '§11');
+const okfReleaseBinding =
+    ProfileRuleDescriptor.error('okf-release-binding', '§11');
 
-/// One row per rule: slug, severity, normative rule reference.
-const List<(String, OkfFindingSeverity, String)> _rules = [
-  // Release dispatch and declaration (validation.dart).
-  ('profile-declaration-present', _error, '§11'),
-  ('profile-declaration-readable', _error, '§11'),
-  ('profile-declaration-fields', _error, '§11'),
-  ('okf-release-binding', _error, '§11'),
-  // Concept rules.
-  ('profile-declaration-kind', _error, '§11'),
-  ('concept-baseline-fields', _error, '§5.1'),
-  ('frontmatter-fields-okf', _error, '§5.1'),
-  ('status-value', _error, '§5.1'),
-  ('tag-literal-duplication', _error, '§5.1'),
-  ('generation-provenance-recommended', _advisory, '§5.1'),
-  ('type-registry-present', _error, '§5.2'),
-  ('type-registry-kind', _error, '§5.2'),
-  ('type-registry-columns', _error, '§6.1.1'),
-  ('type-registry-standards', _error, '§5.2'),
-  ('type-registry-order', _error, '§5.2'),
-  ('used-type-registered', _error, '§5.2'),
-  ('registered-type-extension', _advisory, '§5.2'),
-  ('actor-registry-required', _error, '§3.5, §6.1.1'),
-  ('actor-registry-kind', _error, '§3.5, §6.1.1'),
-  ('actor-registry-columns', _error, '§6.1.1'),
-  ('actor-row-complete', _error, '§3.5, §6.1.1'),
-  ('actor-side-value', _error, '§6.1.1'),
-  ('actor-active-interval', _error, '§6.1.1'),
-  ('actor-active-overlap', _error, '§6.1.1'),
-  ('used-actor-registered', _error, '§3.5, §6.1.1'),
-  ('source-entry-shape', _error, '§6.1'),
-  ('source-id-unique', _error, '§6.1'),
-  ('source-attribution-join', _error, '§6.1'),
-  ('relationships-shape', _error, '§7.2'),
-  ('relationship-label-extension', _advisory, '§7.2'),
-  ('link-graph-unavailable', _error, '§7.1'),
-  ('internal-link-bundle-relative', _advisory, '§7.1'),
-  ('internal-link-unresolved', _advisory, '§7.1, §14.1–§14.2'),
-  // Structure rules.
-  ('raw-directory-placement', _error, '§3.4'),
-  ('raw-directory-markdown', _error, '§3.4'),
-  ('root-structure-files', _error, '§3.5'),
-  ('directory-index-present', _error, '§3.1, §3.4, §9'),
-  ('concept-area-name-collision', _advisory, '§14.1'),
-  ('index-semantic-projection', _error, '§9'),
-  ('log-entry-lead-word', _error, '§10'),
-];
+// Concept rules.
+const profileDeclarationKind =
+    ProfileRuleDescriptor.error('profile-declaration-kind', '§11');
+const conceptBaselineFields =
+    ProfileRuleDescriptor.error('concept-baseline-fields', '§5.1');
+const frontmatterFieldsOkf =
+    ProfileRuleDescriptor.error('frontmatter-fields-okf', '§5.1');
+const statusValue = ProfileRuleDescriptor.error('status-value', '§5.1');
+const tagLiteralDuplication =
+    ProfileRuleDescriptor.error('tag-literal-duplication', '§5.1');
+const generationProvenanceRecommended =
+    ProfileRuleDescriptor.advisory('generation-provenance-recommended', '§5.1');
+const typeRegistryPresent =
+    ProfileRuleDescriptor.error('type-registry-present', '§5.2');
+const typeRegistryKind =
+    ProfileRuleDescriptor.error('type-registry-kind', '§5.2');
+const typeRegistryColumns =
+    ProfileRuleDescriptor.error('type-registry-columns', '§6.1.1');
+const typeRegistryStandards =
+    ProfileRuleDescriptor.error('type-registry-standards', '§5.2');
+const typeRegistryOrder =
+    ProfileRuleDescriptor.error('type-registry-order', '§5.2');
+const usedTypeRegistered =
+    ProfileRuleDescriptor.error('used-type-registered', '§5.2');
+const registeredTypeExtension =
+    ProfileRuleDescriptor.advisory('registered-type-extension', '§5.2');
+const actorRegistryRequired =
+    ProfileRuleDescriptor.error('actor-registry-required', '§3.5, §6.1.1');
+const actorRegistryKind =
+    ProfileRuleDescriptor.error('actor-registry-kind', '§3.5, §6.1.1');
+const actorRegistryColumns =
+    ProfileRuleDescriptor.error('actor-registry-columns', '§6.1.1');
+const actorRowComplete =
+    ProfileRuleDescriptor.error('actor-row-complete', '§3.5, §6.1.1');
+const actorSideValue =
+    ProfileRuleDescriptor.error('actor-side-value', '§6.1.1');
+const actorActiveInterval =
+    ProfileRuleDescriptor.error('actor-active-interval', '§6.1.1');
+const actorActiveOverlap =
+    ProfileRuleDescriptor.error('actor-active-overlap', '§6.1.1');
+const usedActorRegistered =
+    ProfileRuleDescriptor.error('used-actor-registered', '§3.5, §6.1.1');
+const sourceEntryShape =
+    ProfileRuleDescriptor.error('source-entry-shape', '§6.1');
+const sourceIdUnique = ProfileRuleDescriptor.error('source-id-unique', '§6.1');
+const sourceAttributionJoin =
+    ProfileRuleDescriptor.error('source-attribution-join', '§6.1');
+const relationshipsShape =
+    ProfileRuleDescriptor.error('relationships-shape', '§7.2');
+const relationshipLabelExtension =
+    ProfileRuleDescriptor.advisory('relationship-label-extension', '§7.2');
+const linkGraphUnavailable =
+    ProfileRuleDescriptor.error('link-graph-unavailable', '§7.1');
+const internalLinkBundleRelative =
+    ProfileRuleDescriptor.advisory('internal-link-bundle-relative', '§7.1');
+const internalLinkUnresolved = ProfileRuleDescriptor.advisory(
+    'internal-link-unresolved', '§7.1, §14.1–§14.2');
+
+// Structure rules.
+const rawDirectoryPlacement =
+    ProfileRuleDescriptor.error('raw-directory-placement', '§3.4');
+const rawDirectoryMarkdown =
+    ProfileRuleDescriptor.error('raw-directory-markdown', '§3.4');
+const rootStructureFiles =
+    ProfileRuleDescriptor.error('root-structure-files', '§3.5');
+const directoryIndexPresent =
+    ProfileRuleDescriptor.error('directory-index-present', '§3.1, §3.4, §9');
+const conceptAreaNameCollision =
+    ProfileRuleDescriptor.advisory('concept-area-name-collision', '§14.1');
+const indexSemanticProjection =
+    ProfileRuleDescriptor.error('index-semantic-projection', '§9');
+const logEntryLeadWord =
+    ProfileRuleDescriptor.error('log-entry-lead-word', '§10');
 
 /// Every finding the closed Concepta Profile validator can emit.
-final List<ProfileRuleDescriptor> profileRuleDescriptors =
-    List<ProfileRuleDescriptor>.unmodifiable(<ProfileRuleDescriptor>[
-  for (final (slug, severity, rule) in _rules)
-    ProfileRuleDescriptor(
-      id: 'concepta-profile/$slug',
-      severity: severity,
-      rule: rule,
-    ),
-]);
-
-final Map<String, ProfileRuleDescriptor> _descriptorsById =
-    <String, ProfileRuleDescriptor>{
-  for (final descriptor in profileRuleDescriptors) descriptor.id: descriptor,
-};
-
-/// The descriptor for [id], or null when no rule mints that ID.
-ProfileRuleDescriptor? profileRuleDescriptor(String id) => _descriptorsById[id];
+const List<ProfileRuleDescriptor> profileRuleDescriptors = [
+  profileDeclarationPresent,
+  profileDeclarationReadable,
+  profileDeclarationFields,
+  okfReleaseBinding,
+  profileDeclarationKind,
+  conceptBaselineFields,
+  frontmatterFieldsOkf,
+  statusValue,
+  tagLiteralDuplication,
+  generationProvenanceRecommended,
+  typeRegistryPresent,
+  typeRegistryKind,
+  typeRegistryColumns,
+  typeRegistryStandards,
+  typeRegistryOrder,
+  usedTypeRegistered,
+  registeredTypeExtension,
+  actorRegistryRequired,
+  actorRegistryKind,
+  actorRegistryColumns,
+  actorRowComplete,
+  actorSideValue,
+  actorActiveInterval,
+  actorActiveOverlap,
+  usedActorRegistered,
+  sourceEntryShape,
+  sourceIdUnique,
+  sourceAttributionJoin,
+  relationshipsShape,
+  relationshipLabelExtension,
+  linkGraphUnavailable,
+  internalLinkBundleRelative,
+  internalLinkUnresolved,
+  rawDirectoryPlacement,
+  rawDirectoryMarkdown,
+  rootStructureFiles,
+  directoryIndexPresent,
+  conceptAreaNameCollision,
+  indexSemanticProjection,
+  logEntryLeadWord,
+];

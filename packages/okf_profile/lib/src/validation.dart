@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 import 'concept_rules.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
+import 'profile_rule_descriptors.dart' as rules;
 import 'structure_rules.dart';
 
 const supportedOkfRelease = '0.2';
@@ -197,9 +198,9 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (document == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-present',
+        descriptor: rules.profileDeclarationPresent,
         message: 'The bundle must contain profile.md.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -207,9 +208,9 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (yamlSource == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-readable',
+        descriptor: rules.profileDeclarationReadable,
         message: 'profile.md must contain a fenced yaml declaration.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -219,18 +220,18 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   } on YamlException {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-readable',
+        descriptor: rules.profileDeclarationReadable,
         message: 'The first fenced yaml declaration in profile.md is invalid.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
   if (parsed is! Map) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        id: 'concepta-profile/profile-declaration-fields',
+        descriptor: rules.profileDeclarationFields,
         message: 'The Profile declaration must be a YAML mapping.',
-        rule: '§11',
+        path: 'profile.md',
       ),
     );
   }
@@ -240,10 +241,10 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
     if (value is! String || value.trim().isEmpty) {
       return const _DeclarationRead.finding(
         ProfileFinding(
-          id: 'concepta-profile/profile-declaration-fields',
+          descriptor: rules.profileDeclarationFields,
           message: 'The Profile declaration must contain non-empty string '
               'values for concepta_profile and okf_version.',
-          rule: '§11',
+          path: 'profile.md',
         ),
       );
     }
@@ -266,10 +267,10 @@ ProfileFinding? _validateOkfBinding(
     return null;
   }
   return const ProfileFinding(
-    id: 'concepta-profile/okf-release-binding',
+    descriptor: rules.okfReleaseBinding,
     message: 'The declaration, root index, and Profile release must all bind '
         'to OKF 0.2.',
-    rule: '§11',
+    path: 'profile.md',
     profileRelease: supportedProfileRelease,
   );
 }

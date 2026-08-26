@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'finding_helpers.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
+import 'profile_rule_descriptors.dart' as rules;
 
 const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
@@ -28,7 +29,7 @@ Iterable<ProfileFinding> _validateRawTier(
 ) sync* {
   if (inventory.nonRootDirectories.contains('references/raw')) {
     yield profileFinding(
-      'raw-directory-placement',
+      rules.rawDirectoryPlacement,
       'A raw/ tier belongs to a source directory; raw/ must not sit directly '
           'under references/.',
       'references/raw',
@@ -43,9 +44,9 @@ Iterable<ProfileFinding> _validateRawTier(
       continue;
     }
     yield profileFinding(
-      'raw-directory-markdown',
+      rules.rawDirectoryMarkdown,
       'A raw/ tier holds verbatim originals; the only markdown permitted in '
-          'it is each directory\'s own index.md.',
+      'it is each directory\'s own index.md.',
       path,
     );
   }
@@ -60,9 +61,9 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
       continue;
     }
     yield profileFinding(
-      'root-structure-files',
+      rules.rootStructureFiles,
       'profile.md, types.md, and actors.md are reserved for their bundle-root '
-          'structural purposes.',
+      'structural purposes.',
       path,
     );
   }
@@ -79,9 +80,9 @@ Iterable<ProfileFinding> _validateRootFiles(
   ];
   if (missing.isNotEmpty) {
     yield profileFinding(
-      'root-structure-files',
+      rules.rootStructureFiles,
       'The bundle root must contain index.md, log.md, profile.md, and types.md; '
-          'missing ${missing.join(', ')}.',
+      'missing ${missing.join(', ')}.',
       missing.first,
     );
   }
@@ -95,7 +96,7 @@ Iterable<ProfileFinding> _validateDirectoryIndexes(
     final indexPath = '$directory/index.md';
     if (!loaded.indexes.containsKey(indexPath)) {
       yield profileFinding(
-        'directory-index-present',
+        rules.directoryIndexPresent,
         'Every nonempty directory must contain index.md.',
         indexPath,
       );
@@ -116,9 +117,9 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
     final sibling = parent.isEmpty ? basename : '$parent/$basename';
     if (directories.contains(sibling)) {
       yield profileFinding(
-        'concept-area-name-collision',
+        rules.conceptAreaNameCollision,
         'A concept beside an area of the same name needs contextual placement '
-            'review.',
+        'review.',
         path,
       );
     }
@@ -138,7 +139,7 @@ Iterable<ProfileFinding> _validateIndexes(
     final actual = _parseIndex(entry.value);
     if (actual == null || !_sameEntries(actual, expected)) {
       yield profileFinding(
-        'index-semantic-projection',
+        rules.indexSemanticProjection,
         'The index must exactly match its immediate semantic projection.',
         entry.key,
       );
@@ -160,7 +161,7 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   if (parsed.entries.isEmpty ||
       parsed.entries.any((entry) => entry.action.isEmpty)) {
     yield profileFinding(
-      'log-entry-lead-word',
+      rules.logEntryLeadWord,
       'Every root log entry must begin with a nonempty bold lead word and a '
           'colon.',
       'log.md',
