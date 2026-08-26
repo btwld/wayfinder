@@ -260,7 +260,12 @@ ProfileFinding? _validateOkfBinding(
   Object? rootVersion;
   final rootIndex = loaded.indexes['index.md'];
   if (rootIndex != null) {
-    rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+    try {
+      rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+    } on OkfDocumentException {
+      // The independent OKF result reports the malformed reserved document;
+      // with no readable root binding, the finding below reports.
+    }
   }
   if (declaration['okf_version'] == supportedOkfRelease &&
       rootVersion == supportedOkfRelease) {

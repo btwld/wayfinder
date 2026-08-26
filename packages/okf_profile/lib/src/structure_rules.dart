@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
@@ -137,7 +138,8 @@ Iterable<ProfileFinding> _validateIndexes(
         _expectedProjection(loaded, inventory, normalizedDirectory);
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
-    if (actual == null || !_sameEntries(actual, expected)) {
+    if (actual == null ||
+        !const ListEquality<OkfIndexEntry>().equals(actual, expected)) {
       yield profileFinding(
         rules.indexSemanticProjection,
         'The index must exactly match its immediate semantic projection.',
@@ -298,11 +300,6 @@ List<OkfIndexEntry>? _parseIndex(String source) {
   }
   return entries;
 }
-
-bool _sameEntries(List<OkfIndexEntry> left, List<OkfIndexEntry> right) =>
-    left.length == right.length &&
-    Iterable<int>.generate(left.length)
-        .every((index) => left[index] == right[index]);
 
 final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
 

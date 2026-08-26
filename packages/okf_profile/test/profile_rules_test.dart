@@ -337,10 +337,7 @@ void main() {
       final bundle = await copyFixture('structure-boundary');
       addTearDown(() => bundle.delete(recursive: true));
       final index = File(p.join(bundle.path, 'index.md'));
-      final fixtureSource =
-          (await index.readAsString()).replaceAll('\r\n', '\n');
-      final windowsSource = fixtureSource.replaceAll('\n', '\r\n');
-      final source = windowsSource.replaceAll('\r\n', '\n');
+      final source = (await index.readAsString()).replaceAll('\r\n', '\n');
       final mutated = entry.value(source);
       expect(mutated, isNot(source), reason: entry.key);
       await index.writeAsString(mutated);

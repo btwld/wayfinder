@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 
@@ -106,7 +107,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   }
   final table = _firstTable(registry.body);
   if (table == null ||
-      !_sameStrings(table.header, const ['Type', 'Intended content'])) {
+      !_stringList.equals(table.header, const ['Type', 'Intended content'])) {
     yield profileFinding(
       rules.typeRegistryColumns,
       'The type registry must use exactly Type and Intended content columns.',
@@ -133,7 +134,8 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     ...standardTypes.map((row) => row.$1),
     ...sortedExtensions
   ];
-  if (!_sameStrings(rows.map((row) => row.first).toList(), expectedOrder)) {
+  if (!_stringList.equals(
+      rows.map((row) => row.first).toList(), expectedOrder)) {
     yield profileFinding(
       rules.typeRegistryOrder,
       'Project type rows must follow the standards in lexical order.',
@@ -185,7 +187,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   }
   final table = _firstTable(registry.body);
   if (table == null ||
-      !_sameStrings(table.header, const [
+      !_stringList.equals(table.header, const [
         'Actor ID',
         'Name',
         'Organization',
@@ -413,10 +415,7 @@ List<List<String>> _tableRows(markdown.Element section) =>
             .toList())
         .toList();
 
-bool _sameStrings(List<String> left, List<String> right) =>
-    left.length == right.length &&
-    Iterable<int>.generate(left.length)
-        .every((index) => left[index] == right[index]);
+const _stringList = ListEquality<String>();
 
 bool _sameTypeRows(
         List<List<String>> actual, List<(String, String)> expected) =>
