@@ -366,7 +366,7 @@ List<String?> _rawIndexDescriptions(String body) {
     if (!line.startsWith('* ') && !line.startsWith('- ')) continue;
     final linkStart = line.indexOf('](');
     // The first `)` ends the target only because okf's entry-line grammar
-    // rejects a raw `)` inside one (ADR-0007): an angle-bracket destination
+    // rejects a raw `)` inside one: an angle-bracket destination
     // carrying `)` never reaches this scanner. Widen both together.
     final targetEnd = linkStart < 0 ? -1 : line.indexOf(')', linkStart + 2);
     if (targetEnd < 0) continue;
