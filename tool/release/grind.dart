@@ -7,10 +7,13 @@ void main(List<String> arguments) {
   // The published package lives inside the workspace at
   // packages/okf_profile, so cli_pkg cannot infer name, version, or
   // entrypoint from the repository root pubspec.
-  final pubspecContent =
-      File('packages/okf_profile/pubspec.yaml').readAsStringSync();
-  final versionMatch =
-      RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(pubspecContent);
+  final pubspecContent = File(
+    'packages/okf_profile/pubspec.yaml',
+  ).readAsStringSync();
+  final versionMatch = RegExp(
+    r'^version:\s*(\S+)',
+    multiLine: true,
+  ).firstMatch(pubspecContent);
   if (versionMatch == null) {
     fail('Cannot read version from packages/okf_profile/pubspec.yaml');
   }
