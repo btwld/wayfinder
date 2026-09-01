@@ -1,0 +1,3 @@
+# runner OS	runner architecture	workflow runner	release asset
+Linux	X64	ubuntu-latest	okfp-linux-x64
+macOS	ARM64	macos-latest	okfp-macos-arm64
