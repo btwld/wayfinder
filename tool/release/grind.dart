@@ -4,22 +4,19 @@ import 'package:cli_pkg/cli_pkg.dart' as pkg;
 import 'package:grinder/grinder.dart';
 
 void main(List<String> arguments) {
-  // The published package lives inside the workspace at
-  // packages/okf_profile, so cli_pkg cannot infer name, version, or
-  // entrypoint from the repository root pubspec.
-  final pubspecContent = File(
-    'packages/okf_profile/pubspec.yaml',
-  ).readAsStringSync();
-  final versionMatch = RegExp(
-    r'^version:\s*(\S+)',
-    multiLine: true,
-  ).firstMatch(pubspecContent);
-  if (versionMatch == null) {
-    fail('Cannot read version from packages/okf_profile/pubspec.yaml');
-  }
+  // cli_pkg reads pubspec.yaml from the current directory.  The published
+  // package lives at packages/okf_profile inside a Dart workspace, so we
+  // temporarily point there for cli_pkg initialisation, then restore the
+  // repository root before grinder executes any task.
+  final repoRoot = Directory.current.absolute.path;
+  Directory.current = 'packages/okf_profile';
 
-  pkg.name.value = 'okf_profile';
-  pkg.version.value = versionMatch.group(1)!;
+  // Force the top-level lazy `version` (and the `pubspec` it depends on)
+  // to initialise NOW, while cwd points to the package.
+  pkg.version; // ignore: unnecessary_statements
+
+  Directory.current = repoRoot;
+
   pkg.executables.value = <String, String>{
     'okfp': 'packages/okf_profile/bin/okfp.dart',
   };
