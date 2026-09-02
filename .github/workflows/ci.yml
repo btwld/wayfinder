@@ -32,3 +32,19 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/okf_profile
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart pub -C tool/release get --enforce-lockfile
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        working-directory: tool/release
+        run: |
+          dart format --output=none --set-exit-if-changed .
+          dart analyze --fatal-infos
+          dart run test
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        env:
+          ASSET: build/okfp-ci-test
+        run: >-
+          dart --packages=tool/release/.dart_tool/package_config.json
+          tool/release/grind.dart okfp-build-binary
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: ./build/okfp-ci-test --version
