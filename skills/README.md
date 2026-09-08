@@ -18,7 +18,8 @@ resident skill.
 
 ## Installing
 
-See the [root README](../README.md#1-install-the-skills) for the commands. Install the
+See [docs/install.md](../docs/install.md) for the commands; the plugin is served from the
+public `okf-profile-dist` repository, regenerated on every release. Install the
 family as a unit — the skills reference each other by sibling path, so a partial
 install breaks the routing.
 

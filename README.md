@@ -46,20 +46,28 @@ not belong in an identity — without silently replacing an identified release.
 
 ## Getting started
 
-### 1. Install the skills
+### 1. Install the tools and the skills
 
-The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
+[docs/install.md](docs/install.md) is the guide: one command per operating system
+for the `okf` and `okfp` binaries, and two Claude Code commands for the skills. It
+needs only Claude Code, no Dart SDK.
+
+The skills live in [`skills/`](skills/) and ship as one plugin through the public
+distribution repository, [conceptadev/okf-profile-dist](https://github.com/conceptadev/okf-profile-dist),
+which the release workflow regenerates on every tag ([docs/releasing.md](docs/releasing.md)).
+For Claude Code:
 
 ```
-/plugin marketplace add conceptadev/okf-profile
+/plugin marketplace add conceptadev/okf-profile-dist
 /plugin install concepta-knowledge@okf-profile
 ```
 
-Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
-all three as a unit, since they reference each other by sibling path. Symlinking is the
-better fallback: the skills are versioned with the profile they describe, and a copy
-silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
-each one does.
+Installing the plugin also registers the `okf` MCP server over the repository's
+`knowledge/` bundle. Copying or symlinking the skill directories into
+`~/.claude/skills/` also works — install all three as a unit, since they reference
+each other by sibling path. Symlinking is the better fallback: the skills are
+versioned with the profile they describe, and a copy silently ages past it. See
+[skills/README.md](skills/README.md) for the full set and what each one does.
 
 ### 2. Set up a project repository
 
@@ -105,7 +113,8 @@ okfp validate knowledge
 okfp validate knowledge --output json
 ```
 
-`okfp` is a standalone binary; no Dart SDK is needed to run it. Dart developers
+`okfp` is a standalone binary, installed per [docs/install.md](docs/install.md); no
+Dart SDK is needed to run it. Dart developers
 and CI jobs that already carry a Dart SDK can run the same command from the
 published package instead: `dart run okf_profile:okfp validate knowledge` in a
 repository that depends on `okf_profile`, or `dart pub global activate okf_profile`.

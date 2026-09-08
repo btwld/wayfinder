@@ -50,3 +50,31 @@ jobs:
       - if: matrix.sdk == 'stable'
         shell: bash
         run: ./build/okfp-ci-test${{ runner.os == 'Windows' && '.exe' || '' }} --version
+
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      OKF_INSTALL_DIR: ${{ runner.temp }}/okf-bin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install with no Dart, no gh session, no sudo
+        run: sh tool/install.sh
+      - run: bash tool/ci/verify-installer.sh "$OKF_INSTALL_DIR"
+      - name: Re-running with matching pins is a no-op
+        run: |
+          sh tool/install.sh | tee rerun.log
+          [[ "$(grep -c 'nothing to do' rerun.log)" == 2 ]]
+      - name: Install again with attestation verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf "$OKF_INSTALL_DIR"
+          sh tool/install.sh | tee verified.log
+          ! grep -q 'were not verified' verified.log
+      - run: bash tool/ci/verify-installer.sh "$OKF_INSTALL_DIR"
