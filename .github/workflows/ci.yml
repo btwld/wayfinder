@@ -60,7 +60,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     env:
-      OKF_INSTALL_DIR: ${{ runner.temp }}/okf-bin
+      # The runner context is unavailable in job-level env; the workspace is.
+      OKF_INSTALL_DIR: ${{ github.workspace }}/.okf-bin
     steps:
       - uses: actions/checkout@v4
         with:
