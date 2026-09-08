@@ -5,8 +5,11 @@ minutes. It is the worked example from the profile's Appendix A, kept as real fi
 Run the shipped automated gate from the repository root:
 
 ```bash
-dart run okf_profile:okfp validate examples/knowledge
+okfp validate examples/knowledge
 ```
+
+With a Dart SDK instead of the installed binary, `dart run okf_profile:okfp validate
+examples/knowledge` is equivalent.
 
 Success proves OKF conformance and the deterministic Profile 2026.1 rules only.
 The command reports Judgment Rules as `UNASSESSED`; complete Profile conformance

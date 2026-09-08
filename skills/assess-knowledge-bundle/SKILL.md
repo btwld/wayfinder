@@ -16,7 +16,7 @@ Review for both scopes.
 1. Read [`../author-knowledge-bundle/SKILL.md`](../author-knowledge-bundle/SKILL.md)
    and perform its release dispatch before anything else — an unsupported
    declaration is reported, never assessed.
-2. Run `dart run okf_profile:okfp validate knowledge` when available and record
+2. Run `okfp validate knowledge` when available and record
    its result. It exposes the OKF result, the deterministic Profile result, and
    leaves judgment rules `UNASSESSED` — those are what the rest of this
    assessment supplies. When the CLI is unavailable, record `NOT RUN` with the

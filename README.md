@@ -100,10 +100,15 @@ profile will confidently create `decisions/`.
 ### 4. Validate the bundle
 
 ```bash
-dart run okf_profile:okfp validate knowledge
+okfp validate knowledge
 # Machine-readable output:
-dart run okf_profile:okfp validate knowledge --output json
+okfp validate knowledge --output json
 ```
+
+`okfp` is a standalone binary; no Dart SDK is needed to run it. Dart developers
+and CI jobs that already carry a Dart SDK can run the same command from the
+published package instead: `dart run okf_profile:okfp validate knowledge` in a
+repository that depends on `okf_profile`, or `dart pub global activate okf_profile`.
 
 The command requires exactly one explicit bundle directory and inspects only that
 directory. It runs the independent OKF check and every deterministic rule selected
