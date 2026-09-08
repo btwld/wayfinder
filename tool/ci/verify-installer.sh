@@ -8,8 +8,10 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 installer="$script_dir/../install.sh"
 
 for tool in okf okfp; do
-  pin="$(sed -n "s/^${tool^^}_VERSION=\"v\(.*\)\"$/\1/p" "$installer")"
-  [[ -n "$pin" ]] || { echo "installer: no ${tool^^}_VERSION pin in install.sh" >&2; exit 1; }
+  # tr rather than ${tool^^}: macOS ships bash 3.2, which lacks it.
+  upper="$(printf '%s' "$tool" | tr '[:lower:]' '[:upper:]')"
+  pin="$(sed -n "s/^${upper}_VERSION=\"v\(.*\)\"$/\1/p" "$installer")"
+  [[ -n "$pin" ]] || { echo "installer: no ${upper}_VERSION pin in install.sh" >&2; exit 1; }
   actual="$("$install_dir/$tool" --version)"
   [[ "$actual" == "$tool $pin" ]] || {
     echo "installer: $tool reports '$actual'; install.sh pins $pin" >&2
