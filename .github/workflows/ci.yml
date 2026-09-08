@@ -78,3 +78,11 @@ jobs:
           sh tool/install.sh | tee verified.log
           ! grep -q 'were not verified' verified.log
       - run: bash tool/ci/verify-installer.sh "$OKF_INSTALL_DIR"
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: npx --yes @anthropic-ai/claude-code plugin validate .

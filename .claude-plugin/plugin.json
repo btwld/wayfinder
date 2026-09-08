@@ -1,0 +1,15 @@
+{
+  "name": "concepta-knowledge",
+  "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.1 (OKF 0.2). Registers the okf MCP server over the repository's knowledge/ bundle.",
+  "author": {
+    "name": "Concepta"
+  },
+  "homepage": "https://github.com/conceptadev/okf-profile",
+  "license": "Apache-2.0",
+  "mcpServers": {
+    "okf": {
+      "command": "okf",
+      "args": ["mcp", "knowledge"]
+    }
+  }
+}

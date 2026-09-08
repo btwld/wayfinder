@@ -3,6 +3,9 @@
   "owner": {
     "name": "Concepta"
   },
+  "metadata": {
+    "description": "Concepta OKF Profile: the concepta-knowledge plugin for authoring, adopting, and assessing knowledge bundles."
+  },
   "plugins": [
     {
       "name": "concepta-knowledge",
