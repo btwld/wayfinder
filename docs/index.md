@@ -8,6 +8,12 @@ docs/GLOSSARY.md — Glossary (Current) — Canonical language for the Profile, 
 
 docs/compatibility-review.md — Compatibility Review (Complete) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2. Topics: compatibility, OKF, release.
 
+## Operations
+
+docs/install.md — Installation guide (Current) — Installing okf, okfp, and the concepta-knowledge plugin without a Dart SDK: Homebrew, one-line installers, plugin commands, checks, upgrades, uninstall. Topics: install, distribution, plugin, MCP.
+
+docs/releasing.md — Releasing (Current) — What a release tag does, every version bump site and its CI check, the release app, and how to collapse the distribution repository when this one goes public. Topics: release, distribution, pinning, CI.
+
 ## ADRs
 
 docs/adr/0004-closed-concepta-profile-validator.md — ADR (Accepted) — Define the closed validator, model-independent CI, contextual review, required root registries, authored logs, and derived indexes. Topics: validation, review, agents, CI, registries, logs, indexes, deferral.
