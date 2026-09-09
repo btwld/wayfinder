@@ -1,7 +1,10 @@
 # Knowledge retrieval evaluation
 
 Run from `packages/knowledge_embeddings/`. This is implementation evidence,
-not an OKF or profile rule. BM25 remains the default retrieval gate.
+not an OKF or profile rule. BM25 remains the reusable adapter's default and
+independent regression gate. The [documentation guide](knowledge_embeddings.md)
+maps the experiments and the [accepted decision](adr/0009-local-knowledge-retrieval.md)
+records the model choice.
 
 ## Fixtures and checks
 
@@ -121,3 +124,17 @@ The separate [OKF adapter experiment](knowledge_embeddings_ablation.md) compares
 seven configurations on fixed development and held-out questions. It reports
 passage-level context correctness with and without embeddings on both stores.
 It does not replace this corpus or its promotion gate.
+
+## Isolated retrieval and model benchmarks
+
+The [four-arm report](knowledge_embeddings_comparison.md) compares keyword,
+BM25, local embeddings and hybrid on 160 synthetic questions, with isolated
+model-free processes and separate new-query/cache-hit measurements. The
+[five-model report](knowledge_embeddings_model_comparison.md) reuses that
+fixture to compare Arctic XS/S and BGE-small. Their reproduction sections own
+the compiled benchmark commands and raw-artifact locations.
+
+Reopened-index measurements in those reports reload the source fixture and
+call `synchronize`, verifying zero document encodings with compatible cached
+vectors. They are not a standalone saved-snapshot search benchmark. Query
+caches are per index instance; a fresh CLI process must encode its query.

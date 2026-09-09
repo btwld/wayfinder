@@ -9,7 +9,8 @@ the frozen fixture or production defaults.
 
 ## Decision
 
-Keep BM25 as the default and local dense retrieval as an optional capability.
+Keep BM25 as the reusable adapter's default and local dense retrieval as an optional capability,
+as recorded in [ADR-0009](adr/0009-local-knowledge-retrieval.md).
 Dense improved the observed held-out aggregate, but its topic-based uncertainty
 includes no gain and it still missed required passages on negation questions.
 Hybrid did not recover most of the dense advantage. ObjectBox provides
@@ -93,6 +94,10 @@ is outside query intervals and reuses every stored vector.
 | dense/objectbox | 582.0 | 315.0 | 4.451/5.071 | 3.087 | 181.7 |
 | hybrid/memory | 527.6 | — | 2.953/3.420 | 1.622 | 172.2 |
 | hybrid/objectbox | 560.5 | 316.1 | 5.347/6.049 | 4.049 | 180.7 |
+
+Reopened runs reload the source fixture and synchronize its in-memory snapshot,
+reusing saved document vectors. They do not open a complete saved knowledge
+snapshot without synchronization.
 
 First-result time starts at Dart `main` and includes fixture reads, store/model
 open, parsing, initial synchronization, and the first query. Process wall time

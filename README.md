@@ -189,7 +189,8 @@ packages. The published `okf_profile` package retains its Dart 3.6 minimum.
 
 `knowledge_embeddings` moved here from Orbit with its tests, fixtures, and BSD
 license preserved in the package directory. See its [README](packages/knowledge_embeddings/README.md)
-and the [evaluation runbook](docs/knowledge_embeddings_eval.md). Its optional native
+and the [retrieval documentation guide](docs/knowledge_embeddings.md) for the
+implementation, evaluation runbook and recorded decisions. Its optional native
 backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
 files with `melos build` only when entity schemas change.
 

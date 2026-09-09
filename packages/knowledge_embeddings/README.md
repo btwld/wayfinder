@@ -27,7 +27,8 @@ Import `package:knowledge_embeddings/okf_knowledge.dart` for the separate
 `KnowledgeSnapshot`, `KnowledgeIndex`, and `KnowledgeSearchPolicy` adapter.
 It uses upstream OKF metadata and links, preserves source citation lines, and
 atomically synchronizes changed/deleted concepts. Metadata-only changes reuse
-vectors. A stable caller-supplied bundle ID isolates ownership in a shared store.
+vectors when they do not change embedding inputs; contextual titles/headings
+are embedding inputs. A stable caller-supplied bundle ID isolates ownership in a shared store.
 
 Run `dart run example/knowledge_example.dart` for contextual BM25 with no model,
 or append `--dense` after preparing the local model. The example explicitly
@@ -43,6 +44,12 @@ Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
 inclusion reasons and unresolved/excluded-context notices. They are candidates,
 not an answerability verdict.
+
+ObjectBox persists the passage text and vectors, but the adapter's complete
+knowledge snapshot remains in memory. A new `KnowledgeIndex` currently needs
+`synchronize` before search, including after reopening a database. This can
+reuse document vectors; it still reloads sources and rebuilds the read snapshot.
+Query-vector caching lasts only for that index instance.
 
 See [the component experiment](../../docs/knowledge_embeddings_ablation.md) for
 measured improvements and regressions with and without embeddings.
@@ -301,8 +308,10 @@ Extend `BaseChunker` or `BaseEmbedder`. Register a chunker with
 
 ## Evaluation
 
-The retrieval benchmark, the qrels fixture, and the BM25 regression gate live
-in `tool/`. See [the evaluation runbook](../../docs/knowledge_embeddings_eval.md)
+The [documentation guide](../../docs/knowledge_embeddings.md) maps each
+experiment to its question and limitations. The retrieval benchmark, the qrels
+fixture, and the BM25 regression gate live in `tool/`.
+See [the evaluation runbook](../../docs/knowledge_embeddings_eval.md)
 for commands, metrics, and the regression gate.
 
 ## License

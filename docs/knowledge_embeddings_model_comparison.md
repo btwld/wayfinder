@@ -149,6 +149,8 @@ warmup and updates. It is not the model's standalone RAM requirement. Model-file
 sizes above use decimal MB; RSS uses MiB. Model opening includes SHA-256 checks.
 These observations come from a developer Mac, not a controlled isolated lab.
 
+Reopened processes reload sources and synchronize the knowledge snapshot using
+saved vectors; the complete snapshot is not reopened directly from storage.
 Every reopened index encoded zero initial passages. Every metadata update
 encoded zero passages. Adding one paragraph and deleting one obsolete concept
 encoded one passage in semantic modes and removed one chunk. Every uncached

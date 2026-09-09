@@ -3,14 +3,20 @@
 Reviewed 2026-09-09 after the provider and fixture cleanup. This records tooling
 choices and measurements; it adds no OKF or profile convention.
 
-Keep **BM25 as the default**, provide **llamadart embeddings for optional hybrid
-search**, and use **ObjectBox when persistence is needed**. ObjectBox and BM25
+Keep **BM25 as the reusable adapter's default**, provide **llamadart embeddings
+for optional semantic or hybrid search**, and use **ObjectBox when persistence is needed**. ObjectBox and BM25
 solve different problems: a database stores and searches vectors; BM25 ranks
 text using corpus term statistics. This implementation supports both together.
 The subsequent [knowledge retrieval review](knowledge_embeddings_knowledge_retrieval.md)
 tests authority, lifecycle, filtering, and cases where semantic retrieval fails.
 Its storage fixes preserve IDs, refresh metadata, and add an exact fallback for
 underfilled ANN results within the selected model.
+
+This is the initial implementation report. The later
+[retrieval comparison](knowledge_embeddings_comparison.md) and
+[model comparison](knowledge_embeddings_model_comparison.md) provide repeated
+process measurements and the evidence behind [ADR-0009](adr/0009-local-knowledge-retrieval.md).
+See the [documentation guide](knowledge_embeddings.md) for the experiment map.
 
 ## Runtime and model
 
