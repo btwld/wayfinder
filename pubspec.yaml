@@ -23,21 +23,21 @@ melos:
     get:
       run: dart pub get
     build:
-      run: melos exec --scope=knowledge_embeddings -- dart run build_runner build
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run build_runner build
     embeddings:prepare:
       description: Download and verify the pinned local embedding model
-      run: melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
     embeddings:build:
       description: Build the retrieval CLI with its local model and native libraries
-      run: melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart
     objectbox:install:
       description: Install the pinned ObjectBox native library locally
-      run: melos exec --scope=knowledge_embeddings -- bash tool/install_objectbox.sh
+      run: dart run melos exec --scope=knowledge_embeddings -- bash tool/install_objectbox.sh
     analyze:
-      run: melos exec --fail-fast -- dart analyze --fatal-infos
+      run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
     format:check:
-      run: melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
+      run: dart run melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
     test:
-      run: melos exec --fail-fast -- dart test
+      run: dart run melos exec --fail-fast -- dart test
     lint:
-      run: melos run analyze && melos run format:check && melos run test
+      run: dart run melos run analyze && dart run melos run format:check && dart run melos run test
