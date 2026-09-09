@@ -34,6 +34,7 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
+| [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
@@ -179,3 +180,15 @@ the bundle, or someone acting on the bundle?
   membership, grouping, ordering, labels, links, and descriptions. Until a
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
+
+## Dart workspace development
+
+Developing the workspace requires Dart 3.9 or later. Run `melos get` at the
+repository root, then `melos lint` to analyze, check formatting, and test both
+packages. The published `okf_profile` package retains its Dart 3.6 minimum.
+
+`knowledge_embeddings` moved here from Orbit with its tests, fixtures, and BSD
+license preserved in the package directory. See its [README](packages/knowledge_embeddings/README.md)
+and the [evaluation runbook](docs/knowledge_embeddings_eval.md). Its optional native
+backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
+files with `melos build` only when entity schemas change.

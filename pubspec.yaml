@@ -1,9 +1,33 @@
 name: okf_profile_workspace
-description: Workspace for the Concepta OKF Profile repository. The publishable package is packages/okf_profile.
+description: Workspace for the Concepta OKF Profile repository. Includes the OKF profile toolchain and content embedding utilities.
 publish_to: none
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
+  sdk: ^3.9.0
 
 workspace:
   - packages/okf_profile
+  - packages/knowledge_embeddings
+
+dev_dependencies:
+  melos: ^7.1.1
+
+melos:
+  scripts:
+    get:
+      run: dart pub get
+    build:
+      run: melos exec --scope=knowledge_embeddings -- dart run build_runner build
+    objectbox:install:
+      description: Install the optional ObjectBox native library locally
+      run: >-
+        melos exec --scope=knowledge_embeddings --
+        bash -lc 'curl -fsSL https://raw.githubusercontent.com/objectbox/objectbox-dart/main/install.sh | bash -s -- --quiet'
+    analyze:
+      run: melos exec --fail-fast -- dart analyze --fatal-infos
+    format:check:
+      run: melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
+    test:
+      run: melos exec --fail-fast -- dart test
+    lint:
+      run: melos run analyze && melos run format:check && melos run test

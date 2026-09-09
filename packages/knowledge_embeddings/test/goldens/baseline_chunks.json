@@ -1,0 +1,197 @@
+{
+  "config/app_config.dart": {
+    "total": 50,
+    "types": {
+      "class": 5,
+      "constructor": 8,
+      "enum": 1,
+      "field": 29,
+      "getter": 7
+    }
+  },
+  "controllers/auth_controller.dart": {
+    "total": 11,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 2,
+      "method": 6
+    }
+  },
+  "controllers/order_controller.dart": {
+    "total": 16,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 3,
+      "method": 10
+    }
+  },
+  "controllers/product_controller.dart": {
+    "total": 13,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 2,
+      "method": 8
+    }
+  },
+  "docs/observability.md": {
+    "total": 11,
+    "types": {
+      "code": 2,
+      "heading": 4,
+      "paragraph": 5
+    }
+  },
+  "frontend/use_auth.ts": {
+    "total": 5,
+    "types": {
+      "class": 1,
+      "function": 1,
+      "interface": 1,
+      "method": 2
+    }
+  },
+  "main.dart": {
+    "total": 2,
+    "types": {
+      "directives": 1,
+      "function": 1
+    }
+  },
+  "models/order.dart": {
+    "total": 37,
+    "types": {
+      "class": 2,
+      "constructor": 5,
+      "directives": 1,
+      "enum": 3,
+      "field": 20,
+      "getter": 1,
+      "method": 5
+    }
+  },
+  "models/payment.dart": {
+    "total": 17,
+    "types": {
+      "class": 1,
+      "constructor": 2,
+      "enum": 1,
+      "field": 10,
+      "method": 3
+    }
+  },
+  "models/product.dart": {
+    "total": 18,
+    "types": {
+      "class": 1,
+      "constructor": 2,
+      "field": 10,
+      "getter": 2,
+      "method": 3
+    }
+  },
+  "models/user.dart": {
+    "total": 29,
+    "types": {
+      "class": 2,
+      "constructor": 4,
+      "enum": 1,
+      "field": 16,
+      "getter": 3,
+      "method": 3
+    }
+  },
+  "services/auth_service.dart": {
+    "total": 15,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 4,
+      "method": 8
+    }
+  },
+  "services/data_encryption_service.dart": {
+    "total": 15,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 3,
+      "method": 9
+    }
+  },
+  "services/database_service.dart": {
+    "total": 28,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 5,
+      "method": 20
+    }
+  },
+  "services/payment_service.dart": {
+    "total": 17,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 1,
+      "method": 13
+    }
+  },
+  "services/product_service.dart": {
+    "total": 21,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 4,
+      "method": 14
+    }
+  },
+  "utils/crypto_utils.dart": {
+    "total": 16,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 1,
+      "method": 12
+    }
+  },
+  "utils/logger.dart": {
+    "total": 10,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "enum": 1,
+      "field": 1,
+      "method": 5
+    }
+  },
+  "utils/service_locator.dart": {
+    "total": 11,
+    "types": {
+      "class": 1,
+      "constructor": 1,
+      "directives": 1,
+      "field": 2,
+      "method": 6
+    }
+  },
+  "utils/validator.dart": {
+    "total": 8,
+    "types": {
+      "class": 1,
+      "method": 7
+    }
+  }
+}
