@@ -41,28 +41,6 @@ class MarkdownChunker extends BaseChunker {
 
   @override
   List<Chunk> chunkContent(String content, ChunkMetadata metadata) {
-    final chunks = <Chunk>[];
-    final tableLineRanges = <(int, int)>{};
-
-    // First pass: identify table line ranges to exclude from simple chunking
-    if (includeTables) {
-      final tableChunks = _chunkTables(content, metadata);
-      for (final chunk in tableChunks) {
-        tableLineRanges.add((chunk.lineStart, chunk.lineEnd));
-        chunks.add(chunk);
-      }
-    }
-
-    chunks.addAll(_chunkContentSimple(content, metadata, tableLineRanges));
-    chunks.sort((a, b) => a.lineStart.compareTo(b.lineStart));
-    return chunks;
-  }
-
-  List<Chunk> _chunkContentSimple(
-    String content,
-    ChunkMetadata metadata,
-    Set<(int, int)> tableLineRanges,
-  ) {
     final lines = content.split('\n');
     final chunks = <Chunk>[];
 
@@ -101,23 +79,10 @@ class MarkdownChunker extends BaseChunker {
       blockStartLine = null;
     }
 
-    // Check if a line number falls within any table range
-    bool isTableLine(int lineNumber) {
-      return tableLineRanges.any(
-        (range) => lineNumber >= range.$1 && lineNumber <= range.$2,
-      );
-    }
-
     for (var index = 0; index < lines.length; index++) {
       final lineNumber = index + 1;
       final rawLine = lines[index];
       final trimmedLine = rawLine.trim();
-
-      // Skip lines that are part of tables (handled separately)
-      if (!inCodeBlock && isTableLine(lineNumber)) {
-        flushCurrentBlock(lineEnd: lineNumber - 1);
-        continue;
-      }
 
       final headingMatch = _headingPattern.firstMatch(rawLine);
       if (!inCodeBlock && headingMatch != null) {
@@ -169,6 +134,31 @@ class MarkdownChunker extends BaseChunker {
         continue;
       }
 
+      if (index + 1 < lines.length &&
+          rawLine.contains('|') &&
+          _tableDelimiterPattern.hasMatch(lines[index + 1])) {
+        flushCurrentBlock(lineEnd: lineNumber - 1);
+        var end = index + 1;
+        while (end + 1 < lines.length && lines[end + 1].contains('|')) {
+          end++;
+        }
+        if (includeTables) {
+          chunks.add(
+            _createChunk(
+              sourcePath: metadata.sourcePath,
+              lineStart: lineNumber,
+              lineEnd: end + 1,
+              content: lines.sublist(index, end + 1).join('\n'),
+              type: 'table',
+              parentHeadingId: currentHeadingId,
+              parentHeadingLevel: currentHeadingLevel,
+            ),
+          );
+        }
+        index = end;
+        continue;
+      }
+
       if (trimmedLine.isEmpty) {
         flushCurrentBlock(lineEnd: lineNumber - 1);
         continue;
@@ -206,45 +196,12 @@ class MarkdownChunker extends BaseChunker {
       );
     }
 
-    return chunks;
-  }
-
-  List<Chunk> _chunkTables(String content, ChunkMetadata metadata) {
-    final lines = content.split('\n');
-    final chunks = <Chunk>[];
-
-    var index = 0;
-    while (index < lines.length - 1) {
-      final header = lines[index];
-      final delimiter = lines[index + 1];
-
-      if (header.contains('|') && _tableDelimiterPattern.hasMatch(delimiter)) {
-        final start = index;
-        var end = index + 1;
-
-        var cursor = index + 2;
-        while (cursor < lines.length && lines[cursor].contains('|')) {
-          end = cursor;
-          cursor++;
-        }
-
-        final tableText = lines.sublist(start, end + 1).join('\n');
-        chunks.add(
-          _createChunk(
-            sourcePath: metadata.sourcePath,
-            lineStart: start + 1,
-            lineEnd: end + 1,
-            content: tableText,
-            type: 'table',
-          ),
-        );
-        index = end + 1;
-      } else {
-        index++;
-      }
-    }
-
-    return chunks;
+    return [
+      for (final chunk in chunks)
+        chunk.copyWith(
+          metadata: {...metadata.additionalMetadata, ...chunk.metadata},
+        ),
+    ];
   }
 
   Chunk _createChunk({

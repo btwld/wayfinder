@@ -25,3 +25,16 @@ void validateRequiredStorageIdentity(String value, String name) {
     throw ArgumentError.value(value, name, 'must not be blank');
   }
 }
+
+/// Prevents a replacement from removing a chunk that it is also writing.
+void validateReplacementIds(
+  Iterable<String> writtenIds,
+  Set<String> removedIds,
+) {
+  for (final id in removedIds) {
+    validateRequiredStorageIdentity(id, 'removeChunkIds');
+  }
+  if (writtenIds.any(removedIds.contains)) {
+    throw ArgumentError('Written and removed chunk IDs must be disjoint.');
+  }
+}

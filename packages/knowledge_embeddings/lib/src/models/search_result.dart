@@ -20,23 +20,11 @@ class SearchResult extends Equatable {
   final double similarity;
 
   /// Creates a new search result.
-  factory SearchResult({
-    required Chunk chunk,
-    Embedding? embedding,
-    required double similarity,
-  }) {
-    return SearchResult._(
-      chunk: chunk,
-      embedding: embedding,
-      similarity: _checkSimilarity(similarity),
-    );
-  }
-
-  const SearchResult._({
+  SearchResult({
     required this.chunk,
     this.embedding,
-    required this.similarity,
-  });
+    required double similarity,
+  }) : similarity = checkFinite(similarity, 'similarity');
 
   /// Creates a copy of this search result with the given fields replaced with
   /// new values.
@@ -127,5 +115,3 @@ Embedding? _checkCopyWithEmbedding(Object? value) {
     'must be an Embedding, null, or omitted',
   );
 }
-
-double _checkSimilarity(double value) => checkFinite(value, 'similarity');

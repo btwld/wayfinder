@@ -65,6 +65,16 @@ final ArgParser compareArgParser = ArgParser()
   ..addOption('qrels', help: 'BEIR-style query relevance judgments file.')
   ..addOption('query-groups', help: 'Query id to group name mapping file.')
   ..addOption(
+    'model',
+    help: 'Verified local GGUF file (defaults to the bundled model).',
+  )
+  ..addOption(
+    'long-input',
+    help: 'Policy for text beyond the embedding model context.',
+    allowed: ['reject', 'truncate'],
+    defaultsTo: 'reject',
+  )
+  ..addOption(
     'qrels-match',
     help: 'How qrels ids resolve to candidate chunks.',
     allowed: ['stable-id', 'stable', 'id', 'span-overlap', 'span', 'overlap'],
@@ -138,6 +148,7 @@ class CompareOptions {
       ..qrelsPath
       ..queriesPath
       ..queryGroupsPath
+      ..modelPath
       ..qrelsMatchMode
       ..topK
       ..candidateLimit
@@ -195,6 +206,11 @@ class CompareOptions {
 
   /// Explicit query group file, or null when the default path applies.
   String? get queryGroupsPath => _filePath('query-groups');
+
+  String? get modelPath => _filePath('model');
+
+  LongInputPolicy get longInputPolicy =>
+      LongInputPolicy.values.byName(_results.option('long-input')!);
 
   /// Whether `--query-groups` was passed.
   bool get hasExplicitQueryGroups => _results.wasParsed('query-groups');
@@ -729,13 +745,30 @@ class ComparisonRun {
   }
 }
 
-List<ComparisonRun> resolveComparisonRuns(Iterable<String> descriptors) {
+List<ComparisonRun> resolveComparisonRuns(
+  Iterable<String> descriptors, {
+  File? modelFile,
+  LongInputPolicy longInputPolicy = LongInputPolicy.reject,
+}) {
   return _checkUniqueComparisonRunLabels(
-    descriptors.map(_comparisonRun).toList(growable: false),
+    descriptors
+        .map(
+          (descriptor) => _comparisonRun(
+            descriptor,
+            () => LlamaEmbedder.open(
+              modelFile: modelFile,
+              longInputPolicy: longInputPolicy,
+            ),
+          ),
+        )
+        .toList(growable: false),
   );
 }
 
-ComparisonRun _comparisonRun(String descriptor) {
+ComparisonRun _comparisonRun(
+  String descriptor,
+  Future<BaseEmbedder> Function() openEmbedder,
+) {
   final normalized = descriptor.trim().toLowerCase();
   if (normalized.startsWith('rerank:')) {
     final baseDescriptor = _requiredDescriptorSuffix(
@@ -744,34 +777,30 @@ ComparisonRun _comparisonRun(String descriptor) {
       message:
           'rerank descriptor requires a base run descriptor after "rerank:".',
     );
-    return _comparisonRun(baseDescriptor).reranked();
+    return _comparisonRun(baseDescriptor, openEmbedder).reranked();
   }
 
   if (normalized == 'bm25' || normalized == 'lexical') {
     return const ComparisonRun(label: 'bm25', kind: ComparisonRunKind.lexical);
   }
 
-  if (normalized == 'hybrid' || normalized.startsWith('hybrid:')) {
-    final resolvedDenseDescriptor = normalized == 'hybrid'
-        ? 'ollama'
-        : _requiredDescriptorSuffix(
-            descriptor: normalized,
-            prefix: 'hybrid:',
-            message:
-                'hybrid descriptor requires a dense embedder name after '
-                '"hybrid:". Use "hybrid" for the default dense embedder.',
-          );
+  if (normalized == 'hybrid') {
     return ComparisonRun(
-      label: 'hybrid-${_descriptorLabel(resolvedDenseDescriptor)}',
+      label: 'hybrid',
       kind: ComparisonRunKind.hybrid,
-      embedderFactory: _embedderFactory(resolvedDenseDescriptor),
+      embedderFactory: (_) => openEmbedder(),
     );
   }
 
-  return ComparisonRun(
-    label: _descriptorLabel(normalized),
-    kind: ComparisonRunKind.semantic,
-    embedderFactory: _embedderFactory(normalized),
+  if (normalized == 'dense' || normalized == 'llamadart') {
+    return ComparisonRun(
+      label: 'dense',
+      kind: ComparisonRunKind.semantic,
+      embedderFactory: (_) => openEmbedder(),
+    );
+  }
+  throw ArgumentError(
+    "Unknown semantic embedder '$descriptor'. Use bm25, dense, hybrid, or rerank:<run>.",
   );
 }
 
@@ -792,43 +821,6 @@ List<ComparisonRun> _checkUniqueComparisonRunLabels(List<ComparisonRun> runs) {
     }
   }
   return runs;
-}
-
-workflow.EmbedderFactory _embedderFactory(String descriptor) {
-  if (descriptor.startsWith('ollama:')) {
-    final model = _requiredDescriptorSuffix(
-      descriptor: descriptor,
-      prefix: 'ollama:',
-      message:
-          'ollama descriptor requires a model name after "ollama:". '
-          'Use "ollama" for the default model.',
-    );
-    return (_) => OllamaEmbedder.fromModelName(model);
-  }
-
-  if (descriptor.contains('@')) {
-    return (_) => OllamaEmbedder.fromModelName(descriptor);
-  }
-
-  switch (descriptor) {
-    case 'default':
-    case 'gemma':
-    case 'ollama':
-    case 'embeddinggemma':
-    case 'embeddinggemma:latest':
-      return (_) => OllamaEmbedder();
-    case 'nomic':
-    case 'nomic-embed-text':
-      return (_) => OllamaEmbedder(model: OllamaModel.nomicEmbedText);
-    case 'qwen3':
-    case 'qwen3-0.6b':
-    case 'qwen3-embedding-0.6b':
-      return (_) => OllamaEmbedder(model: OllamaModel.qwen3Embedding06B);
-    default:
-      throw ArgumentError(
-        "Unknown semantic embedder '$descriptor'. Use bm25 for exact lexical search, hybrid[:model[@dimensions]] for RRF, qwen3, nomic, or ollama:<model[@dimensions]>.",
-      );
-  }
 }
 
 workflow.RerankerFactory? rerankerFactory(
@@ -856,13 +848,6 @@ String _requiredDescriptorSuffix({
     throw ArgumentError(message);
   }
   return suffix;
-}
-
-String _descriptorLabel(String descriptor) {
-  return descriptor
-      .replaceAll(RegExp(r'[^a-z0-9._-]+'), '-')
-      .replaceAll(RegExp(r'-+'), '-')
-      .replaceAll(RegExp(r'^-|-$'), '');
 }
 
 workflow.StoreFactory storeFactory(String name, String storeKind) {

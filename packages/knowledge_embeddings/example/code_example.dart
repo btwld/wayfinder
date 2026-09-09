@@ -7,35 +7,9 @@ import 'package:path/path.dart' as p;
 
 /// Shows how to chunk a small mixed-language codebase and run exact BM25 search.
 Future<void> main() async {
-  final exampleDir = Directory('example')..createSync(recursive: true);
-  final dartFile = File(p.join(exampleDir.path, 'calculator.dart'))
-    ..writeAsStringSync('''
-/// A simple calculator class.
-class Calculator {
-  /// Adds two numbers.
-  double add(double a, double b) => a + b;
-
-  /// Divides two numbers.
-  double divide(double a, double b) {
-    if (b == 0) {
-      throw ArgumentError('Cannot divide by zero');
-    }
-    return a / b;
-  }
-}
-''');
-
-  final tsFile = File(p.join(exampleDir.path, 'use_calculator.ts'))
-    ..writeAsStringSync('''
-import { Calculator } from './calculator';
-
-export const buildCalculator = () => {
-  const calculator = new Calculator();
-  return {
-    divideSafely: (a: number, b: number) => calculator.divide(a, b),
-  };
-};
-''');
+  final exampleDir = Directory('fixtures/samples');
+  final dartFile = File(p.join(exampleDir.path, 'calculator.dart'));
+  final tsFile = File(p.join(exampleDir.path, 'use_calculator.ts'));
 
   final registry = ChunkerRegistry()
     ..registerChunker(DartChunker())
@@ -98,8 +72,4 @@ export const buildCalculator = () => {
   }
 
   await store.close();
-
-  // Leave the working tree as the example found it.
-  dartFile.deleteSync();
-  tsFile.deleteSync();
 }

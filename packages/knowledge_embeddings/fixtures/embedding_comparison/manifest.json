@@ -1,0 +1,50 @@
+{
+  "status": "frozen before retrieval",
+  "seed": 91307,
+  "topics": 20,
+  "concepts": 100,
+  "queries": 160,
+  "developmentTopics": [
+    "uploads",
+    "queues",
+    "secrets",
+    "pagination",
+    "leases",
+    "webhooks",
+    "clocks",
+    "archives",
+    "search",
+    "shutdown"
+  ],
+  "testTopics": [
+    "sessions",
+    "payments",
+    "backups",
+    "releases",
+    "exports",
+    "locks",
+    "notifications",
+    "caches",
+    "migrations",
+    "limits"
+  ],
+  "config": {
+    "context": true,
+    "currentExceptHistory": true,
+    "governors": true,
+    "oneHopLinks": true,
+    "candidates": 50,
+    "topK": [
+      3,
+      10
+    ],
+    "tuning": "none; existing selected configuration frozen"
+  },
+  "sha256": {
+    "sources.json": "619426ecae43d53142480623ea9d34dd624c92fc5756ae36217126d0e17fd30a",
+    "queries.json": "e1924c545fc87ee7d7e709650f9775d0a58ef7524077c0ea7409a54395f5ec4d"
+  },
+  "limitations": "Synthetic paired templates across topic-held-out splits; no claim of independent human relevance annotation or real-world coverage.",
+  "testSelection": "Development inspected; retain all pre-registered settings unchanged. No tuning. Test split not yet executed.",
+  "passageManifestSha256": "f843872272d3aed1bf1aee93d77727c7f3996bb7cfdbcbaaf2e90cb4da240181"
+}

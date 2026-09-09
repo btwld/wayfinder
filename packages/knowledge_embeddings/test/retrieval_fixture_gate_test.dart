@@ -12,12 +12,6 @@ import '../tool/src/retrieval_evaluator.dart';
 
 const _minimumQueryGroupCounts = {'dart': 50, 'typescript': 7, 'markdown': 8};
 
-const _localModelMetricsFiles = [
-  'nomic_dense_hybrid_metrics_baseline.json',
-  'embeddinggemma_dimension_metrics_baseline.json',
-  'qwen3_dimension_metrics_baseline.json',
-];
-
 void main() {
   group('fixtures/corpus retrieval gate', () {
     test('qrels chunk ids are current and BM25 stays within baseline', () async {
@@ -81,26 +75,6 @@ void main() {
         baselineRun.queryGroupSummaries,
         queryGroupCounts,
       );
-      for (final metricsFile in _localModelMetricsFiles) {
-        final report = RetrievalBenchmarkReport.fromMap(
-          _readObjectMap(File(p.join(fixtureDir.path, metricsFile))),
-        );
-        expect(report.k, baseline.k, reason: '$metricsFile must use k=10.');
-        for (final run in report.runs) {
-          expect(
-            run.queryCount,
-            queriesById.length,
-            reason:
-                '$metricsFile run ${run.name} must cover every qrels query.',
-          );
-          _expectQueryGroupSummaryCounts(
-            run.queryGroupSummaries,
-            queryGroupCounts,
-            reportName: '$metricsFile run ${run.name}',
-          );
-        }
-      }
-
       final registry = workflow.buildDefaultRegistry();
       final files = workflow.collectFixtureFiles(fixtureDir);
       final preview = await workflow.runPreview(

@@ -57,15 +57,23 @@ class BM25LexicalIndex {
       throw ArgumentError.value(b, 'b', 'must be finite and between 0 and 1');
     }
 
-    final chunkList = chunks.toList(growable: false);
-    final stats = _BM25CorpusStats.fromChunks(chunkList);
-    final documents = chunkList.map(_BM25Document.fromChunk).toList();
+    final documents = chunks.map(_BM25Document.fromChunk).toList();
+    final documentFrequencies = <String, int>{};
+    var totalLength = 0;
+    for (final document in documents) {
+      totalLength += document.length;
+      for (final term in document.termFrequencies.keys) {
+        documentFrequencies[term] = (documentFrequencies[term] ?? 0) + 1;
+      }
+    }
 
     return BM25LexicalIndex._(
       documents: documents,
-      documentFrequencies: stats.documentFrequencies,
-      documentCount: stats.documentCount,
-      averageDocumentLength: stats.averageDocumentLength,
+      documentFrequencies: Map.unmodifiable(documentFrequencies),
+      documentCount: documents.length,
+      averageDocumentLength: documents.isEmpty
+          ? 0
+          : totalLength / documents.length,
       k1: k1,
       b: b,
     );
@@ -81,7 +89,7 @@ class BM25LexicalIndex {
       return const [];
     }
 
-    final queryTerms = _bm25Tokenize(query).toSet();
+    final queryTerms = tokenizeLexicalText(query).toSet();
     if (queryTerms.isEmpty) {
       return const [];
     }
@@ -154,7 +162,7 @@ class _BM25Document {
   factory _BM25Document.fromChunk(Chunk chunk) {
     final frequencies = <String, int>{};
     var length = 0;
-    for (final term in _bm25Tokenize(chunk.content)) {
+    for (final term in tokenizeLexicalText(chunk.content)) {
       length++;
       frequencies[term] = (frequencies[term] ?? 0) + 1;
     }
@@ -175,7 +183,7 @@ class _BM25Document {
 ///
 /// Code identifiers are split on common word boundaries so queries like
 /// `refresh token` can match `refreshToken`, `refresh_token`, or `HTTPClient`.
-Iterable<String> _bm25Tokenize(String text) sync* {
+Iterable<String> tokenizeLexicalText(String text) sync* {
   for (final segment in text.split(_tokenSplitPattern)) {
     if (segment.isEmpty) {
       continue;
@@ -211,49 +219,4 @@ bool _fullyCovered(String segment, List<RegExpMatch> matches) {
     offset = match.end;
   }
   return offset == segment.length;
-}
-
-/// Aggregated corpus statistics required for BM25 scoring.
-class _BM25CorpusStats {
-  _BM25CorpusStats();
-
-  /// Constructs [_BM25CorpusStats] from an iterable of chunks.
-  factory _BM25CorpusStats.fromChunks(Iterable<Chunk> chunks) {
-    final stats = _BM25CorpusStats();
-    for (final chunk in chunks) {
-      stats._addDocument(chunk.content);
-    }
-    return stats;
-  }
-
-  final Map<String, int> _documentFrequencies = {};
-  int _documentCount = 0;
-  int _totalTokenCount = 0;
-
-  /// Adds a logical document (e.g., chunk content) to the corpus statistics.
-  void _addDocument(String text) {
-    final tokens = _bm25Tokenize(text).toList();
-    _documentCount++;
-    _totalTokenCount += tokens.length;
-
-    if (tokens.isEmpty) {
-      return;
-    }
-
-    final uniqueTerms = tokens.toSet();
-    for (final term in uniqueTerms) {
-      _documentFrequencies[term] = (_documentFrequencies[term] ?? 0) + 1;
-    }
-  }
-
-  /// The total number of logical documents processed.
-  int get documentCount => _documentCount;
-
-  /// The average logical document length, in tokens.
-  double get averageDocumentLength =>
-      _documentCount == 0 ? 0 : _totalTokenCount / _documentCount;
-
-  /// The document frequency map.
-  Map<String, int> get documentFrequencies =>
-      Map<String, int>.unmodifiable(_documentFrequencies);
 }

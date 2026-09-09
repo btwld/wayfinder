@@ -22,17 +22,6 @@ class MemoryStore extends BaseStore {
   /// The embeddings stored in memory, keyed by chunk/source/model identity.
   final Map<String, Embedding> embeddings = {};
 
-  /// Computes the identity key for an embedding to avoid cross-model overwrites.
-  static String _embeddingKey(
-    String chunkId,
-    String source,
-    String modelName,
-  ) => embeddingIdentityKey(
-    chunkId: chunkId,
-    source: source,
-    modelName: modelName,
-  );
-
   @override
   Future<String> storeChunk(Chunk chunk) async {
     chunks[chunk.id] = chunk;
@@ -41,10 +30,10 @@ class MemoryStore extends BaseStore {
 
   @override
   Future<void> storeEmbedding(Embedding embedding) async {
-    final key = _embeddingKey(
-      embedding.chunkId,
-      embedding.source,
-      embedding.modelName,
+    final key = embeddingIdentityKey(
+      chunkId: embedding.chunkId,
+      source: embedding.source,
+      modelName: embedding.modelName,
     );
     embeddings[key] = embedding;
   }
@@ -68,7 +57,11 @@ class MemoryStore extends BaseStore {
     // A full identity resolves to one map key, so the common ingestion dedupe
     // path does not scan every stored embedding.
     if (source != null && modelName != null) {
-      return embeddings[_embeddingKey(chunkId, source, modelName)];
+      return embeddings[embeddingIdentityKey(
+        chunkId: chunkId,
+        source: source,
+        modelName: modelName,
+      )];
     }
 
     return embeddings.values.where((embedding) {
@@ -86,6 +79,42 @@ class MemoryStore extends BaseStore {
   @override
   Future<List<Embedding>> getAllEmbeddings() async {
     return List<Embedding>.unmodifiable(embeddings.values);
+  }
+
+  @override
+  Future<void> replaceChunks({
+    required List<Chunk> chunks,
+    required List<Embedding> embeddings,
+    required Set<String> removeChunkIds,
+  }) async {
+    validateReplacementIds([
+      ...chunks.map((chunk) => chunk.id),
+      ...embeddings.map((embedding) => embedding.chunkId),
+    ], removeChunkIds);
+    final nextChunks = {...this.chunks};
+    final nextEmbeddings = {...this.embeddings};
+    nextChunks.removeWhere((id, _) => removeChunkIds.contains(id));
+    nextEmbeddings.removeWhere(
+      (_, item) => removeChunkIds.contains(item.chunkId),
+    );
+    for (final chunk in chunks) {
+      nextChunks[chunk.id] = chunk;
+    }
+    for (final embedding in embeddings) {
+      nextEmbeddings[embeddingIdentityKey(
+            chunkId: embedding.chunkId,
+            source: embedding.source,
+            modelName: embedding.modelName,
+          )] =
+          embedding;
+    }
+    // No async gap exposes a partially replaced in-memory snapshot.
+    this.chunks
+      ..clear()
+      ..addAll(nextChunks);
+    this.embeddings
+      ..clear()
+      ..addAll(nextEmbeddings);
   }
 
   @override

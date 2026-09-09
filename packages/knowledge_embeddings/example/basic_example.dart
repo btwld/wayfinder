@@ -6,18 +6,7 @@ import 'package:knowledge_embeddings/knowledge_embeddings.dart';
 
 /// Demonstrates chunk preview and exact BM25 lexical search over a text file.
 Future<void> main() async {
-  final sampleFile = File('example/sample.txt');
-  if (!sampleFile.existsSync()) {
-    sampleFile.writeAsStringSync('''
-This is a sample text file for demonstrating the knowledge_embeddings library.
-
-It contains multiple paragraphs that will be chunked and indexed.
-
-The exact BM25 lexical index will rank chunks without vector hashing.
-
-Then we'll search for content similar to a query.
-''');
-  }
+  final sampleFile = File('fixtures/samples/search.txt');
 
   final registry = ChunkerRegistry()..registerChunker(TextChunker());
   final skipped = <String, Map<String, String?>>{};

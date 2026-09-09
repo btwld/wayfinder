@@ -55,6 +55,31 @@ abstract class BaseStore {
   /// Gets all embeddings.
   Future<List<Embedding>> getAllEmbeddings();
 
+  /// Retrieves vectors for an eligible chunk set in one embedding space.
+  /// Stores can override this to use indexed predicates before reading vectors.
+  Future<List<Embedding>> getEmbeddingsForChunks(
+    Set<String> chunkIds, {
+    required String source,
+    required String modelName,
+  }) async => [
+    for (final embedding in await getAllEmbeddings())
+      if (chunkIds.contains(embedding.chunkId) &&
+          embedding.source == source &&
+          embedding.modelName == modelName)
+        embedding,
+  ];
+
+  /// Atomically writes a snapshot update and removes obsolete chunks/vectors.
+  /// Removal IDs must be disjoint from [chunks] and [embeddings].
+  /// No inference belongs here.
+  /// Implementations without atomic replacement reject it before writing.
+  Future<void> replaceChunks({
+    required List<Chunk> chunks,
+    required List<Embedding> embeddings,
+    required Set<String> removeChunkIds,
+  }) async =>
+      throw UnsupportedError('This store cannot atomically replace chunks.');
+
   /// Finds chunks similar to a query vector.
   ///
   /// [queryVector] is the non-empty, finite vector representation of the query.

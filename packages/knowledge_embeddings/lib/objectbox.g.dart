@@ -79,59 +79,59 @@ final _entities = <obx_int.ModelEntity>[
     backlinks: <obx_int.ModelBacklink>[],
   ),
   obx_int.ModelEntity(
-    id: const obx_int.IdUid(2, 5454060788371618184),
-    name: 'EmbeddingEntity768',
-    lastPropertyId: const obx_int.IdUid(7, 1947303555228418944),
+    id: const obx_int.IdUid(3, 5552132049052643258),
+    name: 'EmbeddingEntity',
+    lastPropertyId: const obx_int.IdUid(7, 3365368693757389608),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(1, 1193394587907611662),
+        id: const obx_int.IdUid(1, 1493738073630394574),
         name: 'id',
         type: 6,
         flags: 1,
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(2, 9193266036610955617),
+        id: const obx_int.IdUid(2, 6993811182221425204),
         name: 'embeddingKey',
         type: 9,
         flags: 34848,
-        indexId: const obx_int.IdUid(2, 5309712781584971678),
+        indexId: const obx_int.IdUid(8, 4688573385104706418),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(3, 8774359902648244740),
+        id: const obx_int.IdUid(3, 3527937834318117285),
         name: 'chunkId',
         type: 9,
         flags: 2048,
-        indexId: const obx_int.IdUid(3, 8260255726227913698),
+        indexId: const obx_int.IdUid(9, 5861684452588761243),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(4, 7295914250334259545),
+        id: const obx_int.IdUid(4, 8284068218088259986),
         name: 'source',
         type: 9,
         flags: 2048,
-        indexId: const obx_int.IdUid(4, 1494647201565118131),
+        indexId: const obx_int.IdUid(10, 8647469563416749603),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(5, 8954943725731155925),
+        id: const obx_int.IdUid(5, 5492433082032052188),
         name: 'modelName',
         type: 9,
         flags: 2048,
-        indexId: const obx_int.IdUid(5, 7369963232150480847),
+        indexId: const obx_int.IdUid(11, 5746268551187029936),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(6, 5527448626657189885),
+        id: const obx_int.IdUid(6, 5640878376150273820),
         name: 'vector',
         type: 28,
         flags: 8,
-        indexId: const obx_int.IdUid(6, 8661905253805283419),
-        hnswParams: obx_int.ModelHnswParams(dimensions: 768, distanceType: 2),
+        indexId: const obx_int.IdUid(12, 6544511921717568125),
+        hnswParams: obx_int.ModelHnswParams(dimensions: 384, distanceType: 2),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(7, 1947303555228418944),
+        id: const obx_int.IdUid(7, 3365368693757389608),
         name: 'chunkRelationId',
         type: 11,
         flags: 520,
-        indexId: const obx_int.IdUid(7, 6260536262635163689),
+        indexId: const obx_int.IdUid(13, 4044056724816938394),
         relationField: 'chunkRelation',
         relationTarget: 'ChunkEntity',
       ),
@@ -178,13 +178,21 @@ obx.Store openStore({
 obx_int.ModelDefinition getObjectBoxModel() {
   final model = obx_int.ModelInfo(
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(2, 5454060788371618184),
-    lastIndexId: const obx_int.IdUid(7, 6260536262635163689),
+    lastEntityId: const obx_int.IdUid(3, 5552132049052643258),
+    lastIndexId: const obx_int.IdUid(13, 4044056724816938394),
     lastRelationId: const obx_int.IdUid(0, 0),
     lastSequenceId: const obx_int.IdUid(0, 0),
-    retiredEntityUids: const [],
+    retiredEntityUids: const [5454060788371618184],
     retiredIndexUids: const [],
-    retiredPropertyUids: const [],
+    retiredPropertyUids: const [
+      1193394587907611662,
+      9193266036610955617,
+      8774359902648244740,
+      7295914250334259545,
+      8954943725731155925,
+      5527448626657189885,
+      1947303555228418944,
+    ],
     retiredRelationUids: const [],
     modelVersion: 5,
     modelVersionParserMinimum: 5,
@@ -268,15 +276,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
-    EmbeddingEntity768: obx_int.EntityDefinition<EmbeddingEntity768>(
+    EmbeddingEntity: obx_int.EntityDefinition<EmbeddingEntity>(
       model: _entities[1],
-      toOneRelations: (EmbeddingEntity768 object) => [object.chunkRelation],
-      toManyRelations: (EmbeddingEntity768 object) => {},
-      getId: (EmbeddingEntity768 object) => object.id,
-      setId: (EmbeddingEntity768 object, int id) {
+      toOneRelations: (EmbeddingEntity object) => [object.chunkRelation],
+      toManyRelations: (EmbeddingEntity object) => {},
+      getId: (EmbeddingEntity object) => object.id,
+      setId: (EmbeddingEntity object, int id) {
         object.id = id;
       },
-      objectToFB: (EmbeddingEntity768 object, fb.Builder fbb) {
+      objectToFB: (EmbeddingEntity object, fb.Builder fbb) {
         final embeddingKeyOffset = fbb.writeString(object.embeddingKey);
         final chunkIdOffset = fbb.writeString(object.chunkId);
         final sourceOffset = fbb.writeString(object.source);
@@ -320,7 +328,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           14,
           Float32List(0),
         );
-        final object = EmbeddingEntity768(
+        final object = EmbeddingEntity(
           id: idParam,
           embeddingKey: embeddingKeyParam,
           chunkId: chunkIdParam,
@@ -386,41 +394,41 @@ class ChunkEntity_ {
   );
 }
 
-/// [EmbeddingEntity768] entity fields to define ObjectBox queries.
-class EmbeddingEntity768_ {
-  /// See [EmbeddingEntity768.id].
-  static final id = obx.QueryIntegerProperty<EmbeddingEntity768>(
+/// [EmbeddingEntity] entity fields to define ObjectBox queries.
+class EmbeddingEntity_ {
+  /// See [EmbeddingEntity.id].
+  static final id = obx.QueryIntegerProperty<EmbeddingEntity>(
     _entities[1].properties[0],
   );
 
-  /// See [EmbeddingEntity768.embeddingKey].
-  static final embeddingKey = obx.QueryStringProperty<EmbeddingEntity768>(
+  /// See [EmbeddingEntity.embeddingKey].
+  static final embeddingKey = obx.QueryStringProperty<EmbeddingEntity>(
     _entities[1].properties[1],
   );
 
-  /// See [EmbeddingEntity768.chunkId].
-  static final chunkId = obx.QueryStringProperty<EmbeddingEntity768>(
+  /// See [EmbeddingEntity.chunkId].
+  static final chunkId = obx.QueryStringProperty<EmbeddingEntity>(
     _entities[1].properties[2],
   );
 
-  /// See [EmbeddingEntity768.source].
-  static final source = obx.QueryStringProperty<EmbeddingEntity768>(
+  /// See [EmbeddingEntity.source].
+  static final source = obx.QueryStringProperty<EmbeddingEntity>(
     _entities[1].properties[3],
   );
 
-  /// See [EmbeddingEntity768.modelName].
-  static final modelName = obx.QueryStringProperty<EmbeddingEntity768>(
+  /// See [EmbeddingEntity.modelName].
+  static final modelName = obx.QueryStringProperty<EmbeddingEntity>(
     _entities[1].properties[4],
   );
 
-  /// See [EmbeddingEntity768.vector].
-  static final vector = obx.QueryHnswProperty<EmbeddingEntity768>(
+  /// See [EmbeddingEntity.vector].
+  static final vector = obx.QueryHnswProperty<EmbeddingEntity>(
     _entities[1].properties[5],
   );
 
-  /// See [EmbeddingEntity768.chunkRelation].
+  /// See [EmbeddingEntity.chunkRelation].
   static final chunkRelation =
-      obx.QueryRelationToOne<EmbeddingEntity768, ChunkEntity>(
+      obx.QueryRelationToOne<EmbeddingEntity, ChunkEntity>(
         _entities[1].properties[6],
       );
 }

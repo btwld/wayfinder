@@ -55,55 +55,55 @@
       "relations": []
     },
     {
-      "id": "2:5454060788371618184",
-      "lastPropertyId": "7:1947303555228418944",
-      "name": "EmbeddingEntity768",
+      "id": "3:5552132049052643258",
+      "lastPropertyId": "7:3365368693757389608",
+      "name": "EmbeddingEntity",
       "properties": [
         {
-          "id": "1:1193394587907611662",
+          "id": "1:1493738073630394574",
           "name": "id",
           "type": 6,
           "flags": 1
         },
         {
-          "id": "2:9193266036610955617",
+          "id": "2:6993811182221425204",
           "name": "embeddingKey",
-          "indexId": "2:5309712781584971678",
+          "indexId": "8:4688573385104706418",
           "type": 9,
           "flags": 34848
         },
         {
-          "id": "3:8774359902648244740",
+          "id": "3:3527937834318117285",
           "name": "chunkId",
-          "indexId": "3:8260255726227913698",
+          "indexId": "9:5861684452588761243",
           "type": 9,
           "flags": 2048
         },
         {
-          "id": "4:7295914250334259545",
+          "id": "4:8284068218088259986",
           "name": "source",
-          "indexId": "4:1494647201565118131",
+          "indexId": "10:8647469563416749603",
           "type": 9,
           "flags": 2048
         },
         {
-          "id": "5:8954943725731155925",
+          "id": "5:5492433082032052188",
           "name": "modelName",
-          "indexId": "5:7369963232150480847",
+          "indexId": "11:5746268551187029936",
           "type": 9,
           "flags": 2048
         },
         {
-          "id": "6:5527448626657189885",
+          "id": "6:5640878376150273820",
           "name": "vector",
-          "indexId": "6:8661905253805283419",
+          "indexId": "12:6544511921717568125",
           "type": 28,
           "flags": 8
         },
         {
-          "id": "7:1947303555228418944",
+          "id": "7:3365368693757389608",
           "name": "chunkRelationId",
-          "indexId": "7:6260536262635163689",
+          "indexId": "13:4044056724816938394",
           "type": 11,
           "flags": 520,
           "relationTarget": "ChunkEntity"
@@ -112,15 +112,25 @@
       "relations": []
     }
   ],
-  "lastEntityId": "2:5454060788371618184",
-  "lastIndexId": "7:6260536262635163689",
+  "lastEntityId": "3:5552132049052643258",
+  "lastIndexId": "13:4044056724816938394",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",
   "modelVersion": 5,
   "modelVersionParserMinimum": 5,
-  "retiredEntityUids": [],
+  "retiredEntityUids": [
+    5454060788371618184
+  ],
   "retiredIndexUids": [],
-  "retiredPropertyUids": [],
+  "retiredPropertyUids": [
+    1193394587907611662,
+    9193266036610955617,
+    8774359902648244740,
+    7295914250334259545,
+    8954943725731155925,
+    5527448626657189885,
+    1947303555228418944
+  ],
   "retiredRelationUids": [],
   "version": 1
 }

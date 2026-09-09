@@ -3,7 +3,7 @@ description: Workspace for the Concepta OKF Profile repository. Includes the OKF
 publish_to: none
 
 environment:
-  sdk: ^3.9.0
+  sdk: ^3.10.7
 
 workspace:
   - packages/okf_profile
@@ -12,17 +12,27 @@ workspace:
 dev_dependencies:
   melos: ^7.1.1
 
+hooks:
+  user_defines:
+    llamadart:
+      llamadart_native_runtimes: [llama_cpp]
+      llamadart_native_backends: [cpu]
+
 melos:
   scripts:
     get:
       run: dart pub get
     build:
       run: melos exec --scope=knowledge_embeddings -- dart run build_runner build
+    embeddings:prepare:
+      description: Download and verify the pinned local embedding model
+      run: melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
+    embeddings:build:
+      description: Build the retrieval CLI with its local model and native libraries
+      run: melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart
     objectbox:install:
-      description: Install the optional ObjectBox native library locally
-      run: >-
-        melos exec --scope=knowledge_embeddings --
-        bash -lc 'curl -fsSL https://raw.githubusercontent.com/objectbox/objectbox-dart/main/install.sh | bash -s -- --quiet'
+      description: Install the pinned ObjectBox native library locally
+      run: melos exec --scope=knowledge_embeddings -- bash tool/install_objectbox.sh
     analyze:
       run: melos exec --fail-fast -- dart analyze --fatal-infos
     format:check:

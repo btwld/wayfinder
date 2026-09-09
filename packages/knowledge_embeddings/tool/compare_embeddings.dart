@@ -45,7 +45,11 @@ Future<void> main(List<String> args) async {
         validateQueryGroupMappings(judgments.queryIds, queryGroupsById);
       }
     }
-    comparisonRuns = resolveComparisonRuns(options.embedderDescriptors);
+    comparisonRuns = resolveComparisonRuns(
+      options.embedderDescriptors,
+      modelFile: options.modelPath == null ? null : File(options.modelPath!),
+      longInputPolicy: options.longInputPolicy,
+    );
     validateRerankerOptions(comparisonRuns, options.rerankerUrl);
   } on ArgumentError catch (error) {
     _exitWithArgumentError(error);
@@ -217,6 +221,7 @@ Future<void> main(List<String> args) async {
           queries: queries,
           topK: topK,
           candidateLimit: candidateLimit,
+          storeFactory: storeFactory(run.label, storeKind),
           rerankerFactory: rerankerFactory(
             run,
             rerankerUrl,

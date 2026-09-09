@@ -36,27 +36,13 @@ Iterable<ChunkedFile> chunkFiles(
   for (final file in files) {
     final override = contentTypes?[file.path];
     final inferredType = override ?? inferContentType(file.path);
-    var emittedMissing = false;
-    final chunker = registry.getChunkerForFile(
-      file,
-      contentType: override,
-      onMissingChunker: (_) {
-        emittedMissing = true;
-        onFileSkipped?.call(
-          file,
-          inferredType: inferredType,
-          reason: 'unsupported_content_type',
-        );
-      },
-    );
+    final chunker = registry.getChunkerForFile(file, contentType: override);
     if (chunker == null) {
-      if (!emittedMissing) {
-        onFileSkipped?.call(
-          file,
-          inferredType: inferredType,
-          reason: 'unsupported_content_type',
-        );
-      }
+      onFileSkipped?.call(
+        file,
+        inferredType: inferredType,
+        reason: 'unsupported_content_type',
+      );
       continue;
     }
 
@@ -113,8 +99,13 @@ class IngestionPipeline {
   ///
   /// Each file's new chunks are embedded in one embedder call, and writes reach
   /// the store through [BaseStore.storeBatch]. When [dedupe] is `true`
-  /// (default) the pipeline skips chunks the store already holds and reports
-  /// them through [onDuplicateChunk].
+  /// (default) the pipeline reports chunks the store already holds, or that
+  /// appeared earlier in this call, through [onDuplicateChunk]. An existing
+  /// chunk still receives a missing embedding for the current source/model.
+  /// Metadata changes are persisted without re-embedding unchanged text. A
+  /// caller holding a lexical index must rebuild it to see those changes.
+  /// With deduplication enabled, reusing an explicit ID for different text
+  /// throws [StateError]; use content-derived IDs when the source changes.
   Future<void> ingest(
     Iterable<ChunkedFile> chunkedFiles, {
     DuplicateChunkCallback? onDuplicateChunk,
@@ -122,15 +113,30 @@ class IngestionPipeline {
   }) async {
     final chunkBatch = <Chunk>[];
     final embeddingBatch = <Embedding>[];
+    final seenChunkIds = <String>{};
 
     for (final chunked in chunkedFiles) {
-      // Chunks the store does not hold yet, and chunks that still need a
-      // vector for this embedder's source/model pair.
+      // New or updated chunks, and chunks that still need a vector for this
+      // embedder's source/model pair.
       final newChunks = <Chunk>[];
       final chunksToEmbed = <Chunk>[];
       for (final chunk in chunked.chunks) {
-        if (dedupe && await store.getChunk(chunk.id) != null) {
+        if (dedupe && !seenChunkIds.add(chunk.id)) {
           onDuplicateChunk?.call(chunk);
+          continue;
+        }
+        final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
+        if (existingChunk != null) {
+          if (existingChunk.content != chunk.content) {
+            throw StateError(
+              'Chunk ID ${chunk.id} was reused for different text. '
+              'Use content-derived IDs for changed content.',
+            );
+          }
+          onDuplicateChunk?.call(chunk);
+          if (existingChunk != chunk) {
+            newChunks.add(chunk);
+          }
           final existingEmbedding = await store.getEmbedding(
             chunk.id,
             source: embedder.sourceName,

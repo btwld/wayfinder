@@ -3,6 +3,9 @@
 import 'dart:io';
 
 import 'package:knowledge_embeddings/knowledge_embeddings.dart';
+import 'package:knowledge_embeddings/objectbox.g.dart';
+import 'package:knowledge_embeddings/src/storage/embedding_entities.dart';
+import 'package:knowledge_embeddings/src/storage/objectbox_entities.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -54,6 +57,165 @@ void main() {
   }, skip: _missingNativeLibrary);
 
   group('ObjectBoxStore persistence', () {
+    test(
+      'model filters survive more competing vectors than the candidate floor',
+      () async {
+        final store = createStore();
+        addTearDown(store.close);
+        final chunks = [
+          for (var i = 0; i <= 80; i++)
+            Chunk(
+              sourcePath: 'file_$i.md',
+              lineStart: 1,
+              lineEnd: 1,
+              content: 'text $i',
+              type: 'paragraph',
+            ),
+        ];
+        await store.storeBatch(
+          chunks: chunks,
+          embeddings: [
+            for (var i = 0; i < chunks.length; i++)
+              Embedding(
+                chunkId: chunks[i].id,
+                source: 'dense',
+                modelName: i == 0 ? 'active' : 'previous',
+                vector: testVector384(seed: i == 0 ? 1 : 0),
+              ),
+          ],
+        );
+        final results = await store.findSimilar(
+          testVector384(),
+          'dense',
+          'active',
+          limit: 1,
+        );
+        expect(results.map((hit) => hit.chunk.id), [chunks.first.id]);
+      },
+    );
+    test('updates preserve entity IDs and chunk relations', () async {
+      final directory = p.join(tempDir.path, 'updates');
+      final store = ObjectBoxStore(directory);
+      final chunk = Chunk(
+        sourcePath: 'guidance.md',
+        lineStart: 1,
+        lineEnd: 1,
+        content: 'Account recovery guidance',
+        type: 'paragraph',
+        metadata: {'status': 'stable'},
+      );
+      final embedding = Embedding(
+        chunkId: chunk.id,
+        source: 'dense',
+        modelName: 'model',
+        vector: testVector384(seed: 1),
+      );
+      await store.storeBatch(chunks: [chunk], embeddings: [embedding]);
+      await store.close();
+      final before = Store(getObjectBoxModel(), directory: directory);
+      final chunkId = before.box<ChunkEntity>().getAll().single.id;
+      final embeddingId = before.box<EmbeddingEntity>().getAll().single.id;
+      before.close();
+
+      final reopened = ObjectBoxStore(directory);
+      final updated = chunk.copyWith(metadata: {'status': 'deprecated'});
+      await reopened.storeChunk(updated);
+      await reopened.storeEmbedding(embedding);
+      expect(
+        (await reopened.findSimilar(
+          embedding.vector,
+          'dense',
+          'model',
+        )).single.chunk,
+        updated,
+      );
+      await reopened.close();
+      final after = Store(getObjectBoxModel(), directory: directory);
+      try {
+        expect(after.box<ChunkEntity>().getAll().single.id, chunkId);
+        final entity = after.box<EmbeddingEntity>().getAll().single;
+        expect(entity.id, embeddingId);
+        expect(entity.chunkRelation.targetId, chunkId);
+      } finally {
+        after.close();
+      }
+    });
+
+    test(
+      'rejects invalid float32 batches without altering persisted data',
+      () async {
+        final store = createStore();
+        addTearDown(store.close);
+        final chunk = Chunk(
+          sourcePath: 'guidance.md',
+          lineStart: 1,
+          lineEnd: 1,
+          content: 'Keep this guidance',
+          type: 'paragraph',
+        );
+        final embedding = Embedding(
+          chunkId: chunk.id,
+          source: 'dense',
+          modelName: 'model',
+          vector: testVector384(),
+        );
+        await store.storeBatch(chunks: [chunk], embeddings: [embedding]);
+        for (final value in [1e300, 1e-300, 0.0]) {
+          final vector = List<double>.filled(384, value);
+          await expectLater(
+            store.storeBatch(
+              chunks: [
+                chunk.copyWith(metadata: {'status': 'deprecated'}),
+              ],
+              embeddings: [embedding.copyWith(vector: vector)],
+            ),
+            throwsArgumentError,
+          );
+          await expectLater(
+            store.findSimilar(vector, 'dense', 'model'),
+            throwsArgumentError,
+          );
+          expect(await store.getAllChunks(), [chunk]);
+          expect(await store.getAllEmbeddings(), [embedding]);
+        }
+      },
+    );
+
+    test('refuses an unmarked database without changing its data', () async {
+      final directory = p.join(tempDir.path, 'old-schema');
+      final original = Store(getObjectBoxModel(), directory: directory);
+      original.box<ChunkEntity>().put(
+        ChunkEntity(
+          chunkId: 'preserved',
+          sourcePath: 'file.md',
+          lineStart: 1,
+          lineEnd: 1,
+          content: 'preserve this source',
+          type: 'paragraph',
+        ),
+      );
+      original.close();
+      expect(
+        () => ObjectBoxStore(directory),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('new directory'),
+          ),
+        ),
+      );
+      final reopened = Store(getObjectBoxModel(), directory: directory);
+      try {
+        expect(
+          reopened.box<ChunkEntity>().getAll().single.content,
+          'preserve this source',
+        );
+      } finally {
+        reopened.close();
+      }
+    });
+
     test('writes a batch in one transaction and searches it', () async {
       final chunks = [
         for (var index = 0; index < 3; index++)
@@ -71,7 +233,7 @@ void main() {
             chunkId: chunks[index].id,
             source: 'dense',
             modelName: 'model',
-            vector: testVector768(seed: index + 1),
+            vector: testVector384(seed: index + 1),
           ),
       ];
 
@@ -82,7 +244,7 @@ void main() {
       expect(await store.getAllEmbeddings(), hasLength(3));
 
       final results = await store.findSimilar(
-        testVector768(seed: 1),
+        testVector384(seed: 1),
         'dense',
         'model',
       );
@@ -107,7 +269,7 @@ void main() {
         chunkId: chunk.id,
         source: 'dense',
         modelName: 'model',
-        vector: testVector768(seed: 2),
+        vector: testVector384(seed: 2),
       );
 
       final first = ObjectBoxStore(directory);

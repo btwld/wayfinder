@@ -15,7 +15,8 @@ export 'src/chunking/languages/dart_chunker.dart';
 export 'src/chunking/languages/typescript_chunker.dart';
 // Embedding
 export 'src/embedding/base_embedder.dart';
-export 'src/embedding/ollama_embedder.dart';
+export 'src/embedding/embedding_model_spec.dart';
+export 'src/embedding/llama_embedder.dart';
 // Ingestion
 export 'src/ingestion/ingestion_pipeline.dart';
 // Core models

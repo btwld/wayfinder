@@ -28,7 +28,7 @@ void main() {
             chunkId: chunk.id,
             source: 'dense',
             modelName: 'model-$index',
-            vector: testVector768(seed: index + 1),
+            vector: testVector384(seed: index + 1),
           ),
         );
       }
@@ -40,7 +40,7 @@ void main() {
       );
 
       expect(match?.modelName, 'model-3');
-      expect(match?.vector, testVector768(seed: 4));
+      expect(match?.vector, testVector384(seed: 4));
       expect(
         await store.getEmbedding(
           chunk.id,
@@ -65,7 +65,7 @@ void main() {
 
     test('accepts only dimensions backed by the generated HNSW schema', () {
       expect(
-        () => validateObjectBoxVectorDimension(kStandardEmbeddingDimension),
+        () => validateObjectBoxVectorDimension(objectBoxEmbeddingDimension),
         returnsNormally,
       );
 
@@ -81,21 +81,21 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                allOf(contains('768-dimensional'), contains('chunk-1')),
+                allOf(contains('384-dimensional'), contains('chunk-1')),
               ),
         ),
       );
     });
   });
 
-  group('EmbeddingEntity768', () {
+  group('EmbeddingEntity', () {
     test('computes distinct keys when identity parts contain delimiters', () {
-      final first = EmbeddingEntity768.computeKey(
+      final first = EmbeddingEntity.computeKey(
         'chunk::alpha',
         'source',
         'model',
       );
-      final second = EmbeddingEntity768.computeKey(
+      final second = EmbeddingEntity.computeKey(
         'chunk',
         'alpha::source',
         'model',

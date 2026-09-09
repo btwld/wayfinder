@@ -7,110 +7,112 @@ import 'package:knowledge_embeddings/knowledge_embeddings.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../tool/src/pipeline_workflow.dart' as workflow;
+
 void main() {
-  group('fixtures/corpus regression', () {
-    test('chunk manifest matches golden snapshot', () async {
-      final fixturesRoot =
-          Platform.environment['FIXTURES_ROOT'] ?? 'fixtures/corpus';
-      final fixturesDir = Directory(fixturesRoot);
-      expect(
-        fixturesDir.existsSync(),
-        isTrue,
-        reason:
-            '$fixturesRoot is required for regression tests. Set FIXTURES_ROOT accordingly.',
+  for (final fixture in ['corpus', 'samples']) {
+    test('$fixture chunk manifest matches golden snapshot', () async {
+      final fixturesDir = Directory(
+        fixture == 'corpus'
+            ? Platform.environment['FIXTURES_ROOT'] ?? 'fixtures/corpus'
+            : 'fixtures/samples',
       );
-
-      final allowedExtensions = {
-        '.dart',
-        '.ts',
-        '.tsx',
-        '.md',
-        '.markdown',
-        '.txt',
-      };
-      final files =
-          fixturesDir
-              .listSync(recursive: true)
-              .whereType<File>()
-              .where(
-                (file) => allowedExtensions.contains(p.extension(file.path)),
-              )
-              .toList()
-            ..sort((a, b) => a.path.compareTo(b.path));
-
-      final registry = ChunkerRegistry()
-        ..registerChunker(DartChunker())
-        ..registerChunker(TypeScriptChunker())
-        ..registerChunker(MarkdownChunker())
-        ..registerChunker(TextChunker());
-
-      final skipped = <String>[];
-      final chunks = [
-        for (final chunked in chunkFiles(
-          registry,
-          files,
-          onFileSkipped: (file, {inferredType, reason}) {
-            skipped.add(p.relative(file.path, from: fixturesDir.path));
-          },
-        ))
-          ...chunked.chunks,
-      ];
-
-      expect(skipped, isEmpty, reason: 'No fixtures should be skipped');
-
-      final manifest = <String, Map<String, Object?>>{};
-      for (final chunk in chunks) {
-        final relative = p.relative(chunk.sourcePath, from: fixturesDir.path);
-        final entry = manifest.putIfAbsent(relative, () {
-          return {'total': 0, 'types': <String, int>{}};
-        });
-
-        entry['total'] = (entry['total'] as int) + 1;
-        final types = entry['types'] as Map<String, int>;
-        types[chunk.type] = (types[chunk.type] ?? 0) + 1;
-      }
-
-      final goldenFile = File('test/goldens/baseline_chunks.json');
-      final sortedManifestEntries = manifest.entries.map((entry) {
-        final types = Map<String, int>.from(entry.value['types'] as Map);
-        final sortedTypesEntries = types.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
-        final sortedTypes = Map<String, int>.fromEntries(sortedTypesEntries);
-
-        return MapEntry(entry.key, {
-          'total': entry.value['total'],
-          'types': sortedTypes,
-        });
-      }).toList()..sort((a, b) => a.key.compareTo(b.key));
-      final sortedManifest = Map<String, Object?>.fromEntries(
-        sortedManifestEntries,
+      expect(fixturesDir.existsSync(), isTrue);
+      final preview = await workflow.runPreview(
+        registry: workflow.buildDefaultRegistry(),
+        files: workflow.collectFixtureFiles(fixturesDir),
+        fixturesDir: fixturesDir,
       );
-
-      final shouldUpdateGoldens = Platform.environment['UPDATE_GOLDENS'] == '1';
-
-      if (shouldUpdateGoldens) {
-        goldenFile.createSync(recursive: true);
-        const encoder = JsonEncoder.withIndent('  ');
-        goldenFile.writeAsStringSync('${encoder.convert(sortedManifest)}\n');
-        return;
-      }
-
-      expect(
-        goldenFile.existsSync(),
-        isTrue,
-        reason:
-            'Golden file missing: ${goldenFile.path}. Run with UPDATE_GOLDENS=1 to create it.',
-      );
-
-      final expected =
-          jsonDecode(goldenFile.readAsStringSync()) as Map<String, Object?>;
-
-      expect(
-        sortedManifest,
-        equals(expected),
-        reason:
-            'Chunk manifest diverged from golden snapshot. Run with UPDATE_GOLDENS=1 to update.',
+      expect(preview.skipped, isEmpty);
+      expect(preview.chunks, isNotEmpty);
+      await workflow.validateAgainstGolden(
+        packageRoot: Directory.current,
+        fixturesDir: fixturesDir,
+        preview: preview,
+        goldenPath: fixture == 'corpus'
+            ? 'test/goldens/baseline_chunks.json'
+            : 'test/goldens/sample_chunks.json',
       );
     });
-  });
+  }
+
+  test(
+    'sample fixtures exercise every built-in chunker and portable heading ids',
+    () {
+      final fixturesDir = Directory('fixtures/samples').absolute;
+      final rebasedDir = Directory(
+        p.join(Directory.systemTemp.path, 'other-checkout'),
+      );
+      final registry = workflow.buildDefaultRegistry();
+      final original = <Chunk>[];
+      final rebased = <Chunk>[];
+      final contentTypes = <String>{};
+      for (final file in workflow.collectFixtureFiles(fixturesDir)) {
+        final chunker = registry.getChunkerForFile(file)!;
+        contentTypes.add(chunker.contentType);
+        final content = file.readAsStringSync();
+        final metadata = ChunkMetadata.fromFile(file);
+        original.addAll(chunker.chunkContent(content, metadata));
+        rebased.addAll(
+          chunker.chunkContent(
+            content,
+            metadata.copyWith(
+              sourcePath: p.join(
+                rebasedDir.path,
+                p.relative(file.path, from: fixturesDir.path),
+              ),
+            ),
+          ),
+        );
+      }
+      expect(contentTypes, {'dart', 'typescript', 'markdown', 'text'});
+      expect(
+        workflow.buildChunkManifest(rebased, rebasedDir),
+        workflow.buildChunkManifest(original, fixturesDir),
+      );
+      final textResults = BM25LexicalIndex.fromChunks(original).search(
+        'paragraphs indexed',
+        options: SearchOptions(filePatterns: ['**/*.txt']),
+      );
+      expect(textResults, isNotEmpty);
+      expect(textResults.first.chunk.content, contains('multiple paragraphs'));
+    },
+  );
+
+  test(
+    'golden validation rejects changes hidden by identical chunk counts',
+    () async {
+      final tempDir = Directory.systemTemp.createTempSync('chunk_golden_test');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final chunk = Chunk(
+        sourcePath: p.join(tempDir.path, 'sample.txt'),
+        lineStart: 1,
+        lineEnd: 1,
+        content: 'original',
+        type: 'paragraph',
+      );
+      File(p.join(tempDir.path, 'expected.json')).writeAsStringSync(
+        jsonEncode(workflow.buildChunkManifest([chunk], tempDir)),
+      );
+      for (final changed in [
+        chunk.copyWith(content: 'changed'),
+        chunk.copyWith(lineEnd: 2),
+        chunk.copyWith(metadata: {'name': 'changed'}),
+      ]) {
+        await expectLater(
+          workflow.validateAgainstGolden(
+            packageRoot: tempDir,
+            fixturesDir: tempDir,
+            preview: workflow.PreviewResult(
+              chunks: [changed],
+              skipped: const {},
+            ),
+            goldenPath: 'expected.json',
+          ),
+          throwsStateError,
+        );
+      }
+    },
+    skip: Platform.environment['UPDATE_GOLDENS'] == '1',
+  );
 }

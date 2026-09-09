@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_slow_async_io
 // Offline fixture tooling relies on sync I/O for deterministic, straightforward writes.
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -461,16 +463,14 @@ Future<void> validateAgainstGolden({
   required Directory packageRoot,
   required Directory fixturesDir,
   required PreviewResult preview,
+  String goldenPath = 'test/goldens/baseline_chunks.json',
 }) async {
-  final manifest = _buildManifest(preview.chunks, fixturesDir.path);
-  final sortedManifest = _sortManifest(manifest);
-  final goldenFile = File(
-    p.join(packageRoot.path, 'test/goldens/baseline_chunks.json'),
-  );
+  final manifest = buildChunkManifest(preview.chunks, fixturesDir);
+  final goldenFile = File(p.join(packageRoot.path, goldenPath));
 
   final shouldUpdateGoldens = Platform.environment['UPDATE_GOLDENS'] == '1';
   if (shouldUpdateGoldens) {
-    _writeGolden(goldenFile, sortedManifest);
+    _writeGolden(goldenFile, manifest);
     stdout.writeln(
       'Golden snapshot updated at '
       '${p.relative(goldenFile.path, from: packageRoot.path)}',
@@ -486,7 +486,7 @@ Future<void> validateAgainstGolden({
   }
 
   final expected = _readGoldenManifest(goldenFile);
-  if (!_manifestsEqual(sortedManifest, expected)) {
+  if (!_manifestsEqual(manifest, expected)) {
     throw StateError(
       'Chunk manifest diverged from golden snapshot. '
       'Run with UPDATE_GOLDENS=1 to refresh the golden.',
@@ -495,7 +495,7 @@ Future<void> validateAgainstGolden({
   stdout.writeln('Golden comparison passed.');
 }
 
-typedef EmbedderFactory = BaseEmbedder Function(List<Chunk> chunks);
+typedef EmbedderFactory = FutureOr<BaseEmbedder> Function(List<Chunk> chunks);
 typedef RerankerFactory = SearchReranker Function();
 typedef StoreFactory = BaseStore Function(Directory outputDir);
 
@@ -630,32 +630,34 @@ Future<IngestionResult> persistAndSearch({
   RerankerFactory? rerankerFactory,
   StoreFactory? storeFactory,
 }) async {
-  final checkedTopK = _checkPositiveWorkflowInt(topK, 'topK');
+  final checkedTopK = checkPositive(topK, 'topK');
   final checkedCandidateLimit = candidateLimit == null
       ? null
-      : _checkPositiveWorkflowInt(candidateLimit, 'candidateLimit');
+      : checkPositive(candidateLimit, 'candidateLimit');
   final checkedQueries = _checkWorkflowQueries(queries);
 
   outputDir.createSync(recursive: true);
   final scope = LifecycleScope();
 
-  final embedder = _QueryVectorCache(
-    scope.track(embedderFactory.call(dryRunChunks), (e) => e.dispose()),
-  );
-  final store = scope.track(
-    storeFactory == null ? MemoryStore() : storeFactory.call(outputDir),
-    (s) => s.close(),
-  );
-  final reranker = rerankerFactory == null
-      ? null
-      : scope.track(rerankerFactory.call(), (r) => r.dispose());
-  final pipeline = IngestionPipeline(
-    chunkerRegistry: registry,
-    embedder: embedder,
-    store: store,
-  );
-
   try {
+    final baseEmbedder = scope.track(
+      await embedderFactory.call(dryRunChunks),
+      (e) => e.dispose(),
+    );
+    final embedder = _QueryVectorCache(baseEmbedder);
+    final store = scope.track(
+      storeFactory == null ? MemoryStore() : storeFactory.call(outputDir),
+      (s) => s.close(),
+    );
+    final reranker = rerankerFactory == null
+        ? null
+        : scope.track(rerankerFactory.call(), (r) => r.dispose());
+    final pipeline = IngestionPipeline(
+      chunkerRegistry: registry,
+      embedder: embedder,
+      store: store,
+    );
+
     final corpus = await _persistCorpus(
       pipeline: pipeline,
       files: files,
@@ -692,6 +694,16 @@ Future<IngestionResult> persistAndSearch({
       );
     }
     _writeQueryVectorsJson(corpus.paths.queries, queryVectors);
+    if (baseEmbedder is LlamaEmbedder) {
+      File(p.join(outputDir.path, 'model.json')).writeAsStringSync(
+        '${const JsonEncoder.withIndent('  ').convert({...baseEmbedder.model.toMap(), 'modelName': baseEmbedder.modelName, 'longInputPolicy': baseEmbedder.longInputPolicy.name, 'truncatedInputs': baseEmbedder.truncatedInputs})}\n',
+      );
+      stdout.writeln(
+        '  Local model: ${baseEmbedder.model.id}; '
+        'long input: ${baseEmbedder.longInputPolicy.name}; '
+        'truncated inputs: ${baseEmbedder.truncatedInputs}.',
+      );
+    }
     _writeSearchResultsJson(
       corpus.paths.searchResults,
       searchResultsByQuery,
@@ -699,8 +711,17 @@ Future<IngestionResult> persistAndSearch({
       contextChunks: corpus.chunks,
     );
 
-    return _buildIngestionResult(
-      corpus: corpus,
+    return IngestionResult(
+      chunks: corpus.chunks,
+      embeddings: corpus.embeddings,
+      processedCounts: corpus.processedCounts,
+      skippedFiles: corpus.skippedFiles,
+      duplicateIds: corpus.duplicateIds,
+      chunksPath: corpus.paths.chunks,
+      embeddingsPath: corpus.paths.embeddings,
+      queriesPath: corpus.paths.queries,
+      searchResultsPath: corpus.paths.searchResults,
+      resultsPath: corpus.paths.resultsMarkdown,
       queryVectors: queryVectors,
       searchResultsByQuery: searchResultsByQuery,
       topK: checkedTopK,
@@ -720,11 +741,12 @@ Future<IngestionResult> persistLexicalSearch({
   int topK = 5,
   int? candidateLimit,
   RerankerFactory? rerankerFactory,
+  StoreFactory? storeFactory,
 }) async {
-  final checkedTopK = _checkPositiveWorkflowInt(topK, 'topK');
+  final checkedTopK = checkPositive(topK, 'topK');
   final checkedCandidateLimit = candidateLimit == null
       ? null
-      : _checkPositiveWorkflowInt(candidateLimit, 'candidateLimit');
+      : checkPositive(candidateLimit, 'candidateLimit');
   final checkedQueries = _checkWorkflowQueries(queries);
 
   outputDir.createSync(recursive: true);
@@ -734,7 +756,12 @@ Future<IngestionResult> persistLexicalSearch({
     final reranker = rerankerFactory == null
         ? null
         : scope.track(rerankerFactory.call(), (r) => r.dispose());
-    final chunks = dryRunChunks.toList(growable: false);
+    final store = scope.track(
+      storeFactory == null ? MemoryStore() : storeFactory.call(outputDir),
+      (s) => s.close(),
+    );
+    await store.storeBatch(chunks: dryRunChunks, embeddings: const []);
+    final chunks = await store.getAllChunks();
     final paths = _WorkflowArtifactPaths(outputDir);
 
     _writeChunksJson(paths.chunks, chunks, fixturesDir.path);
@@ -839,29 +866,6 @@ Future<_PersistedCorpus> _persistCorpus({
   );
 }
 
-IngestionResult _buildIngestionResult({
-  required _PersistedCorpus corpus,
-  required Map<String, List<double>> queryVectors,
-  required Map<String, List<SearchResult>> searchResultsByQuery,
-  required int topK,
-}) {
-  return IngestionResult(
-    chunks: corpus.chunks,
-    embeddings: corpus.embeddings,
-    processedCounts: corpus.processedCounts,
-    skippedFiles: corpus.skippedFiles,
-    duplicateIds: corpus.duplicateIds,
-    chunksPath: corpus.paths.chunks,
-    embeddingsPath: corpus.paths.embeddings,
-    queriesPath: corpus.paths.queries,
-    searchResultsPath: corpus.paths.searchResults,
-    resultsPath: corpus.paths.resultsMarkdown,
-    queryVectors: queryVectors,
-    searchResultsByQuery: searchResultsByQuery,
-    topK: topK,
-  );
-}
-
 /// Wraps [searcher] in a reranking stage when [reranker] is present.
 Searcher _withReranker(
   Searcher searcher, {
@@ -889,9 +893,6 @@ int _resolveFirstPassLimit({
   return max(topK, candidateLimit ?? _defaultExpandedCandidateLimit);
 }
 
-int _checkPositiveWorkflowInt(int value, String name) =>
-    checkPositive(value, name);
-
 List<String> _checkWorkflowQueries(List<String> queries) {
   if (queries.isEmpty) {
     throw ArgumentError.value(
@@ -915,38 +916,53 @@ List<String> _checkWorkflowQueries(List<String> queries) {
   return List<String>.unmodifiable(normalized);
 }
 
-Map<String, Map<String, Object?>> _buildManifest(
+/// Captures chunk contents, ranges, types, and metadata with portable identities.
+///
+/// Parent heading references use the same fixture-relative ids as their chunks.
+/// File and type keys are sorted; chunk order within each file is preserved.
+Map<String, Object?> buildChunkManifest(
   List<Chunk> chunks,
-  String fixturesRoot,
+  Directory fixturesDir,
 ) {
-  final manifest = <String, Map<String, Object?>>{};
+  final stableIds = {
+    for (final chunk in chunks)
+      chunk.id: stableFixtureChunkId(chunk, fixturesDir),
+  };
+  final byPath = SplayTreeMap<String, List<Chunk>>();
   for (final chunk in chunks) {
-    final relative = p.relative(chunk.sourcePath, from: fixturesRoot);
-    final entry = manifest.putIfAbsent(relative, () {
-      return {'total': 0, 'types': <String, int>{}};
-    });
-
-    entry['total'] = (entry['total'] as int) + 1;
-    final types = entry['types'] as Map<String, int>;
-    types[chunk.type] = (types[chunk.type] ?? 0) + 1;
+    byPath
+        .putIfAbsent(
+          _fixtureRelativePath(chunk.sourcePath, fixturesDir),
+          () => [],
+        )
+        .add(chunk);
   }
-  return manifest;
-}
-
-Map<String, Object?> _sortManifest(Map<String, Map<String, Object?>> manifest) {
-  final entries = manifest.entries.map((entry) {
-    final types = Map<String, int>.from(entry.value['types'] as Map);
-    final sortedTypesEntries = types.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    final sortedTypes = Map<String, int>.fromEntries(sortedTypesEntries);
-
-    return MapEntry(entry.key, {
-      'total': entry.value['total'],
-      'types': sortedTypes,
-    });
-  }).toList()..sort((a, b) => a.key.compareTo(b.key));
-
-  return Map<String, Object?>.fromEntries(entries);
+  return {
+    for (final entry in byPath.entries)
+      entry.key: {
+        'total': entry.value.length,
+        'types': SplayTreeMap<String, int>.from({
+          for (final type in entry.value.map((chunk) => chunk.type).toSet())
+            type: entry.value.where((chunk) => chunk.type == type).length,
+        }),
+        'chunks': [
+          for (final chunk in entry.value)
+            {
+              'id': stableIds[chunk.id],
+              'lineStart': chunk.lineStart,
+              'lineEnd': chunk.lineEnd,
+              'type': chunk.type,
+              'content': chunk.content,
+              'metadata': {
+                for (final field in chunk.metadata.entries)
+                  field.key: field.key == 'parentHeadingId'
+                      ? stableIds[field.value] ?? field.value
+                      : field.value,
+              },
+            },
+        ],
+      },
+  };
 }
 
 Map<String, Object?> _readGoldenManifest(File goldenFile) {

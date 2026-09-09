@@ -6,7 +6,7 @@ import '../models/embedding.dart';
 /// An embedder converts content chunks into vector representations (embeddings)
 /// that can be used for semantic search and similarity comparisons.
 abstract class BaseEmbedder {
-  /// The source of the embeddings (e.g., 'bm25', 'openai', 'ollama').
+  /// The source of the embeddings (e.g., 'llamadart', 'openai').
   String get sourceName;
 
   /// The name of the model used to generate the embeddings.

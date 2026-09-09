@@ -461,7 +461,36 @@ void main() {
       }
     });
 
+    for (final failStore in [true, false]) {
+      test(
+        'disposes resources when ${failStore ? 'store' : 'reranker'} creation fails',
+        () async {
+          final embedder = _FixtureDenseEmbedder();
+          final store = _ClosingStore();
+          final failure = StateError('Factory failed');
+
+          await expectLater(
+            workflow.persistAndSearch(
+              registry: registry,
+              files: files,
+              fixturesDir: fixturesDir,
+              outputDir: outputDir,
+              dryRunChunks: preview.chunks,
+              queries: const ['refresh token'],
+              embedderFactory: (_) => embedder,
+              storeFactory: (_) => failStore ? throw failure : store,
+              rerankerFactory: () => throw failure,
+            ),
+            throwsA(same(failure)),
+          );
+          expect(embedder.disposed, isTrue);
+          expect(store.closed, !failStore);
+        },
+      );
+    }
+
     test('lexical search writes no hashed BM25 embeddings', () async {
+      final store = _ClosingStore();
       final result = await workflow.persistLexicalSearch(
         registry: registry,
         files: files,
@@ -470,8 +499,11 @@ void main() {
         dryRunChunks: preview.chunks,
         queries: const ['refresh token'],
         topK: 3,
+        storeFactory: (_) => store,
       );
 
+      expect(store.closed, isTrue);
+      expect(await store.getAllChunks(), result.chunks);
       expect(result.embeddings, isEmpty);
       expect(result.queryVectors['refresh token'], isEmpty);
       expect(result.searchResultsByQuery['refresh token'], isNotEmpty);
@@ -615,6 +647,10 @@ File _writeFixture(Directory dir, String relativePath, String contents) {
 
 class _FixtureDenseEmbedder extends BaseEmbedder {
   int queryVectorCalls = 0;
+  bool disposed = false;
+
+  @override
+  Future<void> dispose() async => disposed = true;
 
   @override
   String get sourceName => 'fixture-dense';
@@ -644,6 +680,13 @@ class _FixtureDenseEmbedder extends BaseEmbedder {
     }
     throw StateError('No query vector registered for "$text".');
   }
+}
+
+class _ClosingStore extends MemoryStore {
+  bool closed = false;
+
+  @override
+  Future<void> close() async => closed = true;
 }
 
 class _FixtureReranker extends SearchReranker {

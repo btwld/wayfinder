@@ -12,7 +12,7 @@ class Embedding extends Equatable {
   /// The ID of the chunk this embedding is for.
   final String chunkId;
 
-  /// The source of the embedding (e.g., 'bm25', 'openai').
+  /// The source of the embedding (e.g., 'llamadart', 'openai').
   final String source;
 
   /// The name of the model used to generate the embedding.

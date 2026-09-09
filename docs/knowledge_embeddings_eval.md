@@ -1,237 +1,123 @@
-# Knowledge Embeddings Evaluation
+# Knowledge retrieval evaluation
 
-This note is the runbook and the evidence ledger for retrieval quality in
-`packages/knowledge_embeddings`. It records how to run the benchmark, the current
-metrics, the results that did not earn a default, and the work that stays
-deferred.
+Run from `packages/knowledge_embeddings/`. This is implementation evidence,
+not an OKF or profile rule. BM25 remains the default retrieval gate.
 
-Status on 2026-09-08: defaults are unchanged. Exact BM25 is the CI gate. Dense
-and hybrid runs need a local Ollama daemon and are not part of CI.
+## Fixtures and checks
 
-## The corpus and the gate
+`fixtures/corpus/` contains 20 synthetic Dart, TypeScript, and Markdown files,
+350 default chunks, and 65 judged queries (50 Dart, 7 TypeScript, 8 Markdown).
+Queries, query groups, qrels, and `bm25_metrics_baseline.json` are checked in.
+Qrels use fixture-relative stable chunk ids, independent of checkout location.
+The baseline corpus and judgments remain unchanged by the native runtime change.
 
-The corpus is `packages/knowledge_embeddings/fixtures/corpus`. It mixes Dart,
-TypeScript, Markdown, and text so every built-in chunker is exercised. Beside
-the sources it holds:
-
-- `retrieval_queries.json` - query id to query text.
-- `retrieval_qrels.json` - BEIR-style judgments, `{query_id: {stableId: 0..3}}`,
-  keyed by the fixture-relative `stableId` so ids survive a different checkout
-  path.
-- `retrieval_query_groups.json` - query id to driver surface (`dart`,
-  `typescript`, `markdown`), so a per-language regression cannot hide behind a
-  flat aggregate.
-- `bm25_metrics_baseline.json` - the checked-in BM25 baseline the gate reads.
-- `nomic_dense_hybrid_metrics_baseline.json`,
-  `embeddinggemma_dimension_metrics_baseline.json`, and
-  `qwen3_dimension_metrics_baseline.json` - recorded local-model evidence. CI
-  does not read these.
-
-`test/retrieval_fixture_gate_test.dart` runs the BM25 gate inside the package
-test suite. Run the same check from the command line with:
+`fixtures/samples/` holds reusable example inputs moved from `example/` and its
+inline TypeScript setup, plus a Markdown table/code-fence case. Both corpora
+have goldens covering full content, ranges, types, metadata, and stable ids.
+Fixture text uses LF endings across platforms.
 
 ```bash
-melos exec --scope=knowledge_embeddings -- dart run tool/compare_embeddings.dart \
+dart test test/fixtures_pipeline_golden_test.dart test/retrieval_fixture_gate_test.dart
+```
+
+Only update goldens after reviewing the content change:
+
+```bash
+UPDATE_GOLDENS=1 dart test test/fixtures_pipeline_golden_test.dart
+```
+
+## BM25 gate
+
+```bash
+dart run tool/compare_embeddings.dart \
   --embedders=bm25 --store=memory --top=10 \
   --queries=fixtures/corpus/retrieval_queries.json \
   --qrels=fixtures/corpus/retrieval_qrels.json \
+  --validate-golden \
+  --metrics-output=comparison_results/bm25_metrics.json \
   --baseline-metrics=fixtures/corpus/bm25_metrics_baseline.json
 ```
 
-The checked-in qrels set is a local fixture benchmark, not a universal search
-quality benchmark. Use it to catch regressions in chunking and exact lexical
-retrieval.
+The gate checks aggregate and per-group metrics. Defaults allow absolute drops
+of 0.05 Recall@10 and 0.03 nDCG@10. `--max-mrr-drop` enables an MRR gate.
+Changing chunk budgets requires `--qrels-match=span-overlap`; stable-id matching
+is the default and is required for direct baseline comparisons.
 
-## Benchmark options
+## Native comparison
 
-`tool/compare_embeddings.dart` ingests the corpus once per run descriptor and
-writes chunks, embeddings, query vectors, search results, and a Markdown
-summary under `--output`.
-
-| Option | Meaning |
-| --- | --- |
-| `--fixtures=DIR` | Corpus folder. Defaults to `fixtures/corpus`. |
-| `--output=DIR` | Artifact folder. Defaults to `comparison_results`. |
-| `--embedders=LIST` | Comma-separated run descriptors. See below. |
-| `--queries=FILE` | Query id to text mapping. Required with `--qrels`. |
-| `--qrels=FILE` | BEIR-style judgments. Enables the metrics report. |
-| `--query-groups=FILE` | Query id to group name. Falls back to `retrieval_query_groups.json` next to the qrels file. |
-| `--qrels-match=stable-id\|span-overlap` | How a qrels id resolves to a chunk. |
-| `--top=K` | Result cutoff. |
-| `--candidates=N` | First-pass window before fusion or reranking. |
-| `--chunk-budget=N` | Non-whitespace budget for every chunker. |
-| `--dart-chunk-budget`, `--typescript-chunk-budget` (`--ts-chunk-budget`), `--markdown-chunk-budget`, `--text-chunk-budget` | Per-chunker budgets. These win over `--chunk-budget`. |
-| `--store=memory\|objectbox` | Backing store. `objectbox` needs `melos run objectbox:install` and accepts 768-dimensional vectors only. |
-| `--reranker-url=URL` | TEI-compatible `/rerank` endpoint. Required for `rerank:` runs. |
-| `--reranker-timeout-seconds=N` | Per-request reranker timeout. Default 30. |
-| `--metrics-output=FILE` | Write the metrics report. Requires `--qrels`. |
-| `--baseline-metrics=FILE` | Fail when metrics drop below a baseline. Requires `--qrels`. |
-| `--max-recall-drop`, `--max-ndcg-drop`, `--max-mrr-drop` | Gate thresholds. Defaults 0.05, 0.03, and off. |
-| `--validate-golden` | Compare the chunk manifest with the golden snapshot first. |
-| `--skip-comparison` | Exit before any work runs. |
-
-Run descriptors:
-
-- `bm25` (or `lexical`) - exact `BM25LexicalIndex`, no vectors.
-- `hybrid` - BM25 fused with the default dense model through RRF.
-  `hybrid:<model>` targets another Ollama model.
-- `ollama:<model>` - dense only. Short aliases: `nomic`, `qwen3`.
-- Append `@<dimensions>` to any model to ask the runtime for a reduced output,
-  for example `ollama:qwen3@768` or `hybrid:embeddinggemma@256`.
-- `rerank:<descriptor>` - add a cross-encoder stage over any of the above.
-
-`span-overlap` matters for chunk-budget experiments: a different budget changes
-chunk ids, so the tool resolves the stable qrels ids against the default
-reference chunks and scores candidates by fixture-relative path and line
-overlap. Keep `stable-id` for the CI gate, where boundaries must not move.
-
-## Chunk manifest golden
-
-`tool/validation.dart` runs the chunkers over the corpus, compares the chunk
-manifest with `test/goldens/baseline_chunks.json`, and writes BM25 search
-artifacts under `validation_results/`.
+Prepare the local model, then compare three retrieval methods over both stores:
 
 ```bash
-melos exec --scope=knowledge_embeddings -- dart run tool/validation.dart
-
-# After an intentional fixture or chunker change:
-UPDATE_GOLDENS=1 \
-  melos exec --scope=knowledge_embeddings -- dart run tool/validation.dart
+dart run tool/prepare_model.dart
+# Install the ObjectBox native library from the repository root first:
+# melos run objectbox:install
+for store in memory objectbox; do
+  dart run tool/compare_embeddings.dart \
+    --embedders=bm25,dense,hybrid --store="$store" \
+    --output="comparison_results/local-$store" \
+    --top=10 --candidates=50 --long-input=truncate \
+    --queries=fixtures/corpus/retrieval_queries.json \
+    --qrels=fixtures/corpus/retrieval_qrels.json \
+    --metrics-output="comparison_results/local-$store/metrics.json"
+done
 ```
 
-## Current metrics
+Use fresh output directories when the corpus changes: persistent stores retain
+existing chunks. BM25 now writes and reloads chunks through the chosen store,
+so `--store=objectbox` exercises persistence for every retrieval mode.
 
-All rows use the 65-query grouped fixture, top 10, `MemoryStore`, candidate
-depth 50, and `--qrels-match=span-overlap`. Dense and hybrid rows were captured
-on 2026-06-16 with a local Ollama daemon; compare them within this table only.
+The corpus has one oversized 580-token chunk under the pinned model's tokenizer.
+The explicit truncation option preserves the existing qrels and chunk ids for
+this comparison, while encoding only a prefix of that chunk. Default native
+behavior rejects oversized inputs. `model.json` records the exact model,
+preprocessing identity, token policy, and truncation count for each native run.
 
-| Candidate | Retriever | Recall@10 | nDCG@10 | MRR |
-| --- | --- | ---: | ---: | ---: |
-| Default registry | BM25 | 0.942 | 0.886 | 0.915 |
-| Default registry | nomic dense | 0.947 | 0.869 | 0.914 |
-| Default registry | nomic hybrid | 0.962 | 0.915 | 0.962 |
-| Default registry | embeddinggemma dense | 0.967 | 0.813 | 0.841 |
-| Default registry | embeddinggemma hybrid | 0.977 | 0.915 | 0.959 |
-| Default registry | Qwen3 dense | 0.954 | 0.837 | 0.899 |
-| Default registry | Qwen3 hybrid | 0.985 | 0.886 | 0.920 |
+Supported descriptors are `bm25` (`lexical`), `dense` (`llamadart`), and `hybrid`.
+`rerank:<descriptor>` adds the existing optional TEI reranker and requires
+`--reranker-url`; it is outside this local-model comparison. `--model=FILE`
+selects a local copy of the pinned artifact, not an arbitrary model. The library
+API supports a custom `EmbeddingModelSpec`; ObjectBox still requires 384 dimensions.
 
-Chunk-budget candidates, BM25 only:
+Each run exports chunks, document/query vectors, and search results. A summary
+reports ranking overlap; metrics use graded qrels, not overlap as a proxy for
+quality. Group mappings are discovered beside the qrels or supplied through
+`--query-groups`. Read the [implementation report](knowledge_embeddings_local_search.md)
+for the measured results and the choice of defaults.
 
-| Candidate | Recall@10 | nDCG@10 | MRR |
-| --- | ---: | ---: | ---: |
-| Default registry | 0.942 | 0.886 | 0.915 |
-| Shared budget 600 | 0.927 | 0.917 | 0.965 |
-| Shared budget 800 | 0.935 | 0.905 | 0.944 |
-| Shared budget 1000 | 0.942 | 0.893 | 0.926 |
-| Shared budget 1200 | 0.942 | 0.890 | 0.918 |
-| Shared budget 1600 | 0.942 | 0.886 | 0.915 |
+## Packaged evaluator
 
-Hybrid RRF is the best configuration on this fixture for every tested model.
-BM25 alone is close enough that it remains the CI gate.
-
-## Recorded negative results
-
-These were measured and did not earn a default change.
-
-- **Chunk budgets.** Shared budget 600 leads ranking quality but loses about
-  1.5 recall points. Shared 800 recovers part of that and still trails the
-  default by about 0.8 recall points. The best hybrid budget disagrees by model
-  family: `embeddinggemma` favors 600, `nomic-embed-text` favors 800, and Qwen3
-  keeps maximum recall at the default. One fixture cannot settle that. The
-  default registry and shared 1600 tie because Dart's default is already 1600.
-  TypeScript and Markdown subgroups did not move; the Dart subgroup drove every
-  difference.
-- **Document overlap.** A 1-line overlap between adjacent Markdown and text
-  paragraph chunks left BM25 metrics unchanged at shared budgets 600 and 800.
-  The overlap chunker and its command-line flags were removed on 2026-09-08;
-  this row is the reason.
-- **Client-side MRL truncation.** A hand-maintained table of per-model
-  truncation dimensions plus client-side re-normalization was replaced by the
-  server-side `dimensions` field of `/api/embed`. The recorded 512 and 256
-  dimension baselines stay in `fixtures/corpus` as evidence.
-- **Reranking.** The runtime boundary exists as `TeiReranker`, but the local
-  matrix has never run: no TEI-compatible service, `docker`, or
-  `text-embeddings-router` was available in this workspace. Reranking is opt-in
-  and has no recorded lift on this corpus.
-
-## Reranker matrix
-
-Run this once a TEI-compatible service is reachable. Check first:
+With Dart 3.10.7+ and the ObjectBox library installed:
 
 ```bash
-curl --max-time 2 http://127.0.0.1:8080/health
+dart run tool/build_embeddings.dart
 ```
 
-```bash
-melos exec --scope=knowledge_embeddings -- dart run tool/compare_embeddings.dart \
-  --embedders=bm25,rerank:bm25,hybrid:embeddinggemma,rerank:hybrid:embeddinggemma \
-  --store=memory --top=10 --candidates=50 \
-  --reranker-url=http://127.0.0.1:8080 \
-  --reranker-timeout-seconds=120 \
-  --queries=fixtures/corpus/retrieval_queries.json \
-  --qrels=fixtures/corpus/retrieval_qrels.json \
-  --metrics-output=comparison_results/reranker_matrix/metrics.json \
-  --output=comparison_results/reranker_matrix
-```
+Move the complete `build/embeddings/bundle/` directory to test relocation.
+Invoke `bundle/bin/compare_embeddings` with absolute paths for fixtures,
+queries, qrels, and outputs. The bundled model and native libraries resolve
+relative to the executable. Golden validation is a source-checkout check;
+its snapshots are not distributed with the executable.
 
-`TeiReranker` posts `{"query": "...", "texts": [...]}` and expects a JSON list
-of objects with an integer `index` and a finite numeric `score`. A runtime may
-return only a top-scored subset; omitted candidates get no synthetic score.
-Malformed, duplicate, or excess indexes are rejected.
+CI runs deterministic tests on the minimum SDK and stable. A separate native
+job prepares the model, runs actual inference/ObjectBox tests, builds the CLI,
+and checks the relocated bundle against `fixtures/benchmarks/local_metrics_baseline.json`
+on Linux and macOS. That baseline checks each mode against its recorded behavior;
+it does not replace the independent BM25 promotion gate.
 
-Reranking becomes a default only when the local matrix shows that:
+## Knowledge context cases
 
-- aggregate Recall@10, nDCG@10, and MRR do not regress past the gate
-  thresholds;
-- no query group regresses behind a flat aggregate;
-- each reranked run beats its own first-pass baseline, not a public benchmark;
-- the added latency fits the intended workflow.
+Run `dart run tool/evaluate_knowledge_cases.dart OUTPUT` for BM25 without a
+model, or append `--native` to compare all three modes with memory and ObjectBox.
+The 13 cases cover lifecycle, authority, freshness, scope, negation, paraphrases,
+and an unanswerable query. Native preparation requirements are the same as
+above. CI uploads the per-case JSON as a diagnostic artifact. The
+[knowledge retrieval review](knowledge_embeddings_knowledge_retrieval.md)
+explains the observed failures and distinguishes caller-supplied scope from
+automatic knowledge interpretation.
 
-## Model licensing
+## OKF component comparisons
 
-The package accepts Apache-2.0 or MIT models only. The strongest small code
-embedders (`SFR-Embedding-Code`, `jina-code-embeddings`) and
-`jina-reranker-v3` are CC-BY-NC and are therefore out of scope.
-
-| Model | Dim | License | Available through |
-| --- | ---: | --- | --- |
-| `embeddinggemma` | 768 | Gemma terms, on-device | Ollama (package default) |
-| `nomic-embed-text` v1.5 | 768 | Apache-2.0 | Ollama |
-| `qwen3-embedding:0.6b` | 1024 | Apache-2.0 | Ollama (code-tuned) |
-| `bge-reranker-v2-m3` | - | Apache-2.0 | TEI |
-| `Qwen3-Reranker-0.6B` | - | Apache-2.0 | TEI |
-
-Published code-retrieval benchmarks (CoIR, MTEB-Code) rank code-tuned models
-well above general text models, which is why `qwen3-embedding:0.6b` is the
-recommended code embedder. Do not treat those numbers as a decision on their
-own: the acceptance gate is this fixture.
-
-## Design decisions this evidence supports
-
-- **Keep AST chunking with non-whitespace budgets.** cAST (Zhang et al.,
-  Findings of EMNLP 2025) measures chunk size in non-whitespace characters and
-  reports +4.3 Recall@5 on RepoEval over line-based splitting. The package
-  follows that unit.
-- **Keep lexical and dense separate and fuse at query time.** Reciprocal Rank
-  Fusion with k=60 (Cormack, Clarke & Büttcher, SIGIR '09) is rank-based, so it
-  sidesteps the BM25-to-cosine scale mismatch. An earlier design hashed BM25
-  weights into a 768-dimensional dense vector; that discarded exact-match
-  strength and scored differently per store. It was removed.
-- **Keep `MemoryStore` as a supported backend.** At single-repository scale,
-  brute-force search gives full recall with no index build cost.
-- **Keep the qrels gate.** Every claim above is a fixture measurement, and the
-  gate is what stops a silent regression.
-
-## Deferred
-
-- **Late chunking.** It preserves cross-chunk context but needs a long-context
-  token-embedding model with pooling control that Ollama's endpoint does not
-  expose.
-- **Runtime ObjectBox dimensions.** The generated HNSW entity fixes 768
-  dimensions at code-generation time. Other dimensions need `MemoryStore`, or a
-  new entity plus a migration path.
-- **Tree-sitter chunkers.** The Dart package naming has settled but
-  `tree_sitter_language_pack` is still a prerelease.
-- **Broader qrels.** Changing a built-in chunk budget needs a second corpus,
-  per-language drivers, and dense or hybrid coverage. One fixture is not
-  enough.
+The separate [OKF adapter experiment](knowledge_embeddings_ablation.md) compares
+seven configurations on fixed development and held-out questions. It reports
+passage-level context correctness with and without embeddings on both stores.
+It does not replace this corpus or its promotion gate.

@@ -146,13 +146,7 @@ void main() {
     test('rejects malformed embedder descriptors', () {
       expect(
         () => runLabels(['hybrid:']),
-        throwsArgumentErrorSaying(
-          'hybrid descriptor requires a dense embedder name',
-        ),
-      );
-      expect(
-        () => runLabels(['ollama:']),
-        throwsArgumentErrorSaying('ollama descriptor requires a model name'),
+        throwsArgumentErrorSaying('Unknown semantic embedder'),
       );
       expect(
         () => runLabels(['rerank:']),
@@ -197,26 +191,8 @@ void main() {
 
     test('resolves valid comparison run labels', () {
       expect(
-        runLabels([
-          'bm25',
-          'hybrid:qwen3',
-          'hybrid:embeddinggemma',
-          'hybrid:embeddinggemma@512',
-          'ollama:embeddinggemma',
-          'ollama:nomic-embed-text',
-          'rerank:bm25',
-          'rerank:hybrid:qwen3',
-        ]),
-        [
-          'bm25',
-          'hybrid-qwen3',
-          'hybrid-embeddinggemma',
-          'hybrid-embeddinggemma-512',
-          'ollama-embeddinggemma',
-          'ollama-nomic-embed-text',
-          'rerank-bm25',
-          'rerank-hybrid-qwen3',
-        ],
+        runLabels(['bm25', 'hybrid', 'dense', 'rerank:bm25', 'rerank:hybrid']),
+        ['bm25', 'hybrid', 'dense', 'rerank-bm25', 'rerank-hybrid'],
       );
     });
 

@@ -35,5 +35,25 @@ void main() {
         ),
       );
     });
+
+    test(
+      'is invariant under finite rescaling without overflow or underflow',
+      () {
+        for (final scale in [1e308, 1e-308]) {
+          expect(
+            cosineSimilarity([scale, scale], [scale, scale]),
+            closeTo(1, 1e-12),
+          );
+          expect(
+            cosineSimilarity([scale, scale], [-scale, -scale]),
+            closeTo(-1, 1e-12),
+          );
+          expect(
+            cosineSimilarity([scale, 0], [1, 1]),
+            closeTo(0.7071067811865475, 1e-12),
+          );
+        }
+      },
+    );
   });
 }

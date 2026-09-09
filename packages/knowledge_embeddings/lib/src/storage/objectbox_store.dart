@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:knowledge_embeddings/objectbox.g.dart';
@@ -7,6 +9,7 @@ import 'package:meta/meta.dart';
 import '../models/chunk.dart';
 import '../models/embedding.dart';
 import '../models/search_result.dart';
+import '../util/similarity.dart';
 import 'base_store.dart';
 import 'embedding_entities.dart';
 import 'objectbox_entities.dart';
@@ -15,26 +18,53 @@ import 'vector_validation.dart';
 /// ObjectBox-backed [BaseStore] implementation with persistent chunk and
 /// embedding storage using HNSW vector search indices.
 ///
-/// All persisted embeddings are stored as 768-dimensional vectors using
-/// [EmbeddingEntity768]. Embedders with different native dimensions should use
-/// MemoryStore until a matching ObjectBox entity and migration path exists.
-///
-/// Vector similarity search uses ObjectBox's native HNSW (Hierarchical
-/// Navigable Small World) index for O(log N) nearest neighbor queries.
+/// Uses a 384-dimensional HNSW index. Existing databases from the previous
+/// schema must be reindexed into a new directory; opening them never silently
+/// discards their original vectors.
+/// Vectors must remain finite and nonzero when converted to float32.
 class ObjectBoxStore extends BaseStore {
   /// Opens (or creates) an ObjectBox store rooted at [directory].
-  factory ObjectBoxStore(String directory) {
+  factory ObjectBoxStore(String directory, {int minimumSearchCandidates = 50}) {
+    if (minimumSearchCandidates <= 0) {
+      throw ArgumentError.value(
+        minimumSearchCandidates,
+        'minimumSearchCandidates',
+        'must be positive',
+      );
+    }
+    final schema = File('$directory/knowledge_embeddings.schema');
+    final database = File('$directory/data.mdb');
+    if (database.existsSync() &&
+        (!schema.existsSync() || schema.readAsStringSync() != '384-v1\n')) {
+      throw StateError(
+        'Unsupported ObjectBox embedding schema at $directory. '
+        'Reindex the source files into a new directory for the 384-dimensional '
+        'model. The existing database has not been modified.',
+      );
+    }
     final store = Store(getObjectBoxModel(), directory: directory);
-    return ObjectBoxStore._(store);
+    try {
+      schema.writeAsStringSync('384-v1\n', flush: true);
+    } catch (_) {
+      store.close();
+      rethrow;
+    }
+    return ObjectBoxStore._(store, minimumSearchCandidates);
   }
 
-  ObjectBoxStore._(this._store)
+  ObjectBoxStore._(this._store, this.minimumSearchCandidates)
     : _chunkBox = Box<ChunkEntity>(_store),
-      _embeddingBox = Box<EmbeddingEntity768>(_store);
+      _embeddingBox = Box<EmbeddingEntity>(_store);
 
   final Store _store;
+
+  /// HNSW candidate floor, independent of the requested result limit.
+  ///
+  /// A wider pool trades work for recall. Fifty recovers the dense fixture
+  /// recall lost with a ten-candidate search; larger corpora need evaluation.
+  final int minimumSearchCandidates;
   final Box<ChunkEntity> _chunkBox;
-  final Box<EmbeddingEntity768> _embeddingBox;
+  final Box<EmbeddingEntity> _embeddingBox;
   bool _isClosed = false;
 
   void _ensureOpen() {
@@ -45,60 +75,13 @@ class ObjectBoxStore extends BaseStore {
 
   @override
   Future<String> storeChunk(Chunk chunk) async {
-    _ensureOpen();
-    final query = _chunkBox
-        .query(ChunkEntity_.chunkId.equals(chunk.id))
-        .build();
-    try {
-      final existing = query.findFirst();
-      final entity = _chunkEntityFromChunk(chunk, existing?.id ?? 0);
-      _chunkBox.put(entity);
-      return chunk.id;
-    } finally {
-      query.close();
-    }
+    await storeBatch(chunks: [chunk], embeddings: const []);
+    return chunk.id;
   }
 
   @override
-  Future<void> storeEmbedding(Embedding embedding) async {
-    _ensureOpen();
-    validateObjectBoxVectorDimension(
-      embedding.vector.length,
-      name: 'embedding.vector.length',
-    );
-
-    final embeddingKey = EmbeddingEntity768.computeKey(
-      embedding.chunkId,
-      embedding.source,
-      embedding.modelName,
-    );
-
-    _removeConflictingEmbeddingKeys(embedding, embeddingKey);
-
-    // Unique constraint on embeddingKey handles deduplication
-    final entity = EmbeddingEntity768(
-      embeddingKey: embeddingKey,
-      chunkId: embedding.chunkId,
-      source: embedding.source,
-      modelName: embedding.modelName,
-      vector: Float32List.fromList(embedding.vector),
-    );
-
-    // Link to chunk entity for eager loading
-    final chunkQuery = _chunkBox
-        .query(ChunkEntity_.chunkId.equals(embedding.chunkId))
-        .build();
-    try {
-      final chunkEntity = chunkQuery.findFirst();
-      if (chunkEntity != null) {
-        entity.chunkRelation.target = chunkEntity;
-      }
-    } finally {
-      chunkQuery.close();
-    }
-
-    _embeddingBox.put(entity);
-  }
+  Future<void> storeEmbedding(Embedding embedding) =>
+      storeBatch(chunks: const [], embeddings: [embedding]);
 
   @override
   Future<Chunk?> getChunk(String chunkId) async {
@@ -124,12 +107,12 @@ class ObjectBoxStore extends BaseStore {
     validateEmbeddingIdentityFilter(source, 'source');
     validateEmbeddingIdentityFilter(modelName, 'modelName');
 
-    var condition = EmbeddingEntity768_.chunkId.equals(chunkId);
+    var condition = EmbeddingEntity_.chunkId.equals(chunkId);
     if (source != null) {
-      condition = condition & EmbeddingEntity768_.source.equals(source);
+      condition = condition & EmbeddingEntity_.source.equals(source);
     }
     if (modelName != null) {
-      condition = condition & EmbeddingEntity768_.modelName.equals(modelName);
+      condition = condition & EmbeddingEntity_.modelName.equals(modelName);
     }
     final query = _embeddingBox.query(condition).build();
     try {
@@ -155,6 +138,28 @@ class ObjectBoxStore extends BaseStore {
   }
 
   @override
+  Future<List<Embedding>> getEmbeddingsForChunks(
+    Set<String> chunkIds, {
+    required String source,
+    required String modelName,
+  }) async {
+    _ensureOpen();
+    if (chunkIds.isEmpty) return const [];
+    final query = _embeddingBox
+        .query(
+          EmbeddingEntity_.chunkId.oneOf(chunkIds.toList()) &
+              EmbeddingEntity_.source.equals(source) &
+              EmbeddingEntity_.modelName.equals(modelName),
+        )
+        .build();
+    try {
+      return query.find().map(_embeddingFromEntity).toList(growable: false);
+    } finally {
+      query.close();
+    }
+  }
+
+  @override
   Future<List<SearchResult>> findSimilar(
     List<double> queryVector,
     String source,
@@ -174,63 +179,81 @@ class ObjectBoxStore extends BaseStore {
       name: 'queryVector.length',
     );
 
-    final queryVectorF32 = Float32List.fromList(queryVector);
+    final queryVectorF32 = _cosineVectorF32(queryVector, 'queryVector');
 
-    // Build query with HNSW nearest neighbors condition + filters
-    final condition =
-        EmbeddingEntity768_.vector.nearestNeighborsF32(queryVectorF32, limit) &
-        EmbeddingEntity768_.source.equals(source) &
-        EmbeddingEntity768_.modelName.equals(modelName);
-    final query = _embeddingBox.query(condition).build();
-
+    final identity =
+        EmbeddingEntity_.source.equals(source) &
+        EmbeddingEntity_.modelName.equals(modelName);
+    final query = _embeddingBox
+        .query(
+          EmbeddingEntity_.vector.nearestNeighborsF32(
+                queryVectorF32,
+                math.max(limit, minimumSearchCandidates),
+              ) &
+              identity,
+        )
+        .build();
+    List<SearchResult> results;
     try {
-      // Native HNSW search - O(log N) complexity
-      final scoredResults = query.findWithScores();
-
-      // Map to SearchResult with eager-loaded chunks
-      final results = scoredResults
-          .map<SearchResult?>((scored) {
-            final embeddingEntity = scored.object;
-            final chunkEntity = embeddingEntity.chunkRelation.target;
-
-            // If chunk wasn't eager-loaded, fall back to lookup
-            final chunk = chunkEntity != null
-                ? _chunkFromEntity(chunkEntity)
-                : _getChunkByIdSync(embeddingEntity.chunkId);
-
-            // Skip orphaned embeddings whose chunk has been deleted.
-            if (chunk == null) return null;
-
-            return SearchResult(
-              chunk: chunk,
-              embedding: _embeddingFromEntity(
-                embeddingEntity,
-                includeVectorCopy: false,
-              ),
-              // ObjectBox returns cosine distance; SearchResult exposes
-              // higher-is-better cosine similarity.
-              similarity: objectBoxCosineDistanceToSimilarity(scored.score),
-            );
-          })
+      results = query
+          .findWithScores()
+          .map(
+            (scored) => _resultFromEntity(
+              scored.object,
+              objectBoxCosineDistanceToSimilarity(scored.score),
+            ),
+          )
           .whereType<SearchResult>()
           .toList();
-
-      // HNSW returns candidates in its own order. Sort them the same way
-      // MemoryStore does so both stores answer the same query identically.
-      results.sort((a, b) {
-        final byScore = b.similarity.compareTo(a.similarity);
-        if (byScore != 0) return byScore;
-        final byPath = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
-        if (byPath != 0) return byPath;
-        return a.chunk.id.compareTo(b.chunk.id);
-      });
-      return List<SearchResult>.unmodifiable(results);
     } finally {
       query.close();
     }
+
+    // Scalar filters apply to ANN candidates in the tested native runtime.
+    // If other models or orphaned vectors exhaust that pool, exact scoring
+    // within the selected identity prevents false empty/underfilled results.
+    // Widening ANN alone did not recover the duplicate-heavy regression fixture.
+    if (results.length < limit) {
+      final fallback = _embeddingBox.query(identity).build();
+      try {
+        results = fallback
+            .find()
+            .map(
+              (entity) => _resultFromEntity(
+                entity,
+                cosineSimilarity(queryVectorF32, entity.vector),
+              ),
+            )
+            .whereType<SearchResult>()
+            .toList();
+      } finally {
+        fallback.close();
+      }
+    }
+    results.sort((a, b) {
+      final byScore = b.similarity.compareTo(a.similarity);
+      if (byScore != 0) return byScore;
+      final byPath = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
+      if (byPath != 0) return byPath;
+      return a.chunk.id.compareTo(b.chunk.id);
+    });
+    return List<SearchResult>.unmodifiable(results.take(limit));
   }
 
-  /// Synchronous chunk lookup fallback (should rarely be needed with eager loading).
+  SearchResult? _resultFromEntity(EmbeddingEntity entity, double similarity) {
+    final target = entity.chunkRelation.target;
+    final chunk = target == null
+        ? _getChunkByIdSync(entity.chunkId)
+        : _chunkFromEntity(target);
+    if (chunk == null) return null;
+    return SearchResult(
+      chunk: chunk,
+      embedding: _embeddingFromEntity(entity),
+      similarity: similarity,
+    );
+  }
+
+  /// Resolves an embedding written without a chunk relation.
   Chunk? _getChunkByIdSync(String chunkId) {
     final query = _chunkBox.query(ChunkEntity_.chunkId.equals(chunkId)).build();
     try {
@@ -245,26 +268,29 @@ class ObjectBoxStore extends BaseStore {
   Future<void> deleteChunk(String chunkId) async {
     _ensureOpen();
     validateRequiredStorageIdentity(chunkId, 'chunkId');
-    final query = _chunkBox.query(ChunkEntity_.chunkId.equals(chunkId)).build();
-    try {
-      final entity = query.findFirst();
-      if (entity != null) {
-        _chunkBox.remove(entity.id);
+    _store.runInTransaction(TxMode.write, () {
+      final query = _chunkBox
+          .query(ChunkEntity_.chunkId.equals(chunkId))
+          .build();
+      try {
+        query.remove();
+      } finally {
+        query.close();
       }
-    } finally {
-      query.close();
-    }
-
-    // Delete associated embeddings
-    await deleteEmbedding(chunkId);
+      _deleteEmbeddingsSync(chunkId);
+    });
   }
 
   @override
   Future<void> deleteEmbedding(String chunkId) async {
     _ensureOpen();
     validateRequiredStorageIdentity(chunkId, 'chunkId');
+    _deleteEmbeddingsSync(chunkId);
+  }
+
+  void _deleteEmbeddingsSync(String chunkId) {
     final query = _embeddingBox
-        .query(EmbeddingEntity768_.chunkId.equals(chunkId))
+        .query(EmbeddingEntity_.chunkId.equals(chunkId))
         .build();
     try {
       query.remove();
@@ -297,8 +323,43 @@ class ObjectBoxStore extends BaseStore {
   Future<void> storeBatch({
     required List<Chunk> chunks,
     required List<Embedding> embeddings,
+  }) => replaceChunks(
+    chunks: chunks,
+    embeddings: embeddings,
+    removeChunkIds: const {},
+  );
+
+  @override
+  Future<void> replaceChunks({
+    required List<Chunk> chunks,
+    required List<Embedding> embeddings,
+    required Set<String> removeChunkIds,
   }) async {
     _ensureOpen();
+    validateReplacementIds([
+      ...chunks.map((chunk) => chunk.id),
+      ...embeddings.map((embedding) => embedding.chunkId),
+    ], removeChunkIds);
+    // Convert and validate before entering the write transaction. Finite Dart
+    // doubles can overflow float32 or underflow into an all-zero cosine vector.
+    final embeddingEntities = embeddings.map((embedding) {
+      validateObjectBoxVectorDimension(
+        embedding.vector.length,
+        name: 'embedding.vector.length',
+        context: 'for embedding ${embedding.chunkId}',
+      );
+      return EmbeddingEntity(
+        embeddingKey: EmbeddingEntity.computeKey(
+          embedding.chunkId,
+          embedding.source,
+          embedding.modelName,
+        ),
+        chunkId: embedding.chunkId,
+        source: embedding.source,
+        modelName: embedding.modelName,
+        vector: _cosineVectorF32(embedding.vector, 'embedding.vector'),
+      );
+    }).toList();
     _store.runInTransaction(TxMode.write, () {
       // Batch insert chunks
       final chunkEntities = <ChunkEntity>[];
@@ -344,68 +405,37 @@ class ObjectBoxStore extends BaseStore {
         }
       }
 
-      // Build embedding entities
-      final embeddingEntities = <EmbeddingEntity768>[];
-
-      for (final embedding in embeddings) {
-        validateObjectBoxVectorDimension(
-          embedding.vector.length,
-          name: 'embedding.vector.length',
-          context: 'for embedding ${embedding.chunkId}',
-        );
-
-        final chunkEntity = chunkMap[embedding.chunkId];
-        final embeddingKey = EmbeddingEntity768.computeKey(
-          embedding.chunkId,
-          embedding.source,
-          embedding.modelName,
-        );
-        _removeConflictingEmbeddingKeys(embedding, embeddingKey);
-        final entity = EmbeddingEntity768(
-          embeddingKey: embeddingKey,
-          chunkId: embedding.chunkId,
-          source: embedding.source,
-          modelName: embedding.modelName,
-          vector: Float32List.fromList(embedding.vector),
-        );
-
-        if (chunkEntity != null) {
-          entity.chunkRelation.target = chunkEntity;
+      for (final entity in embeddingEntities) {
+        final query = _embeddingBox
+            .query(EmbeddingEntity_.embeddingKey.equals(entity.embeddingKey))
+            .build();
+        try {
+          // Preserve identity instead of relying on unique-conflict replacement,
+          // which creates an object with a new internal ID.
+          entity.id = query.findFirst()?.id ?? 0;
+        } finally {
+          query.close();
         }
-
-        embeddingEntities.add(entity);
+        entity.chunkRelation.targetId = chunkMap[entity.chunkId]?.id ?? 0;
       }
 
       // Batch insert embeddings
       if (embeddingEntities.isNotEmpty) {
         _embeddingBox.putMany(embeddingEntities);
       }
+      for (final id in removeChunkIds) {
+        final query = _chunkBox.query(ChunkEntity_.chunkId.equals(id)).build();
+        try {
+          query.remove();
+        } finally {
+          query.close();
+        }
+        _deleteEmbeddingsSync(id);
+      }
     });
   }
 
   // Conversion methods
-
-  void _removeConflictingEmbeddingKeys(Embedding embedding, String currentKey) {
-    final query = _embeddingBox
-        .query(
-          EmbeddingEntity768_.chunkId.equals(embedding.chunkId) &
-              EmbeddingEntity768_.source.equals(embedding.source) &
-              EmbeddingEntity768_.modelName.equals(embedding.modelName),
-        )
-        .build();
-    try {
-      final conflictingIds = query
-          .find()
-          .where((entity) => entity.embeddingKey != currentKey)
-          .map((entity) => entity.id)
-          .toList(growable: false);
-      if (conflictingIds.isNotEmpty) {
-        _embeddingBox.removeMany(conflictingIds);
-      }
-    } finally {
-      query.close();
-    }
-  }
 
   ChunkEntity _chunkEntityFromChunk(Chunk chunk, int id) {
     return ChunkEntity(
@@ -432,17 +462,12 @@ class ObjectBoxStore extends BaseStore {
     );
   }
 
-  Embedding _embeddingFromEntity(
-    EmbeddingEntity768 entity, {
-    bool includeVectorCopy = true,
-  }) {
+  Embedding _embeddingFromEntity(EmbeddingEntity entity) {
     return Embedding(
       chunkId: entity.chunkId,
       source: entity.source,
       modelName: entity.modelName,
-      vector: includeVectorCopy
-          ? List<double>.from(entity.vector)
-          : entity.vector,
+      vector: entity.vector,
     );
   }
 }
@@ -464,7 +489,7 @@ void validateObjectBoxVectorDimension(
   String name = 'dimension',
   String? context,
 }) {
-  if (dimension == kStandardEmbeddingDimension) {
+  if (dimension == objectBoxEmbeddingDimension) {
     return;
   }
 
@@ -473,6 +498,25 @@ void validateObjectBoxVectorDimension(
     dimension,
     name,
     'ObjectBoxStore currently supports only '
-    '$kStandardEmbeddingDimension-dimensional vectors$contextSuffix',
+    '$objectBoxEmbeddingDimension-dimensional vectors$contextSuffix',
   );
+}
+
+Float32List _cosineVectorF32(List<double> vector, String name) {
+  final result = Float32List.fromList(vector);
+  var nonzero = false;
+  for (var index = 0; index < result.length; index++) {
+    if (!result[index].isFinite) {
+      throw ArgumentError.value(
+        vector[index],
+        '$name[$index]',
+        'must remain finite as float32',
+      );
+    }
+    nonzero |= result[index] != 0;
+  }
+  if (!nonzero) {
+    throw ArgumentError.value(vector, name, 'must be nonzero as float32');
+  }
+  return result;
 }

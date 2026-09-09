@@ -6,14 +6,14 @@ void main() {
     test('treats vector values as part of equality', () {
       final first = Embedding(
         chunkId: 'chunk-1',
-        source: 'ollama',
-        modelName: 'embeddinggemma',
+        source: 'llamadart',
+        modelName: 'arctic-embed-xs-q8_0',
         vector: const [1.0, 0.0],
       );
       final second = Embedding(
         chunkId: 'chunk-1',
-        source: 'ollama',
-        modelName: 'embeddinggemma',
+        source: 'llamadart',
+        modelName: 'arctic-embed-xs-q8_0',
         vector: const [0.0, 1.0],
       );
 
@@ -23,8 +23,8 @@ void main() {
     test('keeps vector immutable and round-trips through maps', () {
       final embedding = Embedding(
         chunkId: 'chunk-1',
-        source: 'ollama',
-        modelName: 'embeddinggemma',
+        source: 'llamadart',
+        modelName: 'arctic-embed-xs-q8_0',
         vector: const [0.25, 0.75],
       );
 
@@ -35,8 +35,8 @@ void main() {
     test('toMap returns a detached mutable vector snapshot', () {
       final embedding = Embedding(
         chunkId: 'chunk-1',
-        source: 'ollama',
-        modelName: 'embeddinggemma',
+        source: 'llamadart',
+        modelName: 'arctic-embed-xs-q8_0',
         vector: const [0.25, 0.75],
       );
 
@@ -53,8 +53,8 @@ void main() {
       for (final fieldName in ['chunkId', 'source', 'modelName']) {
         final values = {
           'chunkId': 'chunk-1',
-          'source': 'ollama',
-          'modelName': 'embeddinggemma',
+          'source': 'llamadart',
+          'modelName': 'arctic-embed-xs-q8_0',
         }..[fieldName] = ' ';
 
         expect(
@@ -73,8 +73,8 @@ void main() {
       for (final fieldName in ['chunkId', 'source', 'modelName']) {
         final map = <String, Object?>{
           'chunkId': 'chunk-1',
-          'source': 'ollama',
-          'modelName': 'embeddinggemma',
+          'source': 'llamadart',
+          'modelName': 'arctic-embed-xs-q8_0',
           'vector': const [1.0],
         }..[fieldName] = ' ';
 
@@ -86,8 +86,8 @@ void main() {
       expect(
         () => Embedding(
           chunkId: 'chunk-1',
-          source: 'ollama',
-          modelName: 'embeddinggemma',
+          source: 'llamadart',
+          modelName: 'arctic-embed-xs-q8_0',
           vector: const [],
         ),
         throwsArgumentError,
@@ -95,8 +95,8 @@ void main() {
       expect(
         () => Embedding(
           chunkId: 'chunk-1',
-          source: 'ollama',
-          modelName: 'embeddinggemma',
+          source: 'llamadart',
+          modelName: 'arctic-embed-xs-q8_0',
           vector: const [1.0, double.nan],
         ),
         throwsArgumentError,
@@ -104,8 +104,8 @@ void main() {
       expect(
         () => Embedding.fromMap(const {
           'chunkId': 'chunk-1',
-          'source': 'ollama',
-          'modelName': 'embeddinggemma',
+          'source': 'llamadart',
+          'modelName': 'arctic-embed-xs-q8_0',
           'vector': [],
         }),
         throwsFormatException,
@@ -113,8 +113,8 @@ void main() {
       expect(
         () => Embedding.fromMap(const {
           'chunkId': 'chunk-1',
-          'source': 'ollama',
-          'modelName': 'embeddinggemma',
+          'source': 'llamadart',
+          'modelName': 'arctic-embed-xs-q8_0',
           'vector': [1.0, double.infinity],
         }),
         throwsFormatException,
@@ -125,8 +125,8 @@ void main() {
       expect(
         () => Embedding.fromMap(const {
           'chunkId': 'chunk-1',
-          'source': 'ollama',
-          'modelName': 'embeddinggemma',
+          'source': 'llamadart',
+          'modelName': 'arctic-embed-xs-q8_0',
           'vector': [1.0, 'bad'],
         }),
         throwsFormatException,

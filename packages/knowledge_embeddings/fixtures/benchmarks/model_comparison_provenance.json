@@ -1,0 +1,254 @@
+{
+  "baseCommit": "60dfd0ff84b30a708db173dae9b9d918d7778eb9",
+  "branch": "feat/knowledge-embedding",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "cpu": "Apple M2 Max",
+  "models": [
+    {
+      "spec": {
+        "id": "arctic-embed-s-q4_k_m",
+        "url": "https://huggingface.co/mradermacher/snowflake-arctic-embed-s-GGUF/resolve/212aceb754d83530ea0e51cb94318d4157c31488/snowflake-arctic-embed-s.Q4_K_M.gguf",
+        "sha256": "abc6391ca1b2894f066e58bf43385d726247ae874d40e6e67ef9e55ccb25e185",
+        "bytes": 29082336,
+        "dimensions": 384,
+        "maxTokens": 512,
+        "queryPrefix": "Represent this sentence for searching relevant passages: ",
+        "license": "Apache-2.0"
+      },
+      "gguf": {
+        "general.architecture": "bert",
+        "bert.block_count": 12,
+        "bert.context_length": 512,
+        "bert.embedding_length": 384,
+        "bert.pooling_type": 2,
+        "general.file_type": 15
+      }
+    },
+    {
+      "spec": {
+        "id": "arctic-embed-s-q8_0",
+        "url": "https://huggingface.co/mradermacher/snowflake-arctic-embed-s-GGUF/resolve/212aceb754d83530ea0e51cb94318d4157c31488/snowflake-arctic-embed-s.Q8_0.gguf",
+        "sha256": "49f8b34a1179b38bb92514b43cec2cc86e41bab495b1ef0ffbdc2579c513cbdb",
+        "bytes": 36685536,
+        "dimensions": 384,
+        "maxTokens": 512,
+        "queryPrefix": "Represent this sentence for searching relevant passages: ",
+        "license": "Apache-2.0"
+      },
+      "gguf": {
+        "general.architecture": "bert",
+        "bert.block_count": 12,
+        "bert.context_length": 512,
+        "bert.embedding_length": 384,
+        "bert.pooling_type": 2,
+        "general.file_type": 7
+      }
+    },
+    {
+      "spec": {
+        "id": "arctic-embed-xs-q8_0",
+        "url": "https://huggingface.co/mradermacher/snowflake-arctic-embed-xs-GGUF/resolve/143419f28857ed7f3b1afd13713f3b3955231338/snowflake-arctic-embed-xs.Q8_0.gguf",
+        "sha256": "a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582",
+        "bytes": 25279840,
+        "dimensions": 384,
+        "maxTokens": 512,
+        "queryPrefix": "Represent this sentence for searching relevant passages: ",
+        "license": "Apache-2.0"
+      },
+      "gguf": {
+        "general.architecture": "bert",
+        "bert.block_count": 6,
+        "bert.context_length": 512,
+        "bert.embedding_length": 384,
+        "bert.pooling_type": 2,
+        "general.file_type": 7
+      }
+    },
+    {
+      "spec": {
+        "id": "bge-small-en-v1.5-q4_k_m",
+        "url": "https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/bge-small-en-v1.5-q4_k_m.gguf",
+        "sha256": "363a0a4855dff6c653e06efe3209157debcf7f74e52d0d7c71e2747cd523043e",
+        "bytes": 24808576,
+        "dimensions": 384,
+        "maxTokens": 512,
+        "queryPrefix": "Represent this sentence for searching relevant passages: ",
+        "license": "MIT"
+      },
+      "gguf": {
+        "general.architecture": "bert",
+        "bert.block_count": 12,
+        "bert.context_length": 512,
+        "bert.embedding_length": 384,
+        "general.file_type": 15,
+        "bert.pooling_type": 2
+      }
+    },
+    {
+      "spec": {
+        "id": "bge-small-en-v1.5-q8_0",
+        "url": "https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/bge-small-en-v1.5-q8_0.gguf",
+        "sha256": "ec38e8da142596baa913124ae50550de284b6916bf59577ef2f0cb9660c2f514",
+        "bytes": 36806944,
+        "dimensions": 384,
+        "maxTokens": 512,
+        "queryPrefix": "Represent this sentence for searching relevant passages: ",
+        "license": "MIT"
+      },
+      "gguf": {
+        "general.architecture": "bert",
+        "bert.block_count": 12,
+        "bert.context_length": 512,
+        "bert.embedding_length": 384,
+        "general.file_type": 7,
+        "bert.pooling_type": 2
+      }
+    }
+  ],
+  "fixtureManifest": {
+    "status": "frozen before retrieval",
+    "seed": 91307,
+    "topics": 20,
+    "concepts": 100,
+    "queries": 160,
+    "developmentTopics": [
+      "uploads",
+      "queues",
+      "secrets",
+      "pagination",
+      "leases",
+      "webhooks",
+      "clocks",
+      "archives",
+      "search",
+      "shutdown"
+    ],
+    "testTopics": [
+      "sessions",
+      "payments",
+      "backups",
+      "releases",
+      "exports",
+      "locks",
+      "notifications",
+      "caches",
+      "migrations",
+      "limits"
+    ],
+    "config": {
+      "context": true,
+      "currentExceptHistory": true,
+      "governors": true,
+      "oneHopLinks": true,
+      "candidates": 50,
+      "topK": [
+        3,
+        10
+      ],
+      "tuning": "none; existing selected configuration frozen"
+    },
+    "sha256": {
+      "sources.json": "619426ecae43d53142480623ea9d34dd624c92fc5756ae36217126d0e17fd30a",
+      "queries.json": "e1924c545fc87ee7d7e709650f9775d0a58ef7524077c0ea7409a54395f5ec4d"
+    },
+    "limitations": "Synthetic paired templates across topic-held-out splits; no claim of independent human relevance annotation or real-world coverage.",
+    "testSelection": "Development inspected; retain all pre-registered settings unchanged. No tuning. Test split not yet executed.",
+    "passageManifestSha256": "f843872272d3aed1bf1aee93d77727c7f3996bb7cfdbcbaaf2e90cb4da240181"
+  },
+  "note": "Original test partition was inspected previously; this is exploratory comparison on frozen judgments, not a new untouched test set. No candidate-specific tuning. No Gemma. CPU, four threads, exact eligible-vector search.",
+  "measuredBinarySha256": "4c57036de9b338aa977ae69c8a84101c36a77801b2abe6bfca72e8945e6f5c89",
+  "nativeAssetsSha256": {
+    "libobjectbox.dylib": "1af2e266e523dbcc33b3682eebf297f2f4f23ade6ab706dab794f7a6f8108751",
+    "libllamadart.dylib": "63ee9c664c0f37a36e316d6728f1bc705956e32939e9d4e8793437431d937aa7"
+  },
+  "measuredSourceSha256": {
+    "packages/knowledge_embeddings/lib/knowledge_embeddings.dart": "64306ed3c90e19af778d43fdf54fb21665bb9afdf05af218de461b9bc0c4f3c0",
+    "packages/knowledge_embeddings/lib/objectbox.g.dart": "70838f545a909c3edea14e68b4779364a7ec1e3c9c74b21c0fa9ed24a438272c",
+    "packages/knowledge_embeddings/lib/okf_knowledge.dart": "ed243233d0d3874313b7e0ef7c56fef1f96d9eb12959a362236aa89c6908e37b",
+    "packages/knowledge_embeddings/lib/src/ingestion/ingestion_pipeline.dart": "ba6718df2cd31f86f0d67a64ebe78a1a63a6eb262efb6c2888c73177eadf469e",
+    "packages/knowledge_embeddings/lib/src/util/content_type.dart": "ecb84f620634267122f47e7617fc726e60669fb683495a779870a7a34b8f0b2b",
+    "packages/knowledge_embeddings/lib/src/util/similarity.dart": "33cef99c2e996676852010a39f02bc52e2c978c90f764d4f61a98e071bd44fcb",
+    "packages/knowledge_embeddings/lib/src/util/checks.dart": "9712f0afa213e0d94d122e88bdd4fd3430ee9fdff23bc7577275ec6080cfb863",
+    "packages/knowledge_embeddings/lib/src/embedding/llama_embedder.dart": "9fbfbdc28f38f027bd0ddfa7303ced12a9157129f44a5b6a21b92b93028ec76d",
+    "packages/knowledge_embeddings/lib/src/embedding/base_embedder.dart": "06c7f03ef187e063644262b1f125dbd687bba86a69567982a698a147ba9e10cc",
+    "packages/knowledge_embeddings/lib/src/embedding/embedding_model_spec.dart": "57863946555881ed75551f1637b6bb3e38d974000f74c2ddb095ed18d0568da6",
+    "packages/knowledge_embeddings/lib/src/models/metadata_collections.dart": "21053f532037bf2830be3b0fcff5e900c856b978fde40dfeda6d7b12e6b66721",
+    "packages/knowledge_embeddings/lib/src/models/chunk_metadata.dart": "41ab47db435db2cd5b8d0c6c01697ae2d5aa204268ecae0351d92937b9a39cf3",
+    "packages/knowledge_embeddings/lib/src/models/chunk.dart": "dee2d88d2c2dcdc61853bfeaad901d789e5b43ee6e627e13f38d2d56c17653fe",
+    "packages/knowledge_embeddings/lib/src/models/search_result.dart": "e26148d0203165c177b245b23482daeba5124fc11a249e000d1ed3954f037f77",
+    "packages/knowledge_embeddings/lib/src/models/embedding.dart": "5b2ccfb59d41404305decd33c693169d336094e2a5f539503091c6e4ea75ffa3",
+    "packages/knowledge_embeddings/lib/src/storage/memory_store.dart": "3c587fb90fc32fa1adf8006ac7116b9798fa08c643e6aa672102eec90d18e1d8",
+    "packages/knowledge_embeddings/lib/src/storage/embedding_key.dart": "a9f58fd31a59a835b17ec90e8d0e4200a05083eae26f5a1dd7faacb3c70a321b",
+    "packages/knowledge_embeddings/lib/src/storage/objectbox_entities.dart": "aac510ade784a031511549386b3fff12c930f90afeab7b03515830a8529df582",
+    "packages/knowledge_embeddings/lib/src/storage/base_store.dart": "e83db546da43a53717ae31a57fa760c7d6c74791070c585a9e909ae66c69ec99",
+    "packages/knowledge_embeddings/lib/src/storage/vector_validation.dart": "d452d5294a6c09b1c4234fd7f332bed1843e27cbc9dbc239b05530c2a540488d",
+    "packages/knowledge_embeddings/lib/src/storage/embedding_entities.dart": "1dc7b3593a6684955e76194bc228a28f2b377edef1046c2ea69737d68caafebb",
+    "packages/knowledge_embeddings/lib/src/storage/objectbox_store.dart": "467cd1f130b532ff35b12744a7756405a22af6b0639425dff296e43a8f13c46f",
+    "packages/knowledge_embeddings/lib/src/chunking/chunker_registry.dart": "3509ab66c1324c1bf63f3cee6c864574654bb50209cab2bd86374fb3871c1bbc",
+    "packages/knowledge_embeddings/lib/src/chunking/chunk_budget.dart": "a3a235f71c2bb06e3b2433e36fc6914e799d2ac220e76d7050a17523d5e0dd7c",
+    "packages/knowledge_embeddings/lib/src/chunking/base_chunker.dart": "850423b4bb0e502387311462fa53ebffaab02f4c23a5da243ac9d34b64cb58f0",
+    "packages/knowledge_embeddings/lib/src/search/parent_child_searcher.dart": "38405a5af8b4b1a0405487621d5f1935cb7237c296e2c23ecf79f0207764ab06",
+    "packages/knowledge_embeddings/lib/src/search/hybrid_content_searcher.dart": "84b7f14a2d7de0eb5bd60a62c7a385c29f7e8580bb8824fae4221f1c333e5a4b",
+    "packages/knowledge_embeddings/lib/src/search/search_options.dart": "301bad0f9f93d741c9c35c77d81b4b4ac8ad5e365cc201a599aff2cc4e75f7f4",
+    "packages/knowledge_embeddings/lib/src/search/bm25_lexical_index.dart": "5426ee4ca81c03bb25abcc2849fce60d901d1173e9fb0908bbd620283504a026",
+    "packages/knowledge_embeddings/lib/src/search/search_reranker.dart": "54de6e77edee74177286e2cef9b0cf26704a4913dbbcec6bb87b4268784dacdf",
+    "packages/knowledge_embeddings/lib/src/search/content_searcher.dart": "054c358a75ac70bd1214f23baf385032dc52372f7925c480b797ea21398ce83d",
+    "packages/knowledge_embeddings/lib/src/search/reranking_content_searcher.dart": "b229c6001b70f4631f4b7da07e7d6ee659a2a5525d7e13d3d79fbc552312305f",
+    "packages/knowledge_embeddings/lib/src/search/parent_child_resolver.dart": "7ec3296f01bc9e561e74bfdd7a4af7addad6fec9eb99bf01a724b40f614f96be",
+    "packages/knowledge_embeddings/lib/src/search/searcher.dart": "c6c6e942d1f8a395abf9389bd98bae6fecc355b6fc4c0990cd66a1cff9a8b56f",
+    "packages/knowledge_embeddings/lib/src/search/candidate_expansion.dart": "427e8b6cdb7a279e35d02b0b7ec4920445975cf9747f64a5108a4946495c01b1",
+    "packages/knowledge_embeddings/lib/src/search/reciprocal_rank_fusion.dart": "b8b9ea95211ca508cffc215aa97c8ab777123c5139602d350f2647908408fd58",
+    "packages/knowledge_embeddings/lib/src/okf/knowledge_index.dart": "c3b37506326bb2e2e3c7f51b655066ef6dd371cfd002e084a5fbfe4f6fc03498",
+    "packages/knowledge_embeddings/lib/src/okf/knowledge_snapshot.dart": "ee099387218cd987ecbef2a522b824d71eda725e964eb766ce8af9367faf02eb",
+    "packages/knowledge_embeddings/lib/src/chunking/languages/typescript_chunker.dart": "08c0b5762b84eae486ed1875a2a29d680bbbaac830b58e569343e1c99fb828b8",
+    "packages/knowledge_embeddings/lib/src/chunking/languages/dart_chunker.dart": "c695ff89a443cac0579b9ba4f695272e49b012f92c27df1d3f844446e5f664a6",
+    "packages/knowledge_embeddings/lib/src/chunking/documents/text_chunker.dart": "ccd59be8df15f599452ffd16a578e6c947c6f3decac5f33e7bb3a7369b9e284a",
+    "packages/knowledge_embeddings/lib/src/chunking/documents/markdown_chunker.dart": "07ef66fa76b50a5c3eb575df82a68039116c3d74c7e81f046cc5147b89f1b045",
+    "packages/knowledge_embeddings/tool/benchmark_retrieval.dart": "0421e6a19e5a07d46aff878e68054cb5eccdbee251690ea7ab5c0d85e6ad1c19",
+    "packages/knowledge_embeddings/tool/src/benchmark_models.dart": "27b013c4ffcef43e9eafae8d53fd56c78713cc6ef03a87dc736ea5490bf3c08d",
+    "packages/knowledge_embeddings/bin/benchmark_retrieval.dart": "8c1047d5de5c5e3839b11f57650c65aa5a7be299fb6ba3d0edc4d8e76471b7e8",
+    "pubspec.lock": "42e5b62ec1fb8f499e62e8f2f86b85952a5e0c98c4fb706bcd2f90b7bb0224e8",
+    "pubspec.yaml": "e0e8fe2ba687e16a2f438efbac579564016a0ee5fddd8fdf417f993cbc9fad36",
+    "packages/knowledge_embeddings/pubspec.yaml": "5c83ee613a978e0889416d4c2ce04ff7a336abae30d766e4dca4faa317de4319"
+  },
+  "protocol": {
+    "models": 5,
+    "armsPerModel": [
+      "dense",
+      "hybrid"
+    ],
+    "controls": [
+      "keyword",
+      "bm25"
+    ],
+    "stores": [
+      "memory",
+      "objectbox"
+    ],
+    "developmentStarts": 1,
+    "testStarts": 10,
+    "objectboxReopen": true,
+    "uncachedQueriesFirstFreshProcess": 1000,
+    "cachedQueriesFirstFreshProcess": 1000,
+    "seed": 91307
+  },
+  "completedRuns": {
+    "development": 36,
+    "test": 360
+  },
+  "rawRecords": 401,
+  "rawArchiveSha256": "429cc38f56b45d2525ed47a2014308b15cdd5749a4bc60fe260c9ec3114a95fd",
+  "orchestrationSourceSha256": {
+    "run_retrieval_benchmark.py": "29bbe3236b87e54a34d8e68e996dcd290e98b296c8b581eb3e0997758a3e1ab8",
+    "summarize_retrieval_benchmark.py": "f7edef2f5883f6a77cfcfb43a929f78ffb4b6640b9ce5577a2e67ef0848c16ad",
+    "prepare_benchmark_models.dart": "4dc341eb18bd2447075ab742774919fc514fc598a14ee5dae9b7b5898840294c",
+    "src/model_preparation.dart": "98731dbcaef8de644d8588431ca5595f806e27669550fd6b2dd2b8a127010910"
+  },
+  "summarySha256": "eab913c4c777aa790a9cba36fcb50d91b04d787d57eab8fa7d6cda5180f2ed32",
+  "validation": {
+    "embeddingTests": 282,
+    "analyzer": "no issues",
+    "dartFormatting": "3 files unchanged",
+    "oldSummaryReproduced": "exact per-query outcomes and intervals; aggregate floating-point tolerance 1e-14"
+  }
+}

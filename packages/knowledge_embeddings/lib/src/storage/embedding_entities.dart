@@ -5,34 +5,14 @@ import 'package:objectbox/objectbox.dart';
 import 'embedding_key.dart';
 import 'objectbox_entities.dart';
 
-/// Standard embedding dimension used throughout the system.
-///
-/// All embeddings are standardized to 768 dimensions, matching industry
-/// standards (BERT, Gemma, etc.) and providing optimal balance between
-/// quality and performance.
-const int kStandardEmbeddingDimension = 768;
+/// Vector dimension of the generated ObjectBox index.
+const int objectBoxEmbeddingDimension = 384;
 
-/// Persisted representation of a 768-dimensional embedding for ObjectBox storage.
+/// Persisted embedding with a fixed 384-dimensional cosine HNSW index.
 ///
-/// All embeddings are standardized to 768 dimensions, which provides:
-/// - Compatibility with popular models (BERT, Gemma, nomic-embed-text)
-/// - Industry-standard dimension size
-/// - Optimal HNSW index performance
-///
-/// **Supported embedders**:
-/// - **Ollama models**: embeddinggemma (native 768-dim), nomic-embed-text
-/// - **Custom embedders**: Should output 768-dim vectors
-///
-/// Code-tuned Qwen3 embedding models are exposed through `OllamaModel`, but
-/// their native dimensions exceed this fixed schema. Pass `dimensions: 768` to
-/// `OllamaEmbedder`, or use `MemoryStore`, until runtime dimension support is
-/// designed.
-///
-/// Exact BM25 lexical retrieval does not use this vector entity; it is handled
-/// by `BM25LexicalIndex` and can be fused with dense vectors through
-/// `HybridContentSearcher`.
+/// Lexical BM25 ranking operates on chunks and does not use this entity.
 @Entity()
-class EmbeddingEntity768 {
+class EmbeddingEntity {
   /// Internal ObjectBox identifier.
   @Id()
   int id;
@@ -48,30 +28,25 @@ class EmbeddingEntity768 {
   @Index()
   String chunkId;
 
-  /// Embedder family (e.g., ollama, bm25, openai).
+  /// Embedder family (for example, llamadart).
   @Index()
   String source;
 
-  /// Precise model name (e.g., embeddinggemma, local-bm25).
+  /// Artifact and preprocessing identity of the embedding model.
   @Index()
   String modelName;
 
-  /// 768-dimensional vector payload with HNSW index for fast similarity search.
+  /// 384-dimensional vector payload with HNSW index for fast similarity search.
   ///
-  /// The HNSW (Hierarchical Navigable Small World) index enables O(log N)
-  /// nearest neighbor search using cosine distance, which is optimal for
-  /// semantic text similarity.
-  @HnswIndex(dimensions: 768, distanceType: VectorDistanceType.cosine)
+  /// HNSW searches approximate neighbors using cosine distance.
+  @HnswIndex(dimensions: 384, distanceType: VectorDistanceType.cosine)
   @Property(type: PropertyType.floatVector)
   Float32List vector;
 
-  /// Relation to chunk for eager loading during vector search.
-  ///
-  /// This allows retrieving the chunk data in a single query alongside
-  /// the embedding results, avoiding N+1 query problems.
+  /// Relation used to resolve the source chunk for a vector-search hit.
   final chunkRelation = ToOne<ChunkEntity>();
 
-  EmbeddingEntity768({
+  EmbeddingEntity({
     this.id = 0,
     this.embeddingKey = '',
     this.chunkId = '',

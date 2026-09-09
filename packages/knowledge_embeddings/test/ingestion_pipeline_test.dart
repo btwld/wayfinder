@@ -204,6 +204,37 @@ void main() {
       await store.close();
     });
 
+    for (final existingChunk in [false, true]) {
+      test('dedupes pending chunks (already stored: $existingChunk)', () async {
+        final file = File(p.join(tempDir.path, 'repeated.txt'));
+        final chunk = Chunk(
+          sourcePath: file.path,
+          lineStart: 1,
+          lineEnd: 1,
+          content: 'Repeated input',
+          type: 'paragraph',
+        );
+        final store = MemoryStore();
+        if (existingChunk) await store.storeChunk(chunk);
+        final embedder = _FakeEmbedder();
+        final duplicates = <String>[];
+
+        await IngestionPipeline(
+          chunkerRegistry: ChunkerRegistry(),
+          embedder: embedder,
+          store: store,
+        ).ingest([
+          (file: file, chunks: [chunk, chunk]),
+          (file: file, chunks: [chunk]),
+        ], onDuplicateChunk: (chunk) => duplicates.add(chunk.id));
+
+        expect(embedder.embeddedTexts, [chunk.content]);
+        expect(duplicates, List.filled(existingChunk ? 3 : 2, chunk.id));
+        expect(await store.getAllChunks(), [chunk]);
+        expect(await store.getAllEmbeddings(), hasLength(1));
+      });
+    }
+
     test('dedupe stores missing embeddings for a different model', () async {
       final dartFile = _writeFile(
         tempDir,
@@ -247,6 +278,60 @@ void main() {
       await denseEmbedder.dispose();
       await lexicalEmbedder.dispose();
       await store.close();
+    });
+
+    test('refreshes metadata without re-embedding unchanged text', () async {
+      final file = File(p.join(tempDir.path, 'guidance.md'));
+      final original = Chunk(
+        sourcePath: file.path,
+        lineStart: 1,
+        lineEnd: 1,
+        content: 'Use the recovery link to reset a password.',
+        type: 'paragraph',
+        metadata: {'status': 'stable', 'obsoleteTag': true},
+      );
+      final updated = original.copyWith(metadata: {'status': 'deprecated'});
+      final store = MemoryStore();
+      final embedder = _FakeEmbedder();
+      addTearDown(store.close);
+      addTearDown(embedder.dispose);
+      final pipeline = IngestionPipeline(
+        chunkerRegistry: ChunkerRegistry(),
+        embedder: embedder,
+        store: store,
+      );
+      await pipeline.ingest([
+        (file: file, chunks: [original]),
+      ]);
+      final vector = await store.getEmbedding(original.id);
+      await pipeline.ingest([
+        (file: file, chunks: [updated]),
+      ]);
+
+      expect(updated.id, original.id);
+      expect(await store.getChunk(original.id), updated);
+      expect(await store.getEmbedding(original.id), vector);
+      expect(embedder.embeddedTexts, [original.content]);
+      await expectLater(
+        pipeline.ingest([
+          (
+            file: file,
+            chunks: [
+              updated.copyWith(id: original.id, content: 'Different guidance'),
+            ],
+          ),
+        ]),
+        throwsStateError,
+      );
+      expect(await store.getChunk(original.id), updated);
+      expect(await store.getEmbedding(original.id), vector);
+      expect(
+        BM25LexicalIndex.fromChunks(await store.getAllChunks()).search(
+          'recovery',
+          options: SearchOptions(metadataFilters: {'status': 'stable'}),
+        ),
+        isEmpty,
+      );
     });
 
     test(
@@ -352,6 +437,8 @@ class _CountingStore extends MemoryStore {
 }
 
 class _FakeEmbedder extends BaseEmbedder {
+  final List<String> embeddedTexts = [];
+
   /// Number of times the pipeline asked this embedder for a single vector.
   int embedCalls = 0;
 
@@ -361,6 +448,7 @@ class _FakeEmbedder extends BaseEmbedder {
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
     batchCalls++;
+    embeddedTexts.addAll(texts);
     return [
       for (final _ in texts) const [1.0, 0.0],
     ];

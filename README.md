@@ -183,7 +183,7 @@ the bundle, or someone acting on the bundle?
 
 ## Dart workspace development
 
-Developing the workspace requires Dart 3.9 or later. Run `melos get` at the
+Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test both
 packages. The published `okf_profile` package retains its Dart 3.6 minimum.
 
@@ -192,3 +192,12 @@ license preserved in the package directory. See its [README](packages/knowledge_
 and the [evaluation runbook](docs/knowledge_embeddings_eval.md). Its optional native
 backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
 files with `melos build` only when entity schemas change.
+
+For native semantic retrieval, `melos run embeddings:prepare` stages the pinned
+25.28 MB model. `melos run embeddings:build` creates a
+CLI bundle containing the model and native libraries. See the
+[local search implementation and measurements](docs/knowledge_embeddings_local_search.md).
+The accepted model choice and next retrieval experiments are recorded in
+[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `okfp` currently provides
+bundle validation; search examples and evaluation commands live in the
+[embedding package](packages/knowledge_embeddings/README.md#command-line-entry-points).
