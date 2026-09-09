@@ -14,6 +14,7 @@ dependencies:
   args: ^2.7.0
   crypto: ^3.0.3
   knowledge_embeddings: ^0.1.0
+  mcp_dart: ^2.4.2
   okf_profile: ^0.2.0
   path: ^1.9.1
 

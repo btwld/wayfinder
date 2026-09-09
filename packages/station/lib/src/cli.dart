@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:knowledge_embeddings/okf_knowledge.dart';
 import 'package:okf_profile/okf_profile.dart';
 
 import 'knowledge.dart';
+import 'mcp_server.dart';
+import 'search_output.dart';
 
 /// Station's application commands; validation shares the existing public API.
 class StationCli {
@@ -38,6 +39,10 @@ class StationCli {
       }
       parser.addCommand(name, command);
     }
+    parser.addCommand(
+      'mcp',
+      ArgParser()..addFlag('help', abbr: 'h', negatable: false),
+    );
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
@@ -50,7 +55,8 @@ class StationCli {
           'Usage: station <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the declared Concepta profile\n'
           '  index <bundle>             Create or refresh saved local embeddings\n'
-          '  search <bundle> <query>    Search the saved knowledge index\n\n'
+          '  search <bundle> <query>    Search the saved knowledge index\n'
+          '  mcp <bundle>               Serve these tools over MCP stdio\n\n'
           'Run station <command> --help for options.',
         );
         return 0;
@@ -58,7 +64,7 @@ class StationCli {
       final command = options.command;
       if (command == null || options.rest.isNotEmpty) {
         throw const StationException(
-          'Choose validate, index or search. Run station --help.',
+          'Choose validate, index, search or mcp. Run station --help.',
         );
       }
       final name = command.name!;
@@ -74,8 +80,15 @@ class StationCli {
           '$name requires an explicit bundle${name == 'search' ? ' and one quoted query' : ''}.',
         );
       }
-      final json = command.option('output') == 'json';
       final bundle = command.rest.first;
+      if (name == 'mcp') {
+        await StationMcpServer(
+          rootPath: bundle,
+          knowledge: _knowledge(),
+        ).serve();
+        return 0;
+      }
+      final json = command.option('output') == 'json';
       if (name == 'validate') {
         final result = await const ProfileValidator().validate(bundle);
         if (json) {
@@ -110,18 +123,7 @@ class StationCli {
         limit: limit,
       );
       if (json) {
-        _json({
-          'context': result.context.map(_context).toList(),
-          'matches': result.matches
-              .map(
-                (hit) => {
-                  'chunk': hit.chunk.toMap(),
-                  'similarity': hit.similarity,
-                },
-              )
-              .toList(),
-          'notices': result.notices,
-        });
+        _json(searchOutput(result));
       } else {
         for (final hit in result.context) {
           final chunk = hit.result.chunk;
@@ -164,13 +166,6 @@ class StationCli {
 
   void _json(Object? value) =>
       _out(const JsonEncoder.withIndent('  ').convert(value));
-
-  Map<String, Object?> _context(KnowledgeContextHit hit) => {
-    'chunk': hit.result.chunk.toMap(),
-    'similarity': hit.result.similarity,
-    'reason': hit.reason,
-    if (hit.viaPath != null) 'viaPath': hit.viaPath,
-  };
 }
 
 String _safe(String value) => value.replaceAllMapped(

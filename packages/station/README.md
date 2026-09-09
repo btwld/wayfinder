@@ -60,7 +60,7 @@ After editing knowledge files, run `station index` again. Search detects an
 absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
-Each command accepts `--output=json`. Search also accepts `--limit=1..100`
+The validate, index and search commands accept `--output=json`. Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
 line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages
@@ -70,6 +70,49 @@ Validation preserves exit 0 for automated success, 1 for findings and 2 for
 usage/I/O/unsupported releases. Index/search return 0 on success and 2 when they
 cannot complete, including stale indexes, busy stores and missing model assets.
 An empty result set is a successful search.
+
+## MCP server
+
+```bash
+station mcp /absolute/path/to/knowledge
+```
+
+Configure a local MCP host to launch the packaged executable. For hosts using
+the common `mcpServers` configuration shape:
+
+```json
+{
+  "mcpServers": {
+    "station": {
+      "command": "/absolute/path/to/bundle/bin/station",
+      "args": ["mcp", "/absolute/path/to/knowledge"]
+    }
+  }
+}
+```
+
+The process serves one bundle over stdio; stdout is reserved for JSON-RPC.
+The tools are `validate` and `index` (no arguments), and `search` with a required
+`query` and optional `limit` (1–100, default 5). Their results contain the same
+JSON as the commands, in one text content block. Validation also includes the
+command's `exit_code`, findings and UNASSESSED judgment without treating a
+completed report as a tool error.
+
+Use `index` explicitly before the first search and after source edits. It saves
+document embeddings in the same local app-data directory used by the CLI.
+Discovery and validation work without a model. Search reports missing/stale
+indexes and never indexes implicitly. The host can require approval for index's
+local writes. There is no per-call bundle override or retrieval-mode option.
+
+The server currently opens and closes the encoder for each index/search call;
+a long-lived connection does not yet keep the model warm. Configure the host's
+tool timeout for first-use startup and the size of the corpus. Overlapping
+retrieval calls can return a busy error. On disconnect, active operations finish
+and release their resources; cancellation does not roll back indexing. The
+server does not expose upstream OKF's concept-authoring or graph tools.
+
+See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the SDK release review,
+protocol choices and lifecycle limits.
 
 ## Local storage
 
@@ -104,6 +147,7 @@ corpus size. There is no background watcher or navigation-file generation.
 dart test
 # From the workspace root, after building:
 python3 tool/verify_station.py build/station/bundle --output=build/station-checks.json
+python3 tool/verify_station_mcp.py build/station/bundle --output=build/station-mcp-checks.json
 ```
 
 The native check copies the bundle to a temporary location and uses fresh

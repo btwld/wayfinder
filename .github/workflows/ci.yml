@@ -92,6 +92,9 @@ jobs:
       - run: python3 tool/verify_station.py build/station/bundle --output="$RUNNER_TEMP/station-native.json"
         shell: bash
         working-directory: .
+      - run: python3 tool/verify_station_mcp.py build/station/bundle --output="$RUNNER_TEMP/station-mcp.json"
+        shell: bash
+        working-directory: .
       - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json" --native
         shell: bash
       - name: Compare OKF retrieval components on both fixed splits
@@ -121,6 +124,7 @@ jobs:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |
             ${{ runner.temp }}/station-native.json
+            ${{ runner.temp }}/station-mcp.json
             ${{ runner.temp }}/retrieval-metrics.json
             ${{ runner.temp }}/knowledge-cases.json
             ${{ runner.temp }}/okf-development.json

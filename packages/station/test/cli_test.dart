@@ -19,12 +19,13 @@ void main() {
     );
   });
 
-  test('root help exposes only the three agreed commands', () async {
+  test('root help exposes application commands and MCP transport', () async {
     expect(await cli.run(['--help']), 0);
     final help = output.join('\n');
     expect(help, contains('validate <bundle>'));
     expect(help, contains('index <bundle>'));
     expect(help, contains('search <bundle>'));
+    expect(help, contains('mcp <bundle>'));
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
   });
@@ -39,6 +40,9 @@ void main() {
     ['search', '.', ''],
     ['search', '.', 'query', '--limit=0'],
     ['search', '.', 'query', '--limit=oops'],
+    ['mcp'],
+    ['mcp', '.', 'another-root'],
+    ['mcp', '.', '--output=json'],
   ]) {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
@@ -62,6 +66,7 @@ void main() {
     expect(await cli.run(['index', '--help']), 0);
     expect(await cli.run(['search', '--help']), 0);
     expect(await cli.run(['validate', '--help']), 0);
+    expect(await cli.run(['mcp', '--help']), 0);
     expect(await cli.run(['--version']), 0);
     expect(errors, isEmpty);
   });
