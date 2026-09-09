@@ -34,6 +34,7 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
+| [`packages/station/`](packages/station/) | Local CLI for validation, persistent embedding indexes and semantic search |
 | [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 
@@ -120,6 +121,22 @@ the canonical `author-knowledge-bundle` skill. One `okfp validate <bundle>` invo
 single supported automated CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
 
+## Search local knowledge with Station
+
+Station combines validation and local semantic retrieval. After preparing the
+native runtime and model, run from the workspace root:
+
+```bash
+dart run station:station validate examples/knowledge
+dart run station:station index examples/knowledge
+dart run station:station search examples/knowledge "How is reporting implemented?"
+```
+
+`index` generates and saves document embeddings locally; `search` reuses them
+and encodes only the query. There is no retrieval-mode flag. See the
+[Station guide](packages/station/README.md) for setup, packaging and local data
+locations. Existing `okfp validate` remains supported.
+
 ## Examples
 
 [`examples/knowledge/`](examples/knowledge/) is a complete bundle, small enough to read in one
@@ -184,7 +201,7 @@ the bundle, or someone acting on the bundle?
 ## Dart workspace development
 
 Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
-repository root, then `melos lint` to analyze, check formatting, and test both
+repository root, then `melos lint` to analyze, check formatting, and test all workspace
 packages. The published `okf_profile` package retains its Dart 3.6 minimum.
 
 `knowledge_embeddings` moved here from Orbit with its tests, fixtures, and BSD

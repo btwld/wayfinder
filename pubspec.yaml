@@ -8,6 +8,7 @@ environment:
 workspace:
   - packages/okf_profile
   - packages/knowledge_embeddings
+  - packages/station
 
 dev_dependencies:
   melos: ^7.1.1
@@ -27,6 +28,9 @@ melos:
     embeddings:prepare:
       description: Download and verify the pinned local embedding model
       run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
+    station:build:
+      description: Build Station with verified local model and native libraries
+      run: dart run tool/build_station.dart
     embeddings:build:
       description: Build the retrieval CLI with its local model and native libraries
       run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart

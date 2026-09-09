@@ -45,11 +45,13 @@ separate query-ranked `matches` from bounded policy-selected `context`, includin
 inclusion reasons and unresolved/excluded-context notices. They are candidates,
 not an answerability verdict.
 
-ObjectBox persists the passage text and vectors, but the adapter's complete
-knowledge snapshot remains in memory. A new `KnowledgeIndex` currently needs
-`synchronize` before search, including after reopening a database. This can
-reuse document vectors; it still reloads sources and rebuilds the read snapshot.
-Query-vector caching lasts only for that index instance.
+ObjectBox persists passage text and vectors. `KnowledgeSnapshot.toMap/fromMap`
+round-trips fitted passages and the source inputs needed to reconstruct the OKF
+graph. `KnowledgeIndex.openSnapshot` opens a committed snapshot without document
+encoding or token fitting; the caller must provide its matching store and
+embedding configuration. Query-vector caching lasts only for that instance.
+[Station](../station/README.md) owns atomic snapshot/database publication and
+freshness checks for its local CLI.
 
 See [the component experiment](../../docs/knowledge_embeddings_ablation.md) for
 measured improvements and regressions with and without embeddings.
@@ -71,7 +73,8 @@ dart run okf_profile:okfp validate examples/knowledge
 ```
 
 `okfp --help` currently lists only `validate`; it has no embedding or search
-subcommand. The following developer commands run from this package directory
+subcommand. [Station](../station/README.md) adds top-level `validate`, `index`
+and `search` commands using local embeddings. The following developer commands run from this package directory
 (`packages/knowledge_embeddings`):
 
 ```bash

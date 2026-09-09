@@ -1,5 +1,13 @@
 /// The OKF profile toolchain.
 ///
-/// The validator contract is delivered through the `okfp` executable; the CLI
-/// remains internal so callers do not depend on command orchestration details.
+/// Shared validation results for the `okfp` and Station executables.
 library;
+
+export 'src/profile_finding.dart';
+export 'src/validation.dart'
+    show
+        AutomatedGateState,
+        OkfState,
+        ProfileState,
+        ProfileValidationResult,
+        ProfileValidator;

@@ -103,6 +103,22 @@ class KnowledgeSearchResponse {
 /// writes to the same bundle. Dense scoring is exact after eligibility filtering;
 /// ObjectBox supplies indexed vector reads rather than a post-filtered ANN pool.
 class KnowledgeIndex {
+  /// Opens the snapshot and store from the same completed index generation.
+  ///
+  /// The caller verifies snapshot/configuration identity and owns the store and
+  /// embedder. No synchronization, token fitting or document encoding occurs.
+  /// Semantic search checks that every eligible passage has a compatible vector.
+  factory KnowledgeIndex.openSnapshot({
+    required KnowledgeSnapshot snapshot,
+    required BaseStore store,
+    BaseEmbedder? embedder,
+    bool includeContext = false,
+  }) => KnowledgeIndex(
+    store: store,
+    embedder: embedder,
+    includeContext: includeContext,
+  ).._snapshot = snapshot;
+
   KnowledgeIndex({
     required this.store,
     this.embedder,
@@ -289,7 +305,17 @@ class KnowledgeIndex {
       );
       final lexical = mode == KnowledgeRetrievalMode.dense || eligible.isEmpty
           ? <SearchResult>[]
-          : _lexical!
+          : (_lexical ??= BM25LexicalIndex.fromChunks(
+                  snapshot.chunks.map(
+                    (chunk) => chunk.copyWith(
+                      id: chunk.id,
+                      content: snapshot.textFor(
+                        chunk,
+                        includeContext: includeContext,
+                      ),
+                    ),
+                  ),
+                ))
                 .search(query, limit: snapshot.chunks.length, options: options)
                 .where((hit) => eligible.containsKey(hit.chunk.id))
                 .map(
