@@ -39,10 +39,10 @@ knowledge/
 
 - **Named after what its concepts share** — a capability, a domain, the system, the way the team works. An area name that matches one member concept's title is a signal the name is too narrow: it is named after a part of the set rather than the whole.
 - **Mixed types.** An area holds any types. That is the point of it.
-- **Earned, not predicted.** A genuine shared subject may have an area at any size; a numeric threshold cannot prove the placement. Do not create speculative areas for a taxonomy the current corpus does not demonstrate.
+- **Earned, not predicted.** A genuine shared subject may have an area at any size; a numeric threshold cannot prove the placement. The Profile recommends against speculative areas for a taxonomy the current corpus does not demonstrate.
 - **Indexed.** A nonempty area needs its own `index.md`.
-- **Nestable** under the same rules, but every path segment is identity, so nest only when a subject genuinely subdivides.
-- **File, don't create.** Put a new concept into an existing area or at the root. Creating an area is a deliberate act, recorded in `log.md` — the cost of a wrong area is not a wrong folder, it is a path, and a path is identity.
+- **Nestable** under the same rules. Prefer nesting when a subject genuinely subdivides; every path segment adds identity that external citations may freeze.
+- **Prefer existing placement.** Normally put a new concept into an existing area or the parent directory, unless the current corpus supports a genuine shared subject for a new area. Creating an area is a deliberate act, recorded in `log.md` — the cost of a wrong area is a false claim about the subject of every concept placed there.
 - **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries have path-derived labels and no authored descriptions.
 
 ### Placement

@@ -11,8 +11,10 @@ Set up a repository to carry durable project knowledge as an OKF bundle at
 and points agents at it; all later writes are governed by the
 `author-knowledge-bundle` skill.
 
-This is a prompt-driven skill, not a deterministic script. Explore, present
-what you found, confirm with the user, then write.
+This is a prompt-driven skill. Inspect existing state, prepare the missing
+setup, and apply changes within the user's request. Preserve prior authorization;
+ask only about unresolved choices, conflicting existing instructions, or work
+outside the requested scope.
 
 ## Process
 
@@ -27,21 +29,25 @@ what you found, confirm with the user, then write.
 - `CLAUDE.md` at the repo root — does it exist? Does it import `AGENTS.md`
   (a line containing `@AGENTS.md`)?
 
-### 2. Confirm
+### 2. Prepare the changes
 
 The Concepta OKF Profile fixes the bundle's configuration, so there is nothing
-to ask about its shape. Show the user a draft of:
+to ask about its shape. Prepare only the missing or requested changes:
 
 - The bundle's root files, when they need seeding
 - The `### Knowledge bundle` and `## Documentation` blocks for `AGENTS.md`
 - The `@AGENTS.md` line for `CLAUDE.md`, if it isn't already there
 
-Let them edit before writing.
+If the user requested a proposal or review before writing, present that draft and
+wait. Otherwise complete the authorized setup. Preserve existing bundle content
+and unrelated agent instructions.
 
 ### 3. Seed the bundle
 
-Follow [SEEDING.md](./SEEDING.md) exactly; it owns the root-file contents and
-the conditions they implement.
+When no bundle exists, follow [SEEDING.md](./SEEDING.md) exactly; it owns the
+root-file contents and the conditions they implement. If a bundle already exists,
+skip seeding. Repairing a partial bundle or changing its release is separate work;
+report the gap and use the authoring or migration workflow when authorized.
 
 **Create no directories.** Canonical seeding creates only the bundle root; the
 `author-knowledge-bundle` skill decides later structure from the project's
@@ -70,24 +76,33 @@ Follow the `author-knowledge-bundle` skill before writing anything under
 
 ## Documentation
 
-Durable docs are OKF concepts in `knowledge/` — check `knowledge/index.md`
-first to find the right concept, then open it directly. Execution records are
-not knowledge: anything a tracker owns the state of — an issue, a ticket, a
-pull request, including a spec opened as one — lives in the issue tracker and
-is linked from concepts, never mirrored into the bundle.
-
-"Specification" is a genre, not a location. A specification the project
-maintains as durable knowledge, whose only state is `status`, is a
-`Specification` concept filed with its subject. Every durable specification has
-exactly one lifecycle owner; one artifact never lives in both places (profile
-§5.2, §7.3).
+Durable project documentation lives in `knowledge/`; start at
+`knowledge/index.md`. Execution records stay in the tracker and are linked from
+concepts. Use `author-knowledge-bundle` for classification, placement, and
+authoring rules.
 ```
 
-### 5. Done
+If an existing documentation tree remains, state which home is authoritative for
+which material, as implementation guide §2.2 requires. Do not claim that old
+documents were migrated by seeding a new bundle.
 
-Tell the user the bundle is seeded and where it starts (`knowledge/index.md`,
+### 5. Validate and review
+
+Read [the authoring skill](../author-knowledge-bundle/SKILL.md) and perform its
+release dispatch. Follow its
+[Profile assessment reference](../author-knowledge-bundle/references/profile-assessment.md)
+with **Scope: whole bundle**, including automated validation and the Profile
+Review Report. Repair clear defects in the new seed within the authorized scope.
+For an existing bundle, report unrelated defects without silently broadening setup
+into a migration or whole-bundle repair.
+
+### 6. Report the result
+
+Tell the user what was seeded or preserved and where it starts (`knowledge/index.md`,
 versions in `knowledge/profile.md`), that `author-knowledge-bundle` governs
 every later write, and that the tree grows out of what the project actually
 learns — concepts land at the root first, and subject directories are earned,
-never predicted. For the CI validation gate (`okfp validate knowledge`), point
-at the okf-profile repository's README and implementation guide §2.
+never predicted. Include the assessment result; if a required check is unavailable
+or fails, state what remains before adoption is complete. For the CI validation
+gate (`okfp validate knowledge`), point at the okf-profile repository's README
+and implementation guide §2.
