@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:knowledge_embeddings/okf_knowledge.dart';
+import 'package:station/src/knowledge.dart';
+
 import 'package:okf_profile/okf_profile.dart';
 import 'package:station/src/cli.dart';
 import 'package:test/test.dart';
@@ -8,14 +11,18 @@ void main() {
   late List<String> output;
   late List<String> errors;
   late StationCli cli;
+  late int retrievalOpens;
   setUp(() {
     output = [];
     errors = [];
+    retrievalOpens = 0;
     cli = StationCli(
       out: output.add,
       err: errors.add,
-      knowledge: () =>
-          throw StateError('Validation/help must not open retrieval.'),
+      knowledge: () {
+        retrievalOpens++;
+        throw StateError('Validation/help must not open retrieval.');
+      },
     );
   });
 
@@ -40,6 +47,10 @@ void main() {
     ['search', '.', ''],
     ['search', '.', 'query', '--limit=0'],
     ['search', '.', 'query', '--limit=oops'],
+    ['search', '.', 'query', '--limit=101'],
+    ['search', '.', 'query', '--limit=2.0'],
+    ['search', '.', '  \t'],
+    ['search', '.', '\u0085'],
     ['mcp'],
     ['mcp', '.', 'another-root'],
     ['mcp', '.', '--output=json'],
@@ -47,8 +58,39 @@ void main() {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
       expect(errors, isNotEmpty);
+      expect(retrievalOpens, 0);
     });
   }
+
+  test(
+    'search converts argv and shares defaults and bounds with MCP',
+    () async {
+      final knowledge = _SearchKnowledge();
+      cli = StationCli(
+        out: output.add,
+        err: errors.add,
+        knowledge: () => knowledge,
+      );
+      for (final limit in [null, '1', '100']) {
+        expect(
+          await cli.run([
+            'search',
+            '.',
+            'query',
+            if (limit != null) '--limit=$limit',
+            '--output=json',
+          ]),
+          0,
+        );
+      }
+      expect(knowledge.limits, [5, 1, 100]);
+      expect(errors, isEmpty);
+      expect(
+        output.map(jsonDecode),
+        everyElement({'matches': [], 'context': [], 'notices': []}),
+      );
+    },
+  );
 
   test('validate shares the full existing result and exit code', () async {
     const bundle = '../../examples/knowledge';
@@ -81,4 +123,18 @@ void main() {
     );
     expect(jsonDecode(output.single), expected.toJson());
   });
+}
+
+class _SearchKnowledge extends StationKnowledge {
+  final limits = <int>[];
+
+  @override
+  Future<KnowledgeSearchResponse> search(
+    String bundle,
+    String query, {
+    int limit = 5,
+  }) async {
+    limits.add(limit);
+    return KnowledgeSearchResponse(matches: [], context: [], notices: []);
+  }
 }

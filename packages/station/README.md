@@ -171,3 +171,9 @@ independent model-quality benchmark. Native CI exercises Linux/macOS.
 See [ADR-0010](../../docs/adr/0010-station-cli.md) for the application decision
 and [the retrieval evidence](../../docs/knowledge_embeddings.md) for model and
 ranking limitations. Existing `okfp` installations continue to work.
+
+CLI and MCP search share the ACK query, limit, and default contract. The CLI
+converts integer argument text before validation; MCP accepts JSON integers,
+including integral JSON numbers such as `2.0`. Invalid arguments fail before
+opening retrieval resources. Whitespace-only queries include Unicode NEXT LINE
+(`U+0085`), preserving the CLI rule in MCP as well.

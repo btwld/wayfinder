@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ack/ack.dart';
 import 'package:args/args.dart';
 import 'package:okf_profile/okf_profile.dart';
 
 import 'knowledge.dart';
 import 'mcp_server.dart';
+import 'search_input.dart';
 import 'search_output.dart';
 import 'version.dart';
 
@@ -34,8 +36,7 @@ class StationCli {
       if (name == 'search') {
         command.addOption(
           'limit',
-          defaultsTo: '5',
-          help: 'Maximum context passages (1–100).',
+          help: 'Maximum context passages (1–100; default 5).',
         );
       }
       parser.addCommand(name, command);
@@ -76,7 +77,7 @@ class StationCli {
         return 0;
       }
       if (command.rest.length != (name == 'search' ? 2 : 1) ||
-          command.rest.any((value) => value.trim().isEmpty)) {
+          command.rest.first.trim().isEmpty) {
         throw StationException(
           '$name requires an explicit bundle${name == 'search' ? ' and one quoted query' : ''}.',
         );
@@ -112,16 +113,26 @@ class StationCli {
         }
         return 0;
       }
-      final limit = int.tryParse(command.option('limit')!);
-      if (limit == null || limit < 1 || limit > 100) {
+      final rawLimit = command.option('limit');
+      final limit = rawLimit == null ? null : int.tryParse(rawLimit);
+      if (rawLimit != null && limit == null) {
         throw const StationException(
           '--limit must be an integer from 1 to 100.',
         );
       }
+      final parsed = stationSearchInput.safeParse({
+        'query': command.rest[1],
+        if (rawLimit != null) 'limit': limit,
+      });
+      if (parsed case Fail(:final error)) {
+        final errors = error is SchemaNestedError ? error.errors : [error];
+        throw StationException(errors.map((e) => e.toErrorString()).join('; '));
+      }
+      final input = parsed.getOrThrow()!;
       final result = await _knowledge().search(
         bundle,
-        command.rest[1],
-        limit: limit,
+        input['query']! as String,
+        limit: input['limit']! as int,
       );
       if (json) {
         _json(searchOutput(result));

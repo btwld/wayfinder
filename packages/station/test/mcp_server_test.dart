@@ -84,7 +84,7 @@ void main() {
         expect(schema['additionalProperties'], false);
         expect(schema['required'], ['query']);
         final properties = schema['properties'] as Map;
-        expect(properties['query'], containsPair('pattern', r'\S'));
+        expect(properties['query'], containsPair('pattern', r'[^\s\u0085]'));
         expect(
           properties['limit'],
           allOf(
@@ -162,6 +162,10 @@ void main() {
             const CallToolRequest(name: 'search', arguments: {}),
             const CallToolRequest(name: 'search', arguments: {'query': '  '}),
             const CallToolRequest(name: 'search', arguments: {'query': ''}),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': '\u0085'},
+            ),
             const CallToolRequest(name: 'search', arguments: {'query': null}),
             const CallToolRequest(
               name: 'search',

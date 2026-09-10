@@ -8,6 +8,7 @@ import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf_profile/okf_profile.dart';
 
 import 'knowledge.dart';
+import 'search_input.dart';
 import 'search_output.dart';
 import 'version.dart';
 
@@ -101,15 +102,7 @@ class StationMcpServer {
           'original path/line citations and metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
           'remain eligible; verify the cited text before answering.',
-      input: Ack.object({
-        'query': Ack.string()
-            .minLength(1)
-            .matches(
-              r'\S',
-              message: 'Query must contain non-whitespace characters.',
-            ),
-        'limit': Ack.integer().min(1).max(100).optional().withDefault(5),
-      }),
+      input: stationSearchInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
         final result = await _knowledge.search(
