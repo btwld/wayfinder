@@ -191,6 +191,76 @@ void main() {
       expect(paragraphs.map((chunk) => chunk.lineEnd), [2, 3, 4]);
     });
 
+    test('groups footnote definitions into one apparatus chunk', () {
+      const content =
+          '# Findings\n'
+          '\n'
+          'The renderer places annotations.[^layout]\n'
+          '\n'
+          '[^layout]: Exported annotation layout sample\n'
+          '    captured from the 31 July build\n'
+          '[^budget]: Generation budget measurements\n'
+          '\n'
+          'Proceed with the export.\n';
+
+      final chunks = MarkdownChunker().chunkContent(
+        content,
+        ChunkMetadata(sourcePath: 'feasibility.md', contentType: 'markdown'),
+      );
+
+      expect(chunks.map((chunk) => chunk.type), [
+        'heading',
+        'paragraph',
+        'footnote',
+        'paragraph',
+      ]);
+      final footnote = chunks[2];
+      expect(
+        footnote.content,
+        '[^layout]: Exported annotation layout sample\n'
+        '    captured from the 31 July build\n'
+        '[^budget]: Generation budget measurements',
+      );
+      expect(footnote.lineStart, 5);
+      expect(footnote.lineEnd, 7);
+      expect(chunks.last.content, 'Proceed with the export.');
+      expect(chunks.last.lineStart, 9);
+    });
+
+    test('keeps footnote runs within the configured budget', () {
+      const content =
+          '[^a]: alpha beta\n'
+          '[^b]: gamma delta\n'
+          '[^c]: epsilon zeta';
+
+      final chunker = MarkdownChunker(maxChunkLength: 20);
+      final chunks = chunker.chunkContent(
+        content,
+        ChunkMetadata(sourcePath: 'notes.md', contentType: 'markdown'),
+      );
+
+      expect(chunks.map((chunk) => chunk.type), everyElement('footnote'));
+      expect(chunks, hasLength(3));
+      for (final chunk in chunks) {
+        expect(
+          _nonWhitespaceLength(chunk.content),
+          lessThanOrEqualTo(chunker.maxChunkLength),
+        );
+      }
+    });
+
+    test('treats a fenced footnote definition as code', () {
+      const content = '```markdown\n[^label]: Cited source title\n```';
+
+      final chunks = MarkdownChunker().chunkContent(
+        content,
+        ChunkMetadata(sourcePath: 'example.md', contentType: 'markdown'),
+      );
+
+      expect(chunks.single.type, 'code');
+      expect(chunks.single.content, content);
+    });
+
     test('rejects invalid chunk budgets', () {
       expect(
         () => MarkdownChunker(maxChunkLength: 0),

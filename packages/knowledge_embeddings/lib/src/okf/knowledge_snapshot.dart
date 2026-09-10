@@ -108,13 +108,21 @@ class KnowledgeSnapshot {
         ChunkMetadata(sourcePath: path, contentType: 'markdown'),
       );
       final headings = <({int level, String text})>[];
-      final onlyHeadings = bodyChunks.every((chunk) => chunk.type == 'heading');
+      // Headings and footnote definitions are document apparatus: headings
+      // become context for the passages under them, and OKF resolves per-claim
+      // attribution through `sources` rather than footnote prose (OKF 0.2
+      // §5.1). A body made only of apparatus still has to be searchable.
+      final onlyApparatus = bodyChunks.every(
+        (chunk) => chunk.type == 'heading' || chunk.type == 'footnote',
+      );
       for (final raw in bodyChunks) {
         if (raw.type == 'heading') {
           final level = raw.metadata['headingLevel']! as int;
           headings.removeWhere((heading) => heading.level >= level);
           headings.add((level: level, text: raw.content));
-          if (!onlyHeadings) continue;
+          if (!onlyApparatus) continue;
+        } else if (raw.type == 'footnote' && !onlyApparatus) {
+          continue;
         }
         // Identity uses body-relative ranges so adding frontmatter does not
         // invalidate unchanged body embeddings. Citation ranges remain absolute.

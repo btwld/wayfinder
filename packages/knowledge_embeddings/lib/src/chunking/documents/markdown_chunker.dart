@@ -21,6 +21,8 @@ class MarkdownChunker extends BaseChunker {
   static final _tableDelimiterPattern = RegExp(
     r'^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$',
   );
+  static final _footnoteDefinitionPattern = RegExp(r'^\[\^[^\]]+\]:');
+  static final _indentedContinuationPattern = RegExp(r'^[ \t]');
 
   @override
   String get contentType => 'markdown';
@@ -164,26 +166,39 @@ class MarkdownChunker extends BaseChunker {
         continue;
       }
 
+      // A footnote definition and its indented continuation lines are
+      // reference apparatus rather than prose. Keeping a run of definitions in
+      // one `footnote` chunk stops a single short definition from competing
+      // with body passages, and the type lets callers rank or exclude them.
+      final definesFootnote = _footnoteDefinitionPattern.hasMatch(rawLine);
+      final inFootnote =
+          currentBlock.isNotEmpty && currentBlockType == 'footnote';
+      if (definesFootnote
+          ? !inFootnote
+          : inFootnote && !_indentedContinuationPattern.hasMatch(rawLine)) {
+        flushCurrentBlock(lineEnd: lineNumber - 1);
+      }
+
       if (currentBlock.isNotEmpty &&
-          currentBlockType == 'paragraph' &&
+          currentBlockType != 'code' &&
           !appendFitsNonWhitespaceBudget(
             currentBlock,
             rawLine,
             maxChunkLength,
           )) {
-        flushCurrentBlock(lineEnd: lineNumber - 1, type: 'paragraph');
+        flushCurrentBlock(lineEnd: lineNumber - 1);
       }
 
       if (currentBlock.isEmpty) {
         blockStartLine = lineNumber;
-        currentBlockType = 'paragraph';
+        currentBlockType = definesFootnote ? 'footnote' : 'paragraph';
       }
 
       currentBlock += (currentBlock.isEmpty ? '' : '\n') + rawLine;
 
       if (!fitsNonWhitespaceBudget(currentBlock, maxChunkLength) &&
-          currentBlockType == 'paragraph') {
-        flushCurrentBlock(lineEnd: lineNumber, type: 'paragraph');
+          currentBlockType != 'code') {
+        flushCurrentBlock(lineEnd: lineNumber);
       }
     }
 
