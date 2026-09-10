@@ -46,6 +46,22 @@ class EmbeddingModelSpec {
     }
   }
 
+  /// Everything about this artifact that changes the vectors it produces.
+  ///
+  /// Provenance ([url] and [license]) is deliberately excluded so that moving
+  /// to another mirror of the same verified bytes does not invalidate stored
+  /// vectors. [sha256] already pins the bytes themselves.
+  Map<String, Object> get identityMap => {
+    'id': id,
+    'sha256': sha256,
+    'bytes': bytes,
+    'dimensions': dimensions,
+    'maxTokens': maxTokens,
+    'queryPrefix': queryPrefix,
+  };
+
+  /// Full record for manifests and run provenance, including where the bytes
+  /// came from. Use [identityMap] for anything that keys stored vectors.
   Map<String, Object> toMap() => {
     'id': id,
     'url': url,

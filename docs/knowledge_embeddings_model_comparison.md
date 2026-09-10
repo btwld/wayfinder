@@ -164,8 +164,9 @@ five tokenizer-validation reports. All 140 passage inputs fit each model with
 no truncation. Verified GGUF metadata reports CLS pooling for every artifact.
 
 - [Summary and per-query metrics](../packages/knowledge_embeddings/fixtures/benchmarks/model_comparison_results.json)
-- [Raw reports and cited passages](../packages/knowledge_embeddings/fixtures/benchmarks/model_comparison_raw.jsonl.gz)
 - [Artifact, binary, source and protocol provenance](../packages/knowledge_embeddings/fixtures/benchmarks/model_comparison_provenance.json)
+- Raw reports and cited passages stay out of the repository; the commands under
+  [Reproduce](#reproduce) emit them from the frozen fixture and pinned models.
 
 All 282 embedding package tests pass; Dart analysis reports no issues and the
 changed Dart files pass formatting. No production retrieval behavior, model

@@ -37,7 +37,7 @@ void main() {
   }) => LlamaEmbedder.open(
     modelFile: modelFile,
     model: spec,
-    engine: engine,
+    newEngine: () => engine,
     longInputPolicy: policy,
   );
 
@@ -140,7 +140,7 @@ void main() {
     final truncate = await LlamaEmbedder.open(
       modelFile: modelFile,
       model: spec,
-      engine: _Engine(),
+      newEngine: _Engine.new,
       longInputPolicy: LongInputPolicy.truncate,
     );
     addTearDown(reject.dispose);
@@ -148,7 +148,85 @@ void main() {
     expect(reject.modelName, isNot(truncate.modelName));
     expect(reject.sourceName, 'llamadart');
   });
+
+  test(
+    'keeps one identity across mirrors of the same verified bytes',
+    () async {
+      final mirrored = await LlamaEmbedder.open(
+        modelFile: modelFile,
+        model: EmbeddingModelSpec(
+          id: spec.id,
+          url: 'https://mirror.invalid/copies/model.gguf',
+          sha256: spec.sha256,
+          bytes: spec.bytes,
+          dimensions: spec.dimensions,
+          maxTokens: spec.maxTokens,
+          queryPrefix: spec.queryPrefix,
+          license: 'test (relicensed text)',
+        ),
+        newEngine: _Engine.new,
+      );
+      final prefixed = await LlamaEmbedder.open(
+        modelFile: modelFile,
+        model: EmbeddingModelSpec(
+          id: spec.id,
+          url: spec.url,
+          sha256: spec.sha256,
+          bytes: spec.bytes,
+          dimensions: spec.dimensions,
+          maxTokens: spec.maxTokens,
+          queryPrefix: 'search_query: ',
+          license: spec.license,
+        ),
+        newEngine: _Engine.new,
+      );
+      final embedder = await open();
+      addTearDown(mirrored.dispose);
+      addTearDown(prefixed.dispose);
+      addTearDown(embedder.dispose);
+      expect(mirrored.modelName, embedder.modelName);
+      expect(prefixed.modelName, isNot(embedder.modelName));
+    },
+  );
+
+  test('retries a cold backend start once on a fresh engine', () async {
+    final engines = <_Engine>[];
+    final embedder = await LlamaEmbedder.open(
+      modelFile: modelFile,
+      model: spec,
+      newEngine: () {
+        final next = _Engine()..failStart = engines.isEmpty;
+        engines.add(next);
+        return next;
+      },
+    );
+    addTearDown(embedder.dispose);
+    expect(engines, hasLength(2));
+    expect(engines.first.disposals, 1);
+    expect(await embedder.generateEmbedding('text'), [1.0, 0, 0]);
+  });
+
+  test('fails after the retry when the backend never starts', () async {
+    final engines = <_Engine>[];
+    await expectLater(
+      LlamaEmbedder.open(
+        modelFile: modelFile,
+        model: spec,
+        newEngine: () {
+          final next = _Engine()..failStart = true;
+          engines.add(next);
+          return next;
+        },
+      ),
+      throwsA(isA<LlamaModelException>()),
+    );
+    expect(engines, hasLength(_engineStartAttempts));
+    expect(engines.map((engine) => engine.disposals), everyElement(1));
+  });
 }
+
+/// Matches the bounded retry in `LlamaEmbedder.open`.
+const _engineStartAttempts = 2;
 
 class _Engine extends LlamaEngine {
   _Engine() : super(LlamaBackend());
@@ -158,6 +236,7 @@ class _Engine extends LlamaEngine {
   var loads = 0;
   var disposals = 0;
   var failLoad = false;
+  var failStart = false;
   var wrongBatchCount = false;
   var normalize = false;
   List<double> vector = [1, 0, 0];
@@ -168,6 +247,12 @@ class _Engine extends LlamaEngine {
     ModelParams modelParams = const ModelParams(),
   }) async {
     loads++;
+    if (failStart) {
+      throw LlamaModelException(
+        'Failed to load model from $path',
+        LlamaBackendInitializationException('Timed out after 30000 ms'),
+      );
+    }
     if (failLoad) throw StateError('load failed');
   }
 

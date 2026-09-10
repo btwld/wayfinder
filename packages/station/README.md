@@ -135,8 +135,11 @@ resolve to the same root. Moving a bundle requires indexing its new location.
 
 `STATION_DATA_DIR` overrides the app-data root for isolated runs. It must be
 outside the knowledge bundle. The model is shared by the installation; query
-vectors and history are not written to disk. These derived files include source
-text and metadata and can be rebuilt from the original bundle.
+vectors and history are not written to disk. The saved snapshot holds a complete
+copy of the indexed bundle text with its metadata, so `station index` places that
+knowledge in per-user application data on every machine that runs it. Nothing
+leaves the machine; deleting the index directory removes the copy, and indexing
+rebuilds it from the original bundle.
 
 An OS lock serializes same-bundle commands. Indexing stages a replacement
 database and snapshot, then publishes their completed generation atomically.

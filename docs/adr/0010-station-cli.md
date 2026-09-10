@@ -59,6 +59,11 @@ for two databases. Successful indexing removes inactive owned generations,
 including abandoned work from interrupted processes. Measure large indexes
 before optimizing this initial correctness tradeoff.
 
+Saving original inputs means a complete copy of the bundle text lives in
+per-user application data on every machine that indexes it. That is the cost of
+searching without re-reading and re-fitting sources; it stays on the machine and
+disappears with the index directory.
+
 Locks serialize same-bundle searches as well as indexing. Hash rechecks detect
 observed changes, not every race in an adversarial filesystem. Atomic publication
 protects ordinary process failures; it is not a universal power-loss protocol.

@@ -200,7 +200,9 @@ The [fixture manifest](../packages/knowledge_embeddings/fixtures/embedding_compa
 records hashes and selection. The compact checked-in
 [results](../packages/knowledge_embeddings/fixtures/benchmarks/embedding_comparison_results.json)
 retain per-query metrics, paired wins/losses, and cost distributions. Full cited
-rankings and raw process reports are in the adjacent `embedding_comparison_raw.jsonl.gz` archive. Long performance
+rankings and per-process reports are not checked in: they are several megabytes
+of permanent repository weight that the commands above regenerate from the
+frozen fixture. Long performance
 runs remain manual; normal tests cover the shared tokenizer, passage judgments,
 canonical citations, and the existing retrieval/policy contracts.
 
