@@ -85,6 +85,9 @@ including Q8/Q4 variants. It reuses `embedding_comparison/` unchanged. See the
 `local_metrics_baseline.json` records aggregate and per-group metrics for the
 pinned native model after the storage cleanup. It carries model identity,
 token policy, and candidate settings, without duplicating full ranked outputs.
+Its recorded `modelName` is the identity string in force when the run happened;
+dropping the download URL and license from model identity changed that string,
+so a fresh run reports a different one. The gate compares metric drops only.
 The native CI job compares its live BM25, dense, and hybrid runs against these
 metrics. Model preparation is required for this gate. The regular deterministic
 test suite continues to use the independent BM25 baseline in `corpus/`.

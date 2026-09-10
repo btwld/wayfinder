@@ -203,7 +203,15 @@ void main() {
     addTearDown(embedder.dispose);
     expect(engines, hasLength(2));
     expect(engines.first.disposals, 1);
+    expect(embedder.coldStartRetries, 1);
     expect(await embedder.generateEmbedding('text'), [1.0, 0, 0]);
+  });
+
+  test('reports no retry for a backend that starts immediately', () async {
+    final embedder = await open();
+    addTearDown(embedder.dispose);
+    expect(embedder.coldStartRetries, 0);
+    expect(engine.loads, 1);
   });
 
   test('fails after the retry when the backend never starts', () async {

@@ -696,12 +696,13 @@ Future<IngestionResult> persistAndSearch({
     _writeQueryVectorsJson(corpus.paths.queries, queryVectors);
     if (baseEmbedder is LlamaEmbedder) {
       File(p.join(outputDir.path, 'model.json')).writeAsStringSync(
-        '${const JsonEncoder.withIndent('  ').convert({...baseEmbedder.model.toMap(), 'modelName': baseEmbedder.modelName, 'longInputPolicy': baseEmbedder.longInputPolicy.name, 'truncatedInputs': baseEmbedder.truncatedInputs})}\n',
+        '${const JsonEncoder.withIndent('  ').convert({...baseEmbedder.model.toMap(), 'modelName': baseEmbedder.modelName, 'longInputPolicy': baseEmbedder.longInputPolicy.name, 'truncatedInputs': baseEmbedder.truncatedInputs, 'coldStartRetries': baseEmbedder.coldStartRetries})}\n',
       );
       stdout.writeln(
         '  Local model: ${baseEmbedder.model.id}; '
         'long input: ${baseEmbedder.longInputPolicy.name}; '
-        'truncated inputs: ${baseEmbedder.truncatedInputs}.',
+        'truncated inputs: ${baseEmbedder.truncatedInputs}; '
+        'cold backend start retries: ${baseEmbedder.coldStartRetries}.',
       );
     }
     _writeSearchResultsJson(

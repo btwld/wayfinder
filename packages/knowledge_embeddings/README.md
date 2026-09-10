@@ -214,7 +214,10 @@ It collapses repeated contexts to the first child hit.
   library that is not committed; install it with `melos run objectbox:install`.
   The installer pins native 5.3.2, tested with Dart package 5.0.4, verifies the
   release archive's SHA-256 before extracting it, and writes only to this
-  package's `lib/` directory.
+  package's `lib/` directory. It covers every platform upstream publishes for
+  5.3.2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
+  x64/x86/arm64 - and refuses anything without a pinned hash rather than
+  installing another architecture.
   `test/objectbox_store_test.dart` skips itself when the library is absent.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
@@ -292,7 +295,9 @@ CLI's `--model` can override it. Runtime inference never downloads weights.
 call `dispose()` in a `finally` block. A backend that never reports itself
 started is retried once on a fresh engine, because the first load from a
 freshly installed bundle can exceed the runtime's fixed worker startup timeout
-while the operating system validates the native libraries. Documents use their
+while the operating system validates the native libraries. `coldStartRetries`
+reports whether that happened, and the comparison CLI prints it, so a slow
+first load is visible instead of inferred. Documents use their
 original text; queries receive the model's retrieval prefix. Both produce
 normalized vectors. The cache identity includes the artifact bytes,
 preprocessing contract, and long-input policy, so changed settings cannot
