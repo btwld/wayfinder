@@ -92,6 +92,9 @@ database and snapshot, then publishes their completed generation atomically.
 Failed indexing preserves the previous generation; searches still reject it
 if source files have changed. Successful indexing removes inactive generations.
 Copying the database temporarily requires space for both generations.
+Saved generations are decoded and validated once per operation. Indexing returns
+a typed result internally while preserving the existing JSON output and saved
+index format.
 
 Source-content rechecks detect observed edits; they are not an OS filesystem
 snapshot. The adapter scores eligible vectors exactly, so work increases with

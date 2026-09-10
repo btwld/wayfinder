@@ -8,6 +8,17 @@ import 'package:knowledge_embeddings/knowledge_embeddings.dart';
 import 'package:knowledge_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
 
+import 'index_result.dart';
+
+typedef _SavedIndex = ({
+  String configuration,
+  String model,
+  String source,
+  String inventory,
+  String generation,
+  KnowledgeSnapshot snapshot,
+});
+
 class StationException implements Exception {
   const StationException(this.message);
   final String message;
@@ -189,13 +200,13 @@ class StationKnowledge {
     }
   }
 
-  Future<Map<String, Object?>> index(String bundle) => _withBundle(bundle, (
+  Future<StationIndexResult> index(String bundle) => _withBundle(bundle, (
     root,
     directory,
   ) async {
     final watch = Stopwatch()..start();
     final inventory = await _inventory(root);
-    Map<String, Object?>? previous;
+    _SavedIndex? previous;
     try {
       previous = await _readCurrent(directory);
     } on StationException {
@@ -205,18 +216,12 @@ class StationKnowledge {
     try {
       final space = '${encoder.embedder.modelName}:okf-context-v1';
       final compatible =
-          previous?['configuration'] == _configuration &&
-          previous?['model'] == space &&
-          previous?['source'] == encoder.embedder.sourceName;
+          previous?.configuration == _configuration &&
+          previous?.model == space &&
+          previous?.source == encoder.embedder.sourceName;
       final oldDatabase = previous == null
           ? null
-          : File(
-              p.join(
-                directory.path,
-                previous['generation']! as String,
-                'data.mdb',
-              ),
-            );
+          : File(p.join(directory.path, previous.generation, 'data.mdb'));
       if (oldDatabase != null) {
         final schema = File(
           p.join(oldDatabase.parent.path, 'knowledge_embeddings.schema'),
@@ -227,10 +232,8 @@ class StationKnowledge {
           previous = null;
         }
       }
-      final fitted = compatible && previous?['inventory'] == inventory
-          ? KnowledgeSnapshot.fromMap(
-              Map<String, Object?>.from(previous!['snapshot']! as Map),
-            )
+      final fitted = compatible && previous?.inventory == inventory
+          ? previous!.snapshot
           : await (await KnowledgeSnapshot.load(
               root,
               bundleId: root,
@@ -253,7 +256,7 @@ class StationKnowledge {
       var published = false;
       try {
         if (compatible && previous != null) {
-          final old = p.join(directory.path, previous['generation']! as String);
+          final old = p.join(directory.path, previous.generation);
           // No open store or other Station command can write while the lock is held.
           for (final name in ['data.mdb', 'knowledge_embeddings.schema']) {
             await File(p.join(old, name)).copy(p.join(staged.path, name));
@@ -302,14 +305,14 @@ class StationKnowledge {
             }
           }
         }
-        return {
-          'bundle': root,
-          'index': directory.path,
-          'embeddedChunks': counts.embeddedChunks,
-          'removedChunks': counts.removedChunks,
-          'writtenChunks': counts.writtenChunks,
-          'elapsedMs': watch.elapsedMilliseconds,
-        };
+        return StationIndexResult(
+          bundle: root,
+          index: directory.path,
+          embeddedChunks: counts.embeddedChunks,
+          removedChunks: counts.removedChunks,
+          writtenChunks: counts.writtenChunks,
+          elapsedMs: watch.elapsedMilliseconds,
+        );
       } finally {
         if (!published && await staged.exists()) {
           await staged.delete(recursive: true);
@@ -327,15 +330,13 @@ class StationKnowledge {
   }) => _withBundle(bundle, (root, directory) async {
     final record = await _readCurrent(directory);
     if (record == null ||
-        record['configuration'] != _configuration ||
-        record['inventory'] != await _inventory(root)) {
+        record.configuration != _configuration ||
+        record.inventory != await _inventory(root)) {
       throw const StationException(
         'Index is missing, stale or incompatible. Run station index <bundle>.',
       );
     }
-    final snapshot = KnowledgeSnapshot.fromMap(
-      Map<String, Object?>.from(record['snapshot']! as Map),
-    );
+    final snapshot = record.snapshot;
     if (snapshot.bundleId != root) {
       throw const StationException(
         'Index belongs to another bundle. Run station index <bundle>.',
@@ -343,9 +344,7 @@ class StationKnowledge {
     }
     final encoder = await _openEncoder();
     try {
-      final store = ObjectBoxStore(
-        p.join(directory.path, record['generation']! as String),
-      );
+      final store = ObjectBoxStore(p.join(directory.path, record.generation));
       try {
         final index = KnowledgeIndex.openSnapshot(
           snapshot: snapshot,
@@ -353,8 +352,8 @@ class StationKnowledge {
           embedder: encoder.embedder,
           includeContext: true,
         );
-        if (record['model'] != index.embeddingModelName ||
-            record['source'] != encoder.embedder.sourceName) {
+        if (record.model != index.embeddingModelName ||
+            record.source != encoder.embedder.sourceName) {
           throw const StationException(
             'Embedding configuration changed. Run station index <bundle>.',
           );
@@ -365,7 +364,7 @@ class StationKnowledge {
           limit: limit,
           policy: KnowledgeSearchPolicy(expandRelationships: true),
         );
-        if (record['inventory'] != await _inventory(root)) {
+        if (record.inventory != await _inventory(root)) {
           throw const StationException(
             'Knowledge changed during search. Run station index <bundle>.',
           );
@@ -379,7 +378,7 @@ class StationKnowledge {
     }
   });
 
-  Future<Map<String, Object?>?> _readCurrent(Directory directory) async {
+  Future<_SavedIndex?> _readCurrent(Directory directory) async {
     final pointer = File(p.join(directory.path, 'current'));
     if (!await pointer.exists()) return null;
     try {
@@ -396,10 +395,16 @@ class StationKnowledge {
       for (final key in ['configuration', 'model', 'source', 'inventory']) {
         if (record[key] is! String) throw const FormatException();
       }
-      KnowledgeSnapshot.fromMap(
-        Map<String, Object?>.from(record['snapshot']! as Map),
+      return (
+        configuration: record['configuration']! as String,
+        model: record['model']! as String,
+        source: record['source']! as String,
+        inventory: record['inventory']! as String,
+        generation: generation,
+        snapshot: KnowledgeSnapshot.fromMap(
+          Map<String, Object?>.from(record['snapshot']! as Map),
+        ),
       );
-      return {...record, 'generation': generation};
     } on Object {
       throw const StationException(
         'Saved index is incomplete or incompatible. Run station index <bundle>.',
