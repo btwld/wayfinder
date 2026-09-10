@@ -45,10 +45,12 @@ the invocation approval policy.
 
 ## ACK adapter trial
 
-Station now registers tool arguments through `ack_mcp_dart` from
-[ACK PR #140](https://github.com/conceptadev/ack/pull/140), pinned to
-`1b54b08e522c9dee51cfa55ac69f8448bd2a3b72`. It depends on the published
-`ack ^1.2.0` core; no workspace dependency override is needed.
+Station registers tool arguments through the published `ack_mcp_dart ^1.3.0`,
+which released the work reviewed in
+[ACK PR #140](https://github.com/conceptadev/ack/pull/140). It depends on the
+published `ack ^1.2.0` core; no workspace dependency override is needed. The
+trial ran against the branch commit; nothing here depends on a Git reference
+that could stop being fetchable.
 
 ACK owns schema export and runtime defaults/normalization. The search callback
 receives an integer limit, including when the client sends `2.0`, and no longer
