@@ -1,9 +1,15 @@
 # Concepta OKF
 
-The home of the **Concepta OKF Profile** — a set of conventions for keeping durable project
-knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the code it
-describes — together with the skills, tooling, and examples that put it to work in any
-Concepta repository.
+The home of the **Concepta OKF Profile** — conventions for keeping durable project
+knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
+tooling, and examples that put it to work in Concepta repositories.
+
+The aim is a shared project memory, or **second brain**, that people and agents can
+read, connect, and use. A bundle can live alongside project code or in a dedicated
+knowledge repository. Evidence grounds the knowledge; reusable guidance helps turn
+it into work and artifacts. Capture pipelines, artifact templates, and export
+automation are workflows to develop around that memory; this repository currently
+ships authoring skills and validation, not those production workflows.
 
 The profile is a *profile*, not a format. It defines no file type, no frontmatter field, and
 no metadata semantics of its own; every mechanism it uses is defined by OKF and used with its
@@ -37,6 +43,10 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`packages/station/`](packages/station/) | Local CLI for validation, persistent embedding indexes and semantic search |
 | [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
+| [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
+| [`tool/`](tool/) | CI and release tooling |
+| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, and maintenance reviews |
+| [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
 and publication status are declared at the top, never in the filename. During a
@@ -71,11 +81,14 @@ In the repository you want to adopt the profile, run:
 /adopt-knowledge-bundle
 ```
 
-It is prompt-driven, not a script: it explores what the repository already has, shows you what
-it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` —
+It is prompt-driven: it explores what the repository already has and applies the
+requested setup, asking when an unresolved choice or conflict needs your input.
+It preserves existing bundles and seeds a new bundle's root files under `knowledge/` —
 the four the profile requires, plus `actors.md` because the seed templates use actor
 metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
-Issue-tracker and triage-label setup are out of its scope.
+It then runs automated validation and Profile Review, reporting any unavailable
+check before claiming completion. Issue-tracker and triage-label setup are out of
+its scope.
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory
 names a *subject*, and generic setup has no corpus from which to judge one (profile
@@ -191,12 +204,32 @@ Two normative documents, and the difference is *what conforms to each*:
 Both carry RFC 2119 force; neither is the soft one. The test for a new rule: does it describe
 the bundle, or someone acting on the bundle?
 
+## Contributor checks
+
+From the repository root, the core checks used by [CI](.github/workflows/ci.yml) are:
+
+```bash
+dart pub get
+dart format --output=none --set-exit-if-changed packages/okf_profile/bin packages/okf_profile/lib packages/okf_profile/test
+dart analyze --fatal-infos
+(cd packages/okf_profile && dart test)
+dart run okf_profile:okfp validate examples/knowledge
+```
+
+For skill or documentation changes, also check local links and compare changed
+rule wording with its authoritative source. Release-tool changes additionally
+use the checks under `tool/release/` in CI. Example-gate success covers automated
+checks only; contextual Profile Review remains separate.
+
 ## Still owed
 
 - **The index generator** (guide §3). The profile defines deterministic semantic
   membership, grouping, ordering, labels, links, and descriptions. Until a
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
+
+See the [maintenance review](docs/maintenance-review.md) for the existing issues,
+installation work in progress, and the remaining second-brain workflow questions.
 
 ## Dart workspace development
 

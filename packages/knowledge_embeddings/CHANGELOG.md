@@ -2,6 +2,16 @@
 
 ## 0.1.0
 
+- Verifies the pinned ObjectBox release archive by SHA-256 before any of its
+  bytes reach the package, replacing the upstream download script.
+- Keys stored vectors on the model's bytes and preprocessing contract only, so
+  another mirror of the same verified artifact reuses them.
+- Retries a cold native backend start once, because the first load from a
+  freshly installed bundle can exceed the runtime's worker startup timeout.
+- Chunks Markdown footnote definitions as `footnote` apparatus and keeps them
+  out of OKF passages, where attribution resolves through `sources`.
+- Regenerates raw per-process benchmark reports instead of checking in
+  multi-megabyte archives; summaries and provenance stay in `fixtures/`.
 - Records the accepted local model/defaults and measured improvement priorities
   in ADR-0009, with available CLI commands and their current scope.
 - Adds repeatable Arctic XS/S and BGE-small model comparisons, with pinned Q8/Q4

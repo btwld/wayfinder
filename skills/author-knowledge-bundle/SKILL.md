@@ -9,12 +9,24 @@ The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle fo
 
 ## Release dispatch
 
-Before applying any rule in this skill, read the first fenced `yaml` block in
-`knowledge/profile.md`. This skill implements only `concepta_profile: "2026.1"`
-with `okf_version: "0.2"`. If the declaration differs, do not write, reassess,
-or silently migrate the bundle under 2026.1. Report the declared release as
-unsupported by this skill and ask for the matching historical skill or an
-explicit whole-bundle migration. Generic OKF reading remains available.
+Before applying Profile rules, read the first fenced `yaml` block in the body of
+`knowledge/profile.md`. Dispatch on `concepta_profile`: this skill implements
+only `"2026.1"`, which binds to OKF `"0.2"`.
+
+- A supported Profile selector with a wrong `okf_version` or disagreement with
+  the root index is a **binding defect**, not an unsupported release. Report the
+  automated diagnostics and repair only what the available evidence and requested
+  scope justify; do not infer a different intended release.
+- An absent or unreadable selector prevents dispatch. Report the declaration
+  problem rather than guessing a release.
+- An unsupported selector prevents authoring and contextual Profile Review under
+  these rules. Report which release is unsupported; a matching skill or an explicit
+  migration is needed for that work. Do not silently apply 2026.1.
+
+Read-only automated validation remains available in all three cases: its independent
+OKF result and release diagnostics are useful even when contextual review cannot
+proceed. Do not suppress those results or confuse unsupported capability with
+nonconformance. Generic OKF reading remains available.
 The declaration is only a release selector: never turn `profile.md` into a
 standalone definition, extension registry, second schema, or OKF override.
 
@@ -46,8 +58,8 @@ Every write follows this sequence, and is complete only when all of it exists:
 4. Automated validation, when `okfp validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
 5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
 
-Do not stop after step 1: a concept file without its indexes, log entry, and
-review is an incomplete write, not a smaller one.
+Complete the affected indexes, any required lifecycle log entry, and review
+before finishing. Formatting-only changes do not need a log entry.
 
 ## Beyond this profile
 

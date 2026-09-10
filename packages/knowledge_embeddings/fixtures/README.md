@@ -5,8 +5,9 @@
 100 synthetic concepts and 160 questions, split by topic before retrieval.
 The four-arm benchmark compares keyword matching, BM25 with no model, local
 dense, and hybrid. A known strict-support annotation limitation is documented
-in the fixture README. Results, executable/source provenance, and compressed
-raw process reports live in `benchmarks/embedding_comparison_*`.
+in the fixture README. Results and executable/source provenance live in
+`benchmarks/embedding_comparison_*`. Per-process raw reports are regenerated
+from the benchmark commands rather than checked in.
 See [measured costs and quality](../../../docs/knowledge_embeddings_comparison.md).
 
 ## okf_retrieval/

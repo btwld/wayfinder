@@ -20,34 +20,46 @@ class LlamaEmbedder extends BaseEmbedder {
 
   /// Loads and verifies a model before returning an embedder ready for inference.
   ///
-  /// An injected [engine] transfers ownership to this method, including cleanup
-  /// when verification or loading fails. It must not already have a model loaded.
+  /// Every engine built here is owned by this method, including cleanup when
+  /// verification or loading fails. [newEngine] replaces the default engine
+  /// construction and must return an engine with no model loaded.
+  ///
+  /// A backend that never reports itself started is retried once on a fresh
+  /// engine. The runtime's worker startup timeout is fixed, and the first load
+  /// from a freshly installed bundle pays a one-time operating-system
+  /// validation of the native libraries that can exceed it. A runtime that is
+  /// genuinely unavailable still fails, one retry later.
   static Future<LlamaEmbedder> open({
     File? modelFile,
     EmbeddingModelSpec model = localEmbeddingModel,
     LongInputPolicy longInputPolicy = LongInputPolicy.reject,
-    LlamaEngine? engine,
+    LlamaEngine Function()? newEngine,
   }) async {
-    final runtime = engine ?? LlamaEngine(LlamaBackend());
-    try {
-      final file = modelFile ?? defaultEmbeddingModelFile();
-      await model.verify(file);
-      await runtime.loadModel(
-        file.absolute.path,
-        modelParams: ModelParams(
-          contextSize: model.maxTokens,
-          batchSize: model.maxTokens,
-          microBatchSize: model.maxTokens,
-          preferredBackend: GpuBackend.cpu,
-          gpuLayers: 0,
-          numberOfThreads: 4,
-          numberOfThreadsBatch: 4,
-        ),
-      );
-      return LlamaEmbedder._(runtime, model, longInputPolicy);
-    } catch (_) {
-      await runtime.dispose();
-      rethrow;
+    final buildEngine = newEngine ?? () => LlamaEngine(LlamaBackend());
+    final file = modelFile ?? defaultEmbeddingModelFile();
+    for (var attempt = 1; ; attempt++) {
+      final runtime = buildEngine();
+      try {
+        await model.verify(file);
+        await runtime.loadModel(
+          file.absolute.path,
+          modelParams: ModelParams(
+            contextSize: model.maxTokens,
+            batchSize: model.maxTokens,
+            microBatchSize: model.maxTokens,
+            preferredBackend: GpuBackend.cpu,
+            gpuLayers: 0,
+            numberOfThreads: 4,
+            numberOfThreadsBatch: 4,
+          ),
+        );
+        return LlamaEmbedder._(runtime, model, longInputPolicy);
+      } catch (error) {
+        await runtime.dispose();
+        if (attempt >= _engineStartAttempts || !_isBackendStartFailure(error)) {
+          rethrow;
+        }
+      }
     }
   }
 
@@ -167,9 +179,18 @@ class LlamaEmbedder extends BaseEmbedder {
   }
 }
 
+/// One extra attempt absorbs a cold backend start without hiding a broken one.
+const _engineStartAttempts = 2;
+
+/// Whether loading failed because the native worker never finished starting.
+bool _isBackendStartFailure(Object error) =>
+    error is LlamaBackendInitializationException ||
+    (error is LlamaException &&
+        error.details is LlamaBackendInitializationException);
+
 String _modelIdentity(EmbeddingModelSpec model, LongInputPolicy policy) {
   final configuration = jsonEncode({
-    'model': model.toMap(),
+    'model': model.identityMap,
     'preprocessing': 'retrieval-v1',
     'longInput': policy.name,
   });

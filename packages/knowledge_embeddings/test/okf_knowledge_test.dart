@@ -43,6 +43,32 @@ void main() {
     },
   );
 
+  test('footnote definitions are attribution, not retrievable passages', () {
+    final parsed = snapshot({
+      'guide.md': concept(
+        '# Findings\n\nAnnotations can be placed.[^layout]\n\n'
+        '[^layout]: Exported annotation layout sample',
+        fields:
+            'title: PDF export\nsources:\n  - id: layout\n'
+            '    resource: /references/annotation-layout.json\n'
+            '    title: Exported annotation layout sample\n',
+      ),
+      'apparatus.md': concept('[^only]: Sole cited source'),
+    });
+    expect(
+      parsed.chunks
+          .where((chunk) => chunk.sourcePath == 'guide.md')
+          .map((chunk) => chunk.content),
+      ['Annotations can be placed.[^layout]'],
+    );
+    // A body that is only apparatus still has to be searchable.
+    final apparatus = parsed.chunks.singleWhere(
+      (chunk) => chunk.sourcePath == 'apparatus.md',
+    );
+    expect(apparatus.type, 'footnote');
+    expect(apparatus.content, '[^only]: Sole cited source');
+  });
+
   test(
     'loads literal percent filenames without URI-decoding the filesystem path',
     () async {

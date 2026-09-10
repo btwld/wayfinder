@@ -21,12 +21,20 @@ signature, code block, or table may exceed the configured budget. Dart uses
 the analyzer AST. TypeScript uses a structural scanner rather than a complete
 TypeScript/TSX parser, so unfamiliar syntax can fall back to a file chunk.
 
+Markdown emits `heading`, `paragraph`, `code`, `table`, and `footnote` chunks. A
+run of footnote definitions and their indented continuations becomes one
+`footnote` chunk: it is reference apparatus, and a one-line definition otherwise
+competes with body passages. Filter it with `SearchOptions.chunkTypes`.
+
 ## Search an OKF bundle
 
 Import `package:knowledge_embeddings/okf_knowledge.dart` for the separate
 `KnowledgeSnapshot`, `KnowledgeIndex`, and `KnowledgeSearchPolicy` adapter.
 It uses upstream OKF metadata and links, preserves source citation lines, and
-atomically synchronizes changed/deleted concepts. Metadata-only changes reuse
+atomically synchronizes changed/deleted concepts. Footnote definitions are not
+retrievable passages there: OKF resolves per-claim attribution through `sources`
+(OKF 0.2 §5.1). A concept whose body is only headings and footnotes keeps them,
+so nothing becomes unsearchable. Metadata-only changes reuse
 vectors when they do not change embedding inputs; contextual titles/headings
 are embedding inputs. A stable caller-supplied bundle ID isolates ownership in a shared store.
 
@@ -278,10 +286,15 @@ then the development `models/` directory; `KNOWLEDGE_EMBEDDING_MODEL` or the
 CLI's `--model` can override it. Runtime inference never downloads weights.
 
 `LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
-call `dispose()` in a `finally` block. Documents use their original text;
-queries receive the model's retrieval prefix. Both produce normalized vectors.
-The cache identity includes the artifact, preprocessing contract, and long-input
-policy, so changed settings cannot silently reuse incompatible vectors.
+call `dispose()` in a `finally` block. A backend that never reports itself
+started is retried once on a fresh engine, because the first load from a
+freshly installed bundle can exceed the runtime's fixed worker startup timeout
+while the operating system validates the native libraries. Documents use their
+original text; queries receive the model's retrieval prefix. Both produce
+normalized vectors. The cache identity includes the artifact bytes,
+preprocessing contract, and long-input policy, so changed settings cannot
+silently reuse incompatible vectors. Download URL and license are provenance,
+not identity: another mirror of the same verified bytes reuses stored vectors.
 
 The tokenizer allows **512 tokens including special tokens and the query
 prefix**. Chunk character budgets do not guarantee that limit. The default
