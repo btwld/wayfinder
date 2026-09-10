@@ -59,6 +59,13 @@ Future<void> okfpDeployPub() async {
       'packages/okf_profile',
       'publish',
       '--force',
+      // The `verify` job already ran `dart pub publish --dry-run` at this
+      // commit without a credential. Resolving again here would authenticate
+      // the public version-listing and advisory reads, which pub.dev answers
+      // with HTTP 403: https://github.com/dart-lang/pub-dev/issues/9576.
+      // pub.dev still validates the archive server-side on upload. Drop this
+      // once that issue is fixed.
+      '--skip-validation',
     ],
   );
 }
