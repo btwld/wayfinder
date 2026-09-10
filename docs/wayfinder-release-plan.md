@@ -111,3 +111,24 @@ require access until visibility or public distribution is resolved.
 
 See [Dart publication documentation](https://dart.dev/tools/pub/publishing) and
 [pub.dev naming policy](https://pub.dev/policy#name-squatting).
+
+## Initial release result
+
+The initial release completed on 2026-09-10:
+
+- `wayfinder 0.0.1-dev.0` is published under `concepta.dev`.
+- `knowledge_embeddings 0.0.1-dev.0` bootstrapped the package; `0.0.1-dev.1`
+  completed the library documentation rename and was published through GitHub
+  OIDC in [run 34541277082](https://github.com/conceptadev/wayfinder/actions/runs/34541277082).
+- `okf_profile 0.2.1-dev.0` supplies the public validator API under the existing
+  `concepta.dev` publisher; stable `0.2.0` remains available.
+- Wayfinder and knowledge_embeddings trust the renamed repository and their
+  package-specific tag patterns. No long-lived publishing secret was added.
+- A fresh isolated pub cache installed `wayfinder 0.0.1-dev.0` from hosted
+  dependencies, reported the correct version, validated the example bundle,
+  and completed MCP initialization with the `wayfinder` server identity.
+
+The source changes are on `chore/station-publication` for integration after the
+existing implementation stack. The branch name is retained; product names do not
+require rewriting branch history. The repository remains private, and the
+no-Dart installer/distribution work remains tracked in #53 / PR #54.
