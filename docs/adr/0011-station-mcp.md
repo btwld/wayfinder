@@ -1,25 +1,28 @@
-# ADR-0011: Serve Station tools over local MCP stdio
+# ADR-0011: Serve Wayfinder tools over local MCP stdio
+
+Naming update (2026-09-10): Wayfinder was developed as the Station prototype.
+The ADR number and filename remain stable; current commands use Wayfinder.
 
 Status: Accepted
 
 ## Context
 
-Station already owns profile validation and persistent local embedding search.
+Wayfinder already owns profile validation and persistent local embedding search.
 Agents need those same operations without shell parsing or separate retrieval
 implementations. Upstream `okf mcp` provides format-level concept reads, graph
 queries and writes; its validation checks OKF, and its concept listing is not
-Station's semantic search. The two servers have different responsibilities.
+Wayfinder's semantic search. The two servers have different responsibilities.
 
 ## Decision
 
-Add `station mcp <bundle>` to the existing binary, with one canonical bundle
+Add `wayfinder mcp <bundle>` to the existing binary, with one canonical bundle
 selected at startup. Expose `validate`, `index` and `search` using the existing
-Station services. MCP arguments cannot select another bundle or a retrieval mode.
+Wayfinder services. MCP arguments cannot select another bundle or a retrieval mode.
 This changes no OKF meaning, profile rule, or profile release.
 
 Use `mcp_dart: ^2.4.2` directly. At the review date, 2026-09-09, this is the
 latest stable SDK and is already resolved transitively through `okf 0.3.0`.
-The SDK retains Dart 3.4 compatibility, so Station's Dart 3.10.7 minimum need
+The SDK retains Dart 3.4 compatibility, so Wayfinder's Dart 3.10.7 minimum need
 not change. Version 2.4.2 bounds incoming stdio frames at 10 MiB by default;
 retain that limit. The SDK's default protocol profile supports current
 discovery and older initialization. Test both with its client.
@@ -45,7 +48,7 @@ the invocation approval policy.
 
 ## ACK adapter trial
 
-Station registers tool arguments through the published `ack_mcp_dart ^1.3.0`,
+Wayfinder registers tool arguments through the published `ack_mcp_dart ^1.3.0`,
 which released the work reviewed in
 [ACK PR #140](https://github.com/conceptadev/ack/pull/140). It depends on the
 published `ack ^1.2.0` core; no workspace dependency override is needed. The
@@ -97,4 +100,4 @@ that every stdout line is JSON-RPC. CI runs this check on Linux and macOS.
 - [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 - [MCP tools and result conventions](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
 - [Upstream OKF MCP](https://github.com/conceptadev/okf#model-context-protocol)
-- [Station CLI decision](0010-station-cli.md)
+- [Wayfinder CLI decision](0010-station-cli.md)

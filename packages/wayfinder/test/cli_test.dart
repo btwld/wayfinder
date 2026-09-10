@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:knowledge_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder/src/knowledge.dart';
 
 import 'package:okf_profile/okf_profile.dart';

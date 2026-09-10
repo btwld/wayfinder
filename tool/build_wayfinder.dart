@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-import '../packages/knowledge_embeddings/tool/src/model_preparation.dart';
+import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
+import '../packages/wayfinder_embeddings/tool/src/objectbox_assets.dart';
 
 /// Builds Wayfinder from the workspace root with verified model/native assets.
 Future<void> main(List<String> arguments) async {
@@ -20,18 +21,8 @@ Future<void> main(List<String> arguments) async {
         'Output must be a subdirectory of the workspace build/ directory.',
       );
     }
-    final package = p.join(workspace, 'packages', 'knowledge_embeddings');
-    final libraryName = Platform.isWindows
-        ? 'objectbox.dll'
-        : Platform.isMacOS
-        ? 'libobjectbox.dylib'
-        : 'libobjectbox.so';
-    final library = File(p.join(package, 'lib', libraryName));
-    if (!await library.exists()) {
-      throw const FileSystemException(
-        'Run melos run objectbox:install before building Wayfinder.',
-      );
-    }
+    final package = p.join(workspace, 'packages', 'wayfinder_embeddings');
+    await verifiedObjectBoxLibrary(Directory(package));
     final model = await prepareEmbeddingModel(
       output: Directory(p.join(package, 'models')),
       offline: options.flag('offline'),
@@ -58,9 +49,7 @@ Future<void> main(List<String> arguments) async {
     ).listSync().whereType<File>()) {
       await file.copy(p.join(models.path, p.basename(file.path)));
     }
-    await library.copy(
-      p.join(bundle, Platform.isWindows ? 'bin' : 'lib', libraryName),
-    );
+    await stageObjectBoxAssets(Directory(package), Directory(bundle));
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
     stderr.writeln('Wayfinder build failed: $error');

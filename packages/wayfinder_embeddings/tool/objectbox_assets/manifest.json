@@ -1,0 +1,53 @@
+{
+  "version": "5.3.2",
+  "artifacts": {
+    "macos-universal": {
+      "archiveSha256": "680c598573ede04b9762565d48d4e161ad286f786f159abb8da89353bfa1d0bc",
+      "library": "libobjectbox.dylib",
+      "librarySha256": "1af2e266e523dbcc33b3682eebf297f2f4f23ade6ab706dab794f7a6f8108751",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-macos-universal.zip"
+    },
+    "linux-x64": {
+      "archiveSha256": "6dbb5450c36dd11ee9074f16ecc61e79b45ff43c2082934601f3166b39c8a613",
+      "library": "libobjectbox.so",
+      "librarySha256": "f713cacebf86b68cb402d3940dd7e8861a6eb7699dddb66e24526ffcccae738b",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-linux-x64.tar.gz"
+    },
+    "linux-aarch64": {
+      "archiveSha256": "bdfbfbf4971057e11018ca6645697d8a40ebc7df56ccde63397cbb0e0609c0e8",
+      "library": "libobjectbox.so",
+      "librarySha256": "5e135e718d2c2906b02fb8448e0f2fcdaf0fa502dbd14c130a589aa56e30238f",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-linux-aarch64.tar.gz"
+    },
+    "linux-armv7hf": {
+      "archiveSha256": "9e7e4ed9df601cad54950a829f57dd77f297dffb0d0e3b9758bbe2fb01fd0064",
+      "library": "libobjectbox.so",
+      "librarySha256": "5fa51b1ddb6165f0033f9733eb9efdfade761dafd19707a8f0359997a82da6b5",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-linux-armv7hf.tar.gz"
+    },
+    "linux-armv6hf": {
+      "archiveSha256": "b641a2b36094b442a58ada5e9cbe100568ec4108e484c30a0bce87347aec679c",
+      "library": "libobjectbox.so",
+      "librarySha256": "c1ec60020b44143e6edb9464008c096f99bf893a05fa002199d50f927d768bc0",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-linux-armv6hf.tar.gz"
+    },
+    "windows-x64": {
+      "archiveSha256": "57d7db013bbb46efe415307c9f3baf7564bdc40818ee1f1c42046f4241403d63",
+      "library": "objectbox.dll",
+      "librarySha256": "614d00e1f6c7b23d676e784c39b67f56ed6a7889d172e7080ac52122d4695c6e",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-windows-x64.zip"
+    },
+    "windows-x86": {
+      "archiveSha256": "1e64c03f4ce7a616b426874444cf3fa61853d919e64517b845bb8117f1b6382b",
+      "library": "objectbox.dll",
+      "librarySha256": "f111a4cbd14995ed5cbe894463f161be87533c2aecfd61901561c9123b1edb64",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-windows-x86.zip"
+    },
+    "windows-arm64": {
+      "archiveSha256": "e32ea12aebd76f00bcf9def941a3c73b24d2cc2dcd0e79a033b49522a2b2c0fd",
+      "library": "objectbox.dll",
+      "librarySha256": "9c8583c4015ab9e4ce2ed3d2d581811fa059e03bb528cb8c8387adcdfda8d8a5",
+      "url": "https://github.com/objectbox/objectbox-c/releases/download/v5.3.2/objectbox-windows-arm64.zip"
+    }
+  }
+}

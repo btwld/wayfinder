@@ -47,9 +47,9 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | --- | --- |
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
-| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
+| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `wayfinder` plugin |
 | [`packages/wayfinder/`](packages/wayfinder/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
-| [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
+| [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
 | [`tool/`](tool/) | CI and release tooling |
@@ -70,10 +70,20 @@ not belong in an identity — without silently replacing an identified release.
 
 The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
 
+First [install Wayfinder](packages/wayfinder/README.md#dart-installation). Run
+Claude Code from the consuming project with a `knowledge/` bundle, or set
+`WAYFINDER_KNOWLEDGE_DIR` to its explicit path before launching Claude Code.
+The plugin registers Wayfinder's local MCP server; search and indexing require
+the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
+binary outside `PATH`.
+
 ```
 /plugin marketplace add conceptadev/wayfinder
-/plugin install concepta-knowledge@wayfinder
+/plugin install wayfinder@wayfinder
 ```
+
+When upgrading, uninstall `concepta-knowledge@wayfinder` before installing
+`wayfinder@wayfinder` so skills and MCP servers are registered once.
 
 Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
 all three as a unit, since they reference each other by sibling path. Symlinking is the
@@ -249,18 +259,18 @@ Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test all workspace
 packages. The published `okf_profile` package retains its Dart 3.6 minimum.
 
-`knowledge_embeddings` moved here from Orbit with its tests, fixtures, and BSD
-license preserved in the package directory. See its [README](packages/knowledge_embeddings/README.md)
-and the [retrieval documentation guide](docs/knowledge_embeddings.md) for the
+`wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
+license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)
+and the [retrieval documentation guide](docs/wayfinder_embeddings.md) for the
 implementation, evaluation runbook and recorded decisions. Its optional native
 backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
 files with `melos build` only when entity schemas change.
 
-For native semantic retrieval, `melos run embeddings:prepare` stages the pinned
-25.28 MB model. `melos run embeddings:build` creates a
+For native semantic retrieval, `melos run wayfinder_embeddings:prepare` stages the pinned
+25.28 MB model. `melos run wayfinder_embeddings:build` creates a
 CLI bundle containing the model and native libraries. See the
-[local search implementation and measurements](docs/knowledge_embeddings_local_search.md).
+[local search implementation and measurements](docs/wayfinder_embeddings_local_search.md).
 The accepted model choice and next retrieval experiments are recorded in
 [ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `okfp` currently provides
 bundle validation; search examples and evaluation commands live in the
-[embedding package](packages/knowledge_embeddings/README.md#command-line-entry-points).
+[embedding package](packages/wayfinder_embeddings/README.md#command-line-entry-points).

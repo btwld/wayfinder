@@ -4,8 +4,8 @@ import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
-import 'package:knowledge_embeddings/knowledge_embeddings.dart';
-import 'package:knowledge_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
 
 import 'index_result.dart';
@@ -101,9 +101,10 @@ class WayfinderKnowledge {
     try {
       var model = defaultEmbeddingModelFile();
       if (!model.existsSync() &&
+          !Platform.environment.containsKey('WAYFINDER_EMBEDDING_MODEL') &&
           !Platform.environment.containsKey('KNOWLEDGE_EMBEDDING_MODEL')) {
         final package = await Isolate.resolvePackageUri(
-          Uri.parse('package:knowledge_embeddings/knowledge_embeddings.dart'),
+          Uri.parse('package:wayfinder_embeddings/wayfinder_embeddings.dart'),
         );
         if (package != null) {
           model = File.fromUri(package.resolve('../models/embedding.gguf'));
@@ -118,7 +119,7 @@ class WayfinderKnowledge {
     } on FileSystemException {
       throw const WayfinderException(
         'The local embedding model is missing or unreadable. Reinstall the complete '
-        'Wayfinder bundle; for source development run melos run embeddings:prepare.',
+        'Wayfinder bundle; for source development run melos run wayfinder_embeddings:prepare.',
       );
     } on FormatException {
       throw const WayfinderException(
@@ -131,22 +132,41 @@ class WayfinderKnowledge {
     String bundle,
     Future<T> Function(String root, Directory directory) action,
   ) async {
-    if (!Platform.isWindows) {
-      final name = Platform.isMacOS ? 'libobjectbox.dylib' : 'libobjectbox.so';
+    {
+      final name = Platform.isWindows
+          ? 'objectbox.dll'
+          : Platform.isMacOS
+          ? 'libobjectbox.dylib'
+          : 'libobjectbox.so';
       var library = File(
         p.join(
           File(Platform.resolvedExecutable).parent.parent.path,
-          'lib',
+          Platform.isWindows ? 'bin' : 'lib',
           name,
         ),
       );
       if (!library.existsSync()) {
         final package = await Isolate.resolvePackageUri(
-          Uri.parse('package:knowledge_embeddings/knowledge_embeddings.dart'),
+          Uri.parse('package:wayfinder_embeddings/wayfinder_embeddings.dart'),
         );
         if (package != null) library = File.fromUri(package.resolve(name));
       }
-      if (library.existsSync()) DynamicLibrary.open(library.absolute.path);
+      if (!library.existsSync()) {
+        throw const WayfinderException(
+          'The ObjectBox native library is missing. Reinstall the complete '
+          'Wayfinder bundle; for source development run melos run objectbox:install.',
+        );
+      }
+      try {
+        // Load the selected asset before ObjectBox's fallback discovery, which
+        // can print diagnostics to stdout and corrupt an MCP transport.
+        DynamicLibrary.open(library.absolute.path);
+      } on ArgumentError {
+        throw const WayfinderException(
+          'The ObjectBox native library cannot load on this platform. '
+          'Reinstall the matching Wayfinder bundle.',
+        );
+      }
     }
     final root = await Directory(bundle).resolveSymbolicLinks();
     if (!await Directory(root).exists()) {
@@ -227,12 +247,8 @@ class WayfinderKnowledge {
           ? null
           : File(p.join(directory.path, previous.generation, 'data.mdb'));
       if (oldDatabase != null) {
-        final schema = File(
-          p.join(oldDatabase.parent.path, 'knowledge_embeddings.schema'),
-        );
         if (!await oldDatabase.exists() ||
-            !await schema.exists() ||
-            await schema.readAsString() != '384-v1\n') {
+            !ObjectBoxStore.hasSupportedSchema(oldDatabase.parent.path)) {
           previous = null;
         }
       }
@@ -262,8 +278,14 @@ class WayfinderKnowledge {
         if (compatible && previous != null) {
           final old = p.join(directory.path, previous.generation);
           // No open store or other Wayfinder command can write while the lock is held.
-          for (final name in ['data.mdb', 'knowledge_embeddings.schema']) {
-            await File(p.join(old, name)).copy(p.join(staged.path, name));
+          await File(
+            p.join(old, 'data.mdb'),
+          ).copy(p.join(staged.path, 'data.mdb'));
+          for (final name in ObjectBoxStore.schemaMarkerNames) {
+            final marker = File(p.join(old, name));
+            if (await marker.exists()) {
+              await marker.copy(p.join(staged.path, name));
+            }
           }
         }
         final store = ObjectBoxStore(staged.path);

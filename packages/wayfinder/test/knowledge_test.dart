@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:knowledge_embeddings/knowledge_embeddings.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/src/knowledge.dart';
 import 'package:test/test.dart';
 
 void main() {
   final library = File(
-    '../knowledge_embeddings/lib/${Platform.isMacOS
+    '../wayfinder_embeddings/lib/${Platform.isMacOS
         ? 'libobjectbox.dylib'
         : Platform.isWindows
         ? 'objectbox.dll'

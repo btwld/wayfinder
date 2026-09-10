@@ -17,7 +17,7 @@ codes. Automated success keeps judgment rules UNASSESSED.
 Requires Dart 3.10.7 or later. Install the development release:
 
 ```bash
-dart pub global activate wayfinder 0.0.1-dev.0
+dart pub global activate wayfinder 0.0.1-dev.1
 wayfinder validate ./knowledge
 ```
 
@@ -34,7 +34,7 @@ From the workspace root:
 ```bash
 dart pub get
 dart run melos run objectbox:install
-dart run melos run embeddings:prepare
+dart run melos run wayfinder_embeddings:prepare
 dart run wayfinder:wayfinder validate examples/knowledge
 dart run wayfinder:wayfinder index examples/knowledge
 dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
@@ -68,7 +68,7 @@ snapshot and vectors, but still opens the model and stages a database copy.
 
 Native first-use initialization remains variable. Reusing document vectors
 does not remove model startup or the first query's inference cost. The
-[initial runtime report](../../docs/knowledge_embeddings_local_search.md#model-latency-and-memory)
+[initial runtime report](../../docs/wayfinder_embeddings_local_search.md#model-latency-and-memory)
 records the observed first-use delays and faster subsequent launches.
 
 After editing knowledge files, run `wayfinder index` again. Search detects an
@@ -184,7 +184,7 @@ The checked-in fixture is generic; it is not a conformant profile template or
 independent model-quality benchmark. Native CI exercises Linux/macOS.
 
 See [ADR-0010](../../docs/adr/0010-station-cli.md) for the application decision
-and [the retrieval evidence](../../docs/knowledge_embeddings.md) for model and
+and [the retrieval evidence](../../docs/wayfinder_embeddings.md) for model and
 ranking limitations. Existing `okfp` installations continue to work.
 
 CLI and MCP search share the ACK query, limit, and default contract. The CLI
@@ -210,3 +210,17 @@ the index at its new location. Existing Station data is left intact.
 To deliberately reuse the previous location, point `WAYFINDER_DATA_DIR` at it;
 normal index compatibility checks still apply. Update MCP executable paths.
 The `okfp` command and knowledge bundle format are unchanged.
+
+## Upgrading the retrieval package
+
+Wayfinder 0.0.1-dev.1 uses `wayfinder_embeddings`. Existing Wayfinder indexes
+remain compatible; no model, schema UID or vector-identity change is introduced
+by the package rename. Keep the complete native bundle together when upgrading.
+
+Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. The old
+`KNOWLEDGE_EMBEDDING_MODEL` remains a fallback when the new variable is absent.
+An invalid explicit setting fails instead of selecting another model.
+
+Native builds check the installed and packaged ObjectBox bytes against pinned
+platform hashes and include its license and attribution. See the
+[ObjectBox build review](../../docs/objectbox-build-review.md).

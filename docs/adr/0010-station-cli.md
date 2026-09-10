@@ -1,4 +1,7 @@
-# ADR-0010: Station validates, indexes and searches local knowledge
+# ADR-0010: Wayfinder validates, indexes and searches local knowledge
+
+Naming update (2026-09-10): Wayfinder was developed as the Station prototype.
+The ADR number and filename remain stable; current commands use Wayfinder.
 
 - Status: accepted
 - Date: 2026-09-09
@@ -9,17 +12,17 @@
 
 The embedding library supplies retrieval and evaluation tools, while `okfp`
 validates bundles. Users need one CLI accepting a bundle path and an arbitrary
-query. The agreed interface is `station validate`, `station index` and
-`station search`; a `profile` or `knowledge` group adds no useful choice.
+query. The agreed interface is `wayfinder validate`, `wayfinder index` and
+`wayfinder search`; a `profile` or `knowledge` group adds no useful choice.
 
 The model comparison supports retaining Arctic XS. Choosing a fixed semantic
-workflow for Station is a product decision, not evidence that embeddings win
+workflow for Wayfinder is a product decision, not evidence that embeddings win
 every query or that similarity establishes authority or answerability.
 
 ## Decision
 
-- Station is an application package in this workspace. The Concepta OKF
-  Profile remains the standard; Station introduces no new profile declaration
+- Wayfinder is an application package in this workspace. The Concepta OKF
+  Profile remains the standard; Wayfinder introduces no new profile declaration
   or metadata meanings.
 - `validate` calls the existing validator API: upstream OKF checks, then the
   declared Concepta release. Preserve findings, exit codes and UNASSESSED
@@ -41,7 +44,7 @@ every query or that similarity establishes authority or answerability.
 - Serialize commands for the same bundle using an OS file lock before opening
   ObjectBox. Hash source content and inventory before/after operations to
   detect observed edits. Search rejects stale/incompatible indexes and tells
-  the caller to run `station index`.
+  the caller to run `wayfinder index`.
 - Preserve all lifecycle states in the initial search scope and display status.
   Include bounded one-hop declared relationships with reasons/notices. Do not
   infer governing-source hierarchy from type, verification or similarity.
@@ -73,6 +76,6 @@ fixes or navigation `index.md` generation. Reindex explicitly after edits.
 Validation remains available when model assets are missing. Native packaging
 is exercised on Linux/macOS; Windows validation is covered separately.
 
-The [Station guide](../../packages/wayfinder/README.md) owns commands, persistence
+The [Wayfinder guide](../../packages/wayfinder/README.md) owns commands, persistence
 locations and verification instructions. Existing bundles stay conformant;
 this decision requires no bundle migration or profile release.

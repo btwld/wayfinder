@@ -110,6 +110,7 @@ def main():
         cwd.mkdir()
         env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
+        env.pop("WAYFINDER_EMBEDDING_MODEL", None)
         binary = app / "bin/wayfinder"
 
         def check(name, action):
@@ -168,6 +169,29 @@ def main():
             check("restart", server.initialize)
             found = check("search-persisted-index", lambda: server.tool("search", {"query": "password"}))
             assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+        finally:
+            server.close()
+
+        overridden = dict(env, WAYFINDER_EMBEDDING_MODEL=str(temp / "missing.gguf"),
+                          KNOWLEDGE_EMBEDDING_MODEL=str(app / "models/embedding.gguf"))
+        server = Session(binary, corpus, cwd, overridden)
+        try:
+            server.initialize()
+            error = check("invalid-new-model-does-not-use-legacy", lambda:
+                          server.tool("index", error=True))
+            assert "model" in error.lower(), error
+        finally:
+            server.close()
+
+        library = app / "lib" / ("libobjectbox.dylib" if os.uname().sysname == "Darwin"
+                                  else "libobjectbox.so")
+        library.unlink()
+        server = Session(binary, corpus, cwd, env)
+        try:
+            server.initialize()
+            error = check("missing-native-library-keeps-json-stdout", lambda:
+                          server.tool("search", {"query": "password"}, error=True))
+            assert "ObjectBox native library is missing" in error, error
         finally:
             server.close()
     Path(args.output).write_text(json.dumps({"cases": reports}, indent=2) + "\n")

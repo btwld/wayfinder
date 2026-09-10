@@ -65,7 +65,7 @@ skill rather than duplicate its rule explanations.
 
 When a Profile rule changes, search all skills for the old wording, starting with
 the seed templates. A skill can produce valid files while teaching a withdrawn
-rule, which a validator cannot detect. Consumers install the `concepta-knowledge`
+rule, which a validator cannot detect. Consumers install the `wayfinder`
 plugin or copy/symlink the skill family; preserve release dispatch for older copies.
 
 ## Completing work

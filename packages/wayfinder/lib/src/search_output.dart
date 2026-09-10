@@ -1,4 +1,4 @@
-import 'package:knowledge_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 /// The shared CLI/MCP representation preserves original citations and metadata.
 Map<String, Object?> searchOutput(KnowledgeSearchResponse result) => {

@@ -4,7 +4,7 @@ Decision date: 2026-09-10. Scope: name the existing knowledge application,
 rename its repository, and publish the functional CLI under `concepta.dev`.
 This is a product/distribution change; no OKF or Profile conventions change.
 
-## Names and boundaries
+## Current names and boundaries
 
 | Piece | Name / location | Decision |
 | --- | --- | --- |
@@ -13,11 +13,11 @@ This is a product/distribution change; no OKF or Profile conventions change.
 | Executable | `wayfinder` | `validate`, `index`, `search`, and `mcp` retain their behavior |
 | MCP server identity | `wayfinder` | Tool names remain `validate`, `index`, and `search` |
 | Native bundle | `build/wayfinder/bundle/` | Build with `dart run tool/build_wayfinder.dart` or `melos run wayfinder:build` |
-| Retrieval library | `knowledge_embeddings` | Keep its reusable purpose explicit; initial publication is a dependency of Wayfinder |
+| Retrieval library | `wayfinder_embeddings` | Replaces the initially published `knowledge_embeddings`; generic APIs remain reusable |
 | Profile library and executable | `okf_profile` / `okfp` | Preserve the published package and consumer validation command |
 | Standard and guide | Concepta OKF Profile / existing canonical paths | Preserve release 2026.1, OKF 0.2 authority, and older skill release dispatch |
-| Plugin marketplace | `wayfinder` | Install `concepta-knowledge@wayfinder` from `conceptadev/wayfinder` |
-| Skill plugin and skill names | `concepta-knowledge` / existing skill family | Preserve existing workflows and responsibilities |
+| Plugin marketplace | `wayfinder` | Install `wayfinder@wayfinder` from `conceptadev/wayfinder` |
+| Skill plugin and skill names | `wayfinder` / existing skill family | Migrate the plugin identity; preserve skill invocations, workflows and responsibilities |
 | Publisher | `concepta.dev` | Existing Concepta verified publisher |
 | Application license | BSD 3-Clause | Package-local license; embedding library retains its BSD attribution |
 | Profile/repository license | Existing Apache-2.0 | This rename does not relicense the Profile or third-party assets |
@@ -32,7 +32,7 @@ Replace development invocations of `station` with `wayfinder`, including
 `dart run wayfinder:wayfinder`, executable paths in MCP host configurations,
 and references to `packages/wayfinder`. Build and native verification scripts
 use `wayfinder` in their filenames. Accepted ADR-0010/0011 retain their historical
-filenames and describe the prepublication Station decisions; current usage lives
+filenames and record the prototype naming history; current usage lives
 in the [application guide](../packages/wayfinder/README.md).
 
 `WAYFINDER_DATA_DIR` replaces `STATION_DATA_DIR`. Defaults use `Wayfinder` on
@@ -46,13 +46,14 @@ files are moved or rewritten by the rename.
 Update Git remotes to `https://github.com/conceptadev/wayfinder.git`.
 GitHub redirects the old repository URL; use the new URL in maintained links.
 For an existing plugin installation, remove the old marketplace registration
-and register `conceptadev/wayfinder`, then install `concepta-knowledge@wayfinder`.
+and register `conceptadev/wayfinder`, uninstall the old `concepta-knowledge` plugin, then install `wayfinder@wayfinder`.
 Copied/symlinked skills and existing `okfp` CI gates continue to work.
 
 Existing conformant bundles remain conformant. No Profile release, bundle
-migration, taxonomy change, or published-package discontinuation is needed.
+migration or taxonomy change is needed. The old retrieval package can be
+discontinued with a replacement pointer after the new library is published.
 
-## Publication sequence
+## Initial publication sequence (completed)
 
 1. Run analysis, formatting, package tests, the example validation gate, and the
    relocated native CLI/MCP probes against the renamed package.
@@ -87,21 +88,13 @@ Merge the existing stack in order (#58, #59, #60), retargeting dependencies to
 part of a repository rename. Release automation still publishes `okf_profile`
 using its existing stable `v<version>` tags; do not use those tags for Wayfinder.
 
-Package-specific workflows use `wayfinder-v{{version}}` and
-`knowledge_embeddings-v{{version}}` tags, including prerelease suffixes. Each
-workflow checks its tag against the package version, resolves dependencies,
-analyzes, tests, and performs a publish dry run without OIDC credentials. A
-separate job on the same tag obtains the short-lived OIDC token and uploads with
-`--skip-validation`; it does not repeat dependency resolution with the scoped
-publishing credential. The embedding dry run allows warnings for reviewed exact
-native dependency pins; validation errors still fail.
-
-Enable those exact repository/tag combinations in each new package's pub.dev
-Admin page. Exercise the dependency workflow with `0.0.1-dev.1`, which updates
-remaining library-facing Station references to Wayfinder; the initial `dev.0`
-archive remains immutable. The existing `okf_profile` automation was disabled when inspected;
-its separate stable `v{{version}}` release flow is outside this first Wayfinder
-prerelease. Reconcile PR #62 before enabling that flow.
+Package-specific workflows now use `wayfinder-v{{version}}` and
+`wayfinder_embeddings-v{{version}}`. Verification resolves dependencies, analyzes,
+tests and dry-runs without OIDC credentials. A separate job publishes the checked
+tag with `--skip-validation` and does not repeat credentialed resolution.
+The original `knowledge_embeddings` tags and published archives remain historical
+releases. Reconcile PR #62 before enabling the separate `okf_profile` stable
+`v{{version}}` publication flow.
 
 Continue no-Dart installation work in #53 / PR #54. Reconcile its installers,
 public distribution mirror, Homebrew assets and plugin MCP wiring with Wayfinder
@@ -132,3 +125,24 @@ The source changes are on `chore/station-publication` for integration after the
 existing implementation stack. The branch name is retained; product names do not
 require rewriting branch history. The repository remains private, and the
 no-Dart installer/distribution work remains tracked in #53 / PR #54.
+
+## Follow-up package and plugin migration
+
+The initial decision to preserve `knowledge_embeddings` and `concepta-knowledge`
+was superseded by the complete Wayfinder naming plan. The current implementation
+uses `wayfinder_embeddings` and the `wayfinder` plugin. Publish the new library
+first, transfer it to `concepta.dev`, configure its exact package-specific OIDC
+trust, then publish Wayfinder 0.0.1-dev.1 against the hosted dependency. After
+hosted and saved-index checks pass, discontinue the old library with a replacement
+pointer. Preserve every existing package version.
+
+The rename keeps database UIDs and vector identity unchanged. Both schema marker
+names are supported during migration; the new model override has a legacy
+fallback, and preparation reuses verified legacy model caches. See the
+[library migration guide](../packages/wayfinder_embeddings/README.md#migrating-from-knowledge_embeddings)
+and [ObjectBox build review](objectbox-build-review.md).
+
+The public distribution repository and no-Dart installers remain integration
+work in #53/#54 until actual unauthenticated install checks pass. Source repository
+visibility stays private. Publication and distribution results must be recorded
+here when completed; intended names alone do not establish an available channel.

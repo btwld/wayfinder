@@ -28,6 +28,7 @@ def main():
         cwd.mkdir()
         env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
+        env.pop("WAYFINDER_EMBEDDING_MODEL", None)
 
         def run(name, *command, expected=0):
             start = time.perf_counter()

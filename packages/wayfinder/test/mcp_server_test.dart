@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:knowledge_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf_profile/okf_profile.dart';
 import 'package:wayfinder/src/knowledge.dart';

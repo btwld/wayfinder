@@ -28,9 +28,9 @@ jobs:
       - run: dart test
         working-directory: packages/okf_profile
       - run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/knowledge_embeddings
+        working-directory: packages/wayfinder_embeddings
       - run: dart test
-        working-directory: packages/knowledge_embeddings
+        working-directory: packages/wayfinder_embeddings
       - run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder
       - run: dart test
@@ -70,7 +70,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: packages/knowledge_embeddings
+        working-directory: packages/wayfinder_embeddings
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
@@ -79,7 +79,7 @@ jobs:
       - run: dart pub get
       - uses: actions/cache@v4
         with:
-          path: packages/knowledge_embeddings/models
+          path: packages/wayfinder_embeddings/models
           key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
       - run: dart run tool/prepare_model.dart
       - run: dart run melos run objectbox:install
@@ -102,14 +102,14 @@ jobs:
         run: |
           dart run tool/evaluate_okf_retrieval.dart --native --split=development --output="$RUNNER_TEMP/okf-development.json"
           dart run tool/evaluate_okf_retrieval.dart --native --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
-      - run: dart run tool/build_embeddings.dart --offline
+      - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash
         run: |
-          mv build/embeddings/bundle "$RUNNER_TEMP/retrieval-bundle"
+          mv build/wayfinder_embeddings/bundle "$RUNNER_TEMP/retrieval-bundle"
           mkdir "$RUNNER_TEMP/retrieval-cwd"
           cd "$RUNNER_TEMP/retrieval-cwd"
-          corpus="$GITHUB_WORKSPACE/packages/knowledge_embeddings/fixtures/corpus"
+          corpus="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/corpus"
           "$RUNNER_TEMP/retrieval-bundle/bin/compare_embeddings" \
             --fixtures="$corpus" \
             --queries="$corpus/retrieval_queries.json" \
@@ -117,7 +117,7 @@ jobs:
             --embedders=bm25,dense,hybrid --store=objectbox \
             --top=10 --candidates=50 --long-input=truncate \
             --output="$RUNNER_TEMP/retrieval-results" \
-            --baseline-metrics="$GITHUB_WORKSPACE/packages/knowledge_embeddings/fixtures/benchmarks/local_metrics_baseline.json" \
+            --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/local_metrics_baseline.json" \
             --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
       - uses: actions/upload-artifact@v4
         with:
