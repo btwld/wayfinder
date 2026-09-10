@@ -6,6 +6,7 @@ import 'package:knowledge_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf_profile/okf_profile.dart';
 import 'package:station/src/knowledge.dart';
+import 'package:station/src/index_result.dart';
 import 'package:station/src/mcp_server.dart';
 import 'package:test/test.dart';
 
@@ -255,12 +256,19 @@ class _Knowledge extends StationKnowledge {
   bool failSearch = false;
 
   @override
-  Future<Map<String, Object?>> index(String bundle) async {
+  Future<StationIndexResult> index(String bundle) async {
     calls.add('index:$bundle');
     if (!indexStarted.isCompleted) indexStarted.complete();
     await finishIndex?.future;
     indexFinished = true;
-    return {'embeddedChunks': 3};
+    return StationIndexResult(
+      bundle: bundle,
+      index: 'fixture-index',
+      embeddedChunks: 3,
+      removedChunks: 0,
+      writtenChunks: 3,
+      elapsedMs: 0,
+    );
   }
 
   @override

@@ -9,6 +9,7 @@ import 'package:okf_profile/okf_profile.dart';
 
 import 'knowledge.dart';
 import 'search_output.dart';
+import 'version.dart';
 
 /// Exposes Station's existing services for one startup-selected bundle.
 ///
@@ -31,7 +32,7 @@ class StationMcpServer {
     }
     final root = await Directory(rootPath).resolveSymbolicLinks();
     final server = McpServer(
-      const Implementation(name: 'station', version: '0.1.0'),
+      const Implementation(name: 'station', version: stationVersion),
       options: const McpServerOptions(
         capabilities: ServerCapabilities(tools: ServerCapabilitiesTools()),
         instructions:
@@ -87,7 +88,10 @@ class StationMcpServer {
         idempotentHint: true,
         openWorldHint: false,
       ),
-      callback: (arguments, extra) => call(() => _knowledge.index(root)),
+      callback: (arguments, extra) => call(() async {
+        final result = await _knowledge.index(root);
+        return result.toJson();
+      }),
     );
     server.registerAckTool(
       'search',

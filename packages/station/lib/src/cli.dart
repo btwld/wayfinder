@@ -7,6 +7,7 @@ import 'package:okf_profile/okf_profile.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
 import 'search_output.dart';
+import 'version.dart';
 
 /// Station's application commands; validation shares the existing public API.
 class StationCli {
@@ -46,7 +47,7 @@ class StationCli {
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
-        _out('station 0.1.0');
+        _out('station $stationVersion');
         return 0;
       }
       if (options.flag('help')) {
@@ -101,13 +102,13 @@ class StationCli {
       if (name == 'index') {
         final result = await _knowledge().index(bundle);
         if (json) {
-          _json(result);
+          _json(result.toJson());
         } else {
           _out(
-            'Indexed ${_safe(bundle)}: ${result['embeddedChunks']} embedded, '
-            '${result['removedChunks']} removed, ${result['writtenChunks']} passages updated.',
+            'Indexed ${_safe(bundle)}: ${result.embeddedChunks} embedded, '
+            '${result.removedChunks} removed, ${result.writtenChunks} passages updated.',
           );
-          _out('Saved locally: ${_safe(result['index']! as String)}');
+          _out('Saved locally: ${_safe(result.index)}');
         }
         return 0;
       }
