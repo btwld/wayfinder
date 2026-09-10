@@ -52,9 +52,13 @@ class StationKnowledge {
   static final _generationName = RegExp(r'^generation-[a-zA-Z0-9_-]+$');
 
   // Increment when chunking, snapshot or application input semantics change.
+  // Markdown footnote definitions became attribution apparatus rather than
+  // passages, so version 1 indexes cover a different chunk set.
   static final _configuration = jsonEncode({
-    'version': 1,
-    'model': localEmbeddingModel.toMap(),
+    'version': 2,
+    // Model identity, not provenance: re-mirroring the same verified weights
+    // must not force every machine to reindex.
+    'model': localEmbeddingModel.identityMap,
     'context': 'okf-context-v1',
     'chunkCharacters': 1000,
     'longInput': 'reject',
