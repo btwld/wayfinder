@@ -6,6 +6,7 @@ from pathlib import Path
 import queue
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -111,7 +112,7 @@ def main():
         env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
         env.pop("WAYFINDER_EMBEDDING_MODEL", None)
-        binary = app / "bin/wayfinder"
+        binary = app / "bin" / ("wayfinder.exe" if os.name == "nt" else "wayfinder")
 
         def check(name, action):
             start = time.perf_counter()
@@ -183,8 +184,9 @@ def main():
         finally:
             server.close()
 
-        library = app / "lib" / ("libobjectbox.dylib" if os.uname().sysname == "Darwin"
-                                  else "libobjectbox.so")
+        library = app / ("bin" if os.name == "nt" else "lib") / (
+            "objectbox.dll" if os.name == "nt" else
+            "libobjectbox.dylib" if sys.platform == "darwin" else "libobjectbox.so")
         library.unlink()
         server = Session(binary, corpus, cwd, env)
         try:

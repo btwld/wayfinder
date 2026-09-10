@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         sdk: [stable]
         include:
           - os: ubuntu-latest
@@ -119,6 +119,16 @@ jobs:
             --output="$RUNNER_TEMP/retrieval-results" \
             --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/local_metrics_baseline.json" \
             --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
+      - name: Archive the complete native application bundle
+        if: matrix.sdk == 'stable'
+        shell: bash
+        working-directory: .
+        run: tar -czf "$RUNNER_TEMP/wayfinder-$RUNNER_OS-$RUNNER_ARCH.tar.gz" -C build/wayfinder/bundle .
+      - uses: actions/upload-artifact@v4
+        if: matrix.sdk == 'stable'
+        with:
+          name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/wayfinder-${{ runner.os }}-${{ runner.arch }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
