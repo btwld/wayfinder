@@ -58,7 +58,7 @@ round-trips fitted passages and the source inputs needed to reconstruct the OKF
 graph. `KnowledgeIndex.openSnapshot` opens a committed snapshot without document
 encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
-[Station](../station/README.md) owns atomic snapshot/database publication and
+[Wayfinder](../wayfinder/README.md) owns atomic snapshot/database publication and
 freshness checks for its local CLI.
 
 See [the component experiment](../../docs/knowledge_embeddings_ablation.md) for
@@ -81,7 +81,7 @@ dart run okf_profile:okfp validate examples/knowledge
 ```
 
 `okfp --help` currently lists only `validate`; it has no embedding or search
-subcommand. [Station](../station/README.md) adds top-level `validate`, `index`
+subcommand. [Wayfinder](../wayfinder/README.md) adds top-level `validate`, `index`
 and `search` commands using local embeddings. The following developer commands run from this package directory
 (`packages/knowledge_embeddings`):
 

@@ -22,7 +22,7 @@ dependencies:
   crypto: ^3.0.3
   knowledge_embeddings: ^0.0.1-dev.0
   mcp_dart: ^2.4.2
-  okf_profile: ^0.2.0
+  okf_profile: ^0.2.1-dev.0
   path: ^1.9.1
 
 dev_dependencies:

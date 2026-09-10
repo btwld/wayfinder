@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.1-dev.1
+
+- Update library documentation and application links for the Wayfinder rename.
+
 ## 0.0.1-dev.0
 
 - Verifies the pinned ObjectBox release archive by SHA-256 before any of its
@@ -59,4 +63,4 @@
   model when ANN filtering leaves too few usable results.
 - Adds 13 diagnostic knowledge cases for authority, lifecycle, freshness,
   paraphrases, negation, explicit scopes, and unanswerable questions.
-- Initial package release; provides the retrieval implementation used by Station.
+- Initial package release; provides the retrieval implementation used by Wayfinder.

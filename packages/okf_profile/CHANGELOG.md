@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.1-dev.0
 
-- Expose the existing validator and result contracts for Station without changing
+- Expose the existing validator and result contracts for Wayfinder without changing
   `okfp` commands, validation semantics or exit codes.
 
 Release history of the `okf_profile` Dart package (the `okfp` toolchain).

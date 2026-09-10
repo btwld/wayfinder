@@ -1,6 +1,6 @@
 name: knowledge_embeddings
 description: A unified library for chunking, embedding, and searching content.
-version: 0.0.1-dev.0
+version: 0.0.1-dev.1
 repository: https://github.com/conceptadev/wayfinder/tree/main/packages/knowledge_embeddings
 issue_tracker: https://github.com/conceptadev/wayfinder/issues
 topics:

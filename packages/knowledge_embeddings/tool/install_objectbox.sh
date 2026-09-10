@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Keep the tested Dart 5.0.4 / native 5.3.2 pair reproducible, and verify the
-# release archive before any of its bytes reach the package or a Station
+# release archive before any of its bytes reach the package or a Wayfinder
 # bundle. Downloading the pinned artifact directly, instead of running the
 # upstream download.sh, is what makes that checksum possible; it also avoids
 # the upstream unzip prompt when reinstalling on macOS.
