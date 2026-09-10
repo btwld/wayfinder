@@ -209,8 +209,9 @@ It collapses repeated contexts to the first child hit.
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 5.3.2, tested with Dart package 5.0.4, and writes
-  only to this package's `lib/` directory.
+  The installer pins native 5.3.2, tested with Dart package 5.0.4, verifies the
+  release archive's SHA-256 before extracting it, and writes only to this
+  package's `lib/` directory.
   `test/objectbox_store_test.dart` skips itself when the library is absent.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
@@ -255,7 +256,9 @@ melos run embeddings:build
 
 The prepare step uses llamadart's shared download cache, an immutable revision,
 and SHA-256 verification. It stages `models/embedding.gguf` and a manifest;
-weights stay out of Git. From this package, add `--offline` to
+weights stay out of Git. `objectbox:install` verifies its pinned release archive
+the same way, so every native asset a bundle ships is checked against a recorded
+hash. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_embeddings.dart` to
 require an already staged or cached model. Native build hooks may still need
 their own runtime cache; `--offline` controls model acquisition only.
