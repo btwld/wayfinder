@@ -20,5 +20,5 @@ profile itself, the guide, and the skill family live in the
 ## Application API
 
 `package:okf_profile/okf_profile.dart` exports `ProfileValidator` and its result
-contracts for applications such as [Station](../station/README.md). Both CLIs
+contracts for applications such as [Wayfinder](../wayfinder/README.md). Both CLIs
 share this validation implementation, including JSON states and exit codes.
