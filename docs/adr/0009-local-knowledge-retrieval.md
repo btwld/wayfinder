@@ -40,7 +40,17 @@ inspected test partitions, not independent real-corpus evidence.
   remains removed; Gemma was excluded from this comparison.
 - Preserve model/input identities, citation spans, explicit consumer policy,
   atomic updates and vector reuse. Similarity does not determine authority,
-  freshness, correctness or whether a question has an answer.
+  freshness, correctness or whether a question has an answer. Identity covers
+  the artifact bytes and preprocessing contract; the download URL and license
+  are provenance, so re-mirroring verified weights reuses stored vectors.
+- **Exclude footnote definitions from OKF passages.** OKF 0.2 §5.1 resolves
+  per-claim attribution through `sources`, not footnote prose, and a short
+  definition line otherwise competes with the body text it cites: the measured
+  case was a dense query whose top match was
+  `[^demo-0730]: Reporting demo transcript, 30 July 2026`. Markdown chunking
+  keeps the definitions as a `footnote` chunk type for non-OKF corpora, where
+  `SearchOptions.chunkTypes` selects them. A concept body made only of headings
+  and footnotes keeps both, so nothing becomes unsearchable.
 
 The detailed measurements, limitations, artifact hashes and raw cited results
 live in the linked reports. This ADR records the accepted choice; it does not
@@ -95,6 +105,12 @@ The selected artifact is already pinned; accepting this decision requires no
 model change or re-embedding of indexes produced by the current implementation.
 Databases from the removed provider/schema still need a fresh directory and
 reindexing as documented in the [local implementation report](../knowledge_embeddings_local_search.md).
+
+Excluding footnote definitions trades recall for precision: prose that exists
+only inside a definition, beyond the `sources` entry it keys, is no longer a
+retrievable passage. Reopen that choice if judged queries show such prose is the
+best available support; filtering `footnote` at the policy layer instead of at
+load time would keep it retrievable.
 
 Reopen model selection when independently reviewed corpus results demonstrate
 a useful quality gain within an explicit download, startup, query-latency and
