@@ -2,7 +2,7 @@ import 'package:ack/ack.dart';
 
 /// Shared search contract after CLI argument strings are converted to numbers.
 // Include Unicode NEXT LINE, which Dart trim treats as whitespace.
-final stationSearchInput = Ack.object({
+final wayfinderSearchInput = Ack.object({
   'query': Ack.string()
       .minLength(1)
       .matches(

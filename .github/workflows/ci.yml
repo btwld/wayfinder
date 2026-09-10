@@ -32,10 +32,10 @@ jobs:
       - run: dart test
         working-directory: packages/knowledge_embeddings
       - run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/station
+        working-directory: packages/wayfinder
       - run: dart test
-        working-directory: packages/station
-      - run: dart format --output=none --set-exit-if-changed tool/build_station.dart
+        working-directory: packages/wayfinder
+      - run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run okf_profile:okfp validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
@@ -86,13 +86,13 @@ jobs:
         working-directory: .
       - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
       - run: dart test
-        working-directory: packages/station
-      - run: dart run tool/build_station.dart --offline
+        working-directory: packages/wayfinder
+      - run: dart run tool/build_wayfinder.dart --offline
         working-directory: .
-      - run: python3 tool/verify_station.py build/station/bundle --output="$RUNNER_TEMP/station-native.json"
+      - run: python3 tool/verify_wayfinder.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-native.json"
         shell: bash
         working-directory: .
-      - run: python3 tool/verify_station_mcp.py build/station/bundle --output="$RUNNER_TEMP/station-mcp.json"
+      - run: python3 tool/verify_wayfinder_mcp.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-mcp.json"
         shell: bash
         working-directory: .
       - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json" --native
@@ -123,8 +123,8 @@ jobs:
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |
-            ${{ runner.temp }}/station-native.json
-            ${{ runner.temp }}/station-mcp.json
+            ${{ runner.temp }}/wayfinder-native.json
+            ${{ runner.temp }}/wayfinder-mcp.json
             ${{ runner.temp }}/retrieval-metrics.json
             ${{ runner.temp }}/knowledge-cases.json
             ${{ runner.temp }}/okf-development.json

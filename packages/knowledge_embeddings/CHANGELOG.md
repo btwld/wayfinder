@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0
+## 0.0.1-dev.0
 
 - Verifies the pinned ObjectBox release archive by SHA-256 before any of its
   bytes reach the package, replacing the upstream download script, with a
@@ -59,4 +59,4 @@
   model when ANN filtering leaves too few usable results.
 - Adds 13 diagnostic knowledge cases for authority, lifecycle, freshness,
   paraphrases, negation, explicit scopes, and unanswerable questions.
-- Not published. No consumer package depends on it yet.
+- Initial package release; provides the retrieval implementation used by Station.

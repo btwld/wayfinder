@@ -5,19 +5,19 @@ import 'dart:io';
 import 'package:knowledge_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf_profile/okf_profile.dart';
-import 'package:station/src/knowledge.dart';
-import 'package:station/src/index_result.dart';
-import 'package:station/src/mcp_server.dart';
+import 'package:wayfinder/src/knowledge.dart';
+import 'package:wayfinder/src/index_result.dart';
+import 'package:wayfinder/src/mcp_server.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('rejects missing and non-directory roots before serving', () async {
-    final temp = await Directory.systemTemp.createTemp('station-mcp-root-');
+    final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-root-');
     addTearDown(() => temp.delete(recursive: true));
     final file = await File('${temp.path}/file').writeAsString('fixture');
     for (final root in [file.path, '${temp.path}/missing']) {
       await expectLater(
-        StationMcpServer(rootPath: root, knowledge: _Knowledge()).serve(),
+        WayfinderMcpServer(rootPath: root, knowledge: _Knowledge()).serve(),
         throwsA(isA<FileSystemException>()),
       );
     }
@@ -40,12 +40,12 @@ void main() {
           stream: incoming.stream,
           sink: outgoing.sink,
         );
-        serving = StationMcpServer(
+        serving = WayfinderMcpServer(
           rootPath: root,
           knowledge: knowledge,
         ).serve(transport: serverTransport);
         client = McpClient(
-          const Implementation(name: 'station-test', version: '1.0.0'),
+          const Implementation(name: 'wayfinder-test', version: '1.0.0'),
           options: McpClientOptions(protocol: protocol),
         );
         await client.connect(
@@ -209,7 +209,7 @@ void main() {
         expect(error.isError, true);
         expect(
           (error.content.single as TextContent).text,
-          contains('station index'),
+          contains('wayfinder index'),
         );
         knowledge.failSearch = false;
         final recovered = await client.callTool(
@@ -251,7 +251,7 @@ Map<String, Object?> _payload(CallToolResult result) =>
       jsonDecode((result.content.single as TextContent).text) as Map,
     );
 
-class _Knowledge extends StationKnowledge {
+class _Knowledge extends WayfinderKnowledge {
   _Knowledge() : super(dataDirectory: Directory.systemTemp);
   final calls = <String>[];
   final indexStarted = Completer<void>();
@@ -260,12 +260,12 @@ class _Knowledge extends StationKnowledge {
   bool failSearch = false;
 
   @override
-  Future<StationIndexResult> index(String bundle) async {
+  Future<WayfinderIndexResult> index(String bundle) async {
     calls.add('index:$bundle');
     if (!indexStarted.isCompleted) indexStarted.complete();
     await finishIndex?.future;
     indexFinished = true;
-    return StationIndexResult(
+    return WayfinderIndexResult(
       bundle: bundle,
       index: 'fixture-index',
       embeddedChunks: 3,
@@ -283,8 +283,8 @@ class _Knowledge extends StationKnowledge {
   }) async {
     calls.add('search:$bundle:$query:$limit');
     if (failSearch) {
-      throw const StationException(
-        'Index is stale. Run station index <bundle>.',
+      throw const WayfinderException(
+        'Index is stale. Run wayfinder index <bundle>.',
       );
     }
     return KnowledgeSearchResponse(

@@ -12,6 +12,8 @@
 
 ## Maintenance
 
+[Wayfinder naming and release plan](wayfinder-release-plan.md) — Product names, package boundaries, migration, and publication sequence.
+
 [Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
 
 [Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the three distributed skills.

@@ -1,6 +1,14 @@
-# Concepta OKF
+# Wayfinder
 
-The home of the **Concepta OKF Profile** — conventions for keeping durable project
+Find, connect, and use your project's knowledge. Wayfinder provides local OKF
+validation, persistent semantic search, and an MCP server for coding agents.
+
+See the [installation and usage guide](packages/wayfinder/README.md) for the
+Dart CLI and complete native retrieval bundle, and the
+[naming and release plan](docs/wayfinder-release-plan.md) for package boundaries
+and migration from the unpublished Station prototype.
+
+Wayfinder also hosts the **Concepta OKF Profile** — conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
 tooling, and examples that put it to work in Concepta repositories.
 
@@ -40,7 +48,7 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
-| [`packages/station/`](packages/station/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
+| [`packages/wayfinder/`](packages/wayfinder/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
 | [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
@@ -63,8 +71,8 @@ not belong in an identity — without silently replacing an identified release.
 The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
 
 ```
-/plugin marketplace add conceptadev/okf-profile
-/plugin install concepta-knowledge@okf-profile
+/plugin marketplace add conceptadev/wayfinder
+/plugin install concepta-knowledge@wayfinder
 ```
 
 Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
@@ -134,24 +142,24 @@ the canonical `author-knowledge-bundle` skill. One `okfp validate <bundle>` invo
 single supported automated CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
 
-## Search local knowledge with Station
+## Search local knowledge with Wayfinder
 
-Station combines validation and local semantic retrieval. After preparing the
+Wayfinder combines validation and local semantic retrieval. After preparing the
 native runtime and model, run from the workspace root:
 
 ```bash
-dart run station:station validate examples/knowledge
-dart run station:station index examples/knowledge
-dart run station:station search examples/knowledge "How is reporting implemented?"
+dart run wayfinder:wayfinder validate examples/knowledge
+dart run wayfinder:wayfinder index examples/knowledge
+dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
 ```
 
 `index` generates and saves document embeddings locally; `search` reuses them
 and encodes only the query. There is no retrieval-mode flag. See the
-[Station guide](packages/station/README.md) for setup, packaging and local data
+[Wayfinder guide](packages/wayfinder/README.md) for setup, packaging and local data
 locations. Existing `okfp validate` remains supported.
 
-`station mcp <bundle>` exposes the same validation, index and search services
-to local MCP hosts over stdio. See the [MCP setup](packages/station/README.md#mcp-server)
+`wayfinder mcp <bundle>` exposes the same validation, index and search services
+to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder/README.md#mcp-server)
 for the launch configuration and tool lifecycle.
 
 ## Examples

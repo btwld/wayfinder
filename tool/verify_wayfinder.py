@@ -1,4 +1,4 @@
-"""Exercise a relocated Station bundle in fresh processes using generic fixtures."""
+"""Exercise a relocated Wayfinder bundle in fresh processes using generic fixtures."""
 import argparse
 import hashlib
 import json
@@ -17,16 +17,16 @@ def main():
     args = parser.parse_args()
     workspace = Path(__file__).resolve().parent.parent
     reports = []
-    with tempfile.TemporaryDirectory(prefix="station-native-") as temp:
+    with tempfile.TemporaryDirectory(prefix="wayfinder-native-") as temp:
         temp = Path(temp)
-        app = temp / "relocated station"
+        app = temp / "relocated wayfinder"
         shutil.copytree(Path(args.bundle).resolve(), app)
-        binary = app / "bin" / "station"
+        binary = app / "bin" / "wayfinder"
         corpus = temp / "knowledge"
-        shutil.copytree(workspace / "packages/station/test/fixtures/knowledge", corpus)
+        shutil.copytree(workspace / "packages/wayfinder/test/fixtures/knowledge", corpus)
         cwd = temp / "empty"
         cwd.mkdir()
-        env = dict(os.environ, STATION_DATA_DIR=str(temp / "data"))
+        env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
 
         def run(name, *command, expected=0):
@@ -120,7 +120,7 @@ def main():
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({"cases": reports, "indexBytes": index_bytes}, indent=2)+"\n")
-    print(f"Station: {len(reports)} native checks passed; results at {output}")
+    print(f"Wayfinder: {len(reports)} native checks passed; results at {output}")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ coverage/
 # Generated comparison artifacts
 validation_results/
 comparison_results/
-models/
+/models/
 
 # ObjectBox runtime files (generated code IS committed)
 .obx/

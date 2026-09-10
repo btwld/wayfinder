@@ -73,6 +73,6 @@ fixes or navigation `index.md` generation. Reindex explicitly after edits.
 Validation remains available when model assets are missing. Native packaging
 is exercised on Linux/macOS; Windows validation is covered separately.
 
-The [Station guide](../../packages/station/README.md) owns commands, persistence
+The [Station guide](../../packages/wayfinder/README.md) owns commands, persistence
 locations and verification instructions. Existing bundles stay conformant;
 this decision requires no bundle migration or profile release.

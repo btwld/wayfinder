@@ -5,11 +5,11 @@ import 'package:path/path.dart' as p;
 
 import '../packages/knowledge_embeddings/tool/src/model_preparation.dart';
 
-/// Builds Station from the workspace root with verified model/native assets.
+/// Builds Wayfinder from the workspace root with verified model/native assets.
 Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addFlag('offline', negatable: false)
-    ..addOption('output', defaultsTo: 'build/station');
+    ..addOption('output', defaultsTo: 'build/wayfinder');
   try {
     final options = parser.parse(arguments);
     final output = Directory(options.option('output')!).absolute;
@@ -29,7 +29,7 @@ Future<void> main(List<String> arguments) async {
     final library = File(p.join(package, 'lib', libraryName));
     if (!await library.exists()) {
       throw const FileSystemException(
-        'Run melos run objectbox:install before building Station.',
+        'Run melos run objectbox:install before building Wayfinder.',
       );
     }
     final model = await prepareEmbeddingModel(
@@ -39,12 +39,15 @@ Future<void> main(List<String> arguments) async {
     final process = await Process.start(Platform.resolvedExecutable, [
       'build',
       'cli',
-      '--target=packages/station/bin/station.dart',
+      '--target=packages/wayfinder/bin/wayfinder.dart',
       '--output=${output.path}',
     ], mode: ProcessStartMode.inheritStdio);
     exitCode = await process.exitCode;
     if (exitCode != 0) return;
     final bundle = p.join(output.path, 'bundle');
+    await File(
+      p.join(workspace, 'packages', 'wayfinder', 'LICENSE'),
+    ).copy(p.join(bundle, 'LICENSE'));
     final models = await Directory(
       p.join(bundle, 'models'),
     ).create(recursive: true);
@@ -58,9 +61,9 @@ Future<void> main(List<String> arguments) async {
     await library.copy(
       p.join(bundle, Platform.isWindows ? 'bin' : 'lib', libraryName),
     );
-    stdout.writeln('Built Station: $bundle');
+    stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
-    stderr.writeln('Station build failed: $error');
+    stderr.writeln('Wayfinder build failed: $error');
     exitCode = 1;
   }
 }

@@ -19,16 +19,16 @@ typedef _SavedIndex = ({
   KnowledgeSnapshot snapshot,
 });
 
-class StationException implements Exception {
-  const StationException(this.message);
+class WayfinderException implements Exception {
+  const WayfinderException(this.message);
   final String message;
   @override
   String toString() => message;
 }
 
 /// Owns an encoder and its tokenizer for one command.
-class StationEncoder {
-  StationEncoder(this.embedder, this.countTokens, this.maxTokens);
+class WayfinderEncoder {
+  WayfinderEncoder(this.embedder, this.countTokens, this.maxTokens);
   final BaseEmbedder embedder;
   final Future<int> Function(String) countTokens;
   final int maxTokens;
@@ -39,15 +39,15 @@ class StationEncoder {
 /// Commands sharing a bundle serialize before opening ObjectBox. Updates happen
 /// in a private generation; only a flushed completion record and closed database
 /// may be published. An inference failure never modifies the active generation.
-class StationKnowledge {
-  StationKnowledge({
+class WayfinderKnowledge {
+  WayfinderKnowledge({
     Directory? dataDirectory,
-    Future<StationEncoder> Function()? openEncoder,
+    Future<WayfinderEncoder> Function()? openEncoder,
   }) : dataDirectory = dataDirectory ?? defaultDataDirectory(),
        _openEncoder = openEncoder ?? _openLocalEncoder;
 
   final Directory dataDirectory;
-  final Future<StationEncoder> Function() _openEncoder;
+  final Future<WayfinderEncoder> Function() _openEncoder;
   static final _active = <String>{};
   static final _generationName = RegExp(r'^generation-[a-zA-Z0-9_-]+$');
 
@@ -68,18 +68,18 @@ class StationKnowledge {
 
   static Directory defaultDataDirectory() {
     final env = Platform.environment;
-    final override = env['STATION_DATA_DIR'];
+    final override = env['WAYFINDER_DATA_DIR'];
     if (override != null && override.trim().isNotEmpty) {
       return Directory(override);
     }
     final home = env[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
     if (Platform.isWindows) {
       final local = env['LOCALAPPDATA'];
-      if (local != null) return Directory(p.join(local, 'Station'));
+      if (local != null) return Directory(p.join(local, 'Wayfinder'));
     } else if (home != null) {
       if (Platform.isMacOS) {
         return Directory(
-          p.join(home, 'Library', 'Application Support', 'Station'),
+          p.join(home, 'Library', 'Application Support', 'Wayfinder'),
         );
       }
       final xdg = env['XDG_DATA_HOME'];
@@ -88,16 +88,16 @@ class StationKnowledge {
           xdg != null && p.isAbsolute(xdg)
               ? xdg
               : p.join(home, '.local', 'share'),
-          'station',
+          'wayfinder',
         ),
       );
     }
-    throw const StationException(
-      'Cannot locate local app data. Set STATION_DATA_DIR.',
+    throw const WayfinderException(
+      'Cannot locate local app data. Set WAYFINDER_DATA_DIR.',
     );
   }
 
-  static Future<StationEncoder> _openLocalEncoder() async {
+  static Future<WayfinderEncoder> _openLocalEncoder() async {
     try {
       var model = defaultEmbeddingModelFile();
       if (!model.existsSync() &&
@@ -110,19 +110,19 @@ class StationKnowledge {
         }
       }
       final embedder = await LlamaEmbedder.open(modelFile: model);
-      return StationEncoder(
+      return WayfinderEncoder(
         embedder,
         embedder.countTokens,
         embedder.model.maxTokens,
       );
     } on FileSystemException {
-      throw const StationException(
+      throw const WayfinderException(
         'The local embedding model is missing or unreadable. Reinstall the complete '
-        'Station bundle; for source development run melos run embeddings:prepare.',
+        'Wayfinder bundle; for source development run melos run embeddings:prepare.',
       );
     } on FormatException {
-      throw const StationException(
-        'The local embedding model failed verification. Reinstall the complete Station bundle.',
+      throw const WayfinderException(
+        'The local embedding model failed verification. Reinstall the complete Wayfinder bundle.',
       );
     }
   }
@@ -150,14 +150,14 @@ class StationKnowledge {
     }
     final root = await Directory(bundle).resolveSymbolicLinks();
     if (!await Directory(root).exists()) {
-      throw const StationException('The bundle must be a directory.');
+      throw const WayfinderException('The bundle must be a directory.');
     }
     final requested = p.normalize(dataDirectory.absolute.path);
     var ancestor = Directory(requested);
     while (!await ancestor.exists()) {
       if (ancestor.parent.path == ancestor.path) {
-        throw const StationException(
-          'Cannot resolve the Station data directory.',
+        throw const WayfinderException(
+          'Cannot resolve the Wayfinder data directory.',
         );
       }
       ancestor = ancestor.parent;
@@ -169,8 +169,8 @@ class StationKnowledge {
       ),
     );
     if (p.equals(root, data) || p.isWithin(root, data)) {
-      throw const StationException(
-        'Station data must be outside the knowledge bundle.',
+      throw const WayfinderException(
+        'Wayfinder data must be outside the knowledge bundle.',
       );
     }
     final key = sha256.convert(utf8.encode(root)).toString();
@@ -178,7 +178,7 @@ class StationKnowledge {
     await directory.create(recursive: true);
     final lockKey = await directory.resolveSymbolicLinks();
     if (!_active.add(lockKey)) {
-      throw const StationException(
+      throw const WayfinderException(
         'Index is busy. Retry when the current command finishes.',
       );
     }
@@ -190,7 +190,7 @@ class StationKnowledge {
       try {
         await lock.lock(FileLock.exclusive);
       } on FileSystemException {
-        throw const StationException(
+        throw const WayfinderException(
           'Index is busy. Retry when the current command finishes.',
         );
       }
@@ -204,7 +204,7 @@ class StationKnowledge {
     }
   }
 
-  Future<StationIndexResult> index(String bundle) => _withBundle(bundle, (
+  Future<WayfinderIndexResult> index(String bundle) => _withBundle(bundle, (
     root,
     directory,
   ) async {
@@ -213,7 +213,7 @@ class StationKnowledge {
     _SavedIndex? previous;
     try {
       previous = await _readCurrent(directory);
-    } on StationException {
+    } on WayfinderException {
       // Index can repair an incompatible/incomplete saved generation.
     }
     final encoder = await _openEncoder();
@@ -252,8 +252,8 @@ class StationKnowledge {
         for (final path in fitted.assets) path: 'asset',
       };
       if (_inventoryHash(savedInputs) != inventory) {
-        throw const StationException(
-          'Knowledge changed while loading. Run station index again.',
+        throw const WayfinderException(
+          'Knowledge changed while loading. Run wayfinder index again.',
         );
       }
       final staged = await directory.createTemp('generation-');
@@ -261,7 +261,7 @@ class StationKnowledge {
       try {
         if (compatible && previous != null) {
           final old = p.join(directory.path, previous.generation);
-          // No open store or other Station command can write while the lock is held.
+          // No open store or other Wayfinder command can write while the lock is held.
           for (final name in ['data.mdb', 'knowledge_embeddings.schema']) {
             await File(p.join(old, name)).copy(p.join(staged.path, name));
           }
@@ -279,8 +279,8 @@ class StationKnowledge {
           await store.close();
         }
         if (await _inventory(root) != inventory) {
-          throw const StationException(
-            'Knowledge changed while indexing. Run station index again.',
+          throw const WayfinderException(
+            'Knowledge changed while indexing. Run wayfinder index again.',
           );
         }
         final record = {
@@ -309,7 +309,7 @@ class StationKnowledge {
             }
           }
         }
-        return StationIndexResult(
+        return WayfinderIndexResult(
           bundle: root,
           index: directory.path,
           embeddedChunks: counts.embeddedChunks,
@@ -336,14 +336,14 @@ class StationKnowledge {
     if (record == null ||
         record.configuration != _configuration ||
         record.inventory != await _inventory(root)) {
-      throw const StationException(
-        'Index is missing, stale or incompatible. Run station index <bundle>.',
+      throw const WayfinderException(
+        'Index is missing, stale or incompatible. Run wayfinder index <bundle>.',
       );
     }
     final snapshot = record.snapshot;
     if (snapshot.bundleId != root) {
-      throw const StationException(
-        'Index belongs to another bundle. Run station index <bundle>.',
+      throw const WayfinderException(
+        'Index belongs to another bundle. Run wayfinder index <bundle>.',
       );
     }
     final encoder = await _openEncoder();
@@ -358,8 +358,8 @@ class StationKnowledge {
         );
         if (record.model != index.embeddingModelName ||
             record.source != encoder.embedder.sourceName) {
-          throw const StationException(
-            'Embedding configuration changed. Run station index <bundle>.',
+          throw const WayfinderException(
+            'Embedding configuration changed. Run wayfinder index <bundle>.',
           );
         }
         final response = await index.search(
@@ -369,8 +369,8 @@ class StationKnowledge {
           policy: KnowledgeSearchPolicy(expandRelationships: true),
         );
         if (record.inventory != await _inventory(root)) {
-          throw const StationException(
-            'Knowledge changed during search. Run station index <bundle>.',
+          throw const WayfinderException(
+            'Knowledge changed during search. Run wayfinder index <bundle>.',
           );
         }
         return response;
@@ -410,8 +410,8 @@ class StationKnowledge {
         ),
       );
     } on Object {
-      throw const StationException(
-        'Saved index is incomplete or incompatible. Run station index <bundle>.',
+      throw const WayfinderException(
+        'Saved index is incomplete or incompatible. Run wayfinder index <bundle>.',
       );
     }
   }

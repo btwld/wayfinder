@@ -11,19 +11,19 @@ import 'search_input.dart';
 import 'search_output.dart';
 import 'version.dart';
 
-/// Station's application commands; validation shares the existing public API.
-class StationCli {
-  StationCli({
+/// Wayfinder's application commands; validation shares the existing public API.
+class WayfinderCli {
+  WayfinderCli({
     void Function(String)? out,
     void Function(String)? err,
-    StationKnowledge Function()? knowledge,
+    WayfinderKnowledge Function()? knowledge,
   }) : _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
-       _knowledge = knowledge ?? StationKnowledge.new;
+       _knowledge = knowledge ?? WayfinderKnowledge.new;
 
   final void Function(String) _out;
   final void Function(String) _err;
-  final StationKnowledge Function() _knowledge;
+  final WayfinderKnowledge Function() _knowledge;
 
   Future<int> run(List<String> arguments) async {
     final parser = ArgParser()
@@ -48,43 +48,43 @@ class StationCli {
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
-        _out('station $stationVersion');
+        _out('wayfinder $wayfinderVersion');
         return 0;
       }
       if (options.flag('help')) {
         _out(
-          'Station — local knowledge tools\n\n'
-          'Usage: station <command> [arguments]\n\n'
+          'Wayfinder — local knowledge tools\n\n'
+          'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the declared Concepta profile\n'
           '  index <bundle>             Create or refresh saved local embeddings\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n\n'
-          'Run station <command> --help for options.',
+          'Run wayfinder <command> --help for options.',
         );
         return 0;
       }
       final command = options.command;
       if (command == null || options.rest.isNotEmpty) {
-        throw const StationException(
-          'Choose validate, index, search or mcp. Run station --help.',
+        throw const WayfinderException(
+          'Choose validate, index, search or mcp. Run wayfinder --help.',
         );
       }
       final name = command.name!;
       if (command.flag('help')) {
         _out(
-          'Usage: station $name <bundle>${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
+          'Usage: wayfinder $name <bundle>${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
         );
         return 0;
       }
       if (command.rest.length != (name == 'search' ? 2 : 1) ||
           command.rest.first.trim().isEmpty) {
-        throw StationException(
+        throw WayfinderException(
           '$name requires an explicit bundle${name == 'search' ? ' and one quoted query' : ''}.',
         );
       }
       final bundle = command.rest.first;
       if (name == 'mcp') {
-        await StationMcpServer(
+        await WayfinderMcpServer(
           rootPath: bundle,
           knowledge: _knowledge(),
         ).serve();
@@ -116,17 +116,19 @@ class StationCli {
       final rawLimit = command.option('limit');
       final limit = rawLimit == null ? null : int.tryParse(rawLimit);
       if (rawLimit != null && limit == null) {
-        throw const StationException(
+        throw const WayfinderException(
           '--limit must be an integer from 1 to 100.',
         );
       }
-      final parsed = stationSearchInput.safeParse({
+      final parsed = wayfinderSearchInput.safeParse({
         'query': command.rest[1],
         if (rawLimit != null) 'limit': limit,
       });
       if (parsed case Fail(:final error)) {
         final errors = error is SchemaNestedError ? error.errors : [error];
-        throw StationException(errors.map((e) => e.toErrorString()).join('; '));
+        throw WayfinderException(
+          errors.map((e) => e.toErrorString()).join('; '),
+        );
       }
       final input = parsed.getOrThrow()!;
       final result = await _knowledge().search(
@@ -159,19 +161,19 @@ class StationCli {
       }
       return 0;
     } on ArgParserException catch (error) {
-      _err('station: ${_safe(error.message)}');
-    } on StationException catch (error) {
-      _err('station: ${_safe(error.message)}');
+      _err('wayfinder: ${_safe(error.message)}');
+    } on WayfinderException catch (error) {
+      _err('wayfinder: ${_safe(error.message)}');
     } on FileSystemException catch (error) {
-      _err('station: ${_safe(error.message)} (${_safe(error.path ?? '')})');
+      _err('wayfinder: ${_safe(error.message)} (${_safe(error.path ?? '')})');
     } on FormatException catch (error) {
-      _err('station: ${_safe(error.message)}');
+      _err('wayfinder: ${_safe(error.message)}');
     } on Exception catch (error) {
-      _err('station: ${_safe(error.toString())}');
+      _err('wayfinder: ${_safe(error.toString())}');
     } on ArgumentError catch (error) {
-      _err('station: ${_safe(error.message.toString())}');
+      _err('wayfinder: ${_safe(error.message.toString())}');
     } on StateError catch (error) {
-      _err('station: ${_safe(error.message)}');
+      _err('wayfinder: ${_safe(error.message)}');
     }
     return 2;
   }

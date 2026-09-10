@@ -1,16 +1,31 @@
-# Station
+# Wayfinder
 
 Validate, index and search an explicit local OKF knowledge bundle:
 
 ```bash
-station validate ./knowledge
-station index ./knowledge
-station search ./knowledge "How do I regain account access?"
+wayfinder validate ./knowledge
+wayfinder index ./knowledge
+wayfinder search ./knowledge "How do I regain account access?"
 ```
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and declared Concepta Profile checks and retains their output and exit
 codes. Automated success keeps judgment rules UNASSESSED.
+
+## Dart installation
+
+Requires Dart 3.10.7 or later. Once this version is published:
+
+```bash
+dart pub global activate wayfinder 0.0.1-dev.0
+wayfinder validate ./knowledge
+```
+
+Add the Dart pub cache's `bin` directory to your `PATH` if `wayfinder` is not found.
+Validation and MCP discovery work without model weights. Indexing and search
+also require the verified embedding model and native libraries; pub.dev does
+not distribute these assets with this package. Use the source preparation and
+bundle build below for the complete retrieval installation.
 
 ## Source development and packaging
 
@@ -20,13 +35,13 @@ From the workspace root:
 dart pub get
 dart run melos run objectbox:install
 dart run melos run embeddings:prepare
-dart run station:station validate examples/knowledge
-dart run station:station index examples/knowledge
-dart run station:station search examples/knowledge "How is reporting implemented?"
-dart run tool/build_station.dart --offline
+dart run wayfinder:wayfinder validate examples/knowledge
+dart run wayfinder:wayfinder index examples/knowledge
+dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
+dart run tool/build_wayfinder.dart --offline
 ```
 
-The build creates `build/station/bundle/bin/station` with native libraries and
+The build creates `build/wayfinder/bundle/bin/wayfinder` with native libraries and
 the pinned 25.28 MB Arctic XS model. Distribute the whole `bundle/` directory.
 Model size is only part of the installation size. `--offline` requires staged
 or cached model weights; native build hooks have their own cache.
@@ -56,7 +71,7 @@ does not remove model startup or the first query's inference cost. The
 [initial runtime report](../../docs/knowledge_embeddings_local_search.md#model-latency-and-memory)
 records the observed first-use delays and faster subsequent launches.
 
-After editing knowledge files, run `station index` again. Search detects an
+After editing knowledge files, run `wayfinder index` again. Search detects an
 absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
@@ -74,7 +89,7 @@ An empty result set is a successful search.
 ## MCP server
 
 ```bash
-station mcp /absolute/path/to/knowledge
+wayfinder mcp /absolute/path/to/knowledge
 ```
 
 Configure a local MCP host to launch the packaged executable. For hosts using
@@ -83,8 +98,8 @@ the common `mcpServers` configuration shape:
 ```json
 {
   "mcpServers": {
-    "station": {
-      "command": "/absolute/path/to/bundle/bin/station",
+    "wayfinder": {
+      "command": "/absolute/path/to/bundle/bin/wayfinder",
       "args": ["mcp", "/absolute/path/to/knowledge"]
     }
   }
@@ -121,19 +136,19 @@ protocol choices and lifecycle limits.
 
 ## Local storage
 
-Station stores an ObjectBox database and snapshot under a hash of the canonical
+Wayfinder stores an ObjectBox database and snapshot under a hash of the canonical
 absolute bundle path. Separate worktrees get separate indexes; symlink aliases
 resolve to the same root. Moving a bundle requires indexing its new location.
 
-- macOS: `~/Library/Application Support/Station/indexes/<bundle-key>/`
-- Linux: `$XDG_DATA_HOME/station/indexes/<bundle-key>/`, defaulting to
-  `~/.local/share/station/indexes/<bundle-key>/`
-- Windows: `%LOCALAPPDATA%/Station/indexes/<bundle-key>/`
+- macOS: `~/Library/Application Support/Wayfinder/indexes/<bundle-key>/`
+- Linux: `$XDG_DATA_HOME/wayfinder/indexes/<bundle-key>/`, defaulting to
+  `~/.local/share/wayfinder/indexes/<bundle-key>/`
+- Windows: `%LOCALAPPDATA%/Wayfinder/indexes/<bundle-key>/`
 
-`STATION_DATA_DIR` overrides the app-data root for isolated runs. It must be
+`WAYFINDER_DATA_DIR` overrides the app-data root for isolated runs. It must be
 outside the knowledge bundle. The model is shared by the installation; query
 vectors and history are not written to disk. The saved snapshot holds a complete
-copy of the indexed bundle text with its metadata, so `station index` places that
+copy of the indexed bundle text with its metadata, so `wayfinder index` places that
 knowledge in per-user application data on every machine that runs it. Nothing
 leaves the machine; deleting the index directory removes the copy, and indexing
 rebuilds it from the original bundle.
@@ -157,8 +172,8 @@ corpus size. There is no background watcher or navigation-file generation.
 # From this package:
 dart test
 # From the workspace root, after building:
-python3 tool/verify_station.py build/station/bundle --output=build/station-checks.json
-python3 tool/verify_station_mcp.py build/station/bundle --output=build/station-mcp-checks.json
+python3 tool/verify_wayfinder.py build/wayfinder/bundle --output=build/wayfinder-checks.json
+python3 tool/verify_wayfinder_mcp.py build/wayfinder/bundle --output=build/wayfinder-mcp-checks.json
 ```
 
 The native check copies the bundle to a temporary location and uses fresh
@@ -177,3 +192,21 @@ converts integer argument text before validation; MCP accepts JSON integers,
 including integral JSON numbers such as `2.0`. Invalid arguments fail before
 opening retrieval resources. Whitespace-only queries include Unicode NEXT LINE
 (`U+0085`), preserving the CLI rule in MCP as well.
+
+## License
+
+Wayfinder is distributed under the BSD 3-Clause license in [LICENSE](LICENSE).
+Dependencies and separately downloaded models/native libraries retain their
+own licenses. The repository's OKF Profile materials retain their existing
+license.
+
+## Moving from the Station prototype
+
+Use `wayfinder` in place of `station` and `WAYFINDER_DATA_DIR` in place of
+`STATION_DATA_DIR`. Default app-data directories now use `Wayfinder` on
+macOS/Windows and `wayfinder` on Linux. Run `wayfinder index <bundle>` to build
+the index at its new location. Existing Station data is left intact.
+
+To deliberately reuse the previous location, point `WAYFINDER_DATA_DIR` at it;
+normal index compatibility checks still apply. Update MCP executable paths.
+The `okfp` command and knowledge bundle format are unchanged.

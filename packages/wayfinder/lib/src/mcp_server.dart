@@ -12,16 +12,16 @@ import 'search_input.dart';
 import 'search_output.dart';
 import 'version.dart';
 
-/// Exposes Station's existing services for one startup-selected bundle.
+/// Exposes Wayfinder's existing services for one startup-selected bundle.
 ///
 /// Each retrieval call owns and closes its encoder/store. Disconnect waits for
 /// active calls to release those resources; cancellation is not a rollback.
-class StationMcpServer {
-  StationMcpServer({required this.rootPath, StationKnowledge? knowledge})
-    : _knowledge = knowledge ?? StationKnowledge();
+class WayfinderMcpServer {
+  WayfinderMcpServer({required this.rootPath, WayfinderKnowledge? knowledge})
+    : _knowledge = knowledge ?? WayfinderKnowledge();
 
   final String rootPath;
-  final StationKnowledge _knowledge;
+  final WayfinderKnowledge _knowledge;
 
   /// Serves JSON-RPC on stdio until EOF, or on an injected transport in tests.
   Future<void> serve({Transport? transport}) async {
@@ -33,7 +33,7 @@ class StationMcpServer {
     }
     final root = await Directory(rootPath).resolveSymbolicLinks();
     final server = McpServer(
-      const Implementation(name: 'station', version: stationVersion),
+      const Implementation(name: 'wayfinder', version: wayfinderVersion),
       options: const McpServerOptions(
         capabilities: ServerCapabilities(tools: ServerCapabilitiesTools()),
         instructions:
@@ -49,7 +49,7 @@ class StationMcpServer {
     Future<CallToolResult> call(
       Future<Map<String, Object?>> Function() action,
     ) {
-      if (closing) return Future.value(_error('Station is shutting down.'));
+      if (closing) return Future.value(_error('Wayfinder is shutting down.'));
       final result = _guard(action);
       active.add(result);
       return result.whenComplete(() => active.remove(result));
@@ -66,7 +66,7 @@ class StationMcpServer {
       'validate',
       description:
           'Check OKF and the declared Concepta profile. Returns the '
-          'same report and exit_code as station validate; findings are a '
+          'same report and exit_code as wayfinder validate; findings are a '
           'completed validation result, not a tool execution error.',
       input: emptyInput,
       annotations: readOnly,
@@ -98,11 +98,11 @@ class StationMcpServer {
       'search',
       description:
           'Search saved local embeddings. Returns the same JSON as '
-          'station search --output=json: ranked matches, bounded context with '
+          'wayfinder search --output=json: ranked matches, bounded context with '
           'original path/line citations and metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
           'remain eligible; verify the cited text before answering.',
-      input: stationSearchInput,
+      input: wayfinderSearchInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
         final result = await _knowledge.search(
@@ -141,7 +141,7 @@ class StationMcpServer {
       return CallToolResult(
         content: [TextContent(text: jsonEncode(await action()))],
       );
-    } on StationException catch (error) {
+    } on WayfinderException catch (error) {
       return _error(error.message);
     } on FormatException catch (error) {
       return _error(error.message);

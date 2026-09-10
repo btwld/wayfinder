@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:knowledge_embeddings/knowledge_embeddings.dart';
 import 'package:path/path.dart' as p;
-import 'package:station/src/knowledge.dart';
+import 'package:wayfinder/src/knowledge.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -16,7 +16,7 @@ void main() {
         : 'libobjectbox.so'}',
   );
   group(
-    'persistent Station index',
+    'persistent Wayfinder index',
     () {
       late Directory temp;
       late Directory bundle;
@@ -24,9 +24,9 @@ void main() {
       late List<_Encoder> encoders;
       late bool failInference;
       late String model;
-      late StationKnowledge knowledge;
+      late WayfinderKnowledge knowledge;
       setUp(() async {
-        temp = await Directory.systemTemp.createTemp('station-test-');
+        temp = await Directory.systemTemp.createTemp('wayfinder-test-');
         bundle = await Directory(p.join(temp.path, 'knowledge')).create();
         data = Directory(p.join(temp.path, 'data'));
         for (final file in Directory(
@@ -37,12 +37,12 @@ void main() {
         encoders = [];
         failInference = false;
         model = 'fixture-v1';
-        knowledge = StationKnowledge(
+        knowledge = WayfinderKnowledge(
           dataDirectory: data,
           openEncoder: () async {
             final encoder = _Encoder(model, failInference);
             encoders.add(encoder);
-            return StationEncoder(
+            return WayfinderEncoder(
               encoder,
               (text) async => text.split(' ').length,
               512,
@@ -107,7 +107,7 @@ void main() {
           );
           await expectLater(
             knowledge.search(bundle.path, 'password'),
-            throwsA(isA<StationException>()),
+            throwsA(isA<WayfinderException>()),
           );
           expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
           final result = await knowledge.search(bundle.path, 'password');
@@ -175,7 +175,7 @@ void main() {
           model = 'fixture-v2';
           await expectLater(
             knowledge.search(bundle.path, 'password'),
-            throwsA(isA<StationException>()),
+            throwsA(isA<WayfinderException>()),
           );
           expect(
             (await knowledge.index(bundle.path)).embeddedChunks,
@@ -187,7 +187,7 @@ void main() {
       test('missing/corrupt pointers are actionable and repairable', () async {
         await expectLater(
           knowledge.search(bundle.path, 'password'),
-          throwsA(isA<StationException>()),
+          throwsA(isA<WayfinderException>()),
         );
         expect(encoders, isEmpty);
         await knowledge.index(bundle.path);
@@ -195,7 +195,7 @@ void main() {
         await current.writeAsString('../unrelated');
         await expectLater(
           knowledge.search(bundle.path, 'password'),
-          throwsA(isA<StationException>()),
+          throwsA(isA<WayfinderException>()),
         );
         expect(
           (await knowledge.index(bundle.path)).embeddedChunks,
@@ -232,7 +232,7 @@ void main() {
             final opened = encoders.length;
             await expectLater(
               knowledge.search(bundle.path, 'password'),
-              throwsA(isA<StationException>()),
+              throwsA(isA<WayfinderException>()),
             );
             expect(encoders.length, opened, reason: corruption);
             expect(
@@ -256,14 +256,14 @@ void main() {
           ).create();
           await expectLater(
             knowledge.search(another.path, 'password'),
-            throwsA(isA<StationException>()),
+            throwsA(isA<WayfinderException>()),
           );
-          final unsafe = StationKnowledge(
+          final unsafe = WayfinderKnowledge(
             dataDirectory: Directory(p.join(bundle.path, 'cache')),
           );
           await expectLater(
             unsafe.index(bundle.path),
-            throwsA(isA<StationException>()),
+            throwsA(isA<WayfinderException>()),
           );
           expect(
             await Directory(p.join(bundle.path, 'cache')).exists(),
@@ -277,21 +277,21 @@ void main() {
         () async {
           final entered = Completer<void>();
           final release = Completer<void>();
-          final held = StationKnowledge(
+          final held = WayfinderKnowledge(
             dataDirectory: data,
             openEncoder: () async {
               entered.complete();
               await release.future;
               final encoder = _Encoder(model, false);
               encoders.add(encoder);
-              return StationEncoder(encoder, (text) async => 10, 512);
+              return WayfinderEncoder(encoder, (text) async => 10, 512);
             },
           );
           final indexing = held.index(bundle.path);
           await entered.future;
           await expectLater(
             knowledge.index(bundle.path),
-            throwsA(isA<StationException>()),
+            throwsA(isA<WayfinderException>()),
           );
           release.complete();
           await indexing;
@@ -343,7 +343,7 @@ class _Encoder extends BaseEmbedder {
   int queries = 0;
   bool closed = false;
   @override
-  String get sourceName => 'station-fixture';
+  String get sourceName => 'wayfinder-fixture';
   @override
   int get dimension => 384;
   List<double> vector(String text) => [

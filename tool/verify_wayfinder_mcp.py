@@ -1,4 +1,4 @@
-"""Check a relocated Station MCP server with real embeddings and JSON-RPC stdio."""
+"""Check a relocated Wayfinder MCP server with real embeddings and JSON-RPC stdio."""
 import argparse
 import json
 import os
@@ -60,9 +60,9 @@ class Session:
     def initialize(self):
         result = self.request("initialize", {
             "protocolVersion": "2025-11-25", "capabilities": {},
-            "clientInfo": {"name": "station-native-check", "version": "1.0.0"},
+            "clientInfo": {"name": "wayfinder-native-check", "version": "1.0.0"},
         })
-        assert result["serverInfo"]["name"] == "station"
+        assert result["serverInfo"]["name"] == "wayfinder"
         self.send({"method": "notifications/initialized"})
 
     def tool(self, name, arguments=None, error=False):
@@ -99,18 +99,18 @@ def main():
     args = parser.parse_args()
     workspace = Path(__file__).resolve().parent.parent
     reports = []
-    with tempfile.TemporaryDirectory(prefix="station-mcp-") as temp:
+    with tempfile.TemporaryDirectory(prefix="wayfinder-mcp-") as temp:
         temp = Path(temp)
-        app = temp / "relocated station"
+        app = temp / "relocated wayfinder"
         shutil.copytree(Path(args.bundle).resolve(), app)
         corpus = temp / "knowledge"
-        shutil.copytree(workspace / "packages/station/test/fixtures/knowledge", corpus)
+        shutil.copytree(workspace / "packages/wayfinder/test/fixtures/knowledge", corpus)
         originals = {p.name: p.read_bytes() for p in corpus.iterdir()}
         cwd = temp / "empty"
         cwd.mkdir()
-        env = dict(os.environ, STATION_DATA_DIR=str(temp / "data"))
+        env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
-        binary = app / "bin/station"
+        binary = app / "bin/wayfinder"
 
         def check(name, action):
             start = time.perf_counter()
@@ -171,7 +171,7 @@ def main():
         finally:
             server.close()
     Path(args.output).write_text(json.dumps({"cases": reports}, indent=2) + "\n")
-    print(f"Passed {len(reports)} Station MCP checks")
+    print(f"Passed {len(reports)} Wayfinder MCP checks")
 
 
 if __name__ == "__main__":

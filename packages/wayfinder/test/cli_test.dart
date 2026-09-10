@@ -1,22 +1,22 @@
 import 'dart:convert';
 
 import 'package:knowledge_embeddings/okf_knowledge.dart';
-import 'package:station/src/knowledge.dart';
+import 'package:wayfinder/src/knowledge.dart';
 
 import 'package:okf_profile/okf_profile.dart';
-import 'package:station/src/cli.dart';
+import 'package:wayfinder/src/cli.dart';
 import 'package:test/test.dart';
 
 void main() {
   late List<String> output;
   late List<String> errors;
-  late StationCli cli;
+  late WayfinderCli cli;
   late int retrievalOpens;
   setUp(() {
     output = [];
     errors = [];
     retrievalOpens = 0;
-    cli = StationCli(
+    cli = WayfinderCli(
       out: output.add,
       err: errors.add,
       knowledge: () {
@@ -66,7 +66,7 @@ void main() {
     'search converts argv and shares defaults and bounds with MCP',
     () async {
       final knowledge = _SearchKnowledge();
-      cli = StationCli(
+      cli = WayfinderCli(
         out: output.add,
         err: errors.add,
         knowledge: () => knowledge,
@@ -125,7 +125,7 @@ void main() {
   });
 }
 
-class _SearchKnowledge extends StationKnowledge {
+class _SearchKnowledge extends WayfinderKnowledge {
   final limits = <int>[];
 
   @override

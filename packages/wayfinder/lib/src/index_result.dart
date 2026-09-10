@@ -1,6 +1,6 @@
 /// Counts and location of a completed local indexing operation.
-class StationIndexResult {
-  const StationIndexResult({
+class WayfinderIndexResult {
+  const WayfinderIndexResult({
     required this.bundle,
     required this.index,
     required this.embeddedChunks,

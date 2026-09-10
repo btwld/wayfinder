@@ -17,7 +17,7 @@ review under an assumed release.
 
 The canonical assignment
 audit is `implementation/profile-coverage.md` in the
-[okf-profile repository](https://github.com/conceptadev/okf-profile); the review
+[okf-profile repository](https://github.com/conceptadev/wayfinder); the review
 map below keeps this installed skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,
