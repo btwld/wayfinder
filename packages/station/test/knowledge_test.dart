@@ -69,8 +69,8 @@ void main() {
             p.join(bundle.path, 'recovery.md'),
           ).readAsString();
           final first = await knowledge.index(bundle.path);
-          expect(first['embeddedChunks'], greaterThan(0));
-          expect(encoders.last.documents, first['embeddedChunks']);
+          expect(first.embeddedChunks, greaterThan(0));
+          expect(encoders.last.documents, first.embeddedChunks);
           final result = await knowledge.search(
             bundle.path,
             'password recovery',
@@ -84,8 +84,8 @@ void main() {
             isTrue,
           );
           final second = await knowledge.index(bundle.path);
-          expect(second['embeddedChunks'], 0);
-          expect(second['writtenChunks'], 0);
+          expect(second.embeddedChunks, 0);
+          expect(second.writtenChunks, 0);
           expect(encoders.last.documents, 0);
           expect(
             await File(p.join(bundle.path, 'recovery.md')).readAsString(),
@@ -109,7 +109,7 @@ void main() {
             knowledge.search(bundle.path, 'password'),
             throwsA(isA<StationException>()),
           );
-          expect((await knowledge.index(bundle.path))['embeddedChunks'], 0);
+          expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
           final result = await knowledge.search(bundle.path, 'password');
           expect(
             ((result.matches.first.chunk.metadata['okf'] as Map)['frontmatter']
@@ -123,7 +123,7 @@ void main() {
             ),
           );
           expect(
-            (await knowledge.index(bundle.path))['embeddedChunks'],
+            (await knowledge.index(bundle.path)).embeddedChunks,
             greaterThan(0),
           );
         },
@@ -135,8 +135,8 @@ void main() {
           await knowledge.index(bundle.path);
           await File(p.join(bundle.path, 'weather.md')).delete();
           final update = await knowledge.index(bundle.path);
-          expect(update['removedChunks'], 1);
-          expect(update['embeddedChunks'], 0);
+          expect(update.removedChunks, 1);
+          expect(update.embeddedChunks, 0);
           final results = await knowledge.search(bundle.path, 'weather');
           expect(
             results.matches.every(
@@ -178,8 +178,8 @@ void main() {
             throwsA(isA<StationException>()),
           );
           expect(
-            (await knowledge.index(bundle.path))['embeddedChunks'],
-            first['embeddedChunks'],
+            (await knowledge.index(bundle.path)).embeddedChunks,
+            first.embeddedChunks,
           );
         },
       );
@@ -198,10 +198,54 @@ void main() {
           throwsA(isA<StationException>()),
         );
         expect(
-          (await knowledge.index(bundle.path))['embeddedChunks'],
+          (await knowledge.index(bundle.path)).embeddedChunks,
           greaterThan(0),
         );
       });
+
+      test(
+        'corrupt saved records fail before inference and can be repaired',
+        () async {
+          for (final corruption in [
+            'configuration',
+            'snapshot',
+            'snapshot-version',
+          ]) {
+            await knowledge.index(bundle.path);
+            final current = await pointer();
+            final recordFile = File(
+              p.join(
+                current.parent.path,
+                await current.readAsString(),
+                'snapshot.json',
+              ),
+            );
+            final record =
+                jsonDecode(await recordFile.readAsString())
+                    as Map<String, dynamic>;
+            if (corruption == 'snapshot-version') {
+              (record['snapshot'] as Map)['version'] = -1;
+            } else {
+              record[corruption] = null;
+            }
+            await recordFile.writeAsString(jsonEncode(record));
+            final opened = encoders.length;
+            await expectLater(
+              knowledge.search(bundle.path, 'password'),
+              throwsA(isA<StationException>()),
+            );
+            expect(encoders.length, opened, reason: corruption);
+            expect(
+              (await knowledge.index(bundle.path)).embeddedChunks,
+              greaterThan(0),
+            );
+            expect(
+              (await knowledge.search(bundle.path, 'password')).matches,
+              isNotEmpty,
+            );
+          }
+        },
+      );
 
       test(
         'separate roots have separate indexes; source-contained data is refused',
@@ -251,7 +295,7 @@ void main() {
           );
           release.complete();
           await indexing;
-          expect((await knowledge.index(bundle.path))['embeddedChunks'], 0);
+          expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
         },
       );
 
