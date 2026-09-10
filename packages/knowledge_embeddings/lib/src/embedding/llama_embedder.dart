@@ -16,7 +16,12 @@ enum LongInputPolicy { reject, truncate }
 /// the model's retrieval prefix. Over-limit inputs fail unless truncation is
 /// explicitly selected. Model identity includes the artifact and this policy.
 class LlamaEmbedder extends BaseEmbedder {
-  LlamaEmbedder._(this._engine, this.model, this.longInputPolicy);
+  LlamaEmbedder._(
+    this._engine,
+    this.model,
+    this.longInputPolicy,
+    this.coldStartRetries,
+  );
 
   /// Loads and verifies a model before returning an embedder ready for inference.
   ///
@@ -28,7 +33,9 @@ class LlamaEmbedder extends BaseEmbedder {
   /// engine. The runtime's worker startup timeout is fixed, and the first load
   /// from a freshly installed bundle pays a one-time operating-system
   /// validation of the native libraries that can exceed it. A runtime that is
-  /// genuinely unavailable still fails, one retry later.
+  /// genuinely unavailable still fails, one retry later. [coldStartRetries]
+  /// reports how often that happened, so a caller can show that the retry is
+  /// what kept a run alive instead of leaving it to inference.
   static Future<LlamaEmbedder> open({
     File? modelFile,
     EmbeddingModelSpec model = localEmbeddingModel,
@@ -53,7 +60,7 @@ class LlamaEmbedder extends BaseEmbedder {
             numberOfThreadsBatch: 4,
           ),
         );
-        return LlamaEmbedder._(runtime, model, longInputPolicy);
+        return LlamaEmbedder._(runtime, model, longInputPolicy, attempt - 1);
       } catch (error) {
         await runtime.dispose();
         if (attempt >= _engineStartAttempts || !_isBackendStartFailure(error)) {
@@ -66,6 +73,9 @@ class LlamaEmbedder extends BaseEmbedder {
   final LlamaEngine _engine;
   final EmbeddingModelSpec model;
   final LongInputPolicy longInputPolicy;
+
+  /// Backend starts this embedder retried before the model loaded.
+  final int coldStartRetries;
   bool _closed = false;
 
   /// Number of inputs explicitly truncated by this instance.

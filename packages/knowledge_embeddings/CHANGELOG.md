@@ -3,11 +3,14 @@
 ## 0.1.0
 
 - Verifies the pinned ObjectBox release archive by SHA-256 before any of its
-  bytes reach the package, replacing the upstream download script.
+  bytes reach the package, replacing the upstream download script, with a
+  pinned hash for every platform upstream publishes and no architecture
+  fallback.
 - Keys stored vectors on the model's bytes and preprocessing contract only, so
   another mirror of the same verified artifact reuses them.
 - Retries a cold native backend start once, because the first load from a
-  freshly installed bundle can exceed the runtime's worker startup timeout.
+  freshly installed bundle can exceed the runtime's worker startup timeout, and
+  reports the retry count through `LlamaEmbedder.coldStartRetries`.
 - Chunks Markdown footnote definitions as `footnote` apparatus and keeps them
   out of OKF passages, where attribution resolves through `sources`.
 - Regenerates raw per-process benchmark reports instead of checking in
