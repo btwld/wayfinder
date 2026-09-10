@@ -14,7 +14,7 @@ codes. Automated success keeps judgment rules UNASSESSED.
 
 ## Dart installation
 
-Requires Dart 3.10.7 or later. Once this version is published:
+Requires Dart 3.10.7 or later. Install the development release:
 
 ```bash
 dart pub global activate wayfinder 0.0.1-dev.0

@@ -62,13 +62,16 @@ migration, taxonomy change, or published-package discontinuation is needed.
 3. Publish functional `knowledge_embeddings 0.0.1-dev.0` first. The exact native
    dependency pins are intentional for the tested runtime and generated schema;
    retain them despite pub's advisory about constraint width.
-4. Resolve Wayfinder against hosted dependencies outside the workspace, verify
+4. Publish `okf_profile 0.2.1-dev.0`, which exports the existing validator API.
+   Published `0.2.0` does not export that API, so require `^0.2.1-dev.0` in
+   Wayfinder. This does not change Profile rules or validation behavior.
+5. Resolve Wayfinder against hosted dependencies outside the workspace, verify
    validation and executable installation, and publish `wayfinder 0.0.1-dev.0`.
    This ships the existing CLI/MCP implementation; it is not a placeholder.
-5. Transfer both new packages to the existing `concepta.dev` publisher using
+6. Transfer both new packages to the existing `concepta.dev` publisher using
    their pub.dev Admin pages. Initial uploads use the authorized Google account;
    pub does not publish a new package directly to a verified publisher.
-6. Verify package versions, publisher ownership, and a clean hosted install.
+7. Verify package versions, publisher ownership, and a clean hosted install.
 
 Published source archives contain the package's code, generic fixtures and
 package documentation. They exclude downloaded model weights, native libraries,
@@ -94,7 +97,9 @@ publishing credential. The embedding dry run allows warnings for reviewed exact
 native dependency pins; validation errors still fail.
 
 Enable those exact repository/tag combinations in each new package's pub.dev
-Admin page. The existing `okf_profile` automation was disabled when inspected;
+Admin page. Exercise the dependency workflow with `0.0.1-dev.1`, which updates
+remaining library-facing Station references to Wayfinder; the initial `dev.0`
+archive remains immutable. The existing `okf_profile` automation was disabled when inspected;
 its separate stable `v{{version}}` release flow is outside this first Wayfinder
 prerelease. Reconcile PR #62 before enabling that flow.
 
