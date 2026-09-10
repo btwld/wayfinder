@@ -111,6 +111,14 @@ retrieval calls can return a busy error. On disconnect, active operations finish
 and release their resources; cancellation does not roll back indexing. The
 server does not expose upstream OKF's concept-authoring or graph tools.
 
+Tool argument contracts now use ACK through the adapter in
+[ACK PR #140](https://github.com/conceptadev/ack/pull/140), pinned to commit
+`1b54b08e522c9dee51cfa55ac69f8448bd2a3b72` with the compatible published
+`ack ^1.2.0` core. The adapter applies the search default and normalizes integral
+JSON numbers before the callback. It preserves the advertised nonblank query,
+1–100 limit and closed-object constraints. Replace the Git dependency with a
+published adapter version after that release is verified.
+
 See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the SDK release review,
 protocol choices and lifecycle limits.
 

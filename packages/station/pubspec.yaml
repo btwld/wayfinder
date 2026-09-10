@@ -11,6 +11,13 @@ executables:
   station:
 
 dependencies:
+  ack: ^1.2.0
+  # ACK PR #140: pin the adapter to the reviewed branch commit until release.
+  ack_mcp_dart:
+    git:
+      url: https://github.com/conceptadev/ack.git
+      ref: 1b54b08e522c9dee51cfa55ac69f8448bd2a3b72
+      path: packages/ack_mcp_dart
   args: ^2.7.0
   crypto: ^3.0.3
   knowledge_embeddings: ^0.1.0

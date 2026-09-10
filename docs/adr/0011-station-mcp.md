@@ -43,6 +43,25 @@ query and refuses stale indexes. Tool annotations describe validation/search as
 read-only and index as a non-destructive, idempotent local write. The host owns
 the invocation approval policy.
 
+## ACK adapter trial
+
+Station now registers tool arguments through `ack_mcp_dart` from
+[ACK PR #140](https://github.com/conceptadev/ack/pull/140), pinned to
+`1b54b08e522c9dee51cfa55ac69f8448bd2a3b72`. It depends on the published
+`ack ^1.2.0` core; no workspace dependency override is needed.
+
+ACK owns schema export and runtime defaults/normalization. The search callback
+receives an integer limit, including when the client sends `2.0`, and no longer
+performs its own numeric conversion or defaulting. Closed objects, nonblank
+queries and the 1–100 bounds remain the same. The adapter provides reusable
+validation behavior; this small integration still uses validated map arguments
+and does not justify adding generated models solely for two fields.
+
+This is a modest maintainability improvement, not a model-performance change.
+The temporary Git pin makes the trial reproducible; switch to a released adapter
+after verifying that release. Transport, lifecycle, output reports and native
+startup behavior remain owned by their existing components.
+
 ## Lifecycle and limits
 
 Each index/search call opens and disposes its own model and store, preserving

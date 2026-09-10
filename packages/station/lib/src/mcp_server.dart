@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ack/ack.dart';
+import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf_profile/okf_profile.dart';
 
@@ -57,28 +59,28 @@ class StationMcpServer {
       idempotentHint: true,
       openWorldHint: false,
     );
-    final emptyInput = JsonSchema.object(additionalProperties: false);
-    server.registerTool(
+    final emptyInput = Ack.object({});
+    server.registerAckTool(
       'validate',
       description:
           'Check OKF and the declared Concepta profile. Returns the '
           'same report and exit_code as station validate; findings are a '
           'completed validation result, not a tool execution error.',
-      inputSchema: emptyInput,
+      input: emptyInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
         final result = await const ProfileValidator().validate(root);
         return {...result.toJson(), 'exit_code': result.exitCode};
       }),
     );
-    server.registerTool(
+    server.registerAckTool(
       'index',
       description:
           'Explicitly create or refresh saved local embeddings for '
           'the configured bundle. Encodes changed inputs and removes obsolete '
           'passages. Writes only derived app data; source files are unchanged. '
           'May take longer than a minute on first use or a large bundle.',
-      inputSchema: emptyInput,
+      input: emptyInput,
       annotations: const ToolAnnotations(
         readOnlyHint: false,
         destructiveHint: false,
@@ -87,7 +89,7 @@ class StationMcpServer {
       ),
       callback: (arguments, extra) => call(() => _knowledge.index(root)),
     );
-    server.registerTool(
+    server.registerAckTool(
       'search',
       description:
           'Search saved local embeddings. Returns the same JSON as '
@@ -95,24 +97,21 @@ class StationMcpServer {
           'original path/line citations and metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
           'remain eligible; verify the cited text before answering.',
-      inputSchema: JsonSchema.object(
-        properties: {
-          'query': JsonSchema.string(minLength: 1, pattern: r'\S'),
-          'limit': JsonSchema.integer(
-            minimum: 1,
-            maximum: 100,
-            defaultValue: 5,
-          ),
-        },
-        required: ['query'],
-        additionalProperties: false,
-      ),
+      input: Ack.object({
+        'query': Ack.string()
+            .minLength(1)
+            .matches(
+              r'\S',
+              message: 'Query must contain non-whitespace characters.',
+            ),
+        'limit': Ack.integer().min(1).max(100).optional().withDefault(5),
+      }),
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
         final result = await _knowledge.search(
           root,
           arguments['query']! as String,
-          limit: (arguments['limit'] as num?)?.toInt() ?? 5,
+          limit: arguments['limit']! as int,
         );
         return searchOutput(result);
       }),

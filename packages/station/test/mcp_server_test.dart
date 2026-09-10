@@ -75,6 +75,24 @@ void main() {
               ?.readOnlyHint,
           true,
         );
+        final schema = tools
+            .singleWhere((t) => t.name == 'search')
+            .inputSchema
+            .toJson();
+        expect(schema['type'], 'object');
+        expect(schema['additionalProperties'], false);
+        expect(schema['required'], ['query']);
+        final properties = schema['properties'] as Map;
+        expect(properties['query'], containsPair('pattern', r'\S'));
+        expect(
+          properties['limit'],
+          allOf(
+            containsPair('type', 'integer'),
+            containsPair('minimum', 1),
+            containsPair('maximum', 100),
+            containsPair('default', 5),
+          ),
+        );
         expect(knowledge.calls, isEmpty);
       });
 
@@ -142,6 +160,12 @@ void main() {
             ),
             const CallToolRequest(name: 'search', arguments: {}),
             const CallToolRequest(name: 'search', arguments: {'query': '  '}),
+            const CallToolRequest(name: 'search', arguments: {'query': ''}),
+            const CallToolRequest(name: 'search', arguments: {'query': null}),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'x', 'limit': null},
+            ),
             const CallToolRequest(
               name: 'search',
               arguments: {'query': 'x', 'limit': 0},
