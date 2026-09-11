@@ -33,11 +33,13 @@ only after the new archives are published and pass public verification. Publish
 tags at the exact checked commit. Never rename binaries across versions or
 overwrite published archives.
 
-`wayfinder_cli` still needs assignment to `concepta.dev` and OIDC configuration
-for `publish-wayfinder-cli.yml` and `wayfinder-v{{version}}`. Update `wayfinder`
-OIDC trust to `publish-wayfinder.yml` and `wayfinder-core-v{{version}}`. Its old
-trust belonged to the application. Keep embeddings OIDC unchanged. This is
-tracked in [#66](https://github.com/conceptadev/wayfinder/issues/66). GitHub tag
+`wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
+configuration accepts `conceptadev/wayfinder` tags matching
+`wayfinder-v{{version}}`. The core package accepts
+`wayfinder-core-v{{version}}`. These settings were saved on September 11, 2026;
+report automated publishing as configured, not verified, until an upload succeeds.
+The embeddings publishing configuration still needs confirmation under
+[#66](https://github.com/conceptadev/wayfinder/issues/66). GitHub tag
 creation using the built-in workflow token must not be relied on to trigger
 publication. Each publish workflow recognizes an already-published version and
 skips upload.

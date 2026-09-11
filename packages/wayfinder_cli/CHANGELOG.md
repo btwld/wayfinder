@@ -1,5 +1,8 @@
 # Unreleased
 
+- Homebrew installations are directed to the install script because the formula
+  is no longer updated.
+
 - `wayfinder index` returns without loading the model when the saved index
   already matches the bundle, and reports `current` in JSON output.
 - `index --force` discards the saved index and re-embeds every passage.
