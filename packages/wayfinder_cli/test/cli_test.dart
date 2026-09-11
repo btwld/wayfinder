@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:okf/okf_io.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
@@ -33,6 +35,7 @@ void main() {
     expect(help, contains('validate <bundle>'));
     expect(help, contains('index <bundle>'));
     expect(help, contains('search <bundle>'));
+    expect(help, contains('graph <bundle>'));
     expect(help, contains('mcp <bundle>'));
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
@@ -55,6 +58,10 @@ void main() {
     ['mcp'],
     ['mcp', '.', 'another-root'],
     ['mcp', '.', '--output=json'],
+    ['graph'],
+    ['graph', '.', 'extra'],
+    ['graph', '.', '--output=text'],
+    ['graph', '.', '--resolution=nope'],
   ]) {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
@@ -109,6 +116,7 @@ void main() {
     expect(await cli.run(['index', '--help']), 0);
     expect(await cli.run(['search', '--help']), 0);
     expect(await cli.run(['validate', '--help']), 0);
+    expect(await cli.run(['graph', '--help']), 0);
     expect(await cli.run(['mcp', '--help']), 0);
     expect(await cli.run(['--version']), 0);
     expect(errors, isEmpty);
@@ -181,6 +189,64 @@ void main() {
       expect(jsonDecode(output.single), {'bundle': '.', 'detached': 'started'});
     });
   });
+
+  group('graph', () {
+    test('projects the ordinary OKF graph without retrieval', () async {
+      const bundle = '../../examples/knowledge';
+      final expected = await _okfGraph(bundle);
+      expect(await cli.run(['graph', bundle]), 0);
+      expect(jsonDecode(output.single), expected.toJson());
+      expect(expected.toJson()['schema_version'], '1');
+      expect(retrievalOpens, 0);
+    });
+
+    test('mermaid and DOT are text, not a rendered picture', () async {
+      const bundle = '../../examples/knowledge';
+      expect(await cli.run(['graph', bundle, '--output=mermaid']), 0);
+      expect(output.single, startsWith('flowchart LR'));
+      output.clear();
+      expect(await cli.run(['graph', bundle, '--output=dot']), 0);
+      expect(output.single, startsWith('digraph okf {'));
+      expect(retrievalOpens, 0);
+    });
+
+    test('type and path-prefix filters match OkfGraphQuery', () async {
+      const bundle = '../../examples/knowledge';
+      final full = await _okfGraph(bundle);
+      final requests = await _okfGraph(
+        bundle,
+        query: OkfGraphQuery(conceptTypes: ['Request']),
+      );
+      final reporting = await _okfGraph(
+        bundle,
+        query: OkfGraphQuery(pathPrefixes: ['reporting/']),
+      );
+      expect(await cli.run(['graph', bundle, '--type=Request']), 0);
+      expect(jsonDecode(output.single), requests.toJson());
+      expect(requests.nodes.length, lessThan(full.nodes.length));
+      output.clear();
+      expect(await cli.run(['graph', bundle, '--path-prefix=reporting/']), 0);
+      expect(jsonDecode(output.single), reporting.toJson());
+      expect(reporting.nodes.length, lessThan(full.nodes.length));
+    });
+
+    test('load findings print a report and refuse a graph', () async {
+      final temp = await Directory.systemTemp.createTemp('wayfinder-graph-');
+      addTearDown(() => temp.delete(recursive: true));
+      await File('${temp.path}/broken.md').writeAsBytes(const [0xff, 0xfe]);
+      expect(await cli.run(['graph', temp.path]), 1);
+      expect(output.join('\n'), contains('okf/invalid-utf8'));
+      expect(output.join('\n'), isNot(contains('schema_version')));
+      expect(output.join('\n'), isNot(contains('flowchart LR')));
+      expect(retrievalOpens, 0);
+    });
+  });
+}
+
+Future<OkfGraph> _okfGraph(String bundle, {OkfGraphQuery? query}) async {
+  final loaded = await const OkfBundleLoader().inspect(bundle);
+  expect(loaded.hasFindings, isFalse);
+  return OkfGraph.fromBundle(loaded.bundle, query: query);
 }
 
 /// Reports a fixed index state without opening storage or a model.

@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf_io.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:wayfinder/wayfinder.dart';
+import 'package:wayfinder_cli/src/graph.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
@@ -63,7 +65,7 @@ void main() {
         final tools = (await client.listTools()).tools;
         expect(
           tools.map((tool) => tool.name),
-          unorderedEquals(['validate', 'index', 'search']),
+          unorderedEquals(['validate', 'index', 'search', 'graph']),
         );
         expect(
           tools.singleWhere((t) => t.name == 'index').annotations?.readOnlyHint,
@@ -74,6 +76,10 @@ void main() {
               .singleWhere((t) => t.name == 'search')
               .annotations
               ?.readOnlyHint,
+          true,
+        );
+        expect(
+          tools.singleWhere((t) => t.name == 'graph').annotations?.readOnlyHint,
           true,
         );
         final schema = tools
@@ -95,6 +101,28 @@ void main() {
           ),
         );
         expect(knowledge.calls, isEmpty);
+        final graphSchema = tools
+            .singleWhere((t) => t.name == 'graph')
+            .inputSchema
+            .toJson();
+        expect(graphSchema['type'], 'object');
+        expect(graphSchema['additionalProperties'], false);
+        expect(graphSchema['required'], isNull);
+        final graphProperties = graphSchema['properties'] as Map;
+        expect(
+          graphProperties['types'],
+          allOf(
+            containsPair('type', 'array'),
+            containsPair('uniqueItems', true),
+          ),
+        );
+        expect(
+          graphProperties['resolutions'],
+          containsPair(
+            'items',
+            containsPair('enum', wayfinderGraphResolutions()),
+          ),
+        );
       });
 
       test(
@@ -113,6 +141,33 @@ void main() {
           expect(knowledge.calls, isEmpty);
         },
       );
+
+      test('graph projects the ordinary OKF JSON without retrieval', () async {
+        final loaded = await const OkfBundleLoader().inspect(root);
+        expect(loaded.hasFindings, isFalse);
+        final expected = OkfGraph.fromBundle(loaded.bundle);
+        final result = await client.callTool(
+          const CallToolRequest(name: 'graph'),
+        );
+        expect(result.isError, isNot(true));
+        expect(_payload(result), expected.toJson());
+        final filtered = await client.callTool(
+          const CallToolRequest(
+            name: 'graph',
+            arguments: {
+              'types': ['reference'],
+            },
+          ),
+        );
+        expect(
+          _payload(filtered),
+          OkfGraph.fromBundle(
+            loaded.bundle,
+            query: OkfGraphQuery(conceptTypes: ['reference']),
+          ).toJson(),
+        );
+        expect(knowledge.calls, isEmpty);
+      });
 
       test(
         'index and search use the bound service and search defaults',
@@ -187,6 +242,14 @@ void main() {
               name: 'search',
               arguments: {'query': 'x', 'mode': 'dense'},
             ),
+            const CallToolRequest(name: 'graph', arguments: {'mode': 'dense'}),
+            const CallToolRequest(name: 'graph', arguments: {'types': null}),
+            const CallToolRequest(
+              name: 'graph',
+              arguments: {
+                'resolutions': ['nope'],
+              },
+            ),
           ]) {
             expect(
               (await client.callTool(request)).isError,
@@ -244,6 +307,39 @@ void main() {
       );
     });
   }
+
+  test('graph load findings are a tool error', () async {
+    final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-graph-');
+    addTearDown(() => temp.delete(recursive: true));
+    await File('${temp.path}/broken.md').writeAsBytes(const [0xff, 0xfe]);
+    final incoming = StreamController<List<int>>();
+    final outgoing = StreamController<List<int>>();
+    final serverTransport = IOStreamTransport(
+      stream: incoming.stream,
+      sink: outgoing.sink,
+    );
+    final serving = WayfinderMcpServer(
+      rootPath: temp.path,
+      knowledge: _Knowledge(),
+    ).serve(transport: serverTransport);
+    final client = McpClient(
+      const Implementation(name: 'wayfinder-test', version: '1.0.0'),
+    );
+    await client.connect(
+      IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+    );
+    addTearDown(() async {
+      await client.close();
+      await serverTransport.close();
+      await serving;
+    });
+    final result = await client.callTool(const CallToolRequest(name: 'graph'));
+    expect(result.isError, true);
+    expect(
+      (result.content.single as TextContent).text,
+      contains('okf/invalid-utf8'),
+    );
+  });
 }
 
 Map<String, Object?> _payload(CallToolResult result) =>

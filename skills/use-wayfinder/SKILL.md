@@ -1,15 +1,18 @@
 ---
 name: use-wayfinder
-description: Search, index, and validate a project's OKF knowledge bundle with Wayfinder, through its MCP tools or the wayfinder CLI. Use whenever a question may be answered by the project's recorded knowledge — decisions, requirements, conventions, ownership, rationale, prior analysis — before answering from memory or grepping; whenever a bundle changed and search must see it; and before claiming a bundle passes validation.
+description: Search, index, validate, and project the relationship graph of a project's OKF knowledge bundle with Wayfinder, through its MCP tools or the wayfinder CLI. Use whenever a question may be answered by the project's recorded knowledge — decisions, requirements, conventions, ownership, rationale, prior analysis — before answering from memory or grepping; whenever a bundle changed and search must see it; before claiming a bundle passes validation; and when you need the ordinary OKF concept graph.
 ---
 
 # Using Wayfinder
 
 Wayfinder is a local tool for an Open Knowledge Format (OKF) knowledge bundle,
-usually `knowledge/` in the project root. It does three things: **validate** the
+usually `knowledge/` in the project root. It does four things: **validate** the
 bundle against OKF and its declared Concepta Profile release, **index** it into
-saved local embeddings, and **search** that index for cited passages. Nothing is
-sent off the machine, and indexing writes only derived data outside the bundle.
+saved local embeddings, **search** that index for cited passages, and **graph**
+the ordinary OKF relationship graph. Nothing is sent off the machine, and
+indexing writes only derived data outside the bundle. Graph is a live
+projection, not a source of truth; Mermaid and DOT are text for an external
+preview.
 
 Its value is grounding: an answer built from cited passages of the project's own
 recorded decisions beats one built from general knowledge or a keyword grep that
@@ -19,14 +22,17 @@ owns, or learned, search first and answer from what you find.
 ## Choose an interface
 
 Prefer the **Wayfinder MCP tools** when they are available (the `wayfinder`
-plugin registers them as `validate`, `index` and `search`). They are bound to one
+plugin registers them as `validate`, `index`, `search` and `graph`). They are bound to one
 bundle — `knowledge/` by default, or `WAYFINDER_KNOWLEDGE_DIR` — so they take no
 path. `search` takes `query` and an optional `limit` (1–100, default 5).
+`graph` takes optional `types`, `path_prefixes` and `resolutions` and returns
+the versioned OKF graph JSON.
 
 Otherwise use the **CLI**, which takes an explicit bundle path:
 
 ```sh
 wayfinder validate <bundle> [--output=json]
+wayfinder graph <bundle> [--output=json|mermaid|dot]
 wayfinder index <bundle> [--output=json]
 wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
 ```

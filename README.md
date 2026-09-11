@@ -40,11 +40,13 @@ source paths and line ranges. Run `index` again after editing the bundle;
 unchanged content reuses its vectors. The complete installation includes the
 model and native libraries, so retrieval needs no external embedding service.
 
-`wayfinder mcp knowledge` exposes `validate`, `index` and `search` to coding
-agents. The Claude Code plugin configures this server and supplies the author,
-adopt and assess skills. `wayfinder validate` provides Profile validation;
-`wayfinder_embeddings` is the reusable Dart retrieval library. Upstream `okf`
-graph and write tools remain separate capabilities.
+`wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
+coding agents. The Claude Code plugin configures this server and supplies the
+author, adopt and assess skills. `wayfinder validate` provides Profile
+validation; `wayfinder graph` projects the ordinary OKF relationship graph
+(JSON, or Mermaid/DOT text for an external preview). `wayfinder_embeddings` is
+the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
+tools remain separate capabilities.
 
 ## Concepta OKF Profile
 
@@ -96,7 +98,7 @@ See [migration instructions](docs/install.md#migrate-the-dart-application-packag
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, assess, and search a Profiled Bundle, shipped as the `wayfinder` plugin |
-| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
+| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, graph projection, persistent embedding indexes and semantic search |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
@@ -212,6 +214,7 @@ of this repository:
 
 ```bash
 wayfinder validate examples/knowledge
+wayfinder graph examples/knowledge --output mermaid
 wayfinder index examples/knowledge
 wayfinder search examples/knowledge "How is reporting implemented?"
 ```
@@ -221,8 +224,8 @@ and encodes only the query. There is no retrieval-mode flag. See the
 [Wayfinder guide](packages/wayfinder_cli/README.md) for setup, packaging and local data
 locations. Existing `okfp validate` remains supported.
 
-`wayfinder mcp <bundle>` exposes the same validation, index and search services
-to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
+`wayfinder mcp <bundle>` exposes the same validation, index, search and graph
+services to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
 for the launch configuration and tool lifecycle.
 
 ## Examples

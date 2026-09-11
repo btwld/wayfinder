@@ -1,9 +1,10 @@
 # Wayfinder
 
-Validate, index and search an explicit local OKF knowledge bundle:
+Validate, index, search and project an explicit local OKF knowledge bundle:
 
 ```bash
 wayfinder validate ./knowledge
+wayfinder graph ./knowledge --output mermaid
 wayfinder index ./knowledge
 wayfinder search ./knowledge "How do I regain account access?"
 ```
@@ -87,6 +88,14 @@ After editing knowledge files, run `wayfinder index` again. Search detects an
 absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
+`graph` reads the live bundle and projects the ordinary OKF relationship
+graph. It does not open the search index or model. `--output` is
+`json` (default), `mermaid`, or `dot`. Mermaid and DOT are text for an
+external preview such as mermaid.live; they are not a rendered picture.
+Repeatable `--type`, `--path-prefix` and `--resolution` select an induced
+subgraph, matching `okf graph`. Load findings print the OKF report and
+refuse a graph.
+
 The validate, index and search commands accept `--output=json`. Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
 line ranges, metadata, similarity, context inclusion reasons and link notices.
@@ -96,7 +105,8 @@ are candidates; verify the supporting text before answering.
 Validation preserves exit 0 for automated success, 1 for findings and 2 for
 usage/I/O/unsupported releases. Index/search return 0 on success and 2 when they
 cannot complete, including stale indexes, busy stores and missing model assets.
-An empty result set is a successful search.
+An empty result set is a successful search. Graph returns 0 on success, 1 when
+load findings refuse a graph, and 2 for usage or I/O failure.
 
 ## MCP server
 
@@ -119,11 +129,14 @@ the common `mcpServers` configuration shape:
 ```
 
 The process serves one bundle over stdio; stdout is reserved for JSON-RPC.
-The tools are `validate` and `index` (no arguments), and `search` with a required
-`query` and optional `limit` (1–100, default 5). Their results contain the same
+The tools are `validate` and `index` (no arguments), `search` with a required
+`query` and optional `limit` (1–100, default 5), and `graph` with optional
+`types`, `path_prefixes` and `resolutions`. Their results contain the same
 JSON as the commands, in one text content block. Validation also includes the
 command's `exit_code`, findings and UNASSESSED judgment without treating a
-completed report as a tool error.
+completed report as a tool error. `graph` returns the versioned OKF graph JSON
+(`schema_version: "1"`). Mermaid and DOT remain CLI text for an external
+preview.
 
 Use `index` explicitly before the first search and after source edits. It saves
 document embeddings in the same local app-data directory used by the CLI.
@@ -136,7 +149,8 @@ a long-lived connection does not yet keep the model warm. Configure the host's
 tool timeout for first-use startup and the size of the corpus. Overlapping
 retrieval calls can return a busy error. On disconnect, active operations finish
 and release their resources; cancellation does not roll back indexing. The
-server does not expose upstream OKF's concept-authoring or graph tools.
+server projects the ordinary OKF graph and does not expose upstream OKF's
+concept-authoring write tools. See [ADR-0012](../../docs/adr/0012-wayfinder-graph-projection.md).
 
 Tool argument contracts use ACK through the published `ack_mcp_dart ^1.3.0`
 adapter and the compatible `ack ^1.2.0` core. The adapter applies the search

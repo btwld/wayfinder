@@ -142,10 +142,11 @@ If the older marketplace is named `okf-profile`, use
 that only `wayfinder@wayfinder` is enabled and `/mcp` lists one Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
 plugin together; they do not require removing the marketplace again.
 
-Upstream `okf` remains a separate optional tool for OKF graph
-and write operations; Wayfinder does not implement those capabilities. Its
-Windows binary availability is tracked independently in
-[okf#43](https://github.com/conceptadev/okf/issues/43).
+`wayfinder graph` projects the ordinary OKF relationship graph. Mermaid and
+DOT output are text for an external preview; Wayfinder does not render a
+picture. Upstream `okf` remains a separate optional tool for write and
+concept-authoring operations. Its Windows binary availability is tracked
+independently in [okf#43](https://github.com/conceptadev/okf/issues/43).
 
 ## Upgrade and troubleshoot
 

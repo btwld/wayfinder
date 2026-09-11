@@ -23,3 +23,5 @@ behaviour per unit of interface a caller must learn.
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired |
 | [0009](0009-local-knowledge-retrieval.md) | Accepted — keep Arctic XS for optional local embeddings; retain BM25 by default and improve passage selection through measured experiments |
 | [0010](0010-station-cli.md) | Accepted — Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots |
+| [0011](0011-station-mcp.md) | Accepted — Serve Wayfinder validate, index and search over local MCP stdio |
+| [0012](0012-wayfinder-graph-projection.md) | Accepted — Wayfinder projects the ordinary OKF graph; writes remain in `okf` |
