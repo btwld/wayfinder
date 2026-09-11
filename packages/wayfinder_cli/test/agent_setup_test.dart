@@ -218,7 +218,7 @@ void main() {
           },
         }),
       );
-      expect(
+      await expectLater(
         () => setup().configureProject(project),
         throwsA(predicate((e) => e.toString().contains('--force'))),
       );
