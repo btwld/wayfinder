@@ -168,7 +168,7 @@ Evidence layer: originals are never edited; canonical knowledge lives in
 - Captured: <YYYY-MM-DD> by <actor>
 - Participants: <names (organization)>; for a delivery, Sent by <name (organization)>
 - Originals: <filename> (sha256 <hash>), one per line
-- Sensitivity: none | commercial terms present (not reproduced) | personal or member-level data (see note)
+- Sensitivity: none | commercial terms present (not reproduced) | personal or member-level data
 
 ## Summary
 <3–6 sentences>
@@ -182,6 +182,10 @@ Evidence layer: originals are never edited; canonical knowledge lives in
 ## Does not settle
 <bullets, or "none noted">
 ````
+
+Sensitivity records which visibility decision the user confirmed when the
+originals were added; it describes the material, and grants no access control of
+its own.
 
 A capture that produced no durable outcome still gets an intake note with
 "none yet"; that is a correct result, not a gap.

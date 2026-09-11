@@ -93,9 +93,13 @@ transcripts, thread exports, client-delivered documents or sample data — seed 
 `captures/` directory **beside** `knowledge/`, never inside it, following
 [SEEDING.md § Captures](./SEEDING.md#captures). It gets a plain `index.md`
 (no frontmatter; `captures/` is not a bundle) and one dated package per event or
-delivery with an `intake.md`. Move any existing loose material into packages
-with `git mv` so history survives. Add the `### Captures` block below to
-`AGENTS.md` under `## Agent skills`:
+delivery with an `intake.md`. Move material the repository already tracks into
+packages with `git mv` so history survives. Committing an original the repository
+does not already track widens who can read it, because `captures/` inherits the
+repository's access controls and defines no per-file scheme: name those files and
+confirm with the user that the material may live at that visibility before adding
+them. Leave material where it is if they decline. Add the `### Captures` block
+below to `AGENTS.md` under `## Agent skills`:
 
 ```markdown
 ### Captures

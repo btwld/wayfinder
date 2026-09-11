@@ -15,8 +15,11 @@ first authoring pass produced 28 concepts and drifted in two ways:
 
 1. **Restating authoritative documents.** Five concepts paraphrased the client's
    own specifications (a file-naming document, a comparison rule, a field
-   dictionary). Each was a second lifecycle owner for a document the client
-   maintains, which §7.3 forbids, and each would silently go stale.
+   dictionary). Each made the bundle a second lifecycle owner for a document the
+   client maintains — the two-sources-of-truth drift §1 opens with — and each
+   would silently go stale. §7.3 does not reach these: its test is whether a
+   tracker owns the artifact's state, and none of them has one. §12 does, and
+   keeps them external behind a followable `sources[].resource`.
 2. **Losing the event context.** The Profile rightly bans routine minutes as
    concepts (§4.1, §4.3), but that leaves nowhere to record who was in a
    meeting, what it contradicted, what it did *not* settle, and which files it
