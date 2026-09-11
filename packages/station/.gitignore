@@ -1,4 +1,0 @@
-lib/*.dylib
-lib/*.so
-lib/*.dll
-build/
