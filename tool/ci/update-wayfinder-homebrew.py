@@ -32,9 +32,11 @@ def render(destination):
         text = text.split(marker)[0]
     text += marker + '''
 ```sh
+brew install conceptadev/tap/okfp
 brew install conceptadev/tap/wayfinder
 ```
 
+Installing each fully qualified formula grants its individual Homebrew trust.
 Wayfinder installs a complete native runtime and model. Its `okfp` dependency
 provides the Profile validation gate and may be installed separately with
 `brew install conceptadev/tap/okfp`. The validator builds with a pinned temporary

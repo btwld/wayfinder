@@ -4,9 +4,10 @@ Find, validate and use your project's knowledge with local search and an MCP
 server for coding agents. This repository distributes Wayfinder's native runtime,
 installation scripts and the Concepta OKF Profile skill family.
 
-This is a generated distribution for **{{TAG}}**, from `{{SOURCE_REPO}}`
-commit `{{SOURCE_SHA}}`. It contains
-no private source history. Use this repository's issues for installation problems.
+This documentation and plugin projection accompanies **{{TAG}}** and comes from
+`{{SOURCE_REPO}}` commit `{{SOURCE_SHA}}`. The release asset `source.json` records
+the exact source commit used to build the native binaries. This repository
+contains no private source history. Use this repository's issues for installation problems.
 
 ## 1. Install the skills
 

@@ -156,5 +156,7 @@ The public plugin repository now exists. An isolated Claude Code installation
 successfully migrated from `concepta-knowledge@wayfinder`, loaded all three
 skills with only one enabled plugin, and connected its Wayfinder MCP server.
 A separate clean configuration fetched the public marketplace over HTTPS with
-Git credentials disabled. Native public releases and Homebrew rollout remain
-pending their final release checks.
+Git credentials disabled. Native public release `wayfinder-v0.0.1-dev.1` now includes verified archives for
+all three supported platforms. The public macOS installer and Homebrew install
+pass. Initial publication used the authorized maintainer CLI; the GitHub App
+automation still awaits owner re-authentication and a successful workflow run.

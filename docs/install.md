@@ -5,10 +5,11 @@ native installation includes `wayfinder`, the `okfp` Profile validation gate,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
-The public distribution rollout is being verified in #54. The release URLs below
-are the intended installation route; they must be verified against the public
-release before this guide is shipped in the distribution repository. Dart users
-can already use the [published package](https://pub.dev/packages/wayfinder).
+Native bundles for `0.0.1-dev.1` are available from the
+[public release](https://github.com/conceptadev/wayfinder-dist/releases/tag/wayfinder-v0.0.1-dev.1).
+The supported platforms pass native build, relocation, retrieval and installer
+checks in CI. The public macOS download and Homebrew installation have also been
+verified without access to the private source repository.
 
 ## Install the native runtime
 
@@ -41,6 +42,21 @@ switching commands. Reinstalling repairs missing assets and preserves saved
 indexes. Previous runtime directories remain available for running processes;
 they may be deleted after those processes have stopped. These checksums detect
 corrupt downloads; they are not a claim of code signing or notarization.
+
+## Install with Homebrew
+
+On macOS Apple Silicon or Linux x64:
+
+```sh
+brew install conceptadev/tap/okfp
+brew install conceptadev/tap/wayfinder
+```
+
+Install `okfp` first so Homebrew trusts that dependency as well as Wayfinder.
+Each fully qualified installation trusts only that formula; no whole-tap trust
+is required. See [Homebrew tap trust](https://docs.brew.sh/Tap-Trust).
+The validator builds with a temporary pinned Dart SDK; you do not need to install
+one yourself. Upgrade with `brew upgrade wayfinder okfp`.
 
 ## Use a knowledge bundle
 
