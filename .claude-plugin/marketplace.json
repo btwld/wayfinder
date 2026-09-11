@@ -4,7 +4,7 @@
     "name": "Concepta"
   },
   "metadata": {
-    "description": "Concepta OKF Profile: the concepta-knowledge plugin for authoring, adopting, and assessing knowledge bundles."
+    "description": "Wayfinder: author, adopt and assess Concepta OKF Profile knowledge bundles."
   },
   "plugins": [
     {

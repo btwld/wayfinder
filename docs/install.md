@@ -88,7 +88,7 @@ Run the installer again to install its pinned release or repair that release.
 Restart Claude Code to use the updated executable. An upgrade keeps index data
 separate from runtime files. `WAYFINDER_DATA_DIR` selects an explicit data root;
 the existing Station-data migration and model environment overrides are described
-in the application package guide.
+in the [application package guide](https://pub.dev/packages/wayfinder).
 
 If a command is missing, check its installation directory is on the `PATH` used
 to launch your terminal or Claude Code. If an asset is missing, rerun the complete
@@ -109,7 +109,7 @@ dart pub global activate okf_profile 0.2.1-dev.0
 ```
 
 Global activation supports validation and MCP validation. Retrieval additionally
-needs the native library/model setup described in the application package guide;
+needs the native library/model setup described in the [package guide](https://pub.dev/packages/wayfinder);
 the complete native installer handles those assets for end users. The reusable
 library is `wayfinder_embeddings`; migrate its dependency and all imports together
 when replacing `knowledge_embeddings`.

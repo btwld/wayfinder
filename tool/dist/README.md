@@ -1,40 +1,39 @@
-# Concepta OKF Profile — distribution
+# Wayfinder
 
-The public distribution surface of [{{SOURCE_REPO}}](https://github.com/{{SOURCE_REPO}}),
-generated from release **{{TAG}}**. Nothing here is edited by hand: every file is
-projected by the source repository's release workflow, and the release assets are
-the `okfp` binaries that workflow built.
+Find, validate and use your project's knowledge with local search and an MCP
+server for coding agents. This repository distributes Wayfinder's native runtime,
+installation scripts and the Concepta OKF Profile skill family.
 
-| What | Where |
-| --- | --- |
-| The `concepta-knowledge` Claude Code plugin (skills + MCP wiring) | [`skills/`](skills/), [`.claude-plugin/`](.claude-plugin/) |
-| Installation guide | [`docs/install.md`](docs/install.md) |
-| Installers for `okf` and `okfp` | [`tool/install.sh`](tool/install.sh), [`tool/install.ps1`](tool/install.ps1) |
-| `okfp` binaries | this repository's [releases](../../releases) |
+This is a generated distribution from `{{SOURCE_REPO}}` at **{{TAG}}**. It contains
+no private source history. Use this repository's issues for installation problems.
 
-## Install
+## 1. Install the skills
 
-```
-/plugin marketplace add conceptadev/okf-profile-dist
-/plugin install concepta-knowledge@okf-profile
-```
+First follow the [installation guide](docs/install.md) to install the complete
+Wayfinder runtime and `okfp` validation command. Then, from a project containing
+`knowledge/`, run in Claude Code:
 
-macOS and Linux:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/conceptadev/okf-profile-dist/main/tool/install.sh | sh
+```text
+/plugin marketplace add conceptadev/wayfinder-dist
+/plugin install wayfinder@wayfinder
 ```
 
-Windows (PowerShell):
+The plugin installs its author, adopt and assess skills together and registers
+Wayfinder's `validate`, `index` and `search` MCP tools. It does not configure
+upstream OKF graph/write tools; those remain separate capabilities.
 
-```powershell
-irm https://raw.githubusercontent.com/conceptadev/okf-profile-dist/main/tool/install.ps1 | iex
-```
+## Native releases
 
-The full guide, including Homebrew, upgrades, and uninstalling, is
-[`docs/install.md`](docs/install.md).
+Download the complete archive for your platform from
+[releases](https://github.com/conceptadev/wayfinder-dist/releases), or use the
+installer in the guide. Copying just the executable omits required libraries and
+the embedding model. Archives include SHA-256 checksums and dependency notices.
 
-## Issues and changes
+## Dart packages
 
-File issues and propose changes against the source repository. Pull requests here
-are overwritten by the next release.
+- [wayfinder](https://pub.dev/packages/wayfinder): CLI and MCP application.
+- [wayfinder_embeddings](https://pub.dev/packages/wayfinder_embeddings): reusable retrieval library.
+- [okf_profile](https://pub.dev/packages/okf_profile): the `okfp` validation gate.
+
+The source repository remains private. This public projection is regenerated;
+changes to generated files must be made in the source and released again.

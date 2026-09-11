@@ -14,11 +14,11 @@ $env:PATH = (($env:PATH -split ';') | Where-Object {
     $_ -and -not (Test-Path (Join-Path $_ 'dart.exe')) -and -not (Test-Path (Join-Path $_ 'dart.bat'))
 }) -join ';'
 if (Get-Command dart -ErrorAction SilentlyContinue) { throw 'Probe PATH must not contain Dart.' }
-$script:Corrupt = $false
+$DownloadState = @{ Corrupt = $false }
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile)
     if ($Uri.EndsWith('.sha256')) {
-        if ($script:Corrupt) { Set-Content $OutFile (('0' * 64) + '  wayfinder-windows-x64.tar.gz') }
+        if ($DownloadState.Corrupt) { Set-Content $OutFile (('0' * 64) + '  wayfinder-windows-x64.tar.gz') }
         else { Copy-Item ($SourceArchive + '.sha256') $OutFile }
     } else { Copy-Item $SourceArchive $OutFile }
 }
@@ -35,7 +35,7 @@ try {
     $InstalledBin = (Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim()
     $Result = & (Join-Path $InstalledBin 'wayfinder.exe') index $Corpus --output=json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $Result.embeddedChunks -ne 0) { throw 'Repair did not preserve the index.' }
-    $script:Corrupt = $true
+    $DownloadState.Corrupt = $true
     $Rejected = $false
     try { & (Join-Path $PSScriptRoot 'install.ps1') } catch {
         if ($_.Exception.Message -notlike '*checksum mismatch*') { throw }
