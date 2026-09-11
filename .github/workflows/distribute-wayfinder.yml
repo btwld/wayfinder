@@ -20,7 +20,7 @@ jobs:
   distribute:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Verify build provenance
@@ -39,7 +39,7 @@ jobs:
           if (run['head_sha'] != os.environ['GITHUB_SHA'] or
                   run['conclusion'] != 'success' or run['path'] != '.github/workflows/ci.yml'):
               raise SystemExit('Release requires successful CI for this exact commit')
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.ci_run_id }}

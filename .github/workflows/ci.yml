@@ -17,7 +17,7 @@ jobs:
         sdk: ["3.10.7", stable]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
@@ -75,7 +75,7 @@ jobs:
       run:
         working-directory: packages/wayfinder_embeddings
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
@@ -144,12 +144,12 @@ jobs:
         shell: pwsh
         working-directory: .
         run: ./tool/verify_installer.ps1 -Archive build/wayfinder-windows-x64.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.sdk == 'stable'
         with:
           name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
           path: build/wayfinder-*.tar.gz*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |
