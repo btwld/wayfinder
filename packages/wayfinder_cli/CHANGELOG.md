@@ -1,4 +1,4 @@
-# Unreleased
+# 0.0.2
 
 - `wayfinder skills install|status|remove` installs the bundled agent skills for
   Claude Code, through the `wayfinder` plugin when the `claude` CLI is available,
