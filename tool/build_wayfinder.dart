@@ -67,7 +67,7 @@ Future<void> main(List<String> arguments) async {
       await file.copy(p.join(models.path, p.basename(file.path)));
     }
     await stageObjectBoxAssets(Directory(package), Directory(bundle));
-    await stageWindowsBackendAssets(Directory(bundle));
+    await stageNativeCliAssets(Directory(package), Directory(bundle));
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
     stderr.writeln('Wayfinder build failed: $error');

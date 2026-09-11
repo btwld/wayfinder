@@ -1,0 +1,15 @@
+Wayfinder's embedding runtime uses llamadart 0.8.23 and
+llamadart-native v0.4.0 (https://github.com/leehack/llamadart-native).
+Copyright (c) 2024 Jhin Lee. See llamadart-LICENSE.
+
+That native release pins llama.cpp at
+5266f24da75dc449bd56cbed7addb9c8e4a6a73e
+(https://github.com/ggml-org/llama.cpp).
+Copyright (c) 2023-2026 The ggml authors. See llama-cpp-LICENSE.
+
+Windows bundles also include the unmodified Microsoft OpenMP runtime,
+vcomp140.dll, supplied by the upstream native release. It is Microsoft
+software, not MIT-licensed code. Redistribution is subject to Microsoft's
+Visual Studio license terms and Distributable Code list:
+https://learn.microsoft.com/visualstudio/releases/2022/redistribution
+https://learn.microsoft.com/cpp/windows/determining-which-dlls-to-redistribute
