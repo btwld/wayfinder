@@ -260,7 +260,10 @@ class _Knowledge extends WayfinderKnowledge {
   bool failSearch = false;
 
   @override
-  Future<WayfinderIndexResult> index(String bundle) async {
+  Future<WayfinderIndexResult> index(
+    String bundle, {
+    bool force = false,
+  }) async {
     calls.add('index:$bundle');
     if (!indexStarted.isCompleted) indexStarted.complete();
     await finishIndex?.future;

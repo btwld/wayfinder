@@ -65,13 +65,18 @@ runs resolve their own assets independently of the current working directory.
 | --- | --- |
 | `validate` | None |
 | First `index` | Fit passages to the tokenizer, embed them and persist a completed snapshot |
-| Repeat `index` | Reuse compatible vectors; encode changed/new inputs and remove deleted passages |
+| Repeat `index`, nothing changed | None; returns without loading the model |
+| Repeat `index` after edits | Reuse compatible vectors; encode changed/new inputs and remove deleted passages |
+| `index --force` | Discard the saved index and re-embed every passage |
 | `search` | Reopen the completed snapshot and encode only the query |
 
 Titles/headings are part of document embedding inputs. Other metadata and
 citation-only updates can refresh without inference. Passage shifts can change
-IDs and cause additional re-encoding. An unchanged index reuses its fitted
-snapshot and vectors, but still opens the model and stages a database copy.
+IDs and cause additional re-encoding. An unchanged index returns without
+opening the model or staging a database copy. `--force` rebuilds from scratch
+into a new generation, which replaces the old one only when it completes.
+`--detach` returns at once and indexes in a background process only when the
+bundle changed; the refresh hooks use it.
 
 Native first-use initialization remains variable. Reusing document vectors
 does not remove model startup or the first query's inference cost. The
@@ -146,7 +151,7 @@ protocol choices and lifecycle limits.
 ```bash
 wayfinder skills install [--agent=all|claude|agents]
 wayfinder skills status
-wayfinder setup [<project>] [--bundle=knowledge]
+wayfinder setup [<project>] [--bundle=knowledge] [--hooks]
 wayfinder update [--check] [--version=<version>]
 ```
 
@@ -155,7 +160,11 @@ Claude Code plugin when the `claude` CLI is available, otherwise copies the
 skills to `~/.claude/skills`. It also copies them to `~/.agents/skills` for Codex
 and other Agent Skills clients. It marks its copies and never replaces or
 removes a skill it did not install. `setup` adds `wayfinder mcp <bundle>` to a
-project's `.mcp.json` and preserves other servers.
+project's `.mcp.json` and preserves other servers. `setup --hooks` also runs
+`wayfinder index <bundle> --detach` after Claude Code and Codex turns (Stop hooks
+in `.claude/settings.json` and `.codex/hooks.json`) and after git pulls,
+checkouts and rebases (`.githooks/`, enabled with `core.hooksPath`). Existing
+hooks are kept, and rerunning replaces only Wayfinder's own entries.
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. Homebrew and Dart installations

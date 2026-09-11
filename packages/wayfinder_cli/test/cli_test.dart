@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 
 import 'package:wayfinder/wayfinder.dart';
@@ -123,6 +124,97 @@ void main() {
     );
     expect(jsonDecode(output.single), expected.toJson());
   });
+
+  group('index', () {
+    late List<List<String>> spawned;
+    WayfinderCli indexCli(_IndexKnowledge knowledge) => WayfinderCli(
+      out: output.add,
+      err: errors.add,
+      knowledge: () => knowledge,
+      spawnDetached: (arguments) async => spawned.add(arguments),
+    );
+    setUp(() => spawned = []);
+
+    test('a current index needs no work', () async {
+      final knowledge = _IndexKnowledge('current');
+      expect(await indexCli(knowledge).run(['index', '.']), 0);
+      expect(output.single, contains('is current; nothing to update'));
+      expect(await indexCli(knowledge).run(['index', '.', '--force']), 0);
+      expect(knowledge.forced, [false, true]);
+    });
+
+    for (final (state, message, starts) in [
+      ('current', 'is current', false),
+      ('stale', 'in the background', true),
+      ('busy', 'already running', false),
+    ]) {
+      test('--detach on a $state index', () async {
+        expect(
+          await indexCli(
+            _IndexKnowledge(state),
+          ).run(['index', '.', '--detach']),
+          0,
+        );
+        expect(output.single, contains(message));
+        expect(
+          spawned,
+          starts
+              ? [
+                  ['index', '.'],
+                ]
+              : isEmpty,
+        );
+        expect(errors, isEmpty);
+      });
+    }
+
+    test('--detach --force always rebuilds and reports JSON', () async {
+      expect(
+        await indexCli(
+          _IndexKnowledge('current'),
+        ).run(['index', '.', '--detach', '--force', '--output=json']),
+        0,
+      );
+      expect(spawned, [
+        ['index', '.', '--force'],
+      ]);
+      expect(jsonDecode(output.single), {'bundle': '.', 'detached': 'started'});
+    });
+  });
+}
+
+/// Reports a fixed index state without opening storage or a model.
+class _IndexKnowledge extends WayfinderKnowledge {
+  _IndexKnowledge(this.state);
+  final String state;
+  final forced = <bool>[];
+
+  @override
+  Future<bool> isCurrent(String bundle) async {
+    if (state == 'busy') {
+      throw const WayfinderException(
+        'Index is busy. Retry when the current command finishes.',
+      );
+    }
+    return state == 'current';
+  }
+
+  @override
+  Future<WayfinderIndexResult> index(
+    String bundle, {
+    bool force = false,
+  }) async {
+    forced.add(force);
+    return WayfinderIndexResult(
+      bundle: bundle,
+      index: 'saved',
+      embeddedChunks: 0,
+      removedChunks: 0,
+      writtenChunks: 0,
+      elapsedMs: 0,
+      current: state == 'current' && !force,
+    );
+  }
 }
 
 class _SearchKnowledge extends WayfinderKnowledge {

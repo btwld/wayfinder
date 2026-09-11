@@ -44,9 +44,11 @@ grep-only answers.
 2. **If search says the index is missing, stale or incompatible, index and search
    again.** Search refuses to read an index that no longer matches the bundle's
    files, so this is expected after any edit, on first use, or after an upgrade.
-   Indexing is incremental — unchanged passages are reused — but the first run on
-   a bundle can take a minute or more. Do not pre-emptively re-index when search
-   works.
+   Indexing is incremental — unchanged passages are reused, and a bundle that
+   already matches its index returns at once — but the first run on a bundle can
+   take a minute or more. Do not pre-emptively re-index when search works. If
+   results look wrong for an unchanged bundle, `wayfinder index <bundle> --force`
+   rebuilds the index from scratch.
 3. **Read the results.** JSON output has three parts:
    - `context` — the ranked, bounded passages to use. Each has `chunk.sourcePath`
      (relative to the bundle), `chunk.lineStart`–`chunk.lineEnd`,
