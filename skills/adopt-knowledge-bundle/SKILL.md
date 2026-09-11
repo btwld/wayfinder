@@ -69,9 +69,10 @@ tool's concern, out of this skill's scope.
 ```markdown
 ### Knowledge bundle
 
-Durable project knowledge is an OKF bundle at `knowledge/`, following the
-Concepta OKF Profile (versions declared in `knowledge/profile.md`). Start at
-`knowledge/index.md`, then the area index, then the concept.
+Durable project documentation and knowledge live in the OKF bundle at
+`knowledge/`, following the Concepta OKF Profile (versions declared in
+`knowledge/profile.md`). Start at `knowledge/index.md`, then the area index,
+then the concept.
 
 Follow the `author-knowledge-bundle` skill before writing anything under
 `knowledge/` — including before creating a directory there. Execution records
@@ -87,13 +88,15 @@ unavailable. Search never answers from a stale index: if it reports one, run
 `validate` before claiming the bundle conforms. The `use-wayfinder` skill has
 the details.
 
-Run `wayfinder setup --hooks` once per clone: it registers the MCP server in
-`.mcp.json` and refreshes the index after agent turns, pulls, checkouts and
-rebases.
+Run `wayfinder setup --hooks` once per clone (Wayfinder 0.0.3 or later): it
+registers the MCP server in `.mcp.json` and refreshes the index after agent
+turns, pulls, checkouts and rebases.
 ```
 
 Then run `wayfinder setup --hooks` in the project root and commit the files it
 writes (`.mcp.json`, `.claude/settings.json`, `.codex/hooks.json`, `.githooks/`).
+That flag shipped in 0.0.3; skip it and say so if `wayfinder setup --help` does
+not list `--hooks`.
 
 If an existing documentation tree remains, state which home is authoritative for
 which material, as implementation guide §2.2 requires. Do not claim that old
