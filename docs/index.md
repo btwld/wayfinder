@@ -24,7 +24,7 @@
 
 ## Operations
 
-docs/install.md — Installation guide (Current) — Installing okf, okfp, and the concepta-knowledge plugin without a Dart SDK: Homebrew, one-line installers, plugin commands, checks, upgrades, uninstall. Topics: install, distribution, plugin, MCP.
+docs/install.md — Installation guide (Current) — Installing Wayfinder, okfp, and the wayfinder@wayfinder plugin without a Dart SDK: Homebrew, one-line installers, plugin commands, checks, upgrades, uninstall. Topics: install, distribution, plugin, MCP.
 
 docs/releasing.md — Releasing (Current) — What a release tag does, every version bump site and its CI check, the release app, and how to collapse the distribution repository when this one goes public. Topics: release, distribution, pinning, CI.
 
