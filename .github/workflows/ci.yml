@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
 
+# Keep non-PR builds available as release inputs for their exact commits.
 concurrency:
   group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
