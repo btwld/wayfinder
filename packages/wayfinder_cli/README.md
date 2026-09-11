@@ -167,8 +167,9 @@ checkouts and rebases (`.githooks/`, enabled with `core.hooksPath`). Existing
 hooks are kept, and rerunning replaces only Wayfinder's own entries.
 
 `update` reruns the release's verified installer for installer-managed
-runtimes, then refreshes the skills and plugin. Homebrew and Dart installations
-print their upgrade command instead. Interactive commands also print a one-line
+runtimes, then refreshes the skills and plugin. A Dart installation prints its
+upgrade command instead; the Homebrew formula is no longer updated, so a
+Homebrew installation is told to reinstall with the install script. Interactive commands also print a one-line
 stderr notice when a newer stable release exists. That check is the only
 network request Wayfinder makes on its own: at most once a day it reads the
 GitHub Releases API and sends no bundle content. It never runs for `mcp`, when

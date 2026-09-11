@@ -17,7 +17,7 @@ On Windows x64, in PowerShell:
 irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex
 ```
 
-The [installation guide](docs/install.md) covers Homebrew, plugin setup,
+The [installation guide](docs/install.md) covers plugin setup,
 upgrades and troubleshooting.
 [GitHub releases](https://github.com/conceptadev/wayfinder/releases) contain the
 complete runtime bundles; the [Dart package guide](packages/wayfinder_cli/README.md)
@@ -305,8 +305,7 @@ checks only; contextual Profile Review remains separate.
 
 See the [maintenance review](docs/maintenance-review.md) for the existing issues
 and the remaining project-knowledge workflow questions. See the
-[release guide](docs/releasing.md) for package publication, native binaries and
-the existing Concepta Homebrew tap.
+[release guide](docs/releasing.md) for package publication and native binaries.
 
 ## Dart workspace development
 

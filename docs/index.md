@@ -24,9 +24,9 @@
 
 ## Operations
 
-[Install Wayfinder](install.md) — Native installation without Dart, Homebrew, plugin setup and migration, usage, upgrades and troubleshooting.
+[Install Wayfinder](install.md) — Native installation without Dart, plugin setup and migration, usage, upgrades and troubleshooting.
 
-[Release Wayfinder](releasing.md) — Package tags, pub.dev OIDC, verified native bundles, cli_pkg/Grinder tasks and credentials for the existing Concepta Homebrew tap.
+[Release Wayfinder](releasing.md) — Package tags, pub.dev OIDC, verified native bundles and cli_pkg/Grinder tasks.
 
 ## ADRs
 

@@ -5,9 +5,9 @@ native installation includes `wayfinder` with built-in Profile validation,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
-The install scripts are the primary installation path. They install the current
-native release, 0.0.1. Set `WAYFINDER_VERSION` to install another published
-release, for example `0.0.1-dev.1`.
+The install scripts are the installation path. They install the current native
+release. Set `WAYFINDER_VERSION` to install another published release, for
+example `0.0.2`.
 
 ## Install the native runtime
 
@@ -41,21 +41,14 @@ indexes. Previous runtime directories remain available for running processes;
 they may be deleted after those processes have stopped. These checksums detect
 corrupt downloads; they are not a claim of code signing or notarization.
 
-## Install with Homebrew
+## Homebrew
 
-On macOS Apple Silicon or Linux x64:
-
-```sh
-brew install conceptadev/tap/wayfinder
-```
-
-The formula still installs 0.0.1-dev.1 until the tap update tracked in
-[#65](https://github.com/conceptadev/wayfinder/issues/65) is published. Use the
-install script for 0.0.1. Wayfinder includes Profile validation through `wayfinder validate`; no separate
-validator installation or Dart SDK is required. Upgrade with `brew update` then
-`brew upgrade wayfinder`. Existing standalone `okfp` installations remain usable,
-but new Wayfinder installations do not require them. Previously installed `okfp`
-commands are not removed automatically.
+The `conceptadev/tap/wayfinder` formula is no longer updated and still installs
+0.0.1-dev.1. Use the install script instead. If you installed the formula, run
+`brew uninstall wayfinder` so an older `wayfinder` does not shadow the script's.
+Wayfinder includes Profile validation through `wayfinder validate`. Existing
+standalone `okfp` installations remain usable, but Wayfinder does not require
+them, and previously installed `okfp` commands are not removed automatically.
 
 ## Use a knowledge bundle
 
@@ -150,8 +143,8 @@ Windows binary availability is tracked independently in
 ## Upgrade and troubleshoot
 
 Run `wayfinder update` to install the newest release and refresh the skills and
-plugin; `wayfinder update --check` only reports. Homebrew and Dart installations
-print their own upgrade command. Interactive commands mention a newer release
+plugin; `wayfinder update --check` only reports. A Homebrew installation is told
+to reinstall with the script, and a Dart installation prints its upgrade command. Interactive commands mention a newer release
 at most once a day, using one GitHub Releases API request that sends no bundle
 content. It never runs for MCP, CI or non-terminal use; set
 `WAYFINDER_NO_UPDATE_CHECK=1` to disable it everywhere.
@@ -196,7 +189,7 @@ dart pub global activate wayfinder_cli
 wayfinder --version
 ```
 
-Homebrew and script users keep the `wayfinder` command and upgrade normally.
+Script users keep the `wayfinder` command and upgrade with `wayfinder update`.
 MCP remains `wayfinder mcp <bundle>` in the CLI package; no extra MCP install is
 needed. Library consumers replace `okf_profile` with `wayfinder` and import
 `package:wayfinder/wayfinder.dart`. Existing published versions remain available.

@@ -1,5 +1,6 @@
 """Exercise published installers with no Dart SDK or repository credentials."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -76,9 +77,9 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         [wayfinder, 'search', fixture, 'PDF annotations'],
     ]:
         subprocess.run(command, env=env, check=True, timeout=180)
-    repeated = subprocess.run([wayfinder, 'index', fixture], env=env,
+    repeated = subprocess.run([wayfinder, 'index', fixture, '--output=json'], env=env,
                               check=True, capture_output=True, text=True, timeout=180)
     print(repeated.stdout)
-    if ': 0 embedded,' not in repeated.stdout:
+    if json.loads(repeated.stdout)['embeddedChunks'] != 0:
         raise SystemExit('Unchanged public runtime index unexpectedly embedded content')
 print('Public installer, validation, retrieval and index reuse passed without Dart.')
