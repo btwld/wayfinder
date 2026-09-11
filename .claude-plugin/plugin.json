@@ -1,6 +1,6 @@
 {
   "name": "wayfinder",
-  "version": "0.0.1-dev.1",
+  "version": "0.0.1",
   "description": "Author, adopt and assess Concepta OKF knowledge bundles, with local Wayfinder validation and retrieval over MCP.",
   "author": { "name": "Concepta" },
   "homepage": "https://github.com/conceptadev/wayfinder",

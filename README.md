@@ -8,14 +8,13 @@ this public repository. Install the complete native runtime to use Wayfinder
 without a Dart SDK. On macOS Apple Silicon or Linux x64:
 
 ```sh
-brew install conceptadev/tap/okfp
 brew install conceptadev/tap/wayfinder
 ```
 
 The [installation guide](docs/install.md) also provides shell and Windows
 PowerShell installers, plugin setup, upgrades and troubleshooting.
 [GitHub releases](https://github.com/conceptadev/wayfinder/releases) contain the
-complete runtime bundles; the [Dart package guide](packages/wayfinder/README.md)
+complete runtime bundles; the [Dart package guide](packages/wayfinder_cli/README.md)
 covers library dependencies and source development.
 
 ## How it works
@@ -37,7 +36,7 @@ model and native libraries, so retrieval needs no external embedding service.
 
 `wayfinder mcp knowledge` exposes `validate`, `index` and `search` to coding
 agents. The Claude Code plugin configures this server and supplies the author,
-adopt and assess skills. `okfp` is the standalone Profile validation command;
+adopt and assess skills. `wayfinder validate` provides Profile validation;
 `wayfinder_embeddings` is the reusable Dart retrieval library. Upstream `okf`
 graph and write tools remain separate capabilities.
 
@@ -74,7 +73,15 @@ must stay readable on its own when a client receives only their project reposito
 profile is referenced by version, never copied in.
 
 That is why this repository is consumed rather than vendored: install the skills once, pin
-the `okfp` validation gate, and let each project repository carry only its own knowledge.
+the `wayfinder validate` gate, and let each project repository carry only its own knowledge.
+
+## Dart package migration
+
+The `wayfinder` package is now the core validation library (formerly
+`okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
+The embeddings library remains `wayfinder_embeddings`. Version 0.0.1 is prepared
+in this tree; publication and publisher/OIDC setup are separate release steps.
+See [migration instructions](docs/install.md#migrate-the-dart-application-package).
 
 ## What is in here
 
@@ -83,10 +90,10 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `wayfinder` plugin |
-| [`packages/wayfinder/`](packages/wayfinder/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
+| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
-| [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
+| [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
 | [`tool/`](tool/) | CI and release tooling |
 | [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, and maintenance reviews |
 | [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
@@ -167,9 +174,9 @@ profile will confidently create `decisions/`.
 ### 4. Validate the bundle
 
 ```bash
-okfp validate knowledge
+wayfinder validate knowledge
 # Machine-readable output:
-okfp validate knowledge --output json
+wayfinder validate knowledge --output json
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that
@@ -182,7 +189,7 @@ release.
 Automated success is not complete Profile conformance. The output keeps Judgment
 Rules explicitly `UNASSESSED`; contextual rules such as subject placement,
 metadata truth, and source or relationship meaning require the Profile Review in
-the canonical `author-knowledge-bundle` skill. One `okfp validate <bundle>` invocation is the
+the canonical `author-knowledge-bundle` skill. One `wayfinder validate <bundle>` invocation is the
 single supported automated CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
 
@@ -199,11 +206,11 @@ wayfinder search examples/knowledge "How is reporting implemented?"
 
 `index` generates and saves document embeddings locally; `search` reuses them
 and encodes only the query. There is no retrieval-mode flag. See the
-[Wayfinder guide](packages/wayfinder/README.md) for setup, packaging and local data
+[Wayfinder guide](packages/wayfinder_cli/README.md) for setup, packaging and local data
 locations. Existing `okfp validate` remains supported.
 
 `wayfinder mcp <bundle>` exposes the same validation, index and search services
-to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder/README.md#mcp-server)
+to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
 for the launch configuration and tool lifecycle.
 
 ## Examples
@@ -266,10 +273,10 @@ From the repository root, the core checks used by [CI](.github/workflows/ci.yml)
 
 ```bash
 dart pub get
-dart format --output=none --set-exit-if-changed packages/okf_profile/bin packages/okf_profile/lib packages/okf_profile/test
+dart format --output=none --set-exit-if-changed packages/wayfinder/bin packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
-(cd packages/okf_profile && dart test)
-dart run okf_profile:okfp validate examples/knowledge
+(cd packages/wayfinder && dart test)
+dart run wayfinder_cli:wayfinder validate examples/knowledge
 ```
 
 For skill or documentation changes, also check local links and compare changed
@@ -293,7 +300,7 @@ the existing Concepta Homebrew tap.
 
 Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test all workspace
-packages. The published `okf_profile` package retains its Dart 3.6 minimum.
+packages. The core `wayfinder` library retains its Dart 3.6 minimum.
 
 `wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
 license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)
@@ -307,6 +314,6 @@ For native semantic retrieval, `melos run wayfinder_embeddings:prepare` stages t
 CLI bundle containing the model and native libraries. See the
 [local search implementation and measurements](docs/wayfinder_embeddings_local_search.md).
 The accepted model choice and next retrieval experiments are recorded in
-[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `okfp` currently provides
+[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
 bundle validation; search examples and evaluation commands live in the
 [embedding package](packages/wayfinder_embeddings/README.md#command-line-entry-points).

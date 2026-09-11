@@ -4,7 +4,6 @@ class Wayfinder < Formula
   homepage "https://github.com/conceptadev/wayfinder"
   version "{{VERSION}}"
   license all_of: ["BSD-3-Clause", "Apache-2.0", "MIT"]
-  depends_on "conceptadev/tap/okfp"
 
   on_macos do
     depends_on arch: :arm64

@@ -1,3 +1,7 @@
+# 0.0.1
+
+Stable release for the Wayfinder package split; retrieval APIs are unchanged.
+
 # Changelog
 
 ## 0.0.1-dev.0 — wayfinder_embeddings

@@ -8,7 +8,7 @@ Run the shipped automated gate from the repository root:
 okfp validate examples/knowledge
 ```
 
-With a Dart SDK instead of the installed binary, `dart run okf_profile:okfp validate
+With a Dart SDK instead of the installed binary, `dart run wayfinder_cli:wayfinder validate
 examples/knowledge` is equivalent.
 
 Success proves OKF conformance and the deterministic Profile 2026.1 rules only.

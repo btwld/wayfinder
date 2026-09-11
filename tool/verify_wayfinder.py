@@ -23,7 +23,7 @@ def main():
         shutil.copytree(Path(args.bundle).resolve(), app)
         binary = app / "bin" / ("wayfinder.exe" if os.name == "nt" else "wayfinder")
         corpus = temp / "knowledge"
-        shutil.copytree(workspace / "packages/wayfinder/test/fixtures/knowledge", corpus)
+        shutil.copytree(workspace / "packages/wayfinder_cli/test/fixtures/knowledge", corpus)
         cwd = temp / "empty"
         cwd.mkdir()
         env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))

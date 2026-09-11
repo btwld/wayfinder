@@ -1,6 +1,6 @@
-# Install the complete Wayfinder runtime and okfp without Dart or admin rights.
+# Install the complete Wayfinder runtime without Dart or admin rights.
 $ErrorActionPreference = 'Stop'
-$WayfinderVersion = '0.0.1-dev.1'
+$WayfinderVersion = '0.0.1'
 $ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
     throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'
@@ -50,8 +50,6 @@ try {
     if ($LASTEXITCODE -ne 0 -or $Actual -ne "wayfinder $WayfinderVersion") {
         throw 'Unexpected application version.'
     }
-    & (Join-Path $Bundle 'bin/okfp.exe') --version
-    if ($LASTEXITCODE -ne 0) { throw 'The validation gate could not start.' }
     $Destination = Join-Path $RuntimeRoot ($WayfinderVersion + '-' + [guid]::NewGuid().ToString('N'))
     Move-Item $Bundle $Destination
     $Bin = Join-Path $Destination 'bin'
@@ -62,7 +60,7 @@ try {
     [Environment]::SetEnvironmentVariable('PATH', (@($Bin) + $Entries) -join ';', 'User')
     $env:PATH = (@($Bin) + @($env:PATH -split ';' | Where-Object { $_ -and $_ -ne $Previous })) -join ';'
     Set-Content $PreviousFile $Bin
-    Write-Host "Installed Wayfinder $WayfinderVersion and okfp. Open a new terminal to refresh PATH."
+    Write-Host "Installed Wayfinder $WayfinderVersion. Open a new terminal to refresh PATH."
 } finally {
     Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
 }

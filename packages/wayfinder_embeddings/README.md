@@ -77,7 +77,7 @@ the application model remains Arctic XS Q8_0.
 From the repository root, the profile CLI validates a bundle:
 
 ```bash
-dart run okf_profile:okfp validate examples/knowledge
+dart run wayfinder_cli:wayfinder validate examples/knowledge
 ```
 
 `okfp --help` currently lists only `validate`; it has no embedding or search

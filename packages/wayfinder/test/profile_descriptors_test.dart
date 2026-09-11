@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:okf/okf.dart';
-import 'package:okf_profile/src/profile_rule_descriptors.dart';
-import 'package:okf_profile/src/validation.dart';
 import 'package:test/test.dart';
+import 'package:wayfinder/src/profile_rule_descriptors.dart';
+import 'package:wayfinder/src/validation.dart';
 
 void main() {
   test('descriptor ids are unique and valid in the concepta-profile namespace',

@@ -105,7 +105,7 @@ def main():
         app = temp / "relocated wayfinder"
         shutil.copytree(Path(args.bundle).resolve(), app)
         corpus = temp / "knowledge"
-        shutil.copytree(workspace / "packages/wayfinder/test/fixtures/knowledge", corpus)
+        shutil.copytree(workspace / "packages/wayfinder_cli/test/fixtures/knowledge", corpus)
         originals = {p.name: p.read_bytes() for p in corpus.iterdir()}
         cwd = temp / "empty"
         cwd.mkdir()

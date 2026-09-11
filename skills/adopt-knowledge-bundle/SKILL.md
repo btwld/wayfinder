@@ -104,5 +104,5 @@ every later write, and that the tree grows out of what the project actually
 learns — concepts land at the root first, and subject directories are earned,
 never predicted. Include the assessment result; if a required check is unavailable
 or fails, state what remains before adoption is complete. For the CI validation
-gate (`okfp validate knowledge`), point at the Wayfinder repository's README
+gate (`wayfinder validate knowledge`), point at the Wayfinder repository's README
 and implementation guide §2.

@@ -21,7 +21,7 @@ unchanged inputs reuse their vectors. Semantic search generates query vectors
 in memory. Preparing or packaging a model does not index a knowledge bundle,
 and `okfp validate` does not use embeddings.
 
-[Wayfinder](../packages/wayfinder/README.md) exposes `validate`, `index` and
+[Wayfinder](../packages/wayfinder_cli/README.md) exposes `validate`, `index` and
 `search`. It persists complete snapshots and document vectors, then opens them
 for semantic searches without document inference. Its application choice is
 recorded in [ADR-0010](adr/0010-station-cli.md). The historical saved-vector

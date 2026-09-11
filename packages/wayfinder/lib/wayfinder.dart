@@ -1,6 +1,6 @@
-/// The OKF profile toolchain.
+/// Core validation for Wayfinder knowledge bundles.
 ///
-/// Shared validation results for the `okfp` and Wayfinder executables.
+/// Used by the wayfinder_cli command and MCP server.
 library;
 
 export 'src/profile_finding.dart';

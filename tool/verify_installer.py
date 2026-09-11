@@ -51,7 +51,7 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
             raise AssertionError((result.returncode, result.stdout, result.stderr))
     install()
     binary = root / 'commands/wayfinder'
-    corpus = workspace / 'packages/wayfinder/test/fixtures/knowledge'
+    corpus = workspace / 'packages/wayfinder_cli/test/fixtures/knowledge'
     def command(*arguments):
         return subprocess.run([str(binary), *map(str, arguments)], env=env,
                               cwd=root, capture_output=True, text=True,
@@ -72,5 +72,6 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
     install(expected=1)
     assert binary.resolve() == previous
     command('search', corpus, 'password', '--output=json')
-    subprocess.run([str(root / 'commands/okfp'), '--version'], env=env, check=True)
+    command('validate', workspace / 'examples/knowledge')
+    assert not (root / 'commands/okfp').exists()
     print('PASS: no-Dart install, quoted paths, retrieval, repair, index reuse, corrupt download refusal.')

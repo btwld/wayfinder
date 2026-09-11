@@ -11,7 +11,7 @@ def value(file, pattern):
     if not match:
         raise SystemExit(f'Missing version in {file}')
     return match[1]
-package = value('packages/wayfinder/pubspec.yaml', r'^version: (.+)$')
+package = value('packages/wayfinder_cli/pubspec.yaml', r'^version: (.+)$')
 shell = value('tool/install.sh', r'^version="([^"]+)"$')
 powershell = value('tool/install.ps1', r"^\$WayfinderVersion = '([^']+)'$")
 if package != shell or package != powershell:

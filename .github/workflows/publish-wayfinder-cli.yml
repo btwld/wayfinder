@@ -1,14 +1,14 @@
-name: Publish wayfinder
+name: Publish wayfinder_cli
 
 on:
   push:
-    tags: ['wayfinder-core-v*']
+    tags: ['wayfinder-v*']
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-wayfinder-${{ github.ref }}
+  group: publish-wayfinder-cli-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -22,21 +22,21 @@ jobs:
         with:
           sdk: stable
       - name: Match tag to package version
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
         env:
           TAG: ${{ github.ref_name }}
         run: |
           version="$(sed -n 's/^version: //p' pubspec.yaml)"
-          test "$TAG" = "wayfinder-core-v$version"
+          test "$TAG" = "wayfinder-v$version"
       # No OIDC permission here: dependency downloads use normal public access.
       - run: dart pub get
       - run: dart analyze --fatal-infos
       - run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
       - run: dart test
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
       - run: dart pub publish --dry-run
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
 
   publish:
     needs: verify
@@ -54,4 +54,4 @@ jobs:
       # The same immutable tag passed verification above. Pub's scoped OIDC
       # credential cannot resolve dependencies; do not repeat pub get here.
       - run: dart pub publish --force --skip-validation
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli

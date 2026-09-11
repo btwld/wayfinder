@@ -53,11 +53,10 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         raise SystemExit('This check requires an environment without Dart')
     env['PATH'] = str(binary_dir) + os.pathsep + env['PATH']
     wayfinder = str(binary_dir / ('wayfinder' + suffix))
-    okfp = str(binary_dir / ('okfp' + suffix))
     fixture = str(ROOT / 'examples/knowledge')
     for command in [
-        [wayfinder, '--version'], [okfp, '--version'],
-        [okfp, 'validate', fixture], [wayfinder, 'validate', fixture],
+        [wayfinder, '--version'],
+        [wayfinder, 'validate', fixture],
         [wayfinder, 'index', fixture],
         [wayfinder, 'search', fixture, 'PDF annotations'],
     ]:

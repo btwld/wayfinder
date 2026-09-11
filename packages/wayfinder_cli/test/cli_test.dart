@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
-import 'package:wayfinder/src/knowledge.dart';
+import 'package:wayfinder_cli/src/knowledge.dart';
 
-import 'package:okf_profile/okf_profile.dart';
-import 'package:wayfinder/src/cli.dart';
+import 'package:wayfinder/wayfinder.dart';
+import 'package:wayfinder_cli/src/cli.dart';
 import 'package:test/test.dart';
 
 void main() {

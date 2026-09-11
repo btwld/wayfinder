@@ -25,25 +25,25 @@ jobs:
       - run: bash tool/ci/verify-installer-pins.sh
         shell: bash
         working-directory: .
-      - run: dart format --output=none --set-exit-if-changed bin lib test
-        working-directory: packages/okf_profile
+      - run: dart format --output=none --set-exit-if-changed lib test
+        working-directory: packages/wayfinder
       - run: dart analyze --fatal-infos
       - run: dart test
-        working-directory: packages/okf_profile
+        working-directory: packages/wayfinder
       - run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings
       - run: dart test
         working-directory: packages/wayfinder_embeddings
       - run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
       - run: dart test
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
       - run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: dart run okf_profile:okfp validate examples/knowledge
+        run: dart run wayfinder_cli:wayfinder validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
-        working-directory: packages/okf_profile
+        working-directory: packages/wayfinder
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub -C tool/release get --enforce-lockfile
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
@@ -52,14 +52,6 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           dart analyze --fatal-infos
           dart run test
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        env:
-          ASSET: build/okfp-ci-test
-        run: >-
-          dart --packages=tool/release/.dart_tool/package_config.json
-          tool/release/grind.dart okfp-build-binary
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: ./build/okfp-ci-test --version
 
   native-retrieval:
     strategy:
@@ -89,7 +81,7 @@ jobs:
         working-directory: .
       - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
       - run: dart test
-        working-directory: packages/wayfinder
+        working-directory: packages/wayfinder_cli
       - run: dart run tool/build_wayfinder.dart --offline
         working-directory: .
       - run: python3 tool/verify_wayfinder.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-native.json"

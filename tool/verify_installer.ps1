@@ -25,7 +25,7 @@ function Invoke-WebRequest {
 try {
     & (Join-Path $PSScriptRoot 'install.ps1')
     $InstalledBin = (Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim()
-    $Corpus = Join-Path $Workspace 'packages/wayfinder/test/fixtures/knowledge'
+    $Corpus = Join-Path $Workspace 'packages/wayfinder_cli/test/fixtures/knowledge'
     $Result = & (Join-Path $InstalledBin 'wayfinder.exe') index $Corpus --output=json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $Result.embeddedChunks -le 0) { throw 'Initial indexing failed.' }
     & (Join-Path $InstalledBin 'wayfinder.exe') search $Corpus password --output=json | Out-Null

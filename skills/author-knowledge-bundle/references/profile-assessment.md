@@ -8,7 +8,7 @@ assessment the `assess-knowledge-bundle` skill runs.
 After a write or when asked for Profile Review, collect automated validation over
 the whole bundle, then assess every contextual rule taught in this skill's
 references for the supported release and review scope. Prefer an installed
-`okfp validate knowledge`; `dart run okf_profile:okfp validate knowledge` is an
+`wayfinder validate knowledge`; `dart run wayfinder_cli:wayfinder validate knowledge` is an
 alternative when the repository has that Dart dependency. Reuse a result already
 collected for the same unchanged tree; rerun after repairs. If neither command is
 available, report `NOT RUN` and the reason. Unsupported or unreadable declarations

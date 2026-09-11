@@ -1,4 +1,4 @@
-name: okfp_release
+name: wayfinder_release
 description: Release tooling for the OKF Profile command-line package.
 publish_to: none
 
