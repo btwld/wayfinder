@@ -502,15 +502,23 @@ bool _sameTypeRows(
         actual[index][1] == expected[index].$2);
 
 final class _ParsedBody {
-  _ParsedBody(String source)
+  _ParsedBody(this.source)
       : nodes = markdown.Document(
           extensionSet: markdown.ExtensionSet.gitHubFlavored,
         ).parse(source);
 
+  final String source;
   final List<markdown.Node> nodes;
 
   bool hasUnresolvedFootnote(String label) {
-    final pattern = RegExp('\\[\\^${RegExp.escape(label)}\\]');
+    final escaped = RegExp.escape(label);
+    // A footnote definition joins every reference to the label. The parser
+    // alone cannot decide this: adjacent references such as `[^a][^b]` are
+    // read as a reference link and survive as literal text even when both
+    // definitions exist, so the definition is checked in the source first.
+    final definition = RegExp('^ {0,3}\\[\\^$escaped\\]:', multiLine: true);
+    if (definition.hasMatch(source)) return false;
+    final pattern = RegExp('\\[\\^$escaped\\]');
     bool search(markdown.Node node, {bool excluded = false}) {
       if (node case final markdown.Text text) {
         return !excluded && pattern.hasMatch(text.text);
