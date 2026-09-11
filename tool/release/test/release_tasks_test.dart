@@ -49,7 +49,7 @@ void main() {
     expect(workflow, contains('WAYFINDER_USE_LOCAL_INSTALLER'));
   });
 
-  test('public installers share a default and accept a version override', () {
+  test('public installers install the latest release unless pinned', () {
     final shell = File(
       '${repository.path}${separator}tool${separator}install.sh',
     ).readAsStringSync();
@@ -57,17 +57,12 @@ void main() {
       '${repository.path}${separator}tool${separator}install.ps1',
     ).readAsStringSync();
 
-    final shellDefault = RegExp(
-      r'^version="\$\{WAYFINDER_VERSION:-([^}]+)\}"$',
-      multiLine: true,
-    ).firstMatch(shell)?.group(1);
-    final powershellDefault = RegExp(
-      r"^\$WayfinderVersion = '([^']+)'$",
-      multiLine: true,
-    ).firstMatch(powershell)?.group(1);
-
-    expect(shellDefault, isNotNull);
-    expect(powershellDefault, shellDefault);
-    expect(powershell, contains(r'$env:WAYFINDER_VERSION'));
+    // No pinned default: each release becomes the default when published.
+    expect(shell, contains(r'version="${WAYFINDER_VERSION:-}"'));
+    expect(powershell, contains(r'$WayfinderVersion = $env:WAYFINDER_VERSION'));
+    for (final script in [shell, powershell]) {
+      expect(script, contains('/releases/latest'));
+      expect(script, isNot(contains('api.github.com')));
+    }
   });
 }
