@@ -21,7 +21,10 @@ hooks:
   user_defines:
     llamadart:
       llamadart_native_runtimes: [llama_cpp]
-      llamadart_native_backends: [cpu]
+      llamadart_native_backends:
+        platforms:
+          linux: [cpu]
+          windows: [cpu]
 
 melos:
   scripts:
