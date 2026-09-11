@@ -1,0 +1,67 @@
+name: Distribute Wayfinder native release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful CI run for this exact commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: wayfinder-distribution
+  cancel-in-progress: false
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+        shell: python
+        run: |
+          import json, os, subprocess
+          run_id = os.environ['CI_RUN_ID']
+          if not run_id.isdecimal():
+              raise SystemExit('CI run ID must be numeric')
+          run = json.loads(subprocess.check_output([
+              'gh', 'api', f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"
+          ]))
+          if (run['head_sha'] != os.environ['GITHUB_SHA'] or
+                  run['conclusion'] != 'success' or run['path'] != '.github/workflows/ci.yml'):
+              raise SystemExit('Release requires successful CI for this exact commit')
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.ci_run_id }}
+          pattern: wayfinder-native-*
+          merge-multiple: true
+          path: build/distribution
+      - name: Verify complete release inputs
+        run: python3 tool/ci/verify-distribution.py build/distribution
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: conceptadev
+          repositories: |
+            wayfinder-dist
+            homebrew-tap
+      - name: Publish public projection and native archives
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: bash tool/ci/publish-wayfinder-dist.sh build/distribution
+      - name: Update the public Homebrew tap
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: python3 tool/ci/update-wayfinder-homebrew.py build/distribution

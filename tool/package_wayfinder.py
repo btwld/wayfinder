@@ -21,7 +21,8 @@ archive = args.archive.resolve()
 if bundle == archive or bundle in archive.parents:
     parser.error('Archive must be outside the bundle')
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
-             'licenses/objectbox/NOTICE', 'licenses/okf_profile/LICENSE']:
+             'licenses/objectbox/NOTICE', 'licenses/okf_profile/LICENSE',
+             'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE']:
     if not (bundle / name).is_file():
         parser.error(f'Incomplete bundle: {name}')
 for command in ['wayfinder', 'okfp']:

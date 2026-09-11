@@ -22,6 +22,9 @@ jobs:
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
+      - run: bash tool/ci/verify-installer-pins.sh
+        shell: bash
+        working-directory: .
       - run: dart format --output=none --set-exit-if-changed bin lib test
         working-directory: packages/okf_profile
       - run: dart analyze --fatal-infos

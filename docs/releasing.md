@@ -1,93 +1,83 @@
-# Releasing okfp
+# Release Wayfinder and the Profile validator
 
-How a tag of this repository turns into binaries, a pub.dev version, a public
-distribution, and a Homebrew bump, and what has to move by hand afterwards.
+The source repository is private. Public installation files, plugin documents
+and native archives live in `conceptadev/wayfinder-dist`; formulas live in
+`conceptadev/homebrew-tap`. The packages are published under `concepta.dev`.
 
-## What a tag does
+## Package publication
 
-Pushing `vX.Y.Z` runs `.github/workflows/release.yml`:
+- `wayfinder-v{{version}}` publishes the application through
+  `publish-wayfinder.yml`.
+- `wayfinder_embeddings-v{{version}}` publishes the reusable library through
+  `publish-wayfinder-embeddings.yml`.
+- The validator keeps `v{{version}}` tags and `release.yml`; its package is
+  `okf_profile` and executable is `okfp`.
 
-```mermaid
-flowchart LR
-  ref[ref: stable tag] --> verify[verify: format, analyze, tests, publish dry-run]
-  ref --> platforms[platforms: matrix from tool/ci/platforms.tsv]
-  verify --> binaries[binaries: one okfp per platform]
-  platforms --> binaries
-  binaries --> publish[publish: immutable GitHub release here]
-  publish --> dist[dist: project into okf-profile-dist + its release]
-  publish --> pub[pub-publish: pub.dev, skipped if already there]
-  pub --> brew[homebrew: point the tap formula at the pub.dev archive]
-```
+For each package, bump its pubspec, changelog and applicable version constants,
+resolve its hosted dependencies, run the contributor checks and publish dry run,
+then tag the checked commit. pub.dev OIDC trust is configured separately per
+package. Verification resolves dependencies without publishing credentials;
+publishing mints credentials after dependency resolution. Published versions and
+existing release assets are not overwritten.
 
-- **publish** requires the repository's *immutable releases* setting to stay on.
-  The job fails on purpose when a release lands mutable.
-- **dist** rewrites [conceptadev/okf-profile-dist](https://github.com/conceptadev/okf-profile-dist)
-  wholesale: `skills/`, `.claude-plugin/`, `tool/install.sh`, `tool/install.ps1`,
-  `docs/install.md`, `LICENSE`, and a README rendered from `tool/dist/README.md`.
-  Nothing in that repository is edited by hand. It then creates the same tag there
-  with the `okfp` binaries attached, so the installer can download them without
-  credentials.
-- **homebrew** rewrites `url` and `sha256` in the tap's `Formula/okfp.rb` to the
-  pub.dev archive of the released version. The formula builds from public source,
-  so it never references this repository.
+## Complete native runtime distribution
 
-`dist` and `homebrew` authenticate as a GitHub App (below). The other jobs use the
-workflow token.
+1. Update the Wayfinder version, both installer pins and plugin version together.
+   `tool/ci/verify-installer-pins.sh` verifies the application/installer versions.
+2. Run CI for the release commit. The stable Linux x64, macOS ARM64 and Windows x64
+   jobs build complete bundles, run relocated native CLI/MCP/retrieval checks,
+   and test installation without Dart. Installer checks exercise quoted paths,
+   repair, saved-index reuse and corrupt-download refusal.
+3. Once all CI jobs pass, run **Distribute Wayfinder native release** on that same
+   commit, supplying its CI run ID. The workflow rejects a different commit,
+   failed CI or another workflow's artifacts.
+4. The workflow downloads the three native archives and verifies their archive
+   hashes, complete file inventory and per-file hashes before obtaining a release
+   App token. It publishes the public projection and native release, recording the
+   source commit in `source.json`, then updates Homebrew.
+5. Verify the actual public installer URLs and Homebrew installation without
+   source-repository credentials. Remove the installation guide's rollout-pending
+   notice only after these checks succeed.
 
-## Bump sites
+The native builder includes the application and `okfp` executables, embedding
+model, Dart/llamadart libraries, ObjectBox and dependency notices. The archive
+builder writes `SHA256SUMS` for the bundle and an archive `.sha256` sidecar.
+Windows needs DLLs beside the executable as well as Dart's `lib` asset directory.
+The configuration review is [ObjectBox and native builds](objectbox-build-review.md).
 
-| Site | Moves when | Enforced by |
-| --- | --- | --- |
-| `packages/okf_profile/pubspec.yaml` `version`, `lib/src/cli.dart` `okfpPackageVersion`, `CHANGELOG.md` | every okfp release, before the tag | `verify-engine-version.sh` at build time |
-| `OKFP_VERSION` in `tool/install.sh` and `$OkfpVersion` in `tool/install.ps1` | after the release is published, in a follow-up PR | `verify-installer-pins.sh` keeps the two files equal and reports drift from the package version |
-| `okf:` in `packages/okf_profile/pubspec.yaml` and `OKF_VERSION` / `$OkfVersion` in both installers | when okfp moves to a new okf, in the same PR | `verify-installer-pins.sh` fails when the installer's okf differs from the okf that okfp embeds |
-| `tool/ci/platforms.tsv` | when a platform is added; the same set must ship from conceptadev/okf | `sync-dist.sh` and `publish-release.sh` refuse a release missing an asset |
-| Tap `Formula/okfp.rb` | automatic (`homebrew` job) | — |
-| Tap `Formula/okf.rb` | conceptadev/okf's own release | — |
+`project-dist.py` uses an explicit document allowlist: skills, plugin manifests,
+Profile/implementation documents, compatibility evidence, install guide/scripts,
+license and generated README. It does not copy package source, git history,
+fixtures, `.context` or credentials. Public plugin metadata points to the public
+repository. Validator-only releases do not replace the Wayfinder projection.
 
-The installer pins point at a release that must already exist, which is why they
-move *after* the tag rather than with the version bump: the `installer` CI job
-runs `install.sh` for real and would go red in between.
+Native publication is resumable: an existing release must contain byte-identical
+archives and source metadata. A mismatching release requires a new version.
+Homebrew updates run separately, so a tap failure can be retried after publication.
 
-## Release checklist
+## Independent validator releases
 
-1. Bump the package version, `okfpPackageVersion`, and the changelog. If okf moved,
-   bump `okf:` and both installers' `OKF_VERSION` in the same PR. Merge.
-2. Push the tag. Watch `publish`, `dist`, `pub-publish`, and `homebrew` go green.
-3. Open the follow-up PR that bumps `OKFP_VERSION` in both installers. Merge once
-   the `installer` job is green.
-4. Confirm `brew install conceptadev/tap/okfp` and the one-liner from
-   `okf-profile-dist` both report the new version.
+`release.yml` keeps the existing validator verification, native platform matrix,
+private-source release and pub.dev publication. `sync-dist.sh` publishes the three
+`okfp` artifacts under the same validator tag in `wayfinder-dist`.
+`bump-homebrew.sh` bootstraps or updates `Formula/okfp.rb` from the public pub.dev
+archive; it updates the URL, version and digest together.
 
-## The release app
+The standalone `okfp` Homebrew formula uses a pinned Dart SDK only during its build.
+Wayfinder's formula installs the complete prebuilt bundle and depends on `okfp`
+for the command exposed to skills. A Wayfinder release preserves an existing
+validator formula, allowing validator releases to advance independently.
+Upstream `okf` and its formula remain independently maintained.
 
-`dist` and `homebrew` push to sibling repositories, so they need more than the
-workflow token. They mint a short-lived installation token from a GitHub App:
+## Release App configuration
 
-- App: **okf-profile-release**, owned by the `conceptadev` organization.
-- Repository permissions: **Contents: read and write**. Nothing else (Metadata is
-  implied).
-- Installed on: `okf-profile-dist`, `homebrew-tap`.
-- This repository holds the app id as the Actions variable `RELEASE_APP_ID` and the
-  private key as the secret `RELEASE_APP_PRIVATE_KEY`:
+The cross-repository jobs require a private organization-owned GitHub App with
+**Contents: read and write** and implicit metadata access, installed only on
+`wayfinder-dist` and `homebrew-tap`. No webhook or user authorization is needed.
+Store its App ID in the source repository's `RELEASE_APP_ID` Actions variable and
+its private key in `RELEASE_APP_PRIVATE_KEY`. Workflow tokens remain scoped to the
+selected repositories; do not store a developer's personal GitHub token in CI.
 
-  ```sh
-  gh variable set RELEASE_APP_ID --body '<app id>'
-  gh secret set RELEASE_APP_PRIVATE_KEY < okf-profile-release.private-key.pem
-  ```
-
-## When this repository goes public
-
-The distribution repository exists only because this one is private. Collapsing
-back is three steps:
-
-1. Delete the `dist` job, `tool/ci/sync-dist.sh`, and `tool/dist/`. Upload the
-   binaries to this repository's release only (`publish` already does).
-2. Change `OKFP_RELEASES` in both installers to `conceptadev/okf-profile`, and the
-   marketplace command in `docs/install.md` and the README to
-   `conceptadev/okf-profile`. Leave a last commit in `okf-profile-dist` whose
-   `tool/install.sh` prints the new one-liner and exits, and whose README says
-   "moved"; then archive it.
-3. Tell teammates to run `/plugin marketplace add conceptadev/okf-profile` once.
-   The marketplace name (`okf-profile`) and plugin name (`concepta-knowledge`) do
-   not change, so every other command stays the same.
+The App setup is pending GitHub's owner re-authentication. The existence of the
+workflow does not prove that cross-repository publishing credentials work. The
+first successful distribution workflow is the operational verification.

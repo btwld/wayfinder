@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
+import '../packages/wayfinder_embeddings/tool/src/dependency_licenses.dart';
 import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
 import '../packages/wayfinder_embeddings/tool/src/objectbox_assets.dart';
 
@@ -68,6 +69,10 @@ Future<void> main(List<String> arguments) async {
     }
     await stageObjectBoxAssets(Directory(package), Directory(bundle));
     await stageNativeCliAssets(Directory(package), Directory(bundle));
+    await stageDependencyLicenses(Directory(bundle), [
+      'wayfinder',
+      'okf_profile',
+    ]);
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
     stderr.writeln('Wayfinder build failed: $error');

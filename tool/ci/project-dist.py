@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import shutil
+import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('destination', type=Path)
@@ -26,6 +27,8 @@ for relative in ['tool/install.sh', 'tool/install.ps1', 'docs/install.md', 'docs
     shutil.copy2(source / relative, target)
 readme = (source / 'tool/dist/README.md').read_text()
 readme = readme.replace('{{TAG}}', args.tag).replace('{{SOURCE_REPO}}', 'conceptadev/wayfinder')
+readme = readme.replace('{{SOURCE_SHA}}', subprocess.check_output(
+    ['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip())
 (destination / 'README.md').write_text(readme)
 manifest = destination / '.claude-plugin/plugin.json'
 plugin = json.loads(manifest.read_text())
