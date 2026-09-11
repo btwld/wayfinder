@@ -95,6 +95,9 @@ jobs:
 
   publish-homebrew:
     needs: publish-github
+    # Off until the tap token exists (#65). Set the repository variable
+    # WAYFINDER_HOMEBREW to true to publish the formula again.
+    if: vars.WAYFINDER_HOMEBREW == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

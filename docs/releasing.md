@@ -77,8 +77,9 @@ validation and external credentials cannot be inferred from local macOS results.
 If only some channels finished, continue from the failed job. Do not recreate
 tags, replace published archives or republish a version that pub.dev already
 has. The GitHub publisher exits successfully when the existing release bytes
-match; a mismatch requires a new version. Skip Homebrew until
-`HOMEBREW_TAP_GH_TOKEN` is stored ([#65](https://github.com/conceptadev/wayfinder/issues/65)).
+match; a mismatch requires a new version. The Homebrew job stays off until
+`HOMEBREW_TAP_GH_TOKEN` is stored ([#65](https://github.com/conceptadev/wayfinder/issues/65)); then set the repository
+variable `WAYFINDER_HOMEBREW` to `true`.
 Leave installer defaults on the previous release until the new archives and
 public verification succeed.
 
