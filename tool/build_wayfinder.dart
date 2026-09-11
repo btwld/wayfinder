@@ -37,6 +37,22 @@ Future<void> main(List<String> arguments) async {
     exitCode = await process.exitCode;
     if (exitCode != 0) return;
     final bundle = p.join(output.path, 'bundle');
+    final validator = await Process.start(Platform.resolvedExecutable, [
+      'compile',
+      'exe',
+      'packages/okf_profile/bin/okfp.dart',
+      '-o',
+      p.join(bundle, 'bin', Platform.isWindows ? 'okfp.exe' : 'okfp'),
+    ], mode: ProcessStartMode.inheritStdio);
+    exitCode = await validator.exitCode;
+    if (exitCode != 0) return;
+    final validatorLicense = await Directory(
+      p.join(bundle, 'licenses', 'okf_profile'),
+    ).create(recursive: true);
+    await File(
+      p.join(workspace, 'packages', 'okf_profile', 'LICENSE'),
+    ).copy(p.join(validatorLicense.path, 'LICENSE'));
+
     await File(
       p.join(workspace, 'packages', 'wayfinder', 'LICENSE'),
     ).copy(p.join(bundle, 'LICENSE'));

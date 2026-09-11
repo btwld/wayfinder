@@ -123,12 +123,29 @@ jobs:
         if: matrix.sdk == 'stable'
         shell: bash
         working-directory: .
-        run: tar -czf "$RUNNER_TEMP/wayfinder-$RUNNER_OS-$RUNNER_ARCH.tar.gz" -C build/wayfinder/bundle .
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) platform=linux-x64 ;;
+            macOS-ARM64) platform=macos-arm64 ;;
+            Windows-X64) platform=windows-x64 ;;
+            *) echo "Unsupported release platform" >&2; exit 1 ;;
+          esac
+          python3 tool/package_wayfinder.py build/wayfinder/bundle "build/wayfinder-$platform.tar.gz"
+      - name: Verify POSIX installation without Dart
+        if: matrix.sdk == 'stable' && runner.os != 'Windows'
+        shell: bash
+        working-directory: .
+        run: python3 tool/verify_installer.py build/wayfinder-*.tar.gz
+      - name: Verify Windows installation without Dart
+        if: matrix.sdk == 'stable' && runner.os == 'Windows'
+        shell: pwsh
+        working-directory: .
+        run: ./tool/verify_installer.ps1 -Archive build/wayfinder-windows-x64.tar.gz
       - uses: actions/upload-artifact@v4
         if: matrix.sdk == 'stable'
         with:
           name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ runner.temp }}/wayfinder-${{ runner.os }}-${{ runner.arch }}.tar.gz
+          path: build/wayfinder-*.tar.gz*
       - uses: actions/upload-artifact@v4
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}

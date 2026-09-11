@@ -1,71 +1,66 @@
-# Installs the okf and okfp binaries for the Concepta OKF Profile on Windows.
-#
-#   irm https://raw.githubusercontent.com/conceptadev/okf-profile-dist/main/tool/install.ps1 | iex
-#
-# No Dart SDK, no gh, no administrator prompt. Binaries land in
-# %LOCALAPPDATA%\okf\bin (override with OKF_INSTALL_DIR) and that directory
-# is added to the user PATH. Versions are pinned below, together with
-# install.sh, and CI keeps the two in step (docs/releasing.md).
+# Install the complete Wayfinder runtime and okfp without Dart or admin rights.
 $ErrorActionPreference = 'Stop'
-
-$OkfVersion = 'v0.3.0'
-$OkfpVersion = 'v0.2.0'
-$OkfReleases = 'conceptadev/okf'
-$OkfpReleases = 'conceptadev/okf-profile-dist'
-
-$installDir = if ($env:OKF_INSTALL_DIR) { $env:OKF_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'okf\bin' }
-
-if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
-  throw "install: no prebuilt Windows binaries for $($env:PROCESSOR_ARCHITECTURE); only x64 is supported"
+$WayfinderVersion = '0.0.1-dev.1'
+$ReleaseRoot = "https://github.com/conceptadev/wayfinder-dist/releases/download/wayfinder-v$WayfinderVersion"
+if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
+    throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'
 }
-
-function Get-ReportedVersion([string]$Path) {
-  if (-not (Test-Path $Path)) { return '' }
-  try { return ((& $Path --version 2>$null) -join '').Trim() } catch { return '' }
+$RuntimeRoot = if ($env:WAYFINDER_INSTALL_ROOT) { $env:WAYFINDER_INSTALL_ROOT } else {
+    Join-Path $env:LOCALAPPDATA 'WayfinderRuntime'
 }
-
-# Attestations are verified when a signed-in gh is around; the download itself
-# never needs it.
-$verify = $false
-if (Get-Command gh -ErrorAction SilentlyContinue) {
-  try { gh auth status *> $null; $verify = ($LASTEXITCODE -eq 0) } catch { $verify = $false }
+if (-not [System.IO.Path]::IsPathRooted($RuntimeRoot)) {
+    throw 'WAYFINDER_INSTALL_ROOT must be an absolute path.'
 }
-
-function Install-Tool([string]$Name, [string]$Version, [string]$Repo) {
-  $bare = $Version.TrimStart('v')
-  $asset = "$Name-windows-x64.exe"
-  $target = Join-Path $installDir "$Name.exe"
-
-  if ((Get-ReportedVersion $target) -eq "$Name $bare") {
-    Write-Host "install: $Name is already $bare, nothing to do"
-    return
-  }
-
-  $tmp = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName() + '.exe')
-  Write-Host "install: downloading $Name $bare for windows-x64"
-  Invoke-WebRequest -Uri "https://github.com/$Repo/releases/download/$Version/$asset" -OutFile $tmp -UseBasicParsing
-  if ($verify) {
-    gh release verify-asset $Version $tmp --repo $Repo *> $null
-    if ($LASTEXITCODE -ne 0) { throw "install: $asset did not verify against the $Repo $Version release" }
-  }
-  # Invoke-WebRequest marks downloads as from the web; clear it so SmartScreen
-  # does not block a console tool.
-  Unblock-File $tmp
-  New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-  Move-Item -Force $tmp $target
-  Write-Host "install: $(Get-ReportedVersion $target) -> $target"
+# Windows exposes the current bundle bin directory through the user PATH. Each
+# version stays intact, so updating never replaces DLLs held by running programs.
+$Asset = 'wayfinder-windows-x64.tar.gz'
+$Stage = Join-Path $RuntimeRoot ('.install.' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $Stage -Force | Out-Null
+try {
+    $Archive = Join-Path $Stage $Asset
+    Invoke-WebRequest "$ReleaseRoot/$Asset" -OutFile $Archive
+    $Checksum = Join-Path $Stage 'checksum'
+    Invoke-WebRequest "$ReleaseRoot/$Asset.sha256" -OutFile $Checksum
+    $Expected = ((Get-Content $Checksum -Raw).Trim() -split '\s+')[0]
+    if ($Expected -notmatch '^[a-fA-F0-9]{64}$' -or
+        (Get-FileHash $Archive -Algorithm SHA256).Hash -ne $Expected) {
+        throw 'Release checksum mismatch.'
+    }
+    $Bundle = Join-Path $Stage 'bundle'
+    New-Item -ItemType Directory -Path $Bundle | Out-Null
+    & tar -xzf $Archive -C $Bundle
+    if ($LASTEXITCODE -ne 0) { throw 'Could not extract the runtime bundle.' }
+    foreach ($Line in Get-Content (Join-Path $Bundle 'SHA256SUMS')) {
+        if ($Line -notmatch '^([a-f0-9]{64})  (.+)$') { throw 'Invalid bundle checksum manifest.' }
+        $Hash = $Matches[1]
+        $Relative = $Matches[2]
+        $File = [System.IO.Path]::GetFullPath((Join-Path $Bundle $Relative))
+        if (-not $File.StartsWith($Bundle + [System.IO.Path]::DirectorySeparatorChar,
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Invalid path in bundle manifest.'
+        }
+        if ((Get-FileHash $File -Algorithm SHA256).Hash -ne $Hash) {
+            throw "Bundle checksum mismatch: $Relative"
+        }
+    }
+    $Binary = Join-Path $Bundle 'bin/wayfinder.exe'
+    $Actual = & $Binary --version
+    if ($LASTEXITCODE -ne 0 -or $Actual -ne "wayfinder $WayfinderVersion") {
+        throw 'Unexpected application version.'
+    }
+    & (Join-Path $Bundle 'bin/okfp.exe') --version
+    if ($LASTEXITCODE -ne 0) { throw 'The validation gate could not start.' }
+    $Destination = Join-Path $RuntimeRoot ($WayfinderVersion + '-' + [guid]::NewGuid().ToString('N'))
+    Move-Item $Bundle $Destination
+    $Bin = Join-Path $Destination 'bin'
+    $PreviousFile = Join-Path $RuntimeRoot 'installed-bin.txt'
+    $Previous = if (Test-Path $PreviousFile) { (Get-Content $PreviousFile -Raw).Trim() } else { '' }
+    $UserPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+    $Entries = @($UserPath -split ';' | Where-Object { $_ -and $_ -ne $Previous -and $_ -ne $Bin })
+    [Environment]::SetEnvironmentVariable('PATH', (@($Bin) + $Entries) -join ';', 'User')
+    $env:PATH = (@($Bin) + @($env:PATH -split ';' | Where-Object { $_ -and $_ -ne $Previous })) -join ';'
+    Set-Content $PreviousFile $Bin
+    Write-Host "Installed Wayfinder $WayfinderVersion and okfp. Open a new terminal to refresh PATH."
+} finally {
+    Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
 }
-
-Install-Tool okf $OkfVersion $OkfReleases
-Install-Tool okfp $OkfpVersion $OkfpReleases
-
-if (-not $verify) {
-  Write-Host 'install: release attestations were not verified (no signed-in gh); that is fine for everyday use'
-}
-
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (($userPath -split ';') -notcontains $installDir) {
-  [Environment]::SetEnvironmentVariable('Path', "$installDir;$userPath", 'User')
-  Write-Host "install: added $installDir to your user PATH; open a new terminal to use okf and okfp"
-}
-if (($env:Path -split ';') -notcontains $installDir) { $env:Path = "$installDir;$env:Path" }
