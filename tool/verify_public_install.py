@@ -9,7 +9,8 @@ import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC = 'https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/'
+PUBLIC = ('https://raw.githubusercontent.com/conceptadev/wayfinder/'
+          + os.environ.get('WAYFINDER_INSTALLER_REF', 'main') + '/tool/')
 
 def download_installer(script):
     if os.environ.get('WAYFINDER_USE_LOCAL_INSTALLER') == '1':
@@ -30,16 +31,25 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
     env['WAYFINDER_INSTALL_DIR'] = str(work / 'bin')
     env['WAYFINDER_DATA_DIR'] = str(work / 'data')
     if os.name == 'nt':
-        powershell = shutil.which('pwsh')
-        if not powershell:
-            raise SystemExit('PowerShell 7 is required for this Windows check')
-        env['PATH'] = os.pathsep.join([
-            str(Path(os.environ['SystemRoot']) / 'System32'),
-            str(Path(powershell).parent),
-        ])
+        system = Path(os.environ['SystemRoot']) / 'System32'
+        if os.environ.get('WAYFINDER_POWERSHELL') == 'powershell':
+            # Windows PowerShell 5.1 is the default shell on a fresh machine.
+            # Drop the module path inherited from the PowerShell 7 step shell so
+            # 5.1 loads its own built-in modules, as a user's terminal does.
+            powershell = str(system / 'WindowsPowerShell/v1.0/powershell.exe')
+            env = {key: value for key, value in env.items()
+                   if key.upper() != 'PSMODULEPATH'}
+        else:
+            powershell = shutil.which('pwsh')
+            if not powershell:
+                raise SystemExit('PowerShell 7 is required for this Windows check')
+        env['PATH'] = os.pathsep.join([str(system), str(Path(powershell).parent)])
         script = work / 'install.ps1'
         download_installer(script)
-        subprocess.run([powershell, '-NoProfile', '-File', str(script)], env=env, check=True)
+        # Run the script as the documented `irm ... | iex` command does.
+        subprocess.run([powershell, '-NoProfile', '-Command',
+                        f"Get-Content -Raw -LiteralPath '{script}' | Invoke-Expression"],
+                       env=env, check=True)
         bins = list((work / 'runtime').glob('*/bin/wayfinder.exe'))
         if len(bins) != 1:
             raise SystemExit(f'Expected one installed runtime, found {len(bins)}')

@@ -20,7 +20,7 @@ $env:PATH = (($env:PATH -split ';') | Where-Object {
 if (Get-Command dart -ErrorAction SilentlyContinue) { throw 'Probe PATH must not contain Dart.' }
 $DownloadState = @{ Corrupt = $false }
 function Invoke-WebRequest {
-    param([string]$Uri, [string]$OutFile)
+    param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing)
     if ($Uri.EndsWith('.sha256')) {
         if ($DownloadState.Corrupt) { Set-Content $OutFile (('0' * 64) + '  wayfinder-windows-x64.tar.gz') }
         else { Copy-Item ($SourceArchive + '.sha256') $OutFile }

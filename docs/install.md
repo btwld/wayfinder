@@ -5,9 +5,9 @@ native installation includes `wayfinder` with built-in Profile validation,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
-This source tree prepares the 0.0.1 package split. The published native release
-is still 0.0.1-dev.1; the updated installers and formula must be deployed only
-after the 0.0.1 native archives are published and verified.
+The install scripts are the primary installation path. They install the current
+native release, 0.0.1. Set `WAYFINDER_VERSION` to install another published
+release, for example `0.0.1-dev.1`.
 
 ## Install the native runtime
 
@@ -49,7 +49,9 @@ On macOS Apple Silicon or Linux x64:
 brew install conceptadev/tap/wayfinder
 ```
 
-Wayfinder includes Profile validation through `wayfinder validate`; no separate
+The formula still installs 0.0.1-dev.1 until the tap update tracked in
+[#65](https://github.com/conceptadev/wayfinder/issues/65) is published. Use the
+install script for 0.0.1. Wayfinder includes Profile validation through `wayfinder validate`; no separate
 validator installation or Dart SDK is required. Upgrade with `brew update` then
 `brew upgrade wayfinder`. Existing standalone `okfp` installations remain usable,
 but new Wayfinder installations do not require them. Previously installed `okfp`
@@ -149,7 +151,7 @@ when replacing `knowledge_embeddings`.
 ## Migrate the Dart application package
 
 Before 0.0.1, `wayfinder` was the CLI package. It is now the core library.
-After `wayfinder_cli` is published, migrate a global Dart installation with:
+Migrate a global Dart installation with:
 
 ```sh
 dart pub global deactivate wayfinder
