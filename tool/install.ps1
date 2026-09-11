@@ -5,7 +5,7 @@
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 downloads far slower while drawing progress.
 $ProgressPreference = 'SilentlyContinue'
-$WayfinderVersion = '0.0.1'
+$WayfinderVersion = '0.0.2'
 if ($env:WAYFINDER_VERSION) {
     $WayfinderVersion = $env:WAYFINDER_VERSION
 }

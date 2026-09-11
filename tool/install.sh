@@ -5,7 +5,7 @@ set -eu
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
 # The default is the latest verified native release. WAYFINDER_VERSION selects
 # another published release; CI uses it to test a prepared version.
-version="${WAYFINDER_VERSION:-0.0.1}"
+version="${WAYFINDER_VERSION:-0.0.2}"
 case "$version" in
   *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
   [0-9]*.[0-9]*.[0-9]*) ;;
