@@ -1,7 +1,7 @@
 # Release Wayfinder
 
-The public repository is `conceptadev/wayfinder`; the public Homebrew tap is
-`conceptadev/homebrew-tap`. All Dart packages use the `concepta.dev` publisher.
+The public repository is `conceptadev/wayfinder`. All Dart packages use the
+`concepta.dev` publisher.
 
 ## Packages and tags
 
@@ -42,7 +42,7 @@ creation using the built-in workflow token must not be relied on to trigger
 publication. Each publish workflow recognizes an already-published version and
 skips upload.
 
-## Native distribution and Homebrew
+## Native distribution
 
 Run **Distribute Wayfinder native release** against the checked application tag,
 with the successful source CI run ID. CI must belong to that exact commit and
@@ -55,37 +55,31 @@ model, licenses and checksums; cli_pkg's default executable archive is insuffici
 The publisher verifies the existing tag and marks only suffixed versions as
 prereleases. GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`.
 
-Homebrew exposes only `wayfinder`, including `wayfinder validate`; it has no
-`okfp` dependency. Existing standalone validator formulas/installations remain
-available for legacy consumers. Tap updates require `HOMEBREW_TAP_GH_TOKEN`,
-scoped to Contents read/write on `conceptadev/homebrew-tap`. It is not yet
-configured. Never print its value or use it for GitHub release publication.
+Homebrew is not a supported channel, and the `conceptadev/homebrew-tap` formula
+is not updated. The `publish-homebrew` job stays in the workflow but runs only
+when the repository variable `WAYFINDER_HOMEBREW` is `true`, which also requires
+`HOMEBREW_TAP_GH_TOKEN` with Contents read/write on that tap. Never print the
+token or use it for GitHub release publication.
 
-Native GitHub publication, Homebrew and public installer verification are
-separate dependent jobs. A failed Homebrew job can be retried without
-republishing packages or replacing release assets. Reruns verify existing
+Native GitHub publication and public installer verification are separate
+dependent jobs. A failed job can be retried without republishing packages or
+replacing release assets. Reruns verify existing
 release bytes and refuse to overwrite mismatches. The installer verification
 job uses local scripts with `WAYFINDER_VERSION` so it can exercise the new
 version before the public defaults are promoted. **Verify public Wayfinder
 installation** also runs the public scripts on every installer change to `main`
-and weekly, under PowerShell 7 and Windows PowerShell 5.1 on Windows. After publishing, run actual Homebrew
-installation/upgrade tests before marking the release deployed. Windows/Linux
-validation and external credentials cannot be inferred from local macOS results.
+and weekly, under PowerShell 7 and Windows PowerShell 5.1 on Windows.
+Windows/Linux validation and external credentials cannot be inferred from local
+macOS results.
 
-## Partial recovery and token rotation
+## Partial recovery
 
 If only some channels finished, continue from the failed job. Do not recreate
 tags, replace published archives or republish a version that pub.dev already
 has. The GitHub publisher exits successfully when the existing release bytes
-match; a mismatch requires a new version. The Homebrew job stays off until
-`HOMEBREW_TAP_GH_TOKEN` is stored ([#65](https://github.com/conceptadev/wayfinder/issues/65)); then set the repository
-variable `WAYFINDER_HOMEBREW` to `true`.
+match; a mismatch requires a new version.
 Leave installer defaults on the previous release until the new archives and
 public verification succeed.
 
-Rotate `HOMEBREW_TAP_GH_TOKEN` with a new fine-grained token owned by
-`conceptadev`, limited to `homebrew-tap`, Contents read/write, and a bounded
-expiry. Replace the Wayfinder Actions secret through the GitHub UI. Never print
-the value, commit it or use it for GitHub release publication. Pub.dev
-publication uses OIDC after the first authenticated CLI upload; report that
-path as configured until an automated publication verifies it.
+Pub.dev publication uses OIDC after the first authenticated CLI upload; report
+that path as configured until an automated publication verifies it.

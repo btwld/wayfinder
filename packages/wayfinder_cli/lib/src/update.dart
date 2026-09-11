@@ -119,8 +119,9 @@ class ReleaseChecker {
 /// Upgrades an installer-managed runtime and refreshes its agent skills.
 ///
 /// It reruns the release's own installer, which verifies every download and
-/// installs the bundled skills. Homebrew and Dart installations are upgraded
-/// by those tools instead.
+/// installs the bundled skills. A Dart installation is upgraded by pub; the
+/// Homebrew formula is no longer updated, so Homebrew users reinstall with the
+/// script.
 class Updater {
   Updater({
     required void Function(String) out,
@@ -184,7 +185,12 @@ class Updater {
     }
     final path = p.normalize(executable);
     if (path.contains('${p.separator}Cellar${p.separator}')) {
-      _out('Wayfinder $target is available. Run: brew upgrade wayfinder');
+      _out(
+        'Wayfinder $target is available. The Homebrew formula is no longer '
+        'updated: reinstall with the install script '
+        '(https://github.com/conceptadev/wayfinder/blob/main/docs/install.md), '
+        'then run brew uninstall wayfinder.',
+      );
       return;
     }
     if (p.basenameWithoutExtension(path) == 'dart' ||

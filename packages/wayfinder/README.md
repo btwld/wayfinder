@@ -22,7 +22,7 @@ wayfinder validate knowledge
 wayfinder mcp knowledge
 ```
 
-For indexing and search without native setup, use the complete Homebrew or script
+For indexing and search without native setup, use the complete scripted
 installation in the [installation guide](../../docs/install.md).
 The reusable retrieval library is `wayfinder_embeddings`.
 

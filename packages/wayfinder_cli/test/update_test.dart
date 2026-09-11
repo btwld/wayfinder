@@ -166,7 +166,7 @@ void main() {
         executable: p.join(root.path, 'sdk', 'bin', 'dart'),
       ).run();
       expect(output, [
-        contains('brew upgrade wayfinder'),
+        contains('Homebrew formula is no longer updated'),
         contains('dart pub global activate wayfinder_cli'),
       ]);
       expect(installs, isEmpty);
