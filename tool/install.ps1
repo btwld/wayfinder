@@ -26,7 +26,9 @@ try {
         (Get-FileHash $Archive -Algorithm SHA256).Hash -ne $Expected) {
         throw 'Release checksum mismatch.'
     }
-    $Bundle = Join-Path $Stage 'bundle'
+    # Normalize both sides of the containment check, including Windows 8.3
+    # aliases such as RUNNER~1 in a caller-supplied installation root.
+    $Bundle = [System.IO.Path]::GetFullPath((Join-Path $Stage 'bundle'))
     New-Item -ItemType Directory -Path $Bundle | Out-Null
     & tar -xzf $Archive -C $Bundle
     if ($LASTEXITCODE -ne 0) { throw 'Could not extract the runtime bundle.' }
