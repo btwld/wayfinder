@@ -6,17 +6,17 @@ ObjectBox, the embedding runtime, a verified embedding model and license notices
 It does not require Dart, GitHub credentials or administrator access.
 
 Native bundles for `0.0.1-dev.1` are available from the
-[public release](https://github.com/conceptadev/wayfinder-dist/releases/tag/wayfinder-v0.0.1-dev.1).
+[public release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1-dev.1).
 The supported platforms pass native build, relocation, retrieval and installer
 checks in CI. The public macOS download and Homebrew installation have also been
-verified without access to the private source repository.
+verified without GitHub credentials.
 
 ## Install the native runtime
 
 For macOS Apple Silicon or Linux x64:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder-dist/main/tool/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.sh | sh
 ```
 
 The script installs versioned runtimes under `~/.local/share/wayfinder-runtime`
@@ -28,7 +28,7 @@ refuses to overwrite commands belonging to another installation method.
 For Windows x64, run in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/conceptadev/wayfinder-dist/main/tool/install.ps1 | iex
+irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex
 ```
 
 Windows runtimes live under `%LOCALAPPDATA%\WayfinderRuntime`; set
@@ -81,7 +81,7 @@ bundle is `examples/knowledge`; it does not contain a root `knowledge/` director
 Install and verify the commands first. From the consuming project, in Claude Code:
 
 ```text
-/plugin marketplace add conceptadev/wayfinder-dist
+/plugin marketplace add conceptadev/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 
@@ -100,7 +100,7 @@ an existing marketplace name.
 ```text
 /plugin uninstall concepta-knowledge@wayfinder
 /plugin marketplace remove wayfinder
-/plugin marketplace add conceptadev/wayfinder-dist
+/plugin marketplace add conceptadev/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 

@@ -9,7 +9,7 @@ import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC = 'https://raw.githubusercontent.com/conceptadev/wayfinder-dist/main/tool/'
+PUBLIC = 'https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/'
 
 def download_installer(script):
     # Fetch the current public file when validating a just-published correction.

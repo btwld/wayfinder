@@ -49,18 +49,6 @@ Future<void> okfpDeployGithub() async {
   );
 }
 
-@Task('Project the release into the public distribution repository.')
-Future<void> okfpDeployDist() async {
-  await runAsync(
-    'bash',
-    arguments: <String>[
-      'tool/ci/sync-dist.sh',
-      _requiredEnvironment('TAG'),
-      _requiredEnvironment('DISTRIBUTION'),
-    ],
-  );
-}
-
 @Task('Point the Homebrew formula at the published pub.dev archive.')
 Future<void> okfpDeployHomebrew() async {
   await runAsync(

@@ -3,7 +3,7 @@
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
 version="0.0.1-dev.1"
-release_root="https://github.com/conceptadev/wayfinder-dist/releases/download/wayfinder-v$version"
+release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
 install_dir="${WAYFINDER_INSTALL_DIR:-$HOME/.local/bin}"
 runtime_root="${WAYFINDER_INSTALL_ROOT:-$HOME/.local/share/wayfinder-runtime}"
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }

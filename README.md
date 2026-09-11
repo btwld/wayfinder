@@ -78,7 +78,7 @@ the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
 binary outside `PATH`.
 
 ```
-/plugin marketplace add conceptadev/wayfinder-dist
+/plugin marketplace add conceptadev/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 

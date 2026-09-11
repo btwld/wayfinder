@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -48,19 +48,17 @@ jobs:
           path: build/distribution
       - name: Verify complete release inputs
         run: python3 tool/ci/verify-distribution.py build/distribution
+      - name: Publish native archives in Wayfinder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tool/ci/publish-wayfinder.sh build/distribution
       - id: app
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: conceptadev
-          repositories: |
-            wayfinder-dist
-            homebrew-tap
-      - name: Publish public projection and native archives
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: bash tool/ci/publish-wayfinder-dist.sh build/distribution
+          repositories: homebrew-tap
       - name: Update the public Homebrew tap
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}

@@ -1,7 +1,7 @@
 # Install the complete Wayfinder runtime and okfp without Dart or admin rights.
 $ErrorActionPreference = 'Stop'
 $WayfinderVersion = '0.0.1-dev.1'
-$ReleaseRoot = "https://github.com/conceptadev/wayfinder-dist/releases/download/wayfinder-v$WayfinderVersion"
+$ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
     throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'
 }

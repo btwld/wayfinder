@@ -1,5 +1,9 @@
 # Wayfinder naming and release plan
 
+Current repository decision: source, plugin, documentation and native releases
+now live together in public `conceptadev/wayfinder`. The earlier separate
+distribution design below is superseded; `wayfinder-dist` is being removed.
+
 Decision date: 2026-09-10. Scope: name the existing knowledge application,
 rename its repository, and publish the functional CLI under `concepta.dev`.
 This is a product/distribution change; no OKF or Profile conventions change.
@@ -47,7 +51,7 @@ Update Git remotes to `https://github.com/conceptadev/wayfinder.git`.
 GitHub redirects the old repository URL; use the new URL in maintained links.
 For an existing plugin installation, uninstall the old `concepta-knowledge`
 plugin, remove the old marketplace registration, register
-`conceptadev/wayfinder-dist`, then install `wayfinder@wayfinder`. See the
+`conceptadev/wayfinder`, then install `wayfinder@wayfinder`. See the
 [verified migration sequence](install.md#migrate-an-existing-plugin-installation).
 Copied/symlinked skills and existing `okfp` CI gates continue to work.
 

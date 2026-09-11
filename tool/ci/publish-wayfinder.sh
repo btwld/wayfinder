@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Called after complete-archive and CI provenance checks, with a repository-scoped
-# GitHub App token. Credentials stay in GH_TOKEN, never in Git remote URLs.
+# Called after complete-archive and CI provenance checks with GITHUB_TOKEN. Credentials stay in GH_TOKEN, never in Git remote URLs.
 set -euo pipefail
 assets="$(cd "${1:?release artifact directory is required}" && pwd)"
 root="$(git rev-parse --show-toplevel)"
 version="$(sed -n 's/^version: //p' "$root/packages/wayfinder/pubspec.yaml")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
 tag="wayfinder-v$version"
-repo="conceptadev/wayfinder-dist"
+repo="conceptadev/wayfinder"
 source_sha="$(git rev-parse HEAD)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -30,16 +29,6 @@ if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   done
   echo "Public release $tag already contains these exact assets."
   exit 0
-fi
-git -c credential.helper='!gh auth git-credential' clone --quiet --depth 1 \
-  "https://github.com/$repo.git" "$work/dist"
-python3 "$root/tool/ci/project-dist.py" "$work/dist" --tag "$tag"
-git -C "$work/dist" add README.md LICENSE skills .claude-plugin profile implementation docs tool
-if ! git -C "$work/dist" diff --cached --quiet; then
-  git -C "$work/dist" -c user.name='Wayfinder Release' \
-    -c user.email='wayfinder-release@users.noreply.github.com' \
-    commit --quiet -m "Distribute $tag from $source_sha"
-  git -C "$work/dist" -c credential.helper='!gh auth git-credential' push --quiet origin main
 fi
 cat > "$work/notes.md" <<EOF
 Complete Wayfinder $version native bundles, including the okfp validation gate,

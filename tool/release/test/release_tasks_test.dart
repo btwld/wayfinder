@@ -24,7 +24,6 @@ void main() {
         contains('pkg-compile-native'),
         contains('okfp-build-binary'),
         contains('okfp-deploy-github'),
-        contains('okfp-deploy-dist'),
         contains('okfp-deploy-homebrew'),
         contains('okfp-deploy-pub'),
       ),

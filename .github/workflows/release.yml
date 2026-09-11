@@ -117,41 +117,6 @@ jobs:
           dart --packages=tool/release/.dart_tool/package_config.json
           tool/release/grind.dart okfp-deploy-github
 
-  dist:
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-      - run: dart pub -C tool/release get --enforce-lockfile
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: okfp-*
-          path: dist
-          merge-multiple: true
-      - id: app
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: conceptadev
-          repositories: wayfinder-dist
-      - env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-          DISTRIBUTION: dist
-        run: >-
-          dart --packages=tool/release/.dart_tool/package_config.json
-          tool/release/grind.dart okfp-deploy-dist
-
   pub-publish:
     needs: publish
     runs-on: ubuntu-latest
