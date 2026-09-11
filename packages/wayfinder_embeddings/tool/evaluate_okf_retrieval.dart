@@ -19,11 +19,13 @@ Future<void> main(List<String> args) async {
     )
     ..addOption('output', mandatory: true)
     ..addOption('stores', defaultsTo: 'memory,objectbox')
-    ..addFlag('native', negatable: false);
+    ..addFlag('native', negatable: false)
+    ..addFlag('timing', defaultsTo: true, help: 'Measure warm query latency.');
   final options = parser.parse(args);
   if (options.rest.isNotEmpty) {
     throw ArgumentError('Unexpected positional arguments.');
   }
+  final measureTiming = options.flag('timing');
   final stores = options.option('stores')!.split(',');
   if (stores.any((kind) => !['memory', 'objectbox'].contains(kind))) {
     throw ArgumentError('--stores accepts memory,objectbox');
@@ -58,8 +60,9 @@ Future<void> main(List<String> args) async {
       'modelOpenMs': loading.elapsedMicroseconds / 1000,
       'limit': limit,
       'asOf': data['asOf'],
-      'timing':
-          'JIT, warm query vectors; first pass excluded; two measured passes',
+      'timing': measureTiming
+          ? 'JIT, warm query vectors; first pass excluded; two measured passes'
+          : 'Disabled; correctness results only',
     });
     final runs = <String, Object?>{};
     for (final kind in stores) {
@@ -135,7 +138,7 @@ Future<void> main(List<String> args) async {
             )) {
               final rows = <Map<String, Object?>>[];
               final times = <double>[];
-              for (var pass = 0; pass < 3; pass++) {
+              for (var pass = 0; pass < (measureTiming ? 3 : 1); pass++) {
                 for (final row in queries) {
                   final history = row['history'] == true;
                   final policy = KnowledgeSearchPolicy(
@@ -230,8 +233,12 @@ Future<void> main(List<String> args) async {
                       rows.where((row) => row['group'] == group).toList(),
                     ),
                 },
-                'queryP50Ms': times[(times.length * .5).floor()],
-                'queryP95Ms': times[(times.length * .95).floor()],
+                'queryP50Ms': measureTiming
+                    ? times[(times.length * .5).floor()]
+                    : null,
+                'queryP95Ms': measureTiming
+                    ? times[(times.length * .95).floor()]
+                    : null,
                 'syncMs': syncMs,
                 'embeddedChunks': sync.embeddedChunks,
                 'chunks': (await store.getStats())['chunks'],

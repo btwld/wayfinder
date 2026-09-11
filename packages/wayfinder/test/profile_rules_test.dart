@@ -8,7 +8,7 @@ import 'support.dart';
 
 void main() {
   test('reports the supported release binding through text output', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', fixture('invalid-binding')],
     );
 
@@ -23,7 +23,7 @@ void main() {
   });
 
   test('validates concept metadata through text and JSON output', () async {
-    final jsonResult = await runProcess(
+    final jsonResult = await runCli(
       <String>['validate', '--output', 'json', fixture('invalid-concepts')],
     );
 
@@ -46,7 +46,7 @@ void main() {
     );
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
-    final textResult = await runProcess(
+    final textResult = await runCli(
       <String>['validate', fixture('invalid-concepts')],
     );
     expect(textResult.exitCode, 1);
@@ -70,8 +70,8 @@ void main() {
       'json',
       fixture('invalid-conventions'),
     ];
-    final result = await runProcess(arguments);
-    final repeated = await runProcess(arguments);
+    final result = await runCli(arguments);
+    final repeated = await runCli(arguments);
 
     expect(result.exitCode, 1);
     expect(result.stderr, isEmpty);
@@ -105,7 +105,7 @@ void main() {
     }
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('invalid-conventions')],
     );
     expect(text.exitCode, 1);
@@ -115,7 +115,7 @@ void main() {
 
   test('keeps concept advisories and absence boundaries gate-neutral',
       () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('advisory-concepts')],
     );
 
@@ -136,7 +136,7 @@ void main() {
     );
     expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('advisory-concepts')],
     );
     expect(text.exitCode, 0);
@@ -149,7 +149,7 @@ void main() {
     // A sources[].resource descriptor carrying both a slash and a non-ASCII
     // character reads as a link the graph builder must resolve; the whole
     // assessment dies if it throws instead of treating it as a descriptor.
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('graph-failure')],
     );
 
@@ -171,7 +171,7 @@ void main() {
       'json',
       fixture('invalid-structure'),
     ];
-    final result = await runProcess(arguments);
+    final result = await runCli(arguments);
 
     expect(result.exitCode, 1);
     expect(result.stderr, isEmpty);
@@ -192,7 +192,7 @@ void main() {
     });
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('invalid-structure')],
     );
     expect(text.exitCode, 1);
@@ -202,7 +202,7 @@ void main() {
   });
 
   test('flags non-index markdown inside a references raw/ tier', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('invalid-raw')],
     );
 
@@ -222,7 +222,7 @@ void main() {
     expect(profile['state'], 'FAIL');
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('invalid-raw')],
     );
     expect(text.exitCode, 1);
@@ -234,7 +234,7 @@ void main() {
   });
 
   test('flags a raw/ tier sitting directly under references/', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>[
         'validate',
         '--output',
@@ -260,7 +260,7 @@ void main() {
     expect(profile['state'], 'FAIL');
     expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('invalid-raw-placement')],
     );
     expect(text.exitCode, 1);
@@ -275,7 +275,7 @@ void main() {
 
   test('accepts presentation-equivalent indexes and contextual boundaries',
       () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>[
         'validate',
         '--output',
@@ -301,7 +301,7 @@ void main() {
     });
     expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
 
-    final text = await runProcess(
+    final text = await runCli(
       <String>['validate', fixture('structure-boundary')],
     );
     expect(text.exitCode, 0);
@@ -341,7 +341,7 @@ void main() {
       expect(mutated, isNot(source), reason: entry.key);
       await index.writeAsString(mutated);
 
-      final result = await runProcess(
+      final result = await runCli(
         <String>['validate', '--output', 'json', bundle.path],
       );
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
@@ -371,7 +371,7 @@ void main() {
         );
       }
 
-      final result = await runProcess(
+      final result = await runCli(
         <String>['validate', '--output', 'json', bundle.path],
       );
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
@@ -387,7 +387,7 @@ void main() {
 
   test('rejects index entry targets that decode wrong or diverge as URLs',
       () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>[
         'validate',
         '--output',
@@ -428,7 +428,7 @@ void main() {
 
   test('requires the root structural files without repository discovery',
       () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>[
         'validate',
         '--output',
@@ -475,7 +475,7 @@ void main() {
         '- [$title]($filename) - $description\n',
       );
 
-      final result = await runProcess(
+      final result = await runCli(
         <String>['validate', '--output', 'json', bundle.path],
       );
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
@@ -494,7 +494,7 @@ void main() {
       expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
 
       if (filename == 'profile.md') {
-        final text = await runProcess(
+        final text = await runCli(
           <String>['validate', bundle.path],
         );
         expect(text.exitCode, 1);
@@ -529,10 +529,10 @@ void main() {
         await file.copy(destination.path);
       }
 
-      final original = await runProcess(
+      final original = await runCli(
         <String>['validate', '--output', 'json', source.path],
       );
-      final reordered = await runProcess(
+      final reordered = await runCli(
         <String>['validate', '--output', 'json', reversed.path],
       );
 
@@ -544,7 +544,7 @@ void main() {
 
   test('validates declaration and registry identities and table columns',
       () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('invalid-registries')],
     );
 
@@ -564,7 +564,7 @@ void main() {
   });
 
   test('requires the actor registry only when actor fields are used', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('missing-actors')],
     );
 
@@ -579,7 +579,7 @@ void main() {
   });
 
   test('requires every actor row cell before validating its values', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('empty-actor-cells')],
     );
 
@@ -597,7 +597,7 @@ void main() {
   });
 
   test('requires the type registry before resolving used types', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('missing-types')],
     );
 
@@ -611,7 +611,7 @@ void main() {
   });
 
   test('allows an actor-free bundle without an empty registry', () async {
-    final result = await runProcess(
+    final result = await runCli(
       <String>['validate', '--output', 'json', fixture('actor-free')],
     );
 

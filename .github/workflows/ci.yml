@@ -100,8 +100,8 @@ jobs:
       - name: Compare OKF retrieval components on both fixed splits
         shell: bash
         run: |
-          dart run tool/evaluate_okf_retrieval.dart --native --split=development --output="$RUNNER_TEMP/okf-development.json"
-          dart run tool/evaluate_okf_retrieval.dart --native --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
+          dart run tool/evaluate_okf_retrieval.dart --native --no-timing --split=development --output="$RUNNER_TEMP/okf-development.json"
+          dart run tool/evaluate_okf_retrieval.dart --native --no-timing --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
       - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash

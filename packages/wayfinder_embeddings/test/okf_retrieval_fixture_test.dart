@@ -20,6 +20,15 @@ void main() {
           '--split=$split',
           '--output=$output',
         ]);
+        final untimedOutput = '${directory.path}/untimed.json';
+        await evaluation.main([
+          '--stores=memory',
+          '--split=$split',
+          '--no-timing',
+          '--output=$untimedOutput',
+        ]);
+        final untimed =
+            jsonDecode(await File(untimedOutput).readAsString()) as Map;
         final actual = jsonDecode(await File(output).readAsString()) as Map;
         final baseline =
             jsonDecode(
@@ -35,6 +44,15 @@ void main() {
         for (final entry in actualRuns.entries) {
           final measured = entry.value as Map;
           final recorded = expectedRuns[entry.key] as Map;
+          final untimedRun =
+              ((untimed['runs'] as Map)['memory'] as Map)[entry.key] as Map;
+          expect(untimedRun['aggregate'], measured['aggregate']);
+          expect(untimedRun['groups'], measured['groups']);
+          expect(untimedRun['queries'], measured['queries']);
+          expect(untimedRun['queryP50Ms'], isNull);
+          expect(untimedRun['queryP95Ms'], isNull);
+          expect(measured['queryP50Ms'], isNonNegative);
+          expect(measured['queryP95Ms'], isNonNegative);
           expect(
             measured['aggregate'],
             recorded['aggregate'],

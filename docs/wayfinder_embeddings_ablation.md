@@ -121,7 +121,10 @@ dart run tool/evaluate_okf_retrieval.dart --native --split=development --output=
 dart run tool/evaluate_okf_retrieval.dart --native --split=held_out --output=comparison_results/okf-held-out.json
 ```
 
-Native CI runs both splits and uploads full reports. The checked-in experiment
+Native CI runs both splits with `--no-timing` and uploads all correctness results.
+This skips the two extra latency-sampling passes; query latency fields are `null`
+and the report marks timing as disabled. The commands above retain the default
+three-pass timing measurement for performance experiments. The checked-in experiment
 records results, rather than declaring all models must exceed a newly selected
 aggregate threshold. Unit/native tests enforce citation preservation, lifecycle
 and scope eligibility, bounded relationships, explicit governors, atomic
