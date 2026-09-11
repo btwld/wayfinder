@@ -52,6 +52,11 @@ Application/library BSD licenses and model notices remain separate.
 
 The bundle carries the executable, Dart/llamadart native assets, ObjectBox
 (`lib/` on Linux/macOS, `bin/` on Windows), the verified model and its manifest.
+Dart emits native code assets under `lib/` on Windows too. The pinned
+llamadart 0.8.23 backend loader searches beside the executable there, so both
+builders additionally stage those DLLs in `bin/`, retaining `lib/` for Dart's
+compiled asset mappings. Windows CI caught this distinction: source execution
+loaded its CPU backend, while the first relocated AOT bundle could not find it.
 Copy the whole bundle when relocating it. Validation does not use a database or
 embedding model; indexing and search need the complete native assets.
 

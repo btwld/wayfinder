@@ -89,23 +89,6 @@ jobs:
         working-directory: packages/wayfinder
       - run: dart run tool/build_wayfinder.dart --offline
         working-directory: .
-      - name: Inspect Windows native bundle
-        if: runner.os == 'Windows'
-        shell: python
-        working-directory: .
-        run: |
-          import ctypes
-          from pathlib import Path
-          bundle = Path('build/wayfinder/bundle').resolve()
-          for file in sorted(bundle.rglob('*')):
-              if file.is_file():
-                  print(file.relative_to(bundle), file.stat().st_size, flush=True)
-          for file in sorted(bundle.rglob('*cpu*.dll')):
-              try:
-                  ctypes.WinDLL(str(file))
-                  print('Loaded CPU backend:', file, flush=True)
-              except OSError as error:
-                  print('CPU backend load failed:', file, repr(error), flush=True)
       - run: python3 tool/verify_wayfinder.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-native.json"
         shell: bash
         working-directory: .

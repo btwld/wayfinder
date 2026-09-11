@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
+import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
 import '../packages/wayfinder_embeddings/tool/src/objectbox_assets.dart';
 
 /// Builds Wayfinder from the workspace root with verified model/native assets.
@@ -50,6 +51,7 @@ Future<void> main(List<String> arguments) async {
       await file.copy(p.join(models.path, p.basename(file.path)));
     }
     await stageObjectBoxAssets(Directory(package), Directory(bundle));
+    await stageWindowsBackendAssets(Directory(bundle));
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
     stderr.writeln('Wayfinder build failed: $error');
