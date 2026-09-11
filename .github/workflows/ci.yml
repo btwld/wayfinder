@@ -121,9 +121,15 @@ jobs:
             --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
       - name: Archive the complete native application bundle
         if: matrix.sdk == 'stable'
-        shell: bash
+        shell: python
         working-directory: .
-        run: tar -czf "$RUNNER_TEMP/wayfinder-$RUNNER_OS-$RUNNER_ARCH.tar.gz" -C build/wayfinder/bundle .
+        run: |
+          import os
+          from pathlib import Path
+          import tarfile
+          archive = Path(os.environ['RUNNER_TEMP']) / f"wayfinder-{os.environ['RUNNER_OS']}-{os.environ['RUNNER_ARCH']}.tar.gz"
+          with tarfile.open(archive, 'w:gz') as output:
+              output.add('build/wayfinder/bundle', arcname='.')
       - uses: actions/upload-artifact@v4
         if: matrix.sdk == 'stable'
         with:
