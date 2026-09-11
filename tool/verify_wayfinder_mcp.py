@@ -128,12 +128,19 @@ def main():
         try:
             check("initialize-without-model", server.initialize)
             listing = check("list-tools", lambda: server.request("tools/list", {}))
-            assert {t["name"] for t in listing["tools"]} == {"validate", "index", "search"}
+            assert {t["name"] for t in listing["tools"]} == {
+                "validate", "index", "search", "graph",
+            }
             validate = check("validate-without-model", lambda: server.tool("validate"))
             cli = subprocess.run([str(binary), "validate", str(corpus), "--output=json"],
                                  env=env, cwd=cwd, text=True, capture_output=True, timeout=30)
             assert validate.pop("exit_code") == cli.returncode
             assert validate == json.loads(cli.stdout)
+            graph = check("graph-without-model", lambda: server.tool("graph"))
+            cli = subprocess.run([str(binary), "graph", str(corpus), "--output=json"],
+                                 env=env, cwd=cwd, text=True, capture_output=True, timeout=30)
+            assert cli.returncode == 0, cli.stderr
+            assert graph == json.loads(cli.stdout)
             assert validate["judgment_rules"] == {"state": "UNASSESSED"}
             check("missing-index", lambda: server.tool("search", {"query": "password"}, error=True))
             check("missing-model", lambda: server.tool("index", error=True))

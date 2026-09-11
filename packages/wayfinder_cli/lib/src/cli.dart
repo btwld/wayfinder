@@ -6,6 +6,7 @@ import 'package:args/args.dart';
 import 'package:wayfinder/wayfinder.dart';
 
 import 'agent_setup.dart';
+import 'graph.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
 import 'search_input.dart';
@@ -134,6 +135,37 @@ class WayfinderCli {
       parser.addCommand(name, command);
     }
     parser.addCommand(
+      'graph',
+      ArgParser()
+        ..addFlag('help', abbr: 'h', negatable: false)
+        ..addOption(
+          'output',
+          allowed: wayfinderGraphOutputs,
+          defaultsTo: 'json',
+          help:
+              'Graph output format. mermaid and dot are text for an external '
+              'preview.',
+        )
+        ..addMultiOption(
+          'type',
+          valueHelp: 'TYPE',
+          splitCommas: false,
+          help: 'Include concepts with these types.',
+        )
+        ..addMultiOption(
+          'path-prefix',
+          valueHelp: 'PREFIX',
+          splitCommas: false,
+          help: 'Include concepts under these bundle path prefixes.',
+        )
+        ..addMultiOption(
+          'resolution',
+          valueHelp: 'STATE',
+          allowed: wayfinderGraphResolutions(),
+          help: 'Include edges with these resolution states.',
+        ),
+    );
+    parser.addCommand(
       'mcp',
       ArgParser()..addFlag('help', abbr: 'h', negatable: false),
     );
@@ -199,6 +231,7 @@ class WayfinderCli {
           '  validate <bundle>          Check OKF and the declared Concepta profile\n'
           '  index <bundle>             Update saved local embeddings for changes\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
+          '  graph <bundle>             Project the ordinary OKF relationship graph\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
           '                             Manage the agent skills for this runtime\n'
@@ -211,8 +244,8 @@ class WayfinderCli {
       final command = options.command;
       if (command == null || options.rest.isNotEmpty) {
         throw const WayfinderException(
-          'Choose validate, index, search, mcp, skills, setup or update. '
-          'Run wayfinder --help.',
+          'Choose validate, index, search, graph, mcp, skills, setup or '
+          'update. Run wayfinder --help.',
         );
       }
       final name = command.name!;
@@ -296,6 +329,20 @@ class WayfinderCli {
           rootPath: bundle,
           knowledge: _knowledge(),
         ).serve();
+        return 0;
+      }
+      if (name == 'graph') {
+        final result = await projectWayfinderGraph(
+          bundle,
+          types: command.multiOption('type'),
+          pathPrefixes: command.multiOption('path-prefix'),
+          resolutions: command.multiOption('resolution'),
+        );
+        if (result.graph == null) {
+          result.report!.toTextLines().forEach(_out);
+          return result.exitCode;
+        }
+        _out(result.render(command.option('output')!));
         return 0;
       }
       final json = command.option('output') == 'json';

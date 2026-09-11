@@ -37,3 +37,11 @@
 [0007: Percent-decoded index targets](adr/0007-index-targets-compared-percent-decoded.md) — Accepted. Compare relative URLs after decoding so real-world filenames stay expressible.
 
 [0008: OKF finding contract](adr/0008-okfp-adopts-okf-finding-contract.md) — Accepted. Reuse OKF's finding report as the wire format and retire the separate load-issue channel.
+
+[0009: Local knowledge retrieval](adr/0009-local-knowledge-retrieval.md) — Accepted. Keep Arctic XS for optional local embeddings; retain BM25 by default.
+
+[0010: Wayfinder CLI](adr/0010-station-cli.md) — Accepted. Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots.
+
+[0011: Wayfinder MCP](adr/0011-station-mcp.md) — Accepted. Serve Wayfinder tools over local MCP stdio.
+
+[0012: Wayfinder graph projection](adr/0012-wayfinder-graph-projection.md) — Accepted. Project the ordinary OKF graph; mermaid and DOT are text for an external preview.
