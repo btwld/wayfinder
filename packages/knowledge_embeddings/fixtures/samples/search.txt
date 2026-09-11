@@ -1,0 +1,7 @@
+This is a sample text file for demonstrating the knowledge_embeddings library.
+
+It contains multiple paragraphs that will be chunked and indexed.
+
+The exact BM25 lexical index will rank chunks without vector hashing.
+
+Then we'll search for content similar to a query.

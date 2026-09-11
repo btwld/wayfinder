@@ -1,0 +1,2067 @@
+{
+  "asOf": "2026-09-09",
+  "governingSources": {
+    "sessions/implementation.md": "sessions/guidance.md",
+    "payments/implementation.md": "payments/guidance.md",
+    "uploads/implementation.md": "uploads/guidance.md",
+    "queues/implementation.md": "queues/guidance.md",
+    "backups/implementation.md": "backups/guidance.md",
+    "secrets/implementation.md": "secrets/guidance.md",
+    "pagination/implementation.md": "pagination/guidance.md",
+    "leases/implementation.md": "leases/guidance.md",
+    "releases/implementation.md": "releases/guidance.md",
+    "webhooks/implementation.md": "webhooks/guidance.md",
+    "exports/implementation.md": "exports/guidance.md",
+    "locks/implementation.md": "locks/guidance.md",
+    "notifications/implementation.md": "notifications/guidance.md",
+    "caches/implementation.md": "caches/guidance.md",
+    "clocks/implementation.md": "clocks/guidance.md",
+    "migrations/implementation.md": "migrations/guidance.md",
+    "limits/implementation.md": "limits/guidance.md",
+    "archives/implementation.md": "archives/guidance.md",
+    "search/implementation.md": "search/guidance.md",
+    "shutdown/implementation.md": "shutdown/guidance.md"
+  },
+  "queries": [
+    {
+      "id": "sessions-symbol",
+      "topic": "sessions",
+      "split": "test",
+      "group": "exact",
+      "query": "What does rotateSessionKey do?",
+      "history": false,
+      "support": [
+        {
+          "path": "sessions/guidance.md",
+          "contains": "Invalidate the previous credential and issue a replacement after authentication."
+        }
+      ]
+    },
+    {
+      "id": "sessions-meaning",
+      "topic": "sessions",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How do we replace a signed-in user credential safely?",
+      "history": false,
+      "support": [
+        {
+          "path": "sessions/guidance.md",
+          "contains": "Invalidate the previous credential and issue a replacement after authentication."
+        }
+      ]
+    },
+    {
+      "id": "sessions-prohibition",
+      "topic": "sessions",
+      "split": "test",
+      "group": "negation",
+      "query": "What check must happen before renewing a session?",
+      "history": false,
+      "support": [
+        {
+          "path": "sessions/guidance.md",
+          "contains": "Never renew a session before authenticating the requester."
+        }
+      ]
+    },
+    {
+      "id": "sessions-conflict",
+      "topic": "sessions",
+      "split": "test",
+      "group": "authority",
+      "query": "For session renewal, is this implementation correct: Keep both old and new credentials active indefinitely.",
+      "history": false,
+      "support": [
+        {
+          "path": "sessions/guidance.md",
+          "contains": "Invalidate the previous credential and issue a replacement after authentication."
+        }
+      ]
+    },
+    {
+      "id": "sessions-history",
+      "topic": "sessions",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for session renewal?",
+      "history": true,
+      "support": [
+        {
+          "path": "sessions/history.md",
+          "contains": "Keep both old and new credentials active indefinitely."
+        }
+      ]
+    },
+    {
+      "id": "sessions-follow",
+      "topic": "sessions",
+      "split": "test",
+      "group": "relationship",
+      "query": "Who must be notified after a credential is replaced?",
+      "history": false,
+      "support": [
+        {
+          "path": "sessions/follow-up.md",
+          "contains": "Send the account owner a security notice."
+        }
+      ]
+    },
+    {
+      "id": "sessions-missing-price",
+      "topic": "sessions",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for session renewal?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "sessions-missing-owner",
+      "topic": "sessions",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of session renewal?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "payments-symbol",
+      "topic": "payments",
+      "split": "test",
+      "group": "exact",
+      "query": "What does submitChargeOnce do?",
+      "history": false,
+      "support": [
+        {
+          "path": "payments/guidance.md",
+          "contains": "Reuse the original idempotency key when retrying a charge."
+        }
+      ]
+    },
+    {
+      "id": "payments-meaning",
+      "topic": "payments",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How can we try charging again without billing twice?",
+      "history": false,
+      "support": [
+        {
+          "path": "payments/guidance.md",
+          "contains": "Reuse the original idempotency key when retrying a charge."
+        }
+      ]
+    },
+    {
+      "id": "payments-prohibition",
+      "topic": "payments",
+      "split": "test",
+      "group": "negation",
+      "query": "May a retried charge use a new idempotency key?",
+      "history": false,
+      "support": [
+        {
+          "path": "payments/guidance.md",
+          "contains": "Never repeat a charge with a different idempotency key."
+        }
+      ]
+    },
+    {
+      "id": "payments-conflict",
+      "topic": "payments",
+      "split": "test",
+      "group": "authority",
+      "query": "For payment retry, is this implementation correct: Generate a new idempotency key for each payment attempt.",
+      "history": false,
+      "support": [
+        {
+          "path": "payments/guidance.md",
+          "contains": "Reuse the original idempotency key when retrying a charge."
+        }
+      ]
+    },
+    {
+      "id": "payments-history",
+      "topic": "payments",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for payment retry?",
+      "history": true,
+      "support": [
+        {
+          "path": "payments/history.md",
+          "contains": "Generate a new idempotency key for each payment attempt."
+        }
+      ]
+    },
+    {
+      "id": "payments-follow",
+      "topic": "payments",
+      "split": "test",
+      "group": "relationship",
+      "query": "Which record should be checked before another charge attempt?",
+      "history": false,
+      "support": [
+        {
+          "path": "payments/follow-up.md",
+          "contains": "Look up the original receipt before submitting another charge."
+        }
+      ]
+    },
+    {
+      "id": "payments-missing-price",
+      "topic": "payments",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for payment retry?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "payments-missing-owner",
+      "topic": "payments",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of payment retry?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "uploads-symbol",
+      "topic": "uploads",
+      "split": "development",
+      "group": "exact",
+      "query": "What does resumeUpload do?",
+      "history": false,
+      "support": [
+        {
+          "path": "uploads/guidance.md",
+          "contains": "Continue from the last server-confirmed byte offset."
+        }
+      ]
+    },
+    {
+      "id": "uploads-meaning",
+      "topic": "uploads",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How do we continue sending a file after the connection drops?",
+      "history": false,
+      "support": [
+        {
+          "path": "uploads/guidance.md",
+          "contains": "Continue from the last server-confirmed byte offset."
+        }
+      ]
+    },
+    {
+      "id": "uploads-prohibition",
+      "topic": "uploads",
+      "split": "development",
+      "group": "negation",
+      "query": "Can a file transfer finish before checksum verification?",
+      "history": false,
+      "support": [
+        {
+          "path": "uploads/guidance.md",
+          "contains": "Never mark an upload complete before verifying its checksum."
+        }
+      ]
+    },
+    {
+      "id": "uploads-conflict",
+      "topic": "uploads",
+      "split": "development",
+      "group": "authority",
+      "query": "For interrupted uploads, is this implementation correct: Restart the upload from the client-reported offset without confirmation.",
+      "history": false,
+      "support": [
+        {
+          "path": "uploads/guidance.md",
+          "contains": "Continue from the last server-confirmed byte offset."
+        }
+      ]
+    },
+    {
+      "id": "uploads-history",
+      "topic": "uploads",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for interrupted uploads?",
+      "history": true,
+      "support": [
+        {
+          "path": "uploads/history.md",
+          "contains": "Restart the upload from the client-reported offset without confirmation."
+        }
+      ]
+    },
+    {
+      "id": "uploads-follow",
+      "topic": "uploads",
+      "split": "development",
+      "group": "relationship",
+      "query": "When should abandoned upload fragments be removed?",
+      "history": false,
+      "support": [
+        {
+          "path": "uploads/follow-up.md",
+          "contains": "Discard incomplete parts after twenty-four hours."
+        }
+      ]
+    },
+    {
+      "id": "uploads-missing-price",
+      "topic": "uploads",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for interrupted uploads?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "uploads-missing-owner",
+      "topic": "uploads",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of interrupted uploads?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "queues-symbol",
+      "topic": "queues",
+      "split": "development",
+      "group": "exact",
+      "query": "What does acknowledgeDelivery do?",
+      "history": false,
+      "support": [
+        {
+          "path": "queues/guidance.md",
+          "contains": "Acknowledge a message only after its effects are committed."
+        }
+      ]
+    },
+    {
+      "id": "queues-meaning",
+      "topic": "queues",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "When should a worker tell the queue that a task succeeded?",
+      "history": false,
+      "support": [
+        {
+          "path": "queues/guidance.md",
+          "contains": "Acknowledge a message only after its effects are committed."
+        }
+      ]
+    },
+    {
+      "id": "queues-prohibition",
+      "topic": "queues",
+      "split": "development",
+      "group": "negation",
+      "query": "Should a rolled-back task be acknowledged?",
+      "history": false,
+      "support": [
+        {
+          "path": "queues/guidance.md",
+          "contains": "Never acknowledge a task whose transaction rolled back."
+        }
+      ]
+    },
+    {
+      "id": "queues-conflict",
+      "topic": "queues",
+      "split": "development",
+      "group": "authority",
+      "query": "For queue delivery, is this implementation correct: Acknowledge every message immediately on receipt.",
+      "history": false,
+      "support": [
+        {
+          "path": "queues/guidance.md",
+          "contains": "Acknowledge a message only after its effects are committed."
+        }
+      ]
+    },
+    {
+      "id": "queues-history",
+      "topic": "queues",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for queue delivery?",
+      "history": true,
+      "support": [
+        {
+          "path": "queues/history.md",
+          "contains": "Acknowledge every message immediately on receipt."
+        }
+      ]
+    },
+    {
+      "id": "queues-follow",
+      "topic": "queues",
+      "split": "development",
+      "group": "relationship",
+      "query": "Where do repeatedly failing messages go?",
+      "history": false,
+      "support": [
+        {
+          "path": "queues/follow-up.md",
+          "contains": "Move repeatedly failing messages to the quarantine queue."
+        }
+      ]
+    },
+    {
+      "id": "queues-missing-price",
+      "topic": "queues",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for queue delivery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "queues-missing-owner",
+      "topic": "queues",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of queue delivery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "backups-symbol",
+      "topic": "backups",
+      "split": "test",
+      "group": "exact",
+      "query": "What does verifyRecoveryPoint do?",
+      "history": false,
+      "support": [
+        {
+          "path": "backups/guidance.md",
+          "contains": "Restore the archive into an isolated environment and verify records."
+        }
+      ]
+    },
+    {
+      "id": "backups-meaning",
+      "topic": "backups",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How do we know a saved copy can really recover the data?",
+      "history": false,
+      "support": [
+        {
+          "path": "backups/guidance.md",
+          "contains": "Restore the archive into an isolated environment and verify records."
+        }
+      ]
+    },
+    {
+      "id": "backups-prohibition",
+      "topic": "backups",
+      "split": "test",
+      "group": "negation",
+      "query": "May a restore rehearsal replace the live database?",
+      "history": false,
+      "support": [
+        {
+          "path": "backups/guidance.md",
+          "contains": "Never overwrite the live database during a recovery rehearsal."
+        }
+      ]
+    },
+    {
+      "id": "backups-conflict",
+      "topic": "backups",
+      "split": "test",
+      "group": "authority",
+      "query": "For backup recovery, is this implementation correct: Trust a successful archive upload without testing restoration.",
+      "history": false,
+      "support": [
+        {
+          "path": "backups/guidance.md",
+          "contains": "Restore the archive into an isolated environment and verify records."
+        }
+      ]
+    },
+    {
+      "id": "backups-history",
+      "topic": "backups",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for backup recovery?",
+      "history": true,
+      "support": [
+        {
+          "path": "backups/history.md",
+          "contains": "Trust a successful archive upload without testing restoration."
+        }
+      ]
+    },
+    {
+      "id": "backups-follow",
+      "topic": "backups",
+      "split": "test",
+      "group": "relationship",
+      "query": "Where is the tested recovery time recorded?",
+      "history": false,
+      "support": [
+        {
+          "path": "backups/follow-up.md",
+          "contains": "Record the tested recovery timestamp in the rehearsal log."
+        }
+      ]
+    },
+    {
+      "id": "backups-missing-price",
+      "topic": "backups",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for backup recovery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "backups-missing-owner",
+      "topic": "backups",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of backup recovery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "secrets-symbol",
+      "topic": "secrets",
+      "split": "development",
+      "group": "exact",
+      "query": "What does replaceServiceSecret do?",
+      "history": false,
+      "support": [
+        {
+          "path": "secrets/guidance.md",
+          "contains": "Distribute the replacement secret before revoking its predecessor."
+        }
+      ]
+    },
+    {
+      "id": "secrets-meaning",
+      "topic": "secrets",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How can a service password be changed without interrupting callers?",
+      "history": false,
+      "support": [
+        {
+          "path": "secrets/guidance.md",
+          "contains": "Distribute the replacement secret before revoking its predecessor."
+        }
+      ]
+    },
+    {
+      "id": "secrets-prohibition",
+      "topic": "secrets",
+      "split": "development",
+      "group": "negation",
+      "query": "May diagnostics contain the actual secret value?",
+      "history": false,
+      "support": [
+        {
+          "path": "secrets/guidance.md",
+          "contains": "Never include secret values in diagnostic logs."
+        }
+      ]
+    },
+    {
+      "id": "secrets-conflict",
+      "topic": "secrets",
+      "split": "development",
+      "group": "authority",
+      "query": "For secret rotation, is this implementation correct: Revoke the active secret before distributing a replacement.",
+      "history": false,
+      "support": [
+        {
+          "path": "secrets/guidance.md",
+          "contains": "Distribute the replacement secret before revoking its predecessor."
+        }
+      ]
+    },
+    {
+      "id": "secrets-history",
+      "topic": "secrets",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for secret rotation?",
+      "history": true,
+      "support": [
+        {
+          "path": "secrets/history.md",
+          "contains": "Revoke the active secret before distributing a replacement."
+        }
+      ]
+    },
+    {
+      "id": "secrets-follow",
+      "topic": "secrets",
+      "split": "development",
+      "group": "relationship",
+      "query": "What confirms that dependent services adopted the new secret?",
+      "history": false,
+      "support": [
+        {
+          "path": "secrets/follow-up.md",
+          "contains": "Confirm every dependent service has accepted the replacement."
+        }
+      ]
+    },
+    {
+      "id": "secrets-missing-price",
+      "topic": "secrets",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for secret rotation?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "secrets-missing-owner",
+      "topic": "secrets",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of secret rotation?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "pagination-symbol",
+      "topic": "pagination",
+      "split": "development",
+      "group": "exact",
+      "query": "What does advancePageCursor do?",
+      "history": false,
+      "support": [
+        {
+          "path": "pagination/guidance.md",
+          "contains": "Use the opaque continuation token returned by the previous response."
+        }
+      ]
+    },
+    {
+      "id": "pagination-meaning",
+      "topic": "pagination",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How does a client request the next batch of records?",
+      "history": false,
+      "support": [
+        {
+          "path": "pagination/guidance.md",
+          "contains": "Use the opaque continuation token returned by the previous response."
+        }
+      ]
+    },
+    {
+      "id": "pagination-prohibition",
+      "topic": "pagination",
+      "split": "development",
+      "group": "negation",
+      "query": "Can a client edit the continuation cursor?",
+      "history": false,
+      "support": [
+        {
+          "path": "pagination/guidance.md",
+          "contains": "Never alter the contents of a server-issued cursor."
+        }
+      ]
+    },
+    {
+      "id": "pagination-conflict",
+      "topic": "pagination",
+      "split": "development",
+      "group": "authority",
+      "query": "For cursor pagination, is this implementation correct: Construct continuation tokens from guessed database offsets.",
+      "history": false,
+      "support": [
+        {
+          "path": "pagination/guidance.md",
+          "contains": "Use the opaque continuation token returned by the previous response."
+        }
+      ]
+    },
+    {
+      "id": "pagination-history",
+      "topic": "pagination",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for cursor pagination?",
+      "history": true,
+      "support": [
+        {
+          "path": "pagination/history.md",
+          "contains": "Construct continuation tokens from guessed database offsets."
+        }
+      ]
+    },
+    {
+      "id": "pagination-follow",
+      "topic": "pagination",
+      "split": "development",
+      "group": "relationship",
+      "query": "What should happen after a continuation token expires?",
+      "history": false,
+      "support": [
+        {
+          "path": "pagination/follow-up.md",
+          "contains": "Restart traversal when the server reports an expired cursor."
+        }
+      ]
+    },
+    {
+      "id": "pagination-missing-price",
+      "topic": "pagination",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for cursor pagination?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "pagination-missing-owner",
+      "topic": "pagination",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of cursor pagination?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "leases-symbol",
+      "topic": "leases",
+      "split": "development",
+      "group": "exact",
+      "query": "What does renewWorkerLease do?",
+      "history": false,
+      "support": [
+        {
+          "path": "leases/guidance.md",
+          "contains": "Renew the lease before expiry while retaining the ownership token."
+        }
+      ]
+    },
+    {
+      "id": "leases-meaning",
+      "topic": "leases",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How does a worker keep exclusive access while processing a job?",
+      "history": false,
+      "support": [
+        {
+          "path": "leases/guidance.md",
+          "contains": "Renew the lease before expiry while retaining the ownership token."
+        }
+      ]
+    },
+    {
+      "id": "leases-prohibition",
+      "topic": "leases",
+      "split": "development",
+      "group": "negation",
+      "query": "May a worker publish results after its lease expires?",
+      "history": false,
+      "support": [
+        {
+          "path": "leases/guidance.md",
+          "contains": "Never write results after losing the lease."
+        }
+      ]
+    },
+    {
+      "id": "leases-conflict",
+      "topic": "leases",
+      "split": "development",
+      "group": "authority",
+      "query": "For lease ownership, is this implementation correct: Continue processing after expiry using the previous ownership token.",
+      "history": false,
+      "support": [
+        {
+          "path": "leases/guidance.md",
+          "contains": "Renew the lease before expiry while retaining the ownership token."
+        }
+      ]
+    },
+    {
+      "id": "leases-history",
+      "topic": "leases",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for lease ownership?",
+      "history": true,
+      "support": [
+        {
+          "path": "leases/history.md",
+          "contains": "Continue processing after expiry using the previous ownership token."
+        }
+      ]
+    },
+    {
+      "id": "leases-follow",
+      "topic": "leases",
+      "split": "development",
+      "group": "relationship",
+      "query": "How are stale workers prevented from writing?",
+      "history": false,
+      "support": [
+        {
+          "path": "leases/follow-up.md",
+          "contains": "Fence stale workers using a monotonically increasing generation."
+        }
+      ]
+    },
+    {
+      "id": "leases-missing-price",
+      "topic": "leases",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for lease ownership?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "leases-missing-owner",
+      "topic": "leases",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of lease ownership?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "releases-symbol",
+      "topic": "releases",
+      "split": "test",
+      "group": "exact",
+      "query": "What does restorePreviousRelease do?",
+      "history": false,
+      "support": [
+        {
+          "path": "releases/guidance.md",
+          "contains": "Route traffic to the last verified deployment after health checks fail."
+        }
+      ]
+    },
+    {
+      "id": "releases-meaning",
+      "topic": "releases",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "What should we do when a newly deployed version becomes unhealthy?",
+      "history": false,
+      "support": [
+        {
+          "path": "releases/guidance.md",
+          "contains": "Route traffic to the last verified deployment after health checks fail."
+        }
+      ]
+    },
+    {
+      "id": "releases-prohibition",
+      "topic": "releases",
+      "split": "test",
+      "group": "negation",
+      "query": "Can rollback cross an incompatible schema change automatically?",
+      "history": false,
+      "support": [
+        {
+          "path": "releases/guidance.md",
+          "contains": "Never roll back across an incompatible data migration automatically."
+        }
+      ]
+    },
+    {
+      "id": "releases-conflict",
+      "topic": "releases",
+      "split": "test",
+      "group": "authority",
+      "query": "For release rollback, is this implementation correct: Keep traffic on a deployment whose health checks fail.",
+      "history": false,
+      "support": [
+        {
+          "path": "releases/guidance.md",
+          "contains": "Route traffic to the last verified deployment after health checks fail."
+        }
+      ]
+    },
+    {
+      "id": "releases-history",
+      "topic": "releases",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for release rollback?",
+      "history": true,
+      "support": [
+        {
+          "path": "releases/history.md",
+          "contains": "Keep traffic on a deployment whose health checks fail."
+        }
+      ]
+    },
+    {
+      "id": "releases-follow",
+      "topic": "releases",
+      "split": "test",
+      "group": "relationship",
+      "query": "How long should the previous release artifact be retained?",
+      "history": false,
+      "support": [
+        {
+          "path": "releases/follow-up.md",
+          "contains": "Retain the previous deployment artifact until the observation window closes."
+        }
+      ]
+    },
+    {
+      "id": "releases-missing-price",
+      "topic": "releases",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for release rollback?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "releases-missing-owner",
+      "topic": "releases",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of release rollback?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "webhooks-symbol",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "exact",
+      "query": "What does verifyWebhookSignature do?",
+      "history": false,
+      "support": [
+        {
+          "path": "webhooks/guidance.md",
+          "contains": "Validate the signature over the original request bytes before parsing."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-meaning",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How do we prove an incoming event really came from its sender?",
+      "history": false,
+      "support": [
+        {
+          "path": "webhooks/guidance.md",
+          "contains": "Validate the signature over the original request bytes before parsing."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-prohibition",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "negation",
+      "query": "Can a failed signature check be ignored?",
+      "history": false,
+      "support": [
+        {
+          "path": "webhooks/guidance.md",
+          "contains": "Never accept an event whose signature check fails."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-conflict",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "authority",
+      "query": "For webhook authenticity, is this implementation correct: Validate a signature against reserialized request content.",
+      "history": false,
+      "support": [
+        {
+          "path": "webhooks/guidance.md",
+          "contains": "Validate the signature over the original request bytes before parsing."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-history",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for webhook authenticity?",
+      "history": true,
+      "support": [
+        {
+          "path": "webhooks/history.md",
+          "contains": "Validate a signature against reserialized request content."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-follow",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "relationship",
+      "query": "What prevents the same signed event from being replayed?",
+      "history": false,
+      "support": [
+        {
+          "path": "webhooks/follow-up.md",
+          "contains": "Reject replayed event identifiers within the replay window."
+        }
+      ]
+    },
+    {
+      "id": "webhooks-missing-price",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for webhook authenticity?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "webhooks-missing-owner",
+      "topic": "webhooks",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of webhook authenticity?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "exports-symbol",
+      "topic": "exports",
+      "split": "test",
+      "group": "exact",
+      "query": "What does expireExportLink do?",
+      "history": false,
+      "support": [
+        {
+          "path": "exports/guidance.md",
+          "contains": "Issue a short-lived download URL scoped to the requesting account."
+        }
+      ]
+    },
+    {
+      "id": "exports-meaning",
+      "topic": "exports",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How can an account download its report without exposing it to everyone?",
+      "history": false,
+      "support": [
+        {
+          "path": "exports/guidance.md",
+          "contains": "Issue a short-lived download URL scoped to the requesting account."
+        }
+      ]
+    },
+    {
+      "id": "exports-prohibition",
+      "topic": "exports",
+      "split": "test",
+      "group": "negation",
+      "query": "Is knowing the export filename enough to authorize download?",
+      "history": false,
+      "support": [
+        {
+          "path": "exports/guidance.md",
+          "contains": "Never authorize an export using only a predictable file name."
+        }
+      ]
+    },
+    {
+      "id": "exports-conflict",
+      "topic": "exports",
+      "split": "test",
+      "group": "authority",
+      "query": "For data exports, is this implementation correct: Publish exports using permanent publicly accessible URLs.",
+      "history": false,
+      "support": [
+        {
+          "path": "exports/guidance.md",
+          "contains": "Issue a short-lived download URL scoped to the requesting account."
+        }
+      ]
+    },
+    {
+      "id": "exports-history",
+      "topic": "exports",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for data exports?",
+      "history": true,
+      "support": [
+        {
+          "path": "exports/history.md",
+          "contains": "Publish exports using permanent publicly accessible URLs."
+        }
+      ]
+    },
+    {
+      "id": "exports-follow",
+      "topic": "exports",
+      "split": "test",
+      "group": "relationship",
+      "query": "What happens to generated files after export retention expires?",
+      "history": false,
+      "support": [
+        {
+          "path": "exports/follow-up.md",
+          "contains": "Delete generated export files after the retention window."
+        }
+      ]
+    },
+    {
+      "id": "exports-missing-price",
+      "topic": "exports",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for data exports?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "exports-missing-owner",
+      "topic": "exports",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of data exports?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "locks-symbol",
+      "topic": "locks",
+      "split": "test",
+      "group": "exact",
+      "query": "What does acquireWriteLock do?",
+      "history": false,
+      "support": [
+        {
+          "path": "locks/guidance.md",
+          "contains": "Acquire locks in a consistent resource order across transactions."
+        }
+      ]
+    },
+    {
+      "id": "locks-meaning",
+      "topic": "locks",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How can concurrent writers avoid waiting forever on each other?",
+      "history": false,
+      "support": [
+        {
+          "path": "locks/guidance.md",
+          "contains": "Acquire locks in a consistent resource order across transactions."
+        }
+      ]
+    },
+    {
+      "id": "locks-prohibition",
+      "topic": "locks",
+      "split": "test",
+      "group": "negation",
+      "query": "May a transaction keep a lock during an external API request?",
+      "history": false,
+      "support": [
+        {
+          "path": "locks/guidance.md",
+          "contains": "Never hold a database lock while waiting for an external network call."
+        }
+      ]
+    },
+    {
+      "id": "locks-conflict",
+      "topic": "locks",
+      "split": "test",
+      "group": "authority",
+      "query": "For database locks, is this implementation correct: Acquire resource locks in an arbitrary order for every transaction.",
+      "history": false,
+      "support": [
+        {
+          "path": "locks/guidance.md",
+          "contains": "Acquire locks in a consistent resource order across transactions."
+        }
+      ]
+    },
+    {
+      "id": "locks-history",
+      "topic": "locks",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for database locks?",
+      "history": true,
+      "support": [
+        {
+          "path": "locks/history.md",
+          "contains": "Acquire resource locks in an arbitrary order for every transaction."
+        }
+      ]
+    },
+    {
+      "id": "locks-follow",
+      "topic": "locks",
+      "split": "test",
+      "group": "relationship",
+      "query": "How should a transaction recover from a deadlock?",
+      "history": false,
+      "support": [
+        {
+          "path": "locks/follow-up.md",
+          "contains": "Retry a deadlocked transaction with bounded randomized delay."
+        }
+      ]
+    },
+    {
+      "id": "locks-missing-price",
+      "topic": "locks",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for database locks?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "locks-missing-owner",
+      "topic": "locks",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of database locks?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "notifications-symbol",
+      "topic": "notifications",
+      "split": "test",
+      "group": "exact",
+      "query": "What does scheduleNoticeRetry do?",
+      "history": false,
+      "support": [
+        {
+          "path": "notifications/guidance.md",
+          "contains": "Retry transient notification failures with bounded exponential backoff."
+        }
+      ]
+    },
+    {
+      "id": "notifications-meaning",
+      "topic": "notifications",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How should a temporary mail delivery outage be handled?",
+      "history": false,
+      "support": [
+        {
+          "path": "notifications/guidance.md",
+          "contains": "Retry transient notification failures with bounded exponential backoff."
+        }
+      ]
+    },
+    {
+      "id": "notifications-prohibition",
+      "topic": "notifications",
+      "split": "test",
+      "group": "negation",
+      "query": "Should a permanently invalid recipient be retried?",
+      "history": false,
+      "support": [
+        {
+          "path": "notifications/guidance.md",
+          "contains": "Never retry a notification rejected for a permanently invalid address."
+        }
+      ]
+    },
+    {
+      "id": "notifications-conflict",
+      "topic": "notifications",
+      "split": "test",
+      "group": "authority",
+      "query": "For notification delivery, is this implementation correct: Retry every notification failure continuously without delay.",
+      "history": false,
+      "support": [
+        {
+          "path": "notifications/guidance.md",
+          "contains": "Retry transient notification failures with bounded exponential backoff."
+        }
+      ]
+    },
+    {
+      "id": "notifications-history",
+      "topic": "notifications",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for notification delivery?",
+      "history": true,
+      "support": [
+        {
+          "path": "notifications/history.md",
+          "contains": "Retry every notification failure continuously without delay."
+        }
+      ]
+    },
+    {
+      "id": "notifications-follow",
+      "topic": "notifications",
+      "split": "test",
+      "group": "relationship",
+      "query": "Where should permanently undeliverable notices be recorded?",
+      "history": false,
+      "support": [
+        {
+          "path": "notifications/follow-up.md",
+          "contains": "Record undeliverable notifications for operator review."
+        }
+      ]
+    },
+    {
+      "id": "notifications-missing-price",
+      "topic": "notifications",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for notification delivery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "notifications-missing-owner",
+      "topic": "notifications",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of notification delivery?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "caches-symbol",
+      "topic": "caches",
+      "split": "test",
+      "group": "exact",
+      "query": "What does invalidateAccountCache do?",
+      "history": false,
+      "support": [
+        {
+          "path": "caches/guidance.md",
+          "contains": "Invalidate account-scoped cache entries after a successful state change."
+        }
+      ]
+    },
+    {
+      "id": "caches-meaning",
+      "topic": "caches",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How do readers stop seeing old account data after an update?",
+      "history": false,
+      "support": [
+        {
+          "path": "caches/guidance.md",
+          "contains": "Invalidate account-scoped cache entries after a successful state change."
+        }
+      ]
+    },
+    {
+      "id": "caches-prohibition",
+      "topic": "caches",
+      "split": "test",
+      "group": "negation",
+      "query": "Can two accounts share the same private cache entry?",
+      "history": false,
+      "support": [
+        {
+          "path": "caches/guidance.md",
+          "contains": "Never reuse private cache entries between different accounts."
+        }
+      ]
+    },
+    {
+      "id": "caches-conflict",
+      "topic": "caches",
+      "split": "test",
+      "group": "authority",
+      "query": "For cache invalidation, is this implementation correct: Serve account state from the cache indefinitely after writes.",
+      "history": false,
+      "support": [
+        {
+          "path": "caches/guidance.md",
+          "contains": "Invalidate account-scoped cache entries after a successful state change."
+        }
+      ]
+    },
+    {
+      "id": "caches-history",
+      "topic": "caches",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for cache invalidation?",
+      "history": true,
+      "support": [
+        {
+          "path": "caches/history.md",
+          "contains": "Serve account state from the cache indefinitely after writes."
+        }
+      ]
+    },
+    {
+      "id": "caches-follow",
+      "topic": "caches",
+      "split": "test",
+      "group": "relationship",
+      "query": "How should incompatible cached serialization be retired?",
+      "history": false,
+      "support": [
+        {
+          "path": "caches/follow-up.md",
+          "contains": "Use a versioned cache key to retire incompatible serialized values."
+        }
+      ]
+    },
+    {
+      "id": "caches-missing-price",
+      "topic": "caches",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for cache invalidation?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "caches-missing-owner",
+      "topic": "caches",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of cache invalidation?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "clocks-symbol",
+      "topic": "clocks",
+      "split": "development",
+      "group": "exact",
+      "query": "What does measureElapsedInterval do?",
+      "history": false,
+      "support": [
+        {
+          "path": "clocks/guidance.md",
+          "contains": "Use a monotonic clock to measure operation durations."
+        }
+      ]
+    },
+    {
+      "id": "clocks-meaning",
+      "topic": "clocks",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How can we time a request when the system date may jump?",
+      "history": false,
+      "support": [
+        {
+          "path": "clocks/guidance.md",
+          "contains": "Use a monotonic clock to measure operation durations."
+        }
+      ]
+    },
+    {
+      "id": "clocks-prohibition",
+      "topic": "clocks",
+      "split": "development",
+      "group": "negation",
+      "query": "Should a clock correction lengthen a running timeout?",
+      "history": false,
+      "support": [
+        {
+          "path": "clocks/guidance.md",
+          "contains": "Never use wall-clock adjustments to extend an elapsed timeout."
+        }
+      ]
+    },
+    {
+      "id": "clocks-conflict",
+      "topic": "clocks",
+      "split": "development",
+      "group": "authority",
+      "query": "For elapsed time, is this implementation correct: Compute elapsed durations using adjustable wall-clock timestamps.",
+      "history": false,
+      "support": [
+        {
+          "path": "clocks/guidance.md",
+          "contains": "Use a monotonic clock to measure operation durations."
+        }
+      ]
+    },
+    {
+      "id": "clocks-history",
+      "topic": "clocks",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for elapsed time?",
+      "history": true,
+      "support": [
+        {
+          "path": "clocks/history.md",
+          "contains": "Compute elapsed durations using adjustable wall-clock timestamps."
+        }
+      ]
+    },
+    {
+      "id": "clocks-follow",
+      "topic": "clocks",
+      "split": "development",
+      "group": "relationship",
+      "query": "Which timestamps should human-readable audit events store?",
+      "history": false,
+      "support": [
+        {
+          "path": "clocks/follow-up.md",
+          "contains": "Store wall-clock timestamps separately for human-readable audit events."
+        }
+      ]
+    },
+    {
+      "id": "clocks-missing-price",
+      "topic": "clocks",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for elapsed time?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "clocks-missing-owner",
+      "topic": "clocks",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of elapsed time?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "migrations-symbol",
+      "topic": "migrations",
+      "split": "test",
+      "group": "exact",
+      "query": "What does expandSchemaFirst do?",
+      "history": false,
+      "support": [
+        {
+          "path": "migrations/guidance.md",
+          "contains": "Add compatible fields before deploying code that writes them."
+        }
+      ]
+    },
+    {
+      "id": "migrations-meaning",
+      "topic": "migrations",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How can the database shape evolve while old and new servers coexist?",
+      "history": false,
+      "support": [
+        {
+          "path": "migrations/guidance.md",
+          "contains": "Add compatible fields before deploying code that writes them."
+        }
+      ]
+    },
+    {
+      "id": "migrations-prohibition",
+      "topic": "migrations",
+      "split": "test",
+      "group": "negation",
+      "query": "Can a column be removed while a deployed version reads it?",
+      "history": false,
+      "support": [
+        {
+          "path": "migrations/guidance.md",
+          "contains": "Never remove a column while an active application version still reads it."
+        }
+      ]
+    },
+    {
+      "id": "migrations-conflict",
+      "topic": "migrations",
+      "split": "test",
+      "group": "authority",
+      "query": "For schema migration, is this implementation correct: Deploy writers that require fields before adding those fields.",
+      "history": false,
+      "support": [
+        {
+          "path": "migrations/guidance.md",
+          "contains": "Add compatible fields before deploying code that writes them."
+        }
+      ]
+    },
+    {
+      "id": "migrations-history",
+      "topic": "migrations",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for schema migration?",
+      "history": true,
+      "support": [
+        {
+          "path": "migrations/history.md",
+          "contains": "Deploy writers that require fields before adding those fields."
+        }
+      ]
+    },
+    {
+      "id": "migrations-follow",
+      "topic": "migrations",
+      "split": "test",
+      "group": "relationship",
+      "query": "When can obsolete fields finally be removed?",
+      "history": false,
+      "support": [
+        {
+          "path": "migrations/follow-up.md",
+          "contains": "Remove obsolete fields only after the compatibility window closes."
+        }
+      ]
+    },
+    {
+      "id": "migrations-missing-price",
+      "topic": "migrations",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for schema migration?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "migrations-missing-owner",
+      "topic": "migrations",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of schema migration?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "limits-symbol",
+      "topic": "limits",
+      "split": "test",
+      "group": "exact",
+      "query": "What does reserveRequestQuota do?",
+      "history": false,
+      "support": [
+        {
+          "path": "limits/guidance.md",
+          "contains": "Reserve quota atomically before admitting a request."
+        }
+      ]
+    },
+    {
+      "id": "limits-meaning",
+      "topic": "limits",
+      "split": "test",
+      "group": "paraphrase",
+      "query": "How do we stop simultaneous calls from exceeding an allowance?",
+      "history": false,
+      "support": [
+        {
+          "path": "limits/guidance.md",
+          "contains": "Reserve quota atomically before admitting a request."
+        }
+      ]
+    },
+    {
+      "id": "limits-prohibition",
+      "topic": "limits",
+      "split": "test",
+      "group": "negation",
+      "query": "May a caller declare its own remaining allowance?",
+      "history": false,
+      "support": [
+        {
+          "path": "limits/guidance.md",
+          "contains": "Never trust a caller-supplied value for remaining quota."
+        }
+      ]
+    },
+    {
+      "id": "limits-conflict",
+      "topic": "limits",
+      "split": "test",
+      "group": "authority",
+      "query": "For rate limiting, is this implementation correct: Check quota and decrement it in separate non-atomic operations.",
+      "history": false,
+      "support": [
+        {
+          "path": "limits/guidance.md",
+          "contains": "Reserve quota atomically before admitting a request."
+        }
+      ]
+    },
+    {
+      "id": "limits-history",
+      "topic": "limits",
+      "split": "test",
+      "group": "history",
+      "query": "What was the previous procedure for rate limiting?",
+      "history": true,
+      "support": [
+        {
+          "path": "limits/history.md",
+          "contains": "Check quota and decrement it in separate non-atomic operations."
+        }
+      ]
+    },
+    {
+      "id": "limits-follow",
+      "topic": "limits",
+      "split": "test",
+      "group": "relationship",
+      "query": "What guidance accompanies an exhausted request allowance?",
+      "history": false,
+      "support": [
+        {
+          "path": "limits/follow-up.md",
+          "contains": "Return a retry delay when the request allowance is exhausted."
+        }
+      ]
+    },
+    {
+      "id": "limits-missing-price",
+      "topic": "limits",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for rate limiting?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "limits-missing-owner",
+      "topic": "limits",
+      "split": "test",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of rate limiting?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "archives-symbol",
+      "topic": "archives",
+      "split": "development",
+      "group": "exact",
+      "query": "What does verifyArchiveDigest do?",
+      "history": false,
+      "support": [
+        {
+          "path": "archives/guidance.md",
+          "contains": "Compare the downloaded archive digest with the trusted manifest."
+        }
+      ]
+    },
+    {
+      "id": "archives-meaning",
+      "topic": "archives",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How can we detect corruption in a downloaded archive?",
+      "history": false,
+      "support": [
+        {
+          "path": "archives/guidance.md",
+          "contains": "Compare the downloaded archive digest with the trusted manifest."
+        }
+      ]
+    },
+    {
+      "id": "archives-prohibition",
+      "topic": "archives",
+      "split": "development",
+      "group": "negation",
+      "query": "Can an archive run before its integrity check completes?",
+      "history": false,
+      "support": [
+        {
+          "path": "archives/guidance.md",
+          "contains": "Never execute an archive before verifying its digest."
+        }
+      ]
+    },
+    {
+      "id": "archives-conflict",
+      "topic": "archives",
+      "split": "development",
+      "group": "authority",
+      "query": "For archive integrity, is this implementation correct: Treat a matching filename as proof that an archive is intact.",
+      "history": false,
+      "support": [
+        {
+          "path": "archives/guidance.md",
+          "contains": "Compare the downloaded archive digest with the trusted manifest."
+        }
+      ]
+    },
+    {
+      "id": "archives-history",
+      "topic": "archives",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for archive integrity?",
+      "history": true,
+      "support": [
+        {
+          "path": "archives/history.md",
+          "contains": "Treat a matching filename as proof that an archive is intact."
+        }
+      ]
+    },
+    {
+      "id": "archives-follow",
+      "topic": "archives",
+      "split": "development",
+      "group": "relationship",
+      "query": "Where should an archive with a mismatched digest go?",
+      "history": false,
+      "support": [
+        {
+          "path": "archives/follow-up.md",
+          "contains": "Quarantine archives whose digest differs from the manifest."
+        }
+      ]
+    },
+    {
+      "id": "archives-missing-price",
+      "topic": "archives",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for archive integrity?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "archives-missing-owner",
+      "topic": "archives",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of archive integrity?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "search-symbol",
+      "topic": "search",
+      "split": "development",
+      "group": "exact",
+      "query": "What does publishIndexGeneration do?",
+      "history": false,
+      "support": [
+        {
+          "path": "search/guidance.md",
+          "contains": "Build a new search generation before atomically switching readers."
+        }
+      ]
+    },
+    {
+      "id": "search-meaning",
+      "topic": "search",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How can a search index refresh without exposing half the new data?",
+      "history": false,
+      "support": [
+        {
+          "path": "search/guidance.md",
+          "contains": "Build a new search generation before atomically switching readers."
+        }
+      ]
+    },
+    {
+      "id": "search-prohibition",
+      "topic": "search",
+      "split": "development",
+      "group": "negation",
+      "query": "May an index with failed validation become active?",
+      "history": false,
+      "support": [
+        {
+          "path": "search/guidance.md",
+          "contains": "Never publish an index generation that failed validation."
+        }
+      ]
+    },
+    {
+      "id": "search-conflict",
+      "topic": "search",
+      "split": "development",
+      "group": "authority",
+      "query": "For search indexing, is this implementation correct: Replace searchable records individually in the active generation.",
+      "history": false,
+      "support": [
+        {
+          "path": "search/guidance.md",
+          "contains": "Build a new search generation before atomically switching readers."
+        }
+      ]
+    },
+    {
+      "id": "search-history",
+      "topic": "search",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for search indexing?",
+      "history": true,
+      "support": [
+        {
+          "path": "search/history.md",
+          "contains": "Replace searchable records individually in the active generation."
+        }
+      ]
+    },
+    {
+      "id": "search-follow",
+      "topic": "search",
+      "split": "development",
+      "group": "relationship",
+      "query": "When can the previous search generation be removed?",
+      "history": false,
+      "support": [
+        {
+          "path": "search/follow-up.md",
+          "contains": "Retain the previous generation until active readers release it."
+        }
+      ]
+    },
+    {
+      "id": "search-missing-price",
+      "topic": "search",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for search indexing?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "search-missing-owner",
+      "topic": "search",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of search indexing?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "shutdown-symbol",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "exact",
+      "query": "What does drainActiveTasks do?",
+      "history": false,
+      "support": [
+        {
+          "path": "shutdown/guidance.md",
+          "contains": "Stop accepting new work and allow active tasks a bounded drain period."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-meaning",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "paraphrase",
+      "query": "How should a busy worker stop without abandoning every in-flight task?",
+      "history": false,
+      "support": [
+        {
+          "path": "shutdown/guidance.md",
+          "contains": "Stop accepting new work and allow active tasks a bounded drain period."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-prohibition",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "negation",
+      "query": "Can a draining worker accept another task?",
+      "history": false,
+      "support": [
+        {
+          "path": "shutdown/guidance.md",
+          "contains": "Never accept new tasks after entering the draining state."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-conflict",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "authority",
+      "query": "For worker shutdown, is this implementation correct: Terminate workers immediately while they are committing active tasks.",
+      "history": false,
+      "support": [
+        {
+          "path": "shutdown/guidance.md",
+          "contains": "Stop accepting new work and allow active tasks a bounded drain period."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-history",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "history",
+      "query": "What was the previous procedure for worker shutdown?",
+      "history": true,
+      "support": [
+        {
+          "path": "shutdown/history.md",
+          "contains": "Terminate workers immediately while they are committing active tasks."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-follow",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "relationship",
+      "query": "What happens to unfinished work at the drain deadline?",
+      "history": false,
+      "support": [
+        {
+          "path": "shutdown/follow-up.md",
+          "contains": "Return unfinished tasks to the queue when the drain deadline expires."
+        }
+      ]
+    },
+    {
+      "id": "shutdown-missing-price",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the annual subscription price for worker shutdown?",
+      "history": false,
+      "support": []
+    },
+    {
+      "id": "shutdown-missing-owner",
+      "topic": "shutdown",
+      "split": "development",
+      "group": "unanswerable",
+      "query": "What is the personal phone number of the owner of worker shutdown?",
+      "history": false,
+      "support": []
+    }
+  ]
+}

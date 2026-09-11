@@ -40,6 +40,7 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
+| [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
 | [`tool/`](tool/) | CI and release tooling |
@@ -212,3 +213,25 @@ checks only; contextual Profile Review remains separate.
 
 See the [maintenance review](docs/maintenance-review.md) for the existing issues,
 installation work in progress, and the remaining second-brain workflow questions.
+
+## Dart workspace development
+
+Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
+repository root, then `melos lint` to analyze, check formatting, and test both
+packages. The published `okf_profile` package retains its Dart 3.6 minimum.
+
+`knowledge_embeddings` moved here from Orbit with its tests, fixtures, and BSD
+license preserved in the package directory. See its [README](packages/knowledge_embeddings/README.md)
+and the [retrieval documentation guide](docs/knowledge_embeddings.md) for the
+implementation, evaluation runbook and recorded decisions. Its optional native
+backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
+files with `melos build` only when entity schemas change.
+
+For native semantic retrieval, `melos run embeddings:prepare` stages the pinned
+25.28 MB model. `melos run embeddings:build` creates a
+CLI bundle containing the model and native libraries. See the
+[local search implementation and measurements](docs/knowledge_embeddings_local_search.md).
+The accepted model choice and next retrieval experiments are recorded in
+[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `okfp` currently provides
+bundle validation; search examples and evaluation commands live in the
+[embedding package](packages/knowledge_embeddings/README.md#command-line-entry-points).

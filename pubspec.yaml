@@ -1,9 +1,43 @@
 name: okf_profile_workspace
-description: Workspace for the Concepta OKF Profile repository. The publishable package is packages/okf_profile.
+description: Workspace for the Concepta OKF Profile repository. Includes the OKF profile toolchain and content embedding utilities.
 publish_to: none
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
+  sdk: ^3.10.7
 
 workspace:
   - packages/okf_profile
+  - packages/knowledge_embeddings
+
+dev_dependencies:
+  melos: ^7.1.1
+
+hooks:
+  user_defines:
+    llamadart:
+      llamadart_native_runtimes: [llama_cpp]
+      llamadart_native_backends: [cpu]
+
+melos:
+  scripts:
+    get:
+      run: dart pub get
+    build:
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run build_runner build
+    embeddings:prepare:
+      description: Download and verify the pinned local embedding model
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
+    embeddings:build:
+      description: Build the retrieval CLI with its local model and native libraries
+      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart
+    objectbox:install:
+      description: Install the pinned ObjectBox native library locally
+      run: dart run melos exec --scope=knowledge_embeddings -- bash tool/install_objectbox.sh
+    analyze:
+      run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
+    format:check:
+      run: dart run melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
+    test:
+      run: dart run melos exec --fail-fast -- dart test
+    lint:
+      run: dart run melos run analyze && dart run melos run format:check && dart run melos run test

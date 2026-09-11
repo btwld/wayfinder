@@ -1,0 +1,245 @@
+{
+  "calculator.dart": {
+    "total": 8,
+    "types": {
+      "class": 2,
+      "method": 6
+    },
+    "chunks": [
+      {
+        "id": "20f9d318fe14911f25de310bc96d7768bcdc8ab8",
+        "lineStart": 1,
+        "lineEnd": 2,
+        "type": "class",
+        "content": "/// A simple calculator class.\nclass Calculator",
+        "metadata": {
+          "name": "Calculator",
+          "abstract": false,
+          "summary": true,
+          "truncated": true
+        }
+      },
+      {
+        "id": "272744b6578407bf93a6062b1ae32c10a57b32ae",
+        "lineStart": 3,
+        "lineEnd": 6,
+        "type": "method",
+        "content": "/// Adds two numbers.\n  double add(double a, double b) {\n    return a + b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "add",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "9cf95438627595633278af715b75b09b6e65bbd9",
+        "lineStart": 8,
+        "lineEnd": 11,
+        "type": "method",
+        "content": "/// Subtracts two numbers.\n  double subtract(double a, double b) {\n    return a - b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "subtract",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "d991e5d201c9af14eb996e03b1f47c2c675d48a5",
+        "lineStart": 13,
+        "lineEnd": 16,
+        "type": "method",
+        "content": "/// Multiplies two numbers.\n  double multiply(double a, double b) {\n    return a * b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "multiply",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "2cc0ae0b5df8e8216182b441e373cfe6e67620d8",
+        "lineStart": 18,
+        "lineEnd": 24,
+        "type": "method",
+        "content": "/// Divides two numbers.\n  double divide(double a, double b) {\n    if (b == 0) {\n      throw ArgumentError('Cannot divide by zero');\n    }\n    return a / b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "divide",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "cedc416e8526e0139e5502dc1e69a4b48c015320",
+        "lineStart": 27,
+        "lineEnd": 28,
+        "type": "class",
+        "content": "/// A utility class for mathematical operations.\nclass MathUtils",
+        "metadata": {
+          "name": "MathUtils",
+          "abstract": false,
+          "summary": true,
+          "truncated": true
+        }
+      },
+      {
+        "id": "e99eb9dea97d93aa260fdff7b713afbecc854e91",
+        "lineStart": 29,
+        "lineEnd": 32,
+        "type": "method",
+        "content": "/// Calculates the square of a number.\n  static double square(double x) {\n    return x * x;\n  }",
+        "metadata": {
+          "class": "MathUtils",
+          "name": "square",
+          "static": true,
+          "returnType": "double",
+          "params": "(double x)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "e95a69b395d5062cc6f682ad2f1cffee8748ef6e",
+        "lineStart": 34,
+        "lineEnd": 37,
+        "type": "method",
+        "content": "/// Calculates the cube of a number.\n  static double cube(double x) {\n    return x * x * x;\n  }",
+        "metadata": {
+          "class": "MathUtils",
+          "name": "cube",
+          "static": true,
+          "returnType": "double",
+          "params": "(double x)",
+          "external": false,
+          "abstract": false
+        }
+      }
+    ]
+  },
+  "search.txt": {
+    "total": 4,
+    "types": {
+      "paragraph": 4
+    },
+    "chunks": [
+      {
+        "id": "5de64e7e3030b96ed3595c99e7a55bdae62b9bcf",
+        "lineStart": 1,
+        "lineEnd": 1,
+        "type": "paragraph",
+        "content": "This is a sample text file for demonstrating the knowledge_embeddings library.",
+        "metadata": {}
+      },
+      {
+        "id": "59b9ea712f2453e2dc26dd37d560b22f4f63202c",
+        "lineStart": 3,
+        "lineEnd": 3,
+        "type": "paragraph",
+        "content": "It contains multiple paragraphs that will be chunked and indexed.",
+        "metadata": {}
+      },
+      {
+        "id": "fd7fed48c6005988ff25f94971ae96bfd153eee1",
+        "lineStart": 5,
+        "lineEnd": 5,
+        "type": "paragraph",
+        "content": "The exact BM25 lexical index will rank chunks without vector hashing.",
+        "metadata": {}
+      },
+      {
+        "id": "534ca6541d990ce7f74c3bca6316b5e4f19cdad8",
+        "lineStart": 7,
+        "lineEnd": 8,
+        "type": "paragraph",
+        "content": "Then we'll search for content similar to a query.\n",
+        "metadata": {}
+      }
+    ]
+  },
+  "tables.md": {
+    "total": 4,
+    "types": {
+      "code": 1,
+      "heading": 1,
+      "paragraph": 1,
+      "table": 1
+    },
+    "chunks": [
+      {
+        "id": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
+        "lineStart": 1,
+        "lineEnd": 1,
+        "type": "heading",
+        "content": "Table examples",
+        "metadata": {
+          "headingLevel": 1
+        }
+      },
+      {
+        "id": "934d569c632dbfb251ce2b6c94d394157aecf3b8",
+        "lineStart": 3,
+        "lineEnd": 7,
+        "type": "code",
+        "content": "```markdown\n| Key | Value |\n| --- | ----- |\n| sample | literal |\n```",
+        "metadata": {
+          "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
+          "parentHeadingLevel": 1
+        }
+      },
+      {
+        "id": "2fe08428f99339746e6d1649a8d53c8728c2b3ea",
+        "lineStart": 9,
+        "lineEnd": 11,
+        "type": "table",
+        "content": "| Key | Value |\n| --- | ----- |\n| sample | indexed |",
+        "metadata": {
+          "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
+          "parentHeadingLevel": 1
+        }
+      },
+      {
+        "id": "9f41895f30b344a9573a1e0ed07495546f0f0f1f",
+        "lineStart": 13,
+        "lineEnd": 13,
+        "type": "paragraph",
+        "content": "The fenced example stays code. The following table is indexed once.",
+        "metadata": {
+          "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
+          "parentHeadingLevel": 1
+        }
+      }
+    ]
+  },
+  "use_calculator.ts": {
+    "total": 1,
+    "types": {
+      "function": 1
+    },
+    "chunks": [
+      {
+        "id": "dcdba0715bb04b0273757c80707e4afee10e9c46",
+        "lineStart": 3,
+        "lineEnd": 8,
+        "type": "function",
+        "content": "export const buildCalculator = () => {\n  const calculator = new Calculator();\n  return {\n    divideSafely: (a: number, b: number) => calculator.divide(a, b),\n  };\n};",
+        "metadata": {
+          "function": "buildCalculator"
+        }
+      }
+    ]
+  }
+}

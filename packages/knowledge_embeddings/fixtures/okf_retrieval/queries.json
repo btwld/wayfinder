@@ -1,0 +1,427 @@
+{
+  "asOf": "2026-09-09",
+  "limit": 3,
+  "governingSources": {
+    "implementation/transport.md": "standard/transport.md",
+    "implementation/logging.md": "guidance/secrets.md"
+  },
+  "queries": [
+    {
+      "id": "symbol",
+      "query": "resetSessionToken",
+      "split": "development",
+      "group": "exact",
+      "support": [
+        {
+          "path": "implementation/session.md",
+          "contains": "removes the previous"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase",
+      "query": "I lost my credentials and cannot sign in. How do I get back in?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "guidance/recovery.md",
+          "contains": "single-use"
+        }
+      ]
+    },
+    {
+      "id": "current-recovery",
+      "query": "Forgot your password? Restore account access.",
+      "split": "development",
+      "group": "lifecycle",
+      "support": [
+        {
+          "path": "guidance/recovery.md",
+          "contains": "single-use"
+        }
+      ]
+    },
+    {
+      "id": "history-recovery",
+      "query": "How did administrators restore access before self-service?",
+      "split": "development",
+      "group": "lifecycle",
+      "support": [
+        {
+          "path": "history/recovery.md",
+          "contains": "current password"
+        }
+      ],
+      "history": true
+    },
+    {
+      "id": "negation",
+      "query": "Which requests must never be retried automatically?",
+      "split": "development",
+      "group": "negation",
+      "support": [
+        {
+          "path": "guidance/payments.md",
+          "contains": "Never automatically"
+        }
+      ]
+    },
+    {
+      "id": "transport",
+      "query": "Can a local diagnostic endpoint use unencrypted transport?",
+      "split": "development",
+      "group": "authority",
+      "support": [
+        {
+          "path": "standard/transport.md",
+          "contains": "MUST encrypt"
+        }
+      ]
+    },
+    {
+      "id": "server-cache",
+      "query": "When do cached responses expire?",
+      "split": "development",
+      "group": "scope",
+      "support": [
+        {
+          "path": "server/cache.md",
+          "contains": "sixty seconds"
+        }
+      ],
+      "scope": [
+        "server"
+      ]
+    },
+    {
+      "id": "browser-cache",
+      "query": "When does a cached image expire?",
+      "split": "development",
+      "group": "scope",
+      "support": [
+        {
+          "path": "browser/cache.md",
+          "contains": "one day"
+        }
+      ],
+      "scope": [
+        "browser"
+      ]
+    },
+    {
+      "id": "rotation",
+      "query": "How often should we rotate the signing key?",
+      "split": "development",
+      "group": "freshness",
+      "support": [
+        {
+          "path": "guidance/rotation.md",
+          "contains": "thirty days"
+        }
+      ]
+    },
+    {
+      "id": "imports",
+      "query": "How can I repair an import that failed schema validation?",
+      "split": "development",
+      "group": "unverified",
+      "support": [
+        {
+          "path": "guidance/imports.md",
+          "contains": "individual rows"
+        }
+      ]
+    },
+    {
+      "id": "restore",
+      "query": "How do I restore the database from a backup?",
+      "split": "development",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/restore.md",
+          "contains": "Stop writers"
+        }
+      ]
+    },
+    {
+      "id": "audit-retention",
+      "query": "How long should audit events be retained?",
+      "split": "development",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/retention.md",
+          "contains": "180 days"
+        }
+      ]
+    },
+    {
+      "id": "trace-retention",
+      "query": "How long do diagnostic traces need to be kept?",
+      "split": "development",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/retention.md",
+          "contains": "seven days"
+        }
+      ]
+    },
+    {
+      "id": "quarantine",
+      "query": "What should I do after five failed delivery attempts?",
+      "split": "development",
+      "group": "relationship",
+      "support": [
+        {
+          "path": "guidance/queue-quarantine.md",
+          "contains": "Inspect the failure reason"
+        }
+      ]
+    },
+    {
+      "id": "rollback",
+      "query": "The health check failed after deployment. What should I do?",
+      "split": "development",
+      "group": "exact",
+      "support": [
+        {
+          "path": "guidance/deployment.md",
+          "contains": "restore the last successful"
+        }
+      ]
+    },
+    {
+      "id": "logging",
+      "query": "What credential rule applies when enabling verbose request logging?",
+      "split": "development",
+      "group": "authority",
+      "support": [
+        {
+          "path": "guidance/secrets.md",
+          "contains": "redact access tokens"
+        }
+      ]
+    },
+    {
+      "id": "handoff",
+      "query": "The incident responder is changing. What information must be handed over?",
+      "split": "development",
+      "group": "relationship",
+      "support": [
+        {
+          "path": "guidance/ownership.md",
+          "contains": "current impact"
+        }
+      ]
+    },
+    {
+      "id": "unknown-answer",
+      "query": "What is the orbital inclination of Neptune in degrees?",
+      "split": "development",
+      "group": "unanswerable",
+      "support": []
+    },
+    {
+      "id": "reset-session",
+      "query": "Which function replaces a token after authentication?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "implementation/session.md",
+          "contains": "resetSessionToken"
+        }
+      ]
+    },
+    {
+      "id": "locked-out",
+      "query": "I cannot remember my login secret. How can I regain entry?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "guidance/recovery.md",
+          "contains": "single-use"
+        }
+      ]
+    },
+    {
+      "id": "duplicate-charge",
+      "query": "Can resubmitting a payment cause a second charge?",
+      "split": "held_out",
+      "group": "negation",
+      "support": [
+        {
+          "path": "guidance/payments.md",
+          "contains": "idempotency key"
+        }
+      ]
+    },
+    {
+      "id": "local-encryption",
+      "query": "Does the encryption requirement also cover diagnostics on the local network?",
+      "split": "held_out",
+      "group": "authority",
+      "support": [
+        {
+          "path": "standard/transport.md",
+          "contains": "MUST encrypt"
+        }
+      ]
+    },
+    {
+      "id": "old-keys",
+      "query": "Is replacing signing keys every ninety days still the current guidance?",
+      "split": "held_out",
+      "group": "freshness",
+      "support": [
+        {
+          "path": "guidance/rotation.md",
+          "contains": "thirty days"
+        }
+      ]
+    },
+    {
+      "id": "snapshot-recovery",
+      "query": "Which steps recover a stored database snapshot before returning traffic?",
+      "split": "held_out",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/restore.md",
+          "contains": "isolated instance"
+        }
+      ]
+    },
+    {
+      "id": "ready",
+      "query": "Should readiness fail if a required dependency is down?",
+      "split": "held_out",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/health.md",
+          "contains": "traffic is withheld"
+        }
+      ]
+    },
+    {
+      "id": "alive",
+      "query": "When should a liveness check request a process restart?",
+      "split": "held_out",
+      "group": "heading",
+      "support": [
+        {
+          "path": "guidance/health.md",
+          "contains": "cannot recover"
+        }
+      ]
+    },
+    {
+      "id": "migrate",
+      "query": "When is it safe to remove an old database column?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "guidance/migrations.md",
+          "contains": "every deployed reader"
+        }
+      ]
+    },
+    {
+      "id": "repeated-key",
+      "query": "What happens if the same request key arrives twice?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "guidance/idempotency.md",
+          "contains": "original result"
+        }
+      ]
+    },
+    {
+      "id": "limited",
+      "query": "Which response tells a caller that its request budget is exhausted?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "guidance/limits.md",
+          "contains": "HTTP 429"
+        }
+      ]
+    },
+    {
+      "id": "upload",
+      "query": "Can a disconnected upload continue without resending the full file?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "guidance/uploads.md",
+          "contains": "last acknowledged byte offset"
+        }
+      ]
+    },
+    {
+      "id": "unreviewed-symbol",
+      "query": "clearArtifactCache",
+      "split": "held_out",
+      "group": "unverified",
+      "support": [
+        {
+          "path": "guidance/unverified.md",
+          "contains": "clearArtifactCache"
+        }
+      ]
+    },
+    {
+      "id": "quarantine-replay",
+      "query": "A message is quarantined after repeated failures. How should it be replayed?",
+      "split": "held_out",
+      "group": "relationship",
+      "support": [
+        {
+          "path": "guidance/queue-quarantine.md",
+          "contains": "original deduplication key"
+        }
+      ]
+    },
+    {
+      "id": "clock-change",
+      "query": "What clock should request timeouts use when wall time changes?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "guidance/clock.md",
+          "contains": "monotonic elapsed"
+        }
+      ]
+    },
+    {
+      "id": "future-proposal",
+      "query": "Is there a proposed support recovery flow involving a video identity check?",
+      "split": "held_out",
+      "group": "lifecycle",
+      "support": [
+        {
+          "path": "drafts/recovery.md",
+          "contains": "video identity"
+        }
+      ]
+    },
+    {
+      "id": "absent-fact",
+      "query": "Which lunar crater was selected for the next observatory?",
+      "split": "held_out",
+      "group": "unanswerable",
+      "support": []
+    }
+  ]
+}
