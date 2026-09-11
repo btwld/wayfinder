@@ -9,16 +9,19 @@ $ProgressPreference = 'SilentlyContinue'
 # another published release; CI and `wayfinder update` use it to pin a version.
 $WayfinderVersion = $env:WAYFINDER_VERSION
 if (-not $WayfinderVersion) {
-    # The repository also publishes library and legacy releases, so pick the
-    # highest stable application tag rather than GitHub's single latest release.
-    # Assigning first makes Windows PowerShell 5.1 enumerate the JSON array.
-    $Releases = Invoke-RestMethod 'https://api.github.com/repos/conceptadev/wayfinder/releases?per_page=100' -UseBasicParsing
-    $Latest = @($Releases) | Where-Object {
-        -not $_.draft -and -not $_.prerelease -and $_.tag_name -match '^wayfinder-v\d+\.\d+\.\d+$'
-    } | Sort-Object { [version]($_.tag_name -replace '^wayfinder-v', '') } -Descending |
-        Select-Object -First 1
-    if (-not $Latest) { throw 'Could not find the latest release; set WAYFINDER_VERSION.' }
-    $WayfinderVersion = $Latest.tag_name -replace '^wayfinder-v', ''
+    # GitHub's latest-release page redirects to its tag. The web redirect avoids
+    # the API's per-address rate limit; only application releases may be latest.
+    $Response = Invoke-WebRequest 'https://github.com/conceptadev/wayfinder/releases/latest' -UseBasicParsing
+    # Windows PowerShell 5.1 and PowerShell 7 expose the final URL differently.
+    $Final = if ($Response.BaseResponse.ResponseUri) {
+        $Response.BaseResponse.ResponseUri.AbsoluteUri
+    } else {
+        $Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+    }
+    if ($Final -notmatch '/releases/tag/wayfinder-v(\d+\.\d+\.\d+)$') {
+        throw 'The latest release is not a Wayfinder release; set WAYFINDER_VERSION.'
+    }
+    $WayfinderVersion = $Matches[1]
 }
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'

@@ -26,14 +26,15 @@ for command in curl tar mktemp; do
   command -v "$command" >/dev/null 2>&1 || fail "Required command is missing: $command"
 done
 if [ -z "$version" ]; then
-  # The repository also publishes library and legacy releases, so pick the
-  # highest stable application tag rather than GitHub's single latest release.
-  version="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
-      'https://api.github.com/repos/conceptadev/wayfinder/releases?per_page=100' |
-    tr ',' '\n' |
-    sed -n 's/.*"tag_name": *"wayfinder-v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' |
-    sort -t . -k 1,1n -k 2,2n -k 3,3n | tail -n 1)"
-  [ -n "$version" ] || fail 'Could not find the latest release; set WAYFINDER_VERSION.'
+  # GitHub's latest-release page redirects to its tag. The web redirect avoids
+  # the API's per-address rate limit; only application releases may be latest.
+  latest="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o /dev/null \
+    -w '%{url_effective}' https://github.com/conceptadev/wayfinder/releases/latest)" ||
+    fail 'Could not find the latest release; set WAYFINDER_VERSION.'
+  case "$latest" in
+    */releases/tag/wayfinder-v[0-9]*.[0-9]*.[0-9]*) version="${latest##*/wayfinder-v}" ;;
+    *) fail 'The latest release is not a Wayfinder release; set WAYFINDER_VERSION.' ;;
+  esac
 fi
 case "$version" in
   *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;

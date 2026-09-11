@@ -27,9 +27,10 @@ tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
 enforces it. Claude Code updates the plugin only when its version changes, and
 `wayfinder update` offers only stable `wayfinder-v` releases, so suffixed
 prereleases reach neither.
-The public installers resolve the newest stable `wayfinder-v` release from
-GitHub at install time, so publishing a release makes it the default at once;
-verify before dispatching. CI and `wayfinder update` pin a version with
+The public installers install GitHub's latest release, so publishing a stable
+release makes it the default at once; verify before dispatching. Only
+application releases may be GitHub's latest release: the installers refuse any
+other tag, and the other packages publish no GitHub releases. CI and `wayfinder update` pin a version with
 `WAYFINDER_VERSION`. Publish tags at the exact checked commit. Never rename binaries across versions or
 overwrite published archives.
 
