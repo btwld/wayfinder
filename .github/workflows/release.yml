@@ -145,10 +145,25 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+      # setup-dart registers the OIDC token for the whole pub.dev host, and
+      # pub.dev now answers the bucket-served version-listing and advisory
+      # reads with HTTP 403 whenever the request carries a bearer token:
+      # https://github.com/dart-lang/pub-dev/issues/9576. Both resolutions
+      # below have to run uncredentialed.
+      - if: steps.pub.outputs.published != 'true'
+        name: Drop the pub.dev credential for dependency resolution
+        run: dart pub token remove https://pub.dev || true
       - if: steps.pub.outputs.published != 'true'
         run: dart pub get
       - if: steps.pub.outputs.published != 'true'
         run: dart pub -C tool/release get --enforce-lockfile
+      # Every read is done, so mint a fresh publish credential. Same SDK as
+      # above, so this is a tool-cache hit that only refreshes the token.
+      - if: steps.pub.outputs.published != 'true'
+        name: Provision pub.dev OIDC credentials
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
       - if: steps.pub.outputs.published != 'true'
         run: >-
           dart --packages=tool/release/.dart_tool/package_config.json
