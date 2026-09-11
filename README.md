@@ -3,10 +3,45 @@
 Find, connect, and use your project's knowledge. Wayfinder provides local OKF
 validation, persistent semantic search, and an MCP server for coding agents.
 
-See the [installation and usage guide](packages/wayfinder/README.md) for the
-Dart CLI and complete native retrieval bundle, and the
-[naming and release plan](docs/wayfinder-release-plan.md) for package boundaries
-and migration from the unpublished Station prototype.
+Source code, plugin files, documentation and binary releases live together in
+this public repository. Install the complete native runtime to use Wayfinder
+without a Dart SDK. On macOS Apple Silicon or Linux x64:
+
+```sh
+brew install conceptadev/tap/okfp
+brew install conceptadev/tap/wayfinder
+```
+
+The [installation guide](docs/install.md) also provides shell and Windows
+PowerShell installers, plugin setup, upgrades and troubleshooting.
+[GitHub releases](https://github.com/conceptadev/wayfinder/releases) contain the
+complete runtime bundles; the [Dart package guide](packages/wayfinder/README.md)
+covers library dependencies and source development.
+
+## How it works
+
+Point Wayfinder at an explicit OKF bundle in your project:
+
+```sh
+wayfinder validate knowledge
+wayfinder index knowledge
+wayfinder search knowledge "How is reporting implemented?"
+```
+
+Validation checks OKF and the automated rules of the declared Profile. Indexing reads
+its documents, computes embeddings locally and saves a local search index.
+Search reuses that index and embeds only the query, returning passages with
+source paths and line ranges. Run `index` again after editing the bundle;
+unchanged content reuses its vectors. The complete installation includes the
+model and native libraries, so retrieval needs no external embedding service.
+
+`wayfinder mcp knowledge` exposes `validate`, `index` and `search` to coding
+agents. The Claude Code plugin configures this server and supplies the author,
+adopt and assess skills. `okfp` is the standalone Profile validation command;
+`wayfinder_embeddings` is the reusable Dart retrieval library. Upstream `okf`
+graph and write tools remain separate capabilities.
+
+## Concepta OKF Profile
 
 Wayfinder also hosts the **Concepta OKF Profile** — conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
@@ -70,7 +105,7 @@ not belong in an identity — without silently replacing an identified release.
 
 The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
 
-First [install Wayfinder](packages/wayfinder/README.md#dart-installation). Run
+First [install the complete Wayfinder runtime](docs/install.md). Run
 Claude Code from the consuming project with a `knowledge/` bundle, or set
 `WAYFINDER_KNOWLEDGE_DIR` to its explicit path before launching Claude Code.
 The plugin registers Wayfinder's local MCP server; search and indexing require
@@ -132,9 +167,9 @@ profile will confidently create `decisions/`.
 ### 4. Validate the bundle
 
 ```bash
-dart run okf_profile:okfp validate knowledge
+okfp validate knowledge
 # Machine-readable output:
-dart run okf_profile:okfp validate knowledge --output json
+okfp validate knowledge --output json
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that
@@ -153,13 +188,13 @@ is optional when focused OKF diagnostics are useful.
 
 ## Search local knowledge with Wayfinder
 
-Wayfinder combines validation and local semantic retrieval. After preparing the
-native runtime and model, run from the workspace root:
+After installing the native runtime, try the illustrative bundle from a clone
+of this repository:
 
 ```bash
-dart run wayfinder:wayfinder validate examples/knowledge
-dart run wayfinder:wayfinder index examples/knowledge
-dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
+wayfinder validate examples/knowledge
+wayfinder index examples/knowledge
+wayfinder search examples/knowledge "How is reporting implemented?"
 ```
 
 `index` generates and saves document embeddings locally; `search` reuses them
@@ -249,8 +284,10 @@ checks only; contextual Profile Review remains separate.
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
 
-See the [maintenance review](docs/maintenance-review.md) for the existing issues,
-installation work in progress, and the remaining second-brain workflow questions.
+See the [maintenance review](docs/maintenance-review.md) for the existing issues
+and the remaining project-knowledge workflow questions. See the
+[release guide](docs/releasing.md) for package publication, native binaries and
+the existing Concepta Homebrew tap.
 
 ## Dart workspace development
 

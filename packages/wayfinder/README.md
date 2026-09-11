@@ -12,6 +12,13 @@ Index and search always use local embeddings. Validation runs the existing
 OKF and declared Concepta Profile checks and retains their output and exit
 codes. Automated success keeps judgment rules UNASSESSED.
 
+## Native installation
+
+For indexing and search without a Dart SDK, install the complete runtime from
+[the installation guide](https://github.com/conceptadev/wayfinder/blob/main/docs/install.md).
+It includes Wayfinder, `okfp`, the embedding model and required native libraries.
+The GitHub repository hosts the source, plugin and native release archives.
+
 ## Dart installation
 
 Requires Dart 3.10.7 or later. Install the development release:
@@ -24,8 +31,8 @@ wayfinder validate ./knowledge
 Add the Dart pub cache's `bin` directory to your `PATH` if `wayfinder` is not found.
 Validation and MCP discovery work without model weights. Indexing and search
 also require the verified embedding model and native libraries; pub.dev does
-not distribute these assets with this package. Use the source preparation and
-bundle build below for the complete retrieval installation.
+not distribute these assets with this package. Use the native installer above, or the source preparation and bundle build
+below, for the complete retrieval installation.
 
 ## Source development and packaging
 

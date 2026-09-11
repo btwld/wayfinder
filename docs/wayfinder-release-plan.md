@@ -1,8 +1,10 @@
 # Wayfinder naming and release plan
 
-Current repository decision: source, plugin, documentation and native releases
-now live together in public `conceptadev/wayfinder`. The earlier separate
-distribution design below is superseded; `wayfinder-dist` is being removed.
+Source, plugin, documentation and native releases live together in public
+`conceptadev/wayfinder`. Use [installation](install.md) for current user commands
+and [releasing](releasing.md) for the deployment procedure. The earlier separate
+`wayfinder-dist` repository is obsolete; deletion is pending GitHub identity
+confirmation. It is not an installation or publishing dependency.
 
 Decision date: 2026-09-10. Scope: name the existing knowledge application,
 rename its repository, and publish the functional CLI under `concepta.dev`.
@@ -56,10 +58,38 @@ plugin, remove the old marketplace registration, register
 Copied/symlinked skills and existing `okfp` CI gates continue to work.
 
 Existing conformant bundles remain conformant. No Profile release, bundle
-migration or taxonomy change is needed. The old retrieval package can be
-discontinued with a replacement pointer after the new library is published.
+migration or taxonomy change is needed. The old `knowledge_embeddings` package is discontinued and points to
+`wayfinder_embeddings`; its published versions remain available.
 
-## Initial publication sequence (completed)
+## Current publication and integration state
+
+- `wayfinder 0.0.1-dev.1` and `wayfinder_embeddings 0.0.1-dev.0` are published
+  under `concepta.dev`. `okf_profile 0.2.1-dev.0` supplies the validator API;
+  stable `0.2.0` remains available.
+- The retrieval, CLI, MCP, naming and installation PRs (#58, #59, #60, #63
+  and #54) are merged. Historical branch names and ADR filenames remain stable.
+- Native archives for Linux x64, macOS ARM64 and Windows x64 are attached to
+  [the Wayfinder release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1-dev.1).
+  Public installation, validation, indexing, search and unchanged-index reuse
+  pass on all three platforms. The Concepta tap contains `wayfinder` and `okfp`.
+- The plugin is installed from `conceptadev/wayfinder`. Existing marketplace
+  registrations must be migrated as described in the installation guide.
+- GitHub releases use the built-in repository token. Homebrew automation follows
+  OKF's `HOMEBREW_TAP_GH_TOKEN` pattern; no new GitHub App is required. The tap
+  secret and the non-Dart teammate walkthrough remain tracked in #53.
+
+The application has published successfully through OIDC. The replacement
+library's OIDC trust is configured; its upload path will be exercised on its
+next substantive release. Existing package versions and native release assets
+remain unchanged.
+
+The rename preserves database UIDs and vector identity. Both schema markers
+are accepted during migration, the model override keeps a legacy fallback, and
+preparation reuses verified legacy model caches. See the
+[library migration guide](../packages/wayfinder_embeddings/README.md#migrating-from-knowledge_embeddings)
+and [ObjectBox build review](objectbox-build-review.md).
+
+## Historical initial publication sequence (completed)
 
 1. Run analysis, formatting, package tests, the example validation gate, and the
    relocated native CLI/MCP probes against the renamed package.
@@ -86,81 +116,7 @@ local indexes, build output, and `.context/`. Global activation supports
 validation and MCP discovery. Full semantic retrieval additionally requires the
 prepared native/model assets described in the application guide.
 
-## Integration and subsequent distribution
 
-The release-preparation branch is stacked on the reviewed Station MCP branch.
-Merge the existing stack in order (#58, #59, #60), retargeting dependencies to
-`main`, then integrate this rename. Do not merge or rewrite the old branches as
-part of a repository rename. Release automation still publishes `okf_profile`
-using its existing stable `v<version>` tags; do not use those tags for Wayfinder.
-
-Package-specific workflows now use `wayfinder-v{{version}}` and
-`wayfinder_embeddings-v{{version}}`. Verification resolves dependencies, analyzes,
-tests and dry-runs without OIDC credentials. A separate job publishes the checked
-tag with `--skip-validation` and does not repeat credentialed resolution.
-The original `knowledge_embeddings` tags and published archives remain historical
-releases. Reconcile PR #62 before enabling the separate `okf_profile` stable
-`v{{version}}` publication flow.
-
-Continue no-Dart installation work in #53 / PR #54. Reconcile its installers,
-public distribution mirror, Homebrew assets and plugin MCP wiring with Wayfinder
-before shipping them. The repository remains private under the current decision;
-public source visibility is a separate action. Consequently, repository links
-require access until visibility or public distribution is resolved.
-
-See [Dart publication documentation](https://dart.dev/tools/pub/publishing) and
-[pub.dev naming policy](https://pub.dev/policy#name-squatting).
-
-## Initial release result
-
-The initial release completed on 2026-09-10:
-
-- `wayfinder 0.0.1-dev.0` is published under `concepta.dev`.
-- `knowledge_embeddings 0.0.1-dev.0` bootstrapped the package; `0.0.1-dev.1`
-  completed the library documentation rename and was published through GitHub
-  OIDC in [run 34541277082](https://github.com/conceptadev/wayfinder/actions/runs/34541277082).
-- `okf_profile 0.2.1-dev.0` supplies the public validator API under the existing
-  `concepta.dev` publisher; stable `0.2.0` remains available.
-- Wayfinder and knowledge_embeddings trust the renamed repository and their
-  package-specific tag patterns. No long-lived publishing secret was added.
-- A fresh isolated pub cache installed `wayfinder 0.0.1-dev.0` from hosted
-  dependencies, reported the correct version, validated the example bundle,
-  and completed MCP initialization with the `wayfinder` server identity.
-
-The source changes are on `chore/station-publication` for integration after the
-existing implementation stack. The branch name is retained; product names do not
-require rewriting branch history. The repository remains private, and the
-no-Dart installer/distribution work remains tracked in #53 / PR #54.
-
-## Follow-up package and plugin migration
-
-The initial decision to preserve `knowledge_embeddings` and `concepta-knowledge`
-was superseded by the complete Wayfinder naming plan. The current implementation
-uses `wayfinder_embeddings` and the `wayfinder` plugin. Published
-`wayfinder_embeddings 0.0.1-dev.0` under `concepta.dev` and configured its exact
-package-specific OIDC trust. Published `wayfinder 0.0.1-dev.1` through GitHub OIDC
-against the hosted replacement library. Fresh-cache application/consumer checks
-and bidirectional saved-index checks passed; `knowledge_embeddings` is now
-discontinued with `wayfinder_embeddings` as its replacement. Existing package
-versions remain available. The new library's OIDC upload is to be exercised on
-its next substantive release.
-
-The rename keeps database UIDs and vector identity unchanged. Both schema marker
-names are supported during migration; the new model override has a legacy
-fallback, and preparation reuses verified legacy model caches. See the
-[library migration guide](../packages/wayfinder_embeddings/README.md#migrating-from-knowledge_embeddings)
-and [ObjectBox build review](objectbox-build-review.md).
-
-The public distribution repository and no-Dart installers remain integration
-work in #53/#54 until actual unauthenticated install checks pass. Source repository
-visibility stays private. Publication and distribution results must be recorded
-here when completed; intended names alone do not establish an available channel.
-
-The public plugin repository now exists. An isolated Claude Code installation
-successfully migrated from `concepta-knowledge@wayfinder`, loaded all three
-skills with only one enabled plugin, and connected its Wayfinder MCP server.
-A separate clean configuration fetched the public marketplace over HTTPS with
-Git credentials disabled. Native public release `wayfinder-v0.0.1-dev.1` now includes verified archives for
-all three supported platforms. The public macOS installer and Homebrew install
-pass. Initial publication used the authorized maintainer CLI; the GitHub App
-automation still awaits owner re-authentication and a successful workflow run.
+The sequence above records the original publication, before the library and
+plugin received their final Wayfinder names. It is historical evidence, not the
+procedure for the next release.

@@ -93,9 +93,9 @@ is outside `PATH`.
 
 ### Migrate an existing plugin installation
 
-When moving from the old private marketplace, remove its registration as well
-as the old plugin. Claude Code refuses to register a different repository under
-an existing marketplace name.
+When moving from the old private marketplace or `wayfinder-dist`, remove its
+registration as well as the installed plugin. Claude Code refuses to register
+a different repository under an existing marketplace name.
 
 ```text
 /plugin uninstall concepta-knowledge@wayfinder
@@ -104,9 +104,15 @@ an existing marketplace name.
 /plugin install wayfinder@wayfinder
 ```
 
-If the older registration is named `okf-profile`, use that name in the first two
-commands. Verify that only `wayfinder@wayfinder` is enabled and `/mcp` lists one
-Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
+If you installed `wayfinder@wayfinder` from `wayfinder-dist`, use
+`/plugin uninstall wayfinder@wayfinder` for the first command. The remaining
+commands are the same. This switches the marketplace to the main public
+repository without registering a duplicate server.
+
+If the older marketplace is named `okf-profile`, use
+`/plugin uninstall concepta-knowledge@okf-profile` and
+`/plugin marketplace remove okf-profile` for the first two commands. Verify
+that only `wayfinder@wayfinder` is enabled and `/mcp` lists one Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
 plugin together; they do not require removing the marketplace again.
 
 Upstream `okf` remains a separate optional tool for OKF graph

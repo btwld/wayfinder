@@ -33,10 +33,10 @@ existing release assets are not overwritten.
    failed CI or another workflow's artifacts.
 4. The workflow downloads and verifies all three native archives, then publishes
    them in this repository using its built-in `GITHUB_TOKEN`, recording the build
-   commit in `source.json`. The existing `HOMEBREW_TAP_GH_TOKEN` credential pattern is used for Homebrew.
-5. Verify the actual public installer URLs and Homebrew installation without
-   source-repository credentials. Remove the installation guide's rollout-pending
-   notice only after these checks succeed.
+   commit in `source.json`. Homebrew updates use `HOMEBREW_TAP_GH_TOKEN`.
+5. Run **Verify public Wayfinder installation** against the published installers,
+   then verify the Homebrew formula. Update the installation guide when the new
+   release and its supported platforms are verified.
 
 The native builder includes the application and `okfp` executables, embedding
 model, Dart/llamadart libraries, ObjectBox and dependency notices. The archive

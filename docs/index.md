@@ -24,9 +24,9 @@
 
 ## Operations
 
-docs/install.md — Installation guide (Current) — Installing Wayfinder, okfp, and the wayfinder@wayfinder plugin without a Dart SDK: Homebrew, one-line installers, plugin commands, checks, upgrades, uninstall. Topics: install, distribution, plugin, MCP.
+[Install Wayfinder](install.md) — Native installation without Dart, Homebrew, plugin setup and migration, usage, upgrades and troubleshooting.
 
-docs/releasing.md — Releasing (Current) — What a release tag does, every version bump site and its CI check, the release app, and how to collapse the distribution repository when this one goes public. Topics: release, distribution, pinning, CI.
+[Release Wayfinder](releasing.md) — Package tags, pub.dev OIDC, verified native bundles, cli_pkg/Grinder tasks and credentials for the existing Concepta Homebrew tap.
 
 ## ADRs
 
