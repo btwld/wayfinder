@@ -1,3 +1,9 @@
+> Current package layout: `wayfinder` is the core library, `wayfinder_cli`
+> supplies the command and MCP server, and `wayfinder_embeddings` provides
+> retrieval. The standalone validator release pipeline is retired. See
+> [releasing](releasing.md) for current tags and publication order. The records
+> below describe the earlier rename/publication and are historical.
+
 # Wayfinder naming and release plan
 
 Source, plugin, documentation and native releases live together in public
@@ -15,7 +21,7 @@ This is a product/distribution change; no OKF or Profile conventions change.
 | Piece | Name / location | Decision |
 | --- | --- | --- |
 | Product and repository | Wayfinder / `conceptadev/wayfinder` | Renames the knowledge project formerly hosted at `conceptadev/okf-profile` |
-| Dart application | `wayfinder`, `packages/wayfinder/` | Renames the unpublished `station` package |
+| Dart application | `wayfinder`, `packages/wayfinder_cli/` | Renames the unpublished `station` package |
 | Executable | `wayfinder` | `validate`, `index`, `search`, and `mcp` retain their behavior |
 | MCP server identity | `wayfinder` | Tool names remain `validate`, `index`, and `search` |
 | Native bundle | `build/wayfinder/bundle/` | Build with `dart run tool/build_wayfinder.dart` or `melos run wayfinder:build` |
@@ -39,7 +45,7 @@ Replace development invocations of `station` with `wayfinder`, including
 and references to `packages/wayfinder`. Build and native verification scripts
 use `wayfinder` in their filenames. Accepted ADR-0010/0011 retain their historical
 filenames and record the prototype naming history; current usage lives
-in the [application guide](../packages/wayfinder/README.md).
+in the [application guide](../packages/wayfinder_cli/README.md).
 
 `WAYFINDER_DATA_DIR` replaces `STATION_DATA_DIR`. Defaults use `Wayfinder` on
 macOS/Windows and `wayfinder` on Linux. The default therefore starts a new index:

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -34,12 +35,18 @@ done
 cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
 ''')
     curl.chmod(0o755)
+    package_version = re.search(
+        r'^version: (.+)$',
+        (workspace / 'packages/wayfinder_cli/pubspec.yaml').read_text(),
+        re.M,
+    )[1]
     env = dict(os.environ,
                PATH=f'{shim}:/usr/bin:/bin:/usr/sbin:/sbin',
                WAYFINDER_TEST_DOWNLOADS=str(downloads),
                WAYFINDER_INSTALL_ROOT=str(root / 'runtime'),
                WAYFINDER_INSTALL_DIR=str(root / 'commands'),
-               WAYFINDER_DATA_DIR=str(root / 'data'))
+               WAYFINDER_DATA_DIR=str(root / 'data'),
+               WAYFINDER_VERSION=package_version)
     if shutil.which('dart', path=env['PATH']):
         raise RuntimeError('Probe PATH must not contain Dart')
     for name in ['WAYFINDER_EMBEDDING_MODEL', 'KNOWLEDGE_EMBEDDING_MODEL']:
@@ -51,7 +58,7 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
             raise AssertionError((result.returncode, result.stdout, result.stderr))
     install()
     binary = root / 'commands/wayfinder'
-    corpus = workspace / 'packages/wayfinder/test/fixtures/knowledge'
+    corpus = workspace / 'packages/wayfinder_cli/test/fixtures/knowledge'
     def command(*arguments):
         return subprocess.run([str(binary), *map(str, arguments)], env=env,
                               cwd=root, capture_output=True, text=True,
@@ -72,5 +79,6 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
     install(expected=1)
     assert binary.resolve() == previous
     command('search', corpus, 'password', '--output=json')
-    subprocess.run([str(root / 'commands/okfp'), '--version'], env=env, check=True)
+    command('validate', workspace / 'examples/knowledge')
+    assert not (root / 'commands/okfp').exists()
     print('PASS: no-Dart install, quoted paths, retrieval, repair, index reuse, corrupt download refusal.')

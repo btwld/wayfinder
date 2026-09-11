@@ -4,10 +4,10 @@ import 'dart:io';
 
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
-import 'package:okf_profile/okf_profile.dart';
-import 'package:wayfinder/src/knowledge.dart';
-import 'package:wayfinder/src/index_result.dart';
-import 'package:wayfinder/src/mcp_server.dart';
+import 'package:wayfinder/wayfinder.dart';
+import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_cli/src/index_result.dart';
+import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:test/test.dart';
 
 void main() {

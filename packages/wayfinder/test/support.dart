@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf_profile/src/cli.dart';
 import 'package:path/path.dart' as p;
+
+import 'legacy_cli.dart';
 
 /// One severity/id/path line per profile finding, in report order.
 List<String> findingSummary(Map<String, Object?> profile) =>
@@ -27,11 +28,11 @@ Future<Directory> copyFixture(String name) async {
   return destination;
 }
 
-/// Runs okfp in a separate process — the shipped executable seam.
+/// Runs okfp in a separate process — the historical validator contract harness.
 Future<CliResult> runProcess(List<String> arguments) async {
   final result = await Process.run(
     Platform.resolvedExecutable,
-    <String>['run', 'okf_profile:okfp', ...arguments],
+    <String>['run', 'test/legacy_cli_main.dart', ...arguments],
     stdoutEncoding: utf8,
     stderrEncoding: utf8,
   );

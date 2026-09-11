@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
-import 'package:okf_profile/okf_profile.dart';
+import 'package:wayfinder/wayfinder.dart';
 
 import 'knowledge.dart';
 import 'search_input.dart';

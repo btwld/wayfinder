@@ -1,15 +1,13 @@
 # Install Wayfinder
 
 Wayfinder finds and validates knowledge in an existing OKF bundle. Its complete
-native installation includes `wayfinder`, the `okfp` Profile validation gate,
+native installation includes `wayfinder` with built-in Profile validation,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
-Native bundles for `0.0.1-dev.1` are available from the
-[public release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1-dev.1).
-The supported platforms pass native build, relocation, retrieval and installer
-checks in CI. The public macOS download and Homebrew installation have also been
-verified without GitHub credentials.
+This source tree prepares the 0.0.1 package split. The published native release
+is still 0.0.1-dev.1; the updated installers and formula must be deployed only
+after the 0.0.1 native archives are published and verified.
 
 ## Install the native runtime
 
@@ -20,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/ins
 ```
 
 The script installs versioned runtimes under `~/.local/share/wayfinder-runtime`
-and exposes `wayfinder` and `okfp` through `~/.local/bin`. It reports if that
+and exposes `wayfinder` through `~/.local/bin`. It reports if that
 command directory needs adding to `PATH`. Set `WAYFINDER_INSTALL_ROOT` and
 `WAYFINDER_INSTALL_DIR` to absolute paths to choose different locations. It
 refuses to overwrite commands belonging to another installation method.
@@ -48,15 +46,14 @@ corrupt downloads; they are not a claim of code signing or notarization.
 On macOS Apple Silicon or Linux x64:
 
 ```sh
-brew install conceptadev/tap/okfp
 brew install conceptadev/tap/wayfinder
 ```
 
-Install `okfp` first so Homebrew trusts that dependency as well as Wayfinder.
-Each fully qualified installation trusts only that formula; no whole-tap trust
-is required. See [Homebrew tap trust](https://docs.brew.sh/Tap-Trust).
-The validator builds with a temporary pinned Dart SDK; you do not need to install
-one yourself. Upgrade with `brew upgrade wayfinder okfp`.
+Wayfinder includes Profile validation through `wayfinder validate`; no separate
+validator installation or Dart SDK is required. Upgrade with `brew update` then
+`brew upgrade wayfinder`. Existing standalone `okfp` installations remain usable,
+but new Wayfinder installations do not require them. Previously installed `okfp`
+commands are not removed automatically.
 
 ## Use a knowledge bundle
 
@@ -64,9 +61,7 @@ From a project containing `knowledge/`:
 
 ```sh
 wayfinder --version
-okfp --version
 wayfinder validate knowledge
-okfp validate knowledge
 wayfinder index knowledge
 wayfinder search knowledge "How do I regain access to my account?"
 ```
@@ -142,8 +137,7 @@ Saved indexes are not removed by uninstalling runtime files.
 ## Dart developers
 
 ```sh
-dart pub global activate wayfinder 0.0.1-dev.1
-dart pub global activate okf_profile 0.2.1-dev.0
+dart pub global activate wayfinder_cli
 ```
 
 Global activation supports validation and MCP validation. Retrieval additionally
@@ -151,3 +145,19 @@ needs the native library/model setup described in the [package guide](https://pu
 the complete native installer handles those assets for end users. The reusable
 library is `wayfinder_embeddings`; migrate its dependency and all imports together
 when replacing `knowledge_embeddings`.
+
+## Migrate the Dart application package
+
+Before 0.0.1, `wayfinder` was the CLI package. It is now the core library.
+After `wayfinder_cli` is published, migrate a global Dart installation with:
+
+```sh
+dart pub global deactivate wayfinder
+dart pub global activate wayfinder_cli
+wayfinder --version
+```
+
+Homebrew and script users keep the `wayfinder` command and upgrade normally.
+MCP remains `wayfinder mcp <bundle>` in the CLI package; no extra MCP install is
+needed. Library consumers replace `okf_profile` with `wayfinder` and import
+`package:wayfinder/wayfinder.dart`. Existing published versions remain available.

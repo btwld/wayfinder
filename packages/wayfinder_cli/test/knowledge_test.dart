@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/src/knowledge.dart';
+import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:test/test.dart';
 
 void main() {

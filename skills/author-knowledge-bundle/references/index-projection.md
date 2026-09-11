@@ -2,7 +2,7 @@
 
 Part of the `author-knowledge-bundle` skill; `SKILL.md`'s release dispatch and
 atomic write sequence apply. Every affected `index.md` is rewritten as part of
-the atomic bundle write, and nothing generates indexes for you — `okfp validate`
+the atomic bundle write, and nothing generates indexes for you — `wayfinder validate`
 checks the result but does not produce it — so this reference is the complete
 producer spec.
 

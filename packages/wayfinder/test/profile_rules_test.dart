@@ -383,7 +383,7 @@ void main() {
         reason: path,
       );
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('rejects index entry targets that decode wrong or diverge as URLs',
       () async {

@@ -1,14 +1,14 @@
-name: Publish wayfinder_embeddings
+name: Publish wayfinder_cli
 
 on:
   push:
-    tags: ['wayfinder_embeddings-v*']
+    tags: ['wayfinder-v*']
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-wayfinder_embeddings-${{ github.ref }}
+  group: publish-wayfinder-cli-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -22,22 +22,21 @@ jobs:
         with:
           sdk: stable
       - name: Match tag to package version
-        working-directory: packages/wayfinder_embeddings
+        working-directory: packages/wayfinder_cli
         env:
           TAG: ${{ github.ref_name }}
         run: |
           version="$(sed -n 's/^version: //p' pubspec.yaml)"
-          test "$TAG" = "wayfinder_embeddings-v$version"
+          test "$TAG" = "wayfinder-v$version"
       # No OIDC permission here: dependency downloads use normal public access.
       - run: dart pub get
       - run: dart analyze --fatal-infos
       - run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/wayfinder_embeddings
+        working-directory: packages/wayfinder_cli
       - run: dart test
-        working-directory: packages/wayfinder_embeddings
-      # Exact llamadart/ObjectBox pins are reviewed compatibility constraints.
-      - run: dart pub publish --dry-run --ignore-warnings
-        working-directory: packages/wayfinder_embeddings
+        working-directory: packages/wayfinder_cli
+      - run: dart pub publish --dry-run
+        working-directory: packages/wayfinder_cli
 
   publish:
     needs: verify
@@ -54,14 +53,15 @@ jobs:
           sdk: stable
       - name: Check whether pub.dev already has this version
         id: pub
-        working-directory: packages/wayfinder_embeddings
+        working-directory: packages/wayfinder_cli
         run: |
           version="$(sed -n 's/^version: //p' pubspec.yaml)"
-          bash "$GITHUB_WORKSPACE/tool/ci/pub-version-published.sh" wayfinder_embeddings "$version" >> "$GITHUB_OUTPUT"
+          bash "$GITHUB_WORKSPACE/tool/ci/pub-version-published.sh" wayfinder_cli "$version" >> "$GITHUB_OUTPUT"
       - if: steps.pub.outputs.published == 'true'
-        run: echo "wayfinder_embeddings is already on pub.dev; skipping upload."
+        run: echo "wayfinder_cli is already on pub.dev; skipping upload."
       # The same immutable tag passed verification above. Pub's scoped OIDC
       # credential cannot resolve dependencies; do not repeat pub get here.
+      # The first authenticated publication must not be uploaded again.
       - if: steps.pub.outputs.published != 'true'
         run: dart pub publish --force --skip-validation
-        working-directory: packages/wayfinder_embeddings
+        working-directory: packages/wayfinder_cli

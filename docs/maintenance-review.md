@@ -14,7 +14,7 @@ memory. Keep the following responsibilities separate:
 | [Profile](../profile/okf-profile.md) | Defines conformance of a bundle. New bundle conventions belong here. |
 | [Implementation guide](../implementation/okf-implementation-guide.md) | Binds adoption, generation, validation, and migration behavior that the Profile leaves open. It is useful even where a tool is not implemented yet. |
 | [Skills](../skills/README.md) | Distribute actionable instructions to agents. The authoring skill owns mechanics; adoption and assessment delegate. |
-| [Validator](../packages/okf_profile/README.md) | Runs deterministic OKF and Profile checks. It cannot establish every contextual judgment. |
+| [Validator](../packages/wayfinder/README.md) | Runs deterministic OKF and Profile checks. It cannot establish every contextual judgment. |
 | [Compatibility review](compatibility-review.md) | Records whether Profile rules preserve the pinned OKF specification. |
 | [Coverage matrix](../implementation/profile-coverage.md) | Records how each Profile rule is assessed. It answers a different question from compatibility. |
 | [ADRs](adr/README.md), [examples](../examples/README.md), and [release tooling](../tool/) | Preserve design rationale, demonstrate bundle use, and distribute the implementation. |

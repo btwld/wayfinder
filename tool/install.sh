@@ -1,12 +1,18 @@
 #!/bin/sh
-# Install the complete Wayfinder runtime and the okfp validation gate.
+# Install the complete Wayfinder runtime with built-in Profile validation.
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
-version="0.0.1-dev.1"
+fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
+# Public default stays on the last published working release until 0.0.1
+# archives exist. CI sets WAYFINDER_VERSION to test a prepared version.
+version="${WAYFINDER_VERSION:-0.0.1-dev.1}"
+case "$version" in
+  [0-9]*.[0-9]*.[0-9]|[0-9]*.[0-9]*.[0-9]-*) ;;
+  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+esac
 release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
 install_dir="${WAYFINDER_INSTALL_DIR:-$HOME/.local/bin}"
 runtime_root="${WAYFINDER_INSTALL_ROOT:-$HOME/.local/share/wayfinder-runtime}"
-fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) platform=macos-arm64 ;;
   Linux-x86_64) platform=linux-x64 ;;
@@ -30,7 +36,7 @@ verify_contents() {
 }
 mkdir -p "$runtime_root" "$install_dir"
 # Refuse to replace a command managed by another installation method.
-for name in wayfinder okfp; do
+for name in wayfinder; do
   target="$install_dir/$name"
   if [ -e "$target" ] || [ -L "$target" ]; then
     [ -L "$target" ] || fail "$target already exists; choose another WAYFINDER_INSTALL_DIR."
@@ -53,15 +59,14 @@ mkdir "$stage/bundle"
 tar -xzf "$stage/$asset" -C "$stage/bundle"
 verify_contents "$stage/bundle" || fail 'Bundle contents failed verification.'
 [ "$("$stage/bundle/bin/wayfinder" --version)" = "wayfinder $version" ] || fail 'Unexpected application version.'
-"$stage/bundle/bin/okfp" --version
 # Each installation has its own directory. Switching commands preserves running
 # processes, previous runtimes and user indexes. Reinstalling also repairs assets.
 destination="$runtime_root/$version-$(basename "$stage")"
 mv "$stage/bundle" "$destination"
-for name in wayfinder okfp; do
+for name in wayfinder; do
   ln -sfn "$destination/bin/$name" "$install_dir/$name"
 done
-printf 'Installed Wayfinder %s and okfp in %s\n' "$version" "$install_dir"
+printf 'Installed Wayfinder %s in %s\n' "$version" "$install_dir"
 case ":$PATH:" in
   *":$install_dir:"*) ;;
   *) printf 'Add %s to PATH, then open a new terminal.\n' "$install_dir" ;;

@@ -29,10 +29,10 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
                     raise SystemExit(f'Duplicate archive member: {member.name}')
                 files[member.name] = member
         executable = '.exe' if platform.startswith('windows') else ''
-        required = ['SHA256SUMS', f'bin/wayfinder{executable}', f'bin/okfp{executable}',
+        required = ['SHA256SUMS', f'bin/wayfinder{executable}',
                     'models/embedding.gguf', 'models/manifest.json',
                     'licenses/objectbox/NOTICE', 'licenses/embedding_runtime/NOTICE',
-                    'licenses/okf_profile/LICENSE', 'licenses/dart/packages.json',
+                    'licenses/wayfinder/LICENSE', 'licenses/dart/packages.json',
                     'licenses/dart-sdk/LICENSE', 'LICENSE']
         if any(name not in files for name in required):
             raise SystemExit(f'Incomplete native bundle: {platform}')

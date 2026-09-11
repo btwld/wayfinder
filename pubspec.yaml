@@ -8,9 +8,9 @@ environment:
   sdk: ^3.10.7
 
 workspace:
-  - packages/okf_profile
-  - packages/wayfinder_embeddings
   - packages/wayfinder
+  - packages/wayfinder_embeddings
+  - packages/wayfinder_cli
 
 dev_dependencies:
   melos: ^7.1.1

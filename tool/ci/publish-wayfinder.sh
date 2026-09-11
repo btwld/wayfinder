@@ -3,7 +3,7 @@
 set -euo pipefail
 assets="$(cd "${1:?release artifact directory is required}" && pwd)"
 root="$(git rev-parse --show-toplevel)"
-version="$(sed -n 's/^version: //p' "$root/packages/wayfinder/pubspec.yaml")"
+version="$(sed -n 's/^version: //p' "$root/packages/wayfinder_cli/pubspec.yaml")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
 tag="wayfinder-v$version"
 repo="conceptadev/wayfinder"
@@ -31,13 +31,18 @@ if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   exit 0
 fi
 cat > "$work/notes.md" <<EOF
-Complete Wayfinder $version native bundles, including the okfp validation gate,
+Complete Wayfinder $version native bundles, including built-in Profile validation,
 embedding model and required native libraries. Verify the accompanying SHA-256
 checksums before installation. Platform verification and source provenance are
 recorded by the source CI; source commit: $source_sha.
 
 See the installation guide in this repository for plugin setup and upgrades.
 EOF
-gh release create "$tag" --repo "$repo" --target main --prerelease \
+release_flags=()
+if [[ "$version" == *-* ]]; then release_flags+=(--prerelease); fi
+# Require the pre-existing application tag; its push owns pub.dev publication.
+actual_sha="$(git rev-list -n 1 "$tag")"
+[[ "$actual_sha" == "$source_sha" ]] || { echo 'Release tag must match the checked commit.' >&2; exit 1; }
+gh release create "$tag" --repo "$repo" --verify-tag "${release_flags[@]}" \
   --title "Wayfinder $version" --notes-file "$work/notes.md" \
   "$assets"/*.tar.gz "$assets"/*.sha256 "$assets/source.json"

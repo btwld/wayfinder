@@ -1,10 +1,11 @@
+// Historical validator contract harness. Not a shipped CLI.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
 
-import 'validation.dart';
+import 'package:wayfinder/wayfinder.dart';
 
 /// The package version reported by `okfp --version`.
 const okfpPackageVersion = '0.2.1-dev.0';

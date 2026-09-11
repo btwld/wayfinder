@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:okf_profile/src/cli.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
+import 'legacy_cli.dart';
 import 'support.dart';
 
 void main() {
@@ -25,10 +23,6 @@ void main() {
     final version = await runCli(<String>['--version']);
     expect(version.exitCode, 0);
     expect(version.stdout, 'okfp $okfpPackageVersion');
-
-    final pubspec =
-        loadYaml(await File('pubspec.yaml').readAsString()) as YamlMap;
-    expect(okfpPackageVersion, pubspec['version']);
   });
 
   test('usage errors return exit code 2', () async {

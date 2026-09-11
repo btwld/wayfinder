@@ -55,7 +55,7 @@ Every write follows this sequence, and is complete only when all of it exists:
 1. The concept file, conforming to the routed references above.
 2. Every affected `index.md`, rewritten as the deterministic projection defined in [references/index-projection.md](./references/index-projection.md). Nothing generates indexes for you — follow that reference exactly.
 3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
-4. Automated validation, when `okfp validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
+4. Automated validation, when `wayfinder validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
 5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
 
 Complete the affected indexes, any required lifecycle log entry, and review

@@ -32,30 +32,21 @@ Future<void> main(List<String> arguments) async {
     final process = await Process.start(Platform.resolvedExecutable, [
       'build',
       'cli',
-      '--target=packages/wayfinder/bin/wayfinder.dart',
+      '--target=packages/wayfinder_cli/bin/wayfinder.dart',
       '--output=${output.path}',
     ], mode: ProcessStartMode.inheritStdio);
     exitCode = await process.exitCode;
     if (exitCode != 0) return;
     final bundle = p.join(output.path, 'bundle');
-    final validator = await Process.start(Platform.resolvedExecutable, [
-      'compile',
-      'exe',
-      'packages/okf_profile/bin/okfp.dart',
-      '-o',
-      p.join(bundle, 'bin', Platform.isWindows ? 'okfp.exe' : 'okfp'),
-    ], mode: ProcessStartMode.inheritStdio);
-    exitCode = await validator.exitCode;
-    if (exitCode != 0) return;
     final validatorLicense = await Directory(
-      p.join(bundle, 'licenses', 'okf_profile'),
+      p.join(bundle, 'licenses', 'wayfinder'),
     ).create(recursive: true);
     await File(
-      p.join(workspace, 'packages', 'okf_profile', 'LICENSE'),
+      p.join(workspace, 'packages', 'wayfinder', 'LICENSE'),
     ).copy(p.join(validatorLicense.path, 'LICENSE'));
 
     await File(
-      p.join(workspace, 'packages', 'wayfinder', 'LICENSE'),
+      p.join(workspace, 'packages', 'wayfinder_cli', 'LICENSE'),
     ).copy(p.join(bundle, 'LICENSE'));
     final models = await Directory(
       p.join(bundle, 'models'),
@@ -70,8 +61,8 @@ Future<void> main(List<String> arguments) async {
     await stageObjectBoxAssets(Directory(package), Directory(bundle));
     await stageNativeCliAssets(Directory(package), Directory(bundle));
     await stageDependencyLicenses(Directory(bundle), [
+      'wayfinder_cli',
       'wayfinder',
-      'okf_profile',
     ]);
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {

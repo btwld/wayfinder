@@ -13,7 +13,7 @@ Closes #
 - [ ] `skills/` grepped for the old rule — a skill teaching a withdrawn rule produces conforming files that are wrong, and no validator catches it
 
 ## Checks
-- [ ] Dart format, analysis, tests, and the shipped `okfp` example gate pass
+- [ ] Dart format, analysis, tests, and the shipped `wayfinder validate` example gate pass
 - [ ] Nothing added that names a client, a domain, or a project's own vocabulary
 - [ ] Precedence respected: OKF over the profile, the profile over the implementation guide
 - [ ] Scope not widened beyond the issue

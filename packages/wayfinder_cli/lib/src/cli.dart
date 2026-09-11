@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
-import 'package:okf_profile/okf_profile.dart';
+import 'package:wayfinder/wayfinder.dart';
 
 import 'knowledge.dart';
 import 'mcp_server.dart';

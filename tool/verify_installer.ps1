@@ -7,9 +7,13 @@ $OriginalPath = $env:PATH
 $OriginalUserPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
 $OriginalRoot = $env:WAYFINDER_INSTALL_ROOT
 $OriginalData = $env:WAYFINDER_DATA_DIR
+$OriginalVersion = $env:WAYFINDER_VERSION
 New-Item -ItemType Directory $TestRoot | Out-Null
 $env:WAYFINDER_INSTALL_ROOT = Join-Path $TestRoot 'runtime'
 $env:WAYFINDER_DATA_DIR = Join-Path $TestRoot 'data'
+$env:WAYFINDER_VERSION = (
+    Select-String -Path (Join-Path $Workspace 'packages/wayfinder_cli/pubspec.yaml') -Pattern '^version: (.+)$'
+).Matches[0].Groups[1].Value
 $env:PATH = (($env:PATH -split ';') | Where-Object {
     $_ -and -not (Test-Path (Join-Path $_ 'dart.exe')) -and -not (Test-Path (Join-Path $_ 'dart.bat'))
 }) -join ';'
@@ -25,7 +29,7 @@ function Invoke-WebRequest {
 try {
     & (Join-Path $PSScriptRoot 'install.ps1')
     $InstalledBin = (Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim()
-    $Corpus = Join-Path $Workspace 'packages/wayfinder/test/fixtures/knowledge'
+    $Corpus = Join-Path $Workspace 'packages/wayfinder_cli/test/fixtures/knowledge'
     $Result = & (Join-Path $InstalledBin 'wayfinder.exe') index $Corpus --output=json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $Result.embeddedChunks -le 0) { throw 'Initial indexing failed.' }
     & (Join-Path $InstalledBin 'wayfinder.exe') search $Corpus password --output=json | Out-Null
@@ -51,5 +55,6 @@ try {
     $env:PATH = $OriginalPath
     $env:WAYFINDER_INSTALL_ROOT = $OriginalRoot
     $env:WAYFINDER_DATA_DIR = $OriginalData
+    $env:WAYFINDER_VERSION = $OriginalVersion
     Remove-Item $TestRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

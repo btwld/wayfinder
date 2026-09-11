@@ -11,7 +11,7 @@ Read [README.md](README.md) for the layout, then the files relevant to the task:
 | Bundle conventions | [Profile](profile/okf-profile.md) and [pinned OKF 0.2](skills/author-knowledge-bundle/references/OKF-0.2.md) |
 | Adoption, generation, validation, or migration behavior | [Implementation guide](implementation/okf-implementation-guide.md) |
 | Agent workflows | [Skills](skills/README.md), the affected `SKILL.md`, and its routed references |
-| Validator or release tooling | [Package](packages/okf_profile/README.md), relevant [ADRs](docs/adr/README.md), and [CI](.github/workflows/ci.yml) |
+| Validator or release tooling | [Package](packages/wayfinder/README.md), relevant [ADRs](docs/adr/README.md), and [CI](.github/workflows/ci.yml) |
 
 ## Authority and scope
 
