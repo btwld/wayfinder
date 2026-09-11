@@ -150,7 +150,8 @@ at most once a day, using one GitHub Releases API request that sends no bundle
 content. It never runs for MCP, CI or non-terminal use; set
 `WAYFINDER_NO_UPDATE_CHECK=1` to disable it everywhere.
 
-Run the installer again to install its pinned release or repair that release.
+Run the installer again to install the newest release, or the one
+`WAYFINDER_VERSION` names, and to repair an installation.
 Restart Claude Code to use the updated executable. An upgrade keeps index data
 separate from runtime files. `WAYFINDER_DATA_DIR` selects an explicit data root;
 the existing Station-data migration and model environment overrides are described
