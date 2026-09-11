@@ -4,8 +4,9 @@
   Mermaid or DOT, filtered by type, path prefix or link resolution. MCP clients
   get a read-only `graph` tool.
 - Native installs also report `sources` paths that resolve to nothing as
-  validation advisories. The pub.dev package gains this with the next
-  `wayfinder` core release.
+  validation advisories, and no longer treat adjacent footnote references
+  (`[^a][^b]`) as a missing-source error. The pub.dev package gains both
+  with the next `wayfinder` core release.
 
 # 0.0.3
 
