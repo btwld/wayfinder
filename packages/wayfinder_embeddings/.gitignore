@@ -1,0 +1,30 @@
+# Dart
+.dart_tool/
+.packages
+pubspec.lock
+build/
+.pub-cache/
+.pub/
+coverage/
+
+# Generated comparison artifacts
+validation_results/
+comparison_results/
+/models/
+
+# ObjectBox runtime files (generated code IS committed)
+.obx/
+objectbox_sql_classes.dart
+lib/libobjectbox.dylib
+lib/libobjectbox.so
+lib/objectbox.dll
+download/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+node_modules/

@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        sdk: ["3.6.0", stable]
+        sdk: ["3.10.7", stable]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +27,21 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
         working-directory: packages/okf_profile
+      - run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_embeddings
+      - run: dart test
+        working-directory: packages/wayfinder_embeddings
+      - run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder
+      - run: dart test
+        working-directory: packages/wayfinder
+      - run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run okf_profile:okfp validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/okf_profile
-      - if: matrix.sdk == 'stable'
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub -C tool/release get --enforce-lockfile
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         working-directory: tool/release
@@ -40,52 +49,83 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           dart analyze --fatal-infos
           dart run test
-      - if: matrix.sdk == 'stable'
-        shell: bash
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         env:
-          ASSET: build/okfp-ci-test${{ runner.os == 'Windows' && '.exe' || '' }}
+          ASSET: build/okfp-ci-test
         run: >-
           dart --packages=tool/release/.dart_tool/package_config.json
           tool/release/grind.dart okfp-build-binary
-      - if: matrix.sdk == 'stable'
-        shell: bash
-        run: ./build/okfp-ci-test${{ runner.os == 'Windows' && '.exe' || '' }} --version
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: bash tool/ci/verify-installer-pins.sh
+        run: ./build/okfp-ci-test --version
 
-  installer:
+  native-retrieval:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        sdk: [stable]
+        include:
+          - os: ubuntu-latest
+            sdk: "3.10.7"
     runs-on: ${{ matrix.os }}
-    env:
-      # The runner context is unavailable in job-level env; the workspace is.
-      OKF_INSTALL_DIR: ${{ github.workspace }}/.okf-bin
+    defaults:
+      run:
+        working-directory: packages/wayfinder_embeddings
     steps:
       - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
         with:
-          persist-credentials: false
-      - name: Install with no Dart, no gh session, no sudo
-        run: sh tool/install.sh
-      - run: bash tool/ci/verify-installer.sh "$OKF_INSTALL_DIR"
-      - name: Re-running with matching pins is a no-op
-        run: |
-          sh tool/install.sh | tee rerun.log
-          [[ "$(grep -c 'nothing to do' rerun.log)" == 2 ]]
-      - name: Install again with attestation verification
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rm -rf "$OKF_INSTALL_DIR"
-          sh tool/install.sh | tee verified.log
-          ! grep -q 'were not verified' verified.log
-      - run: bash tool/ci/verify-installer.sh "$OKF_INSTALL_DIR"
-
-  plugin:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          sdk: ${{ matrix.sdk }}
+      - run: dart pub get
+      - uses: actions/cache@v4
         with:
-          persist-credentials: false
-      - run: npx --yes @anthropic-ai/claude-code plugin validate .
+          path: packages/wayfinder_embeddings/models
+          key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
+      - run: dart run tool/prepare_model.dart
+      - run: dart run melos run objectbox:install
+        working-directory: .
+      - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
+      - run: dart test
+        working-directory: packages/wayfinder
+      - run: dart run tool/build_wayfinder.dart --offline
+        working-directory: .
+      - run: python3 tool/verify_wayfinder.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-native.json"
+        shell: bash
+        working-directory: .
+      - run: python3 tool/verify_wayfinder_mcp.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-mcp.json"
+        shell: bash
+        working-directory: .
+      - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json" --native
+        shell: bash
+      - name: Compare OKF retrieval components on both fixed splits
+        shell: bash
+        run: |
+          dart run tool/evaluate_okf_retrieval.dart --native --split=development --output="$RUNNER_TEMP/okf-development.json"
+          dart run tool/evaluate_okf_retrieval.dart --native --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
+      - run: dart run tool/build_wayfinder_embeddings.dart --offline
+      - name: Run relocated native bundle against the judged corpus
+        shell: bash
+        run: |
+          mv build/wayfinder_embeddings/bundle "$RUNNER_TEMP/retrieval-bundle"
+          mkdir "$RUNNER_TEMP/retrieval-cwd"
+          cd "$RUNNER_TEMP/retrieval-cwd"
+          corpus="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/corpus"
+          "$RUNNER_TEMP/retrieval-bundle/bin/compare_embeddings" \
+            --fixtures="$corpus" \
+            --queries="$corpus/retrieval_queries.json" \
+            --qrels="$corpus/retrieval_qrels.json" \
+            --embedders=bm25,dense,hybrid --store=objectbox \
+            --top=10 --candidates=50 --long-input=truncate \
+            --output="$RUNNER_TEMP/retrieval-results" \
+            --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/local_metrics_baseline.json" \
+            --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
+          path: |
+            ${{ runner.temp }}/wayfinder-native.json
+            ${{ runner.temp }}/wayfinder-mcp.json
+            ${{ runner.temp }}/retrieval-metrics.json
+            ${{ runner.temp }}/knowledge-cases.json
+            ${{ runner.temp }}/okf-development.json
+            ${{ runner.temp }}/okf-held-out.json

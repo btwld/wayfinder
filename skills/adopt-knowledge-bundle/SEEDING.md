@@ -1,7 +1,11 @@
 # Seeding a bundle
 
-The root files of a new bundle at `knowledge/`. Replace `<...>` placeholders;
-`generated.by` follows the [OKF §7 actor convention](../author-knowledge-bundle/references/OKF-0.2.md#7-actor-convention).
+The root files of a new bundle at `knowledge/`. Replace `<...>` placeholders.
+Read the [OKF §7 actor convention](../author-knowledge-bundle/references/OKF-0.2.md#7-actor-convention)
+before filling `generated.by`: agents and tools use their known
+`<producer>/<version>` identity. Registry IDs being opaque does not create another
+actor convention. Do not invent a producer or version when that information is
+unavailable; report the gap.
 
 The structural minimum is `index.md`, `log.md`, `profile.md`, and `types.md`.
 These templates also use `generated.by`, so their literal seeded form requires

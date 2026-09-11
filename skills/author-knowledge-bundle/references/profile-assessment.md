@@ -5,11 +5,19 @@ applies. This reference defines Profile Review for both scopes: the scoped
 review that completes every atomic write, and the deliberate whole-bundle
 assessment the `assess-knowledge-bundle` skill runs.
 
-After a write or when asked for Profile Review, run automated validation over the
-whole bundle when `okfp validate` is available, then assess every contextual rule
-taught in this skill's references for the review scope. The canonical assignment
+After a write or when asked for Profile Review, collect automated validation over
+the whole bundle, then assess every contextual rule taught in this skill's
+references for the supported release and review scope. Prefer an installed
+`okfp validate knowledge`; `dart run okf_profile:okfp validate knowledge` is an
+alternative when the repository has that Dart dependency. Reuse a result already
+collected for the same unchanged tree; rerun after repairs. If neither command is
+available, report `NOT RUN` and the reason. Unsupported or unreadable declarations
+still allow collecting automated diagnostics, but do not authorize contextual
+review under an assumed release.
+
+The canonical assignment
 audit is `implementation/profile-coverage.md` in the
-[okf-profile repository](https://github.com/conceptadev/okf-profile); the review
+[okf-profile repository](https://github.com/conceptadev/wayfinder); the review
 map below keeps this installed skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,

@@ -1,12 +1,26 @@
 # Documentation index
 
-## Domain
+## Vocabulary
 
-docs/GLOSSARY.md — Glossary (Current) — Canonical language for the Profile, automated validation, contextual review, review reports, and complete assessment. Topics: OKF, profile, conformance, validation, review.
+[Glossary](GLOSSARY.md) — Canonical language for the Profile, automated validation, contextual review, review reports, and complete assessment.
 
 ## Compatibility
 
-docs/compatibility-review.md — Compatibility Review (Complete) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2. Topics: compatibility, OKF, release.
+[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2.
+
+[Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
+
+## Maintenance
+
+[ObjectBox configuration and build review](objectbox-build-review.md) — Runtime/generator pins, native assets, schema compatibility and platform evidence.
+
+[Wayfinder retrieval](wayfinder_embeddings.md) — Library setup, evaluation and implementation evidence.
+
+[Wayfinder naming and release plan](wayfinder-release-plan.md) — Product names, package boundaries, migration, and publication sequence.
+
+[Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
+
+[Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the three distributed skills.
 
 ## Operations
 
@@ -16,10 +30,10 @@ docs/releasing.md — Releasing (Current) — What a release tag does, every ver
 
 ## ADRs
 
-docs/adr/0004-closed-concepta-profile-validator.md — ADR (Accepted) — Define the closed validator, model-independent CI, contextual review, required root registries, authored logs, and derived indexes. Topics: validation, review, agents, CI, registries, logs, indexes, deferral.
+[0004: Closed Concepta Profile validator](adr/0004-closed-concepta-profile-validator.md) — Accepted. Closed validation, contextual review, registries, authored logs, and derived indexes.
 
-docs/adr/0006-raw-tier-under-references.md — ADR (Accepted) — A per-source raw/ tier under references/ for verbatim originals; no markdown inside but each directory's index. Topics: references, raw tier, mirroring, structure.
+[0006: Raw tier under references](adr/0006-raw-tier-under-references.md) — Accepted. Optional per-source storage for verbatim originals; each directory's index is the only Markdown inside the tier.
 
-docs/adr/0007-index-targets-compared-percent-decoded.md — ADR (Accepted) — Index entry targets are relative URLs compared percent-decoded, so real-world filenames stay expressible. Topics: indexes, targets, encoding, references.
+[0007: Percent-decoded index targets](adr/0007-index-targets-compared-percent-decoded.md) — Accepted. Compare relative URLs after decoding so real-world filenames stay expressible.
 
-docs/adr/0008-okfp-adopts-okf-finding-contract.md — ADR (Accepted) — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired. Topics: validation, findings, okf, wire contract, exit codes.
+[0008: OKF finding contract](adr/0008-okfp-adopts-okf-finding-contract.md) — Accepted. Reuse OKF's finding report as the wire format and retire the separate load-issue channel.

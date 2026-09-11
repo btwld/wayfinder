@@ -1,0 +1,282 @@
+{
+  "description": "Synthetic retrieval boundary cases; metadata is caller-projected, not new OKF frontmatter. Judgments were written before running the model.",
+  "asOf": "2026-09-09",
+  "limit": 3,
+  "chunks": [
+    {
+      "id": "recovery",
+      "sourcePath": "guidance/recovery.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Regain account access by requesting a password recovery email. Follow its single-use link to choose a replacement password.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "legacy_recovery",
+      "sourcePath": "history/recovery.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Forgot your password? Email the administrator your current password to restore account access.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "deprecated"
+      }
+    },
+    {
+      "id": "draft_recovery",
+      "sourcePath": "drafts/recovery.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "A proposed account recovery flow would let a support operator assign a temporary password.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "draft"
+      }
+    },
+    {
+      "id": "session_symbol",
+      "sourcePath": "lib/session.dart",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "resetSessionToken removes the previous session token and issues a replacement token after successful authentication.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "transport_rule",
+      "sourcePath": "standard/transport.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Every diagnostic endpoint MUST encrypt traffic in transit, including endpoints on a local network.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "transport_conflict",
+      "sourcePath": "implementation/transport.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Local diagnostic endpoints may use unencrypted transport for debugging on a trusted network.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "retry_safe",
+      "sourcePath": "guidance/retries.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Retry idempotent requests after transient network failures, using exponential backoff and random jitter.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "retry_unsafe",
+      "sourcePath": "guidance/payments.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Never automatically repeat a payment submission without an idempotency key: a second attempt can charge the customer twice.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "cache_server",
+      "sourcePath": "server/cache.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Cached responses expire after sixty seconds. Purge an entry immediately when its source record changes.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "cache_browser",
+      "sourcePath": "browser/cache.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "The browser stores static images in its disk cache for one day. Reload to refresh a stale image.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable"
+      }
+    },
+    {
+      "id": "rotation_old",
+      "sourcePath": "history/rotation.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Rotate the signing key every ninety days.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable",
+        "stale_after": "2026-09-01"
+      }
+    },
+    {
+      "id": "rotation_current",
+      "sourcePath": "guidance/rotation.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "Rotate the signing key every thirty days.",
+      "type": "paragraph",
+      "metadata": {
+        "status": "stable",
+        "stale_after": "2026-12-01"
+      }
+    },
+    {
+      "id": "unverified",
+      "sourcePath": "guidance/imports.md",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "content": "To repair a failed import, retry the individual rows rejected by the schema validator.",
+      "type": "paragraph",
+      "metadata": {}
+    }
+  ],
+  "cases": [
+    {
+      "id": "exact_symbol",
+      "query": "resetSessionToken",
+      "relevantIds": [
+        "session_symbol"
+      ]
+    },
+    {
+      "id": "paraphrase",
+      "query": "I lost my credentials and cannot sign in. How do I get back in?",
+      "relevantIds": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "current_recovery",
+      "query": "Forgot your password? Restore account access.",
+      "relevantIds": [
+        "recovery"
+      ],
+      "options": {
+        "metadataFilters": {
+          "status": [
+            "stable",
+            "draft"
+          ]
+        }
+      },
+      "note": "Caller explicitly excludes deprecated material; drafts remain eligible and must be labeled."
+    },
+    {
+      "id": "historical_recovery",
+      "query": "Forgot your password? Restore account access.",
+      "relevantIds": [
+        "legacy_recovery"
+      ],
+      "options": {
+        "metadataFilters": {
+          "status": "deprecated"
+        }
+      },
+      "note": "A history question must still be able to retrieve deprecated documents."
+    },
+    {
+      "id": "negation",
+      "query": "Which requests must never be retried automatically?",
+      "relevantIds": [
+        "retry_unsafe"
+      ]
+    },
+    {
+      "id": "authority_unscoped",
+      "query": "Can a local diagnostic endpoint use unencrypted transport?",
+      "relevantIds": [
+        "transport_rule"
+      ],
+      "note": "The implementation contradicts the governing fixture. Relevance rank does not settle the conflict."
+    },
+    {
+      "id": "authority_scoped",
+      "query": "Can a local diagnostic endpoint use unencrypted transport?",
+      "relevantIds": [
+        "transport_rule"
+      ],
+      "options": {
+        "filePaths": [
+          "standard/transport.md"
+        ]
+      },
+      "note": "The caller supplies the governing scope; this evaluator does not infer authority from a path."
+    },
+    {
+      "id": "scope_server",
+      "query": "When do cached responses expire?",
+      "relevantIds": [
+        "cache_server"
+      ],
+      "options": {
+        "filePatterns": [
+          "server/**"
+        ]
+      }
+    },
+    {
+      "id": "scope_browser",
+      "query": "When does a cached image expire?",
+      "relevantIds": [
+        "cache_browser"
+      ],
+      "options": {
+        "filePatterns": [
+          "browser/**"
+        ]
+      }
+    },
+    {
+      "id": "freshness_unscoped",
+      "query": "How often do we rotate the signing key?",
+      "relevantIds": [
+        "rotation_current"
+      ],
+      "note": "Stable status alone does not establish freshness."
+    },
+    {
+      "id": "freshness_scoped",
+      "query": "How often do we rotate the signing key?",
+      "relevantIds": [
+        "rotation_current"
+      ],
+      "options": {
+        "filePaths": [
+          "guidance/rotation.md"
+        ]
+      },
+      "note": "Eligible path preselected at 2026-09-09 using stale_after. Dates are not parsed by generic search filters."
+    },
+    {
+      "id": "missing_trust",
+      "query": "Repair a failed import after schema validation rejects rows.",
+      "relevantIds": [
+        "unverified"
+      ],
+      "note": "Missing optional verification metadata must not make knowledge unreadable."
+    },
+    {
+      "id": "no_answer",
+      "query": "Orbital inclination of Neptune in degrees?",
+      "relevantIds": [],
+      "note": "No source answers this. Retrieved candidates are not proof that an answer exists."
+    }
+  ]
+}

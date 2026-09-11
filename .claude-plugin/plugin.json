@@ -1,15 +1,15 @@
 {
-  "name": "concepta-knowledge",
-  "description": "Author, adopt, and assess a knowledge bundle under the Concepta OKF Profile 2026.1 (OKF 0.2). Registers the okf MCP server over the repository's knowledge/ bundle.",
-  "author": {
-    "name": "Concepta"
-  },
-  "homepage": "https://github.com/conceptadev/okf-profile",
+  "name": "wayfinder",
+  "version": "0.0.1-dev.1",
+  "description": "Author, adopt and assess Concepta OKF knowledge bundles, with local Wayfinder validation and retrieval over MCP.",
+  "author": { "name": "Concepta" },
+  "homepage": "https://github.com/conceptadev/wayfinder",
+  "repository": "https://github.com/conceptadev/wayfinder",
   "license": "Apache-2.0",
   "mcpServers": {
-    "okf": {
-      "command": "okf",
-      "args": ["mcp", "knowledge"]
+    "wayfinder": {
+      "command": "${WAYFINDER_EXECUTABLE:-wayfinder}",
+      "args": ["mcp", "${WAYFINDER_KNOWLEDGE_DIR:-knowledge}"]
     }
   }
 }

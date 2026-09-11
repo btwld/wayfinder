@@ -1,9 +1,23 @@
-# Concepta OKF
+# Wayfinder
 
-The home of the **Concepta OKF Profile** — a set of conventions for keeping durable project
-knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the code it
-describes — together with the skills, tooling, and examples that put it to work in any
-Concepta repository.
+Find, connect, and use your project's knowledge. Wayfinder provides local OKF
+validation, persistent semantic search, and an MCP server for coding agents.
+
+See the [installation and usage guide](packages/wayfinder/README.md) for the
+Dart CLI and complete native retrieval bundle, and the
+[naming and release plan](docs/wayfinder-release-plan.md) for package boundaries
+and migration from the unpublished Station prototype.
+
+Wayfinder also hosts the **Concepta OKF Profile** — conventions for keeping durable project
+knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
+tooling, and examples that put it to work in Concepta repositories.
+
+The aim is a shared project memory, or **second brain**, that people and agents can
+read, connect, and use. A bundle can live alongside project code or in a dedicated
+knowledge repository. Evidence grounds the knowledge; reusable guidance helps turn
+it into work and artifacts. Capture pipelines, artifact templates, and export
+automation are workflows to develop around that memory; this repository currently
+ships authoring skills and validation, not those production workflows.
 
 The profile is a *profile*, not a format. It defines no file type, no frontmatter field, and
 no metadata semantics of its own; every mechanism it uses is defined by OKF and used with its
@@ -33,8 +47,14 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | --- | --- |
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
-| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
+| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `wayfinder` plugin |
+| [`packages/wayfinder/`](packages/wayfinder/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
+| [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
+| [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
+| [`tool/`](tool/) | CI and release tooling |
+| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, and maintenance reviews |
+| [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
 and publication status are declared at the top, never in the filename. During a
@@ -46,28 +66,30 @@ not belong in an identity — without silently replacing an identified release.
 
 ## Getting started
 
-### 1. Install the tools and the skills
+### 1. Install the skills
 
-[docs/install.md](docs/install.md) is the guide: one command per operating system
-for the `okf` and `okfp` binaries, and two Claude Code commands for the skills. It
-needs only Claude Code, no Dart SDK.
+The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
 
-The skills live in [`skills/`](skills/) and ship as one plugin through the public
-distribution repository, [conceptadev/okf-profile-dist](https://github.com/conceptadev/okf-profile-dist),
-which the release workflow regenerates on every tag ([docs/releasing.md](docs/releasing.md)).
-For Claude Code:
+First [install Wayfinder](packages/wayfinder/README.md#dart-installation). Run
+Claude Code from the consuming project with a `knowledge/` bundle, or set
+`WAYFINDER_KNOWLEDGE_DIR` to its explicit path before launching Claude Code.
+The plugin registers Wayfinder's local MCP server; search and indexing require
+the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
+binary outside `PATH`.
 
 ```
-/plugin marketplace add conceptadev/okf-profile-dist
-/plugin install concepta-knowledge@okf-profile
+/plugin marketplace add conceptadev/wayfinder
+/plugin install wayfinder@wayfinder
 ```
 
-Installing the plugin also registers the `okf` MCP server over the repository's
-`knowledge/` bundle. Copying or symlinking the skill directories into
-`~/.claude/skills/` also works — install all three as a unit, since they reference
-each other by sibling path. Symlinking is the better fallback: the skills are
-versioned with the profile they describe, and a copy silently ages past it. See
-[skills/README.md](skills/README.md) for the full set and what each one does.
+When upgrading, uninstall `concepta-knowledge@wayfinder` before installing
+`wayfinder@wayfinder` so skills and MCP servers are registered once.
+
+Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
+all three as a unit, since they reference each other by sibling path. Symlinking is the
+better fallback: the skills are versioned with the profile they describe, and a copy
+silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
+each one does.
 
 ### 2. Set up a project repository
 
@@ -77,11 +99,14 @@ In the repository you want to adopt the profile, run:
 /adopt-knowledge-bundle
 ```
 
-It is prompt-driven, not a script: it explores what the repository already has, shows you what
-it proposes, and writes only after you confirm. It seeds the root files of `knowledge/` —
+It is prompt-driven: it explores what the repository already has and applies the
+requested setup, asking when an unresolved choice or conflict needs your input.
+It preserves existing bundles and seeds a new bundle's root files under `knowledge/` —
 the four the profile requires, plus `actors.md` because the seed templates use actor
 metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
-Issue-tracker and triage-label setup are out of its scope.
+It then runs automated validation and Profile Review, reporting any unavailable
+check before claiming completion. Issue-tracker and triage-label setup are out of
+its scope.
 
 **It creates no directories under `knowledge/`, and that is correct.** A directory
 names a *subject*, and generic setup has no corpus from which to judge one (profile
@@ -108,16 +133,10 @@ profile will confidently create `decisions/`.
 ### 4. Validate the bundle
 
 ```bash
-okfp validate knowledge
+dart run okf_profile:okfp validate knowledge
 # Machine-readable output:
-okfp validate knowledge --output json
+dart run okf_profile:okfp validate knowledge --output json
 ```
-
-`okfp` is a standalone binary, installed per [docs/install.md](docs/install.md); no
-Dart SDK is needed to run it. Dart developers
-and CI jobs that already carry a Dart SDK can run the same command from the
-published package instead: `dart run okf_profile:okfp validate knowledge` in a
-repository that depends on `okf_profile`, or `dart pub global activate okf_profile`.
 
 The command requires exactly one explicit bundle directory and inspects only that
 directory. It runs the independent OKF check and every deterministic rule selected
@@ -132,6 +151,26 @@ metadata truth, and source or relationship meaning require the Profile Review in
 the canonical `author-knowledge-bundle` skill. One `okfp validate <bundle>` invocation is the
 single supported automated CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
+
+## Search local knowledge with Wayfinder
+
+Wayfinder combines validation and local semantic retrieval. After preparing the
+native runtime and model, run from the workspace root:
+
+```bash
+dart run wayfinder:wayfinder validate examples/knowledge
+dart run wayfinder:wayfinder index examples/knowledge
+dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
+```
+
+`index` generates and saves document embeddings locally; `search` reuses them
+and encodes only the query. There is no retrieval-mode flag. See the
+[Wayfinder guide](packages/wayfinder/README.md) for setup, packaging and local data
+locations. Existing `okfp validate` remains supported.
+
+`wayfinder mcp <bundle>` exposes the same validation, index and search services
+to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder/README.md#mcp-server)
+for the launch configuration and tool lifecycle.
 
 ## Examples
 
@@ -187,9 +226,51 @@ Two normative documents, and the difference is *what conforms to each*:
 Both carry RFC 2119 force; neither is the soft one. The test for a new rule: does it describe
 the bundle, or someone acting on the bundle?
 
+## Contributor checks
+
+From the repository root, the core checks used by [CI](.github/workflows/ci.yml) are:
+
+```bash
+dart pub get
+dart format --output=none --set-exit-if-changed packages/okf_profile/bin packages/okf_profile/lib packages/okf_profile/test
+dart analyze --fatal-infos
+(cd packages/okf_profile && dart test)
+dart run okf_profile:okfp validate examples/knowledge
+```
+
+For skill or documentation changes, also check local links and compare changed
+rule wording with its authoritative source. Release-tool changes additionally
+use the checks under `tool/release/` in CI. Example-gate success covers automated
+checks only; contextual Profile Review remains separate.
+
 ## Still owed
 
 - **The index generator** (guide §3). The profile defines deterministic semantic
   membership, grouping, ordering, labels, links, and descriptions. Until a
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
+
+See the [maintenance review](docs/maintenance-review.md) for the existing issues,
+installation work in progress, and the remaining second-brain workflow questions.
+
+## Dart workspace development
+
+Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
+repository root, then `melos lint` to analyze, check formatting, and test all workspace
+packages. The published `okf_profile` package retains its Dart 3.6 minimum.
+
+`wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
+license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)
+and the [retrieval documentation guide](docs/wayfinder_embeddings.md) for the
+implementation, evaluation runbook and recorded decisions. Its optional native
+backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
+files with `melos build` only when entity schemas change.
+
+For native semantic retrieval, `melos run wayfinder_embeddings:prepare` stages the pinned
+25.28 MB model. `melos run wayfinder_embeddings:build` creates a
+CLI bundle containing the model and native libraries. See the
+[local search implementation and measurements](docs/wayfinder_embeddings_local_search.md).
+The accepted model choice and next retrieval experiments are recorded in
+[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `okfp` currently provides
+bundle validation; search examples and evaluation commands live in the
+[embedding package](packages/wayfinder_embeddings/README.md#command-line-entry-points).

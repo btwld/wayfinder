@@ -1,0 +1,58 @@
+name: Publish wayfinder_embeddings
+
+on:
+  push:
+    tags: ['wayfinder_embeddings-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-wayfinder_embeddings-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Match tag to package version
+        working-directory: packages/wayfinder_embeddings
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(sed -n 's/^version: //p' pubspec.yaml)"
+          test "$TAG" = "wayfinder_embeddings-v$version"
+      # No OIDC permission here: dependency downloads use normal public access.
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_embeddings
+      - run: dart test
+        working-directory: packages/wayfinder_embeddings
+      # Exact llamadart/ObjectBox pins are reviewed compatibility constraints.
+      - run: dart pub publish --dry-run --ignore-warnings
+        working-directory: packages/wayfinder_embeddings
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      # The same immutable tag passed verification above. Pub's scoped OIDC
+      # credential cannot resolve dependencies; do not repeat pub get here.
+      - run: dart pub publish --force --skip-validation
+        working-directory: packages/wayfinder_embeddings

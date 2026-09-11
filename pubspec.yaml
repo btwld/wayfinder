@@ -1,9 +1,57 @@
-name: okf_profile_workspace
-description: Workspace for the Concepta OKF Profile repository. The publishable package is packages/okf_profile.
+name: wayfinder_workspace
+description: >-
+  Workspace for Wayfinder: local knowledge discovery, the Concepta OKF Profile
+  toolchain, and reusable retrieval libraries.
 publish_to: none
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
+  sdk: ^3.10.7
 
 workspace:
   - packages/okf_profile
+  - packages/wayfinder_embeddings
+  - packages/wayfinder
+
+dev_dependencies:
+  melos: ^7.1.1
+
+  args: ^2.7.0
+  path: ^1.9.1
+hooks:
+  user_defines:
+    llamadart:
+      llamadart_native_runtimes: [llama_cpp]
+      llamadart_native_backends: [cpu]
+
+melos:
+  scripts:
+    get:
+      run: dart pub get
+    build:
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run build_runner build
+    wayfinder_embeddings:prepare:
+      description: Download and verify the pinned local embedding model
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/prepare_model.dart
+    embeddings:prepare:
+      description: Compatibility alias for wayfinder_embeddings:prepare
+      run: dart run melos run wayfinder_embeddings:prepare
+    embeddings:build:
+      description: Compatibility alias for wayfinder_embeddings:build
+      run: dart run melos run wayfinder_embeddings:build
+    wayfinder:build:
+      description: Build Wayfinder with verified local model and native libraries
+      run: dart run tool/build_wayfinder.dart
+    wayfinder_embeddings:build:
+      description: Build the retrieval CLI with its local model and native libraries
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/build_wayfinder_embeddings.dart
+    objectbox:install:
+      description: Install the pinned ObjectBox native library locally
+      run: dart run melos exec --scope=wayfinder_embeddings -- bash tool/install_objectbox.sh
+    analyze:
+      run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
+    format:check:
+      run: dart run melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
+    test:
+      run: dart run melos exec --fail-fast -- dart test
+    lint:
+      run: dart run melos run analyze && dart run melos run format:check && dart run melos run test

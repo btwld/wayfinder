@@ -14,18 +14,21 @@ Review for both scopes.
 ## Process
 
 1. Read [`../author-knowledge-bundle/SKILL.md`](../author-knowledge-bundle/SKILL.md)
-   and perform its release dispatch before anything else — an unsupported
-   declaration is reported, never assessed.
-2. Run `okfp validate knowledge` when available and record
-   its result. It exposes the OKF result, the deterministic Profile result, and
-   leaves judgment rules `UNASSESSED` — those are what the rest of this
-   assessment supplies. When the CLI is unavailable, record `NOT RUN` with the
-   reason; never substitute your own guess for a deterministic result.
+   and determine release support without modifying the declaration. Unsupported
+   contextual rules are never applied, but release dispatch does not skip step 2.
+2. Collect automated validation using the command selection in the shared
+   [assessment reference](../author-knowledge-bundle/references/profile-assessment.md).
+   Record the independent OKF result, deterministic Profile result, and automated
+   gate even when the release is unsupported or the declaration is defective.
+   When the CLI is unavailable, record `NOT RUN` with the reason; never substitute
+   a guess for a deterministic result. If release dispatch was unavailable or
+   unsupported, report that contextual review was not performed and stop here.
 3. Follow
    [`../author-knowledge-bundle/references/profile-assessment.md`](../author-knowledge-bundle/references/profile-assessment.md)
    with **Scope: whole bundle** — every contextual rule, every concept, using
    its review map to enumerate the surface. Read the other references there as
    each rule needs them.
 4. Emit its Profile Review Report in the interaction or pull request, never as
-   a certificate inside the bundle. Fix clear defects and re-assess; escalate
-   with `NEEDS HUMAN` per the assessment reference.
+   a certificate inside the bundle. Fix clear defects within the user's requested
+   scope and re-assess; a read-only assessment reports defects without editing.
+   Escalate with `NEEDS HUMAN` per the assessment reference.

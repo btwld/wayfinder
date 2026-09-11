@@ -21,3 +21,5 @@ behaviour per unit of interface a caller must learn.
 | [0006](0006-raw-tier-under-references.md) | Accepted — a per-source `raw/` tier under `references/` for verbatim originals; no markdown inside but each directory's index |
 | [0007](0007-index-targets-compared-percent-decoded.md) | Accepted — index entry targets are relative URLs compared percent-decoded, so real-world filenames stay expressible |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired |
+| [0009](0009-local-knowledge-retrieval.md) | Accepted — keep Arctic XS for optional local embeddings; retain BM25 by default and improve passage selection through measured experiments |
+| [0010](0010-station-cli.md) | Accepted — Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots |
