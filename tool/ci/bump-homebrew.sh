@@ -47,7 +47,7 @@ if git diff --cached --quiet; then
   echo "okfp: $formula already points at $version"
   exit 0
 fi
-git -c user.name="${GIT_AUTHOR_NAME:-okf-profile-release[bot]}" \
-  -c user.email="${GIT_AUTHOR_EMAIL:-okf-profile-release[bot]@users.noreply.github.com}" \
+git -c user.name="${GIT_AUTHOR_NAME:-wayfinder-release[bot]}" \
+  -c user.email="${GIT_AUTHOR_EMAIL:-wayfinder-release[bot]@users.noreply.github.com}" \
   commit --quiet -am "Update okfp to $version"
 git -c credential.helper='!gh auth git-credential' push --quiet origin HEAD
