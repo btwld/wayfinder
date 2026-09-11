@@ -1,4 +1,4 @@
-# Unreleased
+# 0.0.3
 
 - Homebrew installations are directed to the install script because the formula
   is no longer updated.
