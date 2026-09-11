@@ -62,7 +62,7 @@ Future<void> main(List<String> args) async {
     }
     await File('LICENSE').copy(p.join(bundle.path, 'LICENSE'));
     await stageObjectBoxAssets(package, bundle);
-    await stageWindowsBackendAssets(bundle);
+    await stageNativeCliAssets(package, bundle);
     stdout.writeln('Built retrieval bundle: ${bundle.path}');
   } catch (error) {
     stderr.writeln('Embedding build failed: $error');
