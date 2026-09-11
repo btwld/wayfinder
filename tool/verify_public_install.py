@@ -1,13 +1,24 @@
 """Exercise published installers with no Dart SDK or repository credentials."""
+import hashlib
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = 'https://raw.githubusercontent.com/conceptadev/wayfinder-dist/main/tool/'
+
+def download_installer(script):
+    # Fetch the current public file when validating a just-published correction.
+    url = PUBLIC + script.name + '?verification=' + str(time.time_ns())
+    with urllib.request.urlopen(url, timeout=60) as response:
+        data = response.read()
+    script.write_bytes(data)
+    print(f'{script.name} SHA-256: {hashlib.sha256(data).hexdigest()}', flush=True)
+
 with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
     work = Path(temporary)
     env = {key: value for key, value in os.environ.items()
@@ -24,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
             str(Path(powershell).parent),
         ])
         script = work / 'install.ps1'
-        urllib.request.urlretrieve(PUBLIC + script.name, script)
+        download_installer(script)
         subprocess.run([powershell, '-NoProfile', '-File', str(script)], env=env, check=True)
         bins = list((work / 'runtime').glob('*/bin/wayfinder.exe'))
         if len(bins) != 1:
@@ -34,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
     else:
         env['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin'
         script = work / 'install.sh'
-        urllib.request.urlretrieve(PUBLIC + script.name, script)
+        download_installer(script)
         subprocess.run(['/bin/sh', str(script)], env=env, check=True)
         binary_dir = work / 'bin'
         suffix = ''
