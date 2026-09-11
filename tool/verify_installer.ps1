@@ -8,7 +8,9 @@ $OriginalUserPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
 $OriginalRoot = $env:WAYFINDER_INSTALL_ROOT
 $OriginalData = $env:WAYFINDER_DATA_DIR
 $OriginalVersion = $env:WAYFINDER_VERSION
+$OriginalProfile = $env:USERPROFILE
 New-Item -ItemType Directory $TestRoot | Out-Null
+$env:USERPROFILE = Join-Path $TestRoot 'home'
 $env:WAYFINDER_INSTALL_ROOT = Join-Path $TestRoot 'runtime'
 $env:WAYFINDER_DATA_DIR = Join-Path $TestRoot 'data'
 $env:WAYFINDER_VERSION = (
@@ -29,6 +31,11 @@ function Invoke-WebRequest {
 try {
     & (Join-Path $PSScriptRoot 'install.ps1')
     $InstalledBin = (Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim()
+    foreach ($Base in @('.claude', '.agents')) {
+        if (-not (Test-Path (Join-Path $env:USERPROFILE "$Base/skills/use-wayfinder/SKILL.md"))) {
+            throw "Skills were not installed for $Base."
+        }
+    }
     $Corpus = Join-Path $Workspace 'packages/wayfinder_cli/test/fixtures/knowledge'
     $Result = & (Join-Path $InstalledBin 'wayfinder.exe') index $Corpus --output=json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $Result.embeddedChunks -le 0) { throw 'Initial indexing failed.' }
@@ -56,5 +63,6 @@ try {
     $env:WAYFINDER_INSTALL_ROOT = $OriginalRoot
     $env:WAYFINDER_DATA_DIR = $OriginalData
     $env:WAYFINDER_VERSION = $OriginalVersion
+    $env:USERPROFILE = $OriginalProfile
     Remove-Item $TestRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

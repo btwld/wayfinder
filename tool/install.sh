@@ -12,6 +12,11 @@ case "$version" in
   *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
 esac
 release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
+skills="${WAYFINDER_SKILLS:-all}"
+case "$skills" in
+  all|claude|agents|none) ;;
+  *) fail 'WAYFINDER_SKILLS must be all, claude, agents or none.' ;;
+esac
 install_dir="${WAYFINDER_INSTALL_DIR:-$HOME/.local/bin}"
 runtime_root="${WAYFINDER_INSTALL_ROOT:-$HOME/.local/share/wayfinder-runtime}"
 case "$(uname -s)-$(uname -m)" in
@@ -67,7 +72,15 @@ mv "$stage/bundle" "$destination"
 for name in wayfinder; do
   ln -sfn "$destination/bin/$name" "$install_dir/$name"
 done
+# wayfinder update reinstalls into the same command directory.
+printf '%s\n' "$install_dir" > "$runtime_root/install-dir.txt"
 printf 'Installed Wayfinder %s in %s\n' "$version" "$install_dir"
+# Agent skills ship with releases that bundle them. A skills failure never
+# undoes the installed runtime.
+if [ "$skills" != none ] && [ -d "$destination/skills" ]; then
+  "$destination/bin/wayfinder" skills install --agent="$skills" ||
+    printf 'wayfinder install: skills were not installed; run wayfinder skills install.\n' >&2
+fi
 case ":$PATH:" in
   *":$install_dir:"*) ;;
   *) printf 'Add %s to PATH, then open a new terminal.\n' "$install_dir" ;;

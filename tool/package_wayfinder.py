@@ -20,9 +20,12 @@ bundle = args.bundle.resolve()
 archive = args.archive.resolve()
 if bundle == archive or bundle in archive.parents:
     parser.error('Archive must be outside the bundle')
+skills = [f'skills/{name}/SKILL.md' for name in [
+    'adopt-knowledge-bundle', 'assess-knowledge-bundle',
+    'author-knowledge-bundle', 'use-wayfinder']]
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
              'licenses/objectbox/NOTICE', 'licenses/wayfinder/LICENSE',
-             'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE']:
+             'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:
     if not (bundle / name).is_file():
         parser.error(f'Incomplete bundle: {name}')
 for command in ['wayfinder']:

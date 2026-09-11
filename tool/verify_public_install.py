@@ -30,6 +30,8 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
     env['WAYFINDER_INSTALL_ROOT'] = str(work / 'runtime')
     env['WAYFINDER_INSTALL_DIR'] = str(work / 'bin')
     env['WAYFINDER_DATA_DIR'] = str(work / 'data')
+    # Installed agent skills must land in a throwaway home, not the caller's.
+    env['USERPROFILE' if os.name == 'nt' else 'HOME'] = str(work / 'home')
     if os.name == 'nt':
         system = Path(os.environ['SystemRoot']) / 'System32'
         if os.environ.get('WAYFINDER_POWERSHELL') == 'powershell':

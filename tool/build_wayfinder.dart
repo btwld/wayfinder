@@ -48,6 +48,17 @@ Future<void> main(List<String> arguments) async {
     await File(
       p.join(workspace, 'packages', 'wayfinder_cli', 'LICENSE'),
     ).copy(p.join(bundle, 'LICENSE'));
+    // The skill family ships with the runtime it describes, so installing or
+    // updating Wayfinder installs matching skills.
+    final skills = Directory(p.join(workspace, 'skills'));
+    await for (final file in skills.list(recursive: true, followLinks: false)) {
+      if (file is! File) continue;
+      final target = File(
+        p.join(bundle, 'skills', p.relative(file.path, from: skills.path)),
+      );
+      await target.parent.create(recursive: true);
+      await file.copy(target.path);
+    }
     final models = await Directory(
       p.join(bundle, 'models'),
     ).create(recursive: true);
