@@ -17,6 +17,8 @@ class KnowledgeSnapshot {
     this.graph,
     this._metadata,
     this._contextTexts,
+    this.sources,
+    this.assets,
   );
 
   final String bundleId;
@@ -24,6 +26,10 @@ class KnowledgeSnapshot {
   final OkfGraph graph;
   final Map<String, OkfMetadata> _metadata;
   final Map<String, String> _contextTexts;
+
+  /// Original inputs retained to rebuild upstream OKF graph/metadata semantics.
+  final Map<String, String> sources;
+  final List<String> assets;
 
   /// Loads a complete inventory using OKF's symlink and parse protections.
   /// No store mutation occurs until the entire snapshot has been read.
@@ -155,10 +161,59 @@ class KnowledgeSnapshot {
       OkfGraph.fromBundle(bundle),
       Map.unmodifiable(metadata),
       Map.unmodifiable(contextTexts),
+      Map.unmodifiable(sources),
+      List.unmodifiable(assets),
     );
   }
 
   Set<String> get conceptPaths => Set.unmodifiable(_metadata.keys);
+
+  /// A versioned, lossless projection including fitted passages and citations.
+  /// Commit this with the corresponding store and embedding configuration.
+  Map<String, Object?> toMap() => {
+    'version': 1,
+    'bundleId': bundleId,
+    'sources': sources,
+    'assets': assets,
+    'chunks': chunks.map((chunk) => chunk.toMap()).toList(),
+    'contextTexts': _contextTexts,
+  };
+
+  /// Reopens saved passages without tokenization or embedding inference.
+  /// Graph and typed metadata meanings are reconstructed by upstream OKF.
+  factory KnowledgeSnapshot.fromMap(Map<String, Object?> map) {
+    if (map['version'] != 1) {
+      throw const FormatException('Unsupported knowledge snapshot version.');
+    }
+    final original = KnowledgeSnapshot.fromSources(
+      Map<String, String>.from(map['sources']! as Map),
+      bundleId: map['bundleId']! as String,
+      assets: List<String>.from(map['assets']! as List),
+    );
+    final chunks = (map['chunks']! as List)
+        .map((value) => Chunk.fromMap(Map<String, Object?>.from(value as Map)))
+        .toList();
+    final contexts = Map<String, String>.from(map['contextTexts']! as Map);
+    final ids = chunks.map((chunk) => chunk.id).toSet();
+    if (ids.length != chunks.length ||
+        contexts.length != ids.length ||
+        chunks.any(
+          (chunk) =>
+              !original.conceptPaths.contains(chunk.sourcePath) ||
+              !(contexts[chunk.id]?.endsWith(chunk.content) ?? false),
+        )) {
+      throw const FormatException('Inconsistent saved knowledge passages.');
+    }
+    return KnowledgeSnapshot._(
+      original.bundleId,
+      List.unmodifiable(chunks),
+      original.graph,
+      original._metadata,
+      Map.unmodifiable(contexts),
+      original.sources,
+      original.assets,
+    );
+  }
 
   /// Typed OKF metadata, with its upstream defaults and trust semantics.
   OkfMetadata metadataFor(String path) =>
@@ -251,6 +306,8 @@ class KnowledgeSnapshot {
       graph,
       _metadata,
       Map.unmodifiable(texts),
+      sources,
+      assets,
     );
   }
 }

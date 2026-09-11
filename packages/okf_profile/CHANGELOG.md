@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Expose the existing validator and result contracts for Station without changing
+  `okfp` commands, validation semantics or exit codes.
+
 Release history of the `okf_profile` Dart package (the `okfp` toolchain).
 This is package semver; profile releases are recorded in `profile/`, not here.
 

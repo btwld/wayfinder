@@ -21,11 +21,12 @@ unchanged inputs reuse their vectors. Semantic search generates query vectors
 in memory. Preparing or packaging a model does not index a knowledge bundle,
 and `okfp validate` does not use embeddings.
 
-The current adapter still needs an in-memory knowledge snapshot before search.
-The saved-vector reopen benchmarks reload sources and synchronize again; they
-do not implement a standalone CLI that opens a complete saved snapshot. `okfp`
-currently exposes validation only. Station's `validate`, `index` and `search`
-commands are follow-up application work.
+[Station](../packages/station/README.md) exposes `validate`, `index` and
+`search`. It persists complete snapshots and document vectors, then opens them
+for semantic searches without document inference. Its application choice is
+recorded in [ADR-0010](adr/0010-station-cli.md). The historical saved-vector
+benchmarks below reload sources and synchronize again; they do not measure
+Station's saved-snapshot opening path. `okfp` continues to expose validation.
 
 ## Which experiment answers which question?
 
