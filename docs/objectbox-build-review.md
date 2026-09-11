@@ -74,6 +74,12 @@ Windows and other CPU targets require real native build/relocation/search tests
 before their complete Wayfinder bundles can be advertised. Upstream ObjectBox
 support alone is insufficient: llamadart and Dart AOT must also work there.
 
+The workspace selects only the llama.cpp runtime family and CPU backends on
+Linux/Windows. Backend selection must use llamadart's `platforms` map: a bare
+`[cpu]` list is ignored by the pinned backend parser and silently bundles its
+CPU plus Vulkan defaults. macOS ships an upstream monolithic library, whose
+backend contents cannot be trimmed by this setting.
+
 The generic ObjectBox store uses HNSW. The OKF adapter performs exact scoring
 over eligible stored vectors in Dart. Renaming/configuring ObjectBox does not
 make that path approximate or establish large-corpus performance; retain the
