@@ -1,3 +1,12 @@
+# 0.0.4
+
+- `wayfinder graph <bundle>` prints the bundle's OKF relationship graph as JSON,
+  Mermaid or DOT, filtered by type, path prefix or link resolution. MCP clients
+  get a read-only `graph` tool.
+- Native installs also report `sources` paths that resolve to nothing as
+  validation advisories. The pub.dev package gains this with the next
+  `wayfinder` core release.
+
 # 0.0.3
 
 - Homebrew installations are directed to the install script because the formula
