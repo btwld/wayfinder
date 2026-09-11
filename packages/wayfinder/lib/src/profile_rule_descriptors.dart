@@ -86,6 +86,8 @@ const sourceEntryShape =
 const sourceIdUnique = ProfileRuleDescriptor.error('source-id-unique', '§6.1');
 const sourceAttributionJoin =
     ProfileRuleDescriptor.error('source-attribution-join', '§6.1');
+const sourcePathUnresolved =
+    ProfileRuleDescriptor.advisory('source-path-unresolved', '§6.1');
 const relationshipsShape =
     ProfileRuleDescriptor.error('relationships-shape', '§7.2');
 const relationshipLabelExtension =
@@ -143,6 +145,7 @@ const List<ProfileRuleDescriptor> profileRuleDescriptors = [
   sourceEntryShape,
   sourceIdUnique,
   sourceAttributionJoin,
+  sourcePathUnresolved,
   relationshipsShape,
   relationshipLabelExtension,
   linkGraphUnavailable,

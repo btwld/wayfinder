@@ -144,6 +144,27 @@ void main() {
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
+  test('reports source paths that resolve to nothing as advisories', () async {
+    // A path inside the bundle that names no file, and a relative path that
+    // leaves the bundle and names nothing on disk, both earn an advisory; a
+    // path that leaves the bundle and exists, a URL, and a descriptor do not.
+    final result = await runCli(
+      <String>['validate', '--output', 'json', fixture('unresolved-source-path')],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'PASS');
+    final unresolved = findingSummary(profile)
+        .where((line) => line.contains('source-path-unresolved'))
+        .toList();
+    expect(unresolved, hasLength(3));
+    expect(unresolved, everyElement(endsWith(' note.md')));
+    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+  });
+
   test('validates prose source descriptors with slashes and non-ASCII cleanly',
       () async {
     // A sources[].resource descriptor carrying both a slash and a non-ASCII
