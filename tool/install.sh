@@ -3,15 +3,9 @@
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
-# The default is the latest verified native release. WAYFINDER_VERSION selects
-# another published release; CI uses it to test a prepared version.
-version="${WAYFINDER_VERSION:-0.0.2}"
-case "$version" in
-  *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
-  [0-9]*.[0-9]*.[0-9]*) ;;
-  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
-esac
-release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
+# The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
+# another published release; CI and `wayfinder update` use it to pin a version.
+version="${WAYFINDER_VERSION:-}"
 skills="${WAYFINDER_SKILLS:-all}"
 case "$skills" in
   all|claude|agents|none) ;;
@@ -31,6 +25,28 @@ esac
 for command in curl tar mktemp; do
   command -v "$command" >/dev/null 2>&1 || fail "Required command is missing: $command"
 done
+if [ -z "$version" ]; then
+  # GitHub's latest-release page redirects to its tag. The web redirect avoids
+  # the API's per-address rate limit; only application releases may be latest.
+  latest="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o /dev/null \
+    -w '%{url_effective}' https://github.com/conceptadev/wayfinder/releases/latest)" ||
+    fail 'Could not find the latest release; set WAYFINDER_VERSION.'
+  case "$latest" in
+    */releases/tag/wayfinder-v[0-9]*.[0-9]*.[0-9]*) version="${latest##*/wayfinder-v}" ;;
+    *) fail 'The latest release is not a Wayfinder release; set WAYFINDER_VERSION.' ;;
+  esac
+  # Only a stable version is resolved automatically, matching install.ps1. A
+  # prerelease is installable, but WAYFINDER_VERSION has to name it.
+  case "$version" in
+    *[!0-9.]*) fail 'The latest release is not a stable Wayfinder release; set WAYFINDER_VERSION.' ;;
+  esac
+fi
+case "$version" in
+  *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+esac
+release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
 hash_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d ' ' -f 1
   else shasum -a 256 "$1" | cut -d ' ' -f 1; fi

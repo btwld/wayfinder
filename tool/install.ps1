@@ -5,9 +5,23 @@
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 downloads far slower while drawing progress.
 $ProgressPreference = 'SilentlyContinue'
-$WayfinderVersion = '0.0.2'
-if ($env:WAYFINDER_VERSION) {
-    $WayfinderVersion = $env:WAYFINDER_VERSION
+# The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
+# another published release; CI and `wayfinder update` use it to pin a version.
+$WayfinderVersion = $env:WAYFINDER_VERSION
+if (-not $WayfinderVersion) {
+    # GitHub's latest-release page redirects to its tag. The web redirect avoids
+    # the API's per-address rate limit; only application releases may be latest.
+    $Response = Invoke-WebRequest 'https://github.com/conceptadev/wayfinder/releases/latest' -UseBasicParsing
+    # Windows PowerShell 5.1 and PowerShell 7 expose the final URL differently.
+    $Final = if ($Response.BaseResponse.ResponseUri) {
+        $Response.BaseResponse.ResponseUri.AbsoluteUri
+    } else {
+        $Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+    }
+    if ($Final -notmatch '/releases/tag/wayfinder-v(\d+\.\d+\.\d+)$') {
+        throw 'The latest release is not a Wayfinder release; set WAYFINDER_VERSION.'
+    }
+    $WayfinderVersion = $Matches[1]
 }
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'
