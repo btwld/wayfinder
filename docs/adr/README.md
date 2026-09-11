@@ -25,3 +25,4 @@ behaviour per unit of interface a caller must learn.
 | [0010](0010-station-cli.md) | Accepted — Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots |
 | [0011](0011-station-mcp.md) | Accepted — Serve Wayfinder validate, index and search over local MCP stdio |
 | [0012](0012-wayfinder-graph-projection.md) | Accepted — Wayfinder projects the ordinary OKF graph; writes remain in `okf` |
+| [0013](0013-captures-layer-outside-the-bundle.md) | Proposed — a dated `captures/` evidence layer beside the bundle with an `intake.md` per package, and `Source Document` pointers instead of restated client documents |
