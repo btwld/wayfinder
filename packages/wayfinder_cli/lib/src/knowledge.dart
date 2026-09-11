@@ -47,7 +47,15 @@ class WayfinderKnowledge {
   }) : dataDirectory = dataDirectory ?? defaultDataDirectory(),
        _openEncoder = openEncoder ?? _openLocalEncoder,
        _encoderIdentity = encoderIdentity,
-       _localEncoder = openEncoder == null;
+       _localEncoder = openEncoder == null && !_modelOverride();
+
+  /// An explicit model path must be verified by loading it, so an invalid
+  /// setting fails instead of reporting a current index.
+  static bool _modelOverride() {
+    final env = Platform.environment;
+    return env.containsKey('WAYFINDER_EMBEDDING_MODEL') ||
+        env.containsKey('KNOWLEDGE_EMBEDDING_MODEL');
+  }
 
   final Directory dataDirectory;
   final Future<WayfinderEncoder> Function() _openEncoder;
