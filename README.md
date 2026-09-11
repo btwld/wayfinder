@@ -40,7 +40,7 @@ the `okfp` validation gate, and let each project repository carry only its own k
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
 | [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `concepta-knowledge` plugin |
-| [`packages/station/`](packages/station/) | Local CLI for validation, persistent embedding indexes and semantic search |
+| [`packages/station/`](packages/station/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
 | [`packages/knowledge_embeddings/`](packages/knowledge_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/okf_profile/`](packages/okf_profile/) | The `okfp` validator and its tests |
@@ -149,6 +149,10 @@ dart run station:station search examples/knowledge "How is reporting implemented
 and encodes only the query. There is no retrieval-mode flag. See the
 [Station guide](packages/station/README.md) for setup, packaging and local data
 locations. Existing `okfp validate` remains supported.
+
+`station mcp <bundle>` exposes the same validation, index and search services
+to local MCP hosts over stdio. See the [MCP setup](packages/station/README.md#mcp-server)
+for the launch configuration and tool lifecycle.
 
 ## Examples
 
