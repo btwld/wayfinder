@@ -1,6 +1,11 @@
 # Install the complete Wayfinder runtime without Dart or admin rights.
+# The script block keeps preferences and variables out of the caller's session
+# when run through `irm ... | iex`.
+& {
 $ErrorActionPreference = 'Stop'
-$WayfinderVersion = '0.0.1-dev.1'
+# Windows PowerShell 5.1 downloads far slower while drawing progress.
+$ProgressPreference = 'SilentlyContinue'
+$WayfinderVersion = '0.0.1'
 if ($env:WAYFINDER_VERSION) {
     $WayfinderVersion = $env:WAYFINDER_VERSION
 }
@@ -24,9 +29,9 @@ $Stage = Join-Path $RuntimeRoot ('.install.' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null
 try {
     $Archive = Join-Path $Stage $Asset
-    Invoke-WebRequest "$ReleaseRoot/$Asset" -OutFile $Archive
+    Invoke-WebRequest "$ReleaseRoot/$Asset" -OutFile $Archive -UseBasicParsing
     $Checksum = Join-Path $Stage 'checksum'
-    Invoke-WebRequest "$ReleaseRoot/$Asset.sha256" -OutFile $Checksum
+    Invoke-WebRequest "$ReleaseRoot/$Asset.sha256" -OutFile $Checksum -UseBasicParsing
     $Expected = ((Get-Content $Checksum -Raw).Trim() -split '\s+')[0]
     if ($Expected -notmatch '^[a-fA-F0-9]{64}$' -or
         (Get-FileHash $Archive -Algorithm SHA256).Hash -ne $Expected) {
@@ -59,14 +64,16 @@ try {
     $Destination = Join-Path $RuntimeRoot ($WayfinderVersion + '-' + [guid]::NewGuid().ToString('N'))
     Move-Item $Bundle $Destination
     $Bin = Join-Path $Destination 'bin'
+    # Windows PowerShell and PowerShell 7 default to different encodings.
     $PreviousFile = Join-Path $RuntimeRoot 'installed-bin.txt'
-    $Previous = if (Test-Path $PreviousFile) { (Get-Content $PreviousFile -Raw).Trim() } else { '' }
+    $Previous = if (Test-Path $PreviousFile) { (Get-Content $PreviousFile -Raw -Encoding UTF8).Trim() } else { '' }
     $UserPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
     $Entries = @($UserPath -split ';' | Where-Object { $_ -and $_ -ne $Previous -and $_ -ne $Bin })
     [Environment]::SetEnvironmentVariable('PATH', (@($Bin) + $Entries) -join ';', 'User')
     $env:PATH = (@($Bin) + @($env:PATH -split ';' | Where-Object { $_ -and $_ -ne $Previous })) -join ';'
-    Set-Content $PreviousFile $Bin
+    Set-Content $PreviousFile $Bin -Encoding UTF8
     Write-Host "Installed Wayfinder $WayfinderVersion. Open a new terminal to refresh PATH."
 } finally {
     Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
+}
 }

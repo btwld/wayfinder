@@ -8,11 +8,17 @@ this public repository. Install the complete native runtime to use Wayfinder
 without a Dart SDK. On macOS Apple Silicon or Linux x64:
 
 ```sh
-brew install conceptadev/tap/wayfinder
+curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.sh | sh
 ```
 
-The [installation guide](docs/install.md) also provides shell and Windows
-PowerShell installers, plugin setup, upgrades and troubleshooting.
+On Windows x64, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex
+```
+
+The [installation guide](docs/install.md) covers Homebrew, plugin setup,
+upgrades and troubleshooting.
 [GitHub releases](https://github.com/conceptadev/wayfinder/releases) contain the
 complete runtime bundles; the [Dart package guide](packages/wayfinder_cli/README.md)
 covers library dependencies and source development.
@@ -79,8 +85,8 @@ the `wayfinder validate` gate, and let each project repository carry only its ow
 
 The `wayfinder` package is now the core validation library (formerly
 `okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
-The embeddings library remains `wayfinder_embeddings`. Version 0.0.1 is prepared
-in this tree; publication and publisher/OIDC setup are separate release steps.
+The embeddings library remains `wayfinder_embeddings`. All three packages are
+published at 0.0.1.
 See [migration instructions](docs/install.md#migrate-the-dart-application-package).
 
 ## What is in here

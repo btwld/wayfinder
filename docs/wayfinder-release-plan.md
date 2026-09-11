@@ -69,15 +69,17 @@ migration or taxonomy change is needed. The old `knowledge_embeddings` package i
 
 ## Current publication and integration state
 
-- `wayfinder 0.0.1-dev.1` and `wayfinder_embeddings 0.0.1-dev.0` are published
-  under `concepta.dev`. `okf_profile 0.2.1-dev.0` supplies the validator API;
-  stable `0.2.0` remains available.
-- The retrieval, CLI, MCP, naming and installation PRs (#58, #59, #60, #63
-  and #54) are merged. Historical branch names and ADR filenames remain stable.
+- `wayfinder 0.0.1`, `wayfinder_cli 0.0.1` and `wayfinder_embeddings 0.0.1` are
+  published. `wayfinder_cli` publisher assignment and OIDC are tracked in #66.
+  Stable `okf_profile 0.2.0` remains available.
+- The retrieval, CLI, MCP, naming, installation and package-split PRs (#58, #59,
+  #60, #63, #54 and #64) are merged. Historical branch names and ADR filenames
+  remain stable.
 - Native archives for Linux x64, macOS ARM64 and Windows x64 are attached to
-  [the Wayfinder release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1-dev.1).
-  Public installation, validation, indexing, search and unchanged-index reuse
-  pass on all three platforms. The Concepta tap contains `wayfinder` and `okfp`.
+  [the Wayfinder 0.0.1 release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1).
+  The install scripts default to it. Public installation, validation, indexing,
+  search and unchanged-index reuse pass on all three platforms. The Concepta tap
+  still installs 0.0.1-dev.1 until #65 is done.
 - The plugin is installed from `conceptadev/wayfinder`. Existing marketplace
   registrations must be migrated as described in the installation guide.
 - GitHub releases use the built-in repository token. Homebrew automation follows

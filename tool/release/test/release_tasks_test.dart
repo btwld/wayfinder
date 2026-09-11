@@ -49,19 +49,25 @@ void main() {
     expect(workflow, contains('WAYFINDER_USE_LOCAL_INSTALLER'));
   });
 
-  test(
-    'public installers stay on the published prerelease and accept a version override',
-    () {
-      final shell = File(
-        '${repository.path}${separator}tool${separator}install.sh',
-      ).readAsStringSync();
-      final powershell = File(
-        '${repository.path}${separator}tool${separator}install.ps1',
-      ).readAsStringSync();
+  test('public installers share a default and accept a version override', () {
+    final shell = File(
+      '${repository.path}${separator}tool${separator}install.sh',
+    ).readAsStringSync();
+    final powershell = File(
+      '${repository.path}${separator}tool${separator}install.ps1',
+    ).readAsStringSync();
 
-      expect(shell, contains(r'version="${WAYFINDER_VERSION:-0.0.1-dev.1}"'));
-      expect(powershell, contains("\$WayfinderVersion = '0.0.1-dev.1'"));
-      expect(powershell, contains(r'$env:WAYFINDER_VERSION'));
-    },
-  );
+    final shellDefault = RegExp(
+      r'^version="\$\{WAYFINDER_VERSION:-([^}]+)\}"$',
+      multiLine: true,
+    ).firstMatch(shell)?.group(1);
+    final powershellDefault = RegExp(
+      r"^\$WayfinderVersion = '([^']+)'$",
+      multiLine: true,
+    ).firstMatch(powershell)?.group(1);
+
+    expect(shellDefault, isNotNull);
+    expect(powershellDefault, shellDefault);
+    expect(powershell, contains(r'$env:WAYFINDER_VERSION'));
+  });
 }

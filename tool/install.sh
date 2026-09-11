@@ -3,11 +3,12 @@
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
-# Public default stays on the last published working release until 0.0.1
-# archives exist. CI sets WAYFINDER_VERSION to test a prepared version.
-version="${WAYFINDER_VERSION:-0.0.1-dev.1}"
+# The default is the latest verified native release. WAYFINDER_VERSION selects
+# another published release; CI uses it to test a prepared version.
+version="${WAYFINDER_VERSION:-0.0.1}"
 case "$version" in
-  [0-9]*.[0-9]*.[0-9]|[0-9]*.[0-9]*.[0-9]-*) ;;
+  *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+  [0-9]*.[0-9]*.[0-9]*) ;;
   *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
 esac
 release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
