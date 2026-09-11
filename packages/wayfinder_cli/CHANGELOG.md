@@ -1,4 +1,4 @@
-# Unreleased
+# 0.0.3
 
 - `wayfinder index` returns without loading the model when the saved index
   already matches the bundle, and reports `current` in JSON output.
