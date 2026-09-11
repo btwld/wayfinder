@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 import 'src/model_preparation.dart';
+import 'src/native_cli_assets.dart';
 import 'src/objectbox_assets.dart';
 
 /// Builds the existing retrieval evaluator with its verified local assets.
@@ -61,6 +62,7 @@ Future<void> main(List<String> args) async {
     }
     await File('LICENSE').copy(p.join(bundle.path, 'LICENSE'));
     await stageObjectBoxAssets(package, bundle);
+    await stageWindowsBackendAssets(bundle);
     stdout.writeln('Built retrieval bundle: ${bundle.path}');
   } catch (error) {
     stderr.writeln('Embedding build failed: $error');
