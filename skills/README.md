@@ -1,7 +1,7 @@
 # Skills
 
 The agent workflows for [Concepta OKF Profile 2026.1](../profile/okf-profile.md),
-shipped together as the `concepta-knowledge` plugin.
+shipped together as the `wayfinder` plugin.
 
 ## The family
 
@@ -18,6 +18,19 @@ and the authoring skill; there is no separate migration skill.
 ## Installation and routing
 
 Use the [root README's installation instructions](../README.md#1-install-the-skills).
+The `wayfinder` plugin also registers the installed Wayfinder MCP server. Install
+the CLI first; use the complete native bundle for indexing and search. By default
+it serves `knowledge/` relative to the consuming project. Set
+`WAYFINDER_KNOWLEDGE_DIR` to an explicit bundle path when it lives elsewhere, and
+`WAYFINDER_EXECUTABLE` if the executable is not on `PATH`. The source repository
+itself has no `knowledge/`; contributors enabling the plugin here must select a
+real bundle, such as the generic example. No root `.mcp.json` auto-starts a server
+merely because this repository was cloned.
+
+Uninstall `concepta-knowledge@wayfinder` before installing `wayfinder@wayfinder`.
+Keep upstream `okf` graph/write tools separately configured if needed; Wayfinder's
+`validate`, `index` and `search` tools do not replace those operations.
+
 Install the family as a unit: sibling references make a partial installation
 incomplete. Keep each installation on one commit so the seed templates, authoring
 rules, and assessment instructions agree.

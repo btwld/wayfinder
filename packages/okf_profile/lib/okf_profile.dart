@@ -1,6 +1,6 @@
 /// The OKF profile toolchain.
 ///
-/// Shared validation results for the `okfp` and Station executables.
+/// Shared validation results for the `okfp` and Wayfinder executables.
 library;
 
 export 'src/profile_finding.dart';

@@ -1,5 +1,5 @@
 # Retrieval identities hash fixture contents; preserve them across checkouts.
-packages/knowledge_embeddings/fixtures/** text eol=lf
+packages/wayfinder_embeddings/fixtures/** text eol=lf
 
 # Compressed benchmark artifacts must not undergo line-ending conversion.
-packages/knowledge_embeddings/fixtures/benchmarks/*.jsonl.gz binary
+packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary

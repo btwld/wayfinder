@@ -2,15 +2,15 @@
 
 - Status: accepted
 - Date: 2026-09-09
-- Scope: `knowledge_embeddings` tooling; no bundle or profile rule changes
+- Scope: `wayfinder_embeddings` tooling; no bundle or profile rule changes
 
 ## Context
 
 The embedding implementation needs a small local model, predictable preparation
 and indexing, and evidence that semantic retrieval helps knowledge lookup.
-The [retrieval comparison](../knowledge_embeddings_comparison.md) tested
+The [retrieval comparison](../wayfinder_embeddings_comparison.md) tested
 keyword, BM25, dense and hybrid retrieval. The subsequent
-[model comparison](../knowledge_embeddings_model_comparison.md) tested Arctic
+[model comparison](../wayfinder_embeddings_model_comparison.md) tested Arctic
 XS Q8, Arctic S Q8/Q4 and BGE-small Q8/Q4 against identical passages and judgments.
 
 On the 60 answerable test questions, XS and both larger Q8 models returned the
@@ -25,7 +25,7 @@ inspected test partitions, not independent real-corpus evidence.
 - Keep **Arctic Embed XS Q8_0** as the local embedding model, through in-process
   **llamadart**. Retain the revision, byte count, SHA-256 and preprocessing
   contract pinned in
-  [`localEmbeddingModel`](../../packages/knowledge_embeddings/lib/src/embedding/embedding_model_spec.dart):
+  [`localEmbeddingModel`](../../packages/wayfinder_embeddings/lib/src/embedding/embedding_model_spec.dart):
   25,279,840 bytes, 384 dimensions, CLS pooling, normalized vectors, a 512-token
   context and a query-only retrieval prefix. Runtime inference requires a
   verified local artifact; preparation owns downloading and caching.
@@ -91,7 +91,7 @@ concurrency is not the first response to the observed passage-selection errors.
 `okfp` currently exposes `validate` for bundle conformance checks. It does not
 expose embedding preparation, indexing or interactive search. Existing local
 commands and their working directories are documented in the package's
-[command-line guide](../../packages/knowledge_embeddings/README.md#command-line-entry-points).
+[command-line guide](../../packages/wayfinder_embeddings/README.md#command-line-entry-points).
 
 The package has a library API, a fixture search example, model preparation/build
 tools and evaluation executables. A general command accepting a bundle path
@@ -104,7 +104,7 @@ dependency and conformance contract intact when designing that interface.
 The selected artifact is already pinned; accepting this decision requires no
 model change or re-embedding of indexes produced by the current implementation.
 Databases from the removed provider/schema still need a fresh directory and
-reindexing as documented in the [local implementation report](../knowledge_embeddings_local_search.md).
+reindexing as documented in the [local implementation report](../wayfinder_embeddings_local_search.md).
 
 Excluding footnote definitions trades recall for precision: prose that exists
 only inside a definition, beyond the `sources` entry it keys, is no longer a

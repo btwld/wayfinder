@@ -1,5 +1,7 @@
-name: okf_profile_workspace
-description: Workspace for the Concepta OKF Profile repository. Includes the OKF profile toolchain and content embedding utilities.
+name: wayfinder_workspace
+description: >-
+  Workspace for Wayfinder: local knowledge discovery, the Concepta OKF Profile
+  toolchain, and reusable retrieval libraries.
 publish_to: none
 
 environment:
@@ -7,36 +9,47 @@ environment:
 
 workspace:
   - packages/okf_profile
-  - packages/knowledge_embeddings
-  - packages/station
+  - packages/wayfinder_embeddings
+  - packages/wayfinder
 
 dev_dependencies:
   melos: ^7.1.1
 
+  args: ^2.7.0
+  path: ^1.9.1
 hooks:
   user_defines:
     llamadart:
       llamadart_native_runtimes: [llama_cpp]
-      llamadart_native_backends: [cpu]
+      llamadart_native_backends:
+        platforms:
+          linux: [cpu]
+          windows: [cpu]
 
 melos:
   scripts:
     get:
       run: dart pub get
     build:
-      run: dart run melos exec --scope=knowledge_embeddings -- dart run build_runner build
-    embeddings:prepare:
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run build_runner build
+    wayfinder_embeddings:prepare:
       description: Download and verify the pinned local embedding model
-      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/prepare_model.dart
-    station:build:
-      description: Build Station with verified local model and native libraries
-      run: dart run tool/build_station.dart
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/prepare_model.dart
+    embeddings:prepare:
+      description: Compatibility alias for wayfinder_embeddings:prepare
+      run: dart run melos run wayfinder_embeddings:prepare
     embeddings:build:
+      description: Compatibility alias for wayfinder_embeddings:build
+      run: dart run melos run wayfinder_embeddings:build
+    wayfinder:build:
+      description: Build Wayfinder with verified local model and native libraries
+      run: dart run tool/build_wayfinder.dart
+    wayfinder_embeddings:build:
       description: Build the retrieval CLI with its local model and native libraries
-      run: dart run melos exec --scope=knowledge_embeddings -- dart run tool/build_embeddings.dart
+      run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/build_wayfinder_embeddings.dart
     objectbox:install:
       description: Install the pinned ObjectBox native library locally
-      run: dart run melos exec --scope=knowledge_embeddings -- bash tool/install_objectbox.sh
+      run: dart run melos exec --scope=wayfinder_embeddings -- bash tool/install_objectbox.sh
     analyze:
       run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
     format:check:

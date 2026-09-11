@@ -2,10 +2,10 @@
 
 - Status: accepted
 - Date: 2026-08-21
-- Deferred exploration: [#17](https://github.com/conceptadev/okf-profile/issues/17)
-- Specification: [#21](https://github.com/conceptadev/okf-profile/issues/21)
-- Release delivery: [#22](https://github.com/conceptadev/okf-profile/issues/22), [#23](https://github.com/conceptadev/okf-profile/issues/23), [#24](https://github.com/conceptadev/okf-profile/issues/24), [#25](https://github.com/conceptadev/okf-profile/issues/25), [#19](https://github.com/conceptadev/okf-profile/issues/19)
-- Validator delivery: [#26](https://github.com/conceptadev/okf-profile/issues/26), [#27](https://github.com/conceptadev/okf-profile/issues/27), [#28](https://github.com/conceptadev/okf-profile/issues/28), [#20](https://github.com/conceptadev/okf-profile/issues/20)
+- Deferred exploration: [#17](https://github.com/conceptadev/wayfinder/issues/17)
+- Specification: [#21](https://github.com/conceptadev/wayfinder/issues/21)
+- Release delivery: [#22](https://github.com/conceptadev/wayfinder/issues/22), [#23](https://github.com/conceptadev/wayfinder/issues/23), [#24](https://github.com/conceptadev/wayfinder/issues/24), [#25](https://github.com/conceptadev/wayfinder/issues/25), [#19](https://github.com/conceptadev/wayfinder/issues/19)
+- Validator delivery: [#26](https://github.com/conceptadev/wayfinder/issues/26), [#27](https://github.com/conceptadev/wayfinder/issues/27), [#28](https://github.com/conceptadev/wayfinder/issues/28), [#20](https://github.com/conceptadev/wayfinder/issues/20)
 
 ## Context
 
