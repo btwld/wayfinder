@@ -34,7 +34,11 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         system = Path(os.environ['SystemRoot']) / 'System32'
         if os.environ.get('WAYFINDER_POWERSHELL') == 'powershell':
             # Windows PowerShell 5.1 is the default shell on a fresh machine.
+            # Drop the module path inherited from the PowerShell 7 step shell so
+            # 5.1 loads its own built-in modules, as a user's terminal does.
             powershell = str(system / 'WindowsPowerShell/v1.0/powershell.exe')
+            env = {key: value for key, value in env.items()
+                   if key.upper() != 'PSMODULEPATH'}
         else:
             powershell = shutil.which('pwsh')
             if not powershell:
