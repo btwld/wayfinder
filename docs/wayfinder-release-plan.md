@@ -45,8 +45,10 @@ files are moved or rewritten by the rename.
 
 Update Git remotes to `https://github.com/conceptadev/wayfinder.git`.
 GitHub redirects the old repository URL; use the new URL in maintained links.
-For an existing plugin installation, remove the old marketplace registration
-and register `conceptadev/wayfinder`, uninstall the old `concepta-knowledge` plugin, then install `wayfinder@wayfinder`.
+For an existing plugin installation, uninstall the old `concepta-knowledge`
+plugin, remove the old marketplace registration, register
+`conceptadev/wayfinder-dist`, then install `wayfinder@wayfinder`. See the
+[verified migration sequence](install.md#migrate-an-existing-plugin-installation).
 Copied/symlinked skills and existing `okfp` CI gates continue to work.
 
 Existing conformant bundles remain conformant. No Profile release, bundle
@@ -130,11 +132,14 @@ no-Dart installer/distribution work remains tracked in #53 / PR #54.
 
 The initial decision to preserve `knowledge_embeddings` and `concepta-knowledge`
 was superseded by the complete Wayfinder naming plan. The current implementation
-uses `wayfinder_embeddings` and the `wayfinder` plugin. Publish the new library
-first, transfer it to `concepta.dev`, configure its exact package-specific OIDC
-trust, then publish Wayfinder 0.0.1-dev.1 against the hosted dependency. After
-hosted and saved-index checks pass, discontinue the old library with a replacement
-pointer. Preserve every existing package version.
+uses `wayfinder_embeddings` and the `wayfinder` plugin. Published
+`wayfinder_embeddings 0.0.1-dev.0` under `concepta.dev` and configured its exact
+package-specific OIDC trust. Published `wayfinder 0.0.1-dev.1` through GitHub OIDC
+against the hosted replacement library. Fresh-cache application/consumer checks
+and bidirectional saved-index checks passed; `knowledge_embeddings` is now
+discontinued with `wayfinder_embeddings` as its replacement. Existing package
+versions remain available. The new library's OIDC upload is to be exercised on
+its next substantive release.
 
 The rename keeps database UIDs and vector identity unchanged. Both schema marker
 names are supported during migration; the new model override has a legacy
@@ -146,3 +151,10 @@ The public distribution repository and no-Dart installers remain integration
 work in #53/#54 until actual unauthenticated install checks pass. Source repository
 visibility stays private. Publication and distribution results must be recorded
 here when completed; intended names alone do not establish an available channel.
+
+The public plugin repository now exists. An isolated Claude Code installation
+successfully migrated from `concepta-knowledge@wayfinder`, loaded all three
+skills with only one enabled plugin, and connected its Wayfinder MCP server.
+A separate clean configuration fetched the public marketplace over HTTPS with
+Git credentials disabled. Native public releases and Homebrew rollout remain
+pending their final release checks.

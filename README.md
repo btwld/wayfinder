@@ -78,12 +78,11 @@ the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
 binary outside `PATH`.
 
 ```
-/plugin marketplace add conceptadev/wayfinder
+/plugin marketplace add conceptadev/wayfinder-dist
 /plugin install wayfinder@wayfinder
 ```
 
-When upgrading, uninstall `concepta-knowledge@wayfinder` before installing
-`wayfinder@wayfinder` so skills and MCP servers are registered once.
+For an existing installation, follow the [plugin migration sequence](docs/install.md#migrate-an-existing-plugin-installation): uninstall the old plugin and remove its marketplace registration before adding the public repository. This leaves one enabled skill family and MCP server.
 
 Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
 all three as a unit, since they reference each other by sibling path. Symlinking is the

@@ -75,9 +75,25 @@ Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
 when the bundle is not `knowledge/`, and `WAYFINDER_EXECUTABLE` when the executable
 is outside `PATH`.
 
-When migrating, uninstall `concepta-knowledge` before enabling `wayfinder`; avoid
-two enabled copies of the skills or MCP server. Update the `wayfinder` marketplace
-and plugin together. Upstream `okf` remains a separate optional tool for OKF graph
+### Migrate an existing plugin installation
+
+When moving from the old private marketplace, remove its registration as well
+as the old plugin. Claude Code refuses to register a different repository under
+an existing marketplace name.
+
+```text
+/plugin uninstall concepta-knowledge@wayfinder
+/plugin marketplace remove wayfinder
+/plugin marketplace add conceptadev/wayfinder-dist
+/plugin install wayfinder@wayfinder
+```
+
+If the older registration is named `okf-profile`, use that name in the first two
+commands. Verify that only `wayfinder@wayfinder` is enabled and `/mcp` lists one
+Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
+plugin together; they do not require removing the marketplace again.
+
+Upstream `okf` remains a separate optional tool for OKF graph
 and write operations; Wayfinder does not implement those capabilities. Its
 Windows binary availability is tracked independently in
 [okf#43](https://github.com/conceptadev/okf/issues/43).
