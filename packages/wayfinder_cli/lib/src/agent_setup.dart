@@ -116,6 +116,7 @@ class AgentSetup {
     String project, {
     String bundle = 'knowledge',
     bool force = false,
+    bool hooks = false,
   }) async {
     if (!await Directory(project).exists()) {
       throw const WayfinderException(
@@ -175,9 +176,135 @@ class AgentSetup {
         'using the tools.',
       );
     }
+    if (hooks) await _writeHooks(project, relative);
     _out(
       'Commit .mcp.json to share the server. Claude Code asks you to approve '
       'project servers before first use.',
+    );
+  }
+
+  /// Refreshes the index after agent turns and git changes. Indexing skips a
+  /// current bundle without loading the model, so each trigger is cheap.
+  Future<void> _writeHooks(String project, String bundle) async {
+    // Claude Code discards async hook output and exit codes.
+    await _mergeStopHook(File(p.join(project, '.claude', 'settings.json')), {
+      'type': 'command',
+      'command':
+          'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index $bundle --detach',
+      'async': true,
+    });
+    // A Codex Stop hook must print JSON, and exit 2 would continue the turn.
+    await _mergeStopHook(File(p.join(project, '.codex', 'hooks.json')), {
+      'type': 'command',
+      'command':
+          'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
+          'wayfinder index $bundle --detach --output=json || printf "{}"',
+      'timeout': 10,
+    });
+    // Git runs these hooks from the top of the working tree.
+    for (final (name, change) in [
+      ('post-merge', 'a pull or merge'),
+      ('post-checkout', 'a checkout'),
+      ('post-rewrite', 'a rebase or amend'),
+    ]) {
+      final hook = File(p.join(project, '.githooks', name));
+      await hook.parent.create(recursive: true);
+      await hook.writeAsString(
+        '#!/bin/sh\n'
+        '# Refresh the Wayfinder index when $change changed the bundle.\n'
+        'command -v wayfinder >/dev/null 2>&1 || exit 0\n'
+        'wayfinder index $bundle --detach >/dev/null 2>&1 || true\n',
+      );
+      if (!Platform.isWindows) await _run('chmod', ['+x', hook.path]);
+    }
+    _out(
+      'Configured index refresh hooks for Claude Code, Codex and git '
+      '(.githooks/).',
+    );
+    await _enableGitHooks(project);
+  }
+
+  /// Adds Wayfinder's Stop hook once, replacing an earlier Wayfinder entry and
+  /// preserving every other setting and hook.
+  Future<void> _mergeStopHook(File file, Map<String, Object?> handler) async {
+    var config = <String, Object?>{};
+    if (await file.exists()) {
+      final Object? decoded;
+      try {
+        decoded = jsonDecode(await file.readAsString());
+      } on FormatException {
+        throw WayfinderException('${file.path} is not valid JSON.');
+      }
+      if (decoded is! Map<String, Object?>) {
+        throw WayfinderException('${file.path} must contain a JSON object.');
+      }
+      config = decoded;
+    }
+    final hooks = config['hooks'] ?? <String, Object?>{};
+    final stop = hooks is Map<String, Object?> ? hooks['Stop'] ?? [] : null;
+    if (hooks is! Map<String, Object?> || stop is! List) {
+      throw WayfinderException('${file.path} has an unexpected hooks shape.');
+    }
+    bool ours(Object? group) =>
+        group is Map &&
+        group['hooks'] is List &&
+        (group['hooks'] as List).any(
+          (entry) =>
+              entry is Map && '${entry['command']}'.contains('wayfinder index'),
+        );
+    config['hooks'] = {
+      ...hooks,
+      'Stop': [
+        ...stop.where((group) => !ours(group)),
+        {
+          'hooks': [handler],
+        },
+      ],
+    };
+    await file.parent.create(recursive: true);
+    await file.writeAsString(
+      '${const JsonEncoder.withIndent('  ').convert(config)}\n',
+    );
+  }
+
+  /// Points this clone at .githooks unless another hooks path is configured.
+  Future<void> _enableGitHooks(String project) async {
+    final ProcessResult current;
+    try {
+      current = await _run('git', [
+        '-C',
+        project,
+        'config',
+        '--get',
+        'core.hooksPath',
+      ]);
+    } on ProcessException {
+      _out(
+        'Git is unavailable; enable the hooks with git config core.hooksPath .githooks.',
+      );
+      return;
+    }
+    final path = '${current.stdout}'.trim();
+    if (path == '.githooks') return;
+    if (path.isNotEmpty) {
+      _out(
+        'Note: core.hooksPath is $path; call .githooks/ from those hooks to '
+        'refresh the index.',
+      );
+      return;
+    }
+    final set = await _run('git', [
+      '-C',
+      project,
+      'config',
+      'core.hooksPath',
+      '.githooks',
+    ]);
+    _out(
+      set.exitCode == 0
+          ? 'Enabled the git hooks for this clone (core.hooksPath=.githooks). '
+                'Each clone runs git config core.hooksPath .githooks once.'
+          : 'Run git config core.hooksPath .githooks to enable the git hooks.',
     );
   }
 

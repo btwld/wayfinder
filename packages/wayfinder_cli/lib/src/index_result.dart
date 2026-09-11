@@ -7,6 +7,7 @@ class WayfinderIndexResult {
     required this.removedChunks,
     required this.writtenChunks,
     required this.elapsedMs,
+    this.current = false,
   });
 
   final String bundle;
@@ -16,6 +17,9 @@ class WayfinderIndexResult {
   final int writtenChunks;
   final int elapsedMs;
 
+  /// The saved index already matched the bundle; the model was not loaded.
+  final bool current;
+
   /// Preserves the CLI/MCP JSON contract independently of internal field access.
   Map<String, Object?> toJson() => {
     'bundle': bundle,
@@ -24,5 +28,6 @@ class WayfinderIndexResult {
     'removedChunks': removedChunks,
     'writtenChunks': writtenChunks,
     'elapsedMs': elapsedMs,
+    'current': current,
   };
 }

@@ -1,3 +1,13 @@
+# Unreleased
+
+- `wayfinder index` returns without loading the model when the saved index
+  already matches the bundle, and reports `current` in JSON output.
+- `index --force` discards the saved index and re-embeds every passage.
+- `index --detach` returns at once and indexes in the background only when the
+  bundle changed.
+- `wayfinder setup --hooks` refreshes the index after Claude Code and Codex
+  turns and after git pulls, checkouts and rebases.
+
 # 0.0.2
 
 - `wayfinder skills install|status|remove` installs the bundled agent skills for

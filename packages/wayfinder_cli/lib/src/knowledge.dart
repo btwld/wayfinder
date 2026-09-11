@@ -43,11 +43,20 @@ class WayfinderKnowledge {
   WayfinderKnowledge({
     Directory? dataDirectory,
     Future<WayfinderEncoder> Function()? openEncoder,
+    ({String model, String source})? encoderIdentity,
   }) : dataDirectory = dataDirectory ?? defaultDataDirectory(),
-       _openEncoder = openEncoder ?? _openLocalEncoder;
+       _openEncoder = openEncoder ?? _openLocalEncoder,
+       _encoderIdentity = encoderIdentity,
+       _localEncoder = openEncoder == null;
 
   final Directory dataDirectory;
   final Future<WayfinderEncoder> Function() _openEncoder;
+
+  /// Identity of an injected encoder, so a current index is recognized without
+  /// loading it. The local model's identity is fixed by [_configuration]: a
+  /// model path override must verify against the same specification.
+  final ({String model, String source})? _encoderIdentity;
+  final bool _localEncoder;
   static final _active = <String>{};
   static final _generationName = RegExp(r'^generation-[a-zA-Z0-9_-]+$');
 
@@ -224,10 +233,24 @@ class WayfinderKnowledge {
     }
   }
 
-  Future<WayfinderIndexResult> index(String bundle) => _withBundle(bundle, (
-    root,
-    directory,
-  ) async {
+  /// Whether the saved index matches the bundle, so [index] has nothing to do.
+  Future<bool> isCurrent(String bundle) =>
+      _withBundle(bundle, (root, directory) async {
+        final _SavedIndex? saved;
+        try {
+          saved = await _readCurrent(directory);
+        } on WayfinderException {
+          return false;
+        }
+        return _isCurrent(root, directory, await _inventory(root), saved);
+      });
+
+  /// Creates or refreshes the saved index. A current index returns without
+  /// loading the model; [force] discards it and re-embeds every passage.
+  Future<WayfinderIndexResult> index(
+    String bundle, {
+    bool force = false,
+  }) => _withBundle(bundle, (root, directory) async {
     final watch = Stopwatch()..start();
     final inventory = await _inventory(root);
     _SavedIndex? previous;
@@ -235,6 +258,19 @@ class WayfinderKnowledge {
       previous = await _readCurrent(directory);
     } on WayfinderException {
       // Index can repair an incompatible/incomplete saved generation.
+    }
+    if (force) {
+      previous = null;
+    } else if (await _isCurrent(root, directory, inventory, previous)) {
+      return WayfinderIndexResult(
+        bundle: root,
+        index: directory.path,
+        embeddedChunks: 0,
+        removedChunks: 0,
+        writtenChunks: 0,
+        elapsedMs: watch.elapsedMilliseconds,
+        current: true,
+      );
     }
     final encoder = await _openEncoder();
     try {
@@ -403,6 +439,34 @@ class WayfinderKnowledge {
       await encoder.embedder.dispose();
     }
   });
+
+  /// Mirrors search's staleness checks, plus the encoder identity search
+  /// compares after loading the model.
+  Future<bool> _isCurrent(
+    String root,
+    Directory directory,
+    String inventory,
+    _SavedIndex? saved,
+  ) async {
+    if (saved == null ||
+        saved.configuration != _configuration ||
+        saved.inventory != inventory ||
+        saved.snapshot.bundleId != root) {
+      return false;
+    }
+    final identity = _encoderIdentity;
+    if (identity != null) {
+      if (saved.model != '${identity.model}:okf-context-v1' ||
+          saved.source != identity.source) {
+        return false;
+      }
+    } else if (!_localEncoder) {
+      return false;
+    }
+    final generation = p.join(directory.path, saved.generation);
+    return await File(p.join(generation, 'data.mdb')).exists() &&
+        ObjectBoxStore.hasSupportedSchema(generation);
+  }
 
   Future<_SavedIndex?> _readCurrent(Directory directory) async {
     final pointer = File(p.join(directory.path, 'current'));

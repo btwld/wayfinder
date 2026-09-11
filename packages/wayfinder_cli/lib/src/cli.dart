@@ -23,7 +23,9 @@ class WayfinderCli {
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
     bool? notices,
-  }) : _out = out ?? stdout.writeln,
+    Future<void> Function(List<String> arguments)? spawnDetached,
+  }) : _spawnDetached = spawnDetached ?? _startDetached,
+       _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
        _knowledge = knowledge ?? WayfinderKnowledge.new,
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
@@ -38,6 +40,18 @@ class WayfinderCli {
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
   final bool _notices;
+  final Future<void> Function(List<String> arguments) _spawnDetached;
+
+  /// Relaunches this command outside the caller's process group. A compiled
+  /// executable reruns itself; `dart run` also needs its script.
+  static Future<void> _startDetached(List<String> arguments) async {
+    final script = Platform.script.toFilePath();
+    final interpreted = ['.dart', '.dill', '.snapshot'].any(script.endsWith);
+    await Process.start(Platform.resolvedExecutable, [
+      if (interpreted) ...[...Platform.executableArguments, script],
+      ...arguments,
+    ], mode: ProcessStartMode.detached);
+  }
 
   Updater _updater(void Function(String) out) =>
       _updaterFactory?.call(out) ??
@@ -97,6 +111,20 @@ class WayfinderCli {
       final command = ArgParser()
         ..addFlag('help', abbr: 'h', negatable: false)
         ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text');
+      if (name == 'index') {
+        command
+          ..addFlag(
+            'force',
+            negatable: false,
+            help: 'Discard the saved index and re-embed every passage.',
+          )
+          ..addFlag(
+            'detach',
+            negatable: false,
+            help:
+                'Return at once; index in the background if anything changed.',
+          );
+      }
       if (name == 'search') {
         command.addOption(
           'limit',
@@ -138,6 +166,13 @@ class WayfinderCli {
           'force',
           negatable: false,
           help: 'Replace a different wayfinder server entry.',
+        )
+        ..addFlag(
+          'hooks',
+          negatable: false,
+          help:
+              'Also refresh the index after Claude Code and Codex turns and '
+              'git pulls, checkouts and rebases.',
         ),
     );
     parser.addCommand(
@@ -162,7 +197,7 @@ class WayfinderCli {
           'Wayfinder — local knowledge tools\n\n'
           'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the declared Concepta profile\n'
-          '  index <bundle>             Create or refresh saved local embeddings\n'
+          '  index <bundle>             Update saved local embeddings for changes\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
@@ -239,6 +274,7 @@ class WayfinderCli {
           command.rest.firstOrNull ?? '.',
           bundle: command.option('bundle')!,
           force: command.flag('force'),
+          hooks: command.flag('hooks'),
         );
         return 0;
       }
@@ -273,9 +309,36 @@ class WayfinderCli {
         return result.exitCode;
       }
       if (name == 'index') {
-        final result = await _knowledge().index(bundle);
+        final force = command.flag('force');
+        if (command.flag('detach')) {
+          String state;
+          try {
+            state = !force && await _knowledge().isCurrent(bundle)
+                ? 'current'
+                : 'started';
+          } on WayfinderException catch (error) {
+            if (!error.message.startsWith('Index is busy')) rethrow;
+            state = 'running';
+          }
+          if (state == 'started') {
+            await _spawnDetached(['index', bundle, if (force) '--force']);
+          }
+          if (json) {
+            _json({'bundle': bundle, 'detached': state});
+          } else {
+            _out(switch (state) {
+              'current' => 'Index for ${_safe(bundle)} is current.',
+              'running' => 'Indexing ${_safe(bundle)} is already running.',
+              _ => 'Indexing ${_safe(bundle)} in the background.',
+            });
+          }
+          return 0;
+        }
+        final result = await _knowledge().index(bundle, force: force);
         if (json) {
           _json(result.toJson());
+        } else if (result.current) {
+          _out('Index for ${_safe(bundle)} is current; nothing to update.');
         } else {
           _out(
             'Indexed ${_safe(bundle)}: ${result.embeddedChunks} embedded, '

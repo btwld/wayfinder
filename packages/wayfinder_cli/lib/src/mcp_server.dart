@@ -79,9 +79,11 @@ class WayfinderMcpServer {
       'index',
       description:
           'Explicitly create or refresh saved local embeddings for '
-          'the configured bundle. Encodes changed inputs and removes obsolete '
-          'passages. Writes only derived app data; source files are unchanged. '
-          'May take longer than a minute on first use or a large bundle.',
+          'the configured bundle. Returns immediately when the saved index '
+          'already matches the bundle; otherwise encodes changed inputs and '
+          'removes obsolete passages. Writes only derived app data; source '
+          'files are unchanged. May take longer than a minute on first use or '
+          'a large bundle.',
       input: emptyInput,
       annotations: const ToolAnnotations(
         readOnlyHint: false,

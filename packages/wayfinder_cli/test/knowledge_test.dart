@@ -95,6 +95,50 @@ void main() {
       );
 
       test(
+        'a current index skips the encoder; force re-embeds every passage',
+        () async {
+          WayfinderKnowledge aware() => WayfinderKnowledge(
+            dataDirectory: data,
+            encoderIdentity: (model: model, source: 'wayfinder-fixture'),
+            openEncoder: () async {
+              final encoder = _Encoder(model, failInference);
+              encoders.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.split(' ').length,
+                512,
+              );
+            },
+          );
+          final first = await aware().index(bundle.path);
+          expect(first.current, isFalse);
+          final opened = encoders.length;
+          expect(await aware().isCurrent(bundle.path), isTrue);
+          final second = await aware().index(bundle.path);
+          expect(second.current, isTrue);
+          expect(second.toJson()['current'], isTrue);
+          expect(encoders.length, opened, reason: 'the model stays unloaded');
+
+          final forced = await aware().index(bundle.path, force: true);
+          expect(forced.current, isFalse);
+          expect(forced.embeddedChunks, first.embeddedChunks);
+
+          final file = File(p.join(bundle.path, 'recovery.md'));
+          await file.writeAsString(
+            '${await file.readAsString()}\nReset links expire after an hour.\n',
+          );
+          expect(await aware().isCurrent(bundle.path), isFalse);
+          expect((await aware().index(bundle.path)).current, isFalse);
+          expect(await aware().isCurrent(bundle.path), isTrue);
+
+          model = 'fixture-v2';
+          expect(await aware().isCurrent(bundle.path), isFalse);
+          // Without a known identity, an injected encoder is always checked.
+          expect((await knowledge.index(bundle.path)).current, isFalse);
+        },
+      );
+
+      test(
         'metadata refresh reuses vectors, title changes re-encode',
         () async {
           await knowledge.index(bundle.path);

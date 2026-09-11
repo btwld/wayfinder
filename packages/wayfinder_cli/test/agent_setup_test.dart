@@ -226,6 +226,74 @@ void main() {
       expect((config()['mcpServers'] as Map)['wayfinder'], entry);
     });
 
+    test('adds refresh hooks once and keeps other hooks', () async {
+      final settings = File(p.join(project, '.claude', 'settings.json'));
+      await settings.parent.create();
+      settings.writeAsStringSync(
+        jsonEncode({
+          'model': 'kept',
+          'hooks': {
+            'Stop': [
+              {
+                'hooks': [
+                  {'type': 'command', 'command': 'echo other'},
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      AgentSetup hooked() => setup(
+        run: (executable, arguments) async {
+          calls.add([executable, ...arguments]);
+          return ProcessResult(0, arguments.contains('--get') ? 1 : 0, '', '');
+        },
+      );
+      await hooked().configureProject(project, hooks: true);
+      await hooked().configureProject(project, hooks: true);
+
+      Map<String, Object?> read(String path) =>
+          jsonDecode(File(p.join(project, path)).readAsStringSync())
+              as Map<String, Object?>;
+      final claude = read('.claude/settings.json');
+      final claudeStop = (claude['hooks'] as Map)['Stop'] as List;
+      expect(claude['model'], 'kept');
+      expect(claudeStop, hasLength(2));
+      expect(jsonEncode(claudeStop.first), contains('echo other'));
+      expect(
+        jsonEncode(claudeStop.last),
+        allOf(
+          contains('wayfinder index knowledge --detach'),
+          contains('async'),
+        ),
+      );
+      final codexStop =
+          (read('.codex/hooks.json')['hooks'] as Map)['Stop'] as List;
+      expect(
+        jsonEncode(codexStop.single),
+        contains('--detach --output=json || printf'),
+      );
+      for (final name in ['post-merge', 'post-checkout', 'post-rewrite']) {
+        expect(
+          File(p.join(project, '.githooks', name)).readAsStringSync(),
+          contains('wayfinder index knowledge --detach'),
+        );
+      }
+      expect(
+        calls,
+        contains(
+          equals([
+            'git',
+            '-C',
+            project,
+            'config',
+            'core.hooksPath',
+            '.githooks',
+          ]),
+        ),
+      );
+    });
+
     for (final (contents, bundle, message) in [
       ('[]', 'knowledge', 'JSON object'),
       ('{', 'knowledge', 'not valid JSON'),
