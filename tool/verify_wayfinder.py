@@ -44,7 +44,7 @@ def main():
         run("help", "--help")
         run("validation", "validate", workspace / "examples/knowledge", "--output=json")
         graph = json.loads(run("graph", "graph", corpus, "--output=json").stdout)
-        assert graph.get("schema_version") == 1
+        assert graph.get("schema_version") == "1"
         mermaid = run("graph-mermaid", "graph", corpus, "--output=mermaid")
         assert mermaid.stdout.startswith("flowchart")
         run("missing-index", "search", corpus, "password", expected=2)
