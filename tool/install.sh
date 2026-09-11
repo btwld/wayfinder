@@ -35,6 +35,11 @@ if [ -z "$version" ]; then
     */releases/tag/wayfinder-v[0-9]*.[0-9]*.[0-9]*) version="${latest##*/wayfinder-v}" ;;
     *) fail 'The latest release is not a Wayfinder release; set WAYFINDER_VERSION.' ;;
   esac
+  # Only a stable version is resolved automatically, matching install.ps1. A
+  # prerelease is installable, but WAYFINDER_VERSION has to name it.
+  case "$version" in
+    *[!0-9.]*) fail 'The latest release is not a stable Wayfinder release; set WAYFINDER_VERSION.' ;;
+  esac
 fi
 case "$version" in
   *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;

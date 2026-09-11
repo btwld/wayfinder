@@ -81,8 +81,12 @@ If only some channels finished, continue from the failed job. Do not recreate
 tags, replace published archives or republish a version that pub.dev already
 has. The GitHub publisher exits successfully when the existing release bytes
 match; a mismatch requires a new version. If public verification fails after
-publishing, mark the release as a prerelease so installers skip it until a fixed
-version replaces it.
+publishing, publish a fixed higher version: the installers resolve GitHub's
+latest release, so it supersedes the broken one for every new install. A
+published release cannot be demoted — an immutable release accepts edits only to
+its title and notes, and `publish-release.sh` refuses to publish a mutable one.
+Deleting the release is the only way to withdraw it, and the tag name cannot be
+reused afterwards.
 
 Pub.dev publication uses OIDC after the first authenticated CLI upload; report
 that path as configured until an automated publication verifies it.
