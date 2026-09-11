@@ -73,6 +73,27 @@ agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
 bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.
 
+## Agent skills and MCP
+
+The installer also installs the Wayfinder skill family. When the `claude` CLI
+is available it installs the `wayfinder` Claude Code plugin, which provides the
+skills and the MCP server; otherwise it copies the skills to `~/.claude/skills`.
+It also copies them to `~/.agents/skills`, read by Codex and other Agent Skills
+clients. Set `WAYFINDER_SKILLS` to `claude`, `agents` or `none` to narrow or
+skip this. Wayfinder replaces only skill copies it installed.
+
+```sh
+wayfinder skills status
+wayfinder skills install --agent=agents
+wayfinder setup
+```
+
+`wayfinder setup` adds the MCP server to the current project's `.mcp.json` as
+`wayfinder mcp knowledge` (`--bundle` selects another path). That is the command
+the plugin runs, so Claude Code connects once when both are present. Commit
+`.mcp.json` to share it; Claude Code asks for approval before starting project
+servers.
+
 ## Install the Claude Code plugin
 
 Install and verify the commands first. From the consuming project, in Claude Code:
@@ -82,8 +103,8 @@ Install and verify the commands first. From the consuming project, in Claude Cod
 /plugin install wayfinder@wayfinder
 ```
 
-The plugin includes the author, adopt and assess skill family and registers the
-Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
+The plugin includes the author, adopt, assess and use-wayfinder skill family and
+registers the Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
 `index` and `search`. Set `WAYFINDER_KNOWLEDGE_DIR` before launching Claude Code
 when the bundle is not `knowledge/`, and `WAYFINDER_EXECUTABLE` when the executable
 is outside `PATH`.
@@ -118,6 +139,13 @@ Windows binary availability is tracked independently in
 [okf#43](https://github.com/conceptadev/okf/issues/43).
 
 ## Upgrade and troubleshoot
+
+Run `wayfinder update` to install the newest release and refresh the skills and
+plugin; `wayfinder update --check` only reports. Homebrew and Dart installations
+print their own upgrade command. Interactive commands mention a newer release
+at most once a day, using one GitHub Releases API request that sends no bundle
+content. It never runs for MCP, CI or non-terminal use; set
+`WAYFINDER_NO_UPDATE_CHECK=1` to disable it everywhere.
 
 Run the installer again to install its pinned release or repair that release.
 Restart Claude Code to use the updated executable. An upgrade keeps index data

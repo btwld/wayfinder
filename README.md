@@ -95,7 +95,7 @@ See [migration instructions](docs/install.md#migrate-the-dart-application-packag
 | --- | --- |
 | [`profile/`](profile/) | The normative profile text — the standard itself |
 | [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
-| [`skills/`](skills/) | The agent skill family — author, adopt, and assess a Profiled Bundle, shipped as the `wayfinder` plugin |
+| [`skills/`](skills/) | The agent skill family — author, adopt, assess, and search a Profiled Bundle, shipped as the `wayfinder` plugin |
 | [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, persistent embedding indexes and semantic search |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
@@ -116,7 +116,12 @@ not belong in an identity — without silently replacing an identified release.
 
 ### 1. Install the skills
 
-The skills live in [`skills/`](skills/) and ship as one plugin. For Claude Code:
+The skills live in [`skills/`](skills/). The [native installer](docs/install.md)
+installs them with the runtime: through the `wayfinder` plugin when the `claude`
+CLI is available, and in `~/.agents/skills` for agents such as Codex.
+`wayfinder update` refreshes them with the runtime, and `wayfinder setup` adds
+the MCP server to a project's `.mcp.json`. To install the plugin in Claude Code
+yourself:
 
 First [install the complete Wayfinder runtime](docs/install.md). Run
 Claude Code from the consuming project with a `knowledge/` bundle, or set
@@ -133,7 +138,7 @@ binary outside `PATH`.
 For an existing installation, follow the [plugin migration sequence](docs/install.md#migrate-an-existing-plugin-installation): uninstall the old plugin and remove its marketplace registration before adding the public repository. This leaves one enabled skill family and MCP server.
 
 Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
-all three as a unit, since they reference each other by sibling path. Symlinking is the
+all four as a unit, since they reference each other by sibling path. Symlinking is the
 better fallback: the skills are versioned with the profile they describe, and a copy
 silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
 each one does.
@@ -171,6 +176,7 @@ Once a repository is set up, the skill family covers the bundle's whole lifecycl
 | `author-knowledge-bundle` | model-invoked | Creates, edits, moves, deprecates, and mirrors bundle content, and reviews the result. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
 | `adopt-knowledge-bundle` | user-invoked | Seeds the bundle and points agents at it (step 2 above) |
 | `assess-knowledge-bundle` | user-invoked | Deliberate whole-bundle assessment, emitting the Profile Review Report |
+| `use-wayfinder` | model-invoked | Searches, indexes and validates the bundle with Wayfinder. Agents reach it when a question may be answered by recorded knowledge, and answer from verified, cited passages |
 
 You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
 authoring mechanics are loaded before a bundle write and contextual rules are loaded for

@@ -141,6 +141,30 @@ the advertised nonblank query, 1–100 limit and closed-object constraints.
 See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the SDK release review,
 protocol choices and lifecycle limits.
 
+## Agent skills, project setup and updates
+
+```bash
+wayfinder skills install [--agent=all|claude|agents]
+wayfinder skills status
+wayfinder setup [<project>] [--bundle=knowledge]
+wayfinder update [--check] [--version=<version>]
+```
+
+Native bundles include the skill family. `skills install` uses the `wayfinder`
+Claude Code plugin when the `claude` CLI is available, otherwise copies the
+skills to `~/.claude/skills`. It also copies them to `~/.agents/skills` for Codex
+and other Agent Skills clients. It marks its copies and never replaces or
+removes a skill it did not install. `setup` adds `wayfinder mcp <bundle>` to a
+project's `.mcp.json` and preserves other servers.
+
+`update` reruns the release's verified installer for installer-managed
+runtimes, then refreshes the skills and plugin. Homebrew and Dart installations
+print their upgrade command instead. Interactive commands also print a one-line
+stderr notice when a newer stable release exists. That check is the only
+network request Wayfinder makes on its own: at most once a day it reads the
+GitHub Releases API and sends no bundle content. It never runs for `mcp`, when
+stderr is not a terminal, or when `CI` or `WAYFINDER_NO_UPDATE_CHECK` is set.
+
 ## Local storage
 
 Wayfinder stores an ObjectBox database and snapshot under a hash of the canonical

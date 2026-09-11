@@ -40,7 +40,9 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
         (workspace / 'packages/wayfinder_cli/pubspec.yaml').read_text(),
         re.M,
     )[1]
+    home = root / 'home'
     env = dict(os.environ,
+               HOME=str(home),
                PATH=f'{shim}:/usr/bin:/bin:/usr/sbin:/sbin',
                WAYFINDER_TEST_DOWNLOADS=str(downloads),
                WAYFINDER_INSTALL_ROOT=str(root / 'runtime'),
@@ -58,6 +60,17 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
             raise AssertionError((result.returncode, result.stdout, result.stderr))
     install()
     binary = root / 'commands/wayfinder'
+    # Without a claude CLI, skills are copied for Claude Code and other agents.
+    skill_files = [home / base / 'skills/use-wayfinder/SKILL.md'
+                   for base in ['.claude', '.agents']]
+    assert all(file.is_file() for file in skill_files), skill_files
+    assert (root / 'runtime/install-dir.txt').read_text().strip() == str(root / 'commands')
+    for file in skill_files:
+        shutil.rmtree(file.parent)
+    env['WAYFINDER_SKILLS'] = 'none'
+    install()
+    assert not any(file.exists() for file in skill_files)
+    del env['WAYFINDER_SKILLS']
     corpus = workspace / 'packages/wayfinder_cli/test/fixtures/knowledge'
     def command(*arguments):
         return subprocess.run([str(binary), *map(str, arguments)], env=env,
@@ -81,4 +94,4 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
     command('search', corpus, 'password', '--output=json')
     command('validate', workspace / 'examples/knowledge')
     assert not (root / 'commands/okfp').exists()
-    print('PASS: no-Dart install, quoted paths, retrieval, repair, index reuse, corrupt download refusal.')
+    print('PASS: no-Dart install, agent skills, quoted paths, retrieval, repair, index reuse, corrupt download refusal.')

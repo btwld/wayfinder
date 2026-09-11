@@ -1,3 +1,13 @@
+# Unreleased
+
+- `wayfinder skills install|status|remove` installs the bundled agent skills for
+  Claude Code, through the `wayfinder` plugin when the `claude` CLI is available,
+  and for `~/.agents/skills` readers such as Codex.
+- `wayfinder setup` adds the Wayfinder MCP server to a project's `.mcp.json`.
+- `wayfinder update` upgrades installer-managed runtimes and refreshes skills
+  and the plugin. Interactive commands mention a newer release at most daily.
+- Native bundles include the skill family.
+
 # 0.0.1
 
 Application moves from wayfinder to wayfinder_cli. The executable remains wayfinder, including MCP. Core validation comes from wayfinder; native installs no longer require okfp.

@@ -33,7 +33,10 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
                     'models/embedding.gguf', 'models/manifest.json',
                     'licenses/objectbox/NOTICE', 'licenses/embedding_runtime/NOTICE',
                     'licenses/wayfinder/LICENSE', 'licenses/dart/packages.json',
-                    'licenses/dart-sdk/LICENSE', 'LICENSE']
+                    'licenses/dart-sdk/LICENSE', 'LICENSE',
+                    *[f'skills/{name}/SKILL.md' for name in [
+                        'adopt-knowledge-bundle', 'assess-knowledge-bundle',
+                        'author-knowledge-bundle', 'use-wayfinder']]]
         if any(name not in files for name in required):
             raise SystemExit(f'Incomplete native bundle: {platform}')
         manifest = bundle.extractfile(files['SHA256SUMS']).read().decode('utf-8')

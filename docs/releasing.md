@@ -23,7 +23,10 @@ core and `wayfinder_embeddings` before the CLI, then resolve the CLI from hosted
 dependencies outside the workspace and run its publish dry run.
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
-tagging. Keep the CLI pubspec, runtime version and plugin version aligned.
+tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
+enforces it. Claude Code updates the plugin only when its version changes, and
+`wayfinder update` offers only stable `wayfinder-v` releases, so suffixed
+prereleases reach neither.
 Installer defaults name the latest verified native release; CI sets
 `WAYFINDER_VERSION` to test a prepared version. Promote both defaults together
 only after the new archives are published and pass public verification. Publish

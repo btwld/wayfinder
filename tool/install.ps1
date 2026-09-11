@@ -12,6 +12,10 @@ if ($env:WAYFINDER_VERSION) {
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'
 }
+$Skills = if ($env:WAYFINDER_SKILLS) { $env:WAYFINDER_SKILLS } else { 'all' }
+if ($Skills -notin @('all', 'claude', 'agents', 'none')) {
+    throw 'WAYFINDER_SKILLS must be all, claude, agents or none.'
+}
 $ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
     throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'
@@ -73,6 +77,14 @@ try {
     $env:PATH = (@($Bin) + @($env:PATH -split ';' | Where-Object { $_ -and $_ -ne $Previous })) -join ';'
     Set-Content $PreviousFile $Bin -Encoding UTF8
     Write-Host "Installed Wayfinder $WayfinderVersion. Open a new terminal to refresh PATH."
+    # Agent skills ship with releases that bundle them. A skills failure never
+    # undoes the installed runtime.
+    if ($Skills -ne 'none' -and (Test-Path (Join-Path $Destination 'skills'))) {
+        & (Join-Path $Bin 'wayfinder.exe') skills install "--agent=$Skills"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning 'Skills were not installed; run wayfinder skills install.'
+        }
+    }
 } finally {
     Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
 }

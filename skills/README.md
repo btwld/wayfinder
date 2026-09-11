@@ -10,6 +10,7 @@ shipped together as the `wayfinder` plugin.
 | [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model-invoked | Author bundle content and perform Profile Review. Routes to shared references by operation. |
 | [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Seed a new bundle, preserve an existing one, and add agent routing. Uses literal [root-file templates](adopt-knowledge-bundle/SEEDING.md) and delegates review to the authoring skill. |
 | [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared authoring and review instructions. |
+| [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index and validate a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
 
 Migration remains a scoped project task using the
 [implementation guide §5](../implementation/okf-implementation-guide.md#5-migration)
@@ -18,6 +19,9 @@ and the authoring skill; there is no separate migration skill.
 ## Installation and routing
 
 Use the [root README's installation instructions](../README.md#1-install-the-skills).
+The native installer installs this family (`wayfinder skills install`) and
+`wayfinder update` refreshes it; `wayfinder setup` configures a project's MCP
+server.
 The `wayfinder` plugin also registers the installed Wayfinder MCP server. Install
 the CLI first; use the complete native bundle for indexing and search. By default
 it serves `knowledge/` relative to the consuming project. Set
