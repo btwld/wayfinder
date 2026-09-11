@@ -26,6 +26,8 @@ void main() {
         contains('okfp-deploy-github'),
         contains('okfp-deploy-homebrew'),
         contains('okfp-deploy-pub'),
+        contains('wayfinder-deploy-github'),
+        contains('wayfinder-deploy-homebrew'),
       ),
     );
   });

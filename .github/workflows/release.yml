@@ -180,15 +180,8 @@ jobs:
         with:
           sdk: stable
       - run: dart pub -C tool/release get --enforce-lockfile
-      - id: app
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: conceptadev
-          repositories: homebrew-tap
       - env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: >-
           dart --packages=tool/release/.dart_tool/package_config.json

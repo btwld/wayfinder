@@ -48,18 +48,17 @@ jobs:
           path: build/distribution
       - name: Verify complete release inputs
         run: python3 tool/ci/verify-distribution.py build/distribution
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.11.0'
+      - run: dart pub -C tool/release get --enforce-lockfile
       - name: Publish native archives in Wayfinder
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash tool/ci/publish-wayfinder.sh build/distribution
-      - id: app
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: conceptadev
-          repositories: homebrew-tap
+          DISTRIBUTION: build/distribution
+        run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-github
       - name: Update the public Homebrew tap
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: python3 tool/ci/update-wayfinder-homebrew.py build/distribution
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
+          DISTRIBUTION: build/distribution
+        run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-homebrew

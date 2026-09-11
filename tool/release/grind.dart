@@ -60,6 +60,31 @@ Future<void> okfpDeployHomebrew() async {
   );
 }
 
+// cli_pkg's default standalone archive omits Wayfinder's native assets and
+// its release task hardcodes bare version tags. Keep the tested complete bundle
+// and package-prefixed tags in these project deployment tasks.
+@Task('Publish the verified complete Wayfinder runtime to GitHub.')
+Future<void> wayfinderDeployGithub() async {
+  await runAsync(
+    'bash',
+    arguments: <String>[
+      'tool/ci/publish-wayfinder.sh',
+      _requiredEnvironment('DISTRIBUTION'),
+    ],
+  );
+}
+
+@Task('Update the Wayfinder formula in Concepta’s existing Homebrew tap.')
+Future<void> wayfinderDeployHomebrew() async {
+  await runAsync(
+    'python3',
+    arguments: <String>[
+      'tool/ci/update-wayfinder-homebrew.py',
+      _requiredEnvironment('DISTRIBUTION'),
+    ],
+  );
+}
+
 @Task('Publish the package using the configured pub.dev credentials.')
 Future<void> okfpDeployPub() async {
   await runAsync(

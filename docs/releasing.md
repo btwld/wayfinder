@@ -33,7 +33,7 @@ existing release assets are not overwritten.
    failed CI or another workflow's artifacts.
 4. The workflow downloads and verifies all three native archives, then publishes
    them in this repository using its built-in `GITHUB_TOKEN`, recording the build
-   commit in `source.json`. A separate App token is needed only to update Homebrew.
+   commit in `source.json`. The existing `HOMEBREW_TAP_GH_TOKEN` credential pattern is used for Homebrew.
 5. Verify the actual public installer URLs and Homebrew installation without
    source-repository credentials. Remove the installation guide's rollout-pending
    notice only after these checks succeed.
@@ -62,16 +62,25 @@ for the command exposed to skills. A Wayfinder release preserves an existing
 validator formula, allowing validator releases to advance independently.
 Upstream `okf` and its formula remain independently maintained.
 
-## Release App configuration
+## Release tooling and credentials
 
-Only the Homebrew cross-repository jobs require a private organization-owned GitHub App with
-**Contents: read and write** and implicit metadata access, installed only on
-`homebrew-tap`. No webhook or user authorization is needed.
-Store its App ID in the source repository's `RELEASE_APP_ID` Actions variable and
-its private key in `RELEASE_APP_PRIVATE_KEY`. Workflow tokens remain scoped to the
-selected repositories; do not store a developer's personal GitHub token in CI.
+Like [conceptadev/okf](https://github.com/conceptadev/okf/blob/main/tool/release/tool/grind.dart),
+this repository keeps `cli_pkg 2.15.2` and Grinder in `tool/release`, isolated
+from the runtime packages. `cli_pkg` provides the standalone compiler tasks;
+project deployment tasks publish validated artifacts and update the existing
+`conceptadev/homebrew-tap` repository.
 
-The App setup is pending GitHub's owner re-authentication. The existence of the
-workflow does not prove that cross-repository publishing credentials work. The
-first successful Homebrew update is the operational verification. Native GitHub
-release publication does not require this App.
+Wayfinder uses `wayfinder-deploy-github` and `wayfinder-deploy-homebrew`.
+Its complete bundles retain native libraries, model and dependency notices;
+`cli_pkg`'s default executable-only archive cannot replace them. Its default
+GitHub task also uses bare version tags, while this monorepo keeps package-prefixed
+tags. The small deployment adapters preserve those contracts. The validator
+continues to use the corresponding `okfp-*` tasks. Pub.dev publishing uses OIDC.
+
+GitHub releases use the built-in `GITHUB_TOKEN` with `contents: write`. Homebrew
+updates use `HOMEBREW_TAP_GH_TOKEN`, the same secret name used by OKF, with write
+access to `conceptadev/homebrew-tap`. Make that credential available to this
+repository through organization or repository Actions secrets. Secrets cannot
+be copied out of another repository through the GitHub API. No new GitHub App,
+App ID, or private key is required. The tap credential is not yet configured for
+Wayfinder; automatic Homebrew updates require it, while native releases do not.
