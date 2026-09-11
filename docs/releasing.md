@@ -24,9 +24,11 @@ hosted dependencies outside the workspace and run its publish dry run. Publish `
 stable `^0.0.1` constraints for both workspace libraries.
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
-tagging. Keep the CLI pubspec, runtime version, plugin version and both installer
-pins aligned. Publish tags at the exact checked commit. Do not reuse dev.1 binaries
-as 0.0.1 or overwrite published archives.
+tagging. Keep the CLI pubspec, runtime version and plugin version aligned.
+Installer defaults stay on `0.0.1-dev.1` until the `0.0.1` archives exist; CI
+sets `WAYFINDER_VERSION` to test the prepared version. Promote those public
+defaults only after publication succeeds. Publish tags at the exact checked
+commit. Do not reuse dev.1 binaries as 0.0.1 or overwrite published archives.
 
 The new `wayfinder_cli` package needs its first authenticated publication and
 assignment to `concepta.dev`, followed by OIDC configuration for
@@ -34,6 +36,8 @@ assignment to `concepta.dev`, followed by OIDC configuration for
 trust to `publish-wayfinder.yml` and `wayfinder-core-v{{version}}`. Its old trust
 belonged to the application. Keep embeddings OIDC unchanged. GitHub tag creation
 using the built-in workflow token must not be relied on to trigger publication.
+Each publish workflow recognizes an already-published version and skips upload
+so the initial authenticated CLI publication is not duplicated by the tag path.
 
 ## Native distribution and Homebrew
 
@@ -54,9 +58,27 @@ available for legacy consumers. Tap updates require `HOMEBREW_TAP_GH_TOKEN`,
 scoped to Contents read/write on `conceptadev/homebrew-tap`. It is not yet
 configured. Never print its value or use it for GitHub release publication.
 
-The tap update currently follows publication in the same job. A separate,
-retryable tap job remains deployment automation work. Reruns must verify existing
-release bytes and refuse to overwrite mismatches. After publishing, run public
-installer checks and actual Homebrew installation/upgrade tests before marking
-the release deployed. Windows/Linux validation and external credentials cannot
-be inferred from local macOS results.
+Native GitHub publication, Homebrew and public installer verification are
+separate dependent jobs. A failed Homebrew job can be retried without
+republishing packages or replacing release assets. Reruns verify existing
+release bytes and refuse to overwrite mismatches. The installer verification
+job uses local scripts with `WAYFINDER_VERSION` so it can exercise `0.0.1`
+before the public defaults are promoted. After publishing, run actual Homebrew
+installation/upgrade tests before marking the release deployed. Windows/Linux
+validation and external credentials cannot be inferred from local macOS results.
+
+## Partial recovery and token rotation
+
+If only some channels finished, continue from the failed job. Do not recreate
+tags, replace published archives or republish a version that pub.dev already
+has. The GitHub publisher exits successfully when the existing release bytes
+match; a mismatch requires a new version. Skip Homebrew until
+`HOMEBREW_TAP_GH_TOKEN` is stored. Leave installer defaults on `0.0.1-dev.1`
+until the stable archives and public verification succeed.
+
+Rotate `HOMEBREW_TAP_GH_TOKEN` with a new fine-grained token owned by
+`conceptadev`, limited to `homebrew-tap`, Contents read/write, and a bounded
+expiry. Replace the Wayfinder Actions secret through the GitHub UI. Never print
+the value, commit it or use it for GitHub release publication. Pub.dev
+publication uses OIDC after the first authenticated CLI upload; report that
+path as configured until an automated publication verifies it.

@@ -51,7 +51,16 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+      - name: Check whether pub.dev already has this version
+        id: pub
+        working-directory: packages/wayfinder
+        run: |
+          version="$(sed -n 's/^version: //p' pubspec.yaml)"
+          bash "$GITHUB_WORKSPACE/tool/ci/pub-version-published.sh" wayfinder "$version" >> "$GITHUB_OUTPUT"
+      - if: steps.pub.outputs.published == 'true'
+        run: echo "wayfinder is already on pub.dev; skipping upload."
       # The same immutable tag passed verification above. Pub's scoped OIDC
       # credential cannot resolve dependencies; do not repeat pub get here.
-      - run: dart pub publish --force --skip-validation
+      - if: steps.pub.outputs.published != 'true'
+        run: dart pub publish --force --skip-validation
         working-directory: packages/wayfinder

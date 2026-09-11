@@ -2,11 +2,17 @@
 # Install the complete Wayfinder runtime with built-in Profile validation.
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
-version="0.0.1"
+fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
+# Public default stays on the last published working release until 0.0.1
+# archives exist. CI sets WAYFINDER_VERSION to test a prepared version.
+version="${WAYFINDER_VERSION:-0.0.1-dev.1}"
+case "$version" in
+  [0-9]*.[0-9]*.[0-9]|[0-9]*.[0-9]*.[0-9]-*) ;;
+  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+esac
 release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
 install_dir="${WAYFINDER_INSTALL_DIR:-$HOME/.local/bin}"
 runtime_root="${WAYFINDER_INSTALL_ROOT:-$HOME/.local/share/wayfinder-runtime}"
-fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) platform=macos-arm64 ;;
   Linux-x86_64) platform=linux-x64 ;;

@@ -1,6 +1,12 @@
 # Install the complete Wayfinder runtime without Dart or admin rights.
 $ErrorActionPreference = 'Stop'
-$WayfinderVersion = '0.0.1'
+$WayfinderVersion = '0.0.1-dev.1'
+if ($env:WAYFINDER_VERSION) {
+    $WayfinderVersion = $env:WAYFINDER_VERSION
+}
+if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
+    throw 'WAYFINDER_VERSION must be a published release version.'
+}
 $ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
     throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'

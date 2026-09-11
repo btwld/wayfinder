@@ -7,9 +7,13 @@ $OriginalPath = $env:PATH
 $OriginalUserPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
 $OriginalRoot = $env:WAYFINDER_INSTALL_ROOT
 $OriginalData = $env:WAYFINDER_DATA_DIR
+$OriginalVersion = $env:WAYFINDER_VERSION
 New-Item -ItemType Directory $TestRoot | Out-Null
 $env:WAYFINDER_INSTALL_ROOT = Join-Path $TestRoot 'runtime'
 $env:WAYFINDER_DATA_DIR = Join-Path $TestRoot 'data'
+$env:WAYFINDER_VERSION = (
+    Select-String -Path (Join-Path $Workspace 'packages/wayfinder_cli/pubspec.yaml') -Pattern '^version: (.+)$'
+).Matches[0].Groups[1].Value
 $env:PATH = (($env:PATH -split ';') | Where-Object {
     $_ -and -not (Test-Path (Join-Path $_ 'dart.exe')) -and -not (Test-Path (Join-Path $_ 'dart.bat'))
 }) -join ';'
@@ -51,5 +55,6 @@ try {
     $env:PATH = $OriginalPath
     $env:WAYFINDER_INSTALL_ROOT = $OriginalRoot
     $env:WAYFINDER_DATA_DIR = $OriginalData
+    $env:WAYFINDER_VERSION = $OriginalVersion
     Remove-Item $TestRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -34,12 +35,18 @@ done
 cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
 ''')
     curl.chmod(0o755)
+    package_version = re.search(
+        r'^version: (.+)$',
+        (workspace / 'packages/wayfinder_cli/pubspec.yaml').read_text(),
+        re.M,
+    )[1]
     env = dict(os.environ,
                PATH=f'{shim}:/usr/bin:/bin:/usr/sbin:/sbin',
                WAYFINDER_TEST_DOWNLOADS=str(downloads),
                WAYFINDER_INSTALL_ROOT=str(root / 'runtime'),
                WAYFINDER_INSTALL_DIR=str(root / 'commands'),
-               WAYFINDER_DATA_DIR=str(root / 'data'))
+               WAYFINDER_DATA_DIR=str(root / 'data'),
+               WAYFINDER_VERSION=package_version)
     if shutil.which('dart', path=env['PATH']):
         raise RuntimeError('Probe PATH must not contain Dart')
     for name in ['WAYFINDER_EMBEDDING_MODEL', 'KNOWLEDGE_EMBEDDING_MODEL']:

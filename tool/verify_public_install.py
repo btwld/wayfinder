@@ -12,10 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = 'https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/'
 
 def download_installer(script):
-    # Fetch the current public file when validating a just-published correction.
-    url = PUBLIC + script.name + '?verification=' + str(time.time_ns())
-    with urllib.request.urlopen(url, timeout=60) as response:
-        data = response.read()
+    if os.environ.get('WAYFINDER_USE_LOCAL_INSTALLER') == '1':
+        data = (ROOT / 'tool' / script.name).read_bytes()
+    else:
+        # Fetch the current public file when validating a just-published correction.
+        url = PUBLIC + script.name + '?verification=' + str(time.time_ns())
+        with urllib.request.urlopen(url, timeout=60) as response:
+            data = response.read()
     script.write_bytes(data)
     print(f'{script.name} SHA-256: {hashlib.sha256(data).hexdigest()}', flush=True)
 

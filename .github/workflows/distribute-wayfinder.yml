@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 concurrency:
@@ -17,20 +17,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  distribute:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify build provenance
+          fetch-tags: true
+      - name: Require the application tag and successful CI
         env:
           GH_TOKEN: ${{ github.token }}
           CI_RUN_ID: ${{ inputs.ci_run_id }}
         shell: python
         run: |
-          import json, os, subprocess
+          import json, os, re, subprocess
+          from pathlib import Path
+          version = re.search(r'^version: (.+)$', Path('packages/wayfinder_cli/pubspec.yaml').read_text(), re.M)
+          if not version or not re.fullmatch(r'\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?', version[1]):
+              raise SystemExit('Invalid application version')
+          tag = f'wayfinder-v{version[1]}'
+          try:
+              actual = subprocess.check_output(['git', 'rev-list', '-n', '1', tag], text=True).strip()
+          except subprocess.CalledProcessError:
+              raise SystemExit(f'Application tag {tag} must already exist')
+          if actual != os.environ['GITHUB_SHA']:
+              raise SystemExit('Release tag must match the checked commit.')
           run_id = os.environ['CI_RUN_ID']
           if not run_id.isdecimal():
               raise SystemExit('CI run ID must be numeric')
@@ -49,6 +61,28 @@ jobs:
           path: build/distribution
       - name: Verify complete release inputs
         run: python3 tool/ci/verify-distribution.py build/distribution
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wayfinder-distribution
+          path: build/distribution
+          if-no-files-found: error
+
+  publish-github:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: wayfinder-distribution
+          path: build/distribution
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: '3.11.0'
@@ -58,8 +92,48 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DISTRIBUTION: build/distribution
         run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-github
+
+  publish-homebrew:
+    needs: publish-github
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: wayfinder-distribution
+          path: build/distribution
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.11.0'
+      - run: dart pub -C tool/release get --enforce-lockfile
       - name: Update the public Homebrew tap
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
           DISTRIBUTION: build/distribution
         run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-homebrew
+
+  verify-public-install:
+    needs: publish-github
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Read the prepared application version
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^version: //p' packages/wayfinder_cli/pubspec.yaml)"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Install the published archives without Dart
+        env:
+          WAYFINDER_USE_LOCAL_INSTALLER: '1'
+          WAYFINDER_VERSION: ${{ steps.version.outputs.value }}
+        run: python tool/verify_public_install.py
