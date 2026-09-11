@@ -170,6 +170,26 @@ void main() {
     expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
   });
 
+  test('joins adjacent footnote references to their definitions', () async {
+    // `[^a][^b]` parses as a reference link and stays literal text, so the
+    // attribution join must be decided by the definition, not the parser.
+    final result = await runCli(
+      <String>['validate', '--output', 'json', fixture('adjacent-footnotes')],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stderr, isEmpty);
+    final output = jsonDecode(result.stdout) as Map<String, Object?>;
+    final profile = output['profile']! as Map<String, Object?>;
+    expect(profile['state'], 'PASS');
+    expect(
+      findingSummary(profile),
+      isNot(
+        contains(startsWith('error concepta-profile/source-attribution-join')),
+      ),
+    );
+  });
+
   test('validates prose source descriptors with slashes and non-ASCII cleanly',
       () async {
     // A sources[].resource descriptor carrying both a slash and a non-ASCII
