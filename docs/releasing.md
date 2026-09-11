@@ -27,10 +27,10 @@ tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
 enforces it. Claude Code updates the plugin only when its version changes, and
 `wayfinder update` offers only stable `wayfinder-v` releases, so suffixed
 prereleases reach neither.
-Installer defaults name the latest verified native release; CI sets
-`WAYFINDER_VERSION` to test a prepared version. Promote both defaults together
-only after the new archives are published and pass public verification. Publish
-tags at the exact checked commit. Never rename binaries across versions or
+The public installers resolve the newest stable `wayfinder-v` release from
+GitHub at install time, so publishing a release makes it the default at once;
+verify before dispatching. CI and `wayfinder update` pin a version with
+`WAYFINDER_VERSION`. Publish tags at the exact checked commit. Never rename binaries across versions or
 overwrite published archives.
 
 `wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
@@ -67,8 +67,8 @@ Native GitHub publication and public installer verification are separate
 dependent jobs. A failed job can be retried without republishing packages or
 replacing release assets. Reruns verify existing
 release bytes and refuse to overwrite mismatches. The installer verification
-job uses local scripts with `WAYFINDER_VERSION` so it can exercise the new
-version before the public defaults are promoted. **Verify public Wayfinder
+job uses local scripts with `WAYFINDER_VERSION`, so it exercises exactly the new
+version. **Verify public Wayfinder
 installation** also runs the public scripts on every installer change to `main`
 and weekly, under PowerShell 7 and Windows PowerShell 5.1 on Windows.
 Windows/Linux validation and external credentials cannot be inferred from local
@@ -79,9 +79,9 @@ macOS results.
 If only some channels finished, continue from the failed job. Do not recreate
 tags, replace published archives or republish a version that pub.dev already
 has. The GitHub publisher exits successfully when the existing release bytes
-match; a mismatch requires a new version.
-Leave installer defaults on the previous release until the new archives and
-public verification succeed.
+match; a mismatch requires a new version. If public verification fails after
+publishing, mark the release as a prerelease so installers skip it until a fixed
+version replaces it.
 
 Pub.dev publication uses OIDC after the first authenticated CLI upload; report
 that path as configured until an automated publication verifies it.

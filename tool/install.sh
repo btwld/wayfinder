@@ -3,15 +3,9 @@
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }
-# The default is the latest verified native release. WAYFINDER_VERSION selects
-# another published release; CI uses it to test a prepared version.
-version="${WAYFINDER_VERSION:-0.0.2}"
-case "$version" in
-  *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
-  [0-9]*.[0-9]*.[0-9]*) ;;
-  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
-esac
-release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
+# The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
+# another published release; CI and `wayfinder update` use it to pin a version.
+version="${WAYFINDER_VERSION:-}"
 skills="${WAYFINDER_SKILLS:-all}"
 case "$skills" in
   all|claude|agents|none) ;;
@@ -31,6 +25,22 @@ esac
 for command in curl tar mktemp; do
   command -v "$command" >/dev/null 2>&1 || fail "Required command is missing: $command"
 done
+if [ -z "$version" ]; then
+  # The repository also publishes library and legacy releases, so pick the
+  # highest stable application tag rather than GitHub's single latest release.
+  version="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 \
+      'https://api.github.com/repos/conceptadev/wayfinder/releases?per_page=100' |
+    tr ',' '\n' |
+    sed -n 's/.*"tag_name": *"wayfinder-v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' |
+    sort -t . -k 1,1n -k 2,2n -k 3,3n | tail -n 1)"
+  [ -n "$version" ] || fail 'Could not find the latest release; set WAYFINDER_VERSION.'
+fi
+case "$version" in
+  *[!0-9A-Za-z.-]*) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
+esac
+release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
 hash_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d ' ' -f 1
   else shasum -a 256 "$1" | cut -d ' ' -f 1; fi

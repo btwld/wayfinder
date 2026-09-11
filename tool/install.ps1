@@ -5,9 +5,20 @@
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 downloads far slower while drawing progress.
 $ProgressPreference = 'SilentlyContinue'
-$WayfinderVersion = '0.0.2'
-if ($env:WAYFINDER_VERSION) {
-    $WayfinderVersion = $env:WAYFINDER_VERSION
+# The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
+# another published release; CI and `wayfinder update` use it to pin a version.
+$WayfinderVersion = $env:WAYFINDER_VERSION
+if (-not $WayfinderVersion) {
+    # The repository also publishes library and legacy releases, so pick the
+    # highest stable application tag rather than GitHub's single latest release.
+    # Assigning first makes Windows PowerShell 5.1 enumerate the JSON array.
+    $Releases = Invoke-RestMethod 'https://api.github.com/repos/conceptadev/wayfinder/releases?per_page=100' -UseBasicParsing
+    $Latest = @($Releases) | Where-Object {
+        -not $_.draft -and -not $_.prerelease -and $_.tag_name -match '^wayfinder-v\d+\.\d+\.\d+$'
+    } | Sort-Object { [version]($_.tag_name -replace '^wayfinder-v', '') } -Descending |
+        Select-Object -First 1
+    if (-not $Latest) { throw 'Could not find the latest release; set WAYFINDER_VERSION.' }
+    $WayfinderVersion = $Latest.tag_name -replace '^wayfinder-v', ''
 }
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'
