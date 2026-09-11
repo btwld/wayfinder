@@ -386,10 +386,10 @@ Iterable<ProfileFinding> _validateSourcePaths(
     // disk too. URLs and other descriptors never reach here.
     final missing = switch (edge.resolution) {
       OkfGraphResolution.unresolved => true,
-      OkfGraphResolution.invalid => _leavesBundle(edge) &&
-          !_existsOnDisk(loaded.rootPath, edge),
-      OkfGraphResolution.descriptor => _hasPathPrefix(edge.rawTarget) &&
-          !_existsOnDisk(loaded.rootPath, edge),
+      OkfGraphResolution.invalid =>
+        _leavesBundle(edge) && !_existsOnDisk(loaded.rootPath, edge),
+      OkfGraphResolution.descriptor =>
+        _hasPathPrefix(edge.rawTarget) && !_existsOnDisk(loaded.rootPath, edge),
       _ => false,
     };
     if (missing && emitted.add((edge.source.documentPath, edge.rawTarget))) {
@@ -417,9 +417,8 @@ bool _hasPathPrefix(String raw) =>
 bool _existsOnDisk(String rootPath, OkfGraphEdge edge) {
   final target = _pathPart(edge.rawTarget);
   if (target == null) return false;
-  final directory = target.startsWith('/')
-      ? '.'
-      : p.posix.dirname(edge.source.documentPath);
+  final directory =
+      target.startsWith('/') ? '.' : p.posix.dirname(edge.source.documentPath);
   final segments = target.split('/').map((segment) {
     try {
       return Uri.decodeComponent(segment);

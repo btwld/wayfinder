@@ -149,7 +149,12 @@ void main() {
     // leaves the bundle and names nothing on disk, both earn an advisory; a
     // path that leaves the bundle and exists, a URL, and a descriptor do not.
     final result = await runCli(
-      <String>['validate', '--output', 'json', fixture('unresolved-source-path')],
+      <String>[
+        'validate',
+        '--output',
+        'json',
+        fixture('unresolved-source-path')
+      ],
     );
 
     expect(result.exitCode, 0);
