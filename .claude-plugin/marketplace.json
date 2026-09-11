@@ -3,6 +3,9 @@
   "owner": {
     "name": "Concepta"
   },
+  "metadata": {
+    "description": "Wayfinder: author, adopt and assess Concepta OKF Profile knowledge bundles."
+  },
   "plugins": [
     {
       "name": "wayfinder",

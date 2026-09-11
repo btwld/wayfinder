@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
+import 'src/dependency_licenses.dart';
 import 'src/model_preparation.dart';
 import 'src/native_cli_assets.dart';
 import 'src/objectbox_assets.dart';
@@ -63,6 +64,7 @@ Future<void> main(List<String> args) async {
     await File('LICENSE').copy(p.join(bundle.path, 'LICENSE'));
     await stageObjectBoxAssets(package, bundle);
     await stageNativeCliAssets(package, bundle);
+    await stageDependencyLicenses(bundle, ['wayfinder_embeddings']);
     stdout.writeln('Built retrieval bundle: ${bundle.path}');
   } catch (error) {
     stderr.writeln('Embedding build failed: $error');

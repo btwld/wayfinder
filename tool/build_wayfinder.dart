@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
+import '../packages/wayfinder_embeddings/tool/src/dependency_licenses.dart';
 import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
 import '../packages/wayfinder_embeddings/tool/src/objectbox_assets.dart';
 
@@ -37,6 +38,22 @@ Future<void> main(List<String> arguments) async {
     exitCode = await process.exitCode;
     if (exitCode != 0) return;
     final bundle = p.join(output.path, 'bundle');
+    final validator = await Process.start(Platform.resolvedExecutable, [
+      'compile',
+      'exe',
+      'packages/okf_profile/bin/okfp.dart',
+      '-o',
+      p.join(bundle, 'bin', Platform.isWindows ? 'okfp.exe' : 'okfp'),
+    ], mode: ProcessStartMode.inheritStdio);
+    exitCode = await validator.exitCode;
+    if (exitCode != 0) return;
+    final validatorLicense = await Directory(
+      p.join(bundle, 'licenses', 'okf_profile'),
+    ).create(recursive: true);
+    await File(
+      p.join(workspace, 'packages', 'okf_profile', 'LICENSE'),
+    ).copy(p.join(validatorLicense.path, 'LICENSE'));
+
     await File(
       p.join(workspace, 'packages', 'wayfinder', 'LICENSE'),
     ).copy(p.join(bundle, 'LICENSE'));
@@ -52,6 +69,10 @@ Future<void> main(List<String> arguments) async {
     }
     await stageObjectBoxAssets(Directory(package), Directory(bundle));
     await stageNativeCliAssets(Directory(package), Directory(bundle));
+    await stageDependencyLicenses(Directory(bundle), [
+      'wayfinder',
+      'okf_profile',
+    ]);
     stdout.writeln('Built Wayfinder: $bundle');
   } catch (error) {
     stderr.writeln('Wayfinder build failed: $error');

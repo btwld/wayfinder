@@ -22,6 +22,12 @@
 
 [Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the three distributed skills.
 
+## Operations
+
+docs/install.md — Installation guide (Current) — Installing Wayfinder, okfp, and the wayfinder@wayfinder plugin without a Dart SDK: Homebrew, one-line installers, plugin commands, checks, upgrades, uninstall. Topics: install, distribution, plugin, MCP.
+
+docs/releasing.md — Releasing (Current) — What a release tag does, every version bump site and its CI check, the release app, and how to collapse the distribution repository when this one goes public. Topics: release, distribution, pinning, CI.
+
 ## ADRs
 
 [0004: Closed Concepta Profile validator](adr/0004-closed-concepta-profile-validator.md) — Accepted. Closed validation, contextual review, registries, authored logs, and derived indexes.

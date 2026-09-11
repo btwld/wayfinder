@@ -17,11 +17,14 @@ jobs:
         sdk: ["3.10.7", stable]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
+      - run: bash tool/ci/verify-installer-pins.sh
+        shell: bash
+        working-directory: .
       - run: dart format --output=none --set-exit-if-changed bin lib test
         working-directory: packages/okf_profile
       - run: dart analyze --fatal-infos
@@ -72,7 +75,7 @@ jobs:
       run:
         working-directory: packages/wayfinder_embeddings
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
@@ -121,21 +124,32 @@ jobs:
             --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
       - name: Archive the complete native application bundle
         if: matrix.sdk == 'stable'
-        shell: python
+        shell: bash
         working-directory: .
         run: |
-          import os
-          from pathlib import Path
-          import tarfile
-          archive = Path(os.environ['RUNNER_TEMP']) / f"wayfinder-{os.environ['RUNNER_OS']}-{os.environ['RUNNER_ARCH']}.tar.gz"
-          with tarfile.open(archive, 'w:gz') as output:
-              output.add('build/wayfinder/bundle', arcname='.')
-      - uses: actions/upload-artifact@v4
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) platform=linux-x64 ;;
+            macOS-ARM64) platform=macos-arm64 ;;
+            Windows-X64) platform=windows-x64 ;;
+            *) echo "Unsupported release platform" >&2; exit 1 ;;
+          esac
+          python3 tool/package_wayfinder.py build/wayfinder/bundle "build/wayfinder-$platform.tar.gz"
+      - name: Verify POSIX installation without Dart
+        if: matrix.sdk == 'stable' && runner.os != 'Windows'
+        shell: bash
+        working-directory: .
+        run: python3 tool/verify_installer.py build/wayfinder-*.tar.gz
+      - name: Verify Windows installation without Dart
+        if: matrix.sdk == 'stable' && runner.os == 'Windows'
+        shell: pwsh
+        working-directory: .
+        run: ./tool/verify_installer.ps1 -Archive build/wayfinder-windows-x64.tar.gz
+      - uses: actions/upload-artifact@v7
         if: matrix.sdk == 'stable'
         with:
           name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ runner.temp }}/wayfinder-${{ runner.os }}-${{ runner.arch }}.tar.gz
-      - uses: actions/upload-artifact@v4
+          path: build/wayfinder-*.tar.gz*
+      - uses: actions/upload-artifact@v7
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |

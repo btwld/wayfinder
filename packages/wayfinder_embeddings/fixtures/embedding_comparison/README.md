@@ -23,5 +23,5 @@ judged miss as an unsupported or incorrect passage.
 
 No client data, new profile fields, or universal authority ordering is encoded.
 The explicit governing map is a consumer policy for this synthetic scenario.
-See [the results](../../../../docs/knowledge_embeddings_comparison.md) and
-[the benchmark plan](../../../../docs/knowledge_embeddings_benchmark_plan.md).
+See [the results](../../../../docs/wayfinder_embeddings_comparison.md) and
+[the benchmark plan](../../../../docs/wayfinder_embeddings_benchmark_plan.md).

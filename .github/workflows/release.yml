@@ -29,7 +29,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - id: matrix
@@ -39,7 +39,7 @@ jobs:
     needs: ref
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dart-lang/setup-dart@v1
@@ -66,7 +66,7 @@ jobs:
       matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dart-lang/setup-dart@v1
@@ -83,7 +83,7 @@ jobs:
           ASSET: ${{ matrix.asset }}
           TAG: ${{ github.ref_name }}
         run: bash tool/ci/verify-engine-version.sh "./$ASSET" "$TAG"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.asset }}
           path: ${{ matrix.asset }}
@@ -96,14 +96,14 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
       - run: dart pub -C tool/release get --enforce-lockfile
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: okfp-*
           path: dist
@@ -117,6 +117,41 @@ jobs:
           dart --packages=tool/release/.dart_tool/package_config.json
           tool/release/grind.dart okfp-deploy-github
 
+  dist:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub -C tool/release get --enforce-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: okfp-*
+          path: dist
+          merge-multiple: true
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: conceptadev
+          repositories: wayfinder-dist
+      - env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          DISTRIBUTION: dist
+        run: >-
+          dart --packages=tool/release/.dart_tool/package_config.json
+          tool/release/grind.dart okfp-deploy-dist
+
   pub-publish:
     needs: publish
     runs-on: ubuntu-latest
@@ -124,7 +159,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check whether pub.dev already has this version
@@ -168,3 +203,28 @@ jobs:
         run: >-
           dart --packages=tool/release/.dart_tool/package_config.json
           tool/release/grind.dart okfp-deploy-pub
+
+  homebrew:
+    needs: pub-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub -C tool/release get --enforce-lockfile
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: conceptadev
+          repositories: homebrew-tap
+      - env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: >-
+          dart --packages=tool/release/.dart_tool/package_config.json
+          tool/release/grind.dart okfp-deploy-homebrew

@@ -27,7 +27,7 @@ itself has no `knowledge/`; contributors enabling the plugin here must select a
 real bundle, such as the generic example. No root `.mcp.json` auto-starts a server
 merely because this repository was cloned.
 
-Uninstall `concepta-knowledge@wayfinder` before installing `wayfinder@wayfinder`.
+Follow the [plugin migration sequence](../docs/install.md#migrate-an-existing-plugin-installation) when changing from the old private marketplace to the public distribution.
 Keep upstream `okf` graph/write tools separately configured if needed; Wayfinder's
 `validate`, `index` and `search` tools do not replace those operations.
 

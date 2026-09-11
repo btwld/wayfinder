@@ -8,7 +8,7 @@ dense, and hybrid. A known strict-support annotation limitation is documented
 in the fixture README. Results and executable/source provenance live in
 `benchmarks/embedding_comparison_*`. Per-process raw reports are regenerated
 from the benchmark commands rather than checked in.
-See [measured costs and quality](../../../docs/knowledge_embeddings_comparison.md).
+See [measured costs and quality](../../../docs/wayfinder_embeddings_comparison.md).
 
 ## okf_retrieval/
 
@@ -17,7 +17,7 @@ development and 17 held-out questions before evaluation. This is an unprofiled
 retrieval fixture, not a normative bundle template. It tests lifecycle, explicit
 governing sources, heading context, and declared links using the real OKF parser.
 Do not adjust judgments to fit model output. See the
-[protocol and measured results](../../../docs/knowledge_embeddings_ablation.md).
+[protocol and measured results](../../../docs/wayfinder_embeddings_ablation.md).
 `benchmarks/okf_ablation_results.json` records both stores and all seven
 configurations, including per-query correctness. Native CI retains full rankings.
 
@@ -80,7 +80,7 @@ UPDATE_GOLDENS=1 dart test test/fixtures_pipeline_golden_test.dart
 
 `model_comparison_*` records the follow-up Arctic XS/S and BGE-small comparison,
 including Q8/Q4 variants. It reuses `embedding_comparison/` unchanged. See the
-[model comparison protocol and results](../../../docs/knowledge_embeddings_model_comparison.md).
+[model comparison protocol and results](../../../docs/wayfinder_embeddings_model_comparison.md).
 
 `local_metrics_baseline.json` records aggregate and per-group metrics for the
 pinned native model after the storage cleanup. It carries model identity,

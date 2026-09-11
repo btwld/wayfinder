@@ -48,7 +48,11 @@ redistributed after the installer had originally verified a different file.
 The builders include ObjectBox's Apache-2.0 license, attribution and hash manifest
 under `licenses/objectbox/`. The native repository identifies its license in its
 [release README](https://github.com/objectbox/objectbox-c/tree/v5.3.2#license).
-Application/library BSD licenses and model notices remain separate.
+Application/library BSD licenses and model notices remain separate. Both builders
+also collect the declared runtime dependency graph's license/notice files and the
+Dart SDK license, including ACK and other code compiled into the executable.
+Development-only dependencies are excluded. The package/version inventory ships
+under `licenses/dart/packages.json`; missing dependency licenses fail the build.
 
 The bundle carries the executable, Dart/llamadart native assets, ObjectBox
 (`lib/` on Linux/macOS, `bin/` on Windows), the verified model and its manifest.
