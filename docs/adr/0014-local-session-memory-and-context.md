@@ -6,9 +6,9 @@
 - Baseline: `d25427d620ea7bcb60148781414601e38e95acff`
 - Delivery: [implementation plan](../local-memory-implementation-plan.md)
 
-This is a design proposal, not a description of shipped functionality. Accepting
-it would authorize separately tested implementation slices, not enable capture,
-install hooks, download weights or change bundle authority.
+This is a design proposal, not shipped functionality or approval of every later
+feature. Each production change needs its own reviewed implementation PR. This
+change enables no capture, hooks, model downloads or change of bundle authority.
 
 ## Context
 
@@ -37,10 +37,16 @@ The baseline provides:
 
 ### 1. Add bounded services, not another autonomous agent
 
-Provide typed operations for checkpoint capture, recall and context preparation.
-Use a local model only to summarize, extract or select within supplied evidence.
+The two initial tasks are selecting supplied search passages and summarizing a
+supplied session segment. Test both with the pinned runtime before building a
+memory service. Use synthetic or explicitly authorized fixtures; no automatic
+transcript capture is needed for that experiment. Storage and hook integration
+can follow independently. Enable each model task only if its own evaluation passes.
+
 Dart controls storage, authorization, source identity, budgets and publication.
-The model receives no general filesystem, shell or network tools.
+The model receives no general filesystem, shell or network tools. Graph-assisted
+context, cross-worktree handoffs and advisory review are later options, not
+requirements for the first usable slice.
 
 Keep current validation, embedding identity, search behavior and graph projection
 unchanged unless a separate implementation explicitly changes their contracts.
@@ -52,7 +58,9 @@ no model download, reindexing or new permission merely to keep using Wayfinder.
 Store permitted session events in private application data outside the repository
 and outside the bundle. Record repository, worktree, session and revision context;
 a branch name alone is not a sufficient identity. Preserve source IDs and event
-coverage for every checkpoint.
+coverage for every checkpoint. Capture and disclosure consent come from trusted
+operator configuration, never from a model-supplied flag or session ID. The current
+bundle root does not itself authorize access to host transcripts or other worktrees.
 
 Treat summaries, selected context and review suggestions as rebuildable outputs.
 Keep observations, explicit decisions, rejected proposals and suggested next steps
@@ -73,9 +81,9 @@ an intake summary nor a session summary replaces an authoritative source documen
 
 ### 3. Preserve evidence during context preparation
 
-Assemble a token-bounded context pack from eligible passages, recorded graph
-relationships and explicitly permitted session history. Keep source text, exact
-identifiers, citations, revisions and unresolved-context notices.
+Start with eligible passages and existing policy context. Later context assembly
+may add graph traversal and explicitly permitted session history. Keep source text,
+exact identifiers, citations, revisions and unresolved-context notices.
 
 First compare improved model-free passage assembly with the existing baseline.
 Then evaluate optional generation-based passage selection with the same source
@@ -92,17 +100,24 @@ it must not masquerade as a successful empty result.
 
 Keep Arctic XS for embeddings. Trial
 [Qwen3.5-0.8B Q4_K_M GGUF](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/blob/main/Qwen3.5-0.8B-Q4_K_M.gguf)
-for text-only generation. The published file listing is approximately 533 MB;
-combined with the existing approximately 25.3 MB embedding artifact, this is about
-558 MB of model weights. These are rounded download sizes, not measured runtime
-memory or total installation size.
+for text-only generation. The [published pointer](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/raw/main/Qwen3.5-0.8B-Q4_K_M.gguf)
+checked on 2026-09-11 lists 532,517,120 bytes. With the existing 25,279,840-byte
+embedding artifact, the total is 557,796,960 bytes (about 558 MB). This is publisher
+metadata, not a downloaded-and-verified release pin, measured RAM or installation
+size. No vision projector is part of this text-only trial.
 
-Use less than 1,000,000,000 bytes for the combined installed model artifacts as the
-initial packaging target. Verify exact bytes before selecting a distribution.
+The original constraint is a generation model under one gigabyte. As a conservative
+proposal, target less than 1,000,000,000 bytes for both installed model artifacts
+combined. That stricter packaging target is a design choice, not a RAM guarantee.
 Start evaluation in non-thinking mode, which is the
 [model card's default](https://huggingface.co/Qwen/Qwen3.5-0.8B), with a bounded
 context and schema-constrained outputs. This is a candidate, not a quality winner
-or a compatibility guarantee for the pinned Wayfinder runtime.
+or a compatibility guarantee for the pinned Wayfinder runtime. The
+[published llamadart changelog](https://pub.dev/packages/llamadart/changelog)
+provides Qwen3.5 support evidence, not a Wayfinder task benchmark. The trial must use
+llamadart 0.8.23 and the native pins recorded in its
+[NOTICE](../../packages/wayfinder_embeddings/tool/native_assets/NOTICE), or report
+a separately reviewed runtime upgrade.
 
 Preparation owns explicit download, immutable revision, SHA-256 verification,
 license and attribution. Runtime uses a verified local file and never silently
@@ -127,9 +142,9 @@ is a disclosure boundary even when analysis ran locally.
 
 ### 6. Keep review suggestions advisory
 
-Later experiments may propose knowledge updates, flag likely duplicate concepts,
-compare a claim with supplied evidence, summarize tool failures, or explain possible
-change impact using recorded relationships. They neither certify conformance nor
+Outside the initial delivery, experiments may propose knowledge updates, flag
+likely duplicates, compare a claim with supplied evidence, summarize tool failures,
+or explain change impact using recorded relationships. They neither certify conformance nor
 approve code. Missing support in a bounded evidence set does not establish falsity.
 Permissions, structural validation, source checks and test outcomes stay in code.
 
