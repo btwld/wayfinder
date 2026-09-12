@@ -43,15 +43,22 @@ List<ProfileFinding> validateConceptRules(OkfBundleLoadResult loaded) {
 Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
   final profile = loaded.documents['profile.md'];
   if (profile != null && profile.type != 'Knowledge Profile') {
-    yield profileFinding(rules.profileDeclarationKind,
-        'profile.md must have type Knowledge Profile.', 'profile.md');
+    yield profileFinding(
+      rules.profileDeclarationKind,
+      'profile.md must have type Knowledge Profile.',
+      'profile.md',
+    );
   }
   for (final entry in loaded.documents.entries) {
     final path = entry.key;
     final document = entry.value;
     final frontmatter = document.frontmatter;
-    if (!const {'type', 'title', 'description', 'status'}
-        .every((key) => nonEmptyString(frontmatter[key]) != null)) {
+    if (!const {
+      'type',
+      'title',
+      'description',
+      'status',
+    }.every((key) => nonEmptyString(frontmatter[key]) != null)) {
       yield profileFinding(
         rules.conceptBaselineFields,
         'Every concept must contain non-empty string values for type, title, description, and status.',
@@ -71,12 +78,15 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
     final status = nonEmptyString(frontmatter['status']);
     if (status != null &&
         !const {'draft', 'stable', 'deprecated'}.contains(status)) {
-      yield profileFinding(rules.statusValue,
-          'Status must be draft, stable, or deprecated.', path);
+      yield profileFinding(
+        rules.statusValue,
+        'Status must be draft, stable, or deprecated.',
+        path,
+      );
     }
     final duplicatedTags = document.tags.toSet().intersection(<String>{
-      if (nonEmptyString(frontmatter['type']) case final type?) type,
-      if (status != null) status,
+      ?nonEmptyString(frontmatter['type']),
+      ?status,
       document.trustTier.wireValue,
       ..._relationshipLabels,
     });
@@ -98,16 +108,23 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
 }
 
 Iterable<ProfileFinding> _validateTypeRegistry(
-    OkfBundleLoadResult loaded) sync* {
+  OkfBundleLoadResult loaded,
+) sync* {
   final registry = loaded.documents['types.md'];
   if (registry == null) {
-    yield profileFinding(rules.typeRegistryPresent,
-        'The bundle must contain types.md.', 'types.md');
+    yield profileFinding(
+      rules.typeRegistryPresent,
+      'The bundle must contain types.md.',
+      'types.md',
+    );
     return;
   }
   if (registry.type != 'Type Registry') {
-    yield profileFinding(rules.typeRegistryKind,
-        'types.md must have type Type Registry.', 'types.md');
+    yield profileFinding(
+      rules.typeRegistryKind,
+      'types.md must have type Type Registry.',
+      'types.md',
+    );
   }
   final table = _firstTable(registry.body);
   if (table == null ||
@@ -130,16 +147,19 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     );
   }
   final standardNames = standardTypes.map((row) => row.$1).toSet();
-  final extensionRows =
-      rows.where((row) => !standardNames.contains(row.first)).toList();
+  final extensionRows = rows
+      .where((row) => !standardNames.contains(row.first))
+      .toList();
   final extensionNames = extensionRows.map((row) => row.first).toList();
   final sortedExtensions = [...extensionNames]..sort();
   final expectedOrder = <String>[
     ...standardTypes.map((row) => row.$1),
-    ...sortedExtensions
+    ...sortedExtensions,
   ];
   if (!_stringList.equals(
-      rows.map((row) => row.first).toList(), expectedOrder)) {
+    rows.map((row) => row.first).toList(),
+    expectedOrder,
+  )) {
     yield profileFinding(
       rules.typeRegistryOrder,
       'Project type rows must follow the standards in lexical order.',
@@ -150,8 +170,11 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   for (final entry in loaded.documents.entries) {
     final type = entry.value.type;
     if (type != null && !registered.contains(type)) {
-      yield profileFinding(rules.usedTypeRegistered,
-          'Used type $type must be registered in types.md.', entry.key);
+      yield profileFinding(
+        rules.usedTypeRegistered,
+        'Used type $type must be registered in types.md.',
+        entry.key,
+      );
     }
   }
   if (extensionRows.isNotEmpty) {
@@ -164,7 +187,8 @@ Iterable<ProfileFinding> _validateTypeRegistry(
 }
 
 Iterable<ProfileFinding> _validateActorRegistry(
-    OkfBundleLoadResult loaded) sync* {
+  OkfBundleLoadResult loaded,
+) sync* {
   final usedActors = <String, String>{};
   for (final entry in loaded.documents.entries) {
     for (final actor in _actorsIn(entry.value)) {
@@ -214,15 +238,20 @@ Iterable<ProfileFinding> _validateActorRegistry(
       'actors.md',
     );
   }
-  if (rows.any((row) => !const {
-        'client',
-        'internal',
-        'vendor',
-        'tool',
-        'unknown'
-      }.contains(row[3]))) {
-    yield profileFinding(rules.actorSideValue,
-        'Actor Side must use the closed Profile vocabulary.', 'actors.md');
+  if (rows.any(
+    (row) => !const {
+      'client',
+      'internal',
+      'vendor',
+      'tool',
+      'unknown',
+    }.contains(row[3]),
+  )) {
+    yield profileFinding(
+      rules.actorSideValue,
+      'Actor Side must use the closed Profile vocabulary.',
+      'actors.md',
+    );
   }
   final periods = <String, List<_ActivePeriod>>{};
   var invalidPeriod = false;
@@ -242,8 +271,11 @@ Iterable<ProfileFinding> _validateActorRegistry(
     );
   }
   if (periods.values.any(_hasOverlap)) {
-    yield profileFinding(rules.actorActiveOverlap,
-        'Dated Active periods for one actor must not overlap.', 'actors.md');
+    yield profileFinding(
+      rules.actorActiveOverlap,
+      'Dated Active periods for one actor must not overlap.',
+      'actors.md',
+    );
   }
   final registered = rows.map((row) => row.first).toSet();
   for (final entry in usedActors.entries) {
@@ -280,8 +312,11 @@ Iterable<ProfileFinding> _validateSources(
         .whereType<String>()
         .toList();
     if (ids.toSet().length != ids.length) {
-      yield profileFinding(rules.sourceIdUnique,
-          'Source IDs must be unique within a concept.', entry.key);
+      yield profileFinding(
+        rules.sourceIdUnique,
+        'Source IDs must be unique within a concept.',
+        entry.key,
+      );
     }
     if (ids.any(bodies[entry.key]!.hasUnresolvedFootnote)) {
       yield profileFinding(
@@ -321,7 +356,8 @@ Iterable<ProfileFinding> _validateRelationships(
 }
 
 Iterable<ProfileFinding> _validateInternalLinks(
-    OkfBundleLoadResult loaded) sync* {
+  OkfBundleLoadResult loaded,
+) sync* {
   final OkfGraph graph;
   try {
     graph = OkfGraph.fromBundle(loaded.bundle);
@@ -337,16 +373,20 @@ Iterable<ProfileFinding> _validateInternalLinks(
     return;
   }
   final emitted = <(String, String)>{};
-  for (final edge in graph.edges
-      .where((edge) => edge.origin == OkfGraphEdgeOrigin.bodyLink)) {
-    final isInternal = edge.resolution != OkfGraphResolution.external &&
+  for (final edge in graph.edges.where(
+    (edge) => edge.origin == OkfGraphEdgeOrigin.bodyLink,
+  )) {
+    final isInternal =
+        edge.resolution != OkfGraphResolution.external &&
         edge.resolution != OkfGraphResolution.descriptor &&
         edge.resolution != OkfGraphResolution.invalid &&
         !edge.rawTarget.startsWith('#');
     if (!isInternal) continue;
     if (!edge.rawTarget.startsWith('/') &&
-        emitted
-            .add((edge.source.documentPath, 'internal-link-bundle-relative'))) {
+        emitted.add((
+          edge.source.documentPath,
+          'internal-link-bundle-relative',
+        ))) {
       yield profileFinding(
         rules.internalLinkBundleRelative,
         'Internal links should use bundle-relative targets.',
@@ -375,9 +415,11 @@ Iterable<ProfileFinding> _validateSourcePaths(
     return;
   }
   final emitted = <(String, String)>{};
-  for (final edge in graph.edges.where((edge) =>
-      edge.origin == OkfGraphEdgeOrigin.resource ||
-      edge.origin == OkfGraphEdgeOrigin.sourceResource)) {
+  for (final edge in graph.edges.where(
+    (edge) =>
+        edge.origin == OkfGraphEdgeOrigin.resource ||
+        edge.origin == OkfGraphEdgeOrigin.sourceResource,
+  )) {
     // Inside the bundle the graph already knows whether the target exists.
     // A relative path that climbs out of the bundle is `invalid` to the
     // graph, so it is resolved against the bundle root on disk instead. The
@@ -417,8 +459,9 @@ bool _hasPathPrefix(String raw) =>
 bool _existsOnDisk(String rootPath, OkfGraphEdge edge) {
   final target = _pathPart(edge.rawTarget);
   if (target == null) return false;
-  final directory =
-      target.startsWith('/') ? '.' : p.posix.dirname(edge.source.documentPath);
+  final directory = target.startsWith('/')
+      ? '.'
+      : p.posix.dirname(edge.source.documentPath);
   final segments = target.split('/').map((segment) {
     try {
       return Uri.decodeComponent(segment);
@@ -475,8 +518,9 @@ _MarkdownTable? _firstTable(String body) {
   if (table == null) return null;
   final sections = table.children?.whereType<markdown.Element>().toList() ?? [];
   final head = sections.where((element) => element.tag == 'thead').firstOrNull;
-  final tableBody =
-      sections.where((element) => element.tag == 'tbody').firstOrNull;
+  final tableBody = sections
+      .where((element) => element.tag == 'tbody')
+      .firstOrNull;
   if (head == null) return null;
   final header = _tableRows(head).singleOrNull;
   if (header == null) return null;
@@ -487,25 +531,30 @@ List<List<String>> _tableRows(markdown.Element section) =>
     (section.children ?? const <markdown.Node>[])
         .whereType<markdown.Element>()
         .where((element) => element.tag == 'tr')
-        .map((row) => (row.children ?? const <markdown.Node>[])
-            .whereType<markdown.Element>()
-            .map((cell) => cell.textContent.trim())
-            .toList())
+        .map(
+          (row) => (row.children ?? const <markdown.Node>[])
+              .whereType<markdown.Element>()
+              .map((cell) => cell.textContent.trim())
+              .toList(),
+        )
         .toList();
 
 const _stringList = ListEquality<String>();
 
 bool _sameTypeRows(
-        List<List<String>> actual, List<(String, String)> expected) =>
-    Iterable<int>.generate(expected.length).every((index) =>
-        actual[index][0] == expected[index].$1 &&
-        actual[index][1] == expected[index].$2);
+  List<List<String>> actual,
+  List<(String, String)> expected,
+) => Iterable<int>.generate(expected.length).every(
+  (index) =>
+      actual[index][0] == expected[index].$1 &&
+      actual[index][1] == expected[index].$2,
+);
 
 final class _ParsedBody {
   _ParsedBody(this.source)
-      : nodes = markdown.Document(
-          extensionSet: markdown.ExtensionSet.gitHubFlavored,
-        ).parse(source);
+    : nodes = markdown.Document(
+        extensionSet: markdown.ExtensionSet.gitHubFlavored,
+      ).parse(source);
 
   final String source;
   final List<markdown.Node> nodes;
@@ -524,12 +573,14 @@ final class _ParsedBody {
         return !excluded && pattern.hasMatch(text.text);
       }
       if (node case final markdown.Element element) {
-        final skip = excluded ||
+        final skip =
+            excluded ||
             element.tag == 'code' ||
             element.tag == 'pre' ||
             element.attributes['class'] == 'footnotes';
-        return (element.children ?? const <markdown.Node>[])
-            .any((child) => search(child, excluded: skip));
+        return (element.children ?? const <markdown.Node>[]).any(
+          (child) => search(child, excluded: skip),
+        );
       }
       return false;
     }
@@ -615,8 +666,8 @@ final class _Relationships {
   const _Relationships(this.labels) : malformed = false;
 
   const _Relationships.malformed()
-      : labels = const <String>[],
-        malformed = true;
+    : labels = const <String>[],
+      malformed = true;
 
   final List<String> labels;
   final bool malformed;
@@ -625,10 +676,7 @@ final class _Relationships {
 final class _ActivePeriod {
   const _ActivePeriod(this.start, this.end) : unknown = false;
 
-  const _ActivePeriod.unknown()
-      : start = null,
-        end = null,
-        unknown = true;
+  const _ActivePeriod.unknown() : start = null, end = null, unknown = true;
 
   final DateTime? start;
   final DateTime? end;
@@ -636,8 +684,9 @@ final class _ActivePeriod {
 
   static _ActivePeriod? tryParse(String value) {
     if (value == 'unknown') return const _ActivePeriod.unknown();
-    final match = RegExp(r'^(\d{4}-\d{2}-\d{2}) –(?: (\d{4}-\d{2}-\d{2}))?$')
-        .firstMatch(value);
+    final match = RegExp(
+      r'^(\d{4}-\d{2}-\d{2}) –(?: (\d{4}-\d{2}-\d{2}))?$',
+    ).firstMatch(value);
     if (match == null) return null;
     final start = _strictDate(match.group(1)!);
     final endValue = match.group(2);
@@ -651,7 +700,8 @@ final class _ActivePeriod {
 DateTime? _strictDate(String value) {
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return null;
-  final canonical = '${parsed.year.toString().padLeft(4, '0')}-'
+  final canonical =
+      '${parsed.year.toString().padLeft(4, '0')}-'
       '${parsed.month.toString().padLeft(2, '0')}-'
       '${parsed.day.toString().padLeft(2, '0')}';
   return canonical == value ? parsed : null;

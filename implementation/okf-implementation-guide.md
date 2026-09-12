@@ -1,6 +1,6 @@
 # Concepta OKF Profile — Implementation Guide
 
-**Version 2026.1** — binds **Concepta OKF Profile 2026.1**, which profiles
+**Version 2026.2** — binds **Concepta OKF Profile 2026.2**, which profiles
 **OKF 0.2 exactly**
 
 Status: Proposed
@@ -153,7 +153,7 @@ indexes themselves remain required for every nonempty directory.
 
 ### 4.1 Results and exit codes
 
-The command surface for Profile 2026.1 is `okfp validate <bundle> [--output
+The command surface for Profile 2026.2 is `okfp validate <bundle> [--output
 text|json]`. The bundle path is required and implementations MUST inspect
 exactly that directory. They MUST NOT discover a repository bundle by walking
 upward, accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -272,7 +272,7 @@ frontmatter.
 - An **unrecognized version format** is not an error. The value is opaque: the
   `<year>.<serial>` scheme is not semver, and a validator MUST NOT parse the value
   under any format assumption.
-- The first validator MUST implement only Profile 2026.1. Any other declared
+- The first validator MUST implement only Profile 2026.2. Any other declared
   value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
   `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
   exposing the independent OKF result. Unsupported is tool capability, not a
@@ -293,7 +293,7 @@ CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
 
 ### 4.6 Release evidence
 
-Profile 2026.1 has two non-normative release artifacts with different jobs:
+Profile 2026.2 has two non-normative release artifacts with different jobs:
 
 - [`../docs/compatibility-review.md`](../docs/compatibility-review.md)
   records the rule-level compatibility review against pinned OKF 0.2.
@@ -391,7 +391,7 @@ Three migration invariants are not project-specific and every migration MUST car
    concepts with `Superseded by` links, so the history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
 
-For a 2026.1 migration, the implementation MUST inventory missing baseline
+For a 2026.2 migration, the implementation MUST inventory missing baseline
 metadata, used and standard types, producer-defined fields, actor history, tags,
 and materially derived claims before editing. Mechanical normalization may add
 canonical type rows and reshape supported syntax; it MUST NOT guess a title,
@@ -487,6 +487,17 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+**2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
+revision in which every timestamp is an ISO 8601 datetime with an explicit UTC
+offset, and moved the pinned specification to the canonical
+`open-knowledge-format` repository. No guide contract changes: adoption,
+the generator contract, the validation process contract with its release
+dispatch, migration, and distribution are all unchanged. Release dispatch now
+accepts `"2026.2"` as the supported release and reports any other declared
+release as unsupported, which is the behavior §4 already specified. Migration
+for an implementation is the release string alone; a bundle migration is the
+optional `okf format --migrate-timestamps` pass the Profile's §15.3 describes.
 
 **2026.1.** First release. Binds Profile 2026.1. Establishes adoption (§2), the
 index generator contract (§3), the validation process contract (§4) with its

@@ -6,7 +6,7 @@
 
 ## Compatibility
 
-[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2.
+[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.2 preserves pinned OKF 0.2.
 
 [Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
 
@@ -19,6 +19,8 @@
 [Wayfinder naming and release plan](wayfinder-release-plan.md) — Product names, package boundaries, migration, and publication sequence.
 
 [Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
+
+[Issue queue review](issue-queue-review.md) — Verified state of the open Wayfinder and okf issues, pull requests, releases and pub.dev publication. Reviewed 2026-09-12; linked issues own current work status.
 
 [Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the distributed skills.
 

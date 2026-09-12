@@ -1,3 +1,15 @@
+# Unreleased
+
+- Validate against Concepta Profile 2026.2, which adopts the OKF 0.2 revision
+  where every timestamp is an ISO 8601 datetime with an explicit UTC offset, and
+  pins the specification to its canonical `open-knowledge-format` repository at
+  `ad30107`. A bundle still declaring `concepta_profile: "2026.1"` now reports an
+  unsupported release rather than a conformance verdict; update the declaration
+  and, where timestamps are date-only, run `okf format --migrate-timestamps`.
+- Depend on `okf` ^0.5.0. A date-only timestamp is reported through okf's
+  non-blocking `okf/timestamp-without-offset` advisory, so a bundle conformant
+  under 2026.1 stays conformant once its declaration is updated.
+
 # 0.0.1
 
 Core library replaces okf_profile; import package:wayfinder/wayfinder.dart. Validation contracts remain unchanged. The command and MCP server now live in wayfinder_cli.

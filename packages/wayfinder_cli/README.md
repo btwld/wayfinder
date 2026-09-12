@@ -22,7 +22,7 @@ The GitHub repository hosts the source, plugin and native release archives.
 
 ## Dart installation
 
-Requires Dart 3.10.7 or later. Install the development release:
+Requires Dart 3.11.0 or later. Install the development release:
 
 ```bash
 dart pub global activate wayfinder_cli

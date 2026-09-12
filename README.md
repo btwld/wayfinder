@@ -66,7 +66,7 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.1**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
 Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
@@ -288,11 +288,19 @@ From the repository root, the core checks used by [CI](.github/workflows/ci.yml)
 
 ```bash
 dart pub get
-dart format --output=none --set-exit-if-changed packages/wayfinder/bin packages/wayfinder/lib packages/wayfinder/test
+dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
 dart run wayfinder_cli:wayfinder validate examples/knowledge
 ```
+
+`melos lint` runs analysis, formatting and tests across all three packages at once.
+
+**Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
+version-dependent and its style is gated on the package's language version, so a floor
+SDK and a newer stable can disagree on the same file. CI checks formatting on `stable`
+only — that is what defines the canonical style — while the floor job still analyzes and
+tests. Formatting with the floor SDK can produce output CI rejects.
 
 For skill or documentation changes, also check local links and compare changed
 rule wording with its authoritative source. Release-tool changes additionally
@@ -312,9 +320,10 @@ and the remaining project-knowledge workflow questions. See the
 
 ## Dart workspace development
 
-Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
+Developing the workspace requires Dart 3.11.0 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test all workspace
-packages. The core `wayfinder` library retains its Dart 3.6 minimum.
+packages. Every package declares the same Dart 3.11.0 minimum, matching
+`conceptadev/mix`, so one SDK serves the whole workspace.
 
 `wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
 license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)

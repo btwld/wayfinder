@@ -1,9 +1,11 @@
-# Concepta Profile 2026.1 compatibility with OKF 0.2
+# Concepta Profile 2026.2 compatibility with OKF 0.2
 
-Status: Complete — Profile 2026.1 release evidence
+Status: Complete — Profile 2026.2 release evidence
 
 This non-normative review records whether each normative Concepta Profile
-2026.1 rule preserves the pinned OKF 0.2 contract. It is specification-safety
+2026.2 rule preserves the pinned OKF 0.2 contract. The pin is
+`open-knowledge-format` at `ad30107`, whose text is identical to
+`knowledge-catalog` `62432a0`. It is specification-safety
 evidence, not implementation coverage and not a second source of Profile rules.
 The Profile remains authoritative over every summary here.
 
@@ -34,7 +36,7 @@ implicit, unassessed, or inherited merely by silence.
 | Profile rule | OKF basis | Compatibility result | Reasoning |
 | --- | --- | --- | --- |
 | §11 requires `profile.md` as an ordinary `Knowledge Profile` concept | §3.1 makes every non-reserved Markdown file a concept; §4 requires only `type` | Pass | The declaration uses ordinary concept frontmatter and keeps its selector in body Markdown, adding no field or reserved filename. |
-| §11 binds `concepta_profile: "2026.1"` to `okf_version: "0.2"` and requires agreement with the root index | §12 permits `okf_version` in root index frontmatter; §4.2 leaves body Markdown free-form | Pass | The Profile narrows a producer choice and cross-checks two ordinary representations without changing either value's OKF meaning. |
+| §11 binds `concepta_profile: "2026.2"` to `okf_version: "0.2"` and requires agreement with the root index | §12 permits `okf_version` in root index frontmatter; §4.2 leaves body Markdown free-form | Pass | The Profile narrows a producer choice and cross-checks two ordinary representations without changing either value's OKF meaning. |
 | §11 prohibits treating the declaration as a rule-definition, extension registry, second schema, or OKF override | §4.1 permits producer extensions but does not assign Profile semantics to them | Pass | The prohibition prevents a Concepta mechanism from redefining OKF or changing the selected release; generic consumers still see an ordinary concept. |
 | §14.1 defines Profile conformance separately from OKF conformance | §11 exclusively defines OKF conformance and tolerant rejection behavior | Pass | Profile conformance adds a producer policy result without changing the upstream conditions or generic-consumer verdict. |
 | §14.1 distinguishes Automated Profile Validation, Profile Review, and Complete Profile Assessment | No OKF implementation mechanism is changed | Pass | These terms divide Concepta assessment responsibilities; the implementation guide preserves and exposes the independent OKF result. |
@@ -87,7 +89,7 @@ implicit, unassessed, or inherited merely by silence.
 | §6.2 prohibits invented `generated` and `verified` events and makes missing verification produce no finding | §5.2 defines the two events; §5.3 makes no verification the unverified tier and §11 forbids rejection for missing optional trust fields | Pass | The rule protects truthful absence and reinforces rather than narrows OKF's trust model. |
 | §6.3 confines `status` to document lifecycle and prohibits workflow or subject-settlement meanings | §5.4 defines status solely as draft, stable, or deprecated document lifecycle | Pass | The Profile preserves the upstream field meaning and routes other state to body prose or external trackers. |
 | §6.3.1 keeps subject-settlement assessment in body prose and prohibits deriving it from frontmatter or links | §4.2 leaves body prose free; §6.1 makes links untyped and §11 tolerates unresolved links | Pass | The rule avoids a new field or graph meaning and keeps contextual judgment beside its evidence. |
-| §6.4 permits `stale_after` only for an evidenced freshness horizon and prohibits type defaults or placeholders | §5.5 defines an optional absolute staleness date | Pass | The Profile narrows when producers use the existing field without changing its date semantics or requiring it for any type. |
+| §6.4 permits `stale_after` only for an evidenced freshness horizon and prohibits type defaults or placeholders | §5.5 defines an optional absolute staleness instant, stale when `now >= stale_after` | Pass | The Profile narrows when producers use the existing field without changing its instant semantics or requiring it for any type. |
 | §14.1 makes a concept beside an area of the same name a non-blocking advisory | §3 permits both root concepts and subdirectories and §11 does not reject either arrangement | Pass | The advisory calls for contextual placement review without changing either conformance result or prohibiting an OKF-permitted tree. |
 
 ## Relationships and external-boundary review
@@ -111,9 +113,21 @@ implicit, unassessed, or inherited merely by silence.
 | §14.2 keeps external-resource availability outside conformance | §11 does not make network resolution a rejection condition | Pass | A dead external resource remains ordinary body or provenance content and changes neither independent OKF nor Profile conformance. |
 | §14.1 assigns relationship shape to deterministic validation, relationship and unresolved-link extensions to non-blocking advice, and contextual external-boundary meaning to Profile Review | §11 fixes only OKF rejection conditions | Pass | Assessment assignment changes no bundle construct or OKF result and explicitly prevents contextual inference from being presented as deterministic graph or source truth. |
 
+## Timestamp revision review
+
+Added for 2026.2, covering the four rules the upstream revision changed and the
+writing conventions the Profile added beside them.
+
+| Profile rule | OKF basis | Compatibility result | Reasoning |
+| --- | --- | --- | --- |
+| §6.5 requires every timestamp-valued key to be an ISO 8601 datetime with an explicit UTC offset and prohibits a date-only or offset-less value | §5 states the same requirement for every timestamp-valued key | Pass | The Profile restates an upstream requirement without narrowing or widening it; the field set, their meanings, and the independent OKF result are unchanged. |
+| §6.4 treats `stale_after` as an instant compared against `now` | §5.5 defines it as an absolute instant | Pass | The comparison moves from a local calendar day to an instant because upstream moved it. The Profile adds no timezone rule of its own and stores nothing new. |
+| §5.5 row records `stale_after` as an absolute instant in the OKF section map | §5.5 | Pass | A map row tracking upstream wording; no bundle construct. |
+| §6.5 recommends quoted timestamps, block-style structured values, and `verified` as a list | §4.2 leaves YAML spelling to the producer; §5.2 treats `verified` as a sequence | Pass | These are SHOULDs on producers with an explicit requirement that consumers keep accepting every spelling OKF permits, so no upstream representation is withdrawn and a generic consumer reads the bundle unchanged. |
+
 ## Completion gate
 
 This review records the release frame, structure, navigation, concept, trust,
 durable capture, relationship, identity, execution, lifecycle, mirroring,
-tolerant-reading, and release-governance inventories. Every record passes the
+tolerant-reading, timestamp-revision, and release-governance inventories. Every record passes the
 five-part test; no omitted rule passes by silence.

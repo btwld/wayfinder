@@ -1,6 +1,6 @@
 # Skills
 
-The agent workflows for [Concepta OKF Profile 2026.1](../profile/okf-profile.md),
+The agent workflows for [Concepta OKF Profile 2026.2](../profile/okf-profile.md),
 shipped together as the `wayfinder` plugin.
 
 ## The family
@@ -57,8 +57,9 @@ declared release before applying them.
 The [vendored OKF 0.2 specification](author-knowledge-bundle/references/OKF-0.2.md)
 provides upstream mechanisms the Profile leaves open, including Attested
 Computation and source credibility signals. It is pinned to upstream commit
-`3fcbb9f` with Apache-2.0 attribution, so offline consumers read the reviewed
-specification instead of a changing `main` URL. Keep it as a reference, not a
+`ad30107` in the canonical `open-knowledge-format` repository, with Apache-2.0
+attribution, so offline consumers read the reviewed specification instead of a
+changing `main` URL. Keep it as a reference, not a
 second skill or a rewritten specification.
 
 When a Profile rule changes, search the whole skill family for its old wording,

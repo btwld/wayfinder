@@ -1,7 +1,7 @@
 # `implementation/` — the companion implementation guide
 
 [`okf-implementation-guide.md`](okf-implementation-guide.md) — current
-**2026.1 guide**, binding Profile 2026.1 exactly to OKF 0.2.
+**2026.2 guide**, binding Profile 2026.2 exactly to OKF 0.2.
 
 [`profile-coverage.md`](profile-coverage.md) is the complete
 rule-to-assessment matrix. It is separate from the OKF compatibility review

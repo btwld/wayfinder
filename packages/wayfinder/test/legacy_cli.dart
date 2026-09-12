@@ -21,18 +21,15 @@ Future<int> runOkfpCli(
   List<String> arguments, {
   OkfpCliOutput? out,
   OkfpCliOutput? err,
-}) =>
-    OkfpCli(out: out, err: err).run(arguments);
+}) => OkfpCli(out: out, err: err).run(arguments);
 
 /// The embeddable implementation of the `okfp` executable.
 final class OkfpCli {
   /// Creates an `okfp` CLI runner.
-  OkfpCli({
-    OkfpCliOutput? out,
-    OkfpCliOutput? err,
-  })  : _out = out ?? stdout.writeln,
-        _err = err ?? stderr.writeln,
-        _parser = _buildParser();
+  OkfpCli({OkfpCliOutput? out, OkfpCliOutput? err})
+    : _out = out ?? stdout.writeln,
+      _err = err ?? stderr.writeln,
+      _parser = _buildParser();
 
   final OkfpCliOutput _out;
   final OkfpCliOutput _err;
@@ -98,7 +95,8 @@ final class OkfpCli {
     return result.exitCode;
   }
 
-  String _rootUsage() => '''
+  String _rootUsage() =>
+      '''
 OKF profile toolchain
 
 Usage: okfp <command> [arguments]
@@ -122,27 +120,13 @@ Run "okfp <command> --help" for command-specific usage.''';
 
 ArgParser _buildParser() {
   final parser = ArgParser()
-    ..addFlag(
-      'help',
-      abbr: 'h',
-      negatable: false,
-      help: 'Show this help.',
-    )
-    ..addFlag(
-      'version',
-      negatable: false,
-      help: 'Show the package version.',
-    );
+    ..addFlag('help', abbr: 'h', negatable: false, help: 'Show this help.')
+    ..addFlag('version', negatable: false, help: 'Show the package version.');
 
   parser.addCommand(
     'validate',
     ArgParser()
-      ..addFlag(
-        'help',
-        abbr: 'h',
-        negatable: false,
-        help: 'Show command help.',
-      )
+      ..addFlag('help', abbr: 'h', negatable: false, help: 'Show command help.')
       ..addOption(
         'output',
         allowed: const <String>['text', 'json'],

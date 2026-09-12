@@ -77,7 +77,14 @@ status: draft | stable | deprecated
 ---
 ```
 
-- Add `generated: { by: <actor>, at: <ISO 8601 datetime> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory.
+- Add `generated` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory. Write it in the block style Profile §6.5 asks for:
+
+  ```yaml
+  generated:
+    by: <actor>
+    at: "<ISO 8601 datetime with a UTC offset>"
+  ```
+- **Every timestamp is an instant, and the offset is not optional** (Profile §6.5, OKF §5). `generated.at`, `verified[].at`, `stale_after`, `sources[].last_modified` and `usage_window` all take an ISO 8601 datetime with an explicit UTC offset; a date-only value names no instant and raises the `okf/timestamp-without-offset` advisory. When a source is known only to the day, write `T00:00:00Z` and mean it. Quote timestamps so YAML carries the authored text, write structured values in block style rather than inline `{…}`, and write `verified` as a list even with one entry. These bind what you write — keep reading every spelling OKF permits, because the specification's own examples use the inline forms. `okf format --migrate-timestamps` converts an existing bundle.
 - **Status** is knowledge lifecycle only — `draft`, `stable`, `deprecated`. Workflow states (accepted, blocked, in progress, done) belong to the issue tracker.
 - Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
 - **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.

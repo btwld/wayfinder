@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        sdk: ["3.10.7", stable]
+        sdk: ["3.11.0", stable]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -30,20 +30,28 @@ jobs:
       - run: bash tool/ci/verify-installer-pins.sh
         shell: bash
         working-directory: .
-      - run: dart format --output=none --set-exit-if-changed lib test
+      # Format checks run on stable only: dart format's output is version-dependent,
+      # and 3.11.0 and stable disagree on tall-style output, so running the check in
+      # both matrix legs is unsatisfiable. Stable defines the canonical style; the
+      # floor leg still analyzes and tests.
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed lib test
         working-directory: packages/wayfinder
       - run: dart analyze --fatal-infos
       - run: dart test
         working-directory: packages/wayfinder
-      - run: dart format --output=none --set-exit-if-changed .
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings
       - run: dart test
         working-directory: packages/wayfinder_embeddings
-      - run: dart format --output=none --set-exit-if-changed .
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
       - run: dart test
         working-directory: packages/wayfinder_cli
-      - run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run wayfinder_cli:wayfinder validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
@@ -66,7 +74,7 @@ jobs:
         sdk: [stable]
         include:
           - os: ubuntu-latest
-            sdk: "3.10.7"
+            sdk: "3.11.0"
     runs-on: ${{ matrix.os }}
     defaults:
       run:

@@ -9,9 +9,7 @@ import 'profile_rule_descriptors.dart' as rules;
 
 const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
-List<ProfileFinding> validateStructureRules(
-  OkfBundleLoadResult loaded,
-) {
+List<ProfileFinding> validateStructureRules(OkfBundleLoadResult loaded) {
   final inventory = _BundleInventory(loaded);
   return <ProfileFinding>[
     ..._validateRootFiles(loaded),
@@ -70,9 +68,7 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
   }
 }
 
-Iterable<ProfileFinding> _validateRootFiles(
-  OkfBundleLoadResult loaded,
-) sync* {
+Iterable<ProfileFinding> _validateRootFiles(OkfBundleLoadResult loaded) sync* {
   final missing = <String>[
     if (!loaded.indexes.containsKey('index.md')) 'index.md',
     if (!loaded.logs.containsKey('log.md')) 'log.md',
@@ -134,8 +130,11 @@ Iterable<ProfileFinding> _validateIndexes(
   for (final entry in loaded.indexes.entries) {
     final directory = p.posix.dirname(entry.key);
     final normalizedDirectory = directory == '.' ? '' : directory;
-    final expected =
-        _expectedProjection(loaded, inventory, normalizedDirectory);
+    final expected = _expectedProjection(
+      loaded,
+      inventory,
+      normalizedDirectory,
+    );
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
     if (actual == null ||
@@ -188,9 +187,7 @@ List<OkfIndexEntry>? _expectedProjection(
         ),
       for (final path in _structuralConcepts)
         if (loaded.documents[path] case final document?)
-          if (_conceptEntry(path, document, group: 'Bundle')
-              case final concept?)
-            concept,
+          ?_conceptEntry(path, document, group: 'Bundle'),
     ];
     if (bundleEntries.length !=
         1 + _structuralConcepts.where(loaded.documents.containsKey).length) {
@@ -208,10 +205,11 @@ List<OkfIndexEntry>? _expectedProjection(
     if (concept == null) return null;
     byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
-  final customTypes = byType.keys
-      .where((type) => !standardTypes.any((row) => row.$1 == type))
-      .toList()
-    ..sort();
+  final customTypes =
+      byType.keys
+          .where((type) => !standardTypes.any((row) => row.$1 == type))
+          .toList()
+        ..sort();
   for (final type in <String>[
     ...standardTypes.map((row) => row.$1),
     ...customTypes,
@@ -225,36 +223,45 @@ List<OkfIndexEntry>? _expectedProjection(
     projection.addAll(entries);
   }
 
-  final directories = inventory
-      .immediateDirectories(directory)
-      .map((path) => OkfIndexEntry(
-            type: 'Directories',
-            title: p.posix.basename(path),
-            link: '${p.posix.basename(path)}/',
-            description: '',
-          ))
-      .toList()
-    ..sort((left, right) => left.link.compareTo(right.link));
+  final directories =
+      inventory
+          .immediateDirectories(directory)
+          .map(
+            (path) => OkfIndexEntry(
+              type: 'Directories',
+              title: p.posix.basename(path),
+              link: '${p.posix.basename(path)}/',
+              description: '',
+            ),
+          )
+          .toList()
+        ..sort((left, right) => left.link.compareTo(right.link));
   projection.addAll(directories);
 
   if (directory == 'references' || directory.startsWith('references/')) {
-    final assets = loaded.assets
-        .where((path) => _parent(path) == directory)
-        .map((path) => OkfIndexEntry(
-              type: 'Assets',
-              title: p.posix.basename(path),
-              link: p.posix.basename(path),
-              description: '',
-            ))
-        .toList()
-      ..sort((left, right) => left.link.compareTo(right.link));
+    final assets =
+        loaded.assets
+            .where((path) => _parent(path) == directory)
+            .map(
+              (path) => OkfIndexEntry(
+                type: 'Assets',
+                title: p.posix.basename(path),
+                link: p.posix.basename(path),
+                description: '',
+              ),
+            )
+            .toList()
+          ..sort((left, right) => left.link.compareTo(right.link));
     projection.addAll(assets);
   }
   return projection;
 }
 
-OkfIndexEntry? _conceptEntry(String path, OkfDocument document,
-    {String? group}) {
+OkfIndexEntry? _conceptEntry(
+  String path,
+  OkfDocument document, {
+  String? group,
+}) {
   final type = nonEmptyString(document.frontmatter['type']);
   final title = document.frontmatter['title'];
   final description = document.frontmatter['description'];
@@ -321,7 +328,9 @@ String? _decodeTarget(String target) {
   if (target.contains(_nonTargetSpelling)) return null;
   try {
     return target.replaceAllMapped(
-        _percentEscapeRun, (match) => Uri.decodeComponent(match[0]!));
+      _percentEscapeRun,
+      (match) => Uri.decodeComponent(match[0]!),
+    );
   } on FormatException {
     return null;
   }
@@ -329,7 +338,7 @@ String? _decodeTarget(String target) {
 
 final class _BundleInventory {
   _BundleInventory(OkfBundleLoadResult loaded)
-      : nonRootDirectories = _directories(loaded.paths);
+    : nonRootDirectories = _directories(loaded.paths);
 
   final List<String> nonRootDirectories;
 

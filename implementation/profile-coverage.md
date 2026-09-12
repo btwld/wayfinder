@@ -1,8 +1,8 @@
-# Concepta Profile 2026.1 implementation coverage
+# Concepta Profile 2026.2 implementation coverage
 
-Status: Complete — Profile 2026.1 release evidence
+Status: Complete — Profile 2026.2 release evidence
 
-This non-normative matrix assigns each normative Concepta Profile 2026.1 bundle
+This non-normative matrix assigns each normative Concepta Profile 2026.2 bundle
 rule to its assessment mode. It does not decide whether a rule preserves OKF;
 that evidence lives in
 [`../docs/compatibility-review.md`](../docs/compatibility-review.md).
@@ -32,7 +32,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | Profile clause | Force | Assessment | Expected evidence |
 | --- | --- | --- | --- |
 | §11: a Profiled Bundle contains root `profile.md` of type `Knowledge Profile` | MUST | Automated Profile Validation | Presence, path, and parsed type |
-| §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.1"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
+| §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.2"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
 | §11: declaration OKF version agrees with root index | MUST | Automated Profile Validation | Equality of both parsed values; okf 0.2.0's own advisory `okf/unsupported-okf-version` may co-report on the root index without displacing the Profile's error-level `concepta-profile/okf-release-binding` (see "OKF co-reporting") |
 | §11: `profile.md` is not used as a standalone definition, extension registry, second schema, or OKF override | MUST NOT | Profile Review | Contextual review of declaration content |
 
@@ -94,7 +94,9 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §6.2, §14.1: missing `verified` and derived trust tiers produce no finding | MUST NOT | Automated Profile Validation | Unverified fixtures emit neither failure nor advisory; optional trust summaries do not affect exit status |
 | §6.3: `status` describes document lifecycle only and does not carry workflow, ownership, due date, movability, or subject certainty | MUST NOT | Profile Review | Contextual reading confirms the OKF lifecycle meaning and external ownership of execution state |
 | §6.3.1: subject-settlement assessment stays in body prose and is not stored in frontmatter or derived from links | MUST NOT / MAY / SHOULD | Profile Review | Assessment appears beside reasoning when used; no stored or graph-derived verdict exists |
-| §6.4: `stale_after` appears only for an evidenced freshness horizon and never as a type default or placeholder | MUST / MUST NOT | Profile Review | Evidence supports the absolute date and historical type alone neither requires nor prohibits it |
+| §6.4: `stale_after` appears only for an evidenced freshness horizon and never as a type default or placeholder | MUST / MUST NOT | Profile Review | Evidence supports the absolute instant and historical type alone neither requires nor prohibits it |
+| §6.5: every timestamp-valued key is an ISO 8601 datetime with an explicit UTC offset, and no date-only or offset-less value is written | MUST NOT | Automated Profile Validation | The `okf` package reports each offending field as the non-blocking `okf/timestamp-without-offset` advisory naming the exact key; `okf validate --strict` escalates it |
+| §6.5: timestamps are quoted, structured values use block style, and `verified` is written as a list | SHOULD | Profile Review | A producer convention with no representational consequence: every spelling OKF permits still loads, so no automated check can distinguish a conforming choice from a permitted one |
 | §14.1: a concept beside an area of the same name produces only a non-blocking advisory | MUST NOT | Automated Profile Validation | Same-name root or sibling fixture emits an advisory without changing Profile conformance, automated gate, or exit status |
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing

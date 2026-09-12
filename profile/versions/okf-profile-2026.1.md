@@ -1,11 +1,10 @@
 # Concepta OKF Profile
 
-**Version 2026.2** — profiles **OKF 0.2 exactly**
+**Version 2026.1** — profiles **OKF 0.2 exactly**
 
 Status: Proposed
 
-Concepta Profile 2026.2 is the current release. Release 2026.1 is preserved
-unchanged under `profile/versions/okf-profile-2026.1.md`.
+Concepta Profile 2026.1 is the current release.
 
 The Concepta OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
@@ -35,7 +34,7 @@ out of scope here. They belong to the companion implementation guide,
 differ, this document governs.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
-[spec]: https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md
+[spec]: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/3fcbb9f828c2f23d109c855ee403c3a4c81f3a96/okf/SPEC.md
 
 ---
 
@@ -115,7 +114,7 @@ how* Concepta uses it, never *what it means*.
 | §5.2 | `generated`, `verified` | Constrained: `generated` is recommended and must never be fabricated; `verified` records only verification that occurred, and its absence is meaningful (§6.2) |
 | §5.3 | Trust tiers derived, not stored | Inherited unchanged; the actor registry makes organizational identity legible without touching tiers (§6.1.1) |
 | §5.4 | `status`: `draft` / `stable` / `deprecated` | Constrained to the knowledge lifecycle of the document only; assessing the subject is body content, with no field and no derivation (§6.3, §6.3.1) |
-| §5.5 | `stale_after` as an absolute instant | Constrained: evidence-based, conditional (§6.4) |
+| §5.5 | `stale_after` as an absolute date | Constrained: evidence-based, conditional (§6.4) |
 | §6.1 | Markdown links, bundle-relative preferred, broken links tolerated | Inherited; labelled subset added (§7); internal links repaired on a move (§8.2) |
 | §6.2 | Path-valued fields | Inherited unchanged |
 | §6.3 | `references/` mirrors external material as concepts | Inherited; mirroring policy added (§12) |
@@ -627,19 +626,15 @@ type: Request
 title: Include PDF annotations in the export
 description: Client asks that reviewer annotations survive the PDF export.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
-verified:
-  - by: human:chris
-    at: "2026-07-31T09:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
 tags: [reporting, export]
 sources:
   - id: demo-0730
     resource: /references/2026-07-30-reporting-demo-transcript.md
     title: Reporting demo transcript, 30 July 2026
     author: process:meeting-transcription
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30
 ---
 
 # Request
@@ -861,35 +856,9 @@ unsettled.
 the content has a real freshness horizon supported by evidence, and MUST NOT use
 an arbitrary expiry as a type default or conformance placeholder.
 
-Per OKF §5.5 it is an absolute instant, not a calendar day: a concept is stale
-when `now >= stale_after`. A value written without an explicit UTC offset does
-not name an instant, so it MUST NOT be used (§6.5).
-
 Type alone neither supplies nor rules out that evidence. The same type may describe
 a time-bounded present condition or an enduring historical fact; the content and
 its sources decide whether `stale_after` is truthful.
-
-### 6.5 Writing timestamps and frontmatter
-
-Every timestamp-valued key in OKF — `generated.at`, `verified[].at`,
-`stale_after`, `sources[].last_modified` and `usage_window` — is an ISO 8601
-datetime with an explicit UTC offset. A concept MUST NOT write a date-only or
-offset-less value where OKF expects a timestamp, because such a value names no
-instant. Where a source is known only to the day, `T00:00:00Z` states that
-plainly.
-
-Three writing conventions make authored frontmatter predictable. They bind what
-a producer writes; a consumer MUST keep accepting every spelling OKF permits,
-because the specification's own examples and upstream bundles use the inline
-forms.
-
-* Timestamps SHOULD be quoted, so YAML carries the authored text rather than an
-  implicitly typed value.
-* Structured values SHOULD use block style rather than inline `{…}` or `[…]`,
-  so a diff shows the field that changed.
-* `verified` SHOULD be written as a list, even with one entry, because OKF
-  treats it as a sequence and a single mapping has to be rewritten the moment a
-  second verification arrives.
 
 ---
 
@@ -1251,7 +1220,7 @@ stale finds out where the concept went:
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
@@ -1273,12 +1242,12 @@ Its body MUST use the **first fenced `yaml` block** as the machine-readable
 declaration, and that block MUST declare both release values shown here:
 
 ```yaml
-concepta_profile: "2026.2"
+concepta_profile: "2026.1"
 okf_version: "0.2"
 ```
 
-The declared `concepta_profile` MUST be `"2026.2"`. The declared `okf_version`
-MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.2
+The declared `concepta_profile` MUST be `"2026.1"`. The declared `okf_version`
+MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.1
 binds exactly to OKF 0.2. Declaring the
 profile in a concept body rather than a frontmatter field is deliberate: it
 keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
@@ -1345,7 +1314,7 @@ sources:
     resource: Client demo recording, 30 July 2026 — retained outside this repository
     title: Reporting demo, 30 July 2026
     author: process:meeting-platform
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30
 ```
 
 A scope descriptor is preferable to pretending an unfollowable source has a path,
@@ -1546,29 +1515,6 @@ OKF's normative requirements always take precedence over any profile release
 
 ### 15.3 Change record
 
-**2026.2.** Adopts the upstream OKF 0.2 revision that makes every timestamp an
-ISO 8601 datetime with an explicit UTC offset, and moves the pinned
-specification to its canonical repository, `open-knowledge-format` at
-`ad30107` — the same text as `knowledge-catalog` `62432a0`, which the `okf`
-package names. Affected sections: the §5.5 row of the OKF section map, §6.4,
-the new §6.5, §11's release binding, and every timestamp in the examples.
-Driver: upstream restated `stale_after` as an absolute instant compared against
-`now` rather than a calendar day, dropped `last_modified`'s date-only type, and
-made `usage_window` a datetime range; a profile that still called `stale_after`
-a date would contradict the specification it binds. §6.5 additionally settles
-three authoring conventions — quoted timestamps, block-style structured values,
-and `verified` as a list — as SHOULDs on producers only.
-Migration impact: a bundle conformant under 2026.1 stays conformant. The `okf`
-package reports a date-only timestamp as the non-blocking
-`okf/timestamp-without-offset` advisory and leaves its conformance verdict
-unchanged, so no bundle becomes non-conformant by standing still. Two
-exceptions are worth stating plainly: `okf validate --strict` escalates
-advisories to failures and so begins failing on date-only timestamps it used to
-accept, and a concept east of UTC may now go stale later than it did when
-staleness was a local calendar comparison. `okf format --migrate-timestamps`
-rewrites date-only values to `T00:00:00Z`; §6.5's writing conventions are
-SHOULDs and require no rewrite of a conformant bundle.
-
 **2026.1.** Initial release. Binds OKF 0.2 exactly, published together with the
 rule-level compatibility review and the implementation coverage matrix (§15.1).
 Amended in place during its QA period (ADR-0006): §3.4 and §12 add the optional
@@ -1642,19 +1588,15 @@ type: Request
 title: Include PDF annotations in the export
 description: Client asks that reviewer annotations survive the PDF export.
 status: draft
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
-verified:
-  - by: human:chris
-    at: "2026-07-31T09:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
 tags: [reporting, export]
 sources:
   - id: demo-0730
     resource: /references/2026-07-30-reporting-demo-transcript.md
     title: Reporting demo transcript, 30 July 2026
     author: process:meeting-transcription
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30
 ---
 
 # Request
@@ -1683,10 +1625,8 @@ type: Analysis
 title: PDF export feasibility for annotations
 description: Whether the current renderer can place annotations without exceeding the generation budget.
 status: draft
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-31T11:00:00Z"
-stale_after: "2026-11-01T00:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
+stale_after: 2026-11-01
 sources:
   - id: layout-sample
     resource: /references/annotation-layout.json
@@ -1725,9 +1665,7 @@ type: Meeting Transcript
 title: Reporting demo transcript, 30 July 2026
 description: Verbatim transcript of the reporting demo with the client review team.
 status: stable
-generated:
-  by: process:meeting-transcription
-  at: "2026-07-30T15:55:00Z"
+generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
 sources:
   - resource: https://example-meetings.test/recordings/8412
     title: Reporting demo recording (retention: 30 days)
@@ -1752,9 +1690,7 @@ type: Actor Registry
 title: Actors
 description: Actor IDs mapped to identity, affiliation, role, and active period.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 ---
 
 | Actor ID | Name | Organization | Side | Role | Active |
@@ -1779,7 +1715,7 @@ generated:
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```

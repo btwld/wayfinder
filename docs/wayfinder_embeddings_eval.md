@@ -89,7 +89,7 @@ for the measured results and the choice of defaults.
 
 ## Packaged evaluator
 
-With Dart 3.10.7+ and the ObjectBox library installed:
+With Dart 3.11.0+ and the ObjectBox library installed:
 
 ```bash
 dart run tool/build_wayfinder_embeddings.dart
