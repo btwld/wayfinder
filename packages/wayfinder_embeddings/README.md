@@ -248,9 +248,10 @@ retrieval benchmark retains its recorded queries and metrics.
 
 The package pins `llamadart` 0.8.23 and Arctic Embed XS Q8_0: a 25,279,840-byte
 GGUF producing 384-dimensional vectors. Development and CLI builds need Dart
-3.10.7+, the minimum required by the pinned llamadart release. Build hooks and
-`dart build cli` were introduced in Dart 3.10; the tested Dart 3.11 CLI still
-labels its bundle command as preview.
+3.11.0+, the minimum every package in the workspace declares. The pinned
+llamadart release requires only 3.10.7, so the declared floor sits above it.
+Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart
+3.11 CLI still labels its bundle command as preview.
 
 From the repository root:
 

@@ -312,9 +312,10 @@ and the remaining project-knowledge workflow questions. See the
 
 ## Dart workspace development
 
-Developing the workspace requires Dart 3.10.7 or later. Run `melos get` at the
+Developing the workspace requires Dart 3.11.0 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test all workspace
-packages. The core `wayfinder` library retains its Dart 3.6 minimum.
+packages. Every package declares the same Dart 3.11.0 minimum, matching
+`conceptadev/mix`, so one SDK serves the whole workspace.
 
 `wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
 license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)

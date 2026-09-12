@@ -76,14 +76,15 @@ Native hook downloads have a separate cache from model weights.
 [`dart build cli`](https://dart.dev/tools/dart-build) packages the executable
 and declared native assets. `tool/build_wayfinder_embeddings.dart` additionally copies
 the verified model, manifest, model license/attribution, and ObjectBox library.
-Source development and CLI builds require Dart 3.10.7+. The whole bundle
+Source development and CLI builds require Dart 3.11.0+. The whole bundle
 must be distributed. On this Mac, the actual evaluator bundle is **51.96 MB**:
 9.76 MB executable, 13.35 MB llamadart library, 3.56 MB ObjectBox library, and
 25.28 MB weights plus small metadata files. Model size is not total install size.
 
 Dart's [build hooks](https://dart.dev/tools/hooks) and CLI bundling appeared in
-3.10. The 3.10.7 floor comes from llamadart. The tested 3.11 SDK still prints a
-preview notice for `dart build cli`; the build uses no experimental flags.
+3.10. llamadart requires 3.10.7; the workspace declares 3.11.0 across every
+package. The tested 3.11 SDK still prints a preview notice for
+`dart build cli`; the build uses no experimental flags.
 Hook user-defines belong to the consuming app/workspace root, so this workspace
 keeps the llama.cpp/CPU selection only in its root pubspec. Consumers must set
 their own selection; a dependency cannot impose these settings on an app.
