@@ -17,7 +17,7 @@ executor: {resource: https://example.com/executor, receipt: [result]}
 attester: {resource: https://example.com/attester}
 sources:
   - id: okf-reference
-    resource: https://github.com/GoogleCloudPlatform/knowledge-catalog
+    resource: https://github.com/GoogleCloudPlatform/open-knowledge-format
     author: process:fixture
 ---
 
