@@ -135,3 +135,57 @@ authoring agent is `tool`; a process the project itself runs is `internal`.
 |----------|------|--------------|------|------|--------|
 | `<actor>` | <Name> | <Org or unknown> | <Side or unknown> | <Role or unknown> | <YYYY-MM-DD> – |
 ````
+
+## Captures
+
+Seed only when the project has raw source material (see SKILL.md step 4a).
+`captures/` sits beside `knowledge/`, is not an OKF bundle, and carries no
+frontmatter. One package per source event or delivery, named
+`<YYYY-MM-DD>-<channel>-<slug>` where `<channel>` is `meeting`, `thread`, or
+`delivery` and the date is when it happened (meeting day, thread start, day files
+were received). Originals keep their names and are never edited.
+
+### `captures/index.md`
+
+````markdown
+# Captures
+
+Evidence layer: originals are never edited; canonical knowledge lives in
+`knowledge/`. Newest first.
+
+| Package | Channel | Happened | Contents |
+|---------|---------|----------|----------|
+| [<YYYY-MM-DD>-<channel>-<slug>](<YYYY-MM-DD>-<channel>-<slug>/) | <channel> | <YYYY-MM-DD> | <one line> |
+````
+
+### `captures/<package>/intake.md`
+
+````markdown
+# <YYYY-MM-DD> <short title>
+
+- Channel: meeting | thread | delivery
+- Happened: <YYYY-MM-DD> (thread: started <date>, export current through <date>)
+- Captured: <YYYY-MM-DD> by <actor>
+- Participants: <names (organization)>; for a delivery, Sent by <name (organization)>
+- Originals: <filename> (sha256 <hash>), one per line
+- Sensitivity: none | commercial terms present (not reproduced) | personal or member-level data
+
+## Summary
+<3–6 sentences>
+
+## Fed into knowledge/
+<bullets linking the concepts this capture supports, or "none yet">
+
+## Contradicts or corrects earlier captures
+<bullets, or "none noted">
+
+## Does not settle
+<bullets, or "none noted">
+````
+
+Sensitivity records which visibility decision the user confirmed when the
+originals were added; it describes the material, and grants no access control of
+its own.
+
+A capture that produced no durable outcome still gets an intake note with
+"none yet"; that is a correct result, not a gap.

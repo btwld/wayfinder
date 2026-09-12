@@ -102,6 +102,34 @@ If an existing documentation tree remains, state which home is authoritative for
 which material, as implementation guide §2.2 requires. Do not claim that old
 documents were migrated by seeding a new bundle.
 
+### 4a. Seed the captures layer (when the project has source material)
+
+If the repository holds or will receive raw source material — meeting
+transcripts, thread exports, client-delivered documents or sample data — seed a
+`captures/` directory **beside** `knowledge/`, never inside it, following
+[SEEDING.md § Captures](./SEEDING.md#captures). It gets a plain `index.md`
+(no frontmatter; `captures/` is not a bundle) and one dated package per event or
+delivery with an `intake.md`. Move material the repository already tracks into
+packages with `git mv` so history survives. Committing an original the repository
+does not already track widens who can read it, because `captures/` inherits the
+repository's access controls and defines no per-file scheme: name those files and
+confirm with the user that the material may live at that visibility before adding
+them. Leave material where it is if they decline. Add the `### Captures` block
+below to `AGENTS.md` under `## Agent skills`:
+
+```markdown
+### Captures
+
+Raw evidence (transcripts, thread exports, files the client sent) lives in
+`captures/`, one dated package per event or delivery, each with an `intake.md`.
+Originals there are never edited. `captures/` is evidence, not knowledge: it is
+not an OKF bundle and Wayfinder does not index it. Durable outcomes reach
+`knowledge/` as concepts that cite the package in `sources`; if a concept and a
+capture disagree, re-read the capture and fix the concept.
+```
+
+Skip this step, and say so, when the project has no such material.
+
 ### 5. Validate and review
 
 Read [the authoring skill](../author-knowledge-bundle/SKILL.md) and perform its

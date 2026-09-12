@@ -75,6 +75,14 @@ grep-only answers.
    support the claim, mean the knowledge is not recorded. Report that plainly,
    then answer from other evidence only if you label it as such. Do not stretch a
    near-miss into support.
+7. **Know what search does not see.** `index.md` and `log.md` are navigation and
+   history, not indexed passages: open them directly for "where do I start" or
+   "what changed" questions. Facts that live only inside fenced code blocks (a
+   version declaration, a naming pattern) rank low for natural-language queries;
+   when the first query returns the prose around such a block, retry with the
+   literal keywords. Raw material kept outside the bundle (for example a
+   `captures/` evidence layer) is never indexed; cite it through the concept
+   that names it in `sources`.
 
 ## Validate
 
