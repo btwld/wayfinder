@@ -1,3 +1,10 @@
+# Unreleased
+
+- Report Profile 2026.2 and depend on `okf` ^0.5.0. `wayfinder validate` prints
+  `Profile 2026.2` and treats a bundle declaring `2026.1` as an unsupported
+  release. Date-only timestamps surface as okf's non-blocking
+  `okf/timestamp-without-offset` advisory and leave the gate passing.
+
 # 0.0.4
 
 - `wayfinder graph <bundle>` prints the bundle's OKF relationship graph as JSON,

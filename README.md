@@ -66,7 +66,7 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.1**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
 Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing

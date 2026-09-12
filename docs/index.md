@@ -6,7 +6,7 @@
 
 ## Compatibility
 
-[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.1 preserves pinned OKF 0.2.
+[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.2 preserves pinned OKF 0.2.
 
 [Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
 
