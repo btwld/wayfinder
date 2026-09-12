@@ -153,7 +153,9 @@ void main() {
             <String, Object?>{
               'id': 'okf/invalid-stale-after',
               'severity': 'advisory',
-              'message': 'stale_after should be an ISO 8601 YYYY-MM-DD date.',
+              'message':
+                  'stale_after should be an ISO 8601 datetime with a UTC '
+                  'offset, such as 2026-09-23T00:00:00Z.',
               'location': <String, Object?>{'path': 'types.md'},
             },
           ],
