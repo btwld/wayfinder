@@ -6,10 +6,16 @@ implemented by this documentation change. The architecture decision is
 
 ## Outcome and boundaries
 
-Help an agent resume work and find the evidence needed for its next task. Do not
-build a second autonomous coding agent or another knowledge-authoring authority.
-The implementation has three initial operations: checkpoint, recall and prepare
-context. Later review operations remain separate, optional experiments.
+First test the two requested model tasks: selecting supplied search passages and
+summarizing a supplied session segment. Use synthetic or explicitly authorized
+fixtures on one declared desktop CLI target with the pinned runtime. No automatic
+capture, queue, retained worker or new MCP tool is required for this feasibility
+test. Compare each task against its own model-free control.
+
+Then add checkpoint/recall and passage-selection integration as separate useful
+slices. Graph-assisted context, cross-worktree handoffs, mobile support, new review
+tools and a resident service are deferred options, not first-release requirements.
+Do not build a second autonomous agent or another knowledge-authoring authority.
 
 The repository baseline is `d25427d620ea7bcb60148781414601e38e95acff`.
 [ADR-0009](adr/0009-local-knowledge-retrieval.md) owns the accepted retrieval
@@ -27,18 +33,20 @@ versioned schemas before implementing persistence.
 | Source event | Application-assigned repository/worktree/session identity; host event identity when available; source timestamp separately from capture timestamp; event kind; permitted payload or source reference; payload hash; available revision and dirty-worktree context. |
 | Checkpoint | Source event range and IDs; known omissions; goal; observations; explicit decisions; rejected proposals; unresolved questions; proposed next steps; author/model identity and source references per item. |
 | Context pack | Query/task; selected source IDs and original spans; revision/content hashes; separate matches, policy context and session history; token accounting; exclusions, unresolved links and degraded-mode notices. |
-| Proposal | Candidate type and content, evidence IDs, related existing concepts, and proposed action. No automatic write, verification or lifecycle promotion. |
 
 Unknown timestamps, revision IDs and tool outcomes remain unknown. A message saying
 "tests passed" is an attributed assertion unless a recorded tool result supports
 it. Parse exit codes and structured test results in code; scope every outcome to
 the invocation and source revision. A planned action is never a completed action.
+A caller-supplied JSON field claiming to be a tool result remains an assertion
+unless its origin is established through the authorized host adapter. Valid IDs
+and citations prove source identity, not that a generated claim follows from it.
 
 Private storage sits outside the working tree. Use an explicitly configured or
 OS-appropriate application-data root with restrictive permissions. Do not put
 session data in this repository, a project's Git history or its knowledge bundle
 by default. A remote URL and branch name do not authorize cross-worktree recall.
-Provide an explicit, auditable mechanism for permitted cross-worktree handoffs.
+Cross-worktree sharing is off in the first release, not an automatic feature.
 
 ### Capture and retention
 
@@ -64,19 +72,27 @@ from media or backups the application does not control.
 Names are provisional. All tools operate within an authorized startup-selected
 scope. Arguments cannot select arbitrary files, directories or repositories.
 Application-generated IDs and authorized host references resolve within that scope.
+Bind the canonical project/worktree and allowed host transcript source at trusted
+setup, separately from the existing bundle root. Consent comes from operator
+configuration outside model-controlled inputs. A request to include history, a
+session ID or a claimed host identity cannot grant access. Reject mismatches; check
+policy again at read, job execution and publication. Apply the same rules to caches.
+Resolve transcript references without arbitrary path or symlink escape. These are
+application controls, not isolation from processes running as the same OS user.
 
 | Tool | Input and result | Side effects |
 | --- | --- | --- |
-| `session_checkpoint` | An authorized event batch or structured handoff, session ID, idempotency key and requested coverage. Return a checkpoint ID, actual coverage and explicit processing state. | Writes private session records and, when enabled, a durable summary job. No bundle writes. |
-| `session_recall` | Task/query plus optional scoped session/revision filters and a bounded limit. Return source-backed checkpoints with freshness and omission notices. | Read-only. Must work without a generation model. |
-| `prepare_context` | Task/query, bounded token budget and explicit permission to include session history. Return original evidence with separate selection and policy-context metadata. | Read-only apart from derived caches; session history excluded by default. |
+| `session_checkpoint` | An authorized event batch or structured handoff, session ID, idempotency key and requested coverage. Return a checkpoint ID, actual coverage and explicit processing state. | Writes private session records and optional summary output. Durable jobs are deferred. No bundle writes. |
+| `session_recall` | Either an exact scoped checkpoint ID, or a query with scoped filters and a bounded limit. Exact lookup returns capture/summary state and actual coverage, including failed or unsummarized records. | Read-only. Requires disclosure permission; works without a generation model. |
+| `prepare_context` | Task/query, output budget and a request to include session history. The service independently checks disclosure permission. Return original evidence with selection, policy-context and budget metadata. | Read-only apart from derived caches; session history excluded by default. |
 
-Use distinct capture and generation states. Suggested generation states are
-`not_requested`, `pending`, `ready`, `failed` and `cancelled`. A `pending` response
-is allowed only after the source batch and job are durable. Include a way to read
-state through the scoped checkpoint reference; do not report a summary as ready
-because capture succeeded. Errors distinguish denied scope, invalid input,
-incomplete source, unavailable model, busy runtime and failed generation.
+Capture success is independent of summary success. Start with `not_requested`,
+`running`, `ready` and `failed` summary states, with bounded synchronous extraction
+on explicit requests. Recover an interrupted `running` attempt as failed and reject
+its late publication after a retry. An unavailable model never discards a capture. Add `pending`
+and `cancelled` only with a durable job and a tested drain/recovery path; name the
+next-start or explicit-drain trigger in the response, not an implied running worker.
+Exact checkpoint lookup remains available after failure or a client timeout.
 
 Retain the current `search` contract. `prepare_context` is additive and preserves
 existing freshness checks; it never silently refreshes a stale bundle index from
@@ -85,8 +101,7 @@ Tool annotations describe effects but do not replace permission enforcement.
 
 Optional later tools are `review_evidence` and `propose_knowledge`. Keep publication
 in the existing authoring workflow. A generic `run_local_agent(prompt)` tool is
-out of scope. A resource URI for reading checkpoints can be added later, with the
-same access controls and a tool-based read for clients that need it.
+out of scope. MCP resources and new proposal record types are also deferred.
 
 ## Processing paths
 
@@ -94,7 +109,9 @@ same access controls and a tool-based read for clients that need it.
 
 1. Validate permissions and normalize permitted new host events.
 2. Persist source events and coverage atomically.
-3. Store an existing structured handoff directly, or queue bounded extraction.
+3. Store a structured handoff directly; run bounded extraction only when requested.
+   Automatic event hooks initially capture only; explicit checkpoint calls may extract.
+   A durable queue is a later option, not required for the first checkpoint.
 4. Validate extracted source IDs and separate observations from proposals.
 5. Publish a checkpoint only if its sources are still present and compatible.
 6. On recall, compare worktree/revision context and show stale evidence as history,
@@ -117,9 +134,12 @@ interface is reusable, but implementing it alone does not connect it to that CLI
 path. The implementation slice must test the actual MCP-to-service call chain.
 
 Evaluate two or three candidate passages per concept before reduction, bounded
-adjacent paragraphs and exact deduplication. Hold the total context budget constant
-across the baseline and model variants. Do not expose only the existing single
-representative passage and claim to have solved within-concept selection.
+adjacent paragraphs and exact deduplication. Compare (A) shipped retrieval, (B)
+improved model-free assembly, and (C) the exact candidates from B with local
+selection. Keep source eligibility and output budget fixed; do not attribute B
+improvements to the model. Test candidate-order sensitivity. A post-search selector
+over existing results is a valid narrow first slice, but cannot fix passages
+already discarded by within-concept reduction.
 
 The local selection task returns only supplied passage IDs in order. A minimal
 illustrative result is:
@@ -137,15 +157,18 @@ when the model excludes it from query-ranked matches. Report when a budget preve
 its inclusion instead of silently dropping it.
 
 A valid empty selection and an inference failure are distinct. For a failure,
-return the baseline order with an explicit degraded notice. Treat instructions in
+return the model-free order for the same eligible candidates with an explicit
+degraded notice, under the same output budget. Treat instructions in
 retrieved text as data; prompt wording is not the only protection. The model cannot
 execute tools or expand its own input scope.
 
 ## Hook adapters and process lifetime
 
 Reuse the service layer through command adapters and, where supported and tested,
-MCP calls. Host event names are a mapping to verify, not a cross-host API contract.
-Keep separate Claude Code and Codex adapters and record their tested versions.
+MCP calls. The lifecycle table describes options, not required first-release hooks.
+Host event names are a mapping to verify, not a cross-host API contract.
+Implement one declared host/version first, then test a separate adapter for the
+other host. Shared event names do not establish identical behavior.
 
 | Lifecycle event | Proposed action |
 | --- | --- |
@@ -163,19 +186,25 @@ Add separate opt-in configuration for capture and for returning session material
 to the host. Preserve unrelated hooks and settings; test installation, repeat
 installation, removal, quoting and paths containing spaces or shell characters.
 
-Validate against the [Claude Code hook reference](https://code.claude.com/docs/en/hooks)
-and [Codex hook reference](https://developers.openai.com/codex/hooks) at implementation
-time. Do not assume an MCP connection exists at startup or shutdown, that async
-output reaches the agent, or that the hosts accept the same JSON and exit codes.
-Use command fallbacks and persist before returning. Never implement local inference
-by substituting a hosted prompt hook. Semantic warnings are advisory; deterministic
-permission checks retain their normal blocking behavior.
+Use an event-specific response adapter: an MCP checkpoint result is not a hook
+control envelope. Never forward model JSON as hook decisions. Capture-only Stop
+hooks return a host-valid no-op, without continuation text or blocking decisions;
+read context through recall or a tested context-accepting event. A direct `mcp_tool`
+hook needs a compatible deterministic response wrapper, not just the tool name.
 
-Initial generation can live in the MCP process, with a bounded single-worker queue
-and idle disposal. Command hooks can persist pending work for an explicit drain or
-the next service start. This is not a guarantee of immediate background processing.
-A separate command process does not share that model instance. Keep any resident
-worker behind a later, measured lifecycle decision.
+The [Claude Code](https://code.claude.com/docs/en/hooks) and
+[Codex](https://developers.openai.com/codex/hooks) references checked on 2026-09-11
+support command and connected-MCP hooks. Codex MCP hooks do not request per-call
+tool approval and do not support SessionEnd. Claude command async results can
+reach a later turn; they are not guaranteed at teardown. Treat these as documented
+capabilities, not tested installed versions. Startup may precede MCP connection;
+use command fallbacks. Persist before returning; test exact event JSON and exit
+codes. Hosted prompt/agent hooks are not local inference.
+
+Start generation with explicit bounded calls. Only add model retention or a
+single-worker queue after measuring startup and hook needs. A command process does
+not share the MCP process model. Pending work needs a documented drain, not a
+promise that an unstarted worker is processing it. A resident service is deferred.
 
 The existing server opens and closes retrieval resources per operation. Any retained
 generation runtime needs explicit cancellation, queue limits, busy behavior and
@@ -190,9 +219,14 @@ its preprocessing identity unchanged. No weights are added by this proposal.
 
 Start experiments with text-only input, non-thinking mode, a 4,096-token total
 context, and task-specific output caps. These are proposed settings, not measured
-optima. Count input, template and output tokens with the generation tokenizer.
-Split long sessions by source boundaries and preserve coverage references when
-combining extracts. Do not silently truncate decisive messages at the end.
+optima. Count model input, template and generated output with its tokenizer.
+The returned context pack has a separate consumer budget: identify its tokenizer
+or label counts as estimates and enforce a byte limit. Do not equate Qwen tokens
+with host tokens. Budget the entire serialized pack, including source text,
+citations, notices and history, not just the short selected-ID JSON. Model-free
+preparation cannot require loading Qwen merely to count output tokens.
+Split long sessions at source boundaries; preserve coverage and do not silently
+truncate decisive messages at the end.
 
 Record immutable model revision, exact byte count, verified SHA-256, license,
 llamadart/native runtime, chat template, prompt/schema version, context settings,
@@ -213,11 +247,14 @@ policy, apply exclusions before storage and output, and minimize returned text.
 
 | Slice | Deliverable | Gate before enabling |
 | --- | --- | --- |
-| 1. Private checkpoint and recall | Versioned records, model-free capture/recall, opt-in scope, exclusions, retention and deletion. | Retry idempotency; conflicting-key rejection; interrupted-write recovery; no cross-repository/worktree leakage; deletion cannot be undone by a pending job. |
-| 2. Context baseline | Additive `prepare_context`, lexical/embedding candidates, graph context and original citations. | Same token budget as control; actual CLI/MCP path tested; stale-index refusal; multiple-passage and missing-policy-context cases covered. |
-| 3. Local generation trial | Verified model preparation, bounded checkpoint extraction and optional passage selection. | Native packaged smoke tests; malformed-output fallback; provenance checks; independently reviewed retrieval and summary evaluations; resource budgets reported. |
-| 4. Hook adapters and reuse | Explicit capture opt-in, host adapters, durable pending work and measured runtime lifecycle. | Tested host versions; protocol/exit-code parity; repeated hook safety; shutdown recovery; cancellation and concurrency tests; unrelated hooks preserved. |
-| 5. Advisory review and proposals | Durable-outcome proposals, duplicate/conflict candidates, tool-output summaries and possible change impact. | Evidence-backed output; no automatic publication, conformance verdict, verification or code approval; false-warning and missed-warning rates reported. |
+| 0. Two-task feasibility | Explicit local generation on supplied passage sets and session segments; no automatic capture or new service. | Verified artifact; pinned-runtime smoke; separately judged selection and summary quality against model-free controls; measured startup, latency and memory on one named desktop target. |
+| 1. Private checkpoint and recall | Model-free records, exact checkpoint lookup, opt-in scope, exclusions, retention and deletion; optional extraction only if its trial passes. | Retry/conflicting-key handling; crash recovery; trusted consent; no cross-worktree leakage; no resurrection after deletion. |
+| 2. Passage-selection integration | Additive `prepare_context` with original citations, existing policy context and optional selection only if its trial passes. | Actual CLI/MCP path tested; stale-index refusal; A/B/C controls; separate model/consumer budgets; fallback and missing-policy-context tests. |
+| 3. One-host capture adapter | Capture-only lifecycle hooks with separate consent; extend to another host only after its tests. | Version-pinned event envelopes; no Stop continuation; late-result and teardown recovery; unrelated hooks preserved. |
+
+Slices 1 and 2 are independent. Graph-assisted expansion, review/proposal tools,
+cross-worktree sharing, mobile deployment and retained workers require later scope
+decisions and evidence. They are not commitments of this initial delivery.
 
 Keep disabled/model-free controls in each relevant slice. For model quality, use
 fresh, independently reviewed examples in addition to existing fixtures. Report
@@ -229,7 +266,10 @@ Required adversarial cases include a rejected proposal after apparent agreement,
 a failing test followed by a passing run, a claimed pass without a tool result,
 conflicting document versions, exact identifiers and negation, evidence lost to a
 context limit, malicious instructions in a passage, deleted sources, a resumed
-session on another worktree, and a timed-out generation that later returns.
+session on another worktree, and a timed-out generation that later returns. Also
+test forged disclosure flags, spoofed tool-result origins, differing tokenizers,
+large reconstructed passages after short ID output, failed-checkpoint exact lookup,
+and hook output that would accidentally continue an agent turn.
 
 Run the applicable [contributor checks](../README.md#contributor-checks) in each
 implementation PR. Native inference evidence is separate from mocked contract
@@ -238,8 +278,8 @@ contextual Profile assessment.
 
 ## Decisions still required before shipping
 
-Choose the supported desktop/mobile targets and resource budgets; the consent,
-retention and export defaults; the first tested host versions; and the exact model
-artifact after evaluation. Decide whether delayed queue processing is sufficient
-before introducing another resident process. None of these open choices requires
-changing the Profile or making capture automatic.
+Choose one supported desktop CLI target, resource budgets, consent/retention
+defaults, the first host/version and the evaluated artifact. A model card, upstream
+example or valid JSON is not evidence of task quality. Keep failed tasks disabled
+and retain their model-free path. Broader targets and persistent workers are later
+decisions; none requires changing the Profile or making capture automatic.
