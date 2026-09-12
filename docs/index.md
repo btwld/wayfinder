@@ -20,6 +20,8 @@
 
 [Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
 
+[Issue queue review](issue-queue-review.md) — Verified state of the open Wayfinder and okf issues, pull requests, releases and pub.dev publication. Reviewed 2026-09-12; linked issues own current work status.
+
 [Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the distributed skills.
 
 ## Operations
