@@ -288,11 +288,19 @@ From the repository root, the core checks used by [CI](.github/workflows/ci.yml)
 
 ```bash
 dart pub get
-dart format --output=none --set-exit-if-changed packages/wayfinder/bin packages/wayfinder/lib packages/wayfinder/test
+dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
 dart run wayfinder_cli:wayfinder validate examples/knowledge
 ```
+
+`melos lint` runs analysis, formatting and tests across all three packages at once.
+
+**Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
+version-dependent and its style is gated on the package's language version, so a floor
+SDK and a newer stable can disagree on the same file. CI checks formatting on `stable`
+only — that is what defines the canonical style — while the floor job still analyzes and
+tests. Formatting with the floor SDK can produce output CI rejects.
 
 For skill or documentation changes, also check local links and compare changed
 rule wording with its authoritative source. Release-tool changes additionally
