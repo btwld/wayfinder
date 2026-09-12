@@ -40,17 +40,17 @@ final class ProfileFinding {
   /// This finding as an okf finding value, for canonical ordering and any
   /// consumer that speaks the okf contract.
   OkfFinding toOkfFinding() => OkfFinding(
-        id: OkfFindingId.parse(id),
-        severity: severity,
-        message: message,
-        location: _location,
-      );
+    id: OkfFindingId.parse(id),
+    severity: severity,
+    message: message,
+    location: _location,
+  );
 
   Map<String, Object?> toJson() => <String, Object?>{
-        ...toOkfFinding().toJson(),
-        'profile_release': profileRelease,
-        'rule': rule,
-      };
+    ...toOkfFinding().toJson(),
+    'profile_release': profileRelease,
+    'rule': rule,
+  };
 
   String toText() {
     final release = profileRelease == null ? '' : '$profileRelease ';

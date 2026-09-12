@@ -65,39 +65,36 @@ final class ProfileValidationResult {
   factory ProfileValidationResult.undispatched(
     OkfSpecValidation validation,
     ProfileFinding finding,
-  ) =>
-      ProfileValidationResult._(
-        okfValidation: validation,
-        profileRelease: null,
-        profileState: ProfileState.unsupported,
-        findings: <ProfileFinding>[finding],
-        automatedGateState: AutomatedGateState.unsupported,
-      );
+  ) => ProfileValidationResult._(
+    okfValidation: validation,
+    profileRelease: null,
+    profileState: ProfileState.unsupported,
+    findings: <ProfileFinding>[finding],
+    automatedGateState: AutomatedGateState.unsupported,
+  );
 
   factory ProfileValidationResult.unsupported(
     OkfSpecValidation validation,
     String release,
-  ) =>
-      ProfileValidationResult._(
-        okfValidation: validation,
-        profileRelease: release,
-        profileState: ProfileState.unsupported,
-        findings: const <ProfileFinding>[],
-        automatedGateState: AutomatedGateState.unsupported,
-      );
+  ) => ProfileValidationResult._(
+    okfValidation: validation,
+    profileRelease: release,
+    profileState: ProfileState.unsupported,
+    findings: const <ProfileFinding>[],
+    automatedGateState: AutomatedGateState.unsupported,
+  );
 
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
   ) {
     final stableFindings = List<ProfileFinding>.unmodifiable(
-      findings.toList()
-        ..sort(
-          (left, right) => OkfReport.compareFindings(
-            left.toOkfFinding(),
-            right.toOkfFinding(),
-          ),
+      findings.toList()..sort(
+        (left, right) => OkfReport.compareFindings(
+          left.toOkfFinding(),
+          right.toOkfFinding(),
         ),
+      ),
     );
     final failed = stableFindings.any(
       (finding) => finding.severity == OkfFindingSeverity.error,
@@ -107,8 +104,9 @@ final class ProfileValidationResult {
       profileRelease: supportedProfileRelease,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
-      automatedGateState:
-          failed ? AutomatedGateState.fail : AutomatedGateState.pass,
+      automatedGateState: failed
+          ? AutomatedGateState.fail
+          : AutomatedGateState.pass,
     );
   }
 
@@ -124,20 +122,18 @@ final class ProfileValidationResult {
   int get exitCode => automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'okf': <String, Object?>{
-          'state': okfState.wireValue,
-          'report': okfReport.toJson(),
-        },
-        'profile': <String, Object?>{
-          'release': profileRelease,
-          'state': profileState.wireValue,
-          'findings': findings.map((finding) => finding.toJson()).toList(),
-        },
-        'judgment_rules': const <String, Object>{'state': 'UNASSESSED'},
-        'automated_gate': <String, Object>{
-          'state': automatedGateState.wireValue,
-        },
-      };
+    'okf': <String, Object?>{
+      'state': okfState.wireValue,
+      'report': okfReport.toJson(),
+    },
+    'profile': <String, Object?>{
+      'release': profileRelease,
+      'state': profileState.wireValue,
+      'findings': findings.map((finding) => finding.toJson()).toList(),
+    },
+    'judgment_rules': const <String, Object>{'state': 'UNASSESSED'},
+    'automated_gate': <String, Object>{'state': automatedGateState.wireValue},
+  };
 
   Iterable<String> toTextLines() sync* {
     yield 'OKF: ${okfState.wireValue}';
@@ -182,14 +178,11 @@ final class ProfileValidator {
     if (release != supportedProfileRelease) {
       return ProfileValidationResult.unsupported(validation, release);
     }
-    return ProfileValidationResult.assessed(
-      validation,
-      <ProfileFinding>[
-        if (_validateOkfBinding(values, loaded) case final finding?) finding,
-        ...validateConceptRules(loaded),
-        ...validateStructureRules(loaded),
-      ],
-    );
+    return ProfileValidationResult.assessed(validation, <ProfileFinding>[
+      ?_validateOkfBinding(values, loaded),
+      ...validateConceptRules(loaded),
+      ...validateStructureRules(loaded),
+    ]);
   }
 }
 
@@ -242,7 +235,8 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
       return const _DeclarationRead.finding(
         ProfileFinding(
           descriptor: rules.profileDeclarationFields,
-          message: 'The Profile declaration must contain non-empty string '
+          message:
+              'The Profile declaration must contain non-empty string '
               'values for concepta_profile and okf_version.',
           path: 'profile.md',
         ),
@@ -273,7 +267,8 @@ ProfileFinding? _validateOkfBinding(
   }
   return const ProfileFinding(
     descriptor: rules.okfReleaseBinding,
-    message: 'The declaration, root index, and Profile release must all bind '
+    message:
+        'The declaration, root index, and Profile release must all bind '
         'to OKF 0.2.',
     path: 'profile.md',
     profileRelease: supportedProfileRelease,

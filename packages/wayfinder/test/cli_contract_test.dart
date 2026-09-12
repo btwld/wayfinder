@@ -38,25 +38,33 @@ void main() {
     final unknownOption = await runCli(<String>['validate', '--bogus']);
     expect(unknownOption.exitCode, 2);
 
-    final badOutputValue = await runCli(
-      <String>['validate', '--output', 'xml', 'bundle'],
-    );
+    final badOutputValue = await runCli(<String>[
+      'validate',
+      '--output',
+      'xml',
+      'bundle',
+    ]);
     expect(badOutputValue.exitCode, 2);
 
     final strict = await runCli(<String>['validate', '--strict', 'bundle']);
     expect(strict.exitCode, 2);
 
-    final callerSelectedProfile = await runCli(
-      <String>['validate', '--profile', 'profile.md', 'bundle'],
-    );
+    final callerSelectedProfile = await runCli(<String>[
+      'validate',
+      '--profile',
+      'profile.md',
+      'bundle',
+    ]);
     expect(callerSelectedProfile.exitCode, 2);
 
     final missingBundle = await runCli(<String>['validate']);
     expect(missingBundle.exitCode, 2);
 
-    final extraBundle = await runCli(
-      <String>['validate', 'test/fixtures/conformant', 'another'],
-    );
+    final extraBundle = await runCli(<String>[
+      'validate',
+      'test/fixtures/conformant',
+      'another',
+    ]);
     expect(extraBundle.exitCode, 2);
   });
 
@@ -90,52 +98,50 @@ void main() {
       'automated_gate': <String, Object?>{'state': 'PASS'},
     });
 
-    final text = await runProcess(
-      <String>['validate', fixture('conformant')],
-    );
+    final text = await runProcess(<String>['validate', fixture('conformant')]);
     expect(text.exitCode, 0);
     expect(text.stdout, contains('Profile 2026.1: PASS'));
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
-  test('validates the complete released example through the shipped gate',
-      () async {
-    final result = await runProcess(
-      <String>[
+  test(
+    'validates the complete released example through the shipped gate',
+    () async {
+      final result = await runProcess(<String>[
         'validate',
         '--output',
         'json',
         p.join('..', '..', 'examples', 'knowledge'),
-      ],
-    );
+      ]);
 
-    expect(result.exitCode, 0);
-    expect(result.stderr, isEmpty);
-    final output = jsonDecode(result.stdout) as Map<String, Object?>;
-    expect((output['okf']! as Map<String, Object?>)['state'], 'PASS');
-    final profile = output['profile']! as Map<String, Object?>;
-    expect(profile['release'], '2026.1');
-    expect(profile['state'], 'PASS');
-    expect(
-      findingSummary(profile),
-      <String>[
+      expect(result.exitCode, 0);
+      expect(result.stderr, isEmpty);
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      expect((output['okf']! as Map<String, Object?>)['state'], 'PASS');
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(profile['release'], '2026.1');
+      expect(profile['state'], 'PASS');
+      expect(findingSummary(profile), <String>[
         'advisory concepta-profile/relationship-label-extension '
             'reporting/include-pdf-annotations.md',
         'advisory concepta-profile/internal-link-unresolved '
             'reporting/pdf-export-feasibility.md',
         'advisory concepta-profile/registered-type-extension types.md',
-      ],
-    );
-    expect(output['judgment_rules'], <String, Object?>{
-      'state': 'UNASSESSED',
-    });
-    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
-  });
+      ]);
+      expect(output['judgment_rules'], <String, Object?>{
+        'state': 'UNASSESSED',
+      });
+      expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+    },
+  );
 
   test('keeps OKF advisories gate-neutral in the merged report', () async {
-    final result = await runProcess(
-      <String>['validate', '--output', 'json', fixture('okf-advisory')],
-    );
+    final result = await runProcess(<String>[
+      'validate',
+      '--output',
+      'json',
+      fixture('okf-advisory'),
+    ]);
 
     expect(result.exitCode, 0);
     expect(result.stderr, isEmpty);
@@ -162,9 +168,10 @@ void main() {
       'automated_gate': <String, Object?>{'state': 'PASS'},
     });
 
-    final text = await runProcess(
-      <String>['validate', fixture('okf-advisory')],
-    );
+    final text = await runProcess(<String>[
+      'validate',
+      fixture('okf-advisory'),
+    ]);
     expect(text.exitCode, 0);
     expect(text.stdout, contains('advisory okf/invalid-stale-after'));
     expect(text.stdout, contains('OKF Report: 0 error(s), 1 advisory(ies).'));
@@ -172,9 +179,12 @@ void main() {
   });
 
   test('blocks Profile validation when OKF fails', () async {
-    final failed = await runProcess(
-      <String>['validate', '--output', 'json', fixture('invalid-okf')],
-    );
+    final failed = await runProcess(<String>[
+      'validate',
+      '--output',
+      'json',
+      fixture('invalid-okf'),
+    ]);
 
     expect(failed.exitCode, 1);
     expect(failed.stderr, isEmpty);
@@ -203,40 +213,46 @@ void main() {
     });
   });
 
-  test('reports a malformed declaration with a stable semantic finding',
-      () async {
-    final result = await runProcess(
-      <String>['validate', '--output', 'json', fixture('malformed')],
-    );
+  test(
+    'reports a malformed declaration with a stable semantic finding',
+    () async {
+      final result = await runProcess(<String>[
+        'validate',
+        '--output',
+        'json',
+        fixture('malformed'),
+      ]);
 
-    expect(result.exitCode, 2);
-    expect(result.stderr, isEmpty);
-    final output = jsonDecode(result.stdout) as Map<String, Object?>;
-    expect(output['okf'], <String, Object?>{
-      'state': 'PASS',
-      'report': <String, Object?>{'findings': <Object?>[]},
-    });
-    expect(output['profile'], <String, Object?>{
-      'release': null,
-      'state': 'UNSUPPORTED',
-      'findings': <Object?>[
-        <String, Object?>{
-          'id': 'concepta-profile/profile-declaration-readable',
-          'severity': 'error',
-          'message':
-              'The first fenced yaml declaration in profile.md is invalid.',
-          'location': <String, Object?>{'path': 'profile.md'},
-          'profile_release': null,
-          'rule': '§11',
-        },
-      ],
-    });
-    expect(output['judgment_rules'], <String, Object?>{'state': 'UNASSESSED'});
-    expect(
-      output['automated_gate'],
-      <String, Object?>{'state': 'UNSUPPORTED'},
-    );
-  });
+      expect(result.exitCode, 2);
+      expect(result.stderr, isEmpty);
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      expect(output['okf'], <String, Object?>{
+        'state': 'PASS',
+        'report': <String, Object?>{'findings': <Object?>[]},
+      });
+      expect(output['profile'], <String, Object?>{
+        'release': null,
+        'state': 'UNSUPPORTED',
+        'findings': <Object?>[
+          <String, Object?>{
+            'id': 'concepta-profile/profile-declaration-readable',
+            'severity': 'error',
+            'message':
+                'The first fenced yaml declaration in profile.md is invalid.',
+            'location': <String, Object?>{'path': 'profile.md'},
+            'profile_release': null,
+            'rule': '§11',
+          },
+        ],
+      });
+      expect(output['judgment_rules'], <String, Object?>{
+        'state': 'UNASSESSED',
+      });
+      expect(output['automated_gate'], <String, Object?>{
+        'state': 'UNSUPPORTED',
+      });
+    },
+  );
 
   test('keeps release dispatch findings stable at the process seam', () async {
     final cases = <String, String>{
@@ -244,9 +260,12 @@ void main() {
       'invalid-fields': 'concepta-profile/profile-declaration-fields',
     };
     for (final entry in cases.entries) {
-      final result = await runProcess(
-        <String>['validate', '--output', 'json', fixture(entry.key)],
-      );
+      final result = await runProcess(<String>[
+        'validate',
+        '--output',
+        'json',
+        fixture(entry.key),
+      ]);
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
       final profile = output['profile']! as Map<String, Object?>;
       final findings = profile['findings']! as List<Object?>;
@@ -263,43 +282,41 @@ void main() {
     }
   });
 
-  test('preserves OKF log date and ordering failures without Profile cascades',
-      () async {
-    final result = await runProcess(
-      <String>[
+  test(
+    'preserves OKF log date and ordering failures without Profile cascades',
+    () async {
+      final result = await runProcess(<String>[
         'validate',
         '--output',
         'json',
         fixture('invalid-log-okf'),
-      ],
-    );
+      ]);
 
-    expect(result.exitCode, 1);
-    final output = jsonDecode(result.stdout) as Map<String, Object?>;
-    final okf = output['okf']! as Map<String, Object?>;
-    final report = okf['report']! as Map<String, Object?>;
-    expect(
-      (report['findings']! as List<Object?>)
-          .map((value) => (value! as Map<String, Object?>)['id'])
-          .toList(),
-      <String>['okf/invalid-log-date', 'okf/log-not-newest-first'],
-    );
-    expect(output['profile'], <String, Object?>{
-      'release': null,
-      'state': 'BLOCKED BY OKF',
-      'findings': <Object?>[],
-    });
-  });
+      expect(result.exitCode, 1);
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final okf = output['okf']! as Map<String, Object?>;
+      final report = okf['report']! as Map<String, Object?>;
+      expect(
+        (report['findings']! as List<Object?>)
+            .map((value) => (value! as Map<String, Object?>)['id'])
+            .toList(),
+        <String>['okf/invalid-log-date', 'okf/log-not-newest-first'],
+      );
+      expect(output['profile'], <String, Object?>{
+        'release': null,
+        'state': 'BLOCKED BY OKF',
+        'findings': <Object?>[],
+      });
+    },
+  );
 
   test('preserves OKF index-shape failures without Profile cascades', () async {
-    final result = await runProcess(
-      <String>[
-        'validate',
-        '--output',
-        'json',
-        fixture('invalid-index-okf'),
-      ],
-    );
+    final result = await runProcess(<String>[
+      'validate',
+      '--output',
+      'json',
+      fixture('invalid-index-okf'),
+    ]);
 
     expect(result.exitCode, 1);
     final output = jsonDecode(result.stdout) as Map<String, Object?>;
@@ -317,43 +334,47 @@ void main() {
     });
   });
 
-  test('reports an unsupported release without a conformance verdict',
-      () async {
-    final result = await runProcess(
-      <String>['validate', fixture('unsupported')],
-    );
+  test(
+    'reports an unsupported release without a conformance verdict',
+    () async {
+      final result = await runProcess(<String>[
+        'validate',
+        fixture('unsupported'),
+      ]);
 
-    expect(result.exitCode, 2);
-    expect(result.stderr, isEmpty);
-    expect(
-      result.stdout,
-      '''OKF: PASS
+      expect(result.exitCode, 2);
+      expect(result.stderr, isEmpty);
+      expect(result.stdout, '''OKF: PASS
 OKF Report: 0 error(s), 0 advisory(ies).
 Profile 2027.1: UNSUPPORTED
 UNSUPPORTED PROFILE RELEASE: 2027.1
 Judgment Rules: UNASSESSED
-Automated gate: UNSUPPORTED''',
-    );
+Automated gate: UNSUPPORTED''');
 
-    final jsonResult = await runProcess(
-      <String>['validate', '--output', 'json', fixture('unsupported')],
-    );
-    final output = jsonDecode(jsonResult.stdout) as Map<String, Object?>;
-    expect(jsonResult.exitCode, 2);
-    expect(output['profile'], <String, Object?>{
-      'release': '2027.1',
-      'state': 'UNSUPPORTED',
-      'findings': <Object?>[],
-    });
-    expect(output['automated_gate'], <String, Object?>{
-      'state': 'UNSUPPORTED',
-    });
-  });
+      final jsonResult = await runProcess(<String>[
+        'validate',
+        '--output',
+        'json',
+        fixture('unsupported'),
+      ]);
+      final output = jsonDecode(jsonResult.stdout) as Map<String, Object?>;
+      expect(jsonResult.exitCode, 2);
+      expect(output['profile'], <String, Object?>{
+        'release': '2027.1',
+        'state': 'UNSUPPORTED',
+        'findings': <Object?>[],
+      });
+      expect(output['automated_gate'], <String, Object?>{
+        'state': 'UNSUPPORTED',
+      });
+    },
+  );
 
   test('reports an unreadable bundle as an exit 2 I/O outcome', () async {
-    final result = await runProcess(
-      <String>['validate', fixture('does-not-exist')],
-    );
+    final result = await runProcess(<String>[
+      'validate',
+      fixture('does-not-exist'),
+    ]);
 
     expect(result.exitCode, 2);
     expect(result.stdout, isEmpty);

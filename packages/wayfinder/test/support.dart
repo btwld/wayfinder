@@ -52,11 +52,7 @@ Future<CliResult> runCli(List<String> arguments) async {
     out: stdoutLines.add,
     err: stderrLines.add,
   );
-  return CliResult(
-    exitCode,
-    stdoutLines.join('\n'),
-    stderrLines.join('\n'),
-  );
+  return CliResult(exitCode, stdoutLines.join('\n'), stderrLines.join('\n'));
 }
 
 final class CliResult {
