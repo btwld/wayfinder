@@ -16,6 +16,8 @@
 
 [Wayfinder retrieval](wayfinder_embeddings.md) — Library setup, evaluation and implementation evidence.
 
+[Local memory implementation plan](local-memory-implementation-plan.md) — Proposed. Private checkpoint/recall, context preparation, local generation, hook adapters and staged acceptance gates; not shipped functionality.
+
 [Wayfinder naming and release plan](wayfinder-release-plan.md) — Product names, package boundaries, migration, and publication sequence.
 
 [Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
@@ -45,3 +47,7 @@
 [0011: Wayfinder MCP](adr/0011-station-mcp.md) — Accepted. Serve Wayfinder tools over local MCP stdio.
 
 [0012: Wayfinder graph projection](adr/0012-wayfinder-graph-projection.md) — Accepted. Project the ordinary OKF graph; mermaid and DOT are text for an external preview.
+
+[0013: Captures outside the bundle](adr/0013-captures-layer-outside-the-bundle.md) — Proposed. Separate source evidence and intake notes from maintained knowledge.
+
+[0014: Local session memory and context](adr/0014-local-session-memory-and-context.md) — Proposed. Optional private memory and bounded local generation without changing bundle authority.
