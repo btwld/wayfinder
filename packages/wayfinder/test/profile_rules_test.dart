@@ -360,96 +360,92 @@ void main() {
     },
   );
 
-  test(
-    'checks every semantic index projection dimension independently',
-    () async {
-      final rootIndexCases = <String, String Function(String)>{
-        'membership': (source) => source.replaceFirst(
-          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n',
-          '',
-        ),
-        'group identity': (source) =>
-            source.replaceFirst('# Guide', '# Analysis'),
-        'group order': (source) => source.replaceFirst(
-          '# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n\n# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.',
-          '# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.\n\n# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.',
-        ),
-        'entry order': (source) => source.replaceFirst(
-          '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.',
-          '- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.',
-        ),
-        'label': (source) =>
-            source.replaceFirst('[Alpha guide]', '[Wrong label]'),
-        'target': (source) => source.replaceFirst('(alpha.md)', '(wrong.md)'),
-        'description': (source) => source.replaceFirst(
-          'Sorts before the same-type topic entry.',
-          'Changes copied navigation.',
-        ),
-        'directory entry': (source) =>
-            source.replaceFirst('- [references](references/)\n', ''),
-      };
-      for (final entry in rootIndexCases.entries) {
-        final bundle = await copyFixture('structure-boundary');
-        addTearDown(() => bundle.delete(recursive: true));
-        final index = File(p.join(bundle.path, 'index.md'));
-        final source = (await index.readAsString()).replaceAll('\r\n', '\n');
-        final mutated = entry.value(source);
-        expect(mutated, isNot(source), reason: entry.key);
-        await index.writeAsString(mutated);
+  test('checks every semantic index projection dimension independently', () async {
+    final rootIndexCases = <String, String Function(String)>{
+      'membership': (source) => source.replaceFirst(
+        '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n',
+        '',
+      ),
+      'group identity': (source) =>
+          source.replaceFirst('# Guide', '# Analysis'),
+      'group order': (source) => source.replaceFirst(
+        '# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.\n\n# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.',
+        '# Field Note\n\n- [Boundary note](boundary-note.md) - Exercises **custom** [type](types.md) projection order.\n\n# Guide\n\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Topic](topic.md) - Durable knowledge that happens to share a name with an area.',
+      ),
+      'entry order': (source) => source.replaceFirst(
+        '- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.\n- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.',
+        '- [Interaction axis context](interactions.md) - Durable context beside the time-axis directory of the same name.\n- [Alpha guide](alpha.md) - Sorts before the same-type topic entry.',
+      ),
+      'label': (source) =>
+          source.replaceFirst('[Alpha guide]', '[Wrong label]'),
+      'target': (source) => source.replaceFirst('(alpha.md)', '(wrong.md)'),
+      'description': (source) => source.replaceFirst(
+        'Sorts before the same-type topic entry.',
+        'Changes copied navigation.',
+      ),
+      'directory entry': (source) =>
+          source.replaceFirst('- [references](references/)\n', ''),
+    };
+    for (final entry in rootIndexCases.entries) {
+      final bundle = await copyFixture('structure-boundary');
+      addTearDown(() => bundle.delete(recursive: true));
+      final index = File(p.join(bundle.path, 'index.md'));
+      final source = (await index.readAsString()).replaceAll('\r\n', '\n');
+      final mutated = entry.value(source);
+      expect(mutated, isNot(source), reason: entry.key);
+      await index.writeAsString(mutated);
 
-        final result = await runCli(<String>[
-          'validate',
-          '--output',
-          'json',
-          bundle.path,
-        ]);
-        final output = jsonDecode(result.stdout) as Map<String, Object?>;
-        final profile = output['profile']! as Map<String, Object?>;
-        expect(result.exitCode, 1, reason: entry.key);
-        expect(
-          findingSummary(profile),
-          contains('error concepta-profile/index-semantic-projection index.md'),
-          reason: entry.key,
-        );
-      }
+      final result = await runCli(<String>[
+        'validate',
+        '--output',
+        'json',
+        bundle.path,
+      ]);
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(result.exitCode, 1, reason: entry.key);
+      expect(
+        findingSummary(profile),
+        contains('error concepta-profile/index-semantic-projection index.md'),
+        reason: entry.key,
+      );
+    }
 
-      for (final path in <String>[
-        'references/index.md',
-        'references/vendor/index.md',
-      ]) {
-        final bundle = await copyFixture('structure-boundary');
-        addTearDown(() => bundle.delete(recursive: true));
-        final index = File(p.join(bundle.path, path));
+    for (final path in <String>[
+      'references/index.md',
+      'references/vendor/index.md',
+    ]) {
+      final bundle = await copyFixture('structure-boundary');
+      addTearDown(() => bundle.delete(recursive: true));
+      final index = File(p.join(bundle.path, path));
+      await index.writeAsString(
+        (await index.readAsString()).replaceFirst('.txt)', '-wrong.txt)'),
+      );
+      if (path == 'references/index.md') {
         await index.writeAsString(
-          (await index.readAsString()).replaceFirst('.txt)', '-wrong.txt)'),
-        );
-        if (path == 'references/index.md') {
-          await index.writeAsString(
-            (await index.readAsString()).replaceFirst(
-              '(clip.mp4)',
-              '(wrong.mp4)',
-            ),
-          );
-        }
-
-        final result = await runCli(<String>[
-          'validate',
-          '--output',
-          'json',
-          bundle.path,
-        ]);
-        final output = jsonDecode(result.stdout) as Map<String, Object?>;
-        final profile = output['profile']! as Map<String, Object?>;
-        expect(result.exitCode, 1, reason: path);
-        expect(
-          findingSummary(profile),
-          contains('error concepta-profile/index-semantic-projection $path'),
-          reason: path,
+          (await index.readAsString()).replaceFirst(
+            '(clip.mp4)',
+            '(wrong.mp4)',
+          ),
         );
       }
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+
+      final result = await runCli(<String>[
+        'validate',
+        '--output',
+        'json',
+        bundle.path,
+      ]);
+      final output = jsonDecode(result.stdout) as Map<String, Object?>;
+      final profile = output['profile']! as Map<String, Object?>;
+      expect(result.exitCode, 1, reason: path);
+      expect(
+        findingSummary(profile),
+        contains('error concepta-profile/index-semantic-projection $path'),
+        reason: path,
+      );
+    }
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test(
     'rejects index entry targets that decode wrong or diverge as URLs',
