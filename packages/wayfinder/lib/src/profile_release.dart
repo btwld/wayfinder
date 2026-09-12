@@ -1,4 +1,4 @@
-const supportedProfileRelease = '2026.1';
+const supportedProfileRelease = '2026.2';
 
 const standardTypes = <(String, String)>[
   ('Glossary Definition', 'One project or domain term'),

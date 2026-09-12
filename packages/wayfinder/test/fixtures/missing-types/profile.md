@@ -6,6 +6,6 @@ status: stable
 ---
 
 ```yaml
-concepta_profile: "2026.1"
+concepta_profile: "2026.2"
 okf_version: "0.2"
 ```

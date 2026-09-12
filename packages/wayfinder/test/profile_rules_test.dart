@@ -15,10 +15,10 @@ void main() {
 
     expect(result.exitCode, 1);
     expect(result.stderr, isEmpty);
-    expect(result.stdout, contains('Profile 2026.1: FAIL'));
+    expect(result.stdout, contains('Profile 2026.2: FAIL'));
     expect(
       result.stdout,
-      contains('concepta-profile/okf-release-binding (2026.1 §11)'),
+      contains('concepta-profile/okf-release-binding (2026.2 §11)'),
     );
     expect(result.stdout, endsWith('Automated gate: FAIL'));
   });
@@ -100,7 +100,7 @@ void main() {
       ]);
       for (final finding in profile['findings']! as List<Object?>) {
         final value = finding! as Map<String, Object?>;
-        expect(value['profile_release'], '2026.1');
+        expect(value['profile_release'], '2026.2');
         expect(value['rule'], isNotEmpty);
       }
       expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
@@ -110,7 +110,7 @@ void main() {
         fixture('invalid-conventions'),
       ]);
       expect(text.exitCode, 1);
-      expect(text.stdout, contains('Profile 2026.1: FAIL'));
+      expect(text.stdout, contains('Profile 2026.2: FAIL'));
       expect(text.stdout, contains('concepta-profile/relationships-shape'));
     },
   );

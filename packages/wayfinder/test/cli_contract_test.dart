@@ -90,7 +90,7 @@ void main() {
         'report': <String, Object?>{'findings': <Object?>[]},
       },
       'profile': <String, Object?>{
-        'release': '2026.1',
+        'release': '2026.2',
         'state': 'PASS',
         'findings': <Object?>[],
       },
@@ -100,7 +100,7 @@ void main() {
 
     final text = await runProcess(<String>['validate', fixture('conformant')]);
     expect(text.exitCode, 0);
-    expect(text.stdout, contains('Profile 2026.1: PASS'));
+    expect(text.stdout, contains('Profile 2026.2: PASS'));
     expect(text.stdout, endsWith('Automated gate: PASS'));
   });
 
@@ -119,7 +119,7 @@ void main() {
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
       expect((output['okf']! as Map<String, Object?>)['state'], 'PASS');
       final profile = output['profile']! as Map<String, Object?>;
-      expect(profile['release'], '2026.1');
+      expect(profile['release'], '2026.2');
       expect(profile['state'], 'PASS');
       expect(findingSummary(profile), <String>[
         'advisory concepta-profile/relationship-label-extension '
@@ -162,7 +162,7 @@ void main() {
         },
       },
       'profile': <String, Object?>{
-        'release': '2026.1',
+        'release': '2026.2',
         'state': 'PASS',
         'findings': <Object?>[],
       },
