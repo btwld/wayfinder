@@ -59,8 +59,10 @@ jobs:
           bash "$GITHUB_WORKSPACE/tool/ci/pub-version-published.sh" wayfinder "$version" >> "$GITHUB_OUTPUT"
       - if: steps.pub.outputs.published == 'true'
         run: echo "wayfinder is already on pub.dev; skipping upload."
-      # The same immutable tag passed verification above. Pub's scoped OIDC
-      # credential cannot resolve dependencies; do not repeat pub get here.
+      # The same immutable tag passed verification above. Validation runs:
+      # dart-lang/pub-dev#9576, which rejected authenticated metadata reads
+      # with HTTP 403 and forced --skip-validation here, is fixed upstream.
+      # --force only answers the confirmation a workflow cannot.
       - if: steps.pub.outputs.published != 'true'
-        run: dart pub publish --force --skip-validation
+        run: dart pub publish --force
         working-directory: packages/wayfinder
