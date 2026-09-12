@@ -103,6 +103,21 @@ abandoned Profile work. That PR changed six prose files and touched `profile/` n
 all; `2026.2` appears nowhere in the tree except the version-grammar example in the
 Profile itself. No earlier 2026.2 release was started or lost.
 
+## Superseded in part
+
+This review is evidence as of commit `d25427d`. Work on the same branch has since
+overtaken three of its findings, and they are kept above as the record of what was
+true when the queue was audited:
+
+* The `okf` pin is no longer `^0.3.0` — all three packages resolve 0.5.0.
+* The Profile on this branch is 2026.2, not 2026.1, and 2026.1 is preserved under
+  `profile/versions/`.
+* The spec pin is `open-knowledge-format@ad30107`, not `knowledge-catalog@3fcbb9f`.
+
+The declared Dart floor also moved to `>=3.11.0` across every package, which no
+finding above anticipated. Everything else — the open issues, the pull-request
+history, the pub.dev and Homebrew state, and the okf leftovers — still holds.
+
 ## Standing
 
 Nothing in either repository has airtight evidence for closing. The next coding work is
