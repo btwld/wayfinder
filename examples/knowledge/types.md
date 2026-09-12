@@ -3,7 +3,9 @@ type: Type Registry
 title: Types
 description: The standard and project-specific types available to this bundle.
 status: stable
-generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+generated:
+  by: claude-code/opus-5
+  at: "2026-07-30T16:20:00Z"
 ---
 
 Every concept's `type` resolves here. Kind is carried by `type` alone, never by a

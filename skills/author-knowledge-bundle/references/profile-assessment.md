@@ -39,7 +39,7 @@ request, never as a blanket certificate inside the bundle:
 ```markdown
 ## Profile Review Report
 
-- Profile: 2026.1 (OKF 0.2)
+- Profile: 2026.2 (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
 - Automated gate: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>

@@ -11,7 +11,7 @@ okfp validate examples/knowledge
 With a Dart SDK instead of the installed binary, `dart run wayfinder_cli:wayfinder validate
 examples/knowledge` is equivalent.
 
-Success proves OKF conformance and the deterministic Profile 2026.1 rules only.
+Success proves OKF conformance and the deterministic Profile 2026.2 rules only.
 The command reports Judgment Rules as `UNASSESSED`; complete Profile conformance
 also requires the contextual Profile Review defined by the canonical skill.
 

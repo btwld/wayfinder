@@ -3,8 +3,10 @@ type: Analysis
 title: PDF export feasibility for annotations
 description: Whether the current renderer can place annotations without exceeding the generation budget.
 status: draft
-generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
-stale_after: 2026-11-01
+generated:
+  by: claude-code/opus-5
+  at: "2026-07-31T11:00:00Z"
+stale_after: "2026-11-01T00:00:00Z"
 sources:
   - id: layout-sample
     resource: /references/annotation-layout.json

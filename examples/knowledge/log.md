@@ -1,5 +1,8 @@
 # Knowledge Log
 
+## 2026-09-12
+* **Update**: Adopted Concepta OKF Profile 2026.2 in [Concepta OKF Profile](/profile.md), which binds the OKF revision that makes every timestamp an instant.
+
 ## 2026-07-31
 * **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
 * **Area created**: Established `ways-of-working/` for durable project conventions.
