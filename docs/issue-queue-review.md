@@ -89,14 +89,21 @@ rather than fixed — okf's `main` now has no `.changeset/`, no `package.json` a
 Release` workflow. The retreat is complete; only the inert `changeset-release/main`
 branch remains.
 
-Two Wayfinder branches carry no pull request:
+Two Wayfinder branches sit outside the merged set:
 
 - `feature/5-profile-contracts` — 7 commits ahead, 198 behind, from before the package
   split (`lib/` at the repository root). It adds
   `docs/adr/0004-profile-yaml-owned-by-profile-layer.md`, which collides with the shipped
-  `docs/adr/0004-closed-concepta-profile-validator.md`. This is the one piece of genuine
-  drift found: abandoned design work holding a taken ADR number.
-- `leoafarias/montpellier` — zero commits ahead; an empty workspace placeholder.
+  `docs/adr/0004-closed-concepta-profile-validator.md`. It is **not** abandoned work: PR
+  #15 closed it on 2026-08-21 with an explicit rationale — the OKF API had become a
+  closed, immutable Spec validator exposing no rule catalog, registration or suppression,
+  so the Profile layer had to own those instead. The branch is a dispositioned closure
+  whose branch was simply never deleted, and PR #15 preserves the commits.
+- `leoafarias/montpellier` — zero commits ahead, no pull request; an empty workspace
+  placeholder.
+
+So no branch holds work that was decided on and then lost. Every closure in this
+repository carries its reasoning, either in a comment or in the release history.
 
 The `2026.2` in merged #40's branch name (`docs/2026-2-reconciliation-sweep`) is not
 abandoned Profile work. That PR changed six prose files and touched `profile/` not at
