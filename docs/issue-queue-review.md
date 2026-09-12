@@ -67,6 +67,42 @@ exists in each repository before the Profile 2026.2 work starts.
 `bundles/` and `samples/` directories alongside `SPEC.md`, so the upstream sample
 bundles can be vendored or asserted against directly.
 
+## Pull request history
+
+Every Wayfinder and okf pull request closed without merging is accounted for. No work was
+silently dropped.
+
+| Closed unmerged | Disposition |
+| --- | --- |
+| Wayfinder #48, #49, #50 (`checkout`, `upload-artifact`, `download-artifact` bumps) | Consolidated into merged #54, each with a comment naming the run that verified it. Wayfinder therefore already runs `checkout` v7, `upload-artifact` v7 and `download-artifact` v8, which is why okf #52's identical bump is consistent with a decision already taken rather than in tension with one. |
+| Wayfinder #51 (`lints`) | Obsolete; Dependabot closed it itself. |
+| okf #42 (`setup-dart`) | Obsolete; Dependabot closed it itself. |
+| okf #33 | Closed obsolete with a comment: the change shipped, then #37 removed the script it patched. |
+| okf #18 (contract-layer draft) | Closed with a comment: superseded by the re-scoped #3 before the ID grammar settled. |
+| okf #48 (`chore: release okf`, 0.3.1) | **Closed with no comment.** A hand-written release PR opened because the Changesets bot could not create one — GitHub Actions lacked permission to open pull requests. |
+
+okf #48 is the only unexplained closure, and its outcome is visible in the release
+history rather than in the PR: 0.3.1 never shipped, and neither did 0.4.0. pub.dev goes
+`0.3.0` → `0.4.1` → `0.4.2` → `0.5.0`. The Changesets path it belonged to was abandoned
+rather than fixed — okf's `main` now has no `.changeset/`, no `package.json` and no
+`release-pr.yml`, and releases come from `chore/release-*` branches through the `Deploy
+Release` workflow. The retreat is complete; only the inert `changeset-release/main`
+branch remains.
+
+Two Wayfinder branches carry no pull request:
+
+- `feature/5-profile-contracts` — 7 commits ahead, 198 behind, from before the package
+  split (`lib/` at the repository root). It adds
+  `docs/adr/0004-profile-yaml-owned-by-profile-layer.md`, which collides with the shipped
+  `docs/adr/0004-closed-concepta-profile-validator.md`. This is the one piece of genuine
+  drift found: abandoned design work holding a taken ADR number.
+- `leoafarias/montpellier` — zero commits ahead; an empty workspace placeholder.
+
+The `2026.2` in merged #40's branch name (`docs/2026-2-reconciliation-sweep`) is not
+abandoned Profile work. That PR changed six prose files and touched `profile/` not at
+all; `2026.2` appears nowhere in the tree except the version-grammar example in the
+Profile itself. No earlier 2026.2 release was started or lost.
+
 ## Standing
 
 Nothing in either repository has airtight evidence for closing. The next coding work is
