@@ -1,3 +1,12 @@
+# 0.1.0
+
+- Depend on `okf` ^0.5.0, which reads every timestamp as an ISO 8601 datetime
+  with an explicit UTC offset and compares `stale_after` as an instant rather
+  than a local calendar day.
+- Raise the Dart floor to 3.11.0, matching every Concepta package. The pinned
+  `llamadart` 0.8.23 requires 3.10.7, so the declared floor now sits above what
+  the dependencies strictly need.
+
 # 0.0.1
 
 Stable release for the Wayfinder package split; retrieval APIs are unchanged.

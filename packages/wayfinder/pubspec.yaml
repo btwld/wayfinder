@@ -1,6 +1,6 @@
 name: wayfinder
 description: Core Wayfinder validation library for OKF knowledge bundles and the Concepta OKF Profile.
-version: 0.0.1
+version: 0.1.0
 repository: https://github.com/conceptadev/wayfinder
 issue_tracker: https://github.com/conceptadev/wayfinder/issues
 topics:

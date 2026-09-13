@@ -1,4 +1,4 @@
-# Unreleased
+# 0.1.0
 
 - Report Profile 2026.2 and depend on `okf` ^0.5.0. `wayfinder validate` prints
   `Profile 2026.2` and treats a bundle declaring `2026.1` as an unsupported
