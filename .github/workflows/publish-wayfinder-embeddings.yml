@@ -63,10 +63,10 @@ jobs:
       # The same immutable tag passed verification above. Validation runs:
       # dart-lang/pub-dev#9576, which rejected authenticated metadata reads
       # with HTTP 403 and forced --skip-validation here, is fixed upstream.
-      # --force only answers the confirmation a workflow cannot.
-      # --ignore-warnings matches the dry run above: the exact llamadart and
-      # ObjectBox pins are reviewed compatibility constraints, and pub treats
-      # a tight constraint as a warning, which is fatal without this flag.
+      # --force only answers the confirmation a workflow cannot; it publishes
+      # despite the warnings the exact llamadart and ObjectBox pins draw, which
+      # are reviewed compatibility constraints. --ignore-warnings is rejected
+      # outside --dry-run, so it belongs on the dry run above and nowhere else.
       - if: steps.pub.outputs.published != 'true'
-        run: dart pub publish --force --ignore-warnings
+        run: dart pub publish --force
         working-directory: packages/wayfinder_embeddings
