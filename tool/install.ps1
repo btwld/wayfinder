@@ -5,6 +5,49 @@
 $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 downloads far slower while drawing progress.
 $ProgressPreference = 'SilentlyContinue'
+# Windows PowerShell 5.1 hosts can still default to TLS 1.0, which GitHub
+# refuses with an unhelpful transport error. PowerShell 7 already negotiates
+# TLS 1.2, and this setting outlives the script, so only older hosts pay it.
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+    [Net.ServicePointManager]::SecurityProtocol =
+        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+}
+function Get-MachineArchitecture {
+    # The .NET probe is absent before .NET 4.7.1, and some interactive Windows
+    # PowerShell 5.1 sessions return nothing from it instead of an architecture,
+    # so an empty result means unknown rather than unsupported (#98).
+    try {
+        $Probe = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        if ($Probe) { return $Probe }
+    } catch {
+        # The name resolved to a type without a usable OSArchitecture.
+    }
+    # Windows' own machine-scope environment reports the hardware, even inside
+    # an emulated process, where the process variable claims AMD64 on an Arm64
+    # machine. PROCESSOR_ARCHITEW6432 reports it for a 32-bit process on 64-bit
+    # Windows, where PROCESSOR_ARCHITECTURE reports x86.
+    $Fallback = ''
+    try { $Fallback = [Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE', 'Machine') } catch { }
+    if (-not $Fallback) { $Fallback = $env:PROCESSOR_ARCHITEW6432 }
+    if (-not $Fallback) { $Fallback = $env:PROCESSOR_ARCHITECTURE }
+    if ($Fallback -eq 'AMD64') { return 'X64' }
+    return $Fallback
+}
+# Check the machine and its tools before any download, as install.sh does.
+$Architecture = Get-MachineArchitecture
+if (-not $Architecture) {
+    throw ('Could not determine this machine''s processor architecture; the installer ' +
+        'did not assume one. On Windows x64, install from a clean session with: ' +
+        'powershell -NoProfile -Command "irm ' +
+        'https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex"')
+}
+if ($Architecture -ne 'X64') {
+    throw "Windows $Architecture has no prebuilt Wayfinder bundle; only Windows x64 has one."
+}
+# Windows has shipped tar since Windows 10 1803; name it when it is missing.
+if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
+    throw 'Required command is missing: tar'
+}
 # The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
 # another published release; CI and `wayfinder update` use it to pin a version.
 $WayfinderVersion = $env:WAYFINDER_VERSION
@@ -31,9 +74,6 @@ if ($Skills -notin @('all', 'claude', 'agents', 'none')) {
     throw 'WAYFINDER_SKILLS must be all, claude, agents or none.'
 }
 $ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
-if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
-    throw 'Only Windows x64 has a prebuilt Wayfinder bundle.'
-}
 $RuntimeRoot = if ($env:WAYFINDER_INSTALL_ROOT) { $env:WAYFINDER_INSTALL_ROOT } else {
     Join-Path $env:LOCALAPPDATA 'WayfinderRuntime'
 }
@@ -47,6 +87,7 @@ $Stage = Join-Path $RuntimeRoot ('.install.' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null
 try {
     $Archive = Join-Path $Stage $Asset
+    Write-Host "Downloading Wayfinder $WayfinderVersion for windows-x64..."
     Invoke-WebRequest "$ReleaseRoot/$Asset" -OutFile $Archive -UseBasicParsing
     $Checksum = Join-Path $Stage 'checksum'
     Invoke-WebRequest "$ReleaseRoot/$Asset.sha256" -OutFile $Checksum -UseBasicParsing

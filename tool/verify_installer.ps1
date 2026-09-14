@@ -56,7 +56,24 @@ try {
     if ((Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim() -ne $InstalledBin) {
         throw 'Failed installation changed the current runtime.'
     }
-    Write-Host 'PASS: no-Dart Windows install, quoted paths, retrieval, repair, index reuse, corrupt download refusal.'
+    # The #98 session, end to end: an architecture probe that returns nothing
+    # must still install. A .NET static property cannot be shadowed the way
+    # Invoke-WebRequest is above, so this runs a copy of the installer with that
+    # probe emptied, and asserts the substitution matched so it cannot pass
+    # vacuously. tool/test_install_arch.ps1 covers the refusals without a bundle.
+    $DownloadState.Corrupt = $false
+    $ProbeExpression = '[string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture'
+    $InstallerSource = Get-Content (Join-Path $PSScriptRoot 'install.ps1') -Raw
+    if (-not $InstallerSource.Contains($ProbeExpression)) {
+        throw 'install.ps1 no longer probes the architecture.'
+    }
+    $EmptyProbeInstaller = Join-Path $TestRoot 'install-empty-probe.ps1'
+    Set-Content $EmptyProbeInstaller $InstallerSource.Replace($ProbeExpression, "''") -Encoding UTF8
+    & $EmptyProbeInstaller
+    $InstalledBin = (Get-Content (Join-Path $env:WAYFINDER_INSTALL_ROOT 'installed-bin.txt') -Raw).Trim()
+    $Result = & (Join-Path $InstalledBin 'wayfinder.exe') index $Corpus --output=json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or $null -eq $Result) { throw 'Install with an empty architecture probe failed.' }
+    Write-Host 'PASS: no-Dart Windows install, quoted paths, retrieval, repair, index reuse, corrupt download refusal, empty architecture probe.'
 } finally {
     [Environment]::SetEnvironmentVariable('PATH', $OriginalUserPath, 'User')
     $env:PATH = $OriginalPath

@@ -163,6 +163,19 @@ installer. If search reports a missing or stale index, run `wayfinder index` on
 the same bundle. Preserve any operating-system security warning and inspect the
 release source; the installer does not disable platform protections.
 
+On Windows, `Could not determine this machine's processor architecture` means
+the session's .NET architecture probe returned nothing rather than that the
+machine is unsupported; some interactive Windows PowerShell 5.1 sessions do
+this. Install from a clean session instead:
+
+```powershell
+powershell -NoProfile -Command "irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex"
+```
+
+A message naming a machine, such as `Windows Arm64 has no prebuilt Wayfinder
+bundle` or `Darwin-x86_64 has no prebuilt Wayfinder bundle`, reports a machine
+both installers did detect and that we do not yet publish a verified bundle for.
+
 To uninstall on macOS/Linux, remove the installer-owned command symlinks and
 runtime directories. On Windows, remove its recorded runtime bin entry from your
 user `PATH` and delete the runtime directory. Remove the plugin separately.
