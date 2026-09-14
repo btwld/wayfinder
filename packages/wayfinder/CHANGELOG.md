@@ -1,4 +1,4 @@
-# Unreleased
+# 0.1.0
 
 - Validate against Concepta Profile 2026.2, which adopts the OKF 0.2 revision
   where every timestamp is an ISO 8601 datetime with an explicit UTC offset, and
@@ -9,6 +9,9 @@
 - Depend on `okf` ^0.5.0. A date-only timestamp is reported through okf's
   non-blocking `okf/timestamp-without-offset` advisory, so a bundle conformant
   under 2026.1 stays conformant once its declaration is updated.
+- Raise the Dart floor from 3.6.0 to 3.11.0, matching every Concepta
+  package. A consumer on an older SDK no longer resolves this package and
+  must upgrade Dart to take 0.1.0.
 
 # 0.0.1
 
