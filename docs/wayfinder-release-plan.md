@@ -69,27 +69,30 @@ migration or taxonomy change is needed. The old `knowledge_embeddings` package i
 
 ## Current publication and integration state
 
-- `wayfinder 0.0.1`, `wayfinder_cli 0.0.1` and `wayfinder_embeddings 0.0.1` are
-  published. `wayfinder_cli` publisher assignment and OIDC are tracked in #66.
+- `wayfinder 0.1.0`, `wayfinder_cli 0.1.0` and `wayfinder_embeddings 0.1.0` are
+  published. All three uploaded through OIDC under publisher `concepta.dev`,
+  which settles the publisher and OIDC question #66 tracked.
   Stable `okf_profile 0.2.0` remains available.
 - The retrieval, CLI, MCP, naming, installation and package-split PRs (#58, #59,
   #60, #63, #54 and #64) are merged. Historical branch names and ADR filenames
   remain stable.
 - Native archives for Linux x64, macOS ARM64 and Windows x64 are attached to
-  [the Wayfinder 0.0.1 release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.0.1).
+  [the Wayfinder 0.1.0 release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.1.0).
   The install scripts default to it. Public installation, validation, indexing,
   search and unchanged-index reuse pass on all three platforms. The Concepta tap
-  still installs 0.0.1-dev.1 until #65 is done.
+  is no longer updated and still installs 0.0.1-dev.1: #65 was closed
+  not-planned, and #92 covers retiring or automating the stale formulae.
 - The plugin is installed from `conceptadev/wayfinder`. Existing marketplace
   registrations must be migrated as described in the installation guide.
 - GitHub releases use the built-in repository token. Homebrew automation follows
-  OKF's `HOMEBREW_TAP_GH_TOKEN` pattern; no new GitHub App is required. The tap
-  secret and the non-Dart teammate walkthrough remain tracked in #53.
+  OKF's `HOMEBREW_TAP_GH_TOKEN` pattern; no new GitHub App is required. #53
+  closed once Dart-free installation was verified on all three platforms, so the
+  tap secret now rides with #92 rather than blocking a release.
 
-The application has published successfully through OIDC. The replacement
-library's OIDC trust is configured; its upload path will be exercised on its
-next substantive release. Existing package versions and native release assets
-remain unchanged.
+Every package has now published successfully through OIDC, including the
+replacement retrieval library, whose upload path 0.1.0 exercised for the first
+time. Existing package versions and native release assets remain unchanged;
+0.1.0 adds to them rather than replacing them.
 
 The rename preserves database UIDs and vector identity. Both schema markers
 are accepted during migration, the model override keeps a legacy fallback, and

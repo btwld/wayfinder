@@ -18,7 +18,7 @@ release workflow is retired; historical versions and tags remain available.
 
 ## Prepare a release
 
-All three packages and the native archives are published at 0.0.1. Publish the
+All three packages and the native archives are published at 0.1.0. Publish the
 core and `wayfinder_embeddings` before the CLI, then resolve the CLI from hosted
 dependencies outside the workspace and run its publish dry run.
 
@@ -37,10 +37,11 @@ overwrite published archives.
 `wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
 configuration accepts `conceptadev/wayfinder` tags matching
 `wayfinder-v{{version}}`. The core package accepts
-`wayfinder-core-v{{version}}`. These settings were saved on September 11, 2026;
-report automated publishing as configured, not verified, until an upload succeeds.
-The embeddings publishing configuration still needs confirmation under
-[#66](https://github.com/conceptadev/wayfinder/issues/66). GitHub tag
+`wayfinder-core-v{{version}}`, and `wayfinder_embeddings` accepts
+`wayfinder_embeddings-v{{version}}`. All three configurations are verified, not
+merely saved: the 0.1.0 release uploaded every package through OIDC on
+September 14, 2026, which is the confirmation
+[#66](https://github.com/conceptadev/wayfinder/issues/66) was waiting on. GitHub tag
 creation using the built-in workflow token must not be relied on to trigger
 publication. Each publish workflow recognizes an already-published version and
 skips upload.
@@ -88,5 +89,12 @@ its title and notes, and `publish-release.sh` refuses to publish a mutable one.
 Deleting the release is the only way to withdraw it, and the tag name cannot be
 reused afterwards.
 
-Pub.dev publication uses OIDC after the first authenticated CLI upload; report
-that path as configured until an automated publication verifies it.
+Pub.dev publication uses OIDC after the first authenticated CLI upload. The
+0.1.0 release exercised that path for all three packages, so it is verified
+rather than merely configured.
+
+Pass the real publish `dart pub publish --force` and nothing else. `--force`
+answers the confirmation a workflow cannot and uploads whenever there are no
+errors, so a package whose pins draw constraint-width warnings still publishes.
+`--ignore-warnings` belongs only on a `--dry-run`, where warnings are otherwise
+fatal; pub rejects it on a real publish with exit 64 before uploading anything.
