@@ -33,7 +33,8 @@ function Get-MachineArchitecture {
     if ($Fallback -eq 'AMD64') { return 'X64' }
     return $Fallback
 }
-# Check the machine and its tools before any download, as install.sh does.
+# Check the machine, its tools and every caller input before any download, so
+# a typo costs no round trip and no partial state. install.sh does the same.
 $Architecture = Get-MachineArchitecture
 if (-not $Architecture) {
     throw ('Could not determine this machine''s processor architecture; the installer ' +
@@ -47,6 +48,18 @@ if ($Architecture -ne 'X64') {
 # Windows has shipped tar since Windows 10 1803; name it when it is missing.
 if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
     throw 'Required command is missing: tar'
+}
+$Skills = if ($env:WAYFINDER_SKILLS) { $env:WAYFINDER_SKILLS } else { 'all' }
+if ($Skills -notin @('all', 'claude', 'agents', 'none')) {
+    throw 'WAYFINDER_SKILLS must be all, claude, agents or none.'
+}
+# Windows exposes the current bundle bin directory through the user PATH. Each
+# version stays intact, so updating never replaces DLLs held by running programs.
+$RuntimeRoot = if ($env:WAYFINDER_INSTALL_ROOT) { $env:WAYFINDER_INSTALL_ROOT } else {
+    Join-Path $env:LOCALAPPDATA 'WayfinderRuntime'
+}
+if (-not [System.IO.Path]::IsPathRooted($RuntimeRoot)) {
+    throw 'WAYFINDER_INSTALL_ROOT must be an absolute path.'
 }
 # The default is the newest stable Wayfinder release. WAYFINDER_VERSION selects
 # another published release; CI and `wayfinder update` use it to pin a version.
@@ -69,19 +82,7 @@ if (-not $WayfinderVersion) {
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'
 }
-$Skills = if ($env:WAYFINDER_SKILLS) { $env:WAYFINDER_SKILLS } else { 'all' }
-if ($Skills -notin @('all', 'claude', 'agents', 'none')) {
-    throw 'WAYFINDER_SKILLS must be all, claude, agents or none.'
-}
 $ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
-$RuntimeRoot = if ($env:WAYFINDER_INSTALL_ROOT) { $env:WAYFINDER_INSTALL_ROOT } else {
-    Join-Path $env:LOCALAPPDATA 'WayfinderRuntime'
-}
-if (-not [System.IO.Path]::IsPathRooted($RuntimeRoot)) {
-    throw 'WAYFINDER_INSTALL_ROOT must be an absolute path.'
-}
-# Windows exposes the current bundle bin directory through the user PATH. Each
-# version stays intact, so updating never replaces DLLs held by running programs.
 $Asset = 'wayfinder-windows-x64.tar.gz'
 $Stage = Join-Path $RuntimeRoot ('.install.' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null

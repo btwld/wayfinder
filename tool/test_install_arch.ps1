@@ -14,9 +14,13 @@ $MachineExpression = "[Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECT
 $PassedGate = 'WAYFINDER_VERSION must be a published release version.'
 $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('wayfinder arch ' + [guid]::NewGuid().ToString('N'))
 $OriginalVersion = $env:WAYFINDER_VERSION
+$OriginalRoot = $env:WAYFINDER_INSTALL_ROOT
 $OriginalWow = $env:PROCESSOR_ARCHITEW6432
 $OriginalProcess = $env:PROCESSOR_ARCHITECTURE
 New-Item -ItemType Directory $TestRoot | Out-Null
+# Nothing here reaches an installation, but no case may depend on the host's
+# LOCALAPPDATA to clear the caller-input checks that precede the version check.
+$env:WAYFINDER_INSTALL_ROOT = Join-Path $TestRoot 'runtime'
 
 # Returns the message install.ps1 fails with, or '' when it does not fail.
 function Get-Refusal {
@@ -79,6 +83,7 @@ try {
     Write-Host 'PASS: install.ps1 architecture detection, fallback and refusals.'
 } finally {
     $env:WAYFINDER_VERSION = $OriginalVersion
+    $env:WAYFINDER_INSTALL_ROOT = $OriginalRoot
     $env:PROCESSOR_ARCHITEW6432 = $OriginalWow
     $env:PROCESSOR_ARCHITECTURE = $OriginalProcess
     Remove-Item $TestRoot -Recurse -Force -ErrorAction SilentlyContinue
