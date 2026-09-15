@@ -1,0 +1,82 @@
+# The installers are the one part of Wayfinder that users run before they have
+# Wayfinder, and they are not Dart, so nothing else in CI parses them. These
+# checks need no release archive and no network, so they answer in a minute;
+# ci.yml installs the archive it just built, and verify-public-install.yml
+# installs from the published URLs.
+name: Installer scripts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/installer-scripts.yml
+      - tool/install.ps1
+      - tool/install.sh
+      - tool/test_install_arch.ps1
+      - tool/test_install_platform.sh
+      - tool/verify_installer.ps1
+  pull_request:
+    paths:
+      - .github/workflows/installer-scripts.yml
+      - tool/install.ps1
+      - tool/install.sh
+      - tool/test_install_arch.ps1
+      - tool/test_install_platform.sh
+      - tool/verify_installer.ps1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  posix:
+    name: install.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check the POSIX scripts
+        run: |
+          for script in tool/install.sh tool/test_install_platform.sh; do
+            sh -n "$script"
+            shellcheck --shell=sh "$script"
+            echo "OK: $script"
+          done
+      - name: Test platform detection
+        run: sh tool/test_install_platform.sh
+
+  windows:
+    # Windows PowerShell 5.1 is what a fresh Windows session runs, and it is
+    # where the #98 report came from; PowerShell 7 is what a developer machine
+    # usually has. The installer has to work in both.
+    name: install.ps1 (${{ matrix.powershell }})
+    strategy:
+      fail-fast: false
+      matrix:
+        powershell: [pwsh, powershell]
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: ${{ matrix.powershell }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Parse the PowerShell scripts
+        run: |
+          foreach ($File in 'tool/install.ps1', 'tool/test_install_arch.ps1', 'tool/verify_installer.ps1') {
+            $Tokens = $null
+            $Errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $File).Path, [ref]$Tokens, [ref]$Errors) | Out-Null
+            if ($Errors.Count) { throw "$File has a parse error: $($Errors[0].Message)" }
+            Write-Host "OK: $File"
+          }
+      - name: Test architecture detection
+        run: ./tool/test_install_arch.ps1

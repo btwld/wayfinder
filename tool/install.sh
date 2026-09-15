@@ -13,10 +13,13 @@ case "$skills" in
 esac
 install_dir="${WAYFINDER_INSTALL_DIR:-$HOME/.local/bin}"
 runtime_root="${WAYFINDER_INSTALL_ROOT:-$HOME/.local/share/wayfinder-runtime}"
-case "$(uname -s)-$(uname -m)" in
+# Name the detected platform, so an unsupported machine is never confused with
+# a failed detection, and install.ps1 reports its architecture the same way.
+machine="$(uname -s)-$(uname -m)"
+case "$machine" in
   Darwin-arm64) platform=macos-arm64 ;;
   Linux-x86_64) platform=linux-x64 ;;
-  *) fail 'This platform has no verified prebuilt bundle. See the installation guide.' ;;
+  *) fail "$machine has no prebuilt Wayfinder bundle; macOS Apple Silicon and Linux x64 have one. See the installation guide." ;;
 esac
 case "$install_dir:$runtime_root" in
   /*:/*) ;;
@@ -58,16 +61,14 @@ verify_contents() {
 }
 mkdir -p "$runtime_root" "$install_dir"
 # Refuse to replace a command managed by another installation method.
-for name in wayfinder; do
-  target="$install_dir/$name"
-  if [ -e "$target" ] || [ -L "$target" ]; then
-    [ -L "$target" ] || fail "$target already exists; choose another WAYFINDER_INSTALL_DIR."
-    case "$(readlink "$target")" in
-      "$runtime_root"/*) ;;
-      *) fail "$target belongs to another installation; choose another WAYFINDER_INSTALL_DIR." ;;
-    esac
-  fi
-done
+target="$install_dir/wayfinder"
+if [ -e "$target" ] || [ -L "$target" ]; then
+  [ -L "$target" ] || fail "$target already exists; choose another WAYFINDER_INSTALL_DIR."
+  case "$(readlink "$target")" in
+    "$runtime_root"/*) ;;
+    *) fail "$target belongs to another installation; choose another WAYFINDER_INSTALL_DIR." ;;
+  esac
+fi
 stage="$(mktemp -d "$runtime_root/.install.XXXXXXXX")"
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 asset="wayfinder-$platform.tar.gz"
@@ -85,9 +86,7 @@ verify_contents "$stage/bundle" || fail 'Bundle contents failed verification.'
 # processes, previous runtimes and user indexes. Reinstalling also repairs assets.
 destination="$runtime_root/$version-$(basename "$stage")"
 mv "$stage/bundle" "$destination"
-for name in wayfinder; do
-  ln -sfn "$destination/bin/$name" "$install_dir/$name"
-done
+ln -sfn "$destination/bin/wayfinder" "$install_dir/wayfinder"
 # wayfinder update reinstalls into the same command directory.
 printf '%s\n' "$install_dir" > "$runtime_root/install-dir.txt"
 printf 'Installed Wayfinder %s in %s\n' "$version" "$install_dir"
