@@ -7,6 +7,7 @@ import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/graph.dart';
+import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
@@ -261,6 +262,37 @@ void main() {
         },
       );
 
+      test('index warnings match CLI JSON in one text block', () async {
+        knowledge.warnings = const [
+          KnowledgeInputDiagnostic(
+            code: 'embedding_context_omitted',
+            sourcePath: 'guide.md',
+            lineStart: 5,
+            lineEnd: 12,
+            affectedChunks: 1,
+          ),
+        ];
+        final result = await client.callTool(
+          const CallToolRequest(name: 'index'),
+        );
+        expect(result.isError, isNot(true));
+        expect(result.content, hasLength(1));
+        final output = <String>[];
+        final errors = <String>[];
+        final cli = WayfinderCli(
+          out: output.add,
+          err: errors.add,
+          knowledge: () => knowledge,
+        );
+        expect(await cli.run(['index', root, '--output=json']), 0);
+        expect(_payload(result), jsonDecode(output.single));
+        expect(
+          _payload(result)['warnings'],
+          knowledge.warnings.map((d) => d.toJson()).toList(),
+        );
+        expect(errors, isEmpty);
+      });
+
       test('a stale-index error does not end the session', () async {
         knowledge.failSearch = true;
         final error = await client.callTool(
@@ -354,6 +386,7 @@ class _Knowledge extends WayfinderKnowledge {
   Completer<void>? finishIndex;
   bool indexFinished = false;
   bool failSearch = false;
+  List<KnowledgeInputDiagnostic> warnings = const [];
 
   @override
   Future<WayfinderIndexResult> index(
@@ -367,6 +400,7 @@ class _Knowledge extends WayfinderKnowledge {
     return WayfinderIndexResult(
       bundle: bundle,
       index: 'fixture-index',
+      warnings: warnings,
       embeddedChunks: 3,
       removedChunks: 0,
       writtenChunks: 3,

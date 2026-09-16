@@ -69,10 +69,10 @@ class WayfinderKnowledge {
   static final _generationName = RegExp(r'^generation-[a-zA-Z0-9_-]+$');
 
   // Increment when chunking, snapshot or application input semantics change.
-  // Markdown footnote definitions became attribution apparatus rather than
-  // passages, so version 1 indexes cover a different chunk set.
+  // Lossless oversized-segment recovery and conditional context omission change
+  // effective inputs; earlier configurations require one rebuild.
   static final _configuration = jsonEncode({
-    'version': 2,
+    'version': 3,
     // Model identity, not provenance: re-mirroring the same verified weights
     // must not force every machine to reindex.
     'model': localEmbeddingModel.identityMap,
@@ -278,6 +278,7 @@ class WayfinderKnowledge {
         writtenChunks: 0,
         elapsedMs: watch.elapsedMilliseconds,
         current: true,
+        warnings: previous!.snapshot.diagnostics,
       );
     }
     final encoder = await _openEncoder();
@@ -378,6 +379,7 @@ class WayfinderKnowledge {
         return WayfinderIndexResult(
           bundle: root,
           index: directory.path,
+          warnings: fitted.diagnostics,
           embeddedChunks: counts.embeddedChunks,
           removedChunks: counts.removedChunks,
           writtenChunks: counts.writtenChunks,

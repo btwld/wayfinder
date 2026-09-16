@@ -224,6 +224,35 @@ void main() {
     );
   });
 
+  test('failed fitting preserves direct-index chunks and embeddings', () async {
+    var fail = false;
+    final store = MemoryStore();
+    addTearDown(store.close);
+    final index = KnowledgeIndex(
+      store: store,
+      embedder: CountingEmbedder(),
+      includeContext: true,
+      countTokens: (text) async => fail ? 100 : text.length,
+      maxTokens: 64,
+    );
+    await index.synchronize(
+      snapshot({'guide.md': concept('Original guidance')}),
+    );
+    final chunks = await store.getAllChunks();
+    final vectors = await store.getAllEmbeddings();
+    fail = true;
+    await expectLater(
+      index.synchronize(snapshot({'replacement.md': concept('Replacement')})),
+      throwsStateError,
+    );
+    expect(await store.getAllChunks(), chunks);
+    expect(await store.getAllEmbeddings(), vectors);
+    expect(
+      (await index.search('Original')).matches.single.chunk.content,
+      'Original guidance',
+    );
+  });
+
   test(
     'eligible exact search is complete beyond small candidate windows',
     () async {
@@ -395,6 +424,43 @@ void main() {
   );
 
   test(
+    'oversized separators and identifiers recover without losing text',
+    () async {
+      final original = snapshot({
+        'guide.md': concept(
+          'Recover access before ${'-' * 700} after separator.',
+        ),
+        'other.md': concept('Independent searchable guidance.'),
+      });
+      Future<int> count(String text) async => text.runes.length + 2;
+      final fitted = await original.fitInputs(
+        countTokens: count,
+        maxTokens: 64,
+        includeContext: false,
+      );
+      for (final path in original.conceptPaths) {
+        expect(
+          fitted.chunks
+              .where((c) => c.sourcePath == path)
+              .map((c) => c.content)
+              .join(),
+          original.chunks
+              .where((c) => c.sourcePath == path)
+              .map((c) => c.content)
+              .join(),
+        );
+      }
+      expect(fitted.sources, original.sources);
+      for (final chunk in fitted.chunks) {
+        expect(
+          await count(fitted.textFor(chunk, includeContext: false)),
+          lessThanOrEqualTo(64),
+        );
+      }
+    },
+  );
+
+  test(
     'token splitting preserves every character and original citation spans',
     () async {
       final original = snapshot({
@@ -429,10 +495,20 @@ void main() {
           lessThanOrEqualTo(original.chunks.single.lineEnd),
         );
       }
+      final omitted = await original.fitInputs(
+        countTokens: count,
+        maxTokens: 3,
+        includeContext: true,
+      );
+      expect(omitted.diagnostics.single.code, 'embedding_context_omitted');
+      expect(
+        omitted.chunks.map((c) => c.content).join(),
+        original.chunks.single.content,
+      );
       await expectLater(
         original.fitInputs(
           countTokens: count,
-          maxTokens: 3,
+          maxTokens: 2,
           includeContext: true,
         ),
         throwsStateError,

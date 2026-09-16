@@ -1,3 +1,13 @@
+# Unreleased
+
+- Recover oversized embedding inputs with lossless Unicode-safe subdivision and
+  conditional derived-context omission in the shared OKF fitter.
+- Keep whitespace attached to nonblank text and recheck the full token budget,
+  avoiding blank-input failures after context omission or in body-only fitting.
+- Persist effective inputs and original-chunk recovery attribution; expose immutable
+  aggregated diagnostics across reopening and tighter-budget refitting. Source
+  files, strict encoder rejection, model identity, and storage schema are unchanged.
+
 # 0.1.0
 
 - Depend on `okf` ^0.5.0, which reads every timestamp as an ISO 8601 datetime

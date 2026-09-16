@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../wayfinder_embeddings.dart';
 import '../models/metadata_collections.dart';
+import 'knowledge_input_diagnostic.dart';
 
 /// A parsed bundle projection with original citation locations and graph edges.
 /// Indexes and logs remain navigation/history, rather than duplicate passages.
@@ -18,7 +19,18 @@ class KnowledgeSnapshot {
     this._metadata,
     this._contextTexts,
     this.sources,
-    this.assets,
+    this.assets, [
+    this._recoveries = const [],
+  ]);
+
+  // One record per original chunk/code, never per emitted fragment. Keeping
+  // identities (rather than only aggregate counts) makes reopened refits lossless.
+  final List<_InputRecovery> _recoveries;
+
+  /// Durable recoveries, sorted by source path and code. Counts refer to
+  /// original chunks, not fitted fragments or retry attempts.
+  late final List<KnowledgeInputDiagnostic> diagnostics = _aggregate(
+    _recoveries,
   );
 
   final String bundleId;
@@ -177,6 +189,7 @@ class KnowledgeSnapshot {
     'assets': assets,
     'chunks': chunks.map((chunk) => chunk.toMap()).toList(),
     'contextTexts': _contextTexts,
+    'inputRecoveries': _recoveries.map((r) => r.toMap()).toList(),
   };
 
   /// Reopens saved passages without tokenization or embedding inference.
@@ -212,6 +225,12 @@ class KnowledgeSnapshot {
       Map.unmodifiable(contexts),
       original.sources,
       original.assets,
+      List.unmodifiable(
+        (map['inputRecoveries'] as List? ?? const []).map(
+          (value) =>
+              _InputRecovery.fromMap(Map<String, Object?>.from(value as Map)),
+        ),
+      ),
     );
   }
 
@@ -224,9 +243,10 @@ class KnowledgeSnapshot {
   String textFor(Chunk chunk, {required bool includeContext}) =>
       includeContext ? _contextTexts[chunk.id]! : chunk.content;
 
-  /// Splits oversized passages at whitespace using the actual tokenizer.
-  /// Preserves text, character spans, and citation lines. Context counts against
-  /// the budget; if context plus one word cannot fit, throws without truncation.
+  /// Fits complete effective inputs with the actual tokenizer, without overlap
+  /// or truncation. Whitespace stays attached to nonblank text. Irreducible
+  /// contextual failures retry the original chunk without derived context;
+  /// irreducible body failures remain errors.
   Future<KnowledgeSnapshot> fitInputs({
     required Future<int> Function(String) countTokens,
     required int maxTokens,
@@ -235,70 +255,169 @@ class KnowledgeSnapshot {
     if (maxTokens <= 0) throw ArgumentError.value(maxTokens, 'maxTokens');
     final output = <Chunk>[];
     final texts = <String, String>{};
+    final recoveries = {for (final r in _recoveries) (r.originalId, r.code): r};
+    final groups = <String, List<Chunk>>{};
     for (final chunk in chunks) {
-      final full = textFor(chunk, includeContext: includeContext);
-      final contextual = _contextTexts[chunk.id]!;
-      final prefix = contextual.substring(
-        0,
-        contextual.length - chunk.content.length,
-      );
-      if (await countTokens(full) <= maxTokens) {
-        output.add(chunk);
-        texts[chunk.id] = contextual;
-        continue;
+      final okf = chunk.metadata['okf']! as Map;
+      final root = okf['parentChunkId'] as String? ?? chunk.id;
+      groups.putIfAbsent(root, () => []).add(chunk);
+    }
+    for (final entry in groups.entries) {
+      final group = entry.value;
+      final first = group.first;
+      final originalMetadata = first.metadata['okf']! as Map;
+      final originalStart =
+          originalMetadata['originalLineStart'] as int? ?? first.lineStart;
+      final originalEnd =
+          originalMetadata['originalLineEnd'] as int? ?? group.last.lineEnd;
+      void record(String code) {
+        recoveries[(entry.key, code)] = _InputRecovery(
+          entry.key,
+          code,
+          first.sourcePath,
+          originalStart,
+          originalEnd,
+        );
       }
-      final ends = RegExp(
-        r'\S+\s*',
-      ).allMatches(chunk.content).map((match) => match.end).toList();
-      var start = 0;
-      var first = 0;
-      while (start < chunk.content.length) {
-        var low = first;
-        var high = ends.length - 1;
-        int? chosen;
-        while (low <= high) {
-          final mid = (low + high) ~/ 2;
-          final passage = chunk.content.substring(start, ends[mid]);
-          final input = includeContext ? '$prefix$passage' : passage;
-          if (await countTokens(input) <= maxTokens) {
-            chosen = mid;
-            low = mid + 1;
-          } else {
-            high = mid - 1;
+
+      Future<({List<Chunk> chunks, Map<String, String> texts, bool split})?>
+      attempt(bool context, {bool restart = false}) async {
+        final staged = <Chunk>[];
+        final inputs = <String, String>{};
+        var segmentSplit = false;
+        // On context failure retry the complete original body, including when
+        // this snapshot was already fitted and reopened. Ordinary refits retain
+        // their existing fragment boundaries and IDs.
+        final retryMetadata = Map<String, Object?>.from(originalMetadata)
+          ..remove('parentChunkId')
+          ..remove('characterStart')
+          ..remove('characterEnd')
+          ..remove('originalLineStart')
+          ..remove('originalLineEnd');
+        final inputsToFit = restart
+            ? [
+                first.copyWith(
+                  id: entry.key,
+                  content: group.map((chunk) => chunk.content).join(),
+                  lineStart: originalStart,
+                  lineEnd: originalEnd,
+                  metadata: {...first.metadata, 'okf': retryMetadata},
+                ),
+              ]
+            : group;
+        for (final chunk in inputsToFit) {
+          final contextual = context ? _contextTexts[chunk.id]! : '';
+          final prefix = context
+              ? contextual.substring(
+                  0,
+                  contextual.length - chunk.content.length,
+                )
+              : '';
+          final ranges = <(int, int)>[];
+          Future<bool> fit(int start, int end) async {
+            final passage = chunk.content.substring(start, end);
+            final input = '$prefix$passage';
+            if (input.trim().isEmpty) return false;
+            if (await countTokens(input) <= maxTokens) {
+              ranges.add((start, end));
+              return true;
+            }
+            // Keep outer whitespace on a nonblank fragment: the encoder rejects
+            // blank inputs even when their token count fits. Only split inside
+            // the nonblank span; the full, untrimmed halves are measured again.
+            final textStart = end - passage.trimLeft().length;
+            final textEnd = start + passage.trimRight().length;
+            // Prefer a whitespace endpoint nearest the midpoint. No inference
+            // about other token counts is made from this input's count.
+            final middle = (textStart + textEnd) ~/ 2;
+            final boundaries = RegExp(r'\s+')
+                .allMatches(passage)
+                .map((m) => start + m.end)
+                .where((i) => i > textStart && i < textEnd);
+            int? cut;
+            for (final boundary in boundaries) {
+              if (cut == null ||
+                  (boundary - middle).abs() < (cut - middle).abs()) {
+                cut = boundary;
+              }
+            }
+            if (cut == null) {
+              cut = middle;
+              if (cut > textStart &&
+                  cut < textEnd &&
+                  chunk.content.codeUnitAt(cut) >= 0xdc00 &&
+                  chunk.content.codeUnitAt(cut) <= 0xdfff &&
+                  chunk.content.codeUnitAt(cut - 1) >= 0xd800 &&
+                  chunk.content.codeUnitAt(cut - 1) <= 0xdbff) {
+                cut--;
+                if (cut == textStart) cut += 2;
+              }
+              if (cut <= textStart || cut >= textEnd) return false;
+              segmentSplit = true;
+            }
+            return await fit(start, cut) && await fit(cut, end);
+          }
+
+          if (!await fit(0, chunk.content.length)) return null;
+          final okf = chunk.metadata['okf']! as Map<String, Object?>;
+          final offset = okf['characterStart'] as int? ?? 0;
+          for (final (start, end) in ranges) {
+            final passage = chunk.content.substring(start, end);
+            final unchanged = start == 0 && end == chunk.content.length;
+            final id = unchanged
+                ? chunk.id
+                : sha256
+                      .convert(
+                        utf8.encode(
+                          jsonEncode([entry.key, offset + start, offset + end]),
+                        ),
+                      )
+                      .toString();
+            final lineStart =
+                chunk.lineStart +
+                '\n'.allMatches(chunk.content.substring(0, start)).length;
+            staged.add(
+              unchanged
+                  ? chunk
+                  : chunk.copyWith(
+                      id: id,
+                      content: passage,
+                      lineStart: lineStart,
+                      lineEnd:
+                          lineStart +
+                          '\n'.allMatches(passage.trimRight()).length,
+                      metadata: {
+                        ...chunk.metadata,
+                        'okf': {
+                          ...okf,
+                          'parentChunkId': entry.key,
+                          'characterStart': offset + start,
+                          'characterEnd': offset + end,
+                          'originalLineStart': originalStart,
+                          'originalLineEnd': originalEnd,
+                        },
+                      },
+                    ),
+            );
+            inputs[id] = '$prefix$passage';
           }
         }
-        if (chosen == null) {
-          throw StateError(
-            'Cannot fit context and one word within $maxTokens tokens: ${chunk.sourcePath}',
-          );
-        }
-        final end = ends[chosen];
-        final passage = chunk.content.substring(start, end);
-        final lineStart =
-            chunk.lineStart +
-            '\n'.allMatches(chunk.content.substring(0, start)).length;
-        final id = sha256
-            .convert(utf8.encode(jsonEncode([chunk.id, start, end])))
-            .toString();
-        final split = chunk.copyWith(
-          id: id,
-          content: passage,
-          lineStart: lineStart,
-          lineEnd: lineStart + '\n'.allMatches(passage.trimRight()).length,
-          metadata: {
-            'okf': {
-              ...chunk.metadata['okf']! as Map<String, Object?>,
-              'parentChunkId': chunk.id,
-              'characterStart': start,
-              'characterEnd': end,
-            },
-          },
-        );
-        output.add(split);
-        texts[id] = '$prefix$passage';
-        start = end;
-        first = chosen + 1;
+        return (chunks: staged, texts: inputs, split: segmentSplit);
       }
+
+      var result = await attempt(includeContext);
+      if (result == null && includeContext) {
+        result = await attempt(false, restart: true);
+        if (result != null) record('embedding_context_omitted');
+      }
+      if (result == null) {
+        throw StateError(
+          'Cannot fit body-only input within $maxTokens tokens: ${first.sourcePath}',
+        );
+      }
+      if (result.split) record('oversized_segment_split');
+      output.addAll(result.chunks);
+      texts.addAll(result.texts);
     }
     return KnowledgeSnapshot._(
       bundleId,
@@ -308,6 +427,64 @@ class KnowledgeSnapshot {
       Map.unmodifiable(texts),
       sources,
       assets,
+      List.unmodifiable(recoveries.values),
     );
   }
+}
+
+class _InputRecovery {
+  const _InputRecovery(
+    this.originalId,
+    this.code,
+    this.sourcePath,
+    this.lineStart,
+    this.lineEnd,
+  );
+  final String originalId;
+  final String code;
+  final String sourcePath;
+  final int lineStart;
+  final int lineEnd;
+
+  factory _InputRecovery.fromMap(Map<String, Object?> map) => _InputRecovery(
+    map['originalId']! as String,
+    map['code']! as String,
+    map['sourcePath']! as String,
+    map['lineStart']! as int,
+    map['lineEnd']! as int,
+  );
+  Map<String, Object?> toMap() => {
+    'originalId': originalId,
+    'code': code,
+    'sourcePath': sourcePath,
+    'lineStart': lineStart,
+    'lineEnd': lineEnd,
+  };
+}
+
+List<KnowledgeInputDiagnostic> _aggregate(List<_InputRecovery> recoveries) {
+  final groups = <(String, String), Map<String, _InputRecovery>>{};
+  for (final r in recoveries) {
+    groups.putIfAbsent((r.sourcePath, r.code), () => {})[r.originalId] = r;
+  }
+  final diagnostics = <KnowledgeInputDiagnostic>[];
+  for (final entry in groups.entries) {
+    final values = entry.value.values;
+    diagnostics.add(
+      KnowledgeInputDiagnostic(
+        code: entry.key.$2,
+        sourcePath: entry.key.$1,
+        lineStart: values
+            .map((r) => r.lineStart)
+            .reduce((a, b) => a < b ? a : b),
+        lineEnd: values.map((r) => r.lineEnd).reduce((a, b) => a > b ? a : b),
+        affectedChunks: values.length,
+      ),
+    );
+  }
+  diagnostics.sort((a, b) {
+    final path = a.sourcePath.compareTo(b.sourcePath);
+    return path != 0 ? path : a.code.compareTo(b.code);
+  });
+  return List.unmodifiable(diagnostics);
 }

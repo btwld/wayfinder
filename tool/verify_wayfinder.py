@@ -107,15 +107,49 @@ def main():
                 holder.wait(timeout=10)
             run("crash-lock-recovered", "search", corpus, "password", "--output=json")
 
+        # Oversized context and indented separators are recoverable, not index failures.
+        oversized = corpus / "oversized.md"
+        oversized.write_bytes((
+            "---\ntitle: " + "word " * 700 + "\ntype: reference\n---\n"
+            "  " + "-" * 700 + " end.\n"
+        ).encode("utf-8"))
+        oversized_bytes = oversized.read_bytes()
+        recovered = json.loads(run("oversized-index", "index", corpus, "--output=json").stdout)
+        assert recovered["embeddedChunks"] > 0
+        warnings = recovered["warnings"]
+        assert {warning["code"] for warning in warnings} == {
+            "embedding_context_omitted", "oversized_segment_split",
+        }, warnings
+        assert all(warning["sourcePath"] == "oversized.md"
+                   and warning["affectedChunks"] == 1
+                   and warning["lineStart"] == warning["lineEnd"] == 5
+                   for warning in warnings), warnings
+        assert oversized.read_bytes() == oversized_bytes
+        reports[-1]["counts"] = recovered
+        current = json.loads(run("replay-warnings", "index", corpus, "--output=json").stdout)
+        assert current["current"] and current["warnings"] == warnings
+        text = run("text-warnings", "index", corpus)
+        assert all(warning["code"] in text.stderr for warning in warnings)
+        found = json.loads(run("search-after-recovery", "search", corpus,
+                               "password", "--output=json").stdout)
+        assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+
+        # A genuine load failure must still preserve the published generation.
         generation = pointer.read_text()
-        saved = recovery.read_text()
-        recovery.write_text(saved.replace("Account recovery", "word " * 700))
+        preserved = {name: hashlib.sha256((index / generation / name).read_bytes()).hexdigest()
+                     for name in ("snapshot.json", "data.mdb")}
+        saved = recovery.read_bytes()
+        recovery.write_text("---\ntitle: [unterminated\n---\nInvalid frontmatter.\n")
         run("failed-index", "index", corpus, expected=2)
         assert pointer.read_text() == generation
-        recovery.write_text(saved)
+        assert all(hashlib.sha256((index / generation / name).read_bytes()).hexdigest() == digest
+                   for name, digest in preserved.items())
+        recovery.write_bytes(saved)
         run("failure-preserved-search", "search", corpus, "password", "--output=json")
         model = app / "models/embedding.gguf"
         model.rename(app / "models/hidden.gguf")
+        current = json.loads(run("warnings-without-model", "index", corpus, "--output=json").stdout)
+        assert current["current"] and current["warnings"] == warnings
         run("validation-without-model", "validate", workspace / "examples/knowledge")
         assert "Reinstall" in run("missing-model", "search", corpus, "password", expected=2).stderr
         model.write_bytes(b"corrupt")

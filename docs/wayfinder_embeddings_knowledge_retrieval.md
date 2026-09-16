@@ -107,8 +107,12 @@ The adapter compares body-only inputs with title, heading, and passage inputs
 under separate preprocessing identities. It retains provenance as metadata,
 without embedding the full YAML. `KnowledgeSnapshot.fitInputs` splits oversized
 passages using the actual model tokenizer, counts context against the budget,
-and preserves source text and citation spans. Inputs that cannot fit even one
-word plus context fail before store mutation; nothing is silently truncated.
+and preserves source text and citation spans. Oversized segments are subdivided
+at Unicode code-point boundaries, with whitespace kept on nonblank fragments.
+If derived context prevents fitting, the original passage retries without it.
+Recoveries produce durable source-level diagnostics; irreducible body-only
+inputs and tokenizer or inference errors still fail before store mutation.
+Nothing is silently truncated or removed from the source files.
 
 Keep conservative 512-token batch/microbatch settings until measured.
 llamadart exposes batch sizes and parallel sequences for throughput tuning,

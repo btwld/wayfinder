@@ -1,3 +1,12 @@
+# Unreleased
+
+- Report oversized-input recoveries as structured `warnings` in completed/current
+  CLI JSON and MCP index results, and escaped stderr warnings in text mode.
+- Replay persisted warnings without loading the model, including foreground calls
+  after detached completion; detached status acknowledgements are unchanged.
+- Bump application index configuration to 3 for lossless splitting and conditional
+  context omission. Existing indexes require one rebuild; source bundles need no edits.
+
 # 0.1.0
 
 - Report Profile 2026.2 and depend on `okf` ^0.5.0. `wayfinder validate` prints
