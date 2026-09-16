@@ -176,6 +176,54 @@ void main() {
       });
     }
 
+    test(
+      'completed and current warnings use stderr; JSON stays structured',
+      () async {
+        const warning = KnowledgeInputDiagnostic(
+          code: 'oversized_segment_split',
+          sourcePath: 'odd\npath\t\u001b.md',
+          lineStart: 4,
+          lineEnd: 8,
+          affectedChunks: 2,
+        );
+        for (final state in ['stale', 'current']) {
+          final knowledge = _IndexKnowledge(state, warnings: [warning]);
+          output.clear();
+          errors.clear();
+          expect(await indexCli(knowledge).run(['index', '.']), 0);
+          expect(errors.single, contains(r'odd\npath\t\u{001b}.md:4-8'));
+          expect(errors.single, isNot(contains('\n')));
+          expect(errors.single, isNot(contains('\t')));
+          output.clear();
+          errors.clear();
+          expect(
+            await indexCli(knowledge).run(['index', '.', '--output=json']),
+            0,
+          );
+          expect((jsonDecode(output.single) as Map)['warnings'], [
+            warning.toJson(),
+          ]);
+          expect(errors, isEmpty);
+          output.clear();
+          expect(
+            await indexCli(
+              knowledge,
+            ).run(['index', '.', '--detach', '--output=json']),
+            0,
+          );
+          expect(
+            (jsonDecode(output.single) as Map).containsKey('warnings'),
+            isFalse,
+          );
+          expect(errors, isEmpty);
+        }
+        expect(
+          (await _IndexKnowledge('current').index('.')).toJson()['warnings'],
+          isEmpty,
+        );
+      },
+    );
+
     test('--detach --force always rebuilds and reports JSON', () async {
       expect(
         await indexCli(
@@ -251,7 +299,8 @@ Future<OkfGraph> _okfGraph(String bundle, {OkfGraphQuery? query}) async {
 
 /// Reports a fixed index state without opening storage or a model.
 class _IndexKnowledge extends WayfinderKnowledge {
-  _IndexKnowledge(this.state);
+  _IndexKnowledge(this.state, {this.warnings = const []});
+  final List<KnowledgeInputDiagnostic> warnings;
   final String state;
   final forced = <bool>[];
 
@@ -274,6 +323,7 @@ class _IndexKnowledge extends WayfinderKnowledge {
     return WayfinderIndexResult(
       bundle: bundle,
       index: 'saved',
+      warnings: warnings,
       embeddedChunks: 0,
       removedChunks: 0,
       writtenChunks: 0,

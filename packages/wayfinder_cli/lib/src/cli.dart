@@ -393,6 +393,15 @@ class WayfinderCli {
           );
           _out('Saved locally: ${_safe(result.index)}');
         }
+        if (!json) {
+          for (final warning in result.warnings) {
+            _err(
+              'Warning: ${warning.code}: '
+              '${_singleLine(warning.sourcePath)}:${warning.lineStart}-${warning.lineEnd} '
+              '(${warning.affectedChunks} original chunks)',
+            );
+          }
+        }
         return 0;
       }
       final rawLimit = command.option('limit');
@@ -469,3 +478,9 @@ String _safe(String value) => value.replaceAllMapped(
   (match) =>
       '\\u{${match[0]!.codeUnitAt(0).toRadixString(16).padLeft(4, '0')}}',
 );
+
+String _singleLine(String value) => _safe(value)
+    .replaceAll('\t', r'\t')
+    .replaceAll('\n', r'\n')
+    .replaceAll('\u2028', r'\u2028')
+    .replaceAll('\u2029', r'\u2029');

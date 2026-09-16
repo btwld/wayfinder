@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_cli/src/cli.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -135,6 +136,178 @@ void main() {
           expect(await aware().isCurrent(bundle.path), isFalse);
           // Without a known identity, an injected encoder is always checked.
           expect((await knowledge.index(bundle.path)).current, isFalse);
+        },
+      );
+
+      test(
+        'recovery persists, replays model-free and preserves source bytes',
+        () async {
+          final file = File(p.join(bundle.path, 'recovery.md'));
+          await file.writeAsString(
+            '---\r\ntitle: ${'prefix' * 50}\r\ntype: reference\r\n---\r\n'
+            'Reset password using the recovery email link. ${'-' * 700} End.\r\n',
+          );
+          final before = await file.readAsBytes();
+          WayfinderKnowledge aware({bool reject = false}) => WayfinderKnowledge(
+            dataDirectory: data,
+            encoderIdentity: (model: model, source: 'wayfinder-fixture'),
+            openEncoder: () async {
+              final encoder = _Encoder(model, failInference);
+              encoders.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => reject ? 1000 : text.runes.length + 2,
+                80,
+              );
+            },
+          );
+          final first = await aware().index(bundle.path);
+          expect(
+            first.warnings.map((d) => d.code),
+            containsAll([
+              'embedding_context_omitted',
+              'oversized_segment_split',
+            ]),
+          );
+          expect(
+            first.warnings.every((d) => d.sourcePath == 'recovery.md'),
+            isTrue,
+          );
+          final opened = encoders.length;
+          final currentResult = await aware().index(bundle.path);
+          expect(currentResult.current, isTrue);
+          expect(
+            currentResult.toJson()['warnings'],
+            first.toJson()['warnings'],
+          );
+          expect(encoders.length, opened);
+          for (final (query, path) in [
+            ('password recovery', 'recovery.md'),
+            ('weather rain', 'weather.md'),
+          ]) {
+            final hits = await aware().search(bundle.path, query);
+            expect(hits.matches.first.chunk.sourcePath, path);
+            expect(hits.matches.first.chunk.lineStart, greaterThan(0));
+          }
+          expect(await file.readAsBytes(), before);
+          final current = await pointer();
+          final generation = await current.readAsString();
+          final database = File(
+            p.join(current.parent.path, generation, 'data.mdb'),
+          );
+          final bytes = await database.readAsBytes();
+          await expectLater(
+            aware(reject: true).index(bundle.path, force: true),
+            throwsStateError,
+          );
+          expect(await current.readAsString(), generation);
+          expect(await database.readAsBytes(), bytes);
+          failInference = true;
+          await expectLater(
+            aware().index(bundle.path, force: true),
+            throwsStateError,
+          );
+          expect(await current.readAsString(), generation);
+          expect(await database.readAsBytes(), bytes);
+          failInference = false;
+          expect(
+            (await aware().search(bundle.path, 'password')).matches,
+            isNotEmpty,
+          );
+        },
+      );
+
+      test('version 2 rebuilds once even with unchanged sources', () async {
+        WayfinderKnowledge aware() => WayfinderKnowledge(
+          dataDirectory: data,
+          encoderIdentity: (model: model, source: 'wayfinder-fixture'),
+          openEncoder: () async {
+            final encoder = _Encoder(model, false);
+            encoders.add(encoder);
+            return WayfinderEncoder(encoder, (text) async => text.length, 512);
+          },
+        );
+        final first = await aware().index(bundle.path);
+        final current = await pointer();
+        final oldGeneration = await current.readAsString();
+        final recordFile = File(
+          p.join(current.parent.path, oldGeneration, 'snapshot.json'),
+        );
+        final record = jsonDecode(await recordFile.readAsString()) as Map;
+        final configuration =
+            jsonDecode(record['configuration'] as String) as Map;
+        expect(configuration['version'], 3);
+        configuration['version'] = 2;
+        record['configuration'] = jsonEncode(configuration);
+        await recordFile.writeAsString(jsonEncode(record));
+        expect(await aware().isCurrent(bundle.path), isFalse);
+        await expectLater(
+          aware().search(bundle.path, 'password'),
+          throwsA(isA<WayfinderException>()),
+        );
+        final rebuilt = await aware().index(bundle.path);
+        expect(rebuilt.current, isFalse);
+        expect(rebuilt.embeddedChunks, first.embeddedChunks);
+        expect(await current.readAsString(), isNot(oldGeneration));
+        final opened = encoders.length;
+        expect((await aware().index(bundle.path)).current, isTrue);
+        expect(encoders.length, opened);
+      });
+
+      test(
+        'detached worker completion persists warnings for foreground replay',
+        () async {
+          await File(p.join(bundle.path, 'recovery.md')).writeAsString(
+            '---\ntitle: Recovery\n---\nPassword recovery ${'-' * 700} done.',
+          );
+          WayfinderKnowledge aware() => WayfinderKnowledge(
+            dataDirectory: data,
+            encoderIdentity: (model: model, source: 'wayfinder-fixture'),
+            openEncoder: () async {
+              final encoder = _Encoder(model, false);
+              encoders.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.length + 2,
+                80,
+              );
+            },
+          );
+          final output = <String>[];
+          final errors = <String>[];
+          Future<int>? worker;
+          final cli = WayfinderCli(
+            out: output.add,
+            err: errors.add,
+            knowledge: aware,
+            spawnDetached: (args) async {
+              worker = WayfinderCli(
+                out: (_) {},
+                err: (_) {},
+                knowledge: aware,
+              ).run(args);
+            },
+          );
+          expect(
+            await cli.run(['index', bundle.path, '--detach', '--output=json']),
+            0,
+          );
+          expect(jsonDecode(output.single), {
+            'bundle': bundle.path,
+            'detached': 'started',
+          });
+          expect(await worker, 0);
+          final opened = encoders.length;
+          output.clear();
+          expect(await cli.run(['index', bundle.path, '--output=json']), 0);
+          final result = jsonDecode(output.single) as Map;
+          expect(result['current'], isTrue);
+          expect(
+            (result['warnings'] as List).single['code'],
+            'oversized_segment_split',
+          );
+          expect(encoders.length, opened);
+          expect(errors, isEmpty);
         },
       );
 

@@ -2,4 +2,5 @@
 library;
 
 export 'src/okf/knowledge_index.dart';
+export 'src/okf/knowledge_input_diagnostic.dart';
 export 'src/okf/knowledge_snapshot.dart';

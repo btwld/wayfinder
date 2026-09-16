@@ -79,6 +79,40 @@ into a new generation, which replaces the old one only when it completes.
 `--detach` returns at once and indexes in a background process only when the
 bundle changed; the refresh hooks use it.
 
+### Oversized-input recovery and warnings
+
+Indexing losslessly subdivides oversized passages, including long separators and
+identifiers, using the actual tokenizer. If a derived title/heading prefix
+prevents fitting, indexing retries that original chunk without the prefix.
+Source files are never edited; fitted fragments reconstruct each pre-fit passage,
+not the entire document. Metadata and source citations remain available. An
+irreducible body-only input or a tokenizer/inference error still fails indexing.
+
+Completed and current foreground index results include `warnings` (an empty
+array when none). Each warning has `code`, `sourcePath`, `lineStart`, `lineEnd`,
+and `affectedChunks`, counting original chunks once per code and enclosing their
+line ranges. Codes are `oversized_segment_split` and
+`embedding_context_omitted`; ordinary whitespace splitting is silent. Warnings
+are sorted by source path, then code.
+
+Human-readable indexing prints warnings to stderr with single-line escaped paths.
+CLI JSON and MCP return the same structured warnings in their existing payload;
+MCP still uses one JSON text block. Successful recovery keeps exit status 0.
+Saved warnings replay on current-index calls without loading the model. Detached
+launch/current/running acknowledgements keep their status-only shape; once a
+background index completes, the next foreground call reports its saved warnings.
+Consumers enforcing a closed JSON response shape must allow the new `warnings`
+field.
+
+This changes application index configuration from version 2 to 3. Run
+`wayfinder index <bundle>` once to rebuild even if source bytes are unchanged;
+subsequent unchanged calls reuse the index. Snapshot version 1 remains readable
+with additive recovery fields. No bundle migration, Profile release, model change,
+or ObjectBox schema change is required. New fragment boundaries or omitted context
+can change retrieval results. Failed rebuilds preserve the previous generation,
+but search still rejects stale or configuration-incompatible indexes; there is
+no automatic fallback to old vectors.
+
 Native first-use initialization remains variable. Reusing document vectors
 does not remove model startup or the first query's inference cost. The
 [initial runtime report](../../docs/wayfinder_embeddings_local_search.md#model-latency-and-memory)
@@ -214,8 +248,8 @@ Failed indexing preserves the previous generation; searches still reject it
 if source files have changed. Successful indexing removes inactive generations.
 Copying the database temporarily requires space for both generations.
 Saved generations are decoded and validated once per operation. Indexing returns
-a typed result internally while preserving the existing JSON output and saved
-index format.
+a typed result internally, with additive JSON warnings and backward-readable
+snapshot recovery data.
 
 Source-content rechecks detect observed edits; they are not an OS filesystem
 snapshot. The adapter scores eligible vectors exactly, so work increases with

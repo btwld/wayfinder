@@ -61,6 +61,43 @@ embedding configuration. Query-vector caching lasts only for that instance.
 [Wayfinder](../wayfinder/README.md) owns atomic snapshot/database publication and
 freshness checks for its local CLI.
 
+### Oversized embedding inputs
+
+`KnowledgeSnapshot.fitInputs()` measures each complete input with the supplied
+model tokenizer, including context separators and special tokens. It prefers
+whitespace boundaries, then subdivides oversized separators/identifiers at
+Unicode code-point boundaries. Concatenating an original passage's fitted
+fragments reconstructs that **pre-fit passage** exactly, with no overlap or
+truncation. Leading and trailing whitespace stay attached to nonblank text,
+and each complete fragment is checked against the token budget again; padding
+never becomes a standalone blank embedding input.
+This is not whole-document reconstruction: Markdown passage
+selection and parsing still apply. The original `sources` map and source files
+remain unchanged, including their line endings.
+
+If an irreducible nonblank fragment cannot fit with its derived title/heading
+prefix, the fitter discards that original chunk's provisional fragments and retries its
+body without the prefix. Other chunks keep context. Original metadata remains
+intact; the effective input, omission, original-chunk identity, UTF-16 offsets
+(exclusive ends), and citations survive snapshot round trips and further fitting.
+An irreducible body-only input, invalid budget, tokenizer error, or inference
+failure still fails; strict encoder rejection is unchanged.
+
+The snapshot's immutable `diagnostics` list contains `KnowledgeInputDiagnostic`
+values with `code`, `sourcePath`, `lineStart`, `lineEnd`, and `affectedChunks`:
+
+- `oversized_segment_split`: recovery required a non-whitespace split.
+- `embedding_context_omitted`: recovery omitted the derived context prefix.
+
+Diagnostics aggregate by path/code, enclose affected original-chunk line ranges,
+count each original chunk once per code, and sort by path then code. Ordinary
+whitespace splitting is silent. Additive private recovery attribution in snapshot
+version 1 preserves deduplication after reopening and tighter fitting; older
+snapshots without it have empty diagnostics. Call `fitInputs()` explicitly before
+`synchronize()` when you need to inspect the fitted snapshot and diagnostics.
+New boundaries or omitted context can change retrieval results; ranking algorithms
+and model identity are unchanged.
+
 See [the component experiment](../../docs/wayfinder_embeddings_ablation.md) for
 measured improvements and regressions with and without embeddings.
 

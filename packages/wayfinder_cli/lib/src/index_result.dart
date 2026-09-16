@@ -1,3 +1,5 @@
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
+
 /// Counts and location of a completed local indexing operation.
 class WayfinderIndexResult {
   const WayfinderIndexResult({
@@ -8,7 +10,10 @@ class WayfinderIndexResult {
     required this.writtenChunks,
     required this.elapsedMs,
     this.current = false,
+    this.warnings = const [],
   });
+
+  final List<KnowledgeInputDiagnostic> warnings;
 
   final String bundle;
   final String index;
@@ -29,5 +34,6 @@ class WayfinderIndexResult {
     'writtenChunks': writtenChunks,
     'elapsedMs': elapsedMs,
     'current': current,
+    'warnings': warnings.map((warning) => warning.toJson()).toList(),
   };
 }
