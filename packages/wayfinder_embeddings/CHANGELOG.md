@@ -1,4 +1,4 @@
-# Unreleased
+# 0.1.1
 
 - Recover oversized embedding inputs with lossless Unicode-safe subdivision and
   conditional derived-context omission in the shared OKF fitter.

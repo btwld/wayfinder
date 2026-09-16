@@ -1,11 +1,19 @@
-# Unreleased
+# 0.1.1
 
+- Recover oversized separators and identifiers without aborting bundle indexing
+  or editing source files, using `wayfinder_embeddings` 0.1.1.
 - Report oversized-input recoveries as structured `warnings` in completed/current
   CLI JSON and MCP index results, and escaped stderr warnings in text mode.
 - Replay persisted warnings without loading the model, including foreground calls
   after detached completion; detached status acknowledgements are unchanged.
 - Bump application index configuration to 3 for lossless splitting and conditional
   context omission. Existing indexes require one rebuild; source bundles need no edits.
+- Harden the public installers' platform and input validation before network
+  access, including an explicit error for unknown Windows architectures.
+
+After upgrading, run `wayfinder index <bundle>` once before searching. JSON
+consumers must allow the additive `warnings` field. Profile validation, the
+embedding model, and the ObjectBox schema are unchanged.
 
 # 0.1.0
 
