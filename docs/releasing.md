@@ -18,9 +18,47 @@ release workflow is retired; historical versions and tags remain available.
 
 ## Prepare a release
 
-All three packages and the native archives are published at 0.1.0. Publish the
-core and `wayfinder_embeddings` before the CLI, then resolve the CLI from hosted
-dependencies outside the workspace and run its publish dry run.
+All three packages and the native archives are published at 0.1.0. The next
+prepared release is described below; preparation does not publish it. Publish
+changed core or `wayfinder_embeddings` dependencies before the CLI, then resolve
+the CLI from hosted dependencies outside the workspace and run its publish dry
+run. An unchanged dependency does not need another release.
+
+### Prepared release: 0.1.1
+
+| Component | Prepared version | Publication tag |
+| --- | --- | --- |
+| `wayfinder_embeddings` | 0.1.1 | `wayfinder_embeddings-v0.1.1` |
+| `wayfinder_cli`, native runtime and plugin | 0.1.1 | `wayfinder-v0.1.1` |
+| `wayfinder` core | Remains at published 0.1.0 | No new tag |
+
+This patch fixes bundle-wide indexing failures caused by oversized separators
+and identifiers ([#100](https://github.com/conceptadev/wayfinder/issues/100),
+[#101](https://github.com/conceptadev/wayfinder/pull/101)). Recovery preserves
+source bytes and reports persisted warnings through CLI text/JSON and MCP.
+It also includes the public installer input and Windows architecture validation
+fixes in [#99](https://github.com/conceptadev/wayfinder/pull/99).
+
+**Upgrade:** run `wayfinder index <bundle>` once after updating, before searching.
+Index configuration advances from 2 to 3; unchanged subsequent calls reuse the
+index. Closed JSON consumers must allow the additive `warnings` field. No bundle
+migration, Profile release, model change or ObjectBox schema change is needed.
+
+Publication order for this release:
+
+1. Merge the preparation change and obtain successful source CI for that exact
+   commit, including all three native platforms.
+2. Publish `wayfinder_embeddings-v0.1.1` at that checked commit and wait for the
+   package to become available on pub.dev. The CLI requires `^0.1.1`; a workspace
+   resolution alone cannot verify hosted availability.
+3. Outside the workspace, resolve the CLI with hosted dependencies (no path
+   overrides), analyze it and run `dart pub publish --dry-run`.
+4. Publish `wayfinder-v0.1.1` at the same checked commit and wait for CLI package
+   publication. Do not create a new core tag.
+5. Dispatch **Distribute Wayfinder native release** against `wayfinder-v0.1.1`
+   with that successful source CI run ID, then verify the public installer jobs.
+
+### Release gates
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
 tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
