@@ -1,6 +1,6 @@
 ---
 name: assess-knowledge-bundle
-description: Run a deliberate whole-bundle Profile assessment of knowledge/ — automated validation plus every contextual judgment rule — and emit the standard Profile Review Report. Use for audits, adoption checks, release upgrades, and structural reorganizations.
+description: Run a deliberate whole-bundle Profile assessment of knowledge/ — automated validation plus every contextual judgment rule — and emit the standard Profile Review Report. Use for audits, adoption checks, and structural reorganizations.
 disable-model-invocation: true
 ---
 
@@ -22,7 +22,10 @@ Review for both scopes.
    gate even when the release is unsupported or the declaration is defective.
    When the CLI is unavailable, record `NOT RUN` with the reason; never substitute
    a guess for a deterministic result. If release dispatch was unavailable or
-   unsupported, report that contextual review was not performed and stop here.
+   unsupported, skip step 3; still complete step 4. The report's Automated gate
+   records the collected result, Reviewed notes that contextual review was not
+   performed, and Outcome is `NEEDS HUMAN`. Unsupported capability or an
+   unreadable declaration is not a 2026.2 judgment failure.
 3. Follow
    [`../author-knowledge-bundle/references/profile-assessment.md`](../author-knowledge-bundle/references/profile-assessment.md)
    with **Scope: whole bundle** — every contextual rule, every concept, using

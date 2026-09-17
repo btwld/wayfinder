@@ -32,10 +32,13 @@ Otherwise use the **CLI**, which takes an explicit bundle path:
 
 ```sh
 wayfinder validate <bundle> [--output=json]
-wayfinder graph <bundle> [--output=json|mermaid|dot]
+wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
 wayfinder index <bundle> [--output=json]
 wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
 ```
+
+`--type`, `--path-prefix` and `--resolution` are repeatable and match the MCP
+`types`, `path_prefixes` and `resolutions` filters.
 
 Use `--output=json` when you will parse results; it is the same shape the MCP
 tools return. If neither the tools nor the `wayfinder` command exist, say so and

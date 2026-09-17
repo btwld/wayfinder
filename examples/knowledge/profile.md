@@ -3,9 +3,7 @@ type: Knowledge Profile
 title: Concepta OKF Profile
 description: Declares the Concepta profile and OKF versions this bundle follows.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 ---
 
 This bundle follows the Concepta OKF Profile. The block below is the

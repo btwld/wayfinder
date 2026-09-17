@@ -12,9 +12,10 @@ shipped together as the `wayfinder` plugin.
 | [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared authoring and review instructions. |
 | [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
 
-Migration remains a scoped project task using the
-[implementation guide §5](../implementation/okf-implementation-guide.md#5-migration)
-and the authoring skill; there is no separate migration skill.
+The family refuses a declared-release change rather than performing it. The
+method is [implementation guide §5](../implementation/okf-implementation-guide.md#5-migration)
+when that document is present; there is no separate migration skill. The
+authoring skill owns that refusal.
 
 ## Installation and routing
 

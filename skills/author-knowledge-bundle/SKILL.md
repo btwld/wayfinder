@@ -20,8 +20,12 @@ only `"2026.2"`, which binds to OKF `"0.2"`.
 - An absent or unreadable selector prevents dispatch. Report the declaration
   problem rather than guessing a release.
 - An unsupported selector prevents authoring and contextual Profile Review under
-  these rules. Report which release is unsupported; a matching skill or an explicit
-  migration is needed for that work. Do not silently apply 2026.2.
+  these rules. Report which release is unsupported. Do not silently apply 2026.2.
+
+This skill will not migrate a bundle. Changing `concepta_profile` is not a
+repair. This family has no matching older skill. If
+`implementation/okf-implementation-guide.md` §5 is in the workspace, that is
+the method; otherwise stop and say this family cannot perform the migration.
 
 Read-only automated validation remains available in all three cases: its independent
 OKF result and release diagnostics are useful even when contextual review cannot
@@ -45,6 +49,7 @@ touches several — a new concept in a new directory needs the first two at leas
 | Giving links a labelled meaning in `# Relationships` | [references/relationships.md](./references/relationships.md) |
 | Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
 | Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
+| Changing the declared release, or converting an existing tree | not this skill — see [Release dispatch](#release-dispatch) |
 | Seeding a new bundle from nothing | the [`adopt-knowledge-bundle` skill](../adopt-knowledge-bundle/SKILL.md) |
 | Anything the profile says nothing about | [references/OKF-0.2.md](./references/OKF-0.2.md) |
 

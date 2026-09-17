@@ -13,7 +13,10 @@ alternative when the repository has that Dart dependency. Reuse a result already
 collected for the same unchanged tree; rerun after repairs. If neither command is
 available, report `NOT RUN` and the reason. Unsupported or unreadable declarations
 still allow collecting automated diagnostics, but do not authorize contextual
-review under an assumed release.
+review under an assumed release. Still emit the compact report below: Automated
+gate records the collected result, Reviewed notes that contextual review was not
+performed, and Outcome is `NEEDS HUMAN`. That is a capability or declaration
+problem, not a 2026.2 judgment failure.
 
 The canonical assignment
 audit is `implementation/profile-coverage.md` in the
