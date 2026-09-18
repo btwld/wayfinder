@@ -25,7 +25,7 @@ ship in the Profile. It must be removed or pursued upstream first.
 ## Inventory audit
 
 The publication review traced every normative clause in the canonical Profile
-through this artifact and the separate coverage matrix. This review has 62
+through this artifact and the separate coverage matrix. This review has 61
 compatibility records: a record may group adjacent clauses only when they use the
 same OKF construct and all five answers are identical. The coverage matrix keeps
 assessment assignments separate and exactly once. No compatibility record is
@@ -115,15 +115,15 @@ implicit, unassessed, or inherited merely by silence.
 
 ## Timestamp revision review
 
-Added for 2026.2, covering the four rules the upstream revision changed and the
-writing conventions the Profile added beside them.
+Added for 2026.2, covering the three remaining rules the upstream revision
+changed. The writing-convention SHOULDs later withdrawn from §6.5 are no longer
+Profile rules and have no row.
 
 | Profile rule | OKF basis | Compatibility result | Reasoning |
 | --- | --- | --- | --- |
 | §6.5 requires every timestamp-valued key to be an ISO 8601 datetime with an explicit UTC offset and prohibits a date-only or offset-less value | §5 states the same requirement for every timestamp-valued key | Pass | The Profile restates an upstream requirement without narrowing or widening it; the field set, their meanings, and the independent OKF result are unchanged. |
 | §6.4 treats `stale_after` as an instant compared against `now` | §5.5 defines it as an absolute instant | Pass | The comparison moves from a local calendar day to an instant because upstream moved it. The Profile adds no timezone rule of its own and stores nothing new. |
 | §5.5 row records `stale_after` as an absolute instant in the OKF section map | §5.5 | Pass | A map row tracking upstream wording; no bundle construct. |
-| §6.5 recommends quoted timestamps, block-style structured values, and `verified` as a list | §4.2 leaves YAML spelling to the producer; §5.2 treats `verified` as a sequence | Pass | These are SHOULDs on producers with an explicit requirement that consumers keep accepting every spelling OKF permits, so no upstream representation is withdrawn and a generic consumer reads the bundle unchanged. |
 
 ## Completion gate
 

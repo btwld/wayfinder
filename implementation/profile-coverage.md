@@ -23,7 +23,7 @@ The Profile remains the source of every rule and its normative force.
 
 The publication review normalized repeated statements of the same semantic rule
 to one row and retained distinct deterministic and contextual obligations as
-separate rules. The tables below contain 71 bundle-rule assignments and 11
+separate rules. The tables below contain 70 bundle-rule assignments and 11
 non-bundle frame assignments. Every bundle row names exactly one assessment mode;
 none is duplicated between Automated Profile Validation and Profile Review.
 
@@ -96,7 +96,6 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §6.3.1: subject-settlement assessment stays in body prose and is not stored in frontmatter or derived from links | MUST NOT / MAY / SHOULD | Profile Review | Assessment appears beside reasoning when used; no stored or graph-derived verdict exists |
 | §6.4: `stale_after` appears only for an evidenced freshness horizon and never as a type default or placeholder | MUST / MUST NOT | Profile Review | Evidence supports the absolute instant and historical type alone neither requires nor prohibits it |
 | §6.5: every timestamp-valued key is an ISO 8601 datetime with an explicit UTC offset, and no date-only or offset-less value is written | MUST NOT | Automated Profile Validation | The `okf` package reports each offending field as the non-blocking `okf/timestamp-without-offset` advisory naming the exact key; `okf validate --strict` escalates it |
-| §6.5: timestamps are quoted, structured values use block style, and `verified` is written as a list | SHOULD | Profile Review | A producer convention with no representational consequence: every spelling OKF permits still loads, so no automated check can distinguish a conforming choice from a permitted one |
 | §14.1: a concept beside an area of the same name produces only a non-blocking advisory | MUST NOT | Automated Profile Validation | Same-name root or sibling fixture emits an advisory without changing Profile conformance, automated gate, or exit status |
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing

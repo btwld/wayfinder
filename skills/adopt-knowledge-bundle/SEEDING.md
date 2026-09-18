@@ -50,9 +50,7 @@ type: Knowledge Profile
 title: Concepta OKF Profile
 description: Declares the Concepta profile and OKF versions this bundle follows.
 status: stable
-generated:
-  by: <actor>
-  at: "<ISO 8601 datetime with a UTC offset>"
+generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }
 ---
 
 This bundle follows the Concepta OKF Profile. The block below is the
@@ -70,6 +68,7 @@ OKF is authoritative: when the profile and OKF differ, OKF wins.
 and the OKF version it binds to. Their **formats** differ so they can never be
 confused: the profile uses `<year>.<serial>` (`2026.2`), OKF uses
 `<major>.<minor>` (`0.2`). Copy both verbatim; don't derive one from the other.
+
 ## `knowledge/types.md`
 
 Seed all fourteen standard types in the canonical order below, including unused
@@ -82,14 +81,12 @@ type: Type Registry
 title: Types
 description: The standard and project-specific types available to this bundle.
 status: stable
-generated:
-  by: <actor>
-  at: "<ISO 8601 datetime with a UTC offset>"
+generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }
 ---
 
 Every concept's `type` resolves here. Kind is carried by `type` alone, never by a
-directory name. Standard rows stay present even when unused; add an extension row
-before using a project-specific type.
+directory name. Standard rows remain available even when unused; project-specific
+rows follow them in lexical order.
 
 | Type | Intended content |
 |------|------------------|
@@ -121,9 +118,7 @@ type: Actor Registry
 title: Actors
 description: Actor IDs mapped to identity, affiliation, role, and active period.
 status: stable
-generated:
-  by: <actor>
-  at: "<ISO 8601 datetime with a UTC offset>"
+generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }
 ---
 
 Actor IDs are opaque and stable: affiliation is looked up here, never encoded into

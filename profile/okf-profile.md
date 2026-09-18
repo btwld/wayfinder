@@ -111,6 +111,7 @@ how* Concepta uses it, never *what it means*.
 | §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained for Concepta producers: `type`, `title`, `description`, and `status` are required, types are declared in-bundle, and producer-defined fields are prohibited (§5.1, §5.2) |
 | §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the in-bundle type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
 | §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Inherited: no type-specific template; optional labelled relationships remain ordinary Markdown (§5.3, §7.2) |
+| §5 | Timestamp-valued keys as ISO 8601 datetimes with an explicit UTC offset | Inherited; a date-only or offset-less value MUST NOT be written (§6.5) |
 | §5.1 | `sources`, credibility signals, `usage_window`, per-claim footnotes | Inherited unchanged; mechanisms surfaced rather than summarized (§6.1) |
 | §5.2 | `generated`, `verified` | Constrained: `generated` is recommended and must never be fabricated; `verified` records only verification that occurred, and its absence is meaningful (§6.2) |
 | §5.3 | Trust tiers derived, not stored | Inherited unchanged; the actor registry makes organizational identity legible without touching tiers (§6.1.1) |
@@ -627,19 +628,15 @@ type: Request
 title: Include PDF annotations in the export
 description: Client asks that reviewer annotations survive the PDF export.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
-verified:
-  - by: human:chris
-    at: "2026-07-31T09:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
 tags: [reporting, export]
 sources:
   - id: demo-0730
     resource: /references/2026-07-30-reporting-demo-transcript.md
     title: Reporting demo transcript, 30 July 2026
     author: process:meeting-transcription
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30T00:00:00Z
 ---
 
 # Request
@@ -869,27 +866,13 @@ Type alone neither supplies nor rules out that evidence. The same type may descr
 a time-bounded present condition or an enduring historical fact; the content and
 its sources decide whether `stale_after` is truthful.
 
-### 6.5 Writing timestamps and frontmatter
+### 6.5 Writing timestamps
 
 Every timestamp-valued key in OKF — `generated.at`, `verified[].at`,
-`stale_after`, `sources[].last_modified` and `usage_window` — is an ISO 8601
-datetime with an explicit UTC offset. A concept MUST NOT write a date-only or
-offset-less value where OKF expects a timestamp, because such a value names no
-instant. Where a source is known only to the day, `T00:00:00Z` states that
-plainly.
-
-Three writing conventions make authored frontmatter predictable. They bind what
-a producer writes; a consumer MUST keep accepting every spelling OKF permits,
-because the specification's own examples and upstream bundles use the inline
-forms.
-
-* Timestamps SHOULD be quoted, so YAML carries the authored text rather than an
-  implicitly typed value.
-* Structured values SHOULD use block style rather than inline `{…}` or `[…]`,
-  so a diff shows the field that changed.
-* `verified` SHOULD be written as a list, even with one entry, because OKF
-  treats it as a sequence and a single mapping has to be rewritten the moment a
-  second verification arrives.
+`stale_after`, `sources[].last_modified`, `usage_window.from` and
+`usage_window.to` — is an ISO 8601 datetime with an explicit UTC offset. A
+concept MUST NOT write a date-only or offset-less value where OKF expects a
+timestamp, because such a value names no instant.
 
 ---
 
@@ -1345,7 +1328,7 @@ sources:
     resource: Client demo recording, 30 July 2026 — retained outside this repository
     title: Reporting demo, 30 July 2026
     author: process:meeting-platform
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30T00:00:00Z
 ```
 
 A scope descriptor is preferable to pretending an unfollowable source has a path,
@@ -1555,9 +1538,7 @@ the new §6.5, §11's release binding, and every timestamp in the examples.
 Driver: upstream restated `stale_after` as an absolute instant compared against
 `now` rather than a calendar day, dropped `last_modified`'s date-only type, and
 made `usage_window` a datetime range; a profile that still called `stale_after`
-a date would contradict the specification it binds. §6.5 additionally settles
-three authoring conventions — quoted timestamps, block-style structured values,
-and `verified` as a list — as SHOULDs on producers only.
+a date would contradict the specification it binds.
 Migration impact: a bundle conformant under 2026.1 stays conformant. The `okf`
 package reports a date-only timestamp as the non-blocking
 `okf/timestamp-without-offset` advisory and leaves its conformance verdict
@@ -1566,8 +1547,14 @@ exceptions are worth stating plainly: `okf validate --strict` escalates
 advisories to failures and so begins failing on date-only timestamps it used to
 accept, and a concept east of UTC may now go stale later than it did when
 staleness was a local calendar comparison. `okf format --migrate-timestamps`
-rewrites date-only values to `T00:00:00Z`; §6.5's writing conventions are
-SHOULDs and require no rewrite of a conformant bundle.
+rewrites date-only values to `T00:00:00Z`.
+
+Amended in place: §6.5 withdraws the three producer SHOULDs (quoted timestamps,
+block-style structured values, `verified` as a list) and drops the day-only
+`T00:00:00Z` authoring sentence. Driver: those sentences contradicted or
+extended the OKF specification's own examples. YAML spelling and day-resolution
+belong to OKF and `okf format --migrate-timestamps`. Migration impact: none — a
+bundle conformant under the unamended 2026.2 stays conformant.
 
 **2026.1.** Initial release. Binds OKF 0.2 exactly, published together with the
 rule-level compatibility review and the implementation coverage matrix (§15.1).
@@ -1642,19 +1629,15 @@ type: Request
 title: Include PDF annotations in the export
 description: Client asks that reviewer annotations survive the PDF export.
 status: draft
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
-verified:
-  - by: human:chris
-    at: "2026-07-31T09:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
+verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
 tags: [reporting, export]
 sources:
   - id: demo-0730
     resource: /references/2026-07-30-reporting-demo-transcript.md
     title: Reporting demo transcript, 30 July 2026
     author: process:meeting-transcription
-    last_modified: "2026-07-30T00:00:00Z"
+    last_modified: 2026-07-30T00:00:00Z
 ---
 
 # Request
@@ -1683,10 +1666,8 @@ type: Analysis
 title: PDF export feasibility for annotations
 description: Whether the current renderer can place annotations without exceeding the generation budget.
 status: draft
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-31T11:00:00Z"
-stale_after: "2026-11-01T00:00:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
+stale_after: 2026-11-01T00:00:00Z
 sources:
   - id: layout-sample
     resource: /references/annotation-layout.json
@@ -1725,9 +1706,7 @@ type: Meeting Transcript
 title: Reporting demo transcript, 30 July 2026
 description: Verbatim transcript of the reporting demo with the client review team.
 status: stable
-generated:
-  by: process:meeting-transcription
-  at: "2026-07-30T15:55:00Z"
+generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
 sources:
   - resource: https://example-meetings.test/recordings/8412
     title: Reporting demo recording (retention: 30 days)
@@ -1752,9 +1731,7 @@ type: Actor Registry
 title: Actors
 description: Actor IDs mapped to identity, affiliation, role, and active period.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 ---
 
 | Actor ID | Name | Organization | Side | Role | Active |

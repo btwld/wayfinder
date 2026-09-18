@@ -49,7 +49,8 @@ and unrelated agent instructions.
 When no bundle exists, follow [SEEDING.md](./SEEDING.md) exactly; it owns the
 root-file contents and the conditions they implement. If a bundle already exists,
 skip seeding. Repairing a partial bundle or changing its release is separate work;
-report the gap and use the authoring or migration workflow when authorized.
+do not seed or change the selector. Follow the authoring skill's
+[migration refusal](../author-knowledge-bundle/SKILL.md#release-dispatch).
 
 **Create no directories.** Canonical seeding creates only the bundle root; the
 `author-knowledge-bundle` skill decides later structure from the project's

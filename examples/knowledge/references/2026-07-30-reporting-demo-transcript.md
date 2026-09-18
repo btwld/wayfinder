@@ -3,9 +3,7 @@ type: Meeting Transcript
 title: Reporting demo transcript, 30 July 2026
 description: Verbatim transcript of the reporting demo with the client review team.
 status: stable
-generated:
-  by: process:meeting-transcription
-  at: "2026-07-30T15:55:00Z"
+generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
 sources:
   - resource: https://example-meetings.test/recordings/8412
     title: "Reporting demo recording (retention: 30 days)"

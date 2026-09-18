@@ -3,9 +3,7 @@ type: Actor Registry
 title: Actors
 description: Actor IDs mapped to identity, affiliation, role, and active period.
 status: stable
-generated:
-  by: claude-code/opus-5
-  at: "2026-07-30T16:20:00Z"
+generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
 ---
 
 Actor IDs are opaque and stable: affiliation is looked up here, never encoded into
