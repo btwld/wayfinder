@@ -53,9 +53,9 @@ unchanged. Claude Code refreshes the plugin only when its version changes, and
 still teaches the withdrawn YAML SHOULDs until this cut. CI requires the CLI
 pubspec, `wayfinderVersion`, and `.claude-plugin/plugin.json` to stay aligned.
 
-When versions are applied, move these together: `packages/wayfinder_cli/pubspec.yaml`,
-`packages/wayfinder_cli/lib/src/version.dart`, `.claude-plugin/plugin.json`, and
-the CLI changelog. Do not bump embeddings or core.
+The version lock is applied on the CLI pubspec, `wayfinderVersion`,
+`.claude-plugin/plugin.json`, and the CLI changelog. Embeddings and core
+are unchanged.
 
 This patch withdraws the invented §6.5 producer SHOULDs (quoted timestamps,
 block-style mappings, `verified` as a list) so the Profile, examples, and
@@ -72,9 +72,8 @@ repair.
 
 Publication order for this release:
 
-1. Apply the version lock above, merge the preparation change, and obtain
-   successful source CI for that exact commit, including all three native
-   platforms.
+1. Merge this preparation change and obtain successful source CI for that
+   exact commit, including all three native platforms.
 2. Do not create embeddings or core tags.
 3. Outside the workspace, resolve the CLI with hosted dependencies (core 0.1.0,
    embeddings 0.1.1, no path overrides), analyze it and run

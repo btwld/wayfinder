@@ -1,3 +1,14 @@
+# 0.1.2
+
+- Refresh the plugin and authoring skills so they copy OKF §5 inline
+  frontmatter and refuse a silent Profile release change.
+- An unsupported Profile release is reported as `NEEDS HUMAN`, not a 2026.2
+  judgment failure. Graph CLI filters match the MCP graph tools.
+
+After upgrading, run `wayfinder update` so the plugin and skills refresh.
+Existing 2026.2 bundles stay conformant. Profile validation, the embedding
+model, the ObjectBox schema, and index configuration are unchanged.
+
 # 0.1.1
 
 - Recover oversized separators and identifiers without aborting bundle indexing
