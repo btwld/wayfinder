@@ -18,44 +18,69 @@ release workflow is retired; historical versions and tags remain available.
 
 ## Prepare a release
 
-All three packages and the native archives are published at 0.1.0. The next
-prepared release is described below; preparation does not publish it. Publish
-changed core or `wayfinder_embeddings` dependencies before the CLI, then resolve
-the CLI from hosted dependencies outside the workspace and run its publish dry
-run. An unchanged dependency does not need another release.
+Core `wayfinder` 0.1.0, `wayfinder_cli` 0.1.1, `wayfinder_embeddings` 0.1.1, and
+the native `wayfinder-v0.1.1` archives are published. The next prepared release
+is described below; preparation does not publish it. Publish changed core or
+`wayfinder_embeddings` dependencies before the CLI, then resolve the CLI from
+hosted dependencies outside the workspace and run its publish dry run. An
+unchanged dependency does not need another release.
 
-### Prepared release: 0.1.1
+### Published: 0.1.1
+
+Shipped 16 September 2026 as GitHub Latest
+[`wayfinder-v0.1.1`](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.1.1),
+with `wayfinder_embeddings-v0.1.1`. Core stayed at published 0.1.0. That patch
+fixed oversized-input indexing ([#100](https://github.com/conceptadev/wayfinder/issues/100),
+[#101](https://github.com/conceptadev/wayfinder/pull/101)) and installer input
+validation ([#99](https://github.com/conceptadev/wayfinder/pull/99)).
+
+### Prepared release: 0.1.2
+
+Unreleased on `main` since that tag is only
+[#106](https://github.com/conceptadev/wayfinder/pull/106): an in-place Profile
+2026.2 amendment and the matching skill/example teaching. No Dart validation or
+retrieval code changed.
 
 | Component | Prepared version | Publication tag |
 | --- | --- | --- |
-| `wayfinder_embeddings` | 0.1.1 | `wayfinder_embeddings-v0.1.1` |
-| `wayfinder_cli`, native runtime and plugin | 0.1.1 | `wayfinder-v0.1.1` |
+| `wayfinder_cli`, native runtime and plugin | 0.1.2 | `wayfinder-v0.1.2` |
+| `wayfinder_embeddings` | Remains at published 0.1.1 | No new tag |
 | `wayfinder` core | Remains at published 0.1.0 | No new tag |
 
-This patch fixes bundle-wide indexing failures caused by oversized separators
-and identifiers ([#100](https://github.com/conceptadev/wayfinder/issues/100),
-[#101](https://github.com/conceptadev/wayfinder/pull/101)). Recovery preserves
-source bytes and reports persisted warnings through CLI text/JSON and MCP.
-It also includes the public installer input and Windows architecture validation
-fixes in [#99](https://github.com/conceptadev/wayfinder/pull/99).
+A CLI and plugin patch is required even though the packages' Dart APIs are
+unchanged. Claude Code refreshes the plugin only when its version changes, and
+`wayfinder update` offers only stable `wayfinder-v` releases, so a 0.1.1 install
+still teaches the withdrawn YAML SHOULDs until this cut. CI requires the CLI
+pubspec, `wayfinderVersion`, and `.claude-plugin/plugin.json` to stay aligned.
 
-**Upgrade:** run `wayfinder index <bundle>` once after updating, before searching.
-Index configuration advances from 2 to 3; unchanged subsequent calls reuse the
-index. Closed JSON consumers must allow the additive `warnings` field. No bundle
-migration, Profile release, model change or ObjectBox schema change is needed.
+The version lock is applied on the CLI pubspec, `wayfinderVersion`,
+`.claude-plugin/plugin.json`, and the CLI changelog. Embeddings and core
+are unchanged.
+
+This patch withdraws the invented §6.5 producer SHOULDs (quoted timestamps,
+block-style mappings, `verified` as a list) so the Profile, examples, and
+authoring skill copy OKF §5 spelling. Skills treat an unsupported Profile
+release as `NEEDS HUMAN` and refuse to change `concepta_profile`; the method
+is implementation guide §5 when that file is present. Graph CLI filters are
+documented to match MCP.
+
+**Upgrade:** run `wayfinder update` (or reinstall) so the plugin and skills
+refresh. Existing 2026.2 bundles stay conformant; no index rebuild, Profile
+serial, model change, or ObjectBox schema change is needed. New writes should
+copy YAML shape from OKF §5. Do not bump a bundle's `concepta_profile` as a
+repair.
 
 Publication order for this release:
 
-1. Merge the preparation change and obtain successful source CI for that exact
-   commit, including all three native platforms.
-2. Publish `wayfinder_embeddings-v0.1.1` at that checked commit and wait for the
-   package to become available on pub.dev. The CLI requires `^0.1.1`; a workspace
-   resolution alone cannot verify hosted availability.
-3. Outside the workspace, resolve the CLI with hosted dependencies (no path
-   overrides), analyze it and run `dart pub publish --dry-run`.
-4. Publish `wayfinder-v0.1.1` at the same checked commit and wait for CLI package
-   publication. Do not create a new core tag.
-5. Dispatch **Distribute Wayfinder native release** against `wayfinder-v0.1.1`
+1. Merge this preparation change and obtain successful source CI for that
+   exact commit, including all three native platforms.
+2. Do not create embeddings or core tags.
+3. Outside the workspace, resolve the CLI with hosted dependencies (core 0.1.0,
+   embeddings 0.1.1, no path overrides), analyze it and run
+   `dart pub publish --dry-run`.
+4. Publish `wayfinder-v0.1.2` at the same checked commit and wait for CLI
+   package publication.
+5. Dispatch **Distribute Wayfinder native release** against `wayfinder-v0.1.2`
    with that successful source CI run ID, then verify the public installer jobs.
 
 ### Release gates
