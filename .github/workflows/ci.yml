@@ -85,7 +85,7 @@ jobs:
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: packages/wayfinder_embeddings/models
           key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
