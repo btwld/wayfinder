@@ -16,7 +16,7 @@ codes. Automated success keeps judgment rules UNASSESSED.
 ## Native installation
 
 For indexing and search without a Dart SDK, install the complete runtime from
-[the installation guide](https://github.com/conceptadev/wayfinder/blob/main/docs/install.md).
+[the installation guide](https://github.com/btwld/wayfinder/blob/main/docs/install.md).
 It includes Wayfinder with built-in Profile validation, the embedding model and required native libraries.
 The GitHub repository hosts the source, plugin and native release archives.
 

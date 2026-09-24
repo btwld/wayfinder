@@ -1,8 +1,8 @@
 name: wayfinder_cli
 description: Local OKF validation, knowledge indexing and semantic search.
 version: 0.1.2
-repository: https://github.com/conceptadev/wayfinder/tree/main/packages/wayfinder_cli
-issue_tracker: https://github.com/conceptadev/wayfinder/issues
+repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_cli
+issue_tracker: https://github.com/btwld/wayfinder/issues
 topics:
   - knowledge
   - search

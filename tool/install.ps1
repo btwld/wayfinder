@@ -40,7 +40,7 @@ if (-not $Architecture) {
     throw ('Could not determine this machine''s processor architecture; the installer ' +
         'did not assume one. On Windows x64, install from a clean session with: ' +
         'powershell -NoProfile -Command "irm ' +
-        'https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex"')
+        'https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | iex"')
 }
 if ($Architecture -ne 'X64') {
     throw "Windows $Architecture has no prebuilt Wayfinder bundle; only Windows x64 has one."
@@ -67,7 +67,7 @@ $WayfinderVersion = $env:WAYFINDER_VERSION
 if (-not $WayfinderVersion) {
     # GitHub's latest-release page redirects to its tag. The web redirect avoids
     # the API's per-address rate limit; only application releases may be latest.
-    $Response = Invoke-WebRequest 'https://github.com/conceptadev/wayfinder/releases/latest' -UseBasicParsing
+    $Response = Invoke-WebRequest 'https://github.com/btwld/wayfinder/releases/latest' -UseBasicParsing
     # Windows PowerShell 5.1 and PowerShell 7 expose the final URL differently.
     $Final = if ($Response.BaseResponse.ResponseUri) {
         $Response.BaseResponse.ResponseUri.AbsoluteUri
@@ -82,7 +82,7 @@ if (-not $WayfinderVersion) {
 if ($WayfinderVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
     throw 'WAYFINDER_VERSION must be a published release version.'
 }
-$ReleaseRoot = "https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
+$ReleaseRoot = "https://github.com/btwld/wayfinder/releases/download/wayfinder-v$WayfinderVersion"
 $Asset = 'wayfinder-windows-x64.tar.gz'
 $Stage = Join-Path $RuntimeRoot ('.install.' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null

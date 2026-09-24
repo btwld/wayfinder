@@ -22,7 +22,7 @@ typedef RunInstaller =
       Map<String, String> environment,
     );
 
-const _repository = 'conceptadev/wayfinder';
+const _repository = 'btwld/wayfinder';
 const _tag = 'wayfinder-v';
 final _stable = RegExp(r'^\d+\.\d+\.\d+$');
 final _published = RegExp(r'^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$');
@@ -188,7 +188,7 @@ class Updater {
       _out(
         'Wayfinder $target is available. The Homebrew formula is no longer '
         'updated: reinstall with the install script '
-        '(https://github.com/conceptadev/wayfinder/blob/main/docs/install.md), '
+        '(https://github.com/btwld/wayfinder/blob/main/docs/install.md), '
         'then run brew uninstall wayfinder.',
       );
       return;
@@ -212,7 +212,7 @@ class Updater {
     if (!await record.exists()) {
       throw const WayfinderException(
         'Cannot tell how Wayfinder was installed. Rerun the installer from '
-        'https://github.com/conceptadev/wayfinder/blob/main/docs/install.md.',
+        'https://github.com/btwld/wayfinder/blob/main/docs/install.md.',
       );
     }
     final script = Platform.isWindows ? 'install.ps1' : 'install.sh';

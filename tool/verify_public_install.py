@@ -10,7 +10,7 @@ import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC = ('https://raw.githubusercontent.com/conceptadev/wayfinder/'
+PUBLIC = ('https://raw.githubusercontent.com/btwld/wayfinder/'
           + os.environ.get('WAYFINDER_INSTALLER_REF', 'main') + '/tool/')
 
 def download_installer(script):

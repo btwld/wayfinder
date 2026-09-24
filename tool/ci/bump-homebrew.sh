@@ -6,7 +6,7 @@ set -euo pipefail
 
 tag="${1:?release tag is required}"
 version="${tag#v}"
-tap_repo="${TAP_REPO:-conceptadev/homebrew-tap}"
+tap_repo="${TAP_REPO:-btwld/homebrew-tap}"
 formula="Formula/okfp.rb"
 archive="https://pub.dev/api/archives/okf_profile-$version.tar.gz"
 

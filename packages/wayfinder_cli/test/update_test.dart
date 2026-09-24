@@ -133,7 +133,7 @@ void main() {
       final script = Platform.isWindows ? 'install.ps1' : 'install.sh';
       expect(
         downloads.single.toString(),
-        'https://raw.githubusercontent.com/conceptadev/wayfinder/'
+        'https://raw.githubusercontent.com/btwld/wayfinder/'
         'wayfinder-v99.0.0/tool/$script',
       );
       expect(installs.single['WAYFINDER_VERSION'], '99.0.0');
