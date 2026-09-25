@@ -13,7 +13,7 @@ workspace:
   - packages/wayfinder_cli
 
 dev_dependencies:
-  melos: ^7.1.1
+  melos: ^8.7.0
 
   args: ^2.7.0
   path: ^1.9.1
