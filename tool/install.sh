@@ -32,7 +32,7 @@ if [ -z "$version" ]; then
   # GitHub's latest-release page redirects to its tag. The web redirect avoids
   # the API's per-address rate limit; only application releases may be latest.
   latest="$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o /dev/null \
-    -w '%{url_effective}' https://github.com/conceptadev/wayfinder/releases/latest)" ||
+    -w '%{url_effective}' https://github.com/btwld/wayfinder/releases/latest)" ||
     fail 'Could not find the latest release; set WAYFINDER_VERSION.'
   case "$latest" in
     */releases/tag/wayfinder-v[0-9]*.[0-9]*.[0-9]*) version="${latest##*/wayfinder-v}" ;;
@@ -49,7 +49,7 @@ case "$version" in
   [0-9]*.[0-9]*.[0-9]*) ;;
   *) fail 'WAYFINDER_VERSION must be a published release version.' ;;
 esac
-release_root="https://github.com/conceptadev/wayfinder/releases/download/wayfinder-v$version"
+release_root="https://github.com/btwld/wayfinder/releases/download/wayfinder-v$version"
 hash_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d ' ' -f 1
   else shasum -a 256 "$1" | cut -d ' ' -f 1; fi

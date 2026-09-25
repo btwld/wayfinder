@@ -1,6 +1,6 @@
 # Release Wayfinder
 
-The public repository is `conceptadev/wayfinder`. All Dart packages use the
+The public repository is `btwld/wayfinder`. All Dart packages use the
 `concepta.dev` publisher.
 
 ## Packages and tags
@@ -28,16 +28,16 @@ unchanged dependency does not need another release.
 ### Published: 0.1.1
 
 Shipped 16 September 2026 as GitHub Latest
-[`wayfinder-v0.1.1`](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.1.1),
+[`wayfinder-v0.1.1`](https://github.com/btwld/wayfinder/releases/tag/wayfinder-v0.1.1),
 with `wayfinder_embeddings-v0.1.1`. Core stayed at published 0.1.0. That patch
-fixed oversized-input indexing ([#100](https://github.com/conceptadev/wayfinder/issues/100),
-[#101](https://github.com/conceptadev/wayfinder/pull/101)) and installer input
-validation ([#99](https://github.com/conceptadev/wayfinder/pull/99)).
+fixed oversized-input indexing ([#100](https://github.com/btwld/wayfinder/issues/100),
+[#101](https://github.com/btwld/wayfinder/pull/101)) and installer input
+validation ([#99](https://github.com/btwld/wayfinder/pull/99)).
 
 ### Prepared release: 0.1.2
 
 Unreleased on `main` since that tag is only
-[#106](https://github.com/conceptadev/wayfinder/pull/106): an in-place Profile
+[#106](https://github.com/btwld/wayfinder/pull/106): an in-place Profile
 2026.2 amendment and the matching skill/example teaching. No Dart validation or
 retrieval code changed.
 
@@ -98,13 +98,13 @@ other tag, and the other packages publish no GitHub releases. CI and `wayfinder 
 overwrite published archives.
 
 `wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
-configuration accepts `conceptadev/wayfinder` tags matching
+configuration accepts `btwld/wayfinder` tags matching
 `wayfinder-v{{version}}`. The core package accepts
 `wayfinder-core-v{{version}}`, and `wayfinder_embeddings` accepts
 `wayfinder_embeddings-v{{version}}`. All three configurations are verified, not
 merely saved: the 0.1.0 release uploaded every package through OIDC on
 September 14, 2026, which is the confirmation
-[#66](https://github.com/conceptadev/wayfinder/issues/66) was waiting on. GitHub tag
+[#66](https://github.com/btwld/wayfinder/issues/66) was waiting on. GitHub tag
 creation using the built-in workflow token must not be relied on to trigger
 publication. Each publish workflow recognizes an already-published version and
 skips upload.
@@ -122,7 +122,7 @@ model, licenses and checksums; cli_pkg's default executable archive is insuffici
 The publisher verifies the existing tag and marks only suffixed versions as
 prereleases. GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`.
 
-Homebrew is not a supported channel, and the `conceptadev/homebrew-tap` formula
+Homebrew is not a supported channel, and the `btwld/homebrew-tap` formula
 is not updated. The `publish-homebrew` job stays in the workflow but runs only
 when the repository variable `WAYFINDER_HOMEBREW` is `true`, which also requires
 `HOMEBREW_TAP_GH_TOKEN` with Contents read/write on that tap. Never print the

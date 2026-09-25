@@ -8,18 +8,18 @@ this public repository. Install the complete native runtime to use Wayfinder
 without a Dart SDK. On macOS Apple Silicon or Linux x64:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.sh | sh
 ```
 
 On Windows x64, in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex
+irm https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | iex
 ```
 
 The [installation guide](docs/install.md) covers plugin setup,
 upgrades and troubleshooting.
-[GitHub releases](https://github.com/conceptadev/wayfinder/releases) contain the
+[GitHub releases](https://github.com/btwld/wayfinder/releases) contain the
 complete runtime bundles; the [Dart package guide](packages/wayfinder_cli/README.md)
 covers library dependencies and source development.
 
@@ -134,7 +134,7 @@ the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
 binary outside `PATH`.
 
 ```
-/plugin marketplace add conceptadev/wayfinder
+/plugin marketplace add btwld/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 
@@ -324,7 +324,7 @@ and the remaining project-knowledge workflow questions. See the
 Developing the workspace requires Dart 3.11.0 or later. Run `melos get` at the
 repository root, then `melos lint` to analyze, check formatting, and test all workspace
 packages. Every package declares the same Dart 3.11.0 minimum, matching
-`conceptadev/mix`, so one SDK serves the whole workspace.
+`btwld/mix`, so one SDK serves the whole workspace.
 
 `wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
 license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)

@@ -1,4 +1,4 @@
-# Generated release pins are maintained by conceptadev/wayfinder.
+# Generated release pins are maintained by btwld/wayfinder.
 class Okfp < Formula
   desc "Concepta OKF Profile validation gate"
   homepage "https://pub.dev/packages/okf_profile"

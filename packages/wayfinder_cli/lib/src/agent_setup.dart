@@ -11,7 +11,7 @@ typedef RunProcess =
     Future<ProcessResult> Function(String executable, List<String> arguments);
 
 const _plugin = 'wayfinder@wayfinder';
-const _marketplace = 'conceptadev/wayfinder';
+const _marketplace = 'btwld/wayfinder';
 
 /// Marks a skill directory Wayfinder installed, so it never replaces or removes
 /// a skill the user or another tool put there.

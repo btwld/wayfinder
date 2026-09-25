@@ -6,7 +6,7 @@ root="$(git rev-parse --show-toplevel)"
 version="$(sed -n 's/^version: //p' "$root/packages/wayfinder_cli/pubspec.yaml")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
 tag="wayfinder-v$version"
-repo="conceptadev/wayfinder"
+repo="btwld/wayfinder"
 source_sha="$(git rev-parse HEAD)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -15,7 +15,7 @@ python3 - "$assets/source.json" "$source_sha" "$version" <<'PY'
 import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({
-    'repository': 'conceptadev/wayfinder', 'commit': sys.argv[2],
+    'repository': 'btwld/wayfinder', 'commit': sys.argv[2],
     'applicationVersion': sys.argv[3],
 }, indent=2) + '\n')
 PY

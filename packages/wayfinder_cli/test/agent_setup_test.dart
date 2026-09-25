@@ -137,7 +137,7 @@ void main() {
           },
         ).install('claude');
         expect(calls.skip(1), [
-          ['claude', 'plugin', 'marketplace', 'add', 'conceptadev/wayfinder'],
+          ['claude', 'plugin', 'marketplace', 'add', 'btwld/wayfinder'],
           [
             'claude',
             'plugin',

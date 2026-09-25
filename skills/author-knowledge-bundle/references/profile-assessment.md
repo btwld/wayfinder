@@ -20,7 +20,7 @@ problem, not a 2026.2 judgment failure.
 
 The canonical assignment
 audit is `implementation/profile-coverage.md` in the
-[Wayfinder repository](https://github.com/conceptadev/wayfinder); the review
+[Wayfinder repository](https://github.com/btwld/wayfinder); the review
 map below keeps this installed skill self-contained.
 Routine review covers changed concepts and their directly affected placement,
 indexes, relationships, and dependents. Adoption, release upgrades, migrations,

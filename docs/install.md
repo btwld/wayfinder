@@ -14,7 +14,7 @@ example `0.0.2`.
 For macOS Apple Silicon or Linux x64:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.sh | sh
 ```
 
 The script installs versioned runtimes under `~/.local/share/wayfinder-runtime`
@@ -26,7 +26,7 @@ refuses to overwrite commands belonging to another installation method.
 For Windows x64, run in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex
+irm https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | iex
 ```
 
 Windows runtimes live under `%LOCALAPPDATA%\WayfinderRuntime`; set
@@ -101,7 +101,7 @@ rebuilds an index from scratch.
 Install and verify the commands first. From the consuming project, in Claude Code:
 
 ```text
-/plugin marketplace add conceptadev/wayfinder
+/plugin marketplace add btwld/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 
@@ -120,7 +120,7 @@ a different repository under an existing marketplace name.
 ```text
 /plugin uninstall concepta-knowledge@wayfinder
 /plugin marketplace remove wayfinder
-/plugin marketplace add conceptadev/wayfinder
+/plugin marketplace add btwld/wayfinder
 /plugin install wayfinder@wayfinder
 ```
 
@@ -139,7 +139,7 @@ plugin together; they do not require removing the marketplace again.
 DOT output are text for an external preview; Wayfinder does not render a
 picture. Upstream `okf` remains a separate optional tool for write and
 concept-authoring operations. Its Windows binary availability is tracked
-independently in [okf#43](https://github.com/conceptadev/okf/issues/43).
+independently in [okf#43](https://github.com/btwld/okf/issues/43).
 
 ## Upgrade and troubleshoot
 
@@ -169,7 +169,7 @@ machine is unsupported; some interactive Windows PowerShell 5.1 sessions do
 this. Install from a clean session instead:
 
 ```powershell
-powershell -NoProfile -Command "irm https://raw.githubusercontent.com/conceptadev/wayfinder/main/tool/install.ps1 | iex"
+powershell -NoProfile -Command "irm https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | iex"
 ```
 
 A message naming a machine, such as `Windows Arm64 has no prebuilt Wayfinder
