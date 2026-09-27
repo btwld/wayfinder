@@ -1,3 +1,29 @@
+# 0.2.0
+
+Breaking API placement cleanup with a hard cutoff; no deprecated aliases or
+compatibility wrappers are provided:
+
+- Replace `EmbeddingEntity.computeKey(...)` with
+  `embeddingIdentityKey(...)`.
+- Replace `chunkFiles(registry, files, ...)` with
+  `registry.chunkFiles(files, ...)`.
+- Replace `deterministicChunkId(...)` with `Chunk.computeId(...)`.
+- Replace `ReciprocalRankFusion.defaultRankConstant` with
+  `defaultReciprocalRankConstant`, and `ReciprocalRankFusion.fuse(...)` with
+  `fuseReciprocalRanks(...)`.
+- Replace `RetrievalEvaluator.evaluate(...)` with
+  `RetrievalEvaluation.evaluate(...)`, and `.evaluateQuery(...)` with
+  `QueryRetrievalEvaluation.evaluate(...)`.
+- Replace `RetrievalRegressionGate.evaluate(...)` with
+  `RetrievalRegressionGateResult.evaluate(...)`.
+- Replace `prepareFixtureConfig(...)` with `FixtureConfig.prepare(...)`, and
+  `runPreview(...)` with `PreviewResult.fromFiles(...)`.
+- Replace `RetrievalEvaluator.summarizeGroups(...)` with the top-level
+  `summarizeRetrievalQueryGroups(...)` orchestration helper.
+- Replace `ObjectBoxStore(...)` with `ObjectBoxStore.open(...)`.
+- Replace `KnowledgeIndex.openSnapshot(...)` with
+  `KnowledgeIndex.fromSnapshot(...)`.
+
 # 0.1.1
 
 - Recover oversized embedding inputs with lossless Unicode-safe subdivision and

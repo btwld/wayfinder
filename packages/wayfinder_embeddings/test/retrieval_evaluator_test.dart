@@ -6,13 +6,13 @@ import 'package:test/test.dart';
 import '../tool/src/retrieval_evaluator.dart';
 
 void main() {
-  group('RetrievalEvaluator', () {
+  group('retrieval evaluation', () {
     test('computes recall, nDCG, and reciprocal rank at k', () {
       final judgments = RelevanceJudgments.fromMap({
         'encrypt data': {'chunk-a': 3, 'chunk-b': 2, 'chunk-c': 0},
       });
 
-      final evaluation = RetrievalEvaluator.evaluate(
+      final evaluation = RetrievalEvaluation.evaluate(
         judgments: judgments,
         rankedChunkIdsByQuery: {
           'encrypt data': ['chunk-b', 'chunk-a', 'chunk-z'],
@@ -40,7 +40,7 @@ void main() {
         'refresh token': {'chunk-a': 3},
       });
 
-      final evaluation = RetrievalEvaluator.evaluate(
+      final evaluation = RetrievalEvaluation.evaluate(
         judgments: judgments,
         rankedChunkIdsByQuery: const {},
         k: 10,
@@ -57,7 +57,7 @@ void main() {
         'refresh token': {'chunk-a': 3},
       });
 
-      final evaluation = RetrievalEvaluator.evaluate(
+      final evaluation = RetrievalEvaluation.evaluate(
         judgments: judgments,
         rankedChunkIdsByQuery: const {
           'refresh token': ['chunk-a', 'chunk-a'],
@@ -458,7 +458,7 @@ void main() {
         retrievedRelevantChunkIds: const ['chunk-c'],
       );
 
-      final groups = RetrievalEvaluator.summarizeGroups(
+      final groups = summarizeRetrievalQueryGroups(
         queryEvaluations: [dartQuery, typescriptQuery, markdownQuery],
         groupByQueryId: const {
           'q1': 'dart',
@@ -525,21 +525,21 @@ void main() {
       );
 
       expect(
-        () => RetrievalEvaluator.summarizeGroups(
+        () => summarizeRetrievalQueryGroups(
           queryEvaluations: [query],
           groupByQueryId: const {},
         ),
         throwsArgumentError,
       );
       expect(
-        () => RetrievalEvaluator.summarizeGroups(
+        () => summarizeRetrievalQueryGroups(
           queryEvaluations: [query],
           groupByQueryId: const {'q1': 'dart', 'q2': 'dart'},
         ),
         throwsArgumentError,
       );
       expect(
-        () => RetrievalEvaluator.summarizeGroups(
+        () => summarizeRetrievalQueryGroups(
           queryEvaluations: [
             query,
             query.copyWith(metrics: query.metrics.copyWith(k: 5)),
@@ -871,7 +871,7 @@ void main() {
         ],
       );
 
-      final result = RetrievalRegressionGate.evaluate(
+      final result = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
         maxRecallDrop: 0.05,
@@ -961,7 +961,7 @@ void main() {
         ],
       );
 
-      final result = RetrievalRegressionGate.evaluate(
+      final result = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
         maxRecallDrop: 0.05,
@@ -1055,7 +1055,7 @@ void main() {
         ],
       );
 
-      final result = RetrievalRegressionGate.evaluate(
+      final result = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
       );
@@ -1088,7 +1088,7 @@ void main() {
       );
 
       expect(
-        () => RetrievalRegressionGate.evaluate(
+        () => RetrievalRegressionGateResult.evaluate(
           current: report,
           baseline: report,
           maxRecallDrop: double.nan,
@@ -1096,7 +1096,7 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () => RetrievalRegressionGate.evaluate(
+        () => RetrievalRegressionGateResult.evaluate(
           current: report,
           baseline: report,
           maxNdcgDrop: double.infinity,
@@ -1104,7 +1104,7 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () => RetrievalRegressionGate.evaluate(
+        () => RetrievalRegressionGateResult.evaluate(
           current: report,
           baseline: report,
           maxMrrDrop: double.negativeInfinity,
@@ -1112,7 +1112,7 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () => RetrievalRegressionGate.evaluate(
+        () => RetrievalRegressionGateResult.evaluate(
           current: report,
           baseline: report,
           maxRecallDrop: 1.01,
@@ -1233,7 +1233,7 @@ void main() {
         ],
       );
 
-      final result = RetrievalRegressionGate.evaluate(
+      final result = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
       );
@@ -1283,7 +1283,7 @@ void main() {
         ],
       );
 
-      final result = RetrievalRegressionGate.evaluate(
+      final result = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
       );

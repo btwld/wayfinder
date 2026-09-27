@@ -34,28 +34,35 @@ fixed oversized-input indexing ([#100](https://github.com/btwld/wayfinder/issues
 [#101](https://github.com/btwld/wayfinder/pull/101)) and installer input
 validation ([#99](https://github.com/btwld/wayfinder/pull/99)).
 
-### Prepared release: 0.1.2
+### Prepared releases: embeddings 0.2.0 and CLI 0.1.2
 
 Unreleased on `main` since that tag is only
 [#106](https://github.com/btwld/wayfinder/pull/106): an in-place Profile
-2026.2 amendment and the matching skill/example teaching. No Dart validation or
-retrieval code changed.
+2026.2 amendment and the matching skill/example teaching, together with the
+breaking Dart API-placement cleanup in `wayfinder_embeddings`.
 
 | Component | Prepared version | Publication tag |
 | --- | --- | --- |
 | `wayfinder_cli`, native runtime and plugin | 0.1.2 | `wayfinder-v0.1.2` |
-| `wayfinder_embeddings` | Remains at published 0.1.1 | No new tag |
+| `wayfinder_embeddings` | 0.2.0 | `wayfinder_embeddings-v0.2.0` |
 | `wayfinder` core | Remains at published 0.1.0 | No new tag |
 
-A CLI and plugin patch is required even though the packages' Dart APIs are
-unchanged. Claude Code refreshes the plugin only when its version changes, and
+A CLI and plugin patch is required for the Profile teaching, while the
+embeddings package has a breaking API-placement release. Claude Code refreshes the plugin only when its version changes, and
 `wayfinder update` offers only stable `wayfinder-v` releases, so a 0.1.1 install
 still teaches the withdrawn YAML SHOULDs until this cut. CI requires the CLI
 pubspec, `wayfinderVersion`, and `.claude-plugin/plugin.json` to stay aligned.
 
 The version lock is applied on the CLI pubspec, `wayfinderVersion`,
-`.claude-plugin/plugin.json`, and the CLI changelog. Embeddings and core
-are unchanged.
+`.claude-plugin/plugin.json`, and the CLI changelog. The CLI now depends on
+`wayfinder_embeddings` `^0.2.0`; core remains unchanged.
+
+The embeddings release also makes a breaking API-placement cleanup. Callers
+must migrate to receiver-owned chunking, type-owned chunk identity and snapshot
+opening, the top-level `embeddingIdentityKey(...)` and
+`fuseReciprocalRanks(...)` helpers, and the result/configuration factories
+listed in the package changelog. No deprecated aliases or compatibility
+wrappers are provided.
 
 This patch withdraws the invented §6.5 producer SHOULDs (quoted timestamps,
 block-style mappings, `verified` as a list) so the Profile, examples, and
@@ -65,8 +72,10 @@ is implementation guide §5 when that file is present. Graph CLI filters are
 documented to match MCP.
 
 **Upgrade:** run `wayfinder update` (or reinstall) so the plugin and skills
-refresh. Existing 2026.2 bundles stay conformant; no index rebuild, Profile
-serial, model change, or ObjectBox schema change is needed. New writes should
+refresh. Existing 2026.2 bundles stay conformant; no Profile serial, model
+change or ObjectBox schema change is needed. Embeddings callers must migrate to
+the receiver-owned and type-owned APIs listed in the package changelog; no
+deprecated aliases or compatibility wrappers are provided. New writes should
 copy YAML shape from OKF §5. Do not bump a bundle's `concepta_profile` as a
 repair.
 
@@ -74,9 +83,10 @@ Publication order for this release:
 
 1. Merge this preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
-2. Do not create embeddings or core tags.
+2. Publish `wayfinder_embeddings-v0.2.0` at the same checked commit and wait
+   for the package to become available on pub.dev.
 3. Outside the workspace, resolve the CLI with hosted dependencies (core 0.1.0,
-   embeddings 0.1.1, no path overrides), analyze it and run
+   embeddings 0.2.0, no path overrides), analyze it and run
    `dart pub publish --dry-run`.
 4. Publish `wayfinder-v0.1.2` at the same checked commit and wait for CLI
    package publication.

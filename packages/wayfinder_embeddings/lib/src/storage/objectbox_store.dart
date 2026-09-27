@@ -12,6 +12,7 @@ import '../models/search_result.dart';
 import '../util/similarity.dart';
 import 'base_store.dart';
 import 'embedding_entities.dart';
+import 'embedding_key.dart';
 import 'objectbox_entities.dart';
 import 'vector_validation.dart';
 
@@ -44,7 +45,10 @@ class ObjectBoxStore extends BaseStore {
   }
 
   /// Opens (or creates) an ObjectBox store rooted at [directory].
-  factory ObjectBoxStore(String directory, {int minimumSearchCandidates = 50}) {
+  factory ObjectBoxStore.open(
+    String directory, {
+    int minimumSearchCandidates = 50,
+  }) {
     if (minimumSearchCandidates <= 0) {
       throw ArgumentError.value(
         minimumSearchCandidates,
@@ -373,10 +377,10 @@ class ObjectBoxStore extends BaseStore {
         context: 'for embedding ${embedding.chunkId}',
       );
       return EmbeddingEntity(
-        embeddingKey: EmbeddingEntity.computeKey(
-          embedding.chunkId,
-          embedding.source,
-          embedding.modelName,
+        embeddingKey: embeddingIdentityKey(
+          chunkId: embedding.chunkId,
+          source: embedding.source,
+          modelName: embedding.modelName,
         ),
         chunkId: embedding.chunkId,
         source: embedding.source,

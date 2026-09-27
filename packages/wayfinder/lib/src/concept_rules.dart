@@ -43,7 +43,7 @@ List<ProfileFinding> validateConceptRules(OkfBundleLoadResult loaded) {
 Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
   final profile = loaded.documents['profile.md'];
   if (profile != null && profile.type != 'Knowledge Profile') {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.profileDeclarationKind,
       'profile.md must have type Knowledge Profile.',
       'profile.md',
@@ -59,7 +59,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
       'description',
       'status',
     }.every((key) => nonEmptyString(frontmatter[key]) != null)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.conceptBaselineFields,
         'Every concept must contain non-empty string values for type, title, description, and status.',
         path,
@@ -69,7 +69,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
         .where((key) => !okfKnownFrontmatterKeys.contains(key))
         .toList();
     if (extensionKeys.isNotEmpty) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.frontmatterFieldsOkf,
         'Concepta producers may use only OKF 0.2 frontmatter fields; found ${extensionKeys.join(', ')}.',
         path,
@@ -78,7 +78,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
     final status = nonEmptyString(frontmatter['status']);
     if (status != null &&
         !const {'draft', 'stable', 'deprecated'}.contains(status)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.statusValue,
         'Status must be draft, stable, or deprecated.',
         path,
@@ -91,14 +91,14 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
       ..._relationshipLabels,
     });
     if (duplicatedTags.isNotEmpty) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.tagLiteralDuplication,
         'Tags must not duplicate type, status, trust, or standard relationship values; found ${duplicatedTags.join(', ')}.',
         path,
       );
     }
     if (!frontmatter.containsKey('generated')) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.generationProvenanceRecommended,
         'Generation provenance is recommended when it is known.',
         path,
@@ -112,7 +112,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
 ) sync* {
   final registry = loaded.documents['types.md'];
   if (registry == null) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.typeRegistryPresent,
       'The bundle must contain types.md.',
       'types.md',
@@ -120,7 +120,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     return;
   }
   if (registry.type != 'Type Registry') {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.typeRegistryKind,
       'types.md must have type Type Registry.',
       'types.md',
@@ -129,7 +129,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   final table = _firstTable(registry.body);
   if (table == null ||
       !_stringList.equals(table.header, const ['Type', 'Intended content'])) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.typeRegistryColumns,
       'The type registry must use exactly Type and Intended content columns.',
       'types.md',
@@ -140,7 +140,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   final standardRows = rows.take(standardTypes.length).toList();
   if (standardRows.length != standardTypes.length ||
       !_sameTypeRows(standardRows, standardTypes)) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.typeRegistryStandards,
       'The type registry must contain all fourteen canonical standard rows.',
       'types.md',
@@ -160,7 +160,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     rows.map((row) => row.first).toList(),
     expectedOrder,
   )) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.typeRegistryOrder,
       'Project type rows must follow the standards in lexical order.',
       'types.md',
@@ -170,7 +170,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
   for (final entry in loaded.documents.entries) {
     final type = entry.value.type;
     if (type != null && !registered.contains(type)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.usedTypeRegistered,
         'Used type $type must be registered in types.md.',
         entry.key,
@@ -178,7 +178,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
     }
   }
   if (extensionRows.isNotEmpty) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.registeredTypeExtension,
       'Registered project types are conformant and should inform later Profile releases.',
       'types.md',
@@ -198,7 +198,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   final registry = loaded.documents['actors.md'];
   if (registry == null) {
     if (usedActors.isNotEmpty) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.actorRegistryRequired,
         'actors.md is required whenever an OKF actor-valued field is used.',
         'actors.md',
@@ -207,7 +207,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
     return;
   }
   if (registry.type != 'Actor Registry') {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorRegistryKind,
       'actors.md must have type Actor Registry.',
       'actors.md',
@@ -223,7 +223,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
         'Role',
         'Active',
       ])) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorRegistryColumns,
       'The actor registry must use the six fixed columns in canonical order.',
       'actors.md',
@@ -232,7 +232,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   }
   final rows = table.rows.where((row) => row.length == 6).toList();
   if (rows.any((row) => row.any((cell) => cell.isEmpty))) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorRowComplete,
       'Actor rows must contain an ID, name, organization, side, role, and active value.',
       'actors.md',
@@ -247,7 +247,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
       'unknown',
     }.contains(row[3]),
   )) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorSideValue,
       'Actor Side must use the closed Profile vocabulary.',
       'actors.md',
@@ -264,14 +264,14 @@ Iterable<ProfileFinding> _validateActorRegistry(
     }
   }
   if (invalidPeriod) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorActiveInterval,
       'Actor Active values must be unknown or valid inclusive-exclusive date ranges.',
       'actors.md',
     );
   }
   if (periods.values.any(_hasOverlap)) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.actorActiveOverlap,
       'Dated Active periods for one actor must not overlap.',
       'actors.md',
@@ -280,7 +280,7 @@ Iterable<ProfileFinding> _validateActorRegistry(
   final registered = rows.map((row) => row.first).toSet();
   for (final entry in usedActors.entries) {
     if (!registered.contains(entry.key)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.usedActorRegistered,
         'Used actor ${entry.key} must be represented in actors.md.',
         entry.value,
@@ -301,7 +301,7 @@ Iterable<ProfileFinding> _validateSources(
     if (raw is! List ||
         maps.length != values.length ||
         maps.any((source) => nonEmptyString(source['resource']) == null)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.sourceEntryShape,
         'Every present source entry must be a mapping with a non-empty resource.',
         entry.key,
@@ -312,14 +312,14 @@ Iterable<ProfileFinding> _validateSources(
         .whereType<String>()
         .toList();
     if (ids.toSet().length != ids.length) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.sourceIdUnique,
         'Source IDs must be unique within a concept.',
         entry.key,
       );
     }
     if (ids.any(bodies[entry.key]!.hasUnresolvedFootnote)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.sourceAttributionJoin,
         'A recognized source-attribution reference must join to its footnote definition.',
         entry.key,
@@ -336,7 +336,7 @@ Iterable<ProfileFinding> _validateRelationships(
     final section = bodies[entry.key]!.relationships;
     if (section == null) continue;
     if (section.malformed) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.relationshipsShape,
         'Each Relationships entry must contain exactly one label and one Markdown target.',
         entry.key,
@@ -345,7 +345,7 @@ Iterable<ProfileFinding> _validateRelationships(
     }
     for (final label in section.labels) {
       if (!_relationshipLabels.contains(label)) {
-        yield profileFinding(
+        yield ProfileFinding.forRule(
           rules.relationshipLabelExtension,
           'The relationship label $label is a permitted project extension.',
           entry.key,
@@ -364,7 +364,7 @@ Iterable<ProfileFinding> _validateInternalLinks(
   } catch (error) {
     // A toolchain throw must not take down the whole assessment, and a pass
     // may not be claimed while the §7.1 rules went unassessed.
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.linkGraphUnavailable,
       'The OKF link graph could not be built ($error); '
           'the §7.1 link rules were not assessed.',
@@ -387,7 +387,7 @@ Iterable<ProfileFinding> _validateInternalLinks(
           edge.source.documentPath,
           'internal-link-bundle-relative',
         ))) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.internalLinkBundleRelative,
         'Internal links should use bundle-relative targets.',
         edge.source.documentPath,
@@ -395,7 +395,7 @@ Iterable<ProfileFinding> _validateInternalLinks(
     }
     if (edge.resolution == OkfGraphResolution.unresolved &&
         emitted.add((edge.source.documentPath, 'internal-link-unresolved'))) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.internalLinkUnresolved,
         'An unresolved internal link is permitted and remains an OKF graph edge.',
         edge.source.documentPath,
@@ -435,7 +435,7 @@ Iterable<ProfileFinding> _validateSourcePaths(
       _ => false,
     };
     if (missing && emitted.add((edge.source.documentPath, edge.rawTarget))) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.sourcePathUnresolved,
         'Source path ${edge.rawTarget} does not resolve to a file or '
         'directory.',

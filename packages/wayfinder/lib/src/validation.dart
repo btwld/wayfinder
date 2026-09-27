@@ -53,8 +53,8 @@ final class ProfileValidationResult {
     required this.automatedGateState,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
-  factory ProfileValidationResult.blockedByOkf(OkfSpecValidation validation) =>
-      ProfileValidationResult._(
+  ProfileValidationResult.blockedByOkf(OkfSpecValidation validation)
+    : this._(
         okfValidation: validation,
         profileRelease: null,
         profileState: ProfileState.blockedByOkf,
@@ -62,27 +62,27 @@ final class ProfileValidationResult {
         automatedGateState: AutomatedGateState.fail,
       );
 
-  factory ProfileValidationResult.undispatched(
+  ProfileValidationResult.undispatched(
     OkfSpecValidation validation,
     ProfileFinding finding,
-  ) => ProfileValidationResult._(
-    okfValidation: validation,
-    profileRelease: null,
-    profileState: ProfileState.unsupported,
-    findings: <ProfileFinding>[finding],
-    automatedGateState: AutomatedGateState.unsupported,
-  );
+  ) : this._(
+        okfValidation: validation,
+        profileRelease: null,
+        profileState: ProfileState.unsupported,
+        findings: <ProfileFinding>[finding],
+        automatedGateState: AutomatedGateState.unsupported,
+      );
 
-  factory ProfileValidationResult.unsupported(
+  ProfileValidationResult.unsupported(
     OkfSpecValidation validation,
     String release,
-  ) => ProfileValidationResult._(
-    okfValidation: validation,
-    profileRelease: release,
-    profileState: ProfileState.unsupported,
-    findings: const <ProfileFinding>[],
-    automatedGateState: AutomatedGateState.unsupported,
-  );
+  ) : this._(
+        okfValidation: validation,
+        profileRelease: release,
+        profileState: ProfileState.unsupported,
+        findings: const <ProfileFinding>[],
+        automatedGateState: AutomatedGateState.unsupported,
+      );
 
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,

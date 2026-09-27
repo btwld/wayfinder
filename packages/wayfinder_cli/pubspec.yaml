@@ -21,7 +21,7 @@ dependencies:
   args: ^2.7.0
   crypto: ^3.0.3
   okf: ^0.5.0
-  wayfinder_embeddings: ^0.1.1
+  wayfinder_embeddings: ^0.2.0
   mcp_dart: ^2.4.2
   wayfinder: ^0.1.0
   path: ^1.9.1

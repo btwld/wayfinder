@@ -27,7 +27,7 @@ Iterable<ProfileFinding> _validateRawTier(
   _BundleInventory inventory,
 ) sync* {
   if (inventory.nonRootDirectories.contains('references/raw')) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.rawDirectoryPlacement,
       'A raw/ tier belongs to a source directory; raw/ must not sit directly '
           'under references/.',
@@ -42,7 +42,7 @@ Iterable<ProfileFinding> _validateRawTier(
     if (directories.first != 'references' || !directories.contains('raw')) {
       continue;
     }
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.rawDirectoryMarkdown,
       'A raw/ tier holds verbatim originals; the only markdown permitted in '
       'it is each directory\'s own index.md.',
@@ -59,7 +59,7 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
         !_structuralConcepts.contains(p.posix.basename(path))) {
       continue;
     }
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.rootStructureFiles,
       'profile.md, types.md, and actors.md are reserved for their bundle-root '
       'structural purposes.',
@@ -76,7 +76,7 @@ Iterable<ProfileFinding> _validateRootFiles(OkfBundleLoadResult loaded) sync* {
     if (!loaded.documents.containsKey('types.md')) 'types.md',
   ];
   if (missing.isNotEmpty) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.rootStructureFiles,
       'The bundle root must contain index.md, log.md, profile.md, and types.md; '
       'missing ${missing.join(', ')}.',
@@ -92,7 +92,7 @@ Iterable<ProfileFinding> _validateDirectoryIndexes(
   for (final directory in inventory.nonRootDirectories) {
     final indexPath = '$directory/index.md';
     if (!loaded.indexes.containsKey(indexPath)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.directoryIndexPresent,
         'Every nonempty directory must contain index.md.',
         indexPath,
@@ -113,7 +113,7 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
     final basename = p.posix.basenameWithoutExtension(path);
     final sibling = parent.isEmpty ? basename : '$parent/$basename';
     if (directories.contains(sibling)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.conceptAreaNameCollision,
         'A concept beside an area of the same name needs contextual placement '
         'review.',
@@ -139,7 +139,7 @@ Iterable<ProfileFinding> _validateIndexes(
     final actual = _parseIndex(entry.value);
     if (actual == null ||
         !const ListEquality<OkfIndexEntry>().equals(actual, expected)) {
-      yield profileFinding(
+      yield ProfileFinding.forRule(
         rules.indexSemanticProjection,
         'The index must exactly match its immediate semantic projection.',
         entry.key,
@@ -161,7 +161,7 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   }
   if (parsed.entries.isEmpty ||
       parsed.entries.any((entry) => entry.action.isEmpty)) {
-    yield profileFinding(
+    yield ProfileFinding.forRule(
       rules.logEntryLeadWord,
       'Every root log entry must begin with a nonempty bold lead word and a '
           'colon.',

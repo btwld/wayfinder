@@ -20,8 +20,7 @@ Future<void> main() async {
   // Dry-run to preview chunks without generating embeddings.
   final skippedDuringPreview = <String, Map<String, String?>>{};
   final previewChunks = [
-    for (final chunked in chunkFiles(
-      registry,
+    for (final chunked in registry.chunkFiles(
       files,
       onFileSkipped: (file, {inferredType, reason}) {
         skippedDuringPreview[p.relative(file.path, from: exampleDir.path)] = {

@@ -333,7 +333,7 @@ class WayfinderKnowledge {
             }
           }
         }
-        final store = ObjectBoxStore(staged.path);
+        final store = ObjectBoxStore.open(staged.path);
         late final ({int embeddedChunks, int removedChunks, int writtenChunks})
         counts;
         try {
@@ -416,9 +416,11 @@ class WayfinderKnowledge {
     }
     final encoder = await _openEncoder();
     try {
-      final store = ObjectBoxStore(p.join(directory.path, record.generation));
+      final store = ObjectBoxStore.open(
+        p.join(directory.path, record.generation),
+      );
       try {
-        final index = KnowledgeIndex.openSnapshot(
+        final index = KnowledgeIndex.fromSnapshot(
           snapshot: snapshot,
           store: store,
           embedder: encoder.embedder,

@@ -38,7 +38,7 @@ void main() {
       final writer = KnowledgeIndex(store: store, includeContext: true);
       await writer.synchronize(fitted);
       final before = await writer.search('password');
-      final reader = KnowledgeIndex.openSnapshot(
+      final reader = KnowledgeIndex.fromSnapshot(
         snapshot: restored,
         store: store,
         includeContext: true,

@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
+import 'package:wayfinder_embeddings/src/storage/embedding_key.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'support/store_contract.dart';
@@ -88,17 +89,17 @@ void main() {
     });
   });
 
-  group('EmbeddingEntity', () {
+  group('embeddingIdentityKey', () {
     test('computes distinct keys when identity parts contain delimiters', () {
-      final first = EmbeddingEntity.computeKey(
-        'chunk::alpha',
-        'source',
-        'model',
+      final first = embeddingIdentityKey(
+        chunkId: 'chunk::alpha',
+        source: 'source',
+        modelName: 'model',
       );
-      final second = EmbeddingEntity.computeKey(
-        'chunk',
-        'alpha::source',
-        'model',
+      final second = embeddingIdentityKey(
+        chunkId: 'chunk',
+        source: 'alpha::source',
+        modelName: 'model',
       );
 
       expect(first, isNot(second));

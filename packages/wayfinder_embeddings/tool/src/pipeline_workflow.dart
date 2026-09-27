@@ -16,11 +16,38 @@ import 'retrieval_evaluator.dart';
 
 /// Normalized configuration for fixture-driven ingestion workflows.
 class FixtureConfig {
-  FixtureConfig({
+  FixtureConfig._({
     required this.packageRoot,
     required this.fixturesRoot,
     required this.outputDir,
   });
+
+  /// Resolves fixture paths relative to the running tool and prepares output.
+  static Future<FixtureConfig> prepare({
+    required String fixturesRoot,
+    String? outputDir,
+  }) async {
+    final scriptDir = File.fromUri(Platform.script).parent;
+    final packageRoot = scriptDir.parent;
+    final fixturesDir = Directory(p.join(packageRoot.path, fixturesRoot));
+    if (!await fixturesDir.exists()) {
+      throw FileSystemException(
+        'Fixture directory not found',
+        fixturesDir.path,
+      );
+    }
+    final targetOutput = Directory(
+      outputDir == null || outputDir.isEmpty
+          ? p.join(packageRoot.path, 'validation_results')
+          : p.join(packageRoot.path, outputDir),
+    );
+    await targetOutput.create(recursive: true);
+    return FixtureConfig._(
+      packageRoot: packageRoot,
+      fixturesRoot: fixturesDir,
+      outputDir: targetOutput,
+    );
+  }
 
   final Directory packageRoot;
   final Directory fixturesRoot;
@@ -35,6 +62,31 @@ class PreviewResult {
     required Map<String, Map<String, String?>> skipped,
   }) : chunks = List<Chunk>.unmodifiable(chunks),
        skipped = _freezeSkippedFiles(skipped);
+
+  /// Chunks files into a preview without embedding or storing them.
+  factory PreviewResult.fromFiles({
+    required ChunkerRegistry registry,
+    required List<File> files,
+    required Directory fixturesDir,
+    void Function(File file, List<Chunk> chunks)? onFileProcessed,
+  }) {
+    final skipped = <String, Map<String, String?>>{};
+    final chunks = <Chunk>[];
+    for (final chunked in registry.chunkFiles(
+      files,
+      onFileProcessed: onFileProcessed,
+      onFileSkipped: (file, {inferredType, reason}) {
+        skipped[p.relative(file.path, from: fixturesDir.path)] = {
+          'inferredType': inferredType,
+          'reason': reason,
+        };
+      },
+    )) {
+      chunks.addAll(chunked.chunks);
+    }
+
+    return PreviewResult(chunks: chunks, skipped: skipped);
+  }
 
   final List<Chunk> chunks;
   final Map<String, Map<String, String?>> skipped;
@@ -332,29 +384,6 @@ class FixtureRelevanceSpan {
   }
 }
 
-FixtureConfig resolveFixtureConfig({
-  required String fixturesRoot,
-  String? outputDir,
-}) {
-  final scriptDir = File.fromUri(Platform.script).parent;
-  final packageRoot = scriptDir.parent;
-  final fixturesDir = Directory(p.join(packageRoot.path, fixturesRoot));
-  if (!fixturesDir.existsSync()) {
-    throw FileSystemException('Fixture directory not found', fixturesDir.path);
-  }
-  final targetOutput = Directory(
-    outputDir == null || outputDir.isEmpty
-        ? p.join(packageRoot.path, 'validation_results')
-        : p.join(packageRoot.path, outputDir),
-  );
-  targetOutput.createSync(recursive: true);
-  return FixtureConfig(
-    packageRoot: packageRoot,
-    fixturesRoot: fixturesDir,
-    outputDir: targetOutput,
-  );
-}
-
 List<File> collectFixtureFiles(
   Directory fixturesDir, {
   Set<String> extensions = const {
@@ -383,7 +412,7 @@ List<File> collectFixtureFiles(
 /// relative to [fixturesDir] with POSIX separators.
 String stableFixtureChunkId(Chunk chunk, Directory fixturesDir) {
   final relativePath = _fixtureRelativePath(chunk.sourcePath, fixturesDir);
-  return deterministicChunkId(
+  return Chunk.computeId(
     sourcePath: relativePath,
     lineStart: chunk.lineStart,
     lineEnd: chunk.lineEnd,
@@ -400,63 +429,28 @@ ChunkerRegistry buildDefaultRegistry({
   ChunkingOptions chunking = const ChunkingOptions._(),
 }) {
   return ChunkerRegistry()
-    ..registerChunker(_buildDartChunker(chunking))
-    ..registerChunker(_buildTypeScriptChunker(chunking))
-    ..registerChunker(_buildMarkdownChunker(chunking))
-    ..registerChunker(_buildTextChunker(chunking));
-}
-
-DartChunker _buildDartChunker(ChunkingOptions chunking) {
-  final maxLength = chunking.dartMaxChunkLength;
-  return maxLength == null
-      ? DartChunker()
-      : DartChunker(maxChunkLength: maxLength);
-}
-
-TypeScriptChunker _buildTypeScriptChunker(ChunkingOptions chunking) {
-  final maxLength = chunking.typescriptMaxChunkLength;
-  return maxLength == null
-      ? TypeScriptChunker()
-      : TypeScriptChunker(maxChunkLength: maxLength);
-}
-
-BaseChunker _buildMarkdownChunker(ChunkingOptions chunking) {
-  final maxLength = chunking.markdownMaxChunkLength;
-  return maxLength == null
-      ? MarkdownChunker()
-      : MarkdownChunker(maxChunkLength: maxLength);
-}
-
-BaseChunker _buildTextChunker(ChunkingOptions chunking) {
-  final maxLength = chunking.textMaxChunkLength;
-  return maxLength == null
-      ? TextChunker()
-      : TextChunker(maxChunkLength: maxLength);
-}
-
-Future<PreviewResult> runPreview({
-  required ChunkerRegistry registry,
-  required List<File> files,
-  required Directory fixturesDir,
-  void Function(File file, List<Chunk> chunks)? onFileProcessed,
-}) async {
-  final skipped = <String, Map<String, String?>>{};
-  final chunks = <Chunk>[];
-  for (final chunked in chunkFiles(
-    registry,
-    files,
-    onFileProcessed: onFileProcessed,
-    onFileSkipped: (file, {inferredType, reason}) {
-      skipped[p.relative(file.path, from: fixturesDir.path)] = {
-        'inferredType': inferredType,
-        'reason': reason,
-      };
-    },
-  )) {
-    chunks.addAll(chunked.chunks);
-  }
-
-  return PreviewResult(chunks: chunks, skipped: skipped);
+    ..registerChunker(
+      chunking.dartMaxChunkLength == null
+          ? DartChunker()
+          : DartChunker(maxChunkLength: chunking.dartMaxChunkLength!),
+    )
+    ..registerChunker(
+      chunking.typescriptMaxChunkLength == null
+          ? TypeScriptChunker()
+          : TypeScriptChunker(
+              maxChunkLength: chunking.typescriptMaxChunkLength!,
+            ),
+    )
+    ..registerChunker(
+      chunking.markdownMaxChunkLength == null
+          ? MarkdownChunker()
+          : MarkdownChunker(maxChunkLength: chunking.markdownMaxChunkLength!),
+    )
+    ..registerChunker(
+      chunking.textMaxChunkLength == null
+          ? TextChunker()
+          : TextChunker(maxChunkLength: chunking.textMaxChunkLength!),
+    );
 }
 
 Future<void> validateAgainstGolden({
@@ -831,20 +825,21 @@ Future<_PersistedCorpus> _persistCorpus({
 
   // Chunk once: the artifacts need the chunk list and the pipeline needs
   // the same chunks to embed and store.
-  final chunkedFiles = chunkFiles(
-    pipeline.chunkerRegistry,
-    files,
-    onFileProcessed: (file, chunkList) {
-      final relative = p.relative(file.path, from: fixturesDir.path);
-      processedCounts[relative] = chunkList.length;
-    },
-    onFileSkipped: (file, {inferredType, reason}) {
-      skippedIngest[p.relative(file.path, from: fixturesDir.path)] = {
-        'inferredType': inferredType,
-        'reason': reason,
-      };
-    },
-  ).toList(growable: false);
+  final chunkedFiles = pipeline.chunkerRegistry
+      .chunkFiles(
+        files,
+        onFileProcessed: (file, chunkList) {
+          final relative = p.relative(file.path, from: fixturesDir.path);
+          processedCounts[relative] = chunkList.length;
+        },
+        onFileSkipped: (file, {inferredType, reason}) {
+          skippedIngest[p.relative(file.path, from: fixturesDir.path)] = {
+            'inferredType': inferredType,
+            'reason': reason,
+          };
+        },
+      )
+      .toList(growable: false);
   final chunks = [for (final chunked in chunkedFiles) ...chunked.chunks];
 
   await pipeline.ingest(

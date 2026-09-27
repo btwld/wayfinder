@@ -50,7 +50,7 @@ void main() {
   });
 
   ObjectBoxStore createStore() =>
-      ObjectBoxStore(p.join(tempDir.path, 'db${storeIndex++}'));
+      ObjectBoxStore.open(p.join(tempDir.path, 'db${storeIndex++}'));
 
   group('ObjectBoxStore contract', () {
     runStoreContract(createStore);
@@ -62,7 +62,7 @@ void main() {
         'reopens a store with only $retained without changing chunks',
         () async {
           final directory = p.join(tempDir.path, 'migration');
-          final first = ObjectBoxStore(directory);
+          final first = ObjectBoxStore.open(directory);
           final chunk = Chunk(
             sourcePath: 'file.md',
             lineStart: 1,
@@ -75,7 +75,7 @@ void main() {
           for (final name in ObjectBoxStore.schemaMarkerNames) {
             if (name != retained) File(p.join(directory, name)).deleteSync();
           }
-          final reopened = ObjectBoxStore(directory);
+          final reopened = ObjectBoxStore.open(directory);
           try {
             expect(await reopened.getAllChunks(), [chunk]);
             for (final name in ObjectBoxStore.schemaMarkerNames) {
@@ -95,13 +95,13 @@ void main() {
       'conflicting schema markers refuse opening and preserve the database',
       () async {
         final directory = p.join(tempDir.path, 'conflict');
-        final first = ObjectBoxStore(directory);
+        final first = ObjectBoxStore.open(directory);
         await first.close();
         final database = File(p.join(directory, 'data.mdb'));
         final before = database.readAsBytesSync();
         final marker = File(p.join(directory, 'wayfinder_embeddings.schema'));
         marker.writeAsStringSync('unsupported\n');
-        expect(() => ObjectBoxStore(directory), throwsStateError);
+        expect(() => ObjectBoxStore.open(directory), throwsStateError);
         expect(database.readAsBytesSync(), before);
         expect(marker.readAsStringSync(), 'unsupported\n');
       },
@@ -145,7 +145,7 @@ void main() {
     );
     test('updates preserve entity IDs and chunk relations', () async {
       final directory = p.join(tempDir.path, 'updates');
-      final store = ObjectBoxStore(directory);
+      final store = ObjectBoxStore.open(directory);
       final chunk = Chunk(
         sourcePath: 'guidance.md',
         lineStart: 1,
@@ -167,7 +167,7 @@ void main() {
       final embeddingId = before.box<EmbeddingEntity>().getAll().single.id;
       before.close();
 
-      final reopened = ObjectBoxStore(directory);
+      final reopened = ObjectBoxStore.open(directory);
       final updated = chunk.copyWith(metadata: {'status': 'deprecated'});
       await reopened.storeChunk(updated);
       await reopened.storeEmbedding(embedding);
@@ -246,7 +246,7 @@ void main() {
       );
       original.close();
       expect(
-        () => ObjectBoxStore(directory),
+        () => ObjectBoxStore.open(directory),
         throwsA(
           isA<StateError>().having(
             (error) => error.message,
@@ -322,11 +322,11 @@ void main() {
         vector: testVector384(seed: 2),
       );
 
-      final first = ObjectBoxStore(directory);
+      final first = ObjectBoxStore.open(directory);
       await first.storeBatch(chunks: [chunk], embeddings: [embedding]);
       await first.close();
 
-      final second = ObjectBoxStore(directory);
+      final second = ObjectBoxStore.open(directory);
       expect(await second.getChunk(chunk.id), equals(chunk));
       expect(
         await second.getEmbedding(

@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 void main() {
-  group('ReciprocalRankFusion', () {
+  group('fuseReciprocalRanks', () {
     test('deduplicates per list and sums ranks across lists', () {
       final shared = Chunk(
         sourcePath: 'lib/shared.dart',
@@ -32,7 +32,7 @@ void main() {
         vector: const [1, 0],
       );
 
-      final results = ReciprocalRankFusion.fuse([
+      final results = fuseReciprocalRanks([
         [
           SearchResult(chunk: lexicalOnly, similarity: 10),
           SearchResult(chunk: shared, similarity: 9),
@@ -58,13 +58,13 @@ void main() {
     });
 
     test('returns empty results for non-positive limits', () {
-      expect(ReciprocalRankFusion.fuse(const [], limit: 0), isEmpty);
-      expect(ReciprocalRankFusion.fuse(const [], limit: -1), isEmpty);
+      expect(fuseReciprocalRanks(const [], limit: 0), isEmpty);
+      expect(fuseReciprocalRanks(const [], limit: -1), isEmpty);
     });
 
     test('rejects non-positive rank constants', () {
       expect(
-        () => ReciprocalRankFusion.fuse(const [], rankConstant: 0),
+        () => fuseReciprocalRanks(const [], rankConstant: 0),
         throwsArgumentError,
       );
     });

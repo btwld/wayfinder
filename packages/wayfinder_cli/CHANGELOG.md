@@ -12,7 +12,7 @@ model, the ObjectBox schema, and index configuration are unchanged.
 # 0.1.1
 
 - Recover oversized separators and identifiers without aborting bundle indexing
-  or editing source files, using `wayfinder_embeddings` 0.1.1.
+  or editing source files, using `wayfinder_embeddings` 0.2.0.
 - Report oversized-input recoveries as structured `warnings` in completed/current
   CLI JSON and MCP index results, and escaped stderr warnings in text mode.
 - Replay persisted warnings without loading the model, including foreground calls

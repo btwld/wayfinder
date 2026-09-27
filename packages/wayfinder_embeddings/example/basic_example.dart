@@ -11,8 +11,7 @@ Future<void> main() async {
   final registry = ChunkerRegistry()..registerChunker(TextChunker());
   final skipped = <String, Map<String, String?>>{};
   final previewChunks = [
-    for (final chunked in chunkFiles(
-      registry,
+    for (final chunked in registry.chunkFiles(
       [sampleFile],
       onFileSkipped: (file, {inferredType, reason}) {
         skipped[file.path] = {'inferredType': inferredType, 'reason': reason};

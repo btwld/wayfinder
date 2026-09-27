@@ -13,7 +13,7 @@ class HybridContentSearcher implements Searcher {
     required BM25LexicalIndex lexicalIndex,
     required Searcher semanticSearcher,
     int candidateLimit = 50,
-    int rrfRankConstant = ReciprocalRankFusion.defaultRankConstant,
+    int rrfRankConstant = defaultReciprocalRankConstant,
   }) : _lexicalIndex = lexicalIndex,
        _semanticSearcher = semanticSearcher,
        _candidateLimit = checkPositive(candidateLimit, 'candidateLimit'),
@@ -55,7 +55,7 @@ class HybridContentSearcher implements Searcher {
       options: options,
     );
 
-    return ReciprocalRankFusion.fuse(
+    return fuseReciprocalRanks(
       [lexicalResults, semanticResults],
       limit: limit,
       rankConstant: _rrfRankConstant,

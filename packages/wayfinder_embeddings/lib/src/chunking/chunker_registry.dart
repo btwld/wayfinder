@@ -1,11 +1,19 @@
 import 'dart:io';
 
+import '../models/chunk.dart';
 import '../util/checks.dart';
 import '../util/content_type.dart' as content_type;
 import 'base_chunker.dart';
 
 /// Callback invoked when no chunker is registered for the inferred content type.
 typedef ChunkerMissingHandler = void Function(String inferredType);
+
+/// Callback invoked when a file is skipped during chunking.
+typedef FileSkippedCallback =
+    void Function(File file, {String? inferredType, String? reason});
+
+/// One file and the chunks a chunker produced for it.
+typedef ChunkedFile = ({File file, List<Chunk> chunks});
 
 /// Registry for content chunkers.
 ///
@@ -63,6 +71,40 @@ class ChunkerRegistry {
 
     onMissingChunker?.call(inferredType);
     return null;
+  }
+
+  /// Chunks [files] using the registered chunkers, without embedding or storing.
+  ///
+  /// [contentTypes] overrides the type inferred from a file path.
+  /// [onFileProcessed] reports each chunked file, and [onFileSkipped] reports
+  /// each file with no matching chunker. The result is lazy: callbacks run as
+  /// the caller consumes it.
+  Iterable<ChunkedFile> chunkFiles(
+    Iterable<File> files, {
+    Map<String, String?>? contentTypes,
+    void Function(File file, List<Chunk> chunks)? onFileProcessed,
+    FileSkippedCallback? onFileSkipped,
+  }) sync* {
+    for (final file in files) {
+      final override = contentTypes?[file.path];
+      final inferredType = override ?? content_type.inferContentType(file.path);
+      final chunker = getChunkerForFile(file, contentType: override);
+      if (chunker == null) {
+        onFileSkipped?.call(
+          file,
+          inferredType: inferredType,
+          reason: 'unsupported_content_type',
+        );
+        continue;
+      }
+
+      final chunks = chunker
+          .chunkFile(file, contentType: override)
+          .toList(growable: false);
+
+      onFileProcessed?.call(file, chunks);
+      yield (file: file, chunks: chunks);
+    }
   }
 
   /// Gets all registered chunkers.

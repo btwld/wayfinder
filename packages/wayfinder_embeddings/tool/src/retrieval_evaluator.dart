@@ -245,6 +245,67 @@ class QueryRetrievalEvaluation extends Equatable {
          ),
        );
 
+  /// Computes ranked retrieval metrics for one query.
+  factory QueryRetrievalEvaluation.evaluate({
+    required String queryId,
+    required Map<String, int> relevanceByChunkId,
+    required List<String> rankedChunkIds,
+    required int k,
+  }) {
+    if (k <= 0) {
+      throw ArgumentError.value(k, 'k', 'must be greater than zero');
+    }
+
+    final positiveJudgments = relevanceByChunkId.entries
+        .where((entry) => entry.value > 0)
+        .toList();
+    final relevantIds = positiveJudgments.map((entry) => entry.key).toSet();
+    final topRanked = rankedChunkIds.take(k).toList(growable: false);
+    final retrievedRelevant = <String>[];
+    final seenRankedIds = <String>{};
+
+    double reciprocalRank = 0;
+    var dcg = 0.0;
+    for (var i = 0; i < topRanked.length; i++) {
+      final chunkId = topRanked[i];
+      if (!seenRankedIds.add(chunkId)) {
+        continue;
+      }
+      final relevance = relevanceByChunkId[chunkId] ?? 0;
+      if (relevance > 0) {
+        retrievedRelevant.add(chunkId);
+        reciprocalRank = reciprocalRank == 0 ? 1 / (i + 1) : reciprocalRank;
+      }
+      dcg += _discountedGain(relevance, i + 1);
+    }
+
+    final idealRelevances =
+        positiveJudgments.map((entry) => entry.value).toList()
+          ..sort((a, b) => b.compareTo(a));
+    var idealDcg = 0.0;
+    for (var i = 0; i < math.min(k, idealRelevances.length); i++) {
+      idealDcg += _discountedGain(idealRelevances[i], i + 1);
+    }
+
+    final recall = relevantIds.isEmpty
+        ? 0.0
+        : retrievedRelevant.toSet().intersection(relevantIds).length /
+              relevantIds.length;
+    final ndcg = idealDcg == 0 ? 0.0 : dcg / idealDcg;
+
+    return QueryRetrievalEvaluation(
+      queryId: queryId,
+      metrics: RetrievalMetrics(
+        k: k,
+        recall: recall,
+        ndcg: ndcg,
+        mrr: reciprocalRank.toDouble(),
+      ),
+      rankedChunkIds: topRanked,
+      retrievedRelevantChunkIds: retrievedRelevant,
+    );
+  }
+
   final String queryId;
   final RetrievalMetrics metrics;
   final List<String> rankedChunkIds;
@@ -311,6 +372,35 @@ class RetrievalEvaluation extends Equatable {
     required List<QueryRetrievalEvaluation> queries,
     required this.average,
   }) : queries = List.unmodifiable(_checkedQueryEvaluations(queries, average));
+
+  /// Computes retrieval metrics for ranked results across a query set.
+  factory RetrievalEvaluation.evaluate({
+    required RelevanceJudgments judgments,
+    required Map<String, List<String>> rankedChunkIdsByQuery,
+    required int k,
+  }) {
+    if (k <= 0) {
+      throw ArgumentError.value(k, 'k', 'must be greater than zero');
+    }
+
+    final queryEvaluations = <QueryRetrievalEvaluation>[];
+    for (final queryId in judgments.queryIds) {
+      final ranked = rankedChunkIdsByQuery[queryId] ?? const <String>[];
+      queryEvaluations.add(
+        QueryRetrievalEvaluation.evaluate(
+          queryId: queryId,
+          relevanceByChunkId: judgments.relevanceByQuery[queryId]!,
+          rankedChunkIds: ranked,
+          k: k,
+        ),
+      );
+    }
+
+    return RetrievalEvaluation(
+      queries: queryEvaluations,
+      average: _averageRetrievalMetrics(queryEvaluations, k),
+    );
+  }
 
   final List<QueryRetrievalEvaluation> queries;
   final RetrievalMetrics average;
@@ -453,7 +543,7 @@ List<QueryRetrievalEvaluation> _checkedQueryEvaluations(
       );
     }
   }
-  final actualAverage = RetrievalEvaluator._average(queries, average.k);
+  final actualAverage = _averageRetrievalMetrics(queries, average.k);
   if (!_sameMetrics(actualAverage, average)) {
     throw ArgumentError(
       'RetrievalEvaluation average metrics must match the average of queries.',
@@ -606,7 +696,7 @@ List<QueryRetrievalEvaluation> _checkedRunQueryEvaluations({
     }
   }
 
-  final average = RetrievalEvaluator._average(queryEvaluations, metrics.k);
+  final average = _averageRetrievalMetrics(queryEvaluations, metrics.k);
   if (!_sameMetrics(average, metrics)) {
     throw ArgumentError(
       "RetrievalRunSummary '$runName' metrics must match the average of "
@@ -841,7 +931,7 @@ List<RetrievalRunSummary> _checkedSerializedRunSummaries(
   return runs;
 }
 
-/// A concrete retrieval regression found by [RetrievalRegressionGate].
+/// A concrete retrieval regression found by [RetrievalRegressionGateResult.evaluate].
 @immutable
 class RetrievalRegressionIssue extends Equatable {
   factory RetrievalRegressionIssue({
@@ -883,6 +973,25 @@ class RetrievalRegressionIssue extends Equatable {
     required this.allowedDrop,
     required this.actualDrop,
   });
+
+  /// Creates an incompatibility issue from differing integer report fields.
+  factory RetrievalRegressionIssue.incompatible({
+    required String runName,
+    String? queryGroupName,
+    required String metricName,
+    required int baselineValue,
+    required int currentValue,
+  }) {
+    return RetrievalRegressionIssue(
+      runName: runName,
+      queryGroupName: queryGroupName,
+      metricName: metricName,
+      baselineValue: baselineValue.toDouble(),
+      currentValue: currentValue.toDouble(),
+      allowedDrop: null,
+      actualDrop: null,
+    );
+  }
 
   final String runName;
   final String? queryGroupName;
@@ -991,40 +1100,24 @@ class RetrievalRegressionGateResult extends Equatable {
     required List<RetrievalRegressionIssue> issues,
   }) : issues = List.unmodifiable(issues);
 
-  final List<RetrievalRegressionIssue> issues;
-
-  bool get passed => issues.isEmpty;
-
-  Map<String, Object?> toMap() => {
-    'passed': passed,
-    'issues': issues.map((issue) => issue.toMap()).toList(),
-  };
-
-  @override
-  List<Object?> get props => [issues];
-}
-
-/// Compares retrieval benchmark reports and flags unacceptable metric drops.
-class RetrievalRegressionGate {
-  const RetrievalRegressionGate._();
-
-  static RetrievalRegressionGateResult evaluate({
+  /// Compares a current benchmark report with a baseline.
+  factory RetrievalRegressionGateResult.evaluate({
     required RetrievalBenchmarkReport current,
     required RetrievalBenchmarkReport baseline,
     double maxRecallDrop = 0.05,
     double maxNdcgDrop = 0.03,
     double? maxMrrDrop,
   }) {
-    _checkNonNegative(maxRecallDrop, 'maxRecallDrop');
-    _checkNonNegative(maxNdcgDrop, 'maxNdcgDrop');
+    _checkRegressionThreshold(maxRecallDrop, 'maxRecallDrop');
+    _checkRegressionThreshold(maxNdcgDrop, 'maxNdcgDrop');
     if (maxMrrDrop != null) {
-      _checkNonNegative(maxMrrDrop, 'maxMrrDrop');
+      _checkRegressionThreshold(maxMrrDrop, 'maxMrrDrop');
     }
 
     final issues = <RetrievalRegressionIssue>[];
     if (current.k != baseline.k) {
       issues.add(
-        _incompatibleIssue(
+        RetrievalRegressionIssue.incompatible(
           runName: 'benchmark',
           metricName: 'k',
           baselineValue: baseline.k,
@@ -1051,7 +1144,7 @@ class RetrievalRegressionGate {
       }
       if (currentRun.queryCount != baselineRun.queryCount) {
         issues.add(
-          _incompatibleIssue(
+          RetrievalRegressionIssue.incompatible(
             runName: baselineRun.name,
             metricName: 'queryCount',
             baselineValue: baselineRun.queryCount,
@@ -1061,7 +1154,7 @@ class RetrievalRegressionGate {
         continue;
       }
 
-      _addDropIssue(
+      _addRegressionDropIssue(
         issues,
         runName: baselineRun.name,
         metricName: 'recall',
@@ -1069,7 +1162,7 @@ class RetrievalRegressionGate {
         currentValue: currentRun.metrics.recall,
         allowedDrop: maxRecallDrop,
       );
-      _addDropIssue(
+      _addRegressionDropIssue(
         issues,
         runName: baselineRun.name,
         metricName: 'ndcg',
@@ -1078,7 +1171,7 @@ class RetrievalRegressionGate {
         allowedDrop: maxNdcgDrop,
       );
       if (maxMrrDrop != null) {
-        _addDropIssue(
+        _addRegressionDropIssue(
           issues,
           runName: baselineRun.name,
           metricName: 'mrr',
@@ -1088,7 +1181,7 @@ class RetrievalRegressionGate {
         );
       }
 
-      _addQueryGroupIssues(
+      _addRegressionQueryGroupIssues(
         issues,
         baselineRun: baselineRun,
         currentRun: currentRun,
@@ -1101,342 +1194,247 @@ class RetrievalRegressionGate {
     return RetrievalRegressionGateResult(issues: issues);
   }
 
-  static void _addQueryGroupIssues(
-    List<RetrievalRegressionIssue> issues, {
-    required RetrievalRunSummary baselineRun,
-    required RetrievalRunSummary currentRun,
-    required double maxRecallDrop,
-    required double maxNdcgDrop,
-    required double? maxMrrDrop,
-  }) {
-    if (baselineRun.queryGroupSummaries.isEmpty) {
-      return;
-    }
+  final List<RetrievalRegressionIssue> issues;
 
-    final baselineGroupsByName = {
-      for (final group in baselineRun.queryGroupSummaries) group.name: group,
-    };
-    final currentGroupsByName = {
-      for (final group in currentRun.queryGroupSummaries) group.name: group,
-    };
+  bool get passed => issues.isEmpty;
 
-    for (final baselineGroup in baselineGroupsByName.values) {
-      final currentGroup = currentGroupsByName[baselineGroup.name];
-      if (currentGroup == null) {
-        issues.add(
-          RetrievalRegressionIssue(
-            runName: baselineRun.name,
-            queryGroupName: baselineGroup.name,
-            metricName: 'queryGroup',
-            baselineValue: baselineGroup.queryCount.toDouble(),
-            currentValue: null,
-            allowedDrop: null,
-            actualDrop: null,
-          ),
-        );
-        continue;
-      }
-      if (currentGroup.queryCount != baselineGroup.queryCount) {
-        issues.add(
-          _incompatibleIssue(
-            runName: baselineRun.name,
-            queryGroupName: baselineGroup.name,
-            metricName: 'queryCount',
-            baselineValue: baselineGroup.queryCount,
-            currentValue: currentGroup.queryCount,
-          ),
-        );
-        continue;
-      }
+  Map<String, Object?> toMap() => {
+    'passed': passed,
+    'issues': issues.map((issue) => issue.toMap()).toList(),
+  };
 
-      _addDropIssue(
-        issues,
-        runName: baselineRun.name,
-        queryGroupName: baselineGroup.name,
-        metricName: 'recall',
-        baselineValue: baselineGroup.metrics.recall,
-        currentValue: currentGroup.metrics.recall,
-        allowedDrop: maxRecallDrop,
-      );
-      _addDropIssue(
-        issues,
-        runName: baselineRun.name,
-        queryGroupName: baselineGroup.name,
-        metricName: 'ndcg',
-        baselineValue: baselineGroup.metrics.ndcg,
-        currentValue: currentGroup.metrics.ndcg,
-        allowedDrop: maxNdcgDrop,
-      );
-      if (maxMrrDrop != null) {
-        _addDropIssue(
-          issues,
-          runName: baselineRun.name,
-          queryGroupName: baselineGroup.name,
-          metricName: 'mrr',
-          baselineValue: baselineGroup.metrics.mrr,
-          currentValue: currentGroup.metrics.mrr,
-          allowedDrop: maxMrrDrop,
-        );
-      }
-    }
+  @override
+  List<Object?> get props => [issues];
+}
 
-    for (final currentGroup in currentGroupsByName.values) {
-      if (baselineGroupsByName.containsKey(currentGroup.name)) {
-        continue;
-      }
+void _addRegressionQueryGroupIssues(
+  List<RetrievalRegressionIssue> issues, {
+  required RetrievalRunSummary baselineRun,
+  required RetrievalRunSummary currentRun,
+  required double maxRecallDrop,
+  required double maxNdcgDrop,
+  required double? maxMrrDrop,
+}) {
+  if (baselineRun.queryGroupSummaries.isEmpty) {
+    return;
+  }
+
+  final baselineGroupsByName = {
+    for (final group in baselineRun.queryGroupSummaries) group.name: group,
+  };
+  final currentGroupsByName = {
+    for (final group in currentRun.queryGroupSummaries) group.name: group,
+  };
+
+  for (final baselineGroup in baselineGroupsByName.values) {
+    final currentGroup = currentGroupsByName[baselineGroup.name];
+    if (currentGroup == null) {
       issues.add(
         RetrievalRegressionIssue(
           runName: baselineRun.name,
-          queryGroupName: currentGroup.name,
+          queryGroupName: baselineGroup.name,
           metricName: 'queryGroup',
-          baselineValue: null,
-          currentValue: currentGroup.queryCount.toDouble(),
+          baselineValue: baselineGroup.queryCount.toDouble(),
+          currentValue: null,
           allowedDrop: null,
           actualDrop: null,
         ),
       );
+      continue;
+    }
+    if (currentGroup.queryCount != baselineGroup.queryCount) {
+      issues.add(
+        RetrievalRegressionIssue.incompatible(
+          runName: baselineRun.name,
+          queryGroupName: baselineGroup.name,
+          metricName: 'queryCount',
+          baselineValue: baselineGroup.queryCount,
+          currentValue: currentGroup.queryCount,
+        ),
+      );
+      continue;
+    }
+
+    _addRegressionDropIssue(
+      issues,
+      runName: baselineRun.name,
+      queryGroupName: baselineGroup.name,
+      metricName: 'recall',
+      baselineValue: baselineGroup.metrics.recall,
+      currentValue: currentGroup.metrics.recall,
+      allowedDrop: maxRecallDrop,
+    );
+    _addRegressionDropIssue(
+      issues,
+      runName: baselineRun.name,
+      queryGroupName: baselineGroup.name,
+      metricName: 'ndcg',
+      baselineValue: baselineGroup.metrics.ndcg,
+      currentValue: currentGroup.metrics.ndcg,
+      allowedDrop: maxNdcgDrop,
+    );
+    if (maxMrrDrop != null) {
+      _addRegressionDropIssue(
+        issues,
+        runName: baselineRun.name,
+        queryGroupName: baselineGroup.name,
+        metricName: 'mrr',
+        baselineValue: baselineGroup.metrics.mrr,
+        currentValue: currentGroup.metrics.mrr,
+        allowedDrop: maxMrrDrop,
+      );
     }
   }
 
-  static RetrievalRegressionIssue _incompatibleIssue({
-    required String runName,
-    String? queryGroupName,
-    required String metricName,
-    required int baselineValue,
-    required int currentValue,
-  }) {
-    return RetrievalRegressionIssue(
-      runName: runName,
-      queryGroupName: queryGroupName,
-      metricName: metricName,
-      baselineValue: baselineValue.toDouble(),
-      currentValue: currentValue.toDouble(),
-      allowedDrop: null,
-      actualDrop: null,
-    );
-  }
-
-  static void _addDropIssue(
-    List<RetrievalRegressionIssue> issues, {
-    required String runName,
-    String? queryGroupName,
-    required String metricName,
-    required double baselineValue,
-    required double currentValue,
-    required double allowedDrop,
-  }) {
-    final actualDrop = baselineValue - currentValue;
-    if (actualDrop <= allowedDrop) {
-      return;
+  for (final currentGroup in currentGroupsByName.values) {
+    if (baselineGroupsByName.containsKey(currentGroup.name)) {
+      continue;
     }
     issues.add(
       RetrievalRegressionIssue(
-        runName: runName,
-        queryGroupName: queryGroupName,
-        metricName: metricName,
-        baselineValue: baselineValue,
-        currentValue: currentValue,
-        allowedDrop: allowedDrop,
-        actualDrop: actualDrop,
+        runName: baselineRun.name,
+        queryGroupName: currentGroup.name,
+        metricName: 'queryGroup',
+        baselineValue: null,
+        currentValue: currentGroup.queryCount.toDouble(),
+        allowedDrop: null,
+        actualDrop: null,
       ),
     );
   }
-
-  static void _checkNonNegative(double value, String name) =>
-      _checkUnitIntervalMetric(value, name);
 }
 
-/// Computes retrieval metrics from ranked chunk ids and relevance judgments.
-class RetrievalEvaluator {
-  const RetrievalEvaluator._();
-
-  static List<RetrievalQueryGroupSummary> summarizeGroups({
-    required List<QueryRetrievalEvaluation> queryEvaluations,
-    required Map<String, String> groupByQueryId,
-  }) {
-    if (queryEvaluations.isEmpty) {
-      throw ArgumentError.value(
-        queryEvaluations,
-        'queryEvaluations',
-        'must not be empty',
-      );
-    }
-    final k = queryEvaluations.first.metrics.k;
-    for (final evaluation in queryEvaluations) {
-      if (evaluation.metrics.k != k) {
-        throw ArgumentError(
-          "Query '${evaluation.queryId}' metrics use k=${evaluation.metrics.k}, "
-          'but the first query uses k=$k.',
-        );
-      }
-    }
-    final checkedGroupsByQueryId = Map<String, String>.unmodifiable({
-      for (final entry in groupByQueryId.entries)
-        _checkedQueryId(entry.key): _checkedNonBlankString(
-          entry.value,
-          'groupByQueryId[${entry.key}]',
-        ),
-    });
-    final evaluatedQueryIds = {
-      for (final evaluation in queryEvaluations) evaluation.queryId,
-    };
-    final missing = queryEvaluations
-        .map((evaluation) => evaluation.queryId)
-        .where((queryId) => !checkedGroupsByQueryId.containsKey(queryId))
-        .toList(growable: false);
-    if (missing.isNotEmpty) {
-      throw ArgumentError(
-        'Missing query group assignment for ${missing.length} evaluated '
-        'query id(s): ${missing.take(5).join(', ')}',
-      );
-    }
-
-    final unknown = checkedGroupsByQueryId.keys
-        .where((queryId) => !evaluatedQueryIds.contains(queryId))
-        .toList(growable: false);
-    if (unknown.isNotEmpty) {
-      throw ArgumentError(
-        'Query groups contain ${unknown.length} query id(s) that were not '
-        'evaluated: ${unknown.take(5).join(', ')}',
-      );
-    }
-
-    final grouped = <String, List<QueryRetrievalEvaluation>>{};
-    for (final evaluation in queryEvaluations) {
-      final groupName = checkedGroupsByQueryId[evaluation.queryId]!;
-      grouped.putIfAbsent(groupName, () => []).add(evaluation);
-    }
-
-    return [
-      for (final entry in grouped.entries)
-        RetrievalQueryGroupSummary(
-          name: entry.key,
-          queryCount: entry.value.length,
-          metrics: _average(entry.value, entry.value.first.metrics.k),
-        ),
-    ];
+void _addRegressionDropIssue(
+  List<RetrievalRegressionIssue> issues, {
+  required String runName,
+  String? queryGroupName,
+  required String metricName,
+  required double baselineValue,
+  required double currentValue,
+  required double allowedDrop,
+}) {
+  final actualDrop = baselineValue - currentValue;
+  if (actualDrop <= allowedDrop) {
+    return;
   }
+  issues.add(
+    RetrievalRegressionIssue(
+      runName: runName,
+      queryGroupName: queryGroupName,
+      metricName: metricName,
+      baselineValue: baselineValue,
+      currentValue: currentValue,
+      allowedDrop: allowedDrop,
+      actualDrop: actualDrop,
+    ),
+  );
+}
 
-  static RetrievalEvaluation evaluate({
-    required RelevanceJudgments judgments,
-    required Map<String, List<String>> rankedChunkIdsByQuery,
-    required int k,
-  }) {
-    if (k <= 0) {
-      throw ArgumentError.value(k, 'k', 'must be greater than zero');
-    }
+void _checkRegressionThreshold(double value, String name) =>
+    _checkUnitIntervalMetric(value, name);
 
-    final queryEvaluations = <QueryRetrievalEvaluation>[];
-    for (final queryId in judgments.queryIds) {
-      final ranked = rankedChunkIdsByQuery[queryId] ?? const <String>[];
-      queryEvaluations.add(
-        evaluateQuery(
-          queryId: queryId,
-          relevanceByChunkId: judgments.relevanceByQuery[queryId]!,
-          rankedChunkIds: ranked,
-          k: k,
-        ),
-      );
-    }
-
-    return RetrievalEvaluation(
-      queries: queryEvaluations,
-      average: _average(queryEvaluations, k),
+/// Summarizes evaluated queries by their named query groups.
+List<RetrievalQueryGroupSummary> summarizeRetrievalQueryGroups({
+  required List<QueryRetrievalEvaluation> queryEvaluations,
+  required Map<String, String> groupByQueryId,
+}) {
+  if (queryEvaluations.isEmpty) {
+    throw ArgumentError.value(
+      queryEvaluations,
+      'queryEvaluations',
+      'must not be empty',
     );
   }
-
-  static QueryRetrievalEvaluation evaluateQuery({
-    required String queryId,
-    required Map<String, int> relevanceByChunkId,
-    required List<String> rankedChunkIds,
-    required int k,
-  }) {
-    if (k <= 0) {
-      throw ArgumentError.value(k, 'k', 'must be greater than zero');
+  final k = queryEvaluations.first.metrics.k;
+  for (final evaluation in queryEvaluations) {
+    if (evaluation.metrics.k != k) {
+      throw ArgumentError(
+        "Query '${evaluation.queryId}' metrics use k=${evaluation.metrics.k}, "
+        'but the first query uses k=$k.',
+      );
     }
-
-    final positiveJudgments = relevanceByChunkId.entries
-        .where((entry) => entry.value > 0)
-        .toList();
-    final relevantIds = positiveJudgments.map((entry) => entry.key).toSet();
-    final topRanked = rankedChunkIds.take(k).toList(growable: false);
-    final retrievedRelevant = <String>[];
-    final seenRankedIds = <String>{};
-
-    double reciprocalRank = 0;
-    var dcg = 0.0;
-    for (var i = 0; i < topRanked.length; i++) {
-      final chunkId = topRanked[i];
-      if (!seenRankedIds.add(chunkId)) {
-        continue;
-      }
-      final relevance = relevanceByChunkId[chunkId] ?? 0;
-      if (relevance > 0) {
-        retrievedRelevant.add(chunkId);
-        reciprocalRank = reciprocalRank == 0 ? 1 / (i + 1) : reciprocalRank;
-      }
-      dcg += _discountedGain(relevance, i + 1);
-    }
-
-    final idealRelevances =
-        positiveJudgments.map((entry) => entry.value).toList()
-          ..sort((a, b) => b.compareTo(a));
-    var idealDcg = 0.0;
-    for (var i = 0; i < math.min(k, idealRelevances.length); i++) {
-      idealDcg += _discountedGain(idealRelevances[i], i + 1);
-    }
-
-    final recall = relevantIds.isEmpty
-        ? 0.0
-        : retrievedRelevant.toSet().intersection(relevantIds).length /
-              relevantIds.length;
-    final ndcg = idealDcg == 0 ? 0.0 : dcg / idealDcg;
-
-    return QueryRetrievalEvaluation(
-      queryId: queryId,
-      metrics: RetrievalMetrics(
-        k: k,
-        recall: recall,
-        ndcg: ndcg,
-        mrr: reciprocalRank.toDouble(),
+  }
+  final checkedGroupsByQueryId = Map<String, String>.unmodifiable({
+    for (final entry in groupByQueryId.entries)
+      _checkedQueryId(entry.key): _checkedNonBlankString(
+        entry.value,
+        'groupByQueryId[${entry.key}]',
       ),
-      rankedChunkIds: topRanked,
-      retrievedRelevantChunkIds: retrievedRelevant,
+  });
+  final evaluatedQueryIds = {
+    for (final evaluation in queryEvaluations) evaluation.queryId,
+  };
+  final missing = queryEvaluations
+      .map((evaluation) => evaluation.queryId)
+      .where((queryId) => !checkedGroupsByQueryId.containsKey(queryId))
+      .toList(growable: false);
+  if (missing.isNotEmpty) {
+    throw ArgumentError(
+      'Missing query group assignment for ${missing.length} evaluated '
+      'query id(s): ${missing.take(5).join(', ')}',
     );
   }
 
-  static RetrievalMetrics _average(
-    List<QueryRetrievalEvaluation> evaluations,
-    int k,
-  ) {
-    if (evaluations.isEmpty) {
-      return RetrievalMetrics(k: k, recall: 0, ndcg: 0, mrr: 0);
-    }
-
-    var recall = 0.0;
-    var ndcg = 0.0;
-    var mrr = 0.0;
-    for (final evaluation in evaluations) {
-      recall += evaluation.metrics.recall;
-      ndcg += evaluation.metrics.ndcg;
-      mrr += evaluation.metrics.mrr;
-    }
-
-    final count = evaluations.length;
-    return RetrievalMetrics(
-      k: k,
-      recall: recall / count,
-      ndcg: ndcg / count,
-      mrr: mrr / count,
+  final unknown = checkedGroupsByQueryId.keys
+      .where((queryId) => !evaluatedQueryIds.contains(queryId))
+      .toList(growable: false);
+  if (unknown.isNotEmpty) {
+    throw ArgumentError(
+      'Query groups contain ${unknown.length} query id(s) that were not '
+      'evaluated: ${unknown.take(5).join(', ')}',
     );
   }
 
-  static double _discountedGain(int relevance, int rank) {
-    if (relevance <= 0) {
-      return 0;
-    }
-    return relevance / (math.log(rank + 1) / math.ln2);
+  final grouped = <String, List<QueryRetrievalEvaluation>>{};
+  for (final evaluation in queryEvaluations) {
+    final groupName = checkedGroupsByQueryId[evaluation.queryId]!;
+    grouped.putIfAbsent(groupName, () => []).add(evaluation);
   }
+
+  return [
+    for (final entry in grouped.entries)
+      RetrievalQueryGroupSummary(
+        name: entry.key,
+        queryCount: entry.value.length,
+        metrics: _averageRetrievalMetrics(
+          entry.value,
+          entry.value.first.metrics.k,
+        ),
+      ),
+  ];
+}
+
+RetrievalMetrics _averageRetrievalMetrics(
+  List<QueryRetrievalEvaluation> evaluations,
+  int k,
+) {
+  if (evaluations.isEmpty) {
+    return RetrievalMetrics(k: k, recall: 0, ndcg: 0, mrr: 0);
+  }
+
+  var recall = 0.0;
+  var ndcg = 0.0;
+  var mrr = 0.0;
+  for (final evaluation in evaluations) {
+    recall += evaluation.metrics.recall;
+    ndcg += evaluation.metrics.ndcg;
+    mrr += evaluation.metrics.mrr;
+  }
+
+  final count = evaluations.length;
+  return RetrievalMetrics(
+    k: k,
+    recall: recall / count,
+    ndcg: ndcg / count,
+    mrr: mrr / count,
+  );
+}
+
+double _discountedGain(int relevance, int rank) {
+  if (relevance <= 0) {
+    return 0;
+  }
+  return relevance / (math.log(rank + 1) / math.ln2);
 }
 
 int _readInt(Map<String, Object?> map, String key) {

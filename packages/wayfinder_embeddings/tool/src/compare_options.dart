@@ -366,10 +366,33 @@ enum QrelsMatchMode {
 }
 
 class QuerySpec {
-  const QuerySpec({required this.id, required this.text});
+  /// Creates a query after trimming and validating its identifier and text.
+  QuerySpec({required String id, required String text})
+    : id = _normalizeQueryValue(id),
+      text = _normalizeQueryValue(text);
+
+  /// Parses a plain query or a tab-separated identifier and query.
+  factory QuerySpec.fromLine(String line) {
+    final separator = line.indexOf('\t');
+    if (separator > 0 && separator < line.length - 1) {
+      return QuerySpec(
+        id: line.substring(0, separator),
+        text: line.substring(separator + 1),
+      );
+    }
+    return QuerySpec(id: line, text: line);
+  }
 
   final String id;
   final String text;
+}
+
+String _normalizeQueryValue(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) {
+    throw const FormatException('query id and text must be non-empty');
+  }
+  return normalized;
 }
 
 List<String> uniqueQueryTexts(List<QuerySpec> queries) {
@@ -390,7 +413,7 @@ List<QuerySpec> loadQueries(
   bool requireExplicitQueries = false,
 }) {
   final defaultQueries = fallback == null
-      ? const <QuerySpec>[
+      ? <QuerySpec>[
           QuerySpec(
             id: 'encrypt sensitive data',
             text: 'encrypt sensitive data',
@@ -398,10 +421,7 @@ List<QuerySpec> loadQueries(
           QuerySpec(id: 'refresh auth token', text: 'refresh auth token'),
           QuerySpec(id: 'calculate order total', text: 'calculate order total'),
         ]
-      : [
-          for (final queryId in fallback)
-            _checkedQuerySpec(id: queryId, text: queryId),
-        ];
+      : [for (final queryId in fallback) QuerySpec(id: queryId, text: queryId)];
   if (queriesPath == null) {
     if (requireExplicitQueries) {
       throw ArgumentError(
@@ -446,7 +466,7 @@ List<QuerySpec> loadQueries(
       .convert(raw)
       .map((line) => line.trim())
       .where((line) => line.isNotEmpty && !line.startsWith('#'))
-      .map(_parseQueryLine)
+      .map(QuerySpec.fromLine)
       .toList(growable: false);
   if (contents.isEmpty) {
     stderr.writeln('Queries file did not contain any queries: ${file.path}');
@@ -530,12 +550,12 @@ List<QuerySpec> _parseQueriesJson(Object? decoded) {
 
           final value = entry.value;
           if (value is String) {
-            return _checkedQuerySpec(id: id, text: value);
+            return QuerySpec(id: id, text: value);
           }
           if (value is Map) {
             final text = value['text'] ?? value['query'];
             if (text is String) {
-              return _checkedQuerySpec(id: id, text: text);
+              return QuerySpec(id: id, text: text);
             }
           }
           throw FormatException(
@@ -549,7 +569,7 @@ List<QuerySpec> _parseQueriesJson(Object? decoded) {
     return decoded
         .map((entry) {
           if (entry is String) {
-            return _checkedQuerySpec(id: entry, text: entry);
+            return QuerySpec(id: entry, text: entry);
           }
           if (entry is Map) {
             final rawText = entry['text'] ?? entry['query'];
@@ -562,7 +582,7 @@ List<QuerySpec> _parseQueriesJson(Object? decoded) {
             final id = rawId is String && rawId.trim().isNotEmpty
                 ? rawId
                 : rawText;
-            return _checkedQuerySpec(id: id, text: rawText);
+            return QuerySpec(id: id, text: rawText);
           }
           throw FormatException(
             'query entries must be strings or objects: $entry',
@@ -574,26 +594,6 @@ List<QuerySpec> _parseQueriesJson(Object? decoded) {
   throw const FormatException(
     'queries file must contain a JSON object or list',
   );
-}
-
-QuerySpec _parseQueryLine(String line) {
-  final separator = line.indexOf('\t');
-  if (separator > 0 && separator < line.length - 1) {
-    return _checkedQuerySpec(
-      id: line.substring(0, separator),
-      text: line.substring(separator + 1),
-    );
-  }
-  return _checkedQuerySpec(id: line, text: line);
-}
-
-QuerySpec _checkedQuerySpec({required String id, required String text}) {
-  final normalizedId = id.trim();
-  final normalizedText = text.trim();
-  if (normalizedId.isEmpty || normalizedText.isEmpty) {
-    throw const FormatException('query id and text must be non-empty');
-  }
-  return QuerySpec(id: normalizedId, text: normalizedText);
 }
 
 List<QuerySpec> _checkUniqueQueryIds(List<QuerySpec> queries) {
@@ -725,6 +725,49 @@ class ComparisonRun {
     this.embedderFactory,
   });
 
+  /// Parses one comparison-run descriptor and selects its run configuration.
+  factory ComparisonRun.parse(
+    String descriptor,
+    Future<BaseEmbedder> Function() openEmbedder,
+  ) {
+    final normalized = descriptor.trim().toLowerCase();
+    if (normalized.startsWith('rerank:')) {
+      final baseDescriptor = _requiredDescriptorSuffix(
+        descriptor: normalized,
+        prefix: 'rerank:',
+        message:
+            'rerank descriptor requires a base run descriptor after "rerank:".',
+      );
+      return ComparisonRun.parse(baseDescriptor, openEmbedder).reranked();
+    }
+
+    if (normalized == 'bm25' || normalized == 'lexical') {
+      return const ComparisonRun(
+        label: 'bm25',
+        kind: ComparisonRunKind.lexical,
+      );
+    }
+
+    if (normalized == 'hybrid') {
+      return ComparisonRun(
+        label: 'hybrid',
+        kind: ComparisonRunKind.hybrid,
+        embedderFactory: (_) => openEmbedder(),
+      );
+    }
+
+    if (normalized == 'dense' || normalized == 'llamadart') {
+      return ComparisonRun(
+        label: 'dense',
+        kind: ComparisonRunKind.semantic,
+        embedderFactory: (_) => openEmbedder(),
+      );
+    }
+    throw ArgumentError(
+      "Unknown semantic embedder '$descriptor'. Use bm25, dense, hybrid, or rerank:<run>.",
+    );
+  }
+
   final String label;
   final ComparisonRunKind kind;
   final bool rerank;
@@ -753,7 +796,7 @@ List<ComparisonRun> resolveComparisonRuns(
   return _checkUniqueComparisonRunLabels(
     descriptors
         .map(
-          (descriptor) => _comparisonRun(
+          (descriptor) => ComparisonRun.parse(
             descriptor,
             () => LlamaEmbedder.open(
               modelFile: modelFile,
@@ -762,45 +805,6 @@ List<ComparisonRun> resolveComparisonRuns(
           ),
         )
         .toList(growable: false),
-  );
-}
-
-ComparisonRun _comparisonRun(
-  String descriptor,
-  Future<BaseEmbedder> Function() openEmbedder,
-) {
-  final normalized = descriptor.trim().toLowerCase();
-  if (normalized.startsWith('rerank:')) {
-    final baseDescriptor = _requiredDescriptorSuffix(
-      descriptor: normalized,
-      prefix: 'rerank:',
-      message:
-          'rerank descriptor requires a base run descriptor after "rerank:".',
-    );
-    return _comparisonRun(baseDescriptor, openEmbedder).reranked();
-  }
-
-  if (normalized == 'bm25' || normalized == 'lexical') {
-    return const ComparisonRun(label: 'bm25', kind: ComparisonRunKind.lexical);
-  }
-
-  if (normalized == 'hybrid') {
-    return ComparisonRun(
-      label: 'hybrid',
-      kind: ComparisonRunKind.hybrid,
-      embedderFactory: (_) => openEmbedder(),
-    );
-  }
-
-  if (normalized == 'dense' || normalized == 'llamadart') {
-    return ComparisonRun(
-      label: 'dense',
-      kind: ComparisonRunKind.semantic,
-      embedderFactory: (_) => openEmbedder(),
-    );
-  }
-  throw ArgumentError(
-    "Unknown semantic embedder '$descriptor'. Use bm25, dense, hybrid, or rerank:<run>.",
   );
 }
 
@@ -854,7 +858,7 @@ workflow.StoreFactory storeFactory(String name, String storeKind) {
   switch (storeKind) {
     case 'objectbox':
       return (outputDir) =>
-          ObjectBoxStore(p.join(outputDir.path, '${name}_objectbox'));
+          ObjectBoxStore.open(p.join(outputDir.path, '${name}_objectbox'));
     case 'memory':
       return (_) => MemoryStore();
     default:

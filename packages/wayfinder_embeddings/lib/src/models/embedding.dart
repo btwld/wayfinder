@@ -58,15 +58,13 @@ class Embedding extends Equatable {
   }
 
   /// Creates an embedding from a map.
-  factory Embedding.fromMap(Map<String, Object?> map) {
-    const context = 'Embedding';
-    return Embedding(
-      chunkId: readString(map, 'chunkId', context: context),
-      source: readString(map, 'source', context: context),
-      modelName: readString(map, 'modelName', context: context),
-      vector: _readVector(readList(map, 'vector', context: context)),
-    );
-  }
+  Embedding.fromMap(Map<String, Object?> map)
+    : this(
+        chunkId: readString(map, 'chunkId', context: 'Embedding'),
+        source: readString(map, 'source', context: 'Embedding'),
+        modelName: readString(map, 'modelName', context: 'Embedding'),
+        vector: _readVector(readList(map, 'vector', context: 'Embedding')),
+      );
 
   @override
   List<Object?> get props => [chunkId, source, modelName, vector];
