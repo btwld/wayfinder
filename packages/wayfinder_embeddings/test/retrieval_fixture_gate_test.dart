@@ -77,7 +77,7 @@ void main() {
       );
       final registry = workflow.buildDefaultRegistry();
       final files = workflow.collectFixtureFiles(fixtureDir);
-      final preview = await workflow.runPreview(
+      final preview = workflow.PreviewResult.fromFiles(
         registry: registry,
         files: files,
         fixturesDir: fixtureDir,
@@ -114,7 +114,7 @@ void main() {
             .toList(growable: false);
       }
 
-      final evaluation = RetrievalEvaluator.evaluate(
+      final evaluation = RetrievalEvaluation.evaluate(
         judgments: judgments,
         rankedChunkIdsByQuery: rankedByQuery,
         k: baseline.k,
@@ -127,14 +127,14 @@ void main() {
             queryCount: evaluation.queryCount,
             metrics: evaluation.average,
             queryEvaluations: evaluation.queries,
-            queryGroupSummaries: RetrievalEvaluator.summarizeGroups(
+            queryGroupSummaries: summarizeRetrievalQueryGroups(
               queryEvaluations: evaluation.queries,
               groupByQueryId: queryGroupsById,
             ),
           ),
         ],
       );
-      final gate = RetrievalRegressionGate.evaluate(
+      final gate = RetrievalRegressionGateResult.evaluate(
         current: current,
         baseline: baseline,
       );
@@ -152,7 +152,7 @@ void main() {
       );
       final registry = workflow.buildDefaultRegistry();
       final files = workflow.collectFixtureFiles(fixtureDir);
-      final preview = await workflow.runPreview(
+      final preview = workflow.PreviewResult.fromFiles(
         registry: registry,
         files: files,
         fixturesDir: fixtureDir,

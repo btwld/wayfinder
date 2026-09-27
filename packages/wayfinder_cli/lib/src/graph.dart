@@ -18,14 +18,11 @@ final class WayfinderGraphResult {
     required this.exitCode,
   });
 
-  factory WayfinderGraphResult.graph(OkfGraph graph) =>
-      WayfinderGraphResult._(graph: graph, exitCode: 0);
+  const WayfinderGraphResult.graph(OkfGraph graph)
+    : this._(graph: graph, exitCode: 0);
 
-  factory WayfinderGraphResult.findings(OkfReport report) =>
-      WayfinderGraphResult._(
-        report: report,
-        exitCode: OkfVerdict.of(report).exitCode,
-      );
+  WayfinderGraphResult.findings(OkfReport report)
+    : this._(report: report, exitCode: OkfVerdict.of(report).exitCode);
 
   final OkfGraph? graph;
   final OkfReport? report;

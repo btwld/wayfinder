@@ -45,13 +45,12 @@ class ChunkMetadata extends Equatable {
   }
 
   /// Create metadata from a file.
-  factory ChunkMetadata.fromFile(File file, {String? contentType}) {
-    return ChunkMetadata(
-      sourcePath: file.path,
-      contentType: contentType ?? inferContentType(file.path),
-      additionalMetadata: const {},
-    );
-  }
+  ChunkMetadata.fromFile(File file, {String? contentType})
+    : this(
+        sourcePath: file.path,
+        contentType: contentType ?? inferContentType(file.path),
+        additionalMetadata: const {},
+      );
 
   /// Converts this metadata to a map.
   Map<String, Object?> toMap() {
@@ -63,16 +62,14 @@ class ChunkMetadata extends Equatable {
   }
 
   /// Creates metadata from a map.
-  factory ChunkMetadata.fromMap(Map<String, Object?> map) {
-    const context = 'ChunkMetadata';
-    return ChunkMetadata(
-      sourcePath: readString(map, 'sourcePath', context: context),
-      contentType: readString(map, 'contentType', context: context),
-      additionalMetadata: _readAdditionalMetadataMap(
-        readMap(map, 'additionalMetadata', context: context),
-      ),
-    );
-  }
+  ChunkMetadata.fromMap(Map<String, Object?> map)
+    : this(
+        sourcePath: readString(map, 'sourcePath', context: 'ChunkMetadata'),
+        contentType: readString(map, 'contentType', context: 'ChunkMetadata'),
+        additionalMetadata: _readAdditionalMetadataMap(
+          readMap(map, 'additionalMetadata', context: 'ChunkMetadata'),
+        ),
+      );
 
   @override
   List<Object?> get props => [sourcePath, contentType, additionalMetadata];

@@ -18,7 +18,7 @@ Future<void> main(List<String> args) async {
 
   workflow.FixtureConfig config;
   try {
-    config = workflow.resolveFixtureConfig(
+    config = await workflow.FixtureConfig.prepare(
       fixturesRoot: fixturesRoot,
       outputDir: outputDir,
     );
@@ -38,7 +38,7 @@ Future<void> main(List<String> args) async {
 
   stdout.writeln('\n1. Setting up chunkers and preview pipeline...');
   final registry = workflow.buildDefaultRegistry();
-  final preview = await workflow.runPreview(
+  final preview = workflow.PreviewResult.fromFiles(
     registry: registry,
     files: files,
     fixturesDir: config.fixturesRoot,

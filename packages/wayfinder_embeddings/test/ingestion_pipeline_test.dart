@@ -72,17 +72,18 @@ void main() {
       final skipped = <String, String?>{};
       final processed = <String, int>{};
 
-      final chunked = chunkFiles(
-        registry,
-        [unknownFile, dartFile],
-        contentTypes: {dartFile.path: 'dart'},
-        onFileProcessed: (file, fileChunks) {
-          processed[file.path] = fileChunks.length;
-        },
-        onFileSkipped: (file, {inferredType, reason}) {
-          skipped[file.path] = reason;
-        },
-      ).toList();
+      final chunked = registry
+          .chunkFiles(
+            [unknownFile, dartFile],
+            contentTypes: {dartFile.path: 'dart'},
+            onFileProcessed: (file, fileChunks) {
+              processed[file.path] = fileChunks.length;
+            },
+            onFileSkipped: (file, {inferredType, reason}) {
+              skipped[file.path] = reason;
+            },
+          )
+          .toList();
 
       final chunks = [for (final entry in chunked) ...entry.chunks];
       expect(chunks, isNotEmpty);

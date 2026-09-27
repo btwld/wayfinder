@@ -11,6 +11,47 @@ import '../tool/src/pipeline_workflow.dart' as workflow;
 import '../tool/src/retrieval_evaluator.dart';
 
 void main() {
+  group('fixture configuration', () {
+    test('rejects a missing fixture directory', () async {
+      final missing =
+          'missing_fixtures_${DateTime.now().microsecondsSinceEpoch}';
+
+      await expectLater(
+        workflow.FixtureConfig.prepare(fixturesRoot: missing),
+        throwsA(
+          isA<FileSystemException>().having(
+            (error) => error.path,
+            'path',
+            endsWith(missing),
+          ),
+        ),
+      );
+    });
+
+    test('creates a nested output directory recursively', () async {
+      final packageRoot = File.fromUri(Platform.script).parent.parent;
+      final relativeRoot =
+          'prepare_fixture_config_${DateTime.now().microsecondsSinceEpoch}';
+      final root = Directory(p.join(packageRoot.path, relativeRoot));
+      final fixtures = Directory(p.join(root.path, 'fixtures'))
+        ..createSync(recursive: true);
+      final outputRelative = p.join(relativeRoot, 'results', 'nested');
+      try {
+        final config = await workflow.FixtureConfig.prepare(
+          fixturesRoot: p.join(relativeRoot, 'fixtures'),
+          outputDir: outputRelative,
+        );
+
+        expect(config.packageRoot.path, packageRoot.path);
+        expect(config.fixturesRoot.path, fixtures.path);
+        expect(config.outputDir.path, p.join(packageRoot.path, outputRelative));
+        expect(await config.outputDir.exists(), isTrue);
+      } finally {
+        if (root.existsSync()) root.deleteSync(recursive: true);
+      }
+    });
+  });
+
   group('pipeline workflow registry', () {
     test('PreviewResult keeps collection inputs immutable and detached', () {
       final chunk = Chunk(
@@ -375,7 +416,7 @@ void main() {
         );
 
         expect(ranked, [judgedId]);
-        final evaluation = RetrievalEvaluator.evaluate(
+        final evaluation = RetrievalEvaluation.evaluate(
           judgments: spanRelevance.toJudgments(),
           rankedChunkIdsByQuery: {'q1': ranked},
           k: 1,
@@ -448,7 +489,7 @@ void main() {
 
       registry = ChunkerRegistry()..registerChunker(TextChunker());
       files = workflow.collectFixtureFiles(fixturesDir);
-      preview = await workflow.runPreview(
+      preview = workflow.PreviewResult.fromFiles(
         registry: registry,
         files: files,
         fixturesDir: fixturesDir,

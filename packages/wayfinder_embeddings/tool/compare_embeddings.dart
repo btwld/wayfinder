@@ -91,7 +91,7 @@ Future<void> main(List<String> args) async {
 
   workflow.FixtureConfig config;
   try {
-    config = workflow.resolveFixtureConfig(
+    config = await workflow.FixtureConfig.prepare(
       fixturesRoot: options.fixturesRoot,
       outputDir: options.outputDir,
     );
@@ -147,7 +147,7 @@ Future<void> main(List<String> args) async {
 
   stdout.writeln('\n1. Building chunk registry and previewing corpus...');
   final registry = workflow.buildDefaultRegistry(chunking: chunking);
-  final preview = await workflow.runPreview(
+  final preview = workflow.PreviewResult.fromFiles(
     registry: registry,
     files: files,
     fixturesDir: config.fixturesRoot,
@@ -163,7 +163,7 @@ Future<void> main(List<String> args) async {
     stdout.writeln('Resolving stable qrels ids to reference source spans...');
     try {
       final referenceChunks = chunking.hasOverrides
-          ? (await workflow.runPreview(
+          ? (workflow.PreviewResult.fromFiles(
               registry: workflow.buildDefaultRegistry(),
               files: files,
               fixturesDir: config.fixturesRoot,
@@ -315,7 +315,7 @@ Future<void> main(List<String> args) async {
 
   if (baselineMetricsPath != null && benchmarkReport != null) {
     final baseline = _loadBenchmarkReport(baselineMetricsPath);
-    final gateResult = RetrievalRegressionGate.evaluate(
+    final gateResult = RetrievalRegressionGateResult.evaluate(
       current: benchmarkReport,
       baseline: baseline,
       maxRecallDrop: options.regressionGate.maxRecallDrop,
@@ -512,7 +512,7 @@ RetrievalBenchmarkReport _buildBenchmarkReport({
               fixturesDir: fixturesDir,
             );
     }
-    final evaluation = RetrievalEvaluator.evaluate(
+    final evaluation = RetrievalEvaluation.evaluate(
       judgments: evaluationJudgments,
       rankedChunkIdsByQuery: rankedByQuery,
       k: topK,
@@ -525,7 +525,7 @@ RetrievalBenchmarkReport _buildBenchmarkReport({
         queryEvaluations: evaluation.queries,
         queryGroupSummaries: queryGroupsById == null
             ? const []
-            : RetrievalEvaluator.summarizeGroups(
+            : summarizeRetrievalQueryGroups(
                 queryEvaluations: evaluation.queries,
                 groupByQueryId: queryGroupsById,
               ),

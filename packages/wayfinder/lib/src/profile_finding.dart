@@ -1,5 +1,6 @@
 import 'package:okf/okf.dart';
 
+import 'profile_release.dart';
 import 'profile_rule_descriptors.dart';
 
 /// A deterministic Concepta Profile finding.
@@ -18,6 +19,11 @@ final class ProfileFinding {
     required this.path,
     this.profileRelease,
   });
+
+  /// Creates a finding for a deterministic Profile rule under the supported
+  /// release.
+  const ProfileFinding.forRule(this.descriptor, this.message, this.path)
+    : profileRelease = supportedProfileRelease;
 
   /// The rule that reported this finding.
   final ProfileRuleDescriptor descriptor;

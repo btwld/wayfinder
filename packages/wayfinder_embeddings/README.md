@@ -55,7 +55,7 @@ not an answerability verdict.
 
 ObjectBox persists passage text and vectors. `KnowledgeSnapshot.toMap/fromMap`
 round-trips fitted passages and the source inputs needed to reconstruct the OKF
-graph. `KnowledgeIndex.openSnapshot` opens a committed snapshot without document
+graph. `KnowledgeIndex.fromSnapshot` opens a committed snapshot without document
 encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
 [Wayfinder](../wayfinder/README.md) owns atomic snapshot/database publication and
@@ -174,7 +174,7 @@ Future<void> main() async {
       embedder: embedder,
       store: store,
     );
-    final chunked = chunkFiles(registry, files).toList();
+    final chunked = registry.chunkFiles(files).toList();
     await pipeline.ingest(chunked);
 
     // 3. Fuse exact BM25 with the dense vectors.

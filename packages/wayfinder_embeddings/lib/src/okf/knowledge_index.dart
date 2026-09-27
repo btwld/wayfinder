@@ -108,16 +108,14 @@ class KnowledgeIndex {
   /// The caller verifies snapshot/configuration identity and owns the store and
   /// embedder. No synchronization, token fitting or document encoding occurs.
   /// Semantic search checks that every eligible passage has a compatible vector.
-  factory KnowledgeIndex.openSnapshot({
+  KnowledgeIndex.fromSnapshot({
     required KnowledgeSnapshot snapshot,
-    required BaseStore store,
-    BaseEmbedder? embedder,
-    bool includeContext = false,
-  }) => KnowledgeIndex(
-    store: store,
-    embedder: embedder,
-    includeContext: includeContext,
-  ).._snapshot = snapshot;
+    required this.store,
+    this.embedder,
+    this.includeContext = false,
+  }) : countTokens = null,
+       maxTokens = null,
+       _snapshot = snapshot;
 
   KnowledgeIndex({
     required this.store,
@@ -368,7 +366,7 @@ class KnowledgeIndex {
       final ranked = switch (mode) {
         KnowledgeRetrievalMode.bm25 => lexical,
         KnowledgeRetrievalMode.dense => dense,
-        KnowledgeRetrievalMode.hybrid => ReciprocalRankFusion.fuse([
+        KnowledgeRetrievalMode.hybrid => fuseReciprocalRanks([
           lexical
               .take(candidateLimit < limit ? limit : candidateLimit)
               .toList(),

@@ -18,7 +18,7 @@ void main() {
             : 'fixtures/samples',
       );
       expect(fixturesDir.existsSync(), isTrue);
-      final preview = await workflow.runPreview(
+      final preview = workflow.PreviewResult.fromFiles(
         registry: workflow.buildDefaultRegistry(),
         files: workflow.collectFixtureFiles(fixturesDir),
         fixturesDir: fixturesDir,

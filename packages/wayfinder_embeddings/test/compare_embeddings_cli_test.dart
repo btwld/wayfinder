@@ -36,6 +36,26 @@ Matcher throwsArgumentErrorSaying(String fragment) => throwsA(
 
 void main() {
   group('compare_embeddings CLI', () {
+    test('normalizes QuerySpec values and parses line representations', () {
+      final query = QuerySpec(id: ' q001 ', text: ' refresh token ');
+      expect(query.id, 'q001');
+      expect(query.text, 'refresh token');
+
+      final mapped = QuerySpec.fromLine(' q002 \t encrypt data ');
+      expect(mapped.id, 'q002');
+      expect(mapped.text, 'encrypt data');
+
+      final plain = QuerySpec.fromLine(' shared query ');
+      expect(plain.id, 'shared query');
+      expect(plain.text, 'shared query');
+    });
+
+    test('rejects blank QuerySpec identifiers and text', () {
+      expect(() => QuerySpec(id: ' ', text: 'query'), throwsFormatException);
+      expect(() => QuerySpec(id: 'q001', text: '\t'), throwsFormatException);
+      expect(() => QuerySpec.fromLine(' '), throwsFormatException);
+    });
+
     test('requires explicit query text mappings for qrels ids', () {
       expect(
         () => queryTexts(

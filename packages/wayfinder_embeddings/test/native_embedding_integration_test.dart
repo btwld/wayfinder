@@ -83,7 +83,7 @@ void main() {
         );
       }
       final database = '${temp.path}/database';
-      final store = ObjectBoxStore(database);
+      final store = ObjectBoxStore.open(database);
       try {
         final writer = KnowledgeIndex(
           store: store,
@@ -111,9 +111,9 @@ void main() {
         saved.diagnostics.map((d) => d.toJson()),
         fitted.diagnostics.map((d) => d.toJson()),
       );
-      final reopened = ObjectBoxStore(database);
+      final reopened = ObjectBoxStore.open(database);
       try {
-        final reader = KnowledgeIndex.openSnapshot(
+        final reader = KnowledgeIndex.fromSnapshot(
           snapshot: saved,
           store: reopened,
           embedder: embedder,

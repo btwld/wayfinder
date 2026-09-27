@@ -149,6 +149,24 @@ class Chunk extends Equatable {
     );
   }
 
+  /// Computes the deterministic identifier for stable chunk attributes.
+  static String computeId({
+    required String sourcePath,
+    required int lineStart,
+    required int lineEnd,
+    required String content,
+    required String type,
+  }) {
+    final checkedSourcePath = checkNotBlank(sourcePath, 'sourcePath');
+    final checkedLineStart = _checkLineStart(lineStart);
+    final checkedLineEnd = _checkLineEnd(checkedLineStart, lineEnd);
+    final checkedType = checkNotBlank(type, 'type');
+    final contentHash = sha1.convert(utf8.encode(content));
+    final raw =
+        '$checkedSourcePath|$checkedLineStart|$checkedLineEnd|$checkedType|${contentHash.toString()}';
+    return sha1.convert(utf8.encode(raw)).toString();
+  }
+
   @override
   List<Object?> get props => [
     id,
@@ -195,7 +213,7 @@ String _resolveChunkId({
   if (id != null) {
     return checkNotBlank(id, 'id');
   }
-  return deterministicChunkId(
+  return Chunk.computeId(
     sourcePath: sourcePath,
     lineStart: lineStart,
     lineEnd: lineEnd,
@@ -213,22 +231,4 @@ Map<String, Object?> _readMetadataMap(Map<Object?, Object?> metadata) {
     context: 'Chunk.fromMap',
     fieldName: 'metadata',
   );
-}
-
-/// Creates a deterministic chunk identifier based on stable attributes.
-String deterministicChunkId({
-  required String sourcePath,
-  required int lineStart,
-  required int lineEnd,
-  required String content,
-  required String type,
-}) {
-  final checkedSourcePath = checkNotBlank(sourcePath, 'sourcePath');
-  final checkedLineStart = _checkLineStart(lineStart);
-  final checkedLineEnd = _checkLineEnd(checkedLineStart, lineEnd);
-  final checkedType = checkNotBlank(type, 'type');
-  final contentHash = sha1.convert(utf8.encode(content));
-  final raw =
-      '$checkedSourcePath|$checkedLineStart|$checkedLineEnd|$checkedType|${contentHash.toString()}';
-  return sha1.convert(utf8.encode(raw)).toString();
 }

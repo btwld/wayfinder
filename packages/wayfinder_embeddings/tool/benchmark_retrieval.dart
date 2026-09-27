@@ -74,7 +74,7 @@ Future<void> main(List<String> args) async {
   final store = MeasuredStore(
     options.option('store') == 'memory'
         ? MemoryStore()
-        : ObjectBoxStore(options.option('database')!),
+        : ObjectBoxStore.open(options.option('database')!),
   );
   final storeOpenMs = elapsed(watch);
   try {

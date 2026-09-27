@@ -446,13 +446,14 @@ class _InputRecovery {
   final int lineStart;
   final int lineEnd;
 
-  factory _InputRecovery.fromMap(Map<String, Object?> map) => _InputRecovery(
-    map['originalId']! as String,
-    map['code']! as String,
-    map['sourcePath']! as String,
-    map['lineStart']! as int,
-    map['lineEnd']! as int,
-  );
+  _InputRecovery.fromMap(Map<String, Object?> map)
+    : this(
+        map['originalId']! as String,
+        map['code']! as String,
+        map['sourcePath']! as String,
+        map['lineStart']! as int,
+        map['lineEnd']! as int,
+      );
   Map<String, Object?> toMap() => {
     'originalId': originalId,
     'code': code,

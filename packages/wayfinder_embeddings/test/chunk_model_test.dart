@@ -168,7 +168,7 @@ void main() {
       expect(renamed.id, isNot(chunk.id));
       expect(
         renamed.id,
-        deterministicChunkId(
+        Chunk.computeId(
           sourcePath: renamed.sourcePath,
           lineStart: renamed.lineStart,
           lineEnd: renamed.lineEnd,
@@ -205,7 +205,7 @@ void main() {
 
     test('rejects invalid line ranges for deterministic ids', () {
       expect(
-        () => deterministicChunkId(
+        () => Chunk.computeId(
           sourcePath: 'lib/auth_service.dart',
           lineStart: 0,
           lineEnd: 10,
@@ -215,7 +215,7 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () => deterministicChunkId(
+        () => Chunk.computeId(
           sourcePath: 'lib/auth_service.dart',
           lineStart: 10,
           lineEnd: 9,

@@ -29,7 +29,7 @@ Future<void> main(List<String> args) async {
     for (final kind in ['memory', if (embedder != null) 'objectbox']) {
       final BaseStore store = kind == 'memory'
           ? MemoryStore()
-          : ObjectBoxStore(p.join(directory.path, 'db'));
+          : ObjectBoxStore.open(p.join(directory.path, 'db'));
       try {
         results[kind] = await fixture.evaluate(store, embedder: embedder);
       } finally {

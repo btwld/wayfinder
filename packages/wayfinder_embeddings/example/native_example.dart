@@ -14,7 +14,7 @@ Future<void> main() async {
       store: store,
     );
     await pipeline.ingest(
-      chunkFiles(registry, [File('fixtures/samples/search.txt')]),
+      registry.chunkFiles([File('fixtures/samples/search.txt')]),
     );
     final searcher = HybridContentSearcher(
       lexicalIndex: BM25LexicalIndex.fromChunks(await store.getAllChunks()),

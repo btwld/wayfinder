@@ -70,7 +70,7 @@ Future<void> main(List<String> args) async {
       for (final contextual in [false, true]) {
         final BaseStore store = kind == 'memory'
             ? MemoryStore()
-            : ObjectBoxStore(p.join(directory.path, '$kind-$contextual'));
+            : ObjectBoxStore.open(p.join(directory.path, '$kind-$contextual'));
         try {
           final index = KnowledgeIndex(
             store: store,

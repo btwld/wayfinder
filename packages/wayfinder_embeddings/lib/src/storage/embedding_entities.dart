@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:objectbox/objectbox.dart';
 
-import 'embedding_key.dart';
 import 'objectbox_entities.dart';
 
 /// Vector dimension of the generated ObjectBox index.
@@ -54,16 +53,4 @@ class EmbeddingEntity {
     this.modelName = '',
     Float32List? vector,
   }) : vector = vector ?? Float32List(0);
-
-  /// Computes the embedding identity key from its components.
-  ///
-  /// The encoded format is intentionally opaque so delimiter characters inside
-  /// the identity components cannot collide.
-  static String computeKey(String chunkId, String source, String modelName) {
-    return embeddingIdentityKey(
-      chunkId: chunkId,
-      source: source,
-      modelName: modelName,
-    );
-  }
 }

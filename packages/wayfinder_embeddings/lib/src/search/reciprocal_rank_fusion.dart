@@ -1,86 +1,81 @@
 import '../models/search_result.dart';
 
-/// Rank-based fusion for combining multiple retrieval result lists.
+/// Standard RRF rank constant used by common hybrid search systems.
+const int defaultReciprocalRankConstant = 60;
+
+/// Fuses [rankedLists] with Reciprocal Rank Fusion.
 ///
 /// RRF avoids score normalization between retrieval methods by summing
 /// `1 / (rankConstant + rank)` for each chunk across ranked lists.
-class ReciprocalRankFusion {
-  const ReciprocalRankFusion._();
+List<SearchResult> fuseReciprocalRanks(
+  Iterable<List<SearchResult>> rankedLists, {
+  int limit = 5,
+  int rankConstant = defaultReciprocalRankConstant,
+}) {
+  if (rankConstant <= 0) {
+    throw ArgumentError.value(
+      rankConstant,
+      'rankConstant',
+      'must be greater than zero',
+    );
+  }
+  if (limit <= 0) {
+    return const [];
+  }
 
-  /// Standard RRF rank constant used by common hybrid search systems.
-  static const int defaultRankConstant = 60;
+  final candidates = <String, _FusedCandidate>{};
+  var firstSeen = 0;
 
-  /// Fuses [rankedLists] into a single ranked result list.
-  static List<SearchResult> fuse(
-    Iterable<List<SearchResult>> rankedLists, {
-    int limit = 5,
-    int rankConstant = defaultRankConstant,
-  }) {
-    if (rankConstant <= 0) {
-      throw ArgumentError.value(
-        rankConstant,
-        'rankConstant',
-        'must be greater than zero',
-      );
-    }
-    if (limit <= 0) {
-      return const [];
-    }
+  for (final rankedList in rankedLists) {
+    final seenInList = <String>{};
+    for (var index = 0; index < rankedList.length; index++) {
+      final result = rankedList[index];
+      final chunkId = result.chunk.id;
+      if (!seenInList.add(chunkId)) {
+        continue;
+      }
 
-    final candidates = <String, _FusedCandidate>{};
-    var firstSeen = 0;
-
-    for (final rankedList in rankedLists) {
-      final seenInList = <String>{};
-      for (var index = 0; index < rankedList.length; index++) {
-        final result = rankedList[index];
-        final chunkId = result.chunk.id;
-        if (!seenInList.add(chunkId)) {
-          continue;
+      final rank = index + 1;
+      final score = 1 / (rankConstant + rank);
+      final candidate = candidates[chunkId];
+      if (candidate == null) {
+        candidates[chunkId] = _FusedCandidate(
+          result: result,
+          score: score,
+          bestRank: rank,
+          firstSeen: firstSeen++,
+        );
+      } else {
+        candidate.score += score;
+        if (rank < candidate.bestRank) {
+          candidate.bestRank = rank;
         }
-
-        final rank = index + 1;
-        final score = 1 / (rankConstant + rank);
-        final candidate = candidates[chunkId];
-        if (candidate == null) {
-          candidates[chunkId] = _FusedCandidate(
-            result: result,
-            score: score,
-            bestRank: rank,
-            firstSeen: firstSeen++,
-          );
-        } else {
-          candidate.score += score;
-          if (rank < candidate.bestRank) {
-            candidate.bestRank = rank;
-          }
-          if (candidate.result.embedding == null && result.embedding != null) {
-            candidate.result = result;
-          }
+        if (candidate.result.embedding == null && result.embedding != null) {
+          candidate.result = result;
         }
       }
     }
-
-    final fused = candidates.values.toList()
-      ..sort((a, b) {
-        final byScore = b.score.compareTo(a.score);
-        if (byScore != 0) return byScore;
-        final byBestRank = a.bestRank.compareTo(b.bestRank);
-        if (byBestRank != 0) return byBestRank;
-        return a.firstSeen.compareTo(b.firstSeen);
-      });
-
-    return fused
-        .take(limit)
-        .map((candidate) {
-          return SearchResult(
-            chunk: candidate.result.chunk,
-            embedding: candidate.result.embedding,
-            similarity: candidate.score,
-          );
-        })
-        .toList(growable: false);
   }
+
+  final fused = candidates.values.toList()
+    ..sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      final byBestRank = a.bestRank.compareTo(b.bestRank);
+      if (byBestRank != 0) return byBestRank;
+      return a.firstSeen.compareTo(b.firstSeen);
+    });
+
+  return fused
+      .take(limit)
+      .map((candidate) {
+        return SearchResult(
+          chunk: candidate.result.chunk,
+          embedding: candidate.result.embedding,
+          similarity: candidate.score,
+        );
+      })
+      .toList(growable: false);
 }
 
 class _FusedCandidate {

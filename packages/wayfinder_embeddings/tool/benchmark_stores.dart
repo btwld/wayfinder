@@ -33,7 +33,9 @@ Future<void> main(List<String> args) async {
     for (final kind in ['memory', 'objectbox']) {
       final db = p.join(directory.path, kind);
       final watch = Stopwatch()..start();
-      BaseStore store = kind == 'memory' ? MemoryStore() : ObjectBoxStore(db);
+      BaseStore store = kind == 'memory'
+          ? MemoryStore()
+          : ObjectBoxStore.open(db);
       final openMs = _ms(watch);
       try {
         watch.reset();
@@ -43,7 +45,7 @@ Future<void> main(List<String> args) async {
         if (kind == 'objectbox') {
           await store.close();
           watch.reset();
-          store = ObjectBoxStore(db);
+          store = ObjectBoxStore.open(db);
           reopenMs = _ms(watch);
         }
         watch.reset();

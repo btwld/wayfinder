@@ -5,55 +5,9 @@ import '../embedding/base_embedder.dart';
 import '../models/chunk.dart';
 import '../models/embedding.dart';
 import '../storage/base_store.dart';
-import '../util/content_type.dart';
-
-/// Callback invoked when a file is skipped during chunking.
-typedef FileSkippedCallback =
-    void Function(File file, {String? inferredType, String? reason});
 
 /// Callback invoked when a duplicate chunk is detected.
 typedef DuplicateChunkCallback = void Function(Chunk chunk);
-
-/// One file and the chunks a chunker produced for it.
-typedef ChunkedFile = ({File file, List<Chunk> chunks});
-
-/// Chunks [files] with [registry], without an embedder or a store.
-///
-/// This is the chunk-only half of ingestion. Use it to inspect chunks, to build
-/// a [ChunkerRegistry]-driven manifest, or to feed [IngestionPipeline.ingest].
-///
-/// [contentTypes] overrides the type inferred from a file path.
-/// [onFileProcessed] reports each chunked file, and [onFileSkipped] reports
-/// each file with no matching chunker. The result is lazy: the callbacks run
-/// as the caller consumes it.
-Iterable<ChunkedFile> chunkFiles(
-  ChunkerRegistry registry,
-  Iterable<File> files, {
-  Map<String, String?>? contentTypes,
-  void Function(File file, List<Chunk> chunks)? onFileProcessed,
-  FileSkippedCallback? onFileSkipped,
-}) sync* {
-  for (final file in files) {
-    final override = contentTypes?[file.path];
-    final inferredType = override ?? inferContentType(file.path);
-    final chunker = registry.getChunkerForFile(file, contentType: override);
-    if (chunker == null) {
-      onFileSkipped?.call(
-        file,
-        inferredType: inferredType,
-        reason: 'unsupported_content_type',
-      );
-      continue;
-    }
-
-    final chunks = chunker
-        .chunkFile(file, contentType: override)
-        .toList(growable: false);
-
-    onFileProcessed?.call(file, chunks);
-    yield (file: file, chunks: chunks);
-  }
-}
 
 /// A lightweight orchestrator that chunks files, prepares embeddings, and
 /// persists both chunks and vectors.
@@ -72,8 +26,8 @@ class IngestionPipeline {
 
   /// Chunks [files] and stores both the chunks and their embeddings.
   ///
-  /// Call [chunkFiles] first when the caller also needs the chunk list, then
-  /// pass the result to [ingest] to avoid chunking twice.
+  /// Call [ChunkerRegistry.chunkFiles] first when the caller also needs the
+  /// chunk list, then pass the result to [ingest] to avoid chunking twice.
   Future<void> ingestFiles(
     Iterable<File> files, {
     Map<String, String?>? contentTypes,
@@ -83,8 +37,7 @@ class IngestionPipeline {
     bool dedupe = true,
   }) {
     return ingest(
-      chunkFiles(
-        chunkerRegistry,
+      chunkerRegistry.chunkFiles(
         files,
         contentTypes: contentTypes,
         onFileProcessed: onFileProcessed,

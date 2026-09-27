@@ -45,7 +45,9 @@ Future<void> main(List<String> args) async {
   try {
     for (final kind in ['memory', 'objectbox']) {
       final path = '${directory.path}/$kind';
-      final store = kind == 'memory' ? MemoryStore() : ObjectBoxStore(path);
+      final store = kind == 'memory'
+          ? MemoryStore()
+          : ObjectBoxStore.open(path);
       try {
         final clock = Stopwatch()..start();
         await store.storeBatch(chunks: chunks, embeddings: vectors);
@@ -100,10 +102,7 @@ Future<void> main(List<String> args) async {
               throw StateError('Exact lookup lost target');
             }
             clock.reset();
-            ReciprocalRankFusion.fuse([
-              bm25,
-              dense.take(50).toList(),
-            ], limit: 10);
+            fuseReciprocalRanks([bm25, dense.take(50).toList()], limit: 10);
             final hybridMs = bm25Ms + denseMs + elapsed(clock);
             if (pass > 0) {
               timings['keyword']!.add(keywordMs);
