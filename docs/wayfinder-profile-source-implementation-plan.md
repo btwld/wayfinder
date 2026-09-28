@@ -7,7 +7,7 @@ commit: ac302e31b24924ee4656797e7d2239d93b8d4211
 worktree: /Users/leofarias/Documents/Codex/2026-09-28/can-you-find-the-wayfinder-pr/adr-pr-split
 skill: engineering-kit:writing-plans
 session: null
-status: implemented_locally_pending_pr_update
+status: implemented_on_pr_113
 ---
 
 # Implement Profile sources, lock resolution, and commands
@@ -388,9 +388,7 @@ installed in this workspace. The broad format check flagged the unchanged
 SDK; that unrelated file was left untouched, and all changed Dart files pass
 format checking.
 
-The implementation and documentation are local to this branch. The existing
-two-PR arrangement has not been expanded: #113 is the base Profile PR and
-#114 is the stacked historical-ADR PR. Publishing these local commits and
-updating #113 remain outstanding; shell access to GitHub failed in this
-workspace. The connected GitHub integration confirmed the two PRs but does
-not publish the local Git branch directly.
+The implementation and documentation are published on `feat/config-json` in
+#113. The existing two-PR arrangement remains: #113 is the base Profile PR,
+and #114 is the stacked historical-ADR PR. #114 remains unchanged and its
+diff contains only the planned ADR/navigation work.
