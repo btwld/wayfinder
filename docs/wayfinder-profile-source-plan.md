@@ -1,6 +1,6 @@
 # Wayfinder Profile source and lockfile plan
 
-**Status: proposed design; not implemented by Profile 2026.3.**
+**Status: implemented on `split/profile-base`; pending review and merge.**
 
 Implementation handoff: [guarded implementation plan](wayfinder-profile-source-implementation-plan.md).
 
@@ -53,7 +53,7 @@ Add `get` and `upgrade`; route every bundle command through the shared resolver,
 
 ### Documentation and migration
 
-Update the configuration guide and HTML guide with current behavior versus planned Git behavior. Provide migration guidance from the current `profiles` plus `bundles` shape. Keep Profile rules and the validator contract unchanged.
+Update the configuration guide and HTML guide with direct Git behavior and the retained installed-Profile compatibility path. Provide migration guidance from the legacy `profiles` plus `bundles` shape. Keep Profile rules and the validator contract unchanged.
 
 **Validation:** Markdown links, HTML/JSON parsing, schema examples, and the existing Profile/CLI test suites.
 

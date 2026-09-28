@@ -1,9 +1,12 @@
 # Wayfinder
 
-Validate, index, search and project an explicit local OKF knowledge bundle:
+Resolve Profile sources, then validate, index, search, and project an explicit
+local OKF knowledge bundle:
 
 ```bash
+wayfinder get .
 wayfinder validate ./knowledge
+wayfinder upgrade .
 wayfinder graph ./knowledge --output mermaid
 wayfinder index ./knowledge
 wayfinder search ./knowledge "How do I regain account access?"
@@ -12,6 +15,10 @@ wayfinder search ./knowledge "How do I regain account access?"
 Index and search always use local embeddings. Validation runs the existing
 OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
 codes. Automated success keeps judgment rules UNASSESSED.
+For projects with direct Git Profile sources, `get` writes or reuses
+`wayfinder.lock`; `upgrade` refreshes a branch or tag. Bundle commands resolve
+a missing or stale lock before normal work. See the
+[configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
 ## Native installation
 

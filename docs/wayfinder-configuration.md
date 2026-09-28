@@ -1,15 +1,12 @@
 # Wayfinder project configuration
 
-**Status: proposed direct Profile source design.** The current 2026.3 runtime
-still accepts installed Profile bindings through the legacy configuration shape.
-The source and lockfile design below is the target model; the compatibility
-notes at the end keep that distinction explicit.
+Wayfinder accepts direct Git Profile sources and retains installed 2026.3
+bindings and in-bundle 2026.2 declarations for existing projects.
 
 Wayfinder uses two JSON documents with different responsibilities:
 
 - [`wayfinder.schema.json`](schemas/wayfinder.schema.json) describes the
-  current runtime's legacy project configuration. The parser and schema will
-  move to the direct source shape as the planned design is implemented.
+  preferred direct source shape and the legacy compatibility shape.
 - [`wayfinder-profile.schema.json`](schemas/wayfinder-profile.schema.json)
   describes the manifest shipped with a Profile package.
 
@@ -26,7 +23,7 @@ folders use it:
     "bitwild_profile": {
       "source": {
         "git": "https://github.com/btwld/wayfinder",
-        "ref": "v2026.3",
+        "ref": "main",
         "path": "profile"
       },
       "applies_to": ["./knowledge"],
@@ -51,8 +48,9 @@ release and must report the same identity as the map key.
 `applies_to` contains bundle directories relative to `wayfinder.json`. Use the
 explicit `./knowledge` form. A path must stay inside the project and identify
 a bundle that exists when the command runs. One Profile entry may list several
-bundle directories. Use another entry when a bundle needs a different Profile
-or a different project vocabulary.
+bundle directories. A parent used only by `extends` may have an empty
+`applies_to` array. Use another entry when a bundle needs a different Profile
+or project vocabulary.
 
 The configuration does not contain a `bundles` array or a `default_bundle`.
 Commands receive a bundle path explicitly, and Profile application is declared
@@ -81,6 +79,14 @@ truth, or verification.
 {
   "version": 1,
   "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "profile"
+      },
+      "applies_to": []
+    },
     "client_profile": {
       "extends": "bitwild_profile",
       "source": {
@@ -94,10 +100,14 @@ truth, or verification.
 }
 ```
 
-An extending Profile is still identified by its own key and manifest. `extends`
-provides a planned composition relationship for additive vocabulary and
-reviewed Profile metadata. It does not permit arbitrary rule overrides; an
-unsupported override is an explicit configuration error.
+An extending Profile is identified by its own key and manifest. It inherits
+project types, tags, and actors from its declared parent, then adds definitions
+from its own manifest and project entry. A child manifest lists only its new
+types and tags. The chain must reach `bitwild_profile/2026.3`, whose fetched
+vocabulary must exactly match the installed compiled validator. A child may
+add vocabulary; it cannot replace a name, change Profile rules, or execute
+rules from Git. Missing parents, cycles, collisions, and unsupported releases
+are errors.
 
 ## Sources and lockfile
 
@@ -110,7 +120,7 @@ unsupported override is an explicit configuration error.
   "profiles": {
     "bitwild_profile": {
       "source": "https://github.com/btwld/wayfinder",
-      "requested_ref": "v2026.3",
+      "requested_ref": "main",
       "resolved_commit": "<commit>",
       "path": "profile",
       "profile_release": "2026.3"
@@ -123,8 +133,8 @@ The hash is computed from canonical JSON, so formatting-only edits do not
 invalidate the lock. A semantic change to `wayfinder.json` makes it stale. The
 lock stores dependency-resolution metadata only: it has no Profile rules,
 project vocabulary, knowledge content, credentials, or executable validator
-code. Commit it with `wayfinder.json`; fetched Profile contents and credentials
-remain in the local cache.
+code. Commit it with `wayfinder.json`; Git credentials stay outside the
+configuration and lock, and fetched objects remain in the local cache.
 
 The command surface is deliberately small:
 
@@ -134,16 +144,19 @@ wayfinder upgrade [project]    # deliberately advance a branch or tag
 wayfinder validate ./knowledge # resolve when needed, then validate the bundle
 ```
 
-`get` resolves each declared source and respects a current lock. `upgrade` is
-the only command that intentionally moves a mutable branch or tag forward. A
-pinned commit does not move.
+`get` resolves each declared source and respects a current lock. If project
+vocabulary changes, it updates the configuration hash while retaining a
+previously locked commit for an unchanged source. `upgrade` refreshes a mutable
+branch or tag and writes its new commit; a pinned commit does not move.
 
 `validate`, `index`, `search`, and `graph` all run the same resolver before
 their normal work. If the lock is missing or its configuration hash is stale,
 the resolver performs the equivalent of `get` and writes the lock. If the lock
 is current, resolution is a no-op and a current source cache can be used
 without network access. A failed resolution stops the command before it reads
-bundle content and leaves the previous lock unchanged.
+bundle content and leaves the previous lock unchanged. If a cache must be
+recreated, Wayfinder requires the exact locked commit to remain available;
+it never silently substitutes a moved branch or tag.
 
 ## Tags and captures
 
@@ -197,13 +210,13 @@ parser enforces the cross-document checks that a schema cannot prove, such as
 whether a bundle exists, whether a source resolved, and whether a concept's
 actor reference is used correctly.
 
-## Current runtime compatibility and migration
+## Compatibility and migration
 
-The current 2026.3 runtime still reads the legacy `profiles` plus `bundles`
+The runtime still reads the legacy `profiles` plus `bundles`
 shape with an `implements` field. Existing 2026.2 bundles still use their
 in-bundle `profile.md`, `types.md`, and conditional `actors.md` declarations.
-This compatibility path is separate from the direct source design above; it
-must not be presented as the new model.
+This compatibility path remains available while projects migrate to direct
+sources.
 
 To migrate a legacy project, keep each bundle path, move its `profile` key into
 the matching Profile entry's `applies_to`, replace `implements` with a Profile

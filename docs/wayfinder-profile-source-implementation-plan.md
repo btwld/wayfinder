@@ -7,7 +7,7 @@ commit: ac302e31b24924ee4656797e7d2239d93b8d4211
 worktree: /Users/leofarias/Documents/Codex/2026-09-28/can-you-find-the-wayfinder-pr/adr-pr-split
 skill: engineering-kit:writing-plans
 session: null
-status: draft
+status: implemented_locally_pending_pr_update
 ---
 
 # Implement Profile sources, lock resolution, and commands
@@ -101,7 +101,7 @@ profiles.<profile_id>.source.git
 profiles.<profile_id>.source.ref
 profiles.<profile_id>.source.path
 profiles.<profile_id>.applies_to[]
-profiles.<profile_id>.extends? 
+profiles.<profile_id>.extends?
 profiles.<profile_id>.types/tags/actors?
 ```
 
@@ -369,3 +369,28 @@ The implementation is ready for review only when all of these are true:
    bundle work.
 7. The guides and schema match the implemented syntax, and no new Profile
    rule or command namespace was introduced.
+
+## Implementation checkpoint (2026-09-28)
+
+The direct configuration parser, additive `extends` composition, Git resolver,
+canonical lock, `get`/`upgrade`, and shared bundle-command resolution are
+implemented in `split/profile-base`. Direct validation receives only manifests
+checked against the installed compiled 2026.3 Profile. The legacy installed
+2026.3 and in-bundle 2026.2 paths remain available.
+
+Verification: the core and CLI package test suites, repository-wide
+`dart analyze --fatal-infos`, formatting of all changed Dart files,
+`git diff --check`, schema/HTML/Markdown example checks, the released example
+validation gate, and a process-level Git Profile smoke test all passed. The
+CLI suite skipped ObjectBox persistence cases because ObjectBox is not
+installed in this workspace. The broad format check flagged the unchanged
+`packages/wayfinder/test/profile_rules_test.dart` under the local Dart 3.11
+SDK; that unrelated file was left untouched, and all changed Dart files pass
+format checking.
+
+The implementation and documentation are local to this branch. The existing
+two-PR arrangement has not been expanded: #113 is the base Profile PR and
+#114 is the stacked historical-ADR PR. Publishing these local commits and
+updating #113 remain outstanding; shell access to GitHub failed in this
+workspace. The connected GitHub integration confirmed the two PRs but does
+not publish the local Git branch directly.

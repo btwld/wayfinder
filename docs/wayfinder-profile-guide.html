@@ -419,7 +419,7 @@
       <div class="hero-meta">
         <span class="pill">Bitwild Profile 2026.3</span>
         <span class="pill">OKF 0.2 exactly</span>
-        <span class="pill">Direct source design planned</span>
+        <span class="pill">Direct Git sources supported</span>
       </div>
     </div>
   </header>
@@ -444,7 +444,7 @@
       <section class="section" id="start">
         <h2>Start here</h2>
         <p class="section-intro">
-          The direct Profile source design keeps reusable rules in a Profile
+          Direct Profile sources keep reusable rules in a Profile
           package and puts project paths and vocabulary in one
           <code>wayfinder.json</code> entry.
         </p>
@@ -470,26 +470,26 @@
             <h3>Resolve and review</h3>
             <p>
               Run <code>wayfinder validate ./knowledge</code>. Wayfinder
-              resolves a missing or stale lock before validation, then report
+              resolves a missing or stale lock before validation, then reports
               contextual Profile Review separately.
             </p>
           </div>
         </div>
         <div class="release-grid">
           <div class="card">
-            <span class="card-kicker">Direct source design</span>
+            <span class="card-kicker">Direct source configuration</span>
             <h3>Configuration lives at the project root</h3>
             <p>
               <code>wayfinder.json</code> names the Profile source and applies
               it to bundle folders. There is no separate bundle registry or
-              Profile alias layer in the target model.
+              Profile alias layer.
             </p>
           </div>
           <div class="card legacy">
-            <span class="card-kicker">Current compatibility</span>
+            <span class="card-kicker">Compatibility</span>
             <h3>Installed 2026.3 remains supported</h3>
             <p>
-              The current runtime still reads the legacy configuration shape.
+              The runtime still reads the legacy configuration shape.
               Existing 2026.2 bundles keep their in-bundle declarations until
               they are migrated.
             </p>
@@ -558,7 +558,7 @@
     <span class="json-key">"bitwild_profile"</span>: {
       <span class="json-key">"source"</span>: {
         <span class="json-key">"git"</span>: <span class="json-string">"https://github.com/btwld/wayfinder"</span>,
-        <span class="json-key">"ref"</span>: <span class="json-string">"v2026.3"</span>,
+        <span class="json-key">"ref"</span>: <span class="json-string">"main"</span>,
         <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>
       },
       <span class="json-key">"applies_to"</span>: [<span class="json-string">"./knowledge"</span>],
@@ -590,14 +590,22 @@
       <section class="section" id="sources-lockfile">
         <h2>Sources and lockfile</h2>
         <p class="section-intro">
-          Git retrieval and lockfile support are planned. The current 2026.3
-          runtime uses an installed Profile, so this target syntax is clearly
-          marked here rather than presented as current behavior.
+          Git sources resolve to exact commits. The lock records that resolution,
+          while the installed 2026.3 Profile remains available to older projects.
         </p>
         <div class="code-example">
-          <div class="code-caption">planned wayfinder.json · custom Profile</div>
-          <pre aria-label="Planned extending Profile"><code class="language-json">{
+          <div class="code-caption">wayfinder.json · additive custom Profile</div>
+          <pre aria-label="Extending Profile"><code class="language-json">{
+  <span class="json-key">"version"</span>: <span class="json-number">1</span>,
   <span class="json-key">"profiles"</span>: {
+    <span class="json-key">"bitwild_profile"</span>: {
+      <span class="json-key">"source"</span>: {
+        <span class="json-key">"git"</span>: <span class="json-string">"https://github.com/btwld/wayfinder"</span>,
+        <span class="json-key">"ref"</span>: <span class="json-string">"main"</span>,
+        <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>
+      },
+      <span class="json-key">"applies_to"</span>: []
+    },
     <span class="json-key">"client_profile"</span>: {
       <span class="json-key">"extends"</span>: <span class="json-string">"bitwild_profile"</span>,
       <span class="json-key">"source"</span>: {
@@ -612,18 +620,20 @@
         </div>
         <p>
           <code>extends</code> is optional and independent of
-          <code>applies_to</code>. It supports reviewed additive vocabulary and
-          Profile metadata; arbitrary rule overrides are rejected explicitly.
+          <code>applies_to</code>. A source-only parent may have an empty
+          application list. A child inherits its parent's vocabulary and may
+          add types, tags, and actors. The chain must reach the installed
+          Bitwild Profile; remote rule overrides are not executed.
         </p>
         <div class="code-example">
-          <div class="code-caption">planned wayfinder.lock · resolved source</div>
-          <pre aria-label="Planned Wayfinder lockfile"><code class="language-json">{
+          <div class="code-caption">wayfinder.lock · resolved source</div>
+          <pre aria-label="Wayfinder lockfile"><code class="language-json">{
   <span class="json-key">"lock_version"</span>: <span class="json-number">1</span>,
   <span class="json-key">"configuration_sha256"</span>: <span class="json-string">"&lt;hash of canonical wayfinder.json&gt;"</span>,
   <span class="json-key">"profiles"</span>: {
     <span class="json-key">"bitwild_profile"</span>: {
       <span class="json-key">"source"</span>: <span class="json-string">"https://github.com/btwld/wayfinder"</span>,
-      <span class="json-key">"requested_ref"</span>: <span class="json-string">"v2026.3"</span>,
+      <span class="json-key">"requested_ref"</span>: <span class="json-string">"main"</span>,
       <span class="json-key">"resolved_commit"</span>: <span class="json-string">"&lt;commit&gt;"</span>,
       <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>,
       <span class="json-key">"profile_release"</span>: <span class="json-string">"2026.3"</span>
@@ -731,9 +741,9 @@
           <div class="card">
             <h3>Legacy projects</h3>
             <p>
-              The current runtime still reads <code>implements</code> and a
+              The runtime still reads <code>implements</code> and a
               separate <code>bundles</code> array. Migrate those paths into
-              <code>applies_to</code> when direct sources are available.
+              <code>applies_to</code> when the project adopts direct sources.
             </p>
           </div>
         </div>
@@ -835,8 +845,8 @@
           <a href="wayfinder-configuration.md">configuration guide</a>,
           <a href="schemas/wayfinder.schema.json">project schema</a>, and
           <a href="../implementation/okf-implementation-guide.md">implementation guide</a>.
-          The direct source and lockfile design is planned; existing 2026.2
-          bundles remain on their legacy contract until explicitly migrated.
+          Existing 2026.2 bundles remain on their legacy contract until
+          explicitly migrated.
         </footer>
       </section>
     </main>
