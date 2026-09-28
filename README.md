@@ -48,11 +48,11 @@ validation; `wayfinder graph` projects the ordinary OKF relationship graph
 the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
 tools remain separate capabilities.
 
-## Concepta OKF Profile
+## Bitwild OKF Profile
 
-Wayfinder also hosts the **Concepta OKF Profile** — conventions for keeping durable project
+Wayfinder also hosts the **Bitwild OKF Profile** — conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
-tooling, and examples that put it to work in Concepta repositories.
+tooling, and examples that put it to work in projects.
 
 The aim is a shared project memory, or **second brain**, that people and agents can
 read, connect, and use. A bundle can live alongside project code or in a dedicated
@@ -66,14 +66,14 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.2**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Current release: **2026.3**, profiling **OKF 0.2 exactly**. Status: Proposed.
 Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
 ## The dividing line
 
-Everything in this repository is **company-generic**: it holds *how Concepta works*.
+Everything in this repository is **company-generic**: it holds reusable ways of working.
 
 A project's `knowledge/` bundle holds *what we know about that project* — its domain, its
 decisions, its open questions. Nothing here is ever a prerequisite for reading one. A bundle
@@ -104,7 +104,7 @@ See [migration instructions](docs/install.md#migrate-the-dart-application-packag
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
 | [`tool/`](tool/) | CI and release tooling |
-| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, and maintenance reviews |
+| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, operations, and historical engineering evidence |
 | [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
@@ -156,9 +156,9 @@ In the repository you want to adopt the profile, run:
 
 It is prompt-driven: it explores what the repository already has and applies the
 requested setup, asking when an unresolved choice or conflict needs your input.
-It preserves existing bundles and seeds a new bundle's root files under `knowledge/` —
-the four the profile requires, plus `actors.md` because the seed templates use actor
-metadata — and writes the `AGENTS.md` blocks that point agents into the bundle.
+It preserves existing bundles and seeds `wayfinder.json` plus the new bundle's
+`index.md` and `log.md` under `knowledge/`, then writes the `AGENTS.md` blocks
+that point agents into the bundle.
 It then runs automated validation and Profile Review, reporting any unavailable
 check before claiming completion. Issue-tracker and triage-label setup are out of
 its scope.
@@ -234,6 +234,8 @@ for the launch configuration and tool lifecycle.
 [`examples/knowledge/`](examples/knowledge/) is a complete bundle, small enough to read in one
 sitting, showing the profile's central separations: a source event produces durable knowledge,
 which links to an execution record, with generated indexes and an authored log.
+It remains on legacy Profile 2026.2. A minimal configured 2026.3 validator fixture is
+[`packages/wayfinder/test/fixtures/configured-project/`](packages/wayfinder/test/fixtures/configured-project/).
 
 It includes a two-concept subject area to show that truthful placement, not a
 numeric threshold, determines structure.
@@ -265,7 +267,7 @@ The driver is the part that does the work. A change record row without one is a 
 wearing a rule's clothes, and the profile has no way to tell them apart later.
 
 Two rules govern the edit itself. **Silence is deference**: where the profile says nothing and
-OKF settles the point, follow OKF and do not mint a Concepta convention in its place — that is
+OKF settles the point, follow OKF and do not mint a Bitwild convention in its place — that is
 the failure mode the profile is least able to detect, because a locally invented rule looks
 like a convention rather than a divergence. And **precedence is a chain**: OKF wins over the
 profile, which wins over the implementation guide.
@@ -315,9 +317,7 @@ checks only; contextual Profile Review remains separate.
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
 
-See the [maintenance review](docs/maintenance-review.md) for the existing issues
-and the remaining project-knowledge workflow questions. See the
-[release guide](docs/releasing.md) for package publication and native binaries.
+See the [release guide](docs/releasing.md) for package publication and native binaries.
 
 ## Dart workspace development
 

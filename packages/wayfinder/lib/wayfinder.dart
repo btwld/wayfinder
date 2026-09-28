@@ -11,3 +11,4 @@ export 'src/validation.dart'
         ProfileState,
         ProfileValidationResult,
         ProfileValidator;
+export 'src/wayfinder_config.dart';

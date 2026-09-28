@@ -1,3 +1,9 @@
+# Unreleased
+
+- Add exact `bitwild_profile/2026.3` project bindings from `wayfinder.json`,
+  with strict type, tag, actor, and path checks. Preserve 2026.2 in-bundle
+  validation and independent OKF results.
+
 # 0.1.0
 
 - Validate against Concepta Profile 2026.2, which adopts the OKF 0.2 revision

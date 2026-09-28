@@ -3,7 +3,7 @@ import 'package:okf/okf.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart';
 
-/// A deterministic Concepta Profile finding.
+/// A deterministic finding for a supported Profile release.
 ///
 /// Built from the descriptor of the rule that reported it, which is the
 /// finding's single authority for id, severity, and normative rule reference.
@@ -20,17 +20,25 @@ final class ProfileFinding {
     this.profileRelease,
   });
 
-  /// Creates a finding for a deterministic Profile rule under the supported
-  /// release.
+  /// Creates a finding under the current release. Assessment retags it with
+  /// the exact selected release, including legacy 2026.2 dispatch.
   const ProfileFinding.forRule(this.descriptor, this.message, this.path)
     : profileRelease = supportedProfileRelease;
+
+  ProfileFinding atRelease(String release) => ProfileFinding(
+    descriptor: descriptor,
+    message: message,
+    path: path,
+    profileRelease: release,
+  );
 
   /// The rule that reported this finding.
   final ProfileRuleDescriptor descriptor;
 
   final String message;
 
-  /// Bundle-relative path of the observation.
+  /// Bundle-relative path, or the project configuration basename for a
+  /// binding finding.
   final String path;
 
   /// The Profile release the rule assessed under; null when the finding

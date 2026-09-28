@@ -1,28 +1,18 @@
 # Architecture decision records
 
-One file per decision. Decisions here bind the Concepta Profile and its
-tooling. A
-future architecture review must not re-litigate an accepted ADR unless real
-friction warrants reopening it; supersede with a new record instead of editing
-history.
+ADRs preserve design rationale; the [OKF specification](../../skills/author-knowledge-bundle/references/OKF-0.2.md), [current Profile](../../profile/okf-profile.md), and [implementation guide](../../implementation/okf-implementation-guide.md) govern current behavior in that order. Accepted decisions apply within their recorded scope; proposed decisions are not Profile rules. Supersede an accepted decision with a new ADR when its rationale no longer holds.
 
-Format note: the lightweight header (Status / Date / Issues) is deliberate.
-These records govern this repository only; a project bundle's
-`knowledge/architecture/` follows its own ADR conventions.
+Historical records retain their original names and package context. The [documentation index](../index.md) points to current guides. These records govern this repository, not ADRs inside a project's `knowledge/architecture/`.
 
-Vocabulary: these records use *module*, *interface*, *seam*, *adapter*, *depth*,
-*leverage*, and *locality* in the deep-module sense — a module is anything with
-an interface and an implementation; a seam is where an interface lives; depth is
-behaviour per unit of interface a caller must learn.
-
-| # | Decision |
-|---|----------|
-| [0004](0004-closed-concepta-profile-validator.md) | Accepted — first implement a closed Concepta Profile validator; defer the generic platform |
-| [0006](0006-raw-tier-under-references.md) | Accepted — a per-source `raw/` tier under `references/` for verbatim originals; no markdown inside but each directory's index |
-| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted — index entry targets are relative URLs compared percent-decoded, so real-world filenames stay expressible |
-| [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired |
-| [0009](0009-local-knowledge-retrieval.md) | Accepted — keep Arctic XS for optional local embeddings; retain BM25 by default and improve passage selection through measured experiments |
-| [0010](0010-station-cli.md) | Accepted — Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots |
-| [0011](0011-station-mcp.md) | Accepted — Serve Wayfinder validate, index and search over local MCP stdio |
-| [0012](0012-wayfinder-graph-projection.md) | Accepted — Wayfinder projects the ordinary OKF graph; writes remain in `okf` |
-| [0013](0013-captures-layer-outside-the-bundle.md) | Proposed — a dated `captures/` evidence layer beside the bundle with an `intake.md` per package, and `Source Document` pointers instead of restated client documents |
+| ADR | Status | Decision |
+| --- | --- | --- |
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded for 2026.3 by 0014 | Closed Profile validator over independent OKF |
+| [0006](0006-raw-tier-under-references.md) | Accepted | Optional per-source `raw/` tier for verbatim originals |
+| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted | Compare index URLs after percent-decoding |
+| [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
+| [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
+| [0010](0010-station-cli.md) | Accepted | One CLI for validation and persistent local search |
+| [0011](0011-station-mcp.md) | Accepted | Serve those operations over local MCP stdio |
+| [0012](0012-wayfinder-graph-projection.md) | Accepted | Project the ordinary OKF graph |
+| [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
+| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | External project bindings with exact release dispatch |

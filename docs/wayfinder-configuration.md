@@ -1,7 +1,7 @@
 # Wayfinder project configuration
 
-**Status: proposed schema for the next Profile release.** Runtime support and
-bundle migration are not part of this document's addition.
+**Status: implemented for `bitwild_profile/2026.3`.** Existing 2026.2 bundles
+continue to use their in-bundle declaration until explicitly migrated.
 
 Wayfinder uses two JSON documents with different responsibilities:
 
@@ -34,8 +34,8 @@ The project file sits beside the bundles at the repository root:
       },
       "tags": [
         {
-          "name": "captures",
-          "description": "Evidence-related topic"
+          "name": "customer-reporting",
+          "description": "Customer-facing reporting topic"
         }
       ]
     }
@@ -51,8 +51,11 @@ The project file sits beside the bundles at the repository root:
 ```
 
 `profiles` are project-local bindings. `implements` resolves to an installed
-Profile by stable ID and exact release. A binding may add custom types and actor
-lookup metadata; it does not redefine Profile rules.
+Profile by stable ID and exact release. A binding may add custom types, declared
+tags, and actor lookup metadata; it does not redefine Profile rules.
+The current runtime installs only `bitwild_profile/2026.3`. Several named
+bindings may select it; an unknown Profile ID or release is reported as
+unsupported, not dynamically downloaded or treated as Bitwild.
 
 `bundles` are explicit. A nested directory is not a new bundle unless it has a
 separate entry. Bundle paths resolve relative to `wayfinder.json` and must stay
@@ -77,7 +80,7 @@ tag definition is vocabulary only; it does not automatically apply the tag to
 every concept. Concepts still opt in explicitly through frontmatter:
 
 ```yaml
-tags: [reporting, evidence]
+tags: [customer-reporting]
 ```
 
 `captures/` is normally an evidence layer beside the OKF bundle, not a bundle
@@ -100,7 +103,7 @@ and actor lookup are intentionally the same. Use separate named bindings when
 those registries differ. Do not copy project-specific actors between projects
 without reviewing their meaning.
 
-The schema's `default_bundle` is a proposed future convenience. Current
+The schema's `default_bundle` is reserved for future command selection. Current
 Wayfinder commands still require an explicit bundle path; `wayfinder setup`
 defaults its MCP configuration to `knowledge`, and an MCP server serves one
 startup-selected bundle. Future config-aware commands may use
@@ -109,38 +112,15 @@ recursively discover directories or silently merge bundles.
 
 ## Profile manifest
 
-An installed Profile publishes a manifest such as:
-
-```json
-{
-  "id": "bitwild_profile",
-  "release": "2026.3",
-  "implements": {
-    "id": "okf",
-    "release": "0.2"
-  },
-  "standard_types": [
-    {
-      "name": "Decision",
-      "description": "A durable non-architectural decision."
-    },
-    {
-      "name": "Guide",
-      "description": "Durable operational or engineering guidance."
-    }
-  ],
-  "tags": [
-    {
-      "name": "governance",
-      "description": "Governance-related topic"
-    }
-  ]
-}
-```
-
-The manifest is identity and compatibility metadata. The installed Profile also
-ships its normative rules, deterministic validator, and contextual review
-guidance. The manifest is not an executable rule language.
+The installed Profile publishes [its canonical manifest](../profile/wayfinder-profile.json):
+`bitwild_profile/2026.3`, binding exactly to OKF `0.2`, with eleven standard
+types in Profile order and no base tags. Its names and descriptions are not
+repeated here to avoid a competing copy. The current validator has compiled
+built-in Profile metadata; a parity test checks its identity, standard types,
+and tags against the shipped manifest. Runtime validation does not load
+arbitrary Profile JSON. The manifest is distribution and compatibility metadata,
+not an executable rule language. The installed Profile also ships normative
+text and contextual review guidance.
 
 `implements` selects an upstream format release. It does not introduce Profile
 inheritance. A reusable rule-set change is published as a new Profile release
@@ -151,28 +131,38 @@ Profiles declare tag definitions, and project bindings add project-specific
 definitions. The selected Profile release decides the severity for an
 undeclared used tag; the project binding cannot silently change that severity.
 Declared tag names must be unique, must not collide between the Profile and
-binding, and must not be duplicated within one concept. The first Bitwild
-external-binding release should make the JSON registry authoritative and treat
-an undeclared used tag as an error.
+binding, and must not be duplicated within one concept. Bitwild 2026.3 makes
+the JSON registry authoritative and treats an undeclared used tag as an error.
+Its installed manifest declares no base tags; projects declare the topics they
+actually use.
 
 ## Validation order
 
-Wayfinder should process a configured bundle in this order:
+Wayfinder processes a configured bundle in this order:
 
-1. Validate the JSON document against the schema.
+1. Parse `wayfinder.json` and enforce its schema shape and cross-field rules.
 2. Resolve the bundle path safely and resolve its Profile binding.
-3. Resolve the installed Profile manifest and exact release.
+3. Select the exact supported built-in Profile release; its packaged manifest
+   is checked for parity with compiled metadata in tests.
 4. Run independent OKF validation.
 5. Merge standard and custom types and validate concept type references.
 6. Validate actor references and binding metadata.
 7. Run deterministic Profile rules and report judgment rules separately.
 
-JSON Schema catches shape and primitive types. Cross-document checks remain
-Wayfinder behavior; a schema cannot prove that a bundle exists, that a Profile
-is installed, or that a concept's actor reference is actually used correctly.
+The published JSON Schema describes shape and primitive types; Wayfinder's
+parser enforces that contract directly rather than invoking a JSON Schema
+engine at runtime. Cross-document checks remain Wayfinder behavior: a schema
+cannot prove that a bundle exists, that a Profile is installed, or that a
+concept's actor reference is actually used correctly.
 
 ## Compatibility
 
-This schema is intended for a future Profile release. Existing 2026.2 bundles
-continue to use their in-bundle `profile.md`, `types.md`, and conditional
-`actors.md` declarations until an explicit migration is implemented.
+Existing 2026.2 bundles continue to use their in-bundle `profile.md`,
+`types.md`, and conditional `actors.md` declarations. To migrate one, add its
+bundle and binding to `wayfinder.json`, move custom types, tags, and actor IDs
+into the binding, remove the three legacy root concepts, and update the root
+`index.md`. If `actors.md` contains time-dependent affiliation history,
+preserve that history as an ordinary project concept before removing the
+registry; one JSON actor entry cannot represent several historical periods.
+The subject-placement rules remain Profile rules and are unchanged;
+no placement map belongs in JSON.

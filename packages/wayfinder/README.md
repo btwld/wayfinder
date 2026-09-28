@@ -1,6 +1,6 @@
 # wayfinder
 
-Core Dart validation library for OKF knowledge bundles and the Concepta OKF Profile.
+Core Dart validation library for OKF knowledge bundles and the Bitwild OKF Profile.
 It provides `ProfileValidator`, validation results, finding types and automated
 gate states. The existing validation rules, finding identifiers and exit-state
 mapping are unchanged by the package rename.

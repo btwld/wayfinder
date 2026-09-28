@@ -21,7 +21,7 @@ An **Interaction Record** is the narrower case of the same rule: write one only 
 
 ## Types
 
-`type` is the only place kind is carried — not the directory, not the filename, not a tag. `knowledge/types.md` always retains all fourteen standard rows below, in this order and with these meanings, including unused standards. Every additional used type is registered after them in case-sensitive lexical order.
+`type` is the only place kind is carried — not the directory, not the filename, not a tag. For 2026.3, the installed Profile manifest defines the first eleven standard rows below; add project-specific names and descriptions to the selected `wayfinder.json` binding before use. The final three rows are **legacy 2026.2 only**: that release keeps all fourteen in `knowledge/types.md`, with extensions afterward in lexical order.
 
 | Type | Intended content |
 | --- | --- |
@@ -77,22 +77,22 @@ status: draft | stable | deprecated
 ---
 ```
 
-- Add `generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory. Copy YAML shape for `generated`, `verified`, `sources`, and `tags` from pinned OKF §5; do not invent a Concepta spelling.
+- Add `generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory. Copy YAML shape for `generated`, `verified`, `sources`, and `tags` from pinned OKF §5; do not invent a Profile-specific spelling.
 - **Every timestamp is an instant, and the offset is not optional** (Profile §6.5, OKF §5). A date-only or offset-less value names no instant and raises `okf/timestamp-without-offset`. `okf format --migrate-timestamps` rewrites those to the datetime form the specification's own examples use.
 - **Status** is knowledge lifecycle only — `draft`, `stable`, `deprecated`. Workflow states (accepted, blocked, in progress, done) belong to the issue tracker.
-- Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
+- In 2026.3, declare every used tag once in the selected `wayfinder.json` binding (or use a base Profile tag); duplicate or undeclared tags fail validation. Legacy 2026.2 keeps open tags. Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
 - **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.
-- Concepta producers write only OKF-defined fields. Readers still preserve unknown fields and keep the concept loadable, because the producer restriction does not change OKF's tolerant-reader contract.
+- Profile producers write only OKF-defined fields. Readers still preserve unknown fields and keep the concept loadable, because the producer restriction does not change OKF's tolerant-reader contract.
 
 ## Provenance and trust
 
 Read OKF §5 before writing provenance or trust fields; it owns their syntax and
-meaning. The Concepta delta is narrower:
+meaning. The selected Profile's additional guidance is narrower:
 
 - When a claim materially derives from identifiable source material, record that material with OKF `sources`; original analysis, guidance, and decisions do not invent sources just to satisfy the rule. Profile Review judges whether material provenance is missing, while tools check only present source structure and attribution joins.
 - Keep production and confirmation distinct. A meaningful rewrite during authoring or migration can truthfully update `generated` without verifying any claims; the field remains recommended, not required. Add `verified` only when the named actor actually confirmed content against its sources or `resource`. Review, migration, or conformance work alone is not that confirmation.
 - **Absence of `verified` is a signal, not a defect.** A concept deliberately recording unconfirmed material is *correctly* unverified. Never add a verification event to satisfy a convention, a checklist, or a linter; tooling must not report missing verification as a finding.
-- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. That distinction lives in `knowledge/actors.md`, whose `Side` is exactly `client`, `internal`, `vendor`, `tool`, or `unknown`. Never guess an affiliation: use `unknown`. `Active` is `YYYY-MM-DD – YYYY-MM-DD` (start inclusive, end exclusive), `YYYY-MM-DD –`, or `unknown`; repeated rows for one ID must not overlap. Resolve `generated` and `verified` at their event timestamps, and a source author at `last_modified` when available; otherwise affiliation stays unknown. A third-party authoring agent is `tool`; a process the project itself runs is `internal`. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite when it changes. Registry lookup never changes the actor string, its OKF prefix, or its derived trust tier.
+- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. In 2026.3 that distinction may be recorded in the binding actor lookup, whose optional `side` is exactly `client`, `internal`, `vendor`, `tool`, or `unknown`. Never guess an affiliation: use `unknown`. The 2026.3 lookup does not encode active periods. Legacy 2026.2 keeps these in `knowledge/actors.md`; see its Profile snapshot for the period and event-time rules. A third-party authoring agent is `tool`; a process the project itself runs is `internal`. Never encode affiliation into an actor ID — `human:acme/jane-doe` puts a mutable attribute inside an immutable key and forces a rewrite when it changes. Registry lookup never changes the actor string, its OKF prefix, or its derived trust tier.
 - Never invent a maturity, confidence, credibility, or evidence-tier frontmatter field. Use the upstream signals and attribution mechanism without restating or extending them.
 
 - **How settled the *subject* is belongs in the body, not in frontmatter and not in `status`.** `status` describes the document — OKF's `draft` means "not yet reviewed". State the assessment beside the reasoning that justifies it, with pointers to what would settle it. A shared vocabulary is optional; if adopted, it should be defined once in a `ways-of-working/` concept. It is **not derivable from links**: `Constrained by` may target a fully settled constraint, broken links are valid, and absence of links is silence rather than evidence. A concept can be first-party, verified, and still describe an unsettled subject.

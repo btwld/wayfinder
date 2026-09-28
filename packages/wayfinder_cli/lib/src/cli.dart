@@ -112,6 +112,12 @@ class WayfinderCli {
       final command = ArgParser()
         ..addFlag('help', abbr: 'h', negatable: false)
         ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text');
+      if (name == 'validate') {
+        command.addOption(
+          'config',
+          help: 'Project wayfinder.json path (defaults beside the bundle).',
+        );
+      }
       if (name == 'index') {
         command
           ..addFlag(
@@ -228,7 +234,7 @@ class WayfinderCli {
         _out(
           'Wayfinder — local knowledge tools\n\n'
           'Usage: wayfinder <command> [arguments]\n\n'
-          '  validate <bundle>          Check OKF and the declared Concepta profile\n'
+          '  validate <bundle>          Check OKF and the selected Profile\n'
           '  index <bundle>             Update saved local embeddings for changes\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
@@ -347,7 +353,10 @@ class WayfinderCli {
       }
       final json = command.option('output') == 'json';
       if (name == 'validate') {
-        final result = await const ProfileValidator().validate(bundle);
+        final result = await const ProfileValidator().validate(
+          bundle,
+          configPath: command.option('config'),
+        );
         if (json) {
           _json(result.toJson());
         } else {

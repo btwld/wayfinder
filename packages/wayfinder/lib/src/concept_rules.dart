@@ -6,6 +6,7 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'finding_helpers.dart';
+import 'profile_context.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart' as rules;
@@ -24,15 +25,20 @@ const _relationshipLabels = <String>{
   'Related to',
 };
 
-List<ProfileFinding> validateConceptRules(OkfBundleLoadResult loaded) {
+List<ProfileFinding> validateConceptRules(
+  OkfBundleLoadResult loaded, {
+  ProfileValidationContext? context,
+}) {
+  final effectiveContext =
+      context ?? const ProfileValidationContext.legacy(legacyProfileRelease);
   final bodies = <String, _ParsedBody>{
     for (final entry in loaded.documents.entries)
       entry.key: _ParsedBody(entry.value.body),
   };
   return <ProfileFinding>[
-    ..._validateMetadata(loaded),
-    ..._validateTypeRegistry(loaded),
-    ..._validateActorRegistry(loaded),
+    ..._validateMetadata(loaded, effectiveContext),
+    ..._validateTypeRegistry(loaded, effectiveContext),
+    ..._validateActorRegistry(loaded, effectiveContext),
     ..._validateSources(loaded, bodies),
     ..._validateSourcePaths(loaded),
     ..._validateRelationships(loaded, bodies),
@@ -40,9 +46,14 @@ List<ProfileFinding> validateConceptRules(OkfBundleLoadResult loaded) {
   ];
 }
 
-Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
+Iterable<ProfileFinding> _validateMetadata(
+  OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
+) sync* {
   final profile = loaded.documents['profile.md'];
-  if (profile != null && profile.type != 'Knowledge Profile') {
+  if (!context.externalBinding &&
+      profile != null &&
+      profile.type != 'Knowledge Profile') {
     yield ProfileFinding.forRule(
       rules.profileDeclarationKind,
       'profile.md must have type Knowledge Profile.',
@@ -71,7 +82,7 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
     if (extensionKeys.isNotEmpty) {
       yield ProfileFinding.forRule(
         rules.frontmatterFieldsOkf,
-        'Concepta producers may use only OKF 0.2 frontmatter fields; found ${extensionKeys.join(', ')}.',
+        '${context.externalBinding ? 'Bitwild' : 'Concepta'} producers may use only OKF 0.2 frontmatter fields; found ${extensionKeys.join(', ')}.',
         path,
       );
     }
@@ -97,6 +108,30 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
         path,
       );
     }
+    if (context.externalBinding) {
+      final binding = context.binding!;
+      final tags = document.tags;
+      final duplicateValues = tags
+          .where((tag) => tags.where((value) => value == tag).length > 1)
+          .toSet();
+      if (duplicateValues.isNotEmpty) {
+        yield ProfileFinding.forRule(
+          rules.configuredTagDuplicate,
+          'A concept must not repeat a tag value; found ${duplicateValues.join(', ')}.',
+          path,
+        );
+      }
+      final undeclared = tags
+          .where((tag) => !binding.tagNames.contains(tag))
+          .toSet();
+      if (undeclared.isNotEmpty) {
+        yield ProfileFinding.forRule(
+          rules.configuredTagUndeclared,
+          'Tags must be declared by the selected Profile binding; found ${undeclared.join(', ')}.',
+          path,
+        );
+      }
+    }
     if (!frontmatter.containsKey('generated')) {
       yield ProfileFinding.forRule(
         rules.generationProvenanceRecommended,
@@ -109,7 +144,30 @@ Iterable<ProfileFinding> _validateMetadata(OkfBundleLoadResult loaded) sync* {
 
 Iterable<ProfileFinding> _validateTypeRegistry(
   OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
 ) sync* {
+  if (context.externalBinding) {
+    final binding = context.binding!;
+    for (final definition in binding.types) {
+      yield ProfileFinding.forRule(
+        rules.configuredTypeExtension,
+        'Configured project type ${definition.name} is available to this bundle.',
+        'wayfinder.json',
+      );
+    }
+    final registered = binding.typeNames;
+    for (final entry in loaded.documents.entries) {
+      final type = entry.value.type;
+      if (type != null && !registered.contains(type)) {
+        yield ProfileFinding.forRule(
+          rules.usedTypeRegistered,
+          'Used type $type must be registered by the selected Profile binding.',
+          entry.key,
+        );
+      }
+    }
+    return;
+  }
   final registry = loaded.documents['types.md'];
   if (registry == null) {
     yield ProfileFinding.forRule(
@@ -188,12 +246,26 @@ Iterable<ProfileFinding> _validateTypeRegistry(
 
 Iterable<ProfileFinding> _validateActorRegistry(
   OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
 ) sync* {
   final usedActors = <String, String>{};
   for (final entry in loaded.documents.entries) {
     for (final actor in _actorsIn(entry.value)) {
       usedActors.putIfAbsent(actor, () => entry.key);
     }
+  }
+  if (context.externalBinding) {
+    final actors = context.binding!.actors;
+    for (final entry in usedActors.entries) {
+      if (!actors.containsKey(entry.key)) {
+        yield ProfileFinding.forRule(
+          rules.usedActorRegistered,
+          'Used actor ${entry.key} must be represented in the selected Profile binding.',
+          entry.value,
+        );
+      }
+    }
+    return;
   }
   final registry = loaded.documents['actors.md'];
   if (registry == null) {

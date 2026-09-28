@@ -1,7 +1,8 @@
 # `implementation/` — the companion implementation guide
 
 [`okf-implementation-guide.md`](okf-implementation-guide.md) — current
-**2026.2 guide**, binding Profile 2026.2 exactly to OKF 0.2.
+**2026.3 guide**, binding Profile 2026.3 exactly to OKF 0.2 while preserving
+2026.2 dispatch.
 
 [`profile-coverage.md`](profile-coverage.md) is the complete
 rule-to-assessment matrix. It is separate from the OKF compatibility review
@@ -23,7 +24,7 @@ appear to differ, the profile wins and this text is defective.
 
 | § | Chapter | Settles |
 | --- | --- | --- |
-| 2 | Adoption | Four required root files, the conditional actor registry, the agent-instruction paragraph, and why generic setup creates no directories |
+| 2 | Adoption | Project binding, two required root files, the agent-instruction paragraph, and why generic setup creates no directories |
 | 3 | Index generation | Determinism, idempotence, semantic projection, presentation-independent comparison, and preservation of authored history |
 | 4 | Validation | Exit codes, stable finding IDs, what a validator must never report, and version dispatch |
 | 5 | Migration | Measure, classify, cluster, slice vertically; granularity by the promotion rule; the three invariants every migration carries |

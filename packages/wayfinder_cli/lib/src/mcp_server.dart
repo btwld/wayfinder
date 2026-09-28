@@ -69,7 +69,7 @@ class WayfinderMcpServer {
     server.registerAckTool(
       'validate',
       description:
-          'Check OKF and the declared Concepta profile. Returns the '
+          'Check OKF and the selected Profile. Returns the '
           'same report and exit_code as wayfinder validate; findings are a '
           'completed validation result, not a tool execution error.',
       input: emptyInput,

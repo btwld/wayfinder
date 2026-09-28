@@ -18,7 +18,7 @@
     "default_bundle": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional bundle ID used when a command does not name a bundle. Wayfinder checks that it exists."
+      "description": "Reserved future default bundle ID. Current commands still require a bundle path; Wayfinder checks that this ID exists."
     },
     "profiles": {
       "type": "object",
@@ -29,7 +29,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/profileBinding"
       },
-      "description": "Project-local Profile bindings. A binding selects one installed base Profile and may add custom types and actor lookup metadata."
+      "description": "Project-local Profile bindings. A binding selects one installed base Profile and may add custom types, declared tags, and actor lookup metadata."
     },
     "bundles": {
       "type": "array",

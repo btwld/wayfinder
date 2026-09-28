@@ -1,4 +1,10 @@
-const supportedProfileRelease = '2026.2';
+/// The current external-binding release. Legacy bundles still dispatch to
+/// [legacyProfileRelease] so an existing bundle does not need an immediate
+/// migration.
+const builtinProfileId = 'bitwild_profile';
+const legacyProfileRelease = '2026.2';
+const externalProfileRelease = '2026.3';
+const supportedProfileRelease = externalProfileRelease;
 
 const standardTypes = <(String, String)>[
   ('Glossary Definition', 'One project or domain term'),
@@ -40,3 +46,8 @@ const standardTypes = <(String, String)>[
     'Actor IDs mapped to identity, affiliation, role, and active period',
   ),
 ];
+
+/// The external-binding release no longer needs three registry concepts.
+/// Keep the legacy vocabulary above unchanged for 2026.2 dispatch.
+final externalStandardTypes = standardTypes.take(11).toList(growable: false);
+const externalStandardTags = <(String, String)>[];

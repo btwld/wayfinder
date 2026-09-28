@@ -2,7 +2,8 @@
 > supplies the command and MCP server, and `wayfinder_embeddings` provides
 > retrieval. The standalone validator release pipeline is retired. See
 > [releasing](releasing.md) for current tags and publication order. The records
-> below describe the earlier rename/publication and are historical.
+> below describe the earlier rename/publication and are historical. Names,
+> versions, repository URLs, and pending actions below reflect that period.
 
 # Wayfinder naming and release plan
 
@@ -16,7 +17,7 @@ Decision date: 2026-09-10. Scope: name the existing knowledge application,
 rename its repository, and publish the functional CLI under `concepta.dev`.
 This is a product/distribution change; no OKF or Profile conventions change.
 
-## Current names and boundaries
+## Names and boundaries decided in 2026-09
 
 | Piece | Name / location | Decision |
 | --- | --- | --- |
@@ -67,7 +68,7 @@ Existing conformant bundles remain conformant. No Profile release, bundle
 migration or taxonomy change is needed. The old `knowledge_embeddings` package is discontinued and points to
 `wayfinder_embeddings`; its published versions remain available.
 
-## Current publication and integration state
+## Publication and integration state recorded then
 
 - `wayfinder 0.1.0`, `wayfinder_cli 0.1.0` and `wayfinder_embeddings 0.1.0` are
   published. All three uploaded through OIDC under publisher `concepta.dev`,

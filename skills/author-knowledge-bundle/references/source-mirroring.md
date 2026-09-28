@@ -5,7 +5,7 @@ atomic write sequence apply.
 
 Mirror an external artifact only when a durable concept cites it through `sources`, its availability is genuinely at risk, and the material may live at repository visibility. A source being outside project control is evidence to consider, not enough by itself. Never mirror merely because a meeting, call, or thread happened.
 
-- Mirrored markdown artifacts are concepts (e.g. `type: Meeting Transcript`, registered in `types.md`) with a `sources` entry naming the original recording, thread, or document. They remain immutable snapshots once cited.
+- Mirrored markdown artifacts are concepts (e.g. `type: Meeting Transcript`, registered in the selected Profile binding (legacy 2026.2: `types.md`)) with a `sources` entry naming the original recording, thread, or document. They remain immutable snapshots once cited.
 - `references/` is not an area: it is organized by source and date, is exempt from subject naming, and may nest — but a nonempty `references/` and each nonempty subdirectory still needs an `index.md`.
 - Text may be mirrored in full and must be sanitized where confidentiality demands. Images only when cited, optimized first. Video, audio, and other heavy binaries never — keep the followable source external and prefer an appropriate transcript when preservation is needed.
 - Non-markdown assets under `references/` are not concepts; the concepts citing them provide their context.

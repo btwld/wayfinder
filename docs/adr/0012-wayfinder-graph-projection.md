@@ -30,6 +30,6 @@ and the implementation guide's "ordinary OKF graph without an adapter" rule.
 
 ## Consequences
 
-Docs that said graph lived only in `okf` now say Wayfinder projects the
-same OKF graph. Agents can inspect structure without a second server.
-The graph remains a discardable projection, not a source of truth.
+Agents can inspect the same OKF graph through Wayfinder without a second
+server or graph model. The graph remains a discardable projection, not a
+source of truth.

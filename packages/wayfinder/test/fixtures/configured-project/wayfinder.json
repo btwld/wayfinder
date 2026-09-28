@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "profiles": {
+    "main": {
+      "implements": "bitwild_profile/2026.3",
+      "actors": {"process:fixture": {"name": "Fixture process"}},
+      "tags": [{"name": "governance", "description": "Governance topic"}]
+    }
+  },
+  "bundles": [{"id": "knowledge", "path": "knowledge", "profile": "main"}]
+}

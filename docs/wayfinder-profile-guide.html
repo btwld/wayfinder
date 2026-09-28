@@ -3,216 +3,800 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="A practical guide to Bitwild Profile 2026.3 configuration, bundle placement, and Wayfinder validation."
+  >
   <title>Wayfinder Profile and validation guide</title>
   <style>
     :root {
       color-scheme: light;
-      --ink: #172033;
-      --muted: #5b6475;
-      --line: #dce2ec;
-      --panel: #f6f8fb;
-      --blue: #2457a6;
-      --green: #176b4d;
-      --amber: #8a5a00;
+      --ink: #17283a;
+      --muted: #4d6173;
+      --line: #dbe4e8;
+      --surface: #f6f9f8;
+      --teal: #116b68;
+      --teal-dark: #0b514f;
+      --teal-pale: #e8f5f1;
+      --amber: #8c5b16;
+      --amber-pale: #fff7e8;
+      --blue-pale: #edf4fb;
     }
+
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
     body {
       margin: 0;
-      font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--ink);
       background: #fff;
+      font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    main { max-width: 1100px; margin: 0 auto; padding: 36px 24px 72px; }
-    h1, h2, h3 { line-height: 1.2; }
-    h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 0 0 12px; }
-    h2 { margin-top: 44px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-    h3 { margin-top: 28px; }
-    .lede { max-width: 780px; color: var(--muted); font-size: 1.1rem; }
-    .badge {
-      display: inline-block; padding: 4px 10px; border-radius: 999px;
-      background: #eaf1ff; color: var(--blue); font-weight: 700; font-size: .82rem;
-      letter-spacing: .02em;
+
+    a {
+      color: var(--teal-dark);
+      text-underline-offset: 3px;
     }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
-    .card { border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: var(--panel); }
-    .card h3 { margin: 0 0 8px; }
-    .card p { margin: 0; color: var(--muted); }
-    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    code { background: #eef1f5; padding: 2px 5px; border-radius: 4px; }
+
+    a:focus-visible {
+      outline: 3px solid var(--teal);
+      outline-offset: 3px;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      border-radius: 4px;
+      padding: .1em .3em;
+      background: #edf2f3;
+      font-size: .9em;
+      overflow-wrap: anywhere;
+    }
+
     pre {
-      overflow: auto; padding: 18px; border-radius: 10px; background: #111827;
-      color: #e5edf9; line-height: 1.5;
+      overflow-x: auto;
+      margin: 0;
+      padding: 20px 22px 24px;
+      background: #142b35;
+      color: #d9e9ed;
+      font-size: .9rem;
+      line-height: 1.65;
+      tab-size: 2;
     }
-    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
-    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 12px 10px; }
-    th { background: var(--panel); }
-    .pass { color: var(--green); font-weight: 700; }
-    .advisory { color: var(--amber); font-weight: 700; }
-    .note { border-left: 4px solid var(--blue); padding: 12px 16px; background: #f3f7ff; }
-    .small { color: var(--muted); font-size: .92rem; }
-    footer { margin-top: 52px; color: var(--muted); font-size: .9rem; }
+
+    pre code {
+      padding: 0;
+      background: none;
+      color: inherit;
+      font-size: inherit;
+      overflow-wrap: normal;
+    }
+
+    .json-key { color: #9ad8ff; }
+    .json-string { color: #f3ca92; }
+    .json-number { color: #bde6ae; }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      letter-spacing: -.025em;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 10px 0 16px;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.65rem, 3vw, 2.15rem);
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.12rem;
+    }
+
+    p { margin: 0 0 16px; }
+
+    .hero {
+      padding: clamp(38px, 7vw, 76px) 24px 44px;
+      background: linear-gradient(125deg, #e7f5f0 0%, #f4f8f6 58%, #edf3fa 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-inner, .layout {
+      max-width: 1220px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      color: var(--teal-dark);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      max-width: 760px;
+      color: #344e5e;
+      font-size: 1.16rem;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 26px;
+    }
+
+    .pill {
+      border: 1px solid #b7d9d2;
+      border-radius: 999px;
+      padding: 4px 12px;
+      color: var(--teal-dark);
+      background: #fff;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: clamp(32px, 5vw, 70px);
+      padding: 40px 24px 80px;
+    }
+
+    nav {
+      align-self: start;
+      position: sticky;
+      top: 22px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 12px;
+      font-size: .8rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    nav a {
+      display: block;
+      padding: 5px 0;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: .9rem;
+    }
+
+    nav a:hover {
+      color: var(--teal-dark);
+      text-decoration: underline;
+    }
+
+    main { min-width: 0; }
+
+    section.section {
+      margin: 0 0 58px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-intro {
+      max-width: 760px;
+      color: var(--muted);
+    }
+
+    .callout {
+      margin: 22px 0;
+      padding: 18px 20px;
+      border-left: 4px solid var(--teal);
+      border-radius: 0 10px 10px 0;
+      background: var(--teal-pale);
+    }
+
+    .callout p:last-child { margin-bottom: 0; }
+    .callout.warn { border-color: var(--amber); background: var(--amber-pale); }
+    .callout.info { border-color: #4275ab; background: var(--blue-pale); }
+
+    .callout-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--teal-dark);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .warn .callout-label { color: var(--amber); }
+    .info .callout-label { color: #315d8c; }
+
+    .steps, .grid, .release-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 24px 0;
+    }
+
+    .grid, .release-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .release-grid { margin-top: 20px; }
+
+    .step, .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .step { background: var(--surface); }
+    .step p, .card p { color: var(--muted); margin: 0; }
+
+    .step-number {
+      display: inline-flex;
+      width: 28px;
+      height: 28px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 800;
+    }
+
+    .card-kicker {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--teal-dark);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .release-grid .card { border-top: 4px solid var(--teal); }
+    .release-grid .card.legacy { border-top-color: #7892a6; }
+
+    .code-example {
+      overflow: hidden;
+      margin: 20px 0;
+      border-radius: 12px;
+      background: #142b35;
+    }
+
+    .code-caption {
+      padding: 10px 22px;
+      border-bottom: 1px solid #35515a;
+      color: #a9c7cc;
+      font: 700 .78rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .025em;
+    }
+
+    .table-scroll {
+      max-width: 100%;
+      overflow-x: auto;
+      margin: 20px 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 650px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      background: var(--surface);
+      font-size: .86rem;
+    }
+
+    th:first-child, td:first-child {
+      width: 120px;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .fine {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    ol { padding-left: 1.4rem; }
+    li { padding-left: .2rem; margin-bottom: 7px; }
+
+    footer {
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    @media (max-width: 850px) {
+      .layout { display: block; padding-top: 24px; }
+      nav { position: static; margin-bottom: 40px; }
+      nav div {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2px 16px;
+      }
+      .steps { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 580px) {
+      .grid, .release-grid { grid-template-columns: 1fr; }
+      .hero { padding-bottom: 34px; }
+      .layout { padding-left: 18px; padding-right: 18px; }
+
+      .table-scroll {
+        overflow: visible;
+        border: 0;
+      }
+
+      table { min-width: 0; }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+      }
+
+      tbody {
+        display: grid;
+        gap: 12px;
+      }
+
+      tbody tr {
+        display: block;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      tbody td {
+        display: block;
+        width: 100%;
+        padding: 12px 14px;
+        white-space: normal;
+      }
+
+      tbody td:first-child { width: 100%; }
+
+      tbody td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        color: var(--teal-dark);
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+
+      tbody tr td:last-child { border-bottom: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
   </style>
 </head>
 <body>
-<main>
-  <span class="badge">Proposed next Profile release</span>
-  <h1>Wayfinder Profile and validation guide</h1>
-  <p class="lede">
-    This guide explains where rules, project configuration, agent instructions,
-    and concept metadata belong—and what Wayfinder validates today.
-  </p>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Wayfinder field guide</span>
+      <h1>One Profile. Project-level control. Clear bundle rules.</h1>
+      <p class="lede">
+        A practical map of what belongs in agent instructions, the installed
+        Profile, <code>wayfinder.json</code>, and the knowledge bundle—and what
+        validation can actually prove.
+      </p>
+      <div class="hero-meta">
+        <span class="pill">Bitwild Profile 2026.3</span>
+        <span class="pill">OKF 0.2 exactly</span>
+        <span class="pill">Legacy 2026.2 supported</span>
+      </div>
+    </div>
+  </header>
 
-  <h2>The four layers</h2>
-  <div class="grid">
-    <section class="card">
-      <h3>AGENTS.md</h3>
-      <p>Repository workflow instructions: where knowledge lives, which skills to use, and how agents should work.</p>
-    </section>
-    <section class="card">
-      <h3>Installed Profile</h3>
-      <p>Reusable normative rules, standard types, OKF compatibility, validator code, and review guidance.</p>
-    </section>
-    <section class="card">
-      <h3>wayfinder.json</h3>
-      <p>Project-local binding: selected Profile, custom types, actor lookup metadata, bundles, and declared tags.</p>
-    </section>
-    <section class="card">
-      <h3>Bundle frontmatter</h3>
-      <p>OKF concept data: type, lifecycle, provenance, sources, tags, and other upstream-defined fields.</p>
-    </section>
-  </div>
+  <div class="layout">
+    <nav aria-label="On this page">
+      <strong>On this page</strong>
+      <div>
+        <a href="#start">Start here</a>
+        <a href="#layers">The four layers</a>
+        <a href="#configuration">Project configuration</a>
+        <a href="#placement">Where knowledge goes</a>
+        <a href="#metadata">Tags and status</a>
+        <a href="#sharing">Captures and sharing</a>
+        <a href="#validation">Validation coverage</a>
+        <a href="#boundaries">Schema boundaries</a>
+      </div>
+    </nav>
 
-  <div class="note">
-    <strong>Key distinction:</strong> <code>profile.md</code> in an existing 2026.2
-    bundle is an ordinary concept containing the legacy selector. It is not an
-    <code>AGENTS.md</code> and it is not the reusable Profile definition.
-  </div>
+    <main>
+      <section class="section" id="start">
+        <h2>Start here</h2>
+        <p class="section-intro">
+          For a new project, keep the reusable rules installed and put only
+          the project’s own vocabulary and actor lookup in its binding.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <span class="step-number">1</span>
+            <h3>Select the Profile</h3>
+            <p>
+              Add project-root <code>wayfinder.json</code> with a bundle entry
+              selecting <code>bitwild_profile/2026.3</code>.
+            </p>
+          </div>
+          <div class="step">
+            <span class="step-number">2</span>
+            <h3>Author the bundle</h3>
+            <p>
+              Keep <code>index.md</code> and <code>log.md</code>. Add concepts
+              under truthful subjects, using declared types and tags.
+            </p>
+          </div>
+          <div class="step">
+            <span class="step-number">3</span>
+            <h3>Validate and review</h3>
+            <p>
+              Run <code>wayfinder validate knowledge</code>, then perform
+              contextual Profile Review for meaning and placement.
+            </p>
+          </div>
+        </div>
+        <div class="release-grid">
+          <div class="card">
+            <span class="card-kicker">New 2026.3 bundle</span>
+            <h3>Configuration lives outside the bundle</h3>
+            <p>
+              Root <code>profile.md</code>, <code>types.md</code>, and
+              <code>actors.md</code> registries are retired. The four named
+              directory conventions and subject-based placement remain.
+            </p>
+          </div>
+          <div class="card legacy">
+            <span class="card-kicker">Existing 2026.2 bundle</span>
+            <h3>Keep its declared contract</h3>
+            <p>
+              <code>profile.md</code> and <code>types.md</code> stay required;
+              <code>actors.md</code> is required when actor-valued OKF fields
+              are used. Migration is explicit, never automatic.
+            </p>
+          </div>
+        </div>
+      </section>
 
-  <h2>Recommended project configuration</h2>
-  <pre><code>{
-  "version": 1,
-  "profiles": {
-    "knowledge_profile": {
-      "implements": "bitwild_profile/2026.3",
-      "types": [
+      <section class="section" id="layers">
+        <h2>The four layers</h2>
+        <div class="grid">
+          <div class="card">
+            <span class="card-kicker">Agent workflow</span>
+            <h3><code>AGENTS.md</code></h3>
+            <p>
+              Tells agents where knowledge lives, which skills to use, and
+              how to work in the repository. It is not a Profile declaration.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-kicker">Reusable standard</span>
+            <h3>Installed Profile</h3>
+            <p>
+              Owns normative bundle rules, eleven standard types, OKF
+              compatibility, deterministic validation, and review guidance.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-kicker">Project binding</span>
+            <h3><code>wayfinder.json</code></h3>
+            <p>
+              Selects the exact Profile and bundle paths; adds project custom
+              types, declared tags, and actor lookup metadata.
+            </p>
+          </div>
+          <div class="card">
+            <span class="card-kicker">Concept data</span>
+            <h3>Bundle frontmatter</h3>
+            <p>
+              Uses OKF fields for type, document lifecycle, provenance,
+              sources, and explicitly applied tags.
+            </p>
+          </div>
+        </div>
+        <aside class="callout info">
+          <span class="callout-label">Do not confuse these</span>
+          <p>
+            A 2026.2 bundle’s <code>profile.md</code> is an ordinary concept
+            containing a legacy selector. It is neither <code>AGENTS.md</code>
+            nor the installed reusable Profile.
+          </p>
+        </aside>
+      </section>
+
+      <section class="section" id="configuration">
+        <h2>Project configuration</h2>
+        <p class="section-intro">
+          One named binding can serve more than one bundle. Each bundle
+          explicitly selects its binding; configuration does not create new
+          frontmatter fields or override Profile rules.
+        </p>
+        <div class="code-example">
+          <div class="code-caption">wayfinder.json · illustrative project binding</div>
+          <pre aria-label="Example wayfinder.json"><code class="language-json">{
+  <span class="json-key">"version"</span>: <span class="json-number">1</span>,
+  <span class="json-key">"profiles"</span>: {
+    <span class="json-key">"knowledge_profile"</span>: {
+      <span class="json-key">"implements"</span>: <span class="json-string">"bitwild_profile/2026.3"</span>,
+      <span class="json-key">"types"</span>: [
         {
-          "name": "Source Document",
-          "description": "An authoritative captured document."
+          <span class="json-key">"name"</span>: <span class="json-string">"Source Document"</span>,
+          <span class="json-key">"description"</span>: <span class="json-string">"An authoritative captured document."</span>
         }
       ],
-      "actors": {
-        "claude-code/opus-5": {
-          "name": "Claude Code"
+      <span class="json-key">"actors"</span>: {
+        <span class="json-key">"claude-code/opus-5"</span>: {
+          <span class="json-key">"name"</span>: <span class="json-string">"Claude Code"</span>
         }
       },
-      "tags": [
+      <span class="json-key">"tags"</span>: [
         {
-          "name": "captures",
-          "description": "Evidence-related topic"
+          <span class="json-key">"name"</span>: <span class="json-string">"customer-reporting"</span>,
+          <span class="json-key">"description"</span>: <span class="json-string">"Customer-facing reporting topic"</span>
         }
       ]
     }
   },
-  "bundles": [
+  <span class="json-key">"bundles"</span>: [
     {
-      "id": "knowledge",
-      "path": "knowledge",
-      "profile": "knowledge_profile"
+      <span class="json-key">"id"</span>: <span class="json-string">"knowledge"</span>,
+      <span class="json-key">"path"</span>: <span class="json-string">"knowledge"</span>,
+      <span class="json-key">"profile"</span>: <span class="json-string">"knowledge_profile"</span>
     }
   ]
 }</code></pre>
-  <p class="small">
-    The installed Profile owns standard types and rules. The binding adds only
-    project custom types and lookup metadata. It cannot override Profile rules.
-  </p>
+        </div>
+        <p class="fine">
+          The shipped <a href="../profile/wayfinder-profile.json">Profile manifest</a>
+          declares eleven standard types and <strong>no base tags</strong>.
+          Project bindings declare the tags they actually use. The validator
+          uses built-in Profile metadata checked for parity with that shipped
+          manifest; it does not dynamically load arbitrary Profile JSON.
+        </p>
+      </section>
 
-  <h2>Tags and status</h2>
-  <table>
-    <thead><tr><th>Field</th><th>OKF meaning</th><th>Profile behavior</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><code>status</code></td>
-        <td>Document lifecycle. Values are <code>draft</code>, <code>stable</code>, and <code>deprecated</code>. It is optional upstream.</td>
-        <td>Requires the field explicitly and keeps the same values. It must not encode priority, workflow, confidence, or subject certainty.</td>
-      </tr>
-      <tr>
-        <td><code>tags</code></td>
-        <td>Optional list of short topic strings. OKF does not define a central vocabulary.</td>
-        <td>The next Bitwild binding declares the actual Profile and project tag vocabulary. Duplicate declarations, duplicate values within one concept, and reserved-value collisions are rejected.</td>
-      </tr>
-    </tbody>
-  </table>
-  <p>
-    A Profile declares tag definitions, and a project binding adds project
-    definitions. The first Bitwild external-binding release should make this
-    registry authoritative: an undeclared used tag is an error. Declared names
-    must be unique and must not collide between the Profile and binding.
-  </p>
+      <section class="section" id="placement">
+        <h2>Where knowledge goes</h2>
+        <p>
+          A durable concept lives with its <strong>subject</strong>, not in a
+          folder named after its type or tag. The four fixed directory names
+          remain <code>architecture/</code>, <code>ways-of-working/</code>,
+          <code>interactions/</code>, and <code>references/</code>. Other
+          subject names come from the actual project corpus.
+        </p>
+        <aside class="callout">
+          <span class="callout-label">Whole-bundle scope</span>
+          <p>
+            <code>wayfinder.json</code> selects one binding for a whole bundle.
+            It does not define a placement map, per-directory overrides, or
+            nested Profiles. For <code>interactions/</code> and
+            <code>references/</code>, the Profile’s chronology/source
+            organization rules still apply.
+          </p>
+        </aside>
+      </section>
 
-  <h2>Captures, sharing, and defaults</h2>
-  <div class="grid">
-    <section class="card">
-      <h3>Captures</h3>
-      <p><code>captures/</code> is normally evidence beside the OKF bundle. Its intake files do not inherit the main Profile or tag registry.</p>
-    </section>
-    <section class="card">
-      <h3>Sharing</h3>
-      <p>Several bundles may reference one named binding when their types, tags, and actors are intentionally shared.</p>
-    </section>
-    <section class="card">
-      <h3>Defaults</h3>
-      <p><code>default_bundle</code> is proposed. Current commands still require an explicit bundle path and do not discover directories.</p>
-    </section>
+      <section class="section" id="metadata">
+        <h2>Tags and status</h2>
+        <div class="table-scroll" role="region" aria-label="Status and tag rules" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Field</th>
+                <th scope="col">OKF 0.2 meaning</th>
+                <th scope="col">Bitwild 2026.3 producer rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="Field"><code>status</code></td>
+                <td data-label="OKF 0.2 meaning">
+                  Optional document lifecycle value: <code>draft</code>,
+                  <code>stable</code>, or <code>deprecated</code>.
+                </td>
+                <td data-label="Bitwild 2026.3 producer rule">
+                  Required explicitly, using the same three values. Never use
+                  it for priority, workflow, confidence, or how settled the
+                  subject is.
+                </td>
+              </tr>
+              <tr>
+                <td data-label="Field"><code>tags</code></td>
+                <td data-label="OKF 0.2 meaning">Optional topic strings; OKF has no central vocabulary.</td>
+                <td data-label="Bitwild 2026.3 producer rule">
+                  Each used tag must be declared by the Profile or binding.
+                  Duplicate declarations or uses, undeclared tags, and exact
+                  collisions with type, status, trust, or standard relationship
+                  labels fail.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Tag definitions are vocabulary, not automatic assignments. The
+          installed 2026.3 Profile has no base tags; project bindings declare
+          used topics such as <code>customer-reporting</code>. Whether a tag
+          is truthful or merely a semantic alias requires Profile Review.
+        </p>
+      </section>
+
+      <section class="section" id="sharing">
+        <h2>Captures, sharing, and defaults</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Captures</h3>
+            <p>
+              <code>captures/</code> is normally evidence beside the OKF
+              bundle. Its intake files do not inherit the main bundle’s
+              Profile or tags. If it becomes a separate OKF bundle,
+              configure it explicitly.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Shared bindings</h3>
+            <p>
+              Several bundles may use one named binding when their custom
+              types, tags, and actor lookup genuinely match. Otherwise use
+              separate bindings.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Installed release</h3>
+            <p>
+              Install the same pinned Profile runtime on each machine.
+              Committing <code>wayfinder.json</code> shares project
+              configuration, not executable validator code.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Default bundle</h3>
+            <p>
+              <code>default_bundle</code> is reserved for future command
+              selection. Current commands still take an explicit bundle path;
+              there is no recursive bundle discovery or merging.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="validation">
+        <h2>What validation checks</h2>
+        <p class="section-intro">
+          Wayfinder first preserves the independent OKF result, then applies
+          deterministic rules for the selected release. Legacy 2026.2 keeps
+          its own registry checks.
+        </p>
+        <div class="table-scroll" role="region" aria-label="Validation coverage" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Area</th>
+                <th scope="col">Automated validation</th>
+                <th scope="col">Contextual Profile Review</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="Area">Binding</td>
+                <td data-label="Automated validation">
+                  JSON shape, exact supported release, safe and unique bundle
+                  paths, referenced binding.
+                </td>
+                <td data-label="Contextual Profile Review">Whether the selected binding reflects the project.</td>
+              </tr>
+              <tr>
+                <td data-label="Area">Types</td>
+                <td data-label="Automated validation">
+                  Standard and custom name collisions, used-type membership,
+                  index group order.
+                </td>
+                <td data-label="Contextual Profile Review">Whether the type fits each concept’s meaning.</td>
+              </tr>
+              <tr>
+                <td data-label="Area">Actors</td>
+                <td data-label="Automated validation">Lookup shape and whether used actor IDs are declared.</td>
+                <td data-label="Contextual Profile Review">
+                  Whether identity, affiliation, role, and provenance are truthful.
+                </td>
+              </tr>
+              <tr>
+                <td data-label="Area">Metadata</td>
+                <td data-label="Automated validation">
+                  Required fields, OKF field shapes, status values, unknown
+                  producer keys, declared/duplicate tags.
+                </td>
+                <td data-label="Contextual Profile Review">
+                  Whether values are accurate and tags describe real topics.
+                </td>
+              </tr>
+              <tr>
+                <td data-label="Area">Sources and links</td>
+                <td data-label="Automated validation">
+                  Source shape, ID and attribution joins, and deterministic
+                  link checks.
+                </td>
+                <td data-label="Contextual Profile Review">
+                  Whether sources support claims and relationships have the
+                  intended meaning.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <aside class="callout warn">
+          <span class="callout-label">What PASS does not prove</span>
+          <p>
+            Automated success does not establish subject placement, semantic
+            accuracy, source credibility, or complete Profile conformance.
+            Judgment Rules remain <code>UNASSESSED</code> until Profile Review.
+          </p>
+        </aside>
+        <h3>Configured validation flow</h3>
+        <ol>
+          <li>Parse and check <code>wayfinder.json</code> shape; resolve the listed bundle safely.</li>
+          <li>Select the exact built-in Profile release and retain the independent OKF result.</li>
+          <li>Validate type, tag, and actor registries against concept use and deterministic Profile rules.</li>
+          <li>Report contextual rules separately as <code>UNASSESSED</code>.</li>
+        </ol>
+      </section>
+
+      <section class="section" id="boundaries">
+        <h2>Schema boundaries</h2>
+        <p>
+          Bindings cannot add arbitrary per-type frontmatter properties such
+          as <code>owner</code>, <code>priority</code>, or
+          <code>confidence</code>. OKF owns the frontmatter contract. A future
+          type-specific constraint would require a reviewed Profile release
+          and must use existing OKF fields, not turn <code>wayfinder.json</code>
+          into a rules language.
+        </p>
+        <footer>
+          Sources: <a href="../profile/okf-profile.md">Bitwild Profile 2026.3</a>,
+          <a href="wayfinder-configuration.md">configuration guide</a>,
+          <a href="schemas/wayfinder.schema.json">project schema</a>, and
+          <a href="../implementation/okf-implementation-guide.md">implementation guide</a>.
+          Existing 2026.2 bundles remain on their legacy contract until
+          explicitly migrated.
+        </footer>
+      </section>
+    </main>
   </div>
-  <p>
-    If captures become a searchable OKF bundle, they receive a separate binding
-    and are not silently merged into <code>knowledge/</code>. Installing the
-    same pinned Profile package shares the reusable validator across machines;
-    committing <code>wayfinder.json</code> shares the project binding.
-  </p>
-
-  <h2>What validation checks</h2>
-  <table>
-    <thead><tr><th>Area</th><th>Automated validation</th><th>Contextual review</th></tr></thead>
-    <tbody>
-      <tr><td>Types</td><td>Current 2026.2: exact <code>types.md</code> registry, standard rows, order, and used-type membership. Future: Profile standard types plus JSON custom types.</td><td>Whether the chosen type actually fits the concept.</td></tr>
-      <tr><td>Actors</td><td>Current 2026.2: registry shape, side values, active intervals, and used IDs. Future: JSON actor lookup shape and used-ID membership.</td><td>Whether identity, affiliation, role, and history are truthful.</td></tr>
-      <tr><td>Frontmatter</td><td>Required fields, allowed status values, OKF field shapes, source structure, and unknown-key detection.</td><td>Whether metadata truthfully describes the document.</td></tr>
-      <tr><td>Tags</td><td>List shape and literal duplication checks.</td><td>Whether tags are meaningful topics rather than aliases or hidden workflow state.</td></tr>
-      <tr><td>Provenance</td><td>Source shape, unique IDs, attribution joins, and actor references.</td><td>Whether sources and verification claims are genuinely supported.</td></tr>
-    </tbody>
-  </table>
-
-  <h2>Type-specific properties</h2>
-  <p>
-    The first design does <strong>not</strong> allow arbitrary per-type frontmatter
-    properties such as <code>owner</code>, <code>priority</code>, or
-    <code>confidence</code>. OKF owns the frontmatter contract, and the Profile
-    currently does not define type-specific schemas.
-  </p>
-  <p>
-    If a future Profile needs a type-specific constraint, it must constrain
-    existing OKF fields in a new Profile release. It must not turn
-    <code>wayfinder.json</code> into a second frontmatter language.
-  </p>
-
-  <h2>Validation flow for the future binding</h2>
-  <ol>
-    <li>Validate <code>wayfinder.json</code> shape.</li>
-    <li>Resolve the bundle and Profile binding safely.</li>
-    <li>Resolve the installed Profile and exact release.</li>
-    <li>Run independent OKF validation.</li>
-    <li>Merge Profile standard types with binding custom types.</li>
-    <li>Validate type and actor references.</li>
-    <li>Run deterministic Profile rules; report judgment rules as <code>UNASSESSED</code>.</li>
-  </ol>
-
-  <footer>
-    Source documents: OKF 0.2, Concepta Profile 2026.2, the proposed Wayfinder
-    schemas, and implementation guide §4.8. Existing 2026.2 bundles remain on
-    their legacy <code>profile.md</code>, <code>types.md</code>, and conditional
-    <code>actors.md</code> contract until migration.
-  </footer>
-</main>
 </body>
 </html>

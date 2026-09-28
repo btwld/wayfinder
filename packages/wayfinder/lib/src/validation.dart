@@ -1,12 +1,17 @@
+import 'dart:io';
+
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'concept_rules.dart';
+import 'profile_context.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart' as rules;
 import 'structure_rules.dart';
+import 'wayfinder_config.dart';
 
 const supportedOkfRelease = '0.2';
 
@@ -87,9 +92,11 @@ final class ProfileValidationResult {
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
+    String release,
   ) {
+    final released = findings.map((finding) => finding.atRelease(release));
     final stableFindings = List<ProfileFinding>.unmodifiable(
-      findings.toList()..sort(
+      released.toList()..sort(
         (left, right) => OkfReport.compareFindings(
           left.toOkfFinding(),
           right.toOkfFinding(),
@@ -101,7 +108,7 @@ final class ProfileValidationResult {
     );
     return ProfileValidationResult._(
       okfValidation: validation,
-      profileRelease: supportedProfileRelease,
+      profileRelease: release,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
       automatedGateState: failed
@@ -163,11 +170,24 @@ final class ProfileValidator {
 
   final OkfBundleLoader loader;
 
-  Future<ProfileValidationResult> validate(String bundlePath) async {
+  Future<ProfileValidationResult> validate(
+    String bundlePath, {
+    String? configPath,
+  }) async {
+    final resolvedConfig = await _readProjectConfig(
+      bundlePath,
+      configPath: configPath,
+    );
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
     if (!validation.isConformant) {
       return ProfileValidationResult.blockedByOkf(validation);
+    }
+    if (resolvedConfig.finding case final finding?) {
+      return ProfileValidationResult.undispatched(validation, finding);
+    }
+    if (resolvedConfig.value case final configured?) {
+      return _validateConfigured(validation, loaded, configured);
     }
     final declaration = _readDeclaration(loaded);
     if (declaration.finding case final finding?) {
@@ -175,15 +195,136 @@ final class ProfileValidator {
     }
     final values = declaration.values!;
     final release = values['concepta_profile']!;
-    if (release != supportedProfileRelease) {
+    if (release != legacyProfileRelease) {
       return ProfileValidationResult.unsupported(validation, release);
     }
+    final context = ProfileValidationContext.legacy(release);
     return ProfileValidationResult.assessed(validation, <ProfileFinding>[
-      ?_validateOkfBinding(values, loaded),
-      ...validateConceptRules(loaded),
-      ...validateStructureRules(loaded),
-    ]);
+      ?_validateOkfBinding(values, loaded, release),
+      ...validateConceptRules(loaded, context: context),
+      ...validateStructureRules(loaded, context: context),
+    ], release);
   }
+}
+
+ProfileValidationResult _validateConfigured(
+  OkfSpecValidation validation,
+  OkfBundleLoadResult loaded,
+  WayfinderResolvedConfig configured,
+) {
+  final context = ProfileValidationContext.external(configured.profile);
+  if (configured.profile.release != externalProfileRelease) {
+    return ProfileValidationResult.unsupported(
+      validation,
+      configured.profile.release,
+    );
+  }
+  return ProfileValidationResult.assessed(validation, <ProfileFinding>[
+    ...validateConceptRules(loaded, context: context),
+    ...validateStructureRules(loaded, context: context),
+  ], configured.profile.release);
+}
+
+Future<_ConfigRead> _readProjectConfig(
+  String bundlePath, {
+  String? configPath,
+}) async {
+  final file = configPath == null
+      ? await _findProjectConfig(bundlePath)
+      : File(configPath);
+  if (file == null || !await file.exists()) {
+    if (configPath != null) {
+      return _ConfigRead.finding(
+        ProfileFinding(
+          descriptor: rules.configurationReadable,
+          message: 'Configuration file $configPath does not exist.',
+          path: p.basename(configPath),
+        ),
+      );
+    }
+    return const _ConfigRead.none();
+  }
+  try {
+    final config = await WayfinderProjectConfig.read(file);
+    final projectRoot = await file.parent.resolveSymbolicLinks();
+    final requested = await Directory(bundlePath).resolveSymbolicLinks();
+    String? selectedPath;
+    final realPaths = <String>{};
+    for (final bundle in config.bundles) {
+      final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
+      final realPath = await Directory(configuredPath).resolveSymbolicLinks();
+      if (!p.isWithin(projectRoot, realPath)) {
+        throw WayfinderConfigException(
+          'Bundle ${bundle.id} resolves outside the project.',
+        );
+      }
+      if (!realPaths.add(realPath)) {
+        throw WayfinderConfigException(
+          'Configured bundles resolve to the same directory.',
+        );
+      }
+      if (p.equals(realPath, requested)) selectedPath = configuredPath;
+    }
+    for (final path in realPaths) {
+      if (realPaths.any((other) => other != path && p.isWithin(other, path))) {
+        throw WayfinderConfigException(
+          'Configured bundles must not be nested.',
+        );
+      }
+    }
+    if (configPath == null && selectedPath == null) {
+      if (await File(p.join(bundlePath, 'profile.md')).exists()) {
+        return const _ConfigRead.none();
+      }
+      throw WayfinderConfigException(
+        'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
+      );
+    }
+    return _ConfigRead.value(
+      config.resolve(
+        bundlePath: selectedPath ?? bundlePath,
+        configPath: p.join(projectRoot, p.basename(file.path)),
+      ),
+    );
+  } on WayfinderConfigException catch (error) {
+    return _ConfigRead.finding(
+      ProfileFinding(
+        descriptor: rules.configurationReadable,
+        message: error.message,
+        path: p.basename(file.path),
+        profileRelease: externalProfileRelease,
+      ),
+    );
+  } on FileSystemException catch (error) {
+    return _ConfigRead.finding(
+      ProfileFinding(
+        descriptor: rules.configurationBundleBinding,
+        message: 'Configured bundle path is not readable: ${error.message}.',
+        path: p.basename(file.path),
+        profileRelease: externalProfileRelease,
+      ),
+    );
+  }
+}
+
+Future<File?> _findProjectConfig(String bundlePath) async {
+  var directory = p.dirname(File(bundlePath).absolute.path);
+  while (true) {
+    final file = File(p.join(directory, 'wayfinder.json'));
+    if (await file.exists()) return file;
+    final parent = p.dirname(directory);
+    if (parent == directory) return null;
+    directory = parent;
+  }
+}
+
+final class _ConfigRead {
+  const _ConfigRead.none() : value = null, finding = null;
+  const _ConfigRead.value(this.value) : finding = null;
+  const _ConfigRead.finding(this.finding) : value = null;
+
+  final WayfinderResolvedConfig? value;
+  final ProfileFinding? finding;
 }
 
 _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
@@ -250,6 +391,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
 ProfileFinding? _validateOkfBinding(
   Map<String, String> declaration,
   OkfBundleLoadResult loaded,
+  String release,
 ) {
   Object? rootVersion;
   final rootIndex = loaded.indexes['index.md'];
@@ -265,13 +407,13 @@ ProfileFinding? _validateOkfBinding(
       rootVersion == supportedOkfRelease) {
     return null;
   }
-  return const ProfileFinding(
+  return ProfileFinding(
     descriptor: rules.okfReleaseBinding,
     message:
         'The declaration, root index, and Profile release must all bind '
         'to OKF 0.2.',
     path: 'profile.md',
-    profileRelease: supportedProfileRelease,
+    profileRelease: release,
   );
 }
 

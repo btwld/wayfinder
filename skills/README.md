@@ -1,6 +1,7 @@
 # Skills
 
-The agent workflows for [Concepta OKF Profile 2026.2](../profile/okf-profile.md),
+The agent workflows for [Bitwild OKF Profile 2026.3](../profile/okf-profile.md)
+and [legacy Concepta 2026.2](../profile/versions/okf-profile-2026.2.md),
 shipped together as the `wayfinder` plugin.
 
 ## The family

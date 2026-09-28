@@ -1,11 +1,8 @@
-# Bitwild Profile 2026.3 implementation coverage
+# Concepta Profile 2026.2 implementation coverage
 
-Status: Complete — Profile 2026.3 release evidence
+Status: Complete — Profile 2026.2 release evidence
 
-The [2026.2 coverage matrix](profile-coverage-2026.2.md) is preserved for
-legacy release dispatch.
-
-This non-normative matrix assigns each normative Bitwild Profile 2026.3 bundle
+This non-normative matrix assigns each normative Concepta Profile 2026.2 bundle
 rule to its assessment mode. It does not decide whether a rule preserves OKF;
 that evidence lives in
 [`../docs/compatibility-review.md`](../docs/compatibility-review.md).
@@ -26,23 +23,24 @@ The Profile remains the source of every rule and its normative force.
 
 The publication review normalized repeated statements of the same semantic rule
 to one row and retained distinct deterministic and contextual obligations as
-separate rules. The tables below assign every applicable bundle and release-frame rule. Every bundle row names exactly one assessment mode;
+separate rules. The tables below contain 70 bundle-rule assignments and 11
+non-bundle frame assignments. Every bundle row names exactly one assessment mode;
 none is duplicated between Automated Profile Validation and Profile Review.
 
 ## Release-frame coverage
 
 | Profile clause | Force | Assessment | Expected evidence |
 | --- | --- | --- | --- |
-| §11: a Profiled Bundle is listed by one project-root `wayfinder.json` entry and named binding | MUST | Automated Profile Validation | Config shape, unique ID/path, selected binding, and safe canonical path |
-| §11: binding selects installed `bitwild_profile/2026.3` and OKF 0.2 | MUST | Automated Profile Validation | Exact installed ID/release and root index `okf_version` |
-| §11: unknown Profile IDs or releases do not fall back | MUST NOT | Automated Profile Validation | Unsupported result and independent OKF result retained |
-| §11: the binding does not override Profile rules or change OKF semantics | MUST NOT | Profile Review | Review config and authored usage for semantic overrides |
+| §11: a Profiled Bundle contains root `profile.md` of type `Knowledge Profile` | MUST | Automated Profile Validation | Presence, path, and parsed type |
+| §11: the first body `yaml` block is the declaration and declares `concepta_profile: "2026.2"` and `okf_version: "0.2"` | MUST | Automated Profile Validation | Parsed block position, selector, and exact values |
+| §11: declaration OKF version agrees with root index | MUST | Automated Profile Validation | Equality of both parsed values; okf 0.2.0's own advisory `okf/unsupported-okf-version` may co-report on the root index without displacing the Profile's error-level `concepta-profile/okf-release-binding` (see "OKF co-reporting") |
+| §11: `profile.md` is not used as a standalone definition, extension registry, second schema, or OKF override | MUST NOT | Profile Review | Contextual review of declaration content |
 
 ## Structure and navigation coverage
 
 | Profile clause | Force | Assessment | Expected evidence |
 | --- | --- | --- | --- |
-| §3: a bundle contains no nested distribution unit | MUST NOT | Profile Review | Distribution intent and repository context distinguish an area from an independently distributed nested OKF bundle |
+| §3: a bundle contains no nested distribution unit | MUST NOT | Profile Review | Distribution intent and repository context distinguish an area from an independently distributed nested OKF bundle; a nested Profile declaration is only a deterministic signal |
 | §3.1: project directories name a genuine shared subject and placement follows that subject | MUST | Profile Review | Directory contents support the path's subject claim; concepts are filed with that subject rather than by type |
 | §3.1: a genuine project area may contain any number of concepts | MAY | Profile Review | No count-based concern; placement assessed on subject truth |
 | §3.1: authors do not create speculative structure | SHOULD NOT | Profile Review | Current corpus and durable navigation need justify each directory |
@@ -54,9 +52,9 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §3.4: nonempty `references/` and each nonempty descendant contain `index.md` | MUST | Automated Profile Validation | Index presence at every nonempty referenced-source level |
 | §3.4: within a `raw/` tier and its subdirectories the only markdown file is each directory's own `index.md`, and `raw` neither names a source directory nor sits directly under `references/` | MAY / MUST NOT | Automated Profile Validation | Non-index markdown under any `raw/` directory and a `raw/` directly under `references/` fail deterministically; declining the optional tier produces no finding |
 | §3.4, §12: a `raw/` tier holds verbatim originals byte-for-byte, and the derived mirror sits beside `raw/` naming the original through `sources` | MUST | Profile Review | Whether tier contents are unmodified originals of cited sources needs source context no path rule can prove |
-| §3.5: root contains `index.md` and `log.md`, not legacy registry/declaration concepts | MUST / MUST NOT | Automated Profile Validation | Root-file presence and absence of legacy names |
-| §6.1.1: every used actor appears in the selected binding lookup | MUST | Automated Profile Validation | Actor-field scan and ID membership |
-| §5.2, §6.1.1: binding definitions have required names, descriptions, and permitted actor-side values | MUST | Automated Profile Validation | JSON shape and value checks |
+| §3.5: root contains `index.md`, `log.md`, `profile.md`, and `types.md` and reserves all five structural names | MUST / MUST NOT | Automated Profile Validation | Required paths present with no conflicting use |
+| §3.5, §6.1.1: root `actors.md` exists when required by any used OKF actor-valued field, may otherwise be retained, has exact `type: Actor Registry`, and represents every used actor | MUST / MAY | Automated Profile Validation | Actor-field scan, conditional file presence, parsed exact registry type, and registry row membership |
+| §6.1.1: actor and type registries use their fixed ordered table columns | MUST | Automated Profile Validation | Parsed header equality for six actor columns and two type columns |
 | §9: every nonempty directory contains an index | MUST | Automated Profile Validation | Recursive directory and index inventory |
 | §9: every index matches the exact immediate semantic projection and contains no unique authored navigation knowledge | MUST / MUST NOT | Automated Profile Validation | Parsed groups, membership, order, labels, relative targets compared percent-decoded with URL-divergent spellings rejected, exact concept descriptions, directory entries, and referenced assets; okf 0.2.0's advisory `okf/non-portable-index-link` may co-report on the same entry (see "OKF co-reporting") |
 | §9: harmless Markdown presentation differences do not affect semantic conformance | MUST NOT | Automated Profile Validation | Equivalent parsed index fixtures yield the same result |
@@ -77,11 +75,10 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §5.1: title, description, and lifecycle metadata are truthful | MUST | Profile Review | Values accurately identify, summarize, and describe the document lifecycle in context |
 | §5.1: `generated` is recommended | SHOULD | Automated Profile Validation | Missing field produces a non-blocking advisory |
 | §5.1, §6.2: generation provenance is never fabricated | MUST NOT | Profile Review | A present event represents known production and meaningful-change time rather than a conformance placeholder |
-| §5.1: Bitwild producers add no producer-defined frontmatter fields | MUST NOT | Automated Profile Validation | Parsed keys are defined by pinned OKF 0.2; unknown keys remain preserved and loadable and do not alter the OKF result |
+| §5.1: Concepta producers add no producer-defined frontmatter fields | MUST NOT | Automated Profile Validation | Parsed keys are defined by pinned OKF 0.2; unknown keys remain preserved and loadable and do not alter the OKF result |
 | §5.1: tags do not exactly duplicate type, lifecycle, trust, or relationship labels | MUST NOT | Automated Profile Validation | Parsed tag values are compared with machine-readable values and the standard relationship vocabulary |
-| §5.1: used tags are declared once in the merged manifest/binding registry and not repeated within a concept | MUST / MUST NOT | Automated Profile Validation | Registry membership, collisions, and per-concept duplicate checks |
 | §5.1: tags remain topics rather than semantic aliases for type, lifecycle, trust, or subject-resolution state | MUST NOT | Profile Review | Contextual meaning carries a topic rather than a second source of truth |
-| §5.2: the installed manifest has eleven standard types and the binding adds unique, noncolliding custom types | MUST / MAY | Automated Profile Validation | Manifest parity, custom-definition shape, duplicate and collision checks |
+| §5.2: root `types.md` has exact `type: Type Registry` and contains all fourteen exact standard rows in canonical order, followed by project rows in lexical order | MUST / MAY | Automated Profile Validation | Parsed exact registry type, row values, and order match the release vocabulary and extension ordering |
 | §5.2: every used type is registered; a registered project type is allowed with an advisory | MUST / MAY | Automated Profile Validation | Used-type membership; extension advisory does not affect the automated gate |
 | §5.1, §5.2, §14.1: each standard or project-specific type and its registered meaning truthfully fit the concept | MUST | Profile Review | Concept content fits the selected kind and its registered meaning; review does not infer fit from headings, paths, or keywords |
 | §5.2: a Business Rule selected by a Decision links to it with `Depends on` | SHOULD | Profile Review | Rule history and relationship meaning support the outward link when the rule records a chosen policy |
@@ -90,9 +87,9 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §6.1: present sources use required resources and unique IDs; recognized source-attribution footnotes join to those IDs | MUST | Automated Profile Validation | Source shape and ID uniqueness parse deterministically; only labels matching a declared source ID are attribution, so ordinary footnotes remain untouched |
 | §6.1 (OKF §5.1): a path-shaped `resource` or `sources[].resource` names an artifact a consumer can follow | SHOULD | Automated Profile Validation | Bundle-relative and relative paths are resolved against the bundle root and the concept's directory, including paths that leave the bundle; a path naming no file or directory produces a non-blocking advisory, while URLs and scope descriptors produce no finding |
 | §6.1: producers do not add stored confidence, credibility, maturity, or evidence-tier fields | MUST NOT | Automated Profile Validation | Frontmatter-key inventory contains no producer-defined verdict field |
-| §6.1.1: optional actor `side` uses its closed vocabulary | MUST | Automated Profile Validation | Side enum check |
-| §6.1.1: actor identity and optional affiliation, role, and side are truthful | MUST | Profile Review | Evidence supports lookup metadata; unknown is used for uncertain affiliation |
-| §6.1.1: actor IDs remain opaque and lookup does not change OKF trust or graph edges | MUST NOT | Profile Review | Identity and graph semantics remain upstream |
+| §6.1.1: every actor `Side` belongs to the closed vocabulary and every `Active` value has valid syntax; dated rows for one ID do not overlap | MUST | Automated Profile Validation | Parsed side membership, range grammar, start-before-end, and interval overlap checks |
+| §6.1.1: actor identity, affiliation, role, side, and active periods are truthful; unknown replaces unsupported inference | MUST | Profile Review | Evidence supports each registry cell and unresolved affiliation is recorded as `unknown` |
+| §6.1.1: affiliation is absent from actor IDs and registry rows do not simulate graph edges | MUST NOT / SHOULD NOT | Profile Review | Stable opaque actor strings and ordinary lookup rows preserve OKF actor and graph contracts |
 | §6.2: `verified` records only genuine confirmation and is never inferred from review, migration, status, or affiliation | MUST NOT | Profile Review | Verification evidence supports every event and actor; no event exists solely to satisfy policy |
 | §6.2, §14.1: missing `verified` and derived trust tiers produce no finding | MUST NOT | Automated Profile Validation | Unverified fixtures emit neither failure nor advisory; optional trust summaries do not affect exit status |
 | §6.3: `status` describes document lifecycle only and does not carry workflow, ownership, due date, movability, or subject certainty | MUST NOT | Profile Review | Contextual reading confirms the OKF lifecycle meaning and external ownership of execution state |
@@ -102,8 +99,9 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §14.1: a concept beside an area of the same name produces only a non-blocking advisory | MUST NOT | Automated Profile Validation | Same-name root or sibling fixture emits an advisory without changing Profile conformance, automated gate, or exit status |
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing
-skill-prompt headings receive no coverage row and no finding. Actor lookup is
-assessed as specified above; it does not change OKF actor semantics.
+skill-prompt headings receive no coverage row and no finding. Actor affiliation
+lookup is likewise not an additional bundle requirement; its implementation owner
+and evidence are recorded in the non-bundle frame below.
 
 ## Relationships and external-boundary coverage
 
@@ -139,11 +137,11 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | §15.1: do not publish while compatibility or coverage evidence is incomplete | Release integration | #19 completeness review of both artifacts |
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |
 | §15.2: precedence and migration impact remain explicit for every release | Release integration | Profile binding and §15.3 migration text |
-| §6.1.1, §14.1: an implementation using binding actor lookup preserves actor strings and OKF-derived trust; historical affiliation is not inferred from a static entry | Consumer implementation | Validator checks ID membership; contextual review does not invent time-dependent affiliation from a static lookup |
+| §6.1.1, §14.1: an implementation that exposes organizational affiliation resolves the row at the applicable event timestamp or source `last_modified`; unresolved or ambiguous history remains non-finding `unknown` without changing the actor string or trust tier | Consumer implementation | Lookup tests cover `generated`, `verified`, and source-author dates before, at, and after period boundaries plus missing and ambiguous dates, while preserving actor strings and trust tiers |
 | §5.1, §14.2: tolerant readers do not reject unknown frontmatter and preserve it on round-trip at OKF's exact force | Reader implementation | Unknown-key fixtures remain loadable (`MUST NOT` reject) and are retained under the upstream `SHOULD` |
 | §7.1–§7.2, §13, §14.2: tolerant readers preserve unknown relationship labels, unresolved targets, and ordinary untyped graph edges | Reader implementation | Unknown-label and unresolved-target fixtures remain loadable and expose the unchanged OKF edge through the public OKF graph |
 | §8.2: tooling checks known inbound bundle links during coordinated moves without making unresolved edges blocking | Authoring and validator implementation | Move workflow repairs discovered references; final validation retains any unresolved edge as a non-blocking advisory |
-| §1.3: authors defer to pinned OKF when the Profile is silent and do not invent Bitwild conventions | Authoring implementation | Canonical Profile skill delegates the question to vendored OKF 0.2 and treats upstream-permitted content as available |
+| §1.3: authors defer to pinned OKF when the Profile is silent and do not invent Concepta conventions | Authoring implementation | Canonical Profile skill delegates the question to vendored OKF 0.2 and treats upstream-permitted content as available |
 | §14.2: consumers keep any other OKF 0.2 mechanism the Profile does not describe loadable and finding-free | Reader and validator implementation | Silent-mechanism fixtures retain upstream meaning and produce no Profile finding |
 
 Unsupported-release behavior and caller-policy prohibitions are implementation
@@ -155,7 +153,7 @@ delivery slices and are not restated as Profile bundle clauses.
 okf 0.2.0 checks some territory the Profile also rules on, always at advisory
 severity in the independent OKF report: `okf/unsupported-okf-version` (root
 index `okf_version`) under the Profile's error-level
-`concepta-profile/okf-release-binding` in legacy 2026.2, and `okf/non-portable-index-link`
+`concepta-profile/okf-release-binding`, and `okf/non-portable-index-link`
 under the §9 target rules. The audit of the 0.1.2 → 0.2.0 severity re-tiering
 found no rule crossing the blocking boundary — every 0.1.2 `error` remains an
 `error`, every `warning` became a non-gating `advisory` — so no assignment in

@@ -1,3 +1,9 @@
+# Unreleased
+
+- `wayfinder validate` and MCP validation recognize configured Bitwild Profile
+  2026.3 bundles; CLI validation accepts `--config` for an explicit project
+  file. Legacy 2026.2 bundles remain supported.
+
 # 0.1.2
 
 - Refresh the plugin and authoring skills so they copy OKF §5 inline

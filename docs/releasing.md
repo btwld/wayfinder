@@ -57,6 +57,13 @@ The version lock is applied on the CLI pubspec, `wayfinderVersion`,
 `.claude-plugin/plugin.json`, and the CLI changelog. The CLI now depends on
 `wayfinder_embeddings` `^0.2.0`; core remains unchanged.
 
+The `bitwild_profile/2026.3` configuration work on `feat/config-json` is
+unpublished. Its core validator change requires a new `wayfinder` core package
+release before a CLI/native release carrying the configured validator and
+matching skills. Do not describe the prepared 0.1.2 release above as including
+Profile 2026.3 unless that release plan and its package pins are explicitly
+updated.
+
 The embeddings release also makes a breaking API-placement cleanup. Callers
 must migrate to receiver-owned chunking, type-owned chunk identity and snapshot
 opening, the top-level `embeddingIdentityKey(...)` and

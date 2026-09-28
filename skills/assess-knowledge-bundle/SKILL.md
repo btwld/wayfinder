@@ -10,6 +10,8 @@ A complete Profile assessment of the bundle at `knowledge/`, at whole-bundle
 scope. The rules are not restated here: this skill is an entry point into the
 `author-knowledge-bundle` skill's assessment reference, which owns Profile
 Review for both scopes.
+If the user explicitly names another configured bundle, assess that whole
+bundle with its own binding rather than assuming it inherits `knowledge/`.
 
 ## Process
 
@@ -25,7 +27,7 @@ Review for both scopes.
    unsupported, skip step 3; still complete step 4. The report's Automated gate
    records the collected result, Reviewed notes that contextual review was not
    performed, and Outcome is `NEEDS HUMAN`. Unsupported capability or an
-   unreadable declaration is not a 2026.2 judgment failure.
+   unreadable declaration is not a judgment failure.
 3. Follow
    [`../author-knowledge-bundle/references/profile-assessment.md`](../author-knowledge-bundle/references/profile-assessment.md)
    with **Scope: whole bundle** — every contextual rule, every concept, using

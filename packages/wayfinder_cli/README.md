@@ -10,7 +10,7 @@ wayfinder search ./knowledge "How do I regain account access?"
 ```
 
 Index and search always use local embeddings. Validation runs the existing
-OKF and declared Concepta Profile checks and retains their output and exit
+OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
 codes. Automated success keeps judgment rules UNASSESSED.
 
 ## Native installation

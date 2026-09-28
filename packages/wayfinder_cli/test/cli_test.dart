@@ -112,6 +112,24 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  test('validate selects a configured 2026.3 bundle', () async {
+    const bundle =
+        '../../packages/wayfinder/test/fixtures/configured-project/knowledge';
+    const config =
+        '../../packages/wayfinder/test/fixtures/configured-project/wayfinder.json';
+    final expected = await const ProfileValidator().validate(
+      bundle,
+      configPath: config,
+    );
+    expect(expected.profileRelease, '2026.3');
+    expect(
+      await cli.run(['validate', bundle, '--config=$config', '--output=json']),
+      0,
+    );
+    expect(jsonDecode(output.single), expected.toJson());
+    expect(errors, isEmpty);
+  });
+
   test('command help and version require no local index or model', () async {
     expect(await cli.run(['index', '--help']), 0);
     expect(await cli.run(['search', '--help']), 0);

@@ -25,6 +25,43 @@ void main() {
       );
     }
   });
+  test('validate uses the configured 2026.3 binding at startup', () async {
+    final root = await Directory(
+      '../../packages/wayfinder/test/fixtures/configured-project/knowledge',
+    ).resolveSymbolicLinks();
+    final incoming = StreamController<List<int>>();
+    final outgoing = StreamController<List<int>>();
+    final transport = IOStreamTransport(
+      stream: incoming.stream,
+      sink: outgoing.sink,
+    );
+    final serving = WayfinderMcpServer(
+      rootPath: root,
+      knowledge: _Knowledge(),
+    ).serve(transport: transport);
+    final client = McpClient(
+      const Implementation(name: 'configured-test', version: '1.0.0'),
+      options: const McpClientOptions(protocol: McpProtocol.legacy),
+    );
+    try {
+      await client.connect(
+        IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+      );
+      final result = await client.callTool(
+        const CallToolRequest(name: 'validate'),
+      );
+      final expected = await const ProfileValidator().validate(root);
+      expect(expected.profileRelease, '2026.3');
+      expect(_payload(result), {
+        ...expected.toJson(),
+        'exit_code': expected.exitCode,
+      });
+    } finally {
+      await client.close();
+      await transport.close();
+      await serving;
+    }
+  });
   for (final protocol in [McpProtocol.legacy, McpProtocol.require2026]) {
     group('$protocol', () {
       late McpClient client;
