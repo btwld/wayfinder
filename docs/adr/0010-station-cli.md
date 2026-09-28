@@ -4,7 +4,7 @@
 - Date: 2026-09-09
 - Scope: application commands and local index lifecycle; no Profile rule changes
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
-- Historical name: Station; ADR number and filename are retained
+- Historical source name: Station; the filename is retained for link compatibility
 
 ## Context
 
@@ -39,6 +39,15 @@ or incompatible indexes and directs the caller to `wayfinder index`.
 Include all lifecycle states and bounded declared-relationship context
 without deriving authority from type, verification, or similarity.
 
+## Options considered
+
+- Keeping validation, indexing, and search as unrelated tools was rejected
+  because agents and users needed one explicit-bundle application boundary.
+- Implicit indexing, a watcher, or generated answer layer was rejected because
+  it would hide writes and blur retrieval with knowledge authority.
+- The explicit command set with durable local snapshots was selected for
+  inspectable state, safe retries, and a reusable CLI/MCP service boundary.
+
 ## Consequences
 
 Indexes duplicate bundle text in local app data and can be removed and
@@ -50,3 +59,9 @@ The application has no watcher, LLM answer generator, automatic bundle fix,
 or Profile index generator. Reindex after edits. This decision changes no
 bundle rules and requires no Profile migration. Current command and storage
 details live in the [CLI guide](../../packages/wayfinder_cli/README.md).
+
+## Reconsider when
+
+Reopen the application boundary if a real consumer needs remote service
+hosting, a different persistence guarantee, or a retrieval mode that cannot
+remain an explicit and inspectable command contract.

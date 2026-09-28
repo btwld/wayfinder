@@ -4,7 +4,7 @@
 - Date: 2026-09-09
 - Scope: local MCP adapter; no Profile rule changes
 - Builds on [ADR-0010](0010-station-cli.md)
-- Historical name: Station; ADR number and filename are retained
+- Historical source name: Station; the filename is retained for link compatibility
 
 ## Context
 
@@ -40,6 +40,15 @@ may return a busy error. Disconnect drains active operations, but cancellation
 does not roll back a generation already being built; normal generation and
 OS-lock recovery still apply after hard termination.
 
+## Options considered
+
+- Shell-only invocation was rejected because agents need typed discovery,
+  validation, and result handling.
+- An HTTP server was deferred because the supported use is a local process and
+  does not yet require network hosting or authentication.
+- A local stdio adapter was selected to reuse CLI services while keeping the
+  host responsible for process and approval policy.
+
 ## Consequences
 
 The server reuses CLI behavior rather than defining a second validation or
@@ -48,3 +57,9 @@ and explicit concurrency, cancellation, and replacement rules. Protocol
 and native tests verify discovery, input validation, report parity, recovery,
 stdio framing, and resource cleanup. Current tool arguments and operational
 limits live in the [CLI guide](../../packages/wayfinder_cli/README.md).
+
+## Reconsider when
+
+Reopen the transport or lifecycle decision when a real deployment requires
+remote hosting, authentication, shared warm model state, or stronger
+cancellation and concurrency guarantees.

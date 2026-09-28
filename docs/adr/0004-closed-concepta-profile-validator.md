@@ -61,6 +61,15 @@ Profile-specific graph, or Profile-aware write transaction without demonstrated
 need. Skills own coordinated authoring and Profile Review; the implementation
 guide owns validator and migration behavior.
 
+## Options considered
+
+- A generic provider and rule-registry platform was deferred because one
+  demonstrated Profile did not justify its extra interfaces.
+- A validator that reports contextual judgments as deterministic failures was
+  rejected because it would overclaim what bundle state proves.
+- The closed validator over OKF was selected because it concentrates proven
+  Profile policy while preserving independent OKF behavior.
+
 ## Consequences
 
 The closed boundary keeps OKF independently usable and lets future Profile
@@ -80,3 +89,10 @@ not rewrite what 2026.2 bundles meant.
 Rule-level [OKF compatibility evidence](../compatibility-review-2026.2.md)
 and [assessment coverage](../../implementation/profile-coverage-2026.2.md)
 answer different questions and remain separate from this decision record.
+
+## Reconsider when
+
+Reopen the closed boundary when a second real Profile or another concrete
+consumer requires provider composition, rule discovery, or Profile-aware
+transactions, and the additional contract can be governed without weakening
+the OKF boundary.

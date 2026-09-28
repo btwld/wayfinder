@@ -5,7 +5,7 @@
 > below describe the earlier rename/publication and are historical. Names,
 > versions, repository URLs, and pending actions below reflect that period.
 
-# Wayfinder naming and release plan
+# Historical Wayfinder naming and release plan
 
 Source, plugin, documentation and native releases live together in public
 `conceptadev/wayfinder`. Use [installation](install.md) for current user commands

@@ -1,6 +1,6 @@
 # ADR-0013: Keep capture evidence outside the knowledge bundle
 
-- Status: proposed; no Profile convention established
+- Status: proposed
 - Date: 2026-09-11
 - Scope: optional evidence workflow and a possible future Profile type
 
@@ -31,6 +31,18 @@ differences without restating the document. `Source Document` is not a
 standard type in Profile 2026.3. Whether it should become one needs
 cross-project evidence and the Profile release process.
 
+## Options considered
+
+- Putting intake notes inside the knowledge bundle was rejected because OKF
+  treats Markdown there as concepts and the notes are evidence, not durable
+  knowledge.
+- Copying every source into `references/raw/` was rejected because that tier is
+  for cited originals whose availability is at risk, not routine event intake.
+- Making `captures/` a second implicit bundle was rejected because it would
+  create an unreviewed Profile scope and indexing boundary.
+- The optional external evidence layer was selected as the proposal because it
+  preserves source context without silently expanding bundle conformance.
+
 ## Rationale and consequences
 
 OKF treats Markdown inside a bundle as concepts; intake notes are evidence,
@@ -50,3 +62,10 @@ verification event. A capture alone implies neither stability nor
 verification. When evidence and a concept disagree, review the source and
 correct any inaccurate knowledge; do not promote the intake note into an
 authoritative concept by default.
+
+## Decision gate
+
+Keep this ADR proposed until more than one project demonstrates the same
+capture boundary and the Profile release process decides whether `Source
+Document` or any capture metadata needs a generic convention. Until then,
+projects may use the workflow as optional implementation guidance only.

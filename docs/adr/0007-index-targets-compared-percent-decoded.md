@@ -26,6 +26,15 @@ Decoding failures produce projection findings, not crashes.
 This settles a Profile projection comparison without changing OKF's URL or
 graph contract.
 
+## Options considered
+
+- Byte-for-byte comparison was rejected because valid Markdown/URL spellings
+  normalize differently.
+- One newly invented canonical escape spelling was rejected because it would
+  make parser presentation an artificial Profile requirement.
+- Percent-decoded comparison was selected because it compares the identified
+  relative path while accepting valid target spellings.
+
 ## Consequences
 
 Ordinary unescaped targets stay conformant. A formerly byte-matching raw `?`
@@ -36,3 +45,9 @@ in targets; that parser limitation is not a Profile rule.
 The 2026.1 change was recorded during initial QA alongside
 [ADR-0006](0006-raw-tier-under-references.md). Later convention changes
 require a new Profile release.
+
+## Reconsider when
+
+Reopen this rule if the pinned OKF parser changes its relative-URL grammar or
+normalization contract. Any replacement must preserve the target a generic URL
+consumer resolves, not merely match a new parser representation.

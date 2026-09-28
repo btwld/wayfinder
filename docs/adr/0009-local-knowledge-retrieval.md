@@ -34,6 +34,16 @@ compete with the body they cite. A body containing only headings and
 footnotes remains searchable. Generic Markdown chunking still retains
 footnotes for non-OKF consumers.
 
+## Options considered
+
+- Replacing XS with a larger or quantized model was rejected because the
+  reviewed comparison did not show a gain within the measured resource budget.
+- Removing embeddings entirely was rejected because semantic retrieval remains
+  a useful optional capability.
+- Keeping BM25 as the reusable library default while the application chooses a
+  fixed embedding workflow preserves both a low-cost baseline and a product
+  contract.
+
 ## Consequences
 
 Existing vectors for the pinned model need no rebuild because of this
@@ -46,3 +56,9 @@ Preserve paired regressions and storage/cache measurements when comparing.
 Passage selection, answerability, and large-index performance remain
 evaluation questions, not bundle rules or reasons to infer confidence from a
 ranked candidate. The linked reports own measurements and experiment detail.
+
+## Reconsider when
+
+Reopen model selection when an independently reviewed corpus shows a useful
+quality gain within an explicit download, startup, latency, memory, and storage
+budget, or when runtime compatibility requires a replacement.

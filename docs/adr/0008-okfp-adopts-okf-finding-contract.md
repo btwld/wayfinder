@@ -22,6 +22,15 @@ stable `concepta-profile/<rule-slug>` namespace. Profile release and normative
 rule references live in a Profile rule-descriptor table, not invented fields
 in OKF's wire format. Keep OKF and Profile states distinct.
 
+## Options considered
+
+- Keeping the pre-0.2 report and load-issue fields was rejected because it
+  would lose OKF's current identifiers and severity semantics.
+- Translating the new report into a compatibility shape was rejected because
+  it would create a second, lossy wire contract.
+- Publishing OKF's report directly was selected to preserve upstream meaning
+  and ordering.
+
 ## Consequences
 
 Consumers of the older `valid`, count, `diagnostics`, or `load_issues` fields
@@ -29,3 +38,9 @@ must read the findings array. The change was versioned in the original
 `okf_profile` package; no compatibility projection of the old JSON is kept.
 OKF advisories remain non-blocking. The four-part result and `BLOCKED BY OKF`
 behavior from [ADR-0004](0004-closed-concepta-profile-validator.md) remain.
+
+## Reconsider when
+
+Reopen the wire contract only when the pinned OKF report contract changes or a
+consumer demonstrates a missing representation that cannot be carried in the
+existing separate Profile state and descriptor metadata.

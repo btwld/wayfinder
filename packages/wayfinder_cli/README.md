@@ -191,7 +191,7 @@ adapter and the compatible `ack ^1.2.0` core. The adapter applies the search
 default and normalizes integral JSON numbers before the callback. It preserves
 the advertised nonblank query, 1–100 limit and closed-object constraints.
 
-See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the SDK release review,
+See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the MCP adapter decision,
 protocol choices and lifecycle limits.
 
 ## Agent skills, project setup and updates

@@ -26,6 +26,15 @@ Profile Review judges whether mirroring is needed and appropriate.
 This uses OKF-permitted directory organization and asset files. It adds no
 field, filename meaning, or exception to OKF's concept model.
 
+## Options considered
+
+- Exempting Markdown from OKF's concept model was rejected as incompatible
+  with the upstream format.
+- A bundle-level parallel raw tree was rejected because it would separate an
+  original from the source directory and its readable mirror.
+- The per-source `raw/` tier was selected because it marks byte-preserved
+  assets without adding metadata or changing generic reading.
+
 ## Consequences
 
 Adopting the tier is optional; existing conformant bundles need no migration.
@@ -33,3 +42,9 @@ A flat `references/` must first group material by source before using it.
 The 2026.1 change was made during that release's initial QA period and recorded
 in its change record. It is a historical exception, not a precedent for
 changing a published Profile without a new release.
+
+## Reconsider when
+
+Reopen this layout if a later OKF specification changes Markdown or asset
+semantics, or if real bundles demonstrate that per-source placement cannot
+preserve provenance and safe visibility.

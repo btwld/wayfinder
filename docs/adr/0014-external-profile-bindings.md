@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-27
+- Scope: Profile 2026.3 project binding and exact-release dispatch
 - Supersedes: ADR-0004's in-bundle selection and registry-file decisions for Profile 2026.3; its OKF boundary and closed-validator decision remain
 - Driver: Profile 2026.3 release; multiple explicit bundles and reusable project bindings
 
@@ -41,6 +42,17 @@ fallback. Independent OKF conformance, graph projection, and tolerant reading
 are unchanged. Search and embedding indexing still operate on one explicit
 bundle and do not embed configuration or undeclared captures.
 
+## Options considered
+
+- Keeping release selectors and all registries in every bundle was rejected
+  because it duplicated standard vocabulary and made configuration look like
+  project knowledge.
+- A generic remote provider or rule DSL was rejected because it would weaken
+  reproducibility and the closed-validator boundary.
+- An external, committed project binding was selected because it shares
+  reusable Profile vocabulary while keeping executable rules installed and
+  exact-release dispatched.
+
 ## Consequences
 
 An opt-in migration moves custom types, used tags, and actor IDs to the binding,
@@ -49,3 +61,9 @@ Historical affiliation rows cannot be collapsed into a single JSON actor
 entry without losing meaning: preserve material history as ordinary project
 knowledge before removing `actors.md`. Existing 2026.2 bundles remain valid
 without edits. Release evidence and skills must dispatch by exact release.
+
+## Reconsider when
+
+Reopen the binding design when a second installed Profile, a concrete need for
+composition, or a demonstrated cross-project registry workflow justifies a
+new provider contract without remote or silent fallback behavior.
