@@ -80,7 +80,7 @@ remain visible rather than being misreported as deterministic failures.
 
 The initial interface was `okfp validate <bundle> [--output text|json]`.
 [ADR-0008](0008-okfp-adopts-okf-finding-contract.md) changed its report wire
-format when OKF did; [ADR-0010](0010-station-cli.md) added the Wayfinder
+format when OKF did; [ADR-0010](0010-wayfinder-cli.md) added the Wayfinder
 application. [ADR-0014](0014-external-profile-bindings.md) later replaced
 in-bundle selection and registries for 2026.3, retaining the closed validator,
 independent OKF result, and legacy-release dispatch. These later decisions do

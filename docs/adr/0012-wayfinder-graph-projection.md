@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-09-11
 - Scope: graph projection command and MCP tool; no profile rule changes
-- Builds on [ADR-0010](0010-station-cli.md) and [ADR-0011](0011-station-mcp.md)
+- Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
 
 ## Context
 

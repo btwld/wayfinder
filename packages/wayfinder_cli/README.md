@@ -191,7 +191,7 @@ adapter and the compatible `ack ^1.2.0` core. The adapter applies the search
 default and normalizes integral JSON numbers before the callback. It preserves
 the advertised nonblank query, 1–100 limit and closed-object constraints.
 
-See [ADR-0011](../../docs/adr/0011-station-mcp.md) for the MCP adapter decision,
+See [ADR-0011](../../docs/adr/0011-wayfinder-mcp.md) for the MCP adapter decision,
 protocol choices and lifecycle limits.
 
 ## Agent skills, project setup and updates
@@ -272,7 +272,7 @@ without a model and preserves the old index after an indexing failure.
 The checked-in fixture is generic; it is not a conformant profile template or
 independent model-quality benchmark. Native CI exercises Linux/macOS.
 
-See [ADR-0010](../../docs/adr/0010-station-cli.md) for the application decision
+See [ADR-0010](../../docs/adr/0010-wayfinder-cli.md) for the application decision
 and [the retrieval evidence](../../docs/wayfinder_embeddings.md) for model and
 ranking limitations. Existing `okfp` installations continue to work.
 

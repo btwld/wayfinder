@@ -24,7 +24,7 @@ does not invalidate vector identity.
 
 The reusable OKF adapter defaults to BM25; dense and hybrid retrieval remain
 optional. The Wayfinder application makes its own fixed semantic-search choice
-in [ADR-0010](0010-station-cli.md). Similarity never establishes authority,
+in [ADR-0010](0010-wayfinder-cli.md). Similarity never establishes authority,
 freshness, correctness, or answerability. ObjectBox remains optional storage,
 not a relevance policy.
 
