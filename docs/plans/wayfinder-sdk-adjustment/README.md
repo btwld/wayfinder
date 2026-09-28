@@ -2,8 +2,11 @@
 
 Start with [ADJUSTMENT.md](ADJUSTMENT.md) for the architecture and package decisions. The existing [Batch A execution specification](../wayfinder-sdk-batch-a.md) remains the controlling scope for the first implementation session: **W01 → W02 → W03**.
 
+For the smallest useful desktop app, read [Wayfinder Workbench](WORKBENCH.md). It proposes Remix beta.10 with the Vanilla preset and a folder-to-validation workflow. A read-only diagnostic app can consume the existing public OKF/Profile libraries without waiting for the SDK or installing an embedding model. This is a companion proposal, not an implemented app or an automatic activation of later tickets.
+
 | Document | Purpose |
 | --- | --- |
+| [Workbench review](WORKBENCH.md) | Minimal Flutter app, current Remix setup, validation/debug behavior, and acceptance tests. |
 | [Execution brief](EXECUTE_BATCH_A.md) | Implementer entry point and stop conditions. |
 | [Review brief](REVIEW.md) | Fixed-base Standards and Spec review. |
 | [Tickets](tickets/) | Twelve individual work items with blockers and acceptance criteria. |
