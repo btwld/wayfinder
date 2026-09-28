@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "repository": "btwld/wayfinder",
+  "reviewed_base": "5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f",
+  "active_batch": "A",
+  "active_tasks": [
+    "W01",
+    "W02",
+    "W03"
+  ],
+  "tasks": [
+    {
+      "id": "W01",
+      "title": "Use AckInfer for the existing search request",
+      "blocked_by": [],
+      "batch": "A",
+      "status": "ready-for-agent",
+      "path": "tickets/W01-typed-search-request.md"
+    },
+    {
+      "id": "W02",
+      "title": "Extract the runtime into a supported Wayfinder SDK",
+      "blocked_by": [
+        "W01"
+      ],
+      "batch": "A",
+      "status": "ready-for-agent",
+      "path": "tickets/W02-extract-sdk.md"
+    },
+    {
+      "id": "W03",
+      "title": "Verify regeneration, independent consumption, and the extraction",
+      "blocked_by": [
+        "W02"
+      ],
+      "batch": "A",
+      "status": "ready-for-agent",
+      "path": "tickets/W03-verify-sdk-batch.md"
+    },
+    {
+      "id": "W04",
+      "title": "Validate unsaved candidates without writing",
+      "blocked_by": [
+        "W02"
+      ],
+      "batch": "B",
+      "status": "planned",
+      "path": "tickets/W04-candidate-validation.md"
+    },
+    {
+      "id": "W05",
+      "title": "Add explicit retrieval session ownership",
+      "blocked_by": [
+        "W03"
+      ],
+      "batch": "B",
+      "status": "planned",
+      "path": "tickets/W05-retrieval-session.md"
+    },
+    {
+      "id": "W06",
+      "title": "Serve pinned completed generations during refresh",
+      "blocked_by": [
+        "W05"
+      ],
+      "batch": "B",
+      "status": "planned",
+      "path": "tickets/W06-search-during-refresh.md"
+    },
+    {
+      "id": "W07",
+      "title": "Prepare and commit reviewed Profile-aware changes",
+      "blocked_by": [
+        "W04"
+      ],
+      "batch": "B",
+      "status": "planned",
+      "path": "tickets/W07-profile-authoring.md"
+    },
+    {
+      "id": "F01",
+      "title": "Open, source-edit, validate, and safely save a local file",
+      "blocked_by": [
+        "W03",
+        "W04"
+      ],
+      "batch": "C",
+      "status": "blocked-external",
+      "path": "tickets/F01-source-workflow.md"
+    },
+    {
+      "id": "F02",
+      "title": "Add bounded Super Editor visual editing",
+      "blocked_by": [
+        "F01"
+      ],
+      "batch": "C",
+      "status": "planned",
+      "path": "tickets/F02-super-editor-workflow.md"
+    },
+    {
+      "id": "F03",
+      "title": "Integrate search, diagnostics, and related-document navigation",
+      "blocked_by": [
+        "F02",
+        "W06"
+      ],
+      "batch": "C",
+      "status": "planned",
+      "path": "tickets/F03-editor-search-inspector.md"
+    },
+    {
+      "id": "X01",
+      "title": "Prove and, if needed, separate lightweight retrieval packaging",
+      "blocked_by": [
+        "W03"
+      ],
+      "batch": "optional",
+      "status": "deferred",
+      "path": "tickets/X01-native-dependency-option.md"
+    },
+    {
+      "id": "X02",
+      "title": "Extract source material into a reviewed capture workflow",
+      "blocked_by": [
+        "F01",
+        "W07"
+      ],
+      "batch": "optional",
+      "status": "deferred",
+      "path": "tickets/X02-reviewed-capture.md"
+    }
+  ]
+}
