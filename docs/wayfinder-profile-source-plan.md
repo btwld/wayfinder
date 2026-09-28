@@ -2,6 +2,8 @@
 
 **Status: proposed design; not implemented by Profile 2026.3.**
 
+Implementation handoff: [guarded implementation plan](wayfinder-profile-source-implementation-plan.md).
+
 ## Goal
 
 Let a project select a reusable Profile, say which bundle directories it applies to, and reproduce the resolved Profile source across machines and CI without repeating the Profile release in project configuration.
