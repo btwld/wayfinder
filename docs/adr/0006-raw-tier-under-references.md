@@ -1,69 +1,49 @@
-# ADR-0006: A `raw/` tier for verbatim originals under `references/`
+# ADR-0006: Keep verbatim originals in a per-source `raw/` tier
 
 - Status: accepted
 - Date: 2026-08-25
+- Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0006-raw-tier-under-references.md))
+- Scope: Profile 2026.1 and later
 
 ## Context
 
-QA of the first real migration against Profile 2026.1 showed `references/`
-mixing two kinds of file with nothing structural marking the boundary: verbatim
-originals (PDFs, exports, text dumps — non-markdown assets) and the readable
-mirrors derived from them (typed concepts such as a `Meeting Transcript`). The
-guarantee that matters for an original — *byte-for-byte, never transformed,
-hashable against its source* — was carried by file extension alone, an implicit
-convention a reader has to already know.
-
-An explicit home for originals cannot be built by exempting content from the
-format. OKF makes every markdown file in a bundle a concept, and the Profile
-may not narrow or suspend that (precedence chain; ADR-0004's compatibility
-test). Verbatim frontmatter-less markdown inside the bundle is therefore
-impossible, and the tier boundary has to be drawn with the two levers OKF
-leaves to producers: file extension and directory organization.
+A migration exposed a missing boundary under `references/`: verbatim source
+assets and readable concept mirrors sat together. Originals need byte fidelity,
+but OKF treats every Markdown file in a bundle as a concept. The Profile cannot
+exempt Markdown from that rule.
 
 ## Decision
 
-- A source directory under `references/` MAY keep the verbatim originals it
-  preserves in a `raw/` subdirectory.
-- Within `raw/` and any of its subdirectories, the only markdown permitted is
-  each directory's own `index.md`. The index obligation for nonempty
-  directories stands unchanged; everything else in the tier is a non-concept
-  asset and stays byte-for-byte.
-- A readable mirror derived from an original is a sibling of `raw/` in the
-  source directory — never inside it — and names the original through its OKF
-  `sources`.
-- The tier is **per source directory**, not a single bundle-level tree. The
-  original stays next to its mirror, and `references/`' source-and-date
-  grouping exists once instead of being duplicated in a parallel hierarchy.
-- The markdown and placement restrictions are deterministic and enforced by
-  `okfp validate` (findings `concepta-profile/raw-directory-markdown` and
-  `concepta-profile/raw-directory-placement`).
+A source directory under `references/` may put preserved originals in its own
+`raw/` subdirectory. Only each nonempty directory's required `index.md` may be
+Markdown inside that tier; other files remain verbatim assets. A readable mirror
+is a sibling of `raw/` and cites its original through OKF `sources`.
 
-The rule passes ADR-0004's five-question OKF compatibility test: it narrows a
-producer organization choice OKF explicitly leaves free, adds no field,
-filename meaning, or graph interpretation, leaves the independent OKF verdict
-untouched, and a generic OKF consumer reads a `raw/` directory as an ordinary
-subdirectory whose index lists assets.
+The tier is per source, not a bundle-level parallel tree. A source directory
+cannot itself be named `raw/`, and `raw/` cannot sit directly under
+`references/`. The validator checks placement and Markdown eligibility, while
+Profile Review judges whether mirroring is needed and appropriate.
 
-**Release handling.** This ships as an in-place amendment to 2026.1, not as a
-new release. 2026.1 is still in its QA period — the migration that surfaced the
-gap is the profile's first real corpus, and no production adoption exists — and
-§15.2 states the structural model is not frozen. The §15.3 change record's
-2026.1 entry names the amendment. Once the profile has adopted bundles in the
-wild, a convention change of this kind takes a new release per `AGENTS.md`;
-this exception is the QA period, not a precedent.
+This uses OKF-permitted directory organization and asset files. It adds no
+field, filename meaning, or exception to OKF's concept model.
+
+## Options considered
+
+- Exempting Markdown from OKF's concept model was rejected as incompatible
+  with the upstream format.
+- A bundle-level parallel raw tree was rejected because it would separate an
+  original from the source directory and its readable mirror.
 
 ## Consequences
 
-- Existing conformant bundles stay conformant: the tier is a MAY, and the
-  MUST NOT binds only bundles that adopt it.
-- `raw` becomes a reserved directory name within `references/`: a source
-  directory must not itself be named `raw/`, because the rule keys on the name.
-  For the same reason `raw/` directly under `references/` is rejected
-  deterministically — the tier is per source directory, and `references/`
-  itself is not one. A flat `references/` organizes into source directories
-  before adopting the tier.
-- The validator gains one deterministic structure rule; the authoring skill's
-  source-mirroring reference teaches the tier as part of mirroring.
-- Deciding not to create `raw/` remains ordinary: a source directory with no
-  originals to preserve, or whose assets sit directly beside their mirrors from
-  before this amendment, is untouched until its author chooses the tier.
+Adopting the tier is optional; existing conformant bundles need no migration.
+A flat `references/` must first group material by source before using it.
+The 2026.1 change was made during that release's initial QA period and recorded
+in its change record. It is a historical exception, not a precedent for
+changing a published Profile without a new release.
+
+## Reconsider when
+
+Reopen this layout if a later OKF specification changes Markdown or asset
+semantics, or if real bundles demonstrate that per-source placement cannot
+preserve provenance and safe visibility.
