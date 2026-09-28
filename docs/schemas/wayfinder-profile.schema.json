@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "title": "Wayfinder Profile manifest",
+  "description": "Identity and machine-readable metadata for an installed Wayfinder Profile. It does not define an executable rules language.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "release",
+    "implements",
+    "standard_types"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "Stable Profile identifier."
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]+$",
+      "description": "Immutable Profile release in YYYY.serial form."
+    },
+    "implements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "release"
+      ],
+      "properties": {
+        "id": {
+          "const": "okf"
+        },
+        "release": {
+          "const": "0.2"
+        }
+      },
+      "description": "The upstream format and exact release this Profile binds to."
+    },
+    "standard_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/typeDefinition"
+      },
+      "description": "The standard concept types owned by this Profile. Names must be unique; uniqueness is checked by Wayfinder."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/tagDefinition"
+      },
+      "description": "Tags declared by this Profile. Names must be unique; validation compares used tags with the merged Profile and project registry."
+    }
+  },
+  "$defs": {
+    "typeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

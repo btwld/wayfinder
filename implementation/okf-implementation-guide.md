@@ -305,6 +305,161 @@ MUST use the coverage matrix, not the compatibility review, to determine whether
 each normative clause is assessed by Automated Profile Validation or contextual
 Profile Review.
 
+### 4.7 Proposed next-release external Profile binding
+
+This subsection describes the proposed binding for a future Profile release; it
+does not change the current 2026.2 contract above. A future release may move
+Profile selection out of the bundle's `profile.md` declaration and into a
+project-root `wayfinder.json`. Existing 2026.2 bundles MUST continue using their
+in-bundle declaration until an explicit migration.
+
+The project configuration uses the schemas in
+[`../docs/schemas/wayfinder.schema.json`](../docs/schemas/wayfinder.schema.json)
+and the installed Profile manifest uses
+[`../docs/schemas/wayfinder-profile.schema.json`](../docs/schemas/wayfinder-profile.schema.json).
+The project file contains:
+
+- `profiles`: named project-local bindings;
+- `bundles`: explicit bundle paths and the binding each selects; and
+- an optional `default_bundle` name.
+
+A Profile binding selects one installed base Profile through an exact
+`implements` reference such as `bitwild_profile/2026.3`. It may also contain
+project-specific type extensions and actor lookup metadata:
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "knowledge_profile": {
+      "implements": "bitwild_profile/2026.3",
+      "types": [
+        {
+          "name": "Source Document",
+          "description": "An authoritative captured document."
+        }
+      ],
+      "actors": {
+        "claude-code/opus-5": {"name": "Claude Code"}
+      }
+    }
+  },
+  "bundles": [
+    {
+      "id": "knowledge",
+      "path": "knowledge",
+      "profile": "knowledge_profile"
+    }
+  ]
+}
+```
+
+The installed Profile manifest owns its standard type vocabulary, OKF
+compatibility, normative text, deterministic validator, and contextual review
+guidance. A project binding does not override Profile rules. The effective type
+registry is the selected Profile's standard types plus the binding's custom
+types. Wayfinder MUST reject duplicate custom names and collisions with
+standard names, then check every concept's `type` against that merged registry.
+A registered custom type remains a non-blocking extension advisory when the
+selected Profile defines that advisory; whether its meaning fits a concept stays
+with Profile Review.
+
+For the future release, `types.md` is not required when the binding carries no
+custom types. A generated human-readable projection MAY be provided later, but
+it MUST NOT become a second editable source. The legacy 2026.2 validator keeps
+requiring `types.md` and continues its current checks: exact `Type` / `Intended
+content` columns, all fourteen standard rows in release order, project rows in
+lexical order, and membership of every used concept type.
+
+The future validator dispatches in this order:
+
+1. Validate `wayfinder.json` shape.
+2. Resolve the named bundle safely and resolve its Profile binding.
+3. Resolve the installed Profile manifest and exact release.
+4. Run independent OKF validation.
+5. Merge standard and custom types and validate concept type references.
+6. Validate actor references and binding metadata.
+7. Run deterministic Profile rules and report judgment rules separately.
+
+JSON Schema alone cannot prove that a path exists, that a Profile is installed,
+that bundle IDs are unique, or that a referenced actor/type is used correctly.
+Those remain Wayfinder cross-document checks. The future implementation MUST
+keep graph projection ordinary OKF behavior; Profile type registries affect type
+validation and filtering, not graph edge semantics. It MUST also keep the
+embedding `index` separate from deterministic Markdown navigation-index
+generation.
+
+The tag registry belongs to the selected Profile binding, not to a directory
+name. A tag definition declares vocabulary; it does not apply the tag
+automatically. `captures/` remains the evidence layer outside the main OKF
+bundle, so its `intake.md` files do not inherit the bundle's Profile or tag
+validation. A concept may explicitly use an evidence-related tag when that is
+truthful. If captures become a separate searchable OKF bundle, they require a
+separate binding and are not implicitly merged with `knowledge/`.
+
+The same binding MAY be referenced by several bundles when their types, tags,
+and actor lookup are intentionally shared. A different registry requires a
+different named binding. Installing the same pinned Profile package shares the
+reusable validator across machines; committing `wayfinder.json` shares only
+the project binding, not executable code. The proposed `default_bundle` is a
+selection convenience, not recursive discovery: current commands retain their
+explicit bundle-path contract, and future config-aware commands MUST not merge
+bundles silently.
+
+### 4.8 Frontmatter fields and type-specific constraints
+
+The current validator already has two layers of frontmatter checking. The
+upstream `okf` package validates the pinned OKF 0.2 field shapes and preserves
+unknown content for tolerant reading. The Concepta Profile adds only its
+producer-side constraints:
+
+| Field or family | Current automated coverage | Future external-binding coverage |
+| --- | --- | --- |
+| `type` | Required non-empty string; membership in the `types.md` registry | Membership in the selected Profile's standard types plus binding custom types |
+| `title`, `description` | Required non-empty strings | Unchanged |
+| `status` | Required string with `draft`, `stable`, or `deprecated` | Unchanged unless a future Profile release explicitly changes it |
+| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | The next Bitwild release declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, and reports an undeclared used tag according to the release rule |
+| `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics; actor extraction and trust semantics remain separate | Keep upstream meanings; do not add Profile-specific fields for trust or freshness |
+| `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics | Keep upstream meanings and run the same checks after binding resolution |
+| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Continue rejecting new keys; a binding cannot authorize arbitrary frontmatter extensions |
+
+The current implementation therefore has no type-specific property schema. This
+is deliberate: the Profile defines no type-specific body template, and OKF
+frontmatter is an upstream contract rather than a project-owned object model.
+The new JSON type extension records only a custom type's `name` and
+`description`; it MUST NOT add arbitrary `properties`, `required` fields, or
+per-project frontmatter keys.
+
+If a future Profile needs a type-specific constraint, it MUST constrain existing
+OKF fields using a new reviewed Profile release. It MUST NOT turn
+`wayfinder.json` into a second frontmatter schema or allow a project to add
+fields such as `owner`, `priority`, `confidence`, or `maturity`. Information
+that has no OKF field belongs in the concept body or requires an upstream OKF
+change before a Profile can depend on it.
+
+Tags remain OKF topic strings, but the next Bitwild binding treats its `tags`
+arrays as a declared vocabulary rather than a list of recommendations. The
+selected Profile manifest declares its base tags and the project binding adds
+project tags. Wayfinder MUST reject duplicate names within either list and
+collisions between the lists, reject duplicate values within one concept, and
+apply the selected Profile release's explicit rule for an undeclared used tag.
+For Bitwild's first external-binding release, an undeclared used tag SHOULD be
+an error so the JSON registry remains authoritative; a Profile that needs an
+open vocabulary must state that as a different release rule.
+
+The Profile's tag rule remains a Profile convention, not an OKF requirement:
+generic OKF consumers still tolerate arbitrary tag strings. Semantic aliases
+and whether a declared tag is a truthful topic remain Profile Review concerns.
+
+The provenance of these limits matters. `status` is an OKF lifecycle field and
+`draft`, `stable`, and `deprecated` are OKF's values; the Profile makes the
+otherwise-optional field explicit and requires that it continue to describe the
+document lifecycle. `tags` is also an OKF field, but OKF deliberately leaves its
+vocabulary open. The topic-only and literal-duplication limits are therefore
+Concepta Profile conventions, not OKF requirements. A generic OKF consumer must
+still tolerate an absent status, other producer-defined tags, and unknown type
+values when it reads a bundle outside this Profile.
+
 ---
 
 ## 5. Migration

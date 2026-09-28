@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wayfinder Profile and validation guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5b6475;
+      --line: #dce2ec;
+      --panel: #f6f8fb;
+      --blue: #2457a6;
+      --green: #176b4d;
+      --amber: #8a5a00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #fff;
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 36px 24px 72px; }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 0 0 12px; }
+    h2 { margin-top: 44px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+    h3 { margin-top: 28px; }
+    .lede { max-width: 780px; color: var(--muted); font-size: 1.1rem; }
+    .badge {
+      display: inline-block; padding: 4px 10px; border-radius: 999px;
+      background: #eaf1ff; color: var(--blue); font-weight: 700; font-size: .82rem;
+      letter-spacing: .02em;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .card { border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: var(--panel); }
+    .card h3 { margin: 0 0 8px; }
+    .card p { margin: 0; color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f5; padding: 2px 5px; border-radius: 4px; }
+    pre {
+      overflow: auto; padding: 18px; border-radius: 10px; background: #111827;
+      color: #e5edf9; line-height: 1.5;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 12px 10px; }
+    th { background: var(--panel); }
+    .pass { color: var(--green); font-weight: 700; }
+    .advisory { color: var(--amber); font-weight: 700; }
+    .note { border-left: 4px solid var(--blue); padding: 12px 16px; background: #f3f7ff; }
+    .small { color: var(--muted); font-size: .92rem; }
+    footer { margin-top: 52px; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <span class="badge">Proposed next Profile release</span>
+  <h1>Wayfinder Profile and validation guide</h1>
+  <p class="lede">
+    This guide explains where rules, project configuration, agent instructions,
+    and concept metadata belong—and what Wayfinder validates today.
+  </p>
+
+  <h2>The four layers</h2>
+  <div class="grid">
+    <section class="card">
+      <h3>AGENTS.md</h3>
+      <p>Repository workflow instructions: where knowledge lives, which skills to use, and how agents should work.</p>
+    </section>
+    <section class="card">
+      <h3>Installed Profile</h3>
+      <p>Reusable normative rules, standard types, OKF compatibility, validator code, and review guidance.</p>
+    </section>
+    <section class="card">
+      <h3>wayfinder.json</h3>
+      <p>Project-local binding: selected Profile, custom types, actor lookup metadata, bundles, and declared tags.</p>
+    </section>
+    <section class="card">
+      <h3>Bundle frontmatter</h3>
+      <p>OKF concept data: type, lifecycle, provenance, sources, tags, and other upstream-defined fields.</p>
+    </section>
+  </div>
+
+  <div class="note">
+    <strong>Key distinction:</strong> <code>profile.md</code> in an existing 2026.2
+    bundle is an ordinary concept containing the legacy selector. It is not an
+    <code>AGENTS.md</code> and it is not the reusable Profile definition.
+  </div>
+
+  <h2>Recommended project configuration</h2>
+  <pre><code>{
+  "version": 1,
+  "profiles": {
+    "knowledge_profile": {
+      "implements": "bitwild_profile/2026.3",
+      "types": [
+        {
+          "name": "Source Document",
+          "description": "An authoritative captured document."
+        }
+      ],
+      "actors": {
+        "claude-code/opus-5": {
+          "name": "Claude Code"
+        }
+      },
+      "tags": [
+        {
+          "name": "captures",
+          "description": "Evidence-related topic"
+        }
+      ]
+    }
+  },
+  "bundles": [
+    {
+      "id": "knowledge",
+      "path": "knowledge",
+      "profile": "knowledge_profile"
+    }
+  ]
+}</code></pre>
+  <p class="small">
+    The installed Profile owns standard types and rules. The binding adds only
+    project custom types and lookup metadata. It cannot override Profile rules.
+  </p>
+
+  <h2>Tags and status</h2>
+  <table>
+    <thead><tr><th>Field</th><th>OKF meaning</th><th>Profile behavior</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>status</code></td>
+        <td>Document lifecycle. Values are <code>draft</code>, <code>stable</code>, and <code>deprecated</code>. It is optional upstream.</td>
+        <td>Requires the field explicitly and keeps the same values. It must not encode priority, workflow, confidence, or subject certainty.</td>
+      </tr>
+      <tr>
+        <td><code>tags</code></td>
+        <td>Optional list of short topic strings. OKF does not define a central vocabulary.</td>
+        <td>The next Bitwild binding declares the actual Profile and project tag vocabulary. Duplicate declarations, duplicate values within one concept, and reserved-value collisions are rejected.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    A Profile declares tag definitions, and a project binding adds project
+    definitions. The first Bitwild external-binding release should make this
+    registry authoritative: an undeclared used tag is an error. Declared names
+    must be unique and must not collide between the Profile and binding.
+  </p>
+
+  <h2>Captures, sharing, and defaults</h2>
+  <div class="grid">
+    <section class="card">
+      <h3>Captures</h3>
+      <p><code>captures/</code> is normally evidence beside the OKF bundle. Its intake files do not inherit the main Profile or tag registry.</p>
+    </section>
+    <section class="card">
+      <h3>Sharing</h3>
+      <p>Several bundles may reference one named binding when their types, tags, and actors are intentionally shared.</p>
+    </section>
+    <section class="card">
+      <h3>Defaults</h3>
+      <p><code>default_bundle</code> is proposed. Current commands still require an explicit bundle path and do not discover directories.</p>
+    </section>
+  </div>
+  <p>
+    If captures become a searchable OKF bundle, they receive a separate binding
+    and are not silently merged into <code>knowledge/</code>. Installing the
+    same pinned Profile package shares the reusable validator across machines;
+    committing <code>wayfinder.json</code> shares the project binding.
+  </p>
+
+  <h2>What validation checks</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Automated validation</th><th>Contextual review</th></tr></thead>
+    <tbody>
+      <tr><td>Types</td><td>Current 2026.2: exact <code>types.md</code> registry, standard rows, order, and used-type membership. Future: Profile standard types plus JSON custom types.</td><td>Whether the chosen type actually fits the concept.</td></tr>
+      <tr><td>Actors</td><td>Current 2026.2: registry shape, side values, active intervals, and used IDs. Future: JSON actor lookup shape and used-ID membership.</td><td>Whether identity, affiliation, role, and history are truthful.</td></tr>
+      <tr><td>Frontmatter</td><td>Required fields, allowed status values, OKF field shapes, source structure, and unknown-key detection.</td><td>Whether metadata truthfully describes the document.</td></tr>
+      <tr><td>Tags</td><td>List shape and literal duplication checks.</td><td>Whether tags are meaningful topics rather than aliases or hidden workflow state.</td></tr>
+      <tr><td>Provenance</td><td>Source shape, unique IDs, attribution joins, and actor references.</td><td>Whether sources and verification claims are genuinely supported.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Type-specific properties</h2>
+  <p>
+    The first design does <strong>not</strong> allow arbitrary per-type frontmatter
+    properties such as <code>owner</code>, <code>priority</code>, or
+    <code>confidence</code>. OKF owns the frontmatter contract, and the Profile
+    currently does not define type-specific schemas.
+  </p>
+  <p>
+    If a future Profile needs a type-specific constraint, it must constrain
+    existing OKF fields in a new Profile release. It must not turn
+    <code>wayfinder.json</code> into a second frontmatter language.
+  </p>
+
+  <h2>Validation flow for the future binding</h2>
+  <ol>
+    <li>Validate <code>wayfinder.json</code> shape.</li>
+    <li>Resolve the bundle and Profile binding safely.</li>
+    <li>Resolve the installed Profile and exact release.</li>
+    <li>Run independent OKF validation.</li>
+    <li>Merge Profile standard types with binding custom types.</li>
+    <li>Validate type and actor references.</li>
+    <li>Run deterministic Profile rules; report judgment rules as <code>UNASSESSED</code>.</li>
+  </ol>
+
+  <footer>
+    Source documents: OKF 0.2, Concepta Profile 2026.2, the proposed Wayfinder
+    schemas, and implementation guide §4.8. Existing 2026.2 bundles remain on
+    their legacy <code>profile.md</code>, <code>types.md</code>, and conditional
+    <code>actors.md</code> contract until migration.
+  </footer>
+</main>
+</body>
+</html>
