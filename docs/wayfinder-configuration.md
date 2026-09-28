@@ -157,16 +157,18 @@ The proposed command flow is:
 ```text
 wayfinder get [project]        # resolve declared refs and write the lock
 wayfinder upgrade [project]    # request newer branch/tag revisions
-wayfinder validate ./knowledge # validate without fetching or rewriting files
+wayfinder validate ./knowledge # resolve when needed, then validate the bundle
 ```
 
-Profile resolution should never happen silently during validation. Validation
-uses the cached, locked source; a missing or stale lock explains the exact
-`wayfinder get` command needed.
+All bundle commands use one shared resolution step before they run. When the
+lock is missing or its configuration hash is stale, that step does the same work
+as `wayfinder get` and writes the lock. When the lock is current, it is a no-op.
+`upgrade` is the only command that deliberately moves a branch or tag forward.
 
 The lockfile is not a second configuration file. It does not contain Profile
 rules, project types/tags/actors, knowledge content, credentials, or mutable user
-choices. It records reproducible resolution metadata only. It can be committed
+choices. It records Profile resolution so every bundle command can reuse the same
+source. It records reproducible resolution metadata only. It can be committed
 with `wayfinder.json`; fetched Profile contents and credentials belong in the
 local cache and must not be committed.
 

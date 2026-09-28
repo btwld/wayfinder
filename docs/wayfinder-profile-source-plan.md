@@ -19,14 +19,14 @@ Let a project select a reusable Profile, say which bundle directories it applies
 
 - `wayfinder get [project]` resolves declared sources and writes or refreshes `wayfinder.lock`, respecting a current lock.
 - `wayfinder upgrade [project]` deliberately moves a branch or tag to its latest available revision.
-- `wayfinder validate <bundle>` checks configuration, lock, source cache, manifest identity, and validator support without changing files or fetching silently.
+- Every bundle command runs one shared resolver first. `wayfinder validate <bundle>` then checks configuration, lock, source cache, manifest identity, and every bundle file.
 
 ## Lock invariants
 
 1. Hash canonical JSON, so formatting-only edits do not invalidate the lock.
 2. A semantic `wayfinder.json` change makes the lock stale.
 3. `get` may update the lock for the declared refs; `upgrade` is the explicit latest-version operation.
-4. CI can require a current lock and a clean source cache.
+4. CI can require a current lock and a clean source cache after resolution.
 5. The lockfile contains no rules, project vocabulary, knowledge, secrets, or executable validator code.
 
 ## Implementation sequence
@@ -45,7 +45,7 @@ Add canonical configuration hashing, lock read/write, Git resolution, cache layo
 
 ### Commands and diagnostics
 
-Add `get` and `upgrade`; keep `validate` as the integrity check. Make validation identify stale or missing locks and show the corrective command. Add JSON output for automation.
+Add `get` and `upgrade`; route every bundle command through the shared resolver, then run its normal operation. Make validation identify stale or missing locks and show the corrective command. Add JSON output for automation.
 
 **Validation:** command help, text/JSON diagnostics, offline checks, branch movement, and missing-cache recovery.
 
