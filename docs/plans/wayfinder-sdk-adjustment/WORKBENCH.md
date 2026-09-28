@@ -1,194 +1,179 @@
-# Wayfinder Workbench — minimal desktop app review
+# Wayfinder Workbench — dashboard shell, search, and inspection
 
-Status: draft proposal, not a runnable application. Reviewed 27 September 2026, America/New_York.
+Revision 4 · 27 September 2026 · draft plan, not a runnable app.
 
-Wayfinder code baseline: `5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f`.
-Existing planning head before this addition: `7fe58bd4eeb51aace21ae23e64856cd0db673f2f`.
+Wayfinder source baseline: `5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f`.
+Planning baseline before this revision: `e43b91ceade2d370e82820519b26d7de0e30bbd8`.
 Remix source baseline: `ca0ed4e9173f4fb12f2def558922438a03c877ca`.
+Promoted Remix registry inspected: `849dbc0c03348f13f8a99bb50bebd3b0e1321012`.
 
-This companion proposal narrows the first desktop milestone to pointing at a folder, reading its documents, inspecting validation findings, and understanding failures. It adds a reviewable app direction to the existing draft PR. It does not change the active W01–W03 implementation assignment, add completed tickets, authorize publication, or claim an implementation agent ran.
+## Decision and scope change
 
-## Main decision
+Use Remix's existing `dashboard_shell` recipe with the Vanilla preset. Make Wayfinder search, concept-type filtering, and passage/embedding inspection part of the first complete workbench, not an optional debugging add-on after the editor.
 
-Build one small Flutter desktop application with Remix as the UI component foundation and its application-owned Vanilla preset as the default look. Keep Super Editor selected for visual editing, but do not make a rich editor or semantic search prerequisites for the first diagnostic build.
+The complete workflow is:
 
-The first complete workflow is:
+**Open folder → browse and validate → build or refresh the search index → search → filter by concept type → inspect a matched passage and its source.**
 
-**Open folder → select file → read source/preview → validate saved files → select a finding → inspect source and diagnostic details.**
+Deliver a smaller read-only shell first, but do not label that intermediate slice the complete workbench. Super Editor remains selected for later visual editing. Search does not wait for visual editing, concurrent indexing, or Profile-aware writes.
 
-This is a direct Dart library consumer, not a web app, an MCP client, or a graphical wrapper around shell commands. No login, server, cloud synchronization, or model installation is needed for the first workflow.
+This revision adds three planned work items: WB01 (shell and validation), W08 (public filtered search and inspection), and WB02 (searchable workbench). It does not implement them or change the active SDK extraction assignment W01–W03. It does not change Profile rules or existing CLI/MCP defaults.
 
-## What the Remix review established
+## What already exists, and what does not
 
-The latest published prerelease verified on pub.dev is `remix 1.0.0-beta.10`. The current repository manifest also names beta.10. Do not copy the stale beta.9 Quick Start constraint still present in the published README. Pin beta.10 for the initial application test and commit the resolved app lockfile. Recheck releases when implementation starts; this review is a dated pin, not a permanently current version claim. [R1, R2]
+| Capability | Evidence at the reviewed revision | Plan |
+| --- | --- | --- |
+| Dashboard layout | The promoted Vanilla registry includes `dashboard_shell`; its dependencies are theme, icons, icon button, sidebar, sidebar layout, and text field. [R1] | Install the shell, not `dashboard_demo` or the whole showcase. |
+| Host-owned navigation | The shell takes sections, selection, body, brand, header actions, and optional search/account slots. [R2] | Use four real destinations; omit account UI. |
+| Wayfinder search | The CLI runtime opens a completed snapshot/store, selects dense retrieval with contextual inputs and relationship expansion, and refuses stale indexes. [W1] | Preserve this default through the public SDK. |
+| Other retrieval modes | `KnowledgeIndex` exposes BM25, dense, and hybrid; `KnowledgeSearchPolicy` includes concept types, path prefixes, lifecycle selection, and relationship expansion. [W2] | Reuse the library; no new search engine. Expose supported options through a separate post-extraction SDK contract. |
+| Search results | Matches, selected context, and notices are separate; CLI/MCP output includes chunks, similarity, context reasons, and via-path values. [W2, W3] | Keep these distinctions in the interface. |
+| Filtered CLI request | The inspected runtime search entry accepts bundle, query, and limit, not all lower-level policy controls. [W1] | W08 is new work. Do not claim current CLI flags or SDK methods already support the proposed UI. |
+| Embedding descriptor | The pinned model is Arctic Embed XS Q8_0, 384 dimensions, with a 512-token input limit. [W4] | Display values from the active descriptor; do not hard-code them into widgets. |
+| Detailed index inspection | Current public command output is not a complete status, facet, and passage-inspection interface. | Add a bounded read-only SDK view. The app must not read ObjectBox files or CLI private implementation directly. |
 
-Remix supplies UI behavior with Mix styling and Naked UI interactions. It does not itself supply an application theme. The current preset approach installs editable theme and component source into the application. Vanilla is the CLI default; Fortal is an alternative for Radix Themes-inspired visuals. Choose Vanilla and prefix `Ui` here to minimize custom design work. Do not combine both presets or introduce a separate Wayfinder design-system package. [R3, R4]
+No quality winner is established by this review. Dense, BM25, and hybrid can behave differently on a corpus. The default is chosen for consistency with Wayfinder, not an unsupported claim that it is always more accurate.
 
-The runtime and development floors differ. Remix declares Dart >=3.11 and Flutter >=3.41. The current `remix_cli` source declares version 0.1.0 and requires Dart >=3.12; its README specifies Flutter 3.44 or later and explicitly says the CLI has not been published. Use a pinned Git dependency or pinned local checkout for that CLI until a hosted release is verified. The runtime beta being published does not establish CLI publication. [R2, R4, R5]
+## Remix setup
 
-Remix is BSD-3-Clause licensed. Retain required notices in installed source and review the actual dependency/license inventory separately; this does not certify every dependency or asset. [R1, R2]
+Retain `remix 1.0.0-beta.10` as the verified starting runtime pin. The version-specific pub.dev page identifies beta.10, while the cached version list still showed beta.9 during this review. Recheck the package resolver before implementation; do not use the stale beta.9 Quick Start example. [R3]
 
-### Proposed setup, to verify in the real application
+Use the source-pinned `remix_cli` setup from the reviewed repository until hosted publication is verified. Its inspected source requires Dart 3.12; Remix runtime has a lower Dart 3.11 / Flutter 3.41 floor. Select and test the actual Flutter toolchain, runtime dependencies, and generators together. [R4, R5]
 
-This is an initial dependency excerpt, not a complete or tested pubspec:
-
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  remix: 1.0.0-beta.10
-
-dev_dependencies:
-  remix_cli:
-    git:
-      url: https://github.com/btwld/remix.git
-      ref: ca0ed4e9173f4fb12f2def558922438a03c877ca
-      path: packages/remix_cli
-```
-
-After selecting a Flutter toolchain with Dart >=3.12 and resolving dependencies:
+Proposed bootstrap after resolving that toolchain:
 
 ```sh
 dart run remix_cli:remix init --prefix Ui --preset vanilla
-dart run remix_cli:remix add button textfield tabs badge spinner divider
+dart run remix_cli:remix registry update @remix --ref 849dbc0c03348f13f8a99bb50bebd3b0e1321012
+dart run remix_cli:remix add dashboard_shell button tabs badge spinner divider select data_list
 ```
 
-Add dialog/menu/tooltip only when used. The registry includes these items, but their installed constructors and variants must be read from the resulting source, not inferred from older examples. `init` records a separately resolved registry commit in `remix.yaml`. Commit that file, the app lockfile, installed source, and generated adapters according to the app's generated-file policy. A fixed CLI commit does not by itself fix registry content. [R3, R4]
+This is a proposed command sequence, not a command run in this review. Verify all named items at the pinned registry. A CLI pin and a registry pin are separate controls. Commit `remix.yaml`, the application lockfile, installed recipes, and the real generated adapters. Read installed constructors rather than guessing API names. Preserve notices and audit the resolved dependencies, including the shell's icon dependency.
 
-Use `UiThemeScope` with the Vanilla preset. Keep the scope above the Navigator and its overlays through the Flutter host builder. A routed `WidgetsApp` can supply the Navigator/Overlay needed by focused text fields, menus, and dialogs. Keep behavioral roots such as `RemixTabs`; style their children rather than replacing their behavior with unrelated widgets. Read the installed source before assuming names such as a preset-specific Tabs root. [R3]
+Use the resulting `UiDashboardShell` under `UiThemeScope`, with the theme above the Navigator/Overlay. The shell is editable application source, not a new design-system package. Keep its responsive sidebar behavior and preset tokens. Do not install sample records, charts, AI chat, account/billing screens, or unrelated Agent surfaces from `dashboard_demo`.
 
-Do not add `remix_fortal` from an older beta guide. Do not generate a second design system. Changes to local recipes that require Mix code generation use the real generator; AckInfer remains for operation contracts, not visual styles. Verify the complete generator/analyzer dependency resolution when those tools share a package. [R3, R4]
+The shell's optional search hook only reports text changes. Initially keep the controlled query field and explicit Search action inside the Search destination. Omit the shell search slot rather than show a second unsynchronized field. The shell does not own Wayfinder queries, state, filters, or routing.
 
-## Smallest useful interface
+## Four destinations, one folder
 
-One window, one selected folder, one selected document. No document tabs or multi-window workspace management in the first milestone.
-
-| Area | Contents |
+| Destination | Purpose |
 | --- | --- |
-| Top bar | Open Folder, selected root, Refresh, Validate Saved Files, validation scope, appearance control. |
-| Left pane | File tree with filename/path filter; errors do not prevent browsing. |
-| Center pane | Read-only Source and Preview views of the selected Markdown file. |
-| Bottom panel | Problems and Debug tabs; collapsed when unused. |
+| Library | File tree, filename/path filter, source/preview, and read-only document metadata. |
+| Search | Query, concept-type and path filters, ranked passages, and selected-result inspection. |
+| Validation | Auto/OKF/Concepta scope, saved-file validation, findings, and original structured reports. |
+| Index | Refresh Search Index, completed-generation status, model/store information, and passage inspection. |
 
-Metadata can initially appear as a small read-only section in Debug. A permanent right inspector, block toolbar, slash menu, graph canvas, dashboard, and command palette are unnecessary for this first build.
+Header: selected root, Open Folder, relevant action, and appearance control. Keep an expandable Debug panel for operation details. No statistics dashboard or permanent graph canvas.
 
-Use the preset's existing spacing, colors, input, button, badge, and focus styles. Do not restyle every widget. Use text labels and icons for error/advisory states, not color alone. Apply the same theme colors and typography to source/preview and later Super Editor through an explicit editor-theme mapping; Remix does not automatically style the editor's internal nodes.
+Within Search, use a result list and a detail pane. On a narrow window, open the selected detail as a page and preserve Back state. Result selection must preserve query, filters, scroll position, and source revision. Use the existing theme for the shell and map its text/colors explicitly into the source viewer and later Super Editor.
 
-## Folder and validation behavior
+## Folder, source, and validation rules
 
-The user selects an explicit root. Opening a project directory can suggest its immediate `knowledge/` directory, but must not silently switch roots, scan every sibling project, or treat raw capture directories as OKF bundles. Display the exact selected root and validation scope.
+The selected root is explicit. Suggest an immediate `knowledge/` folder when helpful; never silently switch the root or scan unrelated folders. Raw captures are not automatically OKF concepts. Keep plain Markdown and broken YAML readable even when bundle validation or semantic indexing fails.
 
-Keep browsing independent from successful OKF parsing. An invalid YAML file must still open as raw source, so the user can diagnose it. An empty folder, missing file, permission failure, and invalid UTF-8 must have distinct messages.
+Auto validation uses the declared Profile when present; malformed or unsupported declarations remain visible instead of silently becoming an OKF-only pass. Preserve the owning library's errors, advisories, unsupported state, and unassessed judgment rules. Automated pass is not complete Profile conformance.
 
-Offer clearly named validation scopes:
+Validate Saved Files means exactly that. Later unsaved editing remains excluded unless W04 candidate validation is explicitly selected. Never save merely to validate. Navigate findings to returned locations only; path-only findings have no invented line number.
 
-- **OKF:** use the existing OKF loader/validator.
-- **Concepta Profile:** use the existing `ProfileValidator`, preserving the partitioned OKF/Profile result.
-- **Auto:** use the declared Profile when present; otherwise perform the explicitly displayed OKF check. A malformed declaration must be reported rather than silently downgraded to an OKF-only pass.
+Tag every operation with root and request generation. Folder changes or newer requests invalidate older UI completions. Mark results outdated on observed source changes. Do not claim an atomic validation snapshot unless the actual inspected input set was fixed.
 
-Plain Markdown remains readable regardless of validation results. Lack of a Concepta declaration is not by itself a reason to reject the folder. Selecting the Profile check explicitly may correctly return an undeclared/unsupported result; do not rewrite that library result into success. [W1]
+No source-tree writes are allowed in the read-only workbench. Index updates write only derived application data outside the selected bundle. Do not regenerate `index.md`, append `log.md`, normalize frontmatter, or change lifecycle status while browsing, searching, validating, or inspecting.
 
-Display the returned finding code, severity, message, and path. Navigate to a line/range only when the library provides one. Path-only findings open the file without inventing a line number. Directory-wide findings stay directory-wide.
+## Search behavior
 
-Keep automated checks separate from judgment rules. The current result deliberately reports judgment rules as UNASSESSED; a green automated result must not be labeled complete Profile conformance. Preserve the original structured report for inspection. [W1]
+### Default
 
-The button validates saved files. Once editing is introduced, show a visible notice when unsaved edits are excluded. Do not save a document merely to validate it. W04 remains the later shared candidate-validation solution.
+Use the shared SDK implementation of Wayfinder's dense search, contextual inputs, relationship expansion, and existing default limit of 5. Preserve current CLI/MCP wire behavior. Label this mode **Wayfinder semantic search**. The Library filename/path filter remains a separate, model-free navigation feature, not semantic search under another label.
 
-Mark findings outdated after an observed source change. Tag requests with the selected root and operation generation so a late result cannot replace a newer result or a different folder's state. During validation, detect a changed inventory where practical and report that the sources changed; do not claim a point-in-time snapshot unless the inspected inputs are actually fixed. File watching alone is not proof that every file was read atomically.
+Use explicit submit initially. Typing updates local query state; it must not reload a model on every keystroke. Indexing is explicit. Folder opening, filtering, and searching must not trigger hidden model downloads, rebuilding, or external requests.
 
-## Debugging information
+### Types and filters
 
-Show application and relevant package versions, selected root, validation mode, operation name, start/end time, duration, result counts, and the original structured report. Keep expected findings separate from operation failures and exceptions.
+**Concept type** is the OKF document metadata `type`, such as a project-defined type. Populate available values from the selected bundle's parsed concepts or the matching indexed snapshot, with the source/revision labeled. Keep unknown strings and their spelling. Do not impose a closed enum, fixed taxonomy, or infer a type from a directory. Invalid documents remain visible in Library and Validation.
 
-Later, when retrieval is enabled, add index state, generation identity, model/store availability, busy/stale state, and the actual SDK error. Those fields must reflect real runtime data; do not simulate a working backend or successful checks.
+**Chunk type** is a retrieval segment kind, such as paragraph, code, or table. **Content type** identifies the source format, such as Markdown. Show these separately in details. The first filter is concept type; do not pass a chunk type into `KnowledgeSearchPolicy.conceptTypes`. Chunk-type filtering is deferred unless implemented at the correct public seam.
 
-Provide an explicit Copy Diagnostic Report action. Its default export should use relative paths, exclude document bodies and credentials, and retain the information needed to reproduce the failure. Show a preview before copying an expanded report. Keep logs bounded and local. No telemetry or automatic report upload.
+Apply concept-type and path-prefix eligibility before ranking in the retrieval layer, then rank and limit. Never filter the first five UI results and pretend this is a complete typed search. Empty type selection means all eligible types. Facet counts, when shown, count distinct concepts in the labeled corpus, not chunks or just the returned top results. Missing counts remain unavailable, not zero.
 
-A raw report view is data, never instructions to execute. Opening Markdown must not execute code/HTML, fetch remote images, or launch arbitrary URI schemes. Use explicit user actions for permitted external links. Apply a consistent workspace containment and symlink policy to file selection, asset loading, and finding navigation.
+Keep all lifecycle states eligible by default, matching Wayfinder. Optional lifecycle/current-only controls are advanced and must use supported policy values. An explicit as-of instant is required for current-only policy. Do not infer trust from similarity, type, status, or a link label. Tags may be displayed, but tag filtering is not claimed by the inspected `KnowledgeSearchPolicy`.
 
-## Implementation shape
+### Results and inspection
 
-A proposed home is `apps/wayfinder_workbench/` in this repository. This is a reference/debug consumer, so it need not wait for selection of the eventual product repository. Do not create another repository just to inspect the libraries.
+Each match shows rank, title/path, concept type, cited source line range, snippet, and the actual mode-specific score. Explain the score label; it is not a confidence percentage or a probability. Do not compare BM25, dense, and fused scores on a common scale.
 
-Keep it a separate Flutter package with its own lockfile and Flutter CI job, outside the root Dart Pub workspace initially. The current root workspace uses Dart-based commands and contains the three library/CLI packages. Adding a Flutter app to that resolution without a tooling decision would change development and CI requirements for everyone. Test any local source overrides used to consume unpublished sibling packages; do not rely on accidental workspace resolution. [W2]
+Keep **Matches**, **Related context**, and **Notices** distinct. A context hit carries its returned reason and via-path where available; it is not another independently ranked match. The existing knowledge search returns one best passage per concept. Inspection may expose other passages without changing that search contract.
 
-Proposed small source layout:
+Selected result details show its passage, chunk kind, metadata, heading context where available, and the exact indexed source revision. Open the corresponding source and check for revision divergence before highlighting a current-file range. If the file changed or disappeared, retain the historical hit with an explicit warning instead of showing an unrelated current passage as evidence.
 
-```text
-apps/wayfinder_workbench/
-  pubspec.yaml
-  pubspec.lock
-  remix.yaml
-  lib/
-    main.dart
-    workbench_app.dart
-    workbench_controller.dart
-    workbench_state.dart
-    ui/                       # installed Vanilla theme and components
-    panels/
-      file_tree.dart
-      document_view.dart
-      problems_panel.dart
-      debug_panel.dart
-  test/
-  integration_test/
-```
+### Optional comparison
 
-This is a layout proposal, not files already created.
+The first workbench must ship normal semantic search and inspection. A small advanced comparison action can subsequently run BM25, dense, and hybrid through the same library against the same snapshot, query, eligible concepts, limits, and context settings. Display separate result lists, overlap, timings, and mode labels; unavailable modes stay unavailable. Do not silently fall back from semantic to keyword search.
 
-One controller coordinates folder selection, file loading, validation, and outdated results. Avoid a new routing framework, event bus, generic plugin registry, or many forwarding-only classes. Inject the small amount of filesystem/clock behavior that truly needs controlled testing.
+Record cold/warm resource state when interpreting timing. Any claim of improved relevance needs a fixed authorized fixture and relevance judgments, with the metric and regressions recorded. A result-list inspection alone establishes no winner. No cross-encoder service, new model, or benchmark dashboard is required for the first release.
 
-For the read-only slice, call the public `okf` and `wayfinder` libraries directly. Do not add `wayfinder_cli`, `wayfinder_embeddings`, or the future SDK merely to browse and validate. This avoids making native retrieval setup a requirement for the first workflow. It does not claim that the complete later editor/retrieval application is native-dependency-free.
+## Index and embedding inspection
 
-For later index/search operations, consume the supported SDK after W01–W03. Never import CLI `src` files or duplicate its locking/generation logic. Preserve the existing semantic behavior until the appropriate SDK ticket changes it.
+Show observed index state: not built, current, outdated, busy, missing model/runtime, incompatible, or failed. Preserve the backend's actual distinction: the current runtime groups some missing/stale/incompatible errors, so a more specific status needs W08 evidence rather than message-string guesses.
 
-Use AckInfer-generated shared requests where available. A proposed export/settings schema can use AckInfer once it becomes a real persistence contract. Do not re-model all OKF findings or transient widget state just to increase code generation.
+The read-only SDK inspection view should expose, when actually available, the bundle identity, completed generation, source fingerprint, configuration identity, active model descriptor, distinct indexed concepts, passage count, compatible-vector count, and token-fitting diagnostics. Persist no new claims of build time if the old format does not record it; label only observed times. Do not equate a model file existing with successful verification or successful native loading.
 
-## Incremental delivery
+Inspect one concept or bounded page of passages at a time. Show source lines, chunk kind, whether a compatible vector exists, the model identity/dimension, and the effective embedding input/context only when retained or exactly recoverable through the owning library. Normalized/fitted retrieval input is not the complete original document and is not an editable block.
 
-These are proposed milestones for the companion app, not newly activated entries in the existing twelve-ticket manifest.
+Surface `oversized_segment_split` and `embedding_context_omitted` where the snapshot reports them. Do not reconstruct a guessed embedding input, fabricate progress percentages, dump every vector, or add a 3D embedding plot. Vectors are not needed to diagnose most mapping, freshness, or type problems.
 
-| Milestone | End-to-end result | Actual prerequisite |
+Refresh Search Index updates derived retrieval data. Label it differently from generating OKF navigation files; the two existing `index` verbs do different jobs. Keep the prior completed generation safe on failure. A force rebuild, cache removal, or model download requires a distinct explicit action, not an opening side effect.
+
+Until W06/#110 changes coordination, respect busy and stale refusals. UI browsing and validation must remain usable. Never remove locks, open an index database independently from Flutter, or promise search-during-refresh. Suppressing an obsolete UI result is not cancellation of native work or a safe rollback.
+
+## Shared implementation
+
+Keep the proposed app in `apps/wayfinder_workbench/` as an independent Flutter package with its own lockfile and Flutter checks. Do not alter the root Dart workspace's toolchain merely to host this consumer.
+
+WB01 can use public `okf` and `wayfinder` libraries without model setup. W08 extends the extracted SDK for filtered search and bounded read-only inspection. WB02 uses those public operations. The full search-enabled app has native dependencies; the earlier model-free bootstrap is not a claim of native-free packaging.
+
+Use AckInfer for new SDK-owned search/inspection request contracts, with explicit defaults and runtime validation even after direct construction. Do not change W01's existing CLI/MCP JSON Schema to smuggle in UI options. Add and test the new contract after W03 while preserving old calls. Reuse upstream metadata, finding, snapshot, and result types; do not generate a second OKF domain model.
+
+No persistence internals or CLI `src` imports from the app. Resource ownership, model verification, freshness, filter-before-ranking, and generation locking stay in shared runtime code. No new SQLite/FTS engine, embeddings implementation, or generic Profile platform.
+
+If W05/W06 have landed before W08, build on those public interfaces rather than create a competing lifecycle. The tickets have no artificial dependency on those improvements: the first implementation may use serialized operations and existing per-call lifetime.
+
+The owned shell composes Library, Search, Validation, and Index pages with one root/request coordinator. Keep the operation work off the UI rendering path and test responsiveness with the actual native backend. Do not pass native handles freely between isolates or claim that an async signature guarantees responsiveness.
+
+## Delivery and acceptance
+
+| Item | Complete outcome | Blocked by |
 | --- | --- | --- |
-| Read-only diagnostic app | Open folder, source/preview, disk validation, navigate findings, inspect/copy diagnostics. | Remix/toolchain bootstrap and public OKF/Profile library resolution; no SDK extraction requirement. |
-| SDK exercise panel | Explicit Refresh Search Index and Search, displaying real errors and citations. | W01–W03 and verified native assets. Initially handle busy/stale failures; do not require or pretend #110 is fixed. |
-| Safe source editing | Edit, save explicitly, recover, and validate saved or explicitly supported candidate state. | File-safety acceptance; W04 for shared unsaved candidate validation. Reuses the F01 requirements. |
-| Bounded visual editing | Super Editor edits a tested Markdown subset with safe source fallback. | Safe source editing and conversion tests; reuses F02. |
+| [WB01](tickets/WB01-shell-and-validation.md) | Installed dashboard shell; open/read/validate a real folder; inspect findings. | None in the ticket graph; verified Flutter/Remix setup required. |
+| [W08](tickets/W08-filtered-search-inspection.md) | Public typed filtered search and bounded index/passage inspection, used by a direct Dart consumer. | W03. |
+| [WB02](tickets/WB02-search-and-inspection.md) | Refresh index, semantic search, concept types, source/result inspection, and truthful failures in the workbench. | WB01, W08; verified native assets required. |
 
-The first milestone can be developed independently without changing Batch A's behavior-preserving scope. A companion app is not an excuse to bundle fixes for search concurrency, Profile authoring, or native packaging into the extraction PR.
+The first complete workbench is WB01 plus WB02, not WB01 alone. W01–W03 remain the only active assigned implementation batch. New items are planned, not completed or dispatched. Safe source editing and Super Editor remain F01/F02. F03 is later editing/concurrent-search integration; reuse the established search behavior rather than build a second search surface. W07/#45 still owns Profile-aware structured writes.
 
-Do not block basic navigation/validation on W06. Interactive search during refresh is a later capability; initially show the SDK's actual busy/stale outcome and keep browsing available. Structured Profile-aware authoring still waits for W07/#45. Normal source saves and structured authoring remain separate operations.
+Acceptance must demonstrate an invalid document that still opens; identical app/library validation findings; a real index/search/open-citation workflow; concept eligibility before limiting; custom types; separate concept/chunk types; ranking/context separation; exact source-tree non-mutation; missing native/model states; stale/busy failures; folder switches with late responses; and no automatic downloads.
 
-## Acceptance and review
+Test a relevant concept outside an unfiltered top-five window that becomes reachable after a type filter. Test repeated chunks without inflated concept counts, deleted/changed sources, Unicode/line-ending citation cases, failed indexing, and two operations on one bundle. Compare default app/SDK/CLI results on the same fixture and configuration. Do not claim fresh-index parity for different snapshots.
 
-Before calling the first milestone complete, verify:
+Run actual generated-code stability, independent package resolution, Flutter analysis/tests, keyboard focus/text scaling, narrow-window behavior, light/dark appearance, and responsiveness checks on the stated desktop target. A minimal browse/validation path must survive missing retrieval assets. Native skips and platform gaps are not passes.
 
-- Open and cancel folder selection; reopen another folder without showing stale results.
-- Read a plain Markdown file, a valid OKF file, and a malformed frontmatter file.
-- Validate the same fixture through the app and the owning library with equivalent findings.
-- Preserve distinction among errors, advisories, unsupported Profile release, operation failure, and unassessed judgment rules.
-- Navigate path-only and located findings correctly, including deleted files.
-- Observe external changes, revalidate, and never relabel old findings as current.
-- Confirm all source-tree bytes are unchanged after browsing, preview, validation, and report export.
-- Run with no embedding model or ObjectBox setup for the first read-only workflow.
-- Test keyboard traversal, text selection, scrolling, text scaling, and both appearance modes on the actual development desktop.
-- Resolve the pinned CLI and registry, run real generation, check a clean second run, and record dependency versions.
-- Confirm root Dart-only checks and independent Flutter checks still run in their intended environments.
+## Diagnostic privacy and review
 
-Standards review checks ownership, minimalism, token use, host capabilities, public imports, generation policy, and absence of hidden runtime dependencies. Spec review checks the complete folder-to-finding workflow, source non-mutation, truthful status, and scope. Label author review as self-review unless a separate reviewer actually ran.
+Debug is local and bounded. Default export includes operation metadata, relative paths, explicit capability states, and redacted findings. Queries, snippets, raw reports, model paths, and document metadata may contain private material; require preview/explicit inclusion for expanded exports. Do not log bodies, vectors, credentials, or full payloads by default. No telemetry or automatic upload.
 
-## Verification limits of this review
+Reading or previewing must not execute Markdown code/HTML, fetch remote resources, or launch arbitrary schemes. Apply the same containment and symlink policy to folder traversal, assets, index inspection, and citation navigation. Unknown data is source material, not instructions.
 
-Repository manifests, the Remix usage/CLI guides, the published beta page, the existing adjustment plan, and the Profile validation implementation were read. No Flutter or Dart executable is available in the authoring environment. No application, dependency solver, code generator, desktop build, widget test, or native runtime test ran. CLI hosted publication was not established; the inspected source explicitly marks it unpublished. The proposal remains in draft.
+Review Standards and Spec separately against fixed base/head. Standards covers ownership, actual template use, theme/overlay setup, no duplicated search/storage, generation, native lifetime, and privacy. Spec covers every listed workflow and truthful state. This update is an author source review and planning change, not independent implementation review. No Flutter app, Dart generator, native test, or relevance benchmark ran here.
 
 ## Sources
 
-- R1: Published Remix beta.10: https://pub.dev/packages/remix/versions/1.0.0-beta.10
-- R2: Remix manifest: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/packages/remix/pubspec.yaml
-- R3: Current usage guide: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/skills/using-remix/SKILL.md
-- R4: CLI setup, publication state, and registry behavior: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/packages/remix_cli/README.md
-- R5: CLI SDK floor: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/packages/remix_cli/pubspec.yaml
-- W1: Existing Profile result and validation contract: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder/lib/src/validation.dart
-- W2: Existing root workspace: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/pubspec.yaml
+- R1: Promoted registry, including dashboard_shell and dashboard_demo: https://github.com/btwld/remix/blob/849dbc0c03348f13f8a99bb50bebd3b0e1321012/registry/vanilla/registry.yaml
+- R2: Shell template and host-owned slots: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/registry/vanilla/templates/dashboard_shell/dashboard_shell.dart.tmpl
+- R3: Verified runtime beta: https://pub.dev/packages/remix/versions/1.0.0-beta.10
+- R4: Source-pinned CLI and installed-source workflow: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/packages/remix_cli/README.md
+- R5: Theme, host, and pin rules: https://github.com/btwld/remix/blob/ca0ed4e9173f4fb12f2def558922438a03c877ca/skills/using-remix/SKILL.md
+- W1: Runtime defaults, freshness, and resource lifetime: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder_cli/lib/src/knowledge.dart
+- W2: Library search modes, policy, and result model: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder_embeddings/lib/src/okf/knowledge_index.dart
+- W3: Existing wire result: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder_cli/lib/src/search_output.dart
+- W4: Model descriptor: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder_embeddings/lib/src/embedding/embedding_model_spec.dart
+- W5: Snapshot, context input, and token-fitting diagnostics: https://github.com/btwld/wayfinder/blob/5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f/packages/wayfinder_embeddings/lib/src/okf/knowledge_snapshot.dart
 
-Related plan: [ADJUSTMENT.md](ADJUSTMENT.md). Active SDK scope: [Batch A](../wayfinder-sdk-batch-a.md). Current execution history: [STATUS.md](STATUS.md).
+Related: [Adjustment](ADJUSTMENT.md), [active Batch A](../wayfinder-sdk-batch-a.md), [manifest](task-manifest.json), [status](STATUS.md).

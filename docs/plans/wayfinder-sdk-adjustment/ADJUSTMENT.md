@@ -1,6 +1,6 @@
 # Wayfinder SDK and Flutter editor — adjustment specification
 
-Revision 3 · 27 September 2026  
+Revision 4 · 27 September 2026  
 Repository: `btwld/wayfinder`  
 Reviewed baseline: `5a8f0f5abf6ebeb7927a39ae044215ae2a99ca7f`  
 Status: draft planning handoff. No implementation or runtime verification is implied.
@@ -15,6 +15,8 @@ Use **AckInfer** for shared operation contracts. Reuse the existing `okf`, `wayf
 
 Markdown plus OKF remain the saved source of truth. Super Editor is only the visual editing surface. Search indexes and editor document models are derived state.
 
+For the early companion app, use Remix's Vanilla `dashboard_shell` recipe and make Wayfinder search, concept-type filtering, validation, and index/passage inspection part of the first complete workbench. The read-only bootstrap remains smaller. See [WORKBENCH.md](WORKBENCH.md) for the reviewed template, runtime evidence, and acceptance details. This does not delay search until Super Editor or expand Batch A's extraction scope.
+
 ## Package ownership
 
 | Owner | Responsibility |
@@ -26,7 +28,7 @@ Markdown plus OKF remain the saved source of truth. Super Editor is only the vis
 | `wayfinder_cli` | CLI arguments, text/JSON presentation, exit mapping, MCP registration, executable-specific discovery, install/update behavior. |
 | Flutter app | Super Editor, source editor, unsaved sessions, byte-preserving patches, recovery, workspace UI, and commands. |
 
-The SDK must be a deep module, not a pass-through façade. It must not depend on Flutter or MCP. Do not generate parallel SDK versions of existing OKF graph, document, metadata, or finding types.
+The SDK must be a deep module, not a pass-through facade. It must not depend on Flutter or MCP. Do not generate parallel SDK versions of existing OKF graph, document, metadata, or finding types.
 
 ## AckInfer
 
@@ -34,7 +36,7 @@ Start with the existing search request. Preserve its nonblank query rule, limit 
 
 Use real Ack generation. Do not hand-write generated output. Extend repository generation checks so a second clean generation produces no drift. Generated constructors are not themselves a validation guarantee; public operations still validate directly constructed values.
 
-Use generation for SDK-owned request/control records. Do not use generated JSON models as the authority for arbitrary Markdown frontmatter.
+Use generation for SDK-owned request/control records. Do not use generated JSON models as the authority for arbitrary Markdown frontmatter. W08 introduces a separate filtered-search/inspection contract after W03; it must not silently alter W01's CLI/MCP schema.
 
 ## Validation
 
@@ -52,11 +54,15 @@ Batch B adds candidate validation for unsaved source without writing it to disk.
 
 Batch A preserves current search mode, freshness refusal, locking, resource lifetime, and generation publication behavior.
 
-Later work introduces explicit session ownership and revision-aware search. One writer builds a private generation. Readers may pin only completed generations. The default SDK policy remains current-only; an explicit last-completed policy may serve stale results with generation/revision metadata and a clear notice.
+Later work introduces explicit session ownership and revision-aware search. One writer builds a private generation. Readers may pin only completed generations. The default SDK policy remains current-only with respect to source freshness; an explicit last-completed policy may serve stale results with generation/revision metadata and a clear notice. This freshness policy is different from concept lifecycle filtering.
 
 No reader may observe a partly published or deleted generation. Cleanup must be safe across processes, not only within one isolate. Citations belong to the indexed revision; current-file navigation must detect divergence.
 
 Basic path/title lookup must not depend on semantic indexing. Do not add a second primary search database merely to preserve an earlier sketch.
+
+W08 reuses existing lower-level concept-type/path eligibility before ranking and exposes bounded read-only index/passage inspection through the supported SDK. Keep dense contextual search with relationship expansion as the default. BM25/hybrid comparison is explicit and not evidence of superior relevance without a fixed evaluation. Separate concept types from chunk kinds, matches from related context, and scores from confidence.
+
+The initial workbench respects existing busy/stale refusals. It does not require W06 or bypass its locks. W05/W06 improvements, when present, remain the single owning lifecycle implementation. The app never parses index storage files or embeds documents through a duplicate runtime.
 
 ## Saving versus structured authoring
 
@@ -100,13 +106,16 @@ Capture/import remains optional. A future capture workflow preserves original ev
 | [W05](tickets/W05-retrieval-session.md) | Explicit retrieval session ownership | W03 | Batch B |
 | [W06](tickets/W06-search-during-refresh.md) | Revision-aware search during refresh | W05 | Batch B; #110 |
 | [W07](tickets/W07-profile-authoring.md) | Reviewed Profile-aware authoring | W04 | Batch B; #45 |
+| [W08](tickets/W08-filtered-search-inspection.md) | Filtered search and bounded public inspection | W03 | Workbench; planned |
+| [WB01](tickets/WB01-shell-and-validation.md) | Remix dashboard shell and folder validation | None | Workbench; planned |
+| [WB02](tickets/WB02-search-and-inspection.md) | Search by type, inspect index/passages, open sources | WB01, W08 | Workbench; planned |
 | [F01](tickets/F01-source-workflow.md) | Safe local source open/edit/save | W03, W04 | Batch C; app repo required |
 | [F02](tickets/F02-super-editor-workflow.md) | Bounded Super Editor workflow | F01 | Batch C |
-| [F03](tickets/F03-editor-search-inspector.md) | Search/diagnostics/related-document inspector | F02, W06 | Batch C |
+| [F03](tickets/F03-editor-search-inspector.md) | Editing/concurrent-search integration using shared retrieval | F02, W06 | Batch C |
 | [X01](tickets/X01-native-dependency-option.md) | Optional lightweight packaging split | W03 | deferred |
 | [X02](tickets/X02-reviewed-capture.md) | Optional reviewed capture/import | F01, W07 | deferred |
 
-Only W01–W03 are authorized for the first implementation session. Do not silently continue into Batch B.
+Only W01–W03 are authorized for the first assigned implementation session. New workbench items are planned, not automatically executed. WB01 can bootstrap without the SDK; WB02 completes the initial searchable workbench without requiring F02 or W06. F03 remains later editing integration and must not create a second retrieval engine.
 
 ## Verification and review
 
@@ -129,10 +138,12 @@ At the end of Batch A, review the fixed base/head on two axes:
 
 **Spec:** every W01–W03 acceptance criterion, wire compatibility, source non-mutation, generator stability, package consumption, and scope creep.
 
+The workbench adds template-reuse, filter-before-limit, concept/chunk distinction, snapshot-citation, missing-runtime, nonblocking UI, and privacy acceptance. A type filter cannot merely remove items from an already limited result list. Mode comparison is not a quality benchmark without fixed judgments.
+
 Use [REVIEW.md](REVIEW.md) and record evidence in [IMPLEMENTATION_REPORT_TEMPLATE.md](IMPLEMENTATION_REPORT_TEMPLATE.md). A self-review must be labeled self-review. Missing or skipped checks remain missing or skipped.
 
 ## Out of scope
 
-The planning PR does not implement the SDK or editor. It does not publish packages, merge code, change real knowledge bundles, close #110/#45, add a graph UI, create a sync/collaboration backend, add a generic Profile platform, or create the Flutter application repository.
+The planning PR does not implement the SDK or editor. It does not publish packages, merge code, change real knowledge bundles, close #110/#45, add a graph UI, create a sync/collaboration backend, add a generic Profile platform, or create another application repository. The proposed workbench package in this repository is still only a plan.
 
 See [STATUS.md](STATUS.md) for actual execution state and [task-manifest.json](task-manifest.json) for the machine-readable dependency graph.
