@@ -44,9 +44,8 @@ existing names, including the three reviewed implementation branches.
 Replace development invocations of `station` with `wayfinder`, including
 `dart run wayfinder:wayfinder`, executable paths in MCP host configurations,
 and references to `packages/wayfinder`. Build and native verification scripts
-use `wayfinder` in their filenames. ADR-0010/0011 now use canonical Wayfinder
-filenames; their former `station-*` paths remain as compatibility links. Current
-usage lives in the [application guide](../packages/wayfinder_cli/README.md).
+use `wayfinder` in their filenames. ADR-0010/0011 use canonical Wayfinder
+filenames. Current usage lives in the [application guide](../packages/wayfinder_cli/README.md).
 
 `WAYFINDER_DATA_DIR` replaces `STATION_DATA_DIR`. Defaults use `Wayfinder` on
 macOS/Windows and `wayfinder` on Linux. The default therefore starts a new index:
@@ -75,8 +74,8 @@ migration or taxonomy change is needed. The old `knowledge_embeddings` package i
   which settles the publisher and OIDC question #66 tracked.
   Stable `okf_profile 0.2.0` remains available.
 - The retrieval, CLI, MCP, naming, installation and package-split PRs (#58, #59,
-  #60, #63, #54 and #64) are merged. Historical branch names remain stable; ADR-0010/0011 now have canonical
-  Wayfinder filenames with compatibility paths for older links.
+  #60, #63, #54 and #64) are merged. Historical branch names remain stable; ADR-0010/0011 use canonical Wayfinder
+  filenames.
 - Native archives for Linux x64, macOS ARM64 and Windows x64 are attached to
   [the Wayfinder 0.1.0 release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.1.0).
   The install scripts default to it. Public installation, validation, indexing,

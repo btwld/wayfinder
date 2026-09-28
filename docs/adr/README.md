@@ -2,11 +2,9 @@
 
 ADRs preserve design rationale; the [OKF specification](../../skills/author-knowledge-bundle/references/OKF-0.2.md), [current Profile](../../profile/okf-profile.md), and [implementation guide](../../implementation/okf-implementation-guide.md) govern current behavior in that order. Accepted decisions apply within their recorded scope; proposed decisions are not Profile rules. Supersede an accepted decision with a new ADR when its rationale no longer holds.
 
-Current ADR filenames use the Wayfinder product vocabulary. The former
-`station-*` paths remain as short compatibility records so historical links
-continue to resolve; they are not separate decisions. The [documentation
-index](../index.md) points to current guides. These records
-govern this repository, not ADRs inside a project's `knowledge/architecture/`.
+ADR filenames use the current Wayfinder product vocabulary. The [documentation
+index](../index.md) points to current guides. These records govern this
+repository, not ADRs inside a project's `knowledge/architecture/`.
 
 ## Record format
 
