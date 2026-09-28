@@ -17,10 +17,9 @@ Let a project select a reusable Profile, say which bundle directories it applies
 
 ## Commands
 
-- `wayfinder profile get [wayfinder.json]` resolves declared sources and writes or refreshes `wayfinder.lock`.
-- `wayfinder profile upgrade [wayfinder.json]` deliberately moves a branch or tag to its latest available revision.
-- `wayfinder profile check [wayfinder.json]` verifies configuration, lock, source cache, manifest identity, and validator support without changing files.
-- `wayfinder validate <bundle>` uses the locked cached source and reports the exact `profile get` command when the lock is missing or stale. It does not fetch silently.
+- `wayfinder get [project]` resolves declared sources and writes or refreshes `wayfinder.lock`, respecting a current lock.
+- `wayfinder upgrade [project]` deliberately moves a branch or tag to its latest available revision.
+- `wayfinder validate <bundle>` checks configuration, lock, source cache, manifest identity, and validator support without changing files or fetching silently.
 
 ## Lock invariants
 
@@ -46,7 +45,7 @@ Add canonical configuration hashing, lock read/write, Git resolution, cache layo
 
 ### Commands and diagnostics
 
-Add `profile get`, `profile upgrade`, and `profile check`. Make validation identify stale or missing locks and show the corrective command. Add JSON output for automation.
+Add `get` and `upgrade`; keep `validate` as the integrity check. Make validation identify stale or missing locks and show the corrective command. Add JSON output for automation.
 
 **Validation:** command help, text/JSON diagnostics, offline checks, branch movement, and missing-cache recovery.
 

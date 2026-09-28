@@ -148,22 +148,21 @@ report any unsupported override explicitly.
 
 The configuration hash is calculated from canonical JSON, so whitespace-only
 formatting changes do not invalidate the lock. A real change to `wayfinder.json`
-causes `wayfinder profile get` to refresh the lock. `get` resolves the declared
+causes `wayfinder get` to refresh the lock. `get` resolves the declared
 reference and respects the lock when it is current; `upgrade` deliberately moves
 branches or tags to their latest available revision and rewrites the lock.
 
 The proposed command flow is:
 
 ```text
-wayfinder profile get [wayfinder.json]       # resolve declared refs and write lock
-wayfinder profile upgrade [wayfinder.json]   # request newer branch/tag revisions
-wayfinder profile check [wayfinder.json]     # verify config, lock, source and manifest
-wayfinder validate ./knowledge                # validate; report a stale lock clearly
+wayfinder get [project]        # resolve declared refs and write the lock
+wayfinder upgrade [project]    # request newer branch/tag revisions
+wayfinder validate ./knowledge # validate without fetching or rewriting files
 ```
 
-Profile resolution should never happen silently during validation. `check` and
-`validate` may use the cached, locked source, but a missing or stale lock should
-explain the exact `profile get` command needed.
+Profile resolution should never happen silently during validation. Validation
+uses the cached, locked source; a missing or stale lock explains the exact
+`wayfinder get` command needed.
 
 The lockfile is not a second configuration file. It does not contain Profile
 rules, project types/tags/actors, knowledge content, credentials, or mutable user
