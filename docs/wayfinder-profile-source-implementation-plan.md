@@ -374,7 +374,8 @@ The implementation is ready for review only when all of these are true:
 
 The direct configuration parser, additive `extends` composition, Git resolver,
 canonical lock, `get`/`upgrade`, and shared bundle-command resolution are
-implemented in `split/profile-base`. Direct validation receives only manifests
+implemented in `split/profile-base` and published on `feat/config-json` in
+#113. Direct validation receives only manifests
 checked against the installed compiled 2026.3 Profile. The legacy installed
 2026.3 and in-bundle 2026.2 paths remain available.
 

@@ -1,6 +1,6 @@
 # Wayfinder Profile source and lockfile plan
 
-**Status: implemented on `split/profile-base`; pending review and merge.**
+**Status: implemented in PR #113; pending review and merge.**
 
 Implementation handoff: [guarded implementation plan](wayfinder-profile-source-implementation-plan.md).
 
