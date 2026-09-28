@@ -104,7 +104,7 @@ See [migration instructions](docs/install.md#migrate-the-dart-application-packag
 | [`examples/`](examples/) | A complete worked bundle you can read end to end |
 | [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
 | [`tool/`](tool/) | CI and release tooling |
-| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, operations, and historical engineering evidence |
+| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, and maintenance reviews |
 | [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
 
 `profile/okf-profile.md` is the canonical release-integration path; its version
@@ -317,7 +317,9 @@ checks only; contextual Profile Review remains separate.
   generator exists, indexes are hand-maintained and validation catches drift
   (guide §3.4).
 
-See the [release guide](docs/releasing.md) for package publication and native binaries.
+See the [maintenance review](docs/maintenance-review.md) for the existing issues
+and the remaining project-knowledge workflow questions. See the
+[release guide](docs/releasing.md) for package publication and native binaries.
 
 ## Dart workspace development
 

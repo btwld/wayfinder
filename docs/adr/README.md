@@ -1,47 +1,29 @@
 # Architecture decision records
 
-ADRs preserve design rationale; the [OKF specification](../../skills/author-knowledge-bundle/references/OKF-0.2.md), [current Profile](../../profile/okf-profile.md), and [implementation guide](../../implementation/okf-implementation-guide.md) govern current behavior in that order. Accepted decisions apply within their recorded scope; proposed decisions are not Profile rules. Supersede an accepted decision with a new ADR when its rationale no longer holds.
+One file per decision. Decisions here bind the Concepta Profile and its
+tooling. A
+future architecture review must not re-litigate an accepted ADR unless real
+friction warrants reopening it; supersede with a new record instead of editing
+history.
 
-ADR filenames use the current Wayfinder product vocabulary. The [documentation
-index](../index.md) points to current guides. These records govern this
-repository, not ADRs inside a project's `knowledge/architecture/`.
+Format note: the lightweight header (Status / Date / Issues) is deliberate.
+These records govern this repository only; a project bundle's
+`knowledge/architecture/` follows its own ADR conventions.
 
-## Record format
+Vocabulary: these records use *module*, *interface*, *seam*, *adapter*, *depth*,
+*leverage*, and *locality* in the deep-module sense — a module is anything with
+an interface and an implementation; a seam is where an interface lives; depth is
+behaviour per unit of interface a caller must learn.
 
-Every accepted ADR has a short metadata header with `Status`, `Date`, and
-`Scope`; `Supersedes`, `Builds on`, and `Driver` are added when they clarify
-history. The body uses `Context`, `Decision`, `Options considered`,
-`Consequences`, and `Reconsider when`. A proposed ADR uses `Proposal` and
-`Decision gate` instead of claiming an accepted decision. Current commands and
-dependency details belong in the relevant guide; an ADR records the durable
-choice and links there.
-
-| ADR | Status | Decision |
-| --- | --- | --- |
-| [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded for 2026.3 by 0014 | Closed Profile validator over independent OKF |
-| [0006](0006-raw-tier-under-references.md) | Accepted | Optional per-source `raw/` tier for verbatim originals |
-| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted | Compare index URLs after percent-decoding |
-| [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
-| [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
-| [0010](0010-wayfinder-cli.md) | Accepted | Wayfinder CLI for validation and persistent local search |
-| [0011](0011-wayfinder-mcp.md) | Accepted | Wayfinder MCP adapter over local stdio |
-| [0012](0012-wayfinder-graph-projection.md) | Accepted | Project the ordinary OKF graph |
-| [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
-| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | External project bindings with exact release dispatch |
-
-## Why the decisions stay separate
-
-- ADR-0004 and ADR-0014 separate the closed validator boundary from the
-  2026.3 project-binding migration; 0014 supersedes only the old in-bundle
-  selector and registries.
-- ADR-0006 and ADR-0007 address different Profile mechanics: where verbatim
-  assets live, and how index URLs are compared. They have different rules,
-  findings, and migration edge cases.
-- ADR-0009 through ADR-0012 cover model selection, application/index
-  lifecycle, MCP transport, and graph projection. They can evolve and be
-  tested independently, so combining them would hide their contracts rather
-  than remove duplication.
-- ADR-0013 is a proposed evidence workflow, not an accepted Profile rule.
-  The historical naming/release record lives separately in
-  `docs/wayfinder-release-plan.md` because it records a product migration,
-  not an architecture contract.
+| # | Decision |
+|---|----------|
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted; selection and registries superseded for 2026.3 by ADR-0014 — first implement a closed Concepta Profile validator; defer the generic platform |
+| [0006](0006-raw-tier-under-references.md) | Accepted — a per-source `raw/` tier under `references/` for verbatim originals; no markdown inside but each directory's index |
+| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted — index entry targets are relative URLs compared percent-decoded, so real-world filenames stay expressible |
+| [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired |
+| [0009](0009-local-knowledge-retrieval.md) | Accepted — keep Arctic XS for optional local embeddings; retain BM25 by default and improve passage selection through measured experiments |
+| [0010](0010-station-cli.md) | Accepted — Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots |
+| [0011](0011-station-mcp.md) | Accepted — Serve Wayfinder validate, index and search over local MCP stdio |
+| [0012](0012-wayfinder-graph-projection.md) | Accepted — Wayfinder projects the ordinary OKF graph; writes remain in `okf` |
+| [0013](0013-captures-layer-outside-the-bundle.md) | Proposed — a dated `captures/` evidence layer beside the bundle with an `intake.md` per package, and `Source Document` pointers instead of restated client documents |
+| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 — external project bindings with exact release dispatch; closed validator and independent OKF checks retained |

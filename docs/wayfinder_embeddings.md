@@ -24,7 +24,7 @@ and `okfp validate` does not use embeddings.
 [Wayfinder](../packages/wayfinder_cli/README.md) exposes `validate`, `index` and
 `search`. It persists complete snapshots and document vectors, then opens them
 for semantic searches without document inference. Its application choice is
-recorded in [ADR-0010](adr/0010-wayfinder-cli.md). The historical saved-vector
+recorded in [ADR-0010](adr/0010-station-cli.md). The historical saved-vector
 benchmarks below reload sources and synchronize again; they do not measure
 Wayfinder's saved-snapshot opening path. `okfp` continues to expose validation.
 

@@ -10,17 +10,25 @@
 
 [Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
 
-Earlier-release evidence is preserved in the [2026.2 compatibility review](compatibility-review-2026.2.md) and [2026.2 assessment coverage](../implementation/profile-coverage-2026.2.md). These are different checks, not duplicate reports.
+Earlier-release evidence is preserved in the [2026.2 compatibility review](compatibility-review-2026.2.md) and [2026.2 assessment coverage](../implementation/profile-coverage-2026.2.md).
 
-## Guides and engineering evidence
+## Configuration guides
+
+[Wayfinder project configuration](wayfinder-configuration.md) — Implemented project bindings, installed Profile manifest schemas, and validation order.
+
+[Wayfinder Profile guide](wayfinder-profile-guide.html) — Visual guide to Profiles, project bindings, tags, status, and validation coverage.
+
+## Maintenance
 
 [ObjectBox configuration and build review](objectbox-build-review.md) — Runtime/generator pins, native assets, schema compatibility and platform evidence.
 
 [Wayfinder retrieval](wayfinder_embeddings.md) — Library setup, evaluation and implementation evidence.
 
-[Wayfinder project configuration](wayfinder-configuration.md) — Implemented `wayfinder.json` and installed Profile manifest schemas, binding rules, and validation order.
+[Wayfinder naming and release plan](wayfinder-release-plan.md) — Product names, package boundaries, migration, and publication sequence.
 
-[Wayfinder Profile guide](wayfinder-profile-guide.html) — Visual summary of AGENTS.md, Profiles, project bindings, tags, status, and validation coverage.
+[Repository maintenance review](maintenance-review.md) — Responsibilities to retain, housekeeping corrections, existing follow-up issues, and the second-brain workflow to explore. Reviewed 2026-09-09; linked issues own current work status.
+
+[Issue queue review](issue-queue-review.md) — Verified state of the open Wayfinder and okf issues, pull requests, releases and pub.dev publication. Reviewed 2026-09-12; linked issues own current work status.
 
 [Skill evaluation](skill-evaluation.md) — Synthetic execution cases, corrections, validation evidence, and limits for the distributed skills.
 
@@ -30,8 +38,22 @@ Earlier-release evidence is preserved in the [2026.2 compatibility review](compa
 
 [Release Wayfinder](releasing.md) — Package tags, pub.dev OIDC, verified native bundles and cli_pkg/Grinder tasks.
 
-## Decisions and historical records
+## ADRs
 
-[ADR catalog](adr/README.md) — The single list of accepted, superseded-in-part, and proposed decisions. Read each record in its stated release and historical context; a proposed ADR is not a current Profile rule.
+[0004: Closed Concepta Profile validator](adr/0004-closed-concepta-profile-validator.md) — Accepted. Closed validation, contextual review, registries, authored logs, and derived indexes.
 
-[Wayfinder naming and release plan](wayfinder-release-plan.md) — Historical 2026-09-10 rename and publication record, not current installation or release instructions.
+[0006: Raw tier under references](adr/0006-raw-tier-under-references.md) — Accepted. Optional per-source storage for verbatim originals; each directory's index is the only Markdown inside the tier.
+
+[0007: Percent-decoded index targets](adr/0007-index-targets-compared-percent-decoded.md) — Accepted. Compare relative URLs after decoding so real-world filenames stay expressible.
+
+[0008: OKF finding contract](adr/0008-okfp-adopts-okf-finding-contract.md) — Accepted. Reuse OKF's finding report as the wire format and retire the separate load-issue channel.
+
+[0009: Local knowledge retrieval](adr/0009-local-knowledge-retrieval.md) — Accepted. Keep Arctic XS for optional local embeddings; retain BM25 by default.
+
+[0010: Wayfinder CLI](adr/0010-station-cli.md) — Accepted. Wayfinder validates, indexes and searches with local embeddings and persistent bundle snapshots.
+
+[0011: Wayfinder MCP](adr/0011-station-mcp.md) — Accepted. Serve Wayfinder tools over local MCP stdio.
+
+[0012: Wayfinder graph projection](adr/0012-wayfinder-graph-projection.md) — Accepted. Project the ordinary OKF graph; mermaid and DOT are text for an external preview.
+
+[0014: External Profile bindings](adr/0014-external-profile-bindings.md) — Accepted for 2026.3. External project bindings and exact release dispatch; supersedes ADR-0004’s in-bundle selection and registries.
