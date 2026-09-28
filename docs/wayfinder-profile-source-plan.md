@@ -39,15 +39,15 @@ Update the schema and parser to support direct Profile entries, source kinds, `a
 
 ### Lock resolution
 
-Add canonical configuration hashing, lock read/write, Git resolution, cache layout, commit verification, and atomic lock replacement. Keep network access inside `get` and `upgrade`; validation reads the lock and cache.
+Add canonical configuration hashing, lock read/write, Git resolution, cache layout, commit verification, and atomic lock replacement. Put the resolution step behind one shared resolver: `get` resolves declared refs, while `validate`, `index`, `search`, and `graph` invoke that resolver when the lock is missing or stale. A current lock is a no-op and can run from a current source cache without network access. Only `upgrade` deliberately advances a mutable branch or tag.
 
-**Validation:** unchanged configuration reuses the lock; semantic configuration changes refresh it; formatting-only changes do not; failed resolution preserves the previous lock.
+**Validation:** unchanged configuration reuses the lock; semantic configuration changes refresh it; formatting-only changes do not; missing or stale locks resolve before bundle work; failed resolution preserves the previous lock.
 
 ### Commands and diagnostics
 
-Add `get` and `upgrade`; route every bundle command through the shared resolver, then run its normal operation. Make validation identify stale or missing locks and show the corrective command. Add JSON output for automation.
+Add `get` and `upgrade`; route every bundle command through the shared resolver, then run its normal operation. `get` writes or refreshes the lock for the declared refs. A bundle command that needs resolution performs the equivalent of `get` before checking its files. Add text and JSON diagnostics for resolution and automation.
 
-**Validation:** command help, text/JSON diagnostics, offline checks, branch movement, and missing-cache recovery.
+**Validation:** command help, text/JSON diagnostics, current-lock offline checks, branch movement only through `upgrade`, and missing-cache recovery.
 
 ### Documentation and migration
 
@@ -57,4 +57,8 @@ Update the configuration guide and HTML guide with current behavior versus plann
 
 ## Non-goals
 
-This plan does not add arbitrary Profile rule overrides, remote rule execution, implicit network fetches during validation, nested bundle discovery, or a third configuration layer for `default_bundle`.
+This plan does not add arbitrary Profile rule overrides, remote rule execution,
+silent upgrades during validation, nested bundle discovery, or a third
+configuration layer for `default_bundle`. Validation may resolve a missing or
+stale lock through the shared resolver; only `upgrade` moves a current
+branch or tag forward.

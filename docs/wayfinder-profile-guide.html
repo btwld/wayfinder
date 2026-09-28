@@ -412,14 +412,14 @@
       <span class="eyebrow">Wayfinder field guide</span>
       <h1>One Profile. Project-level control. Clear bundle rules.</h1>
       <p class="lede">
-        A practical map of what belongs in agent instructions, the installed
+        A practical map of what belongs in agent instructions, a reusable
         Profile, <code>wayfinder.json</code>, and the knowledge bundle—and what
         validation can actually prove.
       </p>
       <div class="hero-meta">
         <span class="pill">Bitwild Profile 2026.3</span>
         <span class="pill">OKF 0.2 exactly</span>
-        <span class="pill">Legacy 2026.2 supported</span>
+        <span class="pill">Direct source design planned</span>
       </div>
     </div>
   </header>
@@ -431,6 +431,7 @@
         <a href="#start">Start here</a>
         <a href="#layers">The four layers</a>
         <a href="#configuration">Project configuration</a>
+        <a href="#sources-lockfile">Sources and lockfile</a>
         <a href="#placement">Where knowledge goes</a>
         <a href="#metadata">Tags and status</a>
         <a href="#sharing">Captures and sharing</a>
@@ -443,16 +444,17 @@
       <section class="section" id="start">
         <h2>Start here</h2>
         <p class="section-intro">
-          For a new project, keep the reusable rules installed and put only
-          the project’s own vocabulary and actor lookup in its binding.
+          The direct Profile source design keeps reusable rules in a Profile
+          package and puts project paths and vocabulary in one
+          <code>wayfinder.json</code> entry.
         </p>
         <div class="steps">
           <div class="step">
             <span class="step-number">1</span>
-            <h3>Select the Profile</h3>
+            <h3>Declare the Profile</h3>
             <p>
-              Add project-root <code>wayfinder.json</code> with a bundle entry
-              selecting <code>bitwild_profile/2026.3</code>.
+              Add a Profile entry keyed by its identity, with a source and the
+              bundle directories in <code>applies_to</code>.
             </p>
           </div>
           <div class="step">
@@ -465,30 +467,31 @@
           </div>
           <div class="step">
             <span class="step-number">3</span>
-            <h3>Validate and review</h3>
+            <h3>Resolve and review</h3>
             <p>
-              Run <code>wayfinder validate knowledge</code>, then perform
-              contextual Profile Review for meaning and placement.
+              Run <code>wayfinder validate ./knowledge</code>. Wayfinder
+              resolves a missing or stale lock before validation, then report
+              contextual Profile Review separately.
             </p>
           </div>
         </div>
         <div class="release-grid">
           <div class="card">
-            <span class="card-kicker">New 2026.3 bundle</span>
-            <h3>Configuration lives outside the bundle</h3>
+            <span class="card-kicker">Direct source design</span>
+            <h3>Configuration lives at the project root</h3>
             <p>
-              Root <code>profile.md</code>, <code>types.md</code>, and
-              <code>actors.md</code> registries are retired. The four named
-              directory conventions and subject-based placement remain.
+              <code>wayfinder.json</code> names the Profile source and applies
+              it to bundle folders. There is no separate bundle registry or
+              Profile alias layer in the target model.
             </p>
           </div>
           <div class="card legacy">
-            <span class="card-kicker">Existing 2026.2 bundle</span>
-            <h3>Keep its declared contract</h3>
+            <span class="card-kicker">Current compatibility</span>
+            <h3>Installed 2026.3 remains supported</h3>
             <p>
-              <code>profile.md</code> and <code>types.md</code> stay required;
-              <code>actors.md</code> is required when actor-valued OKF fields
-              are used. Migration is explicit, never automatic.
+              The current runtime still reads the legacy configuration shape.
+              Existing 2026.2 bundles keep their in-bundle declarations until
+              they are migrated.
             </p>
           </div>
         </div>
@@ -507,17 +510,17 @@
           </div>
           <div class="card">
             <span class="card-kicker">Reusable standard</span>
-            <h3>Installed Profile</h3>
+            <h3>Profile package</h3>
             <p>
-              Owns normative bundle rules, eleven standard types, OKF
-              compatibility, deterministic validation, and review guidance.
+              Owns normative bundle rules, standard types, OKF compatibility,
+              deterministic validation, and review guidance.
             </p>
           </div>
           <div class="card">
-            <span class="card-kicker">Project binding</span>
+            <span class="card-kicker">Project selection</span>
             <h3><code>wayfinder.json</code></h3>
             <p>
-              Selects the exact Profile and bundle paths; adds project custom
+              Names the source, applies it to bundle paths, and adds project
               types, declared tags, and actor lookup metadata.
             </p>
           </div>
@@ -531,11 +534,11 @@
           </div>
         </div>
         <aside class="callout info">
-          <span class="callout-label">Do not confuse these</span>
+          <span class="callout-label">Keep the layers separate</span>
           <p>
-            A 2026.2 bundle’s <code>profile.md</code> is an ordinary concept
-            containing a legacy selector. It is neither <code>AGENTS.md</code>
-            nor the installed reusable Profile.
+            Agent guidance can explain how to work. The Profile defines the
+            reusable contract. <code>wayfinder.json</code> selects and extends
+            it for this project; it does not become a second rules language.
           </p>
         </aside>
       </section>
@@ -543,64 +546,13 @@
       <section class="section" id="configuration">
         <h2>Project configuration</h2>
         <p class="section-intro">
-          One named binding can serve more than one bundle. Each bundle
-          explicitly selects its binding; configuration does not create new
-          frontmatter fields or override Profile rules.
+          The profile key is the Profile identity. <code>source</code> locates
+          the package, and <code>applies_to</code> lists the bundle directories
+          that use it.
         </p>
         <div class="code-example">
-          <div class="code-caption">wayfinder.json · illustrative project binding</div>
+          <div class="code-caption">wayfinder.json · direct Profile source</div>
           <pre aria-label="Example wayfinder.json"><code class="language-json">{
-  <span class="json-key">"version"</span>: <span class="json-number">1</span>,
-  <span class="json-key">"profiles"</span>: {
-    <span class="json-key">"knowledge_profile"</span>: {
-      <span class="json-key">"implements"</span>: <span class="json-string">"bitwild_profile/2026.3"</span>,
-      <span class="json-key">"types"</span>: [
-        {
-          <span class="json-key">"name"</span>: <span class="json-string">"Source Document"</span>,
-          <span class="json-key">"description"</span>: <span class="json-string">"An authoritative captured document."</span>
-        }
-      ],
-      <span class="json-key">"actors"</span>: {
-        <span class="json-key">"claude-code/opus-5"</span>: {
-          <span class="json-key">"name"</span>: <span class="json-string">"Claude Code"</span>
-        }
-      },
-      <span class="json-key">"tags"</span>: [
-        {
-          <span class="json-key">"name"</span>: <span class="json-string">"customer-reporting"</span>,
-          <span class="json-key">"description"</span>: <span class="json-string">"Customer-facing reporting topic"</span>
-        }
-      ]
-    }
-  },
-  <span class="json-key">"bundles"</span>: [
-    {
-      <span class="json-key">"id"</span>: <span class="json-string">"knowledge"</span>,
-      <span class="json-key">"path"</span>: <span class="json-string">"knowledge"</span>,
-      <span class="json-key">"profile"</span>: <span class="json-string">"knowledge_profile"</span>
-    }
-  ]
-}</code></pre>
-        </div>
-        <p class="fine">
-          The shipped <a href="../profile/wayfinder-profile.json">Profile manifest</a>
-          declares eleven standard types and <strong>no base tags</strong>.
-          Project bindings declare the tags they actually use. The validator
-          uses built-in Profile metadata checked for parity with that shipped
-          manifest; it does not dynamically load arbitrary Profile JSON.
-        </p>
-      </section>
-
-      <section class="section" id="sources-lockfile">
-        <h2>Profile sources and lockfile</h2>
-        <p class="section-intro">
-          The current 2026.3 runtime uses an installed Profile. This is the
-          proposed design for retrieving Profiles from Git and reproducing the
-          exact revision in CI; it is not current configuration syntax yet.
-        </p>
-        <div class="code-example">
-          <div class="code-caption">planned wayfinder.json · direct Profile source</div>
-          <pre aria-label="Planned Git Profile source"><code class="language-json">{
   <span class="json-key">"version"</span>: <span class="json-number">1</span>,
   <span class="json-key">"profiles"</span>: {
     <span class="json-key">"bitwild_profile"</span>: {
@@ -609,44 +561,86 @@
         <span class="json-key">"ref"</span>: <span class="json-string">"v2026.3"</span>,
         <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>
       },
+      <span class="json-key">"applies_to"</span>: [<span class="json-string">"./knowledge"</span>],
+      <span class="json-key">"tags"</span>: [
+        {
+          <span class="json-key">"name"</span>: <span class="json-string">"customer-reporting"</span>,
+          <span class="json-key">"description"</span>: <span class="json-string">"Customer-facing reporting topic"</span>
+        }
+      ]
+    }
+  }
+}</code></pre>
+        </div>
+        <p class="fine">
+          <code>ref</code> accepts a branch, tag, or commit without a
+          <code>branch/</code>, <code>tag/</code>, or <code>commit/</code>
+          prefix. The package manifest supplies the Profile release and must
+          match <code>bitwild_profile</code>. The shipped
+          <a href="../profile/wayfinder-profile.json">Profile manifest</a>
+          declares eleven standard types and no base tags.
+        </p>
+        <div class="card-grid">
+          <div class="card"><h3>One entry</h3><p>A Profile entry can apply to several bundle folders.</p></div>
+          <div class="card"><h3>Separate entries</h3><p>Use another entry when a bundle needs a different Profile or vocabulary.</p></div>
+          <div class="card"><h3>Explicit paths</h3><p>Paths are relative to <code>wayfinder.json</code> and stay inside the project.</p></div>
+        </div>
+      </section>
+
+      <section class="section" id="sources-lockfile">
+        <h2>Sources and lockfile</h2>
+        <p class="section-intro">
+          Git retrieval and lockfile support are planned. The current 2026.3
+          runtime uses an installed Profile, so this target syntax is clearly
+          marked here rather than presented as current behavior.
+        </p>
+        <div class="code-example">
+          <div class="code-caption">planned wayfinder.json · custom Profile</div>
+          <pre aria-label="Planned extending Profile"><code class="language-json">{
+  <span class="json-key">"profiles"</span>: {
+    <span class="json-key">"client_profile"</span>: {
+      <span class="json-key">"extends"</span>: <span class="json-string">"bitwild_profile"</span>,
+      <span class="json-key">"source"</span>: {
+        <span class="json-key">"git"</span>: <span class="json-string">"https://github.com/example/client-profile"</span>,
+        <span class="json-key">"ref"</span>: <span class="json-string">"v1.0.0"</span>,
+        <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>
+      },
       <span class="json-key">"applies_to"</span>: [<span class="json-string">"./knowledge"</span>]
     }
   }
 }</code></pre>
         </div>
         <p>
-          <code>ref</code> accepts a branch, tag, or commit without a
-          <code>branch/</code>, <code>tag/</code>, or <code>commit/</code>
-          prefix. <code>path</code> is the Profile directory inside that Git
-          revision. The fetched manifest supplies the Profile release and must
-          match the configured identity.
+          <code>extends</code> is optional and independent of
+          <code>applies_to</code>. It supports reviewed additive vocabulary and
+          Profile metadata; arbitrary rule overrides are rejected explicitly.
         </p>
         <div class="code-example">
           <div class="code-caption">planned wayfinder.lock · resolved source</div>
           <pre aria-label="Planned Wayfinder lockfile"><code class="language-json">{
   <span class="json-key">"lock_version"</span>: <span class="json-number">1</span>,
-  <span class="json-key">"configuration_sha256"</span>: <span class="json-string">"&lt;canonical wayfinder.json hash&gt;"</span>,
+  <span class="json-key">"configuration_sha256"</span>: <span class="json-string">"&lt;hash of canonical wayfinder.json&gt;"</span>,
   <span class="json-key">"profiles"</span>: {
     <span class="json-key">"bitwild_profile"</span>: {
+      <span class="json-key">"source"</span>: <span class="json-string">"https://github.com/btwld/wayfinder"</span>,
       <span class="json-key">"requested_ref"</span>: <span class="json-string">"v2026.3"</span>,
       <span class="json-key">"resolved_commit"</span>: <span class="json-string">"&lt;commit&gt;"</span>,
+      <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>,
       <span class="json-key">"profile_release"</span>: <span class="json-string">"2026.3"</span>
     }
   }
 }</code></pre>
         </div>
         <p>
-          The lockfile records resolution metadata, not Profile rules, project
-          vocabulary, knowledge content, credentials, or executable validator
-          code. Formatting-only JSON edits do not invalidate it; semantic
-          changes do. <code>get</code> refreshes declared references,
-          <code>upgrade</code> deliberately moves branches or tags forward, and
-          validation reports the corrective command instead of fetching silently.
+          Canonical hashing ignores formatting-only edits. Semantic changes to
+          <code>wayfinder.json</code> make the lock stale. The lock records
+          resolution metadata only; it contains no rules, project vocabulary,
+          knowledge, credentials, or executable validator code.
         </p>
         <div class="card-grid">
           <div class="card"><h3>Resolve</h3><p><code>wayfinder get</code> writes or refreshes the lock.</p></div>
-          <div class="card"><h3>Upgrade</h3><p><code>wayfinder upgrade</code> requests the latest matching branch or tag revision.</p></div>
-          <div class="card"><h3>Validate</h3><p><code>wayfinder validate ./knowledge</code> resolves when needed, then checks the configuration, lock, bundle files, and Profile rules.</p></div>
+          <div class="card"><h3>Upgrade</h3><p><code>wayfinder upgrade</code> advances a mutable branch or tag. A pinned commit does not move.</p></div>
+          <div class="card"><h3>Shared resolver</h3><p><code>validate</code>, <code>index</code>, <code>search</code>, and <code>graph</code> resolve when the lock is missing or stale.</p></div>
         </div>
       </section>
 
@@ -660,13 +654,12 @@
           subject names come from the actual project corpus.
         </p>
         <aside class="callout">
-          <span class="callout-label">Whole-bundle scope</span>
+          <span class="callout-label">Profile scope</span>
           <p>
-            <code>wayfinder.json</code> selects one binding for a whole bundle.
-            It does not define a placement map, per-directory overrides, or
-            nested Profiles. For <code>interactions/</code> and
-            <code>references/</code>, the Profile’s chronology/source
-            organization rules still apply.
+            <code>applies_to</code> names the bundle directories that use a
+            Profile. It does not define a placement map, per-directory rule
+            overrides, or nested Profile selection. The Profile’s chronology
+            and source-organization rules still apply inside each bundle.
           </p>
         </aside>
       </section>
@@ -699,9 +692,9 @@
                 <td data-label="Field"><code>tags</code></td>
                 <td data-label="OKF 0.2 meaning">Optional topic strings; OKF has no central vocabulary.</td>
                 <td data-label="Bitwild 2026.3 producer rule">
-                  Each used tag must be declared by the Profile or binding.
-                  Duplicate declarations or uses, undeclared tags, and exact
-                  collisions with type, status, trust, or standard relationship
+                  Each used tag must be declared by the Profile or project
+                  entry. Duplicate declarations or uses, undeclared tags, and
+                  exact collisions with type, status, trust, or relationship
                   labels fail.
                 </td>
               </tr>
@@ -709,47 +702,38 @@
           </table>
         </div>
         <p>
-          Tag definitions are vocabulary, not automatic assignments. The
-          installed 2026.3 Profile has no base tags; project bindings declare
-          used topics such as <code>customer-reporting</code>. Whether a tag
-          is truthful or merely a semantic alias requires Profile Review.
+          Tag definitions are vocabulary, not automatic assignments. Whether a
+          tag is truthful or merely a semantic alias requires Profile Review.
         </p>
       </section>
 
       <section class="section" id="sharing">
-        <h2>Captures, sharing, and defaults</h2>
+        <h2>Captures, sharing, and compatibility</h2>
         <div class="grid">
           <div class="card">
             <h3>Captures</h3>
             <p>
               <code>captures/</code> is normally evidence beside the OKF
               bundle. Its intake files do not inherit the main bundle’s
-              Profile or tags. If it becomes a separate OKF bundle,
-              configure it explicitly.
+              Profile or tags. Add it to <code>applies_to</code> only when it
+              is intentionally a separate searchable bundle.
             </p>
           </div>
           <div class="card">
-            <h3>Shared bindings</h3>
+            <h3>Share the source</h3>
             <p>
-              Several bundles may use one named binding when their custom
-              types, tags, and actor lookup genuinely match. Otherwise use
-              separate bindings.
+              Commit <code>wayfinder.json</code> and
+              <code>wayfinder.lock</code>. Each machine resolves the same
+              source into its local cache; credentials and fetched contents
+              stay local.
             </p>
           </div>
           <div class="card">
-            <h3>Installed release</h3>
+            <h3>Legacy projects</h3>
             <p>
-              Install the same pinned Profile runtime on each machine.
-              Committing <code>wayfinder.json</code> shares project
-              configuration, not executable validator code.
-            </p>
-          </div>
-          <div class="card">
-            <h3>Default bundle</h3>
-            <p>
-              <code>default_bundle</code> is reserved for future command
-              selection. Current commands still take an explicit bundle path;
-              there is no recursive bundle discovery or merging.
+              The current runtime still reads <code>implements</code> and a
+              separate <code>bundles</code> array. Migrate those paths into
+              <code>applies_to</code> when direct sources are available.
             </p>
           </div>
         </div>
@@ -758,9 +742,9 @@
       <section class="section" id="validation">
         <h2>What validation checks</h2>
         <p class="section-intro">
-          Wayfinder first preserves the independent OKF result, then applies
-          deterministic rules for the selected release. Legacy 2026.2 keeps
-          its own registry checks.
+          The shared resolver runs first. Wayfinder then preserves the
+          independent OKF result and applies deterministic rules for the
+          selected Profile release.
         </p>
         <div class="table-scroll" role="region" aria-label="Validation coverage" tabindex="0">
           <table>
@@ -773,18 +757,18 @@
             </thead>
             <tbody>
               <tr>
-                <td data-label="Area">Binding</td>
+                <td data-label="Area">Configuration</td>
                 <td data-label="Automated validation">
-                  JSON shape, exact supported release, safe and unique bundle
-                  paths, referenced binding.
+                  JSON shape, safe <code>applies_to</code> paths, source and
+                  lock state, manifest identity, and Profile release.
                 </td>
-                <td data-label="Contextual Profile Review">Whether the selected binding reflects the project.</td>
+                <td data-label="Contextual Profile Review">Whether the selected Profile reflects the project.</td>
               </tr>
               <tr>
                 <td data-label="Area">Types</td>
                 <td data-label="Automated validation">
-                  Standard and custom name collisions, used-type membership,
-                  index group order.
+                  Standard and project name collisions, used-type membership,
+                  and index group order.
                 </td>
                 <td data-label="Contextual Profile Review">Whether the type fits each concept’s meaning.</td>
               </tr>
@@ -829,9 +813,9 @@
         </aside>
         <h3>Configured validation flow</h3>
         <ol>
-          <li>Parse and check <code>wayfinder.json</code> shape; resolve the listed bundle safely.</li>
-          <li>Select the exact built-in Profile release and retain the independent OKF result.</li>
-          <li>Validate type, tag, and actor registries against concept use and deterministic Profile rules.</li>
+          <li>Run the shared resolver and refresh a missing or stale lock.</li>
+          <li>Parse <code>wayfinder.json</code>, normalize the selected bundle path, and check the Profile manifest.</li>
+          <li>Retain the independent OKF result, then validate types, tags, actors, and deterministic Profile rules.</li>
           <li>Report contextual rules separately as <code>UNASSESSED</code>.</li>
         </ol>
       </section>
@@ -839,20 +823,20 @@
       <section class="section" id="boundaries">
         <h2>Schema boundaries</h2>
         <p>
-          Bindings cannot add arbitrary per-type frontmatter properties such
-          as <code>owner</code>, <code>priority</code>, or
+          Profile entries cannot add arbitrary per-type frontmatter properties
+          such as <code>owner</code>, <code>priority</code>, or
           <code>confidence</code>. OKF owns the frontmatter contract. A future
-          type-specific constraint would require a reviewed Profile release
-          and must use existing OKF fields, not turn <code>wayfinder.json</code>
-          into a rules language.
+          type-specific constraint requires a reviewed Profile release and
+          existing OKF fields; <code>wayfinder.json</code> remains a selector
+          and project vocabulary registry.
         </p>
         <footer>
           Sources: <a href="../profile/okf-profile.md">Bitwild Profile 2026.3</a>,
           <a href="wayfinder-configuration.md">configuration guide</a>,
           <a href="schemas/wayfinder.schema.json">project schema</a>, and
           <a href="../implementation/okf-implementation-guide.md">implementation guide</a>.
-          Existing 2026.2 bundles remain on their legacy contract until
-          explicitly migrated.
+          The direct source and lockfile design is planned; existing 2026.2
+          bundles remain on their legacy contract until explicitly migrated.
         </footer>
       </section>
     </main>
