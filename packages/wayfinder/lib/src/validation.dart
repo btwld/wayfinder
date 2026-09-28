@@ -173,10 +173,12 @@ final class ProfileValidator {
   Future<ProfileValidationResult> validate(
     String bundlePath, {
     String? configPath,
+    Map<String, WayfinderProfileBinding>? resolvedProfiles,
   }) async {
     final resolvedConfig = await _readProjectConfig(
       bundlePath,
       configPath: configPath,
+      resolvedProfiles: resolvedProfiles,
     );
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
@@ -228,6 +230,7 @@ ProfileValidationResult _validateConfigured(
 Future<_ConfigRead> _readProjectConfig(
   String bundlePath, {
   String? configPath,
+  Map<String, WayfinderProfileBinding>? resolvedProfiles,
 }) async {
   final file = configPath == null
       ? await _findProjectConfig(bundlePath)
@@ -280,12 +283,25 @@ Future<_ConfigRead> _readProjectConfig(
         'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
       );
     }
-    return _ConfigRead.value(
-      config.resolve(
-        bundlePath: selectedPath ?? bundlePath,
-        configPath: p.join(projectRoot, p.basename(file.path)),
-      ),
+    final selected = config.resolve(
+      bundlePath: selectedPath ?? bundlePath,
+      configPath: p.join(projectRoot, p.basename(file.path)),
+      resolvedProfiles: resolvedProfiles,
     );
+    final declared = config.profiles[selected.bundle.profile]!;
+    if (declared.source != null) {
+      final effective = resolvedProfiles?[declared.id];
+      if (effective == null ||
+          effective.id != declared.id ||
+          effective.source?.git != declared.source!.git ||
+          effective.source?.ref != declared.source!.ref ||
+          effective.source?.path != declared.source!.path) {
+        throw const WayfinderConfigException(
+          'Direct Profile sources must be resolved before validation.',
+        );
+      }
+    }
+    return _ConfigRead.value(selected);
   } on WayfinderConfigException catch (error) {
     return _ConfigRead.finding(
       ProfileFinding(

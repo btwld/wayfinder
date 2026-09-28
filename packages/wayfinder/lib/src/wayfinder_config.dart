@@ -36,6 +36,19 @@ final class WayfinderActorMetadata {
   final String? side;
 }
 
+/// A Profile package selected from a Git revision.
+final class WayfinderProfileSource {
+  const WayfinderProfileSource({
+    required this.git,
+    required this.ref,
+    required this.path,
+  });
+
+  final String git;
+  final String ref;
+  final String path;
+}
+
 final class WayfinderProfileBinding {
   const WayfinderProfileBinding({
     required this.id,
@@ -44,6 +57,9 @@ final class WayfinderProfileBinding {
     required this.types,
     required this.tags,
     required this.actors,
+    this.source,
+    this.appliesTo = const [],
+    this.extendsProfile,
   });
 
   final String id;
@@ -52,6 +68,9 @@ final class WayfinderProfileBinding {
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
   final Map<String, WayfinderActorMetadata> actors;
+  final WayfinderProfileSource? source;
+  final List<String> appliesTo;
+  final String? extendsProfile;
 
   Set<String> get typeNames => {
     ...externalStandardTypes.map((row) => row.$1),
@@ -127,16 +146,60 @@ final class WayfinderProjectConfig {
     if (profileObject.isEmpty) {
       throw const WayfinderConfigException('profiles must not be empty.');
     }
+    final direct = !decoded.containsKey('bundles');
+    if (direct && defaultBundle != null) {
+      throw const WayfinderConfigException(
+        'default_bundle is not part of the direct Profile configuration.',
+      );
+    }
     final profiles = <String, WayfinderProfileBinding>{};
     for (final entry in profileObject.entries) {
       _id(entry.key, 'profiles key');
       if (profiles.containsKey(entry.key)) {
-        throw WayfinderConfigException(
-          'Duplicate profile binding ${entry.key}.',
+        throw WayfinderConfigException('Duplicate Profile ${entry.key}.');
+      }
+      profiles[entry.key] = direct
+          ? _parseDirectProfile(entry.key, entry.value)
+          : _parseProfile(entry.key, entry.value);
+    }
+    if (direct) {
+      _validateExtensions(profiles);
+    }
+    if (direct) {
+      final bundles = <WayfinderBundleBinding>[];
+      final paths = <String>{};
+      for (final profile in profiles.values) {
+        for (var index = 0; index < profile.appliesTo.length; index++) {
+          final path = profile.appliesTo[index];
+          final normalized = p.posix.normalize(path);
+          if (!paths.add(normalized)) {
+            throw WayfinderConfigException(
+              'Bundle path $path is applied by more than one Profile.',
+            );
+          }
+          bundles.add(
+            WayfinderBundleBinding(
+              id: '${profile.id}_$index',
+              path: path,
+              profile: profile.id,
+            ),
+          );
+        }
+      }
+      if (bundles.isEmpty) {
+        throw const WayfinderConfigException(
+          'Profiles must apply to at least one bundle path.',
         );
       }
-      profiles[entry.key] = _parseProfile(entry.key, entry.value);
+      _rejectNestedPaths(paths);
+      return WayfinderProjectConfig(
+        version: version,
+        defaultBundle: null,
+        profiles: Map.unmodifiable(profiles),
+        bundles: List.unmodifiable(bundles),
+      );
     }
+
     final bundleValues = decoded['bundles'];
     if (bundleValues is! List || bundleValues.isEmpty) {
       throw const WayfinderConfigException(
@@ -177,15 +240,7 @@ final class WayfinderProjectConfig {
       }
       bundles.add(WayfinderBundleBinding(id: id, path: path, profile: profile));
     }
-    for (final path in paths) {
-      if (paths.any(
-        (other) => other != path && p.posix.isWithin(other, path),
-      )) {
-        throw WayfinderConfigException(
-          'Bundle path $path is nested inside another configured bundle.',
-        );
-      }
-    }
+    _rejectNestedPaths(paths);
     if (defaultBundle != null && !ids.contains(defaultBundle)) {
       throw WayfinderConfigException(
         'default_bundle $defaultBundle does not name a configured bundle.',
@@ -212,6 +267,7 @@ final class WayfinderProjectConfig {
   WayfinderResolvedConfig resolve({
     required String bundlePath,
     required String configPath,
+    Map<String, WayfinderProfileBinding>? resolvedProfiles,
   }) {
     final projectRoot = p.normalize(File(configPath).absolute.parent.path);
     final requested = p.normalize(File(bundlePath).absolute.path);
@@ -228,7 +284,8 @@ final class WayfinderProjectConfig {
         'Bundle $bundlePath is not listed in ${p.basename(configPath)}.',
       );
     }
-    final binding = profiles[selected.profile]!;
+    final binding =
+        resolvedProfiles?[selected.profile] ?? profiles[selected.profile]!;
     return WayfinderResolvedConfig(
       configPath: configPath,
       projectRoot: projectRoot,
@@ -355,6 +412,214 @@ final class WayfinderProjectConfig {
       actors: Map.unmodifiable(actors),
     );
   }
+
+  static WayfinderProfileBinding _parseDirectProfile(String id, Object? value) {
+    final object = _object(value, 'profile $id');
+    _keys(object, const {
+      'source',
+      'applies_to',
+      'extends',
+      'types',
+      'actors',
+      'tags',
+    }, 'profile $id');
+    final sourceObject = _object(object['source'], 'profiles.$id.source');
+    _keys(sourceObject, const {'git', 'ref', 'path'}, 'profiles.$id.source');
+    final git = _string(sourceObject['git'], 'profiles.$id.source.git');
+    final uri = Uri.tryParse(git);
+    if (uri != null && uri.userInfo.isNotEmpty) {
+      throw WayfinderConfigException(
+        'profiles.$id.source.git must not contain credentials.',
+      );
+    }
+    final ref = _string(sourceObject['ref'], 'profiles.$id.source.ref');
+    if (ref.startsWith('-') ||
+        ref.contains('..') ||
+        RegExp(r'[\x00-\x20\x7f]').hasMatch(ref)) {
+      throw WayfinderConfigException(
+        'profiles.$id.source.ref is not a valid Git ref.',
+      );
+    }
+    final sourcePath = _string(
+      sourceObject['path'],
+      'profiles.$id.source.path',
+    );
+    _validateRelativePath(sourcePath, 'profiles.$id.source.path');
+    final applies = _paths(object['applies_to'], 'profiles.$id.applies_to');
+    final types = _definitions(
+      object['types'],
+      'profiles.$id.types',
+      present: object.containsKey('types'),
+    );
+    final tags = _definitions(
+      object['tags'],
+      'profiles.$id.tags',
+      present: object.containsKey('tags'),
+    );
+    _validateDefinitions(id, types, tags);
+    final actors = _actors(object['actors'], id);
+    final extendsProfile = _optionalString(
+      object['extends'],
+      'profiles.$id.extends',
+      present: object.containsKey('extends'),
+    );
+    if (extendsProfile != null) _id(extendsProfile, 'profiles.$id.extends');
+    return WayfinderProfileBinding(
+      id: id,
+      implementsId: id,
+      release: externalProfileRelease,
+      types: List.unmodifiable(types),
+      tags: List.unmodifiable(tags),
+      actors: Map.unmodifiable(actors),
+      source: WayfinderProfileSource(
+        git: git,
+        ref: ref,
+        path: p.posix.normalize(sourcePath),
+      ),
+      appliesTo: List.unmodifiable(applies),
+      extendsProfile: extendsProfile,
+    );
+  }
+
+  static void _validateExtensions(
+    Map<String, WayfinderProfileBinding> profiles,
+  ) {
+    final parents = <String>{};
+    for (final profile in profiles.values) {
+      final parent = profile.extendsProfile;
+      if (parent != null && !profiles.containsKey(parent)) {
+        throw WayfinderConfigException(
+          'Profile ${profile.id} extends unknown Profile $parent.',
+        );
+      }
+      if (parent != null) parents.add(parent);
+      final seen = <String>{profile.id};
+      var current = parent;
+      while (current != null) {
+        if (!seen.add(current)) {
+          throw WayfinderConfigException(
+            'Profile ${profile.id} has an extends cycle.',
+          );
+        }
+        current = profiles[current]?.extendsProfile;
+      }
+    }
+    for (final profile in profiles.values) {
+      if (profile.appliesTo.isEmpty && !parents.contains(profile.id)) {
+        throw WayfinderConfigException(
+          'Profile ${profile.id} must apply to a bundle or be extended.',
+        );
+      }
+    }
+  }
+
+  static List<String> _paths(Object? value, String field) {
+    if (value is! List) {
+      throw WayfinderConfigException('$field must be an array.');
+    }
+    final paths = <String>[];
+    final normalized = <String>{};
+    for (final item in value) {
+      final path = _string(item, '$field[]');
+      _validateRelativePath(path, '$field[]');
+      final clean = p.posix.normalize(path);
+      if (!normalized.add(clean)) {
+        throw WayfinderConfigException('$field contains duplicate path $path.');
+      }
+      paths.add(clean);
+    }
+    return paths;
+  }
+
+  static void _validateRelativePath(String value, String field) {
+    if (p.isAbsolute(value) ||
+        p.windows.isAbsolute(value) ||
+        _hasParentSegment(value) ||
+        value == '.' ||
+        value == '..' ||
+        value.contains('\\') ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(value)) {
+      throw WayfinderConfigException(
+        '$field must be a relative path without parent traversal.',
+      );
+    }
+  }
+
+  static void _validateDefinitions(
+    String id,
+    List<WayfinderDefinition> types,
+    List<WayfinderDefinition> tags,
+  ) {
+    final typeNames = <String>{};
+    for (final definition in types) {
+      if (!typeNames.add(definition.name) ||
+          externalStandardTypes.any((row) => row.$1 == definition.name)) {
+        throw WayfinderConfigException(
+          'Profile $id declares a colliding or duplicate type ${definition.name}.',
+        );
+      }
+    }
+    final tagNames = <String>{};
+    for (final definition in tags) {
+      if (!tagNames.add(definition.name) ||
+          externalStandardTags.any((row) => row.$1 == definition.name)) {
+        throw WayfinderConfigException(
+          'Profile $id declares a colliding or duplicate tag ${definition.name}.',
+        );
+      }
+    }
+  }
+
+  static Map<String, WayfinderActorMetadata> _actors(Object? value, String id) {
+    final actorObject = _optionalObject(
+      value,
+      'profiles.$id.actors',
+      present: value != null,
+    );
+    final actors = <String, WayfinderActorMetadata>{};
+    for (final entry in actorObject.entries) {
+      _string(entry.key, 'actor id');
+      final actor = _object(entry.value, 'actor ${entry.key}');
+      _keys(actor, const {
+        'name',
+        'organization',
+        'role',
+        'side',
+      }, 'actor ${entry.key}');
+      final side = _optionalString(
+        actor['side'],
+        'profiles.$id.actors.${entry.key}.side',
+        present: actor.containsKey('side'),
+      );
+      if (side != null &&
+          !const {
+            'client',
+            'internal',
+            'vendor',
+            'tool',
+            'unknown',
+          }.contains(side)) {
+        throw WayfinderConfigException(
+          'Actor ${entry.key} has invalid side $side.',
+        );
+      }
+      actors[entry.key] = WayfinderActorMetadata(
+        name: _string(actor['name'], 'profiles.$id.actors.${entry.key}.name'),
+        organization: _optionalString(
+          actor['organization'],
+          'profiles.$id.actors.${entry.key}.organization',
+          present: actor.containsKey('organization'),
+        ),
+        role: _optionalString(
+          actor['role'],
+          'profiles.$id.actors.${entry.key}.role',
+          present: actor.containsKey('role'),
+        ),
+        side: side,
+      );
+    }
+    return actors;
+  }
 }
 
 final class WayfinderResolvedConfig {
@@ -451,6 +716,16 @@ void _keys(Map<String, Object?> object, Set<String> allowed, String field) {
 
 bool _hasParentSegment(String value) =>
     p.posix.split(value).any((segment) => segment == '..');
+
+void _rejectNestedPaths(Set<String> paths) {
+  for (final path in paths) {
+    if (paths.any((other) => other != path && p.posix.isWithin(other, path))) {
+      throw WayfinderConfigException(
+        'Configured bundle paths must not be nested.',
+      );
+    }
+  }
+}
 
 /// Checks object-key identity after JSON string escapes have been decoded.
 /// Syntax is already checked by jsonDecode before this scanner runs.

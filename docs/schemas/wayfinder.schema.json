@@ -2,44 +2,73 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder.schema.json",
   "title": "Wayfinder project configuration",
-  "description": "Project-local binding of one or more OKF bundles to installed Wayfinder Profiles.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "version",
-    "profiles",
-    "bundles"
-  ],
-  "properties": {
-    "version": {
-      "const": 1,
-      "description": "Wayfinder configuration schema version."
-    },
-    "default_bundle": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Reserved future default bundle ID. Current commands still require a bundle path; Wayfinder checks that this ID exists."
-    },
-    "profiles": {
+  "description": "Project configuration supporting direct Profile sources and legacy installed bindings.",
+  "oneOf": [
+    {
       "type": "object",
-      "minProperties": 1,
-      "propertyNames": {
-        "pattern": "^[a-z][a-z0-9_-]*$"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/profileBinding"
-      },
-      "description": "Project-local Profile bindings. A binding selects one installed base Profile and may add custom types, declared tags, and actor lookup metadata."
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "profiles",
+        "bundles"
+      ],
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "Wayfinder configuration schema version."
+        },
+        "default_bundle": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reserved future default bundle ID for legacy configuration."
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/profileBinding"
+          },
+          "description": "Legacy project-local Profile bindings."
+        },
+        "bundles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/bundle"
+          },
+          "description": "Legacy explicit bundle entries."
+        }
+      }
     },
-    "bundles": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "$ref": "#/$defs/bundle"
-      },
-      "description": "Explicit bundles owned by this project. Bundle IDs and paths must be unique; Wayfinder checks this."
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "profiles"
+      ],
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "Wayfinder configuration schema version."
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/directProfile"
+          },
+          "description": "Direct Profile sources and the bundle paths they apply to."
+        }
+      }
     }
-  },
+  ],
   "$defs": {
     "profileReference": {
       "type": "string",
@@ -175,6 +204,82 @@
           "description": "Key in the top-level profiles object."
         }
       }
+    },
+    "profileSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "ref",
+        "path"
+      ],
+      "properties": {
+        "git": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Git repository URL or local Git repository path."
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Branch, tag, or commit without a prefix."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+          "description": "Relative Profile directory inside the Git revision."
+        }
+      }
+    },
+    "directProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "applies_to"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/profileSource"
+        },
+        "applies_to": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "description": "Bundle paths relative to wayfinder.json. An entry used only as an extends parent may have an empty array."
+        },
+        "extends": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "description": "Optional parent Profile key."
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/customType"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tagDefinition"
+          }
+        },
+        "actors": {
+          "type": "object",
+          "propertyNames": {
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/actor"
+          }
+        }
+      },
+      "description": "A direct Profile source and its project applications."
     }
   }
 }

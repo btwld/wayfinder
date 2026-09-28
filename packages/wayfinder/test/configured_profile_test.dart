@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/src/profile_release.dart';
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -55,6 +54,147 @@ void main() {
     expect(result.profileState, ProfileState.pass);
     expect(result.exitCode, 0);
   });
+
+  test('parses direct Git Profile sources and applies_to paths', () {
+    final config = WayfinderProjectConfig.parse(
+      jsonEncode({
+        'version': 1,
+        'profiles': {
+          'bitwild_profile': {
+            'source': {
+              'git': 'https://example.test/profile.git',
+              'ref': 'v2026.3',
+              'path': './profile',
+            },
+            'applies_to': ['./knowledge', './captures-bundle'],
+          },
+        },
+      }),
+    );
+    expect(config.bundles.map((bundle) => bundle.path), [
+      'knowledge',
+      'captures-bundle',
+    ]);
+    final profile = config.profiles['bitwild_profile']!;
+    expect(profile.source!.path, 'profile');
+    expect(profile.source!.ref, 'v2026.3');
+    expect(profile.appliesTo, ['knowledge', 'captures-bundle']);
+  });
+
+  test('rejects direct Profile path overlap and unknown inheritance', () {
+    final base = {
+      'version': 1,
+      'profiles': {
+        'client': {
+          'source': {
+            'git': 'https://example.test/profile.git',
+            'ref': 'main',
+            'path': 'profile',
+          },
+          'applies_to': ['./knowledge'],
+          'extends': 'missing',
+        },
+      },
+    };
+    expect(
+      () => WayfinderProjectConfig.parse(jsonEncode(base)),
+      throwsA(isA<WayfinderConfigException>()),
+    );
+    final overlapping = {
+      'version': 1,
+      'profiles': {
+        'one': {
+          'source': {
+            'git': 'https://example.test/one.git',
+            'ref': 'main',
+            'path': 'profile',
+          },
+          'applies_to': ['./knowledge'],
+        },
+        'two': {
+          'source': {
+            'git': 'https://example.test/two.git',
+            'ref': 'main',
+            'path': 'profile',
+          },
+          'applies_to': ['./knowledge/references'],
+        },
+      },
+    };
+    expect(
+      () => WayfinderProjectConfig.parse(jsonEncode(overlapping)),
+      throwsA(isA<WayfinderConfigException>()),
+    );
+  });
+
+  test('direct parents can be source-only and inheritance cycles fail', () {
+    final config = {
+      'version': 1,
+      'profiles': {
+        'bitwild_profile': {
+          'source': {
+            'git': 'https://example.test/base.git',
+            'ref': 'main',
+            'path': 'profile',
+          },
+          'applies_to': <String>[],
+        },
+        'client_profile': {
+          'source': {
+            'git': 'https://example.test/child.git',
+            'ref': 'main',
+            'path': 'profile',
+          },
+          'extends': 'bitwild_profile',
+          'applies_to': ['./knowledge'],
+        },
+      },
+    };
+    expect(WayfinderProjectConfig.parse(jsonEncode(config)).bundles.length, 1);
+    final profiles = config['profiles']! as Map<String, Object?>;
+    (profiles['bitwild_profile']! as Map<String, Object?>)['extends'] =
+        'client_profile';
+    expect(
+      () => WayfinderProjectConfig.parse(jsonEncode(config)),
+      throwsA(isA<WayfinderConfigException>()),
+    );
+  });
+
+  test(
+    'direct Profile rejects unsafe paths, credentials and rule overrides',
+    () {
+      final profile = <String, Object?>{
+        'source': <String, Object?>{
+          'git': 'https://example.test/base.git',
+          'ref': 'main',
+          'path': 'profile',
+        },
+        'applies_to': ['./knowledge'],
+      };
+      WayfinderProjectConfig parse() => WayfinderProjectConfig.parse(
+        jsonEncode({
+          'version': 1,
+          'profiles': {'bitwild_profile': profile},
+        }),
+      );
+      for (final path in [
+        '/tmp/knowledge',
+        '../knowledge',
+        'knowledge\\secret',
+      ]) {
+        profile['applies_to'] = [path];
+        expect(() => parse(), throwsA(isA<WayfinderConfigException>()));
+      }
+      profile['applies_to'] = ['./knowledge'];
+      (profile['source']! as Map<String, Object?>)['git'] =
+          'https://user:secret@example.test/base.git';
+      expect(() => parse(), throwsA(isA<WayfinderConfigException>()));
+      (profile['source']! as Map<String, Object?>)['git'] =
+          'https://example.test/base.git';
+      profile['rules'] = {'allow_anything': true};
+      expect(() => parse(), throwsA(isA<WayfinderConfigException>()));
+    },
+  );
 
   test(
     'checks tag, type and actor references in the selected bundle',
