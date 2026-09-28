@@ -34,8 +34,9 @@ is open to registered project types. The root `log.md` is authored history,
 while `index.md` files are discardable semantic projections. The Profile
 constrains subject placement, durable concept boundaries, provenance, status,
 relationships, and source mirroring without redefining their OKF mechanisms.
-The immutable [2026.2 Profile](../../profile/versions/okf-profile-2026.2.md)
-owns the exact bundle rules; this ADR does not duplicate them.
+The immutable [2026.1](../../profile/versions/okf-profile-2026.1.md) and
+[2026.2](../../profile/versions/okf-profile-2026.2.md) Profiles own their
+exact bundle rules; this ADR does not duplicate them.
 
 Validation has two distinct assessment modes:
 
