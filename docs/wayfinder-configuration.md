@@ -72,6 +72,105 @@ Custom type names must not collide with standard types or one another. The
 binding actor map is a lookup for IDs used in OKF provenance. Registry presence
 does not prove authorship or verification.
 
+## Git Profile sources and lockfile (planned)
+
+The current 2026.3 runtime resolves an installed Profile. The following source
+and lockfile design is planned; it is not accepted configuration syntax yet.
+
+A project may retrieve a Profile from Git using a Pub-style revision reference:
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "v2026.3",
+        "path": "profile"
+      },
+      "applies_to": ["./knowledge"]
+    }
+  }
+}
+```
+
+`ref` may be a branch, tag, or commit. It does not use `branch/`, `tag/`, or
+`commit/` prefixes. `path` is the directory inside the Git revision that carries
+the Profile package. The package manifest supplies the Profile ID and release;
+the project configuration does not repeat them. Wayfinder verifies that the
+manifest ID matches `bitwild_profile` and that its release has a supported
+validator.
+
+`applies_to` is independent of Profile inheritance. A direct Profile can apply
+to one or more bundle directories. A custom Profile may additionally use
+`extends`:
+
+```json
+{
+  "profiles": {
+    "client_profile": {
+      "extends": "bitwild_profile",
+      "source": {
+        "git": "https://github.com/example/client-profile",
+        "ref": "v1.0.0",
+        "path": "profile"
+      },
+      "applies_to": ["./knowledge"]
+    }
+  }
+}
+```
+
+`extends` is a planned composition relationship, not an arbitrary rule override.
+The first implementation should permit declared project vocabulary additions and
+report any unsupported override explicitly.
+
+### Lockfile
+
+`wayfinder.lock` records the exact Profile source used after resolution:
+
+```json
+{
+  "lock_version": 1,
+  "configuration_sha256": "<hash of canonical wayfinder.json>",
+  "profiles": {
+    "bitwild_profile": {
+      "source": "https://github.com/btwld/wayfinder",
+      "requested_ref": "v2026.3",
+      "resolved_commit": "<commit>",
+      "path": "profile",
+      "profile_release": "2026.3"
+    }
+  }
+}
+```
+
+The configuration hash is calculated from canonical JSON, so whitespace-only
+formatting changes do not invalidate the lock. A real change to `wayfinder.json`
+causes `wayfinder profile get` to refresh the lock. `get` resolves the declared
+reference and respects the lock when it is current; `upgrade` deliberately moves
+branches or tags to their latest available revision and rewrites the lock.
+
+The proposed command flow is:
+
+```text
+wayfinder profile get [wayfinder.json]       # resolve declared refs and write lock
+wayfinder profile upgrade [wayfinder.json]   # request newer branch/tag revisions
+wayfinder profile check [wayfinder.json]     # verify config, lock, source and manifest
+wayfinder validate ./knowledge                # validate; report a stale lock clearly
+```
+
+Profile resolution should never happen silently during validation. `check` and
+`validate` may use the cached, locked source, but a missing or stale lock should
+explain the exact `profile get` command needed.
+
+The lockfile is not a second configuration file. It does not contain Profile
+rules, project types/tags/actors, knowledge content, credentials, or mutable user
+choices. It records reproducible resolution metadata only. It can be committed
+with `wayfinder.json`; fetched Profile contents and credentials belong in the
+local cache and must not be committed.
+
 ## Tags and the captures layer
 
 The Profile manifest's `tags` array defines stable, reusable tag vocabulary. A

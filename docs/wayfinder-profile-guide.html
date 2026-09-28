@@ -591,6 +591,65 @@
         </p>
       </section>
 
+      <section class="section" id="sources-lockfile">
+        <h2>Profile sources and lockfile</h2>
+        <p class="section-intro">
+          The current 2026.3 runtime uses an installed Profile. This is the
+          proposed design for retrieving Profiles from Git and reproducing the
+          exact revision in CI; it is not current configuration syntax yet.
+        </p>
+        <div class="code-example">
+          <div class="code-caption">planned wayfinder.json · direct Profile source</div>
+          <pre aria-label="Planned Git Profile source"><code class="language-json">{
+  <span class="json-key">"version"</span>: <span class="json-number">1</span>,
+  <span class="json-key">"profiles"</span>: {
+    <span class="json-key">"bitwild_profile"</span>: {
+      <span class="json-key">"source"</span>: {
+        <span class="json-key">"git"</span>: <span class="json-string">"https://github.com/btwld/wayfinder"</span>,
+        <span class="json-key">"ref"</span>: <span class="json-string">"v2026.3"</span>,
+        <span class="json-key">"path"</span>: <span class="json-string">"profile"</span>
+      },
+      <span class="json-key">"applies_to"</span>: [<span class="json-string">"./knowledge"</span>]
+    }
+  }
+}</code></pre>
+        </div>
+        <p>
+          <code>ref</code> accepts a branch, tag, or commit without a
+          <code>branch/</code>, <code>tag/</code>, or <code>commit/</code>
+          prefix. <code>path</code> is the Profile directory inside that Git
+          revision. The fetched manifest supplies the Profile release and must
+          match the configured identity.
+        </p>
+        <div class="code-example">
+          <div class="code-caption">planned wayfinder.lock · resolved source</div>
+          <pre aria-label="Planned Wayfinder lockfile"><code class="language-json">{
+  <span class="json-key">"lock_version"</span>: <span class="json-number">1</span>,
+  <span class="json-key">"configuration_sha256"</span>: <span class="json-string">"&lt;canonical wayfinder.json hash&gt;"</span>,
+  <span class="json-key">"profiles"</span>: {
+    <span class="json-key">"bitwild_profile"</span>: {
+      <span class="json-key">"requested_ref"</span>: <span class="json-string">"v2026.3"</span>,
+      <span class="json-key">"resolved_commit"</span>: <span class="json-string">"&lt;commit&gt;"</span>,
+      <span class="json-key">"profile_release"</span>: <span class="json-string">"2026.3"</span>
+    }
+  }
+}</code></pre>
+        </div>
+        <p>
+          The lockfile records resolution metadata, not Profile rules, project
+          vocabulary, knowledge content, credentials, or executable validator
+          code. Formatting-only JSON edits do not invalidate it; semantic
+          changes do. <code>get</code> refreshes declared references,
+          <code>upgrade</code> deliberately moves branches or tags forward, and
+          validation reports the corrective command instead of fetching silently.
+        </p>
+        <div class="card-grid">
+          <div class="card"><h3>Resolve</h3><p><code>wayfinder profile get</code> writes or refreshes the lock.</p></div>
+          <div class="card"><h3>Upgrade</h3><p><code>wayfinder profile upgrade</code> requests the latest matching branch or tag revision.</p></div>
+          <div class="card"><h3>Check</h3><p><code>wayfinder profile check</code> verifies configuration, cache, lock, manifest, and validator support.</p></div>
+        </div>
+      </section>
+
       <section class="section" id="placement">
         <h2>Where knowledge goes</h2>
         <p>
