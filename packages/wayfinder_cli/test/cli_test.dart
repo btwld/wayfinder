@@ -36,6 +36,8 @@ void main() {
     expect(help, contains('index <bundle>'));
     expect(help, contains('search <bundle>'));
     expect(help, contains('graph <bundle>'));
+    expect(help, contains('get [<project>]'));
+    expect(help, contains('upgrade [<project>]'));
     expect(help, contains('mcp <bundle>'));
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
@@ -62,6 +64,8 @@ void main() {
     ['graph', '.', 'extra'],
     ['graph', '.', '--output=text'],
     ['graph', '.', '--resolution=nope'],
+    ['get', '.', 'extra'],
+    ['upgrade', '.', 'extra'],
   ]) {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
@@ -135,6 +139,8 @@ void main() {
     expect(await cli.run(['search', '--help']), 0);
     expect(await cli.run(['validate', '--help']), 0);
     expect(await cli.run(['graph', '--help']), 0);
+    expect(await cli.run(['get', '--help']), 0);
+    expect(await cli.run(['upgrade', '--help']), 0);
     expect(await cli.run(['mcp', '--help']), 0);
     expect(await cli.run(['--version']), 0);
     expect(errors, isEmpty);

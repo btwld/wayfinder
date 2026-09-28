@@ -9,6 +9,7 @@ import 'agent_setup.dart';
 import 'graph.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
+import 'profile_resolver.dart';
 import 'search_input.dart';
 import 'search_output.dart';
 import 'update.dart';
@@ -23,6 +24,7 @@ class WayfinderCli {
     AgentSetup Function(void Function(String) out)? agentSetup,
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
+    WayfinderProfileResolver Function()? profileResolver,
     bool? notices,
     Future<void> Function(List<String> arguments)? spawnDetached,
   }) : _spawnDetached = spawnDetached ?? _startDetached,
@@ -31,6 +33,7 @@ class WayfinderCli {
        _knowledge = knowledge ?? WayfinderKnowledge.new,
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
+       _profileResolverFactory = profileResolver,
        _releases = releases ?? _noticeReleases,
        _notices = notices ?? _interactive();
 
@@ -40,8 +43,15 @@ class WayfinderCli {
   final AgentSetup Function(void Function(String) out) _agentSetup;
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
+  final WayfinderProfileResolver Function()? _profileResolverFactory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
+
+  WayfinderProfileResolver _profileResolver() =>
+      _profileResolverFactory?.call() ??
+      WayfinderProfileResolver(
+        dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
+      );
 
   /// Relaunches this command outside the caller's process group. A compiled
   /// executable reruns itself; `dart run` also needs its script.
@@ -171,6 +181,14 @@ class WayfinderCli {
           help: 'Include edges with these resolution states.',
         ),
     );
+    for (final name in ['get', 'upgrade']) {
+      parser.addCommand(
+        name,
+        ArgParser()
+          ..addFlag('help', abbr: 'h', negatable: false)
+          ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text'),
+      );
+    }
     parser.addCommand(
       'mcp',
       ArgParser()..addFlag('help', abbr: 'h', negatable: false),
@@ -238,6 +256,8 @@ class WayfinderCli {
           '  index <bundle>             Update saved local embeddings for changes\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
+          '  get [<project>]            Resolve declared Profile sources\n'
+          '  upgrade [<project>]       Advance mutable Profile refs\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
           '                             Manage the agent skills for this runtime\n'
@@ -250,11 +270,41 @@ class WayfinderCli {
       final command = options.command;
       if (command == null || options.rest.isNotEmpty) {
         throw const WayfinderException(
-          'Choose validate, index, search, graph, mcp, skills, setup or '
+          'Choose validate, index, search, graph, get, upgrade, mcp, skills, setup or '
           'update. Run wayfinder --help.',
         );
       }
       final name = command.name!;
+      if (name == 'get' || name == 'upgrade') {
+        if (command.flag('help')) {
+          _out(
+            'Usage: wayfinder $name [<project>] [options]\n\n'
+            '${parser.commands[name]!.usage}',
+          );
+          return 0;
+        }
+        if (command.rest.length > 1) {
+          throw WayfinderException('$name accepts at most one project.');
+        }
+        final result = await _profileResolver().resolve(
+          command.rest.firstOrNull ?? '.',
+          upgrade: name == 'upgrade',
+        );
+        if (command.option('output') == 'json') {
+          _json(result.toJson());
+        } else if (!result.direct) {
+          _out('Installed Profile configuration needs no source lock.');
+        } else {
+          final state = result.upgraded
+              ? 'upgraded'
+              : result.reused
+              ? 'already current'
+              : 'resolved';
+          _out('Profile sources $state for ${_safe(result.projectRoot)}.');
+          _out('Lock: ${_safe(result.lockPath)}');
+        }
+        return 0;
+      }
       if (name == 'skills') {
         final action = command.command;
         if (command.flag('help') || action?.flag('help') == true) {
@@ -330,6 +380,13 @@ class WayfinderCli {
         );
       }
       final bundle = command.rest.first;
+      ProfileResolutionResult? profileResolution;
+      if (const {'validate', 'index', 'search', 'graph'}.contains(name)) {
+        profileResolution = await _profileResolver().resolveForBundle(
+          bundle,
+          configPath: name == 'validate' ? command.option('config') : null,
+        );
+      }
       if (name == 'mcp') {
         await WayfinderMcpServer(
           rootPath: bundle,
@@ -356,6 +413,7 @@ class WayfinderCli {
         final result = await const ProfileValidator().validate(
           bundle,
           configPath: command.option('config'),
+          resolvedProfiles: profileResolution?.bindings,
         );
         if (json) {
           _json(result.toJson());
