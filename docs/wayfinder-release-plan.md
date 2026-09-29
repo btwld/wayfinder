@@ -2,9 +2,13 @@
 > supplies the command and MCP server, and `wayfinder_embeddings` provides
 > retrieval. The standalone validator release pipeline is retired. See
 > [releasing](releasing.md) for current tags and publication order. The records
-> below describe the earlier rename/publication and are historical.
+> below describe the earlier rename/publication and are historical. Names,
+> versions, repository URLs, and pending actions below reflect that period.
+> ADR-0010/0011 still had `station` filenames then; the 2026-09-28 ADR
+> condensation later renamed those files to Wayfinder names without changing
+> their decision dates.
 
-# Wayfinder naming and release plan
+# Historical Wayfinder naming and release plan
 
 Source, plugin, documentation and native releases live together in public
 `conceptadev/wayfinder`. Use [installation](install.md) for current user commands
@@ -16,7 +20,7 @@ Decision date: 2026-09-10. Scope: name the existing knowledge application,
 rename its repository, and publish the functional CLI under `concepta.dev`.
 This is a product/distribution change; no OKF or Profile conventions change.
 
-## Current names and boundaries
+## Names and boundaries decided in 2026-09
 
 | Piece | Name / location | Decision |
 | --- | --- | --- |
@@ -43,9 +47,9 @@ existing names, including the three reviewed implementation branches.
 Replace development invocations of `station` with `wayfinder`, including
 `dart run wayfinder:wayfinder`, executable paths in MCP host configurations,
 and references to `packages/wayfinder`. Build and native verification scripts
-use `wayfinder` in their filenames. Accepted ADR-0010/0011 retain their historical
-filenames and record the prototype naming history; current usage lives
-in the [application guide](../packages/wayfinder_cli/README.md).
+use `wayfinder` in their filenames. ADR-0010/0011 retained their original
+`station` filenames at the time. Current usage lives in the
+[application guide](../packages/wayfinder_cli/README.md).
 
 `WAYFINDER_DATA_DIR` replaces `STATION_DATA_DIR`. Defaults use `Wayfinder` on
 macOS/Windows and `wayfinder` on Linux. The default therefore starts a new index:
@@ -67,15 +71,15 @@ Existing conformant bundles remain conformant. No Profile release, bundle
 migration or taxonomy change is needed. The old `knowledge_embeddings` package is discontinued and points to
 `wayfinder_embeddings`; its published versions remain available.
 
-## Current publication and integration state
+## Publication and integration state recorded then
 
 - `wayfinder 0.1.0`, `wayfinder_cli 0.1.0` and `wayfinder_embeddings 0.1.0` are
   published. All three uploaded through OIDC under publisher `concepta.dev`,
   which settles the publisher and OIDC question #66 tracked.
   Stable `okf_profile 0.2.0` remains available.
 - The retrieval, CLI, MCP, naming, installation and package-split PRs (#58, #59,
-  #60, #63, #54 and #64) are merged. Historical branch names and ADR filenames
-  remain stable.
+  #60, #63, #54 and #64) are merged. Historical branch and ADR filenames
+  remained stable at that time.
 - Native archives for Linux x64, macOS ARM64 and Windows x64 are attached to
   [the Wayfinder 0.1.0 release](https://github.com/conceptadev/wayfinder/releases/tag/wayfinder-v0.1.0).
   The install scripts default to it. Public installation, validation, indexing,

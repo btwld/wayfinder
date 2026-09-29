@@ -2,8 +2,9 @@
 
 - Status: accepted
 - Date: 2026-09-11
-- Scope: graph projection command and MCP tool; no profile rule changes
-- Builds on [ADR-0010](0010-station-cli.md) and [ADR-0011](0011-station-mcp.md)
+- Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0012-wayfinder-graph-projection.md))
+- Scope: graph projection command and MCP tool; no Profile rule changes
+- Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
 
 ## Context
 
@@ -28,8 +29,22 @@ and the implementation guide's "ordinary OKF graph without an adapter" rule.
   follow `OkfGraphQuery`. Writes and concept authoring remain upstream
   `okf` tools.
 
+## Options considered
+
+- A second Wayfinder graph model was rejected because it could drift from OKF's
+  graph contract.
+- Delegating every graph view to a second upstream process was rejected because
+  Wayfinder already has the loaded graph and its MCP server owns the local
+  service boundary.
+
 ## Consequences
 
-Docs that said graph lived only in `okf` now say Wayfinder projects the
-same OKF graph. Agents can inspect structure without a second server.
-The graph remains a discardable projection, not a source of truth.
+Agents can inspect the same OKF graph through Wayfinder without a second
+server or graph model. The graph remains a discardable projection, not a
+source of truth.
+
+## Reconsider when
+
+Reopen this decision if the upstream graph contract changes or a concrete
+consumer requires graph semantics that ordinary OKF cannot represent. Such a
+change would need a new compatibility review rather than a local graph type.
