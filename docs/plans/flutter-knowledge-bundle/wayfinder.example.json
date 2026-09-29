@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "7d9ed505a8b300ca5ba0959c058f02873a0333e3",
+        "path": "profile"
+      },
+      "applies_to": [
+        "./knowledge"
+      ]
+    }
+  }
+}
