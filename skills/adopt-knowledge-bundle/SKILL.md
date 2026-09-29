@@ -1,13 +1,13 @@
 ---
 name: adopt-knowledge-bundle
-description: Initialize the knowledge bundle in this repository — seed the root files under knowledge/, declare the Concepta Profile release, and write the AGENTS.md blocks that point agents into the bundle. Run once per repository.
+description: Initialize the knowledge bundle in this repository — seed the root files under knowledge/, declare the Bitwild Profile release, and write the AGENTS.md blocks that point agents into the bundle. Run once per repository.
 disable-model-invocation: true
 ---
 
 # Adopt Knowledge Bundle
 
 Set up a repository to carry durable project knowledge as an OKF bundle at
-`knowledge/`, following the Concepta OKF Profile. This skill seeds the bundle
+`knowledge/`, following the Bitwild OKF Profile. This skill seeds the bundle
 and points agents at it; all later writes are governed by the
 `author-knowledge-bundle` skill.
 
@@ -20,10 +20,10 @@ outside the requested scope.
 
 ### 1. Explore
 
-- `knowledge/` — does the bundle exist? If so, read `knowledge/profile.md` and
-  report the declared `concepta_profile` and `okf_version`; an existing bundle
-  needs no seeding, and changing its declared release is a migration, not
-  adoption.
+- `knowledge/` and project-root `wayfinder.json` — does a bundle already exist?
+  If so, resolve its exact configured binding or legacy `knowledge/profile.md`
+  declaration and report the selected release. An existing bundle needs no
+  seeding; changing its release is a migration, not adoption.
 - `AGENTS.md` at the repo root — does it exist? Does it already have a
   `### Knowledge bundle` or `### Wayfinder` block? A `## Documentation` section
   left by an earlier adoption repeats the bundle block; fold it into that block.
@@ -32,10 +32,12 @@ outside the requested scope.
 
 ### 2. Prepare the changes
 
-The Concepta OKF Profile fixes the bundle's configuration, so there is nothing
-to ask about its shape. Prepare only the missing or requested changes:
+Bitwild Profile 2026.3 fixes the bundle rules; the project binding holds
+only project facts. Do not invent custom types, tags, or actor IDs during
+generic seeding. Prepare only the missing or requested changes:
 
-- The bundle's root files, when they need seeding
+- Project-root `wayfinder.json`, its resolved `wayfinder.lock`, and the bundle
+  root files, when they need seeding
 - The `### Knowledge bundle` and `### Wayfinder` blocks for `AGENTS.md`
 - The files `wayfinder setup --hooks` writes, if the project lacks them
 - The `@AGENTS.md` line for `CLAUDE.md`, if it isn't already there
@@ -46,11 +48,15 @@ and unrelated agent instructions.
 
 ### 3. Seed the bundle
 
-When no bundle exists, follow [SEEDING.md](./SEEDING.md) exactly; it owns the
+When no bundle exists, follow [SEEDING.md](./SEEDING.md) exactly for 2026.3; it owns the
 root-file contents and the conditions they implement. If a bundle already exists,
 skip seeding. Repairing a partial bundle or changing its release is separate work;
 do not seed or change the selector. Follow the authoring skill's
 [migration refusal](../author-knowledge-bundle/SKILL.md#release-dispatch).
+Run `wayfinder get` after writing a new configuration and include its
+metadata-only lock in the changes. If source resolution is unavailable, report
+that validation cannot yet assess the Profile; do not replace the source with
+the unpublished `bundles` / `implements` draft shape.
 
 **Create no directories.** Canonical seeding creates only the bundle root; the
 `author-knowledge-bundle` skill decides later structure from the project's
@@ -71,9 +77,9 @@ tool's concern, out of this skill's scope.
 ### Knowledge bundle
 
 Durable project documentation and knowledge live in the OKF bundle at
-`knowledge/`, following the Concepta OKF Profile (versions declared in
-`knowledge/profile.md`). Start at `knowledge/index.md`, then the area index,
-then the concept.
+`knowledge/`, following the Bitwild OKF Profile (release selected in
+`wayfinder.json`, or in legacy `knowledge/profile.md`). Start at
+`knowledge/index.md`, then the area index, then the concept.
 
 Follow the `author-knowledge-bundle` skill before writing anything under
 `knowledge/` — including before creating a directory there. Execution records
@@ -126,7 +132,7 @@ Raw evidence (transcripts, thread exports, files the client sent) lives in
 Originals there are never edited. `captures/` is evidence, not knowledge: it is
 not an OKF bundle and Wayfinder does not index it. Durable outcomes reach
 `knowledge/` as concepts that cite the package in `sources`; if a concept and a
-capture disagree, re-read the capture and fix the concept.
+capture disagree, re-read the evidence and correct any inaccurate concept.
 ```
 
 Skip this step, and say so, when the project has no such material.
@@ -144,7 +150,7 @@ into a migration or whole-bundle repair.
 ### 6. Report the result
 
 Tell the user what was seeded or preserved and where it starts (`knowledge/index.md`,
-versions in `knowledge/profile.md`), that `author-knowledge-bundle` governs
+the binding in `wayfinder.json` or legacy declaration), that `author-knowledge-bundle` governs
 every later write, and that the tree grows out of what the project actually
 learns — concepts land at the root first, and subject directories are earned,
 never predicted. Include the assessment result; if a required check is unavailable

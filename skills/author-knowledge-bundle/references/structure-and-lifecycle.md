@@ -6,8 +6,10 @@ naming, placement, identity, moves, and retirement.
 
 ## Bundle structure
 
-`index.md`, `log.md`, `profile.md`, and `types.md` are required at the bundle
-root. Add `actors.md` whenever `generated.by`, `verified[].by`, or
+For 2026.3, only `index.md` and `log.md` are required at the bundle root.
+The project-root `wayfinder.json` selects the Profile and carries extensions.
+`profile.md`, `types.md`, and `actors.md` are retired; do not create them.
+For **legacy 2026.2 only**, `index.md`, `log.md`, `profile.md`, and `types.md` are required at the bundle root. For legacy 2026.2, add `actors.md` whenever `generated.by`, `verified[].by`, or
 `sources[].author` uses an actor ID; it must represent every used ID. `types.md`
 uses exactly `Type | Intended content`; `actors.md` uses exactly `Actor ID | Name
 | Organization | Side | Role | Active`. Both are ordinary body tables with no
@@ -20,9 +22,8 @@ distributed bundle.
 knowledge/
   index.md          ← root index: okf_version frontmatter, one entry per root concept, area, and references/
   log.md            ← root log: dated lifecycle entries, newest first
-  profile.md        ← Knowledge Profile concept declaring the profile and OKF versions
-  types.md          ← Type Registry concept: all standards plus registered extensions
-  actors.md         ← Actor Registry when any OKF actor-valued field is used
+  # 2026.3: no registry concepts; project-root wayfinder.json is the binding
+  # 2026.2 only: profile.md, types.md, conditional actors.md
   <concept>.md      ← a root concept
   <area>/           ← a subject directory: mixed types, its own index.md, may nest
   architecture/     ← the system as a whole: Architecture Documents and ADRs

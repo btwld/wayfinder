@@ -7,7 +7,7 @@ description: Search, index, validate, and project the relationship graph of a pr
 
 Wayfinder is a local tool for an Open Knowledge Format (OKF) knowledge bundle,
 usually `knowledge/` in the project root. It does four things: **validate** the
-bundle against OKF and its declared Concepta Profile release, **index** it into
+bundle against OKF and its selected Bitwild or legacy Concepta Profile release, **index** it into
 saved local embeddings, **search** that index for cited passages, and **graph**
 the ordinary OKF relationship graph. Nothing is sent off the machine, and
 indexing writes only derived data outside the bundle. Graph is a live
@@ -31,7 +31,7 @@ the versioned OKF graph JSON.
 Otherwise use the **CLI**, which takes an explicit bundle path:
 
 ```sh
-wayfinder validate <bundle> [--output=json]
+wayfinder validate <bundle> [--config=wayfinder.json] [--output=json]
 wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
 wayfinder index <bundle> [--output=json]
 wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
@@ -90,6 +90,11 @@ grep-only answers.
 ## Validate
 
 Run validation before saying a bundle conforms, and after editing one.
+For a configured 2026.3 bundle, `validate` reads only a current lock/cache:
+it never fetches or writes. A missing or stale lock still leaves an independent
+OKF result; run `wayfinder get` to resolve the declared source, or
+`wayfinder upgrade` only when intentionally advancing a mutable ref.
+`graph`, `index`, and `search` do not need Profile-source resolution.
 
 - Exit `0` and `PASS`: the automated gate passed. Advisory findings may remain;
   mention the relevant ones without treating them as failures.

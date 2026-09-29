@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:okf/okf_io.dart';
+import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:wayfinder/wayfinder.dart';
@@ -11,6 +12,7 @@ import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
+import 'package:wayfinder_cli/src/profile_resolver.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -25,6 +27,138 @@ void main() {
       );
     }
   });
+  test(
+    'read-only MCP validate uses the same locked 2026.3 binding as CLI',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'wayfinder-mcp-profile-',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+      final source = await Directory(p.join(temp.path, 'source')).create();
+      final project = await Directory(p.join(temp.path, 'project')).create();
+      final root = await Directory(p.join(project.path, 'knowledge')).create();
+      final fixture = Directory(
+        '../../packages/wayfinder/test/fixtures/configured-project/knowledge',
+      );
+      await for (final entity in fixture.list()) {
+        if (entity is File) {
+          await entity.copy(p.join(root.path, p.basename(entity.path)));
+        }
+      }
+      await Directory(p.join(source.path, 'profile')).create();
+      await File(
+        '../../profile/wayfinder-profile.json',
+      ).copy(p.join(source.path, 'profile', 'wayfinder-profile.json'));
+      Future<void> git(List<String> arguments) async {
+        final result = await Process.run(
+          'git',
+          arguments,
+          workingDirectory: source.path,
+        );
+        expect(result.exitCode, 0, reason: result.stderr.toString());
+      }
+
+      await git(['init', '-q']);
+      await git(['config', 'user.email', 'test@example.test']);
+      await git(['config', 'user.name', 'Wayfinder Test']);
+      await git(['add', '.']);
+      await git(['commit', '-q', '-m', 'Profile']);
+      await git(['tag', 'v2026.3']);
+      await File(p.join(project.path, 'wayfinder.json')).writeAsString(
+        jsonEncode({
+          'version': 1,
+          'profiles': {
+            'bitwild_profile': {
+              'source': {
+                'git': source.path,
+                'ref': 'v2026.3',
+                'path': 'profile',
+              },
+              'applies_to': ['knowledge'],
+              'actors': {
+                'process:fixture': {'name': 'Fixture process'},
+              },
+              'tags': [
+                {'name': 'governance', 'description': 'Governance topic'},
+              ],
+            },
+          },
+        }),
+      );
+      final resolver = WayfinderProfileResolver(
+        dataDirectory: Directory(p.join(temp.path, 'data')),
+      );
+      await resolver.resolve(project.path);
+      final lock = File(p.join(project.path, 'wayfinder.lock'));
+      final lockedBytes = await lock.readAsBytes();
+      final incoming = StreamController<List<int>>();
+      final outgoing = StreamController<List<int>>();
+      final transport = IOStreamTransport(
+        stream: incoming.stream,
+        sink: outgoing.sink,
+      );
+      final serving = WayfinderMcpServer(
+        rootPath: root.path,
+        knowledge: _Knowledge(),
+        profileResolver: resolver,
+      ).serve(transport: transport);
+      final client = McpClient(
+        const Implementation(name: 'configured-test', version: '1.0.0'),
+        options: const McpClientOptions(protocol: McpProtocol.legacy),
+      );
+      try {
+        await client.connect(
+          IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+        );
+        final result = await client.callTool(
+          const CallToolRequest(name: 'validate'),
+        );
+        final expected = await validateWithProfileSources(
+          root.path,
+          resolver: resolver,
+        );
+        expect(expected.profileRelease, '2026.3');
+        expect(expected.profileState, ProfileState.pass);
+        expect(_payload(result), {
+          ...expected.toJson(),
+          'exit_code': expected.exitCode,
+        });
+        final cliOutput = <String>[];
+        final cli = WayfinderCli(
+          out: cliOutput.add,
+          err: (_) {},
+          notices: false,
+          profileResolver: () => resolver,
+        );
+        expect(await cli.run(['validate', root.path, '--output=json']), 0);
+        final cliResult = jsonDecode(cliOutput.single) as Map<String, dynamic>;
+        expect(_payload(result), {...cliResult, 'exit_code': 0});
+
+        final configFile = File(p.join(project.path, 'wayfinder.json'));
+        final config =
+            jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+        (((config['profiles'] as Map)['bitwild_profile']['tags']) as List).add({
+          'name': 'new-topic',
+          'description': 'A new project topic',
+        });
+        await configFile.writeAsString(jsonEncode(config));
+        cliOutput.clear();
+        expect(await cli.run(['validate', root.path, '--output=json']), 2);
+        final staleCli = jsonDecode(cliOutput.single) as Map<String, dynamic>;
+        expect((staleCli['okf'] as Map)['state'], 'PASS');
+        expect((staleCli['profile'] as Map)['state'], 'UNSUPPORTED');
+        final staleMcp = await client.callTool(
+          const CallToolRequest(name: 'validate'),
+        );
+        expect(_payload(staleMcp), {...staleCli, 'exit_code': 2});
+        expect(await lock.readAsBytes(), lockedBytes);
+      } finally {
+        await client.close();
+        await transport.close();
+        await serving;
+      }
+    },
+  );
   for (final protocol in [McpProtocol.legacy, McpProtocol.require2026]) {
     group('$protocol', () {
       late McpClient client;

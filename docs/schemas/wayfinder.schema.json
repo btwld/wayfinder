@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder.schema.json",
+  "title": "Wayfinder project configuration",
+  "description": "Version 1 project configuration with direct Profile sources and explicit bundle applications.",
+  "$defs": {
+    "customType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "description": "A project type added to the selected Profile's effective type registry."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "organization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side": {
+          "enum": [
+            "client",
+            "internal",
+            "vendor",
+            "tool",
+            "unknown"
+          ]
+        }
+      },
+      "description": "Minimal actor lookup metadata. Organization, role, and side are optional contextual fields."
+    },
+    "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "profileSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "ref",
+        "path"
+      ],
+      "properties": {
+        "git": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Git repository URL or local path. Passwordless SSH URLs with a username are supported; embedded credentials are not. Relative local paths resolve from the directory containing wayfinder.json; drive-relative paths are invalid."
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Branch, tag, or commit without a prefix."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
+          "description": "Relative Profile directory inside the Git revision."
+        }
+      }
+    },
+    "directProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "applies_to"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/profileSource"
+        },
+        "applies_to": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$"
+          },
+          "description": "Bundle paths relative to wayfinder.json. An entry used only as an extends parent may have an empty array."
+        },
+        "extends": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "description": "Optional parent Profile key."
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/customType"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tagDefinition"
+          }
+        },
+        "actors": {
+          "type": "object",
+          "propertyNames": {
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/actor"
+          }
+        }
+      },
+      "description": "A direct Profile source and its project applications."
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "profiles"
+  ],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Wayfinder configuration schema version."
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/directProfile"
+      },
+      "description": "Direct Profile sources and the bundle paths they apply to."
+    }
+  }
+}

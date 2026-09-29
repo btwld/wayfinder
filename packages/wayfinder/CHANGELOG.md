@@ -1,3 +1,14 @@
+# Unreleased
+
+- Add exact `bitwild_profile/2026.3` direct-source project bindings from
+  `wayfinder.json`, with additive `extends`, strict type, tag, actor, and
+  path checks. Version 1 accepts only `source` + `applies_to`; the earlier
+  unpublished `bundles` / `implements` draft is not a compatibility form.
+  Include OKF's Attested Computation in the twelve standard types.
+- Inspect OKF independently before Profile dispatch and enforce the 2026.3
+  root `okf_version`. Preserve published 2026.2 in-bundle validation without
+  migrating it because of an unrelated project configuration.
+
 # 0.1.0
 
 - Validate against Concepta Profile 2026.2, which adopts the OKF 0.2 revision

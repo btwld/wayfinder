@@ -8,7 +8,7 @@ producer spec.
 
 An index follows the OKF index format (OKF §8) exactly: no frontmatter, except
 that the bundle-root `index.md` carries `okf_version`, which agrees with the
-profile declaration. Every nonempty directory has an `index.md`, including every
+selected Profile binding (or legacy declaration). Every nonempty directory has an `index.md`, including every
 area, sub-area, `references/`, and each nonempty subdirectory of `references/`.
 
 Every index is the deterministic semantic projection of its directory —
@@ -22,12 +22,13 @@ regenerating it must lose nothing.
 
 Present groups appear in this order; empty groups are omitted.
 
-1. **`Bundle`** — root index only: `log.md`, `profile.md`, `types.md`, and
-   `actors.md` when present, in that order. `log.md` has the fixed label
-   `Knowledge Log` and no description; the other entries take their concept's
-   `title` as label and copy its `description` exactly.
+1. **`Bundle`** — root index only. In 2026.3 it contains `log.md` alone,
+   with fixed label `Knowledge Log` and no description. Legacy 2026.2 also
+   includes `profile.md`, `types.md`, and present `actors.md`, in that order,
+   with concept titles and descriptions.
 2. **Type groups** — every other concept, grouped under its exact `type` as the
-   heading. Standard type groups follow the canonical `types.md` order;
+   heading. Standard type groups follow the selected Profile manifest order (the legacy
+   `types.md` order for 2026.2);
    registered project-specific type groups follow afterward in case-sensitive
    lexical order. An unregistered used type also sorts with the project types,
    so the projection stays reproducible while that separate registry defect is
@@ -60,9 +61,9 @@ target — but the percent-encoded form is the canonical spelling okf's own
 tooling writes. The label is not a URL and stays exactly as written; sorting
 uses the decoded target path.
 
-A complete root index therefore covers the root log, the two required
-registry/declaration concepts, the conditional actor registry, every other root
-concept, and every immediate directory.
+A complete 2026.3 root index covers the root log, every other root concept,
+and every immediate directory. A 2026.2 root index also covers its required
+Profile declaration and type registry, plus the actor registry when present.
 
 ## Examples
 
@@ -76,9 +77,7 @@ okf_version: "0.2"
 # Bundle
 
 * [Knowledge Log](log.md)
-* [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
-* [Types](types.md) - The standard and project-specific types available to this bundle.
-* [Actors](actors.md) - Actor IDs mapped to identity, affiliation, role, and active period.
+<!-- Legacy 2026.2 only: profile.md, types.md, and actors.md entries follow here. -->
 
 # Analysis
 

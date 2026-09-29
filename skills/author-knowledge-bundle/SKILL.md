@@ -1,40 +1,57 @@
 ---
 name: author-knowledge-bundle
-description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Concepta OKF Profile 2026.2 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
+description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Bitwild OKF Profile 2026.3 or legacy Concepta 2026.2 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
 ---
 
 # Authoring the knowledge bundle
 
-The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the Concepta OKF Profile — versions declared in `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type, no frontmatter field, and no metadata semantics of its own. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
+The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the selected Bitwild OKF Profile or legacy Concepta release. Resolve the release from project-root `wayfinder.json` or legacy `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type, no frontmatter field, and no metadata semantics of its own. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
+
+`knowledge/` is the default adoption path. When a project explicitly asks to
+author another configured bundle, substitute that bundle's path throughout
+this workflow and resolve **its** binding. Do not apply `knowledge/`'s binding
+to a sibling bundle or to an arbitrary subdirectory.
 
 ## Release dispatch
 
-Before applying Profile rules, read the first fenced `yaml` block in the body of
-`knowledge/profile.md`. Dispatch on `concepta_profile`: this skill implements
-only `"2026.2"`, which binds to OKF `"0.2"`.
+Before applying Profile rules, resolve the bundle's exact release:
 
-- A supported Profile selector with a wrong `okf_version` or disagreement with
-  the root index is a **binding defect**, not an unsupported release. Report the
-  automated diagnostics and repair only what the available evidence and requested
-  scope justify; do not infer a different intended release.
-- An absent or unreadable selector prevents dispatch. Report the declaration
-  problem rather than guessing a release.
-- An unsupported selector prevents authoring and contextual Profile Review under
-  these rules. Report which release is unsupported. Do not silently apply 2026.2.
+- If project-root `wayfinder.json` has exactly one `applies_to` entry for
+  the requested bundle, read that entry's direct `source` and any additive
+  `extends` chain. The manifest identity and exact release select the rules;
+  `bitwild_profile/2026.3` selects the compiled rules for that release. A child must
+  reach that base. The source manifests supply vocabulary, not executable
+  rules. In the Wayfinder source tree the base manifest is at
+  `profile/wayfinder-profile.json`; the routed concept reference carries its
+  standard vocabulary for standalone skill installations. The root index
+  declares OKF 0.2. Read the exact source revision from the current
+  `wayfinder.lock` and local cache. If absent or stale during authorized
+  authoring, run `wayfinder get` and include the resulting lock; `validate`
+  itself never fetches or writes it. Use `upgrade` only for an intentional
+  mutable-ref advance. If the source cannot be resolved, report that the
+  release cannot be assessed rather than guessing from the entry key.
+- Otherwise, read the first fenced `yaml` block in `knowledge/profile.md`.
+  `concepta_profile: "2026.2"` selects the legacy rules. The immutable 2026.2
+  Profile snapshot is `profile/versions/okf-profile-2026.2.md`.
+- An absent, unreadable, or unsupported selector prevents contextual review.
+  Run read-only validation for its independent OKF result and dispatch finding;
+  never guess or silently apply another release.
 
-This skill will not migrate a bundle. Changing `concepta_profile` is not a
-repair. This family has no matching older skill. If
-`implementation/okf-implementation-guide.md` §5 is in the workspace, that is
-the method; otherwise stop and say this family cannot perform the migration.
+Changing a bundle's release is migration work, not an incidental repair.
+Read implementation guide §5 before migrating. Do not simply change a selector:
+move the custom vocabulary and actor lookup to JSON, remove the three legacy
+root concepts, regenerate the root index, and validate and review the result.
 
-Read-only automated validation remains available in all three cases: its independent
-OKF result and release diagnostics are useful even when contextual review cannot
-proceed. Do not suppress those results or confuse unsupported capability with
-nonconformance. Generic OKF reading remains available.
-The declaration is only a release selector: never turn `profile.md` into a
-standalone definition, extension registry, second schema, or OKF override.
+**2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
+`profile.md`, `types.md`, and `actors.md` are retired for this release; the
+binding supplies custom type, tag, and actor declarations while the selected
+base Profile supplies standards. The subject-placement rule and the four fixed
+names `architecture/`, `ways-of-working/`, `interactions/`, `references/`
+remain. A binding applies to a whole bundle, never an area. Release-specific
+notes in the routed references below take precedence over their legacy
+registry examples.
 
-**Where this skill is silent, OKF 0.2 governs.** Silence means the upstream spec already settles the point, so read it and follow it — never invent a Concepta convention to fill a gap. See [Beyond this profile](#beyond-this-profile) for what that covers in practice. Within what the profile *does* specify, concepts take the shapes taught in the references below and never invented ones.
+**Where this skill is silent, OKF 0.2 governs.** Silence means the upstream spec already settles the point, so read it and follow it — never invent a local Profile convention to fill a gap. See [Beyond this profile](#beyond-this-profile) for what that covers in practice. Within what the profile *does* specify, concepts take the shapes taught in the references below and never invented ones.
 
 ## Route by operation
 

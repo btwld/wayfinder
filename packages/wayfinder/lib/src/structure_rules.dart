@@ -3,23 +3,45 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'finding_helpers.dart';
+import 'profile_context.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart' as rules;
 
 const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
-List<ProfileFinding> validateStructureRules(OkfBundleLoadResult loaded) {
+List<ProfileFinding> validateStructureRules(
+  OkfBundleLoadResult loaded, {
+  required ProfileValidationContext context,
+}) {
   final inventory = _BundleInventory(loaded);
   return <ProfileFinding>[
-    ..._validateRootFiles(loaded),
+    ..._validateRootFiles(loaded, context),
+    ..._validateConfigurationLegacyFiles(loaded, context),
     ..._validateReservedStructureNames(loaded),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
     ..._validateRawTier(loaded, inventory),
-    ..._validateIndexes(loaded, inventory),
+    ..._validateIndexes(loaded, inventory, context),
     ..._validateLog(loaded),
   ];
+}
+
+Iterable<ProfileFinding> _validateConfigurationLegacyFiles(
+  OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
+) sync* {
+  if (!context.externalBinding) return;
+  for (final path in const <String>['profile.md', 'types.md', 'actors.md']) {
+    if (loaded.documents.containsKey(path)) {
+      yield ProfileFinding.forRule(
+        rules.configurationLegacyRegistry,
+        '$path is a legacy 2026.2 registry; remove it when using an external '
+        'Profile binding.',
+        path,
+      );
+    }
+  }
 }
 
 Iterable<ProfileFinding> _validateRawTier(
@@ -68,18 +90,26 @@ Iterable<ProfileFinding> _validateReservedStructureNames(
   }
 }
 
-Iterable<ProfileFinding> _validateRootFiles(OkfBundleLoadResult loaded) sync* {
+Iterable<ProfileFinding> _validateRootFiles(
+  OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
+) sync* {
   final missing = <String>[
     if (!loaded.indexes.containsKey('index.md')) 'index.md',
     if (!loaded.logs.containsKey('log.md')) 'log.md',
-    if (!loaded.documents.containsKey('profile.md')) 'profile.md',
-    if (!loaded.documents.containsKey('types.md')) 'types.md',
+    if (!context.externalBinding && !loaded.documents.containsKey('profile.md'))
+      'profile.md',
+    if (!context.externalBinding && !loaded.documents.containsKey('types.md'))
+      'types.md',
   ];
   if (missing.isNotEmpty) {
     yield ProfileFinding.forRule(
       rules.rootStructureFiles,
-      'The bundle root must contain index.md, log.md, profile.md, and types.md; '
-      'missing ${missing.join(', ')}.',
+      context.externalBinding
+          ? 'The configured bundle root must contain index.md and log.md; '
+                'missing ${missing.join(', ')}.'
+          : 'The bundle root must contain index.md, log.md, profile.md, and '
+                'types.md; missing ${missing.join(', ')}.',
       missing.first,
     );
   }
@@ -126,6 +156,7 @@ Iterable<ProfileFinding> _validateConceptAreaCollisions(
 Iterable<ProfileFinding> _validateIndexes(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
+  ProfileValidationContext context,
 ) sync* {
   for (final entry in loaded.indexes.entries) {
     final directory = p.posix.dirname(entry.key);
@@ -134,6 +165,7 @@ Iterable<ProfileFinding> _validateIndexes(
       loaded,
       inventory,
       normalizedDirectory,
+      context,
     );
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
@@ -174,6 +206,7 @@ List<OkfIndexEntry>? _expectedProjection(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
   String directory,
+  ProfileValidationContext context,
 ) {
   final projection = <OkfIndexEntry>[];
   if (directory.isEmpty) {
@@ -185,12 +218,16 @@ List<OkfIndexEntry>? _expectedProjection(
           link: 'log.md',
           description: '',
         ),
-      for (final path in _structuralConcepts)
+      for (final path
+          in (context.externalBinding ? const <String>[] : _structuralConcepts))
         if (loaded.documents[path] case final document?)
           ?_conceptEntry(path, document, group: 'Bundle'),
     ];
     if (bundleEntries.length !=
-        1 + _structuralConcepts.where(loaded.documents.containsKey).length) {
+        1 +
+            (context.externalBinding ? const <String>[] : _structuralConcepts)
+                .where(loaded.documents.containsKey)
+                .length) {
       return null;
     }
     projection.addAll(bundleEntries);
@@ -200,20 +237,23 @@ List<OkfIndexEntry>? _expectedProjection(
   for (final entry in loaded.documents.entries) {
     final parent = p.posix.dirname(entry.key);
     if ((parent == '.' ? '' : parent) != directory) continue;
-    if (directory.isEmpty && _structuralConcepts.contains(entry.key)) continue;
+    if (directory.isEmpty &&
+        !context.externalBinding &&
+        _structuralConcepts.contains(entry.key)) {
+      continue;
+    }
     final concept = _conceptEntry(entry.key, entry.value);
     if (concept == null) return null;
     byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
+  final standardNames =
+      (context.externalBinding ? externalStandardTypes : standardTypes)
+          .map((row) => row.$1)
+          .toList();
   final customTypes =
-      byType.keys
-          .where((type) => !standardTypes.any((row) => row.$1 == type))
-          .toList()
+      byType.keys.where((type) => !standardNames.contains(type)).toList()
         ..sort();
-  for (final type in <String>[
-    ...standardTypes.map((row) => row.$1),
-    ...customTypes,
-  ]) {
+  for (final type in <String>[...standardNames, ...customTypes]) {
     final entries = byType[type];
     if (entries == null) continue;
     entries.sort((left, right) {

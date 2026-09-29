@@ -1,6 +1,6 @@
 import 'package:okf/okf.dart';
 
-/// Read-only metadata describing one deterministic Concepta Profile rule,
+/// Read-only metadata describing one deterministic Profile rule,
 /// mirroring okf's `okfSpecRuleDescriptors`.
 ///
 /// A descriptor is the single authority for its rule's finding ID, severity,
@@ -25,7 +25,7 @@ final class ProfileRuleDescriptor {
   /// Severity emitted when the condition is found.
   final OkfFindingSeverity severity;
 
-  /// The normative Concepta Profile clause reference the rule assesses.
+  /// The normative Profile clause reference the rule assesses.
   final String rule;
 }
 
@@ -45,6 +45,30 @@ const profileDeclarationFields = ProfileRuleDescriptor.error(
 const okfReleaseBinding = ProfileRuleDescriptor.error(
   'okf-release-binding',
   '§11',
+);
+const configurationReadable = ProfileRuleDescriptor.error(
+  'configuration-readable',
+  '§11',
+);
+const configurationBundleBinding = ProfileRuleDescriptor.error(
+  'configuration-bundle-binding',
+  '§11',
+);
+const configurationLegacyRegistry = ProfileRuleDescriptor.error(
+  'configuration-legacy-registry',
+  '§3.5, §5.2, §6.1.1, §11',
+);
+const configuredTypeExtension = ProfileRuleDescriptor.advisory(
+  'configured-type-extension',
+  '§5.2',
+);
+const configuredTagUndeclared = ProfileRuleDescriptor.error(
+  'configured-tag-undeclared',
+  '§5.1',
+);
+const configuredTagDuplicate = ProfileRuleDescriptor.error(
+  'configured-tag-duplicate',
+  '§5.1',
 );
 
 // Concept rules.
@@ -193,12 +217,18 @@ const logEntryLeadWord = ProfileRuleDescriptor.error(
   '§10',
 );
 
-/// Every finding the closed Concepta Profile validator can emit.
+/// Every finding the closed Profile validator can emit.
 const List<ProfileRuleDescriptor> profileRuleDescriptors = [
   profileDeclarationPresent,
   profileDeclarationReadable,
   profileDeclarationFields,
   okfReleaseBinding,
+  configurationReadable,
+  configurationBundleBinding,
+  configurationLegacyRegistry,
+  configuredTypeExtension,
+  configuredTagUndeclared,
+  configuredTagDuplicate,
   profileDeclarationKind,
   conceptBaselineFields,
   frontmatterFieldsOkf,

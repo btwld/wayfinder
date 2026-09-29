@@ -1,13 +1,13 @@
-# Concepta OKF Profile
+# Bitwild OKF Profile
 
-**Version 2026.2** — profiles **OKF 0.2 exactly**
+**Version 2026.3** — profiles **OKF 0.2 exactly**
 
 Status: Proposed
 
-Concepta Profile 2026.2 is the current release. Release 2026.1 is preserved
-unchanged under `profile/versions/okf-profile-2026.1.md`.
+Bitwild Profile 2026.3 is the proposed release. Release 2026.2 is preserved
+unchanged under `profile/versions/okf-profile-2026.2.md`.
 
-The Concepta OKF Profile is a set of conventions for keeping durable project
+The Bitwild OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
 code it describes. It is a *profile*, not a format: it defines no file type, no
 frontmatter field, and no metadata semantics of its own. Every mechanism it uses
@@ -41,7 +41,7 @@ differ, this document governs.
 
 ## 1. Motivation
 
-Concepta runs many codebases with many contributors, and durable project
+Bitwild runs many codebases with many contributors, and durable project
 knowledge arrives from two directions. Engineering knowledge — terminology,
 architectural decisions, operational guidance — has long lived in repository
 documents. Business-facing knowledge — client requests, planning outcomes, demo
@@ -74,15 +74,15 @@ conventions to OKF instead of replacing it.
 2. Capture engineering and business knowledge in one model, without requiring
    every meeting, message, or transcript to become a document.
 3. Establish one vocabulary and one structural model across repositories, teams,
-   and agents, so a reader arriving at any Concepta repository already knows how
+   and agents, so a reader arriving at any Bitwild repository already knows how
    the bundle is put together, even where the subjects differ.
 4. Keep execution systems authoritative: work items and delivery records — issues,
    tickets, pull requests — stay in GitHub and Linear and are linked, never
    mirrored. What makes something an execution record is that a tracker owns its
    state, not the genre of document it is (§7.3).
-5. Remain interoperable — a Concepta bundle MUST be readable by any OKF
+5. Remain interoperable — a Bitwild bundle MUST be readable by any OKF
    consumer with no knowledge of this profile.
-6. Make conventions versioned, declared in-bundle, and mechanically checkable.
+6. Make conventions versioned, explicitly bound to bundles, and mechanically checkable.
 
 ### 1.2 Non-goals
 
@@ -101,39 +101,39 @@ conventions to OKF instead of replacing it.
 
 The profile selects and constrains OKF; it never redefines it. Every mechanism
 below keeps its OKF meaning. "Constrained" means the profile narrows *when or
-how* Concepta uses it, never *what it means*.
+how* Bitwild uses it, never *what it means*.
 
 | OKF | Mechanism | In this profile |
 |-----|-----------|-----------------|
 | §2 | Bundle, concept, concept ID, frontmatter, body, link, source, provenance | Inherited verbatim (§2) |
 | §3 | Directory tree of markdown, domain-independent structure | Constrained: fixed bundle-root files and project directories name subjects (§3) |
 | §3.1 | Reserved `index.md` / `log.md` | Inherited; usage constrained (§9, §10) |
-| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained for Concepta producers: `type`, `title`, `description`, and `status` are required, types are declared in-bundle, and producer-defined fields are prohibited (§5.1, §5.2) |
-| §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the in-bundle type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
+| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained for Bitwild producers: `type`, `title`, `description`, and `status` are required, types are declared by the selected Profile binding, tags use its declared vocabulary, and producer-defined fields are prohibited (§5.1, §5.2) |
+| §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the selected type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
 | §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Inherited: no type-specific template; optional labelled relationships remain ordinary Markdown (§5.3, §7.2) |
 | §5 | Timestamp-valued keys as ISO 8601 datetimes with an explicit UTC offset | Inherited; a date-only or offset-less value MUST NOT be written (§6.5) |
 | §5.1 | `sources`, credibility signals, `usage_window`, per-claim footnotes | Inherited unchanged; mechanisms surfaced rather than summarized (§6.1) |
 | §5.2 | `generated`, `verified` | Constrained: `generated` is recommended and must never be fabricated; `verified` records only verification that occurred, and its absence is meaningful (§6.2) |
-| §5.3 | Trust tiers derived, not stored | Inherited unchanged; the actor registry makes organizational identity legible without touching tiers (§6.1.1) |
+| §5.3 | Trust tiers derived, not stored | Inherited unchanged; the binding actor lookup makes organizational identity legible without touching tiers (§6.1.1) |
 | §5.4 | `status`: `draft` / `stable` / `deprecated` | Constrained to the knowledge lifecycle of the document only; assessing the subject is body content, with no field and no derivation (§6.3, §6.3.1) |
 | §5.5 | `stale_after` as an absolute instant | Constrained: evidence-based, conditional (§6.4) |
 | §6.1 | Markdown links, bundle-relative preferred, broken links tolerated | Inherited; labelled subset added (§7); internal links repaired on a move (§8.2) |
 | §6.2 | Path-valued fields | Inherited unchanged |
 | §6.3 | `references/` mirrors external material as concepts | Inherited; mirroring policy added (§12) |
-| §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and affiliation lives in a registry (§6.1.1) |
+| §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and optional affiliation lives in binding lookup (§6.1.1) |
 | §8 | Index files, `okf_version` at bundle root only | Constrained: required per nonempty directory, deterministic, grouped by type (§9) |
 | §9 | Date-grouped log entries, newest first | Constrained: knowledge lifecycle events only (§10) |
 | §10 | Attested Computation and its computation keys | Inherited unchanged (§1.3) |
 | §11 | Tolerant-reader conformance | Inherited and reinforced (§14.2) |
 | §12 | `okf_version` declaration and version semantics | Inherited; profile binds one OKF version (§15) |
 
-**The table is not a boundary.** It enumerates the mechanisms Concepta constrains;
+**The table is not a boundary.** It enumerates the mechanisms Bitwild constrains;
 it does not limit what a bundle may use. Anything OKF 0.2 defines that this
 document never mentions — a frontmatter key, a body convention, a structural
 affordance, or a whole family such as Attested Computation — is available
 unchanged and carries its OKF meaning. A producer facing a question this profile
 does not answer MUST read the pinned specification and follow it, and MUST NOT mint
-a Concepta convention in its place. That failure mode is the one this profile is
+a Bitwild convention in its place. That failure mode is the one this profile is
 least able to detect, because a locally invented rule looks like a convention
 rather than a divergence, and it is how a profile quietly becomes the competing
 standard §1.2 forbids.
@@ -156,7 +156,7 @@ it.
 That note is inspiration and carries no normative weight. This profile's sole
 normative upstream is OKF; its conventions are defined for OKF, not for the LLM
 Wiki. The profile invents neither the format nor the pattern — it selects, binds,
-and versions existing practice for Concepta projects.
+and versions existing practice for Bitwild projects.
 
 [wiki]: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 
@@ -175,12 +175,10 @@ throughout. This profile adds:
   a domain term, a capability, the system, the way the team works. An area is
   named after its subject and is not a nested bundle (§3.1).
 - **Type**: the kind of document a concept is, carried by the OKF `type` field
-  and declared in the bundle's type registry (§5.2). Kind is never carried by a
+  and declared by the selected Profile binding (§5.2). Kind is never carried by a
   directory name.
-- **Type registry**: the root concept carrying the standard type vocabulary and
-  every registered project-specific type available to the bundle (§5.2).
-- **Actor registry**: the root concept mapping every actor ID used in the bundle
-  to identity, affiliation, role, and active period (§6.1.1).
+- **Type registry**: the selected Profile manifest's standard types plus the project binding's custom types (§5.2).
+- **Actor lookup**: the project binding's metadata for actor IDs used in the bundle (§6.1.1).
 - **Durable knowledge**: an outcome worth preserving in the project after the
   activity that produced it has ended. The subject matter of the bundle.
 - **Source event**: an activity that may produce knowledge — a call, daily,
@@ -199,8 +197,7 @@ throughout. This profile adds:
   so provenance survives the external system (§12).
 - **Promotion**: moving an outcome recorded inside one concept into a concept of
   its own, because it acquired an independent identity (§4.2).
-- **Profiled Bundle**: an OKF bundle that selects a Concepta Profile release in
-  its profile declaration and is assessed against both OKF and that release.
+- **Profiled Bundle**: an OKF bundle that is selected by a project binding to a Bitwild Profile release and is assessed against both OKF and that release.
 - **Deterministic Rule**: a profile rule whose satisfaction can be determined
   reliably from the bundle and its declared release.
 - **Judgment Rule**: a profile rule that requires contextual interpretation by
@@ -220,17 +217,13 @@ throughout. This profile adds:
 Profile conformance applies to a bundle, independent of its repository location
 or whether a repository distributes other bundles. A Profiled Bundle MUST NOT
 contain a nested bundle: directories inside its root organize concepts, they do
-not subdivide distribution. Concepta adoption binds one such bundle to
+not subdivide distribution. Bitwild adoption binds one such bundle to
 `knowledge/` in the companion guide; that repository choice is not a bundle rule.
 
 ```text
 <bundle>/
   index.md              # Root index (§9). Carries okf_version.
   log.md                # Root log (§10).
-  profile.md            # Profile declaration (§11).
-  types.md              # Type registry (§5.2).
-  actors.md             # Actor registry when an OKF actor-valued field is used (§6.1.1).
-
   <concept>.md          # A concept whose subject has no area yet (§3.1).
 
   <area>/               # Area (§3.1). Mixed types, project-named.
@@ -379,25 +372,17 @@ What may be mirrored, and when, is specified in §12.
 
 ### 3.5 Root files
 
-A bundle MUST contain `index.md`, `log.md`, `profile.md`, and `types.md` at its
-root. `actors.md` is conditional. A bundle MUST NOT use any of these names for
-another purpose:
+A bundle MUST contain `index.md` and `log.md` at its root. They retain their OKF
+meanings: navigation and authored knowledge history. Profile selection, type
+extensions, tags, and actor lookup live in the project binding (§11), not in
+bundle concepts. A bundle using this release MUST NOT carry legacy root
+`profile.md`, `types.md`, or `actors.md` registries as competing configuration.
+Ordinary concepts MAY sit at the root; every other `.md` file is a concept.
 
-| File | Purpose |
-|------|---------|
-| `index.md` | Root index; carries `okf_version` (§9). Reserved by OKF §3.1. |
-| `log.md` | Root log (§10). Reserved by OKF §3.1. |
-| `profile.md` | Profile declaration (§11). An ordinary concept. |
-| `types.md` | Type registry (§5.2). An ordinary concept. |
-| `actors.md` | Actor registry (§6.1.1). Required when any concept uses an OKF actor-valued field; otherwise optional. An ordinary concept. |
-
-`profile.md`, `types.md`, and optional `actors.md` are concepts, so a bundle
-carrying them stays plainly OKF-conformant (OKF §3.1, §11): each has frontmatter
-and a `type`, and a consumer that knows nothing of this profile reads ordinary
-documents.
-
-Concepts other than these MAY sit at the root. Every other `.md` file in the tree
-is a concept.
+The four Profile-defined directory names and the subject-placement rules in
+§3.1–§3.4 remain unchanged. `wayfinder.json` selects a Profile for a **whole
+bundle**, never for an area or individual directory. It does not contain a
+placement map, and it does not turn type or tag names into folders.
 
 ---
 
@@ -512,8 +497,8 @@ provenance to satisfy the recommendation (§6.2).
 The optional OKF fields `resource`, `tags`, `sources`, `verified`, and
 `stale_after` remain available with their OKF-defined meanings. Sections §5.1 and
 §6 state the Profile's specific producer rules for using them.
-Concepta producers MUST NOT introduce namespaced or otherwise producer-defined
-frontmatter fields. This constrains what Concepta writes; it does not change OKF's
+Bitwild producers MUST NOT introduce namespaced or otherwise producer-defined
+frontmatter fields. This constrains what Bitwild writes; it does not change OKF's
 tolerant-reader contract. Consumers MUST NOT reject a document for an unknown field
 and SHOULD preserve unknown keys when round-tripping, exactly as OKF requires
 (OKF §4.1, §11; §14.2).
@@ -533,21 +518,25 @@ edge, and nothing updates it when a second edge lands. The prohibition is the sa
 one §5.2, §6.3, and §6.3.1 each make for their own field, stated once for the field
 that has no meaning of its own to defend it.
 
+Every used tag MUST appear exactly once in the selected Profile manifest or
+project binding's declared tag vocabulary (§11), and a concept MUST NOT repeat
+a tag value. Definitions MUST have unique names and nonempty descriptions;
+project tags MUST NOT collide with Profile tags. A declaration does not apply a
+tag automatically. Whether a declared tag truthfully describes a concept remains
+Profile Review. OKF readers still tolerate unknown tags (§14.2).
+
 ### 5.2 Types and the type registry
 
-`type` carries the kind of document a concept is, and it is the **only** place kind
-is carried: not the directory (§3), not the filename, not a tag.
-
-A bundle MUST contain a **type registry** at `types.md`, an ordinary concept of
-`type: Type Registry`. It MUST contain all fourteen standard types below in this
-canonical order and with these exact meanings, including standards the bundle does
-not yet use. Every used type MUST resolve there. Projects MAY add project-specific
-types. When present, their rows MUST follow all standard rows in
-case-sensitive lexical order and MUST carry a truthful one-line meaning. A
-registered project-specific type is conformant and produces a
-non-blocking advisory so recurring extensions can inform a later Profile release.
-The registry is what makes the invented-type failure visible: without it, kind is
-unconstrained free text and `Buisness Rule` reads as a new kind of thing.
+`type` carries the kind of document a concept is, and it is the **only** place
+kind is carried: not the directory (§3), not the filename, not a tag. The
+installed `bitwild_profile/2026.3` manifest (§11) MUST declare the twelve
+standard types below in this order and with these meanings. The project binding
+MAY add project-specific types with a nonempty name and truthful description.
+Custom names MUST be unique and MUST NOT collide with a standard name. Every
+used concept type MUST resolve in the merged registry; an unregistered use is
+a producer-side Profile failure, not grounds for a generic OKF reader to reject
+the document (§14.2). A registered custom type is conformant and produces a
+non-blocking advisory so recurring extensions can inform a later release.
 
 The standard vocabulary:
 
@@ -564,18 +553,14 @@ The standard vocabulary:
 | `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
 | `Guide` | Durable operational or engineering guidance |
 | `Interaction Record` | An interaction whose combined context is itself durable |
-| `Knowledge Profile` | The Concepta Profile and OKF release declaration |
-| `Type Registry` | The standard and project-specific types available to the bundle |
-| `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
+| `Attested Computation` | An OKF-defined sanctioned computation with a checkable execution receipt (OKF §10) |
 
-Project-specific types MUST be added to the registry before use. A locally
-useful type MAY be promoted into a later profile release. A concept using a standard
-type MUST match that type's intended meaning; this is a mandatory Judgment Rule
-assessed by Profile Review, not a deterministic inference from headings, paths, or
-body vocabulary. Consumers MUST tolerate
-types they do not recognize (OKF §11, §14.2): the registry is a producer-side
-declaration for the bundle's own tooling and is never grounds for rejecting a
-concept, a bundle, or a type the registry does not list.
+A standard type MUST match its intended meaning. A custom type MUST match the
+meaning declared in the binding. Both are Judgment Rules assessed by Profile
+Review; automated validation checks names and membership. The old structural
+`Knowledge Profile`, `Type Registry`, and `Actor Registry` types are not standards
+in this release because their root concepts are retired (§3.5). Consumers MUST
+tolerate types they do not recognize (OKF §11).
 
 Three boundaries are worth stating, because each was routinely blurred before it
 was written down:
@@ -665,7 +650,7 @@ Export must stay within the existing generation budget.
 ## 6. Provenance, trust, and lifecycle
 
 The OKF frontmatter families (OKF §5) are used with their upstream semantics.
-This section states only *when* Concepta applies them.
+This section states only *when* Bitwild applies them.
 
 ### 6.1 Provenance: `sources`
 
@@ -702,77 +687,25 @@ OKF §5 is required reading. The four mechanisms most often missed:
   stale. The profile adds no scoring, and producers MUST NOT add a confidence,
   credibility, maturity, or evidence-tier field of their own (§5.1).
 
-### 6.1.1 The actor registry
+### 6.1.1 Actor lookup
 
-Trust tiers distinguish **human from machine** (OKF §5.3). Most projects also need
-to distinguish **whose assertion this is** — client or internal, first-party or
-derived — and OKF provides no mechanism for it: a client's operations lead and an
-internal analyst both derive as *human-reviewed*, collapsing exactly the
-distinction an evidence model rests on.
+OKF actor IDs in `generated.by`, `verified[].by`, and `sources[].author` stay
+opaque and retain their OKF meanings. The project binding (§11) MAY provide an
+`actors` map of lookup metadata. When an actor ID is used in a bundle, the
+selected binding MUST contain that exact ID with a nonempty `name`. Optional
+`organization`, `role`, and `side` add context; `side`, when present, MUST be
+`client`, `internal`, `vendor`, `tool`, or `unknown`. Authors MUST use `unknown`
+rather than inventing an affiliation. The metadata MUST be truthful, but lookup
+does not prove authorship, verification, or a trust tier.
 
-A bundle MUST carry an **actor registry** at root `actors.md` whenever any concept
-uses an actor identifier in `generated.by`, `verified[].by`, or
-`sources[].author`. An actor-free bundle MAY omit it. The registry is an ordinary
-concept of `type: Actor Registry` and maps every actor ID the bundle uses to its
-identity, affiliation, role, and active period.
-
-```markdown
-| Actor ID | Name | Organization | Side | Role | Active |
-|----------|------|--------------|------|------|--------|
-| `human:chris` | Christiano Higuto | Concepta | internal | Engineering lead | 2026-01-01 – |
-| `human:d-okonkwo` | Dara Okonkwo | Northwind | client | Operations authority | 2026-05-01 – |
-| `claude-code/opus-5` | Claude Code | Anthropic | tool | Authoring agent | 2026-06-01 – |
-```
-
-`Side` MUST be exactly one of `client`, `internal`, `vendor`, `tool`, or `unknown`.
-Authors MUST use `unknown` rather than infer an affiliation without evidence.
-`tool` marks an
-actor that is not a party to the work at all — a third-party authoring agent, say —
-and it is distinct from `vendor` because a vendor makes assertions and a tool does
-not. An automated process the project itself runs is `internal`, not `tool`: its
-output is the project's own assertion.
-
-The `Active` range is what makes the registry strictly better than encoding
-affiliation in the ID. It MUST be `YYYY-MM-DD – YYYY-MM-DD` with the start inclusive
-and end exclusive, `YYYY-MM-DD –` for an open-ended period, or `unknown` when no
-reliable period is known. One actor ID MAY have multiple rows when identity,
-organization, side, or role changes, but its dated periods MUST NOT overlap.
-
-The table MUST have exactly the columns `Actor ID`, `Name`, `Organization`,
-`Side`, `Role`, and `Active`, in that order. The type registry at root `types.md`
-likewise MUST use exactly `Type` and `Intended content`, in that order. These
-tables remain ordinary body Markdown and add no OKF frontmatter or graph meaning.
-
-Three rules follow:
-
-- **Actor IDs stay opaque.** Affiliation MUST NOT be encoded into an actor ID —
-  `human:northwind/d-okonkwo` places a mutable attribute inside an immutable key
-  (§8.2), forces a rewrite of every `generated.by`, `verified[].by`, and
-  `sources[].author` that cites it when affiliation changes, and still means nothing
-  to a consumer without a registry to interpret it. Organizational namespacing of
-  actor IDs, if it is ever right, belongs upstream in OKF §7.
-- **Every used actor is represented.** When the registry is required, it MUST
-  contain every actor ID used by the bundle. A generic consumer encountering a
-  missing row MUST still treat the organization as unknown and read the concept,
-  and field; the missing row is a Profile failure and never changes
-  the independent OKF result (§14.1).
-- **Affiliation is looked up at event time.** For `generated.by` and
-  `verified[].by`, consumers use the row active at the event timestamp. For
-  `sources[].author`, they use the row active on `sources[].last_modified` when
-  that date is available. Without a reliable date, or when no single row applies,
-  organizational affiliation remains `unknown`.
-  Ambiguity never changes or invalidates the OKF actor string or the trust tier OKF
-  derives from its prefix. Automated Profile Validation checks period syntax and
-  overlap but MUST NOT report unresolved affiliation as a finding; Profile Review
-  assesses whether identity, affiliation, role, and periods are truthful (§14.1).
-- **The registry is a lookup, not an edge.** OKF's trust fields take actor strings,
-  not paths, so no link exists from a concept to an actor and none SHOULD be authored
-  to simulate one. Registry rows add no nodes or edges to the OKF graph (§13).
-
-What the registry enables is a **derived** answer to the organizational question:
-which concepts rest only on internal assertion, which areas carry no client-authored
-source. That is a projection (§13), computed at read time and never stored — the same
-discipline OKF applies to credibility.
+The lookup is not an OKF graph edge and MUST NOT change OKF trust derivation.
+A generic consumer still reads any unlisted actor normally. The project binding
+MAY be shared by several bundles when their actor IDs have the same meanings;
+a project needing different metadata uses a separate binding. Unlike the
+superseded `actors.md` table, this release does not prescribe affiliation
+periods or infer them from an ID. Time-dependent affiliation, when material,
+belongs in ordinary project knowledge and contextual review, not a fabricated
+static lookup.
 
 ### 6.2 Trust: `generated` and `verified`
 
@@ -1109,12 +1042,10 @@ knowledge.
 
 The projection includes immediate children only and omits the index itself:
 
-1. At the root, `log.md`, `profile.md`, `types.md`, and `actors.md` when present
-   form `Bundle`, in that order. `log.md` has the fixed label `Knowledge Log` and
-   no description; concept labels are their `title` and their descriptions are
-   copied exactly from frontmatter.
+1. At the root, `log.md` forms `Bundle`. It has the fixed label
+   `Knowledge Log` and no description. Configuration is not indexed as a concept.
 2. Every other concept is grouped under its exact `type`. Standard type groups
-   follow the canonical order in §5.2. Registered project-specific type groups
+   follow the manifest order in §5.2. Registered project-specific type groups
    follow afterward in case-sensitive lexical order; an unregistered used type
    also sorts there so the projection remains reproducible while that separate
    registry defect is repaired.
@@ -1145,10 +1076,8 @@ MUST NOT decode to `/`, which a URL reads as data, never as a path separator.
 Labels are not URLs and stay verbatim — an asset's label is its
 filename exactly as written even when its target is encoded.
 
-The root index MUST carry `okf_version`, which §11 requires to agree with the
-profile declaration. A complete root index therefore covers the root log, the two
-required root registry/declaration concepts, conditional actor registry, every
-other root concept, and every immediate directory.
+The root index MUST carry `okf_version: "0.2"` (§11). A complete root index
+covers the root log, every root concept, and every immediate directory.
 
 ```markdown
 ---
@@ -1158,9 +1087,6 @@ okf_version: "0.2"
 # Bundle
 
 * [Knowledge Log](log.md)
-* [Concepta OKF Profile](profile.md) - Declares the Concepta profile and OKF versions this bundle follows.
-* [Types](types.md) - The standard and project-specific types available to this bundle.
-* [Actors](actors.md) - Actor IDs mapped to identity, affiliation, role, and active period.
 
 # Analysis
 
@@ -1234,7 +1160,7 @@ stale finds out where the concept went:
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
+* **Initialization**: Established the knowledge bundle under the Bitwild OKF Profile 2026.3.
 * **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
 * **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
 ```
@@ -1247,32 +1173,38 @@ optional.
 
 ---
 
-## 11. The profile declaration
+## 11. Profile selection and binding
 
-A bundle following this profile MUST contain `profile.md` at its root: an
-ordinary concept of `type: Knowledge Profile`.
+A bundle following this release MUST be named by exactly one `applies_to` path
+in a `profiles` entry of project-root `wayfinder.json` version 1. The entry key
+is the Profile identity. Its `source` MUST identify a Git repository, a ref,
+and the path of a declarative Profile manifest inside that revision. The
+manifest's identity MUST match the entry key and its release MUST be 2026.3.
+The effective chain MUST reach `bitwild_profile/2026.3`, whose manifest binds
+exactly to OKF 0.2 and whose rules and standard vocabulary are installed with
+the validator. The bundle root index MUST declare `okf_version: "0.2"`.
+Unknown Profile IDs or releases MUST NOT silently fall back.
 
-Its body MUST use the **first fenced `yaml` block** as the machine-readable
-declaration, and that block MUST declare both release values shown here:
+A Profile entry MAY name one parent through `extends`, independently of its
+`applies_to` list. A parent used only for inheritance MAY have an empty
+`applies_to` list. Inheritance is additive: an entry MAY add type and tag
+definitions and actor lookup, but names MUST be unique across the effective
+chain and MUST NOT collide with installed standards. A child MUST NOT replace,
+omit, or parameterize Profile rules, reinterpret OKF semantics, or load
+executable rules from its source. A non-base entry MUST extend a chain reaching
+`bitwild_profile`; the base MUST NOT extend another entry. Missing parents,
+cycles, and ambiguous composition MUST NOT be accepted.
 
-```yaml
-concepta_profile: "2026.2"
-okf_version: "0.2"
-```
+`applies_to` paths MUST be relative, unique, inside the project after symlink
+resolution, and not nested within one another. Several independent bundles MAY
+share an entry. A nested directory within a bundle inherits its bundle's
+Profile and MUST NOT select another one (§3).
 
-The declared `concepta_profile` MUST be `"2026.2"`. The declared `okf_version`
-MUST be `"0.2"` and MUST agree with the root index (§9), because Profile 2026.2
-binds exactly to OKF 0.2. Declaring the
-profile in a concept body rather than a frontmatter field is deliberate: it
-keeps the profile free of custom frontmatter (§5.1), so the bundle stays plain
-OKF to every other consumer. `types.md` and `actors.md` follow the same reasoning
-— tables in a body, not schema in frontmatter.
-
-The declaration selects one immutable Profile release; it does not define,
-inject, omit, replace, or parameterize that release's rules. `profile.md` MUST
-NOT act as a standalone Profile definition, extension registry, second schema,
-or place to restate or override OKF. Whether an implementation accepts caller
-policy belongs exclusively to the companion guide.
+`wayfinder.json` and any resolution lock are project configuration, not OKF
+concepts or a second frontmatter schema. They MUST NOT be placed inside the
+bundle or projected into its `index.md`. Version 1 has no `bundles` array,
+`implements` string, or `default_bundle`. The root `profile.md` selector from
+2026.2 does not dispatch this release.
 
 ---
 
@@ -1347,7 +1279,7 @@ and rebuildable at any time. An index MUST NOT become a source of truth. The
 authored root log is history and is expressly outside this category (§10).
 
 The Profile adds no graph contract. Markdown links and provenance retain their
-OKF meanings; relationship labels and registry tables remain ordinary body
+OKF meanings; relationship labels remain ordinary body
 Markdown. Graph consumers follow OKF directly.
 
 Reading a kind as a set — every ADR, the whole glossary, all open questions — is a
@@ -1387,17 +1319,16 @@ Normative force and assessment mode are independent. A mandatory Judgment Rule
 remains mandatory, and an automated advisory remains non-blocking. Neither
 assessment mode changes or reinterprets OKF conformance.
 
-Deterministic structural failures include a missing required root file; a missing
-conditional actor registry; a registry with the wrong structural table shape; a
-missing or semantically stale index; a malformed or out-of-order root log; a root
-index carrying no `okf_version`; and a missing, unparseable, or disagreeing profile
-declaration. Deterministic concept failures include a missing or empty `type`,
-`title`, `description`, or `status`; a non-OKF `status` value; a producer-defined
-frontmatter field; a type registry missing or altering a standard row, using the
-wrong standard or extension order, or omitting a used type; an invalid actor `Side`
-or `Active` value; overlapping periods for one actor; and malformed source entries
-or attribution joins. Literal tag duplication with machine-readable type, status, or
-trust values is also deterministic.
+Deterministic structural failures include a missing required root file, an
+invalid project binding, duplicate registry entries, a missing or semantically
+stale index, a malformed or out-of-order root log, a root index carrying no
+`okf_version`, and an unavailable Profile release or OKF-version disagreement.
+Deterministic concept failures include a missing or empty `type`, `title`,
+`description`, or `status`; a non-OKF `status` value; a producer-defined
+frontmatter field; an unregistered used type or actor; invalid actor lookup
+metadata; duplicate or undeclared tags; and malformed source entries or
+attribution joins. Literal tag duplication with machine-readable type, status,
+or trust values is also deterministic.
 
 Deterministic external-boundary failures include a malformed Relationships entry
 that does not contain exactly one label and one target. Contextual meaning is not
@@ -1409,7 +1340,7 @@ is speculative, whether a purported subject concept contains durable knowledge
 rather than duplicating navigation, and whether the authored log records material
 lifecycle events. It also assesses the durable-capture and concept-boundary rules;
 whether a standard or project-specific type and its registered meaning fit the
-content; whether metadata, actor identity and history, sources, status, freshness,
+content; whether metadata, actor identity, sources, status, freshness,
 and tags are truthful in context. For external boundaries it assesses relationship
 meaning, project-label definitions, execution and specification lifecycle ownership,
 the identity meaning of dates and preserved external IDs, repairability of known
@@ -1448,16 +1379,16 @@ actors, missing optional content, and broken links MUST remain loadable. Unknown
 frontmatter SHOULD remain available to downstream consumers rather than being
 dropped on round-trip, preserving OKF §4.1's exact force.
 
-The type and actor registries are producer-side declarations. They make drift
-visible inside a bundle; they MUST NOT be read as closed vocabularies that license
-rejecting a concept, and a consumer encountering an unlisted type or actor behaves
-exactly as OKF §11 requires.
+The type, tag, and actor registries are producer-side declarations in the
+binding. They make drift visible to Profile tooling; they MUST NOT license a
+generic OKF consumer to reject a concept. A consumer encountering an unlisted
+type, tag, or actor behaves exactly as OKF §11 requires.
 
 External resource availability MUST NOT be a conformance gate: a link that
 404s today is a link, not a malformed document.
 
 Valid OKF that this profile does not describe is content to carry forward
-untouched. It may come from a producer outside Concepta, or from a Concepta author
+untouched. It may come from a producer outside Bitwild, or from a Bitwild author
 using an OKF mechanism this document simply never mentions (§1.3) — the two are
 indistinguishable and both are correct. Tooling MUST NOT report a concept for using
 an OKF 0.2 mechanism the profile is silent about: a validator that treats profile
@@ -1485,11 +1416,11 @@ Compatibility evidence answers whether each rule preserves OKF. The separate
 implementation coverage matrix at
 [`implementation/profile-coverage.md`](../implementation/profile-coverage.md)
 assigns each rule to Automated Profile Validation or Profile Review and answers
-how Concepta assesses it. Neither artifact substitutes for the other, and the
+how Bitwild assesses it. Neither artifact substitutes for the other, and the
 release MUST NOT be published while either is incomplete.
 
 An upstream OKF release requires a new profile release and a compatibility
-review, even when no Concepta convention otherwise changes, so that a
+review, even when no Bitwild convention otherwise changes, so that a
 compatibility claim is always explicit and testable. A profile release MUST NOT
 claim compatibility with an OKF version it has not been reviewed against.
 
@@ -1498,8 +1429,8 @@ pinned to the commit or tag carrying that version rather than to a moving branch
 
 The profile and OKF are separately versioned documents, and §15.2 gives the profile a
 version format OKF does not use so the two can never be mistaken for one another.
-Prose MUST still name which document a version refers to; the machine-readable
-declaration (§11) is unambiguous because it carries both keys.
+Prose MUST still name which document a version refers to. The machine-readable
+binding names the Profile release, while the root index declares OKF 0.2 (§11).
 
 ### 15.2 Profile versions
 
@@ -1528,6 +1459,29 @@ OKF's normative requirements always take precedence over any profile release
 (§1).
 
 ### 15.3 Change record
+
+**2026.3.** Moves Profile selection and project vocabulary out of bundle
+concepts into direct Git-sourced project-root `wayfinder.json` entries. Entries
+may add vocabulary through explicit parent chains, but never executable rules.
+The installed `bitwild_profile` validator remains closed. Affected sections:
+§§1.3, 2, 3.5, 5.1–5.2, 6.1.1, 9, 11, 14, 15.3 and Appendix A. Driver: real
+adoption and validation work found repeated standard `types.md` tables,
+mandatory actor tables for routine agent provenance, and `profile.md`
+configuration masquerading as knowledge; multiple independent bundles need
+reusable but distinct bindings, and a repeatable source revision across
+machines. The OKF-defined Attested Computation type joins the standard
+registry so producers can use §10 without declaring an OKF type as custom. The
+subject-placement and four named-directory rules remain unchanged. Migration
+impact: an existing conformant 2026.2 bundle remains conformant to **2026.2**
+and continues to validate under that release. To adopt 2026.3, create a
+direct-source entry, resolve and commit its lock, move custom types, tags, and
+actor IDs into the entry, remove the
+three legacy root registry/declaration concepts, regenerate the root index, and
+retain `index.md` and `log.md`. Used tags must be declared. Material actor
+affiliation history from the old table must be preserved as ordinary knowledge
+before the table is removed; a single JSON lookup cannot express dated rows.
+This is an opt-in
+migration, not a silent reinterpretation of old bundles.
 
 **2026.2.** Adopts the upstream OKF 0.2 revision that makes every timestamp an
 ISO 8601 datetime with an explicit UTC offset, and moves the pinned
@@ -1582,192 +1536,25 @@ impact for bundles conformant to the release before it.
 
 ## Appendix A: Worked example
 
-One bundle showing the profile's central separations: a **source event** produces
-**durable knowledge**, which links to an **execution record**, with **indexes and a
-log** serving different roles: indexes are generated navigation, while the log is
-authored history. Its two reporting concepts form a small genuine subject area;
-there is no numeric minimum.
-
-A client raises a request during a demo; the recording platform expires in 30 days,
-so the transcript is mirrored; an analysis follows; the request is specified in
-GitHub.
+The 2026.2 worked bundle remains available in the immutable snapshot and
+`examples/knowledge/` as a migration reference. A minimal 2026.3 project has:
 
 ```text
-knowledge/
-  index.md
-  log.md
-  profile.md
-  types.md
-  actors.md
-  reporting/
+project/
+  wayfinder.json
+  knowledge/
     index.md
-    include-pdf-annotations.md        # Request
-    pdf-export-feasibility.md         # Analysis
-  ways-of-working/
-    index.md
-    relationship-labels.md            # Guide defining the project label Assessed by
-  references/
-    index.md
-    2026-07-30-reporting-demo-transcript.md
-    annotation-layout.json            # Referenced asset, not a concept
+    log.md
+    reporting/
+      index.md
+      request.md
+      analysis.md
 ```
 
-The two concepts live in `reporting/` because the existing corpus demonstrates
-their shared subject. The count neither earns nor forbids that placement. There is
-no `requests/` or `analyses/`, because those name kinds rather than subjects.
-
-The demo itself is not a concept, and no Interaction Record was written: only one
-outcome mattered, so the request links straight to its source (§4.3), and
-`interactions/` does not exist.
-
-`include-pdf-annotations.md` — the durable outcome, verified by a human,
-citing the mirrored transcript, and linked to execution:
-
-```markdown
----
-type: Request
-title: Include PDF annotations in the export
-description: Client asks that reviewer annotations survive the PDF export.
-status: draft
-generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
-verified: { by: human:chris, at: 2026-07-31T09:00:00Z }
-tags: [reporting, export]
-sources:
-  - id: demo-0730
-    resource: /references/2026-07-30-reporting-demo-transcript.md
-    title: Reporting demo transcript, 30 July 2026
-    author: process:meeting-transcription
-    last_modified: 2026-07-30T00:00:00Z
----
-
-# Request
-
-Reviewer annotations must appear in the exported PDF, positioned as they are on
-screen.[^demo-0730]
-
-# Context
-
-Raised while reviewing a draft export during the reporting demo.
-
-# Relationships
-
-- Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
-- Assessed by: [PDF export feasibility](/reporting/pdf-export-feasibility.md)
-
-[^demo-0730]: Reporting demo transcript, 30 July 2026
-```
-
-`pdf-export-feasibility.md` — a separate concept because findings are
-reusable independently of the request, with a real freshness horizon (§6.4):
-
-```markdown
----
-type: Analysis
-title: PDF export feasibility for annotations
-description: Whether the current renderer can place annotations without exceeding the generation budget.
-status: draft
-generated: { by: claude-code/opus-5, at: 2026-07-31T11:00:00Z }
-stale_after: 2026-11-01T00:00:00Z
-sources:
-  - id: layout-sample
-    resource: /references/annotation-layout.json
-    title: Exported annotation layout sample
----
-
-# Question
-
-Can annotations be positioned in the exported PDF within the existing
-generation budget? This analysis applies to the current renderer contract
-through 31 October 2026; the contract changes on 1 November.
-
-# Findings
-
-The renderer exposes absolute placement; annotation geometry is already
-persisted alongside review state.[^layout-sample]
-
-# Recommendation
-
-Proceed. Budget headroom is adequate at current document sizes.
-
-# Relationships
-
-- Refines: [Include PDF annotations in the export](/reporting/include-pdf-annotations.md)
-- Constrained by: [Pagination contract](/reporting/pagination-contract.md)
-
-[^layout-sample]: Exported annotation layout sample
-```
-
-`references/2026-07-30-reporting-demo-transcript.md` — mirrored because the
-recording expires; an immutable source concept, not an interpreted outcome (§12):
-
-```markdown
----
-type: Meeting Transcript
-title: Reporting demo transcript, 30 July 2026
-description: Verbatim transcript of the reporting demo with the client review team.
-status: stable
-generated: { by: process:meeting-transcription, at: 2026-07-30T15:55:00Z }
-sources:
-  - resource: https://example-meetings.test/recordings/8412
-    title: Reporting demo recording (retention: 30 days)
-    author: process:meeting-platform
----
-
-# Transcript
-
-The original recording expires after 30 days. This transcript is retained because
-the request cites it and its content is suitable for this repository's visibility.
-
-[15:02] ...
-```
-
-`actors.md` — four actor IDs, including unknown affiliation and one historical
-change, so the organizational question is answered only where evidence permits
-(§6.1.1):
-
-```markdown
----
-type: Actor Registry
-title: Actors
-description: Actor IDs mapped to identity, affiliation, role, and active period.
-status: stable
-generated: { by: claude-code/opus-5, at: 2026-07-30T16:20:00Z }
----
-
-| Actor ID | Name | Organization | Side | Role | Active |
-|----------|------|--------------|------|------|--------|
-| `human:chris` | Christiano Higuto | Concepta | internal | Engineering lead | 2026-01-01 – |
-| `claude-code/opus-5` | Claude Code | Anthropic | tool | Authoring agent | 2026-06-01 – |
-| `process:meeting-platform` | Meeting platform recording | unknown | unknown | Recording process | unknown |
-| `process:meeting-transcription` | Meeting transcription | Concepta | internal | Transcription process | 2026-03-01 – 2026-08-01 |
-| `process:meeting-transcription` | Meeting transcription | Example Transcription Vendor | vendor | Transcription process | 2026-08-01 – |
-```
-
-`log.md` — lifecycle events only. The demo appears nowhere; its outcomes do:
-
-```markdown
-# Knowledge Log
-
-## 2026-07-31
-* **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
-* **Area created**: Established `ways-of-working/` for durable project conventions.
-* **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
-* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
-* **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
-
-## 2026-07-30
-* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.2.
-* **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
-* **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).
-```
-
-Reading the bundle back out, an ordinary OKF graph consumer discovers the
-Markdown links as untyped edges and the request's internal source as the
-provenance edge OKF §5.1 defines. Relationship labels remain readable body context;
-registry rows remain lookup data and create no Profile-only nodes or edges. The
-not-yet-written pagination target remains an unresolved OKF edge and produces only
-the non-blocking Profile advisory §7.1 requires.
-
-The project-specific `Assessed by` label is defined once in
-`ways-of-working/relationship-labels.md`. It remains ordinary body context and
-produces the non-blocking extension advisory §7.2 requires.
+`reporting/` is an illustrative project subject, not a prescribed directory.
+The root index includes `log.md` and the `reporting/` directory, not
+`wayfinder.json`. `Request` and `Analysis` come from the installed standard
+vocabulary; only project tags, actors, or custom types appear in the entry.
+A separate `research/` bundle may appear in the same entry's `applies_to` list
+or another entry with different vocabulary. It does not inherit a
+Profile from `knowledge/`, and `knowledge/reporting/` cannot select one.

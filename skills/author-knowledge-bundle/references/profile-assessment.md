@@ -16,7 +16,7 @@ still allow collecting automated diagnostics, but do not authorize contextual
 review under an assumed release. Still emit the compact report below: Automated
 gate records the collected result, Reviewed notes that contextual review was not
 performed, and Outcome is `NEEDS HUMAN`. That is a capability or declaration
-problem, not a 2026.2 judgment failure.
+problem, not a judgment failure.
 
 The canonical assignment
 audit is `implementation/profile-coverage.md` in the
@@ -28,9 +28,9 @@ and structural reorganizations cover the whole bundle.
 
 Use this compact review map to enumerate the contextual surface: structure and
 placement (§§3, 9–10, 13); durable capture and concept boundaries (§4);
-metadata, type fit, provenance, actor history, trust, lifecycle, and freshness
+metadata, type fit, provenance, actor lookup, trust, lifecycle, and freshness
 (§§5–6); relationship meaning, execution ownership, identity, moves, and
-retirement (§§7–8); Profile declaration semantics (§11); and source mirroring
+retirement (§§7–8); Profile binding semantics (§11); and source mirroring
 (§12). Mark a section not applicable only after checking it against the scope.
 
 Complete the review autonomously when the required context is present and every
@@ -42,7 +42,7 @@ request, never as a blanket certificate inside the bundle:
 ```markdown
 ## Profile Review Report
 
-- Profile: 2026.2 (OKF 0.2)
+- Profile: <2026.3 | legacy 2026.2> (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
 - Automated gate: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>

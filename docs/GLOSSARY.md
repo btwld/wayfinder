@@ -1,27 +1,34 @@
-# Concepta OKF Profile Glossary
+# Bitwild OKF Profile Glossary
 
-The shared language for applying Concepta's company-wide conventions to Open
+The shared language for applying Bitwild's reusable conventions to Open
 Knowledge Format bundles.
 
 ## Language
 
 **OKF Specification**:
-The authoritative Open Knowledge Format specification on which the Concepta OKF
+The authoritative Open Knowledge Format specification on which the Bitwild OKF
 Profile is built. The Profile cannot redefine or weaken its meaning.
 _Avoid_: Base profile, upstream profile
 
-**Concepta OKF Profile**:
-Concepta's versioned, company-wide conventions for using OKF consistently
+**Bitwild OKF Profile**:
+Bitwild's versioned, reusable conventions for using OKF consistently
 without changing OKF's meaning.
 _Avoid_: Format, generic Profile protocol
 
-**Profile Declaration**:
-The machine-readable selector in a Profiled Bundle that identifies the Concepta
-OKF Profile release it follows. It does not define or override that release's rules.
-_Avoid_: Rule manifest, Profile configuration
+**Profile Binding**:
+The project-root `wayfinder.json` entry whose direct Git `source` and
+`applies_to` paths select one exact Profile release for a whole bundle,
+with additive project type, tag, and actor lookup extensions. It cannot
+define or override Profile rules.
+_Avoid_: Rule manifest, per-directory Profile
+
+**Legacy Profile Declaration**:
+The `profile.md` selector inside a 2026.2 bundle. It remains valid for that
+release and does not define or override its rules.
+_Avoid_: Current 2026.3 binding
 
 **Profiled Bundle**:
-An OKF bundle that selects a Concepta OKF Profile release and is evaluated
+An OKF bundle bound to a Bitwild or legacy Concepta OKF Profile release and evaluated
 against both the OKF Specification and that release.
 _Avoid_: Profile bundle
 
@@ -32,7 +39,7 @@ _Avoid_: Base acceptance
 
 **Profile Conformance**:
 The judgment that an OKF-conformant Profiled Bundle satisfies every `MUST` and
-`MUST NOT` in its declared Concepta OKF Profile release, regardless of assessment mode.
+`MUST NOT` in its selected Profile release, regardless of assessment mode.
 _Avoid_: OKF conformance, policy acceptance
 
 **Automated Profile Validation**:
@@ -42,7 +49,7 @@ _Avoid_: Complete Profile Assessment, Profile Review
 
 **Deterministic Rule**:
 A Profile rule whose satisfaction can be determined reliably from the bundle
-and its declared release. Its normative force is independent of its assessment mode.
+and its selected release. Its normative force is independent of its assessment mode.
 _Avoid_: Judgment Rule, heuristic
 
 **Judgment Rule**:
@@ -66,6 +73,6 @@ to assess all requirements of a Profiled Bundle.
 _Avoid_: CLI result, OKF conformance
 
 **Profile Toolchain**:
-The validator, skill, and guides that apply the Concepta OKF Profile through
+The validator, skill, and guides that apply the Bitwild OKF Profile through
 deterministic validation and contextual review.
-_Avoid_: Concepta OKF Profile, OKF toolkit
+_Avoid_: Bitwild OKF Profile, OKF toolkit

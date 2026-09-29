@@ -24,6 +24,8 @@ skills = [f'skills/{name}/SKILL.md' for name in [
     'adopt-knowledge-bundle', 'assess-knowledge-bundle',
     'author-knowledge-bundle', 'use-wayfinder']]
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
+             'profile/okf-profile.md', 'profile/wayfinder-profile.json',
+             'profile/versions/okf-profile-2026.2.md',
              'licenses/objectbox/NOTICE', 'licenses/wayfinder/LICENSE',
              'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:
     if not (bundle / name).is_file():

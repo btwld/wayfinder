@@ -1,6 +1,6 @@
-# Concepta OKF Profile — Implementation Guide
+# Bitwild OKF Profile — Implementation Guide
 
-**Version 2026.2** — binds **Concepta OKF Profile 2026.2**, which profiles
+**Version 2026.3** — binds **Bitwild OKF Profile 2026.3**, which profiles
 **OKF 0.2 exactly**
 
 Status: Proposed
@@ -43,26 +43,25 @@ any program that reads or writes a bundle. "Bundle" always means the one at `kno
 
 ### 2.1 What a repository does
 
-Adoption is four required files, one conditional file, and one paragraph, in this
-order:
+Adoption of Profile 2026.3 creates one project binding, two bundle root
+files, and one agent-instruction paragraph, in this order:
 
-1. **Seed the required root.** `index.md`, `log.md`, `profile.md`, and `types.md`,
-   exactly as the profile's §3.5 defines them. The adoption skill's `SEEDING.md` carries
-   the literal text.
-2. **Declare the versions.** `profile.md`'s first fenced `yaml` block carries
-   `concepta_profile` and `okf_version`; the root index's frontmatter carries the same
-   `okf_version` (profile §11).
-3. **Seed the type registry.** Use the canonical `SEEDING.md` type-registry
-   template so the adopted bundle satisfies Profile §5.2 before project concepts
-   are added.
-4. **Apply the actor condition.** Evaluate the seeded concepts under Profile
-   §6.1.1 and use the canonical `SEEDING.md` actor template when that rule requires
-   the registry. The literal seed currently uses an actor-valued field, so following
-   it includes `actors.md`.
-5. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the equivalent)
-   MUST say that durable documentation lives in the bundle, that the reader starts at
-   `knowledge/index.md`, and that execution records stay in the tracker. Without it an
-   agent will write a `docs/` file beside the bundle and both will be half right.
+1. **Select the release.** Write `wayfinder.json` at the project root with one
+   direct `bitwild_profile` Git source and the explicit bundle path in its
+   `applies_to` list. Resolve it with `wayfinder get` and commit the resulting
+   metadata-only `wayfinder.lock`. Add only project-specific type, tag, and
+   actor definitions that actual knowledge uses.
+2. **Seed the bundle.** Create `index.md` carrying `okf_version: "0.2"` and
+   `log.md` under `knowledge/`. The adoption skill's `SEEDING.md` carries the
+   literal template. Do not copy the 2026.2 `profile.md`, `types.md`, or
+   `actors.md` concepts into a new 2026.3 bundle.
+3. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the
+   equivalent) MUST say that durable documentation lives in the bundle, that
+   the reader starts at `knowledge/index.md`, and that execution records stay
+   in the tracker.
+
+Existing 2026.2 bundles retain their old root files and declaration; adoption
+is not a migration. See §5 for migration.
 
 **Create no directories during generic seeding.** `architecture/`,
 `ways-of-working/`, `interactions/`, and `references/` are optional lazy names, not
@@ -153,10 +152,11 @@ indexes themselves remain required for every nonempty directory.
 
 ### 4.1 Results and exit codes
 
-The command surface for Profile 2026.2 is `okfp validate <bundle> [--output
-text|json]`. The bundle path is required and implementations MUST inspect
-exactly that directory. They MUST NOT discover a repository bundle by walking
-upward, accept a caller-selected Profile or rule set, or provide `--strict` or
+The command surface is `wayfinder validate <bundle> [--config <file>]
+[--output text|json]`. The bundle path is required and implementations MUST
+inspect exactly that directory. Config discovery MAY walk up to find the
+project's `wayfinder.json`, but MUST NOT select a different bundle. They MUST NOT
+accept a caller-selected Profile or rule set, or provide `--strict` or
 another switch that promotes recommendations into requirements.
 
 Text and JSON MUST expose four distinct components:
@@ -219,15 +219,17 @@ is built to prevent.
 A validator MAY summarize trust tiers and organizational provenance, and such a summary
 MUST NOT affect exit status.
 
-The conditional registry and complete actor-row requirements in profile §6.1.1
-are Deterministic Rules. Reporting their absence as a Profile failure does not
-reject the concept as invalid OKF, alter its actor string, or change its derived
-trust tier.
+For Profile 2026.2, the conditional `actors.md` registry and complete actor-row
+requirements in its §6.1.1 are Deterministic Rules. Profile 2026.3 instead
+checks the selected binding's actor lookup under its §6.1.1. Neither check
+rejects the concept as invalid OKF, alters its actor string, or changes its
+derived trust tier.
 
 Validation MUST keep syntax separate from contextual truth. It checks required
-metadata presence and shape, canonical type rows and ordering, used-type
-registration, actor side membership and non-overlapping period syntax,
-source structure, unique source IDs, recognized attribution joins, and literal
+metadata presence and shape, release-specific standard type definitions and
+used-type registration, actor side membership and (for 2026.2 only)
+non-overlapping period syntax, source structure, unique source IDs, recognized
+attribution joins, and literal
 tag duplication. A footnote is source attribution only when its label matches a
 declared source ID; ordinary Markdown footnotes are not findings. It MAY expose
 organizational affiliation; when it does, it MUST resolve the applicable registry
@@ -264,25 +266,24 @@ provenance or a body link.
 
 ### 4.4 Version dispatch
 
-A validator MUST read `concepta_profile` from `profile.md` and apply the rules of that
-release. It MUST read the first fenced `yaml` block in the body as the Profile
-declaration and MUST NOT infer release values from another block or from
-frontmatter.
+A validator MUST dispatch using exactly one of two selectors:
 
-- An **unrecognized version format** is not an error. The value is opaque: the
-  `<year>.<serial>` scheme is not semver, and a validator MUST NOT parse the value
-  under any format assumption.
-- The first validator MUST implement only Profile 2026.2. Any other declared
-  value produces `UNSUPPORTED PROFILE RELEASE`, deterministic Profile state
-  `UNSUPPORTED`, automated-gate state `UNSUPPORTED`, and exit `2`, while still
-  exposing the independent OKF result. Unsupported is tool capability, not a
-  Profile-conformance verdict.
-- A validator MUST NOT fall back to the newest rules it knows. A declaration
-  selects an immutable release; neither the caller nor the bundle may inject,
-  omit, replace, or parameterize its rules.
-- A missing or unreadable declaration prevents release dispatch and is reported
-  without claiming a Profile-conformance result. Any OKF result available from
-  the independent validation remains separately visible.
+- For a bundle named by exactly one `applies_to` path in `wayfinder.json`,
+  read its selected source chain from a current lock/cache and dispatch on
+  manifest identity and exact release. `bitwild_profile/2026.3` selects this
+  release. Verify safe paths, the manifest's OKF 0.2 binding, and parity of the
+  base vocabulary with the compiled validator. Source manifests supply
+  declarations, not executable Profile rules.
+- For an unlisted legacy bundle, read `concepta_profile` from the first fenced
+  `yaml` block in root `profile.md`. `"2026.2"` selects the immutable legacy
+  validator; it is never interpreted as 2026.3.
+
+An explicit `--config` path MUST exist and name the requested bundle. Unknown
+IDs or releases produce `UNSUPPORTED` and exit `2`, preserving any independent
+OKF result. A malformed or unreadable selector also prevents dispatch. The
+validator MUST NOT silently apply the newest rules or reinterpret an old bundle
+because a neighboring project config exists. Generic OKF reading remains
+available even when Profile dispatch fails.
 
 ### 4.5 Where it runs
 
@@ -293,7 +294,7 @@ CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
 
 ### 4.6 Release evidence
 
-Profile 2026.2 has two non-normative release artifacts with different jobs:
+Profile 2026.3 has two non-normative release artifacts with different jobs:
 
 - [`../docs/compatibility-review.md`](../docs/compatibility-review.md)
   records the rule-level compatibility review against pinned OKF 0.2.
@@ -304,6 +305,144 @@ Profile §15.1 owns their separation and the publication gate. Implementations
 MUST use the coverage matrix, not the compatibility review, to determine whether
 each normative clause is assessed by Automated Profile Validation or contextual
 Profile Review.
+
+### 4.7 External Profile binding (2026.3)
+
+This subsection implements Profile §11. The published 2026.2 selector and
+registries remain immutable; migration to proposed 2026.3 is explicit.
+The project configuration and manifest shapes are described by
+[`wayfinder.schema.json`](../docs/schemas/wayfinder.schema.json) and
+[`wayfinder-profile.schema.json`](../docs/schemas/wayfinder-profile.schema.json).
+A version-1 project file has **one** form: direct Profile sources and the bundle
+paths they apply to. It has no `bundles`, `implements`, or `default_bundle` key.
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "profile"
+      },
+      "applies_to": ["./knowledge"],
+      "types": [
+        {"name": "Project Note", "description": "A project-specific durable note"}
+      ]
+    }
+  }
+}
+```
+
+The map key is the manifest identity, not an alias. The manifest supplies its
+release, upstream OKF binding and vocabulary. `bitwild_profile/2026.3` is the
+installed closed ruleset; its fetched vocabulary must match the compiled
+standard registry exactly. Each other Profile entry must `extends` a declared
+parent chain reaching this base. A parent may be source-only with
+`applies_to: []`; a child adds manifest and project vocabulary, but cannot
+replace inherited names or load rules from Git. Missing parents, cycles,
+collisions, unsupported releases, and ambiguous bundle application fail
+Profile dispatch. Types, topic tags and actor lookup are the only local
+additions. A registered custom type is still a non-blocking extension
+advisory; contextual meaning belongs to Profile Review.
+
+A relative local `source.git` is resolved from the directory containing
+`wayfinder.json`, not the process working directory. Cache identity uses that
+resolved location; the lock preserves the declared source spelling. A
+drive-relative path is invalid.
+
+`get` resolves all declared refs, writes `wayfinder.lock` atomically and
+reuses a current lock. `upgrade` deliberately refreshes mutable refs. A
+canonical-JSON hash invalidates the lock on semantic config changes, not
+formatting changes; an unchanged source retains its locked commit during
+`get`. The lock contains revision metadata, never project knowledge,
+credentials or executable rules. The local Git cache holds fetched objects.
+If a current lock's selected commit is absent, a read-only command does not
+substitute the current branch tip: run `get` to recover the exact commit or
+`upgrade` to select a new revision deliberately. Failed resolution leaves the
+previous lock intact.
+
+Validation operates on **one explicit bundle**. The implementation first
+inspects it under OKF 0.2. A failing OKF result blocks Profile assessment but
+is never reclassified. For an OKF-conformant bundle, it parses the selected
+project config, checks safe path/identity/release and reads only the selected
+Profile chain from a current lock/cache. Missing or stale source state yields
+`UNSUPPORTED` Profile dispatch alongside the independent OKF report; neither
+CLI `validate` nor read-only MCP `validate` fetches or writes a lock. The
+configured Profile then checks the root `index.md` `okf_version: "0.2"`,
+standard and custom type/tag/actor references, and the other deterministic
+Profile rules. An unlisted 2026.2 bundle keeps its in-bundle declaration; an
+ancestor project config cannot silently migrate it. Unknown releases never
+fall back to the newest rules.
+
+`graph` projects the ordinary OKF graph without Profile-source resolution.
+Embedding `index` and `search` likewise consume the explicit bundle without
+resolving unused Profile sources; they do not generate Profile navigation
+indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
+graph reading fail. Those command boundaries implement the separate outcomes
+required by Profile §§14.1–14.2.
+
+The parser implements the schema and cross-document checks rather than
+executing a JSON Schema engine. It checks normalized and canonical paths,
+manifest identity and release, the effective vocabulary and actor lookup. A
+schema alone cannot prove filesystem safety, Git availability, or whether a
+concept truthfully uses a type or topic tag. `captures/` remains outside the
+bundle unless explicitly declared as another OKF bundle; no nested area
+inherits a different Profile.
+
+### 4.8 Frontmatter fields and type-specific constraints
+
+Validation has two layers of frontmatter checking. The
+upstream `okf` package validates the pinned OKF 0.2 field shapes and preserves
+unknown content for tolerant reading. The Bitwild Profile adds only its
+producer-side constraints:
+
+| Field or family | Legacy 2026.2 coverage | Configured 2026.3 coverage |
+| --- | --- | --- |
+| `type` | Required non-empty string; membership in the `types.md` registry | Membership in the selected Profile's standard types plus binding custom types |
+| `title`, `description` | Required non-empty strings | Unchanged |
+| `status` | Required string with `draft`, `stable`, or `deprecated` | Unchanged unless a future Profile release explicitly changes it |
+| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, and reports an undeclared used tag according to the release rule |
+| `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics; actor extraction and trust semantics remain separate | Keep upstream meanings; do not add Profile-specific fields for trust or freshness |
+| `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics | Keep upstream meanings and run the same checks after binding resolution |
+| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Continue rejecting new keys; a binding cannot authorize arbitrary frontmatter extensions |
+
+The current implementation therefore has no type-specific property schema. This
+is deliberate: the Profile defines no type-specific body template, and OKF
+frontmatter is an upstream contract rather than a project-owned object model.
+The new JSON type extension records only a custom type's `name` and
+`description`; it MUST NOT add arbitrary `properties`, `required` fields, or
+per-project frontmatter keys.
+
+If a future Profile needs a type-specific constraint, it MUST constrain existing
+OKF fields using a new reviewed Profile release. It MUST NOT turn
+`wayfinder.json` into a second frontmatter schema or allow a project to add
+fields such as `owner`, `priority`, `confidence`, or `maturity`. Information
+that has no OKF field belongs in the concept body or requires an upstream OKF
+change before a Profile can depend on it.
+
+Tags remain OKF topic strings, but the next Bitwild binding treats its `tags`
+arrays as a declared vocabulary rather than a list of recommendations. The
+selected Profile manifest declares its base tags and the project binding adds
+project tags. Wayfinder MUST reject duplicate names within either list and
+collisions between the lists, reject duplicate values within one concept, and
+apply the selected Profile release's explicit rule for an undeclared used tag.
+For Bitwild 2026.3, an undeclared used tag is an error; a Profile that needs an
+open vocabulary must state that as a different release rule.
+
+The Profile's tag rule remains a Profile convention, not an OKF requirement:
+generic OKF consumers still tolerate arbitrary tag strings. Semantic aliases
+and whether a declared tag is a truthful topic remain Profile Review concerns.
+
+The provenance of these limits matters. `status` is an OKF lifecycle field and
+`draft`, `stable`, and `deprecated` are OKF's values; the Profile makes the
+otherwise-optional field explicit and requires that it continue to describe the
+document lifecycle. `tags` is also an OKF field, but OKF deliberately leaves its
+vocabulary open. The topic-only and literal-duplication limits are therefore
+Bitwild Profile conventions, not OKF requirements. A generic OKF consumer must
+still tolerate an absent status, other producer-defined tags, and unknown type
+values when it reads a bundle outside this Profile.
 
 ---
 
@@ -487,6 +626,16 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+**2026.3.** Binds Profile 2026.3. Implements explicit `wayfinder.json`
+release dispatch while preserving the 2026.2 in-bundle path. Affected sections:
+§§2, 4.1, 4.4, 4.7–4.8, and 9. Driver: reusable Profile bindings,
+reproducible source revisions, and removal of repeated in-bundle configuration.
+Migration for implementations: add direct-source configuration, explicit
+get/upgrade lock management, read-only validation of a selected Profile,
+safe path and registry checks, and per-release index projection; retain legacy
+dispatch and independent OKF results. Existing 2026.2 bundles remain
+supported without edits.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

@@ -6,9 +6,17 @@
 
 ## Compatibility
 
-[Compatibility review](compatibility-review.md) — Rule-level evidence that Concepta Profile 2026.2 preserves pinned OKF 0.2.
+[Compatibility review](compatibility-review.md) — Rule-level evidence that Bitwild Profile 2026.3 preserves pinned OKF 0.2.
 
 [Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
+
+Earlier-release evidence is preserved in the [2026.2 compatibility review](compatibility-review-2026.2.md) and [2026.2 assessment coverage](../implementation/profile-coverage-2026.2.md).
+
+## Configuration guides
+
+[Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, manifest schemas, explicit lock resolution, and read-only validation order.
+
+[Wayfinder Profile guide](wayfinder-profile-guide.html) — Visual guide to Profiles, project bindings, tags, status, and validation coverage.
 
 ## Maintenance
 
@@ -47,3 +55,5 @@
 [0011: Wayfinder MCP](adr/0011-station-mcp.md) — Accepted. Serve Wayfinder tools over local MCP stdio.
 
 [0012: Wayfinder graph projection](adr/0012-wayfinder-graph-projection.md) — Accepted. Project the ordinary OKF graph; mermaid and DOT are text for an external preview.
+
+[0014: External Profile bindings](adr/0014-external-profile-bindings.md) — Accepted for 2026.3. External project bindings and exact release dispatch; supersedes ADR-0004’s in-bundle selection and registries.

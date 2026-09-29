@@ -17,7 +17,7 @@ behaviour per unit of interface a caller must learn.
 
 | # | Decision |
 |---|----------|
-| [0004](0004-closed-concepta-profile-validator.md) | Accepted — first implement a closed Concepta Profile validator; defer the generic platform |
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted; selection and registries superseded for 2026.3 by ADR-0014 — first implement a closed Concepta Profile validator; defer the generic platform |
 | [0006](0006-raw-tier-under-references.md) | Accepted — a per-source `raw/` tier under `references/` for verbatim originals; no markdown inside but each directory's index |
 | [0007](0007-index-targets-compared-percent-decoded.md) | Accepted — index entry targets are relative URLs compared percent-decoded, so real-world filenames stay expressible |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted — okfp republishes okf 0.2.0's finding report as its wire format; the separate load-issue channel is retired |
@@ -26,3 +26,4 @@ behaviour per unit of interface a caller must learn.
 | [0011](0011-station-mcp.md) | Accepted — Serve Wayfinder validate, index and search over local MCP stdio |
 | [0012](0012-wayfinder-graph-projection.md) | Accepted — Wayfinder projects the ordinary OKF graph; writes remain in `okf` |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed — a dated `captures/` evidence layer beside the bundle with an `intake.md` per package, and `Source Document` pointers instead of restated client documents |
+| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 — external project bindings with exact release dispatch; closed validator and independent OKF checks retained |
