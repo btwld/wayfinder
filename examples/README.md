@@ -15,6 +15,18 @@ Success proves OKF conformance and the deterministic Profile 2026.2 rules only.
 The command reports Judgment Rules as `UNASSESSED`; complete Profile conformance
 also requires the contextual Profile Review defined by the canonical skill.
 
+[`configured-2026.3/`](configured-2026.3/) is a separate, minimal
+direct-source example. Its `wayfinder.json` selects the proposed 2026.3
+Profile from Git, and its bundle has only the root files a new adoption
+needs. After the source branch contains the 2026.3 manifest, run
+`wayfinder get examples/configured-2026.3`, then
+`wayfinder validate examples/configured-2026.3/knowledge`. The committed
+lock is intentionally absent from this illustrative source checkout: CI's
+[`verify-configured-example.py`](../tool/ci/verify-configured-example.py)
+copies it to a temporary project, resolves a synthetic local Git source,
+checks the 2026.3 gate, and confirms generic graph reading without a lock.
+No example check establishes contextual Profile conformance.
+
 **This is not this repository's adopted bundle.** Profile conformance does not
 fix repository location or bundle count; Concepta adoption places its working
 bundle at `knowledge/`. This illustrative bundle lives under `examples/` so it

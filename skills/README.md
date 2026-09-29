@@ -58,7 +58,9 @@ declared release before applying them.
 
 The [vendored OKF 0.2 specification](author-knowledge-bundle/references/OKF-0.2.md)
 provides upstream mechanisms the Profile leaves open, including Attested
-Computation and source credibility signals. It is pinned to upstream commit
+Computation and source credibility signals. Attested Computation is included
+in the 2026.3 standard type vocabulary; its contract still comes from OKF
+§10. The specification is pinned to upstream commit
 `ad30107` in the canonical `open-knowledge-format` repository, with Apache-2.0
 attribution, so offline consumers read the reviewed specification instead of a
 changing `main` URL. Keep it as a reference, not a

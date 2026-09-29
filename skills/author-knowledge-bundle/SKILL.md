@@ -16,12 +16,20 @@ to a sibling bundle or to an arbitrary subdirectory.
 
 Before applying Profile rules, resolve the bundle's exact release:
 
-- If project-root `wayfinder.json` lists `knowledge/`, read its named binding.
-  `bitwild_profile/2026.3` selects the current rules and installed manifest.
-  In the Wayfinder source tree the manifest is at
+- If project-root `wayfinder.json` has exactly one `applies_to` entry for
+  the requested bundle, read that entry's direct `source` and any additive
+  `extends` chain. The manifest identity and exact release select the rules;
+  `bitwild_profile/2026.3` selects the compiled rules for that release. A child must
+  reach that base. The source manifests supply vocabulary, not executable
+  rules. In the Wayfinder source tree the base manifest is at
   `profile/wayfinder-profile.json`; the routed concept reference carries its
   standard vocabulary for standalone skill installations. The root index
-  declares OKF 0.2.
+  declares OKF 0.2. Read the exact source revision from the current
+  `wayfinder.lock` and local cache. If absent or stale during authorized
+  authoring, run `wayfinder get` and include the resulting lock; `validate`
+  itself never fetches or writes it. Use `upgrade` only for an intentional
+  mutable-ref advance. If the source cannot be resolved, report that the
+  release cannot be assessed rather than guessing from the entry key.
 - Otherwise, read the first fenced `yaml` block in `knowledge/profile.md`.
   `concepta_profile: "2026.2"` selects the legacy rules. The immutable 2026.2
   Profile snapshot is `profile/versions/okf-profile-2026.2.md`.
@@ -36,8 +44,8 @@ root concepts, regenerate the root index, and validate and review the result.
 
 **2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
 `profile.md`, `types.md`, and `actors.md` are retired for this release; the
-binding supplies custom type, tag, and actor declarations while the installed
-Profile supplies standards. The subject-placement rule and the four fixed
+binding supplies custom type, tag, and actor declarations while the selected
+base Profile supplies standards. The subject-placement rule and the four fixed
 names `architecture/`, `ways-of-working/`, `interactions/`, `references/`
 remain. A binding applies to a whole bundle, never an area. Release-specific
 notes in the routed references below take precedence over their legacy

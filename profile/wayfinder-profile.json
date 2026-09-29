@@ -49,6 +49,10 @@
     {
       "name": "Interaction Record",
       "description": "An interaction whose combined context is itself durable"
+    },
+    {
+      "name": "Attested Computation",
+      "description": "An OKF-defined sanctioned computation with a checkable execution receipt"
     }
   ],
   "tags": []

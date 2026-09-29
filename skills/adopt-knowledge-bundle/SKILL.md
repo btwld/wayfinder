@@ -36,7 +36,8 @@ Bitwild Profile 2026.3 fixes the bundle rules; the project binding holds
 only project facts. Do not invent custom types, tags, or actor IDs during
 generic seeding. Prepare only the missing or requested changes:
 
-- Project-root `wayfinder.json` and the bundle root files, when they need seeding
+- Project-root `wayfinder.json`, its resolved `wayfinder.lock`, and the bundle
+  root files, when they need seeding
 - The `### Knowledge bundle` and `### Wayfinder` blocks for `AGENTS.md`
 - The files `wayfinder setup --hooks` writes, if the project lacks them
 - The `@AGENTS.md` line for `CLAUDE.md`, if it isn't already there
@@ -52,6 +53,10 @@ root-file contents and the conditions they implement. If a bundle already exists
 skip seeding. Repairing a partial bundle or changing its release is separate work;
 do not seed or change the selector. Follow the authoring skill's
 [migration refusal](../author-knowledge-bundle/SKILL.md#release-dispatch).
+Run `wayfinder get` after writing a new configuration and include its
+metadata-only lock in the changes. If source resolution is unavailable, report
+that validation cannot yet assess the Profile; do not replace the source with
+the unpublished `bundles` / `implements` draft shape.
 
 **Create no directories.** Canonical seeding creates only the bundle root; the
 `author-knowledge-bundle` skill decides later structure from the project's

@@ -445,7 +445,7 @@
         <h2>Start here</h2>
         <p class="section-intro">
           Direct Profile sources keep reusable rules in a Profile
-          package and puts project paths and vocabulary in one
+          package and put project paths and vocabulary in one
           <code>wayfinder.json</code> entry.
         </p>
         <div class="steps">
@@ -469,9 +469,9 @@
             <span class="step-number">3</span>
             <h3>Resolve and review</h3>
             <p>
-              Run <code>wayfinder validate ./knowledge</code>. Wayfinder
-              resolves a missing or stale lock before validation, then reports
-              contextual Profile Review separately.
+              Run <code>wayfinder get</code> once, then
+              <code>wayfinder validate ./knowledge</code>. Validation reads
+              the current lock and reports contextual Profile Review separately.
             </p>
           </div>
         </div>
@@ -487,11 +487,12 @@
           </div>
           <div class="card legacy">
             <span class="card-kicker">Compatibility</span>
-            <h3>Installed 2026.3 remains supported</h3>
+            <h3>Published 2026.2 remains supported</h3>
             <p>
-              The runtime still reads the legacy configuration shape.
               Existing 2026.2 bundles keep their in-bundle declarations until
-              they are migrated.
+              explicitly migrated. The unpublished version-1
+              <code>bundles</code> / <code>implements</code> draft is not a
+              second configuration shape.
             </p>
           </div>
         </div>
@@ -578,7 +579,7 @@
           prefix. The package manifest supplies the Profile release and must
           match <code>bitwild_profile</code>. The shipped
           <a href="../profile/wayfinder-profile.json">Profile manifest</a>
-          declares eleven standard types and no base tags.
+          declares twelve standard types and no base tags.
         </p>
         <div class="card-grid">
           <div class="card"><h3>One entry</h3><p>A Profile entry can apply to several bundle folders.</p></div>
@@ -590,8 +591,8 @@
       <section class="section" id="sources-lockfile">
         <h2>Sources and lockfile</h2>
         <p class="section-intro">
-          Git sources resolve to exact commits. The lock records that resolution,
-          while the installed 2026.3 Profile remains available to older projects.
+          Git sources resolve to exact commits. The lock records that
+          resolution; older 2026.2 bundles keep their own declarations.
         </p>
         <div class="code-example">
           <div class="code-caption">wayfinder.json · additive custom Profile</div>
@@ -650,7 +651,7 @@
         <div class="card-grid">
           <div class="card"><h3>Resolve</h3><p><code>wayfinder get</code> writes or refreshes the lock.</p></div>
           <div class="card"><h3>Upgrade</h3><p><code>wayfinder upgrade</code> advances a mutable branch or tag. A pinned commit does not move.</p></div>
-          <div class="card"><h3>Shared resolver</h3><p><code>validate</code>, <code>index</code>, <code>search</code>, and <code>graph</code> resolve when the lock is missing or stale.</p></div>
+          <div class="card"><h3>Read-only validation</h3><p><code>validate</code> reads a current lock/cache without fetching or writing. <code>graph</code>, <code>index</code>, and <code>search</code> do not resolve Profile sources.</p></div>
         </div>
       </section>
 
@@ -739,11 +740,12 @@
             </p>
           </div>
           <div class="card">
-            <h3>Legacy projects</h3>
+            <h3>2026.2 projects</h3>
             <p>
-              The runtime still reads <code>implements</code> and a
-              separate <code>bundles</code> array. Migrate those paths into
-              <code>applies_to</code> when the project adopts direct sources.
+              The published 2026.2 in-bundle selector remains valid. A
+              migration to 2026.3 is explicit work: add direct
+              <code>source</code> and <code>applies_to</code>, resolve a lock,
+              then migrate the bundle's root registries.
             </p>
           </div>
         </div>
@@ -752,9 +754,9 @@
       <section class="section" id="validation">
         <h2>What validation checks</h2>
         <p class="section-intro">
-          The shared resolver runs first. Wayfinder then preserves the
-          independent OKF result and applies deterministic rules for the
-          selected Profile release.
+          Wayfinder inspects OKF first, then reads the selected Profile source
+          without fetching or writing. A source failure never reclassifies the
+          independent OKF result.
         </p>
         <div class="table-scroll" role="region" aria-label="Validation coverage" tabindex="0">
           <table>
@@ -823,9 +825,9 @@
         </aside>
         <h3>Configured validation flow</h3>
         <ol>
-          <li>Run the shared resolver and refresh a missing or stale lock.</li>
-          <li>Parse <code>wayfinder.json</code>, normalize the selected bundle path, and check the Profile manifest.</li>
-          <li>Retain the independent OKF result, then validate types, tags, actors, and deterministic Profile rules.</li>
+          <li>Inspect the explicit bundle and retain its independent OKF result.</li>
+          <li>For an OKF-conformant bundle, select a matching <code>applies_to</code> path and read its source chain from a current lock/cache.</li>
+          <li>Check manifest identity and release, then validate types, tags, actors, and deterministic Profile rules.</li>
           <li>Report contextual rules separately as <code>UNASSESSED</code>.</li>
         </ol>
       </section>

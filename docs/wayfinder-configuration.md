@@ -1,12 +1,13 @@
 # Wayfinder project configuration
 
-Wayfinder accepts direct Git Profile sources and retains installed 2026.3
-bindings and in-bundle 2026.2 declarations for existing projects.
+Proposed Profile 2026.3 uses one version-1 project configuration shape:
+direct Git Profile sources with explicit bundle paths. Published 2026.2
+bundles keep their in-bundle declarations.
 
 Wayfinder uses two JSON documents with different responsibilities:
 
 - [`wayfinder.schema.json`](schemas/wayfinder.schema.json) describes the
-  preferred direct source shape and the legacy compatibility shape.
+  direct-source project configuration.
 - [`wayfinder-profile.schema.json`](schemas/wayfinder-profile.schema.json)
   describes the manifest shipped with a Profile package.
 
@@ -44,6 +45,14 @@ repository, `source.ref` selects a branch, tag, or commit, and `source.path`
 is the Profile directory inside that revision. A ref has no `branch/`, `tag/`,
 or `commit/` prefix. The fetched manifest is authoritative for the Profile
 release and must report the same identity as the map key.
+
+For a local Git source, a relative `source.git` path is resolved from the
+directory containing `wayfinder.json`, not the caller's working directory.
+The lock retains the declared spelling; the local cache keys the resolved
+location. Drive-relative paths such as `C:profile` are not supported.
+Passwordless SSH URLs such as `ssh://git@github.com/org/repo.git` and Git's
+SCP-style `git@github.com:org/repo.git` are supported. Do not put credentials
+in the source URL.
 
 `applies_to` contains bundle directories relative to `wayfinder.json`. Use the
 explicit `./knowledge` form. A path must stay inside the project and identify
@@ -141,7 +150,7 @@ The command surface is deliberately small:
 ```text
 wayfinder get [project]        # resolve declared refs and write the lock
 wayfinder upgrade [project]    # deliberately advance a branch or tag
-wayfinder validate ./knowledge # resolve when needed, then validate the bundle
+wayfinder validate ./knowledge # read current lock/cache; never fetch or write
 ```
 
 `get` resolves each declared source and respects a current lock. If project
@@ -149,14 +158,13 @@ vocabulary changes, it updates the configuration hash while retaining a
 previously locked commit for an unchanged source. `upgrade` refreshes a mutable
 branch or tag and writes its new commit; a pinned commit does not move.
 
-`validate`, `index`, `search`, and `graph` all run the same resolver before
-their normal work. If the lock is missing or its configuration hash is stale,
-the resolver performs the equivalent of `get` and writes the lock. If the lock
-is current, resolution is a no-op and a current source cache can be used
-without network access. A failed resolution stops the command before it reads
-bundle content and leaves the previous lock unchanged. If a cache must be
-recreated, Wayfinder requires the exact locked commit to remain available;
-it never silently substitutes a moved branch or tag.
+`validate` reads only the selected Profile chain from a current lock and
+local cache. It never fetches or writes the lock. If either is missing or
+stale, it still reports the independent OKF result and a Profile-resolution
+finding. Run `get` to recover the exact locked commit or `upgrade` to
+deliberately select a new revision. Neither command silently substitutes a
+moved branch or tag for a locked commit. `graph`, `index`, and `search`
+do not use Profile sources or resolve the lock.
 
 ## Tags and captures
 
@@ -181,7 +189,7 @@ captures as a searchable OKF bundle, add its path to the appropriate
 A Profile manifest is distribution and compatibility metadata, not an
 executable rule language. The installed Bitwild manifest is
 [`profile/wayfinder-profile.json`](../profile/wayfinder-profile.json):
-`bitwild_profile/2026.3`, exactly compatible with OKF `0.2`, with eleven
+`bitwild_profile/2026.3`, exactly compatible with OKF `0.2`, with twelve
 standard types and no base tags. The current validator has compiled metadata
 and tests it against that manifest; it does not load arbitrary Profile JSON.
 The Profile package also ships normative text and contextual review guidance.
@@ -193,17 +201,16 @@ into its local cache.
 
 ## Validation order
 
-Every bundle command begins with the shared resolver. It refreshes a missing or
-stale lock as described above, then Wayfinder processes the selected bundle in
-this order:
+For `validate`, Wayfinder processes the explicit bundle in this order:
 
-1. Parse `wayfinder.json` and enforce its shape and cross-field rules.
-2. Normalize each `applies_to` path safely and select the matching Profile.
-3. Check the lock, source cache, Profile manifest identity, and Profile release.
-4. Run independent OKF validation.
-5. Merge standard and project types and validate concept type references.
-6. Validate actor references, tags, and project metadata.
-7. Run deterministic Profile rules and report contextual rules separately.
+1. Inspect the bundle and run independent OKF validation.
+2. For an OKF-conformant bundle, discover a project configuration only if it
+   selects this bundle; otherwise retain its legacy 2026.2 dispatch.
+3. Parse the selected configuration, check safe `applies_to` paths, and read
+   the selected chain from a current lock/cache without network or writes.
+4. Check manifest identity, exact Profile release, and OKF binding.
+5. Merge standard and project vocabulary, then run deterministic Profile rules.
+   Report contextual rules separately as unassessed.
 
 The published JSON Schema describes shape and primitive types. Wayfinder's
 parser enforces the cross-document checks that a schema cannot prove, such as
@@ -212,16 +219,17 @@ actor reference is used correctly.
 
 ## Compatibility and migration
 
-The runtime still reads the legacy `profiles` plus `bundles`
-shape with an `implements` field. Existing 2026.2 bundles still use their
-in-bundle `profile.md`, `types.md`, and conditional `actors.md` declarations.
-This compatibility path remains available while projects migrate to direct
-sources.
+The former `profiles` + `bundles` / `implements` version-1 draft was
+never published and is not accepted by the 2026.3 parser. Convert any
+pre-release draft configuration to direct `source` + `applies_to` before
+validation. Published 2026.2 bundles still use in-bundle `profile.md`,
+`types.md`, and conditional `actors.md` declarations, without requiring a
+neighboring `wayfinder.json`.
 
-To migrate a legacy project, keep each bundle path, move its `profile` key into
-the matching Profile entry's `applies_to`, replace `implements` with a Profile
-source, and keep its custom `types`, `tags`, and `actors` on that entry. Remove
-`default_bundle` and the old `bundles` array. If a legacy `actors.md` contains
-time-dependent affiliation history, preserve that history as an ordinary
-project concept before removing the registry. Subject-placement rules remain
-Profile rules; no placement map belongs in JSON.
+Migrating a 2026.2 bundle is explicit work: add a direct-source entry and
+lock, move project vocabulary and actor lookup to the project configuration,
+then remove the old root registries and regenerate the index. Preserve
+time-dependent affiliation history as an ordinary project concept before
+removing `actors.md`. Validate and perform contextual Profile Review. Do
+not change a release selector merely to make a validation finding disappear.
+Subject-placement rules remain Profile rules; no placement map belongs in JSON.

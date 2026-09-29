@@ -1,10 +1,17 @@
-# ADR-0014: Select a built-in Profile through an external project binding
+# ADR-0014: Bind a closed Profile through direct project sources
 
 - Status: accepted
 - Date: 2026-09-27
+- Revised: 2026-09-29 (before the proposed 2026.3 release)
 - Scope: Profile 2026.3 project binding and exact-release dispatch
 - Supersedes: ADR-0004's in-bundle selection and registry-file decisions for Profile 2026.3; its OKF boundary and closed-validator decision remain
-- Driver: Profile 2026.3 release; multiple explicit bundles and reusable project bindings
+- Driver: Profile 2026.3 adoption; reproducible source revisions and reusable project vocabulary
+
+The 2026-09-27 version selected installed-only bindings and rejected source
+loading and inheritance. This revision records the unshipped PR #113 design
+after review; the [earlier text at `dfd46e1`](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0014-external-profile-bindings.md)
+remains the provenance of that choice. This is a changed decision, not a claim
+that Git sourcing was considered in the original discussion.
 
 ## Context
 
@@ -20,17 +27,21 @@ of Profile 2026.2, not OKF requirements.
 
 ## Decision
 
-Profile 2026.3 uses an explicit project-root `wayfinder.json`: named bindings
-select an exact installed Profile ID/release, and bundle entries select one
-binding each. The installed implementation is `bitwild_profile/2026.3`, with a
-JSON manifest, normative rules, deterministic validator, and agent guidance.
-The manifest is not a rule DSL. The validator stays closed; there is no remote
-provider loading, composition, inheritance, or per-rule override.
+Profile 2026.3 uses an explicit project-root `wayfinder.json`: each Profile key
+names its identity, Git source and bundle paths in `applies_to`. A source
+manifest declares identity, exact release, OKF binding and vocabulary, not
+executable rules. `get` and `upgrade` resolve a revision into a metadata-only
+`wayfinder.lock`; read-only validation uses a current lock/cache and never
+fetches or rewrites them. The installed `bitwild_profile/2026.3` implementation
+retains its normative text, deterministic validator and agent guidance. No
+source can replace or parameterize those compiled rules.
 
-The installed manifest owns eleven standard types and the base tag vocabulary
-(empty in 2026.3).
-A binding adds project types, tags, and actor lookup metadata. Type and tag
-names cannot collide; used values must be declared. The bundle keeps OKF
+The installed manifest owns twelve standard types and the base tag vocabulary
+(empty in 2026.3). A source or project entry adds types, tags, and actor
+lookup metadata.
+`extends` composes those additions explicitly along a chain to the installed
+base. Duplicate or colliding names, cycles and missing parents are rejected.
+Used values must be declared. The bundle keeps OKF
 `index.md` and authored `log.md`, while the three legacy root registry/selector
 concepts retire for 2026.3. Subject placement and the four Profile-defined
 directory names are unchanged. One Profile applies to a whole bundle; a nested
@@ -47,23 +58,28 @@ bundle and do not embed configuration or undeclared captures.
 - Keeping release selectors and all registries in every bundle was rejected
   because it duplicated standard vocabulary and made configuration look like
   project knowledge.
-- A generic remote provider or rule DSL was rejected because it would weaken
-  reproducibility and the closed-validator boundary.
-- An external, committed project binding was selected because it shares
-  reusable Profile vocabulary while keeping executable rules installed and
-  exact-release dispatched.
+- The original installed-only binding avoided remote rule loading but could
+  not pin a reusable external vocabulary source across machines. The 2026-09-29
+  revision replaces that selection before release.
 
 ## Consequences
 
-An opt-in migration moves custom types, used tags, and actor IDs to the binding,
-removes the three legacy root concepts, and regenerates the root index.
+A remote provider or rule DSL remains out of scope: fetched JSON is data, and
+executable validation stays installed.
+
+An opt-in migration moves custom types, used tags, and actor IDs to the direct
+source entry, removes the three legacy root concepts, and regenerates the root
+index.
 Historical affiliation rows cannot be collapsed into a single JSON actor
 entry without losing meaning: preserve material history as ordinary project
 knowledge before removing `actors.md`. Existing 2026.2 bundles remain valid
 without edits. Release evidence and skills must dispatch by exact release.
+The source cache and lock may be unavailable; that prevents Profile dispatch
+but neither invalidates the independent OKF result nor blocks the ordinary OKF
+graph. Retrieval does not resolve Profile sources.
 
 ## Reconsider when
 
-Reopen the binding design when a second installed Profile, a concrete need for
-composition, or a demonstrated cross-project registry workflow justifies a
-new provider contract without remote or silent fallback behavior.
+Reopen the binding design only when a second installed ruleset or real use
+demonstrates a need beyond additive vocabulary composition. Do not infer a
+general remote provider platform from the existence of Git source manifests.

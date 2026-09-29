@@ -116,23 +116,39 @@ void main() {
     expect(errors, isEmpty);
   });
 
-  test('validate selects a configured 2026.3 bundle', () async {
-    const bundle =
-        '../../packages/wayfinder/test/fixtures/configured-project/knowledge';
-    const config =
-        '../../packages/wayfinder/test/fixtures/configured-project/wayfinder.json';
-    final expected = await const ProfileValidator().validate(
-      bundle,
-      configPath: config,
-    );
-    expect(expected.profileRelease, '2026.3');
-    expect(
-      await cli.run(['validate', bundle, '--config=$config', '--output=json']),
-      0,
-    );
-    expect(jsonDecode(output.single), expected.toJson());
-    expect(errors, isEmpty);
-  });
+  test(
+    'validate reports an unprepared 2026.3 source without writing a lock',
+    () async {
+      const bundle =
+          '../../packages/wayfinder/test/fixtures/configured-project/knowledge';
+      const config =
+          '../../packages/wayfinder/test/fixtures/configured-project/wayfinder.json';
+      expect(
+        await cli.run([
+          'validate',
+          bundle,
+          '--config=$config',
+          '--output=json',
+        ]),
+        2,
+      );
+      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      expect((report['okf'] as Map)['state'], 'PASS');
+      expect((report['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect(
+        ((report['profile'] as Map)['findings'] as List)
+            .single['location']['path'],
+        config,
+      );
+      expect(
+        await File(
+          '../../packages/wayfinder/test/fixtures/configured-project/wayfinder.lock',
+        ).exists(),
+        isFalse,
+      );
+      expect(errors, isEmpty);
+    },
+  );
 
   test('command help and version require no local index or model', () async {
     expect(await cli.run(['index', '--help']), 0);
@@ -156,6 +172,39 @@ void main() {
     );
     expect(jsonDecode(output.single), expected.toJson());
   });
+
+  test(
+    'index and search ignore malformed neighboring Profile config',
+    () async {
+      final project = await Directory.systemTemp.createTemp(
+        'wayfinder-retrieval-',
+      );
+      addTearDown(() => project.delete(recursive: true));
+      final bundle = await Directory('${project.path}/knowledge').create();
+      await File('${project.path}/wayfinder.json').writeAsString('{}');
+      final index = _IndexKnowledge('stale');
+      final indexing = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        knowledge: () => index,
+      );
+      expect(await indexing.run(['index', bundle.path, '--output=json']), 0);
+      expect(index.forced, [false]);
+      output.clear();
+      final search = _SearchKnowledge();
+      final searching = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        knowledge: () => search,
+      );
+      expect(
+        await searching.run(['search', bundle.path, 'query', '--output=json']),
+        0,
+      );
+      expect(search.limits, [5]);
+      expect(errors, isEmpty);
+    },
+  );
 
   group('index', () {
     late List<List<String>> spawned;
@@ -263,6 +312,28 @@ void main() {
   });
 
   group('graph', () {
+    test('ignores a malformed neighboring project configuration', () async {
+      final project = await Directory.systemTemp.createTemp(
+        'wayfinder-generic-graph-',
+      );
+      addTearDown(() => project.delete(recursive: true));
+      final bundle = await Directory('${project.path}/knowledge').create();
+      await File('${project.path}/wayfinder.json').writeAsString('{}');
+      await File('${bundle.path}/concept.md').writeAsString('''
+---
+type: Guide
+title: Generic concept
+---
+
+# Generic concept
+''');
+      expect(await cli.run(['graph', bundle.path]), 0);
+      final graph = jsonDecode(output.single) as Map<String, Object?>;
+      expect(graph['nodes'], isNotEmpty);
+      expect(errors, isEmpty);
+      expect(retrievalOpens, 0);
+    });
+
     test('projects the ordinary OKF graph without retrieval', () async {
       const bundle = '../../examples/knowledge';
       final expected = await _okfGraph(bundle);

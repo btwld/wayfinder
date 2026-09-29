@@ -11,26 +11,25 @@ mix their `profile.md`, `types.md`, or `actors.md` into a new bundle.
 ```json
 {
   "version": 1,
-  "default_bundle": "knowledge",
   "profiles": {
-    "knowledge_profile": {
-      "implements": "bitwild_profile/2026.3"
+    "bitwild_profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "profile"
+      },
+      "applies_to": ["./knowledge"]
     }
-  },
-  "bundles": [
-    {
-      "id": "knowledge",
-      "path": "knowledge",
-      "profile": "knowledge_profile"
-    }
-  ]
+  }
 }
 ```
 
-Add custom `types`, `tags`, and `actors` to the binding only as needed. Every
-used actor ID and tag must be declared. The installed Profile supplies the
-standard types; do not copy them into project files. Do not use `captures` as a
-tag merely because a concept cites evidence.
+Add custom `types`, `tags`, and `actors` to this entry only as needed. Every
+used actor ID and tag must be declared. The selected Profile source supplies
+the twelve standard types; do not copy them into project files. Run
+`wayfinder get` and commit its metadata-only `wayfinder.lock` before
+validation. A later `validate` does not fetch or update it. Do not use
+`captures` as a tag merely because a concept cites evidence.
 
 ## `knowledge/index.md`
 
@@ -45,7 +44,7 @@ okf_version: "0.2"
 ````
 
 Other root concepts are grouped by exact `type`. Standard groups follow the
-installed manifest order; custom groups follow in lexical order. Immediate
+base Profile manifest order; custom groups follow in lexical order. Immediate
 subject directories appear under `# Directories`. The subject-placement rule
 and the four Profile-defined directory names remain unchanged.
 

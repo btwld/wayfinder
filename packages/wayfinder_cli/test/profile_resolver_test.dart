@@ -95,6 +95,34 @@ void main() {
     expect(profile['resolved_commit'], isA<String>());
   });
 
+  test(
+    'resolves a relative local Git source from the configuration root',
+    () async {
+      final value = await config();
+      (value['profiles']['bitwild_profile']['source'] as Map)['git'] =
+          '../source';
+      await saveConfig(value);
+      final resolver = WayfinderProfileResolver(dataDirectory: data);
+      final resolved = await resolver.resolve(project.path);
+      expect(resolved.bindings['bitwild_profile']?.release, '2026.3');
+      final lock =
+          jsonDecode(
+                await File(
+                  p.join(project.path, 'wayfinder.lock'),
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      expect(
+        (lock['profiles'] as Map)['bitwild_profile']['source'],
+        '../source',
+      );
+      final readOnly = await resolver.readLockedForBundle(
+        p.join(project.path, 'knowledge'),
+      );
+      expect(readOnly?.bindings['bitwild_profile']?.release, '2026.3');
+    },
+  );
+
   test('reuses a current lock and cache without resolving again', () async {
     final resolver = WayfinderProfileResolver(dataDirectory: data);
     await resolver.resolve(project.path);
@@ -416,37 +444,42 @@ void main() {
   });
 
   test(
-    'bundle commands stop before their normal work when resolution fails',
+    'missing Profile source does not prevent independent OKF validation or graph',
     () async {
+      final fixture = Directory(
+        '../../packages/wayfinder/test/fixtures/configured-project/knowledge',
+      );
+      await for (final entity in fixture.list()) {
+        if (entity is File) {
+          await entity.copy(
+            p.join(project.path, 'knowledge', p.basename(entity.path)),
+          );
+        }
+      }
       final value = await config();
       (value['profiles']['bitwild_profile']['source'] as Map)['ref'] =
           'missing-ref';
       await saveConfig(value);
       final output = <String>[];
       final errors = <String>[];
-      var knowledgeOpens = 0;
       final cli = WayfinderCli(
         out: output.add,
         err: errors.add,
         notices: false,
         profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-        knowledge: () {
-          knowledgeOpens++;
-          throw StateError('Normal bundle work must not start.');
-        },
       );
       final bundle = p.join(project.path, 'knowledge');
-      for (final args in [
-        ['validate', bundle],
-        ['index', bundle],
-        ['search', bundle, 'query'],
-        ['graph', bundle],
-      ]) {
-        expect(await cli.run(args), 2);
-        expect(errors.last, contains('missing-ref'));
-        expect(output, isEmpty);
-      }
-      expect(knowledgeOpens, 0);
+      expect(await cli.run(['validate', bundle, '--output=json']), 2);
+      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      expect((report['okf'] as Map)['state'], 'PASS');
+      expect((report['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect(errors, isEmpty);
+      output.clear();
+      expect(await cli.run(['graph', bundle]), 0);
+      expect(output.single, contains('nodes'));
+      output.clear();
+      expect(await cli.run(['get', project.path]), 2);
+      expect(errors.last, contains('missing-ref'));
       expect(
         await File(p.join(project.path, 'wayfinder.lock')).exists(),
         isFalse,
@@ -455,7 +488,7 @@ void main() {
   );
 
   test(
-    'validate resolves a missing lock and uses the selected Profile context',
+    'validate is read-only until get prepares the selected Profile',
     () async {
       final fixture = Directory(
         '../../packages/wayfinder/test/fixtures/configured-project/knowledge',
@@ -483,21 +516,38 @@ void main() {
         notices: false,
         profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
       );
-      expect(
-        await cli.run([
-          'validate',
-          p.join(project.path, 'knowledge'),
-          '--output=json',
-        ]),
-        0,
-      );
+      final bundle = p.join(project.path, 'knowledge');
+      expect(await cli.run(['validate', bundle, '--output=json']), 2);
       expect(errors, isEmpty);
-      final report = jsonDecode(output.single) as Map<String, dynamic>;
-      expect(report['profile']['state'], 'PASS');
+      final unresolved = jsonDecode(output.single) as Map<String, dynamic>;
+      expect((unresolved['okf'] as Map)['state'], 'PASS');
+      expect((unresolved['profile'] as Map)['state'], 'UNSUPPORTED');
       expect(
         await File(p.join(project.path, 'wayfinder.lock')).exists(),
-        isTrue,
+        isFalse,
       );
+      output.clear();
+      expect(await cli.run(['get', project.path]), 0);
+      final lock = File(p.join(project.path, 'wayfinder.lock'));
+      expect(await lock.exists(), isTrue);
+      final lockedBytes = await lock.readAsBytes();
+      output.clear();
+      expect(await cli.run(['validate', bundle, '--output=json']), 0);
+      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      expect((report['profile'] as Map)['state'], 'PASS');
+      expect(await lock.readAsBytes(), lockedBytes);
+
+      (value['profiles']['bitwild_profile']['tags'] as List).add({
+        'name': 'new-topic',
+        'description': 'A new project topic',
+      });
+      await saveConfig(value);
+      output.clear();
+      expect(await cli.run(['validate', bundle, '--output=json']), 2);
+      final stale = jsonDecode(output.single) as Map<String, dynamic>;
+      expect((stale['okf'] as Map)['state'], 'PASS');
+      expect((stale['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect(await lock.readAsBytes(), lockedBytes);
     },
   );
 

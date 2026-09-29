@@ -27,18 +27,16 @@ const _relationshipLabels = <String>{
 
 List<ProfileFinding> validateConceptRules(
   OkfBundleLoadResult loaded, {
-  ProfileValidationContext? context,
+  required ProfileValidationContext context,
 }) {
-  final effectiveContext =
-      context ?? const ProfileValidationContext.legacy(legacyProfileRelease);
   final bodies = <String, _ParsedBody>{
     for (final entry in loaded.documents.entries)
       entry.key: _ParsedBody(entry.value.body),
   };
   return <ProfileFinding>[
-    ..._validateMetadata(loaded, effectiveContext),
-    ..._validateTypeRegistry(loaded, effectiveContext),
-    ..._validateActorRegistry(loaded, effectiveContext),
+    ..._validateMetadata(loaded, context),
+    ..._validateTypeRegistry(loaded, context),
+    ..._validateActorRegistry(loaded, context),
     ..._validateSources(loaded, bodies),
     ..._validateSourcePaths(loaded),
     ..._validateRelationships(loaded, bodies),
@@ -152,7 +150,7 @@ Iterable<ProfileFinding> _validateTypeRegistry(
       yield ProfileFinding.forRule(
         rules.configuredTypeExtension,
         'Configured project type ${definition.name} is available to this bundle.',
-        'wayfinder.json',
+        context.configPath!,
       );
     }
     final registered = binding.typeNames;

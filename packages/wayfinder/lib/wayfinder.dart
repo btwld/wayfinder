@@ -15,6 +15,7 @@ export 'src/validation.dart'
         AutomatedGateState,
         OkfState,
         ProfileState,
+        ProfileSourceResolution,
         ProfileValidationResult,
         ProfileValidator;
 export 'src/wayfinder_config.dart';

@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
-import 'package:wayfinder/wayfinder.dart';
 
 import 'agent_setup.dart';
 import 'graph.dart';
@@ -292,8 +291,6 @@ class WayfinderCli {
         );
         if (command.option('output') == 'json') {
           _json(result.toJson());
-        } else if (!result.direct) {
-          _out('Installed Profile configuration needs no source lock.');
         } else {
           final state = result.upgraded
               ? 'upgraded'
@@ -380,13 +377,6 @@ class WayfinderCli {
         );
       }
       final bundle = command.rest.first;
-      ProfileResolutionResult? profileResolution;
-      if (const {'validate', 'index', 'search', 'graph'}.contains(name)) {
-        profileResolution = await _profileResolver().resolveForBundle(
-          bundle,
-          configPath: name == 'validate' ? command.option('config') : null,
-        );
-      }
       if (name == 'mcp') {
         await WayfinderMcpServer(
           rootPath: bundle,
@@ -410,10 +400,10 @@ class WayfinderCli {
       }
       final json = command.option('output') == 'json';
       if (name == 'validate') {
-        final result = await const ProfileValidator().validate(
+        final result = await validateWithProfileSources(
           bundle,
           configPath: command.option('config'),
-          resolvedProfiles: profileResolution?.bindings,
+          resolver: _profileResolver(),
         );
         if (json) {
           _json(result.toJson());

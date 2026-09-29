@@ -63,28 +63,15 @@ final class WayfinderProfileResolver {
     }
     final raw = await configFile.readAsString();
     final config = WayfinderProjectConfig.parse(raw);
-    final directProfiles = config.profiles.values
-        .where((profile) => profile.source != null)
-        .toList(growable: false);
+    final directProfiles = config.profiles.values.toList(growable: false);
     final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
     final hash = canonicalConfigurationSha256(raw);
-    if (directProfiles.isEmpty) {
-      return ProfileResolutionResult(
-        projectRoot: projectRoot,
-        configPath: configFile.path,
-        lockPath: lockFile.path,
-        direct: false,
-        reused: true,
-        upgraded: false,
-        profiles: const {},
-      );
-    }
     await _checkBundlePaths(config, projectRoot);
 
     final previous = await _readLock(lockFile);
     final cached =
-        !upgrade && previous != null && previous['configuration_sha256'] == hash
-        ? await _cachedManifests(previous, directProfiles)
+        !upgrade && previous != null && previous.configurationSha256 == hash
+        ? await _cachedManifests(previous, directProfiles, projectRoot)
         : null;
     if (cached != null) {
       return ProfileResolutionResult(
@@ -94,45 +81,41 @@ final class WayfinderProfileResolver {
         direct: true,
         reused: true,
         upgraded: false,
-        profiles: _profileEntries(previous!),
+        profiles: previous!.profileEntriesToJson(),
         bindings: _composeBindings(config, cached),
       );
     }
 
-    final entries = <String, Object?>{};
+    final entries = <String, _LockedProfileSource>{};
     final manifests = <String, _ResolvedSource>{};
     for (final profile in directProfiles) {
       final source = profile.source!;
-      final previousEntry = _profileEntries(previous ?? const {})[profile.id];
+      final previousEntry = previous?.profiles[profile.id];
       final previousCommit =
-          previousEntry is Map<String, Object?> &&
-              previousEntry['source'] == source.git &&
-              previousEntry['requested_ref'] == source.ref &&
-              previousEntry['path'] == source.path &&
-              previousEntry['resolved_commit'] is String
-          ? previousEntry['resolved_commit']! as String
+          previousEntry != null &&
+              previousEntry.source == source.git &&
+              previousEntry.requestedRef == source.ref &&
+              previousEntry.path == source.path
+          ? previousEntry.resolvedCommit
           : null;
       final cache = await _resolveSource(
         profile.id,
         source,
+        projectRoot: projectRoot,
         upgrade: upgrade,
         preferredCommit: previousCommit,
       );
       manifests[profile.id] = cache;
-      entries[profile.id] = {
-        'source': source.git,
-        'requested_ref': source.ref,
-        'resolved_commit': cache.commit,
-        'path': source.path,
-        'profile_release': cache.release,
-      };
+      entries[profile.id] = _LockedProfileSource(
+        source: source.git,
+        requestedRef: source.ref,
+        resolvedCommit: cache.commit,
+        path: source.path,
+        profileRelease: cache.release,
+      );
     }
     final bindings = _composeBindings(config, manifests);
-    final lock = <String, Object?>{
-      'lock_version': 1,
-      'configuration_sha256': hash,
-      'profiles': entries,
-    };
+    final lock = _ProfileLock(configurationSha256: hash, profiles: entries);
     await _writeLock(lockFile, lock);
     return ProfileResolutionResult(
       projectRoot: projectRoot,
@@ -141,20 +124,79 @@ final class WayfinderProfileResolver {
       direct: true,
       reused: false,
       upgraded: upgrade,
-      profiles: entries,
+      profiles: lock.profileEntriesToJson(),
       bindings: bindings,
     );
   }
 
-  Future<ProfileResolutionResult?> resolveForBundle(
+  /// Reads an existing lock and source cache for the selected bundle only.
+  /// Validation never fetches a source or writes the lock.
+  Future<ProfileResolutionResult?> readLockedForBundle(
     String bundle, {
     String? configPath,
   }) async {
-    final config = configPath == null
+    final configFile = configPath == null
         ? await _findConfig(bundle)
         : File(configPath);
-    if (config == null || !await config.exists()) return null;
-    return resolve(config.parent.path, configurationFile: config.path);
+    if (configFile == null || !await configFile.exists()) return null;
+    final raw = await configFile.readAsString();
+    final config = WayfinderProjectConfig.parse(raw);
+    final projectRoot = p.normalize(configFile.absolute.parent.path);
+    final requested = await Directory(bundle).resolveSymbolicLinks();
+    WayfinderBundleBinding? selected;
+    for (final entry in config.bundles) {
+      final configured = Directory(p.join(projectRoot, entry.path));
+      try {
+        if (p.equals(await configured.resolveSymbolicLinks(), requested)) {
+          selected = entry;
+          break;
+        }
+      } on FileSystemException {
+        // The validator reports unreadable configured paths in its own result.
+      }
+    }
+    if (selected == null) return null;
+    final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
+    final lock = await _readLock(lockFile);
+    if (lock == null ||
+        lock.configurationSha256 != canonicalConfigurationSha256(raw) ||
+        lock.profiles.keys
+            .toSet()
+            .difference(config.profiles.keys.toSet())
+            .isNotEmpty) {
+      throw const WayfinderProfileResolutionException(
+        'Profile lock is missing, invalid, or stale. Run wayfinder get.',
+      );
+    }
+    final required = <WayfinderProfileBinding>[];
+    var id = selected.profile;
+    while (true) {
+      final profile = config.profiles[id]!;
+      required.add(profile);
+      if (profile.extendsProfile == null) break;
+      id = profile.extendsProfile!;
+    }
+    final cached = await _cachedManifests(
+      lock,
+      required,
+      projectRoot,
+      requireAll: false,
+    );
+    if (cached == null) {
+      throw const WayfinderProfileResolutionException(
+        'Selected Profile source is unavailable or differs from the lock. Run wayfinder get.',
+      );
+    }
+    return ProfileResolutionResult(
+      projectRoot: projectRoot,
+      configPath: configFile.path,
+      lockPath: lockFile.path,
+      direct: true,
+      reused: true,
+      upgraded: false,
+      profiles: lock.profileEntriesToJson(),
+      bindings: _composeBindings(config, cached, selectedId: selected.profile),
+    );
   }
 
   Future<void> _checkBundlePaths(
@@ -197,10 +239,12 @@ final class WayfinderProfileResolver {
   Future<_ResolvedSource> _resolveSource(
     String profileId,
     WayfinderProfileSource source, {
+    required String projectRoot,
     required bool upgrade,
     String? preferredCommit,
   }) async {
-    final root = _repositoryCache(source.git);
+    final location = _gitLocation(source.git, projectRoot);
+    final root = _repositoryCache(location);
     await root.parent.create(recursive: true);
     if (!await root.exists()) {
       final temporary = Directory(
@@ -211,7 +255,7 @@ final class WayfinderProfileResolver {
           'clone',
           '--mirror',
           '--',
-          source.git,
+          location,
           temporary.path,
         ]);
         _checkGit(result, 'clone Profile $profileId from ${source.git}');
@@ -246,17 +290,18 @@ final class WayfinderProfileResolver {
     String ref,
     String profileId,
   ) async {
-    try {
-      return await _resolveRef(repository, ref);
-    } on WayfinderProfileResolutionException catch (error) {
-      if (error.message.contains('ambiguous')) rethrow;
-      final result = await _git(['remote', 'update', '--prune'], repository);
-      _checkGit(result, 'refresh Profile $profileId while finding ref $ref');
-      return _resolveRef(repository, ref);
-    }
+    final local = await _resolveRef(repository, ref);
+    if (local != null) return local;
+    final result = await _git(['remote', 'update', '--prune'], repository);
+    _checkGit(result, 'refresh Profile $profileId while finding ref $ref');
+    final fetched = await _resolveRef(repository, ref);
+    if (fetched != null) return fetched;
+    throw WayfinderProfileResolutionException(
+      'Profile ref $ref could not be resolved in ${repository.path}.',
+    );
   }
 
-  Future<String> _resolveRef(Directory repository, String ref) async {
+  Future<String?> _resolveRef(Directory repository, String ref) async {
     final candidates = _commitRef.hasMatch(ref)
         ? <String>['$ref^{commit}']
         : <String>['refs/heads/$ref^{commit}', 'refs/tags/$ref^{commit}'];
@@ -275,9 +320,7 @@ final class WayfinderProfileResolver {
         'Profile ref $ref is ambiguous between a branch and a tag.',
       );
     }
-    throw WayfinderProfileResolutionException(
-      'Profile ref $ref could not be resolved in ${repository.path}.',
-    );
+    return null;
   }
 
   Directory _repositoryCache(String git) => Directory(
@@ -288,44 +331,43 @@ final class WayfinderProfileResolver {
     ),
   );
 
+  String _gitLocation(String git, String projectRoot) {
+    if (p.isAbsolute(git) ||
+        p.windows.isAbsolute(git) ||
+        (Uri.tryParse(git)?.hasScheme ?? false) ||
+        RegExp(r'^(?:[^/@:\\]+@)?[^/:\\]+:.+').hasMatch(git)) {
+      return git;
+    }
+    return p.normalize(p.join(projectRoot, git));
+  }
+
   static final _commitRef = RegExp(r'^[0-9a-fA-F]{7,40}$');
 
   Future<Map<String, _ResolvedSource>?> _cachedManifests(
-    Map<String, Object?> lock,
+    _ProfileLock lock,
     List<WayfinderProfileBinding> profiles,
-  ) async {
-    final values = _profileEntries(lock);
-    if (values.length != profiles.length) return null;
+    String projectRoot, {
+    bool requireAll = true,
+  }) async {
+    final values = lock.profiles;
+    if (requireAll && values.length != profiles.length) return null;
     final manifests = <String, _ResolvedSource>{};
     for (final profile in profiles) {
       final source = profile.source!;
       final entry = values[profile.id];
-      if (entry is! Map<String, Object?> ||
-          entry.keys.toSet().difference(const {
-            'source',
-            'requested_ref',
-            'resolved_commit',
-            'path',
-            'profile_release',
-          }).isNotEmpty ||
-          entry.length != 5) {
+      if (entry == null ||
+          entry.source != source.git ||
+          entry.requestedRef != source.ref ||
+          entry.path != source.path) {
         return null;
       }
-      final commit = entry['resolved_commit'];
-      if (commit is! String ||
-          !RegExp(r'^[0-9a-f]{40}$').hasMatch(commit) ||
-          entry['source'] != source.git ||
-          entry['requested_ref'] != source.ref ||
-          entry['path'] != source.path ||
-          entry['profile_release'] is! String) {
-        return null;
-      }
-      final cache = _repositoryCache(source.git);
+      final commit = entry.resolvedCommit;
+      final cache = _repositoryCache(_gitLocation(source.git, projectRoot));
       if (!await cache.exists()) return null;
       final present = await _git(['cat-file', '-e', '$commit^{commit}'], cache);
       if (present.exitCode != 0) return null;
       final manifest = await _readManifest(cache, profile.id, source, commit);
-      if (manifest.release != entry['profile_release']) return null;
+      if (manifest.release != entry.profileRelease) return null;
       manifests[profile.id] = manifest;
     }
     return manifests;
@@ -376,7 +418,7 @@ final class WayfinderProfileResolver {
       'standard_types',
     );
     final tags = _manifestDefinitions(
-      decoded['tags'] ?? const [],
+      decoded.containsKey('tags') ? decoded['tags'] : const [],
       profileId,
       'tags',
     );
@@ -395,33 +437,22 @@ final class WayfinderProfileResolver {
     );
   }
 
-  Future<Map<String, Object?>?> _readLock(File file) async {
+  Future<_ProfileLock?> _readLock(File file) async {
     if (!await file.exists()) return null;
     try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<String, Object?> ||
-          decoded.length != 3 ||
-          decoded['lock_version'] != 1 ||
-          decoded['configuration_sha256'] is! String ||
-          !RegExp(
-            r'^[0-9a-f]{64}$',
-          ).hasMatch(decoded['configuration_sha256']! as String) ||
-          decoded['profiles'] is! Map) {
-        return null;
-      }
-      return decoded;
+      return _ProfileLock.tryParse(jsonDecode(await file.readAsString()));
     } on Object {
       return null;
     }
   }
 
-  Future<void> _writeLock(File file, Map<String, Object?> lock) async {
+  Future<void> _writeLock(File file, _ProfileLock lock) async {
     final temp = File(
       '${file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
     );
     try {
       await temp.writeAsString(
-        '${const JsonEncoder.withIndent('  ').convert(lock)}\n',
+        '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n',
         flush: true,
       );
       await temp.rename(file.path);
@@ -458,6 +489,130 @@ final class WayfinderProfileResolver {
 
 final class WayfinderProfileResolutionException extends WayfinderException {
   const WayfinderProfileResolutionException(super.message);
+}
+
+/// Resolution metadata only; no fetched vocabulary or executable rules.
+final class _ProfileLock {
+  const _ProfileLock({
+    required this.configurationSha256,
+    required this.profiles,
+  });
+
+  final String configurationSha256;
+  final Map<String, _LockedProfileSource> profiles;
+
+  static _ProfileLock? tryParse(Object? value) {
+    if (value is! Map<String, Object?> ||
+        value.length != 3 ||
+        value['lock_version'] != 1 ||
+        value['configuration_sha256'] is! String ||
+        !RegExp(
+          r'^[0-9a-f]{64}$',
+        ).hasMatch(value['configuration_sha256']! as String) ||
+        value['profiles'] is! Map<String, Object?>) {
+      return null;
+    }
+    final entries = <String, _LockedProfileSource>{};
+    for (final entry in (value['profiles']! as Map<String, Object?>).entries) {
+      final parsed = _LockedProfileSource.tryParse(entry.value);
+      if (parsed == null) return null;
+      entries[entry.key] = parsed;
+    }
+    if (entries.isEmpty) return null;
+    return _ProfileLock(
+      configurationSha256: value['configuration_sha256']! as String,
+      profiles: Map.unmodifiable(entries),
+    );
+  }
+
+  Map<String, Object?> profileEntriesToJson() => {
+    for (final entry in profiles.entries) entry.key: entry.value.toJson(),
+  };
+
+  Map<String, Object?> toJson() => {
+    'lock_version': 1,
+    'configuration_sha256': configurationSha256,
+    'profiles': profileEntriesToJson(),
+  };
+}
+
+final class _LockedProfileSource {
+  const _LockedProfileSource({
+    required this.source,
+    required this.requestedRef,
+    required this.resolvedCommit,
+    required this.path,
+    required this.profileRelease,
+  });
+
+  final String source;
+  final String requestedRef;
+  final String resolvedCommit;
+  final String path;
+  final String profileRelease;
+
+  static _LockedProfileSource? tryParse(Object? value) {
+    if (value is! Map<String, Object?> ||
+        value.length != 5 ||
+        value['source'] is! String ||
+        value['requested_ref'] is! String ||
+        value['resolved_commit'] is! String ||
+        !RegExp(
+          r'^[0-9a-f]{40}$',
+        ).hasMatch(value['resolved_commit']! as String) ||
+        value['path'] is! String ||
+        value['profile_release'] is! String) {
+      return null;
+    }
+    return _LockedProfileSource(
+      source: value['source']! as String,
+      requestedRef: value['requested_ref']! as String,
+      resolvedCommit: value['resolved_commit']! as String,
+      path: value['path']! as String,
+      profileRelease: value['profile_release']! as String,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'source': source,
+    'requested_ref': requestedRef,
+    'resolved_commit': resolvedCommit,
+    'path': path,
+    'profile_release': profileRelease,
+  };
+}
+
+/// Shared read-only validation entry point for the CLI and MCP server.
+Future<ProfileValidationResult> validateWithProfileSources(
+  String bundle, {
+  String? configPath,
+  WayfinderProfileResolver? resolver,
+}) {
+  return const ProfileValidator().validate(
+    bundle,
+    configPath: configPath,
+    resolveSources: () async {
+      ProfileResolutionResult? resolved;
+      String? resolutionError;
+      try {
+        resolved = await (resolver ?? WayfinderProfileResolver())
+            .readLockedForBundle(bundle, configPath: configPath);
+      } on WayfinderProfileResolutionException catch (error) {
+        resolutionError = error.message;
+      } on WayfinderConfigException catch (error) {
+        resolutionError = error.message;
+      } on FileSystemException catch (error) {
+        resolutionError = error.message;
+      } on ProcessException catch (error) {
+        resolutionError =
+            'Cannot read the local Profile cache: ${error.message}';
+      }
+      return ProfileSourceResolution(
+        bindings: resolved?.bindings,
+        error: resolutionError,
+      );
+    },
+  );
 }
 
 final class _ResolvedSource {
@@ -526,8 +681,9 @@ bool _sameDefinitions(
 
 Map<String, WayfinderProfileBinding> _composeBindings(
   WayfinderProjectConfig config,
-  Map<String, _ResolvedSource> manifests,
-) {
+  Map<String, _ResolvedSource> manifests, {
+  String? selectedId,
+}) {
   final effective = <String, WayfinderProfileBinding>{};
   WayfinderProfileBinding compose(String id) {
     if (effective[id] case final cached?) return cached;
@@ -591,16 +747,14 @@ Map<String, WayfinderProfileBinding> _composeBindings(
     );
   }
 
-  for (final id in config.profiles.keys) {
-    compose(id);
+  if (selectedId != null) {
+    compose(selectedId);
+  } else {
+    for (final id in config.profiles.keys) {
+      compose(id);
+    }
   }
   return Map.unmodifiable(effective);
-}
-
-Map<String, Object?> _profileEntries(Map<String, Object?> lock) {
-  final values = lock['profiles'];
-  if (values is! Map) return const {};
-  return values.map((key, value) => MapEntry(key.toString(), value));
 }
 
 String _canonicalJson(Object? value) {

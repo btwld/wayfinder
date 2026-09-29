@@ -90,6 +90,11 @@ grep-only answers.
 ## Validate
 
 Run validation before saying a bundle conforms, and after editing one.
+For a configured 2026.3 bundle, `validate` reads only a current lock/cache:
+it never fetches or writes. A missing or stale lock still leaves an independent
+OKF result; run `wayfinder get` to resolve the declared source, or
+`wayfinder upgrade` only when intentionally advancing a mutable ref.
+`graph`, `index`, and `search` do not need Profile-source resolution.
 
 - Exit `0` and `PASS`: the automated gate passed. Advisory findings may remain;
   mention the relevant ones without treating them as failures.

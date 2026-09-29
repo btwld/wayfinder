@@ -66,7 +66,8 @@ no metadata semantics of its own; every mechanism it uses is defined by OKF and 
 OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
 is in error.
 
-Current release: **2026.3**, profiling **OKF 0.2 exactly**. Status: Proposed.
+Proposed release: **2026.3**, profiling **OKF 0.2 exactly**. Published
+2026.2 remains available as an immutable snapshot.
 Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
@@ -236,6 +237,9 @@ sitting, showing the profile's central separations: a source event produces dura
 which links to an execution record, with generated indexes and an authored log.
 It remains on legacy Profile 2026.2. A minimal configured 2026.3 validator fixture is
 [`packages/wayfinder/test/fixtures/configured-project/`](packages/wayfinder/test/fixtures/configured-project/).
+The reviewable direct-source 2026.3 example is
+[`examples/configured-2026.3/`](examples/configured-2026.3/); CI resolves its
+source from a synthetic local Git repository.
 
 It includes a two-concept subject area to show that truthful placement, not a
 numeric threshold, determines structure.
@@ -295,6 +299,7 @@ dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
 dart run wayfinder_cli:wayfinder validate examples/knowledge
+python3 tool/ci/verify-configured-example.py
 ```
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.

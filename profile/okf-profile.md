@@ -4,7 +4,7 @@
 
 Status: Proposed
 
-Bitwild Profile 2026.3 is the current release. Release 2026.2 is preserved
+Bitwild Profile 2026.3 is the proposed release. Release 2026.2 is preserved
 unchanged under `profile/versions/okf-profile-2026.2.md`.
 
 The Bitwild OKF Profile is a set of conventions for keeping durable project
@@ -529,7 +529,7 @@ Profile Review. OKF readers still tolerate unknown tags (§14.2).
 
 `type` carries the kind of document a concept is, and it is the **only** place
 kind is carried: not the directory (§3), not the filename, not a tag. The
-installed `bitwild_profile/2026.3` manifest (§11) MUST declare the eleven
+installed `bitwild_profile/2026.3` manifest (§11) MUST declare the twelve
 standard types below in this order and with these meanings. The project binding
 MAY add project-specific types with a nonempty name and truthful description.
 Custom names MUST be unique and MUST NOT collide with a standard name. Every
@@ -553,6 +553,7 @@ The standard vocabulary:
 | `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
 | `Guide` | Durable operational or engineering guidance |
 | `Interaction Record` | An interaction whose combined context is itself durable |
+| `Attested Computation` | An OKF-defined sanctioned computation with a checkable execution receipt (OKF §10) |
 
 A standard type MUST match its intended meaning. A custom type MUST match the
 meaning declared in the binding. Both are Judgment Rules assessed by Profile
@@ -1174,27 +1175,36 @@ optional.
 
 ## 11. Profile selection and binding
 
-A bundle following this release MUST be selected by exactly one explicit
-`bundles` entry in a project-root `wayfinder.json` conforming to the version 1
-schema. The entry names its relative bundle path and one named `profiles` binding.
-The binding's `implements` MUST be exactly `bitwild_profile/2026.3`; it selects
-the installed immutable Profile manifest, validator, and contextual guidance.
-The manifest MUST bind exactly to OKF 0.2, and the bundle root index MUST declare
-`okf_version: "0.2"`. Unknown Profile IDs or releases MUST NOT silently fall back.
+A bundle following this release MUST be named by exactly one `applies_to` path
+in a `profiles` entry of project-root `wayfinder.json` version 1. The entry key
+is the Profile identity. Its `source` MUST identify a Git repository, a ref,
+and the path of a declarative Profile manifest inside that revision. The
+manifest's identity MUST match the entry key and its release MUST be 2026.3.
+The effective chain MUST reach `bitwild_profile/2026.3`, whose manifest binds
+exactly to OKF 0.2 and whose rules and standard vocabulary are installed with
+the validator. The bundle root index MUST declare `okf_version: "0.2"`.
+Unknown Profile IDs or releases MUST NOT silently fall back.
 
-The manifest owns the standard types (§5.2) and base tag definitions (§5.1). The
-project binding MAY add custom types and tags and actor lookup; it MUST NOT
-replace, omit, or parameterize Profile rules or change OKF semantics. The
-binding's bundle paths MUST be relative, unique, inside the project after
-symlink resolution, and not nested within one another. Several independent
-bundles MAY share a binding. A nested directory within a bundle inherits its
-bundle's Profile and MUST NOT select another one (§3).
+A Profile entry MAY name one parent through `extends`, independently of its
+`applies_to` list. A parent used only for inheritance MAY have an empty
+`applies_to` list. Inheritance is additive: an entry MAY add type and tag
+definitions and actor lookup, but names MUST be unique across the effective
+chain and MUST NOT collide with installed standards. A child MUST NOT replace,
+omit, or parameterize Profile rules, reinterpret OKF semantics, or load
+executable rules from its source. A non-base entry MUST extend a chain reaching
+`bitwild_profile`; the base MUST NOT extend another entry. Missing parents,
+cycles, and ambiguous composition MUST NOT be accepted.
 
-`wayfinder.json` is project configuration, not an OKF concept and not a second
-frontmatter schema. It MUST NOT be placed inside the bundle or projected into
-its `index.md`. `default_bundle`, when present, MUST identify a listed bundle;
-it is only a command-selection convenience and does not create or merge bundles.
-The root `profile.md` selector from 2026.2 does not dispatch this release.
+`applies_to` paths MUST be relative, unique, inside the project after symlink
+resolution, and not nested within one another. Several independent bundles MAY
+share an entry. A nested directory within a bundle inherits its bundle's
+Profile and MUST NOT select another one (§3).
+
+`wayfinder.json` and any resolution lock are project configuration, not OKF
+concepts or a second frontmatter schema. They MUST NOT be placed inside the
+bundle or projected into its `index.md`. Version 1 has no `bundles` array,
+`implements` string, or `default_bundle`. The root `profile.md` selector from
+2026.2 does not dispatch this release.
 
 ---
 
@@ -1451,16 +1461,21 @@ OKF's normative requirements always take precedence over any profile release
 ### 15.3 Change record
 
 **2026.3.** Moves Profile selection and project vocabulary out of bundle
-concepts into explicit project-root `wayfinder.json` bindings for the installed
-`bitwild_profile` manifest. Affected sections: §§1.3, 2, 3.5, 5.1–5.2, 6.1.1,
-9, 11, 14, 15.3 and Appendix A. Driver: real adoption and validation work
-found repeated standard `types.md` tables, mandatory actor tables for routine
-agent provenance, and `profile.md` configuration masquerading as knowledge;
-multiple independent bundles also need reusable but distinct bindings. The
+concepts into direct Git-sourced project-root `wayfinder.json` entries. Entries
+may add vocabulary through explicit parent chains, but never executable rules.
+The installed `bitwild_profile` validator remains closed. Affected sections:
+§§1.3, 2, 3.5, 5.1–5.2, 6.1.1, 9, 11, 14, 15.3 and Appendix A. Driver: real
+adoption and validation work found repeated standard `types.md` tables,
+mandatory actor tables for routine agent provenance, and `profile.md`
+configuration masquerading as knowledge; multiple independent bundles need
+reusable but distinct bindings, and a repeatable source revision across
+machines. The OKF-defined Attested Computation type joins the standard
+registry so producers can use §10 without declaring an OKF type as custom. The
 subject-placement and four named-directory rules remain unchanged. Migration
 impact: an existing conformant 2026.2 bundle remains conformant to **2026.2**
-and continues to validate under that release. To adopt 2026.3, create an
-explicit binding, move custom types, tags, and actor IDs into it, remove the
+and continues to validate under that release. To adopt 2026.3, create a
+direct-source entry, resolve and commit its lock, move custom types, tags, and
+actor IDs into the entry, remove the
 three legacy root registry/declaration concepts, regenerate the root index, and
 retain `index.md` and `log.md`. Used tags must be declared. Material actor
 affiliation history from the old table must be preserved as ordinary knowledge
@@ -1538,8 +1553,8 @@ project/
 
 `reporting/` is an illustrative project subject, not a prescribed directory.
 The root index includes `log.md` and the `reporting/` directory, not
-`wayfinder.json`. The binding may declare `Request` and `Analysis` from the
-installed standard vocabulary, plus project tags or actors; only the latter
-appear in `wayfinder.json`. A separate `research/` bundle would have its own
-entry and may select the same binding or a different one. It does not inherit a
+`wayfinder.json`. `Request` and `Analysis` come from the installed standard
+vocabulary; only project tags, actors, or custom types appear in the entry.
+A separate `research/` bundle may appear in the same entry's `applies_to` list
+or another entry with different vocabulary. It does not inherit a
 Profile from `knowledge/`, and `knowledge/reporting/` cannot select one.

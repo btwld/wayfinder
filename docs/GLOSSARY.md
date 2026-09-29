@@ -16,9 +16,10 @@ without changing OKF's meaning.
 _Avoid_: Format, generic Profile protocol
 
 **Profile Binding**:
-The project-root `wayfinder.json` entry that selects one installed Profile
-release for a whole bundle and declares project type, tag, and actor lookup
-extensions. It cannot define or override Profile rules.
+The project-root `wayfinder.json` entry whose direct Git `source` and
+`applies_to` paths select one exact Profile release for a whole bundle,
+with additive project type, tag, and actor lookup extensions. It cannot
+define or override Profile rules.
 _Avoid_: Rule manifest, per-directory Profile
 
 **Legacy Profile Declaration**:

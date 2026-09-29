@@ -1,11 +1,15 @@
 {
   "version": 1,
   "profiles": {
-    "main": {
-      "implements": "bitwild_profile/2026.3",
+    "bitwild_profile": {
+      "source": {
+        "git": "https://example.test/wayfinder.git",
+        "ref": "v2026.3",
+        "path": "profile"
+      },
+      "applies_to": ["knowledge"],
       "actors": {"process:fixture": {"name": "Fixture process"}},
       "tags": [{"name": "governance", "description": "Governance topic"}]
     }
-  },
-  "bundles": [{"id": "knowledge", "path": "knowledge", "profile": "main"}]
+  }
 }

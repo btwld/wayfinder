@@ -61,9 +61,9 @@ target — but the percent-encoded form is the canonical spelling okf's own
 tooling writes. The label is not a URL and stays exactly as written; sorting
 uses the decoded target path.
 
-A complete root index therefore covers the root log, the two required
-registry/declaration concepts, the conditional actor registry, every other root
-concept, and every immediate directory.
+A complete 2026.3 root index covers the root log, every other root concept,
+and every immediate directory. A 2026.2 root index also covers its required
+Profile declaration and type registry, plus the actor registry when present.
 
 ## Examples
 

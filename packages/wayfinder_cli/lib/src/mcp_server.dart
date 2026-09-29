@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
-import 'package:wayfinder/wayfinder.dart';
 
 import 'graph.dart';
 import 'graph_input.dart';
 import 'knowledge.dart';
+import 'profile_resolver.dart';
 import 'search_input.dart';
 import 'search_output.dart';
 import 'version.dart';
@@ -19,11 +19,16 @@ import 'version.dart';
 /// Each retrieval call owns and closes its encoder/store. Disconnect waits for
 /// active calls to release those resources; cancellation is not a rollback.
 class WayfinderMcpServer {
-  WayfinderMcpServer({required this.rootPath, WayfinderKnowledge? knowledge})
-    : _knowledge = knowledge ?? WayfinderKnowledge();
+  WayfinderMcpServer({
+    required this.rootPath,
+    WayfinderKnowledge? knowledge,
+    WayfinderProfileResolver? profileResolver,
+  }) : _knowledge = knowledge ?? WayfinderKnowledge(),
+       _profileResolver = profileResolver ?? WayfinderProfileResolver();
 
   final String rootPath;
   final WayfinderKnowledge _knowledge;
+  final WayfinderProfileResolver _profileResolver;
 
   /// Serves JSON-RPC on stdio until EOF, or on an injected transport in tests.
   Future<void> serve({Transport? transport}) async {
@@ -75,7 +80,10 @@ class WayfinderMcpServer {
       input: emptyInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
-        final result = await const ProfileValidator().validate(root);
+        final result = await validateWithProfileSources(
+          root,
+          resolver: _profileResolver,
+        );
         return {...result.toJson(), 'exit_code': result.exitCode};
       }),
     );

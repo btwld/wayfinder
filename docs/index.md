@@ -14,7 +14,7 @@ Earlier-release evidence is preserved in the [2026.2 compatibility review](compa
 
 ## Configuration guides
 
-[Wayfinder project configuration](wayfinder-configuration.md) — Implemented project bindings, installed Profile manifest schemas, and validation order.
+[Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, manifest schemas, explicit lock resolution, and read-only validation order.
 
 [Wayfinder Profile guide](wayfinder-profile-guide.html) — Visual guide to Profiles, project bindings, tags, status, and validation coverage.
 

@@ -33,10 +33,13 @@ none is duplicated between Automated Profile Validation and Profile Review.
 
 | Profile clause | Force | Assessment | Expected evidence |
 | --- | --- | --- | --- |
-| §11: a Profiled Bundle is listed by one project-root `wayfinder.json` entry and named binding | MUST | Automated Profile Validation | Config shape, unique ID/path, selected binding, and safe canonical path |
-| §11: binding selects installed `bitwild_profile/2026.3` and OKF 0.2 | MUST | Automated Profile Validation | Exact installed ID/release and root index `okf_version` |
-| §11: unknown Profile IDs or releases do not fall back | MUST NOT | Automated Profile Validation | Unsupported result and independent OKF result retained |
-| §11: the binding does not override Profile rules or change OKF semantics | MUST NOT | Profile Review | Review config and authored usage for semantic overrides |
+| §11: exactly one project-root version-1 direct `source` + `applies_to` entry names the whole bundle; no `bundles`, `implements`, or `default_bundle` form | MUST / MUST NOT | Automated Profile Validation | Configuration shape and unique selected bundle path |
+| §11: source manifest identity/release, base `bitwild_profile/2026.3`, and OKF 0.2 binding match exactly | MUST | Automated Profile Validation | Selected source chain, manifest parity, and root index `okf_version` |
+| §11: `extends` is additive, reaches the base, and has no missing parent, cycle, collision, or ambiguous application | MAY / MUST / MUST NOT | Automated Profile Validation | Parent graph, effective registries, and unique whole-bundle selection |
+| §11: `applies_to` paths stay relative, unique, inside the project after symlink resolution, and do not nest; independent bundles may share an entry | MUST / MAY | Automated Profile Validation | Normalized and canonical path checks |
+| §11: configuration and resolution lock remain outside the bundle and its index | MUST NOT | Profile Review | Confirm project metadata lives beside, not inside, the selected bundle; an unrelated mirrored asset with the same basename is not configuration |
+| §11: unknown IDs/releases and unresolved sources never silently fall back | MUST NOT | Automated Profile Validation | Unsupported result with independent OKF result retained |
+| §11: a child does not replace Profile rules, load executable rules, or change OKF semantics | MUST NOT | Profile Review | Review manifest/entry vocabulary and authored usage for semantic overrides; validator accepts only declarative metadata |
 
 ## Structure and navigation coverage
 
@@ -81,7 +84,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §5.1: tags do not exactly duplicate type, lifecycle, trust, or relationship labels | MUST NOT | Automated Profile Validation | Parsed tag values are compared with machine-readable values and the standard relationship vocabulary |
 | §5.1: used tags are declared once in the merged manifest/binding registry and not repeated within a concept | MUST / MUST NOT | Automated Profile Validation | Registry membership, collisions, and per-concept duplicate checks |
 | §5.1: tags remain topics rather than semantic aliases for type, lifecycle, trust, or subject-resolution state | MUST NOT | Profile Review | Contextual meaning carries a topic rather than a second source of truth |
-| §5.2: the installed manifest has eleven standard types and the binding adds unique, noncolliding custom types | MUST / MAY | Automated Profile Validation | Manifest parity, custom-definition shape, duplicate and collision checks |
+| §5.2: the base manifest has twelve standard types, including Attested Computation, and the binding adds unique, noncolliding custom types | MUST / MAY | Automated Profile Validation | Manifest parity, custom-definition shape, duplicate and collision checks |
 | §5.2: every used type is registered; a registered project type is allowed with an advisory | MUST / MAY | Automated Profile Validation | Used-type membership; extension advisory does not affect the automated gate |
 | §5.1, §5.2, §14.1: each standard or project-specific type and its registered meaning truthfully fit the concept | MUST | Profile Review | Concept content fits the selected kind and its registered meaning; review does not infer fit from headings, paths, or keywords |
 | §5.2: a Business Rule selected by a Decision links to it with `Depends on` | SHOULD | Profile Review | Rule history and relationship meaning support the outward link when the rule records a chosen policy |

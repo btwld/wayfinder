@@ -8,7 +8,7 @@
 - Release delivery: [#22](https://github.com/conceptadev/wayfinder/issues/22), [#23](https://github.com/conceptadev/wayfinder/issues/23), [#24](https://github.com/conceptadev/wayfinder/issues/24), [#25](https://github.com/conceptadev/wayfinder/issues/25), [#19](https://github.com/conceptadev/wayfinder/issues/19)
 - Validator delivery: [#26](https://github.com/conceptadev/wayfinder/issues/26), [#27](https://github.com/conceptadev/wayfinder/issues/27), [#28](https://github.com/conceptadev/wayfinder/issues/28), [#20](https://github.com/conceptadev/wayfinder/issues/20)
 
-This record describes the historical design through [Profile 2026.2](../../profile/versions/okf-profile-2026.2.md); [Profile 2026.1](../../profile/versions/okf-profile-2026.1.md) is also preserved. Read [ADR-0014](0014-external-profile-bindings.md) and the [current Profile](../../profile/okf-profile.md) for 2026.3 behavior.
+This record describes the historical design through [Profile 2026.2](../../profile/versions/okf-profile-2026.2.md); [Profile 2026.1](../../profile/versions/okf-profile-2026.1.md) is also preserved. Read [ADR-0014](0014-external-profile-bindings.md) and the [proposed Profile](../../profile/okf-profile.md) for 2026.3 behavior.
 
 ## Context
 

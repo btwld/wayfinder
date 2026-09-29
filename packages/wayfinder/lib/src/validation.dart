@@ -165,6 +165,14 @@ final class ProfileValidationResult {
       .length;
 }
 
+/// Source data obtained after the independent OKF check has passed.
+final class ProfileSourceResolution {
+  const ProfileSourceResolution({this.bindings, this.error});
+
+  final Map<String, WayfinderProfileBinding>? bindings;
+  final String? error;
+}
+
 final class ProfileValidator {
   const ProfileValidator({this.loader = const OkfBundleLoader()});
 
@@ -174,17 +182,21 @@ final class ProfileValidator {
     String bundlePath, {
     String? configPath,
     Map<String, WayfinderProfileBinding>? resolvedProfiles,
+    String? resolutionError,
+    Future<ProfileSourceResolution> Function()? resolveSources,
   }) async {
-    final resolvedConfig = await _readProjectConfig(
-      bundlePath,
-      configPath: configPath,
-      resolvedProfiles: resolvedProfiles,
-    );
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
     if (!validation.isConformant) {
       return ProfileValidationResult.blockedByOkf(validation);
     }
+    final sourceResolution = await resolveSources?.call();
+    final resolvedConfig = await _readProjectConfig(
+      bundlePath,
+      configPath: configPath,
+      resolvedProfiles: sourceResolution?.bindings ?? resolvedProfiles,
+      resolutionError: sourceResolution?.error ?? resolutionError,
+    );
     if (resolvedConfig.finding case final finding?) {
       return ProfileValidationResult.undispatched(validation, finding);
     }
@@ -214,23 +226,48 @@ ProfileValidationResult _validateConfigured(
   OkfBundleLoadResult loaded,
   WayfinderResolvedConfig configured,
 ) {
-  final context = ProfileValidationContext.external(configured.profile);
-  if (configured.profile.release != externalProfileRelease) {
+  final context = ProfileValidationContext.external(
+    configured.profile,
+    configPath: configured.configPath,
+  );
+  if (configured.profile.release != externalProfileRelease ||
+      configured.profile.implementsId != builtinProfileId) {
     return ProfileValidationResult.unsupported(
       validation,
       configured.profile.release,
     );
   }
   return ProfileValidationResult.assessed(validation, <ProfileFinding>[
+    ?_validateConfiguredOkfBinding(loaded),
     ...validateConceptRules(loaded, context: context),
     ...validateStructureRules(loaded, context: context),
   ], configured.profile.release);
+}
+
+ProfileFinding? _validateConfiguredOkfBinding(OkfBundleLoadResult loaded) {
+  final rootIndex = loaded.indexes['index.md'];
+  Object? rootVersion;
+  if (rootIndex != null) {
+    try {
+      rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+    } on OkfDocumentException {
+      // The independent OKF result reports malformed reserved documents.
+    }
+  }
+  if (rootVersion == supportedOkfRelease) return null;
+  return const ProfileFinding(
+    descriptor: rules.okfReleaseBinding,
+    message: 'The bundle root index must declare okf_version: "0.2".',
+    path: 'index.md',
+    profileRelease: externalProfileRelease,
+  );
 }
 
 Future<_ConfigRead> _readProjectConfig(
   String bundlePath, {
   String? configPath,
   Map<String, WayfinderProfileBinding>? resolvedProfiles,
+  String? resolutionError,
 }) async {
   final file = configPath == null
       ? await _findProjectConfig(bundlePath)
@@ -241,51 +278,87 @@ Future<_ConfigRead> _readProjectConfig(
         ProfileFinding(
           descriptor: rules.configurationReadable,
           message: 'Configuration file $configPath does not exist.',
-          path: p.basename(configPath),
+          path: configPath,
         ),
       );
     }
     return const _ConfigRead.none();
   }
+  WayfinderProjectConfig config;
   try {
-    final config = await WayfinderProjectConfig.read(file);
+    config = await WayfinderProjectConfig.read(file);
+  } on WayfinderConfigException catch (error) {
+    // An unselected ancestor file cannot silently migrate a 2026.2 bundle.
+    if (configPath == null &&
+        await File(p.join(bundlePath, 'profile.md')).exists()) {
+      return const _ConfigRead.none();
+    }
+    return _ConfigRead.finding(
+      ProfileFinding(
+        descriptor: rules.configurationReadable,
+        message: error.message,
+        path: configPath ?? p.basename(file.path),
+        profileRelease: externalProfileRelease,
+      ),
+    );
+  }
+  try {
     final projectRoot = await file.parent.resolveSymbolicLinks();
     final requested = await Directory(bundlePath).resolveSymbolicLinks();
     String? selectedPath;
-    final realPaths = <String>{};
+    final realPaths = <String, String>{};
+    final unreadablePaths = <String>[];
     for (final bundle in config.bundles) {
       final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
-      final realPath = await Directory(configuredPath).resolveSymbolicLinks();
-      if (!p.isWithin(projectRoot, realPath)) {
-        throw WayfinderConfigException(
-          'Bundle ${bundle.id} resolves outside the project.',
-        );
+      try {
+        final realPath = await Directory(configuredPath).resolveSymbolicLinks();
+        realPaths[configuredPath] = realPath;
+        if (p.equals(realPath, requested)) {
+          // Keep the spelling relative to the configuration file for resolve().
+          selectedPath = p.normalize(
+            p.join(file.absolute.parent.path, bundle.path),
+          );
+        }
+      } on FileSystemException {
+        unreadablePaths.add(bundle.path);
       }
-      if (!realPaths.add(realPath)) {
-        throw WayfinderConfigException(
-          'Configured bundles resolve to the same directory.',
-        );
-      }
-      if (p.equals(realPath, requested)) selectedPath = configuredPath;
     }
-    for (final path in realPaths) {
-      if (realPaths.any((other) => other != path && p.isWithin(other, path))) {
+    if (configPath == null &&
+        selectedPath == null &&
+        await File(p.join(bundlePath, 'profile.md')).exists()) {
+      // An unrelated project configuration cannot migrate a 2026.2 bundle.
+      return const _ConfigRead.none();
+    }
+    if (unreadablePaths.isNotEmpty) {
+      throw WayfinderConfigException(
+        'Configured bundle ${unreadablePaths.first} does not exist or is unreadable.',
+      );
+    }
+    for (final entry in realPaths.entries) {
+      if (!p.isWithin(projectRoot, entry.value)) {
         throw WayfinderConfigException(
-          'Configured bundles must not be nested.',
+          'Bundle ${entry.key} resolves outside the project.',
         );
+      }
+      for (final other in realPaths.entries) {
+        if (entry.key != other.key &&
+            (p.equals(entry.value, other.value) ||
+                p.isWithin(entry.value, other.value) ||
+                p.isWithin(other.value, entry.value))) {
+          throw WayfinderConfigException(
+            'Configured bundles overlap after resolving symlinks.',
+          );
+        }
       }
     }
     if (configPath == null && selectedPath == null) {
-      if (await File(p.join(bundlePath, 'profile.md')).exists()) {
-        return const _ConfigRead.none();
-      }
       throw WayfinderConfigException(
         'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
       );
     }
     final selected = config.resolve(
       bundlePath: selectedPath ?? bundlePath,
-      configPath: p.join(projectRoot, p.basename(file.path)),
+      configPath: file.absolute.path,
       resolvedProfiles: resolvedProfiles,
     );
     final declared = config.profiles[selected.bundle.profile]!;
@@ -296,8 +369,9 @@ Future<_ConfigRead> _readProjectConfig(
           effective.source?.git != declared.source!.git ||
           effective.source?.ref != declared.source!.ref ||
           effective.source?.path != declared.source!.path) {
-        throw const WayfinderConfigException(
-          'Direct Profile sources must be resolved before validation.',
+        throw WayfinderConfigException(
+          resolutionError ??
+              'Direct Profile source is unresolved. Run wayfinder get.',
         );
       }
     }
@@ -307,7 +381,7 @@ Future<_ConfigRead> _readProjectConfig(
       ProfileFinding(
         descriptor: rules.configurationReadable,
         message: error.message,
-        path: p.basename(file.path),
+        path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
       ),
     );
@@ -316,7 +390,7 @@ Future<_ConfigRead> _readProjectConfig(
       ProfileFinding(
         descriptor: rules.configurationBundleBinding,
         message: 'Configured bundle path is not readable: ${error.message}.',
-        path: p.basename(file.path),
+        path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
       ),
     );

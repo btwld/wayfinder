@@ -12,19 +12,17 @@ const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
 List<ProfileFinding> validateStructureRules(
   OkfBundleLoadResult loaded, {
-  ProfileValidationContext? context,
+  required ProfileValidationContext context,
 }) {
-  final effectiveContext =
-      context ?? const ProfileValidationContext.legacy(legacyProfileRelease);
   final inventory = _BundleInventory(loaded);
   return <ProfileFinding>[
-    ..._validateRootFiles(loaded, effectiveContext),
-    ..._validateConfigurationLegacyFiles(loaded, effectiveContext),
+    ..._validateRootFiles(loaded, context),
+    ..._validateConfigurationLegacyFiles(loaded, context),
     ..._validateReservedStructureNames(loaded),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
     ..._validateRawTier(loaded, inventory),
-    ..._validateIndexes(loaded, inventory, effectiveContext),
+    ..._validateIndexes(loaded, inventory, context),
     ..._validateLog(loaded),
   ];
 }

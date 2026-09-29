@@ -1,7 +1,7 @@
 # Wayfinder
 
-Resolve Profile sources, then validate, index, search, and project an explicit
-local OKF knowledge bundle:
+Use an explicit local OKF bundle. Resolve a configured Profile source with
+`get` before read-only validation:
 
 ```bash
 wayfinder get .
@@ -16,8 +16,10 @@ Index and search always use local embeddings. Validation runs the existing
 OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
 codes. Automated success keeps judgment rules UNASSESSED.
 For projects with direct Git Profile sources, `get` writes or reuses
-`wayfinder.lock`; `upgrade` refreshes a branch or tag. Bundle commands resolve
-a missing or stale lock before normal work. See the
+`wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
+`validate` read only a current lock/cache and preserve the independent OKF
+result if the Profile source is unresolved. `graph`, `index`, and `search`
+do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
 ## Native installation

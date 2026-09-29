@@ -49,5 +49,11 @@ const standardTypes = <(String, String)>[
 
 /// The external-binding release no longer needs three registry concepts.
 /// Keep the legacy vocabulary above unchanged for 2026.2 dispatch.
-final externalStandardTypes = standardTypes.take(11).toList(growable: false);
+final externalStandardTypes = <(String, String)>[
+  ...standardTypes.take(11),
+  (
+    'Attested Computation',
+    'An OKF-defined sanctioned computation with a checkable execution receipt',
+  ),
+];
 const externalStandardTags = <(String, String)>[];
