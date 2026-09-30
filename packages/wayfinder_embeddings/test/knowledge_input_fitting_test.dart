@@ -187,9 +187,9 @@ void main() {
       final measured = <String>[];
       Future<int> selective(String text) async {
         measured.add(text);
-        if (!text.startsWith('Prefix\n\n')) return 1;
+        if (!text.startsWith('Title: Prefix\n\nPassage:\n\n')) return 1;
         if (text.endsWith('Z')) return 100;
-        return text.length;
+        return text.length - 17;
       }
 
       final fitted = await original.fitInputs(
@@ -197,7 +197,7 @@ void main() {
         maxTokens: 12,
         includeContext: true,
       );
-      expect(measured, contains('Prefix\n\nZ'));
+      expect(measured, contains('Title: Prefix\n\nPassage:\n\nZ'));
       expect(fitted.chunks.single.id, original.chunks.single.id);
       expect(
         fitted.textFor(fitted.chunks.single, includeContext: true),
@@ -232,7 +232,7 @@ void main() {
       );
       final fitted = await original.fitInputs(
         countTokens: count,
-        maxTokens: 32,
+        maxTokens: 64,
         includeContext: true,
       );
       expect(
@@ -254,13 +254,13 @@ void main() {
       expect(saved.toMap(), fitted.toMap());
       final same = await saved.fitInputs(
         countTokens: count,
-        maxTokens: 32,
+        maxTokens: 64,
         includeContext: true,
       );
       expect(same.toMap(), fitted.toMap());
       final tighter = await saved.fitInputs(
         countTokens: count,
-        maxTokens: 16,
+        maxTokens: 32,
         includeContext: true,
       );
       checkPassages(original, tighter);
@@ -277,12 +277,12 @@ void main() {
     final original = source('one two three four five six');
     final first = await original.fitInputs(
       countTokens: count,
-      maxTokens: 20,
+      maxTokens: 40,
       includeContext: true,
     );
     expect(first.chunks.length, greaterThan(1));
     Future<int> selective(String text) async =>
-        text.startsWith('Guide\n\n') ? 100 : 1;
+        text.startsWith('Title: Guide\n\nPassage:\n\n') ? 100 : 1;
     final retried = await reopen(
       first,
     ).fitInputs(countTokens: selective, maxTokens: 10, includeContext: true);

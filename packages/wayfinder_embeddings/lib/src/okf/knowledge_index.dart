@@ -144,7 +144,7 @@ class KnowledgeIndex {
 
   String? get embeddingModelName => embedder == null
       ? null
-      : '${embedder!.modelName}:okf-${includeContext ? 'context' : 'body'}-v1';
+      : '${embedder!.modelName}:okf-${includeContext ? 'context-v2' : 'body-v1'}';
 
   /// Embeds missing/changed inputs before one atomic replacement. Failed loads
   /// or inference leave the prior store/index usable. Other bundles are retained.

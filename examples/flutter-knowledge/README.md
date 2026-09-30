@@ -41,6 +41,23 @@ stay ignored under `.wayfinder-import/`. `plan` is offline and produces no
 canonical bundle edits. `apply` requires a reviewed changeset and exact
 baseline hashes.
 
-Native indexing, semantic search, and MCP require the installed Wayfinder model
-and native runtime. They were not treated as successful gates for this source
-bundle unless a run is recorded separately.
+On 2026-09-30, the publisher and installed demo passed automated OKF and
+Profile 2026.3 validation. Five semantic-query checks passed, and the configured
+native MCP server passed validation, search, graph, and cached indexing. A
+repeat index embedded zero chunks. This verifies the nine-concept pilot and
+its selected questions; it does not establish full Flutter coverage.
+
+## Consumer installation
+
+The authoring project above is not an installation payload. Consumers receive
+`knowledge/` and the attribution/license notices, with their own Profile binding
+and lock. Keep `sources.json`, `sources.lock.json`, `provenance.json`, evaluation
+queries, and `.wayfinder-import/` in the publisher workspace.
+
+The temporary `flutterapp` demo installs concepts under
+`.wayfinder/bundles/flutter-dev-kit/`, selected source snapshots under
+`.wayfinder/sources/flutter-dev-kit/`, and notices under
+`.wayfinder/licenses/flutter-dev-kit/`. Source links in that installed copy point
+to local evidence and preserve the upstream revision in citations.
+This is a manual demo: `wayfinder add` and bundle-name configuration are not yet
+implemented by the current CLI.

@@ -33,6 +33,30 @@ obsolete draft selector.
 | [sources.plan.json](sources.plan.json) | Source allowlist and bounded discovery policy; not a resolved source lock |
 | [wayfinder.example.json](wayfinder.example.json) | Direct-source 2026.3 configuration example aligned with the merged configuration |
 
+## Project usage and indexing decisions
+
+Agreed on 2026-09-30:
+
+- `wayfinder search "<query>"` searches every bundle listed by the project's
+  `wayfinder.json`. `--bundle flutter-dev-kit` optionally filters by folder name.
+  Results identify their bundle and retain their source citations. The explicit
+  `search <path> "<query>"` form remains available.
+- `wayfinder index` indexes the same project bundle set. Each bundle retains its
+  own cached index; unchanged bundles and passages reuse their saved embeddings.
+- A future bundle `add` must install, validate, register, and index the bundle
+  before reporting success. A future bundle update must refresh its index after
+  installing changed content. Neither flow may report searchable success if
+  validation or indexing fails.
+- Local project knowledge is editable. After an edit, run `wayfinder index`;
+  Git refresh hooks can trigger indexing after relevant pulls, checkouts, and
+  rebases. Session startup does no indexing. Search refuses stale indexes and
+  does not silently reindex.
+
+The project search/index commands use existing `applies_to` paths and need no
+configuration schema change or Profile-source fetch. Bundle `add` and update
+installation remain unimplemented; the manual Flutter demo does not establish
+those lifecycle guarantees.
+
 ## Implementation boundary
 
 Use `tool/knowledge_import/` for an independent, non-published Dart tool package.
@@ -129,6 +153,7 @@ checks apply only to this handoff and are reported in the PR.
 The implementation environment resolved the source locks and generated the
 example's `wayfinder.lock`. The importer package's analysis and tests pass, and
 the example passes independent OKF and Bitwild Profile 2026.3 validation. Native
-indexing, semantic search, MCP, full-catalog coverage, paired Dart release
-evidence, and the expanded evaluation window remain follow-up gates; they are not
-claimed from this pilot.
+indexing, five scoped semantic queries, MCP retrieval/validation, and unchanged
+cache reuse have passed for the nine-concept publisher/consumer pilot. Full-catalog
+coverage, paired Dart release evidence, and the expanded evaluation window remain
+follow-up gates. Bundle installation commands are not established by these checks.
