@@ -11,9 +11,10 @@ execute it only when assigned to an implementation agent.
 1. Read repository `AGENTS.md`, this entire handoff, the Profile and implementation
    guide, and the authoring skill with its routed references. Read the real files,
    not only this plan's summaries.
-2. Inspect PR #113 and the branch/commit on which this handoff sits. Record the exact
-   base. Use the 2026.3 direct-source configuration, not the old 2026.2 root files or
-   an unpublished `bundles`/`implements` shape. Do not merge or alter #113.
+2. Inspect the merged PR #113 and the current `main` configuration. Record the exact
+   merged revision. Use the 2026.3 direct-source configuration, not the old 2026.2
+   root files or an unpublished `bundles`/`implements` shape. Do not alter the merged
+   configuration implementation.
 3. If working directly on the handoff branch, first confirm it has no unrecognized
    edits or newer contributions. Preserve this plan and combine your own changes
    into its single commit only when assigned to update this PR. Otherwise create a
@@ -145,11 +146,10 @@ single-commit implementation requires an amended/squashed commit and
 `--force-with-lease` only on the dedicated branch after confirming ownership and
 absence of other contributions; never force-push `main` or the foundation branch.
 
-If #113 remains open, target its `feat/config-json` branch and mark the dependency
-in the PR. After it merges, retarget/rebase using the actual merge result and
-recheck the one-commit diff; do not automatically merge the stack. If continuing
-this planning PR, update its title/body to reflect the real implementation state
-only after implementation evidence exists.
+Target the current `main` branch and record the merged #113 revision in the PR.
+Recheck the one-commit diff after any rebase; do not automatically merge a stack.
+If continuing this planning PR, update its title/body to reflect the real
+implementation state only after implementation evidence exists.
 
 The PR body must state source revisions, covered and blocked corpus, rights review,
 Profile resolution, tests passed/failed/skipped, semantic evaluation, no-op update

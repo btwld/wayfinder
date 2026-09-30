@@ -30,9 +30,10 @@ Do not invent new `Skill`, `Change`, or `Source` types for convenience.
 ## 2. Three separate persisted contracts
 
 **Project Profile binding:** `wayfinder.json` and `wayfinder.lock`, produced and
-resolved by Wayfinder. The example uses `bitwild_profile`, direct Git `source`,
-and `applies_to: ["./knowledge"]`. The supplied JSON example pins the reviewed
-2026.3 commit. The importer must not hand-write, repurpose, or extend this lock.
+resolved by Wayfinder. The example follows the merged configured-2026.3 project
+shape: `bitwild_profile`, direct Git `source`, and `applies_to: ["./knowledge"]`.
+`wayfinder get` resolves the mutable `main` ref into the lock. The importer must
+not hand-write, repurpose, or extend this lock.
 
 **Content acquisition:** a runtime `sources.json` manifest and `sources.lock.json`.
 The content lock records manifest hash, exact upstream commits, selected paths and

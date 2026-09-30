@@ -11,17 +11,17 @@ skills, architecture, terminology, release changes, migration guidance, and sele
 design rationale. Provide a repeatable Dart importer and demonstrate the resulting
 bundle with existing Wayfinder validation, search, graph, and MCP services.
 
-The format foundation is [PR #113](https://github.com/btwld/wayfinder/pull/113),
-branch `feat/config-json`, reviewed at commit
-`7d9ed505a8b300ca5ba0959c058f02873a0333e3`. It proposes **Bitwild Profile 2026.3,
-OKF 0.2 exactly**. It is not a claim that 2026.3 has been merged or published.
-This handoff is stacked directly on #113, not on `main`. The unrelated workbench,
+The format foundation is the merged [PR #113](https://github.com/btwld/wayfinder/pull/113),
+whose merge commit is
+`d3e3dc59bb87ab72925043c571e5a855886f0e30`. It establishes **Bitwild Profile
+2026.3, OKF 0.2 exactly**. This handoff targets the current `main` configuration
+and does not replace or modify the merged implementation. The unrelated workbench,
 session-memory, and ADR-cleanup PRs are not dependencies.
 
-A future implementation must re-read the actual base revision before changing
-files. If #113 changes, reconcile the contracts here against that revision. If it
-is merged by squash or rebase, use its actual merged successor and verify the
-format again; do not silently keep an obsolete draft selector.
+A future implementation must re-read the actual `main` revision before changing
+files. If the configuration or Profile changes, reconcile the contracts here
+against the merged revision and verify the format again; do not silently keep an
+obsolete draft selector.
 
 ## Contents
 
@@ -31,7 +31,7 @@ format again; do not silently keep an obsolete draft selector.
 | [DESIGN.md](DESIGN.md) | Import contracts, reconciliation, provenance, version handling, and safety |
 | [ACCEPTANCE.md](ACCEPTANCE.md) | Required tests, semantic evaluation, and completion gates |
 | [sources.plan.json](sources.plan.json) | Source allowlist and bounded discovery policy; not a resolved source lock |
-| [wayfinder.example.json](wayfinder.example.json) | Direct-source 2026.3 configuration example pinned to the reviewed foundation |
+| [wayfinder.example.json](wayfinder.example.json) | Direct-source 2026.3 configuration example aligned with the merged configuration |
 
 ## Implementation boundary
 

@@ -125,7 +125,7 @@ upstream crawling or auto-publication to the repository.
 
 ## Planning-only checks
 
-For this handoff, check JSON syntax, the example's shape against #113's project
-schema, required source IDs and unique work IDs, local documentation links,
+For this handoff, check JSON syntax, the example's shape against the merged
+`main` project schema, required source IDs and unique work IDs, local documentation links,
 Markdown fence balance, and whitespace. These checks do not resolve Git sources,
 validate an OKF bundle, assess legal rights, or run the proposed importer.

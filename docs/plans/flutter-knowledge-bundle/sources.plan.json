@@ -4,8 +4,8 @@
   "foundation": {
     "repository": "btwld/wayfinder",
     "pull_request": 113,
-    "branch": "feat/config-json",
-    "reviewed_commit": "7d9ed505a8b300ca5ba0959c058f02873a0333e3",
+    "branch": "main",
+    "reviewed_commit": "d3e3dc59bb87ab72925043c571e5a855886f0e30",
     "profile_identity": "bitwild_profile",
     "profile_release": "2026.3",
     "okf_version": "0.2"
