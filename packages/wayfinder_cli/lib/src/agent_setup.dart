@@ -183,24 +183,17 @@ class AgentSetup {
     );
   }
 
-  /// Refreshes the index after agent turns and git changes. Indexing skips a
-  /// current bundle without loading the model, so each trigger is cheap.
+  /// Refreshes the index after git changes that touch the bundle. Agent Stop
+  /// hooks are not used: they fired after every turn in every workspace, and a
+  /// new worktree has no index, so each one re-embedded the whole bundle.
+  /// Search reports a stale index, and the MCP `index` tool refreshes it.
   Future<void> _writeHooks(String project, String bundle) async {
-    // Claude Code discards async hook output and exit codes.
-    await _mergeStopHook(File(p.join(project, '.claude', 'settings.json')), {
-      'type': 'command',
-      'command':
-          'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index $bundle --detach',
-      'async': true,
-    });
-    // A Codex Stop hook must print JSON, and exit 2 would continue the turn.
-    await _mergeStopHook(File(p.join(project, '.codex', 'hooks.json')), {
-      'type': 'command',
-      'command':
-          'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
-          'wayfinder index $bundle --detach --output=json || printf "{}"',
-      'timeout': 10,
-    });
+    for (final settings in [
+      p.join(project, '.claude', 'settings.json'),
+      p.join(project, '.codex', 'hooks.json'),
+    ]) {
+      await _removeStopHooks(File(settings));
+    }
     // Git runs these hooks from the top of the working tree. Each exits unless
     // the change touched the bundle: a new clone or worktree has no index to
     // refresh, and indexing it would re-embed the whole bundle.
@@ -228,34 +221,26 @@ class AgentSetup {
       );
       if (!Platform.isWindows) await _run('chmod', ['+x', hook.path]);
     }
-    _out(
-      'Configured index refresh hooks for Claude Code, Codex and git '
-      '(.githooks/).',
-    );
+    _out('Configured index refresh hooks for git (.githooks/).');
     await _enableGitHooks(project);
   }
 
-  /// Adds Wayfinder's Stop hook once, replacing an earlier Wayfinder entry and
-  /// preserving every other setting and hook.
-  Future<void> _mergeStopHook(File file, Map<String, Object?> handler) async {
-    var config = <String, Object?>{};
-    if (await file.exists()) {
-      final Object? decoded;
-      try {
-        decoded = jsonDecode(await file.readAsString());
-      } on FormatException {
-        throw WayfinderException('${file.path} is not valid JSON.');
-      }
-      if (decoded is! Map<String, Object?>) {
-        throw WayfinderException('${file.path} must contain a JSON object.');
-      }
-      config = decoded;
+  /// Removes the Stop hooks earlier releases added, preserving every other
+  /// setting and hook. A file left empty is deleted.
+  Future<void> _removeStopHooks(File file) async {
+    if (!await file.exists()) return;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(await file.readAsString());
+    } on FormatException {
+      throw WayfinderException('${file.path} is not valid JSON.');
     }
-    final hooks = config['hooks'] ?? <String, Object?>{};
-    final stop = hooks is Map<String, Object?> ? hooks['Stop'] ?? [] : null;
-    if (hooks is! Map<String, Object?> || stop is! List) {
-      throw WayfinderException('${file.path} has an unexpected hooks shape.');
+    if (decoded is! Map<String, Object?>) {
+      throw WayfinderException('${file.path} must contain a JSON object.');
     }
+    final hooks = decoded['hooks'];
+    final stop = hooks is Map<String, Object?> ? hooks['Stop'] : null;
+    if (stop is! List) return;
     bool ours(Object? group) =>
         group is Map &&
         group['hooks'] is List &&
@@ -263,16 +248,16 @@ class AgentSetup {
           (entry) =>
               entry is Map && '${entry['command']}'.contains('wayfinder index'),
         );
-    config['hooks'] = {
-      ...hooks,
-      'Stop': [
-        ...stop.where((group) => !ours(group)),
-        {
-          'hooks': [handler],
-        },
-      ],
-    };
-    await file.parent.create(recursive: true);
+    final kept = [...stop.where((group) => !ours(group))];
+    if (kept.length == stop.length) return;
+    final remaining = {...hooks as Map<String, Object?>}..remove('Stop');
+    if (kept.isNotEmpty) remaining['Stop'] = kept;
+    final config = {...decoded}..remove('hooks');
+    if (remaining.isNotEmpty) config['hooks'] = remaining;
+    if (config.isEmpty) {
+      await file.delete();
+      return;
+    }
     await file.writeAsString(
       '${const JsonEncoder.withIndent('  ').convert(config)}\n',
     );

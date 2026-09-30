@@ -226,71 +226,94 @@ void main() {
       expect((config()['mcpServers'] as Map)['wayfinder'], entry);
     });
 
-    test('adds refresh hooks once and keeps other hooks', () async {
-      final settings = File(p.join(project, '.claude', 'settings.json'));
-      await settings.parent.create();
-      settings.writeAsStringSync(
-        jsonEncode({
-          'model': 'kept',
+    test(
+      'writes only git hooks and removes earlier agent Stop hooks',
+      () async {
+        Map<String, Object?> stopHooks(List<String> commands) => {
           'hooks': {
             'Stop': [
-              {
-                'hooks': [
-                  {'type': 'command', 'command': 'echo other'},
-                ],
-              },
+              for (final command in commands)
+                {
+                  'hooks': [
+                    {'type': 'command', 'command': command},
+                  ],
+                },
             ],
           },
-        }),
-      );
-      AgentSetup hooked() => setup(
-        run: (executable, arguments) async {
-          calls.add([executable, ...arguments]);
-          return ProcessResult(0, arguments.contains('--get') ? 1 : 0, '', '');
-        },
-      );
-      await hooked().configureProject(project, hooks: true);
-      await hooked().configureProject(project, hooks: true);
-
-      Map<String, Object?> read(String path) =>
-          jsonDecode(File(p.join(project, path)).readAsStringSync())
-              as Map<String, Object?>;
-      final claude = read('.claude/settings.json');
-      final claudeStop = (claude['hooks'] as Map)['Stop'] as List;
-      expect(claude['model'], 'kept');
-      expect(claudeStop, hasLength(2));
-      expect(jsonEncode(claudeStop.first), contains('echo other'));
-      expect(
-        jsonEncode(claudeStop.last),
-        allOf(
-          contains('wayfinder index knowledge --detach'),
-          contains('async'),
-        ),
-      );
-      final codexStop =
-          (read('.codex/hooks.json')['hooks'] as Map)['Stop'] as List;
-      expect(
-        jsonEncode(codexStop.single),
-        contains('--detach --output=json || printf'),
-      );
-      for (final name in ['post-merge', 'post-checkout', 'post-rewrite']) {
-        expect(
-          File(p.join(project, '.githooks', name)).readAsStringSync(),
-          contains('wayfinder index knowledge --detach'),
+        };
+        final claude = File(p.join(project, '.claude', 'settings.json'));
+        final codex = File(p.join(project, '.codex', 'hooks.json'));
+        await claude.parent.create();
+        await codex.parent.create();
+        claude.writeAsStringSync(
+          jsonEncode({
+            'model': 'kept',
+            ...stopHooks([
+              'echo other',
+              'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index knowledge --detach',
+            ]),
+          }),
         );
-      }
+        codex.writeAsStringSync(
+          jsonEncode(
+            stopHooks(['wayfinder index knowledge --detach --output=json']),
+          ),
+        );
+        AgentSetup hooked() => setup(
+          run: (executable, arguments) async {
+            calls.add([executable, ...arguments]);
+            return ProcessResult(
+              0,
+              arguments.contains('--get') ? 1 : 0,
+              '',
+              '',
+            );
+          },
+        );
+        await hooked().configureProject(project, hooks: true);
+        await hooked().configureProject(project, hooks: true);
+
+        final kept = jsonDecode(claude.readAsStringSync()) as Map;
+        expect(kept['model'], 'kept');
+        expect(
+          jsonEncode((kept['hooks'] as Map)['Stop']),
+          allOf(contains('echo other'), isNot(contains('wayfinder'))),
+        );
+        expect(codex.existsSync(), isFalse);
+        for (final name in ['post-merge', 'post-checkout', 'post-rewrite']) {
+          expect(
+            File(p.join(project, '.githooks', name)).readAsStringSync(),
+            contains('wayfinder index knowledge --detach'),
+          );
+        }
+        expect(
+          calls,
+          contains(
+            equals([
+              'git',
+              '-C',
+              project,
+              'config',
+              'core.hooksPath',
+              '.githooks',
+            ]),
+          ),
+        );
+      },
+    );
+
+    test('hooks create no agent settings', () async {
+      await setup(
+        run: (executable, arguments) async =>
+            ProcessResult(0, arguments.contains('--get') ? 1 : 0, '', ''),
+      ).configureProject(project, hooks: true);
       expect(
-        calls,
-        contains(
-          equals([
-            'git',
-            '-C',
-            project,
-            'config',
-            'core.hooksPath',
-            '.githooks',
-          ]),
-        ),
+        File(p.join(project, '.claude', 'settings.json')).existsSync(),
+        isFalse,
+      );
+      expect(
+        File(p.join(project, '.codex', 'hooks.json')).existsSync(),
+        isFalse,
       );
     });
 

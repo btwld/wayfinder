@@ -12,6 +12,10 @@
   `setup --hooks` skip file checkouts, new clones and worktrees, and changes
   that leave the bundle alone; rerun `wayfinder setup --hooks` to update
   existing hooks.
+- `setup --hooks` no longer adds Claude Code and Codex Stop hooks, which
+  indexed after every agent turn in every workspace. Rerunning it removes the
+  Stop hooks earlier releases added and keeps every other hook; search still
+  reports a stale index, and the MCP `index` tool refreshes it.
 
 # 0.1.2
 

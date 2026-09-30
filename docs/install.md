@@ -87,15 +87,14 @@ the plugin runs, so Claude Code connects once when both are present. Commit
 `.mcp.json` to share it; Claude Code asks for approval before starting project
 servers.
 
-`wayfinder setup --hooks` keeps the search index current automatically. It
-adds Stop hooks for Claude Code and Codex and git hooks for pulls, checkouts and
-rebases that change the bundle; each runs `wayfinder index knowledge --detach`,
-which returns at once and re-embeds only changed passages in the background.
-One background index runs per machine, for at most 30 minutes. Claude Code and
-Codex run project hooks only after you trust the project (Codex also asks you
-to review them with `/hooks`), and each clone enables the git hooks with
-`git config core.hooksPath .githooks`. `wayfinder index knowledge --force`
-rebuilds an index from scratch.
+`wayfinder setup --hooks` refreshes the search index after git pulls, checkouts
+and rebases that change the bundle. Each git hook runs
+`wayfinder index knowledge --detach`, which returns at once and re-embeds only
+changed passages in the background. One background index runs per machine, for
+at most 30 minutes. Each clone enables the git hooks with
+`git config core.hooksPath .githooks`. Otherwise, search reports a stale index,
+and `wayfinder index knowledge` or the MCP `index` tool refreshes it;
+`wayfinder index knowledge --force` rebuilds an index from scratch.
 
 ## Install the Claude Code plugin
 

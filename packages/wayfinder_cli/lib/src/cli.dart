@@ -274,8 +274,8 @@ class WayfinderCli {
           'hooks',
           negatable: false,
           help:
-              'Also refresh the index after Claude Code and Codex turns and '
-              'git pulls, checkouts and rebases.',
+              'Also refresh the index after git pulls, checkouts and rebases '
+              'that change the bundle.',
         ),
     );
     parser.addCommand(
