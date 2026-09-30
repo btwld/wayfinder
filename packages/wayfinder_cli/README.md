@@ -86,7 +86,10 @@ IDs and cause additional re-encoding. An unchanged index returns without
 opening the model or staging a database copy. `--force` rebuilds from scratch
 into a new generation, which replaces the old one only when it completes.
 `--detach` returns at once and indexes in a background process only when the
-bundle changed; the refresh hooks use it.
+bundle changed; the refresh hooks use it. One background index runs per
+machine: while one runs, `--detach` reports it and starts nothing. A background
+index stops after 30 minutes, or as soon as its bundle directory disappears;
+index a large bundle for the first time in the foreground.
 
 ### Oversized-input recovery and warnings
 
@@ -227,8 +230,10 @@ removes a skill it did not install. `setup` adds `wayfinder mcp <bundle>` to a
 project's `.mcp.json` and preserves other servers. `setup --hooks` also runs
 `wayfinder index <bundle> --detach` after Claude Code and Codex turns (Stop hooks
 in `.claude/settings.json` and `.codex/hooks.json`) and after git pulls,
-checkouts and rebases (`.githooks/`, enabled with `core.hooksPath`). Existing
-hooks are kept, and rerunning replaces only Wayfinder's own entries.
+checkouts and rebases that change the bundle (`.githooks/`, enabled with
+`core.hooksPath`). The git hooks skip file checkouts and new clones or
+worktrees. Existing hooks are kept, and rerunning replaces only Wayfinder's own
+entries.
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. A Dart installation prints its

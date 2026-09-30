@@ -294,6 +294,74 @@ void main() {
       );
     });
 
+    test('git hooks index only after a change to the bundle', () async {
+      final log = File(p.join(root.path, 'indexed.log'));
+      final bin = await Directory(p.join(root.path, 'bin')).create();
+      final fake = File(
+        p.join(bin.path, 'wayfinder'),
+      )..writeAsStringSync('#!/bin/sh\necho "\$*" >> "\$WAYFINDER_TEST_LOG"\n');
+      await Process.run('chmod', ['+x', fake.path]);
+      final environment = {
+        'PATH': '${bin.path}:${Platform.environment['PATH']}',
+        'WAYFINDER_TEST_LOG': log.path,
+        'GIT_CONFIG_GLOBAL': p.join(root.path, 'gitconfig'),
+        'GIT_CONFIG_NOSYSTEM': '1',
+      };
+      Future<void> git(List<String> arguments) async {
+        final result = await Process.run(
+          'git',
+          [
+            '-c',
+            'user.name=Wayfinder',
+            '-c',
+            'user.email=wayfinder@example.com',
+            ...arguments,
+          ],
+          workingDirectory: project,
+          environment: environment,
+        );
+        expect(result.exitCode, 0, reason: '${result.stderr}');
+      }
+
+      List<String> indexed() =>
+          log.existsSync() ? log.readAsLinesSync() : const [];
+      final concept = File(p.join(project, 'knowledge', 'a.md'));
+      final notes = File(p.join(project, 'notes.txt'));
+
+      await git(['init', '-q', '-b', 'main']);
+      await concept.create(recursive: true);
+      concept.writeAsStringSync('a\n');
+      notes.writeAsStringSync('n\n');
+      await setup(
+        run: (executable, arguments) async => executable == 'chmod'
+            ? Process.run(executable, arguments)
+            : ProcessResult(0, arguments.contains('--get') ? 1 : 0, '', ''),
+      ).configureProject(project, hooks: true);
+      await git(['config', 'core.hooksPath', '.githooks']);
+      await git(['add', '.']);
+      await git(['commit', '-qm', 'start']);
+
+      // A new worktree or a restored file never starts an index.
+      await git(['worktree', 'add', '-q', p.join(root.path, 'worktree')]);
+      concept.writeAsStringSync('edit\n');
+      await git(['checkout', '--', 'knowledge/a.md']);
+      // Nor does moving between commits that leave the bundle alone.
+      await git(['checkout', '-qb', 'notes']);
+      notes.writeAsStringSync('more\n');
+      await git(['commit', '-qam', 'notes']);
+      await git(['checkout', '-q', 'main']);
+      await git(['merge', '-q', '--ff-only', 'notes']);
+      expect(indexed(), isEmpty);
+
+      await git(['checkout', '-qb', 'bundle']);
+      concept.writeAsStringSync('b\n');
+      await git(['commit', '-qam', 'bundle']);
+      await git(['checkout', '-q', 'main']);
+      expect(indexed(), ['index knowledge --detach']);
+      await git(['merge', '-q', '--ff-only', 'bundle']);
+      expect(indexed(), hasLength(2));
+    }, testOn: '!windows');
+
     for (final (contents, bundle, message) in [
       ('[]', 'knowledge', 'JSON object'),
       ('{', 'knowledge', 'not valid JSON'),

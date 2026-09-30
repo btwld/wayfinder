@@ -89,10 +89,11 @@ servers.
 
 `wayfinder setup --hooks` keeps the search index current automatically. It
 adds Stop hooks for Claude Code and Codex and git hooks for pulls, checkouts and
-rebases; each runs `wayfinder index knowledge --detach`, which returns at once
-and re-embeds only changed passages in the background. Claude Code and Codex
-run project hooks only after you trust the project (Codex also asks you to
-review them with `/hooks`), and each clone enables the git hooks with
+rebases that change the bundle; each runs `wayfinder index knowledge --detach`,
+which returns at once and re-embeds only changed passages in the background.
+One background index runs per machine, for at most 30 minutes. Claude Code and
+Codex run project hooks only after you trust the project (Codex also asks you
+to review them with `/hooks`), and each clone enables the git hooks with
 `git config core.hooksPath .githooks`. `wayfinder index knowledge --force`
 rebuilds an index from scratch.
 

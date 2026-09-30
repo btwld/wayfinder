@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
+import 'package:path/path.dart' as p;
 
 import 'agent_setup.dart';
 import 'graph.dart';
@@ -26,7 +28,13 @@ class WayfinderCli {
     WayfinderProfileResolver Function()? profileResolver,
     bool? notices,
     Future<void> Function(List<String> arguments)? spawnDetached,
+    Duration? backgroundLimit,
+    Duration? bundlePoll,
+    Never Function(int code)? terminate,
   }) : _spawnDetached = spawnDetached ?? _startDetached,
+       _backgroundLimit = backgroundLimit ?? _defaultBackgroundLimit,
+       _bundlePoll = bundlePoll ?? const Duration(seconds: 5),
+       _terminate = terminate ?? exit,
        _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
        _knowledge = knowledge ?? WayfinderKnowledge.new,
@@ -45,6 +53,11 @@ class WayfinderCli {
   final WayfinderProfileResolver Function()? _profileResolverFactory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
+  final Duration _backgroundLimit;
+  final Duration _bundlePoll;
+  final Never Function(int code) _terminate;
+
+  static const _defaultBackgroundLimit = Duration(minutes: 30);
 
   WayfinderProfileResolver _profileResolver() =>
       _profileResolverFactory?.call() ??
@@ -61,6 +74,37 @@ class WayfinderCli {
       if (interpreted) ...[...Platform.executableArguments, script],
       ...arguments,
     ], mode: ProcessStartMode.detached);
+  }
+
+  /// Runs the index `--detach` started. One runs per machine, and it stops
+  /// once it outlives [_backgroundLimit] or its bundle directory disappears.
+  /// Native embedding cannot be cancelled, so stopping ends the process; the
+  /// next successful index reclaims the abandoned generation.
+  Future<int> _indexInBackground(String bundle, {required bool force}) async {
+    final knowledge = _knowledge();
+    final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
+    // Another background index started first; the next trigger refreshes.
+    if (slot == null) return 0;
+    final root = Directory(bundle).absolute;
+    final stop = Completer<int>();
+    final deadline = Timer(_backgroundLimit, () {
+      if (!stop.isCompleted) stop.complete(124);
+    });
+    final watch = Timer.periodic(_bundlePoll, (_) {
+      if (!stop.isCompleted && !root.existsSync()) stop.complete(2);
+    });
+    try {
+      final code = await Future.any([
+        knowledge.index(bundle, force: force).then((_) => 0),
+        stop.future,
+      ]);
+      if (code != 0) _terminate(code);
+      return 0;
+    } finally {
+      deadline.cancel();
+      watch.cancel();
+      await slot.release();
+    }
   }
 
   Updater _updater(void Function(String) out) =>
@@ -138,8 +182,12 @@ class WayfinderCli {
             'detach',
             negatable: false,
             help:
-                'Return at once; index in the background if anything changed.',
-          );
+                'Return at once; index in the background if anything changed. '
+                'One background index runs at a time, for at most '
+                '${_defaultBackgroundLimit.inMinutes} minutes.',
+          )
+          // The process --detach starts; not for direct use.
+          ..addFlag('background', negatable: false, hide: true);
       }
       if (name == 'search') {
         command.addOption(
@@ -414,10 +462,14 @@ class WayfinderCli {
       }
       if (name == 'index') {
         final force = command.flag('force');
+        if (command.flag('background')) {
+          return await _indexInBackground(bundle, force: force);
+        }
         if (command.flag('detach')) {
+          final knowledge = _knowledge();
           String state;
           try {
-            state = !force && await _knowledge().isCurrent(bundle)
+            state = !force && await knowledge.isCurrent(bundle)
                 ? 'current'
                 : 'started';
           } on WayfinderException catch (error) {
@@ -425,14 +477,27 @@ class WayfinderCli {
             state = 'running';
           }
           if (state == 'started') {
-            await _spawnDetached(['index', bundle, if (force) '--force']);
+            final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
+            if (slot == null) {
+              state = 'running';
+            } else {
+              await slot.release();
+              await _spawnDetached([
+                'index',
+                bundle,
+                '--background',
+                if (force) '--force',
+              ]);
+            }
           }
           if (json) {
             _json({'bundle': bundle, 'detached': state});
           } else {
             _out(switch (state) {
               'current' => 'Index for ${_safe(bundle)} is current.',
-              'running' => 'Indexing ${_safe(bundle)} is already running.',
+              'running' =>
+                'An index is already running; ${_safe(bundle)} was not '
+                    'started.',
               _ => 'Indexing ${_safe(bundle)} in the background.',
             });
           }
@@ -528,6 +593,44 @@ class WayfinderCli {
 
   void _json(Object? value) =>
       _out(const JsonEncoder.withIndent('  ').convert(value));
+}
+
+/// The machine-wide right to run a background index: an exclusive lock on a
+/// file in the Wayfinder data directory.
+class _BackgroundSlot {
+  _BackgroundSlot._(this._path, this._file);
+
+  // File locks belong to a process, so a second claim from this process must
+  // be refused here rather than by the lock.
+  static final _held = <String>{};
+  final String _path;
+  final RandomAccessFile _file;
+
+  /// Returns null while another background index holds the slot.
+  static Future<_BackgroundSlot?> claim(Directory data) async {
+    await data.create(recursive: true);
+    final path = p.join(data.absolute.path, 'background-index.lock');
+    if (!_held.add(path)) return null;
+    RandomAccessFile? file;
+    try {
+      file = await File(path).open(mode: FileMode.append);
+      await file.lock(FileLock.exclusive);
+      return _BackgroundSlot._(path, file);
+    } on FileSystemException {
+      await file?.close();
+      _held.remove(path);
+      if (file == null) rethrow;
+      return null;
+    }
+  }
+
+  Future<void> release() async {
+    try {
+      await _file.close();
+    } finally {
+      _held.remove(_path);
+    }
+  }
 }
 
 String _safe(String value) => value.replaceAllMapped(

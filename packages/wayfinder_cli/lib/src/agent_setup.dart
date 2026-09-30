@@ -201,11 +201,21 @@ class AgentSetup {
           'wayfinder index $bundle --detach --output=json || printf "{}"',
       'timeout': 10,
     });
-    // Git runs these hooks from the top of the working tree.
-    for (final (name, change) in [
-      ('post-merge', 'a pull or merge'),
-      ('post-checkout', 'a checkout'),
-      ('post-rewrite', 'a rebase or amend'),
+    // Git runs these hooks from the top of the working tree. Each exits unless
+    // the change touched the bundle: a new clone or worktree has no index to
+    // refresh, and indexing it would re-embed the whole bundle.
+    final unchangedSinceOrigHead =
+        'git diff --quiet ORIG_HEAD HEAD -- $bundle 2>/dev/null && exit 0\n';
+    for (final (name, change, guard) in [
+      ('post-merge', 'a pull or merge', unchangedSinceOrigHead),
+      (
+        'post-checkout',
+        'a checkout',
+        '[ "\$3" = 1 ] || exit 0\n'
+            'case "\$1" in *[!0]*) ;; *) exit 0 ;; esac\n'
+            'git diff --quiet "\$1" "\$2" -- $bundle && exit 0\n',
+      ),
+      ('post-rewrite', 'a rebase or amend', unchangedSinceOrigHead),
     ]) {
       final hook = File(p.join(project, '.githooks', name));
       await hook.parent.create(recursive: true);
@@ -213,6 +223,7 @@ class AgentSetup {
         '#!/bin/sh\n'
         '# Refresh the Wayfinder index when $change changed the bundle.\n'
         'command -v wayfinder >/dev/null 2>&1 || exit 0\n'
+        '$guard'
         'wayfinder index $bundle --detach >/dev/null 2>&1 || true\n',
       );
       if (!Platform.isWindows) await _run('chmod', ['+x', hook.path]);
