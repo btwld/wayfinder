@@ -1,8 +1,8 @@
 # Flutter and Dart knowledge bundle: agent handoff
 
-Status: proposed implementation plan. No importer or public knowledge bundle is
-implemented by this planning change. The JSON files here are planning inputs and
-an example, not installed Wayfinder configuration or generated lockfiles.
+Status: pilot implementation complete on the implementation branch. The importer
+and the source-attributed pilot live in `tool/knowledge_import/` and
+`examples/flutter-knowledge/`. Full-catalog expansion remains explicitly open.
 
 ## Goal and foundation
 
@@ -48,9 +48,9 @@ Wayfinder CLI. No provider API key, hosted model, scheduled task, or service acc
 is necessary for the first implementation. A coding agent performs the semantic
 authoring step; the importer handles evidence and reviewable changes.
 
-The first vertical slice covers five named skills, framework and application
+The implemented pilot covers five named skills, framework and application
 architecture, terminology, and one explicitly selected historical migration.
-After that slice passes, expand to the complete two skill catalogs, a frozen window
+After the pilot, expand to the complete two skill catalogs, a frozen window
 of three stable Flutter release families and their relevant breaking changes,
 corresponding released Dart changes, and a small reviewed design-document set.
 Missing or rights-blocked material must remain visible as a coverage gap, never
@@ -86,7 +86,9 @@ and the [Dart](https://github.com/dart-lang/skills/blob/main/resources/dart_skil
 and [Flutter](https://github.com/flutter/agent-plugins/blob/main/resources/flutter_skills.yaml)
 generator manifests provide discovery inputs. Preserve both the manifest recipe
 and its corresponding generated skill as evidence. They are not necessarily
-identical; neither should overwrite the other during import.
+identical; neither should overwrite the other during import. The pilot keeps
+the source identities in `sources.lock.json` and the concept mappings in
+`provenance.json`.
 
 Architecture sources include the [framework overview](https://docs.flutter.dev/resources/architectural-overview),
 [Inside Flutter](https://docs.flutter.dev/resources/inside-flutter), and
@@ -124,8 +126,9 @@ relationship rules, and workspace manifest were read. Public source entry points
 and repository license notices were checked. Local JSON, link, and whitespace
 checks apply only to this handoff and are reported in the PR.
 
-The authoring environment has Git but no Dart or Flutter executable. Direct GitHub
-cloning failed DNS resolution. No Dart tool was compiled or run, no `wayfinder.lock`
-was generated, no knowledge bundle was authored, and no retrieval or MCP test ran.
-A passing planning check or an upstream PR's test report is not implementation
-verification for this work. No agent has been launched by saving this handoff.
+The implementation environment resolved the source locks and generated the
+example's `wayfinder.lock`. The importer package's analysis and tests pass, and
+the example passes independent OKF and Bitwild Profile 2026.3 validation. Native
+indexing, semantic search, MCP, full-catalog coverage, paired Dart release
+evidence, and the expanded evaluation window remain follow-up gates; they are not
+claimed from this pilot.

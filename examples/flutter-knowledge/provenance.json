@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "authoring": {
+    "process": "flutter-knowledge-pilot/0.1",
+    "source_lock": "sources.lock.json",
+    "profile_commit": "d3e3dc59bb87ab72925043c571e5a855886f0e30",
+    "generated_at": "2026-09-30T01:20:47Z"
+  },
+  "concepts": {
+    "knowledge/testing/dart-unit-tests.md": ["dart-skills:skills/dart-add-unit-test/SKILL.md"],
+    "knowledge/testing/flutter-widget-tests.md": ["flutter-skills:skills/flutter-add-widget-test/SKILL.md"],
+    "knowledge/architecture/flutter-application-architecture.md": ["flutter-skills:skills/flutter-apply-architecture-best-practices/SKILL.md", "flutter-docs:sites/docs/src/content/app-architecture/concepts.md"],
+    "knowledge/layout/flutter-adaptive-layouts.md": ["flutter-skills:skills/flutter-build-responsive-layout/SKILL.md", "flutter-docs:sites/docs/src/content/resources/architectural-overview.md"],
+    "knowledge/layout/flutter-layout-constraints.md": ["flutter-skills:skills/flutter-fix-layout-issues/SKILL.md", "flutter-skills:skills/flutter-build-responsive-layout/SKILL.md"],
+    "knowledge/architecture/flutter-framework-layers.md": ["flutter-docs:sites/docs/src/content/resources/architectural-overview.md", "flutter-docs:sites/docs/src/content/resources/inside-flutter.md"],
+    "knowledge/terminology/widget.md": ["flutter-docs:sites/docs/src/data/glossary.yml"],
+    "knowledge/release/flutter-3-35-release-evidence.md": ["flutter-docs:sites/docs/src/content/release/release-notes/release-notes-3.35.0.md"],
+    "knowledge/layout/flutter-edge-to-edge-migration.md": ["flutter-docs:sites/docs/src/content/release/breaking-changes/default-systemuimode-edge-to-edge.md"]
+  },
+  "follow_up_gaps": [
+    "Full Dart and Flutter skill catalogs have not been imported.",
+    "Dart changelog pairing and the three-family stable release window are not part of this pilot.",
+    "No design-document source was admitted because proposal-versus-shipped evidence and rights were not resolved.",
+    "Native index, semantic search, and MCP evaluation require the installed model/runtime."
+  ]
+}
