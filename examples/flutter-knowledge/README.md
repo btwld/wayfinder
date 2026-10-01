@@ -36,7 +36,7 @@ dart run wayfinder_cli:wayfinder graph examples/flutter-knowledge/knowledge --ou
 ```
 
 `resolve` is the only command that advances a floating source ref. It writes
-`examples/flutter-knowledge/sources.lock.json`; the raw Git mirrors and plans
+`examples/flutter-knowledge/sources.lock.json`; the raw Git mirrors and importer staging
 stay ignored under `.wayfinder-import/`. `plan` is offline and produces no
 canonical bundle edits. `apply` requires a reviewed changeset and exact
 baseline hashes.
