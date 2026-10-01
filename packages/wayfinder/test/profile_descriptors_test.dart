@@ -119,6 +119,82 @@ void main() {
         rejectedAt('namespace', 'fails not'),
       );
     });
+
+    group('a source catalog', () {
+      const manifest = (id: 'client_profile', release: '2026.3');
+      Map<String, Object?> source({
+        String namespace = 'client-profile',
+        String id = 'client_profile',
+        String release = '2026.3',
+        Map<String, Object?> extra = const {},
+      }) => {
+        ...catalog(release: release),
+        'namespace': namespace,
+        'profile': {'id': id, 'release': release},
+        ...extra,
+      };
+
+      test('reports in the namespace its Profile identity derives', () {
+        final parsed = RuleCatalog.parse(
+          jsonEncode(source()),
+          manifest: manifest,
+        );
+        expect(parsed.namespace, 'client-profile');
+        expect(parsed.rules.single.descriptor.id, 'client-profile/a');
+        expect(
+          () => RuleCatalog.parse(
+            jsonEncode(source(namespace: 'client')),
+            manifest: manifest,
+          ),
+          rejectedAt('namespace', 'client-profile'),
+        );
+      });
+
+      test('cannot claim the installed namespace', () {
+        expect(
+          () => RuleCatalog.parse(
+            jsonEncode(
+              source(namespace: 'concepta-profile', id: 'concepta_profile'),
+            ),
+            manifest: (id: 'concepta_profile', release: '2026.3'),
+          ),
+          rejectedAt('namespace', 'reserved'),
+        );
+      });
+
+      test('must declare the manifest identity', () {
+        expect(
+          () => RuleCatalog.parse(
+            jsonEncode(source(release: '2026.4')),
+            manifest: manifest,
+          ),
+          rejectedAt('profile', 'client_profile/2026.3'),
+        );
+        expect(
+          () => RuleCatalog.parse(
+            jsonEncode(source(namespace: 'other', id: 'other')),
+            manifest: manifest,
+          ),
+          rejectedAt('namespace', 'client-profile'),
+        );
+      });
+
+      test('declares no frontmatter keys', () {
+        expect(
+          () => RuleCatalog.parse(
+            jsonEncode(
+              source(
+                extra: {
+                  'frontmatter_keys': {'owner': 'The owning team.'},
+                },
+              ),
+            ),
+            manifest: manifest,
+          ),
+          rejectedAt('frontmatter_keys', 'installed release'),
+        );
+      });
+    });
   });
 
   test('2026.2 reports no summary entries', () {

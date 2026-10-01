@@ -94,7 +94,7 @@ final class ProfileValidationResult {
     required this.automatedGateState,
     this.summary,
     this.fix,
-    this.catalog,
+    this.catalogs,
     this.projectConfig,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
@@ -144,7 +144,7 @@ final class ProfileValidationResult {
     OkfSpecValidation validation,
     ({List<ProfileFinding> findings, List<ProfileSummaryEntry> summary})
     results,
-    RuleCatalog catalog, {
+    List<RuleCatalog> catalogs, {
     ProfileFix? fix,
     ({String reported, String file})? projectConfig,
   }) {
@@ -161,22 +161,24 @@ final class ProfileValidationResult {
     );
     return ProfileValidationResult._(
       okfValidation: validation,
-      profileRelease: catalog.release,
+      profileRelease: catalogs.first.release,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
       automatedGateState: failed
           ? AutomatedGateState.fail
           : AutomatedGateState.pass,
       summary:
-          catalog.rules.any(
-            (rule) => rule.descriptor.severity == RuleSeverity.note,
+          catalogs.any(
+            (catalog) => catalog.rules.any(
+              (rule) => rule.descriptor.severity == RuleSeverity.note,
+            ),
           )
           ? List.unmodifiable(
               results.summary.toList()..sort(ProfileSummaryEntry.compare),
             )
           : null,
       fix: fix,
-      catalog: catalog,
+      catalogs: List<RuleCatalog>.unmodifiable(catalogs),
       projectConfig: projectConfig,
     );
   }
@@ -188,16 +190,16 @@ final class ProfileValidationResult {
   final AutomatedGateState automatedGateState;
 
   /// What the assessment found that the Profile permits, in canonical order.
-  /// Null unless the assessed catalog declares a note rule, so a release
+  /// Null unless an assessed catalog declares a note rule, so a release
   /// without one keeps its output shape.
   final List<ProfileSummaryEntry>? summary;
 
   /// Present when the caller asked for `--fix`.
   final ProfileFix? fix;
 
-  /// The catalog the bundle was assessed against; null when no release was
-  /// assessed.
-  final RuleCatalog? catalog;
+  /// The catalog chain the bundle was assessed against, base first
+  /// ([EffectiveProfile.catalogs]); null when no release was assessed.
+  final List<RuleCatalog>? catalogs;
 
   /// Where findings about the project configuration point. Their
   /// [ProfileFinding.path] is the configured path as given or the file's
@@ -339,7 +341,7 @@ final class ProfileValidator {
         );
       }
       profile = EffectiveProfile(
-        RuleCatalog.installed(builtinProfileId, release),
+        [RuleCatalog.installed(builtinProfileId, release)],
         legacyRegistryVocabulary(loaded),
         declaration: values,
       );
@@ -367,7 +369,7 @@ final class ProfileValidator {
         profile,
         projectConfig: projectConfig,
         fix: ProfileFix.notApplied(
-          'Profile ${profile.catalog.release} has no fixable rules',
+          'Profile ${profile.base.release} has no fixable rules',
         ),
       );
     }
@@ -419,7 +421,10 @@ EffectiveProfile _configuredProfile(
 }) {
   final binding = configured.profile;
   return EffectiveProfile(
-    RuleCatalog.installed(binding.implementsId, binding.release),
+    [
+      RuleCatalog.installed(binding.implementsId, binding.release),
+      ...binding.catalogs,
+    ],
     Vocabulary(
       standardTypes: externalStandardTypes.map((row) => row.$1).toList(),
       projectTypes: binding.types.map((type) => type.name).toList(),
@@ -443,7 +448,7 @@ ProfileValidationResult _assess(
   return ProfileValidationResult.assessed(
     validation,
     evaluate(profile, facts),
-    profile.catalog,
+    profile.catalogs,
     fix: fix,
     projectConfig: projectConfig,
   );

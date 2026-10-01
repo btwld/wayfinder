@@ -53,8 +53,17 @@ The validator becomes a closed **engine** with three parts:
 Profiles are packages: a manifest and a catalog, embedded in the binary or read
 from a Git source pinned by `wayfinder.lock`. Catalogs are data evaluated by the
 installed engine, which keeps ADR-0014's line that fetched JSON is data and
-executable validation stays installed. A catalog that names a subject, builtin,
-or keyword the engine lacks resolves to `UNSUPPORTED`.
+executable validation stays installed, and replaces its clause that no rules
+come from a source. A non-base manifest names its catalog (`rules`); the
+resolver reads it at the locked commit, so the lock has no field for it, and
+validation reads it from the cache. The catalog must declare the manifest's
+identity, report in the namespace that identity names, and declare no
+frontmatter keys. The effective chain is the installed base catalog followed
+by each source catalog, parent first; every catalog is evaluated whole, so an
+ancestor's findings are the same with or without a child. The base source
+never names a catalog. A catalog that names a subject, slot, builtin, or
+keyword the engine lacks resolves to `UNSUPPORTED` and is never partially
+applied.
 
 Findings keep OKF's wire format. The contract is the finding id, severity,
 path, and template arguments; message wording is editorial. SARIF 2.1.0 is an

@@ -25,11 +25,13 @@ String fixtureBundle(String path) =>
 
 /// Validates a fixture as [fixtureBundle] lays it out. A configured project
 /// is passed its `wayfinder.json` unless [discoverConfig], and its Profile
-/// sources resolve to the installed release. A configuration that does not
-/// parse resolves nothing, so the validator reports why.
+/// sources resolve to the installed release, shipping [catalogs] as if each
+/// source had named them. A configuration that does not parse resolves
+/// nothing, so the validator reports why.
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
+  List<RuleCatalog> catalogs = const [],
 }) async {
   final config = File(p.join(path, 'wayfinder.json'));
   if (!await config.exists()) {
@@ -59,6 +61,7 @@ Future<ProfileValidationResult> validateFixture(
           actors: entry.value.actors,
           source: entry.value.source,
           appliesTo: entry.value.appliesTo,
+          catalogs: catalogs,
         ),
     },
   );

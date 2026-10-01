@@ -421,16 +421,56 @@ final class WayfinderProfileResolver {
             !_sameDefinitions(tags, externalStandardTags) ||
             !_sameDefinitions(relationships, externalStandardRelationships))) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) differs from the installed compiled Profile vocabulary.',
+        '$origin differs from the installed compiled Profile vocabulary.',
       );
     }
+    final rules = manifest['rules'] as String?;
     return _ResolvedSource(
       commit: commit,
       release: manifest['release']! as String,
       types: types,
       tags: tags,
       relationships: relationships,
+      catalog: rules == null
+          ? null
+          : await _readCatalog(repository, profileId, source, commit, rules),
     );
+  }
+
+  /// The catalog the manifest names, read at the same commit as the
+  /// manifest so the lock's commit identifies both. A catalog this engine
+  /// cannot evaluate fails resolution whole, which `validate` reports as
+  /// `UNSUPPORTED`.
+  Future<RuleCatalog> _readCatalog(
+    Directory repository,
+    String profileId,
+    WayfinderProfileSource source,
+    String commit,
+    String rules,
+  ) async {
+    final origin = 'Profile $profileId at ${source.git} ($commit)';
+    if (profileId == builtinProfileId) {
+      throw WayfinderProfileResolutionException(
+        '$origin must not name a rule catalog; the installed one is authoritative.',
+      );
+    }
+    final path = p.posix.normalize(p.posix.join(source.path, rules));
+    final result = await _git(['show', '$commit:$path'], repository);
+    if (result.exitCode != 0) {
+      throw WayfinderProfileResolutionException(
+        '$origin names rule catalog $rules, which is missing at $path.',
+      );
+    }
+    try {
+      return RuleCatalog.parse(
+        result.stdout.toString(),
+        manifest: (id: profileId, release: externalProfileRelease),
+      );
+    } on RuleCatalogException catch (error) {
+      throw WayfinderProfileResolutionException(
+        '$origin rule catalog $rules cannot be evaluated by this validator: $error.',
+      );
+    }
   }
 
   Future<_ProfileLock?> _readLock(File file) async {
@@ -487,7 +527,8 @@ final class WayfinderProfileResolutionException extends WayfinderException {
   const WayfinderProfileResolutionException(super.message);
 }
 
-/// Resolution metadata only; no fetched vocabulary or executable rules.
+/// Resolution metadata only. The locked commit identifies a source's
+/// manifest and catalog, so neither is copied here.
 final class _ProfileLock {
   const _ProfileLock({
     required this.configurationSha256,
@@ -620,6 +661,7 @@ final class _ResolvedSource {
     required this.types,
     required this.tags,
     required this.relationships,
+    required this.catalog,
   });
 
   final String commit;
@@ -627,6 +669,9 @@ final class _ResolvedSource {
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
   final List<WayfinderDefinition> relationships;
+
+  /// The catalog the manifest names, or null for a manifest without one.
+  final RuleCatalog? catalog;
 }
 
 /// Names must be unique, which the manifest schema leaves to Wayfinder.
@@ -730,6 +775,17 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       }
       actors[entry.key] = entry.value;
     }
+    final catalogs = <RuleCatalog>[...?parent?.catalogs];
+    if (manifest.catalog case final catalog?) {
+      if (catalogs.any(
+        (inherited) => inherited.namespace == catalog.namespace,
+      )) {
+        throw WayfinderProfileResolutionException(
+          'Profile $id rule catalog repeats the namespace ${catalog.namespace} of an ancestor.',
+        );
+      }
+      catalogs.add(catalog);
+    }
     final binding = WayfinderProfileBinding(
       id: id,
       implementsId: builtinProfileId,
@@ -741,6 +797,7 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       tags: List.unmodifiable(tags),
       relationships: List.unmodifiable(relationships),
       actors: Map.unmodifiable(actors),
+      catalogs: List.unmodifiable(catalogs),
     );
     if (binding.tagCollision case final collision?) {
       throw WayfinderProfileResolutionException('Profile $id has $collision.');

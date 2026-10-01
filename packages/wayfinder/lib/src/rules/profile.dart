@@ -8,7 +8,8 @@ import 'catalog.dart';
 enum Slot {
   okfFrontmatterKeys('okf.frontmatterKeys'),
 
-  /// The selected catalog's declared frontmatter keys.
+  /// The base catalog's declared frontmatter keys. Only the installed
+  /// release declares keys (Profile §5.1), so a source catalog adds none.
   profileFrontmatterKeys('profile.frontmatterKeys'),
   profileTypes('profile.types'),
   profileTags('profile.tags'),
@@ -57,22 +58,29 @@ final class Vocabulary {
   final List<String>? actors;
 }
 
-/// What one bundle is validated against: the selected release's catalog,
-/// the slot values it is evaluated with, and where the selection came from.
+/// What one bundle is validated against: the catalog chain, the slot
+/// values it is evaluated with, and where the selection came from.
 final class EffectiveProfile {
   const EffectiveProfile(
-    this.catalog,
+    this.catalogs,
     this.vocabulary, {
     this.configPath,
     this.declaration,
   });
 
-  final RuleCatalog catalog;
+  /// Base first: the installed release's catalog, then the catalog each
+  /// source Profile along the `extends` chain ships, parent before child.
+  /// Every catalog is evaluated whole and reports in its own namespace, so
+  /// a child can only add findings (Profile §11).
+  final List<RuleCatalog> catalogs;
   final Vocabulary vocabulary;
+
+  /// The installed release's catalog, which names the release assessed.
+  RuleCatalog get base => catalogs.first;
 
   Map<Slot, List<String>> get slots => {
     Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
-    Slot.profileFrontmatterKeys: catalog.frontmatterKeys.keys.toList(),
+    Slot.profileFrontmatterKeys: base.frontmatterKeys.keys.toList(),
     Slot.profileTypes: ?vocabulary.types,
     Slot.profileTags: ?vocabulary.tags,
     Slot.profileRelationships: ?vocabulary.relationships,

@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 
 import 'profile_finding.dart';
 import 'profile_rule_descriptors.dart';
+import 'rules/catalog.dart';
 import 'validation.dart';
 
 const _schema =
@@ -16,9 +17,10 @@ const _schema =
 /// summary entry a `note` result of kind `informational`. Locations are
 /// relative to the working directory, joined from [bundlePath] as given (or
 /// the project configuration file, for a finding about it), so code scanning
-/// resolves them against a checkout when validation runs at its root. The
-/// selected catalog supplies one rule descriptor per rule, fired or not; OKF
-/// and dispatch descriptors appear only for the findings present.
+/// resolves them against a checkout when validation runs at its root. Every
+/// catalog in the assessed chain supplies one rule descriptor per rule,
+/// fired or not, naming the catalog's release; OKF and dispatch descriptors
+/// appear only for the findings present.
 Map<String, Object?> toSarif(
   ProfileValidationResult result, {
   required String bundlePath,
@@ -33,8 +35,11 @@ Map<String, Object?> toSarif(
   }
 
   final okfFindings = result.okfReport.findings;
-  final catalog = result.catalog;
-  final catalogIds = {...?catalog?.rules.map((rule) => rule.descriptor.id)};
+  final catalogs = result.catalogs ?? const <RuleCatalog>[];
+  final catalogIds = {
+    for (final catalog in catalogs)
+      for (final rule in catalog.rules) rule.descriptor.id,
+  };
   return {
     r'$schema': _schema,
     'version': '2.1.0',
@@ -48,7 +53,7 @@ Map<String, Object?> toSarif(
             'rules': [
               for (final id in {for (final finding in okfFindings) finding.id})
                 _okfDescriptor(id),
-              if (catalog != null)
+              for (final catalog in catalogs)
                 for (final rule in catalog.rules)
                   _profileDescriptor(
                     rule.descriptor,

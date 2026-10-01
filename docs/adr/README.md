@@ -35,5 +35,5 @@ choice and links there.
 | [0011](0011-wayfinder-mcp.md) | Accepted | Wayfinder MCP adapter over local stdio |
 | [0012](0012-wayfinder-graph-projection.md) | Accepted; amended for 2026.3 relationships | Project the ordinary OKF graph, plus typed relationship edges beside it |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
-| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | Direct Git sources, additive vocabulary and exact-release dispatch |
+| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3; superseded in part by 0015 for source rule catalogs | Direct Git sources, additive vocabulary and exact-release dispatch |
 | [0015](0015-profile-rule-catalogs.md) | Proposed | Evaluate Profiles as rule catalogs over parsed bundle facts |

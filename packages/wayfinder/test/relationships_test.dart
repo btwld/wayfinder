@@ -30,7 +30,7 @@ void main() {
     return BundleFacts.project(
       loaded,
       profile: EffectiveProfile(
-        RuleCatalog.installed(builtinProfileId, externalProfileRelease),
+        [RuleCatalog.installed(builtinProfileId, externalProfileRelease)],
         Vocabulary(
           standardTypes: const [],
           types: const ['Guide'],

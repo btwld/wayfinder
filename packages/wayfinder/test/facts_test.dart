@@ -279,10 +279,9 @@ void main() {
     final loaded = await const OkfBundleLoader().inspect(bundle.path);
     return BundleFacts.project(
       loaded,
-      profile: EffectiveProfile(
+      profile: EffectiveProfile([
         catalog,
-        const Vocabulary(standardTypes: [], types: ['Guide']),
-      ),
+      ], const Vocabulary(standardTypes: [], types: ['Guide'])),
     );
   }
 

@@ -12,6 +12,7 @@ export 'src/profile_release.dart'
         externalStandardTags,
         externalStandardRelationships;
 export 'src/published_schemas.dart' show profileManifestSchemaViolation;
+export 'src/rules/catalog.dart' show RuleCatalog, RuleCatalogException;
 export 'src/sarif.dart' show toSarif;
 export 'src/validation.dart'
     show

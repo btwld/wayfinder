@@ -5,6 +5,7 @@
 - Revised: 2026-09-29 (before the proposed 2026.3 release)
 - Scope: Profile 2026.3 project binding and exact-release dispatch
 - Supersedes: ADR-0004's in-bundle selection and registry-file decisions for Profile 2026.3; its OKF boundary and closed-validator decision remain
+- Superseded in part: by [ADR-0015](0015-profile-rule-catalogs.md), which lets a non-base source ship a rule catalog; the vocabulary-only manifest and the "no rules from sources" clause below no longer apply, while Git sources, the lock, never-fetch validation and exact-release dispatch stand
 - Driver: Profile 2026.3 adoption; reproducible source revisions and reusable project vocabulary
 
 The 2026-09-27 version selected installed-only bindings and rejected source

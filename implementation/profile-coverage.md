@@ -39,7 +39,8 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §11: `applies_to` paths stay relative, unique, inside the project after symlink resolution, and do not nest; independent bundles may share an entry | MUST / MAY | Automated Profile Validation | Normalized and canonical path checks |
 | §11: configuration and resolution lock remain outside the bundle and its index | MUST NOT | Profile Review | Confirm project metadata lives beside, not inside, the selected bundle; an unrelated mirrored asset with the same basename is not configuration |
 | §11: unknown IDs/releases and unresolved sources never silently fall back | MUST NOT | Automated Profile Validation | Unsupported result with independent OKF result retained |
-| §11: a child does not replace Profile rules, load executable rules, or change OKF semantics | MUST NOT | Profile Review | Review manifest/entry vocabulary and authored usage for semantic overrides; validator accepts only declarative metadata |
+| §11: a child does not replace, omit, re-grade, or parameterize an ancestor's rules, declare frontmatter keys, or change OKF semantics | MUST NOT | Automated Profile Validation | A source catalog is parsed whole as data. It must declare its manifest identity, report in the namespace that identity names, and declare no frontmatter keys; every catalog in the chain is evaluated unchanged, so an ancestor's findings are the same with or without the child |
+| §11: the base source names no catalog, and a catalog the validator cannot evaluate makes dispatch `UNSUPPORTED` without partial application | MUST NOT / MUST | Automated Profile Validation | A `rules` key on the base manifest, a missing catalog file, or a catalog naming an unknown subject, slot, builtin, or keyword fails resolution with the reason; the independent OKF result is retained |
 
 ## Structure and navigation coverage
 

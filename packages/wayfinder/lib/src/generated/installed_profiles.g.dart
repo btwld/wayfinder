@@ -2837,7 +2837,7 @@ const String wayfinderProfileManifestSchema = r'''
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
   "title": "Wayfinder Profile manifest",
-  "description": "Identity and declarative machine-readable metadata for a Git-sourced Wayfinder Profile. It does not define an executable rules language.",
+  "description": "Identity and declarative machine-readable metadata for a Git-sourced Wayfinder Profile. Its automated rules, when it ships any, are the rule catalog `rules` names, data the installed wayfinder engine evaluates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -2892,6 +2892,10 @@ const String wayfinderProfileManifestSchema = r'''
         "$ref": "#/$defs/relationshipDefinition"
       },
       "description": "Relationship names declared by this Profile for the concept frontmatter key relationships. Names must be unique; validation compares used names with the merged Profile and project vocabulary."
+    },
+    "rules": {
+      "$ref": "#/$defs/relativePath",
+      "description": "The Profile's rule catalog (wayfinder-rules.schema.json), relative to this manifest's directory in the same revision. Its rules add findings in the Profile's own namespace; the base Profile never names one, because its catalog is installed with the validator."
     }
   },
   "$defs": {
@@ -2905,6 +2909,11 @@ const String wayfinderProfileManifestSchema = r'''
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]*$",
       "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+    },
+    "relativePath": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
+      "description": "a relative path without parent traversal"
     },
     "profileRelease": {
       "type": "string",

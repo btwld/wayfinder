@@ -244,10 +244,12 @@ exit status is the same as for text and JSON.
 ### 4.2 Findings carry stable identifiers
 
 Every deterministic Profile finding MUST carry a stable machine-readable ID
-alongside its prose in the `concepta-profile/<rule-slug>` namespace, and MUST
-name the Profile release and normative rule reference it assesses. The ID MUST
-describe the semantic rule rather than a section number, implementation class,
-or message text, so integrations can depend on it across refactoring.
+alongside its prose, `<namespace>/<rule-slug>`, where the namespace is the
+catalog's: `concepta-profile` for the installed rules, and the Profile
+identity in kebab-case for a source catalog (Profile §11). It MUST name the
+release and normative rule reference of the catalog that assessed it. The ID
+MUST describe the semantic rule rather than a section number, implementation
+class, or message text, so integrations can depend on it across refactoring.
 
 The closed validator MUST NOT accept suppressions or exceptions. A bundle cannot
 change the immutable rules selected by its declaration, and a caller cannot
@@ -342,8 +344,10 @@ A validator MUST dispatch using exactly one of two selectors:
   read its selected source chain from a current lock/cache and dispatch on
   manifest identity and exact release. `bitwild_profile/2026.3` selects this
   release. Verify safe paths, the manifest's OKF 0.2 binding, and parity of the
-  base vocabulary with the compiled validator. Source manifests supply
-  declarations, not executable Profile rules.
+  base vocabulary with the compiled validator. A source manifest supplies
+  declarations and may name the rule catalog its Profile ships; the catalog
+  is data the installed engine evaluates, read from the cache at the locked
+  commit, never from the network.
 - For an unlisted legacy bundle, read `concepta_profile` from the first fenced
   `yaml` block in root `profile.md`. `"2026.2"` selects the immutable legacy
   validator; it is never interpreted as 2026.3.
@@ -411,11 +415,27 @@ installed closed ruleset; its fetched vocabulary must match the compiled
 standard registry exactly. Each other Profile entry must `extends` a declared
 parent chain reaching this base. A parent may be source-only with
 `applies_to: []`; a child adds manifest and project vocabulary, but cannot
-replace inherited names or load rules from Git. Missing parents, cycles,
-collisions, unsupported releases, and ambiguous bundle application fail
-Profile dispatch. Types, topic tags, relationship names and actor lookup are
-the only local additions; a binding cannot declare frontmatter keys. A registered custom type is reported as a summary
-entry (§4.1); contextual meaning belongs to Profile Review.
+replace inherited names. Missing parents, cycles, collisions, unsupported
+releases, and ambiguous bundle application fail Profile dispatch. Types,
+topic tags, relationship names and actor lookup are the only local additions;
+a binding cannot declare frontmatter keys. A registered custom type is
+reported as a summary entry (§4.1); contextual meaning belongs to Profile
+Review.
+
+A non-base manifest may name its rule catalog (`"rules":
+"wayfinder-rules.json"`, relative to the manifest). The resolver reads the
+catalog with the same revision read as the manifest and parses it whole as
+data (`wayfinder-rules.schema.json`); it must declare the manifest's identity
+and release, report in the namespace Profile §11 derives from that identity,
+and declare no frontmatter keys. The effective catalog chain is the installed
+base catalog followed by each source catalog along `extends`, parent first.
+Validation evaluates every catalog in the chain and each finding names its own
+catalog's release and namespace, so an ancestor's findings never depend on a
+child. A base manifest that names a catalog, a missing catalog file, or a
+catalog naming a subject, slot, builtin, or keyword this engine lacks fails
+resolution with the reason, which `get` reports and `validate` reports as
+`UNSUPPORTED`; a catalog is never partially applied. The lock gains no field,
+because its commit identifies the manifest and the catalog alike.
 
 A relative local `source.git` is resolved from the directory containing
 `wayfinder.json`, not the process working directory. Cache identity uses that
@@ -427,7 +447,8 @@ reuses a current lock. `upgrade` deliberately refreshes mutable refs. A
 canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
-credentials or executable rules. The local Git cache holds fetched objects.
+credentials, vocabulary or catalogs. The local Git cache holds fetched
+objects.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -757,6 +778,15 @@ entries, and §5.1 checks colliding tag names where the binding declares them.
 Migration for implementations: route a release's summary rules to the summary,
 emit the new JSON key and SARIF notes, and reject a colliding tag declaration
 while reading and composing the binding; 2026.2 output is unchanged.
+
+Revised in place before publication: §§4.2, 4.4 and 4.7 read a non-base
+source's rule catalog at its locked commit and evaluate the catalog chain,
+base first, with each finding in its catalog's namespace; the lock is
+unchanged. Affected sections: §§4.2, 4.4, 4.7, and 9. Driver: Profile 2026.3
+§11 lets a non-base entry ship a rule catalog. Migration for implementations:
+parse a named catalog whole and fail dispatch as `UNSUPPORTED` on anything the
+engine lacks, keep the installed base catalog authoritative, and list every
+catalog's descriptors in SARIF output.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

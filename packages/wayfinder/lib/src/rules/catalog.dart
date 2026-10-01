@@ -195,7 +195,15 @@ final class RuleCatalog {
   /// builtins and builtin params, duplicate ids, message placeholders no
   /// subject fact fills, a declared frontmatter key OKF already defines, and
   /// any predicate compile error.
-  factory RuleCatalog.parse(String json) {
+  ///
+  /// A catalog a Profile source ships names the [manifest] identity it was
+  /// read with. It must declare that identity, report in the namespace
+  /// [sourceNamespace] derives from it, and declare no frontmatter keys,
+  /// which only the installed release may (Profile §§5.1, 11).
+  factory RuleCatalog.parse(
+    String json, {
+    ({String id, String release})? manifest,
+  }) {
     final Object? decoded;
     try {
       decoded = jsonDecode(json);
@@ -208,6 +216,36 @@ final class RuleCatalog {
     final root = decoded as Map<String, Object?>;
     final namespace = root['namespace'] as String;
     final profile = root['profile'] as Map<String, Object?>;
+    if (manifest != null) {
+      final expected = sourceNamespace(manifest.id);
+      if (namespace == installedNamespace) {
+        throw RuleCatalogException(
+          'namespace',
+          'reserved for the installed catalogs',
+        );
+      }
+      if (namespace != expected) {
+        throw RuleCatalogException(
+          'namespace',
+          'a source catalog reports in the namespace of its Profile '
+              'identity, $expected',
+        );
+      }
+      if (profile['id'] != manifest.id ||
+          profile['release'] != manifest.release) {
+        throw RuleCatalogException(
+          'profile',
+          'must declare the manifest identity ${manifest.id}/'
+              '${manifest.release}',
+        );
+      }
+      if (root.containsKey('frontmatter_keys')) {
+        throw RuleCatalogException(
+          'frontmatter_keys',
+          'only the installed release declares frontmatter keys',
+        );
+      }
+    }
     final frontmatterKeys = <String, String>{};
     final declared =
         root['frontmatter_keys'] as Map<String, Object?>? ?? const {};
@@ -249,6 +287,15 @@ final class RuleCatalog {
       ), () => RuleCatalog.parse(installedRuleCatalogs[(id, release)]!));
 
   static final _installed = <(String, String), RuleCatalog>{};
+
+  /// The namespace the installed catalogs report in (ADR-0008).
+  static const installedNamespace = 'concepta-profile';
+
+  /// The finding namespace of a catalog shipped by the Profile [id]: the
+  /// identity in okf's kebab-case namespace grammar, so `client_profile`
+  /// reports as `client-profile/<slug>`. The installed catalogs keep their
+  /// own namespace, which no source may claim.
+  static String sourceNamespace(String id) => id.replaceAll('_', '-');
 
   final String namespace;
   final String profileId;

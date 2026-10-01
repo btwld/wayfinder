@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import 'profile_release.dart';
 import 'published_schemas.dart';
+import 'rules/catalog.dart';
 
 /// A malformed or unsafe project configuration.
 final class WayfinderConfigException implements Exception {
@@ -63,6 +64,7 @@ final class WayfinderProfileBinding {
     this.source,
     this.appliesTo = const [],
     this.extendsProfile,
+    this.catalogs = const [],
   });
 
   final String id;
@@ -75,6 +77,11 @@ final class WayfinderProfileBinding {
   final WayfinderProfileSource? source;
   final List<String> appliesTo;
   final String? extendsProfile;
+
+  /// The rule catalogs the sources along the effective chain ship, parent
+  /// first, read from the local cache at their locked commits. The installed
+  /// base catalog is never among them (Profile §11).
+  final List<RuleCatalog> catalogs;
 
   Set<String> get typeNames => {
     ...externalStandardTypes.map((row) => row.$1),

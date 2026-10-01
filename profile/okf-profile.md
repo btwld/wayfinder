@@ -1187,12 +1187,24 @@ A Profile entry MAY name one parent through `extends`, independently of its
 `applies_to` list. A parent used only for inheritance MAY have an empty
 `applies_to` list. Inheritance is additive: an entry MAY add type, tag, and
 relationship definitions and actor lookup, but names MUST be unique across the
-effective chain and MUST NOT collide with installed standards. An entry adds
-vocabulary only: it MUST NOT declare frontmatter keys (§5.1), and a child MUST
-NOT replace, omit, or parameterize Profile rules, reinterpret OKF semantics, or
-load executable rules from its source. A non-base entry MUST extend a chain reaching
-`bitwild_profile`; the base MUST NOT extend another entry. Missing parents,
-cycles, and ambiguous composition MUST NOT be accepted.
+effective chain and MUST NOT collide with installed standards. An entry MUST
+NOT declare frontmatter keys (§5.1) or reinterpret OKF semantics. A non-base
+entry MUST extend a chain reaching `bitwild_profile`; the base MUST NOT extend
+another entry. Missing parents, cycles, and ambiguous composition MUST NOT be
+accepted.
+
+A Profile's automated rules are its rule catalog, data the installed validator
+evaluates. A non-base entry's manifest MAY name a rule catalog in its source
+(`rules`, a path relative to the manifest in the same revision). The catalog
+MUST declare the manifest's identity and release, MUST report in the namespace
+that identity names (the entry key with each `_` written as `-`), and MUST NOT
+declare frontmatter keys. Its rules add findings in that namespace only: a
+child MUST NOT replace, omit, re-grade, or parameterize an ancestor's rules, so
+the findings of every ancestor are the same with or without the child. The
+base `bitwild_profile` source MUST NOT name a catalog; the installed one is
+authoritative. A catalog that names a subject, slot, builtin, or keyword the
+installed validator does not support MUST make dispatch `UNSUPPORTED`; a
+catalog is never partially applied.
 
 `applies_to` paths MUST be relative, unique, inside the project after symlink
 resolution, and not nested within one another. Several independent bundles MAY
@@ -1470,8 +1482,8 @@ OKF's normative requirements always take precedence over any profile release
 
 **2026.3.** Moves Profile selection and project vocabulary out of bundle
 concepts into direct Git-sourced project-root `wayfinder.json` entries. Entries
-may add vocabulary through explicit parent chains, but never executable rules.
-The installed `bitwild_profile` validator remains closed. Affected sections:
+may add vocabulary through explicit parent chains. The installed
+`bitwild_profile` validator remains closed. Affected sections:
 §§1.3, 2, 3.5, 5.1–5.2, 6.1.1, 9, 11, 14, 15.3 and Appendix A. Driver: real
 adoption and validation work found repeated standard `types.md` tables,
 mandatory actor tables for routine agent provenance, and `profile.md`
@@ -1528,6 +1540,23 @@ bullet into `relationships`, with its label in kebab-case as `relationship` and
 its link target as `resource`, delete the emptied section, and declare each
 nonstandard label in the binding's `relationships` list. 2026.2 bundles keep the
 body section under 2026.2.
+
+Revised in place before publication: a non-base entry's source may ship a rule
+catalog, the data form every Profile's automated rules now take, and its rules
+add findings in the entry's own namespace. The earlier text forbade loading
+executable rules from a source; a catalog is data the installed validator
+evaluates, so that line holds and the prohibition narrows to replacing,
+omitting, re-grading, or parameterizing an ancestor's rules, declaring
+frontmatter keys, and shipping a catalog for the base. Affected sections: §11.
+Driver: a second knowledge base on the same okf release keeps its own rules
+beside its vocabulary, and a child Profile with vocabulary but no rules could
+not express a stricter policy, such as a closed type subset, without a
+validator release. Migration impact: none for bundles; a conformant 2026.3
+bundle stays conformant, since no existing source names a catalog and an
+ancestor's findings are unchanged by a child's. A child catalog the installed
+validator cannot evaluate makes dispatch `UNSUPPORTED` rather than silently
+dropping rules; upgrade the validator or correct the catalog. 2026.2 bundles
+are unaffected.
 
 Revised in place before publication: what the Profile permits is reported as a
 summary entry, not an advisory. A registered project-specific type and an
