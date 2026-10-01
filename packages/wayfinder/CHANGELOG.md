@@ -28,8 +28,9 @@
   `ProfileValidator.validate(fix: true)` writes those indexes first and
   reports what it wrote as `ProfileValidationResult.fix`. It also reports a
   leftover `index.md` the generator no longer writes, such as one in a
-  `raw/` tier, so the parent index stops linking to it. `okf` is pinned to
-  exactly 0.5.0 because conformance now depends on its generator output.
+  `raw/` tier, so the parent index stops linking to it. Conformance now
+  depends on okf's generator output; the configured-fixture goldens fail if an
+  okf release changes it, which is the signal to update the guide's pin.
   2026.2 is unchanged.
 - Add exact `bitwild_profile/2026.3` direct-source project bindings from
   `wayfinder.json`, with additive `extends`, strict type, tag, actor, and

@@ -100,7 +100,10 @@ The reference generator for Profile 2026.3 is `OkfIndexGenerator` in `okf`
 root index declaring `okf_version: "0.2"`. A tool that writes or checks 2026.3
 indexes MUST use this generator release. An `okf` release that changes the
 generator's output changes which bytes conform, so adopting it requires a
-revision of this guide that pins the new release.
+revision of this guide that pins the new release. Wayfinder's package
+constraint stays a caret range for library consumers; its golden reports over
+fixtures with generated indexes fail when a resolved `okf` release changes the
+generator's output.
 
 A validator MUST report every path the generator writes whose file is missing
 or whose text differs from the generated text. The comparison is exact: the
