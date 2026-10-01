@@ -45,9 +45,9 @@
         "rule": "§6.1"
       },
       {
-        "id": "concepta-profile/frontmatter-fields-okf",
+        "id": "concepta-profile/frontmatter-fields-declared",
         "severity": "error",
-        "message": "Bitwild producers may use only OKF 0.2 frontmatter fields; found owner.",
+        "message": "Bitwild producers may use only OKF 0.2 frontmatter fields and the fields this Profile release declares; found owner.",
         "location": {
           "path": "extra-key.md"
         },

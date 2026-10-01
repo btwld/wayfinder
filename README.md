@@ -43,8 +43,9 @@ model and native libraries, so retrieval needs no external embedding service.
 `wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
 coding agents. The Claude Code plugin configures this server and supplies the
 author, adopt and assess skills. `wayfinder validate` provides Profile
-validation; `wayfinder graph` projects the ordinary OKF relationship graph
-(JSON, or Mermaid/DOT text for an external preview). `wayfinder_embeddings` is
+validation; `wayfinder graph` projects the ordinary OKF relationship graph,
+plus typed `relationships` edges beside it (JSON, or Mermaid/DOT text for an
+external preview). `wayfinder_embeddings` is
 the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
 tools remain separate capabilities.
 

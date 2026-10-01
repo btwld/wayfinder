@@ -75,6 +75,7 @@ void main() {
               release: externalProfileRelease,
               types: entry.value.types,
               tags: entry.value.tags,
+              relationships: entry.value.relationships,
               actors: entry.value.actors,
               source: entry.value.source,
               appliesTo: entry.value.appliesTo,
@@ -683,6 +684,37 @@ okf_version: "0.2"
       () => WayfinderProjectConfig.parse(jsonEncode(valid)),
       throwsA(isA<WayfinderConfigException>()),
     );
+    binding.remove('tags');
+    for (final relationships in [
+      [
+        {'name': 'depends-on', 'description': 'Collides with a standard name'},
+      ],
+      [
+        {'name': 'runs-after', 'description': 'Project name'},
+        {'name': 'runs-after', 'description': 'Duplicate'},
+      ],
+    ]) {
+      binding['relationships'] = relationships;
+      expect(
+        () => WayfinderProjectConfig.parse(jsonEncode(valid)),
+        throwsA(
+          isA<WayfinderConfigException>().having(
+            (error) => error.message,
+            'message',
+            contains('colliding or duplicate relationship'),
+          ),
+        ),
+      );
+    }
+    binding['relationships'] = [
+      {'name': 'runs-after', 'description': 'Project name'},
+    ];
+    expect(
+      WayfinderProjectConfig.parse(
+        jsonEncode(valid),
+      ).profiles['bitwild_profile']!.relationshipNames,
+      containsAll(['depends-on', 'runs-after']),
+    );
   });
 
   test('rejects explicit nulls for optional fields', () {
@@ -692,7 +724,7 @@ okf_version: "0.2"
       ),
       throwsA(isA<WayfinderConfigException>()),
     );
-    for (final key in ['types', 'tags', 'actors']) {
+    for (final key in ['types', 'tags', 'relationships', 'actors']) {
       final config = jsonDecode(jsonEncode(_config())) as Map<String, dynamic>;
       final binding =
           (config['profiles'] as Map<String, dynamic>)['bitwild_profile']!

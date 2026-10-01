@@ -50,6 +50,13 @@
         "$ref": "#/$defs/tagDefinition"
       },
       "description": "Tags declared by this Profile. Names must be unique; validation compares used tags with the merged Profile and project registry."
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationshipDefinition"
+      },
+      "description": "Relationship names declared by this Profile for the concept frontmatter key relationships. Names must be unique; validation compares used names with the merged Profile and project vocabulary."
     }
   },
   "$defs": {
@@ -86,6 +93,22 @@
       }
     },
     "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "relationshipDefinition": {
       "type": "object",
       "additionalProperties": false,
       "required": [

@@ -1,5 +1,14 @@
 # Unreleased
 
+- `wayfinder graph` and the MCP `graph` tool add each concept's typed
+  `relationships` frontmatter entries beside okf's graph. JSON keeps every
+  okf key and adds a `field_edges` array; Mermaid and DOT label each added
+  edge with its relationship name. Search expansion follows the same
+  relationships, before untyped body links, and a context hit reached
+  through one carries its `relationship` name. Saved indexes stay
+  compatible.
+- Project bindings accept `relationships`, declared like `tags`, and the
+  resolver composes them through `extends` with the same collision checks.
 - `wayfinder validate --fix` writes okf's generated indexes for a Profile
   2026.3 bundle, then validates. It writes only index files that differ,
   never writes a 2026.2 bundle or one that fails OKF, and says which applied.

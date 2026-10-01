@@ -23,6 +23,16 @@
         {
           "name": "draft",
           "description": "Deliberately repeats a status value"
+        },
+        {
+          "name": "runs-after",
+          "description": "Deliberately repeats a project relationship name"
+        }
+      ],
+      "relationships": [
+        {
+          "name": "runs-after",
+          "description": "This concept applies only after the target has run"
         }
       ],
       "types": [

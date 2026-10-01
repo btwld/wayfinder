@@ -57,6 +57,7 @@ final class WayfinderProfileBinding {
     required this.release,
     required this.types,
     required this.tags,
+    required this.relationships,
     required this.actors,
     this.source,
     this.appliesTo = const [],
@@ -68,6 +69,7 @@ final class WayfinderProfileBinding {
   final String release;
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
+  final List<WayfinderDefinition> relationships;
   final Map<String, WayfinderActorMetadata> actors;
   final WayfinderProfileSource? source;
   final List<String> appliesTo;
@@ -81,6 +83,11 @@ final class WayfinderProfileBinding {
   Set<String> get tagNames => {
     ...externalStandardTags.map((row) => row.$1),
     ...tags.map((definition) => definition.name),
+  };
+
+  Set<String> get relationshipNames => {
+    ...externalStandardRelationships.map((row) => row.$1),
+    ...relationships.map((definition) => definition.name),
   };
 }
 
@@ -227,7 +234,12 @@ final class WayfinderProjectConfig {
     }
     final types = _definitions(json['types']);
     final tags = _definitions(json['tags']);
-    _validateDefinitions(id, types, tags);
+    final relationships = _definitions(json['relationships']);
+    _validateDefinitions(id, {
+      'type': (types, externalStandardTypes),
+      'tag': (tags, externalStandardTags),
+      'relationship': (relationships, externalStandardRelationships),
+    });
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
     return WayfinderProfileBinding(
       id: id,
@@ -235,6 +247,7 @@ final class WayfinderProjectConfig {
       release: externalProfileRelease,
       types: List.unmodifiable(types),
       tags: List.unmodifiable(tags),
+      relationships: List.unmodifiable(relationships),
       actors: Map.unmodifiable({
         for (final MapEntry(:key, :value) in actors.entries)
           key: _actor(value! as Map<String, Object?>),
@@ -307,27 +320,26 @@ final class WayfinderProjectConfig {
     return normalized.toList();
   }
 
+  /// Each vocabulary keyed by its singular noun, with the standard
+  /// definitions its project names must not repeat.
   static void _validateDefinitions(
     String id,
-    List<WayfinderDefinition> types,
-    List<WayfinderDefinition> tags,
+    Map<
+      String,
+      (List<WayfinderDefinition> project, List<(String, String)> standard)
+    >
+    vocabularies,
   ) {
-    final typeNames = <String>{};
-    for (final definition in types) {
-      if (!typeNames.add(definition.name) ||
-          externalStandardTypes.any((row) => row.$1 == definition.name)) {
-        throw WayfinderConfigException(
-          'Profile $id declares a colliding or duplicate type ${definition.name}.',
-        );
-      }
-    }
-    final tagNames = <String>{};
-    for (final definition in tags) {
-      if (!tagNames.add(definition.name) ||
-          externalStandardTags.any((row) => row.$1 == definition.name)) {
-        throw WayfinderConfigException(
-          'Profile $id declares a colliding or duplicate tag ${definition.name}.',
-        );
+    for (final MapEntry(key: noun, value: (project, standard))
+        in vocabularies.entries) {
+      final names = <String>{};
+      for (final definition in project) {
+        if (!names.add(definition.name) ||
+            standard.any((row) => row.$1 == definition.name)) {
+          throw WayfinderConfigException(
+            'Profile $id declares a colliding or duplicate $noun ${definition.name}.',
+          );
+        }
       }
     }
   }

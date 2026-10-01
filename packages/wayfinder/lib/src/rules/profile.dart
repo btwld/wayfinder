@@ -7,8 +7,12 @@ import 'catalog.dart';
 /// rejected at load.
 enum Slot {
   okfFrontmatterKeys('okf.frontmatterKeys'),
+
+  /// The selected catalog's declared frontmatter keys.
+  profileFrontmatterKeys('profile.frontmatterKeys'),
   profileTypes('profile.types'),
   profileTags('profile.tags'),
+  profileRelationships('profile.relationships'),
   profileActors('profile.actors');
 
   const Slot(this.id);
@@ -32,6 +36,7 @@ final class Vocabulary {
     this.projectTypes = const [],
     this.types,
     this.tags,
+    this.relationships,
     this.actors,
   });
 
@@ -45,14 +50,11 @@ final class Vocabulary {
   /// registry fixes this as its own rows, which may omit a standard type.
   final List<String>? types;
   final List<String>? tags;
-  final List<String>? actors;
 
-  Map<Slot, List<String>> get slots => {
-    Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
-    Slot.profileTypes: ?types,
-    Slot.profileTags: ?tags,
-    Slot.profileActors: ?actors,
-  };
+  /// The declared relationship names; under 2026.2, its standard
+  /// `# Relationships` labels.
+  final List<String>? relationships;
+  final List<String>? actors;
 }
 
 /// What one bundle is validated against: the selected release's catalog,
@@ -67,6 +69,15 @@ final class EffectiveProfile {
 
   final RuleCatalog catalog;
   final Vocabulary vocabulary;
+
+  Map<Slot, List<String>> get slots => {
+    Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
+    Slot.profileFrontmatterKeys: catalog.frontmatterKeys.keys.toList(),
+    Slot.profileTypes: ?vocabulary.types,
+    Slot.profileTags: ?vocabulary.tags,
+    Slot.profileRelationships: ?vocabulary.relationships,
+    Slot.profileActors: ?vocabulary.actors,
+  };
 
   /// The configuration path a finding about the project binding reports at.
   final String? configPath;

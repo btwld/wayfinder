@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../wayfinder_embeddings.dart';
 import '../models/metadata_collections.dart';
+import 'field_edges.dart';
 import 'knowledge_input_diagnostic.dart';
 
 /// A parsed bundle projection with original citation locations and graph edges.
@@ -16,6 +17,7 @@ class KnowledgeSnapshot {
     this.bundleId,
     this.chunks,
     this.graph,
+    this.fieldEdges,
     this._metadata,
     this._contextTexts,
     this.sources,
@@ -36,6 +38,10 @@ class KnowledgeSnapshot {
   final String bundleId;
   final List<Chunk> chunks;
   final OkfGraph graph;
+
+  /// The typed edges the snapshot's link fields declare, beside okf's
+  /// [graph].
+  final List<OkfFieldEdge> fieldEdges;
   final Map<String, OkfMetadata> _metadata;
   final Map<String, String> _contextTexts;
 
@@ -49,6 +55,7 @@ class KnowledgeSnapshot {
     String root, {
     required String bundleId,
     int maxChunkLength = 1000,
+    Iterable<OkfLinkField> linkFields = const [],
   }) async {
     final loaded = await const OkfBundleLoader().inspect(root);
     if (loaded.hasFindings) throw OkfBundleLoadException(loaded);
@@ -66,6 +73,7 @@ class KnowledgeSnapshot {
       bundleId: bundleId,
       assets: loaded.assets,
       maxChunkLength: maxChunkLength,
+      linkFields: linkFields,
     );
   }
 
@@ -76,6 +84,7 @@ class KnowledgeSnapshot {
     required String bundleId,
     Iterable<String> assets = const [],
     int maxChunkLength = 1000,
+    Iterable<OkfLinkField> linkFields = const [],
   }) {
     if (bundleId.trim().isEmpty) {
       throw ArgumentError.value(bundleId, 'bundleId');
@@ -171,6 +180,7 @@ class KnowledgeSnapshot {
       bundleId,
       List.unmodifiable(chunks),
       OkfGraph.fromBundle(bundle),
+      List.unmodifiable(okfFieldEdges(bundle, linkFields)),
       Map.unmodifiable(metadata),
       Map.unmodifiable(contextTexts),
       Map.unmodifiable(sources),
@@ -193,8 +203,12 @@ class KnowledgeSnapshot {
   };
 
   /// Reopens saved passages without tokenization or embedding inference.
-  /// Graph and typed metadata meanings are reconstructed by upstream OKF.
-  factory KnowledgeSnapshot.fromMap(Map<String, Object?> map) {
+  /// Graph and typed metadata meanings are reconstructed by upstream OKF,
+  /// and [linkFields] are read from the saved sources again.
+  factory KnowledgeSnapshot.fromMap(
+    Map<String, Object?> map, {
+    Iterable<OkfLinkField> linkFields = const [],
+  }) {
     if (map['version'] != 1) {
       throw const FormatException('Unsupported knowledge snapshot version.');
     }
@@ -202,6 +216,7 @@ class KnowledgeSnapshot {
       Map<String, String>.from(map['sources']! as Map),
       bundleId: map['bundleId']! as String,
       assets: List<String>.from(map['assets']! as List),
+      linkFields: linkFields,
     );
     final chunks = (map['chunks']! as List)
         .map((value) => Chunk.fromMap(Map<String, Object?>.from(value as Map)))
@@ -221,6 +236,7 @@ class KnowledgeSnapshot {
       original.bundleId,
       List.unmodifiable(chunks),
       original.graph,
+      original.fieldEdges,
       original._metadata,
       Map.unmodifiable(contexts),
       original.sources,
@@ -423,6 +439,7 @@ class KnowledgeSnapshot {
       bundleId,
       List.unmodifiable(output),
       graph,
+      fieldEdges,
       _metadata,
       Map.unmodifiable(texts),
       sources,

@@ -10,7 +10,7 @@ import 'profile.dart';
 /// skipped. Findings carry the catalog's release; the caller orders them.
 List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
   final catalog = profile.catalog;
-  final slots = profile.vocabulary.slots;
+  final slots = profile.slots;
   final findings = <ProfileFinding>[];
   for (final rule in catalog.rules) {
     switch (rule.check) {
@@ -20,13 +20,18 @@ List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
         for (final subject in facts.of(check.subject)) {
           final List<Object?> failing;
           if (check.each case final each?) {
+            // An absent or null fact has no elements to judge; a present
+            // value that is not an array fails whole, as its own failing
+            // value.
             final elements = subject.facts[each];
-            if (elements is! List<Object?>) continue;
-            failing = [
-              for (final element in elements)
-                if (!predicate.test(SchemaCheck.element(element)))
-                  SchemaCheck.value(element),
-            ];
+            if (elements == null) continue;
+            failing = elements is List<Object?>
+                ? [
+                    for (final element in elements)
+                      if (!predicate.test(SchemaCheck.element(element)))
+                        SchemaCheck.value(element),
+                  ]
+                : [elements];
             if (failing.isEmpty) continue;
           } else {
             if (predicate.test(subject.facts)) continue;

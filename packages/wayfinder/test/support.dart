@@ -46,6 +46,7 @@ Future<ProfileValidationResult> validateFixture(
           release: externalProfileRelease,
           types: entry.value.types,
           tags: entry.value.tags,
+          relationships: entry.value.relationships,
           actors: entry.value.actors,
           source: entry.value.source,
           appliesTo: entry.value.appliesTo,

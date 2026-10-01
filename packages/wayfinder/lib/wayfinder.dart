@@ -9,7 +9,8 @@ export 'src/profile_release.dart'
         builtinProfileId,
         externalProfileRelease,
         externalStandardTypes,
-        externalStandardTags;
+        externalStandardTags,
+        externalStandardRelationships;
 export 'src/published_schemas.dart' show profileManifestSchemaViolation;
 export 'src/sarif.dart' show toSarif;
 export 'src/validation.dart'

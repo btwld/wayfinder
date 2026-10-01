@@ -33,6 +33,12 @@ folders use it:
           "name": "customer-reporting",
           "description": "Customer-facing reporting topic"
         }
+      ],
+      "relationships": [
+        {
+          "name": "assessed-by",
+          "description": "The target is the analysis that assessed this concept"
+        }
       ]
     }
   }
@@ -73,12 +79,15 @@ and review guidance. A project Profile entry may add local vocabulary alongside
 
 - `types` adds project-specific type names and descriptions.
 - `tags` declares project topics; concepts still opt into them in frontmatter.
+- `relationships` declares project relationship names for the `relationships`
+  frontmatter key (Profile §7.2); its description is the name's one definition.
 - `actors` provides lookup metadata for actor IDs used by the project.
 
-The effective type and tag registries are the Profile vocabulary plus these
-project additions. Names must be unique and must not collide with standard
-fields or Profile definitions. Registry presence does not prove authorship,
-truth, or verification.
+The effective type, tag, and relationship registries are the Profile
+vocabulary plus these project additions. Names must be unique and must not
+collide with standard fields or Profile definitions. Registry presence does
+not prove authorship, truth, or verification. A project entry adds vocabulary
+only: it cannot declare a frontmatter key, which only a Profile release does.
 
 ## Profile inheritance
 
@@ -110,9 +119,9 @@ truth, or verification.
 ```
 
 An extending Profile is identified by its own key and manifest. It inherits
-project types, tags, and actors from its declared parent, then adds definitions
-from its own manifest and project entry. A child manifest lists only its new
-types and tags. The chain must reach `bitwild_profile/2026.3`, whose fetched
+project types, tags, relationship names, and actors from its declared parent,
+then adds definitions from its own manifest and project entry. A child manifest
+lists only its new types, tags, and relationship names. The chain must reach `bitwild_profile/2026.3`, whose fetched
 vocabulary must exactly match the installed compiled validator. A child may
 add vocabulary; it cannot replace a name, change Profile rules, or execute
 rules from Git. Missing parents, cycles, collisions, and unsupported releases
@@ -164,7 +173,9 @@ stale, it still reports the independent OKF result and a Profile-resolution
 finding. Run `get` to recover the exact locked commit or `upgrade` to
 deliberately select a new revision. Neither command silently substitutes a
 moved branch or tag for a locked commit. `graph`, `index`, and `search`
-do not use Profile sources or resolve the lock.
+do not use Profile sources or resolve the lock; they read each concept's
+`relationships` key directly, so a relationship name they show need not be
+declared.
 
 ## Tags and captures
 
@@ -190,8 +201,9 @@ A Profile manifest is distribution and compatibility metadata, not an
 executable rule language. The installed Bitwild manifest is
 [`profile/wayfinder-profile.json`](../profile/wayfinder-profile.json):
 `bitwild_profile/2026.3`, exactly compatible with OKF `0.2`, with twelve
-standard types and no base tags. The current validator has compiled metadata
-and tests it against that manifest; it does not load arbitrary Profile JSON.
+standard types, no base tags, and eleven standard relationship names. The
+current validator has compiled metadata and tests it against that manifest; it
+does not load arbitrary Profile JSON.
 The Profile package also ships normative text and contextual review guidance.
 
 A committed `wayfinder.json` shares the Profile source reference, application

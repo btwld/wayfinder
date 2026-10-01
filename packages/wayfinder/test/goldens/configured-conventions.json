@@ -10,9 +10,9 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/relationship-label-extension",
-        "severity": "advisory",
-        "message": "The relationship label Inspired by is a permitted project extension.",
+        "id": "concepta-profile/relationship-shape",
+        "severity": "error",
+        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {relationship: inspired-by, resource: /sample.md}.",
         "location": {
           "path": "custom-relationship.md"
         },
@@ -30,9 +30,9 @@
         "rule": "§6.1"
       },
       {
-        "id": "concepta-profile/relationships-shape",
+        "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each Relationships entry must contain exactly one label and one Markdown target.",
+        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {relationship: part-of}.",
         "location": {
           "path": "malformed-relationships.md"
         },
@@ -60,6 +60,16 @@
         "rule": "§7.1"
       },
       {
+        "id": "concepta-profile/relationship-bundle-relative",
+        "severity": "advisory",
+        "message": "Internal relationship targets should be bundle-relative.",
+        "location": {
+          "path": "relative-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
         "id": "concepta-profile/internal-link-unresolved",
         "severity": "advisory",
         "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
@@ -68,6 +78,16 @@
         },
         "profile_release": "2026.3",
         "rule": "§7.1, §14.1–§14.2"
+      },
+      {
+        "id": "concepta-profile/relationship-unresolved",
+        "severity": "advisory",
+        "message": "An unresolved internal relationship target is permitted and remains a relationship edge.",
+        "location": {
+          "path": "unresolved-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2, §14.1–§14.2"
       }
     ]
   },

@@ -12,8 +12,8 @@ enum SubjectKind {
   /// a rule may name any key.
   frontmatter(facts: null),
 
-  /// One concept's derived facts. `links` is absent when the OKF graph
-  /// could not be built.
+  /// One concept's derived facts. `links` and `relationships` are absent
+  /// when the OKF graph could not be built.
   concept(
     facts: {
       'path',
@@ -22,6 +22,7 @@ enum SubjectKind {
       'tags',
       'source_ids',
       'links',
+      'relationships',
       'footnotes',
       'sibling_directory',
     },
@@ -160,18 +161,52 @@ final class BundleFacts {
       if (edge.origin != OkfGraphEdgeOrigin.bodyLink) continue;
       byDocument.putIfAbsent(edge.source.documentPath, () => []).add({
         'target': edge.rawTarget,
-        'internal':
-            edge.resolution != OkfGraphResolution.external &&
-            edge.resolution != OkfGraphResolution.descriptor &&
-            edge.resolution != OkfGraphResolution.invalid &&
-            !edge.rawTarget.startsWith('#'),
-        'bundle_relative': edge.rawTarget.startsWith('/'),
-        'resolved':
-            edge.resolution == OkfGraphResolution.resolvedConcept ||
-            edge.resolution == OkfGraphResolution.resolvedAsset,
+        ..._targetFacts(edge),
       });
     }
     return byDocument;
+  }();
+
+  /// Each concept's `relationships` entries that name a target, resolved as
+  /// okf resolves a link target; null when okf could not resolve them.
+  late final Map<String, List<Map<String, Object?>>>? _relationships = () {
+    final declared = <OkfConceptId, List<(Object?, String)>>{};
+    for (final MapEntry(key: id, value: document)
+        in loaded.bundle.concepts.entries) {
+      final entries = document.frontmatter['relationships'];
+      if (entries is! List) continue;
+      for (final entry in entries.whereType<Map<Object?, Object?>>()) {
+        if (entry['resource'] case final String resource) {
+          declared.putIfAbsent(id, () => []).add((
+            _json(entry['relationship']),
+            resource,
+          ));
+        }
+      }
+    }
+    final Map<OkfConceptId, List<OkfGraphEdge?>> edges;
+    try {
+      edges = _resolveTargets(loaded.bundle, {
+        for (final MapEntry(:key, :value) in declared.entries)
+          key: [for (final (_, resource) in value) resource],
+      });
+    } catch (_) {
+      // Like the link graph, a toolchain throw leaves the fact absent
+      // rather than taking down the whole assessment.
+      return null;
+    }
+    return {
+      for (final MapEntry(key: id, value: entries) in declared.entries)
+        id.documentPath: [
+          for (final (index, (relationship, resource)) in entries.indexed)
+            if (edges[id]![index] case final edge?)
+              {
+                'relationship': relationship,
+                'resource': resource,
+                ..._targetFacts(edge),
+              },
+        ],
+    };
   }();
 
   Map<String, Object?> _concept(String path, OkfDocument document) {
@@ -192,6 +227,8 @@ final class BundleFacts {
       ],
       'source_ids': sourceIds,
       if (graph.graph != null) 'links': _links[path] ?? const [],
+      if (_relationships case final relationships?)
+        'relationships': relationships[path] ?? const [],
       'footnotes': [
         for (final (:label, :defined) in bodies[path]!.footnotes())
           {
@@ -203,6 +240,58 @@ final class BundleFacts {
       'sibling_directory': inventory.hasAreaSibling(path),
     };
   }
+}
+
+/// Whether an edge's target is internal, written bundle-relative, and
+/// present, in the terms Profile §7.1 assesses links by.
+Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
+  'internal':
+      edge.resolution != OkfGraphResolution.external &&
+      edge.resolution != OkfGraphResolution.descriptor &&
+      edge.resolution != OkfGraphResolution.invalid &&
+      !edge.rawTarget.startsWith('#'),
+  'bundle_relative': edge.rawTarget.startsWith('/'),
+  'resolved':
+      edge.resolution == OkfGraphResolution.resolvedConcept ||
+      edge.resolution == OkfGraphResolution.resolvedAsset,
+};
+
+/// Resolves each concept's [targets] exactly as okf resolves a link target.
+/// okf keeps that resolution inside its graph, so each target is handed to
+/// the graph as its concept's top-level `resource`: one copy of the bundle
+/// per entry position, every concept stripped to the target it holds at
+/// that position. A blank target draws no edge and stays null.
+Map<OkfConceptId, List<OkfGraphEdge?>> _resolveTargets(
+  OkfBundle bundle,
+  Map<OkfConceptId, List<String>> targets,
+) {
+  final resolved = {
+    for (final MapEntry(:key, :value) in targets.entries)
+      key: List<OkfGraphEdge?>.filled(value.length, null),
+  };
+  final depth = targets.values.fold(0, (deepest, list) {
+    return list.length > deepest ? list.length : deepest;
+  });
+  for (var position = 0; position < depth; position++) {
+    final layer = OkfBundle.fromDocuments(
+      {
+        for (final id in bundle.concepts.keys)
+          id.documentPath: OkfDocument(
+            frontmatter: {
+              if (targets[id] case final list? when position < list.length)
+                'resource': list[position],
+            },
+          ),
+      },
+      indexes: bundle.indexFiles,
+      logs: bundle.logFiles,
+      assets: bundle.assetPaths,
+    );
+    for (final edge in OkfGraph.fromBundle(layer).edges) {
+      resolved[edge.source]![position] = edge;
+    }
+  }
+  return resolved;
 }
 
 /// The directories of the loaded tree, derived from its file paths.

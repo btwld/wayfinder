@@ -97,8 +97,13 @@ final class SchemaCheck extends RuleCheck {
   static Object? element(Object? item) =>
       item is Map<String, Object?> ? item : {'value': item};
 
-  static Object? value(Object? item) =>
-      item is Map<String, Object?> ? item['value'] : item;
+  /// What a failing element contributes to `{failing}`: a derived fact's
+  /// `value`, or an authored object as written.
+  static Object? value(Object? item) => switch (item) {
+    final Map<String, Object?> object when object.containsKey('value') =>
+      object['value'],
+    _ => item,
+  };
 }
 
 /// A compiled check with parameters. It returns [Violation]s and never
@@ -174,12 +179,14 @@ final class RuleCatalog {
     required this.namespace,
     required this.profileId,
     required this.release,
+    required this.frontmatterKeys,
     required this.rules,
   });
 
   /// Parses and compiles [json]. Rejects unknown keys, subjects, slots,
   /// location keys, builtins, builtin params, duplicate ids, message
-  /// placeholders no subject fact fills, and any predicate compile error.
+  /// placeholders no subject fact fills, a declared frontmatter key OKF
+  /// already defines, and any predicate compile error.
   factory RuleCatalog.parse(String json) {
     final Object? decoded;
     try {
@@ -194,6 +201,7 @@ final class RuleCatalog {
       'format',
       'namespace',
       'profile',
+      'frontmatter_keys',
       r'$defs',
       'rules',
     });
@@ -209,6 +217,20 @@ final class RuleCatalog {
     }
     final profile = _object(root['profile'], 'profile');
     _onlyKeys(profile, 'profile', const {'id', 'release'});
+    final frontmatterKeys = <String, String>{};
+    if (root.containsKey('frontmatter_keys')) {
+      final declared = _object(root['frontmatter_keys'], 'frontmatter_keys');
+      for (final key in declared.keys) {
+        final where = 'frontmatter_keys.$key';
+        if (okfKnownFrontmatterKeys.contains(key)) {
+          throw RuleCatalogException(
+            where,
+            'an OKF frontmatter key cannot be declared again',
+          );
+        }
+        frontmatterKeys[key] = _string(declared, key, 'frontmatter_keys');
+      }
+    }
     final defs = root.containsKey(r'$defs')
         ? _object(root[r'$defs'], r'$defs')
         : const <String, Object?>{};
@@ -226,6 +248,7 @@ final class RuleCatalog {
       namespace: namespace,
       profileId: _string(profile, 'id', 'profile'),
       release: _string(profile, 'release', 'profile'),
+      frontmatterKeys: Map.unmodifiable(frontmatterKeys),
       rules: List.unmodifiable(rules),
     );
   }
@@ -243,6 +266,11 @@ final class RuleCatalog {
   final String namespace;
   final String profileId;
   final String release;
+
+  /// The producer frontmatter keys this release declares, OKF §4.1's
+  /// additional keys, each with the sentence that defines it.
+  final Map<String, String> frontmatterKeys;
+
   final List<CatalogRule> rules;
 }
 

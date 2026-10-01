@@ -129,7 +129,53 @@ const Map<(String, String), String> installedProfileManifests = {
       "description": "An OKF-defined sanctioned computation with a checkable execution receipt"
     }
   ],
-  "tags": []
+  "tags": [],
+  "relationships": [
+    {
+      "name": "superseded-by",
+      "description": "This concept has been replaced by the target"
+    },
+    {
+      "name": "depends-on",
+      "description": "This concept is only valid while the target holds"
+    },
+    {
+      "name": "constrained-by",
+      "description": "The target limits what this concept may do"
+    },
+    {
+      "name": "part-of",
+      "description": "This concept is a constituent of the target, which is incomplete without it"
+    },
+    {
+      "name": "refines",
+      "description": "This concept narrows or sharpens the target"
+    },
+    {
+      "name": "specified-by",
+      "description": "The target is the specification of this concept"
+    },
+    {
+      "name": "implemented-by",
+      "description": "The target is the work that delivers this concept"
+    },
+    {
+      "name": "resolves",
+      "description": "This concept fully answers or closes the target"
+    },
+    {
+      "name": "partially-resolves",
+      "description": "This concept answers part of the target, which remains open"
+    },
+    {
+      "name": "tracked-by",
+      "description": "The target is the work-tracking record that chases this concept"
+    },
+    {
+      "name": "related-to",
+      "description": "An unlabelled association worth surfacing"
+    }
+  ]
 }
 ''',
 };
@@ -1299,6 +1345,9 @@ const Map<(String, String), String> installedRuleCatalogs = {
     "id": "bitwild_profile",
     "release": "2026.3"
   },
+  "frontmatter_keys": {
+    "relationships": "The concept's typed relationships to other resources, a list of mappings, each naming one declared relationship and the resource it points to (§7.2)."
+  },
   "$defs": {
     "text": {
       "type": "string",
@@ -1307,11 +1356,17 @@ const Map<(String, String), String> installedRuleCatalogs = {
     "frontmatter-key": {
       "x-slot": "okf.frontmatterKeys"
     },
+    "declared-key": {
+      "x-slot": "profile.frontmatterKeys"
+    },
     "type-name": {
       "x-slot": "profile.types"
     },
     "tag-name": {
       "x-slot": "profile.tags"
+    },
+    "relationship-name": {
+      "x-slot": "profile.relationships"
     },
     "actor-id": {
       "x-slot": "profile.actors"
@@ -1566,36 +1621,54 @@ const Map<(String, String), String> installedRuleCatalogs = {
       }
     },
     {
-      "id": "frontmatter-fields-okf",
+      "id": "frontmatter-fields-declared",
       "category": "vocabulary",
       "severity": "error",
       "status": "stable",
       "ref": "§5.1",
-      "description": "Bitwild producers MUST NOT introduce namespaced or otherwise producer-defined frontmatter fields.",
-      "message": "Bitwild producers may use only OKF 0.2 frontmatter fields; found {failing}.",
+      "description": "Bitwild producers MUST NOT introduce frontmatter fields beyond those OKF 0.2 defines and those the selected Profile release declares.",
+      "message": "Bitwild producers may use only OKF 0.2 frontmatter fields and the fields this Profile release declares; found {failing}.",
       "check": {
         "subject": "concept",
         "each": "keys",
         "schema": {
           "properties": {
             "value": {
-              "$ref": "#/$defs/frontmatter-key"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/frontmatter-key"
+                },
+                {
+                  "$ref": "#/$defs/declared-key"
+                }
+              ]
             }
           }
         }
       },
       "tests": {
+        "slots": {
+          "profile.frontmatterKeys": [
+            "relationships"
+          ]
+        },
         "valid": [
           {
             "value": "type"
           },
           {
             "value": "sources"
+          },
+          {
+            "value": "relationships"
           }
         ],
         "invalid": [
           {
             "value": "confidence"
+          },
+          {
+            "value": "relationship"
           }
         ]
       }
@@ -1662,8 +1735,8 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§5.1",
-      "description": "A tag MUST NOT exactly repeat the concept's `type`, `status`, derived trust tier, or a standard relationship label.",
-      "message": "Tags must not duplicate type, status, trust, or standard relationship values; found {failing}.",
+      "description": "A tag MUST NOT exactly repeat the concept's `type`, `status`, derived trust tier, or a declared relationship name.",
+      "message": "Tags must not duplicate type, status, trust, or relationship name values; found {failing}.",
       "check": {
         "builtin": "tag-literal-duplication"
       }
@@ -1969,27 +2042,68 @@ const Map<(String, String), String> installedRuleCatalogs = {
       }
     },
     {
-      "id": "relationships-shape",
+      "id": "relationship-shape",
       "category": "linking",
       "severity": "error",
       "status": "stable",
       "ref": "§7.2",
-      "description": "Each `# Relationships` bullet MUST carry exactly one label and one Markdown link target.",
-      "message": "Each Relationships entry must contain exactly one label and one Markdown target.",
+      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a declared `relationship` name and a nonempty `resource`.",
+      "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {failing}.",
       "check": {
-        "builtin": "relationships-shape"
-      }
-    },
-    {
-      "id": "relationship-label-extension",
-      "category": "linking",
-      "severity": "advisory",
-      "status": "stable",
-      "ref": "§7.2",
-      "description": "A `# Relationships` bullet uses an additional label outside the preferred standard labels.",
-      "message": "The relationship label {label} is a permitted project extension.",
-      "check": {
-        "builtin": "relationship-label-extension"
+        "subject": "frontmatter",
+        "each": "relationships",
+        "schema": {
+          "type": "object",
+          "required": [
+            "relationship",
+            "resource"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "relationship": {
+              "$ref": "#/$defs/relationship-name"
+            },
+            "resource": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.relationships": [
+            "depends-on"
+          ]
+        },
+        "valid": [
+          {
+            "relationship": "depends-on",
+            "resource": "/architecture/sync-engine.md"
+          },
+          {
+            "relationship": "depends-on",
+            "resource": "https://example.test/spec"
+          }
+        ],
+        "invalid": [
+          {
+            "relationship": "inspired-by",
+            "resource": "/a.md"
+          },
+          {
+            "relationship": "depends-on"
+          },
+          {
+            "relationship": "depends-on",
+            "resource": " "
+          },
+          {
+            "relationship": "depends-on",
+            "resource": "/a.md",
+            "note": "extra"
+          },
+          "depends-on"
+        ]
       }
     },
     {
@@ -2103,6 +2217,118 @@ const Map<(String, String), String> installedRuleCatalogs = {
         "invalid": [
           {
             "target": "/area/missing.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "relationship-bundle-relative",
+      "category": "linking",
+      "severity": "advisory",
+      "status": "stable",
+      "ref": "§7.2",
+      "description": "An internal relationship target is written without the leading `/` of a bundle-relative link.",
+      "message": "Internal relationship targets should be bundle-relative.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bundle_relative": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "relationship": "depends-on",
+            "resource": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "relationship": "tracked-by",
+            "resource": "https://example.test/issues/1",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "relationship": "depends-on",
+            "resource": "note.md",
+            "internal": true,
+            "bundle_relative": false,
+            "resolved": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "relationship-unresolved",
+      "category": "linking",
+      "severity": "advisory",
+      "status": "stable",
+      "ref": "§7.2, §14.1–§14.2",
+      "description": "An internal relationship target is absent from the bundle.",
+      "message": "An unresolved internal relationship target is permitted and remains a relationship edge.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolved": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "relationship": "depends-on",
+            "resource": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "relationship": "tracked-by",
+            "resource": "https://example.test/issues/1",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "relationship": "depends-on",
+            "resource": "/area/missing.md",
             "internal": true,
             "bundle_relative": true,
             "resolved": false
@@ -2438,6 +2664,22 @@ const String wayfinderConfigurationSchema = r'''
         }
       }
     },
+    "relationshipDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
     "profileSource": {
       "type": "object",
       "additionalProperties": false,
@@ -2493,6 +2735,12 @@ const String wayfinderConfigurationSchema = r'''
           "type": "array",
           "items": {
             "$ref": "#/$defs/tagDefinition"
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationshipDefinition"
           }
         },
         "actors": {
@@ -2588,6 +2836,13 @@ const String wayfinderProfileManifestSchema = r'''
         "$ref": "#/$defs/tagDefinition"
       },
       "description": "Tags declared by this Profile. Names must be unique; validation compares used tags with the merged Profile and project registry."
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationshipDefinition"
+      },
+      "description": "Relationship names declared by this Profile for the concept frontmatter key relationships. Names must be unique; validation compares used names with the merged Profile and project vocabulary."
     }
   },
   "$defs": {
@@ -2624,6 +2879,22 @@ const String wayfinderProfileManifestSchema = r'''
       }
     },
     "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "relationshipDefinition": {
       "type": "object",
       "additionalProperties": false,
       "required": [

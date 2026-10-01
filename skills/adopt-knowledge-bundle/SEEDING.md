@@ -24,9 +24,12 @@ mix their `profile.md`, `types.md`, or `actors.md` into a new bundle.
 }
 ```
 
-Add custom `types`, `tags`, and `actors` to this entry only as needed. Every
-used actor ID and tag must be declared. The selected Profile source supplies
-the twelve standard types; do not copy them into project files. Run
+Add custom `types`, `tags`, `relationships`, and `actors` to this entry only
+as needed. Every used actor ID, tag, and relationship name must be declared.
+The selected Profile source supplies the twelve standard types and eleven
+standard relationship names; do not copy them into project files. Concepts
+write typed links in the `relationships` frontmatter key, never in a
+`# Relationships` body section. Run
 `wayfinder get` and commit its metadata-only `wayfinder.lock` before
 validation. A later `validate` does not fetch or update it. Do not use
 `captures` as a tag merely because a concept cites evidence.

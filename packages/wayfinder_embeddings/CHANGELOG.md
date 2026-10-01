@@ -1,3 +1,12 @@
+# Unreleased
+
+- `OkfLinkField` names a producer frontmatter key whose entries are typed
+  links, and `okfFieldEdges` resolves them as okf resolves a link target.
+  `KnowledgeSnapshot.load`, `fromSources`, and `fromMap` accept
+  `linkFields`; search expansion follows the resulting
+  `KnowledgeSnapshot.fieldEdges` before okf's untyped edges and reports each
+  on `KnowledgeContextHit.fieldEdge`. Without link fields nothing changes.
+
 # 0.2.0
 
 Breaking API placement cleanup with a hard cutoff; no deprecated aliases or

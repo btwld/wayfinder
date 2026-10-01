@@ -12,7 +12,7 @@
       {
         "id": "concepta-profile/tag-literal-duplication",
         "severity": "error",
-        "message": "Tags must not duplicate type, status, trust, or standard relationship values; found draft.",
+        "message": "Tags must not duplicate type, status, trust, or relationship name values; found draft, runs-after.",
         "location": {
           "path": "tag-repeats-status.md"
         },

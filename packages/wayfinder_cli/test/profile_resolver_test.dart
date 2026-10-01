@@ -436,6 +436,9 @@ void main() {
         'tags': [
           {'name': 'client-topic', 'description': 'A client topic'},
         ],
+        'relationships': [
+          {'name': 'escalated-to', 'description': 'A client escalation'},
+        ],
       }),
     );
     await _git(source.path, ['add', '.']);
@@ -456,12 +459,35 @@ void main() {
           'extends': 'bitwild_profile',
           'source': {'git': source.path, 'ref': branch, 'path': 'child'},
           'applies_to': ['./knowledge'],
+          'relationships': [
+            {'name': 'runs-after', 'description': 'A project ordering'},
+          ],
         },
       },
     });
     final result = await WayfinderProfileResolver(
       dataDirectory: data,
     ).resolve(project.path);
+    expect(
+      result.bindings['client_profile']!.relationshipNames,
+      containsAll(['depends-on', 'escalated-to', 'runs-after']),
+    );
+    final colliding = await config();
+    (colliding['profiles']['client_profile']['relationships'] as List).add({
+      'name': 'escalated-to',
+      'description': 'Repeats the child manifest',
+    });
+    await saveConfig(colliding);
+    await expectLater(
+      WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
+      throwsA(
+        isA<WayfinderProfileResolutionException>().having(
+          (error) => error.message,
+          'message',
+          contains('colliding relationship escalated-to'),
+        ),
+      ),
+    );
     expect(
       result.bindings['client_profile']!.typeNames,
       containsAll(['Guide', 'Client Note']),

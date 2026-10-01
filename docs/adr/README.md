@@ -31,9 +31,9 @@ choice and links there.
 | [0007](0007-index-targets-compared-percent-decoded.md) | Accepted for 2026.2; superseded for 2026.3 by Profile §9 | Compare index URLs after percent-decoding |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
 | [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
-| [0010](0010-wayfinder-cli.md) | Accepted | Wayfinder CLI for validation and persistent local search |
+| [0010](0010-wayfinder-cli.md) | Accepted; amended for 2026.3 relationships | Wayfinder CLI for validation and persistent local search |
 | [0011](0011-wayfinder-mcp.md) | Accepted | Wayfinder MCP adapter over local stdio |
-| [0012](0012-wayfinder-graph-projection.md) | Accepted | Project the ordinary OKF graph |
+| [0012](0012-wayfinder-graph-projection.md) | Accepted; amended for 2026.3 relationships | Project the ordinary OKF graph, plus typed relationship edges beside it |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
 | [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | Direct Git sources, additive vocabulary and exact-release dispatch |
 | [0015](0015-profile-rule-catalogs.md) | Proposed | Evaluate Profiles as rule catalogs over parsed bundle facts |

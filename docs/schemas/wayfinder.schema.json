@@ -86,6 +86,22 @@
         }
       }
     },
+    "relationshipDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
     "profileSource": {
       "type": "object",
       "additionalProperties": false,
@@ -141,6 +157,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/tagDefinition"
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationshipDefinition"
           }
         },
         "actors": {

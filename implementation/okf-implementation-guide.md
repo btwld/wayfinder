@@ -194,8 +194,8 @@ tool that implements this projection.
 
 ### 4.1 Results and exit codes
 
-The command surface is `wayfinder validate <bundle> [--config <file>]
-[--output text|json|sarif]`. The bundle path is required and implementations MUST
+The command surface is `wayfinder validate <bundle> [--config <file>] [--fix]
+[--output text|json|sarif]`; §3.1 defines `--fix`. The bundle path is required and implementations MUST
 inspect exactly that directory. Config discovery MAY walk up to find the
 project's `wayfinder.json`, but MUST NOT select a different bundle. They MUST NOT
 accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -249,15 +249,15 @@ The profile forbids reporting a missing `verified` event (§14.1) and requires t
 reading (§14.2). Concretely, a conforming validator MUST NOT report, at any severity:
 
 - a concept with no `verified` event, or any derived trust tier;
-- an unrecognized `type` or relationship label as anything other than the
-  producer-side registry advisories the Profile names;
+- an unrecognized `type`, tag, or relationship name as anything other than the
+  producer-side vocabulary finding the selected release names;
 - an external URL that does not resolve;
 - a concept using an OKF 0.2 mechanism the profile is silent about.
 
 The producer-defined-frontmatter prohibition is different: the validator MUST
 report a Profile failure when a Profiled Bundle contains a key that OKF 0.2 does
-not define, while preserving the unknown key and leaving the independent OKF
-result unchanged. Tolerant reading governs consumption; the Profile rule governs
+not define and the selected release does not declare (§4.8), while preserving
+the unknown key and leaving the independent OKF result unchanged. Tolerant reading governs consumption; the Profile rule governs
 what Concepta producers write.
 
 The first is the load-bearing one. The only way an author can clear a "missing
@@ -290,20 +290,31 @@ evidence for freshness, and semantic tag aliases to Profile Review. A registered
 project-specific type and missing `generated` produce advisories; missing
 `verified` produces no finding.
 
-For external boundaries, validation MUST check the one-label/one-target
-Relationships shape as a deterministic rule. It MUST report a non-bundle-relative
-internal target, an additional relationship label, and an unresolved internal target
-only as advisories that do not affect the automated gate or exit status,
-and it MUST preserve the unresolved edge exposed by the OKF graph. It MUST NOT infer
+For external boundaries under Profile 2026.3, validation MUST check the
+`relationships` frontmatter key of Profile §7.2 as a deterministic rule: a
+present value that is not a list, an entry that is not a mapping of exactly
+`relationship` and `resource`, an empty `resource`, and an undeclared
+relationship name are failures. It MUST resolve each `resource` exactly as the
+OKF graph resolves a link target, and report a non-bundle-relative internal
+target and an unresolved internal target only as advisories that do not affect
+the automated gate or exit status. Under Profile 2026.2 it instead checks the
+one-label/one-target `# Relationships` body shape and reports an additional
+label as an advisory. Under either release it MUST report a non-bundle-relative
+or unresolved internal link only as an advisory and preserve the unresolved
+edge exposed by the OKF graph. It MUST NOT infer
 relationship meaning, lifecycle ownership, path conformance, whether a date is
 intrinsic identity, or whether an external citation can be repaired. The complete
 path rule belongs to Profile Review because a preserved external ID has no
 Profile-specific syntax that separates it mechanically from the authored slug.
 
-The implementation MUST use the ordinary OKF graph without an adapter. It exposes
-Relationships targets and unresolved links as the same untyped body edges as any
-other Markdown link and MUST NOT enrich, reinterpret, or replace those edges with
-Profile labels.
+The implementation MUST use the ordinary OKF graph and MUST NOT enrich,
+reinterpret, or replace its edges. Under 2026.2 a `# Relationships` target is the
+same untyped body edge as any other Markdown link. Under 2026.3 an implementation
+that projects a graph or expands search context MAY read each `relationships`
+entry as an additional edge named by its relationship and resolved as the OKF
+graph resolves a link target. OKF's nodes and edges and their meanings stay
+unchanged: a graph output adds such edges under a key of its own, never inside
+OKF's edge list, so a consumer of the OKF graph contract reads it unchanged.
 
 Profile Review assesses whether a cited artifact faces genuine availability risk,
 whether repository visibility and sanitization are appropriate, whether images are
@@ -392,8 +403,8 @@ parent chain reaching this base. A parent may be source-only with
 `applies_to: []`; a child adds manifest and project vocabulary, but cannot
 replace inherited names or load rules from Git. Missing parents, cycles,
 collisions, unsupported releases, and ambiguous bundle application fail
-Profile dispatch. Types, topic tags and actor lookup are the only local
-additions. A registered custom type is still a non-blocking extension
+Profile dispatch. Types, topic tags, relationship names and actor lookup are
+the only local additions; a binding cannot declare frontmatter keys. A registered custom type is still a non-blocking extension
 advisory; contextual meaning belongs to Profile Review.
 
 A relative local `source.git` is resolved from the directory containing
@@ -425,7 +436,8 @@ Profile rules. An unlisted 2026.2 bundle keeps its in-bundle declaration; an
 ancestor project config cannot silently migrate it. Unknown releases never
 fall back to the newest rules.
 
-`graph` projects the ordinary OKF graph without Profile-source resolution.
+`graph` projects the ordinary OKF graph, plus the `relationships` edges §4.3
+permits, without Profile-source resolution.
 Embedding `index` and `search` likewise consume the explicit bundle without
 resolving unused Profile sources; they do not generate Profile navigation
 indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
@@ -454,10 +466,20 @@ producer-side constraints:
 | `type` | Required non-empty string; membership in the `types.md` registry | Membership in the selected Profile's standard types plus binding custom types |
 | `title`, `description` | Required non-empty strings | Unchanged |
 | `status` | Required string with `draft`, `stable`, or `deprecated` | Unchanged unless a future Profile release explicitly changes it |
-| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, and reports an undeclared used tag according to the release rule |
+| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and checks literal duplication against the declared relationship names |
 | `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics; actor extraction and trust semantics remain separate | Keep upstream meanings; do not add Profile-specific fields for trust or freshness |
 | `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics | Keep upstream meanings and run the same checks after binding resolution |
-| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Continue rejecting new keys; a binding cannot authorize arbitrary frontmatter extensions |
+| `relationships` | Not a Profile key, so it fails like any producer-defined key; labelled links live in a `# Relationships` body section | The one key the release declares (Profile §7.2): a list of `relationship` and `resource` mappings, checked for shape, declared names, and target resolution |
+| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Keys neither OKF nor the release declares fail; a binding cannot declare frontmatter keys |
+
+A Profile release declares its additional frontmatter keys in its rule
+catalog's `frontmatter_keys`, each with the sentence that defines it, and
+`frontmatter-fields-declared` accepts exactly OKF's keys and those. OKF §4.1
+permits producers additional keys, but a declared key MUST NOT be one OKF 0.2
+defines or redefine an OKF field, so the engine rejects at load a catalog that
+declares an OKF key, and the compatibility review records each declared key.
+OKF's own fields keep their meaning: the 2026.3 `relationships` key stays out of
+`sources`, whose OKF §5.1 meaning is derivation.
 
 The current implementation therefore has no type-specific property schema. This
 is deliberate: the Profile defines no type-specific body template, and OKF
@@ -470,8 +492,9 @@ If a future Profile needs a type-specific constraint, it MUST constrain existing
 OKF fields using a new reviewed Profile release. It MUST NOT turn
 `wayfinder.json` into a second frontmatter schema or allow a project to add
 fields such as `owner`, `priority`, `confidence`, or `maturity`. Information
-that has no OKF field belongs in the concept body or requires an upstream OKF
-change before a Profile can depend on it.
+that has no OKF field belongs in the concept body or in a key a reviewed Profile
+release declares under OKF §4.1; a new meaning for an OKF field requires an
+upstream OKF change before a Profile can depend on it.
 
 Tags remain OKF topic strings, but the next Bitwild binding treats its `tags`
 arrays as a declared vocabulary rather than a list of recommendations. The
@@ -480,7 +503,10 @@ project tags. Wayfinder MUST reject duplicate names within either list and
 collisions between the lists, reject duplicate values within one concept, and
 apply the selected Profile release's explicit rule for an undeclared used tag.
 For Bitwild 2026.3, an undeclared used tag is an error; a Profile that needs an
-open vocabulary must state that as a different release rule.
+open vocabulary must state that as a different release rule. Relationship names
+follow the same model: the manifest's `relationships` list declares the
+standard names, the binding adds project names under the same duplicate and
+collision rules, and an undeclared used name is an error.
 
 The Profile's tag rule remains a Profile convention, not an OKF requirement:
 generic OKF consumers still tolerate arbitrary tag strings. Semantic aliases
@@ -578,7 +604,8 @@ Three migration invariants are not project-specific and every migration MUST car
    (profile §8.1, §8.2). Never renumber during a migration; a migration is exactly when it
    is most tempting and most damaging.
 3. **Supersession is preserved, not deleted.** Superseded material migrates as `deprecated`
-   concepts with `Superseded by` links, so the history stays inspectable. A migration that
+   concepts with a `superseded-by` relationship (2026.2: a `Superseded by` label), so the
+   history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
 
 For a 2026.2 migration, the implementation MUST inventory missing baseline
@@ -603,8 +630,9 @@ cannot make that decision mechanically.
 
 The migration MUST inventory labelled relationships, tracker-owned artifacts,
 specifications, externally cited concept IDs, planned moves, stable concepts selected
-for retirement, and mirrored material. It mechanically reshapes malformed
-Relationships entries, but Profile Review decides path conformance, label meaning,
+for retirement, and mirrored material. It mechanically writes labelled links as
+`relationships` entries (2026.2: reshapes malformed `# Relationships` entries),
+but Profile Review decides path conformance, relationship meaning,
 lifecycle ownership, intrinsic chronology, citation repairability, deletion exceptions,
 mirror classification and placement, availability risk, visibility, sanitization,
 image optimization, and media classification. It externalizes media that Profile
@@ -696,6 +724,18 @@ contract and semantic comparison move unchanged to §3.4. Affected sections:
 §§1, 2.1, 2.3, 3, and 8. Driver: Profile 2026.3 §9 now defers to okf's
 generator. Migration for implementations: generate and compare 2026.3 indexes
 with the pinned generator, and keep the 2026.2 projection for 2026.2 bundles.
+
+Revised in place before publication: §§4.3 and 4.8 check the 2026.3
+`relationships` frontmatter key and its declared names instead of the
+`# Relationships` body section, accept the frontmatter keys a release declares,
+and let a graph or search projection add relationship edges beside the OKF
+graph without changing it; §4.7 adds relationship names to the binding
+vocabulary, and §4.1 names `--fix` in the command surface. Affected sections:
+§§4.1, 4.3, 4.7, 4.8, 5.5, and 9. Driver: Profile 2026.3 §7.2 moves typed
+relationships into frontmatter. Migration for implementations: parse a
+release's declared keys and relationship vocabulary, resolve relationship
+targets as the OKF graph resolves links, and keep the body-section checks for
+2026.2 bundles.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

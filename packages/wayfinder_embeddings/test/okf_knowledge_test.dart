@@ -423,6 +423,92 @@ void main() {
     },
   );
 
+  test('frontmatter link fields add typed edges to expansion', () async {
+    const relationships = OkfLinkField(
+      'relationships',
+      nameKey: 'relationship',
+    );
+    final sources = {
+      'decision.md': concept(
+        'OfflineMode keeps working without a connection.',
+        fields:
+            'relationships:\n'
+            '  - {relationship: depends-on, resource: /sync/engine.md}\n'
+            '  - {relationship: tracked-by, resource: /missing.md}\n'
+            '  - {resource: "https://example.invalid/issue/1"}\n'
+            '  - {relationship: refines}\n',
+      ),
+      'sync/engine.md': concept('The sync engine queues writes.'),
+    };
+    final typed = KnowledgeSnapshot.fromSources(
+      sources,
+      bundleId: 'typed',
+      linkFields: const [relationships],
+    );
+    expect(typed.fieldEdges.map((edge) => edge.toJson()), [
+      {
+        'source': 'decision',
+        'field': 'relationships',
+        'name': 'depends-on',
+        'raw_target': '/sync/engine.md',
+        'resolution': 'resolved-concept',
+        'resolved_path': 'sync/engine.md',
+        'target_concept': 'sync/engine',
+      },
+      {
+        'source': 'decision',
+        'field': 'relationships',
+        'name': 'tracked-by',
+        'raw_target': '/missing.md',
+        'resolution': 'unresolved',
+        'resolved_path': 'missing.md',
+      },
+      {
+        'source': 'decision',
+        'field': 'relationships',
+        'raw_target': 'https://example.invalid/issue/1',
+        'resolution': 'external',
+      },
+    ]);
+    expect(
+      typed.graph.edges,
+      isEmpty,
+      reason: 'okf reads no producer key, so the edges exist only as typed',
+    );
+
+    final index = KnowledgeIndex(store: MemoryStore());
+    await index.synchronize(typed);
+    final result = await index.search(
+      'OfflineMode',
+      policy: KnowledgeSearchPolicy(expandRelationships: true),
+    );
+    expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
+      'decision.md',
+      'sync/engine.md',
+    ]);
+    expect(result.context.last.reason, 'relationship');
+    expect(result.context.last.fieldEdge!.name, 'depends-on');
+    expect(result.notices, ['Unresolved relationship: /missing.md']);
+
+    final reopened = KnowledgeSnapshot.fromMap(
+      typed.toMap(),
+      linkFields: const [relationships],
+    );
+    expect(reopened.fieldEdges.map((edge) => edge.toJson()), [
+      for (final edge in typed.fieldEdges) edge.toJson(),
+    ]);
+
+    final untyped = KnowledgeIndex(store: MemoryStore());
+    await untyped.synchronize(snapshot(sources, id: 'untyped'));
+    final plain = await untyped.search(
+      'OfflineMode',
+      policy: KnowledgeSearchPolicy(expandRelationships: true),
+    );
+    expect(plain.context.map((hit) => hit.result.chunk.sourcePath), [
+      'decision.md',
+    ]);
+  });
+
   test(
     'oversized separators and identifiers recover without losing text',
     () async {

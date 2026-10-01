@@ -468,7 +468,10 @@ title: Generic concept
       const bundle = '../../examples/knowledge';
       final expected = await _okfGraph(bundle);
       expect(await cli.run(['graph', bundle]), 0);
-      expect(jsonDecode(output.single), expected.toJson());
+      expect(jsonDecode(output.single), {
+        ...expected.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(expected.toJson()['schema_version'], '1');
       expect(retrievalOpens, 0);
     });
@@ -495,12 +498,108 @@ title: Generic concept
         query: OkfGraphQuery(pathPrefixes: ['reporting/']),
       );
       expect(await cli.run(['graph', bundle, '--type=Request']), 0);
-      expect(jsonDecode(output.single), requests.toJson());
+      expect(jsonDecode(output.single), {
+        ...requests.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(requests.nodes.length, lessThan(full.nodes.length));
       output.clear();
       expect(await cli.run(['graph', bundle, '--path-prefix=reporting/']), 0);
-      expect(jsonDecode(output.single), reporting.toJson());
+      expect(jsonDecode(output.single), {
+        ...reporting.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(reporting.nodes.length, lessThan(full.nodes.length));
+    });
+
+    test('adds typed relationship edges beside the okf graph', () async {
+      final bundle = await Directory.systemTemp.createTemp(
+        'wayfinder-typed-graph-',
+      );
+      addTearDown(() => bundle.delete(recursive: true));
+      await File('${bundle.path}/decision.md').writeAsString('''
+---
+type: Decision
+title: Offline mode
+relationships:
+  - {relationship: depends-on, resource: /sync.md}
+  - {relationship: tracked-by, resource: /missing.md}
+---
+
+See the [missing note](/missing.md).
+''');
+      await File('${bundle.path}/sync.md').writeAsString('''
+---
+type: Guide
+title: Sync engine
+---
+''');
+      final okf = await _okfGraph(bundle.path);
+      expect(await cli.run(['graph', bundle.path]), 0);
+      final graph = jsonDecode(output.single) as Map<String, Object?>;
+      for (final MapEntry(:key, :value) in okf.toJson().entries) {
+        expect(graph[key], jsonDecode(jsonEncode(value)), reason: key);
+      }
+      expect(graph['field_edges'], [
+        {
+          'source': 'decision',
+          'field': 'relationships',
+          'name': 'depends-on',
+          'raw_target': '/sync.md',
+          'resolution': 'resolved-concept',
+          'resolved_path': 'sync.md',
+          'target_concept': 'sync',
+        },
+        {
+          'source': 'decision',
+          'field': 'relationships',
+          'name': 'tracked-by',
+          'raw_target': '/missing.md',
+          'resolution': 'unresolved',
+          'resolved_path': 'missing.md',
+        },
+      ]);
+
+      output.clear();
+      expect(await cli.run(['graph', bundle.path, '--output=mermaid']), 0);
+      final mermaid = output.single.split('\n');
+      expect(mermaid.take(okf.toMermaid().trimRight().split('\n').length), [
+        ...okf.toMermaid().trimRight().split('\n'),
+      ]);
+      expect(mermaid, contains('  n0 -->|depends-on| n1'));
+      expect(mermaid, contains('  n0 -->|tracked-by| x0'));
+      expect(
+        mermaid.where((line) => line.contains('["/missing.md"]')),
+        hasLength(1),
+        reason: 'the body link and the relationship share one target node',
+      );
+
+      output.clear();
+      expect(await cli.run(['graph', bundle.path, '--output=dot']), 0);
+      final dot = output.single.split('\n');
+      expect(dot.last, '}');
+      expect(
+        dot,
+        containsAll([
+          '  "concept:decision" -> "concept:sync" [label="depends-on"];',
+          '  "concept:decision" -> "target:unresolved:0" '
+              '[label="tracked-by"];',
+        ]),
+      );
+
+      output.clear();
+      expect(
+        await cli.run(['graph', bundle.path, '--resolution=unresolved']),
+        0,
+      );
+      final unresolved = jsonDecode(output.single) as Map<String, Object?>;
+      expect(
+        (unresolved['field_edges']! as List<Object?>).map(
+          (edge) => (edge! as Map<String, Object?>)['name'],
+        ),
+        ['tracked-by'],
+      );
+      expect(retrievalOpens, 0);
     });
 
     test('load findings print a report and refuse a graph', () async {

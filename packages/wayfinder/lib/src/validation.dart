@@ -402,6 +402,7 @@ EffectiveProfile _configuredProfile(
       projectTypes: binding.types.map((type) => type.name).toList(),
       types: binding.typeNames.toList(),
       tags: binding.tagNames.toList(),
+      relationships: binding.relationshipNames.toList(),
       actors: binding.actors.keys.toList(),
     ),
     configPath: reportedConfigPath,

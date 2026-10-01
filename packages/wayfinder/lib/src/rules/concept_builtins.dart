@@ -11,7 +11,9 @@ import 'builtins.dart';
 import 'facts.dart';
 import 'profile.dart';
 
-const _relationshipLabels = <String>{
+/// The 2026.2 standard `# Relationships` labels, which that release reads
+/// from no manifest.
+const _legacyRelationshipLabels = <String>[
   'Superseded by',
   'Depends on',
   'Constrained by',
@@ -23,7 +25,7 @@ const _relationshipLabels = <String>{
   'Partially resolves',
   'Tracked by',
   'Related to',
-};
+];
 
 Iterable<Violation> tagLiteralDuplication(
   BundleFacts facts,
@@ -36,7 +38,7 @@ Iterable<Violation> tagLiteralDuplication(
       ?nonEmptyString(frontmatter['type']),
       ?nonEmptyString(frontmatter['status']),
       document.trustTier.wireValue,
-      ..._relationshipLabels,
+      ...?facts.profile.vocabulary.relationships,
     });
     if (duplicatedTags.isNotEmpty) {
       yield Violation(path, failing: duplicatedTags.toList());
@@ -66,6 +68,7 @@ Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
     standardTypes: standardTypes.map((row) => row.$1).toList(),
     projectTypes: types == null ? const [] : _extensionNames(types),
     types: types?.map((row) => row.first).toList(),
+    relationships: _legacyRelationshipLabels,
     actors: _readActorRegistry(loaded).rows?.map((row) => row.first).toList(),
   );
 }
@@ -285,7 +288,7 @@ Iterable<Violation> relationshipLabelExtension(
     final section = body.relationships;
     if (section == null || section.malformed) continue;
     for (final label in section.labels) {
-      if (!_relationshipLabels.contains(label)) {
+      if (!_legacyRelationshipLabels.contains(label)) {
         yield Violation(path, facts: {'label': label});
       }
     }

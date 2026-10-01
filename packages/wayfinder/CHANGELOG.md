@@ -1,5 +1,15 @@
 # Unreleased
 
+- Profile 2026.3 types relationships in the `relationships` frontmatter key
+  instead of a `# Relationships` body section. The 2026.3 catalog declares
+  the key in its new `frontmatter_keys`, renames `frontmatter-fields-okf` to
+  `frontmatter-fields-declared`, adds `relationship-shape` (error) and the
+  `relationship-bundle-relative` and `relationship-unresolved` advisories, and
+  drops `relationships-shape` and `relationship-label-extension`.
+  `tag-literal-duplication` compares tags with the declared relationship
+  names. Relationship names are vocabulary: the manifest declares eleven
+  standard names and `WayfinderProfileBinding.relationships` adds project
+  names. A catalog declaring an OKF key fails to load. 2026.2 is unchanged.
 - Profile 2026.3 indexes are okf's generated output: `index-current` replaces
   `index-semantic-projection` and `directory-index-present` in the 2026.3
   catalog and reports each generated index that is missing or differs.

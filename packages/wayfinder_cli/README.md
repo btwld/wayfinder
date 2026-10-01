@@ -137,8 +137,11 @@ absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
 `graph` reads the live bundle and projects the ordinary OKF relationship
-graph. It does not open the search index or model. `--output` is
-`json` (default), `mermaid`, or `dot`. Mermaid and DOT are text for an
+graph, plus each concept's typed `relationships` entries (Profile 2026.3 §7.2)
+beside it: JSON keeps every okf key and adds them as `field_edges`, and Mermaid
+and DOT label each one with its relationship name. Search expansion follows
+the same typed relationships. It does not open the search index or model.
+`--output` is `json` (default), `mermaid`, or `dot`. Mermaid and DOT are text for an
 external preview such as mermaid.live; they are not a rendered picture.
 Repeatable `--type`, `--path-prefix` and `--resolution` select an induced
 subgraph, matching `okf graph`. Load findings print the OKF report and

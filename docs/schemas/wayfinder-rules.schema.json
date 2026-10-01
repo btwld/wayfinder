@@ -45,6 +45,14 @@
         }
       }
     },
+    "frontmatter_keys": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Producer frontmatter keys this release declares under OKF §4.1, each with the sentence that defines it. A key OKF already defines is rejected at load."
+    },
     "$defs": {
       "type": "object",
       "description": "Schemas rule schemas may $ref as #/$defs/<name>, including x-slot vocabularies."

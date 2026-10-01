@@ -26,7 +26,8 @@ plugin registers them as `validate`, `index`, `search` and `graph`). They are bo
 bundle — `knowledge/` by default, or `WAYFINDER_KNOWLEDGE_DIR` — so they take no
 path. `search` takes `query` and an optional `limit` (1–100, default 5).
 `graph` takes optional `types`, `path_prefixes` and `resolutions` and returns
-the versioned OKF graph JSON.
+the versioned OKF graph JSON, plus a `field_edges` array holding each concept's
+typed `relationships` entries.
 
 Otherwise use the **CLI**, which takes an explicit bundle path:
 
@@ -63,8 +64,9 @@ grep-only answers.
      (relative to the bundle), `chunk.lineStart`–`chunk.lineEnd`,
      `chunk.content`, and `chunk.metadata.okf.frontmatter` (including `status`),
      plus a `reason`: `match` (direct hit), `relationship` (reached through a
-     labelled link from a match — `viaPath` names that match), or `governing`
-     (a governing source pulled in ahead of the passage it governs).
+     link from a match — `viaPath` names that match, and `relationship` names
+     the typed relationship when one was followed), or `governing` (a governing
+     source pulled in ahead of the passage it governs).
    - `matches` — the raw similarity hits behind `context`.
    - `notices` — gaps worth reporting, such as an unresolved relationship link.
    Text output prints the same passages as `path:start-end [status; reason]`.

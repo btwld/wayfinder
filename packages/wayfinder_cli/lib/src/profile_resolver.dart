@@ -411,9 +411,15 @@ final class WayfinderProfileResolver {
       'standard_types',
     );
     final tags = _manifestDefinitions(manifest['tags'], profileId, 'tags');
+    final relationships = _manifestDefinitions(
+      manifest['relationships'],
+      profileId,
+      'relationships',
+    );
     if (profileId == builtinProfileId &&
         (!_sameDefinitions(types, externalStandardTypes) ||
-            !_sameDefinitions(tags, externalStandardTags))) {
+            !_sameDefinitions(tags, externalStandardTags) ||
+            !_sameDefinitions(relationships, externalStandardRelationships))) {
       throw WayfinderProfileResolutionException(
         'Profile $profileId at ${source.git} ($commit) differs from the installed compiled Profile vocabulary.',
       );
@@ -423,6 +429,7 @@ final class WayfinderProfileResolver {
       release: manifest['release']! as String,
       types: types,
       tags: tags,
+      relationships: relationships,
     );
   }
 
@@ -612,12 +619,14 @@ final class _ResolvedSource {
     required this.release,
     required this.types,
     required this.tags,
+    required this.relationships,
   });
 
   final String commit;
   final String release;
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
+  final List<WayfinderDefinition> relationships;
 }
 
 /// Names must be unique, which the manifest schema leaves to Wayfinder.
@@ -689,9 +698,19 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       if (id != builtinProfileId) ...manifest.tags,
       ...local.tags,
     ];
+    final relationships = <WayfinderDefinition>[
+      ...?parent?.relationships,
+      if (id != builtinProfileId) ...manifest.relationships,
+      ...local.relationships,
+    ];
     for (final (field, definitions, standard) in [
       ('type', types, externalStandardTypes.map((value) => value.$1).toSet()),
       ('tag', tags, externalStandardTags.map((value) => value.$1).toSet()),
+      (
+        'relationship',
+        relationships,
+        externalStandardRelationships.map((value) => value.$1).toSet(),
+      ),
     ]) {
       final names = <String>{...standard};
       for (final definition in definitions) {
@@ -720,6 +739,7 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       extendsProfile: local.extendsProfile,
       types: List.unmodifiable(types),
       tags: List.unmodifiable(tags),
+      relationships: List.unmodifiable(relationships),
       actors: Map.unmodifiable(actors),
     );
   }
