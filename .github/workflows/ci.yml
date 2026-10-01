@@ -51,7 +51,9 @@ jobs:
       - run: dart test
         working-directory: packages/wayfinder_cli
       - if: matrix.sdk == 'stable'
-        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
+        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart tool/generate_installed_profiles.dart
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart run tool/generate_installed_profiles.dart --check
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run wayfinder_cli:wayfinder validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'

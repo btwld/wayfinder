@@ -298,11 +298,17 @@ dart pub get
 dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
+dart run tool/generate_installed_profiles.dart --check
 dart run wayfinder_cli:wayfinder validate examples/knowledge
 python3 tool/ci/verify-configured-example.py
 ```
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.
+
+The validator embeds the installed Profile files under `profile/` through the generated
+`packages/wayfinder/lib/src/generated/installed_profiles.g.dart`. After editing a manifest
+or adding a snapshot under `profile/versions/`, run `dart run tool/generate_installed_profiles.dart`
+and commit the result; `--check` is the CI gate for a stale file.
 
 `packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
 `packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them

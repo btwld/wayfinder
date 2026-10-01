@@ -3,38 +3,37 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/generated/installed_profiles.g.dart';
+import 'package:wayfinder/src/profile_release.dart' show standardTypes;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
 void main() {
-  test('installed manifest matches the built-in release vocabulary', () async {
-    final manifest =
-        jsonDecode(
-              await File('../../profile/wayfinder-profile.json').readAsString(),
-            )
-            as Map<String, Object?>;
-    expect(manifest['id'], builtinProfileId);
-    expect(manifest['release'], externalProfileRelease);
-    expect(manifest['implements'], {'id': 'okf', 'release': '0.2'});
-    expect(
-      (manifest['standard_types'] as List<Object?>)
-          .map(
-            (item) =>
-                ((item as Map<String, Object?>)['name'], item['description']),
-          )
-          .toList(),
-      externalStandardTypes,
-    );
-    expect(
-      (manifest['tags'] as List<Object?>)
-          .map(
-            (item) =>
-                ((item as Map<String, Object?>)['name'], item['description']),
-          )
-          .toList(),
-      externalStandardTags,
-    );
+  test('the generated installed manifests are current', () async {
+    final files = [
+      File('../../profile/wayfinder-profile.json'),
+      ...Directory('../../profile/versions').listSync().whereType<File>().where(
+        (file) => p.basename(file.path).startsWith('wayfinder-profile-'),
+      ),
+    ];
+    final keys = <(String, String)>{};
+    for (final file in files) {
+      final text = await file.readAsString();
+      final manifest = jsonDecode(text) as Map<String, Object?>;
+      final key = (manifest['id'] as String, manifest['release'] as String);
+      keys.add(key);
+      expect(
+        installedProfileManifests[key],
+        text,
+        reason:
+            '${file.path} is not embedded; run '
+            'dart run tool/generate_installed_profiles.dart',
+      );
+    }
+    expect(installedProfileManifests.keys.toSet(), keys);
+    expect(externalStandardTypes.length, 12);
+    expect(standardTypes.length, 14);
   });
   late Directory project;
   late Directory bundle;
