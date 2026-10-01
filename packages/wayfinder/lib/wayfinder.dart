@@ -11,6 +11,7 @@ export 'src/profile_release.dart'
         externalStandardTypes,
         externalStandardTags;
 export 'src/published_schemas.dart' show profileManifestSchemaViolation;
+export 'src/sarif.dart' show toSarif;
 export 'src/validation.dart'
     show
         AutomatedGateState,

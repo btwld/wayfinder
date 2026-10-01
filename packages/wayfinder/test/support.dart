@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/wayfinder.dart';
 
 import 'legacy_cli.dart';
 
@@ -14,6 +15,44 @@ List<String> findingSummary(Map<String, Object?> profile) =>
     }).toList();
 
 String fixture(String name) => p.join('test', 'fixtures', name);
+
+/// A fixture holding `wayfinder.json` is a configured project with its bundle
+/// under `knowledge/`; any other fixture is the bundle itself.
+String fixtureBundle(String path) =>
+    File(p.join(path, 'wayfinder.json')).existsSync()
+    ? p.join(path, 'knowledge')
+    : path;
+
+/// Validates a fixture as [fixtureBundle] lays it out. A configured project
+/// is passed its `wayfinder.json` unless [discoverConfig], and its Profile
+/// sources resolve to the installed release.
+Future<ProfileValidationResult> validateFixture(
+  String path, {
+  bool discoverConfig = false,
+}) async {
+  final config = File(p.join(path, 'wayfinder.json'));
+  if (!await config.exists()) {
+    return const ProfileValidator().validate(path);
+  }
+  final parsed = WayfinderProjectConfig.parse(await config.readAsString());
+  return const ProfileValidator().validate(
+    fixtureBundle(path),
+    configPath: discoverConfig ? null : config.path,
+    resolvedProfiles: {
+      for (final entry in parsed.profiles.entries)
+        entry.key: WayfinderProfileBinding(
+          id: entry.key,
+          implementsId: builtinProfileId,
+          release: externalProfileRelease,
+          types: entry.value.types,
+          tags: entry.value.tags,
+          actors: entry.value.actors,
+          source: entry.value.source,
+          appliesTo: entry.value.appliesTo,
+        ),
+    },
+  );
+}
 
 Future<Directory> copyFixture(String name) async {
   final source = Directory(fixture(name));

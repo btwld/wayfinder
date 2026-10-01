@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
@@ -24,7 +23,7 @@ void main() {
 
   for (final name in fixtures) {
     test('$name matches its golden', () async {
-      final result = await _validateFixture(fixture(name));
+      final result = await validateFixture(fixture(name));
       final actual =
           '${const JsonEncoder.withIndent('  ').convert(result.toJson())}\n';
       final golden = File(p.join(goldens, '$name.json'));
@@ -57,31 +56,4 @@ void main() {
         .toList();
     expect(orphans, isEmpty, reason: 'delete goldens of removed fixtures');
   }, skip: update);
-}
-
-/// A fixture holding `wayfinder.json` is a configured project with its bundle
-/// under `knowledge/`; any other fixture is the bundle itself.
-Future<ProfileValidationResult> _validateFixture(String path) async {
-  final config = File(p.join(path, 'wayfinder.json'));
-  if (!await config.exists()) {
-    return const ProfileValidator().validate(path);
-  }
-  final parsed = WayfinderProjectConfig.parse(await config.readAsString());
-  return const ProfileValidator().validate(
-    p.join(path, 'knowledge'),
-    configPath: config.path,
-    resolvedProfiles: {
-      for (final entry in parsed.profiles.entries)
-        entry.key: WayfinderProfileBinding(
-          id: entry.key,
-          implementsId: builtinProfileId,
-          release: externalProfileRelease,
-          types: entry.value.types,
-          tags: entry.value.tags,
-          actors: entry.value.actors,
-          source: entry.value.source,
-          appliesTo: entry.value.appliesTo,
-        ),
-    },
-  );
 }

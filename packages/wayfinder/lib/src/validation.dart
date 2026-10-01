@@ -93,6 +93,8 @@ final class ProfileValidationResult {
     required Iterable<ProfileFinding> findings,
     required this.automatedGateState,
     this.fix,
+    this.catalog,
+    this.projectConfig,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
   ProfileValidationResult.blockedByOkf(
@@ -111,6 +113,7 @@ final class ProfileValidationResult {
     OkfSpecValidation validation,
     ProfileFinding finding, {
     ProfileFix? fix,
+    String? configFile,
   }) : this._(
          okfValidation: validation,
          profileRelease: null,
@@ -118,6 +121,9 @@ final class ProfileValidationResult {
          findings: <ProfileFinding>[finding],
          automatedGateState: AutomatedGateState.unsupported,
          fix: fix,
+         projectConfig: configFile == null
+             ? null
+             : (reported: finding.path, file: configFile),
        );
 
   ProfileValidationResult.unsupported(
@@ -136,8 +142,9 @@ final class ProfileValidationResult {
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
-    String release, {
+    RuleCatalog catalog, {
     ProfileFix? fix,
+    ({String reported, String file})? projectConfig,
   }) {
     final stableFindings = List<ProfileFinding>.unmodifiable(
       findings.toList()..sort(
@@ -152,13 +159,15 @@ final class ProfileValidationResult {
     );
     return ProfileValidationResult._(
       okfValidation: validation,
-      profileRelease: release,
+      profileRelease: catalog.release,
       profileState: failed ? ProfileState.fail : ProfileState.pass,
       findings: stableFindings,
       automatedGateState: failed
           ? AutomatedGateState.fail
           : AutomatedGateState.pass,
       fix: fix,
+      catalog: catalog,
+      projectConfig: projectConfig,
     );
   }
 
@@ -170,6 +179,15 @@ final class ProfileValidationResult {
 
   /// Present when the caller asked for `--fix`.
   final ProfileFix? fix;
+
+  /// The catalog the bundle was assessed against; null when no release was
+  /// assessed.
+  final RuleCatalog? catalog;
+
+  /// Where findings about the project configuration point. Their
+  /// [ProfileFinding.path] is the configured path as given or the file's
+  /// basename, which is not bundle-relative; [file] is the file read.
+  final ({String reported, String file})? projectConfig;
 
   OkfReport get okfReport => okfValidation.report;
   OkfState get okfState =>
@@ -261,9 +279,11 @@ final class ProfileValidator {
         validation,
         finding,
         fix: unassessed,
+        configFile: resolvedConfig.file,
       );
     }
     final EffectiveProfile profile;
+    ({String reported, String file})? projectConfig;
     if (resolvedConfig.value case final configured?) {
       final binding = configured.profile;
       if (binding.release != externalProfileRelease ||
@@ -274,10 +294,9 @@ final class ProfileValidator {
           fix: unassessed,
         );
       }
-      profile = _configuredProfile(
-        configured,
-        reportedConfigPath: configPath ?? p.basename(configured.configPath),
-      );
+      final reported = configPath ?? p.basename(configured.configPath);
+      profile = _configuredProfile(configured, reportedConfigPath: reported);
+      projectConfig = (reported: reported, file: configured.configPath);
     } else {
       final declaration = _readDeclaration(loaded);
       if (declaration.finding case final finding?) {
@@ -302,8 +321,10 @@ final class ProfileValidator {
         declaration: values,
       );
     }
-    if (!fix) return _assess(validation, loaded, profile);
-    return _fixThenAssess(validation, loaded, profile);
+    if (!fix) {
+      return _assess(validation, loaded, profile, projectConfig: projectConfig);
+    }
+    return _fixThenAssess(validation, loaded, profile, projectConfig);
   }
 
   /// Writes the files the selected catalog's fixable rules generate, then
@@ -313,6 +334,7 @@ final class ProfileValidator {
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
     EffectiveProfile profile,
+    ({String reported, String file})? projectConfig,
   ) async {
     final files = fixes(profile, BundleFacts.project(loaded, profile: profile));
     if (files == null) {
@@ -320,6 +342,7 @@ final class ProfileValidator {
         validation,
         loaded,
         profile,
+        projectConfig: projectConfig,
         fix: ProfileFix.notApplied(
           'Profile ${profile.catalog.release} has no fixable rules',
         ),
@@ -343,13 +366,27 @@ final class ProfileValidator {
       written.add(path);
     }
     final fix = ProfileFix.written(written);
-    if (written.isEmpty) return _assess(validation, loaded, profile, fix: fix);
+    if (written.isEmpty) {
+      return _assess(
+        validation,
+        loaded,
+        profile,
+        fix: fix,
+        projectConfig: projectConfig,
+      );
+    }
     final reloaded = await loader.inspect(loaded.rootPath);
     final revalidation = reloaded.validate();
     if (!revalidation.isConformant) {
       return ProfileValidationResult.blockedByOkf(revalidation, fix: fix);
     }
-    return _assess(revalidation, reloaded, profile, fix: fix);
+    return _assess(
+      revalidation,
+      reloaded,
+      profile,
+      fix: fix,
+      projectConfig: projectConfig,
+    );
   }
 }
 
@@ -376,13 +413,15 @@ ProfileValidationResult _assess(
   OkfBundleLoadResult loaded,
   EffectiveProfile profile, {
   ProfileFix? fix,
+  ({String reported, String file})? projectConfig,
 }) {
   final facts = BundleFacts.project(loaded, profile: profile);
   return ProfileValidationResult.assessed(
     validation,
     evaluate(profile, facts),
-    profile.catalog.release,
+    profile.catalog,
     fix: fix,
+    projectConfig: projectConfig,
   );
 }
 
@@ -403,6 +442,7 @@ Future<_ConfigRead> _readProjectConfig(
           message: 'Configuration file $configPath does not exist.',
           path: configPath,
         ),
+        configPath,
       );
     }
     return const _ConfigRead.none();
@@ -423,6 +463,7 @@ Future<_ConfigRead> _readProjectConfig(
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
       ),
+      file.path,
     );
   }
   try {
@@ -507,6 +548,7 @@ Future<_ConfigRead> _readProjectConfig(
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
       ),
+      file.path,
     );
   } on FileSystemException catch (error) {
     return _ConfigRead.finding(
@@ -516,6 +558,7 @@ Future<_ConfigRead> _readProjectConfig(
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
       ),
+      file.path,
     );
   }
 }
@@ -532,12 +575,15 @@ Future<File?> _findProjectConfig(String bundlePath) async {
 }
 
 final class _ConfigRead {
-  const _ConfigRead.none() : value = null, finding = null;
-  const _ConfigRead.value(this.value) : finding = null;
-  const _ConfigRead.finding(this.finding) : value = null;
+  const _ConfigRead.none() : value = null, finding = null, file = null;
+  const _ConfigRead.value(this.value) : finding = null, file = null;
+  const _ConfigRead.finding(this.finding, this.file) : value = null;
 
   final WayfinderResolvedConfig? value;
   final ProfileFinding? finding;
+
+  /// The configuration file [finding] is about.
+  final String? file;
 }
 
 _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {

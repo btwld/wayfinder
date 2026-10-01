@@ -195,6 +195,8 @@ wayfinder validate knowledge
 wayfinder validate knowledge --output json
 # Profile 2026.3: write okf's generated indexes first, then validate:
 wayfinder validate knowledge --fix
+# SARIF 2.1.0 for code scanning:
+wayfinder validate knowledge --output sarif > wayfinder.sarif
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that

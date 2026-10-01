@@ -9,6 +9,7 @@ import 'package:wayfinder_cli/src/knowledge.dart';
 
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
+import 'package:wayfinder_cli/src/version.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -115,6 +116,26 @@ void main() {
     expect(jsonDecode(output.single), expected.toJson());
     expect(expected.toJson()['judgment_rules'], {'state': 'UNASSESSED'});
     expect(errors, isEmpty);
+  });
+
+  test('validate --output=sarif writes the result as a SARIF log', () async {
+    const bundle = '../../examples/knowledge';
+    final expected = await const ProfileValidator().validate(bundle);
+    expect(
+      await cli.run(['validate', bundle, '--output=sarif']),
+      expected.exitCode,
+    );
+    final sarif = toSarif(
+      expected,
+      bundlePath: bundle,
+      toolVersion: wayfinderVersion,
+    );
+    expect(jsonDecode(output.single), jsonDecode(jsonEncode(sarif)));
+    expect(errors, isEmpty);
+
+    output.clear();
+    expect(await cli.run(['validate', '--help']), 0);
+    expect(output.join('\n'), contains('sarif'));
   });
 
   test(

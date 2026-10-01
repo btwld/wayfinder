@@ -195,7 +195,7 @@ tool that implements this projection.
 ### 4.1 Results and exit codes
 
 The command surface is `wayfinder validate <bundle> [--config <file>]
-[--output text|json]`. The bundle path is required and implementations MUST
+[--output text|json|sarif]`. The bundle path is required and implementations MUST
 inspect exactly that directory. Config discovery MAY walk up to find the
 project's `wayfinder.json`, but MUST NOT select a different bundle. They MUST NOT
 accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -223,6 +223,13 @@ Profile checks passed; exit `1` means either failed; exit `2` means the
 invocation could not assess the declared release, including usage, I/O, and
 unsupported-release outcomes. Advisories — OKF's or the Profile's — MUST NOT
 change the automated gate or exit status.
+
+`sarif` carries the same findings as JSON in a SARIF 2.1.0 log for code
+scanning. Each OKF and Profile finding is one result whose `ruleId` is its
+finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. The
+selected release's rules are the run's rule descriptors, and the four
+component states are run properties because SARIF has no field for them. The
+exit status is the same as for text and JSON.
 
 ### 4.2 Findings carry stable identifiers
 
@@ -675,7 +682,8 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 release dispatch while preserving the 2026.2 in-bundle path. Affected sections:
 §§2, 4.1, 4.4, 4.7–4.8, and 9. Driver: reusable Profile bindings,
 reproducible source revisions, and removal of repeated in-bundle configuration.
-Migration for implementations: add direct-source configuration, explicit
+It also adds `--output sarif` (§4.1), the same findings as a SARIF 2.1.0 log,
+so CI can upload them to code scanning. Migration for implementations: add direct-source configuration, explicit
 get/upgrade lock management, read-only validation of a selected Profile,
 safe path and registry checks, and per-release index projection; retain legacy
 dispatch and independent OKF results. Existing 2026.2 bundles remain

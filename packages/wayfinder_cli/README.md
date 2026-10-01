@@ -144,7 +144,10 @@ Repeatable `--type`, `--path-prefix` and `--resolution` select an induced
 subgraph, matching `okf graph`. Load findings print the OKF report and
 refuse a graph.
 
-The validate, index and search commands accept `--output=json`. Search also accepts `--limit=1..100`
+The validate, index and search commands accept `--output=json`. Validate
+also accepts `--output=sarif`, a SARIF 2.1.0 log of the same findings for
+code scanning upload; its locations are relative to the working directory.
+Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
 line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages
