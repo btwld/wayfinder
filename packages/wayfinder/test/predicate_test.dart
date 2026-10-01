@@ -16,6 +16,7 @@ const expectedSkippedGroups = <String, int>{
   'minLength.json': 0,
   'maxLength.json': 0,
   'required.json': 0,
+  'minProperties.json': 0,
   'properties.json': 1,
   'additionalProperties.json': 3,
   'propertyNames.json': 0,
@@ -65,6 +66,11 @@ void main() {
             final name = '${group['description']} / ${testCase['description']}';
             final expected = testCase['valid']! as bool;
             final actual = predicate.test(testCase['data']);
+            expect(
+              predicate.firstFailure(testCase['data']) == null,
+              actual,
+              reason: '$file: $name firstFailure agrees with test',
+            );
             if (acceptedDivergences.containsKey(name)) {
               seenDivergences.add(name);
               expect(actual, isNot(expected), reason: '$file: $name');
@@ -79,6 +85,125 @@ void main() {
 
     test('every accepted divergence is still exercised', () {
       expect(seenDivergences, acceptedDivergences.keys.toSet());
+    });
+  });
+
+  group('firstFailure', () {
+    final predicate = JsonPredicate.compile({
+      'type': 'object',
+      'required': ['name', 'items'],
+      'additionalProperties': false,
+      'properties': {
+        'name': {'type': 'string', 'minLength': 1, 'pattern': r'^[a-z]+$'},
+        'items': {
+          'type': 'array',
+          'items': {r'$ref': r'#/$defs/item'},
+        },
+        'labels': {
+          'propertyNames': {'pattern': r'^[a-z]+$'},
+        },
+      },
+      r'$defs': {
+        'item': {
+          'properties': {
+            'side': {
+              'enum': ['left', 'right'],
+            },
+          },
+        },
+      },
+    });
+
+    JsonPredicateFailure? failure(Object? instance) =>
+        predicate.firstFailure(instance);
+
+    test('is null for a conforming instance', () {
+      expect(failure({'name': 'a', 'items': <Object?>[]}), isNull);
+    });
+
+    test('names the missing member on its object', () {
+      expect(
+        failure({'name': 'a'}),
+        isA<JsonPredicateFailure>()
+            .having((f) => f.pointer, 'pointer', '')
+            .having((f) => f.keyword, 'keyword', 'required')
+            .having((f) => f.property, 'property', 'items'),
+      );
+    });
+
+    test('names an unknown member on its object', () {
+      expect(
+        failure({'name': 'a', 'items': <Object?>[], 'x/y': 1}),
+        isA<JsonPredicateFailure>()
+            .having((f) => f.pointer, 'pointer', '')
+            .having((f) => f.keyword, 'keyword', 'additionalProperties')
+            .having((f) => f.property, 'property', 'x/y'),
+      );
+    });
+
+    test('reports keywords in schema document order', () {
+      expect(
+        failure({'name': '', 'items': <Object?>[]}),
+        isA<JsonPredicateFailure>()
+            .having((f) => f.pointer, 'pointer', '/name')
+            .having((f) => f.keyword, 'keyword', 'minLength')
+            .having((f) => f.expected, 'expected', 1),
+      );
+      expect(failure({'name': 'A', 'items': <Object?>[]})?.keyword, 'pattern');
+      expect(failure(<Object?>[])?.keyword, 'type');
+    });
+
+    test('points through items and refs to the failing value', () {
+      expect(
+        failure({
+          'name': 'a',
+          'items': [
+            {'side': 'left'},
+            {'side': 'up'},
+          ],
+        }),
+        isA<JsonPredicateFailure>()
+            .having((f) => f.pointer, 'pointer', '/items/1/side')
+            .having((f) => f.keyword, 'keyword', 'enum')
+            .having((f) => f.expected, 'expected', ['left', 'right']),
+      );
+    });
+
+    test('carries the description nearest a failing pattern', () {
+      final described = JsonPredicate.compile({
+        'properties': {
+          'own': {'pattern': '^a', 'description': 'own words'},
+          'viaDef': {r'$ref': r'#/$defs/lower', 'description': 'not this'},
+          'bare': {'pattern': '^a'},
+        },
+        r'$defs': {
+          'lower': {
+            'description': 'def words',
+            'allOf': [
+              {'pattern': '^a'},
+            ],
+          },
+        },
+      });
+      String? description(Map<String, Object?> instance) =>
+          described.firstFailure(instance)?.description;
+      expect(description({'own': 'b'}), 'own words');
+      expect(description({'viaDef': 'b'}), 'def words');
+      expect(description({'bare': 'b'}), isNull);
+    });
+
+    test('names the property a propertyNames check rejects', () {
+      expect(
+        failure({
+          'name': 'a',
+          'items': <Object?>[],
+          'labels': {'ok': 1, 'Bad': 2},
+        }),
+        isA<JsonPredicateFailure>()
+            .having((f) => f.pointer, 'pointer', '/labels')
+            .having((f) => f.keyword, 'keyword', 'propertyNames')
+            .having((f) => f.property, 'property', 'Bad'),
+      );
     });
   });
 

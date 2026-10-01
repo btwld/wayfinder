@@ -394,34 +394,23 @@ final class WayfinderProfileResolver {
         'Profile $profileId at ${source.git} ($commit) has an invalid JSON manifest.',
       );
     }
-    if (decoded is! Map<String, Object?> ||
-        decoded.keys.toSet().difference(const {
-          'id',
-          'release',
-          'implements',
-          'standard_types',
-          'tags',
-        }).isNotEmpty ||
-        decoded['id'] != profileId ||
-        decoded['release'] != externalProfileRelease ||
-        decoded['implements'] is! Map<String, Object?> ||
-        (decoded['implements'] as Map<String, Object?>).length != 2 ||
-        (decoded['implements'] as Map<String, Object?>)['id'] != 'okf' ||
-        (decoded['implements'] as Map<String, Object?>)['release'] != '0.2') {
+    final origin = 'Profile $profileId at ${source.git} ($commit)';
+    if (profileManifestSchemaViolation(decoded) case final violation?) {
+      throw WayfinderProfileResolutionException('$origin manifest $violation.');
+    }
+    final manifest = decoded! as Map<String, Object?>;
+    if (manifest['id'] != profileId ||
+        manifest['release'] != externalProfileRelease) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) must declare identity $profileId, supported release $externalProfileRelease, and OKF 0.2.',
+        '$origin must declare identity $profileId, supported release $externalProfileRelease, and OKF 0.2.',
       );
     }
     final types = _manifestDefinitions(
-      decoded['standard_types'],
+      manifest['standard_types'],
       profileId,
       'standard_types',
     );
-    final tags = _manifestDefinitions(
-      decoded.containsKey('tags') ? decoded['tags'] : const [],
-      profileId,
-      'tags',
-    );
+    final tags = _manifestDefinitions(manifest['tags'], profileId, 'tags');
     if (profileId == builtinProfileId &&
         (!_sameDefinitions(types, externalStandardTypes) ||
             !_sameDefinitions(tags, externalStandardTags))) {
@@ -431,7 +420,7 @@ final class WayfinderProfileResolver {
     }
     return _ResolvedSource(
       commit: commit,
-      release: decoded['release']! as String,
+      release: manifest['release']! as String,
       types: types,
       tags: tags,
     );
@@ -629,41 +618,27 @@ final class _ResolvedSource {
   final List<WayfinderDefinition> tags;
 }
 
+/// Names must be unique, which the manifest schema leaves to Wayfinder.
 List<WayfinderDefinition> _manifestDefinitions(
   Object? value,
   String profileId,
   String field,
 ) {
-  if (value is! List) {
-    throw WayfinderProfileResolutionException(
-      'Profile $profileId manifest $field must be an array.',
-    );
-  }
-  final definitions = <WayfinderDefinition>[];
-  final names = <String>{};
-  for (final item in value) {
-    if (item is! Map<String, Object?> ||
-        item.length != 2 ||
-        item['name'] is! String ||
-        (item['name']! as String).trim().isEmpty ||
-        item['description'] is! String ||
-        (item['description']! as String).trim().isEmpty) {
-      throw WayfinderProfileResolutionException(
-        'Profile $profileId manifest $field contains an invalid definition.',
-      );
-    }
-    final name = item['name']! as String;
-    if (!names.add(name)) {
-      throw WayfinderProfileResolutionException(
-        'Profile $profileId manifest $field repeats $name.',
-      );
-    }
-    definitions.add(
+  final definitions = [
+    for (final item
+        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
       WayfinderDefinition(
-        name: name,
+        name: item['name']! as String,
         description: item['description']! as String,
       ),
-    );
+  ];
+  final names = <String>{};
+  for (final definition in definitions) {
+    if (!names.add(definition.name)) {
+      throw WayfinderProfileResolutionException(
+        'Profile $profileId manifest $field repeats ${definition.name}.',
+      );
+    }
   }
   return definitions;
 }

@@ -383,11 +383,13 @@ indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
 graph reading fail. Those command boundaries implement the separate outcomes
 required by Profile §§14.1–14.2.
 
-The parser implements the schema and cross-document checks rather than
-executing a JSON Schema engine. It checks normalized and canonical paths,
-manifest identity and release, the effective vocabulary and actor lookup. A
-schema alone cannot prove filesystem safety, Git availability, or whether a
-concept truthfully uses a type or topic tag. `captures/` remains outside the
+The parser checks `wayfinder.json` and each Profile manifest against their
+published JSON Schemas, evaluated by the engine's own schema subset and
+embedded in the binary, then runs the cross-document checks a schema cannot
+express. Those cover normalized and canonical paths, `extends` chains, manifest
+identity and release, the effective vocabulary and actor lookup. A schema
+alone cannot prove filesystem safety, Git availability, or whether a concept
+truthfully uses a type or topic tag. `captures/` remains outside the
 bundle unless explicitly declared as another OKF bundle; no nested area
 inherits a different Profile.
 

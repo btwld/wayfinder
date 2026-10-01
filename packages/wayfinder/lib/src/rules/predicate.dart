@@ -6,6 +6,10 @@
 /// would fail open. [JsonPredicate.compile] therefore parses the schema once
 /// into a tree of keyword nodes and throws for anything outside the subset;
 /// [JsonPredicate.test] walks that tree and never throws.
+///
+/// [JsonPredicate.firstFailure] explains a rejection for configuration
+/// diagnostics. Rule evaluation never calls it: a finding's identity comes
+/// from the rule and its subject, not from where a schema happened to fail.
 library;
 
 /// A schema that cannot be compiled: an unsupported keyword, a malformed
@@ -21,6 +25,37 @@ final class JsonPredicateException implements Exception {
 
   @override
   String toString() => '$message at #$pointer';
+}
+
+/// The first check an instance fails, in schema document order.
+final class JsonPredicateFailure {
+  const JsonPredicateFailure(
+    this.pointer,
+    this.keyword, {
+    this.expected,
+    this.property,
+    this.description,
+  });
+
+  /// JSON pointer (RFC 6901) of the instance value the keyword rejected.
+  final String pointer;
+
+  /// The failing keyword, or `false` for a boolean `false` schema.
+  final String keyword;
+
+  /// What the keyword compares against: the `type` names, the `enum`
+  /// values, the `const` value, the `pattern` source, or a length or count
+  /// bound.
+  final Object? expected;
+
+  /// The member a `required`, `additionalProperties` or `propertyNames`
+  /// failure is about.
+  final String? property;
+
+  /// For a `pattern` failure, the `description` of the schema object that
+  /// holds the pattern, or else of the `$defs` entry it sits in, so a
+  /// diagnostic can name the rule instead of printing the regex.
+  final String? description;
 }
 
 /// A compiled schema that answers whether a JSON instance conforms.
@@ -51,6 +86,10 @@ final class JsonPredicate {
 
   /// Instances are plain JSON values as `jsonDecode` produces them.
   bool test(Object? instance) => _root.test(instance);
+
+  /// Where and why [instance] fails, or null when [test] would pass.
+  JsonPredicateFailure? firstFailure(Object? instance) =>
+      _root.firstFailure(instance, '');
 }
 
 // ------------------------------------------------------------- compiler --
@@ -81,15 +120,18 @@ final class _Compiler {
   final _refSites = <_RefSite>[];
 
   String? _currentDef;
+  String? _currentDefDescription;
   int _descents = 0;
 
   _Node compile(Object? root) {
     final node = _schema(root, '');
     for (final name in _defs.keys) {
       _currentDef = name;
-      _compiledDefs[name] = _schema(_defs[name], _child(r'/$defs', name));
+      _currentDefDescription = _description(_defs[name]);
+      _compiledDefs[name] = _schema(_defs[name], _pointer(r'/$defs', name));
     }
     _currentDef = null;
+    _currentDefDescription = null;
     for (final site in _refSites) {
       final target = _compiledDefs[site.node.name];
       if (target == null) {
@@ -153,7 +195,7 @@ final class _Compiler {
     _Node? thenNode;
     _Node? elseNode;
     for (final MapEntry(key: keyword, :value) in map.entries) {
-      final at = _child(pointer, keyword);
+      final at = _pointer(pointer, keyword);
       switch (keyword) {
         case r'$schema' ||
             r'$id' ||
@@ -177,13 +219,20 @@ final class _Compiler {
         case 'const':
           nodes.add(_Const(value));
         case 'pattern':
-          nodes.add(_Pattern(_regExp(_string(value, at), at)));
+          nodes.add(
+            _Pattern(
+              _regExp(_string(value, at), at),
+              _description(map) ?? _currentDefDescription,
+            ),
+          );
         case 'minLength':
           nodes.add(_MinLength(_count(value, at)));
         case 'maxLength':
           nodes.add(_MaxLength(_count(value, at)));
         case 'required':
           nodes.add(_Required(_strings(value, at)));
+        case 'minProperties':
+          nodes.add(_MinProperties(_count(value, at)));
         case 'properties':
           nodes.add(_Properties(_schemaMap(value, at)));
         case 'additionalProperties':
@@ -321,7 +370,7 @@ final class _Compiler {
     }
     return [
       for (final (index, item) in items.indexed)
-        _schema(item, _child(pointer, '$index')),
+        _schema(item, _pointer(pointer, '$index')),
     ];
   }
 
@@ -331,9 +380,14 @@ final class _Compiler {
     }
     return {
       for (final MapEntry(:key, value: schema) in value.entries)
-        key: _descend(schema, _child(pointer, key)),
+        key: _descend(schema, _pointer(pointer, key)),
     };
   }
+
+  static String? _description(Object? schema) => switch (schema) {
+    {'description': final String text} => text,
+    _ => null,
+  };
 
   static String _string(Object? value, String pointer) => value is String
       ? value
@@ -356,9 +410,6 @@ final class _Compiler {
     if (value is num && _isIntegral(value) && value >= 0) return value.toInt();
     throw JsonPredicateException(pointer, 'must be a non-negative integer');
   }
-
-  static String _child(String pointer, String token) =>
-      '$pointer/${token.replaceAll('~', '~0').replaceAll('/', '~1')}';
 }
 
 // ---------------------------------------------------------------- nodes --
@@ -367,6 +418,25 @@ sealed class _Node {
   const _Node();
 
   bool test(Object? v);
+
+  /// The first failing check beneath this node, in schema document order;
+  /// [pointer] locates [v] in the root instance.
+  JsonPredicateFailure? firstFailure(Object? v, String pointer);
+}
+
+/// A keyword that judges the instance itself without descending into it,
+/// so a failure is reported where the keyword applies.
+sealed class _Assertion extends _Node {
+  const _Assertion();
+
+  String get keyword;
+
+  Object? get expected => null;
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) => test(v)
+      ? null
+      : JsonPredicateFailure(pointer, keyword, expected: expected);
 }
 
 final class _Always extends _Node {
@@ -374,10 +444,16 @@ final class _Always extends _Node {
 
   @override
   bool test(Object? v) => true;
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) => null;
 }
 
-final class _Never extends _Node {
+final class _Never extends _Assertion {
   const _Never();
+
+  @override
+  String get keyword => 'false';
 
   @override
   bool test(Object? v) => false;
@@ -395,6 +471,8 @@ extension on _JsonType {
     _JsonType.integer => v is num && _isIntegral(v),
     _JsonType.string => v is String,
   };
+
+  String get jsonName => this == _JsonType.null_ ? 'null' : name;
 }
 
 /// `null_` dodges the Dart keyword.
@@ -408,55 +486,102 @@ const _typeNames = {
   'string': _JsonType.string,
 };
 
-final class _Type extends _Node {
+final class _Type extends _Assertion {
   const _Type(this.types);
 
   final Set<_JsonType> types;
 
   @override
+  String get keyword => 'type';
+
+  @override
+  List<String> get expected => [for (final type in types) type.jsonName];
+
+  @override
   bool test(Object? v) => types.any((type) => type.matches(v));
 }
 
-final class _Enum extends _Node {
+final class _Enum extends _Assertion {
   const _Enum(this.values);
 
   final List<Object?> values;
 
   @override
+  String get keyword => 'enum';
+
+  @override
+  List<Object?> get expected => values;
+
+  @override
   bool test(Object? v) => values.any((value) => _jsonEquals(value, v));
 }
 
-final class _Const extends _Node {
+final class _Const extends _Assertion {
   const _Const(this.value);
 
   final Object? value;
 
   @override
+  String get keyword => 'const';
+
+  @override
+  Object? get expected => value;
+
+  @override
   bool test(Object? v) => _jsonEquals(value, v);
 }
 
-final class _Pattern extends _Node {
-  const _Pattern(this.pattern);
+final class _Pattern extends _Assertion {
+  const _Pattern(this.pattern, this.description);
 
   final RegExp pattern;
+  final String? description;
+
+  @override
+  String get keyword => 'pattern';
+
+  @override
+  String get expected => pattern.pattern;
 
   @override
   bool test(Object? v) => v is! String || pattern.hasMatch(v);
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) => test(v)
+      ? null
+      : JsonPredicateFailure(
+          pointer,
+          keyword,
+          expected: expected,
+          description: description,
+        );
 }
 
-final class _MinLength extends _Node {
+final class _MinLength extends _Assertion {
   const _MinLength(this.min);
 
   final int min;
 
   @override
+  String get keyword => 'minLength';
+
+  @override
+  int get expected => min;
+
+  @override
   bool test(Object? v) => v is! String || v.runes.length >= min;
 }
 
-final class _MaxLength extends _Node {
+final class _MaxLength extends _Assertion {
   const _MaxLength(this.max);
 
   final int max;
+
+  @override
+  String get keyword => 'maxLength';
+
+  @override
+  int get expected => max;
 
   @override
   bool test(Object? v) => v is! String || v.runes.length <= max;
@@ -470,6 +595,32 @@ final class _Required extends _Node {
   @override
   bool test(Object? v) =>
       v is! Map<String, Object?> || names.every(v.containsKey);
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    if (v is! Map<String, Object?>) return null;
+    for (final name in names) {
+      if (!v.containsKey(name)) {
+        return JsonPredicateFailure(pointer, 'required', property: name);
+      }
+    }
+    return null;
+  }
+}
+
+final class _MinProperties extends _Assertion {
+  const _MinProperties(this.min);
+
+  final int min;
+
+  @override
+  String get keyword => 'minProperties';
+
+  @override
+  int get expected => min;
+
+  @override
+  bool test(Object? v) => v is! Map<String, Object?> || v.length >= min;
 }
 
 final class _Properties extends _Node {
@@ -483,6 +634,17 @@ final class _Properties extends _Node {
       schemas.entries.every(
         (entry) => !v.containsKey(entry.key) || entry.value.test(v[entry.key]),
       );
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    if (v is! Map<String, Object?>) return null;
+    for (final MapEntry(key: name, value: schema) in schemas.entries) {
+      if (!v.containsKey(name)) continue;
+      final failure = schema.firstFailure(v[name], _pointer(pointer, name));
+      if (failure != null) return failure;
+    }
+    return null;
+  }
 }
 
 final class _AdditionalProperties extends _Node {
@@ -497,6 +659,26 @@ final class _AdditionalProperties extends _Node {
       v.entries.every(
         (entry) => declared.contains(entry.key) || schema.test(entry.value),
       );
+
+  /// A `false` subschema forbids the member itself, so the failure names
+  /// the member on its object rather than pointing below it.
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    if (v is! Map<String, Object?>) return null;
+    for (final MapEntry(:key, :value) in v.entries) {
+      if (declared.contains(key)) continue;
+      if (schema is _Never) {
+        return JsonPredicateFailure(
+          pointer,
+          'additionalProperties',
+          property: key,
+        );
+      }
+      final failure = schema.firstFailure(value, _pointer(pointer, key));
+      if (failure != null) return failure;
+    }
+    return null;
+  }
 }
 
 final class _PropertyNames extends _Node {
@@ -507,6 +689,17 @@ final class _PropertyNames extends _Node {
   @override
   bool test(Object? v) =>
       v is! Map<String, Object?> || v.keys.every(schema.test);
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    if (v is! Map<String, Object?>) return null;
+    for (final key in v.keys) {
+      if (!schema.test(key)) {
+        return JsonPredicateFailure(pointer, 'propertyNames', property: key);
+      }
+    }
+    return null;
+  }
 }
 
 final class _Items extends _Node {
@@ -516,10 +709,23 @@ final class _Items extends _Node {
 
   @override
   bool test(Object? v) => v is! List<Object?> || v.every(schema.test);
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    if (v is! List<Object?>) return null;
+    for (final (index, item) in v.indexed) {
+      final failure = schema.firstFailure(item, _pointer(pointer, '$index'));
+      if (failure != null) return failure;
+    }
+    return null;
+  }
 }
 
-final class _UniqueItems extends _Node {
+final class _UniqueItems extends _Assertion {
   const _UniqueItems();
+
+  @override
+  String get keyword => 'uniqueItems';
 
   @override
   bool test(Object? v) {
@@ -533,37 +739,55 @@ final class _UniqueItems extends _Node {
   }
 }
 
-final class _MinItems extends _Node {
+final class _MinItems extends _Assertion {
   const _MinItems(this.min);
 
   final int min;
 
   @override
+  String get keyword => 'minItems';
+
+  @override
+  int get expected => min;
+
+  @override
   bool test(Object? v) => v is! List<Object?> || v.length >= min;
 }
 
-final class _MaxItems extends _Node {
+final class _MaxItems extends _Assertion {
   const _MaxItems(this.max);
 
   final int max;
 
   @override
+  String get keyword => 'maxItems';
+
+  @override
+  int get expected => max;
+
+  @override
   bool test(Object? v) => v is! List<Object?> || v.length <= max;
 }
 
-final class _Contains extends _Node {
+final class _Contains extends _Assertion {
   const _Contains(this.schema);
 
   final _Node schema;
 
   @override
+  String get keyword => 'contains';
+
+  @override
   bool test(Object? v) => v is! List<Object?> || v.any(schema.test);
 }
 
-final class _Not extends _Node {
+final class _Not extends _Assertion {
   const _Not(this.schema);
 
   final _Node schema;
+
+  @override
+  String get keyword => 'not';
 
   @override
   bool test(Object? v) => !schema.test(v);
@@ -576,21 +800,38 @@ final class _AllOf extends _Node {
 
   @override
   bool test(Object? v) => schemas.every((schema) => schema.test(v));
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) {
+    for (final schema in schemas) {
+      final failure = schema.firstFailure(v, pointer);
+      if (failure != null) return failure;
+    }
+    return null;
+  }
 }
 
-final class _AnyOf extends _Node {
+/// No single branch is to blame when every branch fails, so the failure is
+/// the keyword itself.
+final class _AnyOf extends _Assertion {
   const _AnyOf(this.schemas);
 
   final List<_Node> schemas;
 
   @override
+  String get keyword => 'anyOf';
+
+  @override
   bool test(Object? v) => schemas.any((schema) => schema.test(v));
 }
 
-final class _OneOf extends _Node {
+final class _OneOf extends _Assertion {
   const _OneOf(this.schemas);
 
   final List<_Node> schemas;
+
+  @override
+  String get keyword => 'oneOf';
 
   @override
   bool test(Object? v) => schemas.where((schema) => schema.test(v)).length == 1;
@@ -605,6 +846,10 @@ final class _Conditional extends _Node {
 
   @override
   bool test(Object? v) => (condition.test(v) ? then : orElse)?.test(v) ?? true;
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) =>
+      (condition.test(v) ? then : orElse)?.firstFailure(v, pointer);
 }
 
 final class _Ref extends _Node {
@@ -616,11 +861,21 @@ final class _Ref extends _Node {
 
   @override
   bool test(Object? v) => target.test(v);
+
+  @override
+  JsonPredicateFailure? firstFailure(Object? v, String pointer) =>
+      target.firstFailure(v, pointer);
 }
 
 /// RFC 3339 `date-time`. Non-strings pass, as every format does.
-final class _DateTime extends _Node {
+final class _DateTime extends _Assertion {
   const _DateTime();
+
+  @override
+  String get keyword => 'format';
+
+  @override
+  String get expected => 'date-time';
 
   static final _grammar = RegExp(
     r'^([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]'
@@ -665,6 +920,9 @@ final class _DateTime extends _Node {
 }
 
 // ------------------------------------------------------------- helpers --
+
+String _pointer(String pointer, String token) =>
+    '$pointer/${token.replaceAll('~', '~0').replaceAll('/', '~1')}';
 
 bool _isIntegral(num v) =>
     v is int || (v.isFinite && v == v.truncateToDouble());

@@ -311,6 +311,35 @@ void main() {
     },
   );
 
+  test(
+    'a manifest outside its schema fails at the offending pointer',
+    () async {
+      final manifest = File(
+        p.join(source.path, 'profile', 'wayfinder-profile.json'),
+      );
+      final invalid =
+          jsonDecode(await manifest.readAsString()) as Map<String, dynamic>;
+      (invalid['standard_types'] as List<dynamic>).add({'name': 'Extra'});
+      await manifest.writeAsString(jsonEncode(invalid));
+      await _git(source.path, ['commit', '-qam', 'Invalid Profile']);
+      await _git(source.path, ['tag', '-f', 'v2026.3']);
+      final index = (invalid['standard_types'] as List<dynamic>).length - 1;
+      expect(
+        WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            endsWith(
+              'manifest is invalid at /standard_types/$index: '
+              'is missing required property description.',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
   test('bad manifest on upgrade leaves the previous lock intact', () async {
     final branch = await _gitOutput(source.path, [
       'symbolic-ref',

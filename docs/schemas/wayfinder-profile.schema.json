@@ -13,13 +13,11 @@
   ],
   "properties": {
     "id": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]*$",
+      "$ref": "#/$defs/identifier",
       "description": "Stable Profile identifier."
     },
     "release": {
-      "type": "string",
-      "pattern": "^[0-9]{4}\\.[0-9]+$",
+      "$ref": "#/$defs/profileRelease",
       "description": "Immutable Profile release in YYYY.serial form."
     },
     "implements": {
@@ -55,6 +53,22 @@
     }
   },
   "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "a non-empty string"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+    },
+    "profileRelease": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]+$",
+      "description": "a Profile release in YYYY.serial form"
+    },
     "typeDefinition": {
       "type": "object",
       "additionalProperties": false,
@@ -64,12 +78,10 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/text"
         },
         "description": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/text"
         }
       }
     },
@@ -82,12 +94,10 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/text"
         },
         "description": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/text"
         }
       }
     }

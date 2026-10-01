@@ -10,6 +10,7 @@ export 'src/profile_release.dart'
         externalProfileRelease,
         externalStandardTypes,
         externalStandardTags;
+export 'src/published_schemas.dart' show profileManifestSchemaViolation;
 export 'src/validation.dart'
     show
         AutomatedGateState,

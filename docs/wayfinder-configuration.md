@@ -212,10 +212,13 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
 5. Merge standard and project vocabulary, then run deterministic Profile rules.
    Report contextual rules separately as unassessed.
 
-The published JSON Schema describes shape and primitive types. Wayfinder's
-parser enforces the cross-document checks that a schema cannot prove, such as
-whether a bundle exists, whether a source resolved, and whether a concept's
-actor reference is used correctly.
+Wayfinder checks `wayfinder.json` and each Profile manifest against the
+published schemas first and reports the first violation with its JSON pointer,
+for example `wayfinder.json is invalid at /profiles/client: has unknown
+property rules.` It then enforces the cross-document checks that a schema
+cannot prove, such as `extends` chains, overlapping bundle paths, whether a
+bundle exists, whether a source resolved, and whether a concept's actor
+reference is used correctly.
 
 ## Compatibility and migration
 

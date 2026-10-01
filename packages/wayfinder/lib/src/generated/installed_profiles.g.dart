@@ -2378,3 +2378,298 @@ const Map<(String, String), String> installedRuleCatalogs = {
 }
 ''',
 };
+
+/// The published `wayfinder.json` schema, raw JSON.
+const String wayfinderConfigurationSchema = r'''
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder.schema.json",
+  "title": "Wayfinder project configuration",
+  "description": "Version 1 project configuration with direct Profile sources and explicit bundle applications.",
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "a non-empty string"
+    },
+    "relativePath": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
+      "description": "a relative path without parent traversal"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+    },
+    "gitRef": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!-)(?!.*\\.\\.)[^\\x00-\\x20\\x7f]+$",
+      "description": "a valid Git ref, with no leading hyphen, no .. and no whitespace or control characters"
+    },
+    "customType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "description": "A project type added to the selected Profile's effective type registry."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "organization": {
+          "$ref": "#/$defs/text"
+        },
+        "role": {
+          "$ref": "#/$defs/text"
+        },
+        "side": {
+          "enum": [
+            "client",
+            "internal",
+            "vendor",
+            "tool",
+            "unknown"
+          ]
+        }
+      },
+      "description": "Minimal actor lookup metadata. Organization, role, and side are optional contextual fields."
+    },
+    "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "profileSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "ref",
+        "path"
+      ],
+      "properties": {
+        "git": {
+          "$ref": "#/$defs/text",
+          "description": "Git repository URL or local path. Passwordless SSH URLs with a username are supported; embedded credentials are not. Relative local paths resolve from the directory containing wayfinder.json; drive-relative paths are invalid."
+        },
+        "ref": {
+          "$ref": "#/$defs/gitRef",
+          "description": "Branch, tag, or commit without a prefix."
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "Relative Profile directory inside the Git revision."
+        }
+      }
+    },
+    "directProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "applies_to"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/profileSource"
+        },
+        "applies_to": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "description": "Bundle paths relative to wayfinder.json. An entry used only as an extends parent may have an empty array."
+        },
+        "extends": {
+          "$ref": "#/$defs/identifier",
+          "description": "Optional parent Profile key."
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/customType"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tagDefinition"
+          }
+        },
+        "actors": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/text"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/actor"
+          }
+        }
+      },
+      "description": "A direct Profile source and its project applications."
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "profiles"
+  ],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Wayfinder configuration schema version."
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/identifier"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/directProfile"
+      },
+      "description": "Direct Profile sources and the bundle paths they apply to."
+    }
+  }
+}
+''';
+
+/// The published Profile manifest schema, raw JSON.
+const String wayfinderProfileManifestSchema = r'''
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "title": "Wayfinder Profile manifest",
+  "description": "Identity and declarative machine-readable metadata for a Git-sourced Wayfinder Profile. It does not define an executable rules language.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "release",
+    "implements",
+    "standard_types"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/identifier",
+      "description": "Stable Profile identifier."
+    },
+    "release": {
+      "$ref": "#/$defs/profileRelease",
+      "description": "Immutable Profile release in YYYY.serial form."
+    },
+    "implements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "release"
+      ],
+      "properties": {
+        "id": {
+          "const": "okf"
+        },
+        "release": {
+          "const": "0.2"
+        }
+      },
+      "description": "The upstream format and exact release this Profile binds to."
+    },
+    "standard_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/typeDefinition"
+      },
+      "description": "The standard concept types owned by this Profile. Names must be unique; uniqueness is checked by Wayfinder."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/tagDefinition"
+      },
+      "description": "Tags declared by this Profile. Names must be unique; validation compares used tags with the merged Profile and project registry."
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "a non-empty string"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+    },
+    "profileRelease": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.[0-9]+$",
+      "description": "a Profile release in YYYY.serial form"
+    },
+    "typeDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "tagDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}
+''';

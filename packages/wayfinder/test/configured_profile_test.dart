@@ -41,6 +41,16 @@ void main() {
       }
       expect(embedded.keys.toSet(), keys, reason: name);
     }
+    for (final (path, embedded) in [
+      ('wayfinder.schema.json', wayfinderConfigurationSchema),
+      ('wayfinder-profile.schema.json', wayfinderProfileManifestSchema),
+    ]) {
+      expect(
+        embedded,
+        await File('../../docs/schemas/$path').readAsString(),
+        reason: path,
+      );
+    }
     expect(externalStandardTypes.length, 12);
     expect(standardTypes.length, 14);
   });
@@ -252,39 +262,104 @@ result = value + 1
     expect(profile.appliesTo, ['knowledge', 'captures-bundle']);
   });
 
-  test('schema and parser agree on safe relative paths', () async {
-    final schema =
-        jsonDecode(
-              await File(
-                '../../docs/schemas/wayfinder.schema.json',
-              ).readAsString(),
-            )
+  test('reports a schema violation at its instance pointer', () {
+    String message(void Function(Map<String, dynamic> profile) edit) {
+      final config = jsonDecode(jsonEncode(_config())) as Map<String, dynamic>;
+      edit(
+        (config['profiles'] as Map<String, dynamic>)['bitwild_profile']
+            as Map<String, dynamic>,
+      );
+      try {
+        WayfinderProjectConfig.parse(jsonEncode(config));
+      } on WayfinderConfigException catch (error) {
+        return error.message;
+      }
+      fail('parsed');
+    }
+
+    const at = 'wayfinder.json is invalid at /profiles/bitwild_profile';
+    expect(
+      message((profile) => profile['rules'] = {'allow_anything': true}),
+      '$at: has unknown property rules.',
+    );
+    expect(
+      message((profile) => profile.remove('source')),
+      '$at: is missing required property source.',
+    );
+    expect(
+      message(
+        (profile) =>
+            (profile['actors'] as Map<String, dynamic>)['process:test'] = {
+              'name': 'Test process',
+              'side': 'partner',
+            },
+      ),
+      '$at/actors/process:test/side: '
+      'must be one of client, internal, vendor, tool, unknown.',
+    );
+    expect(
+      message(
+        (profile) => profile['types'] = [
+          {'name': '', 'description': 'Empty'},
+        ],
+      ),
+      '$at/types/0/name: must be a non-empty string.',
+    );
+    expect(
+      message(
+        (profile) => profile['tags'] = [
+          {'name': ' ', 'description': 'Blank'},
+        ],
+      ),
+      '$at/tags/0/name: must be a non-empty string.',
+    );
+    expect(
+      message((profile) => profile['applies_to'] = ['../knowledge']),
+      '$at/applies_to/0: must be a relative path without parent traversal.',
+    );
+    expect(
+      message(
+        (profile) => (profile['source'] as Map<String, dynamic>)['ref'] = '-x',
+      ),
+      '$at/source/ref: must be a valid Git ref, with no leading hyphen, '
+      'no .. and no whitespace or control characters.',
+    );
+    expect(
+      message((profile) => profile['extends'] = 'Base'),
+      '$at/extends: must be a valid identifier '
+      '(lowercase letters, digits, _ and -, starting with a letter).',
+    );
+    expect(
+      () => WayfinderProjectConfig.parse(
+        jsonEncode({'version': 1, 'profiles': <String, Object?>{}}),
+      ),
+      throwsA(
+        isA<WayfinderConfigException>().having(
+          (error) => error.message,
+          'message',
+          'wayfinder.json is invalid at /profiles: must not be empty.',
+        ),
+      ),
+    );
+  });
+
+  test('installed manifests satisfy the published manifest schema', () {
+    for (final MapEntry(:key, value: text)
+        in installedProfileManifests.entries) {
+      expect(
+        profileManifestSchemaViolation(jsonDecode(text)),
+        isNull,
+        reason: '$key',
+      );
+    }
+    final manifest =
+        jsonDecode(installedProfileManifests.values.first)
             as Map<String, dynamic>;
-    final definitions = schema[r'$defs'] as Map<String, dynamic>;
-    final source = definitions['profileSource'] as Map<String, dynamic>;
-    final sourceProperties = source['properties'] as Map<String, dynamic>;
-    final sourcePath = sourceProperties['path'] as Map<String, dynamic>;
-    final direct = definitions['directProfile'] as Map<String, dynamic>;
-    final directProperties = direct['properties'] as Map<String, dynamic>;
-    final applies = directProperties['applies_to'] as Map<String, dynamic>;
-    final item = applies['items'] as Map<String, dynamic>;
-    expect(item['pattern'], sourcePath['pattern']);
-    final pattern = RegExp(sourcePath['pattern'] as String);
-    for (final path in ['profile', './knowledge', 'area/knowledge']) {
-      expect(pattern.hasMatch(path), isTrue, reason: path);
-    }
-    for (final path in [
-      '/tmp/knowledge',
-      '../knowledge',
-      'area/../knowledge',
-      'knowledge\\secret',
-      '.',
-      'C:/knowledge',
-      'C:knowledge',
-      'knowledge\nsecret',
-    ]) {
-      expect(pattern.hasMatch(path), isFalse, reason: path);
-    }
+    (manifest['implements'] as Map<String, dynamic>)['release'] = '0.3';
+    expect(
+      profileManifestSchemaViolation(manifest),
+      'is invalid at /implements/release: must be "0.2"',
+    );
   });
 
   test('rejects direct Profile path overlap and unknown inheritance', () {
