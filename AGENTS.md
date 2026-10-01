@@ -26,8 +26,8 @@ neither prohibits an OKF mechanism nor authorizes an invented Concepta conventio
 Keep changes generic. A new convention needs evidence from a real corpus and must
 hold across projects. Findings justify a release; they become rules only through
 the Profile release process. Project vocabulary belongs in the project's bundle.
-Outside the four names the Profile fixes — `architecture/`, `ways-of-working/`,
-`interactions/`, `references/` — its example directory names are illustrative,
+Outside the five names the Profile fixes — `architecture/`, `ways-of-working/`,
+`interactions/`, `references/`, `computations/` — its example directory names are illustrative,
 never a taxonomy to adopt.
 
 This repository holds no client data or project knowledge. Read client material

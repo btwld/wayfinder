@@ -6,6 +6,16 @@
   `upgrade` are the explicit fetching and lock-writing commands. Graph,
   index, and search do not resolve unused Profile sources. Legacy 2026.2
   bundles remain supported.
+- `index --detach` runs one background index per machine; while one runs, it
+  reports that and starts nothing. A background index stops after 30 minutes
+  or once its bundle directory is removed. The git hooks from
+  `setup --hooks` skip file checkouts, new clones and worktrees, and changes
+  that leave the bundle alone; rerun `wayfinder setup --hooks` to update
+  existing hooks.
+- `setup --hooks` no longer adds Claude Code and Codex Stop hooks, which
+  indexed after every agent turn in every workspace. Rerunning it removes the
+  Stop hooks earlier releases added and keeps every other hook; search still
+  reports a stale index, and the MCP `index` tool refreshes it.
 
 # 0.1.2
 

@@ -46,7 +46,8 @@ okf_version: "0.2"
 Other root concepts are grouped by exact `type`. Standard groups follow the
 base Profile manifest order; custom groups follow in lexical order. Immediate
 subject directories appear under `# Directories`. The subject-placement rule
-and the four Profile-defined directory names remain unchanged.
+and the Profile-defined directory names remain unchanged, with the optional
+`computations/` added for Attested Computation concepts (Profile §3.6).
 
 ## `knowledge/log.md`
 

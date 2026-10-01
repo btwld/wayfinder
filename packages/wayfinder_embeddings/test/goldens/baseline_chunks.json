@@ -1550,6 +1550,9 @@
         "type": "heading",
         "content": "Observability Hooks",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks"
+          ],
           "headingLevel": 1
         }
       },
@@ -1560,6 +1563,9 @@
         "type": "paragraph",
         "content": "Our ingestion pipeline emits structured callbacks so that CLI tooling and CI\npipelines can surface progress without parsing raw logs.",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks"
+          ],
           "parentHeadingId": "13f77065ae3415c2da1c6e9166b859889cf7cb35",
           "parentHeadingLevel": 1
         }
@@ -1571,6 +1577,10 @@
         "type": "heading",
         "content": "File-Level Callbacks",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "File-Level Callbacks"
+          ],
           "headingLevel": 2
         }
       },
@@ -1581,6 +1591,10 @@
         "type": "paragraph",
         "content": "Use `onFileProcessed` to capture chunk counts per file:",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "File-Level Callbacks"
+          ],
           "parentHeadingId": "b20f834eec6f96a9fe23cccfd07a415250342bc4",
           "parentHeadingLevel": 2
         }
@@ -1592,6 +1606,11 @@
         "type": "code",
         "content": "```dart\nfinal processed = <String, int>{};\nawait pipeline.ingestFiles(\n  files,\n  onFileProcessed: (file, chunks) {\n    processed[file.path] = chunks.length;\n  },\n);\n```",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "File-Level Callbacks"
+          ],
+          "codeLanguage": "dart",
           "parentHeadingId": "b20f834eec6f96a9fe23cccfd07a415250342bc4",
           "parentHeadingLevel": 2
         }
@@ -1603,6 +1622,10 @@
         "type": "paragraph",
         "content": "When a file cannot be processed, the pipeline surfaces a skip reason and the\ninferred content type through `onFileSkipped`.",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "File-Level Callbacks"
+          ],
           "parentHeadingId": "b20f834eec6f96a9fe23cccfd07a415250342bc4",
           "parentHeadingLevel": 2
         }
@@ -1614,6 +1637,10 @@
         "type": "heading",
         "content": "Duplicate Chunks",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "Duplicate Chunks"
+          ],
           "headingLevel": 2
         }
       },
@@ -1624,6 +1651,10 @@
         "type": "paragraph",
         "content": "`onDuplicateChunk` fires whenever dedupe prevents a redundant write. This is\nespecially helpful when rerunning incremental ingests:",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "Duplicate Chunks"
+          ],
           "parentHeadingId": "0e608a87d7ac073939103867069e4f32f4709311",
           "parentHeadingLevel": 2
         }
@@ -1635,6 +1666,11 @@
         "type": "code",
         "content": "```dart\nawait pipeline.ingestFiles(\n  files,\n  onDuplicateChunk: (chunk) {\n    print('Skipped ${chunk.id} already stored from ${chunk.sourcePath}.');\n  },\n);\n```",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "Duplicate Chunks"
+          ],
+          "codeLanguage": "dart",
           "parentHeadingId": "0e608a87d7ac073939103867069e4f32f4709311",
           "parentHeadingLevel": 2
         }
@@ -1646,6 +1682,10 @@
         "type": "heading",
         "content": "Metrics To Add",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "Metrics To Add"
+          ],
           "headingLevel": 2
         }
       },
@@ -1656,6 +1696,10 @@
         "type": "paragraph",
         "content": "- TODO: Track per-chunker latency once ObjectBox persistence lands.\n- TODO: Emit histogram buckets for chunk sizes to refine TextChunker heuristics.",
         "metadata": {
+          "headingPath": [
+            "Observability Hooks",
+            "Metrics To Add"
+          ],
           "parentHeadingId": "a26aaa7a461b7226fa37c4a60b311e6315a3c3a8",
           "parentHeadingLevel": 2
         }
