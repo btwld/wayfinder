@@ -237,14 +237,17 @@ not subdivide distribution. Bitwild adoption binds one such bundle to
   ways-of-working/
   interactions/         # Time-axis directory (§3.3).
   references/           # Mirrored source material (§3.4, §12).
+  computations/         # Shared Attested Computations (§3.6; OKF §10.4).
 ```
 
 Every project directory in the tree MUST name the **subject** its contents share,
 not a kind of document. Kind is
 carried by `type` (§5.2), so a directory named after a document kind — `decisions/`,
 `analyses/`, `guides/`, `adr/` — duplicates metadata the concept already carries and
-scatters one subject across many folders. The two exceptions are `interactions/` and
-`references/`, whose organizing axis is time rather than subject (§3.3, §3.4).
+scatters one subject across many folders. The three exceptions are `interactions/` and
+`references/`, whose organizing axis is time rather than subject (§3.3, §3.4), and
+`computations/`, the co-location directory OKF §10.4 itself names for Attested
+Computations (§3.6).
 
 ### 3.1 Areas
 
@@ -297,8 +300,8 @@ areas under §3.1:
 | `ways-of-working/` | How the team works: process decisions, conventions, engineering and operational guidance, and decisions about the knowledge bundle itself. |
 
 Both are optional, created lazily, and otherwise follow §3.1. The same lazy rule
-covers `interactions/` and `references/` (§3.3, §3.4): a bundle MAY omit any or
-all of these four Profile-defined directories.
+covers `interactions/`, `references/`, and `computations/` (§3.3, §3.4, §3.6): a
+bundle MAY omit any or all of these five Profile-defined directories.
 
 Architecture Decision Records live in `architecture/` because an ADR is an
 architecture concept — its subject is the system, and `Architecture Decision
@@ -313,8 +316,8 @@ happens to be architectural, and separating it from the rules and questions it
 serves is the scattering §3 exists to prevent. The type stays `Architecture
 Document` in both places — placement follows subject, never type.
 
-**These two, plus `interactions/` and `references/`, are the only directory names this
-profile specifies.** Every other directory name in this document, including in the
+**These two, plus `interactions/`, `references/`, and `computations/`, are the only
+directory names this profile specifies.** Every other directory name in this document, including in the
 examples and in Appendix A, is illustrative — a plausible name for one project's
 subject, never a name another project should adopt. Naming subjects is a non-goal
 (§1.2): a profile that shipped a domain vocabulary would be prescribing what its
@@ -379,10 +382,37 @@ bundle concepts. A bundle using this release MUST NOT carry legacy root
 `profile.md`, `types.md`, or `actors.md` registries as competing configuration.
 Ordinary concepts MAY sit at the root; every other `.md` file is a concept.
 
-The four Profile-defined directory names and the subject-placement rules in
-§3.1–§3.4 remain unchanged. `wayfinder.json` selects a Profile for a **whole
+The five Profile-defined directory names and the subject-placement rules in
+§3.1–§3.4 and §3.6 remain unchanged. `wayfinder.json` selects a Profile for a **whole
 bundle**, never for an area or individual directory. It does not contain a
 placement map, and it does not turn type or tag names into folders.
+
+### 3.6 The `computations/` directory
+
+OKF §10.4 makes co-locating Attested Computations "a directory choice (a
+`computations/` folder with an `index.md`), not a frontmatter one", and its
+worked example keeps computations there. This profile adopts that choice as a
+named directory rather than calling it a kind-named folder, because OKF is
+authoritative where the two would differ.
+
+A bundle MAY keep its Attested Computation concepts in `computations/` at the
+bundle root. A bundle MAY instead file a computation with the subject it computes
+under §3.3. When `computations/` exists:
+
+1. It MUST contain only `Attested Computation` concepts and its `index.md`. It
+   is not an area: it sorts no mixed knowledge by kind, because its membership is
+   one type by construction, as `interactions/` is.
+2. It MAY nest under §3.1 rule 5, for example by the subject or runtime the
+   computations share, and every nonempty directory in it MUST contain an
+   `index.md` (§9).
+3. The concepts that use a computation stay with their own subjects and link to
+   it with an ordinary link (OKF §10.4). A computation's location changes no
+   consumer's placement.
+
+The ban's two reasons fail here as they fail for `interactions/`: the folder
+duplicates nothing, because OKF itself names it as the computations' home, and it
+scatters no subject, because one computation ordinarily serves consumers in
+several subjects (OKF §10.1, "one computation, many consumers").
 
 ---
 
@@ -1471,7 +1501,9 @@ configuration masquerading as knowledge; multiple independent bundles need
 reusable but distinct bindings, and a repeatable source revision across
 machines. The OKF-defined Attested Computation type joins the standard
 registry so producers can use §10 without declaring an OKF type as custom. The
-subject-placement and four named-directory rules remain unchanged. Migration
+subject-placement rule is unchanged; `computations/` joins the named directories
+as the OKF §10.4 home for Attested Computations (§3, §3.2, §3.5, §3.6), so the
+profile follows OKF's own directory choice instead of reading it as a kind-named folder. Migration
 impact: an existing conformant 2026.2 bundle remains conformant to **2026.2**
 and continues to validate under that release. To adopt 2026.3, create a
 direct-source entry, resolve and commit its lock, move custom types, tags, and
