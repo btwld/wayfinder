@@ -45,9 +45,10 @@ root concepts, regenerate the root index, and validate and review the result.
 **2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
 `profile.md`, `types.md`, and `actors.md` are retired for this release; the
 binding supplies custom type, tag, and actor declarations while the selected
-base Profile supplies standards. The subject-placement rule and the four fixed
+base Profile supplies standards. The subject-placement rule and the fixed
 names `architecture/`, `ways-of-working/`, `interactions/`, `references/`
-remain. A binding applies to a whole bundle, never an area. Release-specific
+remain, and `computations/` joins them as the optional OKF §10.4 home for
+Attested Computation concepts. A binding applies to a whole bundle, never an area. Release-specific
 notes in the routed references below take precedence over their legacy
 registry examples.
 

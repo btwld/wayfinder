@@ -30,11 +30,12 @@ knowledge/
   ways-of-working/  ← how the team works: process, conventions, guides, decisions about the bundle
   interactions/     ← Interaction Records, organized by date; may nest by cadence
   references/       ← OKF mirrored-source convention (mixed types allowed, may nest)
+  computations/     ← 2026.3: Attested Computation concepts only (OKF §10.4); may nest
 ```
 
 **Every project directory names a subject, never a kind of document.** Kind is carried by `type` and nowhere else, so there is no `decisions/`, `analyses/`, `guides/`, `rules/`, `questions/`, or `adr/` — a term, the rules deriving it, the questions about it, and the specification covering it all sit in one directory because they share a subject. `interactions/` and `references/` retain their Profile-defined time and source axes. Reading a kind as a set is an index filtered by `type`, not a directory.
 
-`architecture/`, `ways-of-working/`, `interactions/`, and `references/` are the **only** directory names the profile fixes. Every other area name is the project's own vocabulary.
+`architecture/`, `ways-of-working/`, `interactions/`, and `references/` are the **only** directory names Profile 2026.2 fixes. Profile 2026.3 adds `computations/`: OKF §10.4 names it as the co-location directory for Attested Computations, so it holds only `Attested Computation` concepts and their indexes, may nest, and is optional — a computation may instead live with the subject it computes. The concepts that use a computation stay with their own subjects and link to it. Every other area name is the project's own vocabulary.
 
 ### Areas
 
