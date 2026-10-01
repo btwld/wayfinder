@@ -1,0 +1,80 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.3",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/relationship-label-extension",
+        "severity": "advisory",
+        "message": "The relationship label Inspired by is a permitted project extension.",
+        "location": {
+          "path": "custom-relationship.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/source-attribution-join",
+        "severity": "error",
+        "message": "A recognized source-attribution reference must join to its footnote definition.",
+        "location": {
+          "path": "footnote-missing.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/relationships-shape",
+        "severity": "error",
+        "message": "Each Relationships entry must contain exactly one label and one Markdown target.",
+        "location": {
+          "path": "malformed-relationships.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/source-path-unresolved",
+        "severity": "advisory",
+        "message": "Source path /references/missing.pdf does not resolve to a file or directory.",
+        "location": {
+          "path": "missing-source-path.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/internal-link-bundle-relative",
+        "severity": "advisory",
+        "message": "Internal links should use bundle-relative targets.",
+        "location": {
+          "path": "relative-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.1"
+      },
+      {
+        "id": "concepta-profile/internal-link-unresolved",
+        "severity": "advisory",
+        "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
+        "location": {
+          "path": "unresolved-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.1, §14.1–§14.2"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

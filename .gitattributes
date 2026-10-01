@@ -3,3 +3,6 @@ packages/wayfinder_embeddings/fixtures/** text eol=lf
 
 # Compressed benchmark artifacts must not undergo line-ending conversion.
 packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
+
+# The golden test compares bytes; a CRLF checkout would fail every golden.
+packages/wayfinder/test/goldens/** text eol=lf

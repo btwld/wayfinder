@@ -304,6 +304,11 @@ python3 tool/ci/verify-configured-example.py
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.
 
+`packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
+`packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
+from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
+the golden diff with the change. An unexpected golden diff is a regression.
+
 **Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
 version-dependent and its style is gated on the package's language version, so a floor
 SDK and a newer stable can disagree on the same file. CI checks formatting on `stable`
