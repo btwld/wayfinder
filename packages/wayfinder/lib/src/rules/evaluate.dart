@@ -29,7 +29,7 @@ List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
                 ? [
                     for (final element in elements)
                       if (!predicate.test(SchemaCheck.element(element)))
-                        SchemaCheck.value(element),
+                        SchemaCheck.value(element, check.failingField),
                   ]
                 : [elements];
             if (failing.isEmpty) continue;

@@ -87,20 +87,26 @@ void main() {
 
       final facts = concept(await project(), 'area/source.md');
       final links = {
-        for (final link in facts['links']! as List<Object?>)
-          (link! as Map<String, Object?>)['target']: link,
+        for (final edge
+            in (facts['edges']! as List<Object?>).cast<Map<String, Object?>>())
+          if (edge['origin'] == 'body') edge['target']: edge,
       };
       final relationships = facts['relationships']! as List<Object?>;
       expect(relationships, hasLength(targets.length));
       for (final (index, target) in targets.indexed) {
-        final link = links[target] as Map<String, Object?>?;
+        final link = links[target];
         expect(link, isNotNull, reason: 'okf drew no body edge for $target');
         final relationship = relationships[index]! as Map<String, Object?>;
         expect(relationship['resource'], target);
         expect(relationship['relationship'], 'related-to');
-        for (final key in ['internal', 'bundle_relative', 'resolved']) {
+        for (final key in ['internal', 'bundle_relative']) {
           expect(relationship[key], link![key], reason: '$key of $target');
         }
+        expect(
+          relationship['resolved'],
+          ['resolved-concept', 'resolved-asset'].contains(link!['resolution']),
+          reason: 'resolved of $target',
+        );
       }
     },
   );

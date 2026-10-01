@@ -4,6 +4,7 @@ import 'package:okf/okf.dart';
 
 import '../generated/installed_profiles.g.dart';
 import '../profile_rule_descriptors.dart';
+import '../published_schemas.dart';
 import 'builtins.dart';
 import 'facts.dart';
 import 'predicate.dart';
@@ -58,11 +59,13 @@ sealed class RuleCheck {
 
 /// A yes/no schema over every subject of one kind. With [each], the
 /// predicate runs per element of that array fact and the failing elements'
-/// values fill `{failing}`. At most one finding per (rule, subject).
+/// [failingField] values fill `{failing}`. At most one finding per
+/// (rule, subject).
 final class SchemaCheck extends RuleCheck {
   const SchemaCheck._({
     required this.subject,
     required this.each,
+    required this.failingField,
     required this.at,
     required this.schema,
     required this.defs,
@@ -71,6 +74,9 @@ final class SchemaCheck extends RuleCheck {
 
   final SubjectKind subject;
   final String? each;
+
+  /// The field of a failing element that `{failing}` renders.
+  final String failingField;
 
   /// The subject location key the finding reports at.
   final String at;
@@ -97,11 +103,11 @@ final class SchemaCheck extends RuleCheck {
   static Object? element(Object? item) =>
       item is Map<String, Object?> ? item : {'value': item};
 
-  /// What a failing element contributes to `{failing}`: a derived fact's
-  /// `value`, or an authored object as written.
-  static Object? value(Object? item) => switch (item) {
-    final Map<String, Object?> object when object.containsKey('value') =>
-      object['value'],
+  /// What a failing element contributes to `{failing}`: its [field] when it
+  /// is an object carrying one, or else the element as written.
+  static Object? value(Object? item, String field) => switch (item) {
+    final Map<String, Object?> object when object.containsKey(field) =>
+      object[field],
     _ => item,
   };
 }
@@ -183,10 +189,12 @@ final class RuleCatalog {
     required this.rules,
   });
 
-  /// Parses and compiles [json]. Rejects unknown keys, subjects, slots,
-  /// location keys, builtins, builtin params, duplicate ids, message
-  /// placeholders no subject fact fills, a declared frontmatter key OKF
-  /// already defines, and any predicate compile error.
+  /// Parses and compiles [json]. The catalog schema rejects the shape
+  /// (unknown keys, formats, severities, releases); the parser then rejects
+  /// what the schema cannot see: unknown subjects' facts, locations, slots,
+  /// builtins and builtin params, duplicate ids, message placeholders no
+  /// subject fact fills, a declared frontmatter key OKF already defines, and
+  /// any predicate compile error.
   factory RuleCatalog.parse(String json) {
     final Object? decoded;
     try {
@@ -194,51 +202,30 @@ final class RuleCatalog {
     } on FormatException catch (error) {
       throw RuleCatalogException('catalog', error.message);
     }
-    final root = _object(decoded, 'catalog');
-    _onlyKeys(root, 'catalog', const {
-      r'$schema',
-      r'$comment',
-      'format',
-      'namespace',
-      'profile',
-      'frontmatter_keys',
-      r'$defs',
-      'rules',
-    });
-    if (root['format'] != 1) {
-      throw RuleCatalogException(
-        'format',
-        'only catalog format 1 is supported',
-      );
+    if (ruleCatalogSchemaFailure(decoded) case final failure?) {
+      throw RuleCatalogException(_where(failure), schemaFailureReason(failure));
     }
-    final namespace = _string(root, 'namespace', 'catalog');
-    if (namespace == 'okf') {
-      throw RuleCatalogException('namespace', 'the okf namespace is reserved');
-    }
-    final profile = _object(root['profile'], 'profile');
-    _onlyKeys(profile, 'profile', const {'id', 'release'});
+    final root = decoded as Map<String, Object?>;
+    final namespace = root['namespace'] as String;
+    final profile = root['profile'] as Map<String, Object?>;
     final frontmatterKeys = <String, String>{};
-    if (root.containsKey('frontmatter_keys')) {
-      final declared = _object(root['frontmatter_keys'], 'frontmatter_keys');
-      for (final key in declared.keys) {
-        final where = 'frontmatter_keys.$key';
-        if (okfKnownFrontmatterKeys.contains(key)) {
-          throw RuleCatalogException(
-            where,
-            'an OKF frontmatter key cannot be declared again',
-          );
-        }
-        frontmatterKeys[key] = _string(declared, key, 'frontmatter_keys');
+    final declared =
+        root['frontmatter_keys'] as Map<String, Object?>? ?? const {};
+    for (final MapEntry(:key, :value) in declared.entries) {
+      if (okfKnownFrontmatterKeys.contains(key)) {
+        throw RuleCatalogException(
+          'frontmatter_keys.$key',
+          'an OKF frontmatter key cannot be declared again',
+        );
       }
+      frontmatterKeys[key] = value as String;
     }
-    final defs = root.containsKey(r'$defs')
-        ? _object(root[r'$defs'], r'$defs')
-        : const <String, Object?>{};
+    final defs = root[r'$defs'] as Map<String, Object?>? ?? const {};
     final rules = <CatalogRule>[];
     final ids = <String>{};
-    for (final (index, item) in _list(root['rules'], 'rules').indexed) {
+    for (final (index, item) in (root['rules'] as List<Object?>).indexed) {
       final where = 'rules[$index]';
-      final rule = _rule(_object(item, where), where, namespace, defs);
+      final rule = _rule(item as Map<String, Object?>, where, namespace, defs);
       if (!ids.add(rule.descriptor.id)) {
         throw RuleCatalogException('$where.id', 'duplicate rule id');
       }
@@ -246,8 +233,8 @@ final class RuleCatalog {
     }
     return RuleCatalog._(
       namespace: namespace,
-      profileId: _string(profile, 'id', 'profile'),
-      release: _string(profile, 'release', 'profile'),
+      profileId: profile['id'] as String,
+      release: profile['release'] as String,
       frontmatterKeys: Map.unmodifiable(frontmatterKeys),
       rules: List.unmodifiable(rules),
     );
@@ -274,17 +261,26 @@ final class RuleCatalog {
   final List<CatalogRule> rules;
 }
 
-const _ruleKeys = <String>{
-  'id',
-  'category',
-  'severity',
-  'status',
-  'ref',
-  'description',
-  'message',
-  'check',
-  'tests',
-};
+/// A schema failure's instance pointer in the catalog's own path grammar:
+/// `/rules/3/check/subject` reads `rules[3].check.subject`, and a failure
+/// about a member of an object names that member.
+String _where(JsonPredicateFailure failure) {
+  final segments = [
+    for (final segment in failure.pointer.split('/').skip(1))
+      segment.replaceAll('~1', '/').replaceAll('~0', '~'),
+    ?failure.property,
+  ];
+  if (segments.isEmpty) return 'catalog';
+  final where = StringBuffer();
+  for (final segment in segments) {
+    if (int.tryParse(segment) != null) {
+      where.write('[$segment]');
+    } else {
+      where.write(where.isEmpty ? segment : '.$segment');
+    }
+  }
+  return '$where';
+}
 
 CatalogRule _rule(
   Map<String, Object?> map,
@@ -292,23 +288,22 @@ CatalogRule _rule(
   String namespace,
   Map<String, Object?> defs,
 ) {
-  _onlyKeys(map, where, _ruleKeys);
   final OkfFindingId id;
   try {
-    id = OkfFindingId.parse('$namespace/${_string(map, 'id', where)}');
+    id = OkfFindingId.parse('$namespace/${map['id']}');
   } on FormatException catch (error) {
     throw RuleCatalogException('$where.id', error.message);
   }
-  final severity = switch (_string(map, 'severity', where)) {
-    'error' => OkfFindingSeverity.error,
-    'advisory' => OkfFindingSeverity.advisory,
-    _ => throw RuleCatalogException(
-      '$where.severity',
-      'severity must be error or advisory',
+  final severity = map['severity'] == 'error'
+      ? OkfFindingSeverity.error
+      : OkfFindingSeverity.advisory;
+  final message = switch (map['message']) {
+    final String template => SingleMessage(template),
+    final byId => MessageVariants(
+      Map<String, String>.from(byId as Map<String, Object?>),
     ),
   };
-  final message = _message(map['message'], '$where.message');
-  final checkJson = _object(map['check'], '$where.check');
+  final checkJson = map['check'] as Map<String, Object?>;
   final check = checkJson.containsKey('builtin')
       ? _builtinCheck(checkJson, '$where.check')
       : _schemaCheck(checkJson, '$where.check', defs);
@@ -322,16 +317,14 @@ CatalogRule _rule(
         );
       }
       _checkPlaceholders(message.template, check, '$where.message');
-      if (!map.containsKey('tests')) {
+      if (map['tests'] case final Map<String, Object?> tests) {
+        examples = _examples(tests, '$where.tests');
+      } else {
         throw RuleCatalogException(
           '$where.tests',
           'a schema check needs tests',
         );
       }
-      examples = _examples(
-        _object(map['tests'], '$where.tests'),
-        '$where.tests',
-      );
       final provided = {Slot.okfFrontmatterKeys, ...examples.slots.keys};
       for (final slot in check.slots) {
         if (!provided.contains(slot)) {
@@ -364,55 +357,40 @@ CatalogRule _rule(
     descriptor: ProfileRuleDescriptor(
       id: id.value,
       severity: severity,
-      rule: _string(map, 'ref', where),
+      rule: map['ref'] as String,
     ),
-    category: _enumValue(RuleCategory.values, map, 'category', where),
-    status: _enumValue(RuleStatus.values, map, 'status', where),
-    description: _string(map, 'description', where),
+    category: RuleCategory.values.byName(map['category'] as String),
+    status: RuleStatus.values.byName(map['status'] as String),
+    description: map['description'] as String,
     message: message,
     check: check,
     examples: examples,
   );
 }
 
-RuleMessage _message(Object? json, String where) => switch (json) {
-  final String template when template.isNotEmpty => SingleMessage(template),
-  final Map<String, Object?> byId
-      when byId.isNotEmpty &&
-          byId.values.every((value) => value is String && value.isNotEmpty) =>
-    MessageVariants(byId.cast<String, String>()),
-  _ => throw RuleCatalogException(
-    where,
-    'message must be a non-empty string or an object of them',
-  ),
-};
-
 SchemaCheck _schemaCheck(
   Map<String, Object?> json,
   String where,
   Map<String, Object?> defs,
 ) {
-  _onlyKeys(json, where, const {'subject', 'each', 'at', 'schema'});
-  final subjectName = _string(json, 'subject', where);
-  final subject = SubjectKind.values
-      .where((kind) => kind.name == subjectName)
-      .firstOrNull;
-  if (subject == null) {
-    throw RuleCatalogException('$where.subject', 'unknown subject');
-  }
-  final each = json.containsKey('each') ? _string(json, 'each', where) : null;
+  final subject = SubjectKind.values.byName(json['subject'] as String);
+  final each = json['each'] as String?;
   if (each != null && !(subject.facts?.contains(each) ?? true)) {
     throw RuleCatalogException('$where.each', 'not a fact of ${subject.name}');
   }
-  final at = json.containsKey('at') ? _string(json, 'at', where) : 'self';
+  final failingField = json['failing_field'] as String?;
+  if (failingField != null && each == null) {
+    throw RuleCatalogException(
+      '$where.failing_field',
+      'failing_field needs an each fact',
+    );
+  }
+  final at = json['at'] as String? ?? 'self';
   if (!subject.locations.contains(at)) {
     throw RuleCatalogException(
       '$where.at',
       'not a location of ${subject.name}',
     );
-  }
-  if (!json.containsKey('schema')) {
-    throw RuleCatalogException('$where.schema', 'schema is required');
   }
   final schema = json['schema'];
   final reached = <String>{};
@@ -433,6 +411,7 @@ SchemaCheck _schemaCheck(
   return SchemaCheck._(
     subject: subject,
     each: each,
+    failingField: failingField ?? 'value',
     at: at,
     schema: schema,
     defs: usedDefs,
@@ -482,15 +461,12 @@ void _reach(
 }
 
 BuiltinCheck _builtinCheck(Map<String, Object?> json, String where) {
-  _onlyKeys(json, where, const {'builtin', 'params'});
-  final name = _string(json, 'builtin', where);
+  final name = json['builtin'] as String;
   final builtin = builtins[name];
   if (builtin == null) {
     throw RuleCatalogException('$where.builtin', 'unknown builtin');
   }
-  final params = json.containsKey('params')
-      ? _object(json['params'], '$where.params')
-      : const <String, Object?>{};
+  final params = json['params'] as Map<String, Object?>? ?? const {};
   if (!JsonPredicate.compile(builtin.params).test(params)) {
     throw RuleCatalogException(
       '$where.params',
@@ -519,74 +495,21 @@ void _checkPlaceholders(String template, SchemaCheck check, String where) {
 }
 
 RuleExamples _examples(Map<String, Object?> json, String where) {
-  _onlyKeys(json, where, const {'valid', 'invalid', 'slots'});
-  final valid = _list(json['valid'], '$where.valid');
-  final invalid = _list(json['invalid'], '$where.invalid');
-  if (valid.isEmpty || invalid.isEmpty) {
-    throw RuleCatalogException(
-      where,
-      'tests need a valid and an invalid example',
-    );
-  }
   final slots = <Slot, List<String>>{};
-  if (json.containsKey('slots')) {
-    final declared = _object(json['slots'], '$where.slots');
-    for (final MapEntry(:key, :value) in declared.entries) {
-      final slot = Slot.byId(key);
-      if (slot == null) {
-        throw RuleCatalogException('$where.slots', 'unknown slot "$key"');
-      }
-      final values = _list(value, '$where.slots.$key');
-      if (values.any((item) => item is! String)) {
-        throw RuleCatalogException(
-          '$where.slots.$key',
-          'slot values are strings',
-        );
-      }
-      slots[slot] = values.cast<String>();
+  final declared = json['slots'] as Map<String, Object?>? ?? const {};
+  for (final MapEntry(:key, :value) in declared.entries) {
+    final slot = Slot.byId(key);
+    if (slot == null) {
+      throw RuleCatalogException('$where.slots', 'unknown slot "$key"');
     }
+    slots[slot] = List<String>.from(value as List<Object?>);
   }
-  return RuleExamples(valid: valid, invalid: invalid, slots: slots);
+  return RuleExamples(
+    valid: json['valid'] as List<Object?>,
+    invalid: json['invalid'] as List<Object?>,
+    slots: slots,
+  );
 }
 
 bool _sameSet(Set<String> left, Set<String> right) =>
     left.length == right.length && left.containsAll(right);
-
-void _onlyKeys(Map<String, Object?> map, String where, Set<String> allowed) {
-  for (final key in map.keys) {
-    if (!allowed.contains(key)) {
-      throw RuleCatalogException('$where.$key', 'unknown key');
-    }
-  }
-}
-
-Map<String, Object?> _object(Object? value, String where) =>
-    value is Map<String, Object?>
-    ? value
-    : throw RuleCatalogException(where, 'must be an object');
-
-List<Object?> _list(Object? value, String where) => value is List<Object?>
-    ? value
-    : throw RuleCatalogException(where, 'must be an array');
-
-String _string(Map<String, Object?> map, String key, String where) {
-  final value = map[key];
-  if (value is! String || value.isEmpty) {
-    throw RuleCatalogException('$where.$key', 'must be a non-empty string');
-  }
-  return value;
-}
-
-T _enumValue<T extends Enum>(
-  List<T> values,
-  Map<String, Object?> map,
-  String key,
-  String where,
-) {
-  final name = _string(map, key, where);
-  return values.where((value) => value.name == name).firstOrNull ??
-      (throw RuleCatalogException(
-        '$where.$key',
-        'must be one of ${values.map((value) => value.name).join(', ')}',
-      ));
-}

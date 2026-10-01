@@ -937,10 +937,13 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "message": "Internal links should use bundle-relative targets.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -958,24 +961,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": false,
-            "resolved": true
+            "bundle_relative": false
           }
         ]
       }
@@ -990,10 +1003,13 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -1001,8 +1017,11 @@ const Map<(String, String), String> installedRuleCatalogs = {
           },
           "then": {
             "properties": {
-              "resolved": {
-                "const": true
+              "resolution": {
+                "enum": [
+                  "resolved-concept",
+                  "resolved-asset"
+                ]
               }
             }
           }
@@ -1011,24 +1030,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "/area/missing.md",
+            "resolution": "unresolved",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": false
+            "bundle_relative": true
           }
         ]
       }
@@ -2128,10 +2157,13 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "message": "Internal links should use bundle-relative targets.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -2149,24 +2181,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": false,
-            "resolved": true
+            "bundle_relative": false
           }
         ]
       }
@@ -2181,10 +2223,13 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -2192,8 +2237,11 @@ const Map<(String, String), String> installedRuleCatalogs = {
           },
           "then": {
             "properties": {
-              "resolved": {
-                "const": true
+              "resolution": {
+                "enum": [
+                  "resolved-concept",
+                  "resolved-asset"
+                ]
               }
             }
           }
@@ -2202,24 +2250,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "/area/missing.md",
+            "resolution": "unresolved",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": false
+            "bundle_relative": true
           }
         ]
       }
@@ -2907,6 +2965,250 @@ const String wayfinderProfileManifestSchema = r'''
         },
         "description": {
           "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}
+''';
+
+/// The published Profile rule catalog schema, raw JSON.
+const String wayfinderRulesSchema = r'''
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-rules.schema.json",
+  "title": "Wayfinder Profile rule catalog",
+  "description": "The automated rules of one Profile release, evaluated by the installed wayfinder engine. Written inside the engine's own JSON Schema keyword subset so the engine validates catalogs with the same predicate it evaluates rules with.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "namespace",
+    "profile",
+    "rules"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "format": {
+      "const": 1,
+      "description": "Catalog format the engine must support."
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "not": {
+        "const": "okf"
+      },
+      "description": "Finding id namespace; never okf."
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "release"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "release": {
+          "type": "string",
+          "pattern": "^[0-9]{4}\\.[0-9]+$"
+        }
+      }
+    },
+    "frontmatter_keys": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Producer frontmatter keys this release declares under OKF §4.1, each with the sentence that defines it. A key OKF already defines is rejected at load."
+    },
+    "$defs": {
+      "type": "object",
+      "description": "Schemas rule schemas may $ref as #/$defs/<name>, including x-slot vocabularies."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "severity",
+        "status",
+        "ref",
+        "description",
+        "message",
+        "check"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+          "description": "Finding slug under the catalog namespace."
+        },
+        "category": {
+          "enum": [
+            "structure",
+            "vocabulary",
+            "provenance",
+            "linking",
+            "history"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "advisory"
+          ]
+        },
+        "status": {
+          "enum": [
+            "preview",
+            "stable",
+            "deprecated"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Normative Profile clause reference."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The rule's normative statement."
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Finding text with {failing} and {fact} placeholders; an object keys variants by the message id a builtin names."
+        },
+        "check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/schema-check"
+            },
+            {
+              "$ref": "#/$defs/builtin-check"
+            }
+          ]
+        },
+        "tests": {
+          "$ref": "#/$defs/tests"
+        }
+      }
+    },
+    "schema-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "schema"
+      ],
+      "properties": {
+        "subject": {
+          "enum": [
+            "frontmatter",
+            "concept",
+            "actor",
+            "directory",
+            "file",
+            "root",
+            "log"
+          ]
+        },
+        "each": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An array fact of the subject; the schema runs per element."
+        },
+        "failing_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The field of a failing each element that fills {failing}; value by default."
+        },
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Subject location key to report at; self by default."
+        },
+        "schema": {
+          "type": [
+            "object",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "builtin-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builtin"
+      ],
+      "properties": {
+        "builtin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "invalid"
+      ],
+      "properties": {
+        "slots": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "valid": {
+          "type": "array",
+          "minItems": 1
+        },
+        "invalid": {
+          "type": "array",
+          "minItems": 1
         }
       }
     }

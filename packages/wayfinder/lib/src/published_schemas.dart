@@ -9,6 +9,7 @@ final _configuration = JsonPredicate.compile(
 final _profileManifest = JsonPredicate.compile(
   jsonDecode(wayfinderProfileManifestSchema),
 );
+final _ruleCatalog = JsonPredicate.compile(jsonDecode(wayfinderRulesSchema));
 
 /// Why [configuration], a decoded `wayfinder.json`, does not match
 /// `docs/schemas/wayfinder.schema.json`, or null when it does. The phrase
@@ -23,13 +24,22 @@ String? configurationSchemaViolation(Object? configuration) =>
 String? profileManifestSchemaViolation(Object? manifest) =>
     _describe(_profileManifest.firstFailure(manifest));
 
+/// The first way [catalog], a decoded `wayfinder-rules.json`, misses
+/// `docs/schemas/wayfinder-rules.schema.json`, or null when it conforms.
+/// The catalog loader reports it in its own path grammar, so this hands
+/// back the failure rather than a phrase.
+JsonPredicateFailure? ruleCatalogSchemaFailure(Object? catalog) =>
+    _ruleCatalog.firstFailure(catalog);
+
 String? _describe(JsonPredicateFailure? failure) {
   if (failure == null) return null;
   final where = failure.pointer.isEmpty ? 'the root' : failure.pointer;
-  return 'is invalid at $where: ${_reason(failure)}';
+  return 'is invalid at $where: ${schemaFailureReason(failure)}';
 }
 
-String _reason(JsonPredicateFailure failure) => switch (failure) {
+/// Why [failure] rejected its instance, as a predicate: `must be one of
+/// error, advisory`, `has unknown property rules`.
+String schemaFailureReason(JsonPredicateFailure failure) => switch (failure) {
   JsonPredicateFailure(keyword: 'type', expected: final List<String> types) =>
     'must be ${types.map(_typeNoun).join(' or ')}',
   JsonPredicateFailure(keyword: 'const', :final expected) =>

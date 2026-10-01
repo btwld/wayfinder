@@ -789,10 +789,13 @@
       "message": "Internal links should use bundle-relative targets.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -810,24 +813,34 @@
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": false,
-            "resolved": true
+            "bundle_relative": false
           }
         ]
       }
@@ -842,10 +855,13 @@
       "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
       "check": {
         "subject": "concept",
-        "each": "links",
+        "each": "edges",
         "schema": {
           "if": {
             "properties": {
+              "origin": {
+                "const": "body"
+              },
               "internal": {
                 "const": true
               }
@@ -853,8 +869,11 @@
           },
           "then": {
             "properties": {
-              "resolved": {
-                "const": true
+              "resolution": {
+                "enum": [
+                  "resolved-concept",
+                  "resolved-asset"
+                ]
               }
             }
           }
@@ -863,24 +882,34 @@
       "tests": {
         "valid": [
           {
+            "origin": "body",
             "target": "/area/note.md",
+            "resolution": "resolved-concept",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": true
+            "bundle_relative": true
           },
           {
+            "origin": "body",
             "target": "https://example.com",
+            "resolution": "external",
             "internal": false,
-            "bundle_relative": false,
-            "resolved": false
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
           }
         ],
         "invalid": [
           {
+            "origin": "body",
             "target": "/area/missing.md",
+            "resolution": "unresolved",
             "internal": true,
-            "bundle_relative": true,
-            "resolved": false
+            "bundle_relative": true
           }
         ]
       }

@@ -25,6 +25,9 @@
     "namespace": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
+      "not": {
+        "const": "okf"
+      },
       "description": "Finding id namespace; never okf."
     },
     "profile": {
@@ -124,6 +127,7 @@
             },
             {
               "type": "object",
+              "minProperties": 1,
               "additionalProperties": {
                 "type": "string",
                 "minLength": 1
@@ -170,6 +174,11 @@
           "type": "string",
           "minLength": 1,
           "description": "An array fact of the subject; the schema runs per element."
+        },
+        "failing_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The field of a failing each element that fills {failing}; value by default."
         },
         "at": {
           "type": "string",

@@ -10,16 +10,23 @@ final class ParsedBody {
   final String source;
   final List<markdown.Node> nodes;
 
-  /// The distinct footnote labels the prose references, outside code and the
-  /// footnote definitions section, in first-use order with whether a
-  /// definition exists for each.
+  /// The text of each level-one heading, in body order.
+  List<String> headings() => [
+    for (final node in nodes)
+      if (node is markdown.Element && node.tag == 'h1') node.textContent,
+  ];
+
+  /// The distinct footnote labels the body references or defines: the
+  /// referenced ones first, in first-use order outside code and the footnote
+  /// definitions section, then the labels only a definition carries, in
+  /// source order.
   ///
   /// A reference the parser joined to its definition survives only as a
   /// `footnote-ref` element, so its label is read back from the link. One
   /// it could not join stays literal text, which also happens to adjacent
   /// references such as `[^a][^b]` when both definitions exist, so the
   /// definition is checked in the source rather than inferred from the tree.
-  List<({String label, bool defined})> footnotes() {
+  List<({String label, bool referenced, bool defined})> footnotes() {
     final labels = <String>{};
     void collect(markdown.Node node, {bool excluded = false}) {
       if (node case final markdown.Text text) {
@@ -51,15 +58,15 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
+    final defined = <String>{
+      for (final match in _footnoteDefinition.allMatches(source)) match[1]!,
+    };
     return [
       for (final label in labels)
-        (
-          label: label,
-          defined: RegExp(
-            '^ {0,3}\\[\\^${RegExp.escape(label)}\\]:',
-            multiLine: true,
-          ).hasMatch(source),
-        ),
+        (label: label, referenced: true, defined: defined.contains(label)),
+      for (final label in defined)
+        if (!labels.contains(label))
+          (label: label, referenced: false, defined: true),
     ];
   }
 
@@ -94,6 +101,10 @@ final class ParsedBody {
 }
 
 final RegExp _footnoteReference = RegExp(r'\[\^([^\]]+)\]');
+final RegExp _footnoteDefinition = RegExp(
+  r'^ {0,3}\[\^([^\]]+)\]:',
+  multiLine: true,
+);
 
 String? _relationshipLabel(markdown.Node node) {
   if (node is! markdown.Element || node.tag != 'li') return null;

@@ -12,17 +12,21 @@ enum SubjectKind {
   /// a rule may name any key.
   frontmatter(facts: null),
 
-  /// One concept's derived facts. `links` and `relationships` are absent
-  /// when the OKF graph could not be built.
+  /// One concept's derived facts. `edges` is absent when the OKF graph could
+  /// not be built; `relationships` and `inbound` when okf could not resolve
+  /// the relationship targets.
   concept(
     facts: {
       'path',
       'type',
+      'status',
       'keys',
       'tags',
       'source_ids',
-      'links',
+      'headings',
+      'edges',
       'relationships',
+      'inbound',
       'footnotes',
       'sibling_directory',
     },
@@ -155,12 +159,14 @@ final class BundleFacts {
   T derive<T>(String key, T Function() compute) =>
       _derived.putIfAbsent(key, compute) as T;
 
-  late final Map<String, List<Map<String, Object?>>> _links = () {
+  /// Every OKF graph edge leaving each concept, in okf's wire terms.
+  late final Map<String, List<Map<String, Object?>>> _edges = () {
     final byDocument = <String, List<Map<String, Object?>>>{};
     for (final edge in graph.graph?.edges ?? const <OkfGraphEdge>[]) {
-      if (edge.origin != OkfGraphEdgeOrigin.bodyLink) continue;
       byDocument.putIfAbsent(edge.source.documentPath, () => []).add({
+        'origin': edge.origin.wireValue,
         'target': edge.rawTarget,
+        'resolution': edge.resolution.wireValue,
         ..._targetFacts(edge),
       });
     }
@@ -168,8 +174,14 @@ final class BundleFacts {
   }();
 
   /// Each concept's `relationships` entries that name a target, resolved as
-  /// okf resolves a link target; null when okf could not resolve them.
-  late final Map<String, List<Map<String, Object?>>>? _relationships = () {
+  /// okf resolves a link target, and the backlinks that resolution yields:
+  /// for each concept, the entries of other concepts that resolve to it.
+  /// Null when okf could not resolve them.
+  late final ({
+    Map<String, List<Map<String, Object?>>> outbound,
+    Map<String, List<Map<String, Object?>>> inbound,
+  })?
+  _relationships = () {
     final declared = <OkfConceptId, List<(Object?, String)>>{};
     for (final MapEntry(key: id, value: document)
         in loaded.bundle.concepts.entries) {
@@ -195,18 +207,29 @@ final class BundleFacts {
       // rather than taking down the whole assessment.
       return null;
     }
-    return {
-      for (final MapEntry(key: id, value: entries) in declared.entries)
-        id.documentPath: [
-          for (final (index, (relationship, resource)) in entries.indexed)
-            if (edges[id]![index] case final edge?)
-              {
-                'relationship': relationship,
-                'resource': resource,
-                ..._targetFacts(edge),
-              },
-        ],
-    };
+    final outbound = <String, List<Map<String, Object?>>>{};
+    final inbound = <String, List<Map<String, Object?>>>{};
+    for (final MapEntry(key: id, value: entries) in declared.entries) {
+      final from = id.documentPath;
+      for (final (index, (relationship, resource)) in entries.indexed) {
+        final edge = edges[id]![index];
+        if (edge == null) continue;
+        outbound.putIfAbsent(from, () => []).add({
+          'relationship': relationship,
+          'resource': resource,
+          ..._targetFacts(edge),
+          'resolved': _resolved(edge),
+        });
+        final target = edge.targetConcept?.documentPath;
+        if (target != null && target != from) {
+          inbound.putIfAbsent(target, () => []).add({
+            'relationship': relationship,
+            'from': from,
+          });
+        }
+      }
+    }
+    return (outbound: outbound, inbound: inbound);
   }();
 
   Map<String, Object?> _concept(String path, OkfDocument document) {
@@ -218,21 +241,30 @@ final class BundleFacts {
         .map((source) => source.id)
         .nonNulls
         .toList();
+    final body = bodies[path]!;
     return {
       'path': path,
       'type': document.type,
+      'status': _json(document.frontmatter['status']),
       'keys': document.frontmatter.keys.toList(),
       'tags': [
         for (final tag in document.tags) {'value': tag, 'count': counts[tag]},
       ],
       'source_ids': sourceIds,
-      if (graph.graph != null) 'links': _links[path] ?? const [],
-      if (_relationships case final relationships?)
-        'relationships': relationships[path] ?? const [],
+      'headings': [
+        for (final heading in body.headings())
+          {'value': heading, 'normalized': heading.trim().toLowerCase()},
+      ],
+      if (graph.graph != null) 'edges': _edges[path] ?? const [],
+      if (_relationships case (:final outbound, :final inbound)) ...{
+        'relationships': outbound[path] ?? const [],
+        'inbound': inbound[path] ?? const [],
+      },
       'footnotes': [
-        for (final (:label, :defined) in bodies[path]!.footnotes())
+        for (final (:label, :referenced, :defined) in body.footnotes())
           {
             'value': label,
+            'referenced': referenced,
             'defined': defined,
             'is_source_id': sourceIds.contains(label),
           },
@@ -242,8 +274,8 @@ final class BundleFacts {
   }
 }
 
-/// Whether an edge's target is internal, written bundle-relative, and
-/// present, in the terms Profile §7.1 assesses links by.
+/// Whether an edge's target is internal and written bundle-relative, in the
+/// terms Profile §7.1 assesses links by.
 Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
   'internal':
       edge.resolution != OkfGraphResolution.external &&
@@ -251,10 +283,11 @@ Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
       edge.resolution != OkfGraphResolution.invalid &&
       !edge.rawTarget.startsWith('#'),
   'bundle_relative': edge.rawTarget.startsWith('/'),
-  'resolved':
-      edge.resolution == OkfGraphResolution.resolvedConcept ||
-      edge.resolution == OkfGraphResolution.resolvedAsset,
 };
+
+bool _resolved(OkfGraphEdge edge) =>
+    edge.resolution == OkfGraphResolution.resolvedConcept ||
+    edge.resolution == OkfGraphResolution.resolvedAsset;
 
 /// Resolves each concept's [targets] exactly as okf resolves a link target.
 /// okf keeps that resolution inside its graph, so each target is handed to
