@@ -462,7 +462,9 @@
             <h3>Author the bundle</h3>
             <p>
               Keep <code>index.md</code> and <code>log.md</code>. Add concepts
-              under truthful subjects, using declared types and tags.
+              under truthful subjects, using declared types and tags, then run
+              <code>wayfinder validate --fix</code> to write okf's generated
+              indexes.
             </p>
           </div>
           <div class="step">
@@ -651,7 +653,7 @@
         <div class="card-grid">
           <div class="card"><h3>Resolve</h3><p><code>wayfinder get</code> writes or refreshes the lock.</p></div>
           <div class="card"><h3>Upgrade</h3><p><code>wayfinder upgrade</code> advances a mutable branch or tag. A pinned commit does not move.</p></div>
-          <div class="card"><h3>Read-only validation</h3><p><code>validate</code> reads a current lock/cache without fetching or writing. <code>graph</code>, <code>index</code>, and <code>search</code> do not resolve Profile sources.</p></div>
+          <div class="card"><h3>Read-only validation</h3><p><code>validate</code> reads a current lock/cache without fetching or writing; only <code>--fix</code> writes, and only okf's generated indexes. <code>graph</code>, <code>index</code>, and <code>search</code> do not resolve Profile sources.</p></div>
         </div>
       </section>
 
@@ -781,8 +783,8 @@
               <tr>
                 <td data-label="Area">Types</td>
                 <td data-label="Automated validation">
-                  Standard and project name collisions, used-type membership,
-                  and index group order.
+                  Standard and project name collisions and used-type
+                  membership.
                 </td>
                 <td data-label="Contextual Profile Review">Whether the type fits each concept’s meaning.</td>
               </tr>

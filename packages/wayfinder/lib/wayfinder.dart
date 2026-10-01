@@ -15,6 +15,7 @@ export 'src/validation.dart'
     show
         AutomatedGateState,
         OkfState,
+        ProfileFix,
         ProfileState,
         ProfileSourceResolution,
         ProfileValidationResult,

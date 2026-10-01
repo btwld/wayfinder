@@ -151,6 +151,42 @@ void main() {
     },
   );
 
+  test('validate --fix never writes a 2026.2 bundle', () async {
+    final copy = await Directory.systemTemp.createTemp('wayfinder-fix-');
+    addTearDown(() => copy.delete(recursive: true));
+    final source = Directory('../../examples/knowledge');
+    final before = <String, List<int>>{};
+    await for (final entity in source.list(recursive: true)) {
+      if (entity is! File) continue;
+      final relative = entity.path.substring(source.path.length + 1);
+      final target = File('${copy.path}/$relative');
+      await target.parent.create(recursive: true);
+      await entity.copy(target.path);
+      before[relative] = await entity.readAsBytes();
+    }
+    // A hand edit 2026.3's generator would rewrite.
+    final index = File('${copy.path}/index.md');
+    await index.writeAsString('${await index.readAsString()}\n');
+    before['index.md'] = await index.readAsBytes();
+
+    await cli.run(['validate', copy.path, '--fix']);
+    expect(
+      output.first,
+      'Fix: not applied; Profile 2026.2 has no fixable rules.',
+    );
+    expect(output, contains('Profile 2026.2: PASS'));
+    await for (final entity in copy.list(recursive: true)) {
+      if (entity is! File) continue;
+      final relative = entity.path.substring(copy.path.length + 1);
+      expect(
+        await entity.readAsBytes(),
+        before.remove(relative),
+        reason: relative,
+      );
+    }
+    expect(before, isEmpty);
+  });
+
   test('command help and version require no local index or model', () async {
     expect(await cli.run(['index', '--help']), 0);
     expect(await cli.run(['search', '--help']), 0);

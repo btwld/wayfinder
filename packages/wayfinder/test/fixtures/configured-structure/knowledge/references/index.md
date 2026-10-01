@@ -1,4 +1,4 @@
-# Directories
+# Subdirectories
 
-* [raw](raw/)
-* [vendor](vendor/)
+* [raw](raw/index.md)
+* [vendor](vendor/index.md) - Stray Note fixture concept.

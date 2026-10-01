@@ -1,5 +1,10 @@
 # Unreleased
 
+- Profile 2026.3 indexes are okf's generated output: `index-current` replaces
+  `index-semantic-projection` and `directory-index-present` in the 2026.3
+  catalog and reports each generated index that is missing or differs.
+  `ProfileValidator.validate(fix: true)` writes those indexes first and
+  reports what it wrote as `ProfileValidationResult.fix`. 2026.2 is unchanged.
 - Add exact `bitwild_profile/2026.3` direct-source project bindings from
   `wayfinder.json`, with additive `extends`, strict type, tag, actor, and
   path checks. Version 1 accepts only `source` + `applies_to`; the earlier

@@ -31,7 +31,7 @@ the versioned OKF graph JSON.
 Otherwise use the **CLI**, which takes an explicit bundle path:
 
 ```sh
-wayfinder validate <bundle> [--config=wayfinder.json] [--output=json]
+wayfinder validate <bundle> [--config=wayfinder.json] [--fix] [--output=json]
 wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
 wayfinder index <bundle> [--output=json]
 wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
@@ -91,7 +91,10 @@ grep-only answers.
 
 Run validation before saying a bundle conforms, and after editing one.
 For a configured 2026.3 bundle, `validate` reads only a current lock/cache:
-it never fetches or writes. A missing or stale lock still leaves an independent
+it never fetches or writes. `--fix` is the one exception to read-only
+validation: for a 2026.3 bundle it first writes okf's generated indexes, then
+validates; it never writes a 2026.2 bundle or one OKF rejects. A missing or
+stale lock still leaves an independent
 OKF result; run `wayfinder get` to resolve the declared source, or
 `wayfinder upgrade` only when intentionally advancing a mutable ref.
 `graph`, `index`, and `search` do not need Profile-source resolution.

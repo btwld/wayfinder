@@ -60,6 +60,7 @@ void main() {
   Future<ProfileValidationResult> validateBundle(
     String path, {
     String? configPath,
+    bool fix = false,
   }) async {
     Map<String, WayfinderProfileBinding>? resolved;
     final file = File(configPath ?? p.join(project.path, 'wayfinder.json'));
@@ -87,6 +88,7 @@ void main() {
       path,
       configPath: configPath,
       resolvedProfiles: resolved,
+      fix: fix,
     );
   }
 
@@ -200,12 +202,22 @@ void main() {
   );
 
   test('OKF Attested Computation is available without a custom type', () async {
-    final index = File(p.join(bundle.path, 'index.md'));
-    await index.writeAsString('''${await index.readAsString()}
+    await File(p.join(bundle.path, 'index.md')).writeAsString(
+      '''
+---
+okf_version: "0.2"
+---
+
 # Attested Computation
 
 * [Computation](computation.md) - A synthetic checkable computation.
-''');
+
+# Guide
+
+* [Sample](sample.md) - A sample guide.
+'''
+          .trimLeft(),
+    );
     await File(p.join(bundle.path, 'computation.md')).writeAsString(
       '''
 ---
@@ -539,7 +551,7 @@ result = value + 1
     },
   );
 
-  test('orders configured index groups by Profile standard order', () async {
+  test('2026.3 indexes are exactly the okf generator output', () async {
     final sample = File(p.join(bundle.path, 'sample.md'));
     await sample.writeAsString(
       (await sample.readAsString()).replaceFirst(
@@ -547,7 +559,8 @@ result = value + 1
         'type: Request',
       ),
     );
-    await File(p.join(bundle.path, 'decision.md')).writeAsString(
+    final area = await Directory(p.join(bundle.path, 'area')).create();
+    await File(p.join(area.path, 'decision.md')).writeAsString(
       '''
 ---
 type: Decision
@@ -560,7 +573,9 @@ status: stable
 '''
           .trimLeft(),
     );
-    await File(p.join(bundle.path, 'index.md')).writeAsString(
+    // The 2026.2 projection: a Bundle group, then Profile standard order.
+    final index = File(p.join(bundle.path, 'index.md'));
+    await index.writeAsString(
       '''
 ---
 okf_version: "0.2"
@@ -574,14 +589,71 @@ okf_version: "0.2"
 
 * [Sample](sample.md) - A sample guide.
 
-# Decision
+# Directories
 
-* [Decision](decision.md) - A sample decision.
+* [area](area/)
 '''
           .trimLeft(),
     );
-    final result = await validateBundle(bundle.path);
-    expect(result.profileState, ProfileState.pass);
+
+    final stale = await validateBundle(bundle.path);
+    expect(stale.profileState, ProfileState.fail);
+    expect(
+      stale.findings
+          .where((finding) => finding.id == 'concepta-profile/index-current')
+          .map((finding) => finding.path),
+      ['area/index.md', 'index.md'],
+    );
+
+    final fixed = await validateBundle(bundle.path, fix: true);
+    expect(fixed.fix!.written, ['area/index.md', 'index.md']);
+    expect(fixed.profileState, ProfileState.pass);
+    expect(
+      await index.readAsString(),
+      '''
+---
+okf_version: "0.2"
+---
+
+# Request
+
+* [Sample](sample.md) - A sample guide.
+
+# Subdirectories
+
+* [area](area/index.md) - A sample decision.
+'''
+          .trimLeft(),
+    );
+
+    final again = await validateBundle(bundle.path, fix: true);
+    expect(again.fix!.written, isEmpty);
+    expect(again.profileState, ProfileState.pass);
+  });
+
+  test('--fix never writes a 2026.2 bundle or one OKF rejects', () async {
+    final legacy = await copyFixture('structure-boundary');
+    addTearDown(() => legacy.delete(recursive: true));
+    final index = File(p.join(legacy.path, 'index.md'));
+    await index.writeAsString(
+      (await index.readAsString()).replaceFirst('# Bundle', '# Navigation'),
+    );
+    final before = await _snapshot(legacy);
+    final old = await const ProfileValidator().validate(legacy.path, fix: true);
+    expect(old.profileRelease, '2026.2');
+    expect(old.fix!.written, isEmpty);
+    expect(old.fix!.reason, isNotNull);
+    expect(await _snapshot(legacy), before);
+
+    await File(p.join(bundle.path, 'index.md')).delete();
+    final sample = File(p.join(bundle.path, 'sample.md'));
+    await sample.writeAsString(
+      (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
+    );
+    final blocked = await validateBundle(bundle.path, fix: true);
+    expect(blocked.profileState, ProfileState.blockedByOkf);
+    expect(blocked.fix!.reason, isNotNull);
+    expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
   });
 
   test('rejects unknown fields and duplicate or colliding definitions', () {
@@ -799,6 +871,13 @@ okf_version: "0.2"
   );
 }
 
+/// Every file's bytes under [root], keyed by relative path.
+Future<Map<String, List<int>>> _snapshot(Directory root) async => {
+  await for (final entity in root.list(recursive: true))
+    if (entity is File)
+      p.relative(entity.path, from: root.path): await entity.readAsBytes(),
+};
+
 Map<String, Object?> _config() => {
   'version': 1,
   'profiles': {
@@ -830,10 +909,6 @@ Future<void> _writeBundle(Directory bundle) async {
 ---
 okf_version: "0.2"
 ---
-
-# Bundle
-
-* [Knowledge Log](log.md)
 
 # Guide
 

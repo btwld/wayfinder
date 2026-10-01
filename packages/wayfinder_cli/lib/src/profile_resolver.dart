@@ -576,10 +576,12 @@ Future<ProfileValidationResult> validateWithProfileSources(
   String bundle, {
   String? configPath,
   WayfinderProfileResolver? resolver,
+  bool fix = false,
 }) {
   return const ProfileValidator().validate(
     bundle,
     configPath: configPath,
+    fix: fix,
     resolveSources: () async {
       ProfileResolutionResult? resolved;
       String? resolutionError;

@@ -193,6 +193,8 @@ profile will confidently create `decisions/`.
 wayfinder validate knowledge
 # Machine-readable output:
 wayfinder validate knowledge --output json
+# Profile 2026.3: write okf's generated indexes first, then validate:
+wayfinder validate knowledge --fix
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that

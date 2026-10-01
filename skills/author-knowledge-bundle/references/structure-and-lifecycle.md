@@ -7,6 +7,9 @@ naming, placement, identity, moves, and retirement.
 ## Bundle structure
 
 For 2026.3, only `index.md` and `log.md` are required at the bundle root.
+Every index is okf's generated output, written by `wayfinder validate --fix`:
+each directory holding a concept, or a directory below it that does, gets one,
+and an asset-only directory such as a `raw/` tier needs none.
 The project-root `wayfinder.json` selects the Profile and carries extensions.
 `profile.md`, `types.md`, and `actors.md` are retired; do not create them.
 For **legacy 2026.2 only**, `index.md`, `log.md`, `profile.md`, and `types.md` are required at the bundle root. For legacy 2026.2, add `actors.md` whenever `generated.by`, `verified[].by`, or
@@ -20,7 +23,7 @@ distributed bundle.
 
 ```text
 knowledge/
-  index.md          ← root index: okf_version frontmatter, one entry per root concept, area, and references/
+  index.md          ← root index: okf_version frontmatter; 2026.3 generated, 2026.2 one entry per root concept and directory
   log.md            ← root log: dated lifecycle entries, newest first
   # 2026.3: no registry concepts; project-root wayfinder.json is the binding
   # 2026.2 only: profile.md, types.md, conditional actors.md
@@ -42,10 +45,10 @@ knowledge/
 - **Named after what its concepts share** — a capability, a domain, the system, the way the team works. An area name that matches one member concept's title is a signal the name is too narrow: it is named after a part of the set rather than the whole.
 - **Mixed types.** An area holds any types. That is the point of it.
 - **Earned, not predicted.** A genuine shared subject may have an area at any size; a numeric threshold cannot prove the placement. The Profile recommends against speculative areas for a taxonomy the current corpus does not demonstrate.
-- **Indexed.** A nonempty area needs its own `index.md`.
+- **Indexed.** An area needs its own `index.md`: generated for 2026.3, the projection in [index-projection.md](./index-projection.md) for legacy 2026.2.
 - **Nestable** under the same rules. Prefer nesting when a subject genuinely subdivides; every path segment adds identity that external citations may freeze.
 - **Prefer existing placement.** Normally put a new concept into an existing area or the parent directory, unless the current corpus supports a genuine shared subject for a new area. Creating an area is a deliberate act, recorded in `log.md` — the cost of a wrong area is a false claim about the subject of every concept placed there.
-- **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries have path-derived labels and no authored descriptions.
+- **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries carry no authored descriptions.
 
 ### Placement
 

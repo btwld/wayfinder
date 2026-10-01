@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
@@ -49,6 +51,40 @@ enum AutomatedGateState {
   int get exitCode => okfExitCode.value;
 }
 
+/// What `validate --fix` did before the assessment it precedes.
+final class ProfileFix {
+  ProfileFix.written(Iterable<String> paths)
+    : written = List<String>.unmodifiable(paths),
+      reason = null;
+
+  const ProfileFix.notApplied(String this.reason) : written = const [];
+
+  /// Bundle-relative paths written, in path order; empty when every fixed
+  /// file was already current.
+  final List<String> written;
+
+  /// Why nothing was written, when the fix could not run.
+  final String? reason;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'state': reason == null ? 'APPLIED' : 'NOT APPLIED',
+    'written': written,
+    'reason': ?reason,
+  };
+
+  Iterable<String> toTextLines() sync* {
+    if (reason case final reason?) {
+      yield 'Fix: not applied; $reason.';
+    } else if (written.isEmpty) {
+      yield 'Fix: every generated file is current.';
+    } else {
+      for (final path in written) {
+        yield 'Fix: wrote $path';
+      }
+    }
+  }
+}
+
 final class ProfileValidationResult {
   ProfileValidationResult._({
     required this.okfValidation,
@@ -56,44 +92,53 @@ final class ProfileValidationResult {
     required this.profileState,
     required Iterable<ProfileFinding> findings,
     required this.automatedGateState,
+    this.fix,
   }) : findings = List<ProfileFinding>.unmodifiable(findings);
 
-  ProfileValidationResult.blockedByOkf(OkfSpecValidation validation)
-    : this._(
-        okfValidation: validation,
-        profileRelease: null,
-        profileState: ProfileState.blockedByOkf,
-        findings: const <ProfileFinding>[],
-        automatedGateState: AutomatedGateState.fail,
-      );
+  ProfileValidationResult.blockedByOkf(
+    OkfSpecValidation validation, {
+    ProfileFix? fix,
+  }) : this._(
+         okfValidation: validation,
+         profileRelease: null,
+         profileState: ProfileState.blockedByOkf,
+         findings: const <ProfileFinding>[],
+         automatedGateState: AutomatedGateState.fail,
+         fix: fix,
+       );
 
   ProfileValidationResult.undispatched(
     OkfSpecValidation validation,
-    ProfileFinding finding,
-  ) : this._(
-        okfValidation: validation,
-        profileRelease: null,
-        profileState: ProfileState.unsupported,
-        findings: <ProfileFinding>[finding],
-        automatedGateState: AutomatedGateState.unsupported,
-      );
+    ProfileFinding finding, {
+    ProfileFix? fix,
+  }) : this._(
+         okfValidation: validation,
+         profileRelease: null,
+         profileState: ProfileState.unsupported,
+         findings: <ProfileFinding>[finding],
+         automatedGateState: AutomatedGateState.unsupported,
+         fix: fix,
+       );
 
   ProfileValidationResult.unsupported(
     OkfSpecValidation validation,
-    String release,
-  ) : this._(
-        okfValidation: validation,
-        profileRelease: release,
-        profileState: ProfileState.unsupported,
-        findings: const <ProfileFinding>[],
-        automatedGateState: AutomatedGateState.unsupported,
-      );
+    String release, {
+    ProfileFix? fix,
+  }) : this._(
+         okfValidation: validation,
+         profileRelease: release,
+         profileState: ProfileState.unsupported,
+         findings: const <ProfileFinding>[],
+         automatedGateState: AutomatedGateState.unsupported,
+         fix: fix,
+       );
 
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,
     Iterable<ProfileFinding> findings,
-    String release,
-  ) {
+    String release, {
+    ProfileFix? fix,
+  }) {
     final stableFindings = List<ProfileFinding>.unmodifiable(
       findings.toList()..sort(
         (left, right) => OkfReport.compareFindings(
@@ -113,6 +158,7 @@ final class ProfileValidationResult {
       automatedGateState: failed
           ? AutomatedGateState.fail
           : AutomatedGateState.pass,
+      fix: fix,
     );
   }
 
@@ -122,12 +168,16 @@ final class ProfileValidationResult {
   final List<ProfileFinding> findings;
   final AutomatedGateState automatedGateState;
 
+  /// Present when the caller asked for `--fix`.
+  final ProfileFix? fix;
+
   OkfReport get okfReport => okfValidation.report;
   OkfState get okfState =>
       okfValidation.isConformant ? OkfState.pass : OkfState.fail;
   int get exitCode => automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
+    if (fix case final fix?) 'fix': fix.toJson(),
     'okf': <String, Object?>{
       'state': okfState.wireValue,
       'report': okfReport.toJson(),
@@ -142,6 +192,7 @@ final class ProfileValidationResult {
   };
 
   Iterable<String> toTextLines() sync* {
+    if (fix case final fix?) yield* fix.toTextLines();
     yield 'OKF: ${okfState.wireValue}';
     yield* okfReport.toTextLines();
     final errors = _countBySeverity(OkfFindingSeverity.error);
@@ -183,12 +234,21 @@ final class ProfileValidator {
     Map<String, WayfinderProfileBinding>? resolvedProfiles,
     String? resolutionError,
     Future<ProfileSourceResolution> Function()? resolveSources,
+    bool fix = false,
   }) async {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
     if (!validation.isConformant) {
-      return ProfileValidationResult.blockedByOkf(validation);
+      return ProfileValidationResult.blockedByOkf(
+        validation,
+        fix: fix ? const ProfileFix.notApplied('OKF failed') : null,
+      );
     }
+    final unassessed = fix
+        ? const ProfileFix.notApplied(
+            'no supported Profile release was selected',
+          )
+        : null;
     final sourceResolution = await resolveSources?.call();
     final resolvedConfig = await _readProjectConfig(
       bundlePath,
@@ -197,46 +257,108 @@ final class ProfileValidator {
       resolutionError: sourceResolution?.error ?? resolutionError,
     );
     if (resolvedConfig.finding case final finding?) {
-      return ProfileValidationResult.undispatched(validation, finding);
-    }
-    if (resolvedConfig.value case final configured?) {
-      return _validateConfigured(
+      return ProfileValidationResult.undispatched(
         validation,
-        loaded,
+        finding,
+        fix: unassessed,
+      );
+    }
+    final EffectiveProfile profile;
+    if (resolvedConfig.value case final configured?) {
+      final binding = configured.profile;
+      if (binding.release != externalProfileRelease ||
+          binding.implementsId != builtinProfileId) {
+        return ProfileValidationResult.unsupported(
+          validation,
+          binding.release,
+          fix: unassessed,
+        );
+      }
+      profile = _configuredProfile(
         configured,
         reportedConfigPath: configPath ?? p.basename(configured.configPath),
       );
+    } else {
+      final declaration = _readDeclaration(loaded);
+      if (declaration.finding case final finding?) {
+        return ProfileValidationResult.undispatched(
+          validation,
+          finding,
+          fix: unassessed,
+        );
+      }
+      final values = declaration.values!;
+      final release = values['concepta_profile']!;
+      if (release != legacyProfileRelease) {
+        return ProfileValidationResult.unsupported(
+          validation,
+          release,
+          fix: unassessed,
+        );
+      }
+      profile = EffectiveProfile(
+        RuleCatalog.installed(builtinProfileId, release),
+        legacyRegistryVocabulary(loaded),
+        declaration: values,
+      );
     }
-    final declaration = _readDeclaration(loaded);
-    if (declaration.finding case final finding?) {
-      return ProfileValidationResult.undispatched(validation, finding);
+    if (!fix) return _assess(validation, loaded, profile);
+    return _fixThenAssess(validation, loaded, profile);
+  }
+
+  /// Writes the files the selected catalog's fixable rules generate, then
+  /// assesses the bundle as written. A catalog without fixable rules writes
+  /// nothing, so a 2026.2 bundle is never touched.
+  Future<ProfileValidationResult> _fixThenAssess(
+    OkfSpecValidation validation,
+    OkfBundleLoadResult loaded,
+    EffectiveProfile profile,
+  ) async {
+    final files = fixes(profile, BundleFacts.project(loaded, profile: profile));
+    if (files == null) {
+      return _assess(
+        validation,
+        loaded,
+        profile,
+        fix: ProfileFix.notApplied(
+          'Profile ${profile.catalog.release} has no fixable rules',
+        ),
+      );
     }
-    final values = declaration.values!;
-    final release = values['concepta_profile']!;
-    if (release != legacyProfileRelease) {
-      return ProfileValidationResult.unsupported(validation, release);
+    final written = <String>[];
+    for (final path in files.keys.toList()..sort()) {
+      final bytes = utf8.encode(files[path]!);
+      final file = File(p.joinAll([loaded.rootPath, ...p.posix.split(path)]));
+      if (await FileSystemEntity.isLink(file.path)) {
+        throw FileSystemException(
+          'Refusing to write through a symbolic link',
+          file.path,
+        );
+      }
+      if (await file.exists() &&
+          const ListEquality<int>().equals(await file.readAsBytes(), bytes)) {
+        continue;
+      }
+      await file.writeAsBytes(bytes);
+      written.add(path);
     }
-    final profile = EffectiveProfile(
-      RuleCatalog.installed(builtinProfileId, release),
-      legacyRegistryVocabulary(loaded),
-      declaration: values,
-    );
-    return _assess(validation, loaded, profile);
+    final fix = ProfileFix.written(written);
+    if (written.isEmpty) return _assess(validation, loaded, profile, fix: fix);
+    final reloaded = await loader.inspect(loaded.rootPath);
+    final revalidation = reloaded.validate();
+    if (!revalidation.isConformant) {
+      return ProfileValidationResult.blockedByOkf(revalidation, fix: fix);
+    }
+    return _assess(revalidation, reloaded, profile, fix: fix);
   }
 }
 
-ProfileValidationResult _validateConfigured(
-  OkfSpecValidation validation,
-  OkfBundleLoadResult loaded,
+EffectiveProfile _configuredProfile(
   WayfinderResolvedConfig configured, {
   required String reportedConfigPath,
 }) {
   final binding = configured.profile;
-  if (binding.release != externalProfileRelease ||
-      binding.implementsId != builtinProfileId) {
-    return ProfileValidationResult.unsupported(validation, binding.release);
-  }
-  final profile = EffectiveProfile(
+  return EffectiveProfile(
     RuleCatalog.installed(binding.implementsId, binding.release),
     Vocabulary(
       standardTypes: externalStandardTypes.map((row) => row.$1).toList(),
@@ -247,19 +369,20 @@ ProfileValidationResult _validateConfigured(
     ),
     configPath: reportedConfigPath,
   );
-  return _assess(validation, loaded, profile);
 }
 
 ProfileValidationResult _assess(
   OkfSpecValidation validation,
   OkfBundleLoadResult loaded,
-  EffectiveProfile profile,
-) {
+  EffectiveProfile profile, {
+  ProfileFix? fix,
+}) {
   final facts = BundleFacts.project(loaded, profile: profile);
   return ProfileValidationResult.assessed(
     validation,
     evaluate(profile, facts),
     profile.catalog.release,
+    fix: fix,
   );
 }
 

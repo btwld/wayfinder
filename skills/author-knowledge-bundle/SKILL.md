@@ -40,7 +40,8 @@ Before applying Profile rules, resolve the bundle's exact release:
 Changing a bundle's release is migration work, not an incidental repair.
 Read implementation guide §5 before migrating. Do not simply change a selector:
 move the custom vocabulary and actor lookup to JSON, remove the three legacy
-root concepts, regenerate the root index, and validate and review the result.
+root concepts, regenerate every index with `wayfinder validate --fix`, and
+review the result.
 
 **2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
 `profile.md`, `types.md`, and `actors.md` are retired for this release; the
@@ -48,7 +49,9 @@ binding supplies custom type, tag, and actor declarations while the selected
 base Profile supplies standards. The subject-placement rule and the fixed
 names `architecture/`, `ways-of-working/`, `interactions/`, `references/`
 remain, and `computations/` joins them as the optional OKF §10.4 home for
-Attested Computation concepts. A binding applies to a whole bundle, never an area. Release-specific
+Attested Computation concepts. Every index is the output of okf's reference
+index generator, written by `wayfinder validate --fix`; the legacy index
+projection does not apply. A binding applies to a whole bundle, never an area. Release-specific
 notes in the routed references below take precedence over their legacy
 registry examples.
 
@@ -63,7 +66,7 @@ touches several — a new concept in a new directory needs the first two at leas
 | --- | --- |
 | Creating or editing a concept — capture bar, types, frontmatter, provenance, execution links | [references/concept-authoring.md](./references/concept-authoring.md) |
 | Creating or naming a directory, placing a concept, moving, deprecating, deleting | [references/structure-and-lifecycle.md](./references/structure-and-lifecycle.md) |
-| Creating or regenerating an `index.md` — every write touches at least one | [references/index-projection.md](./references/index-projection.md) |
+| Creating or regenerating an `index.md` — every write touches at least one | 2026.3: run `wayfinder validate <bundle> --fix`; legacy 2026.2: [references/index-projection.md](./references/index-projection.md) |
 | Giving links a labelled meaning in `# Relationships` | [references/relationships.md](./references/relationships.md) |
 | Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
 | Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
@@ -76,7 +79,7 @@ touches several — a new concept in a new directory needs the first two at leas
 Every write follows this sequence, and is complete only when all of it exists:
 
 1. The concept file, conforming to the routed references above.
-2. Every affected `index.md`, rewritten as the deterministic projection defined in [references/index-projection.md](./references/index-projection.md). Nothing generates indexes for you — follow that reference exactly.
+2. Every affected `index.md`. For 2026.3, run `wayfinder validate <bundle> --fix`: it writes okf's generated indexes, then validates. Never hand-edit a 2026.3 index; a hand edit is drift. For legacy 2026.2, rewrite each as the deterministic projection in [references/index-projection.md](./references/index-projection.md); nothing generates those for you, and `--fix` never writes a 2026.2 bundle.
 3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
 4. Automated validation, when `wayfinder validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
 5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
@@ -100,4 +103,4 @@ What the profile deliberately says little or nothing about:
 | **Tag-based views**, synthesized at consumption time rather than stored as files | §3.1 |
 | **v0.1 fallbacks** — legacy `timestamp` and body `# Citations` in inherited bundles | §13 |
 
-Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no custom frontmatter fields, no kind-named directories, `status` as knowledge lifecycle only, an `index.md` in every nonempty directory with descriptions copied verbatim.
+Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no custom frontmatter fields, no kind-named directories, `status` as knowledge lifecycle only, and indexes that are okf's generated output (legacy 2026.2: an `index.md` in every nonempty directory with descriptions copied verbatim).

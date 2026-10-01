@@ -166,10 +166,18 @@ class WayfinderCli {
         ..addFlag('help', abbr: 'h', negatable: false)
         ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text');
       if (name == 'validate') {
-        command.addOption(
-          'config',
-          help: 'Project wayfinder.json path (defaults beside the bundle).',
-        );
+        command
+          ..addOption(
+            'config',
+            help: 'Project wayfinder.json path (defaults beside the bundle).',
+          )
+          ..addFlag(
+            'fix',
+            negatable: false,
+            help:
+                'Write the indexes the selected Profile generates (2026.3), '
+                'then validate. Never writes when OKF fails.',
+          );
       }
       if (name == 'index') {
         command
@@ -452,6 +460,7 @@ class WayfinderCli {
           bundle,
           configPath: command.option('config'),
           resolver: _profileResolver(),
+          fix: command.flag('fix'),
         );
         if (json) {
           _json(result.toJson());

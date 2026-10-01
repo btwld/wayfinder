@@ -18,7 +18,9 @@ codes. Automated success keeps judgment rules UNASSESSED.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
-result if the Profile source is unresolved. `graph`, `index`, and `search`
+result if the Profile source is unresolved. `validate --fix` first writes
+okf's generated indexes for a 2026.3 bundle, then validates; it never writes
+a 2026.2 bundle or one that fails OKF. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 

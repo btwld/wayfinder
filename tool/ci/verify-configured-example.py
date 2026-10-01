@@ -71,6 +71,25 @@ def main() -> None:
         assert result["profile"]["state"] == "PASS", result
         assert result["profile"]["release"] == "2026.3", result
 
+        # The committed example is already what --fix would write.
+        fixed = cli_json(
+            run(
+                "dart",
+                "run",
+                "wayfinder_cli:wayfinder",
+                "validate",
+                str(project / "knowledge"),
+                "--fix",
+                "--output=json",
+            )
+        )
+        assert fixed["fix"] == {"state": "APPLIED", "written": []}, fixed
+        assert fixed["profile"]["state"] == "PASS", fixed
+        for original in (EXAMPLE / "knowledge").rglob("*"):
+            if original.is_file():
+                copy = project / original.relative_to(EXAMPLE)
+                assert copy.read_bytes() == original.read_bytes(), copy
+
         # A generic graph still reads the bundle without its Profile lock.
         (project / "wayfinder.lock").unlink()
         missing_lock = subprocess.run(
@@ -100,7 +119,7 @@ def main() -> None:
             "--output=json",
         )
         assert cli_json(graph)["schema_version"] == "1", graph
-    print("Configured 2026.3 example: Profile, read-only OKF, and graph pass")
+    print("Configured 2026.3 example: Profile, --fix, read-only OKF, and graph pass")
 
 
 if __name__ == "__main__":

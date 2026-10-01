@@ -1,5 +1,8 @@
 # Unreleased
 
+- `wayfinder validate --fix` writes okf's generated indexes for a Profile
+  2026.3 bundle, then validates. It writes only index files that differ,
+  never writes a 2026.2 bundle or one that fails OKF, and says which applied.
 - `wayfinder validate` and MCP validation recognize configured Bitwild Profile
   2026.3 bundles; CLI validation accepts `--config` for an explicit project
   file. Both validate read-only from a current lock/cache; `get` and

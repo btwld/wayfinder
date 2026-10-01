@@ -2,10 +2,6 @@
 okf_version: "0.2"
 ---
 
-# Bundle
-
-* [Knowledge Log](log.md)
-
 # Guide
 
 * [Absolute Link](absolute-link.md) - Absolute Link fixture concept.

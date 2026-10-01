@@ -121,7 +121,7 @@ how* Bitwild uses it, never *what it means*.
 | §6.2 | Path-valued fields | Inherited unchanged |
 | §6.3 | `references/` mirrors external material as concepts | Inherited; mirroring policy added (§12) |
 | §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and optional affiliation lives in binding lookup (§6.1.1) |
-| §8 | Index files, `okf_version` at bundle root only | Constrained: required per nonempty directory, deterministic, grouped by type (§9) |
+| §8 | Index files, `okf_version` at bundle root only | Constrained: every index is the reference generator's output, required wherever it writes one (§9) |
 | §9 | Date-grouped log entries, newest first | Constrained: knowledge lifecycle events only (§10) |
 | §10 | Attested Computation and its computation keys | Inherited unchanged (§1.3) |
 | §11 | Tolerant-reader conformance | Inherited and reinforced (§14.2) |
@@ -141,7 +141,7 @@ standard §1.2 forbids.
 Silence is also not prohibition. Where OKF permits something and this document says
 nothing, it is permitted. The narrowings are the ones stated as such — custom
 frontmatter fields (§5.1), directory names (§3), `status` semantics (§6.3), index
-presence and descriptions (§9) — and each is written as an explicit MUST or MUST
+presence and content (§9) — and each is written as an explicit MUST or MUST
 NOT. Absence of a rule is never one of them.
 
 ### 1.4 Prior art
@@ -227,7 +227,7 @@ not subdivide distribution. Bitwild adoption binds one such bundle to
   <concept>.md          # A concept whose subject has no area yet (§3.1).
 
   <area>/               # Area (§3.1). Mixed types, project-named.
-    index.md            # The area's generated semantic index (§9).
+    index.md            # The area's generated index (§9).
     <concept>.md        # Every other file is an ordinary concept. None is privileged.
     <sub-area>/         # Nested areas are permitted (§3.1).
       index.md
@@ -270,7 +270,7 @@ obey five rules:
    NOT create speculative structure for subjects the current corpus does not
    demonstrate. Structure grows out of knowledge rather than a predicted taxonomy;
    a numeric threshold cannot establish whether a subject is genuine.
-4. **Indexed.** A nonempty area MUST contain an `index.md` (§9).
+4. **Indexed.** An area MUST contain its generated `index.md` (§9).
 5. **Nestable.** An area MAY contain sub-areas under the same five rules. Authors
    SHOULD nest only when a subject genuinely subdivides; every path segment is
    identity (§8.1), so depth multiplies the paths an external citation can freeze
@@ -357,8 +357,9 @@ durable outcome contributes that outcome to *its* subject's area, not a record t
 the bundle as first-class concepts — and is **not** an area. It is therefore exempt
 from the subject-naming rule of §3.1: mirrored material is
 heterogeneous, is organized by source and date rather than by subject, and MAY be
-organized into subdirectories. A nonempty `references/` MUST still carry an
-`index.md`, and so MUST each of its nonempty subdirectories.
+organized into subdirectories. Its directories carry the generated indexes §9
+requires, like any other directory; one holding only non-concept assets needs
+none.
 
 A source directory MAY keep the verbatim originals it preserves in a `raw/`
 subdirectory. Within `raw/` and any of its subdirectories, the only markdown
@@ -403,7 +404,7 @@ under §3.3. When `computations/` exists:
    is not an area: it sorts no mixed knowledge by kind, because its membership is
    one type by construction, as `interactions/` is.
 2. It MAY nest under §3.1 rule 5, for example by the subject or runtime the
-   computations share, and every nonempty directory in it MUST contain an
+   computations share, and each of its directories MUST contain its generated
    `index.md` (§9).
 3. The concepts that use a computation stay with their own subjects and link to
    it with an ordinary link (OKF §10.4). A computation's location changes no
@@ -515,7 +516,7 @@ status: draft | stable | deprecated
 Only `type` is required for OKF conformance (OKF §4.1). The other three are
 additional producer requirements of this Profile: `title` and `description` make
 identity and discovery legible without opening the body, `description` supplies
-the index projection (§9), and explicit `status` prevents OKF's absent-means-stable
+each concept's index entry (§9), and explicit `status` prevents OKF's absent-means-stable
 default from misrepresenting a draft. Authors MUST choose truthful values; Profile
 Review assesses semantic accuracy while Automated Profile Validation checks the
 fields' presence, shape, and permitted `status` value (§14.1).
@@ -1056,103 +1057,31 @@ be inferred safely from final bundle state alone.
 
 ## 9. Index files
 
-Index files follow the OKF index format (OKF §8) exactly: no frontmatter, except
-that the bundle-root `index.md` MAY carry `okf_version`.
-
-A nonempty directory MUST contain an `index.md`, including every area, sub-area,
-`references/`, and nonempty subdirectory of `references/`. Indexes are what make a
-bundle navigable without reading it, so an agent reaches the root index, then a
+Index files follow the OKF index format (OKF §8). Indexes are what make a bundle
+navigable without reading it, so an agent reaches the root index, then a
 directory index, then a concept.
 
-Every index MUST be the deterministic semantic projection of its directory defined
-below. Conformance compares the parsed groups, membership, order, labels, targets,
-and descriptions; harmless Markdown presentation differences do not affect it.
-An index MUST NOT carry authored ordering, directory descriptions, or other unique
-knowledge.
+Indexes are generated. For each `index.md` that the OKF reference index
+generator writes for the bundle, the bundle MUST contain that file with exactly
+the generator's text, generated with the root index declaring
+`okf_version: "0.2"` (§11). The reference generator is `OkfIndexGenerator` in
+the `okf` package release that the companion implementation guide pins. This
+profile adds no grouping, ordering, label, target, or description rule of its
+own. An index MUST NOT carry authored content: a hand edit is drift that the
+next regeneration discards, and knowledge worth keeping belongs in a concept.
 
-The projection includes immediate children only and omits the index itself:
+The generator writes an index for every area, sub-area, and `computations/`
+directory, and for each level of `references/` at or above a mirrored concept. A
+directory holding only non-concept assets, such as a `raw/` tier (§3.4), gets no
+generated index and needs none. A bundle with no concepts gets no generated root
+index; until its first concept exists, its root `index.md` MUST declare
+`okf_version: "0.2"` and list only `log.md`.
 
-1. At the root, `log.md` forms `Bundle`. It has the fixed label
-   `Knowledge Log` and no description. Configuration is not indexed as a concept.
-2. Every other concept is grouped under its exact `type`. Standard type groups
-   follow the manifest order in §5.2. Registered project-specific type groups
-   follow afterward in case-sensitive lexical order; an unregistered used type
-   also sorts there so the projection remains reproducible while that separate
-   registry defect is repaired.
-3. Immediate subdirectories form `Directories`. Each label is the final path
-   segment exactly as written, each target is the relative directory path with a
-   trailing slash, and directory entries carry no description.
-4. An immediate non-Markdown file under `references/` or one of its descendants
-   forms `Assets`. Its label is its filename exactly as written, its target is the
-   relative file path, and it carries no description. Other non-Markdown files are
-   outside this Profile projection.
-
-Empty groups MUST be omitted. Present groups MUST appear in this order: `Bundle`
-when applicable, type groups, `Directories`, then `Assets`. Within each type group,
-entries MUST sort by `title` and then target path, both case-sensitive. Directory
-and asset entries MUST sort by target path. Every target MUST be relative to the
-index containing it.
-
-A target is written as a relative URL (OKF §8): a character a plain Markdown link
-destination cannot carry literally — a space, a parenthesis, a character outside
-ASCII — MUST be percent-encoded (RFC 3986) or carried by the angle-bracket
-destination form (CommonMark). Conformance compares each target percent-decoded
-against the projected path, so every valid spelling of the same target matches
-the projection; a percent sign outside a valid escape sequence does not parse as
-a target. A spelling a relative-URL consumer reads differently from the decoded
-comparison does not parse as a target either: a raw `?` or `#` MUST be
-percent-encoded — a URL splits at them into query and fragment — and an escape
-MUST NOT decode to `/`, which a URL reads as data, never as a path separator.
-Labels are not URLs and stay verbatim — an asset's label is its
-filename exactly as written even when its target is encoded.
-
-The root index MUST carry `okf_version: "0.2"` (§11). A complete root index
-covers the root log, every root concept, and every immediate directory.
-
-```markdown
----
-okf_version: "0.2"
----
-
-# Bundle
-
-* [Knowledge Log](log.md)
-
-# Analysis
-
-* [Retention window](retention-window.md) - How long generated exports are kept before deletion.
-
-# Directories
-
-* [references](references/)
-* [reporting](reporting/)
-```
-
-An area index uses the same projection. Exact registered type names are headings:
-
-```markdown
-# Glossary Definition
-
-* [Annotation](annotation.md) - A reviewer comment anchored to a region of a rendered report.
-* [Export profile](export-profile.md) - The named settings bundle an export is rendered under.
-
-# Business Rule
-
-* [Annotations are immutable once exported](annotations-immutable-once-exported.md) - An exported annotation is never edited in place.
-
-# Question
-
-* [Annotation types in scope](annotation-types-in-scope.md) - Which annotation kinds must survive the PDF export.
-
-# Request
-
-* [Include PDF annotations in the export](include-pdf-annotations.md) - Client asks that reviewer annotations survive the PDF export.
-```
-
-The verbatim-description rule deliberately tightens OKF §8's SHOULD to a MUST.
-Together with derived membership, grouping, ordering, labels, and targets, it makes
-an index mechanically checkable and safely regenerable without a second source of
-truth.
+Requiring the generator's output tightens OKF §8, where an entry SHOULD carry
+the linked concept's description and generation is optional. Every index is
+then mechanically checkable and safely regenerable, with no second source of
+truth. Using the reference generator instead of a Profile-specific projection
+keeps one index shape across OKF tooling.
 
 ---
 
@@ -1350,8 +1279,8 @@ remains mandatory, and an automated advisory remains non-blocking. Neither
 assessment mode changes or reinterprets OKF conformance.
 
 Deterministic structural failures include a missing required root file, an
-invalid project binding, duplicate registry entries, a missing or semantically
-stale index, a malformed or out-of-order root log, a root index carrying no
+invalid project binding, duplicate registry entries, a missing or stale
+generated index, a malformed or out-of-order root log, a root index carrying no
 `okf_version`, and an unavailable Profile release or OKF-version disagreement.
 Deterministic concept failures include a missing or empty `type`, `title`,
 `description`, or `status`; a non-OKF `status` value; a producer-defined
@@ -1515,6 +1444,21 @@ before the table is removed; a single JSON lookup cannot express dated rows.
 This is an opt-in
 migration, not a silent reinterpretation of old bundles.
 
+Revised in place before publication: every index is the output of the OKF
+reference index generator (§9) instead of a Profile-defined projection. The
+`Bundle`, `Directories`, and `Assets` groups, the Profile type order, and the
+label, target-encoding, and per-nonempty-directory rules are withdrawn, and a
+directory holding only non-concept assets, such as a `raw/` tier, needs no
+index. Affected sections: §§1.3, 3, 3.1, 3.4, 3.6, 5.1, 9, 14.1, and Appendix A.
+Driver: the custom projection diverged from the index shape OKF's own tooling
+generates, so bundles needed a Profile-specific generator to stay conformant;
+a second knowledge base on the same okf release already checks its indexes with
+`okf index --check`,
+and teammates on the native `wayfinder` binary need the generator without a
+Dart toolchain. Migration impact: an index written to the earlier 2026.3
+projection no longer conforms; `wayfinder validate --fix` regenerates every
+index. 2026.2 bundles and the 2026.2 projection are unaffected.
+
 **2026.2.** Adopts the upstream OKF 0.2 revision that makes every timestamp an
 ISO 8601 datetime with an explicit UTC offset, and moves the pinned
 specification to its canonical repository, `open-knowledge-format` at
@@ -1584,9 +1528,10 @@ project/
 ```
 
 `reporting/` is an illustrative project subject, not a prescribed directory.
-The root index includes `log.md` and the `reporting/` directory, not
-`wayfinder.json`. `Request` and `Analysis` come from the installed standard
-vocabulary; only project tags, actors, or custom types appear in the entry.
-A separate `research/` bundle may appear in the same entry's `applies_to` list
-or another entry with different vocabulary. It does not inherit a
-Profile from `knowledge/`, and `knowledge/reporting/` cannot select one.
+The root index is the generator's output: it lists the `reporting/` directory
+but not `log.md` or `wayfinder.json`. `Request` and `Analysis` come from the
+installed standard vocabulary; only project tags, actors, or custom types appear
+in the entry. A separate `research/` bundle may appear in the same entry's
+`applies_to` list or another entry with different vocabulary. It does not
+inherit a Profile from `knowledge/`, and `knowledge/reporting/` cannot select
+one.

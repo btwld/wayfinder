@@ -32,11 +32,27 @@ typedef BuiltinBody =
       Map<String, Object?> params,
     );
 
+/// The files that repair a builtin's violations, keyed by bundle-relative
+/// path, for `validate --fix`.
+typedef BuiltinFix =
+    Map<String, String> Function(
+      BundleFacts facts,
+      Map<String, Object?> params,
+    );
+
 /// A compiled check available to any catalog the engine supports.
 final class Builtin {
-  const Builtin(this.run, {this.params = true, this.messageIds = const {}});
+  const Builtin(
+    this.run, {
+    this.params = true,
+    this.messageIds = const {},
+    this.fix,
+  });
 
   final BuiltinBody run;
+
+  /// Present when the check's violations have one safe mechanical repair.
+  final BuiltinFix? fix;
 
   /// Schema the catalog's `params` must satisfy, checked at load.
   final Object? params;
@@ -78,4 +94,5 @@ const builtins = <String, Builtin>{
     indexSemanticProjection,
     params: indexSemanticProjectionParams,
   ),
+  'index-current': Builtin(indexCurrent, fix: generatedIndexes),
 };

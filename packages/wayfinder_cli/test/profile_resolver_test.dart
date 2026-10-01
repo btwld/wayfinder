@@ -580,6 +580,60 @@ void main() {
     },
   );
 
+  test('validate --fix writes generated indexes, then passes', () async {
+    final bundle = p.join(project.path, 'knowledge');
+    await File(p.join(bundle, 'log.md')).writeAsString(
+      '# Bundle Update Log\n\n## 2026-10-01\n\n'
+      '* **Creation**: Created the bundle.\n',
+    );
+    await Directory(p.join(bundle, 'billing')).create();
+    await File(p.join(bundle, 'billing', 'invoice.md')).writeAsString(
+      '---\ntype: Guide\ntitle: Invoice\n'
+      'description: How invoices are issued.\nstatus: stable\n---\n\n'
+      '# Invoice\n',
+    );
+    // A 2026.2-style projection that the okf generator would not write.
+    await File(p.join(bundle, 'index.md')).writeAsString(
+      '---\nokf_version: "0.2"\n---\n\n# Bundle\n\n'
+      '* [Knowledge Log](log.md)\n\n# Directories\n\n'
+      '* [billing](billing/)\n',
+    );
+    final output = <String>[];
+    final errors = <String>[];
+    final cli = WayfinderCli(
+      out: output.add,
+      err: errors.add,
+      notices: false,
+      profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
+    );
+    expect(await cli.run(['get', project.path]), 0);
+
+    output.clear();
+    expect(await cli.run(['validate', bundle]), 1);
+    expect(output, contains(contains('concepta-profile/index-current')));
+
+    output.clear();
+    expect(await cli.run(['validate', bundle, '--fix']), 0);
+    expect(output.take(2), [
+      'Fix: wrote billing/index.md',
+      'Fix: wrote index.md',
+    ]);
+    expect(output, contains('Profile 2026.3: PASS'));
+    expect(
+      await File(p.join(bundle, 'billing', 'index.md')).readAsString(),
+      '# Guide\n\n* [Invoice](invoice.md) - How invoices are issued.\n',
+    );
+    final fixed = await _snapshot(bundle);
+
+    output.clear();
+    expect(await cli.run(['validate', bundle, '--fix', '--output=json']), 0);
+    final again = jsonDecode(output.single) as Map<String, dynamic>;
+    expect(again['fix'], {'state': 'APPLIED', 'written': <String>[]});
+    expect((again['profile'] as Map)['state'], 'PASS');
+    expect(await _snapshot(bundle), fixed);
+    expect(errors, isEmpty);
+  });
+
   test('CLI get and upgrade use the shared resolver', () async {
     final output = <String>[];
     final errors = <String>[];
@@ -597,6 +651,13 @@ void main() {
     expect(errors, isEmpty);
   });
 }
+
+/// Every file's bytes under [root], keyed by relative path.
+Future<Map<String, List<int>>> _snapshot(String root) async => {
+  await for (final entity in Directory(root).list(recursive: true))
+    if (entity is File)
+      p.relative(entity.path, from: root): await entity.readAsBytes(),
+};
 
 Future<void> _git(String directory, List<String> arguments) async {
   final result = await Process.run(

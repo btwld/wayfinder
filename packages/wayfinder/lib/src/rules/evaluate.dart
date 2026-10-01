@@ -66,6 +66,21 @@ List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
   return findings;
 }
 
+/// The files `validate --fix` writes: the union of what every fixable
+/// builtin rule of the selected catalog generates; null when the catalog
+/// declares no fixable rule.
+Map<String, String>? fixes(EffectiveProfile profile, BundleFacts facts) {
+  Map<String, String>? files;
+  for (final rule in profile.catalog.rules) {
+    if (rule.check case BuiltinCheck(:final builtin, :final params)) {
+      if (builtin.fix case final fix?) {
+        (files ??= {}).addAll(fix(facts, params));
+      }
+    }
+  }
+  return files;
+}
+
 /// Plain substitution: `{failing}` renders the distinct failing values in
 /// first-occurrence order, and `{name}` renders that fact. A placeholder no
 /// fact fills stays visible in the output rather than failing the run.

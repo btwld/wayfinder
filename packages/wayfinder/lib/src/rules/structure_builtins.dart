@@ -63,6 +63,28 @@ Iterable<Violation> rootStructureFiles(
   }
 }
 
+/// The indexes okf's reference generator writes for the bundle, with the
+/// root declaring the bound OKF release.
+Map<String, String> generatedIndexes(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) => const OkfIndexGenerator().generate(
+  facts.loaded.bundle,
+  declareVersion: supportedOkfRelease,
+);
+
+Iterable<Violation> indexCurrent(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  final generated = generatedIndexes(facts, params);
+  for (final MapEntry(key: path, value: text) in generated.entries) {
+    if (facts.loaded.indexes[path] != text) {
+      yield Violation(path, facts: {'path': path});
+    }
+  }
+}
+
 const indexSemanticProjectionParams = <String, Object?>{
   'type': 'object',
   'additionalProperties': false,

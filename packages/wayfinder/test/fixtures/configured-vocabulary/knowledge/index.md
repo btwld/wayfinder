@@ -2,10 +2,6 @@
 okf_version: "0.2"
 ---
 
-# Bundle
-
-* [Knowledge Log](log.md)
-
 # Guide
 
 * [Duplicate Source Ids](duplicate-source-ids.md) - Duplicate Source Ids fixture concept.

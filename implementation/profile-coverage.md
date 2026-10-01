@@ -49,22 +49,22 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §3.1: project directories name a genuine shared subject and placement follows that subject | MUST | Profile Review | Directory contents support the path's subject claim; concepts are filed with that subject rather than by type |
 | §3.1: a genuine project area may contain any number of concepts | MAY | Profile Review | No count-based concern; placement assessed on subject truth |
 | §3.1: authors do not create speculative structure | SHOULD NOT | Profile Review | Current corpus and durable navigation need justify each directory |
-| §3.1: every nonempty area contains `index.md` | MUST | Automated Profile Validation | Index presence in each nonempty area |
+| §3.1: every area contains its generated `index.md` | MUST | Automated Profile Validation | `index-current`: the area's generated index exists and matches |
 | §3.1: areas may nest, but only when the subject genuinely subdivides | MAY / SHOULD | Profile Review | Each nested segment adds a truthful, useful subject boundary |
 | §3.1: a genuine subject concept is allowed; a generic concept must not duplicate the generated index | MAY / MUST NOT | Profile Review | Concept has specifically named durable knowledge rather than a second navigation artifact |
 | §3.2–§3.4: `architecture/`, `ways-of-working/`, `interactions/`, and `references/` are optional and lazy, with their stated ordinary or special roles | MAY | Profile Review | Present fixed directories follow their subject-, time-, or source-axis role; absent names produce no finding |
 | §3.3: Interaction Records may nest by cadence or interaction kind | MAY | Profile Review | Nested time-axis placement remains contextual and does not sort general knowledge by type |
-| §3.4: nonempty `references/` and each nonempty descendant contain `index.md` | MUST | Automated Profile Validation | Index presence at every nonempty referenced-source level |
+| §3.4: `references/` levels carry the generated indexes §9 requires; asset-only directories need none | MUST | Automated Profile Validation | `index-current` at every `references/` level the generator indexes |
 | §3.4: within a `raw/` tier and its subdirectories the only markdown file is each directory's own `index.md`, and `raw` neither names a source directory nor sits directly under `references/` | MAY / MUST NOT | Automated Profile Validation | Non-index markdown under any `raw/` directory and a `raw/` directly under `references/` fail deterministically; declining the optional tier produces no finding |
 | §3.4, §12: a `raw/` tier holds verbatim originals byte-for-byte, and the derived mirror sits beside `raw/` naming the original through `sources` | MUST | Profile Review | Whether tier contents are unmodified originals of cited sources needs source context no path rule can prove |
 | §3.5: root contains `index.md` and `log.md`, not legacy registry/declaration concepts | MUST / MUST NOT | Automated Profile Validation | Root-file presence and absence of legacy names |
 | §3.6: optional `computations/` contains only `Attested Computation` concepts and indexes; it may nest, and computations may instead live with their subject | MAY / MUST | Profile Review | Every concept under `computations/` is an Attested Computation; consumers stay with their subjects and link to it |
-| §3.6: every nonempty directory under `computations/` contains `index.md` | MUST | Automated Profile Validation | Index presence in each nonempty directory (the existing area index check) |
+| §3.6: every directory under `computations/` contains its generated `index.md` | MUST | Automated Profile Validation | `index-current`, as for areas |
 | §6.1.1: every used actor appears in the selected binding lookup | MUST | Automated Profile Validation | Actor-field scan and ID membership |
 | §5.2, §6.1.1: binding definitions have required names, descriptions, and permitted actor-side values | MUST | Automated Profile Validation | JSON shape and value checks |
-| §9: every nonempty directory contains an index | MUST | Automated Profile Validation | Recursive directory and index inventory |
-| §9: every index matches the exact immediate semantic projection and contains no unique authored navigation knowledge | MUST / MUST NOT | Automated Profile Validation | Parsed groups, membership, order, labels, relative targets compared percent-decoded with URL-divergent spellings rejected, exact concept descriptions, directory entries, and referenced assets; okf 0.2.0's advisory `okf/non-portable-index-link` may co-report on the same entry (see "OKF co-reporting") |
-| §9: harmless Markdown presentation differences do not affect semantic conformance | MUST NOT | Automated Profile Validation | Equivalent parsed index fixtures yield the same result |
+| §9: every `index.md` the pinned okf reference generator writes exists with exactly the generated text, the root declaring `okf_version: "0.2"` | MUST | Automated Profile Validation | `index-current` regenerates with `OkfIndexGenerator` and reports each missing or differing path; `validate --fix` writes them |
+| §9: a bundle with no concepts has a root index declaring `okf_version: "0.2"` and listing only `log.md` | MUST | Profile Review | The generator writes no root index for such a bundle, so `index-current` does not check it; `okf-release-binding` still checks the marker |
+| §9: an `index.md` the generator does not write, such as a leftover one in an asset-only directory, carries no authored content | MUST NOT | Profile Review | Generated paths are covered by the exact comparison above; any other index holds no navigation knowledge a concept lacks |
 | §10: root log uses newest-first ISO date groups and each entry begins `* **<lead word>**:` | MUST | Automated Profile Validation | Nonempty lead-word shape is a deterministic Profile finding; heading-date validity and descending order are diagnostics of the independent OKF check within the same `okfp validate` invocation |
 | §10: log lead words use the preferred vocabulary without closing it | SHOULD | Profile Review | Unfamiliar words are reviewed for clarity and never fail solely for being unfamiliar |
 | §10: log records material knowledge lifecycle history and omits source-only, formatting-only, and unrelated events | MUST / MUST NOT | Profile Review | Context and, when useful, version history support authored significance and completeness |
@@ -161,7 +161,7 @@ okf 0.2.0 checks some territory the Profile also rules on, always at advisory
 severity in the independent OKF report: `okf/unsupported-okf-version` (root
 index `okf_version`) under the Profile's error-level
 `concepta-profile/okf-release-binding` in legacy 2026.2, and `okf/non-portable-index-link`
-under the §9 target rules. The audit of the 0.1.2 → 0.2.0 severity re-tiering
+on an index §9 also requires to match generated output. The audit of the 0.1.2 → 0.2.0 severity re-tiering
 found no rule crossing the blocking boundary — every 0.1.2 `error` remains an
 `error`, every `warning` became a non-gating `advisory` — so no assignment in
 this matrix moved. Duplicate reporting is deliberate and stays: the OKF

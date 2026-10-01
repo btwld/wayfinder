@@ -28,7 +28,7 @@ choice and links there.
 | --- | --- | --- |
 | [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded by 0014 and, if accepted, 0015 | Closed Profile validator over independent OKF |
 | [0006](0006-raw-tier-under-references.md) | Accepted | Optional per-source `raw/` tier for verbatim originals |
-| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted | Compare index URLs after percent-decoding |
+| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted for 2026.2; superseded for 2026.3 by Profile §9 | Compare index URLs after percent-decoding |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
 | [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
 | [0010](0010-wayfinder-cli.md) | Accepted | Wayfinder CLI for validation and persistent local search |

@@ -2245,40 +2245,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
       }
     },
     {
-      "id": "directory-index-present",
-      "category": "structure",
-      "severity": "error",
-      "status": "stable",
-      "ref": "§3.1, §3.4, §9",
-      "description": "A nonempty directory MUST contain an `index.md`, including every area, sub-area, `references/`, and nonempty subdirectory of `references/`.",
-      "message": "Every nonempty directory must contain index.md.",
-      "check": {
-        "subject": "directory",
-        "at": "index",
-        "schema": {
-          "properties": {
-            "has_index": {
-              "const": true
-            }
-          }
-        }
-      },
-      "tests": {
-        "valid": [
-          {
-            "path": "area",
-            "has_index": true
-          }
-        ],
-        "invalid": [
-          {
-            "path": "area",
-            "has_index": false
-          }
-        ]
-      }
-    },
-    {
       "id": "concept-area-name-collision",
       "category": "structure",
       "severity": "advisory",
@@ -2312,15 +2278,15 @@ const Map<(String, String), String> installedRuleCatalogs = {
       }
     },
     {
-      "id": "index-semantic-projection",
+      "id": "index-current",
       "category": "structure",
       "severity": "error",
       "status": "stable",
       "ref": "§9",
-      "description": "Every index MUST be the deterministic semantic projection of its directory.",
-      "message": "The index must exactly match its immediate semantic projection.",
+      "description": "Every directory the OKF reference index generator indexes MUST contain an `index.md` identical to the generator's output for the bundle.",
+      "message": "{path} is missing or differs from the generated index; run wayfinder validate --fix.",
       "check": {
-        "builtin": "index-semantic-projection"
+        "builtin": "index-current"
       }
     },
     {

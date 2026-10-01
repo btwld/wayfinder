@@ -19,9 +19,9 @@ Precedence is a chain, and every link is one-directional:
 
 This document therefore MUST NOT restate, extend, or narrow a profile rule. Where it
 appears to, the profile governs and this text is defective. What it may do is bind
-behaviour the profile deliberately leaves open — for example, the Profile defines
-the semantic index result while this guide requires a generator to be idempotent
-and choose a deterministic Markdown rendering.
+behaviour the profile deliberately leaves open — for example, the Profile requires
+every index to be the reference generator's output while this guide pins the
+`okf` release that generator comes from.
 
 **"Guide" does not mean advisory.** The requirements below are normative and carry their
 RFC 2119 force; what distinguishes this document from the profile is not strictness but
@@ -54,7 +54,8 @@ files, and one agent-instruction paragraph, in this order:
 2. **Seed the bundle.** Create `index.md` carrying `okf_version: "0.2"` and
    `log.md` under `knowledge/`. The adoption skill's `SEEDING.md` carries the
    literal template. Do not copy the 2026.2 `profile.md`, `types.md`, or
-   `actors.md` concepts into a new 2026.3 bundle.
+   `actors.md` concepts into a new 2026.3 bundle. Once the bundle holds
+   concepts, `wayfinder validate --fix` writes every index (§3.1).
 3. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the
    equivalent) MUST say that durable documentation lives in the bundle, that
    the reader starts at `knowledge/index.md`, and that execution records stay
@@ -78,21 +79,76 @@ piece of work. A repository MAY run for months with a thin bundle beside an unco
 
 ### 2.3 Definition of done
 
-Adoption is complete when a validator run is clean, the root index lists exactly the
-concepts that exist, and someone who has never seen the repository can find the
-authoritative home for a new decision without asking. The third is the real test and it is
+Adoption is complete when a validator run is clean, every index is current, and
+someone who has never seen the repository can find the authoritative home for a
+new decision without asking. The third is the real test and it is
 not mechanical.
 
 ---
 
 ## 3. Index generation
 
+Profile 2026.3 makes every index the output of the OKF reference index
+generator (profile §9). This section pins that generator and binds the tools
+that write and check its output. Profile 2026.2 keeps its own semantic
+projection; §3.4 preserves that legacy contract unchanged.
+
+### 3.1 The reference generator (2026.3)
+
+The reference generator for Profile 2026.3 is `OkfIndexGenerator` in `okf`
+0.5.0, the release Wayfinder builds with, run over the loaded bundle with the
+root index declaring `okf_version: "0.2"`. A tool that writes or checks 2026.3
+indexes MUST use this generator release. An `okf` release that changes the
+generator's output changes which bytes conform, so adopting it requires a
+revision of this guide that pins the new release.
+
+A validator MUST report every path the generator writes whose file is missing
+or whose text differs from the generated text. The comparison is exact: the
+generator's rendering is the contract, so no presentation is left to an
+implementation and no semantic normalization applies.
+
+`wayfinder validate <bundle> --fix` is the safe fix, in the convention of
+`eslint --fix` and `ruff --fix`. For a bundle whose selected Profile is
+2026.3, it first writes the generator's output, then validates and reports as
+usual. It MUST:
+
+- **Write only generated `index.md` files**, and only those whose bytes differ.
+- **Write nothing when OKF fails** (`BLOCKED BY OKF`), when Profile dispatch
+  fails, or when the selected release has no fixable rules, as 2026.2 has
+  none. Its output says which applied.
+- **Be idempotent.** A second run over its own output writes nothing.
+- **Refuse to write through a symbolic link.**
+
+Its JSON report adds a `fix` object before `okf`; without `--fix` the report
+is unchanged.
+
+`okf index <bundle> --declare-version 0.2 --check` reports the same stale
+paths from the `okf` command line.
+
+### 3.2 Authored history stays outside generation
+
+The root log is not an index input or output. A generator MUST preserve it
+unchanged; an author or authoring workflow records meaningful history separately.
+Current concepts and version-control diffs may assist that workflow, but an
+implementation MUST NOT claim they can reconstruct the log's significance or
+completeness mechanically.
+
+### 3.3 Verification without generation
+
+A validator checks the result a generator maintains (profile §9). A repository
+MAY write indexes by any means and rely on validation to catch drift. The
+generator is an implementation convenience, not a required bundle artifact.
+
+### 3.4 Legacy contract (2026.2)
+
+This subsection binds Profile 2026.2 only. Its semantic projection is the one
+in the 2026.2 Profile snapshot, and ADR-0007 still governs its target
+comparison.
+
 The profile tightens OKF §8's verbatim-description SHOULD into a MUST (profile §9). That is
 what makes an index mechanically checkable and safely regenerable, and it costs a two-file
 write per concept. Past a few dozen concepts the cost is paid by a generator or it is paid
 in drift.
-
-### 3.1 Contract
 
 A generator MUST:
 
@@ -115,8 +171,6 @@ A generator MUST NOT:
   directory descriptions, and extra prose are drift from a generated projection,
   not state to carry forward.
 
-### 3.2 Semantic comparison
-
 A validator MUST parse an index into groups and entries and compare that model with
 the profile §9 projection. It MUST compare membership, group identity and order,
 entry order, labels, targets, and descriptions. It MUST NOT fail semantic
@@ -131,20 +185,8 @@ This comparison keeps two responsibilities separate:
 Presentation lint and automatic formatting are deferred. They MUST NOT be smuggled
 into semantic validation as byte comparison.
 
-### 3.3 Authored history stays outside generation
-
-The root log is not an index input or output. A generator MUST preserve it
-unchanged; an author or authoring workflow records meaningful history separately.
-Current concepts and version-control diffs may assist that workflow, but an
-implementation MUST NOT claim they can reconstruct the log's significance or
-completeness mechanically.
-
-### 3.4 Verification without generation
-
-A validator checks the semantic result a generator maintains (profile §9). A
-repository MAY hand-maintain indexes and rely on validation to catch drift. The
-generator is an implementation convenience, not a required bundle artifact; the
-indexes themselves remain required for every nonempty directory.
+`--fix` never writes a 2026.2 bundle; its indexes stay hand-maintained or come from a
+tool that implements this projection.
 
 ---
 
@@ -617,7 +659,7 @@ first-class reference is a rewrite of one link kind, while a private scheme is a
 A tool claims conformance to this guide by satisfying, for the profile release it
 implements:
 
-- the generator contract (§3.1–§3.3), if it writes indexes;
+- the generator contract for its release (§3), if it writes indexes;
 - the exit codes (§4.1), finding IDs (§4.2), the prohibitions (§4.3), and version dispatch
   (§4.4), if it validates;
 - tolerant reading (profile §14.2) in both cases.
@@ -638,6 +680,14 @@ get/upgrade lock management, read-only validation of a selected Profile,
 safe path and registry checks, and per-release index projection; retain legacy
 dispatch and independent OKF results. Existing 2026.2 bundles remain
 supported without edits.
+
+Revised in place before publication: §3 makes 2026.3 indexes the output of
+okf's reference generator, pins `okf` 0.5.0, replaces semantic comparison with
+exact comparison for 2026.3, and adds `validate --fix`; the 2026.2 generator
+contract and semantic comparison move unchanged to §3.4. Affected sections:
+§§1, 2.1, 2.3, 3, and 8. Driver: Profile 2026.3 §9 now defers to okf's
+generator. Migration for implementations: generate and compare 2026.3 indexes
+with the pinned generator, and keep the 2026.2 projection for 2026.2 bundles.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

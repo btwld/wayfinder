@@ -43,10 +43,12 @@ okf_version: "0.2"
 * [Knowledge Log](log.md)
 ````
 
-Other root concepts are grouped by exact `type`. Standard groups follow the
-base Profile manifest order; custom groups follow in lexical order. Immediate
-subject directories appear under `# Directories`. The subject-placement rule
-and the Profile-defined directory names remain unchanged, with the optional
+This is the only index you write by hand, and only while the bundle holds no
+concepts (Profile §9). Once it holds one, run
+`wayfinder validate knowledge --fix`: it replaces this file with okf's
+generated root index, which does not list `log.md`, and writes every directory
+index. Never edit a generated index by hand. The subject-placement rule and the
+Profile-defined directory names remain unchanged, with the optional
 `computations/` added for Attested Computation concepts (Profile §3.6).
 
 ## `knowledge/log.md`
