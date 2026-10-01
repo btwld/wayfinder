@@ -419,6 +419,7 @@ class WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
   }) async {
     WayfinderEncoder? encoder;
     try {
@@ -426,6 +427,7 @@ class WayfinderKnowledge {
         bundle,
         query,
         limit: limit,
+        filters: filters,
         encoder: () async {
           return encoder ??= await _openEncoder();
         },
@@ -441,6 +443,7 @@ class WayfinderKnowledge {
     List<String> bundles,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
   }) async {
     WayfinderEncoder? encoder;
     BaseEmbedder? queryEmbedder;
@@ -453,6 +456,7 @@ class WayfinderKnowledge {
               bundle,
               query,
               limit: limit,
+              filters: filters,
               allContext: true,
               encoder: () async {
                 encoder ??= await _openEncoder();
@@ -483,6 +487,7 @@ class WayfinderKnowledge {
     required int limit,
     required Future<WayfinderEncoder> Function() encoder,
     bool allContext = false,
+    KnowledgeMetadataFilter? filters,
   }) => _withBundle(bundle, (root, directory) async {
     final record = await _readCurrent(directory);
     if (record == null ||
@@ -520,7 +525,10 @@ class WayfinderKnowledge {
         mode: KnowledgeRetrievalMode.dense,
         limit: limit,
         contextLimit: allContext ? snapshot.conceptPaths.length : null,
-        policy: KnowledgeSearchPolicy(expandRelationships: true),
+        policy: KnowledgeSearchPolicy(
+          expandRelationships: true,
+          metadataFilter: filters,
+        ),
       );
       if (record.inventory != await _inventory(root)) {
         throw const WayfinderException(

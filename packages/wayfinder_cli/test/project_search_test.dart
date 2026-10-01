@@ -54,6 +54,60 @@ void main() {
   });
   tearDown(() => project.delete(recursive: true));
 
+  test('project search passes structured filters before retrieval', () async {
+    expect(
+      await cli.run([
+        'search',
+        'routing',
+        '--tag=nav',
+        '--tag=routes',
+        '--require-tag=mobile',
+        '--type=Guide',
+        '--status=review-ready',
+        '--path-prefix=architecture',
+        '--title-contains=routes',
+        '--description-contains=deep links',
+      ]),
+      0,
+    );
+    final filter = knowledge.receivedFilters!;
+    expect(filter.tags, {'nav', 'routes'});
+    expect(filter.requiredTags, {'mobile'});
+    expect(filter.types, {'Guide'});
+    expect(filter.statuses, {'review-ready'});
+    expect(filter.pathPrefixes, {'architecture'});
+    expect(filter.titleContains, 'routes');
+    expect(filter.descriptionContains, 'deep links');
+  });
+
+  test('comma-separated filters combine with repeated flags', () async {
+    expect(
+      await cli.run([
+        'search',
+        'routing',
+        '--tag=nav,routes',
+        '--tag=mobile',
+        '--require-tag=flutter,mobile',
+        '--type=Guide,Reference',
+        '--status=stable,draft',
+        '--path-prefix=architecture,testing',
+      ]),
+      0,
+    );
+    final filter = knowledge.receivedFilters!;
+    expect(filter.tags, {'nav', 'routes', 'mobile'});
+    expect(filter.requiredTags, {'flutter', 'mobile'});
+    expect(filter.types, {'Guide', 'Reference'});
+    expect(filter.statuses, {'stable', 'draft'});
+    expect(filter.pathPrefixes, {'architecture', 'testing'});
+  });
+
+  test('blank metadata filters fail before search', () async {
+    expect(await cli.run(['search', 'routing', '--tag= ']), 2);
+    expect(knowledge.searched, isEmpty);
+    expect(errors.single, contains('must not be blank'));
+  });
+
   test(
     'project search ranks both bundles and keeps colliding citations separate',
     () async {
@@ -258,6 +312,7 @@ class _ProjectKnowledge extends WayfinderKnowledge {
   final queries = <String>[];
   final indexed = <String>[];
   final forced = <bool>[];
+  KnowledgeMetadataFilter? receivedFilters;
   bool stale = false;
   bool related = false;
 
@@ -266,7 +321,9 @@ class _ProjectKnowledge extends WayfinderKnowledge {
     List<String> bundles,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
   }) async {
+    receivedFilters = filters;
     searched.addAll(bundles);
     queries.add(query);
     if (stale) {
