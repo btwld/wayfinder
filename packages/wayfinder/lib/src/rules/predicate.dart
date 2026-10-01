@@ -92,8 +92,6 @@ final class JsonPredicate {
       _root.firstFailure(instance, '');
 }
 
-// ------------------------------------------------------------- compiler --
-
 /// A `$ref` occurrence, kept so targets bind after every def has compiled
 /// and so cycles can be judged on the whole def graph rather than on the
 /// order keywords happened to be visited.
@@ -411,8 +409,6 @@ final class _Compiler {
     throw JsonPredicateException(pointer, 'must be a non-negative integer');
   }
 }
-
-// ---------------------------------------------------------------- nodes --
 
 sealed class _Node {
   const _Node();
@@ -918,8 +914,6 @@ final class _DateTime extends _Assertion {
     return month == 2 && leap ? 29 : lengths[month - 1];
   }
 }
-
-// ------------------------------------------------------------- helpers --
 
 String _pointer(String pointer, String token) =>
     '$pointer/${token.replaceAll('~', '~0').replaceAll('/', '~1')}';

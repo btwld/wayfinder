@@ -78,7 +78,6 @@ final class BundleFacts {
 
   final OkfBundleLoadResult loaded;
   final EffectiveProfile profile;
-  final _derived = <String, Object?>{};
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
 
@@ -153,11 +152,6 @@ final class BundleFacts {
   };
 
   Iterable<Subject> of(SubjectKind kind) => _subjects[kind]!;
-
-  /// A per-validation memo for derived data several builtins share,
-  /// computed on first use.
-  T derive<T>(String key, T Function() compute) =>
-      _derived.putIfAbsent(key, compute) as T;
 
   /// Every OKF graph edge leaving each concept, in okf's wire terms.
   late final Map<String, List<Map<String, Object?>>> _edges = () {
@@ -425,8 +419,7 @@ List<Subject> _actors(OkfBundleLoadResult loaded) {
 Iterable<String> actorIds(OkfDocument document) sync* {
   final generated = document.frontmatter['generated'];
   if (generated is Map<Object?, Object?>) {
-    final actor = nonEmptyString(generated['by']);
-    if (actor != null) yield actor;
+    if (nonEmptyString(generated['by']) case final actor?) yield actor;
   }
   final verified = document.frontmatter['verified'];
   final events = verified is List ? verified : <Object?>[verified];

@@ -238,7 +238,7 @@ OkfIndexEntry? _conceptEntry(
 /// non-portable destination, or a target spelling that is not a relative URL
 /// for the decoded path.
 List<OkfIndexEntry>? _parseIndex(String source) {
-  OkfIndexParseResult parsed;
+  final OkfIndexParseResult parsed;
   try {
     parsed = OkfIndexDocument.parse(source);
   } on OkfDocumentException {

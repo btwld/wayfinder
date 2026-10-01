@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:okf/okf.dart';
 
 import '../generated/installed_profiles.g.dart';
@@ -361,14 +362,14 @@ CatalogRule _rule(
         );
       }
       _checkPlaceholders(message.template, check, '$where.message');
-      if (map['tests'] case final Map<String, Object?> tests) {
-        examples = _examples(tests, '$where.tests');
-      } else {
+      final tests = map['tests'];
+      if (tests is! Map<String, Object?>) {
         throw RuleCatalogException(
           '$where.tests',
           'a schema check needs tests',
         );
       }
+      examples = _examples(tests, '$where.tests');
       final provided = {Slot.okfFrontmatterKeys, ...examples.slots.keys};
       for (final slot in check.slots) {
         if (!provided.contains(slot)) {
@@ -389,7 +390,8 @@ CatalogRule _rule(
         SingleMessage() => const <String>{},
         MessageVariants(:final byId) => byId.keys.toSet(),
       };
-      if (declared.isNotEmpty && !_sameSet(declared, builtin.messageIds)) {
+      if (declared.isNotEmpty &&
+          !const SetEquality<String>().equals(declared, builtin.messageIds)) {
         throw RuleCatalogException(
           '$where.message',
           'message ids must be exactly ${builtin.messageIds.join(', ')}',
@@ -554,6 +556,3 @@ RuleExamples _examples(Map<String, Object?> json, String where) {
     slots: slots,
   );
 }
-
-bool _sameSet(Set<String> left, Set<String> right) =>
-    left.length == right.length && left.containsAll(right);

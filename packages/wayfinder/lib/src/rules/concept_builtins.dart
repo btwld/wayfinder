@@ -83,11 +83,16 @@ final class _Registry {
   final List<List<String>>? rows;
 }
 
+/// Each validation's registries, read on first use by the builtins that
+/// share them.
+final _typeRegistries = Expando<_Registry>();
+final _actorRegistries = Expando<_Registry>();
+
 _Registry _typeRegistry(BundleFacts facts) =>
-    facts.derive('legacy.types', () => _readTypeRegistry(facts.loaded));
+    _typeRegistries[facts] ??= _readTypeRegistry(facts.loaded);
 
 _Registry _actorRegistry(BundleFacts facts) =>
-    facts.derive('legacy.actors', () => _readActorRegistry(facts.loaded));
+    _actorRegistries[facts] ??= _readActorRegistry(facts.loaded);
 
 _Registry _readTypeRegistry(OkfBundleLoadResult loaded) =>
     _registry(loaded.documents['types.md'], const ['Type', 'Intended content']);

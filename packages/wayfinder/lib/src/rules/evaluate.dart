@@ -1,7 +1,6 @@
-import 'dart:collection';
-
 import '../profile_finding.dart';
 import '../profile_rule_descriptors.dart';
+import 'builtins.dart';
 import 'catalog.dart';
 import 'facts.dart';
 import 'profile.dart';
@@ -107,10 +106,11 @@ Map<String, String>? fixes(EffectiveProfile profile, BundleFacts facts) {
   Map<String, String>? files;
   for (final catalog in profile.catalogs) {
     for (final rule in catalog.rules) {
-      if (rule.check case BuiltinCheck(:final builtin, :final params)) {
-        if (builtin.fix case final fix?) {
-          (files ??= {}).addAll(fix(facts, params));
-        }
+      if (rule.check case BuiltinCheck(
+        builtin: Builtin(:final fix?),
+        :final params,
+      )) {
+        (files ??= {}).addAll(fix(facts, params));
       }
     }
   }
@@ -135,9 +135,7 @@ String _render(
   return template.replaceAllMapped(placeholder, (match) {
     final name = match[1]!;
     if (name == 'failing') {
-      return LinkedHashSet<Object?>.of(
-        failing,
-      ).map((value) => '$value').join(', ');
+      return failing.toSet().join(', ');
     }
     return facts.containsKey(name) ? '${facts[name]}' : match[0]!;
   });

@@ -121,11 +121,8 @@ final RegExp _footnoteDefinition = RegExp(
 String? _relationshipLabel(markdown.Node node) {
   if (node is! markdown.Element || node.tag != 'li') return null;
   var inline = node.children ?? const <markdown.Node>[];
-  if (inline.length == 1 &&
-      inline.single is markdown.Element &&
-      (inline.single as markdown.Element).tag == 'p') {
-    inline =
-        (inline.single as markdown.Element).children ?? const <markdown.Node>[];
+  if (inline case [markdown.Element(tag: 'p', :final children)]) {
+    inline = children ?? const <markdown.Node>[];
   }
   final before = StringBuffer();
   final after = StringBuffer();

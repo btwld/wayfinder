@@ -34,10 +34,6 @@ final class ProfileRuleDescriptor {
     : id = 'concepta-profile/$slug',
       severity = RuleSeverity.error;
 
-  const ProfileRuleDescriptor.advisory(String slug, this.rule)
-    : id = 'concepta-profile/$slug',
-      severity = RuleSeverity.advisory;
-
   /// Stable `concepta-profile/<rule-slug>` finding ID.
   final String id;
 

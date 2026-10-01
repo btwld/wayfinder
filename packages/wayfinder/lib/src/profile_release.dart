@@ -15,11 +15,10 @@ const supportedOkfRelease = '0.2';
 /// external-binding release no longer needs.
 final standardTypes = _installedManifest(legacyProfileRelease).types;
 
-final externalStandardTypes = _installedManifest(externalProfileRelease).types;
-final externalStandardTags = _installedManifest(externalProfileRelease).tags;
-final externalStandardRelationships = _installedManifest(
-  externalProfileRelease,
-).relationships;
+final _external = _installedManifest(externalProfileRelease);
+final externalStandardTypes = _external.types;
+final externalStandardTags = _external.tags;
+final externalStandardRelationships = _external.relationships;
 
 ({
   List<(String, String)> types,
