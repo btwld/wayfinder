@@ -319,7 +319,7 @@ void main() {
           await file.writeAsString(
             (await file.readAsString()).replaceFirst(
               'status: stable',
-              'status: draft\ndescription: Recovery instructions',
+              'status: draft',
             ),
           );
           await expectLater(

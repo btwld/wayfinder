@@ -76,7 +76,7 @@ class WayfinderKnowledge {
     // Model identity, not provenance: re-mirroring the same verified weights
     // must not force every machine to reindex.
     'model': localEmbeddingModel.identityMap,
-    'context': 'okf-context-v1',
+    'context': 'okf-context-v2',
     'chunkCharacters': 1000,
     'longInput': 'reject',
     'snapshot': 1,
@@ -283,7 +283,7 @@ class WayfinderKnowledge {
     }
     final encoder = await _openEncoder();
     try {
-      final space = '${encoder.embedder.modelName}:okf-context-v1';
+      final space = '${encoder.embedder.modelName}:okf-context-v2';
       final compatible =
           previous?.configuration == _configuration &&
           previous?.model == space &&
@@ -468,7 +468,7 @@ class WayfinderKnowledge {
     }
     final identity = _encoderIdentity;
     if (identity != null) {
-      if (saved.model != '${identity.model}:okf-context-v1' ||
+      if (saved.model != '${identity.model}:okf-context-v2' ||
           saved.source != identity.source) {
         return false;
       }

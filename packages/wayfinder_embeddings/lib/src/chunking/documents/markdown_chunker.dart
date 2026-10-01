@@ -53,6 +53,9 @@ class MarkdownChunker extends BaseChunker {
     String currentBlockType = 'paragraph';
     int? blockStartLine;
     bool inCodeBlock = false;
+    String? codeLanguage;
+    String? codeFence;
+    final headings = <({int level, String text})>[];
 
     void flushCurrentBlock({
       required int lineEnd,
@@ -74,11 +77,14 @@ class MarkdownChunker extends BaseChunker {
             type: type ?? currentBlockType,
             parentHeadingId: currentHeadingId,
             parentHeadingLevel: currentHeadingLevel,
+            headingPath: headings.map((h) => h.text).toList(),
+            codeLanguage: codeLanguage,
           ),
         );
       }
       currentBlock = '';
       blockStartLine = null;
+      codeLanguage = null;
     }
 
     for (var index = 0; index < lines.length; index++) {
@@ -92,6 +98,8 @@ class MarkdownChunker extends BaseChunker {
 
         final headingLevel = headingMatch.group(1)!.length;
         final headingText = headingMatch.group(2)!.trimRight();
+        headings.removeWhere((h) => h.level >= headingLevel);
+        headings.add((level: headingLevel, text: headingText));
         if (includeHeadings) {
           final headingChunk = _createChunk(
             sourcePath: metadata.sourcePath,
@@ -100,6 +108,7 @@ class MarkdownChunker extends BaseChunker {
             content: headingText,
             type: 'heading',
             headingLevel: headingLevel,
+            headingPath: headings.map((h) => h.text).toList(),
           );
           chunks.add(headingChunk);
           currentHeadingId = headingChunk.id;
@@ -111,7 +120,16 @@ class MarkdownChunker extends BaseChunker {
         continue;
       }
 
-      final isFenceLine = trimmedLine.startsWith('```');
+      final fenceMatch = RegExp(r'^(`{3,}|~{3,})(.*)$').firstMatch(trimmedLine);
+      final marker = fenceMatch?.group(1);
+      final fenceInfo = fenceMatch?.group(2)?.trim() ?? '';
+      final isFenceLine =
+          marker != null &&
+          (inCodeBlock
+              ? marker[0] == codeFence![0] &&
+                    marker.length >= codeFence.length &&
+                    fenceInfo.isEmpty
+              : marker[0] != '`' || !fenceInfo.contains('`'));
       if (isFenceLine) {
         if (inCodeBlock) {
           currentBlock += (currentBlock.isEmpty ? '' : '\n') + rawLine;
@@ -121,12 +139,16 @@ class MarkdownChunker extends BaseChunker {
             emit: includeCodeBlocks,
           );
           inCodeBlock = false;
+          codeFence = null;
         } else {
           flushCurrentBlock(lineEnd: lineNumber - 1);
           inCodeBlock = true;
+          codeFence = marker;
           currentBlockType = 'code';
           blockStartLine = lineNumber;
           currentBlock = rawLine;
+          final info = fenceInfo;
+          codeLanguage = info.isEmpty ? null : info.split(RegExp(r'\s+')).first;
         }
         continue;
       }
@@ -154,6 +176,8 @@ class MarkdownChunker extends BaseChunker {
               type: 'table',
               parentHeadingId: currentHeadingId,
               parentHeadingLevel: currentHeadingLevel,
+              headingPath: headings.map((h) => h.text).toList(),
+              tableHeader: lines.sublist(index, index + 2).join('\n'),
             ),
           );
         }
@@ -228,6 +252,9 @@ class MarkdownChunker extends BaseChunker {
     String? parentHeadingId,
     int? parentHeadingLevel,
     int headingLevel = 0,
+    List<String> headingPath = const [],
+    String? codeLanguage,
+    String? tableHeader,
   }) {
     return Chunk(
       sourcePath: sourcePath,
@@ -236,6 +263,9 @@ class MarkdownChunker extends BaseChunker {
       content: content,
       type: type,
       metadata: {
+        'headingPath': headingPath,
+        'codeLanguage': ?codeLanguage,
+        'tableHeader': ?tableHeader,
         if (headingLevel > 0) 'headingLevel': headingLevel,
         'parentHeadingId': ?parentHeadingId,
         'parentHeadingLevel': ?parentHeadingLevel,
