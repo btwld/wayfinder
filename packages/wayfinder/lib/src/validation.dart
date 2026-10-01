@@ -5,15 +5,16 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-import 'concept_rules.dart';
 import 'profile_context.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
-import 'profile_rule_descriptors.dart' as rules;
-import 'structure_rules.dart';
+import 'profile_rule_descriptors.dart';
+import 'rules/builtins.dart';
+import 'rules/catalog.dart';
+import 'rules/evaluate.dart';
+import 'rules/facts.dart';
+import 'rules/profile.dart';
 import 'wayfinder_config.dart';
-
-const supportedOkfRelease = '0.2';
 
 enum OkfState {
   pass('PASS'),
@@ -94,9 +95,8 @@ final class ProfileValidationResult {
     Iterable<ProfileFinding> findings,
     String release,
   ) {
-    final released = findings.map((finding) => finding.atRelease(release));
     final stableFindings = List<ProfileFinding>.unmodifiable(
-      released.toList()..sort(
+      findings.toList()..sort(
         (left, right) => OkfReport.compareFindings(
           left.toOkfFinding(),
           right.toOkfFinding(),
@@ -217,12 +217,19 @@ final class ProfileValidator {
     if (release != legacyProfileRelease) {
       return ProfileValidationResult.unsupported(validation, release);
     }
-    final context = ProfileValidationContext.legacy(release);
-    return ProfileValidationResult.assessed(validation, <ProfileFinding>[
-      ?_validateOkfBinding(values, loaded, release),
-      ...validateConceptRules(loaded, context: context),
-      ...validateStructureRules(loaded, context: context),
-    ], release);
+    final facts = BundleFacts.project(
+      loaded,
+      context: ProfileValidationContext.legacy(release, declaration: values),
+    );
+    final profile = EffectiveProfile(
+      RuleCatalog.installed(builtinProfileId, release),
+      legacyRegistryVocabulary(facts),
+    );
+    return ProfileValidationResult.assessed(
+      validation,
+      evaluate(profile, facts),
+      release,
+    );
   }
 }
 
@@ -232,40 +239,30 @@ ProfileValidationResult _validateConfigured(
   WayfinderResolvedConfig configured, {
   required String reportedConfigPath,
 }) {
-  final context = ProfileValidationContext.external(
-    configured.profile,
-    configPath: reportedConfigPath,
+  final binding = configured.profile;
+  if (binding.release != externalProfileRelease ||
+      binding.implementsId != builtinProfileId) {
+    return ProfileValidationResult.unsupported(validation, binding.release);
+  }
+  final facts = BundleFacts.project(
+    loaded,
+    context: ProfileValidationContext.external(
+      binding,
+      configPath: reportedConfigPath,
+    ),
   );
-  if (configured.profile.release != externalProfileRelease ||
-      configured.profile.implementsId != builtinProfileId) {
-    return ProfileValidationResult.unsupported(
-      validation,
-      configured.profile.release,
-    );
-  }
-  return ProfileValidationResult.assessed(validation, <ProfileFinding>[
-    ?_validateConfiguredOkfBinding(loaded),
-    ...validateConceptRules(loaded, context: context),
-    ...validateStructureRules(loaded, context: context),
-  ], configured.profile.release);
-}
-
-ProfileFinding? _validateConfiguredOkfBinding(OkfBundleLoadResult loaded) {
-  final rootIndex = loaded.indexes['index.md'];
-  Object? rootVersion;
-  if (rootIndex != null) {
-    try {
-      rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
-    } on OkfDocumentException {
-      // The independent OKF result reports malformed reserved documents.
-    }
-  }
-  if (rootVersion == supportedOkfRelease) return null;
-  return const ProfileFinding(
-    descriptor: rules.okfReleaseBinding,
-    message: 'The bundle root index must declare okf_version: "0.2".',
-    path: 'index.md',
-    profileRelease: externalProfileRelease,
+  final profile = EffectiveProfile(
+    RuleCatalog.installed(binding.implementsId, binding.release),
+    Vocabulary(
+      types: binding.typeNames.toList(),
+      tags: binding.tagNames.toList(),
+      actors: binding.actors.keys.toList(),
+    ),
+  );
+  return ProfileValidationResult.assessed(
+    validation,
+    evaluate(profile, facts),
+    binding.release,
   );
 }
 
@@ -282,7 +279,7 @@ Future<_ConfigRead> _readProjectConfig(
     if (configPath != null) {
       return _ConfigRead.finding(
         ProfileFinding(
-          descriptor: rules.configurationReadable,
+          descriptor: DispatchRule.configurationReadable,
           message: 'Configuration file $configPath does not exist.',
           path: configPath,
         ),
@@ -301,7 +298,7 @@ Future<_ConfigRead> _readProjectConfig(
     }
     return _ConfigRead.finding(
       ProfileFinding(
-        descriptor: rules.configurationReadable,
+        descriptor: DispatchRule.configurationReadable,
         message: error.message,
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
@@ -385,7 +382,7 @@ Future<_ConfigRead> _readProjectConfig(
   } on WayfinderConfigException catch (error) {
     return _ConfigRead.finding(
       ProfileFinding(
-        descriptor: rules.configurationReadable,
+        descriptor: DispatchRule.configurationReadable,
         message: error.message,
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
@@ -394,7 +391,7 @@ Future<_ConfigRead> _readProjectConfig(
   } on FileSystemException catch (error) {
     return _ConfigRead.finding(
       ProfileFinding(
-        descriptor: rules.configurationBundleBinding,
+        descriptor: DispatchRule.configurationBundleBinding,
         message: 'Configured bundle path is not readable: ${error.message}.',
         path: configPath ?? p.basename(file.path),
         profileRelease: externalProfileRelease,
@@ -428,7 +425,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (document == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        descriptor: rules.profileDeclarationPresent,
+        descriptor: DispatchRule.profileDeclarationPresent,
         message: 'The bundle must contain profile.md.',
         path: 'profile.md',
       ),
@@ -438,7 +435,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (yamlSource == null) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        descriptor: rules.profileDeclarationReadable,
+        descriptor: DispatchRule.profileDeclarationReadable,
         message: 'profile.md must contain a fenced yaml declaration.',
         path: 'profile.md',
       ),
@@ -450,7 +447,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   } on YamlException {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        descriptor: rules.profileDeclarationReadable,
+        descriptor: DispatchRule.profileDeclarationReadable,
         message: 'The first fenced yaml declaration in profile.md is invalid.',
         path: 'profile.md',
       ),
@@ -459,7 +456,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
   if (parsed is! Map) {
     return const _DeclarationRead.finding(
       ProfileFinding(
-        descriptor: rules.profileDeclarationFields,
+        descriptor: DispatchRule.profileDeclarationFields,
         message: 'The Profile declaration must be a YAML mapping.',
         path: 'profile.md',
       ),
@@ -471,7 +468,7 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
     if (value is! String || value.trim().isEmpty) {
       return const _DeclarationRead.finding(
         ProfileFinding(
-          descriptor: rules.profileDeclarationFields,
+          descriptor: DispatchRule.profileDeclarationFields,
           message:
               'The Profile declaration must contain non-empty string '
               'values for concepta_profile and okf_version.',
@@ -482,35 +479,6 @@ _DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
     values[key] = value;
   }
   return _DeclarationRead.values(values);
-}
-
-ProfileFinding? _validateOkfBinding(
-  Map<String, String> declaration,
-  OkfBundleLoadResult loaded,
-  String release,
-) {
-  Object? rootVersion;
-  final rootIndex = loaded.indexes['index.md'];
-  if (rootIndex != null) {
-    try {
-      rootVersion = OkfDocument.parse(rootIndex).frontmatter['okf_version'];
-    } on OkfDocumentException {
-      // The independent OKF result reports the malformed reserved document;
-      // with no readable root binding, the finding below reports.
-    }
-  }
-  if (declaration['okf_version'] == supportedOkfRelease &&
-      rootVersion == supportedOkfRelease) {
-    return null;
-  }
-  return ProfileFinding(
-    descriptor: rules.okfReleaseBinding,
-    message:
-        'The declaration, root index, and Profile release must all bind '
-        'to OKF 0.2.',
-    path: 'profile.md',
-    profileRelease: release,
-  );
 }
 
 String? _firstYamlFence(String body) {

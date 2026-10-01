@@ -1,44 +1,146 @@
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf/okf.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/generated/installed_profiles.g.dart';
+import 'package:wayfinder/src/profile_release.dart';
 import 'package:wayfinder/src/profile_rule_descriptors.dart';
-import 'package:wayfinder/src/validation.dart';
+import 'package:wayfinder/src/rules/catalog.dart';
+import 'package:wayfinder/src/rules/predicate.dart';
 
 void main() {
-  test(
-    'descriptor ids are unique and valid in the concepta-profile namespace',
-    () {
-      final seen = <String>{};
-      for (final descriptor in profileRuleDescriptors) {
-        final id = OkfFindingId.parse(descriptor.id);
-        expect(id.namespace, 'concepta-profile', reason: descriptor.id);
-        expect(seen.add(descriptor.id), isTrue, reason: descriptor.id);
-      }
-    },
-  );
+  final catalogs = {
+    for (final release in [legacyProfileRelease, externalProfileRelease])
+      release: RuleCatalog.installed(builtinProfileId, release),
+  };
 
-  test(
-    'every finding emitted over the fixture corpus is a registered rule',
-    () async {
-      final fixtures =
-          Directory('test/fixtures').listSync().whereType<Directory>().toList()
-            ..sort((left, right) => left.path.compareTo(right.path));
-      expect(fixtures, isNotEmpty);
+  test('both installed catalogs validate against the catalog schema', () async {
+    final schema = JsonPredicate.compile(
+      jsonDecode(
+        await File(
+          '../../docs/schemas/wayfinder-rules.schema.json',
+        ).readAsString(),
+      ),
+    );
+    for (final MapEntry(key: (id, release), value: json)
+        in installedRuleCatalogs.entries) {
+      expect(schema.test(jsonDecode(json)), isTrue, reason: '$id $release');
+    }
+    expect(
+      schema.test({
+        'format': 1,
+        'namespace': 'x',
+        'profile': {'id': 'x', 'release': '2026.1'},
+        'rules': [
+          {
+            'id': 'a',
+            'category': 'structure',
+            'severity': 'fatal',
+            'status': 'stable',
+            'ref': '§1',
+            'description': 'd',
+            'message': 'm',
+            'check': {'builtin': 'log-entry-lead-word'},
+          },
+        ],
+      }),
+      isFalse,
+      reason: 'the schema must reject an unknown severity',
+    );
+  });
 
-      final emitted = <String>{};
-      for (final fixtureDir in fixtures) {
-        final result = await const ProfileValidator().validate(fixtureDir.path);
-        for (final finding in result.findings) {
-          emitted.add(finding.id);
-          expect(
-            profileRuleDescriptors,
-            contains(same(finding.descriptor)),
-            reason: '${finding.id} (${fixtureDir.path}) is not in the registry',
-          );
-        }
+  test('every finding in the goldens is declared by its release', () {
+    final goldens = Directory('test/goldens').listSync().whereType<File>();
+    final seen = <String>{};
+    for (final golden in goldens) {
+      final profile =
+          (jsonDecode(golden.readAsStringSync())
+                  as Map<String, Object?>)['profile']
+              as Map<String, Object?>;
+      final release = profile['release'] as String?;
+      final declared = {
+        for (final descriptor in DispatchRule.all) descriptor.id,
+        if (catalogs[release] case final catalog?)
+          for (final rule in catalog.rules) rule.descriptor.id,
+      };
+      for (final finding in profile['findings'] as List<Object?>) {
+        final id = (finding as Map<String, Object?>)['id'] as String;
+        seen.add(id);
+        expect(
+          declared,
+          contains(id),
+          reason: '$id in ${p.basename(golden.path)} (release $release)',
+        );
       }
-      expect(emitted, isNotEmpty);
-    },
-  );
+    }
+    expect(seen, isNotEmpty);
+  });
+
+  test('every rule of every release reports under its namespace', () {
+    for (final MapEntry(key: release, value: catalog) in catalogs.entries) {
+      expect(catalog.release, release);
+      expect(catalog.profileId, builtinProfileId);
+      for (final rule in catalog.rules) {
+        expect(
+          rule.descriptor.id,
+          startsWith('${catalog.namespace}/'),
+          reason: rule.descriptor.id,
+        );
+      }
+    }
+  });
+
+  for (final MapEntry(key: release, value: catalog) in catalogs.entries) {
+    for (final rule in catalog.rules) {
+      test('$release ${rule.descriptor.id} examples behave as declared', () {
+        expect(rule.failingExamples(), isEmpty);
+      });
+    }
+  }
+
+  test('load rejects a rule that reaches an unknown slot', () {
+    expect(
+      () => RuleCatalog.parse(
+        jsonEncode({
+          'format': 1,
+          'namespace': 'x',
+          'profile': {'id': 'x', 'release': '2026.1'},
+          r'$defs': {
+            'name': {'x-slot': 'profile.names'},
+          },
+          'rules': [
+            {
+              'id': 'a',
+              'category': 'vocabulary',
+              'severity': 'error',
+              'status': 'stable',
+              'ref': '§1',
+              'description': 'd',
+              'message': 'm',
+              'check': {
+                'subject': 'concept',
+                'schema': {
+                  'properties': {
+                    'type': {r'$ref': r'#/$defs/name'},
+                  },
+                },
+              },
+              'tests': {
+                'valid': [<String, Object?>{}],
+                'invalid': [<String, Object?>{}],
+              },
+            },
+          ],
+        }),
+      ),
+      throwsA(
+        isA<RuleCatalogException>().having(
+          (error) => error.message,
+          'message',
+          contains('unknown slot'),
+        ),
+      ),
+    );
+  });
 }

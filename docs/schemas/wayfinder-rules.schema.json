@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-rules.schema.json",
+  "title": "Wayfinder Profile rule catalog",
+  "description": "The automated rules of one Profile release, evaluated by the installed wayfinder engine. Written inside the engine's own JSON Schema keyword subset so the engine validates catalogs with the same predicate it evaluates rules with.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "namespace",
+    "profile",
+    "rules"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "format": {
+      "const": 1,
+      "description": "Catalog format the engine must support."
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Finding id namespace; never okf."
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "release"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        },
+        "release": {
+          "type": "string",
+          "pattern": "^[0-9]{4}\\.[0-9]+$"
+        }
+      }
+    },
+    "$defs": {
+      "type": "object",
+      "description": "Schemas rule schemas may $ref as #/$defs/<name>, including x-slot vocabularies."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "severity",
+        "status",
+        "ref",
+        "description",
+        "message",
+        "check"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+          "description": "Finding slug under the catalog namespace."
+        },
+        "category": {
+          "enum": [
+            "structure",
+            "vocabulary",
+            "provenance",
+            "linking",
+            "history"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "advisory"
+          ]
+        },
+        "status": {
+          "enum": [
+            "preview",
+            "stable",
+            "deprecated"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Normative Profile clause reference."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The rule's normative statement."
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Finding text with {failing} and {fact} placeholders; an object keys variants by the message id a builtin names."
+        },
+        "check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/schema-check"
+            },
+            {
+              "$ref": "#/$defs/builtin-check"
+            }
+          ]
+        },
+        "tests": {
+          "$ref": "#/$defs/tests"
+        }
+      }
+    },
+    "schema-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "schema"
+      ],
+      "properties": {
+        "subject": {
+          "enum": [
+            "frontmatter",
+            "concept",
+            "actor"
+          ]
+        },
+        "each": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An array fact of the subject; the schema runs per element."
+        },
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Subject location key to report at; self by default."
+        },
+        "schema": {
+          "type": [
+            "object",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "builtin-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builtin"
+      ],
+      "properties": {
+        "builtin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "invalid"
+      ],
+      "properties": {
+        "slots": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "valid": {
+          "type": "array",
+          "minItems": 1
+        },
+        "invalid": {
+          "type": "array",
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

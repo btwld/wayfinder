@@ -1,6 +1,5 @@
 import 'package:okf/okf.dart';
 
-import 'profile_release.dart';
 import 'profile_rule_descriptors.dart';
 
 /// A deterministic finding for a supported Profile release.
@@ -19,18 +18,6 @@ final class ProfileFinding {
     required this.path,
     this.profileRelease,
   });
-
-  /// Creates a finding under the current release. Assessment retags it with
-  /// the exact selected release, including legacy 2026.2 dispatch.
-  const ProfileFinding.forRule(this.descriptor, this.message, this.path)
-    : profileRelease = supportedProfileRelease;
-
-  ProfileFinding atRelease(String release) => ProfileFinding(
-    descriptor: descriptor,
-    message: message,
-    path: path,
-    profileRelease: release,
-  );
 
   /// The rule that reported this finding.
   final ProfileRuleDescriptor descriptor;

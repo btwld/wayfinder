@@ -9,6 +9,7 @@ const builtinProfileId = 'bitwild_profile';
 const legacyProfileRelease = '2026.2';
 const externalProfileRelease = '2026.3';
 const supportedProfileRelease = externalProfileRelease;
+const supportedOkfRelease = '0.2';
 
 /// The 2026.2 vocabulary, including the three registry concepts the
 /// external-binding release no longer needs.

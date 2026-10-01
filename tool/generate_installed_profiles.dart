@@ -36,6 +36,14 @@ Future<void> main(List<String> arguments) async {
         current: 'wayfinder-profile.json',
         snapshotPrefix: 'wayfinder-profile-',
       ),
+      await _EmbeddedSet.read(
+        workspace,
+        constant: 'installedRuleCatalogs',
+        doc:
+            'Installed Profile rule catalogs, raw JSON keyed by (id, release).',
+        current: 'wayfinder-rules.json',
+        snapshotPrefix: 'wayfinder-rules-',
+      ),
     ]),
   );
   final existing = await output.exists() ? await output.readAsString() : null;

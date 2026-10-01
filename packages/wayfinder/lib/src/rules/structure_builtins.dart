@@ -2,61 +2,69 @@ import 'package:collection/collection.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
-import 'finding_helpers.dart';
-import 'profile_context.dart';
-import 'profile_finding.dart';
-import 'profile_release.dart';
-import 'profile_rule_descriptors.dart' as rules;
+import '../finding_helpers.dart';
+import '../profile_release.dart';
+import 'builtins.dart';
+import 'facts.dart';
 
 const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
 
-List<ProfileFinding> validateStructureRules(
-  OkfBundleLoadResult loaded, {
-  required ProfileValidationContext context,
-}) {
-  final inventory = _BundleInventory(loaded);
-  return <ProfileFinding>[
-    ..._validateRootFiles(loaded, context),
-    ..._validateConfigurationLegacyFiles(loaded, context),
-    ..._validateReservedStructureNames(loaded, context),
-    ..._validateDirectoryIndexes(loaded, inventory),
-    ..._validateConceptAreaCollisions(loaded, inventory),
-    ..._validateRawTier(loaded, inventory),
-    ..._validateIndexes(loaded, inventory, context),
-    ..._validateLog(loaded),
-  ];
+Iterable<Violation> declaredOkfBinding(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  if (facts.context.declaration!['okf_version'] != supportedOkfRelease ||
+      _rootOkfVersion(facts.loaded) != supportedOkfRelease) {
+    yield const Violation('profile.md');
+  }
 }
 
-Iterable<ProfileFinding> _validateConfigurationLegacyFiles(
-  OkfBundleLoadResult loaded,
-  ProfileValidationContext context,
+Iterable<Violation> rootOkfVersion(
+  BundleFacts facts,
+  Map<String, Object?> params,
 ) sync* {
-  if (!context.externalBinding) return;
-  for (final path in const <String>['profile.md', 'types.md', 'actors.md']) {
-    if (loaded.documents.containsKey(path)) {
-      yield ProfileFinding.forRule(
-        rules.configurationLegacyRegistry,
-        '$path is a legacy 2026.2 registry; remove it when using an external '
-        'Profile binding.',
-        path,
-      );
+  if (_rootOkfVersion(facts.loaded) != supportedOkfRelease) {
+    yield const Violation('index.md');
+  }
+}
+
+Object? _rootOkfVersion(OkfBundleLoadResult loaded) {
+  final rootIndex = loaded.indexes['index.md'];
+  if (rootIndex == null) return null;
+  try {
+    return OkfDocument.parse(rootIndex).frontmatter['okf_version'];
+  } on OkfDocumentException {
+    // The independent OKF result reports the malformed reserved document;
+    // with no readable root binding, the rule reports.
+    return null;
+  }
+}
+
+Iterable<Violation> configurationLegacyRegistry(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  for (final path in _structuralConcepts) {
+    if (facts.loaded.documents.containsKey(path)) {
+      yield Violation(path, facts: {'path': path});
     }
   }
 }
 
-Iterable<ProfileFinding> _validateRawTier(
-  OkfBundleLoadResult loaded,
-  _BundleInventory inventory,
+Iterable<Violation> rawDirectoryPlacement(
+  BundleFacts facts,
+  Map<String, Object?> params,
 ) sync* {
-  if (inventory.nonRootDirectories.contains('references/raw')) {
-    yield ProfileFinding.forRule(
-      rules.rawDirectoryPlacement,
-      'A raw/ tier belongs to a source directory; raw/ must not sit directly '
-          'under references/.',
-      'references/raw',
-    );
+  if (_inventory(facts).nonRootDirectories.contains('references/raw')) {
+    yield const Violation('references/raw');
   }
-  for (final path in loaded.paths) {
+}
+
+Iterable<Violation> rawDirectoryMarkdown(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  for (final path in facts.loaded.paths) {
     if (!path.endsWith('.md') || p.posix.basename(path) == 'index.md') {
       continue;
     }
@@ -64,104 +72,88 @@ Iterable<ProfileFinding> _validateRawTier(
     if (directories.first != 'references' || !directories.contains('raw')) {
       continue;
     }
-    yield ProfileFinding.forRule(
-      rules.rawDirectoryMarkdown,
-      'A raw/ tier holds verbatim originals; the only markdown permitted in '
-      'it is each directory\'s own index.md.',
-      path,
-    );
+    yield Violation(path);
   }
 }
 
-Iterable<ProfileFinding> _validateReservedStructureNames(
-  OkfBundleLoadResult loaded,
-  ProfileValidationContext context,
-) sync* {
-  // 2026.3 §3.5 forbids only the legacy root registries; a nested concept may
-  // use these names.
-  if (context.externalBinding) return;
-  for (final path in loaded.documents.keys) {
-    if (!path.contains('/') ||
-        !_structuralConcepts.contains(p.posix.basename(path))) {
-      continue;
-    }
-    yield ProfileFinding.forRule(
-      rules.rootStructureFiles,
-      'profile.md, types.md, and actors.md are reserved for their bundle-root '
-      'structural purposes.',
-      path,
-    );
-  }
-}
+const rootStructureFilesParams = <String, Object?>{
+  'type': 'object',
+  'required': ['required'],
+  'additionalProperties': false,
+  'properties': {
+    'required': {
+      'type': 'array',
+      'minItems': 1,
+      'items': {'type': 'string', 'minLength': 1},
+    },
+    'reserved': {
+      'type': 'array',
+      'items': {'type': 'string', 'minLength': 1},
+    },
+  },
+};
 
-Iterable<ProfileFinding> _validateRootFiles(
-  OkfBundleLoadResult loaded,
-  ProfileValidationContext context,
+/// `required` names root files that must exist, reported together at the
+/// first missing one. `reserved` names basenames no nested concept may use.
+Iterable<Violation> rootStructureFiles(
+  BundleFacts facts,
+  Map<String, Object?> params,
 ) sync* {
-  final missing = <String>[
-    if (!loaded.indexes.containsKey('index.md')) 'index.md',
-    if (!loaded.logs.containsKey('log.md')) 'log.md',
-    if (!context.externalBinding && !loaded.documents.containsKey('profile.md'))
-      'profile.md',
-    if (!context.externalBinding && !loaded.documents.containsKey('types.md'))
-      'types.md',
-  ];
+  final loaded = facts.loaded;
+  final missing = (params['required']! as List<Object?>)
+      .cast<String>()
+      .where(
+        (path) =>
+            !loaded.indexes.containsKey(path) &&
+            !loaded.logs.containsKey(path) &&
+            !loaded.documents.containsKey(path),
+      )
+      .toList();
   if (missing.isNotEmpty) {
-    yield ProfileFinding.forRule(
-      rules.rootStructureFiles,
-      context.externalBinding
-          ? 'The configured bundle root must contain index.md and log.md; '
-                'missing ${missing.join(', ')}.'
-          : 'The bundle root must contain index.md, log.md, profile.md, and '
-                'types.md; missing ${missing.join(', ')}.',
-      missing.first,
-    );
+    yield Violation(missing.first, failing: missing, messageId: 'missing');
   }
-}
-
-Iterable<ProfileFinding> _validateDirectoryIndexes(
-  OkfBundleLoadResult loaded,
-  _BundleInventory inventory,
-) sync* {
-  for (final directory in inventory.nonRootDirectories) {
-    final indexPath = '$directory/index.md';
-    if (!loaded.indexes.containsKey(indexPath)) {
-      yield ProfileFinding.forRule(
-        rules.directoryIndexPresent,
-        'Every nonempty directory must contain index.md.',
-        indexPath,
-      );
+  final reserved = (params['reserved'] as List<Object?>? ?? const [])
+      .cast<String>();
+  for (final path in loaded.documents.keys) {
+    if (path.contains('/') && reserved.contains(p.posix.basename(path))) {
+      yield Violation(path, messageId: 'reserved');
     }
   }
 }
 
-Iterable<ProfileFinding> _validateConceptAreaCollisions(
-  OkfBundleLoadResult loaded,
-  _BundleInventory inventory,
+Iterable<Violation> directoryIndexPresent(
+  BundleFacts facts,
+  Map<String, Object?> params,
 ) sync* {
-  final directories = inventory.areaDirectories.toSet();
-  for (final path in loaded.documents.keys) {
+  for (final directory in _inventory(facts).nonRootDirectories) {
+    final indexPath = '$directory/index.md';
+    if (!facts.loaded.indexes.containsKey(indexPath)) {
+      yield Violation(indexPath);
+    }
+  }
+}
+
+Iterable<Violation> conceptAreaNameCollision(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  final directories = _inventory(facts).areaDirectories.toSet();
+  for (final path in facts.loaded.documents.keys) {
     if (_structuralConcepts.contains(path)) continue;
     final directory = p.posix.dirname(path);
     final parent = directory == '.' ? '' : directory;
     final basename = p.posix.basenameWithoutExtension(path);
     final sibling = parent.isEmpty ? basename : '$parent/$basename';
-    if (directories.contains(sibling)) {
-      yield ProfileFinding.forRule(
-        rules.conceptAreaNameCollision,
-        'A concept beside an area of the same name needs contextual placement '
-        'review.',
-        path,
-      );
-    }
+    if (directories.contains(sibling)) yield Violation(path);
   }
 }
 
-Iterable<ProfileFinding> _validateIndexes(
-  OkfBundleLoadResult loaded,
-  _BundleInventory inventory,
-  ProfileValidationContext context,
+Iterable<Violation> indexSemanticProjection(
+  BundleFacts facts,
+  Map<String, Object?> params,
 ) sync* {
+  final loaded = facts.loaded;
+  final inventory = _inventory(facts);
   for (final entry in loaded.indexes.entries) {
     final directory = p.posix.dirname(entry.key);
     final normalizedDirectory = directory == '.' ? '' : directory;
@@ -169,23 +161,22 @@ Iterable<ProfileFinding> _validateIndexes(
       loaded,
       inventory,
       normalizedDirectory,
-      context,
+      externalBinding: facts.context.externalBinding,
     );
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
     if (actual == null ||
         !const ListEquality<OkfIndexEntry>().equals(actual, expected)) {
-      yield ProfileFinding.forRule(
-        rules.indexSemanticProjection,
-        'The index must exactly match its immediate semantic projection.',
-        entry.key,
-      );
+      yield Violation(entry.key);
     }
   }
 }
 
-Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
-  final source = loaded.logs['log.md'];
+Iterable<Violation> logEntryLeadWord(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  final source = facts.loaded.logs['log.md'];
   if (source == null) return;
   OkfLogParseResult parsed;
   try {
@@ -197,22 +188,18 @@ Iterable<ProfileFinding> _validateLog(OkfBundleLoadResult loaded) sync* {
   }
   if (parsed.entries.isEmpty ||
       parsed.entries.any((entry) => entry.action.isEmpty)) {
-    yield ProfileFinding.forRule(
-      rules.logEntryLeadWord,
-      'Every root log entry must begin with a nonempty bold lead word and a '
-          'colon.',
-      'log.md',
-    );
+    yield const Violation('log.md');
   }
 }
 
 List<OkfIndexEntry>? _expectedProjection(
   OkfBundleLoadResult loaded,
   _BundleInventory inventory,
-  String directory,
-  ProfileValidationContext context,
-) {
+  String directory, {
+  required bool externalBinding,
+}) {
   final projection = <OkfIndexEntry>[];
+  final structural = externalBinding ? const <String>[] : _structuralConcepts;
   if (directory.isEmpty) {
     final bundleEntries = <OkfIndexEntry>[
       if (loaded.logs.containsKey('log.md'))
@@ -222,16 +209,12 @@ List<OkfIndexEntry>? _expectedProjection(
           link: 'log.md',
           description: '',
         ),
-      for (final path
-          in (context.externalBinding ? const <String>[] : _structuralConcepts))
+      for (final path in structural)
         if (loaded.documents[path] case final document?)
           ?_conceptEntry(path, document, group: 'Bundle'),
     ];
     if (bundleEntries.length !=
-        1 +
-            (context.externalBinding ? const <String>[] : _structuralConcepts)
-                .where(loaded.documents.containsKey)
-                .length) {
+        1 + structural.where(loaded.documents.containsKey).length) {
       return null;
     }
     projection.addAll(bundleEntries);
@@ -241,17 +224,13 @@ List<OkfIndexEntry>? _expectedProjection(
   for (final entry in loaded.documents.entries) {
     final parent = p.posix.dirname(entry.key);
     if ((parent == '.' ? '' : parent) != directory) continue;
-    if (directory.isEmpty &&
-        !context.externalBinding &&
-        _structuralConcepts.contains(entry.key)) {
-      continue;
-    }
+    if (directory.isEmpty && structural.contains(entry.key)) continue;
     final concept = _conceptEntry(entry.key, entry.value);
     if (concept == null) return null;
     byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
   final standardNames =
-      (context.externalBinding ? externalStandardTypes : standardTypes)
+      (externalBinding ? externalStandardTypes : standardTypes)
           .map((row) => row.$1)
           .toList();
   final customTypes =
@@ -325,7 +304,7 @@ OkfIndexEntry? _conceptEntry(
 }
 
 /// Parses an index through okf's entry format with targets percent-decoded;
-/// null when the document is not a clean projection — a structural issue, a
+/// null when the document is not a clean projection: a structural issue, a
 /// non-portable destination, or a target spelling that is not a relative URL
 /// for the decoded path.
 List<OkfIndexEntry>? _parseIndex(String source) {
@@ -356,14 +335,14 @@ final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
 
 // A spelling a relative-URL consumer reads differently from the decoded
 // comparison: a stray `%`, a raw query/fragment delimiter (RFC 3986), or a
-// `%2F` escape — a `/` a URL reads as data would alias a path separator, so
+// `%2F` escape. A `/` a URL reads as data would alias a path separator, so
 // the entry would validate yet resolve elsewhere. Because every other `%`
 // must start a valid escape, `%2F` is the only spelling an escape run can
 // decode a `/` from.
 final RegExp _nonTargetSpelling = RegExp(r'[?#]|%2[Ff]|%(?![0-9A-Fa-f]{2})');
 
 /// Percent-decodes a parsed target so §9 compares every valid spelling of a
-/// path against its raw projection; null when the spelling is not a target —
+/// path against its raw projection; null when the spelling is not a target:
 /// a malformed escape, a raw `?` or `#`, or an escape hiding a `/`.
 ///
 /// Not [Uri.decodeComponent] on the whole target: it throws [ArgumentError] on
@@ -379,6 +358,9 @@ String? _decodeTarget(String target) {
     return null;
   }
 }
+
+_BundleInventory _inventory(BundleFacts facts) =>
+    facts.derive('inventory', () => _BundleInventory(facts.loaded));
 
 final class _BundleInventory {
   _BundleInventory(OkfBundleLoadResult loaded)

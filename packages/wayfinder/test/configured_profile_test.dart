@@ -10,28 +10,37 @@ import 'package:wayfinder/wayfinder.dart';
 import 'support.dart';
 
 void main() {
-  test('the generated installed manifests are current', () async {
-    final files = [
-      File('../../profile/wayfinder-profile.json'),
-      ...Directory('../../profile/versions').listSync().whereType<File>().where(
-        (file) => p.basename(file.path).startsWith('wayfinder-profile-'),
-      ),
-    ];
-    final keys = <(String, String)>{};
-    for (final file in files) {
-      final text = await file.readAsString();
-      final manifest = jsonDecode(text) as Map<String, Object?>;
-      final key = (manifest['id'] as String, manifest['release'] as String);
-      keys.add(key);
-      expect(
-        installedProfileManifests[key],
-        text,
-        reason:
-            '${file.path} is not embedded; run '
-            'dart run tool/generate_installed_profiles.dart',
-      );
+  test('the generated installed Profile files are current', () async {
+    for (final (name, embedded) in [
+      ('wayfinder-profile', installedProfileManifests),
+      ('wayfinder-rules', installedRuleCatalogs),
+    ]) {
+      final files = [
+        File('../../profile/$name.json'),
+        ...Directory('../../profile/versions')
+            .listSync()
+            .whereType<File>()
+            .where((file) => p.basename(file.path).startsWith('$name-')),
+      ];
+      final keys = <(String, String)>{};
+      for (final file in files) {
+        final text = await file.readAsString();
+        final json = jsonDecode(text) as Map<String, Object?>;
+        final source = json['profile'] is Map<String, Object?>
+            ? json['profile'] as Map<String, Object?>
+            : json;
+        final key = (source['id'] as String, source['release'] as String);
+        keys.add(key);
+        expect(
+          embedded[key],
+          text,
+          reason:
+              '${file.path} is not embedded; run '
+              'dart run tool/generate_installed_profiles.dart',
+        );
+      }
+      expect(embedded.keys.toSet(), keys, reason: name);
     }
-    expect(installedProfileManifests.keys.toSet(), keys);
     expect(externalStandardTypes.length, 12);
     expect(standardTypes.length, 14);
   });

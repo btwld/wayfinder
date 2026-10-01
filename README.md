@@ -305,10 +305,12 @@ python3 tool/ci/verify-configured-example.py
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.
 
-The validator embeds the installed Profile files under `profile/` through the generated
-`packages/wayfinder/lib/src/generated/installed_profiles.g.dart`. After editing a manifest
-or adding a snapshot under `profile/versions/`, run `dart run tool/generate_installed_profiles.dart`
-and commit the result; `--check` is the CI gate for a stale file.
+The validator embeds the installed Profile manifests and rule catalogs under `profile/` through
+the generated `packages/wayfinder/lib/src/generated/installed_profiles.g.dart`. After editing a
+manifest or catalog, or adding a snapshot under `profile/versions/`, run
+`dart run tool/generate_installed_profiles.dart` and commit the result; `--check` is the CI gate
+for a stale file. A catalog's shape is `docs/schemas/wayfinder-rules.schema.json`, and every
+schema rule carries `tests` that `profile_descriptors_test.dart` runs.
 
 `packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
 `packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
