@@ -86,6 +86,12 @@ schema keyword is an engine release. Golden reports for every fixture are the
 regression oracle for engine changes; they compare the full report, so a
 wording change is a reviewed golden diff.
 
+A read-only probe expressed that second gate's 32 rules as a catalog for this
+engine: 22 were expressible and 18 matched its findings exactly across 41
+mutated copies of its bundles; 5 needed a fact or builtin the engine lacked and
+5 compare two revisions rather than one bundle state, which this engine does
+not assess.
+
 Plugins that add facts or builtins from outside the binary remain out of scope.
 
 ## Reconsider when
