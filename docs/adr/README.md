@@ -26,7 +26,7 @@ choice and links there.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
-| [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded for 2026.3 by 0014 | Closed Profile validator over independent OKF |
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded by 0014 and, if accepted, 0015 | Closed Profile validator over independent OKF |
 | [0006](0006-raw-tier-under-references.md) | Accepted | Optional per-source `raw/` tier for verbatim originals |
 | [0007](0007-index-targets-compared-percent-decoded.md) | Accepted | Compare index URLs after percent-decoding |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
@@ -36,3 +36,4 @@ choice and links there.
 | [0012](0012-wayfinder-graph-projection.md) | Accepted | Project the ordinary OKF graph |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
 | [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | Direct Git sources, additive vocabulary and exact-release dispatch |
+| [0015](0015-profile-rule-catalogs.md) | Proposed | Evaluate Profiles as rule catalogs over parsed bundle facts |
