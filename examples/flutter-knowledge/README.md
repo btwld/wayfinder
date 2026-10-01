@@ -1,8 +1,6 @@
 # Flutter and Dart knowledge bundle
 
-This is the first, source-attributed pilot produced from the plan in
-`docs/plans/flutter-knowledge-bundle/`. It turns selected upstream Dart and
-Flutter skill instructions into durable OKF concepts, then connects them to
+This pilot turns selected upstream Dart and Flutter skill instructions into durable OKF concepts, then connects them to
 framework and release evidence. Imported text is data: recipes are never
 executed and the upstream skill identity remains in `sources.json` and
 `provenance.json`.
@@ -41,6 +39,17 @@ stay ignored under `.wayfinder-import/`. `plan` is offline and produces no
 canonical bundle edits. `apply` requires a reviewed changeset and exact
 baseline hashes.
 
-Native indexing, semantic search, and MCP require the installed Wayfinder model
-and native runtime. They were not treated as successful gates for this source
-bundle unless a run is recorded separately.
+## Consumer installation
+
+The authoring project above is not an installation payload. Consumers receive
+`knowledge/` and the attribution/license notices, with their own Profile binding
+and lock. Keep `sources.json`, `sources.lock.json`, `provenance.json`, evaluation
+queries, and `.wayfinder-import/` in the publisher workspace.
+
+The temporary `flutterapp` demo installs concepts under
+`.wayfinder/bundles/flutter-dev-kit/`, selected source snapshots under
+`.wayfinder/sources/flutter-dev-kit/`, and notices under
+`.wayfinder/licenses/flutter-dev-kit/`. Source links in that installed copy point
+to local evidence and preserve the upstream revision in citations.
+This is a manual demo: `wayfinder add` and bundle-name configuration are not yet
+implemented by the current CLI.
