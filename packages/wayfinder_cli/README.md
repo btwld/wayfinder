@@ -218,7 +218,7 @@ decision rationale and historical context.
 ```bash
 wayfinder skills install [--agent=all|claude|agents]
 wayfinder skills status
-wayfinder setup [<project>] [--bundle=knowledge] [--hooks]
+wayfinder setup [<project>] [--bundle=knowledge] [--hooks] [--session-hooks]
 wayfinder update [--check] [--version=<version>]
 ```
 
@@ -234,6 +234,13 @@ skip file checkouts and new clones or worktrees. There are no agent Stop hooks:
 search reports a stale index, and the MCP `index` tool refreshes it. Rerunning
 `setup --hooks` removes the Stop hooks earlier releases added to
 `.claude/settings.json` and `.codex/hooks.json` and keeps every other hook.
+
+`setup --session-hooks` separately installs context-only `SessionStart` hooks
+for Claude, Codex, and Gemini, plus a managed `AGENTS.md` pointer for Grok, whose
+startup hooks ignore stdout. The short message prompts loading `use-wayfinder`
+and its references to the author, adopt, and assess skills. Install the skills
+first, then review/trust the local hooks in the client. Startup does no indexing
+or update checks. See the [installation guide](../../docs/install.md#agent-skills-and-mcp).
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. A Dart installation prints its

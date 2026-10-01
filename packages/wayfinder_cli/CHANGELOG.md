@@ -1,5 +1,9 @@
 # Unreleased
 
+- `setup --session-hooks` adds project-local, context-only startup hooks for
+  Claude, Codex, and Gemini and an `AGENTS.md` pointer for Grok. The short
+  bootstrap prompts loading `use-wayfinder` and its related skills; it performs
+  no indexing or network requests. Existing hooks and instructions are preserved.
 - `wayfinder validate` and MCP validation recognize configured Bitwild Profile
   2026.3 bundles; CLI validation accepts `--config` for an explicit project
   file. Both validate read-only from a current lock/cache; `get` and

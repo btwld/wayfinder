@@ -136,7 +136,7 @@ class WayfinderCli {
     if (_notices &&
         command != null &&
         !command.startsWith('-') &&
-        !{'mcp', 'update'}.contains(command)) {
+        !{'mcp', 'update', 'session-context'}.contains(command)) {
       await _notifyNewerRelease();
     }
     return code;
@@ -256,6 +256,12 @@ class WayfinderCli {
       );
     }
     parser.addCommand('skills', skills);
+    // Hook adapters need the same JSON on every platform, without retrieval
+    // or an update check merely to supply model instructions.
+    parser.addCommand(
+      'session-context',
+      ArgParser()..addFlag('help', abbr: 'h', negatable: false),
+    );
     parser.addCommand(
       'setup',
       ArgParser()
@@ -269,6 +275,13 @@ class WayfinderCli {
           'force',
           negatable: false,
           help: 'Replace a different wayfinder server entry.',
+        )
+        ..addFlag(
+          'session-hooks',
+          negatable: false,
+          help:
+              'Prompt agents to load use-wayfinder at session start '
+              '(Claude, Codex, Gemini hooks; Grok via AGENTS.md).',
         )
         ..addFlag(
           'hooks',
@@ -322,6 +335,24 @@ class WayfinderCli {
         );
       }
       final name = command.name!;
+      if (name == 'session-context') {
+        if (command.flag('help')) {
+          _out('Usage: wayfinder session-context\n\nAgent startup context.');
+          return 0;
+        }
+        if (command.rest.isNotEmpty) {
+          throw const WayfinderException(
+            'session-context accepts no arguments.',
+          );
+        }
+        _json({
+          'hookSpecificOutput': {
+            'hookEventName': 'SessionStart',
+            'additionalContext': wayfinderSessionContext,
+          },
+        });
+        return 0;
+      }
       if (name == 'get' || name == 'upgrade') {
         if (command.flag('help')) {
           _out(
@@ -409,6 +440,7 @@ class WayfinderCli {
           bundle: command.option('bundle')!,
           force: command.flag('force'),
           hooks: command.flag('hooks'),
+          sessionHooks: command.flag('session-hooks'),
         );
         return 0;
       }

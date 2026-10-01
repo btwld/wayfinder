@@ -19,6 +19,17 @@ recorded decisions beats one built from general knowledge or a keyword grep that
 misses paraphrases. So when a question touches what the project decided, requires,
 owns, or learned, search first and answer from what you find.
 
+## Session startup and index refresh
+
+`wayfinder setup --session-hooks` prompts Claude, Codex, and Gemini to load this
+skill at session start. Grok reads the same pointer from `AGENTS.md`; its
+SessionStart hook ignores stdout. Follow the related skills below only when the
+task calls for them. Startup supplies instructions and performs no indexing.
+
+`wayfinder setup --hooks` installs bundle-aware Git hooks for pulls, checkouts,
+and rebases. When search reports a stale index, run the MCP `index` tool or
+`wayfinder index <bundle>` and search again.
+
 ## Choose an interface
 
 Prefer the **Wayfinder MCP tools** when they are available (the `wayfinder`
