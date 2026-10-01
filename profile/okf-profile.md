@@ -1073,7 +1073,8 @@ next regeneration discards, and knowledge worth keeping belongs in a concept.
 The generator writes an index for every area, sub-area, and `computations/`
 directory, and for each level of `references/` at or above a mirrored concept. A
 directory holding only non-concept assets, such as a `raw/` tier (§3.4), gets no
-generated index and needs none. A bundle with no concepts gets no generated root
+generated index and MUST NOT carry one: the generator would still link to a
+leftover index it no longer maintains. A bundle with no concepts gets no generated root
 index; until its first concept exists, its root `index.md` MUST declare
 `okf_version: "0.2"` and list only `log.md`.
 

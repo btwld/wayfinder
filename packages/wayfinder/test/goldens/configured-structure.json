@@ -40,6 +40,16 @@
         "rule": "§3.4"
       },
       {
+        "id": "concepta-profile/index-current",
+        "severity": "error",
+        "message": "references/raw/index.md is not an index the generator writes; delete it, then run wayfinder validate --fix.",
+        "location": {
+          "path": "references/raw/index.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§9"
+      },
+      {
         "id": "concepta-profile/raw-directory-markdown",
         "severity": "error",
         "message": "A raw/ tier holds verbatim originals; the only markdown permitted in it is each directory's own index.md.",

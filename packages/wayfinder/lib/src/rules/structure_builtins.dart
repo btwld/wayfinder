@@ -80,8 +80,15 @@ Iterable<Violation> indexCurrent(
   final generated = generatedIndexes(facts, params);
   for (final MapEntry(key: path, value: text) in generated.entries) {
     if (facts.loaded.indexes[path] != text) {
-      yield Violation(path, facts: {'path': path});
+      yield Violation(path, facts: {'path': path}, messageId: 'stale');
     }
+  }
+  // The generator still lists a directory whose leftover index.md it no
+  // longer writes, such as a 2026.2 raw/ tier, so the file must go. A bundle
+  // without concepts keeps the hand-written root index the Profile requires.
+  for (final path in facts.loaded.indexes.keys) {
+    if (generated.containsKey(path) || path == 'index.md') continue;
+    yield Violation(path, facts: {'path': path}, messageId: 'extra');
   }
 }
 

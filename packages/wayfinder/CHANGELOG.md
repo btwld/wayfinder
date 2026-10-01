@@ -4,7 +4,11 @@
   `index-semantic-projection` and `directory-index-present` in the 2026.3
   catalog and reports each generated index that is missing or differs.
   `ProfileValidator.validate(fix: true)` writes those indexes first and
-  reports what it wrote as `ProfileValidationResult.fix`. 2026.2 is unchanged.
+  reports what it wrote as `ProfileValidationResult.fix`. It also reports a
+  leftover `index.md` the generator no longer writes, such as one in a
+  `raw/` tier, so the parent index stops linking to it. `okf` is pinned to
+  exactly 0.5.0 because conformance now depends on its generator output.
+  2026.2 is unchanged.
 - Add exact `bitwild_profile/2026.3` direct-source project bindings from
   `wayfinder.json`, with additive `extends`, strict type, tag, actor, and
   path checks. Version 1 accepts only `source` + `applies_to`; the earlier

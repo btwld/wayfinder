@@ -94,5 +94,9 @@ const builtins = <String, Builtin>{
     indexSemanticProjection,
     params: indexSemanticProjectionParams,
   ),
-  'index-current': Builtin(indexCurrent, fix: generatedIndexes),
+  'index-current': Builtin(
+    indexCurrent,
+    fix: generatedIndexes,
+    messageIds: {'stale', 'extra'},
+  ),
 };
