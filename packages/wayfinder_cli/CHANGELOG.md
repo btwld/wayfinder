@@ -1,32 +1,11 @@
 # Unreleased
 
-- `search "<query>"` searches all project bundle paths from `wayfinder.json`;
-  `--bundle <folder-name>` optionally filters one. Matches rank across bundles
-  with one query embedding and a global limit, preserving bundle-aware citations.
-  `index` without a path refreshes the same bundle set. Explicit paths retain
-  their existing behavior and JSON; missing/stale selected indexes still fail
-  search without implicit indexing or partial results.
-
-- `setup --session-hooks` adds project-local, context-only startup hooks for
-  Claude, Codex, and Gemini and an `AGENTS.md` pointer for Grok. The short
-  bootstrap prompts loading `use-wayfinder` and its related skills; it performs
-  no indexing or network requests. Existing hooks and instructions are preserved.
 - `wayfinder validate` and MCP validation recognize configured Bitwild Profile
   2026.3 bundles; CLI validation accepts `--config` for an explicit project
   file. Both validate read-only from a current lock/cache; `get` and
   `upgrade` are the explicit fetching and lock-writing commands. Graph,
   index, and search do not resolve unused Profile sources. Legacy 2026.2
   bundles remain supported.
-- `index --detach` runs one background index per machine; while one runs, it
-  reports that and starts nothing. A background index stops after 30 minutes
-  or once its bundle directory is removed. The git hooks from
-  `setup --hooks` skip file checkouts, new clones and worktrees, and changes
-  that leave the bundle alone; rerun `wayfinder setup --hooks` to update
-  existing hooks.
-- `setup --hooks` no longer adds Claude Code and Codex Stop hooks, which
-  indexed after every agent turn in every workspace. Rerunning it removes the
-  Stop hooks earlier releases added and keeps every other hook; search still
-  reports a stale index, and the MCP `index` tool refreshes it.
 
 # 0.1.2
 

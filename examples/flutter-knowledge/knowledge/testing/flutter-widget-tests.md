@@ -3,7 +3,7 @@ type: Guide
 title: Flutter widget tests
 description: A WidgetTester workflow for rendering and interaction tests.
 status: draft
-generated: { by: process:flutter-knowledge-pilot, at: 2026-09-30T17:39:20Z }
+generated: { by: process:flutter-knowledge-pilot, at: 2026-09-30T01:20:47Z }
 sources:
   - id: flutter-widget-skill
     resource: https://github.com/flutter/agent-plugins/blob/8da8c54ecd740fded70f908ad9c46b72a1f21fb5/skills/flutter-add-widget-test/SKILL.md
@@ -22,4 +22,4 @@ visible rather than assuming it is mounted.
 Widget tests exercise a widget tree. They complement Dart unit tests; this
 concept does not replace the package-level testing guidance.[^flutter-widget-skill]
 
-[^flutter-widget-skill]: [flutter-add-widget-test skill](https://github.com/flutter/agent-plugins/blob/8da8c54ecd740fded70f908ad9c46b72a1f21fb5/skills/flutter-add-widget-test/SKILL.md)
+[^flutter-widget-skill]: flutter-add-widget-test skill

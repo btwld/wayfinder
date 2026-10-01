@@ -1,20 +1,14 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
-import 'package:path/path.dart' as p;
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'agent_setup.dart';
 import 'graph.dart';
-import 'index_result.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
 import 'profile_resolver.dart';
-import 'project_bundles.dart';
-import 'project_search.dart';
 import 'search_input.dart';
 import 'search_output.dart';
 import 'update.dart';
@@ -30,23 +24,15 @@ class WayfinderCli {
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
     WayfinderProfileResolver Function()? profileResolver,
-    Directory? workingDirectory,
     bool? notices,
     Future<void> Function(List<String> arguments)? spawnDetached,
-    Duration? backgroundLimit,
-    Duration? bundlePoll,
-    Never Function(int code)? terminate,
   }) : _spawnDetached = spawnDetached ?? _startDetached,
-       _backgroundLimit = backgroundLimit ?? _defaultBackgroundLimit,
-       _bundlePoll = bundlePoll ?? const Duration(seconds: 5),
-       _terminate = terminate ?? exit,
        _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
        _knowledge = knowledge ?? WayfinderKnowledge.new,
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
-       _workingDirectory = workingDirectory ?? Directory.current,
        _releases = releases ?? _noticeReleases,
        _notices = notices ?? _interactive();
 
@@ -57,14 +43,8 @@ class WayfinderCli {
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
   final WayfinderProfileResolver Function()? _profileResolverFactory;
-  final Directory _workingDirectory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
-  final Duration _backgroundLimit;
-  final Duration _bundlePoll;
-  final Never Function(int code) _terminate;
-
-  static const _defaultBackgroundLimit = Duration(minutes: 30);
 
   WayfinderProfileResolver _profileResolver() =>
       _profileResolverFactory?.call() ??
@@ -81,37 +61,6 @@ class WayfinderCli {
       if (interpreted) ...[...Platform.executableArguments, script],
       ...arguments,
     ], mode: ProcessStartMode.detached);
-  }
-
-  /// Runs the index `--detach` started. One runs per machine, and it stops
-  /// once it outlives [_backgroundLimit] or its bundle directory disappears.
-  /// Native embedding cannot be cancelled, so stopping ends the process; the
-  /// next successful index reclaims the abandoned generation.
-  Future<int> _indexInBackground(String bundle, {required bool force}) async {
-    final knowledge = _knowledge();
-    final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
-    // Another background index started first; the next trigger refreshes.
-    if (slot == null) return 0;
-    final root = Directory(bundle).absolute;
-    final stop = Completer<int>();
-    final deadline = Timer(_backgroundLimit, () {
-      if (!stop.isCompleted) stop.complete(124);
-    });
-    final watch = Timer.periodic(_bundlePoll, (_) {
-      if (!stop.isCompleted && !root.existsSync()) stop.complete(2);
-    });
-    try {
-      final code = await Future.any([
-        knowledge.index(bundle, force: force).then((_) => 0),
-        stop.future,
-      ]);
-      if (code != 0) _terminate(code);
-      return 0;
-    } finally {
-      deadline.cancel();
-      watch.cancel();
-      await slot.release();
-    }
   }
 
   Updater _updater(void Function(String) out) =>
@@ -143,7 +92,7 @@ class WayfinderCli {
     if (_notices &&
         command != null &&
         !command.startsWith('-') &&
-        !{'mcp', 'update', 'session-context'}.contains(command)) {
+        !{'mcp', 'update'}.contains(command)) {
       await _notifyNewerRelease();
     }
     return code;
@@ -180,7 +129,6 @@ class WayfinderCli {
       }
       if (name == 'index') {
         command
-          ..addOption('bundle', help: 'Index only this project bundle name.')
           ..addFlag(
             'force',
             negatable: false,
@@ -190,20 +138,14 @@ class WayfinderCli {
             'detach',
             negatable: false,
             help:
-                'Return at once; index in the background if anything changed. '
-                'One background index runs at a time, for at most '
-                '${_defaultBackgroundLimit.inMinutes} minutes.',
-          )
-          // The process --detach starts; not for direct use.
-          ..addFlag('background', negatable: false, hide: true);
+                'Return at once; index in the background if anything changed.',
+          );
       }
       if (name == 'search') {
-        command
-          ..addOption('bundle', help: 'Search only this project bundle name.')
-          ..addOption(
-            'limit',
-            help: 'Maximum context passages (1–100; default 5).',
-          );
+        command.addOption(
+          'limit',
+          help: 'Maximum context passages (1–100; default 5).',
+        );
       }
       parser.addCommand(name, command);
     }
@@ -266,12 +208,6 @@ class WayfinderCli {
       );
     }
     parser.addCommand('skills', skills);
-    // Hook adapters need the same JSON on every platform, without retrieval
-    // or an update check merely to supply model instructions.
-    parser.addCommand(
-      'session-context',
-      ArgParser()..addFlag('help', abbr: 'h', negatable: false),
-    );
     parser.addCommand(
       'setup',
       ArgParser()
@@ -287,18 +223,11 @@ class WayfinderCli {
           help: 'Replace a different wayfinder server entry.',
         )
         ..addFlag(
-          'session-hooks',
-          negatable: false,
-          help:
-              'Prompt agents to load use-wayfinder at session start '
-              '(Claude, Codex, Gemini hooks; Grok via AGENTS.md).',
-        )
-        ..addFlag(
           'hooks',
           negatable: false,
           help:
-              'Also refresh the index after git pulls, checkouts and rebases '
-              'that change the bundle.',
+              'Also refresh the index after Claude Code and Codex turns and '
+              'git pulls, checkouts and rebases.',
         ),
     );
     parser.addCommand(
@@ -323,8 +252,8 @@ class WayfinderCli {
           'Wayfinder — local knowledge tools\n\n'
           'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the selected Profile\n'
-          '  index [<bundle>]          Update saved local embeddings for changes\n'
-          '  search [<bundle>] <query> Search project bundles or an explicit path\n'
+          '  index <bundle>             Update saved local embeddings for changes\n'
+          '  search <bundle> <query>    Search the saved knowledge index\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
           '  get [<project>]            Resolve declared Profile sources\n'
           '  upgrade [<project>]       Advance mutable Profile refs\n'
@@ -345,24 +274,6 @@ class WayfinderCli {
         );
       }
       final name = command.name!;
-      if (name == 'session-context') {
-        if (command.flag('help')) {
-          _out('Usage: wayfinder session-context\n\nAgent startup context.');
-          return 0;
-        }
-        if (command.rest.isNotEmpty) {
-          throw const WayfinderException(
-            'session-context accepts no arguments.',
-          );
-        }
-        _json({
-          'hookSpecificOutput': {
-            'hookEventName': 'SessionStart',
-            'additionalContext': wayfinderSessionContext,
-          },
-        });
-        return 0;
-      }
       if (name == 'get' || name == 'upgrade') {
         if (command.flag('help')) {
           _out(
@@ -450,55 +361,20 @@ class WayfinderCli {
           bundle: command.option('bundle')!,
           force: command.flag('force'),
           hooks: command.flag('hooks'),
-          sessionHooks: command.flag('session-hooks'),
         );
         return 0;
       }
       if (command.flag('help')) {
         _out(
-          'Usage: wayfinder $name ${name == 'search' || name == 'index' ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
+          'Usage: wayfinder $name <bundle>${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
         );
         return 0;
       }
-      if (name == 'search') {
-        return await _search(command);
-      }
-      if (name == 'index' && command.rest.isEmpty) {
-        if (command.flag('background') || command.flag('detach')) {
-          throw const WayfinderException(
-            'Background indexing requires an explicit bundle path.',
-          );
-        }
-        final bundles = await discoverProjectBundles(
-          _workingDirectory,
-          name: command.option('bundle'),
+      if (command.rest.length != (name == 'search' ? 2 : 1) ||
+          command.rest.first.trim().isEmpty) {
+        throw WayfinderException(
+          '$name requires an explicit bundle${name == 'search' ? ' and one quoted query' : ''}.',
         );
-        final results = <Map<String, Object?>>[];
-        final knowledge = _knowledge();
-        for (final bundle in bundles) {
-          final result = await knowledge.index(
-            bundle.root,
-            force: command.flag('force'),
-          );
-          results.add({
-            'name': bundle.name,
-            'path': bundle.path,
-            ...result.toJson(),
-          });
-          if (command.option('output') != 'json') {
-            _printIndex(result);
-          }
-        }
-        if (command.option('output') == 'json') _json({'bundles': results});
-        return 0;
-      }
-      if (name == 'index' && command.option('bundle') != null) {
-        throw const WayfinderException(
-          'Use either an explicit bundle path or --bundle, not both.',
-        );
-      }
-      if (command.rest.length != 1 || command.rest.first.trim().isEmpty) {
-        throw WayfinderException('$name requires an explicit bundle.');
       }
       final bundle = command.rest.first;
       if (name == 'mcp') {
@@ -538,14 +414,10 @@ class WayfinderCli {
       }
       if (name == 'index') {
         final force = command.flag('force');
-        if (command.flag('background')) {
-          return await _indexInBackground(bundle, force: force);
-        }
         if (command.flag('detach')) {
-          final knowledge = _knowledge();
           String state;
           try {
-            state = !force && await knowledge.isCurrent(bundle)
+            state = !force && await _knowledge().isCurrent(bundle)
                 ? 'current'
                 : 'started';
           } on WayfinderException catch (error) {
@@ -553,27 +425,14 @@ class WayfinderCli {
             state = 'running';
           }
           if (state == 'started') {
-            final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
-            if (slot == null) {
-              state = 'running';
-            } else {
-              await slot.release();
-              await _spawnDetached([
-                'index',
-                bundle,
-                '--background',
-                if (force) '--force',
-              ]);
-            }
+            await _spawnDetached(['index', bundle, if (force) '--force']);
           }
           if (json) {
             _json({'bundle': bundle, 'detached': state});
           } else {
             _out(switch (state) {
               'current' => 'Index for ${_safe(bundle)} is current.',
-              'running' =>
-                'An index is already running; ${_safe(bundle)} was not '
-                    'started.',
+              'running' => 'Indexing ${_safe(bundle)} is already running.',
               _ => 'Indexing ${_safe(bundle)} in the background.',
             });
           }
@@ -582,12 +441,73 @@ class WayfinderCli {
         final result = await _knowledge().index(bundle, force: force);
         if (json) {
           _json(result.toJson());
+        } else if (result.current) {
+          _out('Index for ${_safe(bundle)} is current; nothing to update.');
         } else {
-          _printIndex(result);
+          _out(
+            'Indexed ${_safe(bundle)}: ${result.embeddedChunks} embedded, '
+            '${result.removedChunks} removed, ${result.writtenChunks} passages updated.',
+          );
+          _out('Saved locally: ${_safe(result.index)}');
+        }
+        if (!json) {
+          for (final warning in result.warnings) {
+            _err(
+              'Warning: ${warning.code}: '
+              '${_singleLine(warning.sourcePath)}:${warning.lineStart}-${warning.lineEnd} '
+              '(${warning.affectedChunks} original chunks)',
+            );
+          }
         }
         return 0;
       }
-      throw const WayfinderException('Unknown command.');
+      final rawLimit = command.option('limit');
+      final limit = rawLimit == null ? null : int.tryParse(rawLimit);
+      if (rawLimit != null && limit == null) {
+        throw const WayfinderException(
+          '--limit must be an integer from 1 to 100.',
+        );
+      }
+      final parsed = wayfinderSearchInput.safeParse({
+        'query': command.rest[1],
+        if (rawLimit != null) 'limit': limit,
+      });
+      if (parsed case Fail(:final error)) {
+        final errors = error is SchemaNestedError ? error.errors : [error];
+        throw WayfinderException(
+          errors.map((e) => e.toErrorString()).join('; '),
+        );
+      }
+      final input = parsed.getOrThrow()!;
+      final result = await _knowledge().search(
+        bundle,
+        input['query']! as String,
+        limit: input['limit']! as int,
+      );
+      if (json) {
+        _json(searchOutput(result));
+      } else {
+        for (final hit in result.context) {
+          final chunk = hit.result.chunk;
+          final okf = chunk.metadata['okf'] as Map?;
+          final metadata = okf?['frontmatter'] as Map?;
+          _out(
+            '${_safe(chunk.sourcePath)}:${chunk.lineStart}-${chunk.lineEnd} '
+            '[${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
+          );
+          _out(_safe(chunk.content));
+          _out('');
+        }
+        for (final notice in result.notices) {
+          _out('Notice: ${_safe(notice)}');
+        }
+        _out(
+          result.context.isEmpty
+              ? 'No passages found.'
+              : 'Ranked passages; verify the cited support before answering.',
+        );
+      }
+      return 0;
     } on ArgParserException catch (error) {
       _err('wayfinder: ${_safe(error.message)}');
     } on WayfinderException catch (error) {
@@ -606,167 +526,8 @@ class WayfinderCli {
     return 2;
   }
 
-  Future<int> _search(ArgResults command) async {
-    if (command.rest.isEmpty ||
-        command.rest.length > 2 ||
-        command.rest.first.trim().isEmpty) {
-      throw const WayfinderException(
-        'search requires one quoted query, with an optional explicit bundle path.',
-      );
-    }
-    final explicit = command.rest.length == 2;
-    if (explicit && command.option('bundle') != null) {
-      throw const WayfinderException(
-        'Use either an explicit bundle path or --bundle, not both.',
-      );
-    }
-    final rawLimit = command.option('limit');
-    final convertedLimit = rawLimit == null ? null : int.tryParse(rawLimit);
-    if (rawLimit != null && convertedLimit == null) {
-      throw const WayfinderException(
-        '--limit must be an integer from 1 to 100.',
-      );
-    }
-    final parsed = wayfinderSearchInput.safeParse({
-      'query': command.rest.last,
-      if (rawLimit != null) 'limit': convertedLimit,
-    });
-    if (parsed case Fail(:final error)) {
-      final errors = error is SchemaNestedError ? error.errors : [error];
-      throw WayfinderException(errors.map((e) => e.toErrorString()).join('; '));
-    }
-    final input = parsed.getOrThrow()!;
-    final query = input['query']! as String;
-    final limit = input['limit']! as int;
-    final json = command.option('output') == 'json';
-    if (!explicit) {
-      final bundles = await discoverProjectBundles(
-        _workingDirectory,
-        name: command.option('bundle'),
-      );
-      final responses = await _knowledge().searchBundles(
-        bundles.map((bundle) => bundle.root).toList(),
-        query,
-        limit: limit,
-      );
-      final result = ProjectSearchResult(bundles, responses, limit: limit);
-      if (json) {
-        _json(result.toJson());
-      } else {
-        for (final entry in result.context) {
-          _printHit(
-            entry.hit,
-            prefix: '${entry.bundle.path}/',
-            bundle: entry.bundle.name,
-          );
-        }
-        _printNotices(result.notices, empty: result.context.isEmpty);
-      }
-      return 0;
-    }
-    final result = await _knowledge().search(
-      command.rest.first,
-      query,
-      limit: limit,
-    );
-    if (json) {
-      _json(searchOutput(result));
-    } else {
-      for (final hit in result.context) {
-        _printHit(hit);
-      }
-      _printNotices(result.notices, empty: result.context.isEmpty);
-    }
-    return 0;
-  }
-
-  void _printHit(
-    KnowledgeContextHit hit, {
-    String prefix = '',
-    String? bundle,
-  }) {
-    final chunk = hit.result.chunk;
-    final okf = chunk.metadata['okf'] as Map?;
-    final metadata = okf?['frontmatter'] as Map?;
-    _out(
-      '${_safe('$prefix${chunk.sourcePath}')}:${chunk.lineStart}-${chunk.lineEnd} '
-      '[${bundle == null ? '' : '${_safe(bundle)}; '}'
-      '${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
-    );
-    _out(_safe(chunk.content));
-    _out('');
-  }
-
-  void _printNotices(List<String> notices, {required bool empty}) {
-    for (final notice in notices) {
-      _out('Notice: ${_safe(notice)}');
-    }
-    _out(
-      empty
-          ? 'No passages found.'
-          : 'Ranked passages; verify the cited support before answering.',
-    );
-  }
-
-  void _printIndex(WayfinderIndexResult result) {
-    if (result.current) {
-      _out('Index for ${_safe(result.bundle)} is current; nothing to update.');
-    } else {
-      _out(
-        'Indexed ${_safe(result.bundle)}: ${result.embeddedChunks} embedded, '
-        '${result.removedChunks} removed, ${result.writtenChunks} passages updated.',
-      );
-      _out('Saved locally: ${_safe(result.index)}');
-    }
-    for (final warning in result.warnings) {
-      _err(
-        'Warning: ${warning.code}: '
-        '${_singleLine(warning.sourcePath)}:${warning.lineStart}-${warning.lineEnd} '
-        '(${warning.affectedChunks} original chunks)',
-      );
-    }
-  }
-
   void _json(Object? value) =>
       _out(const JsonEncoder.withIndent('  ').convert(value));
-}
-
-/// The machine-wide right to run a background index: an exclusive lock on a
-/// file in the Wayfinder data directory.
-class _BackgroundSlot {
-  _BackgroundSlot._(this._path, this._file);
-
-  // File locks belong to a process, so a second claim from this process must
-  // be refused here rather than by the lock.
-  static final _held = <String>{};
-  final String _path;
-  final RandomAccessFile _file;
-
-  /// Returns null while another background index holds the slot.
-  static Future<_BackgroundSlot?> claim(Directory data) async {
-    await data.create(recursive: true);
-    final path = p.join(data.absolute.path, 'background-index.lock');
-    if (!_held.add(path)) return null;
-    RandomAccessFile? file;
-    try {
-      file = await File(path).open(mode: FileMode.append);
-      await file.lock(FileLock.exclusive);
-      return _BackgroundSlot._(path, file);
-    } on FileSystemException {
-      await file?.close();
-      _held.remove(path);
-      if (file == null) rethrow;
-      return null;
-    }
-  }
-
-  Future<void> release() async {
-    try {
-      await _file.close();
-    } finally {
-      _held.remove(_path);
-    }
-  }
 }
 
 String _safe(String value) => value.replaceAllMapped(

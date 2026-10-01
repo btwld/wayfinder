@@ -96,12 +96,12 @@ unavailable. Search never answers from a stale index: if it reports one, run
 the details.
 
 Run `wayfinder setup --hooks` once per clone (Wayfinder 0.0.3 or later): it
-registers the MCP server in `.mcp.json` and refreshes the index after pulls,
-checkouts and rebases that change the bundle.
+registers the MCP server in `.mcp.json` and refreshes the index after agent
+turns, pulls, checkouts and rebases.
 ```
 
 Then run `wayfinder setup --hooks` in the project root and commit the files it
-writes (`.mcp.json`, `.githooks/`).
+writes (`.mcp.json`, `.claude/settings.json`, `.codex/hooks.json`, `.githooks/`).
 That flag shipped in 0.0.3; skip it and say so if `wayfinder setup --help` does
 not list `--hooks`.
 

@@ -377,11 +377,9 @@ ancestor project config cannot silently migrate it. Unknown releases never
 fall back to the newest rules.
 
 `graph` projects the ordinary OKF graph without Profile-source resolution.
-Embedding `index` and `search` consume either an explicit bundle or the project's
-configured `applies_to` paths without resolving unused Profile sources. The
-explicit-path forms do not consult neighboring configuration; project discovery
-reports a malformed configuration rather than omitting bundles. These commands
-do not generate Profile navigation indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
+Embedding `index` and `search` likewise consume the explicit bundle without
+resolving unused Profile sources; they do not generate Profile navigation
+indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
 graph reading fail. Those command boundaries implement the separate outcomes
 required by Profile §§14.1–14.2.
 

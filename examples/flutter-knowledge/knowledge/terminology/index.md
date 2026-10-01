@@ -1,3 +1,3 @@
 # Glossary Definition
 
-* [Widget](widget.md) - An immutable description of part of a Flutter user interface.
+* [Widget](widget.md) - A description of Flutter widgets as immutable configuration for an element tree.

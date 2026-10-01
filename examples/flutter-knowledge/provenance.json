@@ -4,8 +4,7 @@
     "process": "flutter-knowledge-pilot/0.1",
     "source_lock": "sources.lock.json",
     "profile_commit": "d3e3dc59bb87ab72925043c571e5a855886f0e30",
-    "generated_at": "2026-09-30T01:20:47Z",
-    "updated_at": "2026-09-30T17:39:20Z"
+    "generated_at": "2026-09-30T01:20:47Z"
   },
   "concepts": {
     "knowledge/testing/dart-unit-tests.md": ["dart-skills:skills/dart-add-unit-test/SKILL.md"],
@@ -21,6 +20,7 @@
   "follow_up_gaps": [
     "Full Dart and Flutter skill catalogs have not been imported.",
     "Dart changelog pairing and the three-family stable release window are not part of this pilot.",
-    "No design-document source was admitted because proposal-versus-shipped evidence and rights were not resolved."
+    "No design-document source was admitted because proposal-versus-shipped evidence and rights were not resolved.",
+    "Native index, semantic search, and MCP evaluation require the installed model/runtime."
   ]
 }

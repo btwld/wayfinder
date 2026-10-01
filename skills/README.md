@@ -24,9 +24,6 @@ Use the [root README's installation instructions](../README.md#1-install-the-ski
 The native installer installs this family (`wayfinder skills install`) and
 `wayfinder update` refreshes it; `wayfinder setup` configures a project's MCP
 server.
-`wayfinder setup --session-hooks` adds a short startup pointer to `use-wayfinder`
-for Claude, Codex, and Gemini; Grok reads it from `AGENTS.md`. That skill links
-to author, adopt, and assess for the relevant task. Startup does no indexing.
 The `wayfinder` plugin also registers the installed Wayfinder MCP server. Install
 the CLI first; use the complete native bundle for indexing and search. By default
 it serves `knowledge/` relative to the consuming project. Set

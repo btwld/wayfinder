@@ -62,11 +62,8 @@ bundle directories. A parent used only by `extends` may have an empty
 or project vocabulary.
 
 The configuration does not contain a `bundles` array or a `default_bundle`.
-Profile application is declared by `applies_to`. `wayfinder search "<query>"`
-and `wayfinder index` discover those paths from the nearest project file.
-`--bundle <folder-name>` optionally selects one bundle; names come from the
-configured folder paths. An explicit bundle path remains available. Validation
-and graph commands still require one explicit bundle.
+Commands receive a bundle path explicitly, and Profile application is declared
+by `applies_to`.
 
 ## Project vocabulary
 

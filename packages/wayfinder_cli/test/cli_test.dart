@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -34,8 +33,8 @@ void main() {
     expect(await cli.run(['--help']), 0);
     final help = output.join('\n');
     expect(help, contains('validate <bundle>'));
-    expect(help, contains('index [<bundle>]'));
-    expect(help, contains('search [<bundle>]'));
+    expect(help, contains('index <bundle>'));
+    expect(help, contains('search <bundle>'));
     expect(help, contains('graph <bundle>'));
     expect(help, contains('get [<project>]'));
     expect(help, contains('upgrade [<project>]'));
@@ -43,28 +42,6 @@ void main() {
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
   });
-
-  test(
-    'session hook emits model context without retrieval or network',
-    () async {
-      cli = WayfinderCli(
-        out: output.add,
-        err: errors.add,
-        notices: true,
-        knowledge: () => throw StateError('Startup must not open retrieval.'),
-        releases: () => throw StateError('Startup must not check for updates.'),
-      );
-      expect(await cli.run(['session-context']), 0);
-      final payload = jsonDecode(output.single) as Map;
-      final context = payload['hookSpecificOutput'] as Map;
-      expect(context['hookEventName'], 'SessionStart');
-      expect(
-        context['additionalContext'],
-        contains('Load the use-wayfinder skill'),
-      );
-      expect(errors, isEmpty);
-    },
-  );
 
   for (final args in [
     <String>[],
@@ -89,7 +66,6 @@ void main() {
     ['graph', '.', '--resolution=nope'],
     ['get', '.', 'extra'],
     ['upgrade', '.', 'extra'],
-    ['session-context', 'extra'],
   ]) {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
@@ -232,38 +208,16 @@ void main() {
 
   group('index', () {
     late List<List<String>> spawned;
-    late Directory data;
-    WayfinderCli indexCli(
-      _IndexKnowledge knowledge, {
-      Duration? backgroundLimit,
-      Duration? bundlePoll,
-    }) => WayfinderCli(
+    WayfinderCli indexCli(_IndexKnowledge knowledge) => WayfinderCli(
       out: output.add,
       err: errors.add,
       knowledge: () => knowledge,
       spawnDetached: (arguments) async => spawned.add(arguments),
-      backgroundLimit: backgroundLimit,
-      bundlePoll: bundlePoll,
-      terminate: (code) => throw _Terminated(code),
     );
-    _IndexKnowledge knowledgeIn(
-      String state, {
-      List<KnowledgeInputDiagnostic> warnings = const [],
-      Completer<void>? hold,
-    }) => _IndexKnowledge(
-      state,
-      warnings: warnings,
-      hold: hold,
-      dataDirectory: data,
-    );
-    setUp(() async {
-      spawned = [];
-      data = await Directory.systemTemp.createTemp('wayfinder-index-data-');
-      addTearDown(() => data.delete(recursive: true));
-    });
+    setUp(() => spawned = []);
 
     test('a current index needs no work', () async {
-      final knowledge = knowledgeIn('current');
+      final knowledge = _IndexKnowledge('current');
       expect(await indexCli(knowledge).run(['index', '.']), 0);
       expect(output.single, contains('is current; nothing to update'));
       expect(await indexCli(knowledge).run(['index', '.', '--force']), 0);
@@ -277,7 +231,9 @@ void main() {
     ]) {
       test('--detach on a $state index', () async {
         expect(
-          await indexCli(knowledgeIn(state)).run(['index', '.', '--detach']),
+          await indexCli(
+            _IndexKnowledge(state),
+          ).run(['index', '.', '--detach']),
           0,
         );
         expect(output.single, contains(message));
@@ -285,7 +241,7 @@ void main() {
           spawned,
           starts
               ? [
-                  ['index', '.', '--background'],
+                  ['index', '.'],
                 ]
               : isEmpty,
         );
@@ -304,7 +260,7 @@ void main() {
           affectedChunks: 2,
         );
         for (final state in ['stale', 'current']) {
-          final knowledge = knowledgeIn(state, warnings: [warning]);
+          final knowledge = _IndexKnowledge(state, warnings: [warning]);
           output.clear();
           errors.clear();
           expect(await indexCli(knowledge).run(['index', '.']), 0);
@@ -344,66 +300,14 @@ void main() {
     test('--detach --force always rebuilds and reports JSON', () async {
       expect(
         await indexCli(
-          knowledgeIn('current'),
+          _IndexKnowledge('current'),
         ).run(['index', '.', '--detach', '--force', '--output=json']),
         0,
       );
       expect(spawned, [
-        ['index', '.', '--background', '--force'],
+        ['index', '.', '--force'],
       ]);
       expect(jsonDecode(output.single), {'bundle': '.', 'detached': 'started'});
-    });
-
-    test('one background index runs per machine', () async {
-      final running = knowledgeIn('stale', hold: Completer());
-      final background = indexCli(running).run(['index', '.', '--background']);
-      await pumpEventQueue();
-
-      expect(
-        await indexCli(knowledgeIn('stale')).run(['index', '.', '--detach']),
-        0,
-      );
-      expect(output.single, contains('already running'));
-      expect(spawned, isEmpty);
-
-      // A child that lost the race to start exits without indexing.
-      final loser = knowledgeIn('stale');
-      expect(await indexCli(loser).run(['index', '.', '--background']), 0);
-      expect(loser.forced, isEmpty);
-
-      running.hold!.complete();
-      expect(await background, 0);
-      final next = knowledgeIn('stale');
-      expect(await indexCli(next).run(['index', '.', '--background']), 0);
-      expect(next.forced, [false]);
-    });
-
-    test('a background index stops at its time limit', () async {
-      await expectLater(
-        indexCli(
-          knowledgeIn('stale', hold: Completer()),
-          backgroundLimit: const Duration(milliseconds: 20),
-        ).run(['index', '.', '--background']),
-        throwsA(isA<_Terminated>().having((t) => t.code, 'code', 124)),
-      );
-      expect(
-        await indexCli(knowledgeIn('stale')).run(['index', '.', '--detach']),
-        0,
-      );
-      expect(spawned, hasLength(1));
-    });
-
-    test('a background index stops when its bundle disappears', () async {
-      final bundle = await Directory.systemTemp.createTemp('wayfinder-gone-');
-      final run = indexCli(
-        knowledgeIn('stale', hold: Completer()),
-        bundlePoll: const Duration(milliseconds: 10),
-      ).run(['index', bundle.path, '--background']);
-      await bundle.delete();
-      await expectLater(
-        run,
-        throwsA(isA<_Terminated>().having((t) => t.code, 'code', 2)),
-      );
     });
   });
 
@@ -488,24 +392,11 @@ Future<OkfGraph> _okfGraph(String bundle, {OkfGraphQuery? query}) async {
   return OkfGraph.fromBundle(loaded.bundle, query: query);
 }
 
-/// Stands in for `exit`, which a test run cannot survive.
-class _Terminated extends Error {
-  _Terminated(this.code);
-  final int code;
-}
-
-/// Reports a fixed index state without opening storage or a model. An index
-/// with [hold] does not finish until the test completes it.
+/// Reports a fixed index state without opening storage or a model.
 class _IndexKnowledge extends WayfinderKnowledge {
-  _IndexKnowledge(
-    this.state, {
-    this.warnings = const [],
-    this.hold,
-    super.dataDirectory,
-  });
+  _IndexKnowledge(this.state, {this.warnings = const []});
   final List<KnowledgeInputDiagnostic> warnings;
   final String state;
-  final Completer<void>? hold;
   final forced = <bool>[];
 
   @override
@@ -524,7 +415,6 @@ class _IndexKnowledge extends WayfinderKnowledge {
     bool force = false,
   }) async {
     forced.add(force);
-    await hold?.future;
     return WayfinderIndexResult(
       bundle: bundle,
       index: 'saved',

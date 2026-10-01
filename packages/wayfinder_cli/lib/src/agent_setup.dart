@@ -13,16 +13,6 @@ typedef RunProcess =
 const _plugin = 'wayfinder@wayfinder';
 const _marketplace = 'btwld/wayfinder';
 
-/// The session bootstrap names one entrypoint; its skill routes other work.
-const wayfinderSessionContext =
-    'Load the use-wayfinder skill for this project\'s knowledge. '
-    'Follow its references to author-knowledge-bundle for writing, '
-    'adopt-knowledge-bundle for adoption, and assess-knowledge-bundle for audits.';
-
-const _sessionCommand = 'wayfinder session-context';
-const _routingStart = '<!-- wayfinder:session-start -->';
-const _routingEnd = '<!-- /wayfinder:session-start -->';
-
 /// Marks a skill directory Wayfinder installed, so it never replaces or removes
 /// a skill the user or another tool put there.
 const skillMarker = '.wayfinder-skill';
@@ -127,7 +117,6 @@ class AgentSetup {
     String bundle = 'knowledge',
     bool force = false,
     bool hooks = false,
-    bool sessionHooks = false,
   }) async {
     if (!await Directory(project).exists()) {
       throw const WayfinderException(
@@ -188,144 +177,35 @@ class AgentSetup {
       );
     }
     if (hooks) await _writeHooks(project, relative);
-    if (sessionHooks) await _writeSessionHooks(project);
     _out(
       'Commit .mcp.json to share the server. Claude Code asks you to approve '
       'project servers before first use.',
     );
   }
 
-  /// Installs context-only startup hooks. Grok ignores SessionStart stdout, so
-  /// its bootstrap uses the project instructions it reads at startup instead.
-  Future<void> _writeSessionHooks(String project) async {
-    final updates = <File, String>{};
-    for (final (directory, filename, timeout) in [
-      ('.claude', 'settings.json', 5),
-      ('.codex', 'hooks.json', 5),
-      ('.gemini', 'settings.json', 5000),
-    ]) {
-      final file = File(p.join(project, directory, filename));
-      var config = <String, Object?>{};
-      if (await file.exists()) {
-        final Object? decoded;
-        try {
-          decoded = jsonDecode(await file.readAsString());
-        } on FormatException {
-          throw WayfinderException('${file.path} is not valid JSON.');
-        }
-        if (decoded is! Map<String, Object?>) {
-          throw WayfinderException('${file.path} must contain a JSON object.');
-        }
-        config = decoded;
-      }
-      final hooks = config['hooks'] ?? <String, Object?>{};
-      if (hooks is! Map<String, Object?>) {
-        throw WayfinderException('${file.path} hooks must be an object.');
-      }
-      final start = hooks['SessionStart'] ?? <Object?>[];
-      if (start is! List) {
-        throw WayfinderException('${file.path} SessionStart must be an array.');
-      }
-      // Preserve other handlers even when they share a group with ours.
-      final kept = <Object?>[];
-      for (final group in start) {
-        if (group is! Map<String, Object?> || group['hooks'] is! List) {
-          kept.add(group);
-          continue;
-        }
-        final handlers = group['hooks'] as List;
-        final remaining = handlers
-            .where(
-              (handler) =>
-                  handler is! Map || handler['command'] != _sessionCommand,
-            )
-            .toList();
-        if (remaining.length == handlers.length) {
-          kept.add(group);
-        } else if (remaining.isNotEmpty) {
-          kept.add({...group, 'hooks': remaining});
-        }
-      }
-      config['hooks'] = {
-        ...hooks,
-        'SessionStart': [
-          ...kept,
-          {
-            'hooks': [
-              {
-                'type': 'command',
-                'command': _sessionCommand,
-                'timeout': timeout,
-              },
-            ],
-          },
-        ],
-      };
-      updates[file] = '${const JsonEncoder.withIndent('  ').convert(config)}\n';
-    }
-    final instructions = File(p.join(project, 'AGENTS.md'));
-    final existing = await instructions.exists()
-        ? await instructions.readAsString()
-        : '';
-    final block = '$_routingStart\n$wayfinderSessionContext\n$_routingEnd';
-    final start = existing.indexOf(_routingStart);
-    final end = existing.indexOf(_routingEnd);
-    if (start >= 0 && end >= start) {
-      updates[instructions] = existing.replaceRange(
-        start,
-        end + _routingEnd.length,
-        block,
-      );
-    } else if (start >= 0 || end >= 0) {
-      throw const WayfinderException(
-        'AGENTS.md contains an incomplete Wayfinder session block.',
-      );
-    } else {
-      final separator = existing.isEmpty || existing.endsWith('\n\n')
-          ? ''
-          : existing.endsWith('\n')
-          ? '\n'
-          : '\n\n';
-      updates[instructions] = '$existing$separator$block\n';
-    }
-    // Parse all existing startup configuration before replacing any of it.
-    for (final update in updates.entries) {
-      await update.key.parent.create(recursive: true);
-      await update.key.writeAsString(update.value);
-    }
-    _out(
-      'Configured session context for Claude, Codex and Gemini; '
-      'AGENTS.md supplies startup instructions for Grok. '
-      'Review and trust the hooks in each client before use.',
-    );
-  }
-
-  /// Refreshes the index after git changes that touch the bundle. Agent Stop
-  /// hooks are not used: they fired after every turn in every workspace, and a
-  /// new worktree has no index, so each one re-embedded the whole bundle.
-  /// Search reports a stale index, and the MCP `index` tool refreshes it.
+  /// Refreshes the index after agent turns and git changes. Indexing skips a
+  /// current bundle without loading the model, so each trigger is cheap.
   Future<void> _writeHooks(String project, String bundle) async {
-    for (final settings in [
-      p.join(project, '.claude', 'settings.json'),
-      p.join(project, '.codex', 'hooks.json'),
-    ]) {
-      await _removeStopHooks(File(settings));
-    }
-    // Git runs these hooks from the top of the working tree. Each exits unless
-    // the change touched the bundle: a new clone or worktree has no index to
-    // refresh, and indexing it would re-embed the whole bundle.
-    final unchangedSinceOrigHead =
-        'git diff --quiet ORIG_HEAD HEAD -- $bundle 2>/dev/null && exit 0\n';
-    for (final (name, change, guard) in [
-      ('post-merge', 'a pull or merge', unchangedSinceOrigHead),
-      (
-        'post-checkout',
-        'a checkout',
-        '[ "\$3" = 1 ] || exit 0\n'
-            'case "\$1" in *[!0]*) ;; *) exit 0 ;; esac\n'
-            'git diff --quiet "\$1" "\$2" -- $bundle && exit 0\n',
-      ),
-      ('post-rewrite', 'a rebase or amend', unchangedSinceOrigHead),
+    // Claude Code discards async hook output and exit codes.
+    await _mergeStopHook(File(p.join(project, '.claude', 'settings.json')), {
+      'type': 'command',
+      'command':
+          'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index $bundle --detach',
+      'async': true,
+    });
+    // A Codex Stop hook must print JSON, and exit 2 would continue the turn.
+    await _mergeStopHook(File(p.join(project, '.codex', 'hooks.json')), {
+      'type': 'command',
+      'command':
+          'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
+          'wayfinder index $bundle --detach --output=json || printf "{}"',
+      'timeout': 10,
+    });
+    // Git runs these hooks from the top of the working tree.
+    for (final (name, change) in [
+      ('post-merge', 'a pull or merge'),
+      ('post-checkout', 'a checkout'),
+      ('post-rewrite', 'a rebase or amend'),
     ]) {
       final hook = File(p.join(project, '.githooks', name));
       await hook.parent.create(recursive: true);
@@ -333,31 +213,38 @@ class AgentSetup {
         '#!/bin/sh\n'
         '# Refresh the Wayfinder index when $change changed the bundle.\n'
         'command -v wayfinder >/dev/null 2>&1 || exit 0\n'
-        '$guard'
         'wayfinder index $bundle --detach >/dev/null 2>&1 || true\n',
       );
       if (!Platform.isWindows) await _run('chmod', ['+x', hook.path]);
     }
-    _out('Configured index refresh hooks for git (.githooks/).');
+    _out(
+      'Configured index refresh hooks for Claude Code, Codex and git '
+      '(.githooks/).',
+    );
     await _enableGitHooks(project);
   }
 
-  /// Removes the Stop hooks earlier releases added, preserving every other
-  /// setting and hook. A file left empty is deleted.
-  Future<void> _removeStopHooks(File file) async {
-    if (!await file.exists()) return;
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(await file.readAsString());
-    } on FormatException {
-      throw WayfinderException('${file.path} is not valid JSON.');
+  /// Adds Wayfinder's Stop hook once, replacing an earlier Wayfinder entry and
+  /// preserving every other setting and hook.
+  Future<void> _mergeStopHook(File file, Map<String, Object?> handler) async {
+    var config = <String, Object?>{};
+    if (await file.exists()) {
+      final Object? decoded;
+      try {
+        decoded = jsonDecode(await file.readAsString());
+      } on FormatException {
+        throw WayfinderException('${file.path} is not valid JSON.');
+      }
+      if (decoded is! Map<String, Object?>) {
+        throw WayfinderException('${file.path} must contain a JSON object.');
+      }
+      config = decoded;
     }
-    if (decoded is! Map<String, Object?>) {
-      throw WayfinderException('${file.path} must contain a JSON object.');
+    final hooks = config['hooks'] ?? <String, Object?>{};
+    final stop = hooks is Map<String, Object?> ? hooks['Stop'] ?? [] : null;
+    if (hooks is! Map<String, Object?> || stop is! List) {
+      throw WayfinderException('${file.path} has an unexpected hooks shape.');
     }
-    final hooks = decoded['hooks'];
-    final stop = hooks is Map<String, Object?> ? hooks['Stop'] : null;
-    if (stop is! List) return;
     bool ours(Object? group) =>
         group is Map &&
         group['hooks'] is List &&
@@ -365,16 +252,16 @@ class AgentSetup {
           (entry) =>
               entry is Map && '${entry['command']}'.contains('wayfinder index'),
         );
-    final kept = [...stop.where((group) => !ours(group))];
-    if (kept.length == stop.length) return;
-    final remaining = {...hooks as Map<String, Object?>}..remove('Stop');
-    if (kept.isNotEmpty) remaining['Stop'] = kept;
-    final config = {...decoded}..remove('hooks');
-    if (remaining.isNotEmpty) config['hooks'] = remaining;
-    if (config.isEmpty) {
-      await file.delete();
-      return;
-    }
+    config['hooks'] = {
+      ...hooks,
+      'Stop': [
+        ...stop.where((group) => !ours(group)),
+        {
+          'hooks': [handler],
+        },
+      ],
+    };
+    await file.parent.create(recursive: true);
     await file.writeAsString(
       '${const JsonEncoder.withIndent('  ').convert(config)}\n',
     );

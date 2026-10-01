@@ -1,33 +1,16 @@
 # Wayfinder
 
-Search the current project's configured local OKF bundles. Resolve a configured
-Profile source with `get` before read-only validation:
+Use an explicit local OKF bundle. Resolve a configured Profile source with
+`get` before read-only validation:
 
 ```bash
 wayfinder get .
 wayfinder validate ./knowledge
 wayfinder upgrade .
 wayfinder graph ./knowledge --output mermaid
-wayfinder index
-wayfinder search "How do I regain account access?"
-wayfinder search "How do I regain account access?" --bundle knowledge
+wayfinder index ./knowledge
+wayfinder search ./knowledge "How do I regain account access?"
 ```
-
-Project search/index discover the nearest `wayfinder.json` from the current
-folder and use its `applies_to` paths. Without one, a conventional `knowledge/`
-directory is supported. Discovery stops at a Git repository boundary. Bundle
-filters use folder names; ambiguous names require an explicit path. These
-commands do not fetch Profile sources or install bundles.
-
-Search ranks matches across all selected bundles with one query embedding and
-one global `--limit`. Project JSON adds `bundles`, plus `bundle` and `bundlePath`
-on each hit; text citations include the project-relative bundle path. Source
-paths, line numbers, status, and relationship context remain available. A missing
-or stale selected index fails the search, rather than silently returning a subset.
-
-The explicit `index <path>` and `search <path> "<query>"` forms retain their
-single-bundle JSON shape and ignore neighboring configuration. Background
-indexing (`--detach`) continues to require an explicit path.
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
@@ -103,10 +86,7 @@ IDs and cause additional re-encoding. An unchanged index returns without
 opening the model or staging a database copy. `--force` rebuilds from scratch
 into a new generation, which replaces the old one only when it completes.
 `--detach` returns at once and indexes in a background process only when the
-bundle changed; the refresh hooks use it. One background index runs per
-machine: while one runs, `--detach` reports it and starts nothing. A background
-index stops after 30 minutes, or as soon as its bundle directory disappears;
-index a large bundle for the first time in the foreground.
+bundle changed; the refresh hooks use it.
 
 ### Oversized-input recovery and warnings
 
@@ -235,7 +215,7 @@ decision rationale and historical context.
 ```bash
 wayfinder skills install [--agent=all|claude|agents]
 wayfinder skills status
-wayfinder setup [<project>] [--bundle=knowledge] [--hooks] [--session-hooks]
+wayfinder setup [<project>] [--bundle=knowledge] [--hooks]
 wayfinder update [--check] [--version=<version>]
 ```
 
@@ -245,19 +225,10 @@ skills to `~/.claude/skills`. It also copies them to `~/.agents/skills` for Code
 and other Agent Skills clients. It marks its copies and never replaces or
 removes a skill it did not install. `setup` adds `wayfinder mcp <bundle>` to a
 project's `.mcp.json` and preserves other servers. `setup --hooks` also runs
-`wayfinder index <bundle> --detach` after git pulls, checkouts and rebases that
-change the bundle (`.githooks/`, enabled with `core.hooksPath`). The git hooks
-skip file checkouts and new clones or worktrees. There are no agent Stop hooks:
-search reports a stale index, and the MCP `index` tool refreshes it. Rerunning
-`setup --hooks` removes the Stop hooks earlier releases added to
-`.claude/settings.json` and `.codex/hooks.json` and keeps every other hook.
-
-`setup --session-hooks` separately installs context-only `SessionStart` hooks
-for Claude, Codex, and Gemini, plus a managed `AGENTS.md` pointer for Grok, whose
-startup hooks ignore stdout. The short message prompts loading `use-wayfinder`
-and its references to the author, adopt, and assess skills. Install the skills
-first, then review/trust the local hooks in the client. Startup does no indexing
-or update checks. See the [installation guide](../../docs/install.md#agent-skills-and-mcp).
+`wayfinder index <bundle> --detach` after Claude Code and Codex turns (Stop hooks
+in `.claude/settings.json` and `.codex/hooks.json`) and after git pulls,
+checkouts and rebases (`.githooks/`, enabled with `core.hooksPath`). Existing
+hooks are kept, and rerunning replaces only Wayfinder's own entries.
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. A Dart installation prints its
