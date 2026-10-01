@@ -127,7 +127,7 @@ void main() {
     expect(resolved, isFalse);
   });
 
-  test('configured type advisory identifies the configuration file', () async {
+  test('configured type summary identifies the configuration file', () async {
     final config = _config();
     final profile =
         (config['profiles'] as Map<String, Object?>)['bitwild_profile']!
@@ -146,14 +146,40 @@ void main() {
     );
     expect(result.profileState, ProfileState.pass);
     expect(
-      result.findings
+      result.summary!
           .where(
-            (finding) =>
-                finding.id == 'concepta-profile/configured-type-extension',
+            (entry) => entry.id == 'concepta-profile/configured-type-extension',
           )
-          .map((finding) => finding.path),
+          .map((entry) => entry.path),
       [customConfig.path],
     );
+  });
+
+  test('a bundle whose only results are notes passes with exit 0', () async {
+    final result = await validateFixture(fixture('configured-extensions'));
+    expect(result.findings, isEmpty);
+    expect(result.summary!.map((entry) => entry.id), [
+      'concepta-profile/configured-type-extension',
+    ]);
+    expect(result.profileState, ProfileState.pass);
+    expect(result.automatedGateState, AutomatedGateState.pass);
+    expect(result.exitCode, 0);
+    final text = result.toTextLines().toList();
+    expect(text.sublist(text.indexOf('Summary:')), [
+      'Summary:',
+      'test/fixtures/configured-extensions/wayfinder.json: note '
+          'concepta-profile/configured-type-extension (2026.3 §5.2): '
+          'Configured project type Runbook is available to this bundle.',
+      'Judgment Rules: UNASSESSED',
+      'Automated gate: PASS',
+    ]);
+  });
+
+  test('prints no summary block when nothing was summarized', () async {
+    final result = await validateFixture(fixture('configured-project'));
+    expect(result.summary, isEmpty);
+    expect(result.toJson()['profile'], containsPair('summary', isEmpty));
+    expect(result.toTextLines(), isNot(contains('Summary:')));
   });
 
   test('rejects the unpublished installed-binding version 1 shape', () {
@@ -715,6 +741,53 @@ okf_version: "0.2"
       ).profiles['bitwild_profile']!.relationshipNames,
       containsAll(['depends-on', 'runs-after']),
     );
+  });
+
+  test('rejects a declared tag that equals another vocabulary value', () {
+    for (final (field, name, collision) in [
+      ('tags', 'draft', 'tag draft, which equals an OKF status value'),
+      (
+        'tags',
+        'human-reviewed',
+        'tag human-reviewed, which equals an OKF trust tier',
+      ),
+      (
+        'tags',
+        'depends-on',
+        'tag depends-on, which equals a declared relationship name',
+      ),
+      ('types', 'incident', 'tag incident, which equals a declared type name'),
+      (
+        'relationships',
+        'incident',
+        'tag incident, which equals a declared relationship name',
+      ),
+    ]) {
+      final config = _config();
+      final binding =
+          (config['profiles'] as Map<String, Object?>)['bitwild_profile']!
+              as Map<String, Object?>;
+      binding['tags'] = [
+        {'name': 'incident', 'description': 'An incident topic'},
+      ];
+      final definition = {'name': name, 'description': 'Collides'};
+      binding.update(
+        field,
+        (list) => [...list as List<Object?>, definition],
+        ifAbsent: () => [definition],
+      );
+      expect(
+        () => WayfinderProjectConfig.parse(jsonEncode(config)),
+        throwsA(
+          isA<WayfinderConfigException>().having(
+            (error) => error.message,
+            'message',
+            'Profile bitwild_profile declares $collision.',
+          ),
+        ),
+        reason: '$field $name',
+      );
+    }
   });
 
   test('rejects explicit nulls for optional fields', () {

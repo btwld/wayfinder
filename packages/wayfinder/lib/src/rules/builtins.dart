@@ -83,7 +83,10 @@ const builtins = <String, Builtin>{
   'source-path-unresolved': Builtin(sourcePathUnresolved),
   'relationships-shape': Builtin(relationshipsShape),
   'relationship-label-extension': Builtin(relationshipLabelExtension),
-  'link-graph-unavailable': Builtin(linkGraphUnavailable),
+  'link-graph-unavailable': Builtin(
+    linkGraphUnavailable,
+    params: linkGraphUnavailableParams,
+  ),
   'declared-okf-binding': Builtin(declaredOkfBinding),
   'root-structure-files': Builtin(
     rootStructureFiles,

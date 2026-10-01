@@ -63,7 +63,46 @@ void main() {
     test('an unknown severity, at the rule that carries it', () {
       expect(
         () => RuleCatalog.parse(jsonEncode(catalog(rule: {'severity': 'x'}))),
-        rejectedAt('rules[0].severity', 'must be one of error, advisory'),
+        rejectedAt('rules[0].severity', 'must be one of error, advisory, note'),
+      );
+    });
+
+    test('a note severity, which reports summary entries', () {
+      final rule = RuleCatalog.parse(
+        jsonEncode(catalog(rule: {'severity': 'note'})),
+      ).rules.single;
+      expect(rule.descriptor.severity, RuleSeverity.note);
+      expect(rule.descriptor.severity.finding, isNull);
+    });
+
+    test('link-graph-unavailable params other than a report path', () {
+      final reported = RuleCatalog.parse(
+        jsonEncode(
+          catalog(
+            rule: {
+              'check': {
+                'builtin': 'link-graph-unavailable',
+                'params': {'path': 'index.md'},
+              },
+            },
+          ),
+        ),
+      );
+      expect(reported.rules.single.check, isA<BuiltinCheck>());
+      expect(
+        () => RuleCatalog.parse(
+          jsonEncode(
+            catalog(
+              rule: {
+                'check': {
+                  'builtin': 'link-graph-unavailable',
+                  'params': {'at': 'index.md'},
+                },
+              },
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].check.params', 'params do not match'),
       );
     });
 
@@ -82,6 +121,15 @@ void main() {
     });
   });
 
+  test('2026.2 reports no summary entries', () {
+    expect(
+      catalogs[legacyProfileRelease]!.rules.map(
+        (rule) => rule.descriptor.severity,
+      ),
+      everyElement(isNot(RuleSeverity.note)),
+    );
+  });
+
   test('every finding in the goldens is declared by its release', () {
     final goldens = Directory('test/goldens').listSync().whereType<File>();
     final seen = <String>{};
@@ -92,18 +140,23 @@ void main() {
               as Map<String, Object?>;
       final release = profile['release'] as String?;
       final declared = {
-        for (final descriptor in DispatchRule.all) descriptor.id,
+        for (final descriptor in DispatchRule.all)
+          descriptor.id: descriptor.severity,
         if (catalogs[release] case final catalog?)
-          for (final rule in catalog.rules) rule.descriptor.id,
+          for (final rule in catalog.rules)
+            rule.descriptor.id: rule.descriptor.severity,
       };
-      for (final finding in profile['findings'] as List<Object?>) {
-        final id = (finding as Map<String, Object?>)['id'] as String;
-        seen.add(id);
-        expect(
-          declared,
-          contains(id),
-          reason: '$id in ${p.basename(golden.path)} (release $release)',
-        );
+      for (final (key, isNote) in [('findings', false), ('summary', true)]) {
+        for (final result in profile[key] as List<Object?>? ?? const []) {
+          final id = (result as Map<String, Object?>)['id'] as String;
+          seen.add(id);
+          expect(
+            declared.containsKey(id) &&
+                (declared[id] == RuleSeverity.note) == isNote,
+            isTrue,
+            reason: '$id in ${p.basename(golden.path)} $key (release $release)',
+          );
+        }
       }
     }
     expect(seen, isNotEmpty);

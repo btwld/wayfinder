@@ -92,6 +92,7 @@ final class ProfileValidationResult {
     required this.profileState,
     required Iterable<ProfileFinding> findings,
     required this.automatedGateState,
+    this.summary,
     this.fix,
     this.catalog,
     this.projectConfig,
@@ -141,13 +142,14 @@ final class ProfileValidationResult {
 
   factory ProfileValidationResult.assessed(
     OkfSpecValidation validation,
-    Iterable<ProfileFinding> findings,
+    ({List<ProfileFinding> findings, List<ProfileSummaryEntry> summary})
+    results,
     RuleCatalog catalog, {
     ProfileFix? fix,
     ({String reported, String file})? projectConfig,
   }) {
     final stableFindings = List<ProfileFinding>.unmodifiable(
-      findings.toList()..sort(
+      results.findings.toList()..sort(
         (left, right) => OkfReport.compareFindings(
           left.toOkfFinding(),
           right.toOkfFinding(),
@@ -165,6 +167,14 @@ final class ProfileValidationResult {
       automatedGateState: failed
           ? AutomatedGateState.fail
           : AutomatedGateState.pass,
+      summary:
+          catalog.rules.any(
+            (rule) => rule.descriptor.severity == RuleSeverity.note,
+          )
+          ? List.unmodifiable(
+              results.summary.toList()..sort(ProfileSummaryEntry.compare),
+            )
+          : null,
       fix: fix,
       catalog: catalog,
       projectConfig: projectConfig,
@@ -176,6 +186,11 @@ final class ProfileValidationResult {
   final ProfileState profileState;
   final List<ProfileFinding> findings;
   final AutomatedGateState automatedGateState;
+
+  /// What the assessment found that the Profile permits, in canonical order.
+  /// Null unless the assessed catalog declares a note rule, so a release
+  /// without one keeps its output shape.
+  final List<ProfileSummaryEntry>? summary;
 
   /// Present when the caller asked for `--fix`.
   final ProfileFix? fix;
@@ -204,6 +219,8 @@ final class ProfileValidationResult {
       'release': profileRelease,
       'state': profileState.wireValue,
       'findings': findings.map((finding) => finding.toJson()).toList(),
+      if (summary case final summary?)
+        'summary': summary.map((entry) => entry.toJson()).toList(),
     },
     'judgment_rules': const <String, Object>{'state': 'UNASSESSED'},
     'automated_gate': <String, Object>{'state': automatedGateState.wireValue},
@@ -223,6 +240,12 @@ final class ProfileValidationResult {
     }
     for (final finding in findings) {
       yield finding.toText();
+    }
+    if (summary case final summary? when summary.isNotEmpty) {
+      yield 'Summary:';
+      for (final entry in summary) {
+        yield entry.toText();
+      }
     }
     yield 'Judgment Rules: UNASSESSED';
     yield 'Automated gate: ${automatedGateState.wireValue}';

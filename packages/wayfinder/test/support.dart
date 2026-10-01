@@ -25,7 +25,8 @@ String fixtureBundle(String path) =>
 
 /// Validates a fixture as [fixtureBundle] lays it out. A configured project
 /// is passed its `wayfinder.json` unless [discoverConfig], and its Profile
-/// sources resolve to the installed release.
+/// sources resolve to the installed release. A configuration that does not
+/// parse resolves nothing, so the validator reports why.
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
@@ -34,7 +35,15 @@ Future<ProfileValidationResult> validateFixture(
   if (!await config.exists()) {
     return const ProfileValidator().validate(path);
   }
-  final parsed = WayfinderProjectConfig.parse(await config.readAsString());
+  final WayfinderProjectConfig parsed;
+  try {
+    parsed = WayfinderProjectConfig.parse(await config.readAsString());
+  } on WayfinderConfigException {
+    return const ProfileValidator().validate(
+      fixtureBundle(path),
+      configPath: discoverConfig ? null : config.path,
+    );
+  }
   return const ProfileValidator().validate(
     fixtureBundle(path),
     configPath: discoverConfig ? null : config.path,

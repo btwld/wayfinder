@@ -1,6 +1,7 @@
 import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
+import 'profile_finding.dart';
 import 'profile_rule_descriptors.dart';
 import 'validation.dart';
 
@@ -8,9 +9,11 @@ const _schema =
     'https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/'
     'sarif-schema-2.1.0.json';
 
-/// [result] as a SARIF 2.1.0 log, carrying the same findings as its JSON.
+/// [result] as a SARIF 2.1.0 log, carrying the same findings and summary
+/// entries as its JSON.
 ///
-/// Each finding is a result whose `ruleId` is the finding id. Locations are
+/// Each finding is a result whose `ruleId` is the finding id, and each
+/// summary entry a `note` result of kind `informational`. Locations are
 /// relative to the working directory, joined from [bundlePath] as given (or
 /// the project configuration file, for a finding about it), so code scanning
 /// resolves them against a checkout when validation runs at its root. The
@@ -71,7 +74,7 @@ Map<String, Object?> toSarif(
           for (final finding in okfFindings)
             _result(
               finding.id.value,
-              finding.severity,
+              _level(finding.severity),
               finding.message,
               location: finding.location,
               uri: uri,
@@ -79,10 +82,19 @@ Map<String, Object?> toSarif(
           for (final finding in result.findings)
             _result(
               finding.id,
-              finding.severity,
+              _level(finding.severity),
               finding.message,
               location: OkfFindingLocation(path: finding.path),
               uri: uri,
+            ),
+          for (final entry in result.summary ?? const <ProfileSummaryEntry>[])
+            _result(
+              entry.id,
+              'note',
+              entry.message,
+              location: OkfFindingLocation(path: entry.path),
+              uri: uri,
+              kind: 'informational',
             ),
         ],
         'properties': {
@@ -121,7 +133,12 @@ Map<String, Object?> _profileDescriptor(
 }) => {
   'id': descriptor.id,
   if (description != null) 'shortDescription': {'text': description},
-  'defaultConfiguration': {'level': _level(descriptor.severity)},
+  'defaultConfiguration': {
+    'level': switch (descriptor.severity.finding) {
+      final severity? => _level(severity),
+      null => 'note',
+    },
+  },
   'properties': {
     'category': ?category,
     'ref': descriptor.rule,
@@ -131,13 +148,15 @@ Map<String, Object?> _profileDescriptor(
 
 Map<String, Object?> _result(
   String ruleId,
-  OkfFindingSeverity severity,
+  String level,
   String message, {
   required OkfFindingLocation? location,
   required String Function(String path) uri,
+  String? kind,
 }) => {
   'ruleId': ruleId,
-  'level': _level(severity),
+  'kind': ?kind,
+  'level': level,
   'message': {'text': message},
   if (location != null)
     'locations': [

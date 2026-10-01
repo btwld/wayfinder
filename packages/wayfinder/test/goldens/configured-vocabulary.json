@@ -134,7 +134,8 @@
         "profile_release": "2026.3",
         "rule": "§5.2"
       }
-    ]
+    ],
+    "summary": []
   },
   "judgment_rules": {
     "state": "UNASSESSED"

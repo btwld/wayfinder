@@ -488,6 +488,25 @@ void main() {
         ),
       ),
     );
+    final taggedLikeRelationship = await config();
+    (taggedLikeRelationship['profiles']['client_profile']['relationships']
+            as List)
+        .removeLast();
+    taggedLikeRelationship['profiles']['client_profile']['tags'] = [
+      {'name': 'escalated-to', 'description': 'Repeats a child relationship'},
+    ];
+    await saveConfig(taggedLikeRelationship);
+    await expectLater(
+      WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
+      throwsA(
+        isA<WayfinderProfileResolutionException>().having(
+          (error) => error.message,
+          'message',
+          'Profile client_profile has tag escalated-to, which equals a '
+              'declared relationship name.',
+        ),
+      ),
+    );
     expect(
       result.bindings['client_profile']!.typeNames,
       containsAll(['Guide', 'Client Note']),

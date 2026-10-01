@@ -294,9 +294,6 @@ CatalogRule _rule(
   } on FormatException catch (error) {
     throw RuleCatalogException('$where.id', error.message);
   }
-  final severity = map['severity'] == 'error'
-      ? OkfFindingSeverity.error
-      : OkfFindingSeverity.advisory;
   final message = switch (map['message']) {
     final String template => SingleMessage(template),
     final byId => MessageVariants(
@@ -356,7 +353,7 @@ CatalogRule _rule(
   return CatalogRule._(
     descriptor: ProfileRuleDescriptor(
       id: id.value,
-      severity: severity,
+      severity: RuleSeverity.values.byName(map['severity'] as String),
       rule: map['ref'] as String,
     ),
     category: RuleCategory.values.byName(map['category'] as String),

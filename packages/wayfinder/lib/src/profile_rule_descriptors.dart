@@ -1,5 +1,20 @@
 import 'package:okf/okf.dart';
 
+/// How loudly a rule reports. An error or advisory is a finding with okf's
+/// severity of the same name; a note reports something the Profile permits,
+/// so it is a summary entry that never affects a state or the exit status
+/// (Profile §14.1).
+enum RuleSeverity {
+  error(OkfFindingSeverity.error),
+  advisory(OkfFindingSeverity.advisory),
+  note(null);
+
+  const RuleSeverity(this.finding);
+
+  /// The severity of this rule's findings; null for a note.
+  final OkfFindingSeverity? finding;
+}
+
 /// Read-only metadata describing one deterministic Profile rule,
 /// mirroring okf's `okfSpecRuleDescriptors`.
 ///
@@ -17,17 +32,17 @@ final class ProfileRuleDescriptor {
 
   const ProfileRuleDescriptor.error(String slug, this.rule)
     : id = 'concepta-profile/$slug',
-      severity = OkfFindingSeverity.error;
+      severity = RuleSeverity.error;
 
   const ProfileRuleDescriptor.advisory(String slug, this.rule)
     : id = 'concepta-profile/$slug',
-      severity = OkfFindingSeverity.advisory;
+      severity = RuleSeverity.advisory;
 
   /// Stable `concepta-profile/<rule-slug>` finding ID.
   final String id;
 
   /// Severity emitted when the condition is found.
-  final OkfFindingSeverity severity;
+  final RuleSeverity severity;
 
   /// The normative Profile clause reference the rule assesses.
   final String rule;

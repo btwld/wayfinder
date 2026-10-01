@@ -85,7 +85,9 @@ and review guidance. A project Profile entry may add local vocabulary alongside
 
 The effective type, tag, and relationship registries are the Profile
 vocabulary plus these project additions. Names must be unique and must not
-collide with standard fields or Profile definitions. Registry presence does
+collide with standard fields or Profile definitions. A tag name also must not
+equal a type or relationship name, an OKF status value, or a trust tier
+(Profile §5.1). Registry presence does
 not prove authorship, truth, or verification. A project entry adds vocabulary
 only: it cannot declare a frontmatter key, which only a Profile release does.
 

@@ -1,5 +1,11 @@
 # Unreleased
 
+- `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
+  such as a project type in use or an unresolved planned link, as summary
+  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF `note`
+  results. They never change the gate or the exit code. The resolver rejects
+  a composed binding that declares a tag equal to a type, status, trust tier,
+  or relationship name.
 - `wayfinder graph` and the MCP `graph` tool add each concept's typed
   `relationships` frontmatter entries beside okf's graph. JSON keeps every
   okf key and adds a `field_edges` array; Mermaid and DOT label each added

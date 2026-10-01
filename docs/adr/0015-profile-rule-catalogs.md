@@ -4,7 +4,7 @@
 - Date: 2026-10-01
 - Scope: Profile rule representation, validator engine, and Profile packages from 2026.3 onward
 - Supersedes: [ADR-0004](0004-closed-concepta-profile-validator.md)'s compiled rule representation; [ADR-0014](0014-external-profile-bindings.md)'s vocabulary-only manifest and its exclusion of source-provided rules
-- Amends: [ADR-0008](0008-okfp-adopts-okf-finding-contract.md) (descriptor source, finding arguments, SARIF)
+- Amends: [ADR-0008](0008-okfp-adopts-okf-finding-contract.md) (descriptor source, finding arguments, summary entries, SARIF)
 - Driver: a second real knowledge base's gate, over the same okf release, that keeps its frontmatter rules in JSON Schema
 
 ## Context
@@ -59,6 +59,11 @@ or keyword the engine lacks resolves to `UNSUPPORTED`.
 Findings keep OKF's wire format. The contract is the finding id, severity,
 path, and template arguments; message wording is editorial. SARIF 2.1.0 is an
 additional output.
+
+A rule's severity is `error`, `advisory`, or `note`. A note rule reports what
+the Profile permits as summary entries, which Profile §14.1 keeps apart from
+findings: they are never findings and never change a result state or the exit
+code.
 
 OKF independence, `BLOCKED BY OKF`, exact-release dispatch, never-fetch
 validation, and the four-part result from ADR-0004 are unchanged. The frozen

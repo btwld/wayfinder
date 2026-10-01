@@ -133,7 +133,7 @@ void main() {
     );
     final facts = await project();
     final shape = {
-      for (final finding in evaluate(facts.profile, facts))
+      for (final finding in evaluate(facts.profile, facts).findings)
         if (finding.id == 'concepta-profile/relationship-shape')
           finding.path: finding.message,
     };

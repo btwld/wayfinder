@@ -102,7 +102,10 @@ OKF result; run `wayfinder get` to resolve the declared source, or
 `graph`, `index`, and `search` do not need Profile-source resolution.
 
 - Exit `0` and `PASS`: the automated gate passed. Advisory findings may remain;
-  mention the relevant ones without treating them as failures.
+  mention the relevant ones without treating them as failures. Summary entries
+  (`profile.summary`, or the text `Summary:` block) report what the Profile
+  permits, such as a project type in use or a planned link; they are never
+  findings.
 - Exit `1` and `FAIL`: error findings exist. Report each with its `id`, path and
   message.
 - Exit `2`: the bundle could not be assessed — for example an unsupported or

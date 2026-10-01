@@ -392,7 +392,7 @@ void main() {
     test('the probe catalog reports each fact through its rule', () async {
       final facts = await project(probeCatalog);
       final findings = [
-        for (final finding in evaluate(facts.profile, facts))
+        for (final finding in evaluate(facts.profile, facts).findings)
           '${finding.id} ${finding.path}: ${finding.message}',
       ];
       expect(
@@ -433,7 +433,7 @@ void main() {
           RuleCatalog.installed(builtinProfileId, externalProfileRelease),
         );
         final joins = [
-          for (final finding in evaluate(facts.profile, facts))
+          for (final finding in evaluate(facts.profile, facts).findings)
             if (finding.id == 'concepta-profile/source-attribution-join')
               finding.path,
         ];

@@ -1504,7 +1504,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
     {
       "id": "configured-type-extension",
       "category": "vocabulary",
-      "severity": "advisory",
+      "severity": "note",
       "status": "stable",
       "ref": "§5.2",
       "description": "The selected Profile binding registers a project-specific type, which is conformant.",
@@ -1756,18 +1756,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
             "status": "Stable"
           }
         ]
-      }
-    },
-    {
-      "id": "tag-literal-duplication",
-      "category": "vocabulary",
-      "severity": "error",
-      "status": "stable",
-      "ref": "§5.1",
-      "description": "A tag MUST NOT exactly repeat the concept's `type`, `status`, derived trust tier, or a declared relationship name.",
-      "message": "Tags must not duplicate type, status, trust, or relationship name values; found {failing}.",
-      "check": {
-        "builtin": "tag-literal-duplication"
       }
     },
     {
@@ -2144,7 +2132,10 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "The §7.1 link rules MUST be assessed against a buildable OKF link graph of the bundle.",
       "message": "The OKF link graph could not be built ({error}); the §7.1 link rules were not assessed.",
       "check": {
-        "builtin": "link-graph-unavailable"
+        "builtin": "link-graph-unavailable",
+        "params": {
+          "path": "index.md"
+        }
       }
     },
     {
@@ -2216,7 +2207,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
     {
       "id": "internal-link-unresolved",
       "category": "linking",
-      "severity": "advisory",
+      "severity": "note",
       "status": "stable",
       "ref": "§7.1, §14.1–§14.2",
       "description": "An internal link's target is absent from the bundle.",
@@ -2341,7 +2332,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
     {
       "id": "relationship-unresolved",
       "category": "linking",
-      "severity": "advisory",
+      "severity": "note",
       "status": "stable",
       "ref": "§7.2, §14.1–§14.2",
       "description": "An internal relationship target is absent from the bundle.",
@@ -3075,8 +3066,10 @@ const String wayfinderRulesSchema = r'''
         "severity": {
           "enum": [
             "error",
-            "advisory"
-          ]
+            "advisory",
+            "note"
+          ],
+          "description": "An error fails the automated gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
         },
         "status": {
           "enum": [

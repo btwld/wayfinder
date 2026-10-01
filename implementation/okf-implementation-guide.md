@@ -224,10 +224,20 @@ invocation could not assess the declared release, including usage, I/O, and
 unsupported-release outcomes. Advisories — OKF's or the Profile's — MUST NOT
 change the automated gate or exit status.
 
+The result model also carries summary entries beside the findings. A
+release's summary rules report what it permits (Profile §14.1), and their
+entries MUST NOT appear among the findings or change any component state or
+the exit status. JSON carries them as `profile.summary`, a canonically ordered
+list whose entries have a finding's `id`, `message`, `location`,
+`profile_release`, and `rule` but no `severity`; the list is present, even when
+empty, whenever the assessed release declares a summary rule. Text prints a
+`Summary:` block after the findings when there is an entry.
+
 `sarif` carries the same findings as JSON in a SARIF 2.1.0 log for code
 scanning. Each OKF and Profile finding is one result whose `ruleId` is its
-finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. The
-selected release's rules are the run's rule descriptors, and the four
+finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. Each
+summary entry follows the findings as a `note` result of kind `informational`.
+The selected release's rules are the run's rule descriptors, and the four
 component states are run properties because SARIF has no field for them. The
 exit status is the same as for text and JSON.
 
@@ -404,8 +414,8 @@ parent chain reaching this base. A parent may be source-only with
 replace inherited names or load rules from Git. Missing parents, cycles,
 collisions, unsupported releases, and ambiguous bundle application fail
 Profile dispatch. Types, topic tags, relationship names and actor lookup are
-the only local additions; a binding cannot declare frontmatter keys. A registered custom type is still a non-blocking extension
-advisory; contextual meaning belongs to Profile Review.
+the only local additions; a binding cannot declare frontmatter keys. A registered custom type is reported as a summary
+entry (§4.1); contextual meaning belongs to Profile Review.
 
 A relative local `source.git` is resolved from the directory containing
 `wayfinder.json`, not the process working directory. Cache identity uses that
@@ -736,6 +746,17 @@ relationships into frontmatter. Migration for implementations: parse a
 release's declared keys and relationship vocabulary, resolve relationship
 targets as the OKF graph resolves links, and keep the body-section checks for
 2026.2 bundles.
+
+Revised in place before publication: §4.1 adds summary entries to the result
+model beside the findings, as `profile.summary` in JSON, a `Summary:` text
+block, and SARIF `note` results; §4.7 reports a registered custom type as a
+summary entry. A graph that cannot be built is reported at `index.md`, which
+every 2026.3 bundle has, instead of `profile.md`. Affected sections: §§4.1, 4.7,
+and 9. Driver: Profile 2026.3 §14.1 now reports what it permits as summary
+entries, and §5.1 checks colliding tag names where the binding declares them.
+Migration for implementations: route a release's summary rules to the summary,
+emit the new JSON key and SARIF notes, and reject a colliding tag declaration
+while reading and composing the binding; 2026.2 output is unchanged.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

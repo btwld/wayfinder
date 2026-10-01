@@ -19,7 +19,8 @@ final class ProfileFinding {
     this.profileRelease,
   });
 
-  /// The rule that reported this finding.
+  /// The rule that reported this finding: an error or advisory rule, since
+  /// a note rule reports [ProfileSummaryEntry]s instead.
   final ProfileRuleDescriptor descriptor;
 
   final String message;
@@ -33,7 +34,7 @@ final class ProfileFinding {
   final String? profileRelease;
 
   String get id => descriptor.id;
-  OkfFindingSeverity get severity => descriptor.severity;
+  OkfFindingSeverity get severity => descriptor.severity.finding!;
   String get rule => descriptor.rule;
 
   OkfFindingLocation get _location => OkfFindingLocation(path: path);
@@ -57,4 +58,53 @@ final class ProfileFinding {
     final release = profileRelease == null ? '' : '$profileRelease ';
     return '$_location: ${severity.wireValue} $id ($release$rule): $message';
   }
+}
+
+/// Something a note rule found that the Profile permits, such as a project
+/// type in use or an unresolved planned link. Profile §14.1: a summary entry
+/// is not a finding, so it carries no severity and never affects the
+/// Profile state, the automated gate or the exit status. SARIF reports it as
+/// a `note` result of kind `informational`.
+final class ProfileSummaryEntry {
+  const ProfileSummaryEntry({
+    required this.descriptor,
+    required this.message,
+    required this.path,
+    required this.profileRelease,
+  });
+
+  /// The note rule that reported this entry.
+  final ProfileRuleDescriptor descriptor;
+
+  final String message;
+
+  /// Bundle-relative path, or the project configuration path for an entry
+  /// about the binding.
+  final String path;
+
+  final String profileRelease;
+
+  String get id => descriptor.id;
+  String get rule => descriptor.rule;
+
+  OkfFindingLocation get _location => OkfFindingLocation(path: path);
+
+  /// Canonical order without a severity: path, then id, then message, as
+  /// okf orders findings that carry no line or column.
+  static int compare(ProfileSummaryEntry left, ProfileSummaryEntry right) {
+    final byPath = left.path.compareTo(right.path);
+    if (byPath != 0) return byPath;
+    final byId = left.id.compareTo(right.id);
+    return byId != 0 ? byId : left.message.compareTo(right.message);
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'message': message,
+    'location': _location.toJson(),
+    'profile_release': profileRelease,
+    'rule': rule,
+  };
+
+  String toText() => '$_location: note $id ($profileRelease $rule): $message';
 }

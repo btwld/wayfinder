@@ -19,18 +19,10 @@
         {
           "name": "governance",
           "description": "Governance topic"
-        }
-      ],
-      "relationships": [
+        },
         {
-          "name": "runs-after",
-          "description": "This concept applies only after the target has run"
-        }
-      ],
-      "types": [
-        {
-          "name": "Runbook",
-          "description": "Steps to operate a running system"
+          "name": "draft",
+          "description": "Deliberately repeats a status value"
         }
       ]
     }

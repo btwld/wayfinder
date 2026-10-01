@@ -68,10 +68,11 @@
         },
         "profile_release": "2026.3",
         "rule": "§7.2"
-      },
+      }
+    ],
+    "summary": [
       {
         "id": "concepta-profile/internal-link-unresolved",
-        "severity": "advisory",
         "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
         "location": {
           "path": "unresolved-link.md"
@@ -81,7 +82,6 @@
       },
       {
         "id": "concepta-profile/relationship-unresolved",
-        "severity": "advisory",
         "message": "An unresolved internal relationship target is permitted and remains a relationship edge.",
         "location": {
           "path": "unresolved-link.md"

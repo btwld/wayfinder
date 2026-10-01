@@ -1,5 +1,17 @@
 # Unreleased
 
+- Profile 2026.3 reports what it permits as summary entries instead of
+  advisories. Catalog rules take a third severity, `note`, whose results
+  fill `ProfileValidationResult.summary` (`ProfileSummaryEntry`), JSON
+  `profile.summary`, a text `Summary:` block and SARIF `note` results of
+  kind `informational`, and never affect a state or the exit code.
+  `configured-type-extension`, `internal-link-unresolved` and
+  `relationship-unresolved` become notes. `evaluate` returns findings and
+  summary entries apart. A declared tag that equals a type, status, trust
+  tier or relationship name fails `WayfinderProjectConfig.parse` and binding
+  composition, and the 2026.3 catalog drops `tag-literal-duplication`.
+  `link-graph-unavailable` takes a `path` param and reports at `index.md`
+  under 2026.3. 2026.2 is unchanged.
 - Profile 2026.3 types relationships in the `relationships` frontmatter key
   instead of a `# Relationships` body section. The 2026.3 catalog declares
   the key in its new `frontmatter_keys`, renames `frontmatter-fields-okf` to

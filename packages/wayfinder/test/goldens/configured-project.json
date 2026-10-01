@@ -8,7 +8,8 @@
   "profile": {
     "release": "2026.3",
     "state": "PASS",
-    "findings": []
+    "findings": [],
+    "summary": []
   },
   "judgment_rules": {
     "state": "UNASSESSED"

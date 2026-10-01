@@ -730,7 +730,7 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       }
       actors[entry.key] = entry.value;
     }
-    return effective[id] = WayfinderProfileBinding(
+    final binding = WayfinderProfileBinding(
       id: id,
       implementsId: builtinProfileId,
       release: manifest.release,
@@ -742,6 +742,10 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       relationships: List.unmodifiable(relationships),
       actors: Map.unmodifiable(actors),
     );
+    if (binding.tagCollision case final collision?) {
+      throw WayfinderProfileResolutionException('Profile $id has $collision.');
+    }
+    return effective[id] = binding;
   }
 
   if (selectedId != null) {

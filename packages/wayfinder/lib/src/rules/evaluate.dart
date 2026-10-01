@@ -1,18 +1,47 @@
 import 'dart:collection';
 
 import '../profile_finding.dart';
+import '../profile_rule_descriptors.dart';
 import 'catalog.dart';
 import 'facts.dart';
 import 'profile.dart';
 
 /// The engine: every rule of the selected catalog over every subject. A
 /// schema rule that references a slot the vocabulary cannot provide is
-/// skipped. Findings carry the catalog's release; the caller orders them.
-List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
+/// skipped. An error or advisory rule reports findings and a note rule
+/// reports summary entries, each carrying the catalog's release; the caller
+/// orders them.
+({List<ProfileFinding> findings, List<ProfileSummaryEntry> summary}) evaluate(
+  EffectiveProfile profile,
+  BundleFacts facts,
+) {
   final catalog = profile.catalog;
   final slots = profile.slots;
   final findings = <ProfileFinding>[];
+  final summary = <ProfileSummaryEntry>[];
   for (final rule in catalog.rules) {
+    void report(String message, String path) {
+      if (rule.descriptor.severity == RuleSeverity.note) {
+        summary.add(
+          ProfileSummaryEntry(
+            descriptor: rule.descriptor,
+            message: message,
+            path: path,
+            profileRelease: catalog.release,
+          ),
+        );
+      } else {
+        findings.add(
+          ProfileFinding(
+            descriptor: rule.descriptor,
+            message: message,
+            path: path,
+            profileRelease: catalog.release,
+          ),
+        );
+      }
+    }
+
     switch (rule.check) {
       case final SchemaCheck check:
         if (!check.slots.every(slots.containsKey)) continue;
@@ -37,38 +66,26 @@ List<ProfileFinding> evaluate(EffectiveProfile profile, BundleFacts facts) {
             if (predicate.test(subject.facts)) continue;
             failing = const [];
           }
-          findings.add(
-            ProfileFinding(
-              descriptor: rule.descriptor,
-              message: _render(
-                rule.message,
-                failing: failing,
-                facts: subject.facts,
-              ),
-              path: subject.locations[check.at]!,
-              profileRelease: catalog.release,
-            ),
+          report(
+            _render(rule.message, failing: failing, facts: subject.facts),
+            subject.locations[check.at]!,
           );
         }
       case BuiltinCheck(:final builtin, :final params):
         for (final violation in builtin.run(facts, params)) {
-          findings.add(
-            ProfileFinding(
-              descriptor: rule.descriptor,
-              message: _render(
-                rule.message,
-                failing: violation.failing,
-                facts: violation.facts,
-                messageId: violation.messageId,
-              ),
-              path: violation.location,
-              profileRelease: catalog.release,
+          report(
+            _render(
+              rule.message,
+              failing: violation.failing,
+              facts: violation.facts,
+              messageId: violation.messageId,
             ),
+            violation.location,
           );
         }
     }
   }
-  return findings;
+  return (findings: findings, summary: summary);
 }
 
 /// The files `validate --fix` writes: the union of what every fixable

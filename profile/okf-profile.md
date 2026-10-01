@@ -546,12 +546,15 @@ declared key as one more unknown key, and every Profile consumer reads it with
 its one declared meaning.
 
 **`tags` carry topic, and nothing else.** A tag groups concepts by what they are
-about — a domain, capability, or theme a reader might sweep for. A tag MUST NOT
-exactly repeat the concept's `type`, `status`, derived trust tier, or a declared
-relationship name (§7.2). A tag also MUST NOT serve as a semantic alias for kind,
-lifecycle, trust, or how settled the subject is. Automated Profile Validation
-checks exact duplication; Profile Review assesses semantic aliases (§14.1). Each
-of those meanings has a field or mechanism that a consumer reads, and a tag is either
+about — a domain, capability, or theme a reader might sweep for. A declared tag
+name MUST NOT equal a declared type name, an OKF `status` value (`draft`,
+`stable`, `deprecated`), an OKF trust tier (`unverified`, `machine-confirmed`,
+`human-reviewed`), or a declared relationship name (§7.2). Because every used
+tag is declared, no tag on a concept can then repeat its type, status, trust
+tier, or a relationship name. A tag also MUST NOT serve as a semantic alias for
+kind, lifecycle, trust, or how settled the subject is. Automated Profile
+Validation checks the declared names when it reads the binding (§11); Profile
+Review assesses semantic aliases (§14.1). Each of those meanings has a field or mechanism that a consumer reads, and a tag is either
 redundant on the day it is written or wrong on the day the real signal changes —
 `partially-resolved` on a question is a fact about an inbound `partially-resolves`
 relationship, and nothing updates it when a second one lands. The prohibition is the same
@@ -575,8 +578,8 @@ MAY add project-specific types with a nonempty name and truthful description.
 Custom names MUST be unique and MUST NOT collide with a standard name. Every
 used concept type MUST resolve in the merged registry; an unregistered use is
 a producer-side Profile failure, not grounds for a generic OKF reader to reject
-the document (§14.2). A registered custom type is conformant and produces a
-non-blocking advisory so recurring extensions can inform a later release.
+the document (§14.2). A registered custom type is conformant and is reported
+as a summary entry (§14.1) so recurring extensions can inform a later release.
 
 The standard vocabulary:
 
@@ -856,9 +859,9 @@ timestamp, because such a value names no instant.
 Links between concepts follow OKF §6.1. Bundle-relative links (a leading `/`)
 SHOULD be preferred for internal targets, because they survive document moves
 within a subdirectory. An internal link whose target is absent MAY remain in a
-conformant bundle and MAY represent knowledge not yet written. It is a
-non-blocking advisory; Profile Review decides whether it is a useful planned edge
-or a repairable mistake in context.
+conformant bundle and MAY represent knowledge not yet written. It is reported
+as a summary entry, not a finding (§14.1); Profile Review decides whether it is
+a useful planned edge or a repairable mistake in context.
 
 Provenance and navigation stay separate mechanisms: `sources` records where
 content came from, links record how a reader traverses the knowledge, and
@@ -886,7 +889,7 @@ and an internal target SHOULD be bundle-relative, as §7.1 prefers for links.
 Unlike `sources[].resource`, it is never a scope descriptor: a relationship
 points at something a reader can follow. An internal target absent from the
 bundle MAY remain and MAY represent knowledge not yet written; like an unresolved
-link (§7.1), it is a non-blocking advisory.
+link (§7.1), it is reported as a summary entry, not a finding (§14.1).
 
 Relationships are not provenance and MUST NOT be recorded in `sources`. OKF §5.1
 defines `sources` as what a concept's content derives from and lets a consumer
@@ -1036,8 +1039,9 @@ A move is complete when three things hold, in one operation:
 3. `log.md` records the move (§10).
 
 A move that leaves a known inbound internal link unchanged is incomplete. The
-unresolved edge remains loadable and advisory under §7.1; it does not become an OKF
-or Profile conformance failure merely because it reveals unfinished move work.
+unresolved edge remains loadable and is reported as a summary entry under §7.1; it
+does not become an OKF or Profile conformance failure merely because it reveals
+unfinished move work.
 
 **`status` does not enter into it.** Movability is a property of who is pointing at
 the path, never of how reviewed the document is. A rule that froze paths at `stable`
@@ -1325,9 +1329,9 @@ Deterministic concept failures include a missing or empty `type`, `title`,
 OKF nor the release declares; an unregistered used type or actor; invalid actor
 lookup metadata; duplicate or undeclared tags; malformed source entries or
 attribution joins; and a malformed `relationships` value or entry, including an
-undeclared relationship name. Literal tag duplication with machine-readable type,
-status, or trust values, or with a declared relationship name, is also
-deterministic. Contextual meaning is not inferred merely because a relationship's
+undeclared relationship name. A declared tag name that equals a declared type
+name, an OKF status value or trust tier, or a declared relationship name is an
+invalid project binding (§5.1). Contextual meaning is not inferred merely because a relationship's
 shape is mechanically visible.
 
 Contextual Profile Review assesses whether a project directory names a
@@ -1351,12 +1355,11 @@ Profile-specific syntax that a validator could distinguish from the authored slu
 Neither assessment mode checks type-specific
 body templates; §5.3 defines none. A small genuine area is not a finding.
 
-Other advisories include missing `generated` provenance; a registered
-project-specific type; a concept sitting beside an area of the same name rather
-than inside it; an internal link or relationship target that is not
-bundle-relative; and an unresolved internal link or relationship target.
-These advisories MUST NOT affect Profile conformance, the automated gate, or exit
-status. A relationship to an execution record may prompt contextual move review but
+Other advisories include missing `generated` provenance; a concept sitting
+beside an area of the same name rather than inside it; and an internal link or
+relationship target that is not bundle-relative. Each asks an author to act or
+to review. These advisories MUST NOT affect Profile conformance, the automated
+gate, or exit status. A relationship to an execution record may prompt contextual move review but
 is not itself a finding (§8.2).
 
 **A concept without a `verified` event is not a finding.** Absence of verification is
@@ -1367,6 +1370,13 @@ that did not happen — turning a diagnostic into a corruption of the trust mode
 Tooling MAY *summarize* trust tiers and organizational provenance across a bundle,
 since knowing how much of a bundle is unverified or internally asserted is useful. A
 summary is not a finding and MUST NOT affect exit status.
+
+Automated Profile Validation reports what this Profile permits as **summary
+entries**, not advisories: a registered project-specific type (§5.2), and an
+unresolved internal link or relationship target, which stays a loadable edge
+(§7.1, §7.2, §14.2). Tooling MUST report summary entries separately from
+findings, and they MUST NOT affect Profile conformance, the automated gate, or
+exit status.
 
 ### 14.2 Tolerant reading
 
@@ -1518,6 +1528,26 @@ bullet into `relationships`, with its label in kebab-case as `relationship` and
 its link target as `resource`, delete the emptied section, and declare each
 nonstandard label in the binding's `relationships` list. 2026.2 bundles keep the
 body section under 2026.2.
+
+Revised in place before publication: what the Profile permits is reported as a
+summary entry, not an advisory. A registered project-specific type and an
+unresolved internal link or relationship target are conformant, so tooling
+reports them apart from findings, and only advisories that ask an author to act
+or review remain. A declared tag name MUST NOT equal a declared type name, an
+OKF status value or trust tier, or a declared relationship name; this replaces
+the per-concept check of a tag against that concept's own type, status, trust
+tier, and relationship names. Affected sections: §§5.1, 5.2, 7.1, 7.2, 8.2,
+and 14.1. Driver: SARIF output for code scanning raised every advisory as a
+warning, including each project type in use and each planned link, which no
+author action clears; and once every used tag is declared, a tag that repeats
+another vocabulary is a property of the declaration, which the per-concept
+check reported once per concept that used it and not at all while unused.
+Migration impact: no concept changes, and no bundle's result changes except
+through its tags. A binding that declares a tag equal to any declared type
+name, status value, trust tier, or relationship name now fails at
+configuration, before any concept is assessed, even when no concept uses the
+tag or the tag equals a type other than the type of the concept that carries
+it; rename or remove that tag. 2026.2 bundles are unaffected.
 
 **2026.2.** Adopts the upstream OKF 0.2 revision that makes every timestamp an
 ISO 8601 datetime with an explicit UTC offset, and moves the pinned

@@ -40,27 +40,32 @@ void main() {
   );
 
   test('each finding is a result with its rule, level and file', () async {
-    final run = _run(await _sarif(fixture('configured-extensions')));
-    expect(_results(run), [
-      (
-        'concepta-profile/tag-literal-duplication',
-        'error',
-        'test/fixtures/configured-extensions/knowledge/tag-repeats-status.md',
-      ),
-      (
-        'concepta-profile/configured-type-extension',
-        'warning',
-        'test/fixtures/configured-extensions/wayfinder.json',
-      ),
-    ]);
+    final run = _run(await _sarif(fixture('configured-conventions')));
+    const bundle = 'test/fixtures/configured-conventions/knowledge';
+    final results = _results(run);
+    expect(
+      results,
+      containsAll([
+        (
+          'concepta-profile/relationship-shape',
+          'error',
+          '$bundle/custom-relationship.md',
+        ),
+        (
+          'concepta-profile/internal-link-bundle-relative',
+          'warning',
+          '$bundle/relative-link.md',
+        ),
+      ]),
+    );
     final rules = _rules(run);
-    expect(rules.keys, containsAll(_results(run).map((result) => result.$1)));
-    expect(rules['concepta-profile/tag-literal-duplication'], {
-      'id': 'concepta-profile/tag-literal-duplication',
+    expect(rules.keys, containsAll({...results.map((result) => result.$1)}));
+    expect(rules['concepta-profile/relationship-shape'], {
+      'id': 'concepta-profile/relationship-shape',
       'shortDescription': {'text': isNotEmpty},
       'defaultConfiguration': {'level': 'error'},
       'properties': {
-        'category': 'vocabulary',
+        'category': 'linking',
         'ref': startsWith('§'),
         'profile_release': '2026.3',
       },
@@ -69,6 +74,39 @@ void main() {
       {'executionSuccessful': true},
     ]);
   });
+
+  test(
+    'each summary entry is an informational note after the findings',
+    () async {
+      final run = _run(await _sarif(fixture('configured-conventions')));
+      final results = (run['results']! as List<Object?>)
+          .cast<Map<String, Object?>>();
+      final notes = results.where((result) => result['level'] == 'note');
+      expect(notes.map((result) => result['ruleId']), [
+        'concepta-profile/internal-link-unresolved',
+        'concepta-profile/relationship-unresolved',
+      ]);
+      expect(
+        notes.map((result) => result['kind']),
+        everyElement('informational'),
+      );
+      expect(
+        results.skipWhile((result) => result['level'] != 'note'),
+        hasLength(notes.length),
+        reason: 'summary entries follow every finding',
+      );
+      expect(
+        results.where((result) => result['level'] != 'note'),
+        everyElement(isNot(contains('kind'))),
+      );
+      expect(
+        _rules(
+          run,
+        )['concepta-profile/internal-link-unresolved']!['defaultConfiguration'],
+        {'level': 'note'},
+      );
+    },
+  );
 
   test('OKF findings are results under their okf ids', () async {
     final run = _run(await _sarif(fixture('invalid-concepts')));

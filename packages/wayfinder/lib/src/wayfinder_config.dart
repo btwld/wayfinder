@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
 import 'profile_release.dart';
@@ -89,6 +90,31 @@ final class WayfinderProfileBinding {
     ...externalStandardRelationships.map((row) => row.$1),
     ...relationships.map((definition) => definition.name),
   };
+
+  /// The first declared tag that equals another vocabulary's value, as
+  /// `tag draft, which equals an OKF status value`, or null. Every used tag is
+  /// declared (Profile §5.1), so a tag that would repeat a concept's type,
+  /// status, trust tier or relationship name is rejected where it is
+  /// declared rather than reported on each concept that uses it.
+  String? get tagCollision {
+    final others = <(String, Iterable<String>)>[
+      ('a declared type name', typeNames),
+      (
+        'an OKF status value',
+        OkfLifecycleStatus.values
+            .where((status) => status != OkfLifecycleStatus.unknown)
+            .map((status) => status.wireValue),
+      ),
+      ('an OKF trust tier', OkfTrustTier.values.map((tier) => tier.wireValue)),
+      ('a declared relationship name', relationshipNames),
+    ];
+    for (final tag in tagNames) {
+      for (final (what, names) in others) {
+        if (names.contains(tag)) return 'tag $tag, which equals $what';
+      }
+    }
+    return null;
+  }
 }
 
 final class WayfinderBundleBinding {
@@ -241,7 +267,7 @@ final class WayfinderProjectConfig {
       'relationship': (relationships, externalStandardRelationships),
     });
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
-    return WayfinderProfileBinding(
+    final binding = WayfinderProfileBinding(
       id: id,
       implementsId: id,
       release: externalProfileRelease,
@@ -265,6 +291,10 @@ final class WayfinderProjectConfig {
       ),
       extendsProfile: json['extends'] as String?,
     );
+    if (binding.tagCollision case final collision?) {
+      throw WayfinderConfigException('Profile $id declares $collision.');
+    }
+    return binding;
   }
 
   static void _validateExtensions(

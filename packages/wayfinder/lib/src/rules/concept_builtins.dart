@@ -295,12 +295,26 @@ Iterable<Violation> relationshipLabelExtension(
   }
 }
 
+/// A graph failure belongs to no one concept, so it reports at the bundle
+/// file the catalog names: `path`, or `profile.md` for a catalog that names
+/// none.
+const linkGraphUnavailableParams = <String, Object?>{
+  'type': 'object',
+  'additionalProperties': false,
+  'properties': {
+    'path': {'type': 'string', 'minLength': 1},
+  },
+};
+
 Iterable<Violation> linkGraphUnavailable(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
   if (facts.graph.error case final error?) {
-    yield Violation('profile.md', facts: {'error': '$error'});
+    yield Violation(
+      params['path'] as String? ?? 'profile.md',
+      facts: {'error': '$error'},
+    );
   }
 }
 
