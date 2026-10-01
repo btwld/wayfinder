@@ -27,8 +27,22 @@ enum Slot {
 /// could not produce it, so every rule that references the slot is skipped;
 /// an empty list is available and accepts nothing.
 final class Vocabulary {
-  const Vocabulary({this.types, this.tags, this.actors});
+  const Vocabulary({
+    required this.standardTypes,
+    this.projectTypes = const [],
+    this.types,
+    this.tags,
+    this.actors,
+  });
 
+  /// The release's standard types, in manifest order.
+  final List<String> standardTypes;
+
+  /// The types the project adds, in declaration order.
+  final List<String> projectTypes;
+
+  /// The registered types the `profile.types` slot accepts. The 2026.2
+  /// registry fixes this as its own rows, which may omit a standard type.
   final List<String>? types;
   final List<String>? tags;
   final List<String>? actors;
@@ -41,11 +55,22 @@ final class Vocabulary {
   };
 }
 
-/// What one bundle is validated against: the selected release's catalog and
-/// the slot values it is evaluated with.
+/// What one bundle is validated against: the selected release's catalog,
+/// the slot values it is evaluated with, and where the selection came from.
 final class EffectiveProfile {
-  const EffectiveProfile(this.catalog, this.vocabulary);
+  const EffectiveProfile(
+    this.catalog,
+    this.vocabulary, {
+    this.configPath,
+    this.declaration,
+  });
 
   final RuleCatalog catalog;
   final Vocabulary vocabulary;
+
+  /// The configuration path a finding about the project binding reports at.
+  final String? configPath;
+
+  /// The values of an in-bundle `profile.md` declaration.
+  final Map<String, String>? declaration;
 }

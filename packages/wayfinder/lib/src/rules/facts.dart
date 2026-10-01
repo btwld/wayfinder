@@ -1,7 +1,9 @@
 import 'package:okf/okf_io.dart';
+import 'package:path/path.dart' as p;
 
 import '../finding_helpers.dart';
-import '../profile_context.dart';
+import 'body.dart';
+import 'profile.dart';
 
 /// The closed set of record kinds a rule may check. Adding a kind is an
 /// engine release; a catalog naming an unknown kind is rejected at load.
@@ -10,21 +12,46 @@ enum SubjectKind {
   /// a rule may name any key.
   frontmatter(facts: null),
 
-  /// One concept's derived facts.
-  concept(facts: {'path', 'type', 'keys', 'tags', 'source_ids'}),
+  /// One concept's derived facts. `links` is absent when the OKF graph
+  /// could not be built.
+  concept(
+    facts: {
+      'path',
+      'type',
+      'keys',
+      'tags',
+      'source_ids',
+      'links',
+      'footnotes',
+      'sibling_directory',
+    },
+  ),
 
   /// One distinct actor id used anywhere in the bundle, located at the
   /// first concept that uses it.
-  actor(facts: {'id', 'first_use'});
+  actor(facts: {'id', 'first_use'}),
 
-  const SubjectKind({required this.facts});
+  /// One non-root directory of the loaded tree, with its `index.md` as a
+  /// second location.
+  directory(facts: {'path', 'has_index'}, locations: {'self', 'index'}),
 
-  /// The fact names every subject of this kind carries, or null when the
+  /// One loaded path.
+  file(facts: {'path', 'name', 'markdown'}),
+
+  /// The bundle root, located at its index.
+  root(facts: {'okf_version', 'files'}),
+
+  /// The root log, present when OKF can parse it.
+  log(facts: {'entries'});
+
+  const SubjectKind({required this.facts, this.locations = const {'self'}});
+
+  /// The fact names a subject of this kind may carry, or null when the
   /// shape is open.
   final Set<String>? facts;
 
   /// The location keys a rule may report at.
-  Set<String> get locations => const {'self'};
+  final Set<String> locations;
 }
 
 /// One record a rule can check. [facts] is plain JSON; [locations] maps the
@@ -38,60 +65,225 @@ final class Subject {
 }
 
 /// The bundle parsed once, shared by every rule. Subjects are built here, in
-/// `loaded.documents` order, and every join (actor first use, tag counts)
-/// happens here so rules never parse.
+/// `loaded.documents` order, and every join (actor first use, tag counts,
+/// link resolution, footnote definitions, area siblings) happens here so
+/// rules never parse.
 final class BundleFacts {
-  BundleFacts.project(this.loaded, {required this.context})
-    : _subjects = {
-        SubjectKind.frontmatter: [
-          for (final MapEntry(key: path, value: document)
-              in loaded.documents.entries)
-            Subject(
-              SubjectKind.frontmatter,
-              _json(document.frontmatter) as Map<String, Object?>,
-              {'self': path},
-            ),
-        ],
-        SubjectKind.concept: [
-          for (final MapEntry(key: path, value: document)
-              in loaded.documents.entries)
-            Subject(SubjectKind.concept, _concept(path, document), {
-              'self': path,
-            }),
-        ],
-        SubjectKind.actor: _actors(loaded),
-      };
+  BundleFacts.project(this.loaded, {required this.profile});
 
   final OkfBundleLoadResult loaded;
-  final ProfileValidationContext context;
-  final Map<SubjectKind, List<Subject>> _subjects;
+  final EffectiveProfile profile;
   final _derived = <String, Object?>{};
+
+  late final BundleInventory inventory = BundleInventory(loaded.paths);
+
+  late final Map<String, ParsedBody> bodies = {
+    for (final MapEntry(key: path, value: document) in loaded.documents.entries)
+      path: ParsedBody(document.body),
+  };
+
+  /// The OKF graph, or the error that kept it from building. A toolchain
+  /// throw must not take down the whole assessment.
+  late final ({OkfGraph? graph, Object? error}) graph = () {
+    try {
+      return (graph: OkfGraph.fromBundle(loaded.bundle), error: null);
+    } catch (error) {
+      return (graph: null, error: error);
+    }
+  }();
+
+  late final Map<SubjectKind, List<Subject>> _subjects = {
+    SubjectKind.frontmatter: [
+      for (final MapEntry(key: path, value: document)
+          in loaded.documents.entries)
+        Subject(
+          SubjectKind.frontmatter,
+          _json(document.frontmatter) as Map<String, Object?>,
+          {'self': path},
+        ),
+    ],
+    SubjectKind.concept: [
+      for (final MapEntry(key: path, value: document)
+          in loaded.documents.entries)
+        Subject(SubjectKind.concept, _concept(path, document), {'self': path}),
+    ],
+    SubjectKind.actor: _actors(loaded),
+    SubjectKind.directory: [
+      for (final directory in inventory.nonRootDirectories)
+        Subject(
+          SubjectKind.directory,
+          {
+            'path': directory,
+            'has_index': loaded.indexes.containsKey('$directory/index.md'),
+          },
+          {'self': directory, 'index': '$directory/index.md'},
+        ),
+    ],
+    SubjectKind.file: [
+      for (final path in loaded.paths)
+        Subject(
+          SubjectKind.file,
+          {
+            'path': path,
+            'name': p.posix.basename(path),
+            'markdown': path.endsWith('.md'),
+          },
+          {'self': path},
+        ),
+    ],
+    SubjectKind.root: [
+      Subject(
+        SubjectKind.root,
+        {
+          'okf_version': _rootOkfVersion(loaded),
+          'files': [
+            for (final path in loaded.paths)
+              if (!path.contains('/')) path,
+          ],
+        },
+        {'self': 'index.md'},
+      ),
+    ],
+    SubjectKind.log: [?_log(loaded)],
+  };
 
   Iterable<Subject> of(SubjectKind kind) => _subjects[kind]!;
 
-  /// A per-validation memo for derived data several builtins share, such as
-  /// parsed bodies or the link graph, computed on first use.
+  /// A per-validation memo for derived data several builtins share,
+  /// computed on first use.
   T derive<T>(String key, T Function() compute) =>
       _derived.putIfAbsent(key, compute) as T;
-}
 
-Map<String, Object?> _concept(String path, OkfDocument document) {
-  final counts = <String, int>{};
-  for (final tag in document.tags) {
-    counts.update(tag, (count) => count + 1, ifAbsent: () => 1);
-  }
-  return {
-    'path': path,
-    'type': document.type,
-    'keys': document.frontmatter.keys.toList(),
-    'tags': [
-      for (final tag in document.tags) {'value': tag, 'count': counts[tag]},
-    ],
-    'source_ids': document.metadata.sources
+  late final Map<String, List<Map<String, Object?>>> _links = () {
+    final byDocument = <String, List<Map<String, Object?>>>{};
+    for (final edge in graph.graph?.edges ?? const <OkfGraphEdge>[]) {
+      if (edge.origin != OkfGraphEdgeOrigin.bodyLink) continue;
+      byDocument.putIfAbsent(edge.source.documentPath, () => []).add({
+        'target': edge.rawTarget,
+        'internal':
+            edge.resolution != OkfGraphResolution.external &&
+            edge.resolution != OkfGraphResolution.descriptor &&
+            edge.resolution != OkfGraphResolution.invalid &&
+            !edge.rawTarget.startsWith('#'),
+        'bundle_relative': edge.rawTarget.startsWith('/'),
+        'resolved':
+            edge.resolution == OkfGraphResolution.resolvedConcept ||
+            edge.resolution == OkfGraphResolution.resolvedAsset,
+      });
+    }
+    return byDocument;
+  }();
+
+  Map<String, Object?> _concept(String path, OkfDocument document) {
+    final counts = <String, int>{};
+    for (final tag in document.tags) {
+      counts.update(tag, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final sourceIds = document.metadata.sources
         .map((source) => source.id)
         .nonNulls
-        .toList(),
-  };
+        .toList();
+    return {
+      'path': path,
+      'type': document.type,
+      'keys': document.frontmatter.keys.toList(),
+      'tags': [
+        for (final tag in document.tags) {'value': tag, 'count': counts[tag]},
+      ],
+      'source_ids': sourceIds,
+      if (graph.graph != null) 'links': _links[path] ?? const [],
+      'footnotes': [
+        for (final (:label, :defined) in bodies[path]!.footnotes())
+          {
+            'value': label,
+            'defined': defined,
+            'is_source_id': sourceIds.contains(label),
+          },
+      ],
+      'sibling_directory': inventory.hasAreaSibling(path),
+    };
+  }
+}
+
+/// The directories of the loaded tree, derived from its file paths.
+final class BundleInventory {
+  BundleInventory(Iterable<String> paths)
+    : nonRootDirectories = _directories(paths);
+
+  /// Every directory below the root, sorted.
+  final List<String> nonRootDirectories;
+
+  late final Set<String> _areaDirectories = nonRootDirectories
+      .where(
+        (directory) => switch (p.posix.split(directory).first) {
+          'interactions' || 'references' => false,
+          _ => true,
+        },
+      )
+      .toSet();
+
+  /// Whether an area directory named like the concept's stem sits beside it.
+  bool hasAreaSibling(String conceptPath) {
+    final parent = parentDirectory(conceptPath);
+    final stem = p.posix.basenameWithoutExtension(conceptPath);
+    return _areaDirectories.contains(parent.isEmpty ? stem : '$parent/$stem');
+  }
+
+  Iterable<String> immediateDirectories(String parent) => nonRootDirectories
+      .where((directory) => parentDirectory(directory) == parent);
+}
+
+/// The directory holding [path], empty at the root.
+String parentDirectory(String path) {
+  final directory = p.posix.dirname(path);
+  return directory == '.' ? '' : directory;
+}
+
+List<String> _directories(Iterable<String> paths) {
+  final directories = <String>{};
+  for (final path in paths) {
+    var directory = parentDirectory(path);
+    while (directory.isNotEmpty) {
+      directories.add(directory);
+      directory = parentDirectory(directory);
+    }
+  }
+  return directories.toList()..sort();
+}
+
+Object? _rootOkfVersion(OkfBundleLoadResult loaded) {
+  final rootIndex = loaded.indexes['index.md'];
+  if (rootIndex == null) return null;
+  try {
+    return _json(OkfDocument.parse(rootIndex).frontmatter['okf_version']);
+  } on OkfDocumentException {
+    // The independent OKF result reports the malformed reserved document;
+    // with no readable root binding, the fact is null.
+    return null;
+  }
+}
+
+Subject? _log(OkfBundleLoadResult loaded) {
+  final source = loaded.logs['log.md'];
+  if (source == null) return null;
+  final OkfLogParseResult parsed;
+  try {
+    parsed = OkfLogDocument.parse(source, sourcePath: 'log.md');
+  } on OkfDocumentException {
+    // The independent OKF result reports the malformed reserved document;
+    // there are no entries left to judge.
+    return null;
+  }
+  return Subject(
+    SubjectKind.log,
+    {
+      'entries': [
+        for (final entry in parsed.entries)
+          {'date': entry.date, 'action': entry.action},
+      ],
+    },
+    {'self': 'log.md'},
+  );
 }
 
 List<Subject> _actors(OkfBundleLoadResult loaded) {

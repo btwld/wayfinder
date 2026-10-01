@@ -151,7 +151,11 @@
           "enum": [
             "frontmatter",
             "concept",
-            "actor"
+            "actor",
+            "directory",
+            "file",
+            "root",
+            "log"
           ]
         },
         "each": {

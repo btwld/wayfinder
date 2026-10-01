@@ -7,72 +7,14 @@ import '../profile_release.dart';
 import 'builtins.dart';
 import 'facts.dart';
 
-const _structuralConcepts = <String>['profile.md', 'types.md', 'actors.md'];
-
 Iterable<Violation> declaredOkfBinding(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (facts.context.declaration!['okf_version'] != supportedOkfRelease ||
-      _rootOkfVersion(facts.loaded) != supportedOkfRelease) {
+  final root = facts.of(SubjectKind.root).single;
+  if (facts.profile.declaration?['okf_version'] != supportedOkfRelease ||
+      root.facts['okf_version'] != supportedOkfRelease) {
     yield const Violation('profile.md');
-  }
-}
-
-Iterable<Violation> rootOkfVersion(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  if (_rootOkfVersion(facts.loaded) != supportedOkfRelease) {
-    yield const Violation('index.md');
-  }
-}
-
-Object? _rootOkfVersion(OkfBundleLoadResult loaded) {
-  final rootIndex = loaded.indexes['index.md'];
-  if (rootIndex == null) return null;
-  try {
-    return OkfDocument.parse(rootIndex).frontmatter['okf_version'];
-  } on OkfDocumentException {
-    // The independent OKF result reports the malformed reserved document;
-    // with no readable root binding, the rule reports.
-    return null;
-  }
-}
-
-Iterable<Violation> configurationLegacyRegistry(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  for (final path in _structuralConcepts) {
-    if (facts.loaded.documents.containsKey(path)) {
-      yield Violation(path, facts: {'path': path});
-    }
-  }
-}
-
-Iterable<Violation> rawDirectoryPlacement(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  if (_inventory(facts).nonRootDirectories.contains('references/raw')) {
-    yield const Violation('references/raw');
-  }
-}
-
-Iterable<Violation> rawDirectoryMarkdown(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  for (final path in facts.loaded.paths) {
-    if (!path.endsWith('.md') || p.posix.basename(path) == 'index.md') {
-      continue;
-    }
-    final directories = p.posix.split(p.posix.dirname(path));
-    if (directories.first != 'references' || !directories.contains('raw')) {
-      continue;
-    }
-    yield Violation(path);
   }
 }
 
@@ -121,47 +63,31 @@ Iterable<Violation> rootStructureFiles(
   }
 }
 
-Iterable<Violation> directoryIndexPresent(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  for (final directory in _inventory(facts).nonRootDirectories) {
-    final indexPath = '$directory/index.md';
-    if (!facts.loaded.indexes.containsKey(indexPath)) {
-      yield Violation(indexPath);
-    }
-  }
-}
+const indexSemanticProjectionParams = <String, Object?>{
+  'type': 'object',
+  'additionalProperties': false,
+  'properties': {
+    'bundle_group': {
+      'type': 'array',
+      'items': {'type': 'string', 'minLength': 1},
+    },
+  },
+};
 
-Iterable<Violation> conceptAreaNameCollision(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final directories = _inventory(facts).areaDirectories.toSet();
-  for (final path in facts.loaded.documents.keys) {
-    if (_structuralConcepts.contains(path)) continue;
-    final directory = p.posix.dirname(path);
-    final parent = directory == '.' ? '' : directory;
-    final basename = p.posix.basenameWithoutExtension(path);
-    final sibling = parent.isEmpty ? basename : '$parent/$basename';
-    if (directories.contains(sibling)) yield Violation(path);
-  }
-}
-
+/// `bundle_group` names the root concepts the root index lists under the
+/// `Bundle` group after the log, in that order.
 Iterable<Violation> indexSemanticProjection(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
   final loaded = facts.loaded;
-  final inventory = _inventory(facts);
+  final bundleGroup = (params['bundle_group'] as List<Object?>? ?? const [])
+      .cast<String>();
   for (final entry in loaded.indexes.entries) {
-    final directory = p.posix.dirname(entry.key);
-    final normalizedDirectory = directory == '.' ? '' : directory;
     final expected = _expectedProjection(
-      loaded,
-      inventory,
-      normalizedDirectory,
-      externalBinding: facts.context.externalBinding,
+      facts,
+      parentDirectory(entry.key),
+      bundleGroup: bundleGroup,
     );
     if (expected == null) continue;
     final actual = _parseIndex(entry.value);
@@ -172,34 +98,13 @@ Iterable<Violation> indexSemanticProjection(
   }
 }
 
-Iterable<Violation> logEntryLeadWord(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final source = facts.loaded.logs['log.md'];
-  if (source == null) return;
-  OkfLogParseResult parsed;
-  try {
-    parsed = OkfLogDocument.parse(source, sourcePath: 'log.md');
-  } on OkfDocumentException {
-    // The independent OKF result reports the malformed reserved document and
-    // blocks Profile assessment; there is no lead word left to judge.
-    return;
-  }
-  if (parsed.entries.isEmpty ||
-      parsed.entries.any((entry) => entry.action.isEmpty)) {
-    yield const Violation('log.md');
-  }
-}
-
 List<OkfIndexEntry>? _expectedProjection(
-  OkfBundleLoadResult loaded,
-  _BundleInventory inventory,
+  BundleFacts facts,
   String directory, {
-  required bool externalBinding,
+  required List<String> bundleGroup,
 }) {
+  final loaded = facts.loaded;
   final projection = <OkfIndexEntry>[];
-  final structural = externalBinding ? const <String>[] : _structuralConcepts;
   if (directory.isEmpty) {
     final bundleEntries = <OkfIndexEntry>[
       if (loaded.logs.containsKey('log.md'))
@@ -209,12 +114,12 @@ List<OkfIndexEntry>? _expectedProjection(
           link: 'log.md',
           description: '',
         ),
-      for (final path in structural)
+      for (final path in bundleGroup)
         if (loaded.documents[path] case final document?)
           ?_conceptEntry(path, document, group: 'Bundle'),
     ];
     if (bundleEntries.length !=
-        1 + structural.where(loaded.documents.containsKey).length) {
+        1 + bundleGroup.where(loaded.documents.containsKey).length) {
       return null;
     }
     projection.addAll(bundleEntries);
@@ -222,17 +127,13 @@ List<OkfIndexEntry>? _expectedProjection(
 
   final byType = <String, List<OkfIndexEntry>>{};
   for (final entry in loaded.documents.entries) {
-    final parent = p.posix.dirname(entry.key);
-    if ((parent == '.' ? '' : parent) != directory) continue;
-    if (directory.isEmpty && structural.contains(entry.key)) continue;
+    if (parentDirectory(entry.key) != directory) continue;
+    if (directory.isEmpty && bundleGroup.contains(entry.key)) continue;
     final concept = _conceptEntry(entry.key, entry.value);
     if (concept == null) return null;
     byType.putIfAbsent(concept.type, () => <OkfIndexEntry>[]).add(concept);
   }
-  final standardNames =
-      (externalBinding ? externalStandardTypes : standardTypes)
-          .map((row) => row.$1)
-          .toList();
+  final standardNames = facts.profile.vocabulary.standardTypes;
   final customTypes =
       byType.keys.where((type) => !standardNames.contains(type)).toList()
         ..sort();
@@ -247,7 +148,7 @@ List<OkfIndexEntry>? _expectedProjection(
   }
 
   final directories =
-      inventory
+      facts.inventory
           .immediateDirectories(directory)
           .map(
             (path) => OkfIndexEntry(
@@ -264,7 +165,7 @@ List<OkfIndexEntry>? _expectedProjection(
   if (directory == 'references' || directory.startsWith('references/')) {
     final assets =
         loaded.assets
-            .where((path) => _parent(path) == directory)
+            .where((path) => parentDirectory(path) == directory)
             .map(
               (path) => OkfIndexEntry(
                 type: 'Assets',
@@ -357,42 +258,4 @@ String? _decodeTarget(String target) {
   } on FormatException {
     return null;
   }
-}
-
-_BundleInventory _inventory(BundleFacts facts) =>
-    facts.derive('inventory', () => _BundleInventory(facts.loaded));
-
-final class _BundleInventory {
-  _BundleInventory(OkfBundleLoadResult loaded)
-    : nonRootDirectories = _directories(loaded.paths);
-
-  final List<String> nonRootDirectories;
-
-  Iterable<String> get areaDirectories =>
-      nonRootDirectories.where(_isAreaDirectory);
-
-  Iterable<String> immediateDirectories(String parent) =>
-      nonRootDirectories.where((directory) => _parent(directory) == parent);
-}
-
-bool _isAreaDirectory(String directory) {
-  final root = p.posix.split(directory).first;
-  return root != 'interactions' && root != 'references';
-}
-
-List<String> _directories(Iterable<String> paths) {
-  final directories = <String>{};
-  for (final path in paths) {
-    var directory = _parent(path);
-    while (directory.isNotEmpty) {
-      directories.add(directory);
-      directory = _parent(directory);
-    }
-  }
-  return directories.toList()..sort();
-}
-
-String _parent(String path) {
-  final directory = p.posix.dirname(path);
-  return directory == '.' ? '' : directory;
 }

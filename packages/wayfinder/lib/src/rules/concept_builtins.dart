@@ -44,25 +44,31 @@ Iterable<Violation> tagLiteralDuplication(
   }
 }
 
+/// Reports each project type at the configuration path that declared it, a
+/// location outside the bundle no subject carries.
 Iterable<Violation> configuredTypeExtension(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  for (final definition in facts.context.binding!.types) {
-    yield Violation(
-      facts.context.configPath!,
-      facts: {'name': definition.name},
-    );
+  final configPath = facts.profile.configPath;
+  if (configPath == null) return;
+  for (final name in facts.profile.vocabulary.projectTypes) {
+    yield Violation(configPath, facts: {'name': name});
   }
 }
 
 /// The 2026.2 vocabulary read from the in-bundle registries. A slot is
 /// unavailable while its registry is missing or its table header is wrong,
 /// which keeps the rules that need it from reporting against nothing.
-Vocabulary legacyRegistryVocabulary(BundleFacts facts) => Vocabulary(
-  types: _typeRegistry(facts).rows?.map((row) => row.first).toList(),
-  actors: _actorRegistry(facts).rows?.map((row) => row.first).toList(),
-);
+Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
+  final types = _readTypeRegistry(loaded).rows;
+  return Vocabulary(
+    standardTypes: standardTypes.map((row) => row.$1).toList(),
+    projectTypes: types == null ? const [] : _extensionNames(types),
+    types: types?.map((row) => row.first).toList(),
+    actors: _readActorRegistry(loaded).rows?.map((row) => row.first).toList(),
+  );
+}
 
 final class _Registry {
   const _Registry(this.document, this.rows);
@@ -74,24 +80,18 @@ final class _Registry {
   final List<List<String>>? rows;
 }
 
-_Registry _typeRegistry(BundleFacts facts) => facts.derive(
-  'legacy.types',
-  () => _registry(facts.loaded.documents['types.md'], const [
-    'Type',
-    'Intended content',
-  ]),
-);
+_Registry _typeRegistry(BundleFacts facts) =>
+    facts.derive('legacy.types', () => _readTypeRegistry(facts.loaded));
 
-_Registry _actorRegistry(BundleFacts facts) => facts.derive(
-  'legacy.actors',
-  () => _registry(facts.loaded.documents['actors.md'], const [
-    'Actor ID',
-    'Name',
-    'Organization',
-    'Side',
-    'Role',
-    'Active',
-  ]),
+_Registry _actorRegistry(BundleFacts facts) =>
+    facts.derive('legacy.actors', () => _readActorRegistry(facts.loaded));
+
+_Registry _readTypeRegistry(OkfBundleLoadResult loaded) =>
+    _registry(loaded.documents['types.md'], const ['Type', 'Intended content']);
+
+_Registry _readActorRegistry(OkfBundleLoadResult loaded) => _registry(
+  loaded.documents['actors.md'],
+  const ['Actor ID', 'Name', 'Organization', 'Side', 'Role', 'Active'],
 );
 
 _Registry _registry(OkfDocument? document, List<String> header) {
@@ -268,32 +268,11 @@ Iterable<Violation> actorActiveOverlap(
   if (periods.values.any(_hasOverlap)) yield const Violation('actors.md');
 }
 
-Map<String, _ParsedBody> _bodies(BundleFacts facts) => facts.derive(
-  'bodies',
-  () => {
-    for (final MapEntry(key: path, value: document)
-        in facts.loaded.documents.entries)
-      path: _ParsedBody(document.body),
-  },
-);
-
-Iterable<Violation> sourceAttributionJoin(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final bodies = _bodies(facts);
-  for (final MapEntry(key: path, value: document)
-      in facts.loaded.documents.entries) {
-    final ids = document.metadata.sources.map((source) => source.id).nonNulls;
-    if (ids.any(bodies[path]!.hasUnresolvedFootnote)) yield Violation(path);
-  }
-}
-
 Iterable<Violation> relationshipsShape(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  for (final MapEntry(key: path, value: body) in _bodies(facts).entries) {
+  for (final MapEntry(key: path, value: body) in facts.bodies.entries) {
     if (body.relationships?.malformed ?? false) yield Violation(path);
   }
 }
@@ -302,7 +281,7 @@ Iterable<Violation> relationshipLabelExtension(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  for (final MapEntry(key: path, value: body) in _bodies(facts).entries) {
+  for (final MapEntry(key: path, value: body) in facts.bodies.entries) {
     final section = body.relationships;
     if (section == null || section.malformed) continue;
     for (final label in section.labels) {
@@ -313,59 +292,12 @@ Iterable<Violation> relationshipLabelExtension(
   }
 }
 
-/// The OKF graph, or the error that kept it from building. A toolchain
-/// throw must not take down the whole assessment.
-({OkfGraph? graph, Object? error}) _graph(BundleFacts facts) =>
-    facts.derive('graph', () {
-      try {
-        return (graph: OkfGraph.fromBundle(facts.loaded.bundle), error: null);
-      } catch (error) {
-        return (graph: null, error: error);
-      }
-    });
-
 Iterable<Violation> linkGraphUnavailable(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (_graph(facts).error case final error?) {
+  if (facts.graph.error case final error?) {
     yield Violation('profile.md', facts: {'error': '$error'});
-  }
-}
-
-Iterable<OkfGraphEdge> _internalBodyLinks(BundleFacts facts) =>
-    (_graph(facts).graph?.edges ?? const <OkfGraphEdge>[]).where(
-      (edge) =>
-          edge.origin == OkfGraphEdgeOrigin.bodyLink &&
-          edge.resolution != OkfGraphResolution.external &&
-          edge.resolution != OkfGraphResolution.descriptor &&
-          edge.resolution != OkfGraphResolution.invalid &&
-          !edge.rawTarget.startsWith('#'),
-    );
-
-Iterable<Violation> internalLinkBundleRelative(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final emitted = <String>{};
-  for (final edge in _internalBodyLinks(facts)) {
-    if (!edge.rawTarget.startsWith('/') &&
-        emitted.add(edge.source.documentPath)) {
-      yield Violation(edge.source.documentPath);
-    }
-  }
-}
-
-Iterable<Violation> internalLinkUnresolved(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final emitted = <String>{};
-  for (final edge in _internalBodyLinks(facts)) {
-    if (edge.resolution == OkfGraphResolution.unresolved &&
-        emitted.add(edge.source.documentPath)) {
-      yield Violation(edge.source.documentPath);
-    }
   }
 }
 
@@ -373,7 +305,7 @@ Iterable<Violation> sourcePathUnresolved(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final graph = _graph(facts).graph;
+  final graph = facts.graph.graph;
   if (graph == null) return;
   final rootPath = facts.loaded.rootPath;
   final emitted = <(String, String)>{};
@@ -490,131 +422,6 @@ bool _sameTypeRows(
       actual[index][0] == expected[index].$1 &&
       actual[index][1] == expected[index].$2,
 );
-
-final class _ParsedBody {
-  _ParsedBody(this.source)
-    : nodes = markdown.Document(
-        extensionSet: markdown.ExtensionSet.gitHubFlavored,
-      ).parse(source);
-
-  final String source;
-  final List<markdown.Node> nodes;
-
-  bool hasUnresolvedFootnote(String label) {
-    final escaped = RegExp.escape(label);
-    // A footnote definition joins every reference to the label. The parser
-    // alone cannot decide this: adjacent references such as `[^a][^b]` are
-    // read as a reference link and survive as literal text even when both
-    // definitions exist, so the definition is checked in the source first.
-    final definition = RegExp('^ {0,3}\\[\\^$escaped\\]:', multiLine: true);
-    if (definition.hasMatch(source)) return false;
-    final pattern = RegExp('\\[\\^$escaped\\]');
-    bool search(markdown.Node node, {bool excluded = false}) {
-      if (node case final markdown.Text text) {
-        return !excluded && pattern.hasMatch(text.text);
-      }
-      if (node case final markdown.Element element) {
-        final skip =
-            excluded ||
-            element.tag == 'code' ||
-            element.tag == 'pre' ||
-            element.attributes['class'] == 'footnotes';
-        return (element.children ?? const <markdown.Node>[]).any(
-          (child) => search(child, excluded: skip),
-        );
-      }
-      return false;
-    }
-
-    return nodes.any(search);
-  }
-
-  late final _Relationships? relationships = _parseRelationships();
-
-  _Relationships? _parseRelationships() {
-    final start = nodes.indexWhere(
-      (node) =>
-          node is markdown.Element &&
-          node.tag == 'h1' &&
-          node.textContent.trim() == 'Relationships',
-    );
-    if (start < 0) return null;
-    final end = nodes.indexWhere(
-      (node) => node is markdown.Element && node.tag == 'h1',
-      start + 1,
-    );
-    final section = nodes.sublist(start + 1, end < 0 ? nodes.length : end);
-    final labels = <String>[];
-    for (final node in section) {
-      if (node is! markdown.Element) return const _Relationships.malformed();
-      if (node.attributes['class'] == 'footnotes') continue;
-      if (node.tag != 'ul') return const _Relationships.malformed();
-      for (final item in node.children ?? const <markdown.Node>[]) {
-        final label = _relationshipLabel(item);
-        if (label == null) return const _Relationships.malformed();
-        labels.add(label);
-      }
-    }
-    return _Relationships(labels);
-  }
-}
-
-String? _relationshipLabel(markdown.Node node) {
-  if (node is! markdown.Element || node.tag != 'li') return null;
-  var inline = node.children ?? const <markdown.Node>[];
-  if (inline.length == 1 &&
-      inline.single is markdown.Element &&
-      (inline.single as markdown.Element).tag == 'p') {
-    inline =
-        (inline.single as markdown.Element).children ?? const <markdown.Node>[];
-  }
-  final before = StringBuffer();
-  final after = StringBuffer();
-  var links = 0;
-  for (final child in inline) {
-    if (child case final markdown.Element element
-        when element.tag == 'a' &&
-            element.attributes['href']?.trim().isNotEmpty == true &&
-            element.textContent.trim().isNotEmpty) {
-      links++;
-    } else {
-      final text = _relationshipText(child);
-      if (text == null) return null;
-      (links == 0 ? before : after).write(text);
-    }
-  }
-  final match = RegExp(r'^\s*([^:\n]+):\s*$').firstMatch(before.toString());
-  if (links != 1 || match == null || after.toString().trim().isNotEmpty) {
-    return null;
-  }
-  return match.group(1)!.trim();
-}
-
-String? _relationshipText(markdown.Node node) {
-  if (node case final markdown.Text text) return text.text;
-  if (node is! markdown.Element ||
-      const {'a', 'img', 'br'}.contains(node.tag)) {
-    return null;
-  }
-  final text = StringBuffer();
-  for (final child in node.children ?? const <markdown.Node>[]) {
-    final value = _relationshipText(child);
-    if (value == null) return null;
-    text.write(value);
-  }
-  return text.toString();
-}
-
-final class _Relationships {
-  const _Relationships(this.labels) : malformed = false;
-
-  const _Relationships.malformed()
-    : labels = const <String>[],
-      malformed = true;
-
-  final List<String> labels;
-  final bool malformed;
-}
 
 final class _ActivePeriod {
   const _ActivePeriod(this.start, this.end) : unknown = false;

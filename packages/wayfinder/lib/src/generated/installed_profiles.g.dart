@@ -792,7 +792,45 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A body footnote reference whose label exactly matches a `sources[].id` is source attribution and MUST join to its footnote definition.",
       "message": "A recognized source-attribution reference must join to its footnote definition.",
       "check": {
-        "builtin": "source-attribution-join"
+        "subject": "concept",
+        "each": "footnotes",
+        "schema": {
+          "if": {
+            "properties": {
+              "is_source_id": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "defined": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "value": "s1",
+            "defined": true,
+            "is_source_id": true
+          },
+          {
+            "value": "aside",
+            "defined": false,
+            "is_source_id": false
+          }
+        ],
+        "invalid": [
+          {
+            "value": "s1",
+            "defined": false,
+            "is_source_id": true
+          }
+        ]
       }
     },
     {
@@ -852,7 +890,48 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "An internal link uses a target without the leading `/` of a bundle-relative link.",
       "message": "Internal links should use bundle-relative targets.",
       "check": {
-        "builtin": "internal-link-bundle-relative"
+        "subject": "concept",
+        "each": "links",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bundle_relative": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "target": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "target": "https://example.com",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "target": "note.md",
+            "internal": true,
+            "bundle_relative": false,
+            "resolved": true
+          }
+        ]
       }
     },
     {
@@ -864,7 +943,48 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "An internal link's target is absent from the bundle.",
       "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
       "check": {
-        "builtin": "internal-link-unresolved"
+        "subject": "concept",
+        "each": "links",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolved": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "target": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "target": "https://example.com",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "target": "/area/missing.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
+          }
+        ]
       }
     },
     {
@@ -876,7 +996,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A `raw/` tier belongs to a source directory and MUST NOT sit directly under `references/`.",
       "message": "A raw/ tier belongs to a source directory; raw/ must not sit directly under references/.",
       "check": {
-        "builtin": "raw-directory-placement"
+        "subject": "directory",
+        "schema": {
+          "properties": {
+            "path": {
+              "not": {
+                "const": "references/raw"
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw",
+            "has_index": true
+          },
+          {
+            "path": "references",
+            "has_index": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/raw",
+            "has_index": true
+          }
+        ]
       }
     },
     {
@@ -888,7 +1035,72 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "Within `raw/` and any of its subdirectories under `references/`, the only markdown file permitted is each directory's own `index.md`.",
       "message": "A raw/ tier holds verbatim originals; the only markdown permitted in it is each directory's own index.md.",
       "check": {
-        "builtin": "raw-directory-markdown"
+        "subject": "file",
+        "schema": {
+          "not": {
+            "allOf": [
+              {
+                "properties": {
+                  "markdown": {
+                    "const": true
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "name": {
+                    "not": {
+                      "const": "index.md"
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "path": {
+                    "pattern": "^references/([^/]+/)*raw/"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw/index.md",
+            "name": "index.md",
+            "markdown": true
+          },
+          {
+            "path": "references/vendor/raw/original.pdf",
+            "name": "original.pdf",
+            "markdown": false
+          },
+          {
+            "path": "references/vendor/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "area/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/vendor/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "references/raw/deep/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ]
       }
     },
     {
@@ -928,7 +1140,29 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A nonempty directory MUST contain an `index.md`, including every area, sub-area, `references/`, and nonempty subdirectory of `references/`.",
       "message": "Every nonempty directory must contain index.md.",
       "check": {
-        "builtin": "directory-index-present"
+        "subject": "directory",
+        "at": "index",
+        "schema": {
+          "properties": {
+            "has_index": {
+              "const": true
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area",
+            "has_index": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "area",
+            "has_index": false
+          }
+        ]
       }
     },
     {
@@ -940,7 +1174,47 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A concept sits beside an area of the same name rather than inside it.",
       "message": "A concept beside an area of the same name needs contextual placement review.",
       "check": {
-        "builtin": "concept-area-name-collision"
+        "subject": "concept",
+        "schema": {
+          "anyOf": [
+            {
+              "properties": {
+                "path": {
+                  "enum": [
+                    "profile.md",
+                    "types.md",
+                    "actors.md"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "sibling_directory": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area/note.md",
+            "sibling_directory": false
+          },
+          {
+            "path": "types.md",
+            "sibling_directory": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "area.md",
+            "sibling_directory": true
+          }
+        ]
       }
     },
     {
@@ -952,7 +1226,14 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "Every index MUST be the deterministic semantic projection of its directory.",
       "message": "The index must exactly match its immediate semantic projection.",
       "check": {
-        "builtin": "index-semantic-projection"
+        "builtin": "index-semantic-projection",
+        "params": {
+          "bundle_group": [
+            "profile.md",
+            "types.md",
+            "actors.md"
+          ]
+        }
       }
     },
     {
@@ -964,7 +1245,46 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "Every root `log.md` entry MUST start with a nonempty bold lead word followed by a colon.",
       "message": "Every root log entry must begin with a nonempty bold lead word and a colon.",
       "check": {
-        "builtin": "log-entry-lead-word"
+        "subject": "log",
+        "schema": {
+          "properties": {
+            "entries": {
+              "minItems": 1,
+              "items": {
+                "properties": {
+                  "action": {
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": "Creation"
+              }
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "entries": []
+          },
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": ""
+              }
+            ]
+          }
+        ]
       }
     }
   ]
@@ -1007,7 +1327,43 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "The bundle root index MUST declare `okf_version: \"0.2\"`.",
       "message": "The bundle root index must declare okf_version: \"0.2\".",
       "check": {
-        "builtin": "root-okf-version"
+        "subject": "root",
+        "schema": {
+          "properties": {
+            "okf_version": {
+              "const": "0.2"
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "okf_version": "0.1",
+            "files": [
+              "index.md"
+            ]
+          },
+          {
+            "okf_version": null,
+            "files": []
+          },
+          {
+            "okf_version": 0.2,
+            "files": [
+              "index.md"
+            ]
+          }
+        ]
       }
     },
     {
@@ -1019,7 +1375,46 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A bundle using this release MUST NOT carry legacy root `profile.md`, `types.md`, or `actors.md` registries as competing configuration.",
       "message": "{path} is a legacy 2026.2 registry; remove it when using an external Profile binding.",
       "check": {
-        "builtin": "configuration-legacy-registry"
+        "subject": "file",
+        "schema": {
+          "properties": {
+            "path": {
+              "not": {
+                "enum": [
+                  "profile.md",
+                  "types.md",
+                  "actors.md"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area/types.md",
+            "name": "types.md",
+            "markdown": true
+          },
+          {
+            "path": "index.md",
+            "name": "index.md",
+            "markdown": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "profile.md",
+            "name": "profile.md",
+            "markdown": true
+          },
+          {
+            "path": "actors.md",
+            "name": "actors.md",
+            "markdown": true
+          }
+        ]
       }
     },
     {
@@ -1520,7 +1915,45 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A body footnote reference whose label exactly matches a `sources[].id` is source attribution and MUST join to its footnote definition.",
       "message": "A recognized source-attribution reference must join to its footnote definition.",
       "check": {
-        "builtin": "source-attribution-join"
+        "subject": "concept",
+        "each": "footnotes",
+        "schema": {
+          "if": {
+            "properties": {
+              "is_source_id": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "defined": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "value": "s1",
+            "defined": true,
+            "is_source_id": true
+          },
+          {
+            "value": "aside",
+            "defined": false,
+            "is_source_id": false
+          }
+        ],
+        "invalid": [
+          {
+            "value": "s1",
+            "defined": false,
+            "is_source_id": true
+          }
+        ]
       }
     },
     {
@@ -1580,7 +2013,48 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "An internal link uses a target without the leading `/` of a bundle-relative link.",
       "message": "Internal links should use bundle-relative targets.",
       "check": {
-        "builtin": "internal-link-bundle-relative"
+        "subject": "concept",
+        "each": "links",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bundle_relative": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "target": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "target": "https://example.com",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "target": "note.md",
+            "internal": true,
+            "bundle_relative": false,
+            "resolved": true
+          }
+        ]
       }
     },
     {
@@ -1592,7 +2066,48 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "An internal link's target is absent from the bundle.",
       "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
       "check": {
-        "builtin": "internal-link-unresolved"
+        "subject": "concept",
+        "each": "links",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolved": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "target": "/area/note.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "target": "https://example.com",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "target": "/area/missing.md",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
+          }
+        ]
       }
     },
     {
@@ -1604,7 +2119,34 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A `raw/` tier belongs to a source directory and MUST NOT sit directly under `references/`.",
       "message": "A raw/ tier belongs to a source directory; raw/ must not sit directly under references/.",
       "check": {
-        "builtin": "raw-directory-placement"
+        "subject": "directory",
+        "schema": {
+          "properties": {
+            "path": {
+              "not": {
+                "const": "references/raw"
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw",
+            "has_index": true
+          },
+          {
+            "path": "references",
+            "has_index": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/raw",
+            "has_index": true
+          }
+        ]
       }
     },
     {
@@ -1616,7 +2158,72 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "Within `raw/` and any of its subdirectories under `references/`, the only markdown file permitted is each directory's own `index.md`.",
       "message": "A raw/ tier holds verbatim originals; the only markdown permitted in it is each directory's own index.md.",
       "check": {
-        "builtin": "raw-directory-markdown"
+        "subject": "file",
+        "schema": {
+          "not": {
+            "allOf": [
+              {
+                "properties": {
+                  "markdown": {
+                    "const": true
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "name": {
+                    "not": {
+                      "const": "index.md"
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "path": {
+                    "pattern": "^references/([^/]+/)*raw/"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw/index.md",
+            "name": "index.md",
+            "markdown": true
+          },
+          {
+            "path": "references/vendor/raw/original.pdf",
+            "name": "original.pdf",
+            "markdown": false
+          },
+          {
+            "path": "references/vendor/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "area/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/vendor/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "references/raw/deep/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ]
       }
     },
     {
@@ -1646,7 +2253,29 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A nonempty directory MUST contain an `index.md`, including every area, sub-area, `references/`, and nonempty subdirectory of `references/`.",
       "message": "Every nonempty directory must contain index.md.",
       "check": {
-        "builtin": "directory-index-present"
+        "subject": "directory",
+        "at": "index",
+        "schema": {
+          "properties": {
+            "has_index": {
+              "const": true
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area",
+            "has_index": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "area",
+            "has_index": false
+          }
+        ]
       }
     },
     {
@@ -1658,7 +2287,28 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "A concept sits beside an area of the same name rather than inside it.",
       "message": "A concept beside an area of the same name needs contextual placement review.",
       "check": {
-        "builtin": "concept-area-name-collision"
+        "subject": "concept",
+        "schema": {
+          "properties": {
+            "sibling_directory": {
+              "const": false
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area/note.md",
+            "sibling_directory": false
+          }
+        ],
+        "invalid": [
+          {
+            "path": "area.md",
+            "sibling_directory": true
+          }
+        ]
       }
     },
     {
@@ -1682,7 +2332,46 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "description": "Every root `log.md` entry MUST start with a nonempty bold lead word followed by a colon.",
       "message": "Every root log entry must begin with a nonempty bold lead word and a colon.",
       "check": {
-        "builtin": "log-entry-lead-word"
+        "subject": "log",
+        "schema": {
+          "properties": {
+            "entries": {
+              "minItems": 1,
+              "items": {
+                "properties": {
+                  "action": {
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": "Creation"
+              }
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "entries": []
+          },
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": ""
+              }
+            ]
+          }
+        ]
       }
     }
   ]

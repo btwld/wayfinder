@@ -5,7 +5,6 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-import 'profile_context.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart';
@@ -217,19 +216,12 @@ final class ProfileValidator {
     if (release != legacyProfileRelease) {
       return ProfileValidationResult.unsupported(validation, release);
     }
-    final facts = BundleFacts.project(
-      loaded,
-      context: ProfileValidationContext.legacy(release, declaration: values),
-    );
     final profile = EffectiveProfile(
       RuleCatalog.installed(builtinProfileId, release),
-      legacyRegistryVocabulary(facts),
+      legacyRegistryVocabulary(loaded),
+      declaration: values,
     );
-    return ProfileValidationResult.assessed(
-      validation,
-      evaluate(profile, facts),
-      release,
-    );
+    return _assess(validation, loaded, profile);
   }
 }
 
@@ -244,25 +236,30 @@ ProfileValidationResult _validateConfigured(
       binding.implementsId != builtinProfileId) {
     return ProfileValidationResult.unsupported(validation, binding.release);
   }
-  final facts = BundleFacts.project(
-    loaded,
-    context: ProfileValidationContext.external(
-      binding,
-      configPath: reportedConfigPath,
-    ),
-  );
   final profile = EffectiveProfile(
     RuleCatalog.installed(binding.implementsId, binding.release),
     Vocabulary(
+      standardTypes: externalStandardTypes.map((row) => row.$1).toList(),
+      projectTypes: binding.types.map((type) => type.name).toList(),
       types: binding.typeNames.toList(),
       tags: binding.tagNames.toList(),
       actors: binding.actors.keys.toList(),
     ),
+    configPath: reportedConfigPath,
   );
+  return _assess(validation, loaded, profile);
+}
+
+ProfileValidationResult _assess(
+  OkfSpecValidation validation,
+  OkfBundleLoadResult loaded,
+  EffectiveProfile profile,
+) {
+  final facts = BundleFacts.project(loaded, profile: profile);
   return ProfileValidationResult.assessed(
     validation,
     evaluate(profile, facts),
-    binding.release,
+    profile.catalog.release,
   );
 }
 
