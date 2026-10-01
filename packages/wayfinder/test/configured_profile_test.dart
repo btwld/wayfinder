@@ -641,6 +641,40 @@ okf_version: "0.2"
     expect(result.profileState, ProfileState.unsupported);
   });
 
+  test('reserves nested registry names only under legacy 2026.2', () async {
+    const concept = '''
+---
+type: Guide
+title: Area types
+description: An ordinary concept named like a legacy registry.
+status: stable
+---
+
+# Area types
+''';
+    Future<List<String?>> reservedNameFindings(
+      Directory root,
+      String release,
+    ) async {
+      final area = await Directory(p.join(root.path, 'area')).create();
+      await File(p.join(area.path, 'types.md')).writeAsString(concept);
+      final result = await validateBundle(root.path);
+      expect(result.okfState, OkfState.pass);
+      expect(result.profileRelease, release);
+      return result.findings
+          .where(
+            (finding) => finding.id == 'concepta-profile/root-structure-files',
+          )
+          .map((finding) => finding.path)
+          .toList();
+    }
+
+    expect(await reservedNameFindings(bundle, '2026.3'), isEmpty);
+    final legacy = await copyFixture('conformant');
+    addTearDown(() => legacy.delete(recursive: true));
+    expect(await reservedNameFindings(legacy, '2026.2'), ['area/types.md']);
+  });
+
   test(
     'migrates a legacy root without reinterpreting its old release',
     () async {

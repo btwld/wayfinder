@@ -8,6 +8,9 @@
 - Inspect OKF independently before Profile dispatch and enforce the 2026.3
   root `okf_version`. Preserve published 2026.2 in-bundle validation without
   migrating it because of an unrelated project configuration.
+- Stop reporting nested `profile.md`, `types.md`, or `actors.md` concepts as
+  `root-structure-files` under 2026.3, whose §3.5 forbids only the legacy root
+  registries. 2026.2 still reserves the names at every depth.
 
 # 0.1.0
 

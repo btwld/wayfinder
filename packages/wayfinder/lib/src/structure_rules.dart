@@ -18,7 +18,7 @@ List<ProfileFinding> validateStructureRules(
   return <ProfileFinding>[
     ..._validateRootFiles(loaded, context),
     ..._validateConfigurationLegacyFiles(loaded, context),
-    ..._validateReservedStructureNames(loaded),
+    ..._validateReservedStructureNames(loaded, context),
     ..._validateDirectoryIndexes(loaded, inventory),
     ..._validateConceptAreaCollisions(loaded, inventory),
     ..._validateRawTier(loaded, inventory),
@@ -75,7 +75,11 @@ Iterable<ProfileFinding> _validateRawTier(
 
 Iterable<ProfileFinding> _validateReservedStructureNames(
   OkfBundleLoadResult loaded,
+  ProfileValidationContext context,
 ) sync* {
+  // 2026.3 §3.5 forbids only the legacy root registries; a nested concept may
+  // use these names.
+  if (context.externalBinding) return;
   for (final path in loaded.documents.keys) {
     if (!path.contains('/') ||
         !_structuralConcepts.contains(p.posix.basename(path))) {

@@ -10,16 +10,6 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/root-structure-files",
-        "severity": "error",
-        "message": "profile.md, types.md, and actors.md are reserved for their bundle-root structural purposes.",
-        "location": {
-          "path": "area/types.md"
-        },
-        "profile_release": "2026.3",
-        "rule": "§3.5"
-      },
-      {
         "id": "concepta-profile/concept-area-name-collision",
         "severity": "advisory",
         "message": "A concept beside an area of the same name needs contextual placement review.",
