@@ -201,7 +201,12 @@ final class ProfileValidator {
       return ProfileValidationResult.undispatched(validation, finding);
     }
     if (resolvedConfig.value case final configured?) {
-      return _validateConfigured(validation, loaded, configured);
+      return _validateConfigured(
+        validation,
+        loaded,
+        configured,
+        reportedConfigPath: configPath ?? p.basename(configured.configPath),
+      );
     }
     final declaration = _readDeclaration(loaded);
     if (declaration.finding case final finding?) {
@@ -224,11 +229,12 @@ final class ProfileValidator {
 ProfileValidationResult _validateConfigured(
   OkfSpecValidation validation,
   OkfBundleLoadResult loaded,
-  WayfinderResolvedConfig configured,
-) {
+  WayfinderResolvedConfig configured, {
+  required String reportedConfigPath,
+}) {
   final context = ProfileValidationContext.external(
     configured.profile,
-    configPath: configured.configPath,
+    configPath: reportedConfigPath,
   );
   if (configured.profile.release != externalProfileRelease ||
       configured.profile.implementsId != builtinProfileId) {
