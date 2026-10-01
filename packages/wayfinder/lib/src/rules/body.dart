@@ -59,7 +59,10 @@ final class ParsedBody {
 
     nodes.forEach(collect);
     final defined = <String>{
-      for (final match in _footnoteDefinition.allMatches(source)) match[1]!,
+      for (final match in _footnoteDefinition.allMatches(
+        source.replaceAll(_fencedCode, ''),
+      ))
+        match[1]!,
     };
     return [
       for (final label in labels)
@@ -101,6 +104,15 @@ final class ParsedBody {
 }
 
 final RegExp _footnoteReference = RegExp(r'\[\^([^\]]+)\]');
+
+/// A fenced code block, so a `[^label]:` line inside one is not read as a
+/// footnote definition.
+final RegExp _fencedCode = RegExp(
+  r'^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?^ {0,3}\1',
+  multiLine: true,
+  dotAll: true,
+);
+
 final RegExp _footnoteDefinition = RegExp(
   r'^ {0,3}\[\^([^\]]+)\]:',
   multiLine: true,

@@ -5,6 +5,7 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/profile_release.dart';
+import 'package:wayfinder/src/rules/body.dart';
 import 'package:wayfinder/src/rules/catalog.dart';
 import 'package:wayfinder/src/rules/evaluate.dart';
 import 'package:wayfinder/src/rules/facts.dart';
@@ -245,6 +246,21 @@ Map<String, Object?> footnote(
 };
 
 void main() {
+  test('a footnote definition inside fenced code is not a definition', () {
+    final footnotes = ParsedBody(
+      [
+        'Prose cites a source.[^real]',
+        '',
+        '```markdown',
+        '[^fenced]: shown as an example, not defined',
+        '```',
+        '',
+        '[^real]: the real definition',
+      ].join('\n'),
+    ).footnotes();
+    expect(footnotes, [(label: 'real', referenced: true, defined: true)]);
+  });
+
   late Directory bundle;
 
   setUp(() async {
