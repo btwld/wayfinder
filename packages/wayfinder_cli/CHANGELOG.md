@@ -4,6 +4,12 @@
   Claude, Codex, and Gemini and an `AGENTS.md` pointer for Grok. The short
   bootstrap prompts loading `use-wayfinder` and its related skills; it performs
   no indexing or network requests. Existing hooks and instructions are preserved.
+- `search "<query>"` searches all project bundle paths from `wayfinder.json`;
+  `--bundle <folder-name>` optionally filters one. Matches rank across bundles
+  with one query embedding and a global limit, preserving bundle-aware citations.
+  `index` without a path refreshes the same bundle set. Explicit paths retain
+  their existing behavior and JSON; missing/stale selected indexes still fail
+  search without implicit indexing or partial results.
 - `wayfinder validate` and MCP validation recognize configured Bitwild Profile
   2026.3 bundles; CLI validation accepts `--config` for an explicit project
   file. Both validate read-only from a current lock/cache; `get` and

@@ -1,16 +1,33 @@
 # Wayfinder
 
-Use an explicit local OKF bundle. Resolve a configured Profile source with
-`get` before read-only validation:
+Search the current project's configured local OKF bundles. Resolve a configured
+Profile source with `get` before read-only validation:
 
 ```bash
 wayfinder get .
 wayfinder validate ./knowledge
 wayfinder upgrade .
 wayfinder graph ./knowledge --output mermaid
-wayfinder index ./knowledge
-wayfinder search ./knowledge "How do I regain account access?"
+wayfinder index
+wayfinder search "How do I regain account access?"
+wayfinder search "How do I regain account access?" --bundle knowledge
 ```
+
+Project search/index discover the nearest `wayfinder.json` from the current
+folder and use its `applies_to` paths. Without one, a conventional `knowledge/`
+directory is supported. Discovery stops at a Git repository boundary. Bundle
+filters use folder names; ambiguous names require an explicit path. These
+commands do not fetch Profile sources or install bundles.
+
+Search ranks matches across all selected bundles with one query embedding and
+one global `--limit`. Project JSON adds `bundles`, plus `bundle` and `bundlePath`
+on each hit; text citations include the project-relative bundle path. Source
+paths, line numbers, status, and relationship context remain available. A missing
+or stale selected index fails the search, rather than silently returning a subset.
+
+The explicit `index <path>` and `search <path> "<query>"` forms retain their
+single-bundle JSON shape and ignore neighboring configuration. Background
+indexing (`--detach`) continues to require an explicit path.
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit

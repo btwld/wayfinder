@@ -19,3 +19,6 @@ HANDOFF.md
 
 # Ignored source mirrors and importer staging may live inside example projects.
 **/.wayfinder-import/
+
+# Local review notes, installation backups, and verification caches.
+.context/

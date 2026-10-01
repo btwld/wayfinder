@@ -34,8 +34,8 @@ void main() {
     expect(await cli.run(['--help']), 0);
     final help = output.join('\n');
     expect(help, contains('validate <bundle>'));
-    expect(help, contains('index <bundle>'));
-    expect(help, contains('search <bundle>'));
+    expect(help, contains('index [<bundle>]'));
+    expect(help, contains('search [<bundle>]'));
     expect(help, contains('graph <bundle>'));
     expect(help, contains('get [<project>]'));
     expect(help, contains('upgrade [<project>]'));
