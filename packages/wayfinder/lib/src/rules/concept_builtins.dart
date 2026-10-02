@@ -285,7 +285,7 @@ Iterable<Violation> linkGraphUnavailable(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (facts.graph.error case final error?) {
+  if (facts.linkError case final error?) {
     yield Violation(
       params['path'] as String? ?? 'profile.md',
       facts: {'error': '$error'},
@@ -297,7 +297,7 @@ Iterable<Violation> sourcePathUnresolved(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final graph = facts.graph.graph;
+  final graph = facts.links?.graph;
   if (graph == null) return;
   final rootPath = facts.loaded.rootPath;
   final emitted = <(String, String)>{};

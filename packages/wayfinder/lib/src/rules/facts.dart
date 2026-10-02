@@ -53,10 +53,16 @@ final class Subject {
 }
 
 final class BundleFacts {
-  BundleFacts.project(this.loaded, {required this.profile});
+  BundleFacts.project(
+    this.loaded, {
+    required this.profile,
+    OkfGraph Function(OkfBundle) buildGraph = OkfGraph.fromBundle,
+  }) : _buildGraph = buildGraph;
 
   final OkfBundleLoadResult loaded;
   final EffectiveProfile profile;
+
+  final OkfGraph Function(OkfBundle) _buildGraph;
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
 
@@ -67,13 +73,20 @@ final class BundleFacts {
       path: ParsedBody(document.body),
   };
 
-  late final ({OkfGraph? graph, Object? error}) graph = () {
+  /// okf's graph and the Profile's relationship edges, resolved together,
+  /// or the error that stopped them. Link facts are then absent, so no link
+  /// rule passes for lack of them, and `link-graph-unavailable` reports.
+  late final ({LinkFacts? links, Object? error}) _links = () {
     try {
-      return (graph: OkfGraph.fromBundle(loaded.bundle), error: null);
+      return (links: LinkFacts(loaded.bundle, _buildGraph), error: null);
     } catch (error) {
-      return (graph: null, error: error);
+      return (links: null, error: error);
     }
   }();
+
+  LinkFacts? get links => _links.links;
+
+  Object? get linkError => _links.error;
 
   late final Map<SubjectKind, List<Subject>> _subjects = {
     SubjectKind.frontmatter: [
@@ -132,72 +145,6 @@ final class BundleFacts {
 
   Iterable<Subject> of(SubjectKind kind) => _subjects[kind]!;
 
-  late final Map<String, List<Map<String, Object?>>> _edges = () {
-    final byDocument = <String, List<Map<String, Object?>>>{};
-    for (final edge in graph.graph?.edges ?? const <OkfGraphEdge>[]) {
-      byDocument.putIfAbsent(edge.source.documentPath, () => []).add({
-        'origin': edge.origin.wireValue,
-        'target': edge.rawTarget,
-        'resolution': edge.resolution.wireValue,
-        ..._targetFacts(edge),
-      });
-    }
-    return byDocument;
-  }();
-
-  late final ({
-    Map<String, List<Map<String, Object?>>> outbound,
-    Map<String, List<Map<String, Object?>>> inbound,
-  })?
-  _relationships = () {
-    final declared = <OkfConceptId, List<(Object?, String)>>{};
-    for (final MapEntry(key: id, value: document)
-        in loaded.bundle.concepts.entries) {
-      final entries = document.frontmatter[relationshipsLinkField.key];
-      if (entries is! List) continue;
-      for (final entry in entries.whereType<Map<Object?, Object?>>()) {
-        if (entry['resource'] case final String resource) {
-          declared.putIfAbsent(id, () => []).add((
-            _json(entry[relationshipsLinkField.nameKey]),
-            resource,
-          ));
-        }
-      }
-    }
-    final Map<OkfConceptId, List<OkfGraphEdge?>> edges;
-    try {
-      edges = resolveLinkTargets(loaded.bundle, {
-        for (final MapEntry(:key, :value) in declared.entries)
-          key: [for (final (_, resource) in value) resource],
-      });
-    } catch (_) {
-      return null;
-    }
-    final outbound = <String, List<Map<String, Object?>>>{};
-    final inbound = <String, List<Map<String, Object?>>>{};
-    for (final MapEntry(key: id, value: entries) in declared.entries) {
-      final from = id.documentPath;
-      for (final (index, (relationship, resource)) in entries.indexed) {
-        final edge = edges[id]![index];
-        if (edge == null) continue;
-        outbound.putIfAbsent(from, () => []).add({
-          'relationship': relationship,
-          'resource': resource,
-          ..._targetFacts(edge),
-          'resolved': _resolved(edge),
-        });
-        final target = edge.targetConcept?.documentPath;
-        if (target != null && target != from) {
-          inbound.putIfAbsent(target, () => []).add({
-            'relationship': relationship,
-            'from': from,
-          });
-        }
-      }
-    }
-    return (outbound: outbound, inbound: inbound);
-  }();
-
   Map<String, Object?> _concept(String path, OkfDocument document) {
     final counts = <String, int>{};
     for (final tag in document.tags) {
@@ -221,10 +168,10 @@ final class BundleFacts {
         for (final heading in body.headings())
           {'value': heading, 'normalized': heading.trim().toLowerCase()},
       ],
-      if (graph.graph != null) 'edges': _edges[path] ?? const [],
-      if (_relationships case (:final outbound, :final inbound)) ...{
-        'relationships': outbound[path] ?? const [],
-        'inbound': inbound[path] ?? const [],
+      if (links case final links?) ...{
+        'edges': links.edges[path] ?? const [],
+        'relationships': links.relationships[path] ?? const [],
+        'inbound': links.inbound[path] ?? const [],
       },
       'footnotes': [
         for (final (:label, :referenced, :defined) in body.footnotes())
@@ -238,6 +185,65 @@ final class BundleFacts {
       'sibling_directory': inventory.hasAreaSibling(path),
     };
   }
+}
+
+final class LinkFacts {
+  LinkFacts(OkfBundle bundle, OkfGraph Function(OkfBundle) buildGraph)
+    : graph = buildGraph(bundle) {
+    for (final edge in graph.edges) {
+      edges.putIfAbsent(edge.source.documentPath, () => []).add({
+        'origin': edge.origin.wireValue,
+        'target': edge.rawTarget,
+        'resolution': edge.resolution.wireValue,
+        ..._targetFacts(edge),
+      });
+    }
+    final declared = <OkfConceptId, List<(Object?, String)>>{};
+    for (final MapEntry(key: id, value: document) in bundle.concepts.entries) {
+      final entries = document.frontmatter[relationshipsLinkField.key];
+      if (entries is! List) continue;
+      for (final entry in entries.whereType<Map<Object?, Object?>>()) {
+        if (entry['resource'] case final String resource) {
+          declared.putIfAbsent(id, () => []).add((
+            _json(entry[relationshipsLinkField.nameKey]),
+            resource,
+          ));
+        }
+      }
+    }
+    final resolved = resolveLinkTargets(bundle, {
+      for (final MapEntry(:key, :value) in declared.entries)
+        key: [for (final (_, resource) in value) resource],
+    }, buildGraph: buildGraph);
+    for (final MapEntry(key: id, value: entries) in declared.entries) {
+      final from = id.documentPath;
+      for (final (index, (relationship, resource)) in entries.indexed) {
+        final edge = resolved[id]![index];
+        if (edge == null) continue;
+        relationships.putIfAbsent(from, () => []).add({
+          'relationship': relationship,
+          'resource': resource,
+          ..._targetFacts(edge),
+          'resolved': _resolved(edge),
+        });
+        final target = edge.targetConcept?.documentPath;
+        if (target != null && target != from) {
+          inbound.putIfAbsent(target, () => []).add({
+            'relationship': relationship,
+            'from': from,
+          });
+        }
+      }
+    }
+  }
+
+  final OkfGraph graph;
+
+  /// Each concept's facts by document path: okf's edges, its declared
+  /// relationships as resolved, and the relationships declared on it.
+  final edges = <String, List<Map<String, Object?>>>{};
+  final relationships = <String, List<Map<String, Object?>>>{};
+  final inbound = <String, List<Map<String, Object?>>>{};
 }
 
 Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {

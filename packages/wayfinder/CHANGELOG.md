@@ -1,5 +1,11 @@
 # Unreleased
 
+- A failure while resolving relationship targets no longer drops the
+  `relationships` and `inbound` facts silently. okf's graph and the
+  relationship edges resolve as one link layer; when it fails,
+  `link-graph-unavailable` reports the error under both releases and no
+  link fact exists for a link rule to pass on. `BundleFacts.project` takes a
+  `buildGraph` function so a test can force that path.
 - Export `OkfLinkField`, `OkfFieldEdge` and `okfFieldEdges`, the typed
   link-field model and resolution `wayfinder_embeddings` and the CLI graph
   shared with the engine, plus `relationshipsLinkField` for the Profile's

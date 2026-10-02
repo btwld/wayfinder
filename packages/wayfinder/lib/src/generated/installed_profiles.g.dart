@@ -2091,8 +2091,8 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§7.1",
-      "description": "The §7.1 link rules MUST be assessed against a buildable OKF link graph of the bundle.",
-      "message": "The OKF link graph could not be built ({error}); the §7.1 link rules were not assessed.",
+      "description": "The §7.1 and §7.2 link rules MUST be assessed against a buildable OKF link graph of the bundle, with every relationship target resolved.",
+      "message": "The OKF link graph could not be built ({error}); the §7.1 and §7.2 link rules were not assessed.",
       "check": {
         "builtin": "link-graph-unavailable",
         "params": {

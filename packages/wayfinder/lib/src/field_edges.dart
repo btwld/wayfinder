@@ -108,8 +108,9 @@ List<OkfFieldEdge> okfFieldEdges(
 /// that position. A blank target draws no edge and stays null.
 Map<OkfConceptId, List<OkfGraphEdge?>> resolveLinkTargets(
   OkfBundle bundle,
-  Map<OkfConceptId, List<String>> targets,
-) {
+  Map<OkfConceptId, List<String>> targets, {
+  OkfGraph Function(OkfBundle) buildGraph = OkfGraph.fromBundle,
+}) {
   final resolved = {
     for (final MapEntry(:key, :value) in targets.entries)
       key: List<OkfGraphEdge?>.filled(value.length, null),
@@ -132,7 +133,7 @@ Map<OkfConceptId, List<OkfGraphEdge?>> resolveLinkTargets(
       logs: bundle.logFiles,
       assets: bundle.assetPaths,
     );
-    for (final edge in OkfGraph.fromBundle(layer).edges) {
+    for (final edge in buildGraph(layer).edges) {
       resolved[edge.source]![position] = edge;
     }
   }
