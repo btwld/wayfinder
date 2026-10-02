@@ -1,7 +1,14 @@
 # Wayfinder
 
-Find, connect, and use your project's knowledge. Wayfinder provides local OKF
-validation, persistent semantic search, and an MCP server for coding agents.
+Wayfinder checks, connects, and serves your project's knowledge. It validates an
+OKF bundle, then lints it against a Profile: a versioned set of rules, written as
+data, that layers your team's conventions on top of OKF while keeping every
+bundle readable by any OKF tool. The Bitwild Profile ships built in; a child
+Profile can add its own vocabulary and rules. Results come out as text, JSON, or
+SARIF, and `--fix` regenerates the indexes the Profile generates.
+
+The same bundle feeds local semantic search, a link graph, and an MCP server for
+coding agents.
 
 Source code, plugin files, documentation and binary releases live together in
 this public repository. Install the complete native runtime to use Wayfinder

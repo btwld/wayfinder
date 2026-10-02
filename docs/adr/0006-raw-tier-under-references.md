@@ -4,6 +4,11 @@
 - Date: 2026-08-25
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0006-raw-tier-under-references.md))
 - Scope: Profile 2026.1 and later
+- Amended 2026-10-02 for Profile 2026.3: a `raw/` tier holds no Markdown at
+  all. Its directories hold only non-concept assets, so they carry no
+  `index.md` ([Profile §3.4](../../profile/okf-profile.md#34-the-references-directory),
+  [§9](../../profile/okf-profile.md#9-index-files)). The `index.md` exception
+  in the Decision below applies to 2026.1 and 2026.2 only.
 
 ## Context
 
