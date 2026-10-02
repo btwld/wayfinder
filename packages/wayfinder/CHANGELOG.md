@@ -1,5 +1,11 @@
 # Unreleased
 
+- `validate --fix` replaces each generated index atomically, refuses a
+  symbolic link at any path segment, and reports a failed write as
+  `ProfileFix.state` `ProfileFixState.failed` with the files already written;
+  `ProfileFixState` is exported. SARIF locations inside the working directory
+  are relative to a recorded `WORKINGDIR` base, and summary results carry
+  level `none`.
 - The 2026.2 dispatch parses `types.md` and `actors.md` once and shares
   them with the engine through `EffectiveProfile.legacy`, which replaces
   `declaration`. `ProfileFinding` takes a `FindingDescriptor`, which only
@@ -46,8 +52,8 @@
 - Profile 2026.3 reports what it permits as summary entries instead of
   advisories. Catalog rules take a third severity, `note`, whose results
   fill `ProfileValidationResult.summary` (`ProfileSummaryEntry`), JSON
-  `profile.summary`, a text `Summary:` block and SARIF `note` results of
-  kind `informational`, and never affect a state or the exit code.
+  `profile.summary`, a text `Summary:` block and SARIF results of kind
+  `informational` with level `none`, and never affect a state or the exit code.
   `configured-type-extension`, `internal-link-unresolved` and
   `relationship-unresolved` become notes. `evaluate` returns findings and
   summary entries apart. A declared tag that equals a type, status, trust

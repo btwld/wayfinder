@@ -145,7 +145,7 @@ bundle at rest, so they do not receive a fabricated bundle assessment mode.
 | Clause | Owner | Evidence |
 | --- | --- | --- |
 | §14.1: keep OKF conformance, Profile conformance, Automated Profile Validation, Profile Review, and Complete Profile Assessment distinct | Implementation guide | Guide §§4.1 and 4.5; validator contract tests in #26–#28 and #20 |
-| §14.1: tooling reports summary entries separately from findings, without effect on conformance, the automated gate, or exit status | Implementation guide | Guide §4.1; `profile.summary` in the configured goldens, the text `Summary:` block, and SARIF `note` results in the SARIF tests |
+| §14.1: tooling reports summary entries separately from findings, without effect on conformance, the automated gate, or exit status | Implementation guide | Guide §4.1; `profile.summary` in the configured goldens, the text `Summary:` block, and SARIF `informational` results with level `none` in the SARIF tests |
 | §15.1: every normative Profile rule passes the five-part OKF compatibility test | Release integration | One reviewed row per rule in the compatibility review |
 | §15.1: do not publish while compatibility or coverage evidence is incomplete | Release integration | #19 completeness review of both artifacts |
 | §15.1: do not claim compatibility with an unreviewed OKF release | Release integration | Release binding and compatibility review identify the same pinned OKF release |

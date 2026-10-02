@@ -2493,7 +2493,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "status": "stable",
       "ref": "§3.4",
       "description": "Within `raw/` and any of its subdirectories under `references/`, no markdown file is permitted; `index-current` reports a leftover `index.md` there (§9).",
-      "message": "A raw/ tier holds verbatim originals; the only markdown permitted in it is each directory's own index.md.",
+      "message": "A raw/ tier holds verbatim originals; no markdown file is permitted in it.",
       "check": {
         "subject": "file",
         "schema": {

@@ -2,8 +2,8 @@
 
 - `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
   such as a project type in use or an unresolved planned link, as summary
-  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF `note`
-  results. They never change the gate or the exit code. The resolver rejects
+  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
+  informational results. They never change the gate or the exit code. The resolver rejects
   a composed binding that declares a tag equal to a type, status, trust tier,
   or relationship name.
 - `wayfinder graph` and the MCP `graph` tool add each concept's typed

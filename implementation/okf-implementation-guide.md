@@ -123,7 +123,10 @@ usual. It MUST:
   fails, or when the selected release has no fixable rules, as 2026.2 has
   none. Its output says which applied.
 - **Be idempotent.** A second run over its own output writes nothing.
-- **Refuse to write through a symbolic link.**
+- **Refuse to write through a symbolic link** at any path segment below the
+  bundle root, and replace each file atomically.
+- **Report a failed write.** When a write fails it stops, reports the files
+  already written and the failure as fix state `FAILED`, and exits 2.
 
 Its JSON report adds a `fix` object before `okf`; without `--fix` the report
 is unchanged.
@@ -242,7 +245,8 @@ empty, whenever the assessed release declares a summary rule. Text prints a
 `sarif` carries the same findings as JSON in a SARIF 2.1.0 log for code
 scanning. Each OKF and Profile finding is one result whose `ruleId` is its
 finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. Each
-summary entry follows the findings as a `note` result of kind `informational`.
+summary entry follows the findings as a result of kind `informational` with
+level `none`, as SARIF §3.27.10 requires for a kind other than `fail`.
 The selected release's rules are the run's rule descriptors, and the four
 component states are run properties because SARIF has no field for them. The
 exit status is the same as for text and JSON.
@@ -777,13 +781,13 @@ targets as the OKF graph resolves links, and keep the body-section checks for
 
 Revised in place before publication: §4.1 adds summary entries to the result
 model beside the findings, as `profile.summary` in JSON, a `Summary:` text
-block, and SARIF `note` results; §4.7 reports a registered custom type as a
+block, and SARIF `informational` results; §4.7 reports a registered custom type as a
 summary entry. A graph that cannot be built is reported at `index.md`, which
 every 2026.3 bundle has, instead of `profile.md`. Affected sections: §§4.1, 4.7,
 and 9. Driver: Profile 2026.3 §14.1 now reports what it permits as summary
 entries, and §5.1 checks colliding tag names where the binding declares them.
 Migration for implementations: route a release's summary rules to the summary,
-emit the new JSON key and SARIF notes, and reject a colliding tag declaration
+emit the new JSON key and SARIF informational results, and reject a colliding tag declaration
 while reading and composing the binding; 2026.2 output is unchanged.
 
 Revised in place before publication: §§4.2, 4.4 and 4.7 read a non-base
