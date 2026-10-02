@@ -287,12 +287,6 @@ void main() {
       .singleWhere((subject) => subject.locations['self'] == path)
       .facts;
 
-  test('every probe rule example behaves as declared', () {
-    for (final rule in probeCatalog.rules) {
-      expect(rule.failingExamples(), isEmpty, reason: rule.descriptor.id);
-    }
-  });
-
   group('over a bundle', () {
     setUp(() async {
       await write(

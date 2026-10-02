@@ -103,13 +103,6 @@ void main() {
           .toList()
         ..sort();
 
-  test('the child catalog is complete and its examples hold', () {
-    expect(
-      child.rules.map((rule) => rule.failingExamples()),
-      everyElement(isEmpty),
-    );
-  });
-
   group('a child catalog only adds findings in its own namespace', () {
     var chained = 0;
     for (final name in fixtures) {

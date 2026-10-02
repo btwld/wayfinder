@@ -7,39 +7,82 @@ import 'body.dart';
 import 'profile.dart';
 import 'registries.dart';
 
+/// The shape of one fact of a closed subject kind, so a catalog naming a
+/// fact in a way the engine never produces is rejected at load.
+sealed class FactShape {
+  const FactShape();
+}
+
+/// One JSON value.
+final class ScalarFact extends FactShape {
+  const ScalarFact();
+}
+
+/// A list whose elements are objects with exactly [fields]; a list of
+/// scalars has the one field `value`, which is how a rule sees each one.
+final class ListFact extends FactShape {
+  const ListFact(this.fields);
+
+  final Set<String> fields;
+}
+
+const _scalar = ScalarFact();
+const _scalars = ListFact({'value'});
+
 enum SubjectKind {
   frontmatter(facts: null),
 
   concept(
     facts: {
-      'path',
-      'type',
-      'status',
-      'keys',
-      'tags',
-      'source_ids',
-      'headings',
-      'edges',
-      'relationships',
-      'inbound',
-      'footnotes',
-      'sibling_directory',
+      'path': _scalar,
+      'type': _scalar,
+      'status': _scalar,
+      'keys': _scalars,
+      'tags': ListFact({'value', 'count'}),
+      'source_ids': _scalars,
+      'headings': ListFact({'value', 'normalized'}),
+      'edges': ListFact({
+        'origin',
+        'target',
+        'resolution',
+        'internal',
+        'bundle_relative',
+      }),
+      'relationships': ListFact({
+        'entry',
+        'resolution',
+        'internal',
+        'bundle_relative',
+        'resolved',
+      }),
+      'inbound': ListFact({'relationship', 'from'}),
+      'footnotes': ListFact({'value', 'referenced', 'defined', 'is_source_id'}),
+      'sibling_directory': _scalar,
     },
   ),
 
-  actor(facts: {'id', 'first_use'}),
+  actor(facts: {'id': _scalar, 'first_use': _scalar}),
 
-  directory(facts: {'path', 'has_index'}, locations: {'self', 'index'}),
+  directory(
+    facts: {'path': _scalar, 'has_index': _scalar},
+    locations: {'self', 'index'},
+  ),
 
-  file(facts: {'path', 'name', 'markdown'}),
+  file(facts: {'path': _scalar, 'name': _scalar, 'markdown': _scalar}),
 
-  root(facts: {'okf_version', 'files'}),
+  root(facts: {'okf_version': _scalar, 'files': _scalars}),
 
-  log(facts: {'entries'});
+  log(
+    facts: {
+      'entries': ListFact({'date', 'action'}),
+    },
+  );
 
   const SubjectKind({required this.facts, this.locations = const {'self'}});
 
-  final Set<String>? facts;
+  /// The facts every subject of this kind carries, or null for the open
+  /// `frontmatter` object, whose keys are the author's.
+  final Map<String, FactShape>? facts;
 
   final Set<String> locations;
 }

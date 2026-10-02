@@ -252,14 +252,6 @@ void main() {
     }
   });
 
-  for (final MapEntry(key: release, value: catalog) in catalogs.entries) {
-    for (final rule in catalog.rules) {
-      test('$release ${rule.descriptor.id} examples behave as declared', () {
-        expect(rule.failingExamples(), isEmpty);
-      });
-    }
-  }
-
   test('load rejects a rule that reaches an unknown slot', () {
     expect(
       () => RuleCatalog.parse(
@@ -303,5 +295,258 @@ void main() {
         ),
       ),
     );
+  });
+
+  group('load checks what the catalog schema cannot see', () {
+    Map<String, Object?> schemaRule({
+      required Map<String, Object?> check,
+      Map<String, Object?> tests = const {
+        'valid': [<String, Object?>{}],
+        'invalid': [<String, Object?>{}],
+      },
+      Object message = 'm',
+    }) => {
+      'id': 'a',
+      'category': 'structure',
+      'severity': 'error',
+      'status': 'stable',
+      'ref': '§1',
+      'description': 'd',
+      'message': message,
+      'check': check,
+      if (check.containsKey('subject')) 'tests': tests,
+    };
+
+    String catalog(Map<String, Object?> rule, {String release = '2026.1'}) =>
+        jsonEncode({
+          'format': 1,
+          'namespace': 'x',
+          'profile': {'id': 'x', 'release': release},
+          'rules': [rule],
+        });
+
+    Matcher rejectedAt(String where, String message) => throwsA(
+      isA<RuleCatalogException>()
+          .having((error) => error.where, 'where', where)
+          .having((error) => error.message, 'message', contains(message)),
+    );
+
+    test('a rule whose examples disagree with its schema', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'actor',
+                'schema': {
+                  'properties': {
+                    'id': {'const': 'a'},
+                  },
+                },
+              },
+              tests: {
+                'valid': [
+                  {'id': 'b'},
+                ],
+                'invalid': [
+                  {'id': 'a'},
+                  {'id': 'c'},
+                ],
+              },
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].tests', 'valid[0] fails, invalid[0] passes'),
+      );
+    });
+
+    test('each over a fact that is not a list', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {'subject': 'concept', 'each': 'path', 'schema': true},
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].check.each', 'not a list fact of concept'),
+      );
+    });
+
+    test('failing_field that is not an element field', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'concept',
+                'each': 'tags',
+                'failing_field': 'label',
+                'schema': true,
+              },
+            ),
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.failing_field',
+          'not a field of concept.tags elements',
+        ),
+      );
+    });
+
+    test('a property or required name no fact or element field carries', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'actor',
+                'schema': {
+                  'allOf': [
+                    {
+                      'required': ['name'],
+                    },
+                  ],
+                },
+              },
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].check.schema', 'name is not a fact of actor'),
+      );
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'concept',
+                'each': 'edges',
+                'schema': {
+                  'properties': {
+                    'href': {'type': 'string'},
+                  },
+                },
+              },
+            ),
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'href is not a field of concept.edges elements',
+        ),
+      );
+      final nested = RuleCatalog.parse(
+        catalog(
+          schemaRule(
+            check: {
+              'subject': 'concept',
+              'schema': {
+                'properties': {
+                  'tags': {
+                    'items': {
+                      'required': ['label'],
+                    },
+                  },
+                },
+              },
+            },
+            tests: {
+              'valid': [
+                {
+                  'tags': [
+                    {'label': 'x'},
+                  ],
+                },
+              ],
+              'invalid': [
+                {
+                  'tags': [<String, Object?>{}],
+                },
+              ],
+            },
+          ),
+        ),
+      );
+      expect(nested.rules, hasLength(1), reason: 'names below a descent');
+    });
+
+    test('frontmatter stays open', () {
+      final open = RuleCatalog.parse(
+        catalog(
+          schemaRule(
+            check: {
+              'subject': 'frontmatter',
+              'each': 'anything',
+              'failing_field': 'whatever',
+              'schema': {
+                'required': ['whatever'],
+              },
+            },
+            tests: {
+              'valid': [
+                {'whatever': 1},
+              ],
+              'invalid': [<String, Object?>{}],
+            },
+          ),
+        ),
+      );
+      expect(open.rules, hasLength(1));
+    });
+
+    test('params for a builtin that takes none', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'builtin': 'index-current',
+                'params': {'x': 1},
+              },
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].check.params', 'do not match'),
+      );
+    });
+
+    test('a placeholder the builtin does not fill', () {
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {'builtin': 'link-graph-unavailable'},
+              message: 'at {path}: {error}',
+            ),
+          ),
+        ),
+        rejectedAt('rules[0].message', '{path} is not filled'),
+      );
+    });
+
+    test('a 2026.2 builtin outside the installed 2026.2 catalog', () {
+      for (final release in ['2026.1', legacyProfileRelease]) {
+        expect(
+          () => RuleCatalog.parse(
+            catalog(
+              schemaRule(check: {'builtin': 'type-registry-present'}),
+              release: release,
+            ),
+          ),
+          rejectedAt(
+            'rules[0].check.builtin',
+            'only the installed 2026.2 catalog',
+          ),
+          reason: release,
+        );
+      }
+      expect(
+        catalogs[legacyProfileRelease]!.rules
+            .map((rule) => rule.check)
+            .whereType<BuiltinCheck>()
+            .map((check) => check.name),
+        contains('type-registry-present'),
+      );
+    });
   });
 }

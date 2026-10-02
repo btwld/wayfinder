@@ -1,5 +1,15 @@
 # Unreleased
 
+- `RuleCatalog.parse` rejects more at load: a rule whose own examples
+  disagree with its schema; `each` over a fact that is not a list;
+  `failing_field` that is not an element field; a `properties` or
+  `required` name at the subject level that no fact or element field of a
+  closed subject carries; params for a builtin that declares none; a message
+  placeholder the builtin does not fill; and a builtin frozen for 2026.2
+  (the registry readers, `declared-okf-binding`, `relationships-shape`,
+  `relationship-label-extension`, `index-semantic-projection`,
+  `source-attribution-in-source`) in any catalog but the installed 2026.2
+  one. `CatalogRule.failingExamples` is gone; load runs the examples.
 - Profile 2026.3 `relationship-shape` fails a `relationships` value that is
   null, and an entry whose `resource` okf resolves as `invalid` or as a
   scope `descriptor`, as §7.2 requires of a link target. The rule moves to

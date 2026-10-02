@@ -131,24 +131,6 @@ final class CatalogRule {
   final RuleCheck check;
 
   final RuleExamples? examples;
-
-  List<String> failingExamples() {
-    final check = this.check;
-    final examples = this.examples;
-    if (check is! SchemaCheck || examples == null) return const [];
-    final predicate = check.compile({
-      Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
-      ...examples.slots,
-    });
-    Object? instance(Object? example) =>
-        check.each == null ? example : SchemaCheck.element(example);
-    return [
-      for (final (index, example) in examples.valid.indexed)
-        if (!predicate.test(instance(example))) 'valid[$index] fails',
-      for (final (index, example) in examples.invalid.indexed)
-        if (predicate.test(instance(example))) 'invalid[$index] passes',
-    ];
-  }
 }
 
 /// One Profile release's rules: the descriptor table and the checks.
@@ -163,10 +145,12 @@ final class RuleCatalog {
 
   /// Parses and compiles [json]. The catalog schema rejects the shape
   /// (unknown keys, formats, severities, releases); the parser then rejects
-  /// what the schema cannot see: unknown subjects' facts, locations, slots,
-  /// builtins and builtin params, duplicate ids, message placeholders no
-  /// subject fact fills, a declared frontmatter key OKF already defines, and
-  /// any predicate compile error.
+  /// what the schema cannot see: a fact, location, slot or builtin the
+  /// engine lacks, a fact named with a shape the engine never produces,
+  /// builtin params the builtin does not take, duplicate ids, a message
+  /// placeholder nothing fills, a rule whose own examples disagree with its
+  /// schema, a declared frontmatter key OKF already defines, a builtin
+  /// frozen for an installed release, and any predicate compile error.
   ///
   /// A catalog a Profile source ships names the [manifest] identity it was
   /// read with. It must declare that identity, report in the namespace
@@ -175,6 +159,12 @@ final class RuleCatalog {
   factory RuleCatalog.parse(
     String json, {
     ({String id, String release})? manifest,
+  }) => RuleCatalog._parse(json, manifest: manifest, installed: false);
+
+  factory RuleCatalog._parse(
+    String json, {
+    required ({String id, String release})? manifest,
+    required bool installed,
   }) {
     final Object? decoded;
     try {
@@ -188,6 +178,7 @@ final class RuleCatalog {
     final root = decoded as Map<String, Object?>;
     final namespace = root['namespace'] as String;
     final profile = root['profile'] as Map<String, Object?>;
+    final release = profile['release'] as String;
     if (manifest != null) {
       final expected = sourceNamespace(manifest.id);
       if (namespace == installedNamespace) {
@@ -235,7 +226,14 @@ final class RuleCatalog {
     final ids = <String>{};
     for (final (index, item) in (root['rules'] as List<Object?>).indexed) {
       final where = 'rules[$index]';
-      final rule = _rule(item as Map<String, Object?>, where, namespace, defs);
+      final rule = _rule(
+        item as Map<String, Object?>,
+        where,
+        namespace: namespace,
+        defs: defs,
+        release: release,
+        installed: installed,
+      );
       if (!ids.add(rule.descriptor.id)) {
         throw RuleCatalogException('$where.id', 'duplicate rule id');
       }
@@ -244,7 +242,7 @@ final class RuleCatalog {
     return RuleCatalog._(
       namespace: namespace,
       profileId: profile['id'] as String,
-      release: profile['release'] as String,
+      release: release,
       frontmatterKeys: Map.unmodifiable(frontmatterKeys),
       rules: List.unmodifiable(rules),
     );
@@ -253,10 +251,14 @@ final class RuleCatalog {
   /// The catalog embedded for an installed Profile release, parsed on first
   /// use.
   static RuleCatalog installed(String id, String release) =>
-      _installed.putIfAbsent((
-        id,
-        release,
-      ), () => RuleCatalog.parse(installedRuleCatalogs[(id, release)]!));
+      _installed.putIfAbsent(
+        (id, release),
+        () => RuleCatalog._parse(
+          installedRuleCatalogs[(id, release)]!,
+          manifest: null,
+          installed: true,
+        ),
+      );
 
   static final _installed = <(String, String), RuleCatalog>{};
 
@@ -300,10 +302,12 @@ String _where(JsonPredicateFailure failure) {
 
 CatalogRule _rule(
   Map<String, Object?> map,
-  String where,
-  String namespace,
-  Map<String, Object?> defs,
-) {
+  String where, {
+  required String namespace,
+  required Map<String, Object?> defs,
+  required String release,
+  required bool installed,
+}) {
   final OkfFindingId id;
   try {
     id = OkfFindingId.parse('$namespace/${map['id']}');
@@ -318,7 +322,12 @@ CatalogRule _rule(
   };
   final checkJson = map['check'] as Map<String, Object?>;
   final check = checkJson.containsKey('builtin')
-      ? _builtinCheck(checkJson, '$where.check')
+      ? _builtinCheck(
+          checkJson,
+          '$where.check',
+          release: release,
+          installed: installed,
+        )
       : _schemaCheck(checkJson, '$where.check', defs);
   final RuleExamples? examples;
   switch (check) {
@@ -347,7 +356,11 @@ CatalogRule _rule(
           );
         }
       }
-    case BuiltinCheck(:final builtin):
+      final failures = _failingExamples(check, examples);
+      if (failures.isNotEmpty) {
+        throw RuleCatalogException('$where.tests', failures.join(', '));
+      }
+    case BuiltinCheck(:final name, :final builtin):
       if (map.containsKey('tests')) {
         throw RuleCatalogException(
           '$where.tests',
@@ -364,6 +377,20 @@ CatalogRule _rule(
           '$where.message',
           'message ids must be exactly ${builtin.messageIds.join(', ')}',
         );
+      }
+      final templates = switch (message) {
+        SingleMessage(:final template) => [template],
+        MessageVariants(:final byId) => byId.values,
+      };
+      for (final template in templates) {
+        for (final match in placeholder.allMatches(template)) {
+          if (!builtin.fills.contains(match[1])) {
+            throw RuleCatalogException(
+              '$where.message',
+              '${match[0]} is not filled by builtin $name',
+            );
+          }
+        }
       }
       examples = null;
   }
@@ -389,9 +416,6 @@ SchemaCheck _schemaCheck(
 ) {
   final subject = SubjectKind.values.byName(json['subject'] as String);
   final each = json['each'] as String?;
-  if (each != null && !(subject.facts?.contains(each) ?? true)) {
-    throw RuleCatalogException('$where.each', 'not a fact of ${subject.name}');
-  }
   final failingField = json['failing_field'] as String?;
   if (failingField != null && each == null) {
     throw RuleCatalogException(
@@ -407,14 +431,11 @@ SchemaCheck _schemaCheck(
     );
   }
   final schema = json['schema'];
-  final reached = <String>{};
-  final slots = <Slot>{};
-  _reach(schema, defs, reached, slots, '$where.schema');
-  final usedDefs = {for (final name in reached) name: defs[name]};
+  final JsonPredicate compiled;
   try {
-    JsonPredicate.compile(
+    compiled = JsonPredicate.compile(
       schema,
-      defs: usedDefs,
+      defs: defs,
       slots: {
         for (final slot in Slot.values) slot.id: [slot.id],
       },
@@ -422,61 +443,59 @@ SchemaCheck _schemaCheck(
   } on JsonPredicateException catch (error) {
     throw RuleCatalogException('$where.schema', '$error');
   }
+  if (subject.facts case final facts?) {
+    final Set<String> names;
+    final String instance;
+    if (each == null) {
+      names = facts.keys.toSet();
+      instance = 'a fact of ${subject.name}';
+    } else {
+      final shape = facts[each];
+      if (shape is! ListFact) {
+        throw RuleCatalogException(
+          '$where.each',
+          'not a list fact of ${subject.name}',
+        );
+      }
+      names = shape.fields;
+      instance = 'a field of ${subject.name}.$each elements';
+      if (failingField != null && !names.contains(failingField)) {
+        throw RuleCatalogException('$where.failing_field', 'not $instance');
+      }
+    }
+    for (final name in compiled.rootNames) {
+      if (!names.contains(name)) {
+        throw RuleCatalogException('$where.schema', '$name is not $instance');
+      }
+    }
+  }
   return SchemaCheck._(
     subject: subject,
     each: each,
     failingField: failingField ?? 'value',
     at: at,
     schema: schema,
-    defs: usedDefs,
-    slots: slots,
+    defs: {for (final name in compiled.defs) name: defs[name]},
+    slots: {for (final id in compiled.slots) Slot.byId(id)!},
   );
 }
 
-void _reach(
-  Object? schema,
-  Map<String, Object?> defs,
-  Set<String> reached,
-  Set<Slot> slots,
-  String where,
-) {
-  switch (schema) {
-    case final Map<String, Object?> map:
-      for (final MapEntry(:key, :value) in map.entries) {
-        if (key == 'x-slot' && value is String) {
-          final slot = Slot.byId(value);
-          if (slot == null) {
-            throw RuleCatalogException(where, 'unknown slot "$value"');
-          }
-          slots.add(slot);
-        } else if (key == r'$ref' && value is String) {
-          const prefix = r'#/$defs/';
-          if (value.startsWith(prefix)) {
-            final name = Uri.decodeComponent(
-              value.substring(prefix.length),
-            ).replaceAll('~1', '/').replaceAll('~0', '~');
-            if (reached.add(name) && defs.containsKey(name)) {
-              _reach(defs[name], defs, reached, slots, where);
-            }
-          }
-        } else {
-          _reach(value, defs, reached, slots, where);
-        }
-      }
-    case final List<Object?> list:
-      for (final item in list) {
-        _reach(item, defs, reached, slots, where);
-      }
-    default:
-      break;
-  }
-}
-
-BuiltinCheck _builtinCheck(Map<String, Object?> json, String where) {
+BuiltinCheck _builtinCheck(
+  Map<String, Object?> json,
+  String where, {
+  required String release,
+  required bool installed,
+}) {
   final name = json['builtin'] as String;
   final builtin = builtins[name];
   if (builtin == null) {
     throw RuleCatalogException('$where.builtin', 'unknown builtin');
+  }
+  if (builtin.release case final frozen? when !installed || release != frozen) {
+    throw RuleCatalogException(
+      '$where.builtin',
+      'only the installed $frozen catalog may name builtin $name',
+    );
   }
   final params = json['params'] as Map<String, Object?>? ?? const {};
   if (!JsonPredicate.compile(builtin.params).test(params)) {
@@ -497,7 +516,7 @@ void _checkPlaceholders(String template, SchemaCheck check, String where) {
       }
       continue;
     }
-    if (check.subject.facts case final facts? when !facts.contains(name)) {
+    if (check.subject.facts case final facts? when !facts.containsKey(name)) {
       throw RuleCatalogException(
         where,
         '{$name} is not a fact of ${check.subject.name}',
@@ -521,4 +540,19 @@ RuleExamples _examples(Map<String, Object?> json, String where) {
     invalid: json['invalid'] as List<Object?>,
     slots: slots,
   );
+}
+
+List<String> _failingExamples(SchemaCheck check, RuleExamples examples) {
+  final predicate = check.compile({
+    Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
+    ...examples.slots,
+  });
+  Object? instance(Object? example) =>
+      check.each == null ? example : SchemaCheck.element(example);
+  return [
+    for (final (index, example) in examples.valid.indexed)
+      if (!predicate.test(instance(example))) 'valid[$index] fails',
+    for (final (index, example) in examples.invalid.indexed)
+      if (predicate.test(instance(example))) 'invalid[$index] passes',
+  ];
 }

@@ -29,7 +29,12 @@ final class JsonPredicateFailure {
 }
 
 final class JsonPredicate {
-  JsonPredicate._(this._root);
+  JsonPredicate._(
+    this._root, {
+    required this.slots,
+    required this.defs,
+    required this.rootNames,
+  });
 
   factory JsonPredicate.compile(
     Object? schema, {
@@ -42,10 +47,29 @@ final class JsonPredicate {
       final Map<String, Object?> own => {...defs, ...own},
       _ => throw JsonPredicateException(r'/$defs', r'$defs must be an object'),
     };
-    return JsonPredicate._(_Compiler(merged, slots).compile(schema));
+    final compiler = _Compiler(merged, slots);
+    final root = compiler.compile(schema);
+    return JsonPredicate._(
+      root,
+      slots: compiler.reachableSlots,
+      defs: compiler.reachableDefs,
+      rootNames: compiler.rootNames,
+    );
   }
 
   final _Node _root;
+
+  /// The slot ids the schema reaches, directly or through the defs it
+  /// reaches.
+  final Set<String> slots;
+
+  /// The names of the defs the schema reaches.
+  final Set<String> defs;
+
+  /// The property names the schema constrains on the instance it is given,
+  /// through `properties` and `required` outside any descent into the
+  /// instance and outside defs.
+  final Set<String> rootNames;
 
   bool test(Object? instance) => _root.test(instance);
 
@@ -70,6 +94,10 @@ final class _Compiler {
   final Map<String, List<String>> _slots;
   final _compiledDefs = <String, _Node>{};
   final _refSites = <_RefSite>[];
+  final _slotsByDef = <String?, Set<String>>{};
+  final rootNames = <String>{};
+  late final Set<String> reachableDefs;
+  late final Set<String> reachableSlots;
 
   String? _currentDef;
   String? _currentDefDescription;
@@ -95,6 +123,21 @@ final class _Compiler {
       site.node.target = target;
     }
     _rejectUnguardedCycles();
+    final edges = <String?, Set<String>>{};
+    for (final site in _refSites) {
+      edges.putIfAbsent(site.fromDef, () => {}).add(site.node.name);
+    }
+    final reached = <String>{};
+    final pending = [...?edges[null]];
+    while (pending.isNotEmpty) {
+      final name = pending.removeLast();
+      if (reached.add(name)) pending.addAll(edges[name] ?? const {});
+    }
+    reachableDefs = reached;
+    reachableSlots = {
+      ...?_slotsByDef[null],
+      for (final name in reached) ...?_slotsByDef[name],
+    };
     return node;
   }
 
@@ -180,11 +223,16 @@ final class _Compiler {
         case 'maxLength':
           nodes.add(_MaxLength(_count(value, at)));
         case 'required':
-          nodes.add(_Required(_strings(value, at)));
+          final names = _strings(value, at);
+          if (_atRoot) rootNames.addAll(names);
+          nodes.add(_Required(names));
         case 'minProperties':
           nodes.add(_MinProperties(_count(value, at)));
         case 'properties':
-          nodes.add(_Properties(_schemaMap(value, at)));
+          final atRoot = _atRoot;
+          final properties = _schemaMap(value, at);
+          if (atRoot) rootNames.addAll(properties.keys);
+          nodes.add(_Properties(properties));
         case 'additionalProperties':
           final declared = map['properties'];
           nodes.add(
@@ -250,6 +298,8 @@ final class _Compiler {
     };
   }
 
+  bool get _atRoot => _currentDef == null && _descents == 0;
+
   _Node _descend(Object? schema, String pointer) {
     _descents++;
     try {
@@ -287,6 +337,7 @@ final class _Compiler {
     if (members == null) {
       throw JsonPredicateException(pointer, 'unknown slot "$name"');
     }
+    (_slotsByDef[_currentDef] ??= {}).add(name);
     return members.isEmpty ? const _Never() : _Enum(members);
   }
 
