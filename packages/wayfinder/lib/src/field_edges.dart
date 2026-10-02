@@ -20,7 +20,8 @@ const relationshipsLinkField = OkfLinkField(
   nameKey: 'relationship',
 );
 
-/// One entry of an [OkfLinkField], resolved as okf resolves a link target.
+/// One entry of an [OkfLinkField], resolved as okf resolves a source
+/// resource.
 final class OkfFieldEdge {
   const OkfFieldEdge({
     required this.field,
@@ -101,11 +102,13 @@ List<OkfFieldEdge> okfFieldEdges(
   ];
 }
 
-/// Resolves each concept's [targets] exactly as okf resolves a link target.
-/// okf keeps that resolution inside its graph, so each target is handed to
-/// the graph as its concept's top-level `resource`: one copy of the bundle
-/// per entry position, every concept stripped to the target it holds at
-/// that position. A blank target draws no edge and stays null.
+/// Resolves each concept's [targets] exactly as okf resolves a source
+/// resource, so a target that does not look like a path or URL is a
+/// `descriptor`. okf keeps that resolution inside its graph, so each target
+/// is handed to the graph as its concept's one `sources[].resource`: one
+/// copy of the bundle per entry position, every concept stripped to the
+/// target it holds at that position. A blank target draws no edge and stays
+/// null.
 Map<OkfConceptId, List<OkfGraphEdge?>> resolveLinkTargets(
   OkfBundle bundle,
   Map<OkfConceptId, List<String>> targets, {
@@ -125,7 +128,9 @@ Map<OkfConceptId, List<OkfGraphEdge?>> resolveLinkTargets(
           id.documentPath: OkfDocument(
             frontmatter: {
               if (targets[id] case final list? when position < list.length)
-                'resource': list[position],
+                'sources': [
+                  {'resource': list[position]},
+                ],
             },
           ),
       },

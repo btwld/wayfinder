@@ -2026,24 +2026,40 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§7.2",
-      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a declared `relationship` name and a nonempty `resource`.",
-      "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {failing}.",
+      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a declared `relationship` name and a nonempty `resource` that okf reads as a link target, never a scope descriptor or an invalid path.",
+      "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {failing}.",
       "check": {
-        "subject": "frontmatter",
+        "subject": "concept",
         "each": "relationships",
+        "failing_field": "entry",
         "schema": {
-          "type": "object",
           "required": [
-            "relationship",
-            "resource"
+            "entry"
           ],
-          "additionalProperties": false,
           "properties": {
-            "relationship": {
-              "$ref": "#/$defs/relationship-name"
+            "entry": {
+              "type": "object",
+              "required": [
+                "relationship",
+                "resource"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "relationship": {
+                  "$ref": "#/$defs/relationship-name"
+                },
+                "resource": {
+                  "$ref": "#/$defs/text"
+                }
+              }
             },
-            "resource": {
-              "$ref": "#/$defs/text"
+            "resolution": {
+              "not": {
+                "enum": [
+                  "invalid",
+                  "descriptor"
+                ]
+              }
             }
           }
         }
@@ -2056,32 +2072,98 @@ const Map<(String, String), String> installedRuleCatalogs = {
         },
         "valid": [
           {
-            "relationship": "depends-on",
-            "resource": "/architecture/sync-engine.md"
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/architecture/sync-engine.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
           },
           {
-            "relationship": "depends-on",
-            "resource": "https://example.test/spec"
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "https://example.test/spec"
+            },
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/planned.md"
+            },
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
           }
         ],
         "invalid": [
           {
-            "relationship": "inspired-by",
-            "resource": "/a.md"
+            "entry": {
+              "relationship": "inspired-by",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
           },
           {
-            "relationship": "depends-on"
+            "entry": {
+              "relationship": "depends-on"
+            }
           },
           {
-            "relationship": "depends-on",
-            "resource": " "
+            "entry": {
+              "relationship": "depends-on",
+              "resource": " "
+            }
           },
           {
-            "relationship": "depends-on",
-            "resource": "/a.md",
-            "note": "extra"
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/a.md",
+              "note": "extra"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
           },
-          "depends-on"
+          {
+            "entry": "depends-on"
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "../outside.md"
+            },
+            "resolution": "invalid",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "QA packet, 23 June 2026"
+            },
+            "resolution": "descriptor",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "value": null
+          },
+          {
+            "value": "depends-on /a.md"
+          }
         ]
       }
     },
@@ -2266,15 +2348,21 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
-            "relationship": "depends-on",
-            "resource": "/area/note.md",
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/note.md"
+            },
+            "resolution": "resolved-concept",
             "internal": true,
             "bundle_relative": true,
             "resolved": true
           },
           {
-            "relationship": "tracked-by",
-            "resource": "https://example.test/issues/1",
+            "entry": {
+              "relationship": "tracked-by",
+              "resource": "https://example.test/issues/1"
+            },
+            "resolution": "external",
             "internal": false,
             "bundle_relative": false,
             "resolved": false
@@ -2282,8 +2370,11 @@ const Map<(String, String), String> installedRuleCatalogs = {
         ],
         "invalid": [
           {
-            "relationship": "depends-on",
-            "resource": "note.md",
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "note.md"
+            },
+            "resolution": "resolved-concept",
             "internal": true,
             "bundle_relative": false,
             "resolved": true
@@ -2322,15 +2413,21 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "tests": {
         "valid": [
           {
-            "relationship": "depends-on",
-            "resource": "/area/note.md",
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/note.md"
+            },
+            "resolution": "resolved-concept",
             "internal": true,
             "bundle_relative": true,
             "resolved": true
           },
           {
-            "relationship": "tracked-by",
-            "resource": "https://example.test/issues/1",
+            "entry": {
+              "relationship": "tracked-by",
+              "resource": "https://example.test/issues/1"
+            },
+            "resolution": "external",
             "internal": false,
             "bundle_relative": false,
             "resolved": false
@@ -2338,8 +2435,11 @@ const Map<(String, String), String> installedRuleCatalogs = {
         ],
         "invalid": [
           {
-            "relationship": "depends-on",
-            "resource": "/area/missing.md",
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/missing.md"
+            },
+            "resolution": "unresolved",
             "internal": true,
             "bundle_relative": true,
             "resolved": false

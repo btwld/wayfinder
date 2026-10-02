@@ -170,7 +170,9 @@ final class BundleFacts {
       ],
       if (links case final links?) ...{
         'edges': links.edges[path] ?? const [],
-        'relationships': links.relationships[path] ?? const [],
+        'relationships': links.relationships.containsKey(path)
+            ? links.relationships[path]
+            : const <Object?>[],
         'inbound': links.inbound[path] ?? const [],
       },
       'footnotes': [
@@ -198,51 +200,63 @@ final class LinkFacts {
         ..._targetFacts(edge),
       });
     }
-    final declared = <OkfConceptId, List<(Object?, String)>>{};
+    final authored = <OkfConceptId, List<Object?>>{};
     for (final MapEntry(key: id, value: document) in bundle.concepts.entries) {
-      final entries = document.frontmatter[relationshipsLinkField.key];
-      if (entries is! List) continue;
-      for (final entry in entries.whereType<Map<Object?, Object?>>()) {
-        if (entry['resource'] case final String resource) {
-          declared.putIfAbsent(id, () => []).add((
-            _json(entry[relationshipsLinkField.nameKey]),
-            resource,
-          ));
-        }
+      if (!document.frontmatter.containsKey(relationshipsLinkField.key)) {
+        continue;
+      }
+      final value = document.frontmatter[relationshipsLinkField.key];
+      if (value is List) {
+        authored[id] = value;
+      } else {
+        relationships[id.documentPath] = _json(value);
       }
     }
     final resolved = resolveLinkTargets(bundle, {
-      for (final MapEntry(:key, :value) in declared.entries)
-        key: [for (final (_, resource) in value) resource],
+      for (final MapEntry(key: id, value: entries) in authored.entries)
+        id: [
+          for (final entry in entries)
+            if (entry case {'resource': final String resource})
+              resource
+            else
+              '',
+        ],
     }, buildGraph: buildGraph);
-    for (final MapEntry(key: id, value: entries) in declared.entries) {
+    for (final MapEntry(key: id, value: entries) in authored.entries) {
       final from = id.documentPath;
-      for (final (index, (relationship, resource)) in entries.indexed) {
-        final edge = resolved[id]![index];
-        if (edge == null) continue;
-        relationships.putIfAbsent(from, () => []).add({
-          'relationship': relationship,
-          'resource': resource,
-          ..._targetFacts(edge),
-          'resolved': _resolved(edge),
+      relationships[from] = [
+        for (final (index, entry) in entries.indexed)
+          {
+            'entry': _json(entry),
+            if (resolved[id]![index] case final edge?) ...{
+              'resolution': edge.resolution.wireValue,
+              ..._targetFacts(edge),
+              'resolved': _resolved(edge),
+            },
+          },
+      ];
+      for (final (index, entry) in entries.indexed) {
+        final target = resolved[id]![index]?.targetConcept?.documentPath;
+        if (target == null || target == from) continue;
+        inbound.putIfAbsent(target, () => []).add({
+          'relationship': _json((entry as Map)[relationshipsLinkField.nameKey]),
+          'from': from,
         });
-        final target = edge.targetConcept?.documentPath;
-        if (target != null && target != from) {
-          inbound.putIfAbsent(target, () => []).add({
-            'relationship': relationship,
-            'from': from,
-          });
-        }
       }
     }
   }
 
   final OkfGraph graph;
 
-  /// Each concept's facts by document path: okf's edges, its declared
-  /// relationships as resolved, and the relationships declared on it.
+  /// Each concept's facts by document path: okf's edges, the relationships
+  /// it declares, and the relationships declared on it.
   final edges = <String, List<Map<String, Object?>>>{};
-  final relationships = <String, List<Map<String, Object?>>>{};
+
+  /// One element per authored entry, the entry under `entry` with the
+  /// resolution of its `resource` beside it when okf drew an edge. A
+  /// `relationships` value that is not a list stays the authored value, so a
+  /// rule over the elements sees it as one value and decides.
+  final relationships = <String, Object?>{};
   final inbound = <String, List<Map<String, Object?>>>{};
 }
 

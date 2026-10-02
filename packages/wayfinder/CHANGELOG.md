@@ -1,5 +1,14 @@
 # Unreleased
 
+- Profile 2026.3 `relationship-shape` fails a `relationships` value that is
+  null, and an entry whose `resource` okf resolves as `invalid` or as a
+  scope `descriptor`, as §7.2 requires of a link target. The rule moves to
+  the `concept` subject: each `relationships` element carries the authored
+  `entry` with the `resolution` beside it, and a non-list value stays the
+  value itself. `okfFieldEdges` resolves targets as source resources, so
+  prose resolves as `descriptor` rather than `unresolved`. The engine tests
+  a non-list `each` fact as one `{"value": ...}` instance instead of failing
+  it outright, so the rule's schema decides.
 - `{failing}` and `{fact}` placeholders render a non-string value as compact
   JSON instead of Dart's `{key: value}` text, so a failing relationships
   entry reads as it was authored. Strings are unchanged.

@@ -97,21 +97,24 @@ void main() {
         final link = links[target];
         expect(link, isNotNull, reason: 'okf drew no body edge for $target');
         final relationship = relationships[index]! as Map<String, Object?>;
-        expect(relationship['resource'], target);
-        expect(relationship['relationship'], 'related-to');
+        expect(relationship['entry'], {
+          'relationship': 'related-to',
+          'resource': target,
+        });
+        expect(relationship['resolution'], link!['resolution']);
         for (final key in ['internal', 'bundle_relative']) {
-          expect(relationship[key], link![key], reason: '$key of $target');
+          expect(relationship[key], link[key], reason: '$key of $target');
         }
         expect(
           relationship['resolved'],
-          ['resolved-concept', 'resolved-asset'].contains(link!['resolution']),
+          ['resolved-concept', 'resolved-asset'].contains(link['resolution']),
           reason: 'resolved of $target',
         );
       }
     },
   );
 
-  test('a relationships value that is not a list fails whole', () async {
+  test('a relationships value that is not a list fails as one value', () async {
     await write(
       'scalar.md',
       '---\ntype: Guide\nrelationships: depends-on /a.md\n---\n',
@@ -139,9 +142,10 @@ void main() {
     };
     expect(
       shape.keys,
-      unorderedEquals(['scalar.md', 'mapping.md', 'mixed.md']),
+      unorderedEquals(['scalar.md', 'mapping.md', 'empty.md', 'mixed.md']),
     );
     expect(shape['scalar.md'], endsWith('found depends-on /a.md.'));
+    expect(shape['empty.md'], endsWith('found null.'));
     expect(
       shape['mapping.md'],
       endsWith('found {"relationship":"depends-on","resource":"/scalar.md"}.'),
