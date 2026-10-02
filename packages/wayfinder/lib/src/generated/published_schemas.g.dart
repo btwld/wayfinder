@@ -22,7 +22,8 @@ const String wayfinderConfigurationSchema = r'''
     "identifier": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
-      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter)"
+      "maxLength": 64,
+      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
     },
     "gitRef": {
       "$ref": "#/$defs/text",
@@ -272,6 +273,10 @@ const String wayfinderProfileSchema = r'''
       "$ref": "#/$defs/uri",
       "description": "Where the Profile explains its rules. A finding's help link is this URI with the fragment set to the rule id, so each rule id is expected to be a heading there."
     },
+    "skill": {
+      "$ref": "#/$defs/relativePath",
+      "description": "The package-relative directory of the Profile's agent skill, holding a SKILL.md whose name is the Profile id. wayfinder get installs it from the locked commit into the project's .claude/skills/<id>/ and .agents/skills/<id>/."
+    },
     "types": {
       "type": "array",
       "items": {
@@ -322,7 +327,8 @@ const String wayfinderProfileSchema = r'''
     "profileId": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
-      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter)"
+      "maxLength": 64,
+      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
     },
     "release": {
       "type": "string",

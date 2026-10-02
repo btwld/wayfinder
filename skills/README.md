@@ -49,6 +49,17 @@ in the consuming repository's agent instructions. The other two skills delegate
 instead of maintaining independent rule text. Adoption's literal seed templates
 are the exception because the resulting root files must stand alone.
 
+## Profile skills
+
+This family is wayfinder's own and installs at user level, once per machine.
+A Profile's judgment ships as that Profile's skill instead, in its package.
+`wayfinder get` installs it into each project that uses the Profile, as
+`.claude/skills/<id>/` and `.agents/skills/<id>/`, pinned to the commit the
+lock records, and the project commits it. Its name is the Profile id, which
+`validate --output json` lists as `profile.chain[].id`, so an agent can load
+the skill of each Profile in a bundle's chain. See
+[Profile skills](../docs/wayfinder-configuration.md#profile-skills).
+
 ## Pinned OKF and Profile rules
 
 The Profile is authoritative for Concepta conventions. Its authoring instructions

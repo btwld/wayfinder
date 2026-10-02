@@ -24,6 +24,10 @@ const supportedOkfReleases = {'0.2'};
 extension type const ProfileId._(String value) implements Object {
   static final grammar = RegExp(r'^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
 
+  /// Agent Skills' name limit. The installed skill directory is named by the
+  /// id, and the grammar already meets the name's other constraints.
+  static const maxLength = 64;
+
   /// Names a Profile may not take: the other finding namespaces, and
   /// wayfinder's own skills, which share the agent skill directories with
   /// installed Profile skills.
@@ -42,6 +46,12 @@ extension type const ProfileId._(String value) implements Object {
     if (!grammar.hasMatch(value)) {
       throw FormatException(
         'a Profile id is lowercase kebab-case starting with a letter',
+        value,
+      );
+    }
+    if (value.length > maxLength) {
+      throw FormatException(
+        'a Profile id has at most $maxLength characters',
         value,
       );
     }
@@ -109,6 +119,7 @@ final class ProfilePackage {
     required this.okfRelease,
     required this.parent,
     required this.docs,
+    required this.skill,
     required this.types,
     required this.tags,
     required this.relationships,
@@ -192,6 +203,10 @@ final class ProfilePackage {
         throw ProfilePackageException('extends.git', problem);
       }
     }
+    final skill = switch (root['skill']) {
+      final String path => p.posix.normalize(path),
+      _ => null,
+    };
     final frontmatterKeys = _definitions(root, 'frontmatter_keys');
     for (final key in frontmatterKeys) {
       if (okfKnownFrontmatterKeys.contains(key.name)) {
@@ -207,6 +222,7 @@ final class ProfilePackage {
       okfRelease: okfRelease,
       parent: parent,
       docs: docs,
+      skill: skill,
       types: _definitions(root, 'types'),
       tags: _definitions(root, 'tags'),
       relationships: _definitions(root, 'relationships'),
@@ -260,6 +276,11 @@ final class ProfilePackage {
   /// Where the Profile explains its rules. A rule's help URI is this with
   /// its fragment set to the rule slug; null means findings carry none.
   final Uri? docs;
+
+  /// The package-relative directory holding the Profile's agent skill, if
+  /// it ships one. It is installed under the Profile id, which is therefore
+  /// the skill's name.
+  final String? skill;
 
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;

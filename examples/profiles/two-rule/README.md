@@ -5,6 +5,11 @@ a Profile needs nothing from Bitwild: one `wayfinder-profile.json` holds its
 identity, vocabulary and rules. [`examples/acme-notes/`](../../acme-notes/) is
 a project that uses it.
 
+The package also ships [`skill/`](skill/SKILL.md), the judgment its rules
+cannot check. `wayfinder get` installs it into a project as
+`.claude/skills/acme-notes/` and `.agents/skills/acme-notes/`, pinned to the
+same commit as the rules.
+
 Each rule id below is a heading, so a finding's `help_uri` lands on its rule.
 
 ### known-type

@@ -1,5 +1,15 @@
 # Unreleased
 
+- `wayfinder get` and `upgrade` install the skill of every locked package
+  that names one in `skill`, from its locked commit, into the project's
+  `.claude/skills/<id>/` and `.agents/skills/<id>/` with a
+  `.wayfinder-profile` marker. They never replace or remove a directory
+  without the marker and fail before writing the lock when one is in the
+  way. They remove a marked directory whose Profile no longer ships a skill
+  or is no longer locked, and rewrite nothing when every marker is current.
+  Text output lists each skill; `--output json` adds `skills` and
+  `removed_skills`. `validate` reports a missing or outdated copy as the
+  `wayfinder/profile-skill-stale` warning without changing the gate.
 - A project names only the Profile it applies; the package names its parent.
   `wayfinder get` follows each package's `extends`, reading a same-revision
   parent from the child's commit, composes every chain before it writes the

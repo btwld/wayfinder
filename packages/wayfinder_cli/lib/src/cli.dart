@@ -322,7 +322,7 @@ class WayfinderCli {
           '  index <bundle>             Update saved local embeddings for changes\n'
           '  search <bundle> <query>    Search the saved knowledge index\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
-          '  get [<project>]            Resolve declared Profile sources\n'
+          '  get [<project>]            Resolve Profile sources and install their skills\n'
           '  upgrade [<project>]       Advance mutable Profile refs\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
@@ -366,6 +366,15 @@ class WayfinderCli {
               : 'resolved';
           _out('Profile sources $state for ${_safe(result.projectRoot)}.');
           _out('Lock: ${_safe(result.lockPath)}');
+          for (final skill in result.skills) {
+            _out(
+              '${skill.written ? 'Installed' : 'Current'} skill ${skill.id} '
+              '→ ${skill.directories.join(', ')}',
+            );
+          }
+          for (final directory in result.removedSkills) {
+            _out('Removed skill $directory');
+          }
         }
         return 0;
       }

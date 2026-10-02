@@ -39,7 +39,12 @@ sealed class ProfileSelection {
 }
 
 final class SelectedProfile extends ProfileSelection {
-  const SelectedProfile(this.profile, {this.config, this.commits = const {}});
+  const SelectedProfile(
+    this.profile, {
+    this.config,
+    this.commits = const {},
+    this.notes = const [],
+  });
 
   final EffectiveProfile profile;
 
@@ -50,6 +55,10 @@ final class SelectedProfile extends ProfileSelection {
   /// The locked commit of each package in the chain; empty for a selection
   /// built by hand.
   final Map<ProfileId, String> commits;
+
+  /// What selecting found that does not stop the assessment, such as a
+  /// stale Profile skill. Never an error, so it cannot change the gate.
+  final List<EngineDiagnostic> notes;
 }
 
 final class UnselectedProfile extends ProfileSelection {
@@ -317,9 +326,10 @@ final class ProfileValidator {
   }) async {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
-    final reasons = [
-      if (selection case UnselectedProfile(:final reasons)) ...reasons,
-    ];
+    final reasons = switch (selection) {
+      UnselectedProfile(:final reasons) => reasons,
+      SelectedProfile(:final notes) => notes,
+    };
     if (!validation.isConformant) {
       return ProfileValidationResult._(validation, const BlockedByOkf(), [
         ...reasons,
@@ -384,6 +394,7 @@ final class ProfileValidator {
     final revalidation = reloaded.validate();
     if (!revalidation.isConformant) {
       return ProfileValidationResult._(revalidation, const BlockedByOkf(), [
+        ...selection.notes,
         ?failure,
       ], fixed: written);
     }
@@ -429,6 +440,7 @@ final class ProfileValidator {
         commits: selection.commits,
       ),
       [
+        ...selection.notes,
         for (final type in profile.project.types)
           EngineDiagnostic(
             DiagnosticCode.projectType,

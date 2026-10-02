@@ -1625,10 +1625,15 @@ Future<String> _gitOutput(String directory, List<String> arguments) async {
 }
 
 /// Records every git invocation, then runs it for real.
-GitRunner _spy(List<List<String>> calls) => (arguments, {workingDirectory}) {
-  calls.add(arguments);
-  return runGit(arguments, workingDirectory: workingDirectory);
-};
+GitRunner _spy(List<List<String>> calls) =>
+    (arguments, {workingDirectory, binary = false}) {
+      calls.add(arguments);
+      return runGit(
+        arguments,
+        workingDirectory: workingDirectory,
+        binary: binary,
+      );
+    };
 
 /// A git invocation that reaches beyond the local mirror.
 bool _fetches(List<String> call) => const {

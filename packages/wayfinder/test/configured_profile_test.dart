@@ -334,6 +334,21 @@ result = value + 1
         ),
       ),
     );
+    final long = 'a' * 65;
+    final config = _config();
+    (config['profiles'] as Map<String, dynamic>)[long] =
+        (config['profiles'] as Map<String, dynamic>).remove('bitwild-profile');
+    expect(
+      () => WayfinderProjectConfig.parse(jsonEncode(config)),
+      throwsA(
+        isA<WayfinderConfigException>().having(
+          (error) => error.message,
+          'message',
+          'wayfinder.json is invalid at /profiles: has invalid property name '
+              '"$long".',
+        ),
+      ),
+    );
   });
 
   test('rejects overlapping bundle paths across Profiles', () {

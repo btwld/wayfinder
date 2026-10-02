@@ -230,9 +230,10 @@ The fields have these jobs:
 
 - `format` is the package format the engine reads, always `2` here. Engine
   compatibility is this integer, never a Profile release.
-- `id` is the Profile identity in lowercase kebab-case. It is the finding
-  namespace (`client-profile/status-value`), the `wayfinder.json` key, and the
-  lock key. The names `okf`, `wayfinder`, `use-wayfinder`,
+- `id` is the Profile identity in lowercase kebab-case, at most 64
+  characters. It is the finding namespace (`client-profile/status-value`), the
+  `wayfinder.json` key, the lock key, and the name of the Profile's installed
+  skill, which is why it follows the Agent Skills name limit. The names `okf`, `wayfinder`, `use-wayfinder`,
   `author-knowledge-bundle`, `adopt-knowledge-bundle`,
   `assess-knowledge-bundle`, and `create-profile` are reserved.
 - `release` is the Profile's own release name. The engine treats it as opaque
@@ -244,6 +245,9 @@ The fields have these jobs:
 - `docs` is an optional absolute URI where the Profile explains its rules. A
   finding's help link is that URI with the fragment set to the rule id, so each
   rule id is expected to be a heading there.
+- `skill` optionally names the package directory that holds the Profile's
+  agent skill, relative to the package, as described in
+  [Profile skills](#profile-skills).
 - `types`, `tags`, `relationships`, and `frontmatter_keys` are lists of
   `{name, description}` definitions. Any package may declare frontmatter keys.
   A key OKF already defines is an error.
@@ -344,13 +348,14 @@ and fetched objects remain in the local cache.
 The command surface is deliberately small:
 
 ```text
-wayfinder get [project]        # resolve declared refs and write the lock
+wayfinder get [project]        # resolve declared refs, write the lock, install skills
 wayfinder upgrade [project]    # deliberately advance a branch or tag
 wayfinder validate ./knowledge # read current lock/cache; never fetch or write
 ```
 
 `get` resolves each entry's chain and respects a current lock. Run twice with
-nothing changed, it fetches nothing and leaves the lock's bytes as they were.
+nothing changed, it fetches nothing and writes nothing: the lock's bytes and
+every installed skill stay as they were.
 If project vocabulary changes, it updates the configuration hash while
 retaining a previously locked commit for an unchanged source. `upgrade`
 refreshes a mutable branch or tag and writes its new commit; a pinned commit
@@ -370,6 +375,65 @@ command silently substitutes a moved branch or tag for a locked commit.
 `graph`, `index`, and `search` do not use Profile sources or resolve the
 lock; they read each concept's `relationships` key directly, so a
 relationship name they show need not be declared.
+
+## Profile skills
+
+A rule decides what a validator can check. The judgment it cannot check, such
+as when a page earns its own concept, belongs in the Profile's agent skill. A
+package ships one by naming its directory in `skill`:
+
+```text
+profile/
+  wayfinder-profile.json   # "skill": "skill"
+  skill/
+    SKILL.md               # name: client-profile
+    references/review.md
+```
+
+The directory holds an [Agent Skills](https://agentskills.io/specification)
+skill. Its `SKILL.md` frontmatter `name` is the Profile id, because the
+installed directory is named by the id and Agent Skills requires the two to
+match. Every Profile id is a valid skill name.
+[`examples/profiles/two-rule/skill/`](../examples/profiles/two-rule/skill/SKILL.md)
+is a small example.
+
+`get` and `upgrade` install the skill of every locked package that ships one,
+from the package's locked commit, into the project root beside
+`wayfinder.json`:
+
+```text
+.claude/skills/client-profile/   # read by Claude Code
+.agents/skills/client-profile/   # read by agents such as Codex
+```
+
+Each directory holds the skill's regular files and a `.wayfinder-profile`
+marker that records `{id, release, commit}`. The skill and the rules come from
+one commit, so the judgment an agent reads always matches the rules
+`validate` runs. A skill directory without `SKILL.md`, or one that holds a
+symlink, a submodule, or an entry whose path would leave the skill, fails
+`get` before anything is written.
+
+Each directory is staged as a hidden sibling and renamed into place, so an
+agent never reads a half-written skill. A directory whose marker already names
+the locked revision is left alone, which keeps a second `get` from writing
+anything. `get` removes a directory it installed when the package no longer
+ships a skill or the Profile is no longer locked. It never replaces or removes
+a directory without its marker. When one is in the way, `get` fails before it
+writes the lock and names the directory. Move it aside and run the command
+again.
+
+**Commit the installed skill directories** with `wayfinder.json` and
+`wayfinder.lock`. Teammates and agents without wayfinder then get the same
+skill, and a Profile upgrade shows its judgment diff in the same pull request
+as the lock change. Do not edit an installed skill by hand, because the next
+revision replaces it. A project's own guidance belongs in a skill directory of
+its own.
+
+`validate` checks each chain member's installed skill against the lock and
+never writes it. A missing directory, or a marker that names another
+revision, reports the `wayfinder/profile-skill-stale` warning with the
+directories to refresh. It does not change the gate or the exit status,
+because the rules still ran. Run `get` to reinstall the locked revision.
 
 ## Tags and captures
 
@@ -402,7 +466,8 @@ text and contextual review guidance beside the package.
 A committed `wayfinder.json` shares the Profile source reference, application
 paths, and project vocabulary. The lock shares the resolved commit. Neither
 file carries rules or validator code. Each machine resolves the same source
-into its local cache.
+into its local cache. The committed skill directories share the Profile's
+judgment at that commit.
 
 ## Validation order
 
@@ -419,7 +484,9 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
 4. Parse each package in the chain, including its rule tests, then compose
    the chain and the project entry. A package that fails reports
    `profile-invalid` or `profile-unsupported`, and a chain that does not
-   compose reports `profile-composition`.
+   compose reports `profile-composition`. A chain member's installed skill
+   that is missing or not at the locked commit reports the
+   `profile-skill-stale` warning.
 5. When OKF passed, run the rules of every package in the chain against the
    composed vocabulary, parent first. Contextual rules are left to Profile
    Review.

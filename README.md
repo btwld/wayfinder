@@ -156,6 +156,12 @@ better fallback: the skills are versioned with the profile they describe, and a 
 silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
 each one does.
 
+These skills are wayfinder's own and install once per machine. A Profile's skill is
+different: it ships in the Profile package, and `wayfinder get` installs it into the
+project's `.claude/skills/<id>/` and `.agents/skills/<id>/` at the commit the lock pins.
+Commit those directories with the lock. See
+[Profile skills](docs/wayfinder-configuration.md#profile-skills).
+
 ### 2. Set up a project repository
 
 In the repository you want to adopt the profile, run:

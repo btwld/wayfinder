@@ -23,7 +23,9 @@ Before applying Profile rules, resolve the bundle's exact release:
   `profiles/bitwild/wayfinder-profile.json` carries the vocabulary and rules.
   A child package may add vocabulary and rules of its own, whose rules only
   add findings in the child's namespace. `wayfinder validate --output json`
-  lists the chain as `profile.chain`, root first. The routed
+  lists the chain as `profile.chain`, root first. A chain member that ships
+  a skill has it installed at `.claude/skills/<id>/` by `wayfinder get`; read
+  it for that Profile's judgment. The routed
   concept reference carries its standard vocabulary for standalone skill
   installations. The root index
   declares OKF 0.2. Read the exact source revision from the current

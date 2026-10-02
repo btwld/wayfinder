@@ -31,6 +31,8 @@ String schemaFailureReason(JsonPredicateFailure failure) => switch (failure) {
     'must be a non-empty string',
   JsonPredicateFailure(keyword: 'minLength', :final expected) =>
     'must have at least $expected characters',
+  JsonPredicateFailure(keyword: 'maxLength', :final expected) =>
+    'must have at most $expected characters',
   JsonPredicateFailure(keyword: 'minProperties', expected: 1) =>
     'must not be empty',
   JsonPredicateFailure(keyword: 'minProperties', :final expected) =>

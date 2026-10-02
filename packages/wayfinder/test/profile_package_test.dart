@@ -173,6 +173,25 @@ void main() {
       }
     });
 
+    test('an id longer than an Agent Skills name', () {
+      final longest = 'a' * ProfileId.maxLength;
+      expect(ProfilePackage.parse(packageJson(id: longest)).id.value, longest);
+      expect(
+        () => ProfilePackage.parse(packageJson(id: '${longest}b')),
+        rejectedAt('id', 'must have at most 64 characters'),
+      );
+      expect(
+        () => ProfileId.parse('${longest}b'),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'a Profile id has at most 64 characters',
+          ),
+        ),
+      );
+    });
+
     test('a reserved id', () {
       for (final id in ProfileId.reserved) {
         expect(
@@ -271,6 +290,16 @@ void main() {
       );
     });
 
+    test('a skill outside the package', () {
+      for (final skill in ['../skill', '/skill', 'C:/skill']) {
+        expect(
+          () => ProfilePackage.parse(packageJson(extra: {'skill': skill})),
+          rejectedAt('skill', 'a relative path without parent traversal'),
+          reason: skill,
+        );
+      }
+    });
+
     test('a rule whose own examples disagree with its check', () {
       expect(
         () => ProfilePackage.parse(
@@ -351,6 +380,15 @@ void main() {
     expect(
       (source.git, source.ref, source.path),
       ('git@example.test:acme/profiles.git', 'v2026.3', 'profiles/bitwild'),
+    );
+  });
+
+  test('a package names its skill directory relative to itself', () {
+    expect(
+      ProfilePackage.parse(
+        packageJson(extra: {'skill': './agent/skill/'}),
+      ).skill,
+      'agent/skill',
     );
   });
 

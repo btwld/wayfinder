@@ -195,6 +195,31 @@ void main() {
     expect(warning.gate, GateState.fail);
   });
 
+  test('selection notes are reported whether OKF passes or fails', () async {
+    const stale = EngineDiagnostic(
+      DiagnosticCode.profileSkillStale,
+      'Profile bitwild-profile skill in .claude/skills/bitwild-profile is not '
+      'the locked commit.',
+    );
+    for (final (name, gate) in [
+      ('configured-project', GateState.pass),
+      ('invalid-okf', GateState.fail),
+    ]) {
+      final bundle = fixtureBundle(fixture(name));
+      final selected = await selectFixture(bundle) as SelectedProfile;
+      final result = await const ProfileValidator().validate(
+        bundle,
+        SelectedProfile(
+          selected.profile,
+          config: selected.config,
+          notes: [stale],
+        ),
+      );
+      expect(result.diagnostics, [stale], reason: name);
+      expect(result.gate, gate, reason: name);
+    }
+  });
+
   test('a stopped run reports the internal error and an incomplete '
       'gate', () {
     expect(internalErrorJson('boom'), {

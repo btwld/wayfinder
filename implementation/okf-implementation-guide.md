@@ -201,6 +201,7 @@ that blocks a complete assessment.
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
 | `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks; upgrading wayfinder is the remedy |
 | `profile-composition` | error | the chain and the project additions do not compose (§4.7) |
+| `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |
 | `link-graph-unavailable` | error | the OKF link graph could not be built, so link rules were not assessed |
 | `fix-failed` | error | a `--fix` write failed |
@@ -495,6 +496,23 @@ substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
 previous lock intact.
 
+A package MAY name its agent skill directory in `skill`, relative to the
+package. After writing the lock, `get` and `upgrade` install each locked
+package's skill from its locked commit into `.claude/skills/<id>/` and
+`.agents/skills/<id>/` under the project root, with a `.wayfinder-profile`
+marker recording `{id, release, commit}`. The skill therefore always matches
+the rules it accompanies. Only regular files at paths inside the skill are
+installed, and the skill MUST hold `SKILL.md`; anything else fails `get`. Each directory is replaced by
+renaming a staged sibling into place. A directory whose marker already names
+the locked revision is not rewritten, so `get` still converges. `get` MUST
+NOT replace or remove a directory without a marker for its id, and fails
+before writing the lock when one is in the way. It removes a marked directory
+whose Profile no longer ships a skill or is no longer locked. Projects commit
+the installed directories, so agents without wayfinder read the same skill.
+`validate` reads each chain member's marker without writing; a missing
+directory or a marker for another revision is the `wayfinder/profile-skill-stale`
+warning (§4.1), which never changes the gate.
+
 Validation operates on **one explicit bundle**. The implementation first
 inspects it under OKF 0.2. A failing OKF result blocks Profile assessment but
 is never reclassified. It parses the selected project config, whose
@@ -746,7 +764,8 @@ stated here:
   tree is not self-inferrable: an agent that has never read the profile skill invents a
   kind-named directory, and only contextual Profile Review can establish that placement
   defect. Skill distribution is what makes conformance achievable
-  rather than merely checkable.
+  rather than merely checkable. A Profile's own skill ships in its package and reaches a
+  project through `get`, pinned to the locked commit and committed with the lock (§4.7).
 - **The tools must be pinned per repository and dispatch on the release `wayfinder.json`
   selects** (§4.4), so repositories on different profile releases can share one
   implementation.
@@ -921,6 +940,22 @@ written against a fixed parent. Migration for implementations: read
 the lock's `extends` pointers. A configured bundle whose `wayfinder.json`
 used `extends` names only the child entry, moves the parent into the child
 package's `extends`, and runs `wayfinder get`; an older lock is rewritten.
+
+Revised again in place before publication (2026-10-02): a package MAY name
+its agent skill in `skill`. `get` and `upgrade` install it from the locked
+commit into the project's `.claude/skills/<id>/` and `.agents/skills/<id>/`
+with a `.wayfinder-profile` marker, never touching a directory without one,
+and `validate` reports a missing or outdated copy as the
+`wayfinder/profile-skill-stale` warning. A Profile id has at most 64
+characters, the Agent Skills name limit, so every id names its skill directory
+validly. Affected sections:
+§§4.1, 4.7, 6, and 9. Driver: a Profile's judgment lived in a user-level
+skill family pinned to no Profile revision, so an agent could read guidance
+for other rules than the ones `validate` ran. Migration for implementations:
+read `skill`, install it after the lock with the marker, warn on a stale
+copy, and refuse an id over 64 characters. No configured bundle is affected; a
+Profile with a longer id must shorten it, and a project whose Profile ships a
+skill commits the installed directories after its next `get`.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

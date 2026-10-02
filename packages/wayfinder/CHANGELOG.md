@@ -1,5 +1,12 @@
 # Unreleased
 
+- A package may name its agent skill directory in `skill`
+  (`ProfilePackage.skill`), relative to the package. A Profile id has at most
+  64 characters (`ProfileId.maxLength`, `maxLength` in both schemas), the
+  Agent Skills name limit, because the id names the installed skill. The new
+  `wayfinder/profile-skill-stale` warning reports a Profile skill whose
+  installed copy is not the locked revision, carried by
+  `SelectedProfile.notes`.
 - A package names its own parent in `extends`: `{"path"}` is the package at
   that path in the same repository at the same commit, and
   `{"git", "ref", "path"}` resolves its own revision (`PackageParent`,

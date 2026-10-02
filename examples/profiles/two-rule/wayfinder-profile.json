@@ -5,6 +5,7 @@
   "release": "1.0",
   "implements": {"id": "okf", "release": "0.2"},
   "docs": "https://github.com/btwld/wayfinder/blob/main/examples/profiles/two-rule/README.md",
+  "skill": "skill",
   "types": [{"name": "Runbook", "description": "Steps to operate a running system"}],
   "rules": [
     {

@@ -55,6 +55,12 @@ enum DiagnosticCode {
     DiagnosticChannel.configuration,
     'The selected Profile chain and project additions do not compose.',
   ),
+  profileSkillStale(
+    'profile-skill-stale',
+    DiagnosticLevel.warning,
+    DiagnosticChannel.configuration,
+    "A project's copy of a Profile skill is not the locked revision.",
+  ),
   projectType(
     'project-type',
     DiagnosticLevel.note,
