@@ -10,9 +10,9 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/relationship-shape",
+        "id": "concepta-profile/used-relationship-declared",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {\"relationship\":\"inspired-by\",\"resource\":\"/sample.md\"}.",
+        "message": "Relationship names must be declared by the selected Profile binding; found {\"relationship\":\"inspired-by\",\"resource\":\"/sample.md\"}.",
         "location": {
           "path": "custom-relationship.md"
         },
@@ -22,7 +22,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {\"relationship\":\"tracked-by\",\"resource\":\"QA follow-up packet, 23 June 2026, retained outside this bundle\"}.",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"tracked-by\",\"resource\":\"QA follow-up packet, 23 June 2026, retained outside this bundle\"}.",
         "location": {
           "path": "descriptor-relationship.md"
         },
@@ -42,7 +42,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {\"relationship\":\"depends-on\",\"resource\":\"../outside.md\"}, {\"relationship\":\"depends-on\",\"resource\":\"/bad%zzescape.md\"}.",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"depends-on\",\"resource\":\"../outside.md\"}, {\"relationship\":\"depends-on\",\"resource\":\"/bad%zzescape.md\"}.",
         "location": {
           "path": "invalid-relationship.md"
         },
@@ -52,7 +52,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {\"relationship\":\"part-of\"}.",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"part-of\"}.",
         "location": {
           "path": "malformed-relationships.md"
         },
@@ -72,7 +72,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found null.",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found null.",
         "location": {
           "path": "null-relationships.md"
         },

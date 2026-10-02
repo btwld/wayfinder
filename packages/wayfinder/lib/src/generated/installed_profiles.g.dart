@@ -2026,8 +2026,8 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§7.2",
-      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a declared `relationship` name and a nonempty `resource` that okf reads as a link target, never a scope descriptor or an invalid path.",
-      "message": "Each relationships entry must be a mapping with exactly a declared relationship and a resource that is a link target; found {failing}.",
+      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a nonempty `relationship` name and a nonempty `resource` that okf reads as a link target, never a scope descriptor or an invalid path.",
+      "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {failing}.",
       "check": {
         "subject": "concept",
         "each": "relationships",
@@ -2046,7 +2046,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
               "additionalProperties": false,
               "properties": {
                 "relationship": {
-                  "$ref": "#/$defs/relationship-name"
+                  "$ref": "#/$defs/text"
                 },
                 "resource": {
                   "$ref": "#/$defs/text"
@@ -2065,11 +2065,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
         }
       },
       "tests": {
-        "slots": {
-          "profile.relationships": [
-            "depends-on"
-          ]
-        },
         "valid": [
           {
             "entry": {
@@ -2100,9 +2095,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
             "internal": true,
             "bundle_relative": true,
             "resolved": false
-          }
-        ],
-        "invalid": [
+          },
           {
             "entry": {
               "relationship": "inspired-by",
@@ -2112,6 +2105,20 @@ const Map<(String, String), String> installedRuleCatalogs = {
             "internal": true,
             "bundle_relative": true,
             "resolved": true
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": " ",
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "relationship": 1,
+              "resource": "/a.md"
+            }
           },
           {
             "entry": {
@@ -2163,6 +2170,108 @@ const Map<(String, String), String> installedRuleCatalogs = {
           },
           {
             "value": "depends-on /a.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "used-relationship-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "ref": "§7.2",
+      "description": "Every used relationship name MUST be declared by the selected Profile manifest or project binding.",
+      "message": "Relationship names must be declared by the selected Profile binding; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "failing_field": "entry",
+        "schema": {
+          "if": {
+            "required": [
+              "entry"
+            ],
+            "properties": {
+              "entry": {
+                "type": "object",
+                "required": [
+                  "relationship"
+                ],
+                "properties": {
+                  "relationship": {
+                    "$ref": "#/$defs/text"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "entry": {
+                "properties": {
+                  "relationship": {
+                    "$ref": "#/$defs/relationship-name"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.relationships": [
+            "depends-on"
+          ]
+        },
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": {
+              "relationship": " ",
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "relationship": 1,
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": "inspired-by"
+          },
+          {
+            "value": "inspired-by /a.md"
+          },
+          {
+            "value": null
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": "inspired-by",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
           }
         ]
       }

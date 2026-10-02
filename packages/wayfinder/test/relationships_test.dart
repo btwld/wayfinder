@@ -135,11 +135,13 @@ void main() {
           '---\n',
     );
     final facts = await project();
-    final shape = {
-      for (final finding in evaluate(facts.profile, facts).findings)
-        if (finding.id == 'concepta-profile/relationship-shape')
+    final findings = evaluate(facts.profile, facts).findings;
+    Map<String, String> messages(String rule) => {
+      for (final finding in findings)
+        if (finding.id == 'concepta-profile/$rule')
           finding.path: finding.message,
     };
+    final shape = messages('relationship-shape');
     expect(
       shape.keys,
       unorderedEquals(['scalar.md', 'mapping.md', 'empty.md', 'mixed.md']),
@@ -150,13 +152,12 @@ void main() {
       shape['mapping.md'],
       endsWith('found {"relationship":"depends-on","resource":"/scalar.md"}.'),
     );
-    expect(
-      shape['mixed.md'],
-      endsWith(
-        'found depends-on, '
-        '{"relationship":"inspired-by","resource":"/scalar.md"}.',
+    expect(shape['mixed.md'], endsWith('found depends-on.'));
+    expect(messages('used-relationship-declared'), {
+      'mixed.md': endsWith(
+        'found {"relationship":"inspired-by","resource":"/scalar.md"}.',
       ),
-    );
+    });
   });
 
   test('load rejects a declared frontmatter key OKF already defines', () {

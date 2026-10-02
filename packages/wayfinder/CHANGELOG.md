@@ -33,6 +33,12 @@
   prose resolves as `descriptor` rather than `unresolved`. The engine tests
   a non-list `each` fact as one `{"value": ...}` instance instead of failing
   it outright, so the rule's schema decides.
+- Profile 2026.3 reports an undeclared relationship name as the new
+  `used-relationship-declared` (vocabulary, error), like
+  `used-type-registered` and `used-actor-registered`, instead of
+  `relationship-shape`, which now checks that `relationship` is a nonempty
+  string, not that it is declared. The new rule tests a name only once the entry is a
+  mapping with nonempty text there, so one defect never reports under both.
 - `{failing}` and `{fact}` placeholders render a non-string value as compact
   JSON instead of Dart's `{key: value}` text, so a failing relationships
   entry reads as it was authored. Strings are unchanged.

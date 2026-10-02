@@ -43,7 +43,7 @@ void main() {
       results,
       containsAll([
         (
-          'concepta-profile/relationship-shape',
+          'concepta-profile/used-relationship-declared',
           'error',
           '$bundle/custom-relationship.md',
         ),
@@ -56,12 +56,12 @@ void main() {
     );
     final rules = _rules(run);
     expect(rules.keys, containsAll({...results.map((result) => result.$1)}));
-    expect(rules['concepta-profile/relationship-shape'], {
-      'id': 'concepta-profile/relationship-shape',
+    expect(rules['concepta-profile/used-relationship-declared'], {
+      'id': 'concepta-profile/used-relationship-declared',
       'shortDescription': {'text': isNotEmpty},
       'defaultConfiguration': {'level': 'error'},
       'properties': {
-        'category': 'linking',
+        'category': 'vocabulary',
         'ref': startsWith('§'),
         'profile_release': '2026.3',
       },
