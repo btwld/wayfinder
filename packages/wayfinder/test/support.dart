@@ -24,11 +24,12 @@ String fixtureBundle(String path) =>
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
+  bool fix = false,
   List<RuleCatalog> catalogs = const [],
 }) async {
   final config = File(p.join(path, 'wayfinder.json'));
   if (!await config.exists()) {
-    return const ProfileValidator().validate(path);
+    return const ProfileValidator().validate(path, fix: fix);
   }
   final WayfinderProjectConfig parsed;
   try {
@@ -37,6 +38,7 @@ Future<ProfileValidationResult> validateFixture(
     return const ProfileValidator().validate(
       fixtureBundle(path),
       configPath: discoverConfig ? null : config.path,
+      fix: fix,
     );
   }
   return const ProfileValidator().validate(
@@ -57,6 +59,7 @@ Future<ProfileValidationResult> validateFixture(
           catalogs: catalogs,
         ),
     },
+    fix: fix,
   );
 }
 

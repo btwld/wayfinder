@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:markdown/markdown.dart' as markdown;
@@ -52,36 +53,59 @@ enum AutomatedGateState {
   int get exitCode => okfExitCode.value;
 }
 
+enum ProfileFixState {
+  applied('APPLIED'),
+  failed('FAILED'),
+  notApplied('NOT APPLIED');
+
+  const ProfileFixState(this.wireValue);
+  final String wireValue;
+}
+
 /// What `validate --fix` did before the assessment it precedes.
 final class ProfileFix {
   ProfileFix.written(Iterable<String> paths)
-    : written = List<String>.unmodifiable(paths),
+    : state = ProfileFixState.applied,
+      written = List<String>.unmodifiable(paths),
       reason = null;
 
-  const ProfileFix.notApplied(String this.reason) : written = const [];
+  /// A write failed after [paths] were written; [reason] names the file.
+  ProfileFix.failed(Iterable<String> paths, String this.reason)
+    : state = ProfileFixState.failed,
+      written = List<String>.unmodifiable(paths);
+
+  const ProfileFix.notApplied(String this.reason)
+    : state = ProfileFixState.notApplied,
+      written = const [];
+
+  final ProfileFixState state;
 
   /// Bundle-relative paths written, in path order; empty when every fixed
   /// file was already current.
   final List<String> written;
 
-  /// Why nothing was written, when the fix could not run.
+  /// Why the fix failed or could not run.
   final String? reason;
 
   Map<String, Object?> toJson() => <String, Object?>{
-    'state': reason == null ? 'APPLIED' : 'NOT APPLIED',
+    'state': state.wireValue,
     'written': written,
     'reason': ?reason,
   };
 
   Iterable<String> toTextLines() sync* {
-    if (reason case final reason?) {
-      yield 'Fix: not applied; $reason.';
-    } else if (written.isEmpty) {
-      yield 'Fix: every generated file is current.';
-    } else {
-      for (final path in written) {
-        yield 'Fix: wrote $path';
-      }
+    for (final path in written) {
+      yield 'Fix: wrote $path';
+    }
+    switch (state) {
+      case ProfileFixState.applied when written.isEmpty:
+        yield 'Fix: every generated file is current.';
+      case ProfileFixState.applied:
+        break;
+      case ProfileFixState.failed:
+        yield 'Fix: failed; $reason.';
+      case ProfileFixState.notApplied:
+        yield 'Fix: not applied; $reason.';
     }
   }
 }
@@ -210,7 +234,12 @@ final class ProfileValidationResult {
   OkfReport get okfReport => okfValidation.report;
   OkfState get okfState =>
       okfValidation.isConformant ? OkfState.pass : OkfState.fail;
-  int get exitCode => automatedGateState.exitCode;
+
+  /// A failed fix exits as a failed invocation, whatever the assessment of
+  /// the partly written bundle found.
+  int get exitCode => fix?.state == ProfileFixState.failed
+      ? OkfExitCode.usage.value
+      : automatedGateState.exitCode;
 
   Map<String, Object?> toJson() => <String, Object?>{
     if (fix case final fix?) 'fix': fix.toJson(),
@@ -372,25 +401,8 @@ final class ProfileValidator {
         ),
       );
     }
-    final written = <String>[];
-    for (final path in files.keys.toList()..sort()) {
-      final bytes = utf8.encode(files[path]!);
-      final file = File(p.joinAll([loaded.rootPath, ...p.posix.split(path)]));
-      if (await FileSystemEntity.isLink(file.path)) {
-        throw FileSystemException(
-          'Refusing to write through a symbolic link',
-          file.path,
-        );
-      }
-      if (await file.exists() &&
-          const ListEquality<int>().equals(await file.readAsBytes(), bytes)) {
-        continue;
-      }
-      await file.writeAsBytes(bytes);
-      written.add(path);
-    }
-    final fix = ProfileFix.written(written);
-    if (written.isEmpty) {
+    final fix = await writeGeneratedFiles(loaded.rootPath, files);
+    if (fix.written.isEmpty) {
       return _assess(
         validation,
         loaded,
@@ -412,6 +424,65 @@ final class ProfileValidator {
       projectConfig: projectConfig,
     );
   }
+}
+
+/// Writes each of [files] whose bytes differ beneath [rootPath], in path
+/// order, stopping at the first failure. Each file is written to a temporary
+/// sibling and renamed into place, so a reader sees the old bytes or the new,
+/// never part of either. A symbolic link at any segment below [rootPath] is
+/// refused, so a write cannot leave the bundle.
+Future<ProfileFix> writeGeneratedFiles(
+  String rootPath,
+  Map<String, String> files,
+) async {
+  final written = <String>[];
+  for (final path in files.keys.toList()..sort()) {
+    try {
+      if (await _writeIfChanged(rootPath, path, utf8.encode(files[path]!))) {
+        written.add(path);
+      }
+    } on FileSystemException catch (error) {
+      final cause = error.osError?.message ?? error.message;
+      return ProfileFix.failed(written, 'could not write $path: $cause');
+    }
+  }
+  return ProfileFix.written(written);
+}
+
+Future<bool> _writeIfChanged(
+  String rootPath,
+  String path,
+  List<int> bytes,
+) async {
+  var current = rootPath;
+  for (final segment in p.posix.split(path)) {
+    current = p.join(current, segment);
+    if (await FileSystemEntity.type(current, followLinks: false) ==
+        FileSystemEntityType.link) {
+      throw FileSystemException(
+        'refusing to write through the symbolic link '
+        '${p.posix.joinAll(p.split(p.relative(current, from: rootPath)))}',
+        current,
+      );
+    }
+  }
+  final file = File(current);
+  if (await file.exists() &&
+      const ListEquality<int>().equals(await file.readAsBytes(), bytes)) {
+    return false;
+  }
+  final suffix = Random.secure().nextInt(1 << 32).toRadixString(16);
+  final temporary = File(
+    p.join(file.parent.path, '.${p.basename(current)}.wayfinder-$suffix.tmp'),
+  );
+  try {
+    await temporary.create(exclusive: true);
+    await temporary.writeAsBytes(bytes, flush: true);
+    await temporary.rename(current);
+  } finally {
+    if (await temporary.exists()) await temporary.delete();
+  }
+  return true;
 }
 
 EffectiveProfile _configuredProfile(
