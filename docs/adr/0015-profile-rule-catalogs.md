@@ -106,6 +106,12 @@ mutated copies of its bundles; 5 needed a fact or builtin the engine lacked and
 5 compare two revisions rather than one bundle state, which this engine does
 not assess.
 
+Removing the restated rules from the Profile prose is follow-up work, not part
+of this change. Until it lands, the Profile still states every automated rule
+in prose and governs: Profile §14.1 makes the installed catalog the
+machine-readable form of those rules, each citing the clause it assesses and
+agreeing with it, and a disagreement is a catalog defect.
+
 Plugins that add facts or builtins from outside the binary remain out of scope.
 
 ## Reconsider when

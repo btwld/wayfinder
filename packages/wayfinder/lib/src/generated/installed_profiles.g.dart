@@ -1481,7 +1481,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§5.1",
-      "description": "Every used tag MUST appear in the selected Profile manifest or project binding's declared tag vocabulary.",
+      "description": "Every used tag MUST appear exactly once in the selected Profile manifest or project binding's declared tag vocabulary.",
       "message": "Tags must be declared by the selected Profile binding; found {failing}.",
       "check": {
         "subject": "concept",
@@ -1810,7 +1810,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§3.5, §6.1.1",
-      "description": "Every actor ID used in `generated.by`, `verified[].by`, or `sources[].author` MUST appear in the selected Profile binding.",
+      "description": "When an actor ID is used in `generated.by`, `verified[].by`, or `sources[].author`, the selected Profile binding MUST contain that exact ID with a nonempty `name`.",
       "message": "Used actor {id} must be represented in the selected Profile binding.",
       "check": {
         "subject": "actor",
@@ -2173,7 +2173,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§7.1",
-      "description": "The §7.1 and §7.2 link rules MUST be assessed against a buildable OKF link graph of the bundle, with every relationship target resolved.",
+      "description": "The bundle's OKF link graph or its relationship targets cannot be resolved, so the §7.1 and §7.2 link rules cannot be assessed; validation reports that as an error rather than passing them unassessed.",
       "message": "The OKF link graph could not be built ({error}); the §7.1 and §7.2 link rules were not assessed.",
       "check": {
         "builtin": "link-graph-unavailable",

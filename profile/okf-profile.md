@@ -1328,6 +1328,13 @@ Deterministic Rule result separately and leaves Judgment Rules explicitly
 unassessed. Its orchestration and result-state contract belongs exclusively to
 the companion guide.
 
+The installed rule catalog (§11) is the machine-readable form of the rules
+Automated Profile Validation applies for this release. Each catalog rule cites
+the clause it assesses and describes what that clause requires or permits, and
+it MUST agree with that clause. The catalog adds no requirement of its own: where a
+rule and the clause it cites differ, this document governs and the catalog is
+in error.
+
 **Profile Review** assesses Judgment Rules contextually and reports its result
 separately from Automated Profile Validation. **Complete Profile Assessment**
 combines both bodies of evidence; neither one alone claims complete Profile
@@ -1564,7 +1571,9 @@ add findings in the entry's own namespace. The earlier text forbade loading
 executable rules from a source; a catalog is data the installed validator
 evaluates, so that line holds and the prohibition narrows to replacing,
 omitting, re-grading, or parameterizing an ancestor's rules, declaring
-frontmatter keys, and shipping a catalog for the base. Affected sections: §11.
+frontmatter keys, and shipping a catalog for the base. §14.1 makes the
+installed catalog the machine-readable form of the automated rules, which must
+agree with the clauses they cite. Affected sections: §§11 and 14.1.
 Driver: a second knowledge base on the same okf release keeps its own rules
 beside its vocabulary, and a child Profile with vocabulary but no rules could
 not express a stricter policy, such as a closed type subset, without a
