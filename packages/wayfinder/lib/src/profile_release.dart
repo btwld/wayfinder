@@ -11,7 +11,7 @@ const externalProfileRelease = '2026.3';
 const supportedProfileRelease = externalProfileRelease;
 const supportedOkfRelease = '0.2';
 
-final standardTypes = _installedManifest(legacyProfileRelease).types;
+final legacyStandardTypes = _installedManifest(legacyProfileRelease).types;
 
 final _external = _installedManifest(externalProfileRelease);
 final externalStandardTypes = _external.types;

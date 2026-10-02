@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/installed_profiles.g.dart';
-import 'package:wayfinder/src/profile_release.dart' show standardTypes;
+import 'package:wayfinder/src/profile_release.dart' show legacyStandardTypes;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -52,7 +52,7 @@ void main() {
       );
     }
     expect(externalStandardTypes.length, 12);
-    expect(standardTypes.length, 14);
+    expect(legacyStandardTypes.length, 14);
   });
   late Directory project;
   late Directory bundle;

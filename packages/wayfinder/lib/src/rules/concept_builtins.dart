@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:collection/collection.dart';
-import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
@@ -10,6 +9,7 @@ import '../profile_release.dart';
 import 'builtins.dart';
 import 'facts.dart';
 import 'profile.dart';
+import 'registries.dart';
 
 const _legacyRelationshipLabels = <String>[
   'Superseded by',
@@ -56,50 +56,14 @@ Iterable<Violation> configuredTypeExtension(
 }
 
 Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
-  final types = _readTypeRegistry(loaded).rows;
+  final registries = LegacyRegistries(loaded);
+  final types = registries.types.rows;
   return Vocabulary(
-    standardTypes: standardTypes.map((row) => row.$1).toList(),
+    standardTypes: legacyStandardTypes.map((row) => row.$1).toList(),
     projectTypes: types == null ? const [] : _extensionNames(types),
     types: types?.map((row) => row.first).toList(),
     relationships: _legacyRelationshipLabels,
-    actors: _readActorRegistry(loaded).rows?.map((row) => row.first).toList(),
-  );
-}
-
-final class _Registry {
-  const _Registry(this.document, this.rows);
-
-  final OkfDocument? document;
-
-  final List<List<String>>? rows;
-}
-
-final _typeRegistries = Expando<_Registry>();
-final _actorRegistries = Expando<_Registry>();
-
-_Registry _typeRegistry(BundleFacts facts) =>
-    _typeRegistries[facts] ??= _readTypeRegistry(facts.loaded);
-
-_Registry _actorRegistry(BundleFacts facts) =>
-    _actorRegistries[facts] ??= _readActorRegistry(facts.loaded);
-
-_Registry _readTypeRegistry(OkfBundleLoadResult loaded) =>
-    _registry(loaded.documents['types.md'], const ['Type', 'Intended content']);
-
-_Registry _readActorRegistry(OkfBundleLoadResult loaded) => _registry(
-  loaded.documents['actors.md'],
-  const ['Actor ID', 'Name', 'Organization', 'Side', 'Role', 'Active'],
-);
-
-_Registry _registry(OkfDocument? document, List<String> header) {
-  if (document == null) return const _Registry(null, null);
-  final table = _firstTable(document.body);
-  if (table == null || !_stringList.equals(table.header, header)) {
-    return _Registry(document, null);
-  }
-  return _Registry(
-    document,
-    table.rows.where((row) => row.length == header.length).toList(),
+    actors: registries.actors.rows?.map((row) => row.first).toList(),
   );
 }
 
@@ -107,14 +71,16 @@ Iterable<Violation> typeRegistryPresent(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (_typeRegistry(facts).document == null) yield const Violation('types.md');
+  if (facts.registries.types.document == null) {
+    yield const Violation('types.md');
+  }
 }
 
 Iterable<Violation> typeRegistryKind(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final document = _typeRegistry(facts).document;
+  final document = facts.registries.types.document;
   if (document != null && document.type != 'Type Registry') {
     yield const Violation('types.md');
   }
@@ -124,7 +90,7 @@ Iterable<Violation> typeRegistryColumns(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final registry = _typeRegistry(facts);
+  final registry = facts.registries.types;
   if (registry.document != null && registry.rows == null) {
     yield const Violation('types.md');
   }
@@ -134,11 +100,11 @@ Iterable<Violation> typeRegistryStandards(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _typeRegistry(facts).rows;
+  final rows = facts.registries.types.rows;
   if (rows == null) return;
-  final standardRows = rows.take(standardTypes.length).toList();
-  if (standardRows.length != standardTypes.length ||
-      !_sameTypeRows(standardRows, standardTypes)) {
+  final standardRows = rows.take(legacyStandardTypes.length).toList();
+  if (standardRows.length != legacyStandardTypes.length ||
+      !_sameTypeRows(standardRows, legacyStandardTypes)) {
     yield const Violation('types.md');
   }
 }
@@ -147,10 +113,10 @@ Iterable<Violation> typeRegistryOrder(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _typeRegistry(facts).rows;
+  final rows = facts.registries.types.rows;
   if (rows == null) return;
   final expectedOrder = <String>[
-    ...standardTypes.map((row) => row.$1),
+    ...legacyStandardTypes.map((row) => row.$1),
     ..._extensionNames(rows)..sort(),
   ];
   if (!_stringList.equals(
@@ -165,14 +131,14 @@ Iterable<Violation> registeredTypeExtension(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _typeRegistry(facts).rows;
+  final rows = facts.registries.types.rows;
   if (rows != null && _extensionNames(rows).isNotEmpty) {
     yield const Violation('types.md');
   }
 }
 
 List<String> _extensionNames(List<List<String>> rows) {
-  final standardNames = standardTypes.map((row) => row.$1).toSet();
+  final standardNames = legacyStandardTypes.map((row) => row.$1).toSet();
   return rows
       .map((row) => row.first)
       .where((name) => !standardNames.contains(name))
@@ -183,7 +149,7 @@ Iterable<Violation> actorRegistryRequired(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (_actorRegistry(facts).document == null &&
+  if (facts.registries.actors.document == null &&
       facts.of(SubjectKind.actor).isNotEmpty) {
     yield const Violation('actors.md');
   }
@@ -193,7 +159,7 @@ Iterable<Violation> actorRegistryKind(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final document = _actorRegistry(facts).document;
+  final document = facts.registries.actors.document;
   if (document != null && document.type != 'Actor Registry') {
     yield const Violation('actors.md');
   }
@@ -203,7 +169,7 @@ Iterable<Violation> actorRegistryColumns(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final registry = _actorRegistry(facts);
+  final registry = facts.registries.actors;
   if (registry.document != null && registry.rows == null) {
     yield const Violation('actors.md');
   }
@@ -213,7 +179,7 @@ Iterable<Violation> actorRowComplete(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _actorRegistry(facts).rows;
+  final rows = facts.registries.actors.rows;
   if (rows != null && rows.any((row) => row.any((cell) => cell.isEmpty))) {
     yield const Violation('actors.md');
   }
@@ -223,7 +189,7 @@ Iterable<Violation> actorSideValue(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _actorRegistry(facts).rows;
+  final rows = facts.registries.actors.rows;
   if (rows != null &&
       rows.any(
         (row) => !const {
@@ -242,7 +208,7 @@ Iterable<Violation> actorActiveInterval(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _actorRegistry(facts).rows;
+  final rows = facts.registries.actors.rows;
   if (rows != null &&
       rows.any((row) => _ActivePeriod.tryParse(row[5]) == null)) {
     yield const Violation('actors.md');
@@ -253,7 +219,7 @@ Iterable<Violation> actorActiveOverlap(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final rows = _actorRegistry(facts).rows;
+  final rows = facts.registries.actors.rows;
   if (rows == null) return;
   final periods = <String, List<_ActivePeriod>>{};
   for (final row in rows) {
@@ -380,45 +346,6 @@ String? _pathPart(String raw) {
   final path = cut < 0 ? raw : raw.substring(0, cut);
   return path.isEmpty ? null : path;
 }
-
-final class _MarkdownTable {
-  const _MarkdownTable(this.header, this.rows);
-
-  final List<String> header;
-  final List<List<String>> rows;
-}
-
-_MarkdownTable? _firstTable(String body) {
-  final nodes = markdown.Document(
-    extensionSet: markdown.ExtensionSet.gitHubFlavored,
-  ).parse(body);
-  final table = nodes
-      .whereType<markdown.Element>()
-      .where((element) => element.tag == 'table')
-      .firstOrNull;
-  if (table == null) return null;
-  final sections = table.children?.whereType<markdown.Element>().toList() ?? [];
-  final head = sections.where((element) => element.tag == 'thead').firstOrNull;
-  final tableBody = sections
-      .where((element) => element.tag == 'tbody')
-      .firstOrNull;
-  if (head == null) return null;
-  final header = _tableRows(head).singleOrNull;
-  if (header == null) return null;
-  return _MarkdownTable(header, tableBody == null ? [] : _tableRows(tableBody));
-}
-
-List<List<String>> _tableRows(markdown.Element section) =>
-    (section.children ?? const <markdown.Node>[])
-        .whereType<markdown.Element>()
-        .where((element) => element.tag == 'tr')
-        .map(
-          (row) => (row.children ?? const <markdown.Node>[])
-              .whereType<markdown.Element>()
-              .map((cell) => cell.textContent.trim())
-              .toList(),
-        )
-        .toList();
 
 const _stringList = ListEquality<String>();
 

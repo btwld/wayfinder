@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import '../finding_helpers.dart';
 import 'body.dart';
 import 'profile.dart';
+import 'registries.dart';
 
 enum SubjectKind {
   frontmatter(facts: null),
@@ -57,6 +58,8 @@ final class BundleFacts {
   final EffectiveProfile profile;
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
+
+  late final LegacyRegistries registries = LegacyRegistries(loaded);
 
   late final Map<String, ParsedBody> bodies = {
     for (final MapEntry(key: path, value: document) in loaded.documents.entries)
