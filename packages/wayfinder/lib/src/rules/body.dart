@@ -51,12 +51,7 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
-    final defined = <String>{
-      for (final match in _footnoteDefinition.allMatches(
-        source.replaceAll(_fencedCode, ''),
-      ))
-        match[1]!,
-    };
+    final defined = _definitions(source.replaceAll(_fencedCode, ''));
     return [
       for (final label in labels)
         (label: label, referenced: true, defined: defined.contains(label)),
@@ -65,6 +60,15 @@ final class ParsedBody {
           (label: label, referenced: false, defined: true),
     ];
   }
+
+  /// Labels with a definition line anywhere in the source, fenced code
+  /// included: the reading Profile 2026.2 froze before [footnotes] stopped
+  /// counting an example definition inside a fence.
+  late final Set<String> rawDefinitions = _definitions(source);
+
+  static Set<String> _definitions(String text) => {
+    for (final match in _footnoteDefinition.allMatches(text)) match[1]!,
+  };
 
   late final Relationships? relationships = _parseRelationships();
 

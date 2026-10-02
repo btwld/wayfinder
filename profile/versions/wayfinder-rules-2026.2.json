@@ -653,45 +653,7 @@
       "description": "A body footnote reference whose label exactly matches a `sources[].id` is source attribution and MUST join to its footnote definition.",
       "message": "A recognized source-attribution reference must join to its footnote definition.",
       "check": {
-        "subject": "concept",
-        "each": "footnotes",
-        "schema": {
-          "if": {
-            "properties": {
-              "is_source_id": {
-                "const": true
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "defined": {
-                "const": true
-              }
-            }
-          }
-        }
-      },
-      "tests": {
-        "valid": [
-          {
-            "value": "s1",
-            "defined": true,
-            "is_source_id": true
-          },
-          {
-            "value": "aside",
-            "defined": false,
-            "is_source_id": false
-          }
-        ],
-        "invalid": [
-          {
-            "value": "s1",
-            "defined": false,
-            "is_source_id": true
-          }
-        ]
+        "builtin": "source-attribution-in-source"
       }
     },
     {

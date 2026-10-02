@@ -231,6 +231,24 @@ Iterable<Violation> actorActiveOverlap(
   if (periods.values.any(_hasOverlap)) yield const Violation('actors.md');
 }
 
+Iterable<Violation> sourceAttributionInSource(
+  BundleFacts facts,
+  Map<String, Object?> params,
+) sync* {
+  for (final MapEntry(key: path, value: document)
+      in facts.loaded.documents.entries) {
+    final body = facts.bodies[path]!;
+    final sourceIds = document.metadata.sources.map((source) => source.id);
+    final unjoined = body.footnotes().any(
+      (footnote) =>
+          footnote.referenced &&
+          sourceIds.contains(footnote.label) &&
+          !body.rawDefinitions.contains(footnote.label),
+    );
+    if (unjoined) yield Violation(path);
+  }
+}
+
 Iterable<Violation> relationshipsShape(
   BundleFacts facts,
   Map<String, Object?> params,

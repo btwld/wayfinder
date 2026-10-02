@@ -67,6 +67,7 @@ const builtins = <String, Builtin>{
   'actor-active-interval': Builtin(actorActiveInterval),
   'actor-active-overlap': Builtin(actorActiveOverlap),
   'source-path-unresolved': Builtin(sourcePathUnresolved),
+  'source-attribution-in-source': Builtin(sourceAttributionInSource),
   'relationships-shape': Builtin(relationshipsShape),
   'relationship-label-extension': Builtin(relationshipLabelExtension),
   'link-graph-unavailable': Builtin(
