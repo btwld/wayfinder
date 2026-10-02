@@ -14,11 +14,13 @@ List<String> findingSummary(Map<String, Object?> profile) =>
       return '${finding['severity']} ${finding['id']} ${location['path']}';
     }).toList();
 
-String fixture(String name) => p.join('test', 'fixtures', name);
+// Fixture paths use `/` on every platform: a configured fixture's config path
+// is reported as supplied, so goldens must not depend on the host separator.
+String fixture(String name) => p.posix.join('test', 'fixtures', name);
 
 String fixtureBundle(String path) =>
-    File(p.join(path, 'wayfinder.json')).existsSync()
-    ? p.join(path, 'knowledge')
+    File(p.posix.join(path, 'wayfinder.json')).existsSync()
+    ? p.posix.join(path, 'knowledge')
     : path;
 
 Future<ProfileValidationResult> validateFixture(
@@ -27,7 +29,7 @@ Future<ProfileValidationResult> validateFixture(
   bool fix = false,
   List<RuleCatalog> catalogs = const [],
 }) async {
-  final config = File(p.join(path, 'wayfinder.json'));
+  final config = File(p.posix.join(path, 'wayfinder.json'));
   if (!await config.exists()) {
     return const ProfileValidator().validate(path, fix: fix);
   }
