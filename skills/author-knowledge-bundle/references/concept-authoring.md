@@ -21,9 +21,9 @@ An **Interaction Record** is the narrower case of the same rule: write one only 
 
 ## Types
 
-`type` is the only place kind is carried — not the directory, not the filename, not a tag. The two releases share the first eleven types below but have different standard registries. For 2026.3, the selected base Profile manifest adds `Attested Computation` as the twelfth type; add project-specific types to the selected `wayfinder.json` entry. For 2026.2, `knowledge/types.md` contains the eleven shared types followed by the three legacy registry types, with project extensions afterward in lexical order. Do not add `Attested Computation` as a 2026.2 **standard** row; if used there, register it as a project-specific type after the fourteen standard rows.
+`type` is the only place kind is carried — not the directory, not the filename, not a tag. The selected base Profile manifest supplies the twelve standard types below; add project-specific types to the selected `wayfinder.json` entry.
 
-The eleven shared standard types, in order:
+The standard types, in order:
 
 | Type | Intended content |
 | --- | --- |
@@ -38,27 +38,15 @@ The eleven shared standard types, in order:
 | `Specification` | A specification the project maintains as durable knowledge, not one a tracker owns the state of |
 | `Guide` | Durable operational or engineering guidance |
 | `Interaction Record` | An interaction whose combined context is itself durable |
-
-The 2026.3 standard registry then adds:
-
-| Type | Intended content |
-| --- | --- |
 | `Attested Computation` | An OKF-defined sanctioned computation with a checkable execution receipt |
 
-The 2026.2 standard registry instead adds these three rows, in order:
 
-| Type | Intended content |
-| --- | --- |
-| `Knowledge Profile` | The Concepta Profile and OKF release declaration |
-| `Type Registry` | The standard and project-specific types available to the bundle |
-| `Actor Registry` | Actor IDs mapped to identity, affiliation, role, and active period |
-
-Project-specific types are allowed and must be registered before use. A registered extension is reported, as a non-blocking advisory under 2026.2 and as the `wayfinder/project-type` note diagnostic under 2026.3, so repeated needs can inform a later Profile release; it is not prohibited because a reviewer might prefer a standard type. Choosing whether a standard or project-specific type and its registered meaning truthfully fit the concept is a mandatory Profile Review judgment, never something inferred mechanically from headings, paths, or keywords. When reading, tolerate unknown types, fields, and relationship names or labels — valid OKF you don't recognize is content to preserve, not an OKF error, and the registry is never grounds for rejecting a concept.
+Project-specific types are allowed and must be registered before use. A registered extension is reported as the `wayfinder/project-type` note diagnostic, so repeated needs can inform a later Profile release; it is not prohibited because a reviewer might prefer a standard type. Choosing whether a standard or project-specific type and its registered meaning truthfully fit the concept is a mandatory Profile Review judgment, never something inferred mechanically from headings, paths, or keywords. When reading, tolerate unknown types, fields, and relationship names or labels — valid OKF you don't recognize is content to preserve, not an OKF error, and the registry is never grounds for rejecting a concept.
 
 - **`Business Rule` is formalism-neutral.** One standing rule per concept. Structure them with SBVR or any other notation the domain suits; the type commits to one-rule-per-concept, not to a notation.
 - **`Architecture Decision Record` versus `Decision`:** use the ADR type when the decision shapes the software's structure and an engineer deciding how to build would read it; `Decision` for every other durable decision — process, commercial, scope, governance. When both fit, prefer `Decision`.
 - **A `Business Rule` is not a `Decision`.** A rule describes how the business already works; a decision records a choice with alternatives.
-- When a Decision selects a Business Rule, the rule should carry a `depends-on` relationship outward to that Decision (2026.2: a `Depends on` label).
+- When a Decision selects a Business Rule, the rule should carry a `depends-on` relationship outward to that Decision.
 - **A `Question` carries no state in its type or its path.** Whether it is still open is read from inbound relationships: `resolves` means closed, `partially-resolves` means narrowed, neither means open. A resolved question stays `stable` — how understanding arrived at an answer is knowledge in its own right.
 - **Splitting a concept:** the Profile recommends splitting when parts would carry materially different verification or lifecycle — frontmatter applies to the whole concept, and averaging trust across it is lossy. Mixed *provenance* is fine because footnotes handle it; mixed *verification* is the signal to consider a split. Size alone is not.
 
@@ -75,8 +63,7 @@ Use only the headings that help the concept. Useful compact starting shapes are:
 
 These are authoring prompts, not conformance rules. Bodies remain free-form; omit,
 rename, or add headings as the knowledge requires. Typed links go in the
-`relationships` frontmatter key in 2026.3, and in a `# Relationships` section only
-in legacy 2026.2 ([relationships.md](./relationships.md)).
+`relationships` frontmatter key ([relationships.md](./relationships.md)).
 
 ## Baseline frontmatter
 
@@ -94,9 +81,9 @@ status: draft | stable | deprecated
 - Add `generated: { by: <actor>, at: <ISO 8601 datetime with a UTC offset> }` when the producer and meaningful-change time are known. It is recommended, not required; never fabricate either value to clear an advisory. Copy YAML shape for `generated`, `verified`, `sources`, and `tags` from pinned OKF §5; do not invent a Profile-specific spelling.
 - **Every timestamp is an instant, and the offset is not optional** (Profile §6.5, OKF §5). A date-only or offset-less value names no instant and raises `okf/timestamp-without-offset`. `okf format --migrate-timestamps` rewrites those to the datetime form the specification's own examples use.
 - **Status** is knowledge lifecycle only — `draft`, `stable`, `deprecated`. Workflow states (accepted, blocked, in progress, done) belong to the issue tracker.
-- In 2026.3, declare every used tag once in the selected `wayfinder.json` binding (or use a base Profile tag); duplicate or undeclared tags fail validation, and a binding that declares a tag equal to a declared type or relationship name, an OKF status value, or a trust tier fails at configuration. Legacy 2026.2 keeps open tags. Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
+- Declare every used tag once in the selected `wayfinder.json` binding (or use a base Profile tag); duplicate or undeclared tags fail validation, and a binding that declares a tag equal to a declared type or relationship name, an OKF status value, or a trust tier fails at configuration. Add native OKF fields (`tags`, `resource`, `stale_after`) when their OKF-defined meaning applies. `sources` and `verified` have their own section below.
 - **`tags` carry topic and nothing else** — never kind (that is `type`), lifecycle (`status`), trust (derived from `verified`), or a judgment about how settled the subject is (body prose). A tag restating one of those is redundant when written and wrong once the real signal moves: `partially-resolved` on a question is a fact about an inbound edge, and nothing updates it when a second edge lands.
-- Profile producers write only OKF-defined fields, plus the one key 2026.3 declares, `relationships` ([relationships.md](./relationships.md)); a project binding cannot add keys. Readers still preserve unknown fields and keep the concept loadable, because the producer restriction does not change OKF's tolerant-reader contract.
+- Profile producers write only OKF-defined fields, plus the one key the release declares, `relationships` ([relationships.md](./relationships.md)); a project binding cannot add keys. Readers still preserve unknown fields and keep the concept loadable, because the producer restriction does not change OKF's tolerant-reader contract.
 
 ## Provenance and trust
 
@@ -106,7 +93,7 @@ meaning. The selected Profile's additional guidance is narrower:
 - When a claim materially derives from identifiable source material, record that material with OKF `sources`; original analysis, guidance, and decisions do not invent sources just to satisfy the rule. Profile Review judges whether material provenance is missing, while tools check only present source structure and attribution joins.
 - Keep production and confirmation distinct. A meaningful rewrite during authoring or migration can truthfully update `generated` without verifying any claims; the field remains recommended, not required. Add `verified` only when the named actor actually confirmed content against its sources or `resource`. Review, migration, or conformance work alone is not that confirmation.
 - **Absence of `verified` is a signal, not a defect.** A concept deliberately recording unconfirmed material is *correctly* unverified. Never add a verification event to satisfy a convention, a checklist, or a linter; tooling must not report missing verification as a finding.
-- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. In 2026.3 the binding actor lookup may carry an optional `side`: `client`, `internal`, `vendor`, `tool`, or `unknown`. Use `unknown` when affiliation is not known; the lookup does not encode active periods or infer affiliation from an actor ID. Registry lookup never changes the actor string, its OKF prefix, or its derived trust tier. For 2026.2, use `knowledge/actors.md` and its release snapshot for the distinct side, period, and event-time rules; the third-party-agent and project-process examples belong to that release.
+- **Organizational identity is not in the tier.** Trust tiers distinguish human from machine, not client from internal. The binding actor lookup may carry an optional `side`: `client`, `internal`, `vendor`, `tool`, or `unknown`. Use `unknown` when affiliation is not known; the lookup does not encode active periods or infer affiliation from an actor ID. Actor lookup never changes the actor string, its OKF prefix, or its derived trust tier.
 - Never invent a maturity, confidence, credibility, or evidence-tier frontmatter field. Use the upstream signals and attribution mechanism without restating or extending them.
 
 - **How settled the *subject* is belongs in the body, not in frontmatter and not in `status`.** `status` describes the document — OKF's `draft` means "not yet reviewed". State the assessment beside the reasoning that justifies it, with pointers to what would settle it. A shared vocabulary is optional; if adopted, it should be defined once in a `ways-of-working/` concept. It is **not derivable from links**: `constrained-by` may target a fully settled constraint, broken links are valid, and absence of links is silence rather than evidence. A concept can be first-party, verified, and still describe an unsettled subject.
@@ -114,7 +101,7 @@ meaning. The selected Profile's additional guidance is narrower:
 
 ## Execution stays external
 
-Tickets, issues, and PRs live in the issue tracker. Concepts link to them with `specified-by` or `implemented-by` relationships (2026.2: the Title Case labels) — the bundle never mirrors their state, and a linked record's status lives only in the tracker.
+Tickets, issues, and PRs live in the issue tracker. Concepts link to them with `specified-by` or `implemented-by` relationships — the bundle never mirrors their state, and a linked record's status lives only in the tracker.
 One concept may link to several execution records or none; cardinality alone is
 never a finding.
 

@@ -1,0 +1,22 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "state": "NOT ASSESSED",
+    "findings": []
+  },
+  "diagnostics": [
+    {
+      "id": "wayfinder/config-missing",
+      "level": "error",
+      "message": "No wayfinder.json was found above the bundle."
+    }
+  ],
+  "gate": {
+    "state": "INCOMPLETE"
+  }
+}

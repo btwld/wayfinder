@@ -11,11 +11,11 @@ references for the supported release and review scope. Prefer an installed
 `wayfinder validate knowledge`; `dart run wayfinder_cli:wayfinder validate knowledge` is an
 alternative when the repository has that Dart dependency. Reuse a result already
 collected for the same unchanged tree; rerun after repairs. If neither command is
-available, report `NOT RUN` and the reason. Unsupported or unreadable declarations
-still allow collecting automated diagnostics, but do not authorize contextual
+available, report `NOT RUN` and the reason. A missing, unreadable, or unsupported
+configuration still allows collecting automated diagnostics, but do not authorize contextual
 review under an assumed release. Still emit the compact report below: Automated
 gate records the collected result, Reviewed notes that contextual review was not
-performed, and Outcome is `NEEDS HUMAN`. That is a capability or declaration
+performed, and Outcome is `NEEDS HUMAN`. That is a capability or configuration
 problem, not a judgment failure.
 
 The canonical assignment
@@ -42,7 +42,7 @@ request, never as a blanket certificate inside the bundle:
 ```markdown
 ## Profile Review Report
 
-- Profile: <2026.3 | legacy 2026.2> (OKF 0.2)
+- Profile: <2026.3> (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
 - Gate: <PASS | FAIL | INCOMPLETE | NOT RUN (reason)>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>

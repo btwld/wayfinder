@@ -1,8 +1,8 @@
 # Wayfinder project configuration
 
 Proposed Profile 2026.3 uses one version-1 project configuration shape:
-direct Git Profile sources with explicit bundle paths. Published 2026.2
-bundles keep their in-bundle declarations.
+direct Git Profile sources with explicit bundle paths. It is the only way
+Wayfinder selects a Profile.
 
 Wayfinder uses two JSON documents with different responsibilities:
 
@@ -253,8 +253,10 @@ into its local cache.
 For `validate`, Wayfinder processes the explicit bundle in this order:
 
 1. Inspect the bundle and run independent OKF validation.
-2. Discover a project configuration only if it selects this bundle;
-   otherwise retain its legacy 2026.2 dispatch.
+2. Discover the nearest `wayfinder.json` above the bundle. Without one, the
+   run reports `wayfinder/config-missing`; with one that does not list the
+   bundle, `wayfinder/bundle-unbound`. Either leaves the Profile
+   `NOT ASSESSED`.
 3. Parse the selected configuration, check safe `applies_to` paths, and read
    the selected chain from a current lock/cache without network or writes.
 4. Check manifest identity, exact Profile release, and OKF binding, and parse
@@ -279,9 +281,12 @@ reference is used correctly.
 The former `profiles` + `bundles` / `implements` version-1 draft was
 never published and is not accepted by the 2026.3 parser. Convert any
 pre-release draft configuration to direct `source` + `applies_to` before
-validation. Published 2026.2 bundles still use in-bundle `profile.md`,
-`types.md`, and conditional `actors.md` declarations, without requiring a
-neighboring `wayfinder.json`.
+validation.
+
+A published 2026.2 bundle declares its Profile inside the bundle, and this
+engine does not read that declaration. Such a bundle reports
+`wayfinder/config-missing` and gate `INCOMPLETE` until it migrates. To keep
+validating it unchanged, pin wayfinder 0.1.x.
 
 Migrating a 2026.2 bundle is explicit work: add a direct-source entry and
 lock, move project vocabulary and actor lookup to the project configuration,

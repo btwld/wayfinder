@@ -31,16 +31,14 @@ Future<void> main(List<String> arguments) async {
           workspace,
           constant: 'installedProfileManifests',
           doc: 'Installed Profile manifests, raw JSON keyed by (id, release).',
-          current: 'wayfinder-profile.json',
-          snapshotPrefix: 'wayfinder-profile-',
+          file: 'wayfinder-profile.json',
         ),
         await _EmbeddedSet.read(
           workspace,
           constant: 'installedRuleCatalogs',
           doc:
               'Installed Profile rule catalogs, raw JSON keyed by (id, release).',
-          current: 'wayfinder-rules.json',
-          snapshotPrefix: 'wayfinder-rules-',
+          file: 'wayfinder-rules.json',
         ),
       ],
       [
@@ -85,34 +83,18 @@ Future<void> main(List<String> arguments) async {
 final class _EmbeddedSet {
   const _EmbeddedSet(this.constant, this.doc, this.entries);
 
+  /// Only the live release under `profile/`; superseded snapshots in
+  /// `profile/versions/` are an archive the engine no longer assesses.
   static Future<_EmbeddedSet> read(
     String workspace, {
     required String constant,
     required String doc,
-    required String current,
-    required String snapshotPrefix,
+    required String file,
   }) async {
-    final profile = p.join(workspace, 'profile');
-    final files = <File>[
-      File(p.join(profile, current)),
-      ...Directory(p.join(profile, 'versions'))
-          .listSync()
-          .whereType<File>()
-          .where((file) => p.basename(file.path).startsWith(snapshotPrefix)),
-    ];
-    final entries = <(String, String), String>{};
-    for (final file in files) {
-      final text = await _embeddable(file);
-      final json = jsonDecode(text) as Map<String, Object?>;
-      final key = _key(json, file.path);
-      if (entries.containsKey(key)) {
-        throw FormatException('${file.path} repeats the release $key');
-      }
-      entries[key] = text;
-    }
-    final sorted = entries.entries.toList()
-      ..sort((left, right) => '${left.key}'.compareTo('${right.key}'));
-    return _EmbeddedSet(constant, doc, sorted);
+    final path = p.join(workspace, 'profile', file);
+    final text = await _embeddable(File(path));
+    final key = _key(jsonDecode(text) as Map<String, Object?>, path);
+    return _EmbeddedSet(constant, doc, [MapEntry(key, text)]);
   }
 
   static (String, String) _key(Map<String, Object?> json, String path) {

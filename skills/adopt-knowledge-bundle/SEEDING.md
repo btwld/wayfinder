@@ -2,9 +2,8 @@
 
 The default adoption seed has one project configuration file and two bundle
 root files. Replace placeholders with project facts. Do not create subject
-areas until the actual corpus warrants them. The old 2026.2 literal templates
-remain in [SEEDING-2026.2.md](./SEEDING-2026.2.md) for legacy dispatch; do not
-mix their `profile.md`, `types.md`, or `actors.md` into a new bundle.
+areas until the actual corpus warrants them. The bundle carries no registry
+concepts; the binding below replaces them.
 
 ## `wayfinder.json` (project root)
 

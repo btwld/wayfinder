@@ -22,13 +22,8 @@ with additive project type, tag, and actor lookup extensions. It cannot
 define or override Profile rules.
 _Avoid_: Rule manifest, per-directory Profile
 
-**Legacy Profile Declaration**:
-The `profile.md` selector inside a 2026.2 bundle. It remains valid for that
-release and does not define or override its rules.
-_Avoid_: Current 2026.3 binding
-
 **Profiled Bundle**:
-An OKF bundle bound to a Bitwild or legacy Concepta OKF Profile release and evaluated
+An OKF bundle bound to a Bitwild OKF Profile release and evaluated
 against both the OKF Specification and that release.
 _Avoid_: Profile bundle
 

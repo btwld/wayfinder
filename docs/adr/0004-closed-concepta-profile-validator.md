@@ -89,9 +89,10 @@ in-bundle selection and registries for 2026.3, retaining the closed validator,
 independent OKF result, and legacy-release dispatch. These later decisions do
 not rewrite what 2026.2 bundles meant.
 
-Rule-level [OKF compatibility evidence](../compatibility-review-2026.2.md)
-and [assessment coverage](../../implementation/profile-coverage-2026.2.md)
-answer different questions and remain separate from this decision record.
+Rule-level OKF compatibility evidence and assessment coverage for 2026.2
+answered different questions and stayed separate from this decision record.
+Git history keeps both documents; they were removed when the engine stopped
+assessing 2026.2.
 
 ## Reconsider when
 

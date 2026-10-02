@@ -10,7 +10,7 @@ import 'package:wayfinder/src/rules/catalog.dart';
 
 void main() {
   final catalogs = {
-    for (final release in [legacyProfileRelease, externalProfileRelease])
+    for (final release in [externalProfileRelease])
       release: RuleCatalog.installed(builtinProfileId, release),
   };
 
@@ -197,15 +197,6 @@ void main() {
         );
       });
     });
-  });
-
-  test('2026.2 reports no summary entries', () {
-    expect(
-      catalogs[legacyProfileRelease]!.rules.map(
-        (rule) => rule.descriptor.severity,
-      ),
-      everyElement(isNot(RuleSeverity.note)),
-    );
   });
 
   test('every finding in the goldens is declared by its release', () {
@@ -521,31 +512,6 @@ void main() {
           ),
         ),
         rejectedAt('rules[0].message', '{path} is not filled'),
-      );
-    });
-
-    test('a 2026.2 builtin outside the installed 2026.2 catalog', () {
-      for (final release in ['2026.1', legacyProfileRelease]) {
-        expect(
-          () => RuleCatalog.parse(
-            catalog(
-              schemaRule(check: {'builtin': 'type-registry-present'}),
-              release: release,
-            ),
-          ),
-          rejectedAt(
-            'rules[0].check.builtin',
-            'only the installed 2026.2 catalog',
-          ),
-          reason: release,
-        );
-      }
-      expect(
-        catalogs[legacyProfileRelease]!.rules
-            .map((rule) => rule.check)
-            .whereType<BuiltinCheck>()
-            .map((check) => check.name),
-        contains('type-registry-present'),
       );
     });
   });

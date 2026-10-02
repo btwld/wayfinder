@@ -6,12 +6,24 @@
     }
   },
   "profile": {
-    "release": "2026.2",
-    "state": "PASS",
-    "findings": []
+    "release": "2026.3",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/source-attribution-join",
+        "severity": "error",
+        "message": "A recognized source-attribution reference must join to its footnote definition.",
+        "location": {
+          "path": "note.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      }
+    ],
+    "summary": []
   },
   "diagnostics": [],
   "gate": {
-    "state": "PASS"
+    "state": "FAIL"
   }
 }

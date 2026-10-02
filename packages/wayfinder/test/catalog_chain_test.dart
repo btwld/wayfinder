@@ -105,7 +105,9 @@ void main() {
 
   group('a child catalog only adds findings in its own namespace', () {
     var chained = 0;
-    for (final name in fixtures) {
+    // missing-structure-root has no root index and no concept, so the
+    // child's root and concept rules have no subject to see there.
+    for (final name in fixtures.where((n) => n != 'missing-structure-root')) {
       test(name, () async {
         final plain = await validateFixture(fixture(name));
         final composed = await validateFixture(

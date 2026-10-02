@@ -64,7 +64,10 @@ wayfinder search knowledge "How do I regain access to my account?"
 Validation derives the deterministic gate; contextual Profile judgment remains an
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
-bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.
+project is `examples/bitwild`, whose bundle is `examples/bitwild/knowledge`; the
+repository has no root `knowledge/` directory. Run `wayfinder get
+examples/bitwild` first, because validation reads the Profile from the lock and
+never fetches it.
 
 ## Agent skills and MCP
 

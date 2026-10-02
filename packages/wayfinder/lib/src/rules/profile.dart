@@ -1,7 +1,6 @@
 import 'package:okf/okf.dart';
 
 import 'catalog.dart';
-import 'registries.dart';
 
 enum Slot {
   okfFrontmatterKeys('okf.frontmatterKeys'),
@@ -26,15 +25,12 @@ enum Slot {
 
 final class Vocabulary {
   const Vocabulary({
-    required this.standardTypes,
     this.projectTypes = const [],
     this.types,
     this.tags,
     this.relationships,
     this.actors,
   });
-
-  final List<String> standardTypes;
 
   final List<String> projectTypes;
 
@@ -46,7 +42,7 @@ final class Vocabulary {
 }
 
 final class EffectiveProfile {
-  const EffectiveProfile(this.catalogs, this.vocabulary, {this.legacyDispatch});
+  const EffectiveProfile(this.catalogs, this.vocabulary);
 
   final List<RuleCatalog> catalogs;
   final Vocabulary vocabulary;
@@ -61,7 +57,4 @@ final class EffectiveProfile {
     Slot.profileRelationships: ?vocabulary.relationships,
     Slot.profileActors: ?vocabulary.actors,
   };
-
-  final ({Map<String, String> declaration, LegacyRegistries registries})?
-  legacyDispatch;
 }

@@ -1,8 +1,8 @@
 # Skills
 
-The agent workflows for [Bitwild OKF Profile 2026.3](../profile/okf-profile.md)
-and [legacy Concepta 2026.2](../profile/versions/okf-profile-2026.2.md),
-shipped together as the `wayfinder` plugin.
+The agent workflows for [Bitwild OKF Profile 2026.3](../profile/okf-profile.md),
+shipped together as the `wayfinder` plugin. A 2026.2 bundle must migrate to a
+`wayfinder.json` binding before these skills apply, or stay on wayfinder 0.1.x.
 
 ## The family
 
@@ -13,7 +13,7 @@ shipped together as the `wayfinder` plugin.
 | [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared authoring and review instructions. |
 | [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
 
-The family refuses a declared-release change rather than performing it. The
+The family refuses a configured-release change rather than performing it. The
 method is [implementation guide §5](../implementation/okf-implementation-guide.md#5-migration)
 when that document is present; there is no separate migration skill. The
 authoring skill owns that refusal.

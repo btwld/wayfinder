@@ -28,8 +28,7 @@ void main() {
         <
           ({
             String name,
-            String fixture,
-            ProfileValidator validator,
+            Future<ProfileValidationResult> Function() validate,
             bool okf,
             bool errorFinding,
             bool errorDiagnostic,
@@ -39,8 +38,7 @@ void main() {
         >[
           (
             name: 'everything assessed and nothing failed',
-            fixture: 'configured-project',
-            validator: const ProfileValidator(),
+            validate: () => validateFixture(fixture('configured-project')),
             okf: true,
             errorFinding: false,
             errorDiagnostic: false,
@@ -49,8 +47,10 @@ void main() {
           ),
           (
             name: 'an error diagnostic alone',
-            fixture: 'configured-project',
-            validator: _graphFails,
+            validate: () => validateFixture(
+              fixture('configured-project'),
+              validator: _graphFails,
+            ),
             okf: true,
             errorFinding: false,
             errorDiagnostic: true,
@@ -59,8 +59,7 @@ void main() {
           ),
           (
             name: 'an error finding alone',
-            fixture: 'configured-log',
-            validator: const ProfileValidator(),
+            validate: () => validateFixture(fixture('configured-log')),
             okf: true,
             errorFinding: true,
             errorDiagnostic: false,
@@ -69,8 +68,10 @@ void main() {
           ),
           (
             name: 'an error finding outranks an error diagnostic',
-            fixture: 'configured-log',
-            validator: _graphFails,
+            validate: () => validateFixture(
+              fixture('configured-log'),
+              validator: _graphFails,
+            ),
             okf: true,
             errorFinding: true,
             errorDiagnostic: true,
@@ -79,8 +80,7 @@ void main() {
           ),
           (
             name: 'OKF failure alone',
-            fixture: 'invalid-okf',
-            validator: const ProfileValidator(),
+            validate: () => validateFixture(fixture('invalid-okf')),
             okf: false,
             errorFinding: false,
             errorDiagnostic: false,
@@ -89,8 +89,10 @@ void main() {
           ),
           (
             name: 'OKF failure outranks an error diagnostic',
-            fixture: 'invalid-index-okf',
-            validator: const ProfileValidator(),
+            validate: () => const ProfileValidator().validate(
+              fixtureBundle(fixture('invalid-okf')),
+              configPath: 'missing/wayfinder.json',
+            ),
             okf: false,
             errorFinding: false,
             errorDiagnostic: true,
@@ -100,10 +102,7 @@ void main() {
         ];
     for (final row in cases) {
       test(row.name, () async {
-        final result = await validateFixture(
-          fixture(row.fixture),
-          validator: row.validator,
-        );
+        final result = await row.validate();
         expect(result.okfValidation.isConformant, row.okf);
         expect(
           result.findings.any((f) => f.severity == OkfFindingSeverity.error),
@@ -175,37 +174,19 @@ void main() {
     expect(passing.gate, GateState.incomplete);
   });
 
-  test('a 2026.2 graph failure keeps its published finding beside the '
-      'diagnostic', () async {
-    final result = await validateFixture(
-      fixture('conformant'),
-      validator: _graphFails,
-    );
-    expect(result.profileRelease, '2026.2');
-    final finding = result.findings.single;
-    expect(finding.id, 'concepta-profile/link-graph-unavailable');
-    expect(finding.path, 'profile.md');
-    expect(finding.severity, OkfFindingSeverity.error);
-    expect(finding.message, contains('forced'));
-    expect(result.diagnostics.map((d) => d.code), [
-      DiagnosticCode.linkGraphUnavailable,
-    ]);
-    expect(result.gate, GateState.fail);
-    expect(result.exitCode, 1);
-  });
-
   test('warnings and notes never change the gate', () async {
     final note = await validateFixture(fixture('configured-extensions'));
     expect(note.diagnostics.map((d) => d.level), [DiagnosticLevel.note]);
     expect(note.gate, GateState.pass);
 
-    final legacy = await copyFixture('conformant');
-    addTearDown(() => legacy.delete(recursive: true));
-    final warning = await validateFixture(legacy.path, fix: true);
+    final okfFailure = await copyFixture('invalid-okf');
+    addTearDown(() => okfFailure.delete(recursive: true));
+    final warning = await validateFixture(okfFailure.path, fix: true);
     expect(warning.diagnostics.map((d) => (d.code, d.level)), [
       (DiagnosticCode.fixNotApplied, DiagnosticLevel.warning),
     ]);
-    expect(warning.gate, GateState.pass);
+    expect(warning.diagnostics.where((d) => d.isError), isEmpty);
+    expect(warning.gate, GateState.fail);
   });
 
   test('a stopped run reports the internal error and an incomplete '

@@ -26,13 +26,7 @@
     "state": "BLOCKED BY OKF",
     "findings": []
   },
-  "diagnostics": [
-    {
-      "id": "wayfinder/config-missing",
-      "level": "error",
-      "message": "No wayfinder.json lists the bundle, and it has no profile.md declaration."
-    }
-  ],
+  "diagnostics": [],
   "gate": {
     "state": "FAIL"
   }

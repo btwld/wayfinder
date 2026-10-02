@@ -149,8 +149,8 @@ final class RuleCatalog {
   /// engine lacks, a fact named with a shape the engine never produces,
   /// builtin params the builtin does not take, duplicate ids, a message
   /// placeholder nothing fills, a rule whose own examples disagree with its
-  /// schema, a declared frontmatter key OKF already defines, a builtin
-  /// frozen for an installed release, and any predicate compile error.
+  /// schema, a declared frontmatter key OKF already defines, and any
+  /// predicate compile error.
   ///
   /// A catalog a Profile source ships names the [manifest] identity it was
   /// read with. It must declare that identity, report in the namespace
@@ -159,12 +159,11 @@ final class RuleCatalog {
   factory RuleCatalog.parse(
     String json, {
     ({String id, String release})? manifest,
-  }) => RuleCatalog._parse(json, manifest: manifest, installed: false);
+  }) => RuleCatalog._parse(json, manifest: manifest);
 
   factory RuleCatalog._parse(
     String json, {
     required ({String id, String release})? manifest,
-    required bool installed,
   }) {
     final Object? decoded;
     try {
@@ -231,8 +230,6 @@ final class RuleCatalog {
         where,
         namespace: namespace,
         defs: defs,
-        release: release,
-        installed: installed,
       );
       if (!ids.add(rule.descriptor.id)) {
         throw RuleCatalogException('$where.id', 'duplicate rule id');
@@ -256,7 +253,6 @@ final class RuleCatalog {
         () => RuleCatalog._parse(
           installedRuleCatalogs[(id, release)]!,
           manifest: null,
-          installed: true,
         ),
       );
 
@@ -305,8 +301,6 @@ CatalogRule _rule(
   String where, {
   required String namespace,
   required Map<String, Object?> defs,
-  required String release,
-  required bool installed,
 }) {
   final OkfFindingId id;
   try {
@@ -322,12 +316,7 @@ CatalogRule _rule(
   };
   final checkJson = map['check'] as Map<String, Object?>;
   final check = checkJson.containsKey('builtin')
-      ? _builtinCheck(
-          checkJson,
-          '$where.check',
-          release: release,
-          installed: installed,
-        )
+      ? _builtinCheck(checkJson, '$where.check')
       : _schemaCheck(checkJson, '$where.check', defs);
   final RuleExamples? examples;
   switch (check) {
@@ -480,23 +469,11 @@ SchemaCheck _schemaCheck(
   );
 }
 
-BuiltinCheck _builtinCheck(
-  Map<String, Object?> json,
-  String where, {
-  required String release,
-  required bool installed,
-}) {
+BuiltinCheck _builtinCheck(Map<String, Object?> json, String where) {
   final name = json['builtin'] as String;
   final builtin = builtins[name];
   if (builtin == null) {
     throw RuleCatalogException('$where.builtin', 'unknown builtin');
-  }
-  if (builtin.installedOnlyIn case final frozen?
-      when !installed || release != frozen) {
-    throw RuleCatalogException(
-      '$where.builtin',
-      'only the installed $frozen catalog may name builtin $name',
-    );
   }
   final params = json['params'] as Map<String, Object?>? ?? const {};
   if (!JsonPredicate.compile(builtin.paramsSchema).test(params)) {

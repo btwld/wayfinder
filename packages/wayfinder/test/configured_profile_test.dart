@@ -4,42 +4,30 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/installed_profiles.g.dart';
-import 'package:wayfinder/src/profile_release.dart' show legacyStandardTypes;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
 void main() {
-  test('the generated installed Profile files are current', () async {
+  test('the live Profile files are the only ones embedded', () async {
     for (final (name, embedded) in [
       ('wayfinder-profile', installedProfileManifests),
       ('wayfinder-rules', installedRuleCatalogs),
     ]) {
-      final files = [
-        File('../../profile/$name.json'),
-        ...Directory('../../profile/versions')
-            .listSync()
-            .whereType<File>()
-            .where((file) => p.basename(file.path).startsWith('$name-')),
-      ];
-      final keys = <(String, String)>{};
-      for (final file in files) {
-        final text = await file.readAsString();
-        final json = jsonDecode(text) as Map<String, Object?>;
-        final source = json['profile'] is Map<String, Object?>
-            ? json['profile'] as Map<String, Object?>
-            : json;
-        final key = (source['id'] as String, source['release'] as String);
-        keys.add(key);
-        expect(
-          embedded[key],
-          text,
-          reason:
-              '${file.path} is not embedded; run '
-              'dart run tool/generate_installed_profiles.dart',
-        );
-      }
-      expect(embedded.keys.toSet(), keys, reason: name);
+      final text = await File('../../profile/$name.json').readAsString();
+      final json = jsonDecode(text) as Map<String, Object?>;
+      final source = json['profile'] is Map<String, Object?>
+          ? json['profile'] as Map<String, Object?>
+          : json;
+      final key = (source['id'] as String, source['release'] as String);
+      expect(
+        embedded[key],
+        text,
+        reason:
+            'profile/$name.json is not embedded; run '
+            'dart run tool/generate_installed_profiles.dart',
+      );
+      expect(embedded.keys, [key], reason: name);
     }
     for (final (path, embedded) in [
       ('wayfinder.schema.json', wayfinderConfigurationSchema),
@@ -52,7 +40,6 @@ void main() {
       );
     }
     expect(externalStandardTypes.length, 12);
-    expect(legacyStandardTypes.length, 14);
   });
   late Directory project;
   late Directory bundle;
@@ -653,33 +640,38 @@ okf_version: "0.2"
     expect(again.profileState, ProfileState.pass);
   });
 
-  test('--fix never writes a 2026.2 bundle or one OKF rejects', () async {
-    final legacy = await copyFixture('structure-boundary');
-    addTearDown(() => legacy.delete(recursive: true));
-    final index = File(p.join(legacy.path, 'index.md'));
-    await index.writeAsString(
-      (await index.readAsString()).replaceFirst('# Bundle', '# Navigation'),
-    );
-    final before = await _snapshot(legacy);
-    final old = await const ProfileValidator().validate(legacy.path, fix: true);
-    expect(old.profileRelease, '2026.2');
-    expect(old.fixed, isNull);
-    expect(old.diagnostics.map((d) => d.code), [DiagnosticCode.fixNotApplied]);
-    expect(await _snapshot(legacy), before);
+  test(
+    '--fix never writes an unconfigured bundle or one OKF rejects',
+    () async {
+      final unconfigured = await copyFixture('unconfigured');
+      addTearDown(() => unconfigured.delete(recursive: true));
+      final before = await _snapshot(unconfigured);
+      final unselected = await const ProfileValidator().validate(
+        unconfigured.path,
+        fix: true,
+      );
+      expect(unselected.profileState, ProfileState.notAssessed);
+      expect(unselected.fixed, isNull);
+      expect(unselected.diagnostics.map((d) => d.code), [
+        DiagnosticCode.configMissing,
+        DiagnosticCode.fixNotApplied,
+      ]);
+      expect(await _snapshot(unconfigured), before);
 
-    await File(p.join(bundle.path, 'index.md')).delete();
-    final sample = File(p.join(bundle.path, 'sample.md'));
-    await sample.writeAsString(
-      (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
-    );
-    final blocked = await validateBundle(bundle.path, fix: true);
-    expect(blocked.profileState, ProfileState.blockedByOkf);
-    expect(blocked.fixed, isNull);
-    expect(blocked.diagnostics.map((d) => d.code), [
-      DiagnosticCode.fixNotApplied,
-    ]);
-    expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
-  });
+      await File(p.join(bundle.path, 'index.md')).delete();
+      final sample = File(p.join(bundle.path, 'sample.md'));
+      await sample.writeAsString(
+        (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
+      );
+      final blocked = await validateBundle(bundle.path, fix: true);
+      expect(blocked.profileState, ProfileState.blockedByOkf);
+      expect(blocked.fixed, isNull);
+      expect(blocked.diagnostics.map((d) => d.code), [
+        DiagnosticCode.fixNotApplied,
+      ]);
+      expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
+    },
+  );
 
   test('rejects unknown fields and duplicate or colliding definitions', () {
     final valid = _config();
@@ -873,108 +865,62 @@ okf_version: "0.2"
     expect(result.profileRelease, '2026.3');
   });
 
-  test('keeps an unlisted legacy bundle on its declared release', () async {
-    final legacy = await copyFixture('conformant');
-    final moved = await legacy.rename(p.join(project.path, 'legacy'));
-    final result = await validateBundle(moved.path);
-    expect(result.profileRelease, '2026.2');
-    expect(result.profileState, ProfileState.pass);
-  });
-
-  test('reports an unlisted nonlegacy bundle as a binding error', () async {
+  test('reports an unlisted bundle as a binding error, even with a 2026.2 '
+      'declaration', () async {
     final other = await Directory(p.join(project.path, 'other')).create();
     await _writeBundle(other);
-    final result = await validateBundle(other.path);
-    expect(result.profileState, ProfileState.notAssessed);
-    expect(result.diagnostics.single.code, DiagnosticCode.bundleUnbound);
-    expect(result.diagnostics.single.message, contains('not listed'));
+    for (final declared in [false, true]) {
+      if (declared) await _writeRetiredRegistries(other);
+      final result = await validateBundle(other.path);
+      expect(
+        result.profileState,
+        ProfileState.notAssessed,
+        reason: '$declared',
+      );
+      expect(result.diagnostics.single.code, DiagnosticCode.bundleUnbound);
+      expect(result.diagnostics.single.message, contains('not listed'));
+    }
   });
 
-  test('rejects a 2026.3 selector in legacy profile.md', () async {
-    final legacy = await copyFixture('conformant');
-    addTearDown(() => legacy.delete(recursive: true));
-    final declaration = File(p.join(legacy.path, 'profile.md'));
-    await declaration.writeAsString(
-      (await declaration.readAsString()).replaceAll('2026.2', '2026.3'),
-    );
-    final result = await validateBundle(legacy.path);
-    expect(result.profileState, ProfileState.notAssessed);
-    expect(result.diagnostics.single.code, DiagnosticCode.profileUnsupported);
-  });
-
-  test('reserves nested registry names only under legacy 2026.2', () async {
-    const concept = '''
+  test('a nested registry name is an ordinary concept', () async {
+    final area = await Directory(p.join(bundle.path, 'area')).create();
+    await File(p.join(area.path, 'types.md')).writeAsString('''
 ---
 type: Guide
 title: Area types
-description: An ordinary concept named like a legacy registry.
+description: An ordinary concept named like a former registry.
 status: stable
+generated: {by: process:test, at: 2026-09-27T00:00:00Z}
 ---
 
 # Area types
-''';
-    Future<List<String?>> reservedNameFindings(
-      Directory root,
-      String release,
-    ) async {
-      final area = await Directory(p.join(root.path, 'area')).create();
-      await File(p.join(area.path, 'types.md')).writeAsString(concept);
-      final result = await validateBundle(root.path);
-      expect(result.okfState, OkfState.pass);
-      expect(result.profileRelease, release);
-      return result.findings
-          .where(
-            (finding) => finding.id == 'concepta-profile/root-structure-files',
-          )
-          .map((finding) => finding.path)
-          .toList();
-    }
-
-    expect(await reservedNameFindings(bundle, '2026.3'), isEmpty);
-    final legacy = await copyFixture('conformant');
-    addTearDown(() => legacy.delete(recursive: true));
-    expect(await reservedNameFindings(legacy, '2026.2'), ['area/types.md']);
+''');
+    final result = await validateBundle(bundle.path, fix: true);
+    expect(result.okfState, OkfState.pass);
+    expect(result.profileState, ProfileState.pass);
   });
 
-  test(
-    'migrates a legacy root without reinterpreting its old release',
-    () async {
-      await File(p.join(project.path, 'wayfinder.json')).delete();
-      await bundle.delete(recursive: true);
-      final legacy = await copyFixture('conformant');
-      bundle = await legacy.rename(p.join(project.path, 'knowledge'));
-      final old = await validateBundle(bundle.path);
-      expect(old.profileRelease, '2026.2');
-      expect(old.profileState, ProfileState.pass);
+  test('a configured bundle must drop its 2026.2 registries', () async {
+    await _writeRetiredRegistries(bundle);
+    final halfway = await validateBundle(bundle.path);
+    expect(halfway.profileState, ProfileState.fail);
+    expect(
+      halfway.findings
+          .where(
+            (finding) =>
+                finding.id == 'concepta-profile/configuration-legacy-registry',
+          )
+          .map((finding) => finding.path),
+      ['actors.md', 'profile.md', 'types.md'],
+    );
 
-      await _writeConfig(project);
-      final halfway = await validateBundle(bundle.path);
-      expect(halfway.profileState, ProfileState.fail);
-      expect(
-        halfway.findings.map((finding) => finding.id),
-        contains('concepta-profile/configuration-legacy-registry'),
-      );
-
-      for (final name in ['profile.md', 'types.md', 'actors.md']) {
-        await File(p.join(bundle.path, name)).delete();
-      }
-      await File(p.join(bundle.path, 'index.md')).writeAsString(
-        '''
----
-okf_version: "0.2"
----
-
-# Bundle
-
-* [Knowledge Log](log.md)
-'''
-            .trimLeft(),
-      );
-      final migrated = await validateBundle(bundle.path);
-      expect(migrated.profileRelease, '2026.3');
-      expect(migrated.profileState, ProfileState.pass);
-    },
-  );
+    for (final name in ['profile.md', 'types.md', 'actors.md']) {
+      await File(p.join(bundle.path, name)).delete();
+    }
+    final migrated = await validateBundle(bundle.path);
+    expect(migrated.profileRelease, '2026.3');
+    expect(migrated.profileState, ProfileState.pass);
+  });
 }
 
 Future<Map<String, List<int>>> _snapshot(Directory root) async => {
@@ -1048,4 +994,23 @@ A sample guide.
 '''
         .trimLeft(),
   );
+}
+
+Future<void> _writeRetiredRegistries(Directory bundle) async {
+  for (final (name, type) in [
+    ('profile.md', 'Knowledge Profile'),
+    ('types.md', 'Type Registry'),
+    ('actors.md', 'Actor Registry'),
+  ]) {
+    await File(p.join(bundle.path, name)).writeAsString('''
+---
+type: $type
+title: $type
+description: A 2026.2 registry left in the bundle.
+status: stable
+---
+
+# $type
+''');
+  }
 }

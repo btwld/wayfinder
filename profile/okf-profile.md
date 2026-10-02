@@ -1659,8 +1659,9 @@ impact for bundles conformant to the release before it.
 
 ## Appendix A: Worked example
 
-The 2026.2 worked bundle remains available in the immutable snapshot and
-`examples/knowledge/` as a migration reference. A minimal 2026.3 project has:
+The 2026.2 worked bundle remains available in the immutable snapshot, and
+`examples/bitwild/` holds the same bundle migrated to 2026.3. A minimal 2026.3
+project has:
 
 ```text
 project/

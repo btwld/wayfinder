@@ -13,9 +13,9 @@
     {
       "id": "wayfinder/config-invalid",
       "level": "error",
-      "message": "The first fenced yaml declaration in profile.md is invalid.",
+      "message": "wayfinder.json is not valid JSON at offset 34: Unexpected end of input.",
       "location": {
-        "path": "profile.md"
+        "path": "test/fixtures/malformed/wayfinder.json"
       }
     }
   ],

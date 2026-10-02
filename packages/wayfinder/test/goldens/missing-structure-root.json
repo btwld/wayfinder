@@ -6,30 +6,31 @@
     }
   },
   "profile": {
-    "release": "2026.2",
+    "release": "2026.3",
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/root-structure-files",
+        "id": "concepta-profile/okf-release-binding",
         "severity": "error",
-        "message": "The bundle root must contain index.md, log.md, profile.md, and types.md; missing index.md.",
+        "message": "The bundle root index must declare okf_version: \"0.2\".",
         "location": {
           "path": "index.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§3.5"
+        "profile_release": "2026.3",
+        "rule": "§11"
       },
       {
-        "id": "concepta-profile/okf-release-binding",
+        "id": "concepta-profile/root-structure-files",
         "severity": "error",
-        "message": "The declaration, root index, and Profile release must all bind to OKF 0.2.",
+        "message": "The configured bundle root must contain index.md and log.md; missing index.md.",
         "location": {
-          "path": "profile.md"
+          "path": "index.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§11"
+        "profile_release": "2026.3",
+        "rule": "§3.5"
       }
-    ]
+    ],
+    "summary": []
   },
   "diagnostics": [],
   "gate": {

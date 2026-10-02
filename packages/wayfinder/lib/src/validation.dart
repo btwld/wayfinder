@@ -1,21 +1,17 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
 import 'diagnostics.dart';
 import 'profile_finding.dart';
 import 'profile_release.dart';
 import 'profile_rule_descriptors.dart';
-import 'rules/builtins.dart';
 import 'rules/catalog.dart';
 import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
-import 'rules/registries.dart';
 import 'rules/structure_builtins.dart' show withLfLineEndings;
 import 'wayfinder_config.dart';
 
@@ -245,13 +241,12 @@ sealed class _Selection {
 }
 
 final class _Selected extends _Selection {
-  const _Selected(this.profile, {this.config});
+  const _Selected(this.profile, {required this.config});
 
   final EffectiveProfile profile;
 
-  /// The project file that selected [profile]; null for a 2026.2
-  /// `profile.md` declaration.
-  final ProjectFileLocation? config;
+  /// The project file that selected [profile].
+  final ProjectFileLocation config;
 }
 
 final class _Unselected extends _Selection {
@@ -285,14 +280,12 @@ final class ProfileValidator {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
     final sourceResolution = await resolveSources?.call();
-    final selection =
-        await _configuredSelection(
-          bundlePath,
-          configPath: configPath,
-          resolvedProfiles: sourceResolution?.bindings ?? resolvedProfiles,
-          resolutionError: sourceResolution?.error ?? resolutionError,
-        ) ??
-        _declaredSelection(loaded);
+    final selection = await _configuredSelection(
+      bundlePath,
+      configPath: configPath,
+      resolvedProfiles: sourceResolution?.bindings ?? resolvedProfiles,
+      resolutionError: sourceResolution?.error ?? resolutionError,
+    );
     final reasons = [if (selection case _Unselected(:final reason)) reason];
     if (!validation.isConformant) {
       return ProfileValidationResult._(validation, const BlockedByOkf(), [
@@ -321,7 +314,7 @@ final class ProfileValidator {
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
     EffectiveProfile profile,
-    ProjectFileLocation? config,
+    ProjectFileLocation config,
   ) async {
     final files = fixes(
       profile,
@@ -376,7 +369,7 @@ final class ProfileValidator {
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
     EffectiveProfile profile,
-    ProjectFileLocation? config, {
+    ProjectFileLocation config, {
     List<String>? fixed,
     List<EngineDiagnostic> diagnostics = const [],
   }) {
@@ -406,13 +399,12 @@ final class ProfileValidator {
             : null,
       ),
       [
-        if (config != null)
-          for (final name in profile.vocabulary.projectTypes)
-            EngineDiagnostic(
-              DiagnosticCode.projectType,
-              'Configured project type $name is available to this bundle.',
-              location: config,
-            ),
+        for (final name in profile.vocabulary.projectTypes)
+          EngineDiagnostic(
+            DiagnosticCode.projectType,
+            'Configured project type $name is available to this bundle.',
+            location: config,
+          ),
         ...diagnostics,
         if (facts.links case LinksUnavailable(:final error))
           EngineDiagnostic(
@@ -485,24 +477,33 @@ Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
   return true;
 }
 
-/// The Profile a `wayfinder.json` selects for [bundlePath]; null when no
-/// project file applies, so a 2026.2 `profile.md` declaration decides.
-Future<_Selection?> _configuredSelection(
+/// The Profile the `wayfinder.json` that lists [bundlePath] selects. Without
+/// [configPath], the nearest file above the bundle applies.
+Future<_Selection> _configuredSelection(
   String bundlePath, {
   String? configPath,
   Map<String, WayfinderProfileBinding>? resolvedProfiles,
   String? resolutionError,
 }) async {
-  final file = configPath == null
-      ? await _findProjectConfig(bundlePath)
-      : File(configPath);
-  if (file == null || !await file.exists()) {
-    if (configPath == null) return null;
-    return _Unselected(
+  final File file;
+  if (configPath != null) {
+    file = File(configPath);
+    if (!await file.exists()) {
+      return _Unselected(
+        EngineDiagnostic(
+          DiagnosticCode.configMissing,
+          'Configuration file $configPath does not exist.',
+          location: ProjectFileLocation(path: configPath, file: configPath),
+        ),
+      );
+    }
+  } else if (await _findProjectConfig(bundlePath) case final found?) {
+    file = found;
+  } else {
+    return const _Unselected(
       EngineDiagnostic(
         DiagnosticCode.configMissing,
-        'Configuration file $configPath does not exist.',
-        location: ProjectFileLocation(path: configPath, file: configPath),
+        'No wayfinder.json was found above the bundle.',
       ),
     );
   }
@@ -517,11 +518,6 @@ Future<_Selection?> _configuredSelection(
   try {
     config = await WayfinderProjectConfig.read(file);
   } on WayfinderConfigException catch (error) {
-    // An unselected ancestor file cannot silently migrate a 2026.2 bundle.
-    if (configPath == null &&
-        await File(p.join(bundlePath, 'profile.md')).exists()) {
-      return null;
-    }
     return unselected(DiagnosticCode.configInvalid, error.message);
   }
   final String projectRoot;
@@ -552,12 +548,6 @@ Future<_Selection?> _configuredSelection(
     } on FileSystemException {
       unreadablePaths.add(bundle.path);
     }
-  }
-  if (configPath == null &&
-      selectedPath == null &&
-      await File(p.join(bundlePath, 'profile.md')).exists()) {
-    // An unrelated project configuration cannot migrate a 2026.2 bundle.
-    return null;
   }
   if (unreadablePaths.isNotEmpty) {
     return unselected(
@@ -625,7 +615,6 @@ Future<_Selection?> _configuredSelection(
         ...binding.catalogs,
       ],
       Vocabulary(
-        standardTypes: externalStandardTypes.map((row) => row.$1).toList(),
         projectTypes: binding.types.map((type) => type.name).toList(),
         types: binding.typeNames.toList(),
         tags: binding.tagNames.toList(),
@@ -646,97 +635,4 @@ Future<File?> _findProjectConfig(String bundlePath) async {
     if (parent == directory) return null;
     directory = parent;
   }
-}
-
-/// The Profile a 2026.2 `profile.md` declaration selects.
-_Selection _declaredSelection(OkfBundleLoadResult loaded) {
-  const location = BundleLocation('profile.md');
-  _Unselected invalid(String message) => _Unselected(
-    EngineDiagnostic(DiagnosticCode.configInvalid, message, location: location),
-  );
-
-  final document = loaded.documents['profile.md'];
-  if (document == null && loaded.paths.contains('profile.md')) {
-    return invalid('profile.md is not a readable OKF document.');
-  }
-  if (document == null) {
-    return const _Unselected(
-      EngineDiagnostic(
-        DiagnosticCode.configMissing,
-        'No wayfinder.json lists the bundle, and it has no profile.md '
-        'declaration.',
-      ),
-    );
-  }
-  final yamlSource = _firstYamlFence(document.body);
-  if (yamlSource == null) {
-    return invalid('profile.md must contain a fenced yaml declaration.');
-  }
-  Object? parsed;
-  try {
-    parsed = loadYaml(yamlSource);
-  } on YamlException {
-    return invalid(
-      'The first fenced yaml declaration in profile.md is invalid.',
-    );
-  }
-  if (parsed is! Map) {
-    return invalid('The Profile declaration must be a YAML mapping.');
-  }
-  final values = <String, String>{};
-  for (final key in const <String>['concepta_profile', 'okf_version']) {
-    final value = parsed[key];
-    if (value is! String || value.trim().isEmpty) {
-      return invalid(
-        'The Profile declaration must contain non-empty string '
-        'values for concepta_profile and okf_version.',
-      );
-    }
-    values[key] = value;
-  }
-  final release = values['concepta_profile']!;
-  if (release != legacyProfileRelease) {
-    return _Unselected(
-      EngineDiagnostic(
-        DiagnosticCode.profileUnsupported,
-        'Profile release $release is not supported; this wayfinder assesses '
-        '$legacyProfileRelease declarations.',
-        location: location,
-      ),
-    );
-  }
-  final registries = LegacyRegistries(loaded);
-  return _Selected(
-    EffectiveProfile(
-      [RuleCatalog.installed(builtinProfileId, release)],
-      legacyRegistryVocabulary(registries),
-      legacyDispatch: (declaration: values, registries: registries),
-    ),
-  );
-}
-
-String? _firstYamlFence(String body) {
-  final nodes = markdown.Document(encodeHtml: false).parse(body);
-  String? find(Iterable<markdown.Node> candidates) {
-    for (final node in candidates) {
-      if (node case final markdown.Element element) {
-        final children = element.children;
-        if (element.tag == 'pre' && children != null && children.isNotEmpty) {
-          final code = children.first;
-          if (code is markdown.Element &&
-              code.tag == 'code' &&
-              code.attributes['class'] == 'language-yaml') {
-            return code.textContent;
-          }
-        }
-        if (children != null) {
-          final nested = find(children);
-          if (nested != null) return nested;
-        }
-      }
-    }
-    return null;
-  }
-
-  return find(nodes);
 }

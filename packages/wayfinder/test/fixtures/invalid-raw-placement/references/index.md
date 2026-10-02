@@ -1,3 +1,0 @@
-# Directories
-
-* [raw](raw/)

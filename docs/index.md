@@ -10,8 +10,6 @@
 
 [Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
 
-Earlier-release evidence is preserved in the [2026.2 compatibility review](compatibility-review-2026.2.md) and [2026.2 assessment coverage](../implementation/profile-coverage-2026.2.md). These are different checks, not duplicate reports.
-
 ## Configuration guides
 
 [Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, manifest schemas, explicit lock resolution, and read-only validation order.

@@ -2,9 +2,6 @@
 
 Status: Complete — Profile 2026.3 release evidence
 
-The [2026.2 compatibility review](compatibility-review-2026.2.md) is preserved
-for legacy release dispatch.
-
 This non-normative review records whether each normative Bitwild Profile
 2026.3 rule preserves the pinned OKF 0.2 contract. The pin is
 `open-knowledge-format` at `ad30107`, whose text is identical to

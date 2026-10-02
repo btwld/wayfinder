@@ -21,9 +21,11 @@ outside the requested scope.
 ### 1. Explore
 
 - `knowledge/` and project-root `wayfinder.json` — does a bundle already exist?
-  If so, resolve its exact configured binding or legacy `knowledge/profile.md`
-  declaration and report the selected release. An existing bundle needs no
-  seeding; changing its release is a migration, not adoption.
+  If so, resolve its exact configured binding and report the selected release.
+  An existing bundle needs no seeding; changing its release is a migration, not
+  adoption. A 2026.2 bundle, which declares its release inside the bundle, has
+  no binding: report that it must migrate to `wayfinder.json` or be validated
+  with wayfinder 0.1.x.
 - `AGENTS.md` at the repo root — does it exist? Does it already have a
   `### Knowledge bundle` or `### Wayfinder` block? A `## Documentation` section
   left by an earlier adoption repeats the bundle block; fold it into that block.
@@ -78,7 +80,7 @@ tool's concern, out of this skill's scope.
 
 Durable project documentation and knowledge live in the OKF bundle at
 `knowledge/`, following the Bitwild OKF Profile (release selected in
-`wayfinder.json`, or in legacy `knowledge/profile.md`). Start at
+`wayfinder.json`). Start at
 `knowledge/index.md`, then the area index, then the concept.
 
 Follow the `author-knowledge-bundle` skill before writing anything under
@@ -143,16 +145,16 @@ Read [the authoring skill](../author-knowledge-bundle/SKILL.md) and perform its
 release dispatch. Follow its
 [Profile assessment reference](../author-knowledge-bundle/references/profile-assessment.md)
 with **Scope: whole bundle**, including automated validation and the Profile
-Review Report. For a 2026.3 bundle holding concepts, run
+Review Report. For a bundle holding concepts, run
 `wayfinder validate knowledge --fix` so its indexes are okf's generated
-output; `--fix` never writes a 2026.2 bundle. Repair clear defects in the new seed within the authorized scope.
+output. Repair clear defects in the new seed within the authorized scope.
 For an existing bundle, report unrelated defects without silently broadening setup
 into a migration or whole-bundle repair.
 
 ### 6. Report the result
 
 Tell the user what was seeded or preserved and where it starts (`knowledge/index.md`,
-the binding in `wayfinder.json` or legacy declaration), that `author-knowledge-bundle` governs
+the binding in `wayfinder.json`), that `author-knowledge-bundle` governs
 every later write, and that the tree grows out of what the project actually
 learns — concepts land at the root first, and subject directories are earned,
 never predicted. Include the assessment result; if a required check is unavailable

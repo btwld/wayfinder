@@ -130,18 +130,11 @@ void main() {
 
   test('OKF findings are results under their okf ids', () async {
     final run = _run(await _sarif(fixture('invalid-concepts')));
-    expect(_results(run).take(2), [
-      (
-        'okf/invalid-generated',
-        'warning',
-        'test/fixtures/invalid-concepts/bad.md',
-      ),
-      (
-        'okf/invalid-status',
-        'warning',
-        'test/fixtures/invalid-concepts/bad.md',
-      ),
-    ]);
+    expect(_results(run).first, (
+      'okf/invalid-status',
+      'warning',
+      'test/fixtures/invalid-concepts/knowledge/bad.md',
+    ));
     expect(_rules(run)['okf/invalid-status'], {
       'id': 'okf/invalid-status',
       'shortDescription': {'text': isNotEmpty},
@@ -163,26 +156,26 @@ void main() {
       {'executionSuccessful': true},
     ]);
 
-    final unsupported = _run(await _sarif(fixture('unsupported')));
-    expect(unsupported['properties'], {
+    final unselected = _run(await _sarif(fixture('malformed')));
+    expect(unselected['properties'], {
       'okf_state': 'PASS',
       'profile_release': null,
       'profile_state': 'NOT ASSESSED',
       'gate': 'INCOMPLETE',
     });
-    expect(unsupported['invocations'], [
+    expect(unselected['invocations'], [
       {
         'executionSuccessful': false,
         'toolConfigurationNotifications': [
           {
-            'descriptor': {'id': 'wayfinder/profile-unsupported', 'index': 0},
+            'descriptor': {'id': 'wayfinder/config-invalid', 'index': 0},
             'level': 'error',
-            'message': {'text': contains('2027.1')},
+            'message': {'text': contains('not valid JSON')},
             'locations': [
               {
                 'physicalLocation': {
                   'artifactLocation': {
-                    'uri': 'test/fixtures/unsupported/profile.md',
+                    'uri': 'test/fixtures/malformed/wayfinder.json',
                     'uriBaseId': 'WORKINGDIR',
                   },
                 },
@@ -192,9 +185,9 @@ void main() {
         ],
       },
     ]);
-    expect(_notificationDescriptors(unsupported), [
+    expect(_notificationDescriptors(unselected), [
       {
-        'id': 'wayfinder/profile-unsupported',
+        'id': 'wayfinder/config-invalid',
         'shortDescription': {'text': isNotEmpty},
         'defaultConfiguration': {'level': 'error'},
       },

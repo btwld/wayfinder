@@ -6,6 +6,7 @@ import 'package:okf/okf_io.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_cli/src/profile_resolver.dart';
 
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
@@ -47,7 +48,7 @@ void main() {
 
   for (final args in [
     <String>[],
-    ['profile', 'validate', '../../examples/knowledge'],
+    ['profile', 'validate', '../../examples/bitwild/knowledge'],
     ['knowledge', 'search', '.', 'query'],
     ['search', '.', 'query', '--mode=dense'],
     ['index'],
@@ -107,20 +108,23 @@ void main() {
   );
 
   test('validate shares the full existing result and exit code', () async {
-    const bundle = '../../examples/knowledge';
-    final expected = await const ProfileValidator().validate(bundle);
+    const bundle = '../../examples/bitwild/knowledge';
+    final expected = await validateWithProfileSources(bundle);
     expect(
       await cli.run(['validate', bundle, '--output=json']),
       expected.exitCode,
     );
     expect(jsonDecode(output.single), expected.toJson());
-    expect(expected.toJson(), containsPair('gate', {'state': 'PASS'}));
+    expect(expected.diagnostics.map((d) => d.code), [
+      DiagnosticCode.profileUnresolved,
+    ]);
+    expect(expected.toJson(), containsPair('gate', {'state': 'INCOMPLETE'}));
     expect(errors, isEmpty);
   });
 
   test('validate --output=sarif writes the result as a SARIF log', () async {
-    const bundle = '../../examples/knowledge';
-    final expected = await const ProfileValidator().validate(bundle);
+    const bundle = '../../examples/bitwild/knowledge';
+    final expected = await validateWithProfileSources(bundle);
     expect(
       await cli.run(['validate', bundle, '--output=sarif']),
       expected.exitCode,
@@ -211,10 +215,10 @@ void main() {
     },
   );
 
-  test('validate --fix never writes a 2026.2 bundle', () async {
+  test('validate --fix never writes an unconfigured bundle', () async {
     final copy = await Directory.systemTemp.createTemp('wayfinder-fix-');
     addTearDown(() => copy.delete(recursive: true));
-    final source = Directory('../../examples/knowledge');
+    final source = Directory('test/fixtures/knowledge');
     final before = <String, List<int>>{};
     await for (final entity in source.list(recursive: true)) {
       if (entity is! File) continue;
@@ -224,19 +228,18 @@ void main() {
       await entity.copy(target.path);
       before[relative] = await entity.readAsBytes();
     }
-    final index = File('${copy.path}/index.md');
-    await index.writeAsString('${await index.readAsString()}\n');
-    before['index.md'] = await index.readAsBytes();
 
-    expect(await cli.run(['validate', copy.path, '--fix']), 0);
+    expect(await cli.run(['validate', copy.path, '--fix']), 2);
     expect(output.first, 'OKF: PASS');
-    expect(output, contains('Profile 2026.2: PASS'));
+    expect(output, contains('Profile: NOT ASSESSED'));
     expect(
       output,
-      contains(
+      containsAll([
+        'error wayfinder/config-missing: '
+            'No wayfinder.json was found above the bundle.',
         'warning wayfinder/fix-not-applied: '
-        'Profile 2026.2 has no fixable rules.',
-      ),
+            'No supported Profile release was selected.',
+      ]),
     );
     await for (final entity in copy.list(recursive: true)) {
       if (entity is! File) continue;
@@ -262,10 +265,13 @@ void main() {
     expect(errors, isEmpty);
   });
 
-  test('validate preserves an undeclared-profile result', () async {
+  test('validate preserves an unconfigured result', () async {
     const bundle = 'test/fixtures/knowledge';
     final expected = await const ProfileValidator().validate(bundle);
-    expect(expected.exitCode, isNot(0));
+    expect(expected.exitCode, 2);
+    expect(expected.diagnostics.map((d) => d.code), [
+      DiagnosticCode.configMissing,
+    ]);
     expect(
       await cli.run(['validate', bundle, '--output=json']),
       expected.exitCode,
@@ -507,19 +513,27 @@ title: Generic concept
     });
 
     test('projects the ordinary OKF graph without retrieval', () async {
-      const bundle = '../../examples/knowledge';
+      const bundle = '../../examples/bitwild/knowledge';
       final expected = await _okfGraph(bundle);
       expect(await cli.run(['graph', bundle]), 0);
-      expect(jsonDecode(output.single), {
-        ...expected.toJson(),
-        'field_edges': <Object?>[],
-      });
+      final graph = jsonDecode(output.single) as Map<String, Object?>;
+      final fieldEdges = graph.remove('field_edges')! as List<Object?>;
+      expect(graph, expected.toJson());
+      expect(
+        fieldEdges.map((edge) => (edge! as Map<String, Object?>)['name']),
+        unorderedEquals([
+          'specified-by',
+          'assessed-by',
+          'refines',
+          'constrained-by',
+        ]),
+      );
       expect(expected.toJson()['schema_version'], '1');
       expect(retrievalOpens, 0);
     });
 
     test('mermaid and DOT are text, not a rendered picture', () async {
-      const bundle = '../../examples/knowledge';
+      const bundle = '../../examples/bitwild/knowledge';
       expect(await cli.run(['graph', bundle, '--output=mermaid']), 0);
       expect(output.single, startsWith('flowchart LR'));
       output.clear();
@@ -529,7 +543,7 @@ title: Generic concept
     });
 
     test('type and path-prefix filters match OkfGraphQuery', () async {
-      const bundle = '../../examples/knowledge';
+      const bundle = '../../examples/bitwild/knowledge';
       final full = await _okfGraph(bundle);
       final requests = await _okfGraph(
         bundle,
@@ -540,17 +554,19 @@ title: Generic concept
         query: OkfGraphQuery(pathPrefixes: ['reporting/']),
       );
       expect(await cli.run(['graph', bundle, '--type=Request']), 0);
-      expect(jsonDecode(output.single), {
-        ...requests.toJson(),
-        'field_edges': <Object?>[],
-      });
+      expect(
+        (jsonDecode(output.single) as Map<String, Object?>)
+          ..remove('field_edges'),
+        requests.toJson(),
+      );
       expect(requests.nodes.length, lessThan(full.nodes.length));
       output.clear();
       expect(await cli.run(['graph', bundle, '--path-prefix=reporting/']), 0);
-      expect(jsonDecode(output.single), {
-        ...reporting.toJson(),
-        'field_edges': <Object?>[],
-      });
+      expect(
+        (jsonDecode(output.single) as Map<String, Object?>)
+          ..remove('field_edges'),
+        reporting.toJson(),
+      );
       expect(reporting.nodes.length, lessThan(full.nodes.length));
     });
 

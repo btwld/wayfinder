@@ -65,8 +65,6 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run tool/generate_installed_profiles.dart --check
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: dart run wayfinder_cli:wayfinder validate examples/knowledge
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: python3 tool/ci/verify-configured-example.py
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run

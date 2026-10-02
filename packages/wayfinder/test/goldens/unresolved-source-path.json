@@ -6,7 +6,7 @@
     }
   },
   "profile": {
-    "release": "2026.2",
+    "release": "2026.3",
     "state": "PASS",
     "findings": [
       {
@@ -16,7 +16,7 @@
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
+        "profile_release": "2026.3",
         "rule": "§6.1"
       },
       {
@@ -26,7 +26,7 @@
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
+        "profile_release": "2026.3",
         "rule": "§6.1"
       },
       {
@@ -36,10 +36,11 @@
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
+        "profile_release": "2026.3",
         "rule": "§6.1"
       }
-    ]
+    ],
+    "summary": []
   },
   "diagnostics": [],
   "gate": {

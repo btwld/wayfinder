@@ -1,5 +1,22 @@
 # Unreleased
 
+- The engine selects a Profile only through `wayfinder.json`.
+  The 2026.2 dispatch through an in-bundle `profile.md` declaration is gone,
+  with its `types.md` and `actors.md` registry readers and its index
+  projection. A bundle with no `wayfinder.json` above it is `NOT ASSESSED`
+  with `wayfinder/config-missing` and gate `INCOMPLETE`, whatever its root
+  files say, and `--fix` writes nothing there. A `profile.md` no longer
+  exempts a bundle from `wayfinder/config-invalid` or
+  `wayfinder/bundle-unbound`. The 19 builtins frozen for 2026.2, the
+  builtins' `installedOnlyIn` restriction, `tag-literal-duplication` (dead
+  since 2026.3 checks tag collisions while reading the binding), and the
+  2026.2-only `reserved` param of `root-structure-files` are deleted, as are
+  `LegacyRegistries`, `EffectiveProfile.legacyDispatch`,
+  `Vocabulary.standardTypes`, `legacyProfileRelease`, and
+  `legacyStandardTypes`. Only `profile/wayfinder-profile.json` and
+  `profile/wayfinder-rules.json` are embedded, and the `yaml` dependency is
+  dropped. A 2026.2 bundle keeps validating on wayfinder 0.1.x, or migrates
+  to a `wayfinder.json` binding.
 - The engine reports on its own run as `EngineDiagnostic`s, a closed set of
   `wayfinder/*` codes with a level, instead of dressing them as Profile
   findings. Release dispatch problems (`DispatchRule` is gone), the

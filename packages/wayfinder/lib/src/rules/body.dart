@@ -61,8 +61,6 @@ final class ParsedBody {
     ];
   }
 
-  late final Set<String> definitionsIncludingFencedCode = _definitions(source);
-
   static Set<String> _definitions(String text) => {
     for (final match in _footnoteDefinition.allMatches(text)) match[1]!,
   };

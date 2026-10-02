@@ -2,9 +2,6 @@
 
 Status: Complete — Profile 2026.3 release evidence
 
-The [2026.2 coverage matrix](profile-coverage-2026.2.md) is preserved for
-legacy release dispatch.
-
 This non-normative matrix assigns each normative Bitwild Profile 2026.3 bundle
 rule to its assessment mode. It does not decide whether a rule preserves OKF;
 that evidence lives in
@@ -166,7 +163,7 @@ delivery slices and are not restated as Profile bundle clauses.
 okf 0.2.0 checks some territory the Profile also rules on, always at advisory
 severity in the independent OKF report: `okf/unsupported-okf-version` (root
 index `okf_version`) under the Profile's error-level
-`concepta-profile/okf-release-binding` in legacy 2026.2, and `okf/non-portable-index-link`
+`concepta-profile/okf-release-binding`, and `okf/non-portable-index-link`
 on an index §9 also requires to match generated output. The audit of the 0.1.2 → 0.2.0 severity re-tiering
 found no rule crossing the blocking boundary — every 0.1.2 `error` remains an
 `error`, every `warning` became a non-gating `advisory` — so no assignment in

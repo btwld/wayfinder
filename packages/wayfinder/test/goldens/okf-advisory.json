@@ -8,16 +8,17 @@
           "severity": "advisory",
           "message": "stale_after should be an ISO 8601 datetime with a UTC offset, such as 2026-09-23T00:00:00Z.",
           "location": {
-            "path": "types.md"
+            "path": "sample.md"
           }
         }
       ]
     }
   },
   "profile": {
-    "release": "2026.2",
+    "release": "2026.3",
     "state": "PASS",
-    "findings": []
+    "findings": [],
+    "summary": []
   },
   "diagnostics": [],
   "gate": {

@@ -1,10 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart';
-
-import 'legacy_cli.dart';
 
 /// One severity/id/path line per profile finding, in report order.
 List<String> findingSummary(Map<String, Object?> profile) =>
@@ -77,39 +74,4 @@ Future<Directory> copyFixture(String name) async {
     await entity.copy(copy.path);
   }
   return destination;
-}
-
-/// Runs okfp in a separate process — the historical validator contract harness.
-Future<CliResult> runProcess(List<String> arguments) async {
-  final result = await Process.run(
-    Platform.resolvedExecutable,
-    <String>['run', 'test/legacy_cli_main.dart', ...arguments],
-    stdoutEncoding: utf8,
-    stderrEncoding: utf8,
-  );
-  return CliResult(
-    result.exitCode,
-    (result.stdout as String).trimRight(),
-    (result.stderr as String).trimRight(),
-  );
-}
-
-/// Runs okfp in-process through [runOkfpCli].
-Future<CliResult> runCli(List<String> arguments) async {
-  final stdoutLines = <String>[];
-  final stderrLines = <String>[];
-  final exitCode = await runOkfpCli(
-    arguments,
-    out: stdoutLines.add,
-    err: stderrLines.add,
-  );
-  return CliResult(exitCode, stdoutLines.join('\n'), stderrLines.join('\n'));
-}
-
-final class CliResult {
-  const CliResult(this.exitCode, this.stdout, this.stderr);
-
-  final int exitCode;
-  final String stdout;
-  final String stderr;
 }

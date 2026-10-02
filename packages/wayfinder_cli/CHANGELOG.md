@@ -1,5 +1,15 @@
 # Unreleased
 
+- `wayfinder validate` and MCP validation of a 2026.2 bundle,
+  or any bundle with no `wayfinder.json` above it, report
+  `wayfinder/config-missing` with the Profile `NOT ASSESSED` and gate
+  `INCOMPLETE`, exiting 2. An in-bundle `profile.md` no longer selects a
+  Profile. Stay on wayfinder 0.1.x to keep validating a 2026.2 bundle
+  unchanged, or migrate it to a `wayfinder.json` binding. The runtime
+  archive no longer ships the 2026.2 Profile snapshot. The worked example
+  moved to `examples/bitwild`, a `wayfinder.json` project whose bundle is
+  `examples/bitwild/knowledge`; run `wayfinder get examples/bitwild` before
+  validating it.
 - `wayfinder validate` and MCP validation end with one derived gate, `PASS`,
   `FAIL` or `INCOMPLETE`, exiting 0, 1 or 2, and list the engine's
   `wayfinder/*` diagnostics beside the findings. A run that could not assess

@@ -32,7 +32,6 @@ void main() {
       profile: EffectiveProfile(
         [RuleCatalog.installed(builtinProfileId, externalProfileRelease)],
         Vocabulary(
-          standardTypes: const [],
           types: const ['Guide'],
           tags: const [],
           relationships: externalStandardRelationships

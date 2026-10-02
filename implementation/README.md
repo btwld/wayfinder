@@ -1,8 +1,8 @@
 # `implementation/` — the companion implementation guide
 
 [`okf-implementation-guide.md`](okf-implementation-guide.md) — current
-**2026.3 guide**, binding Profile 2026.3 exactly to OKF 0.2 while preserving
-2026.2 dispatch.
+**2026.3 guide**, binding Profile 2026.3 exactly to OKF 0.2 through
+`wayfinder.json` dispatch.
 
 [`profile-coverage.md`](profile-coverage.md) is the complete
 rule-to-assessment matrix. It is separate from the OKF compatibility review
@@ -25,17 +25,11 @@ appear to differ, the profile wins and this text is defective.
 | § | Chapter | Settles |
 | --- | --- | --- |
 | 2 | Adoption | Project binding, two required root files, the agent-instruction paragraph, and why generic setup creates no directories |
-| 3 | Index generation | The pinned okf reference generator, exact comparison and `validate --fix` for 2026.3; the 2026.2 semantic projection and its presentation-independent comparison; preservation of authored history |
+| 3 | Index generation | The pinned okf reference generator, exact comparison and `validate --fix`; preservation of authored history |
 | 4 | Validation | Exit codes, stable finding IDs, what a validator must never report, and version dispatch |
 | 5 | Migration | Measure, classify, cluster, slice vertically; granularity by the promotion rule; the three invariants every migration carries |
 | 6 | Distribution | Skills installed per developer, tools pinned per repository; no project vendors a copy of the profile |
 | 7 | Cross-bundle references | Deferred until a second bundle exists; ordinary URLs in the meantime |
-
-## Still owed
-
-- **A 2026.2 index generator.** 2026.3 indexes come from okf's generator through
-  `wayfinder validate --fix`, but no tool generates the 2026.2 projection. Its
-  indexes are hand-written and the validator catches the drift.
 
 ## What §5 does not carry
 

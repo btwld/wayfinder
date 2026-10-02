@@ -5,7 +5,6 @@ import '../field_edges.dart';
 import '../finding_helpers.dart';
 import 'body.dart';
 import 'profile.dart';
-import 'registries.dart';
 
 sealed class FactShape {
   const FactShape();
@@ -117,9 +116,6 @@ final class BundleFacts {
   final OkfGraph Function(OkfBundle) _buildGraph;
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
-
-  late final LegacyRegistries registries =
-      profile.legacyDispatch?.registries ?? LegacyRegistries(loaded);
 
   late final Map<String, ParsedBody> bodies = {
     for (final MapEntry(key: path, value: document) in loaded.documents.entries)
@@ -344,9 +340,6 @@ final class BundleInventory {
     final stem = p.posix.basenameWithoutExtension(conceptPath);
     return _areaDirectories.contains(parent.isEmpty ? stem : '$parent/$stem');
   }
-
-  Iterable<String> immediateDirectories(String parent) => nonRootDirectories
-      .where((directory) => parentDirectory(directory) == parent);
 }
 
 String parentDirectory(String path) {

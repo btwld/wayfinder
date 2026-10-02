@@ -154,8 +154,14 @@ final class WayfinderProjectConfig {
     try {
       decoded = jsonDecode(source);
     } on FormatException catch (error) {
+      // Not error.toString(): its source excerpt and caret differ by SDK.
+      final at = error.offset == null ? '' : ' at offset ${error.offset}';
+      final reason = error.message
+          .split('\n')
+          .first
+          .replaceFirst(RegExp(r'\.$'), '');
       throw WayfinderConfigException(
-        'wayfinder.json is not valid JSON: $error',
+        'wayfinder.json is not valid JSON$at: $reason.',
       );
     }
     // jsonDecode keeps only the last occurrence of an object key. Check the

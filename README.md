@@ -40,7 +40,7 @@ wayfinder index knowledge
 wayfinder search knowledge "How is reporting implemented?"
 ```
 
-Validation checks OKF and the automated rules of the declared Profile. Indexing reads
+Validation checks OKF and the automated rules of the configured Profile. Indexing reads
 its documents, computes embeddings locally and saves a local search index.
 Search reuses that index and embeds only the query, returning passages with
 source paths and line ranges. Run `index` again after editing the bundle;
@@ -75,7 +75,8 @@ OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins a
 is in error.
 
 Proposed release: **2026.3**, profiling **OKF 0.2 exactly**. Published
-2026.2 remains available as an immutable snapshot.
+2026.2 remains available as an immutable snapshot, and its bundles validate on
+wayfinder 0.1.x.
 Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
@@ -209,11 +210,12 @@ wayfinder validate knowledge --output sarif > wayfinder.sarif
 
 The command requires exactly one explicit bundle directory and inspects only that
 directory. It runs the independent OKF check and every deterministic rule selected
-by the bundle's Profile declaration, then derives one gate. Exit `0` (`PASS`)
+by the project's `wayfinder.json` binding, then derives one gate. Exit `0` (`PASS`)
 means OKF passed, no Profile finding is an error, and every selected rule ran;
 advisories remain non-blocking. Exit `1` (`FAIL`) means OKF or a deterministic
 Profile rule failed. Exit `2` (`INCOMPLETE`) means the run could not assess
-everything, for example an unresolved or unsupported Profile, a link graph
+everything, for example a missing `wayfinder.json`, an unresolved or
+unsupported Profile, a link graph
 that could not be built, or a usage or I/O error. A `wayfinder/` diagnostic in
 the output names the reason.
 
@@ -230,11 +232,16 @@ After installing the native runtime, try the illustrative bundle from a clone
 of this repository:
 
 ```bash
-wayfinder validate examples/knowledge
-wayfinder graph examples/knowledge --output mermaid
-wayfinder index examples/knowledge
-wayfinder search examples/knowledge "How is reporting implemented?"
+wayfinder get examples/bitwild
+wayfinder validate examples/bitwild/knowledge
+wayfinder graph examples/bitwild/knowledge --output mermaid
+wayfinder index examples/bitwild/knowledge
+wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 ```
+
+`get` resolves the project's Profile source into `wayfinder.lock`, because
+`validate` never fetches. Without it, validation reports
+`wayfinder/profile-unresolved` and gate `INCOMPLETE`.
 
 `index` generates and saves document embeddings locally; `search` reuses them
 and encodes only the query. There is no retrieval-mode flag. See the
@@ -247,14 +254,12 @@ for the launch configuration and tool lifecycle.
 
 ## Examples
 
-[`examples/knowledge/`](examples/knowledge/) is a complete bundle, small enough to read in one
-sitting, showing the profile's central separations: a source event produces durable knowledge,
-which links to an execution record, with generated indexes and an authored log.
-It remains on legacy Profile 2026.2. A minimal configured 2026.3 validator fixture is
+[`examples/bitwild/`](examples/bitwild/) is a complete project, small enough to read in one
+sitting: a `wayfinder.json` binding and a `knowledge/` bundle. It shows the profile's central
+separations: a source event produces durable knowledge, which links to an execution record,
+with generated indexes and an authored log. CI resolves its Profile source from a synthetic
+local Git repository. A minimal configured validator fixture is
 [`packages/wayfinder/test/fixtures/configured-project/`](packages/wayfinder/test/fixtures/configured-project/).
-The reviewable direct-source 2026.3 example is
-[`examples/configured-2026.3/`](examples/configured-2026.3/); CI resolves its
-source from a synthetic local Git repository.
 
 It includes a two-concept subject area to show that truthful placement, not a
 numeric threshold, determines structure.
@@ -314,7 +319,6 @@ dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
 dart run tool/generate_installed_profiles.dart --check
-dart run wayfinder_cli:wayfinder validate examples/knowledge
 python3 tool/ci/verify-configured-example.py
 ```
 

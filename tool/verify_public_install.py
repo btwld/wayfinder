@@ -6,10 +6,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
 import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tool/ci'))
+from bitwild_example import get_and_validate, prepare
 PUBLIC = ('https://raw.githubusercontent.com/btwld/wayfinder/'
           + os.environ.get('WAYFINDER_INSTALLER_REF', 'main') + '/tool/')
 
@@ -69,14 +72,14 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         raise SystemExit('This check requires an environment without Dart')
     env['PATH'] = str(binary_dir) + os.pathsep + env['PATH']
     wayfinder = str(binary_dir / ('wayfinder' + suffix))
-    fixture = str(ROOT / 'examples/knowledge')
+    fixture = str(ROOT / 'examples/bitwild/knowledge')
     for command in [
         [wayfinder, '--version'],
-        [wayfinder, 'validate', fixture],
         [wayfinder, 'index', fixture],
         [wayfinder, 'search', fixture, 'PDF annotations'],
     ]:
         subprocess.run(command, env=env, check=True, timeout=180)
+    get_and_validate([wayfinder], prepare(work / 'example'), env=env)
     repeated = subprocess.run([wayfinder, 'index', fixture, '--output=json'], env=env,
                               check=True, capture_output=True, text=True, timeout=180)
     print(repeated.stdout)

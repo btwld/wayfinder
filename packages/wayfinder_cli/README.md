@@ -13,14 +13,16 @@ wayfinder search ./knowledge "How do I regain account access?"
 ```
 
 Index and search always use local embeddings. Validation runs the existing
-OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
+OKF and the Profile checks its `wayfinder.json` selects and retains their output and exit
 codes. Validation never assesses judgment rules.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
 result if the Profile source is unresolved. `validate --fix` first writes
-okf's generated indexes for a 2026.3 bundle, then validates; it never writes
-a 2026.2 bundle or one that fails OKF. `graph`, `index`, and `search`
+okf's generated indexes, then validates; it never writes a bundle without a
+selected Profile or one that fails OKF. A bundle with no `wayfinder.json`
+above it, such as a 2026.2 bundle, reports `wayfinder/config-missing`; keep it
+on wayfinder 0.1.x or migrate it. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
@@ -54,9 +56,10 @@ From the workspace root:
 dart pub get
 dart run melos run objectbox:install
 dart run melos run wayfinder_embeddings:prepare
-dart run wayfinder:wayfinder validate examples/knowledge
-dart run wayfinder:wayfinder index examples/knowledge
-dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
+dart run wayfinder:wayfinder get examples/bitwild
+dart run wayfinder:wayfinder validate examples/bitwild/knowledge
+dart run wayfinder:wayfinder index examples/bitwild/knowledge
+dart run wayfinder:wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 dart run tool/build_wayfinder.dart --offline
 ```
 
