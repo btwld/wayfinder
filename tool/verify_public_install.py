@@ -1,4 +1,9 @@
-"""Exercise published installers with no Dart SDK or repository credentials."""
+"""Exercise published installers with no Dart SDK or repository credentials.
+
+Profile validation is not checked here: a published runtime can predate the
+repository's Profile format, so `verify_installer.py` checks validation against
+the archive built from each commit instead.
+"""
 import hashlib
 import json
 import os
@@ -6,13 +11,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-import sys
 import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tool/ci'))
-from bitwild_example import get_and_validate, prepare
 PUBLIC = ('https://raw.githubusercontent.com/btwld/wayfinder/'
           + os.environ.get('WAYFINDER_INSTALLER_REF', 'main') + '/tool/')
 
@@ -79,10 +81,9 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         [wayfinder, 'search', fixture, 'PDF annotations'],
     ]:
         subprocess.run(command, env=env, check=True, timeout=180)
-    get_and_validate([wayfinder], prepare(work / 'example'), env=env)
     repeated = subprocess.run([wayfinder, 'index', fixture, '--output=json'], env=env,
                               check=True, capture_output=True, text=True, timeout=180)
     print(repeated.stdout)
     if json.loads(repeated.stdout)['embeddedChunks'] != 0:
         raise SystemExit('Unchanged public runtime index unexpectedly embedded content')
-print('Public installer, validation, retrieval and index reuse passed without Dart.')
+print('Public installer, retrieval and index reuse passed without Dart.')
