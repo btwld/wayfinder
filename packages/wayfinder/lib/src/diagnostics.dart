@@ -104,7 +104,6 @@ enum DiagnosticCode {
   String get id => 'wayfinder/$slug';
 }
 
-/// Where a diagnostic points.
 sealed class DiagnosticLocation {
   const DiagnosticLocation();
 
@@ -149,8 +148,6 @@ final class EngineDiagnostic {
     if (location case final location?) 'location': {'path': location.path},
   };
 
-  /// Shaped like a finding's text line, `path: level id: message`, without
-  /// the path when there is no location.
   String toText() => switch (location) {
     null => '${level.name} $id: $message',
     final location => '${location.path}: ${level.name} $id: $message',

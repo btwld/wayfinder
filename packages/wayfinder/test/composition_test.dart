@@ -7,7 +7,6 @@ import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
-/// A Profile with two rules and no Bitwild, as the README shows one.
 final acme = ProfilePackage.parse(
   jsonEncode({
     'format': 2,
@@ -140,6 +139,9 @@ final child = ProfilePackage.parse(
 
 bool _bitwild(String id) => id.startsWith('bitwild-profile/');
 
+const _fixturesWithoutRootIndex = {'missing-structure-root'};
+const _fixturesWithoutConcept = {'empty-root-index'};
+
 void main() {
   group('a Profile with no Bitwild validates end to end', () {
     late Directory project;
@@ -267,9 +269,9 @@ void main() {
             .toList()
           ..sort();
     var chained = 0;
-    // missing-structure-root has no root index and no concept, so the
-    // child's root and concept rules have no subject to see there.
-    for (final name in fixtures.where((n) => n != 'missing-structure-root')) {
+    for (final name in fixtures.where(
+      (n) => !_fixturesWithoutRootIndex.contains(n),
+    )) {
       test(name, () async {
         final plain = await validateFixture(fixture(name));
         final composed = await validateFixture(
@@ -299,8 +301,7 @@ void main() {
           expect(added.map((f) => f.id), contains('client-profile/root-never'));
           expect(
             composed.summary!.map((e) => e.id),
-            // An empty bundle has no concept for the note rule to see.
-            name == 'empty-root-index'
+            _fixturesWithoutConcept.contains(name)
                 ? isNot(contains('client-profile/concept-seen'))
                 : contains('client-profile/concept-seen'),
           );

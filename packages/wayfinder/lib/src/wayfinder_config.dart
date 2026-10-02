@@ -21,6 +21,25 @@ final class WayfinderConfigException implements Exception {
 final class WayfinderDefinition {
   const WayfinderDefinition({required this.name, required this.description});
 
+  /// Reads a schema-checked list of `{name, description}` objects. Throws
+  /// [FormatException] whose source is the first name the list repeats.
+  static List<WayfinderDefinition> parseList(Object? value) {
+    final names = <String>{};
+    final definitions = <WayfinderDefinition>[];
+    for (final item
+        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>()) {
+      final name = item['name']! as String;
+      if (!names.add(name)) throw FormatException('repeats a name', name);
+      definitions.add(
+        WayfinderDefinition(
+          name: name,
+          description: item['description']! as String,
+        ),
+      );
+    }
+    return List.unmodifiable(definitions);
+  }
+
   final String name;
   final String description;
 }
@@ -312,14 +331,13 @@ final class WayfinderProjectConfig {
     if (WayfinderProfileSource.locationProblem(git) case final problem?) {
       throw WayfinderConfigException('profiles.$id.source.git $problem.');
     }
-    final types = _definitions(json['types']);
-    final tags = _definitions(json['tags']);
-    final relationships = _definitions(json['relationships']);
-    _validateDefinitions(id, {
-      'type': types,
-      'tag': tags,
-      'relationship': relationships,
-    });
+    final types = _definitions(id, 'type', json['types']);
+    final tags = _definitions(id, 'tag', json['tags']);
+    final relationships = _definitions(
+      id,
+      'relationship',
+      json['relationships'],
+    );
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
     return WayfinderProfileBinding(
       id: _profileId(id, 'profiles'),
@@ -335,9 +353,9 @@ final class WayfinderProjectConfig {
         ),
       ),
       project: ProjectVocabulary(
-        types: List.unmodifiable(types),
-        tags: List.unmodifiable(tags),
-        relationships: List.unmodifiable(relationships),
+        types: types,
+        tags: tags,
+        relationships: relationships,
         actors: Map.unmodifiable({
           for (final MapEntry(:key, :value) in actors.entries)
             key: _actor(value! as Map<String, Object?>),
@@ -356,26 +374,6 @@ final class WayfinderProjectConfig {
     return normalized.toList();
   }
 
-  /// A name repeated within one entry is rejected here; a name another
-  /// contributor also declares is a composition error, found when the chain
-  /// is composed.
-  static void _validateDefinitions(
-    String id,
-    Map<String, List<WayfinderDefinition>> vocabularies,
-  ) {
-    for (final MapEntry(key: noun, value: definitions)
-        in vocabularies.entries) {
-      final names = <String>{};
-      for (final definition in definitions) {
-        if (!names.add(definition.name)) {
-          throw WayfinderConfigException(
-            'Profile $id declares a duplicate $noun ${definition.name}.',
-          );
-        }
-      }
-    }
-  }
-
   static WayfinderActorMetadata _actor(Map<String, Object?> json) =>
       WayfinderActorMetadata(
         name: json['name']! as String,
@@ -384,17 +382,21 @@ final class WayfinderProjectConfig {
         side: json['side'] as String?,
       );
 
-  static List<WayfinderDefinition> _definitions(Object? value) => [
-    for (final item
-        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
-      WayfinderDefinition(
-        name: item['name']! as String,
-        description: item['description']! as String,
-      ),
-  ];
+  static List<WayfinderDefinition> _definitions(
+    String id,
+    String noun,
+    Object? value,
+  ) {
+    try {
+      return WayfinderDefinition.parseList(value);
+    } on FormatException catch (error) {
+      throw WayfinderConfigException(
+        'Profile $id declares a duplicate $noun ${error.source}.',
+      );
+    }
+  }
 }
 
-/// The project binding that applies to one bundle.
 final class BoundBundle {
   const BoundBundle({
     required this.binding,
@@ -405,7 +407,6 @@ final class BoundBundle {
 
   final WayfinderProfileBinding binding;
 
-  /// The configuration file, as reports name it.
   final ProjectFileLocation config;
 
   /// The directory holding the configuration, where the lock lives and

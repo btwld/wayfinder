@@ -13,9 +13,9 @@ import 'wayfinder_config.dart' show WayfinderDefinition, WayfinderProfileSource;
 /// refused whole, never partially evaluated.
 const supportedPackageFormat = 2;
 
-/// OKF releases whose bundles this engine's facts and index generator
+/// The OKF release whose bundles this engine's facts and index generator
 /// understand. An engine capability, not vocabulary.
-const supportedOkfReleases = {'0.2'};
+const supportedOkfRelease = '0.2';
 
 /// A Profile identity in okf's finding-namespace grammar, so the id is used
 /// verbatim as the finding namespace (`<id>/<rule-slug>`), the lock key and
@@ -62,9 +62,6 @@ extension type const ProfileId._(String value) implements Object {
   }
 }
 
-/// Where a package's parent comes from. `ref` exists exactly when `git`
-/// does, so the two shapes are two types rather than one record with
-/// optional fields.
 sealed class PackageParent {
   const PackageParent();
 }
@@ -157,15 +154,13 @@ final class ProfilePackage {
       );
     }
     final root = decoded! as Map<String, Object?>;
-    // The only place an OKF release is checked: every package in a chain
-    // passes here, so composition never sees two releases.
     final okfRelease =
         (root['implements']! as Map<String, Object?>)['release']! as String;
-    if (!supportedOkfReleases.contains(okfRelease)) {
+    if (okfRelease != supportedOkfRelease) {
       throw ProfilePackageException(
         'implements.release',
         'OKF $okfRelease is not supported; this wayfinder reads OKF '
-            '${supportedOkfReleases.join(', ')}',
+            '$supportedOkfRelease',
         unsupported: true,
       );
     }
@@ -240,25 +235,11 @@ final class ProfilePackage {
     Map<String, Object?> root,
     String field,
   ) {
-    final definitions = List<WayfinderDefinition>.unmodifiable([
-      for (final item
-          in (root[field] as List<Object?>? ?? const [])
-              .cast<Map<String, Object?>>())
-        WayfinderDefinition(
-          name: item['name']! as String,
-          description: item['description']! as String,
-        ),
-    ]);
-    final names = <String>{};
-    for (final definition in definitions) {
-      if (!names.add(definition.name)) {
-        throw ProfilePackageException(
-          field,
-          'repeats the name ${definition.name}',
-        );
-      }
+    try {
+      return WayfinderDefinition.parseList(root[field]);
+    } on FormatException catch (error) {
+      throw ProfilePackageException(field, 'repeats the name ${error.source}');
     }
-    return definitions;
   }
 
   final ProfileId id;

@@ -63,8 +63,7 @@ final class SelectedProfile extends ProfileSelection {
 
 final class UnselectedProfile extends ProfileSelection {
   /// Throws unless [reasons] holds an error diagnostic, so an unselected run
-  /// can never derive a PASS. A check, not an assert, because asserts are
-  /// compiled out of release builds.
+  /// can never derive a PASS.
   UnselectedProfile(Iterable<EngineDiagnostic> reasons)
     : reasons = List.unmodifiable(reasons) {
     if (!this.reasons.any((d) => d.isError)) {
@@ -295,7 +294,6 @@ Map<String, Object?> internalErrorJson(String message) => <String, Object?>{
 };
 
 /// The failure validation reports when the chain of [id] does not compose.
-/// `get` stops with the same text, so both paths read one format.
 ({DiagnosticCode code, String message}) compositionFailure(
   ProfileId id,
   ProfileCompositionException error,

@@ -80,8 +80,7 @@ final class EffectiveProfile {
   /// repeats an id, when a type, tag or relationship name repeats across
   /// chain and project, when a frontmatter key repeats along the chain, or
   /// when a tag equals a type, an OKF status, an OKF trust tier or a
-  /// relationship. Every package implements the same OKF release because
-  /// [ProfilePackage.parse] admits only the releases this engine reads.
+  /// relationship.
   ///
   /// Monotonicity is structural: a package contributes only additions and
   /// rules in its own namespace, so nothing here can remove or re-grade an
@@ -153,8 +152,6 @@ final class EffectiveProfile {
     );
   }
 
-  /// Each declared name of [noun] with its owner, in declaration order; a
-  /// repeat across contributors is a composition error.
   static Map<String, String> _names(
     String noun,
     List<(String, List<WayfinderDefinition>)> contributions,

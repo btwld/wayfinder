@@ -39,7 +39,6 @@ void main() {
   }
 
   group('matches-generated', () {
-    // An asset-only directory carries an index the generator never writes.
     setUp(() async {
       await write('log.md', '# Bundle Update Log\n');
       await write(

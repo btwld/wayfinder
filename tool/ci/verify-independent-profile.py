@@ -40,12 +40,16 @@ def lock(project: Path) -> dict:
     return json.loads((project / "wayfinder.lock").read_text())
 
 
-def written(project: Path) -> dict:
-    """Every path `get` writes, with its modification time."""
+def get_output_mtimes(project: Path) -> dict:
     paths = [project / "wayfinder.lock"]
     for directory in SKILL_DIRS:
         paths += [project / directory, *(project / directory).rglob("*")]
     return {str(path): path.stat().st_mtime_ns for path in paths}
+
+
+def validate_without_source(project: Path, source: Path) -> tuple:
+    source.rename(source.with_name("source-gone"))
+    return validate(project)
 
 
 def check_independent(work: Path, source: Path, commit: str) -> None:
@@ -58,12 +62,12 @@ def check_independent(work: Path, source: Path, commit: str) -> None:
     assert list(lock(project)["packages"]) == ["acme-notes"], lock(project)
     check_skill(project, source, commit, PACKAGE, "acme-notes", "1.0")
 
-    before = written(project)
+    before = get_output_mtimes(project)
     again = wayfinder("get", str(project), "--output=json")
     assert again.returncode == 0, again.stderr
     assert cli_json(again.stdout)["skills"] == [
         {"id": "acme-notes", "directories": SKILL_DIRS, "written": False}], again.stdout
-    assert written(project) == before, "get is idempotent"
+    assert get_output_mtimes(project) == before, "get is idempotent"
 
     marker = project / SKILL_DIRS[0] / ".wayfinder-profile"
     marker.write_text(marker.read_text().replace(commit, "0" * 40))
@@ -114,11 +118,9 @@ def check_child(work: Path, source: Path, commit: str) -> None:
         },
     }, lock(project)
 
-    # Validation reads only the lock and the local cache.
-    source.rename(work / "source-gone")
     request = project / "knowledge/reporting/include-pdf-annotations.md"
     request.write_text(request.read_text().replace("tags: [reporting, export]\n", ""))
-    code, failed = validate(project)
+    code, failed = validate_without_source(project, source)
     assert code == 1, failed
     assert [f["id"] for f in failed["profile"]["findings"]] == [
         "acme-bitwild/request-tagged"], failed

@@ -84,17 +84,9 @@ abstract final class ProfileSkills {
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
-    final markerText = const JsonEncoder.withIndent('  ').convert({
-      'id': revision.id.value,
-      'release': revision.release,
-      'commit': revision.commit,
-    });
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));
-      final stamp = '$pid-${DateTime.now().microsecondsSinceEpoch}';
-      final staged = Directory(
-        p.join(target.parent.path, '.${revision.id}.staged-$stamp'),
-      );
+      final _StagingNames(:staged, :old) = _StagingNames(target, revision.id);
       final targets = [
         for (final file in files)
           (
@@ -115,20 +107,14 @@ abstract final class ProfileSkills {
       }
       await target.parent.create(recursive: true);
       try {
-        // Marked first, so prune can reclaim a staged copy a crash left.
-        await staged.create(recursive: true);
-        await File(
-          p.join(staged.path, marker),
-        ).writeAsString('$markerText\n', flush: true);
+        await _createMarked(staged, revision);
         for (final (:file, :path) in targets) {
           final written = File(path);
           await written.parent.create(recursive: true);
           await written.writeAsBytes(file.bytes, flush: true);
         }
         final previous = await target.exists()
-            ? await target.rename(
-                p.join(target.parent.path, '.${revision.id}.old-$stamp'),
-              )
+            ? await target.rename(old)
             : null;
         try {
           await staged.rename(target.path);
@@ -161,8 +147,8 @@ abstract final class ProfileSkills {
       for (final entry in entries) {
         if (entry is! Directory) continue;
         final name = p.basename(entry.path);
-        final interrupted = _interrupted.firstMatch(name);
-        final id = interrupted?[1] ?? (name.startsWith('.') ? null : name);
+        final interrupted = _StagingNames.idOf(name);
+        final id = interrupted ?? (name.startsWith('.') ? null : name);
         if (id == null ||
             (interrupted == null && keep.any((kept) => kept.value == id)) ||
             !await _owned(entry, id)) {
@@ -175,10 +161,20 @@ abstract final class ProfileSkills {
     return removed;
   }
 
-  /// The hidden siblings [write] stages through, named `.<id>.<kind>-<stamp>`.
-  static final _interrupted = RegExp(
-    r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$',
-  );
+  static Future<void> _createMarked(
+    Directory directory,
+    SkillRevision revision,
+  ) async {
+    await directory.create(recursive: true);
+    final text = const JsonEncoder.withIndent('  ').convert({
+      'id': revision.id.value,
+      'release': revision.release,
+      'commit': revision.commit,
+    });
+    await File(
+      p.join(directory.path, marker),
+    ).writeAsString('$text\n', flush: true);
+  }
 
   static Future<bool> _owned(Directory directory, String id) async =>
       (await _markedRevision(directory))?.id.value == id;
@@ -199,4 +195,23 @@ abstract final class ProfileSkills {
     }
     return null;
   }
+}
+
+final class _StagingNames {
+  _StagingNames(Directory target, ProfileId id)
+    : this._(
+        p.join(target.parent.path, '.${id.value}.'),
+        '$pid-${DateTime.now().microsecondsSinceEpoch}',
+      );
+
+  _StagingNames._(String prefix, String stamp)
+    : staged = Directory('${prefix}staged-$stamp'),
+      old = '${prefix}old-$stamp';
+
+  final Directory staged;
+  final String old;
+
+  static final _pattern = RegExp(r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$');
+
+  static String? idOf(String name) => _pattern.firstMatch(name)?[1];
 }

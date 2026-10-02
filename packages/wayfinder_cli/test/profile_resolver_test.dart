@@ -1616,7 +1616,6 @@ Future<String> _gitOutput(String directory, List<String> arguments) async {
   return result.stdout.toString().trim();
 }
 
-/// Records every git invocation, then runs it for real.
 GitRunner _spy(List<List<String>> calls) =>
     (arguments, {workingDirectory, binary = false}) {
       calls.add(arguments);
@@ -1627,7 +1626,6 @@ GitRunner _spy(List<List<String>> calls) =>
       );
     };
 
-/// A git invocation that reaches beyond the local mirror.
 bool _fetches(List<String> call) => const {
   'clone',
   'fetch',

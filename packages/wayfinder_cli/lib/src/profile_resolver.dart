@@ -217,10 +217,7 @@ final class ProfileResolutionResult {
   };
 }
 
-/// Resolves Git Profile sources and persists their lock metadata. Pure work
-/// is delegated: a package is read by [ProfilePackage.parse] and a chain is
-/// composed by [EffectiveProfile.compose]; this is the IO shell around Git,
-/// the lock and the cache.
+/// Resolves Git Profile sources and persists their lock metadata.
 final class WayfinderProfileResolver {
   WayfinderProfileResolver({Directory? dataDirectory, GitRunner git = runGit})
     : dataDirectory =
@@ -378,10 +375,10 @@ final class WayfinderProfileResolver {
       final packages = <ProfilePackage>[];
       for (final (index, locked) in chain.indexed) {
         final package = await _readCached(locked, bound.projectRoot);
-        if (!_declares(
+        if (!_matchesLockedParent(
           package.parent,
-          locked,
-          index == 0 ? null : chain[index - 1],
+          child: locked,
+          lockedParent: index == 0 ? null : chain[index - 1],
         )) {
           return unselected(
             unresolved,
@@ -457,9 +454,6 @@ final class WayfinderProfileResolver {
     return sha256.convert(utf8.encode(canonical)).toString();
   }
 
-  /// [binding]'s chain, root ancestor first. A same-revision parent is read
-  /// from its child's commit; another-revision parent is checked out like a
-  /// binding.
   Future<List<({LockedPackage locked, ProfilePackage package})>> _resolveChain(
     WayfinderProfileBinding binding,
     _Session session,
@@ -522,9 +516,6 @@ final class WayfinderProfileResolver {
     }
   }
 
-  /// Adds [package] unless the lock already holds its id at the same
-  /// revision. A project uses one revision of each Profile, so two chains
-  /// that need different revisions of one id cannot both be locked.
   static void _insert(
     Map<ProfileId, LockedPackage> packages,
     LockedPackage package,
@@ -541,24 +532,22 @@ final class WayfinderProfileResolver {
     }
   }
 
-  /// Whether [declared], a package's own parent, is the lock entry
-  /// [parent] of its entry [locked].
-  static bool _declares(
-    PackageParent? declared,
-    LockedPackage locked,
-    LockedPackage? parent,
-  ) => switch (declared) {
-    null => parent == null,
+  static bool _matchesLockedParent(
+    PackageParent? parent, {
+    required LockedPackage child,
+    required LockedPackage? lockedParent,
+  }) => switch (parent) {
+    null => lockedParent == null,
     SameRevision(:final path) =>
-      parent != null &&
-          parent.git == locked.git &&
-          parent.commit == locked.commit &&
-          parent.path == path,
+      lockedParent != null &&
+          lockedParent.git == child.git &&
+          lockedParent.commit == child.commit &&
+          lockedParent.path == path,
     OtherRevision(:final source) =>
-      parent != null &&
-          parent.git == source.git &&
-          parent.requestedRef == source.ref &&
-          parent.path == source.path,
+      lockedParent != null &&
+          lockedParent.git == source.git &&
+          lockedParent.requestedRef == source.ref &&
+          lockedParent.path == source.path,
   };
 
   EffectiveProfile _compose(
@@ -700,8 +689,6 @@ final class WayfinderProfileResolver {
 
   static final _commitRef = RegExp(r'^[0-9a-fA-F]{7,40}$');
 
-  /// A POSIX path whose every segment is an ordinary name: not absolute,
-  /// no drive letter or backslash, and no empty, `.` or `..` segment.
   static bool _plainRelativePath(String path) =>
       !path.contains(r'\') &&
       !RegExp(r'^[A-Za-z]:').hasMatch(path) &&
@@ -709,8 +696,6 @@ final class WayfinderProfileResolver {
           .split('/')
           .every((segment) => !const {'', '.', '..'}.contains(segment));
 
-  /// [locked]'s package from the local cache only, checked against the
-  /// release the lock recorded.
   Future<ProfilePackage> _readCached(
     LockedPackage locked,
     String projectRoot,
@@ -798,10 +783,8 @@ final class WayfinderProfileResolver {
     return files;
   }
 
-  /// The package at `<commit>:<path>/wayfinder-profile.json`, parsed by the
-  /// one boundary every Profile goes through. When [expected] names an id,
-  /// a package declaring another is refused: the id is the finding
-  /// namespace and the lock key, so the two must agree.
+  /// When [expected] names an id, a package declaring another is refused:
+  /// the id is the finding namespace and the lock key, so the two must agree.
   Future<ProfilePackage> _readPackage(
     Directory repository,
     String commit,
@@ -884,7 +867,6 @@ final class WayfinderProfileResolutionException extends WayfinderException {
   final DiagnosticCode code;
 }
 
-/// What one `get` or `upgrade` run knows across the chains it resolves.
 final class _Session {
   _Session({
     required this.projectRoot,
@@ -896,7 +878,6 @@ final class _Session {
   final bool upgrade;
   final ProfileLock? previous;
 
-  /// Set once any clone or remote update ran.
   bool fetched = false;
 }
 

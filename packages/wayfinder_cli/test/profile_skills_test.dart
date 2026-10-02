@@ -392,8 +392,6 @@ void main() {
   });
 }
 
-/// Every path under [root] with its text and modification time, so a
-/// rewrite of identical text still shows.
 Future<Map<String, (String?, DateTime)>> _stat(String root) async => {
   await for (final entity in Directory(root).list(recursive: true))
     p.relative(entity.path, from: root): (

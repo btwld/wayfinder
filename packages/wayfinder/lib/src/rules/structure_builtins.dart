@@ -17,8 +17,6 @@ const filesPresentParams = <String, Object?>{
   },
 };
 
-/// One finding listing every path of `paths` that is not a loaded bundle
-/// file, located at the first missing one.
 Iterable<Violation> filesPresent(
   BundleFacts facts,
   Map<String, Object?> params,

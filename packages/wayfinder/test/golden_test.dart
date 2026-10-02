@@ -20,10 +20,7 @@ void main() {
   for (final name in fixtures) {
     test('$name matches its golden', () async {
       final result = await validateFixture(fixture(name));
-      // Goldens pin findings, not the okf dependency: an okf bump must not
-      // rewrite every golden. result_contract_test pins the real value.
-      final json = result.toJson()
-        ..['engine'] = const {'okf': '<okf-package-version>'};
+      final json = _withMaskedOkfVersion(result.toJson());
       final actual = '${const JsonEncoder.withIndent('  ').convert(json)}\n';
       final golden = File(p.join(goldens, '$name.json'));
       if (update) {
@@ -56,3 +53,6 @@ void main() {
     expect(orphans, isEmpty, reason: 'delete goldens of removed fixtures');
   }, skip: update);
 }
+
+Map<String, Object?> _withMaskedOkfVersion(Map<String, Object?> json) =>
+    json..['engine'] = const {'okf': '<okf-package-version>'};

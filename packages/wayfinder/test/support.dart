@@ -21,17 +21,12 @@ String fixtureBundle(String path) =>
     ? p.posix.join(path, 'knowledge')
     : path;
 
-/// The Bitwild package as checked in, read through the one parse boundary
-/// every Profile uses. Tests see no embedded or privileged copy.
 final ProfilePackage bitwild = ProfilePackage.parse(
   File(
     p.join('..', '..', 'profiles', 'bitwild', 'wayfinder-profile.json'),
   ).readAsStringSync(),
 );
 
-/// Validates a fixture the way the CLI would after `wayfinder get`, through
-/// [selectFixture]. A fixture holding its own `wayfinder.json` is bound by
-/// that file unless [discoverConfig] asks for the walk up from the bundle.
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
@@ -52,9 +47,6 @@ Future<ProfileValidationResult> validateFixture(
   );
 }
 
-/// Selects the Profile for [bundle] as the resolver does, with [bitwild]
-/// followed by [children] standing in for the locked chain: the same
-/// binding lookup, then composition with the binding's project additions.
 Future<ProfileSelection> selectFixture(
   String bundle, {
   String? configPath,
@@ -82,7 +74,6 @@ Future<ProfileSelection> selectFixture(
   }
 }
 
-/// A minimal format-2 package for tests: [rules] report as `<id>/<slug>`.
 String packageJson({
   String id = 'probe',
   String release = '1.0',
@@ -97,7 +88,6 @@ String packageJson({
   'rules': rules,
 });
 
-/// A schema rule over [subject] whose examples are [valid] and [invalid].
 Map<String, Object?> ruleJson(
   String id, {
   required String subject,

@@ -7,9 +7,7 @@ import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
-/// The link rules a graph failure leaves unassessed in the
-/// configured-conventions fixture.
-const _linkRules = {
+const _unassessedWhenGraphFails = {
   'bitwild-profile/internal-link-bundle-relative',
   'bitwild-profile/relationship-bundle-relative',
   'bitwild-profile/relationship-shape',
@@ -153,8 +151,11 @@ void main() {
   test('a link graph failure blocks PASS and assesses no link rule', () async {
     final assessed = await validateFixture(fixture('configured-conventions'));
     expect(
-      assessed.findings.map((f) => f.id).toSet().intersection(_linkRules),
-      _linkRules,
+      assessed.findings
+          .map((f) => f.id)
+          .toSet()
+          .intersection(_unassessedWhenGraphFails),
+      _unassessedWhenGraphFails,
       reason: 'with a graph, the fixture exercises every link rule',
     );
 
@@ -163,7 +164,10 @@ void main() {
       validator: _graphFails,
     );
     expect(
-      unassessed.findings.map((f) => f.id).toSet().intersection(_linkRules),
+      unassessed.findings
+          .map((f) => f.id)
+          .toSet()
+          .intersection(_unassessedWhenGraphFails),
       isEmpty,
     );
     final diagnostic = unassessed.diagnostics.single;

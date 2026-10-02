@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// Copies the checked-in Bitwild package, its skill included, to
-/// `profiles/bitwild` under [repository], as a Profile source holds it.
 Future<void> copyBitwildPackage(String repository) async {
   final package = Directory(p.join('..', '..', 'profiles', 'bitwild'));
   await for (final entity in package.list(recursive: true)) {

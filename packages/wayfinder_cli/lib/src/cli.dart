@@ -629,8 +629,6 @@ class WayfinderCli {
       message = error.message;
     }
     _err('wayfinder: ${_safe(message)}');
-    // A machine reader of validate gets a parseable result even when the run
-    // stopped, so it never mistakes empty output for a pass.
     switch (structuredOutput) {
       case 'json':
         _json(internalErrorJson(message));

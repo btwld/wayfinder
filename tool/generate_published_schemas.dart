@@ -4,10 +4,7 @@ import 'package:path/path.dart' as p;
 
 /// Embeds what the engine must know at runtime but owns elsewhere: the two
 /// published schemas it validates input against, and the version of the
-/// okf package its index generator comes from. okf exports no version
-/// constant, so the engine's pubspec allows exactly one okf patch release
-/// and that constraint is the checked-in source of truth. No Profile is embedded; every
-/// Profile is fetched like any other.
+/// okf package its index generator comes from.
 Future<void> main(List<String> arguments) async {
   final check = arguments.contains('--check');
   if (arguments.any((argument) => argument != '--check')) {
@@ -87,8 +84,6 @@ final class _Constant {
   final String doc;
   final String text;
 
-  /// Multi-line JSON is embedded as a raw triple-quoted string; a short
-  /// value as an ordinary literal.
   final bool raw;
 }
 
@@ -102,8 +97,9 @@ Future<String> _embeddable(File file) async {
 
 /// The okf version [pubspec] allows. okf exports no version constant, so
 /// the pubspec allows exactly one patch release, written
-/// `'>=x.y.z <x.y.(z+1)'` because pub rejects a bare version for a published
-/// package. Any wider range would let the embedded version drift from the
+/// `'>=x.y.z <x.y.(z+1)'`. For a bare version, `dart pub publish --dry-run`
+/// warns that the dependency "should allow more than one version" and exits
+/// non-zero. Any wider range would let the embedded version drift from the
 /// resolved one.
 Future<String> _pinnedVersion(File pubspec, String package) async {
   final match = RegExp(

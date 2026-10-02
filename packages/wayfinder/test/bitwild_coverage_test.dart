@@ -6,8 +6,6 @@ import 'package:test/test.dart';
 
 import 'support.dart';
 
-/// Deleting a fixture can silently drop the only golden that shows a rule
-/// firing. Every Bitwild rule must appear in at least one golden.
 void main() {
   test('every Bitwild rule fires in at least one golden', () {
     final fired = <String>{};
@@ -34,9 +32,6 @@ void main() {
     );
   });
 
-  // A finding's help_uri is the package's docs URL plus the rule slug, so a
-  // rule with no heading of its own, or a heading left by a removed rule,
-  // sends readers to the wrong place.
   test(
     'the Bitwild README has one rule heading per rule, in package order',
     () {

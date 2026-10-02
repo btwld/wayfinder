@@ -14,7 +14,6 @@ final class ParsedBody {
       if (node is markdown.Element && node.tag == 'h1') node.textContent,
   ];
 
-  /// Every link target in the body, in document order, as written.
   List<String> links() {
     final targets = <String>[];
     void collect(markdown.Node node) {

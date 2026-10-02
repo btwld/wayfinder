@@ -3,8 +3,7 @@
 Validation never fetches, so a check of the shipped engine against an example
 first needs `wayfinder get` to succeed offline. This builds a one-commit Git
 repository from this checkout's Profile packages, copies an example project
-beside it, and points the copy's `source.git` at that repository. Bitwild
-reaches the engine the way any Profile does.
+beside it, and points the copy's `source.git` at that repository.
 """
 
 import json
@@ -28,9 +27,7 @@ def _git(*args: str, cwd: Path) -> str:
     ).stdout.strip()
 
 
-def synthetic_source(work: Path, paths: list) -> tuple:
-    """A one-commit Git repository at [work]/source holding [paths] from this
-    checkout at the same relative paths, and its commit."""
+def synthetic_source(work: Path, paths: list) -> tuple[Path, str]:
     source = work / "source"
     for relative in paths:
         origin, copy = ROOT / relative, source / relative
@@ -47,8 +44,6 @@ def synthetic_source(work: Path, paths: list) -> tuple:
 
 def bind_project(example: Path, work: Path, source: Path, commit: str,
                  name: str = "project") -> Path:
-    """Copies [example] to [work]/[name] with every Profile source at [commit]
-    of [source]."""
     project = work / name
     shutil.copytree(example, project)
     config_path = project / "wayfinder.json"
@@ -61,7 +56,6 @@ def bind_project(example: Path, work: Path, source: Path, commit: str,
 
 
 def prepare(work: Path) -> Path:
-    """Returns the copied project under [work], its source a local repository."""
     source, commit = synthetic_source(work, [BITWILD])
     return bind_project(EXAMPLE, work, source, commit)
 
@@ -72,9 +66,6 @@ def skill_dirs(profile_id: str) -> list:
 
 def check_skill(project: Path, source: Path, commit: str, package: str,
                 profile_id: str, release: str) -> None:
-    """Asserts that each of [project]'s installed skill directories for
-    [profile_id] holds exactly the package's `skill/` at [commit] of
-    [source], plus the marker naming that revision."""
     tree = f"{commit}:{package}/skill"
     names = _git("ls-tree", "-r", "-z", "--name-only", tree,
                  cwd=source).strip("\0").split("\0")
@@ -101,7 +92,6 @@ def cli_json(output: str) -> dict:
 
 
 def with_git(env: dict) -> dict:
-    """[env] with the caller's git on PATH, for `get` under a narrowed PATH."""
     if shutil.which("git", path=env.get("PATH")):
         return env
     git = shutil.which("git")
@@ -112,8 +102,6 @@ def with_git(env: dict) -> dict:
 def get_and_validate(wayfinder: list, project: Path, env: dict = None,
                      cwd: Path = None, timeout: int = 180,
                      release: str = "2026.3") -> dict:
-    """Runs `get` and `validate` for [project] and returns the passing result
-    of the Profile at [release]."""
     env = with_git(dict(os.environ if env is None else env))
 
     def run(*args: str) -> subprocess.CompletedProcess:
