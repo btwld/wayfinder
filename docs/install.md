@@ -57,14 +57,19 @@ From a project containing `knowledge/`:
 ```sh
 wayfinder --version
 wayfinder validate knowledge
-wayfinder index knowledge
-wayfinder search knowledge "How do I regain access to my account?"
+wayfinder index
+wayfinder search "How do I regain access to my account?"
+wayfinder search "How do I regain access to my account?" --bundle knowledge
 ```
 
 Validation checks the automated gate; contextual Profile judgment remains an
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
 bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.
+
+Project search/index use the bundle paths in the nearest `wayfinder.json`, or
+the conventional `knowledge/` folder when no configuration exists. An explicit
+bundle path still selects one bundle. `--bundle` filters by its folder name.
 
 ## Agent skills and MCP
 

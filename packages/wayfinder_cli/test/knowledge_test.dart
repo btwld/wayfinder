@@ -140,6 +140,82 @@ void main() {
       );
 
       test(
+        'project search shares one model/query and keeps each saved index',
+        () async {
+          final other = await Directory(
+            p.join(temp.path, 'flutter-dev-kit'),
+          ).create();
+          for (final file in bundle.listSync().whereType<File>()) {
+            await file.copy(p.join(other.path, p.basename(file.path)));
+          }
+          await knowledge.index(bundle.path);
+          await knowledge.index(other.path);
+          final opened = encoders.length;
+          final responses = await knowledge.searchBundles(
+            [bundle.path, other.path],
+            'password recovery',
+            limit: 2,
+          );
+          expect(responses, hasLength(2));
+          expect(encoders.length, opened + 1);
+          expect(encoders.last.queries, 1);
+          expect(encoders.last.documents, 0);
+          expect(encoders.last.closed, isTrue);
+          for (final response in responses) {
+            expect(response.matches.first.chunk.sourcePath, 'recovery.md');
+            expect(
+              response.context.any((hit) => hit.reason == 'relationship'),
+              isTrue,
+            );
+          }
+          expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
+          expect((await knowledge.index(other.path)).embeddedChunks, 0);
+        },
+      );
+
+      test(
+        'project search rejects a changed bundle and succeeds after incremental indexing',
+        () async {
+          final other = await Directory(
+            p.join(temp.path, 'flutter-dev-kit'),
+          ).create();
+          for (final file in bundle.listSync().whereType<File>()) {
+            await file.copy(p.join(other.path, p.basename(file.path)));
+          }
+          await knowledge.index(bundle.path);
+          await knowledge.index(other.path);
+          final edited = File(p.join(other.path, 'recovery.md'));
+          await edited.writeAsString(
+            '${await edited.readAsString()}\nPassword recovery links expire after an hour.\n',
+          );
+          await expectLater(
+            knowledge.searchBundles([
+              bundle.path,
+              other.path,
+            ], 'password recovery'),
+            throwsA(
+              isA<WayfinderException>().having(
+                (error) => error.message,
+                'message',
+                contains('Run wayfinder index'),
+              ),
+            ),
+          );
+          expect(encoders.last.closed, isTrue);
+          final update = await knowledge.index(other.path);
+          expect(update.embeddedChunks, greaterThan(0));
+          expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
+          final responses = await knowledge.searchBundles([
+            bundle.path,
+            other.path,
+          ], 'password recovery');
+          expect(responses, hasLength(2));
+          expect(encoders.last.queries, 1);
+          expect(encoders.last.documents, 0);
+        },
+      );
+
+      test(
         'recovery persists, replays model-free and preserves source bytes',
         () async {
           final file = File(p.join(bundle.path, 'recovery.md'));
@@ -312,21 +388,24 @@ void main() {
       );
 
       test(
-        'metadata refresh reuses vectors, title changes re-encode',
+        'metadata refresh reuses vectors, description and title changes re-encode',
         () async {
           await knowledge.index(bundle.path);
           final file = File(p.join(bundle.path, 'recovery.md'));
           await file.writeAsString(
             (await file.readAsString()).replaceFirst(
               'status: stable',
-              'status: draft',
+              'status: draft\ndescription: Recovery instructions',
             ),
           );
           await expectLater(
             knowledge.search(bundle.path, 'password'),
             throwsA(isA<WayfinderException>()),
           );
-          expect((await knowledge.index(bundle.path)).embeddedChunks, 0);
+          expect(
+            (await knowledge.index(bundle.path)).embeddedChunks,
+            greaterThan(0),
+          );
           final result = await knowledge.search(bundle.path, 'password');
           expect(
             ((result.matches.first.chunk.metadata['okf'] as Map)['frontmatter']
