@@ -52,7 +52,7 @@
       {
         "id": "concepta-profile/raw-directory-markdown",
         "severity": "error",
-        "message": "A raw/ tier holds verbatim originals; no markdown file is permitted in it.",
+        "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/ (§12).",
         "location": {
           "path": "references/vendor/raw/stray.md"
         },

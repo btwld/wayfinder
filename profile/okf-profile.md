@@ -109,7 +109,7 @@ how* Bitwild uses it, never *what it means*.
 | §2 | Bundle, concept, concept ID, frontmatter, body, link, source, provenance | Inherited verbatim (§2) |
 | §3 | Directory tree of markdown, domain-independent structure | Constrained: fixed bundle-root files and project directories name subjects (§3) |
 | §3.1 | Reserved `index.md` / `log.md` | Inherited; usage constrained (§9, §10) |
-| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained for Bitwild producers: `type`, `title`, `description`, and `status` are required, types are declared by the selected Profile binding, tags use its declared vocabulary, and the only producer key is the release-declared `relationships` (§5.1, §5.2, §7.2) |
+| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained: `type`, `title`, `description`, and `status` are required, types are declared by the selected Profile binding, tags use its declared vocabulary, and the only producer key is the release-declared `relationships` (§5.1, §5.2, §7.2) |
 | §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the selected type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
 | §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Inherited: no type-specific template, and no body content carries Profile-specific machine meaning (§5.3) |
 | §5 | Timestamp-valued keys as ISO 8601 datetimes with an explicit UTC offset | Inherited; a date-only or offset-less value MUST NOT be written (§6.5) |
@@ -532,12 +532,12 @@ provenance to satisfy the recommendation (§6.2).
 The optional OKF fields `resource`, `tags`, `sources`, `verified`, and
 `stale_after` remain available with their OKF-defined meanings. Sections §5.1 and
 §6 state the Profile's specific producer rules for using them.
-Bitwild producers MAY use the frontmatter keys the selected Profile release
-declares, and MUST NOT introduce any other namespaced or producer-defined
-frontmatter field. A declared key MUST NOT be a key OKF 0.2 defines and MUST NOT
+A concept in a Profiled Bundle MAY carry the frontmatter keys the selected
+Profile release declares, and MUST NOT carry any other namespaced or
+producer-defined frontmatter key. A declared key MUST NOT be a key OKF 0.2 defines and MUST NOT
 give an OKF key another meaning; a Profile that needs an OKF field to mean
 something else pursues it upstream (§15.1). A project binding cannot declare frontmatter keys; it
-adds vocabulary only (§11). This constrains what Bitwild writes; it does not
+adds vocabulary only (§11). This sets the Profile conformance bar; it does not
 change OKF's tolerant-reader contract. Consumers MUST NOT reject a document for
 an unknown field and SHOULD preserve unknown keys when round-tripping, exactly as
 OKF requires (OKF §4.1, §11; §14.2).

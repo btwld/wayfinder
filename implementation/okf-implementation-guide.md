@@ -503,7 +503,7 @@ inherits a different Profile.
 Validation has two layers of frontmatter checking. The
 upstream `okf` package validates the pinned OKF 0.2 field shapes and preserves
 unknown content for tolerant reading. The Bitwild Profile adds only its
-producer-side constraints:
+bundle conformance constraints:
 
 | Field or family | Legacy 2026.2 coverage | Configured 2026.3 coverage |
 | --- | --- | --- |

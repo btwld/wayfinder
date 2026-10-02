@@ -1481,7 +1481,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§5.1",
-      "description": "Every used tag MUST appear exactly once in the selected Profile manifest or project binding's declared tag vocabulary.",
+      "description": "Every used tag MUST be declared by the selected Profile manifest or project binding.",
       "message": "Tags must be declared by the selected Profile binding; found {failing}.",
       "check": {
         "subject": "concept",
@@ -1617,8 +1617,8 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§5.1",
-      "description": "Bitwild producers MUST NOT introduce frontmatter fields beyond those OKF 0.2 defines and those the selected Profile release declares.",
-      "message": "Bitwild producers may use only OKF 0.2 frontmatter fields and the fields this Profile release declares; found {failing}.",
+      "description": "A concept MUST NOT carry a frontmatter key that neither OKF 0.2 defines nor the selected Profile release declares.",
+      "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found {failing}.",
       "check": {
         "subject": "concept",
         "each": "keys",
@@ -1848,7 +1848,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§6.1",
-      "description": "When `sources` is present, every entry MUST be a mapping carrying the nonempty `resource` OKF requires.",
+      "description": "When `sources` is present, every entry MUST be a mapping carrying the nonempty `resource` OKF requires. okf reports the same gap as its `invalid-sources` or `invalid-source` advisory; this rule raises it to an error.",
       "message": "Every present source entry must be a mapping with a non-empty resource.",
       "check": {
         "subject": "frontmatter",
@@ -2255,7 +2255,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "status": "stable",
       "ref": "§7.1, §14.1–§14.2",
       "description": "An internal link's target is absent from the bundle.",
-      "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
+      "message": "A link targets an internal resource not yet in the bundle; it remains an OKF graph edge.",
       "check": {
         "subject": "concept",
         "each": "edges",
@@ -2389,7 +2389,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "status": "stable",
       "ref": "§7.2, §14.1–§14.2",
       "description": "An internal relationship target is absent from the bundle.",
-      "message": "An unresolved internal relationship target is permitted and remains a relationship edge.",
+      "message": "A relationship targets an internal resource not yet in the bundle; it remains a relationship edge.",
       "check": {
         "subject": "concept",
         "each": "relationships",
@@ -2493,7 +2493,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "status": "stable",
       "ref": "§3.4",
       "description": "Within `raw/` and any of its subdirectories under `references/`, no markdown file is permitted; `index-current` reports a leftover `index.md` there (§9).",
-      "message": "A raw/ tier holds verbatim originals; no markdown file is permitted in it.",
+      "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/ (§12).",
       "check": {
         "subject": "file",
         "schema": {

@@ -103,7 +103,7 @@
     "summary": [
       {
         "id": "concepta-profile/internal-link-unresolved",
-        "message": "An unresolved internal link is permitted and remains an OKF graph edge.",
+        "message": "A link targets an internal resource not yet in the bundle; it remains an OKF graph edge.",
         "location": {
           "path": "unresolved-link.md"
         },
@@ -112,7 +112,7 @@
       },
       {
         "id": "concepta-profile/relationship-unresolved",
-        "message": "An unresolved internal relationship target is permitted and remains a relationship edge.",
+        "message": "A relationship targets an internal resource not yet in the bundle; it remains a relationship edge.",
         "location": {
           "path": "unresolved-link.md"
         },
