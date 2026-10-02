@@ -109,7 +109,7 @@
   "frontmatter_keys": [
     {
       "name": "relationships",
-      "description": "The concept's typed relationships to other resources, a list of mappings, each naming one declared relationship and the resource it points to (§7.2)."
+      "description": "The concept's typed relationships to other resources, a list of mappings, each naming one declared relationship and the resource it points to."
     }
   ],
   "$defs": {
@@ -239,7 +239,7 @@
       "category": "vocabulary",
       "severity": "error",
       "status": "stable",
-      "description": "Every used tag MUST be declared by the selected Profile manifest or project binding.",
+      "description": "Every used tag MUST be declared by a package in the selected chain or by the project binding.",
       "message": "Tags must be declared by the selected Profile binding; found {failing}.",
       "check": {
         "subject": "concept",
@@ -931,7 +931,7 @@
       "category": "vocabulary",
       "severity": "error",
       "status": "stable",
-      "description": "Every used relationship name MUST be declared by the selected Profile manifest or project binding.",
+      "description": "Every used relationship name MUST be declared by a package in the selected chain or by the project binding.",
       "message": "Relationship names must be declared by the selected Profile binding; found {failing}.",
       "check": {
         "subject": "concept",
@@ -1331,8 +1331,8 @@
       "category": "structure",
       "severity": "error",
       "status": "stable",
-      "description": "Within `raw/` and any of its subdirectories under `references/`, no markdown file is permitted; `index-current` reports a leftover `index.md` there (§9).",
-      "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/ (§12).",
+      "description": "Within `raw/` and any of its subdirectories under `references/`, no markdown file is permitted; `index-current` reports a leftover `index.md` there.",
+      "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/.",
       "check": {
         "subject": "file",
         "schema": {

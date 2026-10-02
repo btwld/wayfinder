@@ -2,19 +2,19 @@
 
 ## Vocabulary
 
-[Glossary](GLOSSARY.md) — Canonical language for the Profile, automated validation, contextual review, review reports, and complete assessment.
+[Glossary](GLOSSARY.md) — Canonical language for Profile packages, validation results, diagnostics, and the gate.
 
 ## Compatibility
 
-[Compatibility review](compatibility-review.md) — Rule-level evidence that Bitwild Profile 2026.3 preserves pinned OKF 0.2.
+[Compatibility review](compatibility-review.md) — Evidence that the engine keeps its `okf` package and the pinned OKF 0.2 specification intact.
 
-[Assessment coverage](../implementation/profile-coverage.md) — Assignment of Profile rules to automated validation or contextual review; separate from compatibility evidence.
+## Profiles
+
+[Bitwild Profile](../profiles/bitwild/README.md) — The first Profile package: its purpose, one section per rule, and its [changelog](../profiles/bitwild/CHANGELOG.md).
 
 ## Configuration guides
 
 [Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, manifest schemas, explicit lock resolution, and read-only validation order.
-
-[Wayfinder Profile guide](wayfinder-profile-guide.html) — Visual guide to Profiles, project bindings, tags, status, and validation coverage.
 
 ## Engineering evidence
 
@@ -32,8 +32,8 @@
 
 ## Decisions and historical records
 
-[ADR catalog](adr/README.md) — The single list of accepted, superseded-in-part, and proposed decisions. Read each record in its stated release and historical context; a proposed ADR is not a current Profile rule.
+[ADR catalog](adr/README.md) — The single list of accepted, superseded-in-part, and proposed decisions. Read each record in its stated release and historical context; a proposed ADR is not a Profile rule.
 
-[Open decision queue](decision-queue.md) — Unsettled maintenance questions retained from the 2026-09-09 review; not accepted Profile rules.
+[Open decision queue](decision-queue.md) — Unsettled maintenance questions retained from the 2026-09-09 review; not Profile rules.
 
 [Wayfinder naming and release plan](wayfinder-release-plan.md) — Historical 2026-09-10 rename and publication record, not current installation or release instructions.

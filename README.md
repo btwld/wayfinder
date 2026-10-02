@@ -1,11 +1,12 @@
 # Wayfinder
 
 Wayfinder checks, connects, and serves your project's knowledge. It validates an
-OKF bundle, then lints it against a Profile: a versioned set of rules, written as
-data, that layers your team's conventions on top of OKF while keeping every
-bundle readable by any OKF tool. The Bitwild Profile ships built in; a child
-Profile can add its own vocabulary and rules. Results come out as text, JSON, or
-SARIF, and `--fix` regenerates the indexes the Profile generates.
+OKF bundle with okf, then runs a static-analysis engine over it with the rules
+of a Profile you choose. A Profile is a package of rules and vocabulary, written
+as data, that adds your team's conventions to OKF while every bundle stays
+readable by any OKF tool. Bitwild is the first Profile, and you can write your
+own with or without it. Results come out as text, JSON, or SARIF, and `--fix`
+writes okf's generated indexes.
 
 The same bundle feeds local semantic search, a link graph, and an MCP server for
 coding agents.
@@ -40,7 +41,7 @@ wayfinder index knowledge
 wayfinder search knowledge "How is reporting implemented?"
 ```
 
-Validation checks OKF and the automated rules of the configured Profile. Indexing reads
+Validation checks OKF and the rules of the configured Profile. Indexing reads
 its documents, computes embeddings locally and saves a local search index.
 Search reuses that index and embeds only the query, returning passages with
 source paths and line ranges. Run `index` again after editing the bundle;
@@ -56,28 +57,27 @@ external preview). `wayfinder_embeddings` is
 the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
 tools remain separate capabilities.
 
-## Bitwild OKF Profile
+## Profiles
 
-Wayfinder also hosts the **Bitwild OKF Profile** — conventions for keeping durable project
-knowledge as an [Open Knowledge Format][okf] bundle, together with the skills,
-tooling, and examples that put it to work in projects.
+A Profile is what `wayfinder validate` enforces. Each one is a directory at one
+Git revision holding `wayfinder-profile.json`: its identity, its OKF binding, its
+vocabulary, and its rules. It can also ship a README that explains each rule
+and a skill that carries the judgment no rule can decide. A project names the
+Profile it uses in `wayfinder.json`, and `wayfinder get` pins it in
+`wayfinder.lock`. A bundle conforms to a Profile when `wayfinder validate` with
+that Profile selected ends with the gate `PASS`.
 
-The aim is a shared project memory, or **second brain**, that people and agents can
-read, connect, and use. A bundle can live alongside project code or in a dedicated
-knowledge repository. Evidence grounds the knowledge; reusable guidance helps turn
-it into work and artifacts. Capture pipelines, artifact templates, and export
-automation are workflows to develop around that memory; this repository currently
-ships authoring skills and validation, not those production workflows.
+Every Profile only adds to OKF. OKF runs first, and its result stands on its
+own. A Profile can build on another through `extends` in its package, but no
+Profile is a base. The [engine contract](implementation/okf-implementation-guide.md#5-profile-packages)
+says what every package must meet, and the `create-profile` skill writes one.
 
-The profile is a *profile*, not a format. It defines no file type, no frontmatter field, and
-no metadata semantics of its own; every mechanism it uses is defined by OKF and used with its
-OKF meaning. OKF is authoritative — where the two appear to differ, OKF wins and the profile
-is in error.
-
-Proposed release: **2026.3**, profiling **OKF 0.2 exactly**. Published
-2026.2 remains available as an immutable snapshot, and its bundles validate on
-wayfinder 0.1.x.
-Its canonical text is [`profile/okf-profile.md`](profile/okf-profile.md).
+[Bitwild](profiles/bitwild/README.md) is the first Profile. It keeps durable
+project knowledge as an [Open Knowledge Format][okf] bundle beside the code:
+which knowledge earns a concept, where it lives, and how it links to the
+systems where work happens. Its release is **2026.3**, profiling **OKF 0.2
+exactly**. Its [changelog](profiles/bitwild/CHANGELOG.md) records each release
+and its migration. Bitwild 2026.2 bundles keep validating on wayfinder 0.1.x.
 
 [okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 
@@ -87,8 +87,8 @@ Everything in this repository is **company-generic**: it holds reusable ways of 
 
 A project's `knowledge/` bundle holds *what we know about that project* — its domain, its
 decisions, its open questions. Nothing here is ever a prerequisite for reading one. A bundle
-must stay readable on its own when a client receives only their project repository, so the
-profile is referenced by version, never copied in.
+must stay readable on its own when a client receives only their project repository, so a
+Profile is referenced from `wayfinder.json` and pinned by the lock, never copied in.
 
 That is why this repository is consumed rather than vendored: install the skills once, pin
 the `wayfinder validate` gate, and let each project repository carry only its own knowledge.
@@ -106,24 +106,16 @@ See [migration instructions](docs/install.md#migrate-the-dart-application-packag
 
 | Path | Holds |
 | --- | --- |
-| [`profile/`](profile/) | The normative profile text — the standard itself |
-| [`implementation/`](implementation/) | The companion implementation guide: adoption, index generation, validation, migration, distribution |
-| [`skills/`](skills/) | The agent skill family — author, adopt, assess, and search a Profiled Bundle, shipped as the `wayfinder` plugin |
+| [`implementation/`](implementation/) | The engine contract: Profile packages, adoption, index generation, validation, and distribution |
+| [`profiles/bitwild/`](profiles/bitwild/) | The Bitwild Profile package: its rules, README, changelog, skill, and archived releases |
+| [`skills/`](skills/) | Wayfinder's generic agent skills to author, adopt, assess, and search a bundle, and to create a Profile, shipped as the `wayfinder` plugin |
 | [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, graph projection, persistent embedding indexes and semantic search |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
-| [`examples/`](examples/) | A complete worked bundle you can read end to end |
+| [`examples/`](examples/) | A complete worked bundle you can read end to end, and two small Profiles |
 | [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
 | [`tool/`](tool/) | CI and release tooling |
 | [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, operations, and historical engineering evidence |
 | [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
-
-`profile/okf-profile.md` is the canonical release-integration path; its version
-and publication status are declared at the top, never in the filename. During a
-release integration it may therefore contain an explicitly unpublished draft
-while the current release remains immutable under `profile/versions/`. When the
-integration is published, the canonical path again names the current release.
-That applies the profile's own §8.1 rule — version and status are metadata and do
-not belong in an identity — without silently replacing an identified release.
 
 ## Getting started
 
@@ -151,8 +143,8 @@ binary outside `PATH`.
 For an existing installation, follow the [plugin migration sequence](docs/install.md#migrate-an-existing-plugin-installation): uninstall the old plugin and remove its marketplace registration before adding the public repository. This leaves one enabled skill family and MCP server.
 
 Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
-all four as a unit, since they reference each other by sibling path. Symlinking is the
-better fallback: the skills are versioned with the profile they describe, and a copy
+the family as a unit, since the skills reference each other by sibling path. Symlinking is
+the better fallback: the skills are versioned with the engine they describe, and a copy
 silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
 each one does.
 
@@ -164,7 +156,7 @@ Commit those directories with the lock. See
 
 ### 2. Set up a project repository
 
-In the repository you want to adopt the profile, run:
+In the repository where you want to adopt a Profile, run:
 
 ```
 /adopt-knowledge-bundle
@@ -175,13 +167,13 @@ requested setup, asking when an unresolved choice or conflict needs your input.
 It preserves existing bundles and seeds `wayfinder.json` plus the new bundle's
 `index.md` and `log.md` under `knowledge/`, then writes the `AGENTS.md` blocks
 that point agents into the bundle.
-It then runs automated validation and Profile Review, reporting any unavailable
+It then runs validation and the Profile skill's review, reporting any unavailable
 check before claiming completion. Issue-tracker and triage-label setup are out of
 its scope.
 
-**It creates no directories under `knowledge/`, and that is correct.** A directory
-names a *subject*, and generic setup has no corpus from which to judge one (profile
-§3.1). A repository whose `knowledge/` is only its root files is fully set up, not
+**It creates no directories under `knowledge/`, and that is correct.** Under Bitwild a
+directory names a *subject*, and setup has no corpus from which to judge one (see
+Bitwild's [structure guidance](profiles/bitwild/skill/references/structure.md)). A repository whose `knowledge/` is only its root files is fully set up, not
 half-finished — the tree grows out of what the project actually learns rather than
 a guess made on day one. A genuine subject area may be small; no numeric threshold
 decides it.
@@ -199,9 +191,9 @@ Once a repository is set up, the skill family covers the bundle's whole lifecycl
 | `create-profile` | user-invoked | Creates or revises a Profile package: interviews its author, writes rules with tests and the Profile's skill, and proves both |
 
 You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
-authoring mechanics are loaded before a bundle write and contextual rules are loaded for
-Profile Review. A subject-named tree is not self-inferrable, so an agent that skips the
-profile will confidently create `decisions/`.
+authoring mechanics and each Profile's skill are loaded before a bundle write or a review.
+Bitwild's subject-named tree is not self-inferrable, so an agent that skips its skill will
+confidently create `decisions/`.
 
 ### 4. Validate the bundle
 
@@ -209,28 +201,28 @@ profile will confidently create `decisions/`.
 wayfinder validate knowledge
 # Machine-readable output:
 wayfinder validate knowledge --output json
-# Profile 2026.3: write okf's generated indexes first, then validate:
+# Write okf's generated indexes first, then validate:
 wayfinder validate knowledge --fix
 # SARIF 2.1.0 for code scanning:
 wayfinder validate knowledge --output sarif > wayfinder.sarif
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that
-directory. It runs the independent OKF check and every deterministic rule selected
-by the project's `wayfinder.json` binding, then derives one gate. Exit `0` (`PASS`)
+directory. It runs the independent OKF check and every rule of the Profile chain
+the project's `wayfinder.json` selects, then derives one gate. Exit `0` (`PASS`)
 means OKF passed, no Profile finding is an error, and every selected rule ran;
-advisories remain non-blocking. Exit `1` (`FAIL`) means OKF or a deterministic
-Profile rule failed. Exit `2` (`INCOMPLETE`) means the run could not assess
+advisories remain non-blocking. Exit `1` (`FAIL`) means OKF or a Profile rule
+failed. Exit `2` (`INCOMPLETE`) means the run could not assess
 everything, for example a missing `wayfinder.json`, an unresolved or
 unsupported Profile, a link graph
 that could not be built, or a usage or I/O error. A `wayfinder/` diagnostic in
 the output names the reason.
 
-Automated success is not complete Profile conformance. Validation never
-assesses Judgment Rules; contextual rules such as subject placement,
-metadata truth, and source or relationship meaning require the Profile Review in
-the canonical `author-knowledge-bundle` skill. One `wayfinder validate <bundle>` invocation is the
-single supported automated CI gate. A separate upstream `okf validate` invocation
+A `PASS` is conformance to the selected Profile. It is not a review of the
+judgment that Profile's skill asks for, such as whether a placement fits its
+subject or a source is truthful. The `author-knowledge-bundle` skill runs that
+review with each Profile's skill. One `wayfinder validate <bundle>` invocation is the
+single supported CI gate. A separate upstream `okf validate` invocation
 is optional when focused OKF diagnostics are useful.
 
 ## Search local knowledge with Wayfinder
@@ -262,7 +254,7 @@ for the launch configuration and tool lifecycle.
 ## Examples
 
 [`examples/bitwild/`](examples/bitwild/) is a complete project, small enough to read in one
-sitting: a `wayfinder.json` binding and a `knowledge/` bundle. It shows the profile's central
+sitting: a `wayfinder.json` binding and a `knowledge/` bundle. It shows Bitwild's central
 separations: a source event produces durable knowledge, which links to an execution record,
 with generated indexes and an authored log. CI resolves its Profile source from a synthetic
 local Git repository. A minimal configured validator fixture is
@@ -279,48 +271,35 @@ the child. CI resolves both from a synthetic local Git repository.
 
 ## Reading order
 
-- Adopting the profile in a project → [Getting started](#getting-started), then [`implementation/`](implementation/) §2
-- Writing or editing a concept → the `author-knowledge-bundle` skill; it delegates to
-  [`profile/`](profile/) and carries the pinned OKF 0.2 text alongside it
-- Building tooling → [`implementation/`](implementation/) §3 (index generation) and §4 (validation)
-- Converting an existing `docs/` tree → [`implementation/`](implementation/) §5 (migration)
-- Proposing a change to the profile → [Contributing](#contributing) below
+- Adopting a Profile in a project → [Getting started](#getting-started), then the
+  [engine contract](implementation/okf-implementation-guide.md) §2
+- Writing or editing a concept → the `author-knowledge-bundle` skill, which loads each
+  Profile's skill and carries the pinned OKF 0.2 text
+- Writing a Profile → the `create-profile` skill, then the engine contract §5
+- Building tooling → the engine contract §3 (index generation) and §4 (validation)
+- Converting an existing `docs/` tree → the selected Profile's guidance, such as Bitwild's
+  [migration reference](profiles/bitwild/skill/references/migration.md)
+- Proposing a change → [Contributing](#contributing) below
 
 ## Contributing
 
-Profile releases are driven by evidence, not by preference. A convention earns its way in by
-being needed on a real corpus and by being *generic* — if it names a client, a domain, or a
-project's own vocabulary, it belongs in that project's bundle, not here.
+Changes come in two kinds, and [`AGENTS.md`](AGENTS.md) lists what each needs.
 
-The loop:
+- **The engine contract** says what any Profile package is and how the engine reads it.
+  It changes through an ADR and the guide's change record, and a change that would make an
+  existing package read differently bumps the package `format`.
+- **A Profile** changes through its own release process. A Bitwild rule earns its way in
+  by being needed on a real corpus and by being generic. If it names a client, a domain, or
+  a project's own vocabulary, it belongs in that project's binding or bundle. Each change
+  has a [changelog](profiles/bitwild/CHANGELOG.md) entry stating the **driver** and the
+  migration impact.
 
-1. Use the profile on a real project.
-2. Open an issue for what it revealed — the case that broke, the rule that had to be decided
-   locally, the convention two projects invented separately.
-3. Where that justifies a convention, propose it against `profile/`, with its own row in the
-   change record (profile §15.3) stating the **driver** and the migration impact.
+The driver is the part that does the work. A change record without one is a preference
+dressed as a rule, and nobody can tell them apart later.
 
-The driver is the part that does the work. A change record row without one is a preference
-wearing a rule's clothes, and the profile has no way to tell them apart later.
-
-Two rules govern the edit itself. **Silence is deference**: where the profile says nothing and
-OKF settles the point, follow OKF and do not mint a Bitwild convention in its place — that is
-the failure mode the profile is least able to detect, because a locally invented rule looks
-like a convention rather than a divergence. And **precedence is a chain**: OKF wins over the
-profile, which wins over the implementation guide.
-
-## Profile or guide?
-
-Two normative documents, and the difference is *what conforms to each*:
-
-- The **profile** is normative on **bundles**. A bundle either conforms or it does not.
-  "A project directory MUST name the subject its concepts genuinely share" belongs here.
-- The **implementation guide** is normative on **implementations** — tools, adoptions,
-  migrations. "A generator MUST be idempotent" constrains a program, never a bundle, which is
-  why it could not have been written in the profile.
-
-Both carry RFC 2119 force; neither is the soft one. The test for a new rule: does it describe
-the bundle, or someone acting on the bundle?
+Two rules govern every Profile edit. **Silence is deference.** Where a Profile says nothing
+and OKF settles the point, follow OKF and do not mint a convention in its place. **Precedence
+is a chain.** OKF wins over the engine contract, which wins over each Profile package.
 
 ## Contributor checks
 
@@ -367,15 +346,8 @@ tests. Formatting with the floor SDK can produce output CI rejects.
 
 For skill or documentation changes, also check local links and compare changed
 rule wording with its authoritative source. Release-tool changes additionally
-use the checks under `tool/release/` in CI. Example-gate success covers automated
-checks only; contextual Profile Review remains separate.
-
-## Still owed
-
-- **The index generator** (guide §3). The profile defines deterministic semantic
-  membership, grouping, ordering, labels, links, and descriptions. Until a
-  generator exists, indexes are hand-maintained and validation catches drift
-  (guide §3.4).
+use the checks under `tool/release/` in CI. Example-gate success covers the
+Profile's rules; the judgment its skill asks for is reviewed separately.
 
 See the [release guide](docs/releasing.md) for package publication and native binaries.
 

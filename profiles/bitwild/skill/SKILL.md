@@ -50,3 +50,4 @@ needs several.
 | Keeping raw evidence in `captures/` beside the bundle | [references/captures.md](references/captures.md) |
 | Profile Review of a change or the whole bundle | [references/review-map.md](references/review-map.md) |
 | Adopting a new bundle with this Profile | [references/adoption.md](references/adoption.md) |
+| Converting an existing docs tree into a bundle | [references/migration.md](references/migration.md) |

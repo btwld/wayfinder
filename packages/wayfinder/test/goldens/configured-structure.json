@@ -59,7 +59,7 @@
       {
         "id": "bitwild-profile/raw-directory-markdown",
         "severity": "error",
-        "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/ (§12).",
+        "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/.",
         "location": {
           "path": "references/vendor/raw/stray.md"
         },

@@ -82,38 +82,38 @@ What to look for:
 - **A source event is not a concept.** The demo produced a request, and an analysis
   followed, but there is no interpreted record of the event itself. No Interaction Record was
   written, because its combined context was not independently durable. The request
-  links straight to the mirrored source artifact (§4.3).
+  links straight to the mirrored source artifact ([Interaction Records](../profiles/bitwild/skill/references/capture.md#interaction-records)).
 - **Execution stays external.** The request carries a `specified-by` relationship toward a
-  GitHub issue. The issue's state is never copied into the bundle (§7.3).
+  GitHub issue. The issue's state is never copied into the bundle ([execution stays external](../profiles/bitwild/skill/references/relationships.md#execution-stays-external)).
 - **Relationships are frontmatter, beside the OKF graph.** Each `relationships` entry
   names one relationship and one resource. The request's project-specific `assessed-by`
   is declared in `wayfinder.json`, so the Profile accepts it, and a durable Guide
   explains it once. The analysis deliberately points `constrained-by` at a
   not-yet-written pagination contract. The Profile reports that unresolved target as a
-  summary entry, which never changes the gate (§7.2, §13, §14.1).
+  summary entry, which never changes the gate ([relationship-unresolved](../profiles/bitwild/README.md#relationship-unresolved)).
 - **Provenance is per-claim.** The request's one substantive sentence carries a footnote keyed
   to a `sources[].id`, so the claim points at the transcript rather than the concept vaguely
-  citing it (§6.1).
+  citing it ([source-attribution-join](../profiles/bitwild/README.md#source-attribution-join)).
 - **A mirror is a source concept, not an interpreted outcome.** The transcript
   preserves an artifact from the interaction; an Interaction Record would interpret
   its combined context. It is mirrored only because a durable concept cites it and
   the recording expires, after confirming the content is suitable for repository
-  visibility. Mirroring is pull-based. It never happens just because a meeting occurred (§12).
+  visibility. Mirroring is pull-based. It never happens just because a meeting occurred ([mirroring](../profiles/bitwild/skill/references/mirroring.md)).
 - **Assets stay assets.** The layout sample is referenced through `sources` and has no
   concept frontmatter. The generated `references/` index lists only the transcript, so
-  the asset never needs an invented title or description (§9, §12).
+  the asset never needs an invented title or description ([index-current](../profiles/bitwild/README.md#index-current), [what a mirror is](../profiles/bitwild/skill/references/mirroring.md#what-a-mirror-is)).
 - **A declared type catches invention.** `Meeting Transcript` is not in the standard
   vocabulary, so the project declares it in `wayfinder.json` `types`, and validation
   names it in the `wayfinder/project-type` note. An undeclared type fails, which stops a
-  typo'd type from passing as a new kind of thing (§5.2).
+  typo'd type from passing as a new kind of thing ([used-type-registered](../profiles/bitwild/README.md#used-type-registered)).
 - **Affiliation is never trust.** `wayfinder.json` holds one record per actor id, so
   the transcription process keeps only its current vendor record. A dated affiliation
   history cannot live in the binding; a project that needs one records it as ordinary
   knowledge. The recording platform's side stays explicitly `unknown`. None of this
-  changes the OKF actor strings or their prefix-derived trust tiers (§6.1.1).
+  changes the OKF actor strings or their prefix-derived trust tiers ([actors](../profiles/bitwild/skill/references/metadata.md#actors)).
 - **Absence of `verified` is a signal, not a defect.** Three of the four concepts are
   unverified and validation reports no finding for it. The only way to clear such a
-  report would be to record a verification that did not happen (§6.2, §14.1).
+  report would be to record a verification that did not happen ([production and verification](../profiles/bitwild/skill/references/metadata.md#production-and-verification)).
 
 ## Why there is a small subject directory
 
@@ -123,7 +123,7 @@ disprove the placement, and waiting for a third would create avoidable path chur
 
 There is no `requests/` or `analyses/` either, and there never will be: those name *kinds*, and
 kind is carried by `type`. Reading every request as a set is an index filtered by type, not a
-directory (§13).
+directory ([name directories after subjects](../profiles/bitwild/skill/references/structure.md#name-directories-after-subjects)).
 
 The directory was not seeded speculatively: the two durable concepts provide the
 corpus from which the subject was observed. Every index is the OKF reference

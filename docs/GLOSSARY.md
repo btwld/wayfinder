@@ -1,73 +1,97 @@
-# Bitwild OKF Profile Glossary
+# Wayfinder glossary
 
-The shared language for applying Bitwild's reusable conventions to Open
-Knowledge Format bundles.
+The shared language for validating Open Knowledge Format bundles against
+Profiles with wayfinder.
 
 ## Language
 
 **OKF Specification**:
-The authoritative Open Knowledge Format specification on which the Bitwild OKF
-Profile is built. The Profile cannot redefine or weaken its meaning.
+The authoritative Open Knowledge Format specification. The engine contract and
+every Profile build on it and cannot redefine or weaken its meaning.
 _Avoid_: Base profile, upstream profile
 
-**Bitwild OKF Profile**:
-Bitwild's versioned, reusable conventions for using OKF consistently
-without changing OKF's meaning.
-_Avoid_: Format, generic Profile protocol
+**Engine contract**:
+The [implementation guide](../implementation/okf-implementation-guide.md) and the
+JSON Schemas under [`schemas/`](schemas/). It says what a Profile package is and
+how wayfinder selects, evaluates, and reports on one. It ranks below OKF and
+above every Profile.
+_Avoid_: Profile text
+
+**Profile**:
+A package of vocabulary and rules that adds requirements to OKF. A Profile is
+what `wayfinder validate` enforces. Bitwild is the first one.
+_Avoid_: Format, base Profile, standard
+
+**Profile package**:
+A directory at one Git revision holding `wayfinder-profile.json` in package
+format 2, and optionally a README, a changelog, and a skill. The package is the
+Profile; its prose explains it and adds no requirement.
+_Avoid_: Manifest, rule catalog
+
+**Profile id**:
+A package's one name. It is the finding namespace, the key in `wayfinder.json`
+and the lock, and the name of the installed skill directory, such as
+`bitwild-profile`.
+_Avoid_: Alias, namespace mapping
+
+**Chain**:
+A Profile and the ancestors its package names through `extends`, root ancestor
+first. A chain need not reach any particular Profile.
+_Avoid_: Base chain
+
+**Effective Profile**:
+The chain and the project binding's additions composed into one set of
+vocabulary and rules before evaluation.
+_Avoid_: Merged registry
 
 **Profile Binding**:
 The project-root `wayfinder.json` entry whose direct Git `source` and
-`applies_to` paths select one exact Profile release for a whole bundle,
-with additive project type, tag, and actor lookup extensions. It cannot
-define or override Profile rules.
+`applies_to` paths select one Profile for a whole bundle, with additive project
+types, tags, relationship names, and actor lookup. It cannot define or override
+rules.
 _Avoid_: Rule manifest, per-directory Profile
 
-**Profiled Bundle**:
-An OKF bundle bound to a Bitwild OKF Profile release and evaluated
-against both the OKF Specification and that release.
-_Avoid_: Profile bundle
+**Builtin**:
+A check the engine implements and versions, which any package's rule can call by
+name with `params`. It names what it can check, never the rule a Profile builds
+with it.
+_Avoid_: Built-in rule, plugin
 
 **OKF Conformance**:
-The judgment, made exclusively under the OKF Specification, that a bundle meets
-OKF's conformance requirements.
+The judgment, made exclusively under the OKF Specification by okf, that a bundle
+meets OKF's conformance requirements.
 _Avoid_: Base acceptance
 
 **Profile Conformance**:
-The judgment that an OKF-conformant Profiled Bundle satisfies every `MUST` and
-`MUST NOT` in its selected Profile release, regardless of assessment mode.
+The gate `PASS` from `wayfinder validate` with that Profile selected. OKF passes,
+every rule in the chain runs, and no rule reports an error.
 _Avoid_: OKF conformance, policy acceptance
 
-**Automated Profile Validation**:
-The model-independent CLI operation that reports OKF conformance and evaluates
-the Profile's Deterministic Rules, and leaves Judgment Rules to Profile Review.
-_Avoid_: Complete Profile Assessment, Profile Review
+**Engine diagnostic**:
+A `wayfinder/<code>` report about the run itself, never about the bundle, such as
+a missing configuration or a link graph that could not be built.
+_Avoid_: Profile finding, rule
 
-**Deterministic Rule**:
-A Profile rule whose satisfaction can be determined reliably from the bundle
-and its selected release. Its normative force is independent of its assessment mode.
-_Avoid_: Judgment Rule, heuristic
+**Gate**:
+The one result derived from OKF, Profile findings, and diagnostics. It is `FAIL`
+when OKF fails or a rule reports an error, `INCOMPLETE` when an error diagnostic
+means a rule did not run, and `PASS` otherwise.
+_Avoid_: Automated gate, UNSUPPORTED
 
-**Judgment Rule**:
-A Profile rule that requires contextual interpretation by a human or agent. It
-may be a requirement or a recommendation and is not claimed as a CLI check.
-_Avoid_: Deterministic Rule, automatic rule
+**Profile skill**:
+A Profile's agent guidance, shipped in its package and installed by
+`wayfinder get`. It carries the judgment no rule can decide and is not
+conformance.
+_Avoid_: Judgment rules, normative text
 
 **Profile Review**:
-A contextual assessment by a human or agent against the Profile's Judgment
-Rules. It is distinct from deterministic validation.
-_Avoid_: Automated Profile Validation, deterministic finding
+A contextual review by a human or agent using a Profile's skill, such as whether
+a placement fits its subject. It is guidance, distinct from validation, and never
+reported as checked.
+_Avoid_: Validation, deterministic finding
 
 **Profile Review Report**:
 A structured, non-bundle summary of a Profile Review, suitable for the active
-interaction or pull request. It records reasoning and escalations without becoming knowledge content.
+interaction or pull request. It records reasoning and escalations without
+becoming knowledge content.
 _Avoid_: Bundle concept, conformance certificate
-
-**Complete Profile Assessment**:
-The combined evidence from Automated Profile Validation and Profile Review used
-to assess all requirements of a Profiled Bundle.
-_Avoid_: CLI result, OKF conformance
-
-**Profile Toolchain**:
-The validator, skill, and guides that apply the Bitwild OKF Profile through
-deterministic validation and contextual review.
-_Avoid_: Bitwild OKF Profile, OKF toolkit

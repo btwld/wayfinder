@@ -83,7 +83,7 @@ documentation. A project Profile entry may add local vocabulary alongside
 - `types` adds project-specific type names and descriptions.
 - `tags` declares project topics; concepts still opt into them in frontmatter.
 - `relationships` declares project relationship names for the `relationships`
-  frontmatter key (Profile §7.2); its description is the name's one definition.
+  frontmatter key; its description is the name's one definition.
 - `actors` provides lookup metadata for actor IDs used by the project.
 
 The effective type, tag, and relationship registries are the vocabulary of
@@ -142,7 +142,7 @@ lists only what it adds. It cannot replace a name or change an inherited
 rule, so a parent's findings are the same with or without the child. A
 package that extends itself, directly or through its ancestors, fails `get`.
 
-There is no base Profile. A chain ends at the first package without
+No Profile is a base. A chain ends at the first package without
 `extends`, and a package with no parent stands alone.
 [`examples/profiles/two-rule/`](../examples/profiles/two-rule/) is a Profile
 with two rules and no parent, and
@@ -158,7 +158,7 @@ and entry always compose the same way. It enforces these constraints:
   project entry.
 - A frontmatter key is unique along the chain.
 - A tag never equals a type, an OKF status value, an OKF trust tier, or a
-  relationship name (Profile §5.1).
+  relationship name.
 
 Every package in a chain binds to the same OKF release because the engine
 reads one OKF release and refuses any other package when it parses it, before

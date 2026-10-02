@@ -12,7 +12,8 @@ passed because validation passed.
 
 Routine review covers the changed concepts and what they directly affect:
 placement, indexes, relationships, and dependents. Adoption, release
-upgrades, migrations, and structural reorganizations cover the whole bundle.
+upgrades, [migrations](migration.md), and structural reorganizations cover
+the whole bundle.
 Mark a section not applicable only after checking it against the scope.
 
 ## Force
