@@ -117,6 +117,8 @@ implementation and no semantic normalization applies.
 usual. It MUST:
 
 - **Write only generated `index.md` files**, and only those whose bytes differ.
+  It never deletes a file: an `index.md` the generator does not write stays a
+  finding until the author deletes it.
 - **Write nothing when OKF fails** (`BLOCKED BY OKF`), when Profile dispatch
   fails, or when the selected release has no fixable rules, as 2026.2 has
   none. Its output says which applied.
@@ -794,8 +796,8 @@ catalog's descriptors in SARIF output.
 
 Revised in place before publication: Profile 2026.3 §9 now names the
 generator's `okf` release, so §§1 and 3 cite it there and keep only how a tool
-pins that release and detects drift from it. Affected sections: §§1, 3, 3.1,
-and 9. Driver: a guide that pinned the release decided which index bytes
+pins that release and detects drift from it, and §3.1 states that `--fix`
+never deletes a leftover index. Affected sections: §§1, 3, 3.1, and 9. Driver: a guide that pinned the release decided which index bytes
 conform, which is a bundle rule the Profile owns. Migration for
 implementations: none; the release and the checks are unchanged.
 

@@ -1531,8 +1531,11 @@ a second knowledge base on the same okf release already checks its indexes with
 `okf index --check`,
 and teammates on the native `wayfinder` binary need the generator without a
 Dart toolchain. Migration impact: an index written to the earlier 2026.3
-projection no longer conforms; `wayfinder validate --fix` regenerates every
-index. 2026.2 bundles and the 2026.2 projection are unaffected.
+projection no longer conforms. `wayfinder validate --fix` regenerates every
+index the generator writes but never deletes a file, so delete each `index.md`
+it then reports as one the generator does not write, such as one left in a
+`raw/` tier or another asset-only directory. 2026.2 bundles and the 2026.2
+projection are unaffected.
 
 Revised in place before publication: typed relationships move from the
 `# Relationships` body section to the top-level frontmatter key `relationships`,

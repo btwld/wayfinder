@@ -2620,7 +2620,7 @@ const Map<(String, String), String> installedRuleCatalogs = {
       "severity": "error",
       "status": "stable",
       "ref": "§9",
-      "description": "Every directory the OKF reference index generator indexes MUST contain an `index.md` identical to the generator's output for the bundle.",
+      "description": "Every directory the OKF reference index generator indexes MUST contain an `index.md` identical to the generator's output for the bundle, and a directory holding only non-concept assets, such as a `raw/` tier, MUST NOT carry one.",
       "message": {
         "stale": "{path} is missing or differs from the generated index; run wayfinder validate --fix.",
         "extra": "{path} is not an index the generator writes; delete it, then run wayfinder validate --fix."
