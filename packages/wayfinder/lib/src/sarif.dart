@@ -14,7 +14,8 @@ const _schema =
 /// entries as its JSON.
 ///
 /// Each finding is a result whose `ruleId` is the finding id, and each
-/// summary entry a `note` result of kind `informational`. Locations are
+/// summary entry a result of kind `informational`, whose level SARIF
+/// §3.27.10 requires to be `none`. Locations are
 /// relative to the working directory, joined from [bundlePath] as given (or
 /// the project configuration file, for a finding about it), so code scanning
 /// resolves them against a checkout when validation runs at its root. Every
@@ -95,7 +96,7 @@ Map<String, Object?> toSarif(
           for (final entry in result.summary ?? const <ProfileSummaryEntry>[])
             _result(
               entry.id,
-              'note',
+              'none',
               entry.message,
               location: OkfFindingLocation(path: entry.path),
               uri: uri,
@@ -141,7 +142,7 @@ Map<String, Object?> _profileDescriptor(
   'defaultConfiguration': {
     'level': switch (descriptor.severity.finding) {
       final severity? => _level(severity),
-      null => 'note',
+      null => 'none',
     },
   },
   'properties': {

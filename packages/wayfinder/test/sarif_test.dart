@@ -13,15 +13,8 @@ void main() {
     () async {
       final logs = await Directory.systemTemp.createTemp('wayfinder-sarif-');
       addTearDown(() => logs.delete(recursive: true));
-      final fixtures =
-          Directory(p.join('test', 'fixtures'))
-              .listSync()
-              .whereType<Directory>()
-              .map((directory) => p.basename(directory.path))
-              .toList()
-            ..sort();
       final instances = <String>[];
-      for (final name in fixtures) {
+      for (final name in _fixtureNames()) {
         final log = File(p.join(logs.path, '$name.sarif'));
         await log.writeAsString(jsonEncode(await _sarif(fixture(name))));
         instances.addAll(['-i', log.path]);
@@ -76,37 +69,56 @@ void main() {
   });
 
   test(
-    'each summary entry is an informational note after the findings',
+    'each summary entry is an informational result after the findings',
     () async {
       final run = _run(await _sarif(fixture('configured-conventions')));
       final results = (run['results']! as List<Object?>)
           .cast<Map<String, Object?>>();
-      final notes = results.where((result) => result['level'] == 'note');
-      expect(notes.map((result) => result['ruleId']), [
+      final summary = results.where(
+        (result) => result['kind'] == 'informational',
+      );
+      expect(summary.map((result) => result['ruleId']), [
         'concepta-profile/internal-link-unresolved',
         'concepta-profile/relationship-unresolved',
       ]);
       expect(
-        notes.map((result) => result['kind']),
-        everyElement('informational'),
-      );
-      expect(
-        results.skipWhile((result) => result['level'] != 'note'),
-        hasLength(notes.length),
+        results.skipWhile((result) => result['kind'] != 'informational'),
+        hasLength(summary.length),
         reason: 'summary entries follow every finding',
       );
       expect(
-        results.where((result) => result['level'] != 'note'),
+        results.where((result) => result['kind'] != 'informational'),
         everyElement(isNot(contains('kind'))),
       );
       expect(
         _rules(
           run,
         )['concepta-profile/internal-link-unresolved']!['defaultConfiguration'],
-        {'level': 'note'},
+        {'level': 'none'},
       );
     },
   );
+
+  test('a result that is not a failure has level none, as §3.27.10 '
+      'requires', () async {
+    var informational = 0;
+    for (final name in _fixtureNames()) {
+      final run = _run(await _sarif(fixture(name)));
+      final rules = _rules(run);
+      for (final result
+          in (run['results']! as List<Object?>).cast<Map<String, Object?>>()) {
+        final kind = result['kind'] ?? 'fail';
+        if (kind == 'fail') continue;
+        informational++;
+        final reason = '$name: $result';
+        expect(result['level'] ?? 'none', 'none', reason: reason);
+        expect(rules[result['ruleId']]!['defaultConfiguration'], {
+          'level': 'none',
+        }, reason: reason);
+      }
+    }
+    expect(informational, isPositive, reason: 'some fixture has a summary');
+  });
 
   test('OKF findings are results under their okf ids', () async {
     final run = _run(await _sarif(fixture('invalid-concepts')));
@@ -185,6 +197,14 @@ void main() {
     },
   );
 }
+
+List<String> _fixtureNames() =>
+    Directory(p.join('test', 'fixtures'))
+        .listSync()
+        .whereType<Directory>()
+        .map((directory) => p.basename(directory.path))
+        .toList()
+      ..sort();
 
 Map<String, Object?> _wire(Map<String, Object?> log) =>
     jsonDecode(jsonEncode(log)) as Map<String, Object?>;

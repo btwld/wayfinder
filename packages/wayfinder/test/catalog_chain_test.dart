@@ -181,7 +181,7 @@ void main() {
       },
     });
     expect(rules['client-profile/concept-seen']!['defaultConfiguration'], {
-      'level': 'note',
+      'level': 'none',
     });
   });
 }
