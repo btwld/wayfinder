@@ -107,9 +107,11 @@ release changes the generator's output, and adopting that release waits for
 the Profile revision §9 requires.
 
 A validator MUST report every path the generator writes whose file is missing
-or whose text differs from the generated text. The comparison is exact: the
-generator's rendering is the contract, so no presentation is left to an
-implementation and no semantic normalization applies.
+or whose text differs from the generated text. The comparison is exact apart
+from line endings: the generator's rendering is the contract, so no
+presentation is left to an implementation and no semantic normalization
+applies. A CRLF line ending, which a checkout may write, compares equal to LF,
+and `--fix` leaves such an index unchanged.
 
 `wayfinder validate <bundle> --fix` is the safe fix, in the convention of
 `eslint --fix` and `ruff --fix`. For a bundle whose selected Profile is

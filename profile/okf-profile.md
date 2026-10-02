@@ -1109,7 +1109,9 @@ the generator's text, generated with the root index declaring
 conform, and adopting it requires a Profile revision recorded in §15.3; an
 `okf` release that leaves that text unchanged requires none (§15.1). The
 companion implementation guide binds how tools pin that release and detect
-drift from it. This profile adds no grouping, ordering, label, target, or
+drift from it. Line endings are not part of that text: an index whose lines end
+in CRLF, as a checkout may write them, matches the same text with LF. This
+profile adds no grouping, ordering, label, target, or
 description rule of its own. An index MUST NOT carry authored content: a hand edit is drift that the
 next regeneration discards, and knowledge worth keeping belongs in a concept.
 

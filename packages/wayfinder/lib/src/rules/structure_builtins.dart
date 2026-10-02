@@ -70,13 +70,17 @@ Map<String, String> generatedIndexes(
   declareVersion: supportedOkfRelease,
 );
 
+/// [text] with CRLF line endings written as LF. A checkout may convert an
+/// index's line endings; they are not part of the generated text.
+String? withLfLineEndings(String? text) => text?.replaceAll('\r\n', '\n');
+
 Iterable<Violation> indexCurrent(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
   final generated = generatedIndexes(facts, params);
   for (final MapEntry(key: path, value: text) in generated.entries) {
-    if (facts.loaded.indexes[path] != text) {
+    if (withLfLineEndings(facts.loaded.indexes[path]) != text) {
       yield Violation(path, facts: {'path': path}, messageId: 'stale');
     }
   }

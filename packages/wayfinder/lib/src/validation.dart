@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:collection/collection.dart';
 import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
@@ -17,6 +15,7 @@ import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
 import 'rules/registries.dart';
+import 'rules/structure_builtins.dart' show withLfLineEndings;
 import 'wayfinder_config.dart';
 
 enum OkfState {
@@ -433,7 +432,7 @@ Future<ProfileFix> writeGeneratedFiles(
   final written = <String>[];
   for (final path in files.keys.toList()..sort()) {
     try {
-      if (await _writeIfChanged(rootPath, path, utf8.encode(files[path]!))) {
+      if (await _writeIfChanged(rootPath, path, files[path]!)) {
         written.add(path);
       }
     } on FileSystemException catch (error) {
@@ -444,11 +443,7 @@ Future<ProfileFix> writeGeneratedFiles(
   return ProfileFix.written(written);
 }
 
-Future<bool> _writeIfChanged(
-  String rootPath,
-  String path,
-  List<int> bytes,
-) async {
+Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
   var current = rootPath;
   for (final segment in p.posix.split(path)) {
     current = p.join(current, segment);
@@ -463,7 +458,7 @@ Future<bool> _writeIfChanged(
   }
   final file = File(current);
   if (await file.exists() &&
-      const ListEquality<int>().equals(await file.readAsBytes(), bytes)) {
+      withLfLineEndings(await file.readAsString()) == text) {
     return false;
   }
   final suffix = Random.secure().nextInt(1 << 32).toRadixString(16);
@@ -472,7 +467,7 @@ Future<bool> _writeIfChanged(
   );
   try {
     await temporary.create(exclusive: true);
-    await temporary.writeAsBytes(bytes, flush: true);
+    await temporary.writeAsString(text, flush: true);
     await temporary.rename(current);
   } finally {
     if (await temporary.exists()) await temporary.delete();

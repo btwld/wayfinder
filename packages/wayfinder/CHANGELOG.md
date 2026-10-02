@@ -1,5 +1,8 @@
 # Unreleased
 
+- `index-current` and `validate --fix` compare an index with CRLF line
+  endings, as a Windows checkout writes it, equal to the generated LF text,
+  so neither reports nor rewrites it.
 - `validate --fix` replaces each generated index atomically, refuses a
   symbolic link at any path segment, and reports a failed write as
   `ProfileFix.state` `ProfileFixState.failed` with the files already written;

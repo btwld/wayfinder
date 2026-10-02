@@ -41,6 +41,21 @@ void main() {
     expect(await _snapshot(project), after);
   });
 
+  test('an index with CRLF line endings, as a Windows checkout writes it, '
+      'is current and --fix leaves it alone', () async {
+    final index = File(p.join(bundle, 'index.md'));
+    final lf = await index.readAsString();
+    await index.writeAsString(lf.replaceAll('\n', '\r\n'));
+
+    final result = await validateFixture(project.path, fix: true);
+    expect(result.fix!.written, isEmpty);
+    expect(
+      result.findings.map((finding) => finding.id),
+      isNot(contains('concepta-profile/index-current')),
+    );
+    expect(await index.readAsString(), contains('\r\n'));
+  });
+
   test('--fix refuses a symbolic link and reports what it wrote before '
       'it', () async {
     final outside = await Directory.systemTemp.createTemp('wayfinder-outside-');
