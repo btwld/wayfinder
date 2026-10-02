@@ -1,5 +1,8 @@
 # Unreleased
 
+- `{failing}` and `{fact}` placeholders render a non-string value as compact
+  JSON instead of Dart's `{key: value}` text, so a failing relationships
+  entry reads as it was authored. Strings are unchanged.
 - A failure while resolving relationship targets no longer drops the
   `relationships` and `inbound` facts silently. okf's graph and the
   relationship edges resolve as one link layer; when it fails,

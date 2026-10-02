@@ -144,12 +144,13 @@ void main() {
     expect(shape['scalar.md'], endsWith('found depends-on /a.md.'));
     expect(
       shape['mapping.md'],
-      endsWith('found {relationship: depends-on, resource: /scalar.md}.'),
+      endsWith('found {"relationship":"depends-on","resource":"/scalar.md"}.'),
     );
     expect(
       shape['mixed.md'],
       endsWith(
-        'found depends-on, {relationship: inspired-by, resource: /scalar.md}.',
+        'found depends-on, '
+        '{"relationship":"inspired-by","resource":"/scalar.md"}.',
       ),
     );
   });

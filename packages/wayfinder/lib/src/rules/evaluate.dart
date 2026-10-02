@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../profile_finding.dart';
 import '../profile_rule_descriptors.dart';
 import 'builtins.dart';
@@ -121,8 +123,13 @@ String _render(
   return template.replaceAllMapped(placeholder, (match) {
     final name = match[1]!;
     if (name == 'failing') {
-      return failing.toSet().join(', ');
+      return failing.toSet().map(_show).join(', ');
     }
-    return facts.containsKey(name) ? '${facts[name]}' : match[0]!;
+    return facts.containsKey(name) ? _show(facts[name]) : match[0]!;
   });
 }
+
+/// A string reads as itself; any other value reads as compact JSON, so a
+/// failing mapping renders as it was authored rather than as Dart's
+/// `{key: value}`.
+String _show(Object? value) => value is String ? value : jsonEncode(value);

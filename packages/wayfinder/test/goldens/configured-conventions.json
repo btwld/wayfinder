@@ -12,7 +12,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {relationship: inspired-by, resource: /sample.md}.",
+        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {\"relationship\":\"inspired-by\",\"resource\":\"/sample.md\"}.",
         "location": {
           "path": "custom-relationship.md"
         },
@@ -32,7 +32,7 @@
       {
         "id": "concepta-profile/relationship-shape",
         "severity": "error",
-        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {relationship: part-of}.",
+        "message": "Each relationships entry must be a mapping with exactly a declared relationship and a non-empty resource; found {\"relationship\":\"part-of\"}.",
         "location": {
           "path": "malformed-relationships.md"
         },
