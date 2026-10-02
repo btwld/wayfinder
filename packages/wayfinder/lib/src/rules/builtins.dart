@@ -37,10 +37,10 @@ typedef BuiltinFix =
 final class Builtin {
   const Builtin(
     this.run, {
-    this.params = const {'type': 'object', 'additionalProperties': false},
-    this.fills = const {},
+    this.paramsSchema = const {'type': 'object', 'additionalProperties': false},
+    this.messagePlaceholders = const {},
     this.messageIds = const {},
-    this.release,
+    this.installedOnlyIn,
     this.fix,
   });
 
@@ -48,107 +48,116 @@ final class Builtin {
 
   final BuiltinFix? fix;
 
-  final Object? params;
+  final Object? paramsSchema;
 
-  final Set<String> fills;
+  final Set<String> messagePlaceholders;
 
   final Set<String> messageIds;
 
-  final String? release;
+  final String? installedOnlyIn;
 }
 
 const builtins = <String, Builtin>{
-  'tag-literal-duplication': Builtin(tagLiteralDuplication, fills: {'failing'}),
+  'tag-literal-duplication': Builtin(
+    tagLiteralDuplication,
+    messagePlaceholders: {'failing'},
+  ),
   'configured-type-extension': Builtin(
     configuredTypeExtension,
-    fills: {'name'},
+    messagePlaceholders: {'name'},
   ),
   'type-registry-present': Builtin(
     typeRegistryPresent,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'type-registry-kind': Builtin(
     typeRegistryKind,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'type-registry-columns': Builtin(
     typeRegistryColumns,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'type-registry-standards': Builtin(
     typeRegistryStandards,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'type-registry-order': Builtin(
     typeRegistryOrder,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'registered-type-extension': Builtin(
     registeredTypeExtension,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'actor-registry-required': Builtin(
     actorRegistryRequired,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'actor-registry-kind': Builtin(
     actorRegistryKind,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'actor-registry-columns': Builtin(
     actorRegistryColumns,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'actor-row-complete': Builtin(
     actorRowComplete,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
-  'actor-side-value': Builtin(actorSideValue, release: legacyProfileRelease),
+  'actor-side-value': Builtin(
+    actorSideValue,
+    installedOnlyIn: legacyProfileRelease,
+  ),
   'actor-active-interval': Builtin(
     actorActiveInterval,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'actor-active-overlap': Builtin(
     actorActiveOverlap,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
-  'source-path-unresolved': Builtin(sourcePathUnresolved, fills: {'target'}),
+  'source-path-unresolved': Builtin(
+    sourcePathUnresolved,
+    messagePlaceholders: {'target'},
+  ),
   'source-attribution-in-source': Builtin(
     sourceAttributionInSource,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'relationships-shape': Builtin(
     relationshipsShape,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'relationship-label-extension': Builtin(
     relationshipLabelExtension,
-    fills: {'label'},
-    release: legacyProfileRelease,
+    messagePlaceholders: {'label'},
+    installedOnlyIn: legacyProfileRelease,
   ),
   'link-graph-unavailable': Builtin(
     linkGraphUnavailable,
-    params: linkGraphUnavailableParams,
-    fills: {'error'},
+    paramsSchema: linkGraphUnavailableParams,
+    messagePlaceholders: {'error'},
   ),
   'declared-okf-binding': Builtin(
     declaredOkfBinding,
-    release: legacyProfileRelease,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'root-structure-files': Builtin(
     rootStructureFiles,
-    params: rootStructureFilesParams,
-    fills: {'failing'},
+    paramsSchema: rootStructureFilesParams,
+    messagePlaceholders: {'failing'},
     messageIds: {'missing', 'reserved'},
   ),
   'index-semantic-projection': Builtin(
     indexSemanticProjection,
-    params: indexSemanticProjectionParams,
-    release: legacyProfileRelease,
+    paramsSchema: indexSemanticProjectionParams,
+    installedOnlyIn: legacyProfileRelease,
   ),
   'index-current': Builtin(
     indexCurrent,
-    fills: {'path'},
+    messagePlaceholders: {'path'},
     fix: generatedIndexes,
     messageIds: {'stale', 'extra'},
   ),

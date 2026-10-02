@@ -33,7 +33,7 @@ final class JsonPredicate {
     this._root, {
     required this.slots,
     required this.defs,
-    required this.rootNames,
+    required this.rootPropertyNames,
   });
 
   factory JsonPredicate.compile(
@@ -53,7 +53,7 @@ final class JsonPredicate {
       root,
       slots: compiler.reachableSlots,
       defs: compiler.reachableDefs,
-      rootNames: compiler.rootNames,
+      rootPropertyNames: compiler.rootPropertyNames,
     );
   }
 
@@ -63,7 +63,7 @@ final class JsonPredicate {
 
   final Set<String> defs;
 
-  final Set<String> rootNames;
+  final Set<String> rootPropertyNames;
 
   bool test(Object? instance) => _root.test(instance);
 
@@ -89,7 +89,7 @@ final class _Compiler {
   final _compiledDefs = <String, _Node>{};
   final _refSites = <_RefSite>[];
   final _slotsByDef = <String?, Set<String>>{};
-  final rootNames = <String>{};
+  final rootPropertyNames = <String>{};
   late final Set<String> reachableDefs;
   late final Set<String> reachableSlots;
 
@@ -218,14 +218,14 @@ final class _Compiler {
           nodes.add(_MaxLength(_count(value, at)));
         case 'required':
           final names = _strings(value, at);
-          if (_atRoot) rootNames.addAll(names);
+          if (_atRoot) rootPropertyNames.addAll(names);
           nodes.add(_Required(names));
         case 'minProperties':
           nodes.add(_MinProperties(_count(value, at)));
         case 'properties':
           final atRoot = _atRoot;
           final properties = _schemaMap(value, at);
-          if (atRoot) rootNames.addAll(properties.keys);
+          if (atRoot) rootPropertyNames.addAll(properties.keys);
           nodes.add(_Properties(properties));
         case 'additionalProperties':
           final declared = map['properties'];

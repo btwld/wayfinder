@@ -384,7 +384,7 @@ CatalogRule _rule(
       };
       for (final template in templates) {
         for (final match in placeholder.allMatches(template)) {
-          if (!builtin.fills.contains(match[1])) {
+          if (!builtin.messagePlaceholders.contains(match[1])) {
             throw RuleCatalogException(
               '$where.message',
               '${match[0]} is not filled by builtin $name',
@@ -443,14 +443,14 @@ SchemaCheck _schemaCheck(
   } on JsonPredicateException catch (error) {
     throw RuleCatalogException('$where.schema', '$error');
   }
-  if (subject.facts case final facts?) {
+  if (subject.facts case ClosedFacts(:final shapes)) {
     final Set<String> names;
     final String instance;
     if (each == null) {
-      names = facts.keys.toSet();
+      names = shapes.keys.toSet();
       instance = 'a fact of ${subject.name}';
     } else {
-      final shape = facts[each];
+      final shape = shapes[each];
       if (shape is! ListFact) {
         throw RuleCatalogException(
           '$where.each',
@@ -463,7 +463,7 @@ SchemaCheck _schemaCheck(
         throw RuleCatalogException('$where.failing_field', 'not $instance');
       }
     }
-    for (final name in compiled.rootNames) {
+    for (final name in compiled.rootPropertyNames) {
       if (!names.contains(name)) {
         throw RuleCatalogException('$where.schema', '$name is not $instance');
       }
@@ -491,14 +491,15 @@ BuiltinCheck _builtinCheck(
   if (builtin == null) {
     throw RuleCatalogException('$where.builtin', 'unknown builtin');
   }
-  if (builtin.release case final frozen? when !installed || release != frozen) {
+  if (builtin.installedOnlyIn case final frozen?
+      when !installed || release != frozen) {
     throw RuleCatalogException(
       '$where.builtin',
       'only the installed $frozen catalog may name builtin $name',
     );
   }
   final params = json['params'] as Map<String, Object?>? ?? const {};
-  if (!JsonPredicate.compile(builtin.params).test(params)) {
+  if (!JsonPredicate.compile(builtin.paramsSchema).test(params)) {
     throw RuleCatalogException(
       '$where.params',
       'params do not match what builtin $name accepts',
@@ -516,7 +517,8 @@ void _checkPlaceholders(String template, SchemaCheck check, String where) {
       }
       continue;
     }
-    if (check.subject.facts case final facts? when !facts.containsKey(name)) {
+    final facts = check.subject.facts;
+    if (facts is ClosedFacts && !facts.shapes.containsKey(name)) {
       throw RuleCatalogException(
         where,
         '{$name} is not a fact of ${check.subject.name}',

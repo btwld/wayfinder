@@ -21,14 +21,28 @@ final class ListFact extends FactShape {
   final Set<String> fields;
 }
 
+sealed class FactSet {
+  const FactSet();
+}
+
+final class OpenFacts extends FactSet {
+  const OpenFacts();
+}
+
+final class ClosedFacts extends FactSet {
+  const ClosedFacts(this.shapes);
+
+  final Map<String, FactShape> shapes;
+}
+
 const _scalar = ScalarFact();
 const _scalars = ListFact({'value'});
 
 enum SubjectKind {
-  frontmatter(facts: null),
+  frontmatter(facts: OpenFacts()),
 
   concept(
-    facts: {
+    facts: ClosedFacts({
       'path': _scalar,
       'type': _scalar,
       'status': _scalar,
@@ -53,29 +67,31 @@ enum SubjectKind {
       'inbound': ListFact({'relationship', 'from'}),
       'footnotes': ListFact({'value', 'referenced', 'defined', 'is_source_id'}),
       'sibling_directory': _scalar,
-    },
+    }),
   ),
 
-  actor(facts: {'id': _scalar, 'first_use': _scalar}),
+  actor(facts: ClosedFacts({'id': _scalar, 'first_use': _scalar})),
 
   directory(
-    facts: {'path': _scalar, 'has_index': _scalar},
+    facts: ClosedFacts({'path': _scalar, 'has_index': _scalar}),
     locations: {'self', 'index'},
   ),
 
-  file(facts: {'path': _scalar, 'name': _scalar, 'markdown': _scalar}),
+  file(
+    facts: ClosedFacts({'path': _scalar, 'name': _scalar, 'markdown': _scalar}),
+  ),
 
-  root(facts: {'okf_version': _scalar, 'files': _scalars}),
+  root(facts: ClosedFacts({'okf_version': _scalar, 'files': _scalars})),
 
   log(
-    facts: {
+    facts: ClosedFacts({
       'entries': ListFact({'date', 'action'}),
-    },
+    }),
   );
 
   const SubjectKind({required this.facts, this.locations = const {'self'}});
 
-  final Map<String, FactShape>? facts;
+  final FactSet facts;
 
   final Set<String> locations;
 }
@@ -103,24 +119,20 @@ final class BundleFacts {
   late final BundleInventory inventory = BundleInventory(loaded.paths);
 
   late final LegacyRegistries registries =
-      profile.legacy?.registries ?? LegacyRegistries(loaded);
+      profile.legacyDispatch?.registries ?? LegacyRegistries(loaded);
 
   late final Map<String, ParsedBody> bodies = {
     for (final MapEntry(key: path, value: document) in loaded.documents.entries)
       path: ParsedBody(document.body),
   };
 
-  late final ({LinkFacts? links, Object? error}) _links = () {
+  late final Links links = () {
     try {
-      return (links: LinkFacts(loaded.bundle, _buildGraph), error: null);
+      return LinkFacts(loaded.bundle, _buildGraph);
     } catch (error) {
-      return (links: null, error: error);
+      return LinksUnavailable(error);
     }
   }();
-
-  LinkFacts? get links => _links.links;
-
-  Object? get linkError => _links.error;
 
   late final Map<SubjectKind, List<Subject>> _subjects = {
     SubjectKind.frontmatter: [
@@ -202,11 +214,11 @@ final class BundleFacts {
         for (final heading in body.headings())
           {'value': heading, 'normalized': heading.trim().toLowerCase()},
       ],
-      if (links case final links?) ...{
+      if (links case final LinkFacts links) ...{
         'edges': links.edges[path] ?? const [],
-        'relationships': links.relationships.containsKey(path)
-            ? links.relationships[path]
-            : const <Object?>[],
+        'relationships': links.nonListRelationships.containsKey(path)
+            ? links.nonListRelationships[path]
+            : links.relationships[path] ?? const [],
         'inbound': links.inbound[path] ?? const [],
       },
       'footnotes': [
@@ -223,7 +235,17 @@ final class BundleFacts {
   }
 }
 
-final class LinkFacts {
+sealed class Links {
+  const Links();
+}
+
+final class LinksUnavailable extends Links {
+  const LinksUnavailable(this.error);
+
+  final Object error;
+}
+
+final class LinkFacts extends Links {
   LinkFacts(OkfBundle bundle, OkfGraph Function(OkfBundle) buildGraph)
     : graph = buildGraph(bundle) {
     for (final edge in graph.edges) {
@@ -243,7 +265,7 @@ final class LinkFacts {
       if (value is List) {
         authored[id] = value;
       } else {
-        relationships[id.documentPath] = _json(value);
+        nonListRelationships[id.documentPath] = _json(value);
       }
     }
     final resolved = resolveLinkTargets(bundle, {
@@ -284,7 +306,8 @@ final class LinkFacts {
 
   final edges = <String, List<Map<String, Object?>>>{};
 
-  final relationships = <String, Object?>{};
+  final relationships = <String, List<Map<String, Object?>>>{};
+  final nonListRelationships = <String, Object?>{};
   final inbound = <String, List<Map<String, Object?>>>{};
 }
 

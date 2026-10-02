@@ -50,7 +50,7 @@ final class EffectiveProfile {
     this.catalogs,
     this.vocabulary, {
     this.configPath,
-    this.legacy,
+    this.legacyDispatch,
   });
 
   final List<RuleCatalog> catalogs;
@@ -70,5 +70,5 @@ final class EffectiveProfile {
   final String? configPath;
 
   final ({Map<String, String> declaration, LegacyRegistries registries})?
-  legacy;
+  legacyDispatch;
 }

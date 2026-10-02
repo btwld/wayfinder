@@ -242,7 +242,7 @@ Iterable<Violation> sourceAttributionInSource(
       (footnote) =>
           footnote.referenced &&
           sourceIds.contains(footnote.label) &&
-          !body.rawDefinitions.contains(footnote.label),
+          !body.definitionsIncludingFencedCode.contains(footnote.label),
     );
     if (unjoined) yield Violation(path);
   }
@@ -284,7 +284,7 @@ Iterable<Violation> linkGraphUnavailable(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  if (facts.linkError case final error?) {
+  if (facts.links case LinksUnavailable(:final error)) {
     yield Violation(
       params['path'] as String? ?? 'profile.md',
       facts: {'error': '$error'},
@@ -296,8 +296,9 @@ Iterable<Violation> sourcePathUnresolved(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final graph = facts.links?.graph;
-  if (graph == null) return;
+  final links = facts.links;
+  if (links is! LinkFacts) return;
+  final graph = links.graph;
   final rootPath = facts.loaded.rootPath;
   final emitted = <(String, String)>{};
   for (final edge in graph.edges.where(

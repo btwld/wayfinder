@@ -374,7 +374,7 @@ final class ProfileValidator {
       profile = EffectiveProfile(
         [RuleCatalog.installed(builtinProfileId, release)],
         legacyRegistryVocabulary(registries),
-        legacy: (declaration: values, registries: registries),
+        legacyDispatch: (declaration: values, registries: registries),
       );
     }
     if (!fix) {
