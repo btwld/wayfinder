@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
+import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
 
 import '../../wayfinder_embeddings.dart';
 import '../util/similarity.dart';
-import 'field_edges.dart';
 import 'knowledge_snapshot.dart';
 
 enum KnowledgeRetrievalMode { bm25, dense, hybrid }

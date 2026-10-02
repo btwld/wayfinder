@@ -1,6 +1,7 @@
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../field_edges.dart';
 import '../finding_helpers.dart';
 import 'body.dart';
 import 'profile.dart';
@@ -152,12 +153,12 @@ final class BundleFacts {
     final declared = <OkfConceptId, List<(Object?, String)>>{};
     for (final MapEntry(key: id, value: document)
         in loaded.bundle.concepts.entries) {
-      final entries = document.frontmatter['relationships'];
+      final entries = document.frontmatter[relationshipsLinkField.key];
       if (entries is! List) continue;
       for (final entry in entries.whereType<Map<Object?, Object?>>()) {
         if (entry['resource'] case final String resource) {
           declared.putIfAbsent(id, () => []).add((
-            _json(entry['relationship']),
+            _json(entry[relationshipsLinkField.nameKey]),
             resource,
           ));
         }
@@ -165,7 +166,7 @@ final class BundleFacts {
     }
     final Map<OkfConceptId, List<OkfGraphEdge?>> edges;
     try {
-      edges = _resolveTargets(loaded.bundle, {
+      edges = resolveLinkTargets(loaded.bundle, {
         for (final MapEntry(:key, :value) in declared.entries)
           key: [for (final (_, resource) in value) resource],
       });
@@ -251,44 +252,6 @@ Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
 bool _resolved(OkfGraphEdge edge) =>
     edge.resolution == OkfGraphResolution.resolvedConcept ||
     edge.resolution == OkfGraphResolution.resolvedAsset;
-
-/// Resolves each concept's [targets] exactly as okf resolves a link target.
-/// okf keeps that resolution inside its graph, so each target is handed to
-/// the graph as its concept's top-level `resource`: one copy of the bundle
-/// per entry position, every concept stripped to the target it holds at
-/// that position. A blank target draws no edge and stays null.
-Map<OkfConceptId, List<OkfGraphEdge?>> _resolveTargets(
-  OkfBundle bundle,
-  Map<OkfConceptId, List<String>> targets,
-) {
-  final resolved = {
-    for (final MapEntry(:key, :value) in targets.entries)
-      key: List<OkfGraphEdge?>.filled(value.length, null),
-  };
-  final depth = targets.values.fold(0, (deepest, list) {
-    return list.length > deepest ? list.length : deepest;
-  });
-  for (var position = 0; position < depth; position++) {
-    final layer = OkfBundle.fromDocuments(
-      {
-        for (final id in bundle.concepts.keys)
-          id.documentPath: OkfDocument(
-            frontmatter: {
-              if (targets[id] case final list? when position < list.length)
-                'resource': list[position],
-            },
-          ),
-      },
-      indexes: bundle.indexFiles,
-      logs: bundle.logFiles,
-      assets: bundle.assetPaths,
-    );
-    for (final edge in OkfGraph.fromBundle(layer).edges) {
-      resolved[edge.source]![position] = edge;
-    }
-  }
-  return resolved;
-}
 
 final class BundleInventory {
   BundleInventory(Iterable<String> paths)

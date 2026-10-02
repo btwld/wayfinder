@@ -4,10 +4,11 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/wayfinder.dart'
+    show OkfFieldEdge, OkfLinkField, okfFieldEdges;
 
 import '../../wayfinder_embeddings.dart';
 import '../models/metadata_collections.dart';
-import 'field_edges.dart';
 import 'knowledge_input_diagnostic.dart';
 
 /// A parsed bundle projection with original citation locations and graph edges.

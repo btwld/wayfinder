@@ -13,6 +13,13 @@ final class OkfLinkField {
   final String nameKey;
 }
 
+/// The Profile's typed relationships (Profile §7.2), the one link field the
+/// engine projects into facts and the CLI overlays on okf's graph.
+const relationshipsLinkField = OkfLinkField(
+  'relationships',
+  nameKey: 'relationship',
+);
+
 /// One entry of an [OkfLinkField], resolved as okf resolves a link target.
 final class OkfFieldEdge {
   const OkfFieldEdge({
@@ -77,7 +84,7 @@ List<OkfFieldEdge> okfFieldEdges(
       }
     }
   }
-  final resolved = _resolveTargets(bundle, targets);
+  final resolved = resolveLinkTargets(bundle, targets);
   return [
     for (final MapEntry(key: id, value: declared) in entries.entries)
       for (final (index, (:field, :name)) in declared.indexed)
@@ -99,7 +106,7 @@ List<OkfFieldEdge> okfFieldEdges(
 /// the graph as its concept's top-level `resource`: one copy of the bundle
 /// per entry position, every concept stripped to the target it holds at
 /// that position. A blank target draws no edge and stays null.
-Map<OkfConceptId, List<OkfGraphEdge?>> _resolveTargets(
+Map<OkfConceptId, List<OkfGraphEdge?>> resolveLinkTargets(
   OkfBundle bundle,
   Map<OkfConceptId, List<String>> targets,
 ) {

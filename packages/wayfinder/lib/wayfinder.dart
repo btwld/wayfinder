@@ -3,6 +3,8 @@
 /// Used by the wayfinder_cli command and MCP server.
 library;
 
+export 'src/field_edges.dart'
+    show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
 export 'src/profile_finding.dart';
 export 'src/profile_release.dart'
     show

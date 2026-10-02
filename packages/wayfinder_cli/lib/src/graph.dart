@@ -1,14 +1,13 @@
 import 'dart:convert';
 
 import 'package:okf/okf_io.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder/wayfinder.dart';
 
 /// Formats `okf graph` already emits. mermaid and DOT are text for a preview.
 const wayfinderGraphOutputs = ['json', 'dot', 'mermaid'];
 
-const wayfinderLinkFields = [
-  OkfLinkField('relationships', nameKey: 'relationship'),
-];
+/// The link fields the CLI overlays on okf's graph and follows in search.
+const wayfinderLinkFields = [relationshipsLinkField];
 
 /// Stable OKF resolution wires accepted by `--resolution` and MCP.
 List<String> wayfinderGraphResolutions() => OkfGraphResolution.values

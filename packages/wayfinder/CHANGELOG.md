@@ -1,5 +1,15 @@
 # Unreleased
 
+- Export `OkfLinkField`, `OkfFieldEdge` and `okfFieldEdges`, the typed
+  link-field model and resolution `wayfinder_embeddings` and the CLI graph
+  shared with the engine, plus `relationshipsLinkField` for the Profile's
+  `relationships` key. The engine's relationship facts resolve through the
+  same function.
+- The 2026.2 catalog checks `source-attribution-join` through the frozen
+  `source-attribution-in-source` builtin, which reads a footnote definition
+  from the raw source, fenced code included, as before the `footnotes` fact
+  stopped counting definitions inside a fence. 2026.2 output is unchanged
+  from 0.1.x.
 - Profile 2026.3 reports what it permits as summary entries instead of
   advisories. Catalog rules take a third severity, `note`, whose results
   fill `ProfileValidationResult.summary` (`ProfileSummaryEntry`), JSON

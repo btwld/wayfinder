@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:okf/okf.dart';
 import 'package:test/test.dart';
+import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
