@@ -14,3 +14,7 @@ examples/** text eol=lf
 profile/** text eol=lf
 docs/schemas/** text eol=lf
 packages/wayfinder/lib/src/generated/** text eol=lf
+
+# The CLI tests copy and edit these files as LF text, as the other fixture
+# directories above are pinned.
+packages/wayfinder_cli/test/fixtures/** text eol=lf
