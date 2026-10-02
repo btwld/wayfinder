@@ -89,7 +89,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §5.1: used tags are declared once in the merged manifest/binding registry and not repeated within a concept | MUST / MUST NOT | Automated Profile Validation | Registry membership, collisions, and per-concept duplicate checks |
 | §5.1: tags remain topics rather than semantic aliases for type, lifecycle, trust, or subject-resolution state | MUST NOT | Profile Review | Contextual meaning carries a topic rather than a second source of truth |
 | §5.2: the base manifest has twelve standard types, including Attested Computation, and the binding adds unique, noncolliding custom types | MUST / MAY | Automated Profile Validation | Manifest parity, custom-definition shape, duplicate and collision checks |
-| §5.2: every used type is registered; a registered project type is allowed and reported as a summary entry | MUST / MAY | Automated Profile Validation | Used-type membership; the extension summary entry does not affect the automated gate, and the `configured-extensions` fixture passes with only that entry |
+| §5.2: every used type is registered; a registered project type is allowed and reported as a summary entry | MUST / MAY | Automated Profile Validation | Used-type membership; the extension is reported as the `wayfinder/project-type` note diagnostic, which does not affect the gate, and the `configured-extensions` fixture passes with only that note |
 | §5.1, §5.2, §14.1: each standard or project-specific type and its registered meaning truthfully fit the concept | MUST | Profile Review | Concept content fits the selected kind and its registered meaning; review does not infer fit from headings, paths, or keywords |
 | §5.2: a Business Rule selected by a Decision carries a `depends-on` relationship to it | SHOULD | Profile Review | Rule history and relationship meaning support the outward relationship when the rule records a chosen policy |
 | §5.2: a project may use SBVR or another notation for Business Rule bodies | MAY | Profile Review | No notation is required or treated as changing the one-rule-per-concept type boundary |
@@ -106,7 +106,7 @@ none is duplicated between Automated Profile Validation and Profile Review.
 | §6.3.1: subject-settlement assessment stays in body prose and is not stored in frontmatter or derived from links | MUST NOT / MAY / SHOULD | Profile Review | Assessment appears beside reasoning when used; no stored or graph-derived verdict exists |
 | §6.4: `stale_after` appears only for an evidenced freshness horizon and never as a type default or placeholder | MUST / MUST NOT | Profile Review | Evidence supports the absolute instant and historical type alone neither requires nor prohibits it |
 | §6.5: every timestamp-valued key is an ISO 8601 datetime with an explicit UTC offset, and no date-only or offset-less value is written | MUST NOT | Automated Profile Validation | The `okf` package reports each offending field as the non-blocking `okf/timestamp-without-offset` advisory naming the exact key; `okf validate --strict` escalates it |
-| §14.1: a concept beside an area of the same name produces only a non-blocking advisory | MUST NOT | Automated Profile Validation | Same-name root or sibling fixture emits an advisory without changing Profile conformance, automated gate, or exit status |
+| §14.1: a concept beside an area of the same name produces only a non-blocking advisory | MUST NOT | Automated Profile Validation | Same-name root or sibling fixture emits an advisory without changing Profile conformance, the gate, or exit status |
 
 Profile §5.3 deliberately defines no type-specific body-template rule, so missing
 skill-prompt headings receive no coverage row and no finding. Actor lookup is
@@ -173,7 +173,7 @@ found no rule crossing the blocking boundary — every 0.1.2 `error` remains an
 this matrix moved. Duplicate reporting is deliberate and stays: the OKF
 report is preserved unreclassified (ADR-0004, ADR-0008), the Profile keeps
 its own stricter rule, and neither layer filters the other's findings. An OKF
-advisory never changes OKF conformance, the automated gate, or the exit
+advisory never changes OKF conformance, the gate, or the exit
 status; the `okf-advisory` fixture pins this.
 
 ## Completion gate

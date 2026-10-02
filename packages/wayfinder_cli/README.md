@@ -14,7 +14,7 @@ wayfinder search ./knowledge "How do I regain account access?"
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
-codes. Automated success keeps judgment rules UNASSESSED.
+codes. Validation never assesses judgment rules.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
@@ -158,8 +158,10 @@ line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages
 are candidates; verify the supporting text before answering.
 
-Validation preserves exit 0 for automated success, 1 for findings and 2 for
-usage/I/O/unsupported releases. Index/search return 0 on success and 2 when they
+Validation exits 0 for gate `PASS`, 1 for `FAIL` and 2 for `INCOMPLETE`, which
+covers usage and I/O errors and any run with an error diagnostic. With
+`--output json` or `--output sarif`, a run that stops still prints a result
+carrying the `wayfinder/internal-error` diagnostic. Index/search return 0 on success and 2 when they
 cannot complete, including stale indexes, busy stores and missing model assets.
 An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
@@ -189,7 +191,7 @@ The tools are `validate` and `index` (no arguments), `search` with a required
 `query` and optional `limit` (1–100, default 5), and `graph` with optional
 `types`, `path_prefixes` and `resolutions`. Their results contain the same
 JSON as the commands, in one text content block. Validation also includes the
-command's `exit_code`, findings and UNASSESSED judgment without treating a
+command's `exit_code`, findings, diagnostics and gate without treating a
 completed report as a tool error. `graph` returns the versioned OKF graph JSON
 (`schema_version: "1"`). Mermaid and DOT remain CLI text for an external
 preview.

@@ -16,7 +16,7 @@ final class ProfileFinding {
     required FindingDescriptor descriptor,
     required this.message,
     required this.path,
-    this.profileRelease,
+    required this.profileRelease,
   }) : _descriptor = descriptor;
 
   final FindingDescriptor _descriptor;
@@ -27,13 +27,11 @@ final class ProfileFinding {
 
   final String message;
 
-  /// Bundle-relative path, or the project configuration basename for a
-  /// binding finding.
+  /// Bundle-relative path.
   final String path;
 
-  /// The Profile release the rule assessed under; null when the finding
-  /// precedes release dispatch.
-  final String? profileRelease;
+  /// The Profile release the rule assessed under.
+  final String profileRelease;
 
   String get id => descriptor.id;
   OkfFindingSeverity get severity => _descriptor.severity;
@@ -56,17 +54,14 @@ final class ProfileFinding {
     'rule': rule,
   };
 
-  String toText() {
-    final release = profileRelease == null ? '' : '$profileRelease ';
-    return '$_location: ${severity.wireValue} $id ($release$rule): $message';
-  }
+  String toText() =>
+      '$_location: ${severity.wireValue} $id ($profileRelease $rule): $message';
 }
 
-/// Something a note rule found that the Profile permits, such as a project
-/// type in use or an unresolved planned link. Profile §14.1: a summary entry
-/// is not a finding, so it carries no severity and never affects the
-/// Profile state, the automated gate or the exit status. SARIF reports it as
-/// a `note` result of kind `informational`.
+/// Something a note rule found that the Profile permits, such as an
+/// unresolved planned link. Profile §14.1: a summary entry is not a finding,
+/// so it carries no severity and never affects the Profile state, the gate
+/// or the exit status. SARIF reports it as a result of kind `informational`.
 final class ProfileSummaryEntry {
   const ProfileSummaryEntry({
     required this.descriptor,
@@ -80,8 +75,7 @@ final class ProfileSummaryEntry {
 
   final String message;
 
-  /// Bundle-relative path, or the project configuration path for an entry
-  /// about the binding.
+  /// Bundle-relative path.
   final String path;
 
   final String profileRelease;

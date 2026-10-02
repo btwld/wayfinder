@@ -102,7 +102,7 @@
             "advisory",
             "note"
           ],
-          "description": "An error fails the automated gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
+          "description": "An error fails the gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
         },
         "status": {
           "enum": [

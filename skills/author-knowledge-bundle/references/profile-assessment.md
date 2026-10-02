@@ -44,15 +44,16 @@ request, never as a blanket certificate inside the bundle:
 
 - Profile: <2026.3 | legacy 2026.2> (OKF 0.2)
 - Scope: <changed concepts and affected neighbors | whole bundle>
-- Automated gate: <PASS | FAIL | UNSUPPORTED | NOT RUN — reason>
+- Gate: <PASS | FAIL | INCOMPLETE | NOT RUN (reason)>
 - Reviewed: <applicable Judgment Rule Profile sections, comma-separated>
 - Outcome: <PASS | CHANGES REQUIRED | NEEDS HUMAN>
 - Concerns: <none | compact actionable findings or uncertainty>
 ```
 
-`Automated gate` is the CLI's combined state. When it is not `PASS`, name the
-failing component in Concerns — OKF conformance, deterministic Profile
-validation, or `BLOCKED BY OKF` — so the reader knows which bar failed.
+`Gate` is the gate the CLI derives. When it is not `PASS`, say in Concerns
+whether OKF failed, a Profile finding is an error, or an error diagnostic left
+the run `INCOMPLETE`, and name that diagnostic's id, so the reader knows which
+bar failed.
 Outcome `PASS` means every Judgment Rule in scope was assessed with sufficient
 context; it does not replace or reinterpret the independent OKF or automated
 Profile result.

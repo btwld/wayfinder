@@ -40,7 +40,7 @@ void main() {
           'ref': '§1',
           'description': 'd',
           'message': 'm',
-          'check': {'builtin': 'link-graph-unavailable'},
+          'check': {'builtin': 'source-path-unresolved'},
           ...rule,
         },
       ],
@@ -75,14 +75,16 @@ void main() {
       expect(rule.descriptor.severity.finding, isNull);
     });
 
-    test('link-graph-unavailable params other than a report path', () {
+    test('root-structure-files params outside its params schema', () {
       final reported = RuleCatalog.parse(
         jsonEncode(
           catalog(
             rule: {
               'check': {
-                'builtin': 'link-graph-unavailable',
-                'params': {'path': 'index.md'},
+                'builtin': 'root-structure-files',
+                'params': {
+                  'required': ['index.md'],
+                },
               },
             },
           ),
@@ -95,7 +97,7 @@ void main() {
             catalog(
               rule: {
                 'check': {
-                  'builtin': 'link-graph-unavailable',
+                  'builtin': 'root-structure-files',
                   'params': {'at': 'index.md'},
                 },
               },
@@ -216,8 +218,6 @@ void main() {
               as Map<String, Object?>;
       final release = profile['release'] as String?;
       final declared = {
-        for (final descriptor in DispatchRule.all)
-          descriptor.id: descriptor.severity,
         if (catalogs[release] case final catalog?)
           for (final rule in catalog.rules)
             rule.descriptor.id: rule.descriptor.severity,
@@ -515,8 +515,8 @@ void main() {
         () => RuleCatalog.parse(
           catalog(
             schemaRule(
-              check: {'builtin': 'link-graph-unavailable'},
-              message: 'at {path}: {error}',
+              check: {'builtin': 'source-path-unresolved'},
+              message: 'at {path}: {target}',
             ),
           ),
         ),

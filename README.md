@@ -209,13 +209,16 @@ wayfinder validate knowledge --output sarif > wayfinder.sarif
 
 The command requires exactly one explicit bundle directory and inspects only that
 directory. It runs the independent OKF check and every deterministic rule selected
-by the bundle's Profile declaration. Exit `0` means those automated checks passed;
-advisories remain non-blocking. Exit `1` means OKF or deterministic Profile
-validation failed, and exit `2` reports usage, I/O, or an unsupported Profile
-release.
+by the bundle's Profile declaration, then derives one gate. Exit `0` (`PASS`)
+means OKF passed, no Profile finding is an error, and every selected rule ran;
+advisories remain non-blocking. Exit `1` (`FAIL`) means OKF or a deterministic
+Profile rule failed. Exit `2` (`INCOMPLETE`) means the run could not assess
+everything, for example an unresolved or unsupported Profile, a link graph
+that could not be built, or a usage or I/O error. A `wayfinder/` diagnostic in
+the output names the reason.
 
-Automated success is not complete Profile conformance. The output keeps Judgment
-Rules explicitly `UNASSESSED`; contextual rules such as subject placement,
+Automated success is not complete Profile conformance. Validation never
+assesses Judgment Rules; contextual rules such as subject placement,
 metadata truth, and source or relationship meaning require the Profile Review in
 the canonical `author-knowledge-bundle` skill. One `wayfinder validate <bundle>` invocation is the
 single supported automated CI gate. A separate upstream `okf validate` invocation

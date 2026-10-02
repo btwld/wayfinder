@@ -2,7 +2,7 @@
 
 [`knowledge/`](knowledge/) is a complete, conformant bundle you can read end to end in a few
 minutes. It is the worked example from the profile's Appendix A, kept as real files.
-Run the shipped automated gate from the repository root:
+Run the shipped gate from the repository root:
 
 ```bash
 okfp validate examples/knowledge
@@ -12,8 +12,8 @@ With a Dart SDK instead of the installed binary, `dart run wayfinder_cli:wayfind
 examples/knowledge` is equivalent.
 
 Success proves OKF conformance and the deterministic Profile 2026.2 rules only.
-The command reports Judgment Rules as `UNASSESSED`; complete Profile conformance
-also requires the contextual Profile Review defined by the canonical skill.
+The command never assesses Judgment Rules; complete Profile conformance also
+requires the contextual Profile Review defined by the canonical skill.
 
 [`configured-2026.3/`](configured-2026.3/) is a separate, minimal
 direct-source example. Its `wayfinder.json` selects the proposed 2026.3

@@ -44,7 +44,7 @@ _Avoid_: OKF conformance, policy acceptance
 
 **Automated Profile Validation**:
 The model-independent CLI operation that reports OKF conformance and evaluates
-the Profile's Deterministic Rules while explicitly leaving Judgment Rules unassessed.
+the Profile's Deterministic Rules, and leaves Judgment Rules to Profile Review.
 _Avoid_: Complete Profile Assessment, Profile Review
 
 **Deterministic Rule**:

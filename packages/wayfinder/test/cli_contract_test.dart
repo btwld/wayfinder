@@ -94,14 +94,14 @@ void main() {
         'state': 'PASS',
         'findings': <Object?>[],
       },
-      'judgment_rules': <String, Object?>{'state': 'UNASSESSED'},
-      'automated_gate': <String, Object?>{'state': 'PASS'},
+      'diagnostics': <Object?>[],
+      'gate': <String, Object?>{'state': 'PASS'},
     });
 
     final text = await runProcess(<String>['validate', fixture('conformant')]);
     expect(text.exitCode, 0);
     expect(text.stdout, contains('Profile 2026.2: PASS'));
-    expect(text.stdout, endsWith('Automated gate: PASS'));
+    expect(text.stdout, endsWith('Gate: PASS'));
   });
 
   test(
@@ -128,10 +128,7 @@ void main() {
             'reporting/pdf-export-feasibility.md',
         'advisory concepta-profile/registered-type-extension types.md',
       ]);
-      expect(output['judgment_rules'], <String, Object?>{
-        'state': 'UNASSESSED',
-      });
-      expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+      expect(output['gate'], <String, Object?>{'state': 'PASS'});
     },
   );
 
@@ -166,8 +163,8 @@ void main() {
         'state': 'PASS',
         'findings': <Object?>[],
       },
-      'judgment_rules': <String, Object?>{'state': 'UNASSESSED'},
-      'automated_gate': <String, Object?>{'state': 'PASS'},
+      'diagnostics': <Object?>[],
+      'gate': <String, Object?>{'state': 'PASS'},
     });
 
     final text = await runProcess(<String>[
@@ -177,7 +174,7 @@ void main() {
     expect(text.exitCode, 0);
     expect(text.stdout, contains('advisory okf/invalid-stale-after'));
     expect(text.stdout, contains('OKF Report: 0 error(s), 1 advisory(ies).'));
-    expect(text.stdout, endsWith('Automated gate: PASS'));
+    expect(text.stdout, endsWith('Gate: PASS'));
   });
 
   test('blocks Profile validation when OKF fails', () async {
@@ -206,17 +203,16 @@ void main() {
         },
       },
       'profile': <String, Object?>{
-        'release': null,
         'state': 'BLOCKED BY OKF',
         'findings': <Object?>[],
       },
-      'judgment_rules': <String, Object?>{'state': 'UNASSESSED'},
-      'automated_gate': <String, Object?>{'state': 'FAIL'},
+      'diagnostics': <Object?>[],
+      'gate': <String, Object?>{'state': 'FAIL'},
     });
   });
 
   test(
-    'reports a malformed declaration with a stable semantic finding',
+    'reports a malformed declaration as a configuration diagnostic',
     () async {
       final result = await runProcess(<String>[
         'validate',
@@ -233,33 +229,27 @@ void main() {
         'report': <String, Object?>{'findings': <Object?>[]},
       });
       expect(output['profile'], <String, Object?>{
-        'release': null,
-        'state': 'UNSUPPORTED',
-        'findings': <Object?>[
-          <String, Object?>{
-            'id': 'concepta-profile/profile-declaration-readable',
-            'severity': 'error',
-            'message':
-                'The first fenced yaml declaration in profile.md is invalid.',
-            'location': <String, Object?>{'path': 'profile.md'},
-            'profile_release': null,
-            'rule': '§11',
-          },
-        ],
+        'state': 'NOT ASSESSED',
+        'findings': <Object?>[],
       });
-      expect(output['judgment_rules'], <String, Object?>{
-        'state': 'UNASSESSED',
-      });
-      expect(output['automated_gate'], <String, Object?>{
-        'state': 'UNSUPPORTED',
-      });
+      expect(output['diagnostics'], <Object?>[
+        <String, Object?>{
+          'id': 'wayfinder/config-invalid',
+          'level': 'error',
+          'message':
+              'The first fenced yaml declaration in profile.md is invalid.',
+          'location': <String, Object?>{'path': 'profile.md'},
+        },
+      ]);
+      expect(output['gate'], <String, Object?>{'state': 'INCOMPLETE'});
     },
   );
 
-  test('keeps release dispatch findings stable at the process seam', () async {
+  test('reports release dispatch problems as diagnostics at the process '
+      'seam', () async {
     final cases = <String, String>{
-      'missing-profile': 'concepta-profile/profile-declaration-present',
-      'invalid-fields': 'concepta-profile/profile-declaration-fields',
+      'missing-profile': 'wayfinder/config-missing',
+      'invalid-fields': 'wayfinder/config-invalid',
     };
     for (final entry in cases.entries) {
       final result = await runProcess(<String>[
@@ -270,17 +260,18 @@ void main() {
       ]);
       final output = jsonDecode(result.stdout) as Map<String, Object?>;
       final profile = output['profile']! as Map<String, Object?>;
-      final findings = profile['findings']! as List<Object?>;
-      final finding = findings.single! as Map<String, Object?>;
+      final diagnostic =
+          (output['diagnostics']! as List<Object?>).single!
+              as Map<String, Object?>;
 
       expect(result.exitCode, 2, reason: entry.key);
-      expect(profile['release'], isNull, reason: entry.key);
-      expect(profile['state'], 'UNSUPPORTED', reason: entry.key);
-      expect(finding['id'], entry.value, reason: entry.key);
-      expect(finding['profile_release'], isNull, reason: entry.key);
-      expect(output['automated_gate'], <String, Object?>{
-        'state': 'UNSUPPORTED',
-      });
+      expect(profile, <String, Object?>{
+        'state': 'NOT ASSESSED',
+        'findings': <Object?>[],
+      }, reason: entry.key);
+      expect(diagnostic['id'], entry.value, reason: entry.key);
+      expect(diagnostic['level'], 'error', reason: entry.key);
+      expect(output['gate'], <String, Object?>{'state': 'INCOMPLETE'});
     }
   });
 
@@ -305,7 +296,6 @@ void main() {
         <String>['okf/invalid-log-date', 'okf/log-not-newest-first'],
       );
       expect(output['profile'], <String, Object?>{
-        'release': null,
         'state': 'BLOCKED BY OKF',
         'findings': <Object?>[],
       });
@@ -330,7 +320,6 @@ void main() {
     expect(ids, contains('okf/invalid-index-structure'));
     expect(ids, contains('okf/missing-index-section'));
     expect(output['profile'], <String, Object?>{
-      'release': null,
       'state': 'BLOCKED BY OKF',
       'findings': <Object?>[],
     });
@@ -348,10 +337,10 @@ void main() {
       expect(result.stderr, isEmpty);
       expect(result.stdout, '''OKF: PASS
 OKF Report: 0 error(s), 0 advisory(ies).
-Profile 2027.1: UNSUPPORTED
-UNSUPPORTED PROFILE RELEASE: 2027.1
-Judgment Rules: UNASSESSED
-Automated gate: UNSUPPORTED''');
+Profile: NOT ASSESSED
+Diagnostics:
+profile.md: error wayfinder/profile-unsupported: Profile release 2027.1 is not supported; this wayfinder assesses 2026.2 declarations.
+Gate: INCOMPLETE''');
 
       final jsonResult = await runProcess(<String>[
         'validate',
@@ -362,13 +351,16 @@ Automated gate: UNSUPPORTED''');
       final output = jsonDecode(jsonResult.stdout) as Map<String, Object?>;
       expect(jsonResult.exitCode, 2);
       expect(output['profile'], <String, Object?>{
-        'release': '2027.1',
-        'state': 'UNSUPPORTED',
+        'state': 'NOT ASSESSED',
         'findings': <Object?>[],
       });
-      expect(output['automated_gate'], <String, Object?>{
-        'state': 'UNSUPPORTED',
-      });
+      expect(
+        (output['diagnostics']! as List<Object?>).map(
+          (d) => (d! as Map<String, Object?>)['id'],
+        ),
+        ['wayfinder/profile-unsupported'],
+      );
+      expect(output['gate'], <String, Object?>{'state': 'INCOMPLETE'});
     },
   );
 

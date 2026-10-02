@@ -123,15 +123,18 @@ usual. It MUST:
   finding until the author deletes it.
 - **Write nothing when OKF fails** (`BLOCKED BY OKF`), when Profile dispatch
   fails, or when the selected release has no fixable rules, as 2026.2 has
-  none. Its output says which applied.
+  none. It reports why with the `wayfinder/fix-not-applied` warning
+  diagnostic (§4.1).
 - **Be idempotent.** A second run over its own output writes nothing.
 - **Refuse to write through a symbolic link** at any path segment below the
   bundle root, and replace each file atomically.
 - **Report a failed write.** When a write fails it stops, reports the files
-  already written and the failure as fix state `FAILED`, and exits 2.
+  already written, and reports the failure as the `wayfinder/fix-failed` error
+  diagnostic. A partly written bundle cannot pass the gate (§4.1).
 
-Its JSON report adds a `fix` object before `okf`; without `--fix` the report
-is unchanged.
+When a fix ran, its JSON report adds `fix.written`, the bundle-relative paths
+it wrote in path order, between `diagnostics` and `gate` (§4.1). Without
+`--fix` the report is unchanged.
 
 `okf index <bundle> --declare-version 0.2 --check` reports the same stale
 paths from the `okf` command line.
@@ -212,14 +215,14 @@ project's `wayfinder.json`, but MUST NOT select a different bundle. They MUST NO
 accept a caller-selected Profile or rule set, or provide `--strict` or
 another switch that promotes recommendations into requirements.
 
-Text and JSON MUST expose four distinct components:
+Text and JSON MUST expose three distinct results and the gate they derive:
 
-| Component | States |
+| Result | Values |
 | --- | --- |
 | OKF conformance | `PASS`, `FAIL` |
-| Deterministic Profile validation | `PASS`, `FAIL`, `UNSUPPORTED`, `BLOCKED BY OKF` |
-| Judgment Rules | `UNASSESSED` |
-| Automated gate | `PASS`, `FAIL`, `UNSUPPORTED` |
+| Profile assessment | `PASS`, `FAIL`, `BLOCKED BY OKF`, `NOT ASSESSED` |
+| Diagnostics | a list, each entry at level `error`, `warning`, or `note` |
+| Gate | `PASS`, `FAIL`, `INCOMPLETE` |
 
 The independent OKF report MUST remain intact and Profile findings MUST NOT
 reclassify it. The OKF component is okf's own report projection: one
@@ -229,11 +232,41 @@ is an error finding like any other. OKF conformance is `PASS` exactly when
 that report holds no error-severity finding; the validator judges it
 non-strict, so an OKF advisory never fails OKF conformance. If OKF fails,
 deterministic Profile validation MUST stop as `BLOCKED BY OKF` without
-cascading findings from partial content. Exit `0` means OKF and deterministic
-Profile checks passed; exit `1` means either failed; exit `2` means the
-invocation could not assess the declared release, including usage, I/O, and
-unsupported-release outcomes. Advisories — OKF's or the Profile's — MUST NOT
-change the automated gate or exit status.
+cascading findings from partial content. `NOT ASSESSED` means no Profile was
+selected, and an error diagnostic always says why.
+
+A diagnostic is the engine reporting on its own run, never on the bundle. Its
+`id` is `wayfinder/<code>` from a closed set the engine owns, so no catalog can
+declare, suppress, or reuse one. A diagnostic carries a `message` and, when it
+has one, a `location` that is either a bundle-relative path or the project
+configuration file as the caller named it. Configuration diagnostics say why
+a Profile could not be selected or what the configuration adds to it.
+Execution diagnostics say what the run could not do. Configuration
+diagnostics are reported even when OKF fails, so one run names every problem
+that blocks a complete assessment.
+
+| Code | Level | Reported when |
+| --- | --- | --- |
+| `config-missing` | error | no configuration selects a Profile for the bundle |
+| `config-invalid` | error | the configuration or 2026.2 declaration cannot be read |
+| `bundle-unbound` | error | the configuration does not apply to the bundle |
+| `profile-unresolved` | error | the configured source is missing from the lock or cache, or cannot be evaluated |
+| `profile-unsupported` | error | the selected identity or release is one this engine does not assess |
+| `project-type` | note | the configuration adds a type to the Profile types |
+| `link-graph-unavailable` | error | the OKF link graph could not be built, so link rules were not assessed |
+| `fix-failed` | error | a `--fix` write failed |
+| `fix-not-applied` | warning | `--fix` was requested but did not run |
+| `internal-error` | error | the run stopped before it had a result |
+
+The gate is derived, never stored. It is `FAIL` when OKF fails or any Profile
+finding is an error, because one witness proves non-conformance and missing
+assessment cannot unfind it. Otherwise it is `INCOMPLETE` when any diagnostic
+is an error, because a rule that did not run cannot pass. Otherwise it is
+`PASS`, so a `PASS` always means every selected rule ran. Exit `0` means
+`PASS`, exit `1` means `FAIL`, and exit `2` means `INCOMPLETE`, including
+usage and I/O outcomes. Advisories, warnings, and notes MUST NOT change the
+gate or exit status. The validator never assesses Judgment Rules, so no
+result reports them and no output may claim they ran.
 
 The result model also carries summary entries beside the findings. A
 release's summary rules report what it permits (Profile §14.1), and their
@@ -244,14 +277,31 @@ list whose entries have a finding's `id`, `message`, `location`,
 empty, whenever the assessed release declares a summary rule. Text prints a
 `Summary:` block after the findings when there is an entry.
 
+JSON carries the results as `okf`, `profile`, `diagnostics`, and `gate`, in
+that order, with `fix` between `diagnostics` and `gate` when a fix ran (§3.1).
+`diagnostics` is always present, even when empty, and `gate` is
+`{"state": ...}`. Text prints a `Diagnostics:` block after the summary when
+there is one, and ends with `Gate:` and the gate's value. When `--output` is
+`json` or `sarif` and the run stops before it has a result, the output is
+still a parseable result. It holds only the `wayfinder/internal-error`
+diagnostic and the `INCOMPLETE` gate, so a machine reader never mistakes
+empty output for a pass. Its SARIF log has no rule descriptors and no
+results, carries the diagnostic as its one execution notification, and has
+only `gate` among the run properties, because no OKF or Profile result
+exists.
+
 `sarif` carries the same findings as JSON in a SARIF 2.1.0 log for code
 scanning. Each OKF and Profile finding is one result whose `ruleId` is its
 finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. Each
 summary entry follows the findings as a result of kind `informational` with
 level `none`, as SARIF §3.27.10 requires for a kind other than `fail`.
-The selected release's rules are the run's rule descriptors, and the four
-component states are run properties because SARIF has no field for them. The
-exit status is the same as for text and JSON.
+The selected release's rules are the run's rule descriptors. Each diagnostic
+is a notification on the run's invocation, in `toolConfigurationNotifications`
+or `toolExecutionNotifications` by its kind, with one `driver.notifications`
+descriptor per code reported. `executionSuccessful` is `false` exactly when a
+diagnostic is an error. The OKF state, Profile state, and gate are run
+properties because SARIF has no field for them. The exit status is the same
+as for text and JSON.
 
 ### 4.2 Findings carry stable identifiers
 
@@ -312,8 +362,8 @@ type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
 metadata truth, actor identity and affiliation, missing material provenance,
 evidence for freshness, and semantic tag aliases to Profile Review. Missing
 `generated` produces an advisory and missing `verified` produces no finding. A
-registered project-specific type produces a summary entry under 2026.3
-(Profile §5.2) and an advisory under 2026.2.
+registered project-specific type produces the `wayfinder/project-type` note
+diagnostic under 2026.3 (§4.1, Profile §5.2) and an advisory under 2026.2.
 
 For external boundaries under Profile 2026.3, validation MUST assess the
 shape and vocabulary requirements Profile §7.2 places on the `relationships`
@@ -325,7 +375,7 @@ instead checks the one-label/one-target `# Relationships` body shape and
 reports an additional label as an advisory. A non-bundle-relative internal
 link is an advisory under either release; an unresolved internal link is a
 summary entry under 2026.3 and an advisory under 2026.2. Neither affects the
-automated gate or exit status, and validation MUST preserve the unresolved
+gate or exit status, and validation MUST preserve the unresolved
 edge exposed by the OKF graph. It MUST NOT infer
 relationship meaning, lifecycle ownership, path conformance, whether a date is
 intrinsic identity, or whether an external citation can be repaired. The complete
@@ -366,18 +416,21 @@ A validator MUST dispatch using exactly one of two selectors:
   validator; it is never interpreted as 2026.3.
 
 An explicit `--config` path MUST exist and name the requested bundle. Unknown
-IDs or releases produce `UNSUPPORTED` and exit `2`, preserving any independent
-OKF result. A malformed or unreadable selector also prevents dispatch. The
+IDs or releases leave the Profile `NOT ASSESSED` with the
+`wayfinder/profile-unsupported` diagnostic and exit `2`, preserving any
+independent OKF result. A malformed or unreadable selector also prevents
+dispatch, with the configuration diagnostic §4.1 names. The
 validator MUST NOT silently apply the newest rules or reinterpret an old bundle
 because a neighboring project config exists. Generic OKF reading remains
 available even when Profile dispatch fails.
 
 ### 4.5 Where it runs
 
-A validator SHOULD run in CI on any change touching the bundle. One `okfp
-validate <bundle>` invocation is the complete model-independent automated gate;
-a separate OKF command MAY still be useful for focused upstream diagnostics.
-CI MUST NOT claim that Judgment Rules or Complete Profile Assessment ran.
+A validator SHOULD run in CI on any change touching the bundle. One `wayfinder
+validate <bundle>` invocation is the complete model-independent gate; a
+separate OKF command MAY still be useful for focused upstream diagnostics.
+CI MUST NOT treat `INCOMPLETE` as a pass, and MUST NOT claim that Judgment
+Rules or Complete Profile Assessment ran.
 
 ### 4.6 Release evidence
 
@@ -432,8 +485,8 @@ replace inherited names. Missing parents, cycles, collisions, unsupported
 releases, and ambiguous bundle application fail Profile dispatch. Types,
 topic tags, relationship names and actor lookup are the only local additions;
 a binding cannot declare frontmatter keys. A registered custom type is
-reported as a summary entry (§4.1); contextual meaning belongs to Profile
-Review.
+reported as the `wayfinder/project-type` note diagnostic (§4.1); contextual
+meaning belongs to Profile Review.
 
 A non-base manifest may name its rule catalog (`"rules":
 "wayfinder-rules.json"`, relative to the manifest). The resolver reads the
@@ -446,8 +499,9 @@ Validation evaluates every catalog in the chain and each finding names its own
 catalog's release and namespace, so an ancestor's findings never depend on a
 child. A base manifest that names a catalog, a missing catalog file, or a
 catalog naming a subject, slot, builtin, or keyword this engine lacks fails
-resolution with the reason, which `get` reports and `validate` reports as
-`UNSUPPORTED`; a catalog is never partially applied. The lock gains no field,
+resolution with the reason, which `get` reports and `validate` reports as the
+`wayfinder/profile-unresolved` diagnostic with the Profile `NOT ASSESSED`; a
+catalog is never partially applied. The lock gains no field,
 because its commit identifies the manifest and the catalog alike.
 
 A relative local `source.git` is resolved from the directory containing
@@ -469,10 +523,12 @@ previous lock intact.
 
 Validation operates on **one explicit bundle**. The implementation first
 inspects it under OKF 0.2. A failing OKF result blocks Profile assessment but
-is never reclassified. For an OKF-conformant bundle, it parses the selected
-project config, checks safe path/identity/release and reads only the selected
-Profile chain from a current lock/cache. Missing or stale source state yields
-`UNSUPPORTED` Profile dispatch alongside the independent OKF report; neither
+is never reclassified. It parses the selected project config, whose
+diagnostics are reported even when OKF fails, checks safe
+path/identity/release and reads only the selected Profile chain from a
+current lock/cache. Missing or stale source state leaves
+the Profile `NOT ASSESSED` with the `wayfinder/profile-unresolved` diagnostic
+alongside the independent OKF report; neither
 CLI `validate` nor read-only MCP `validate` fetches or writes a lock. The
 configured Profile then checks the root `index.md` `okf_version: "0.2"`,
 standard and custom type/tag/actor references, and the other deterministic
@@ -840,3 +896,19 @@ Titled *Implementation Guide* and filed under `implementation/`: the profile is
 itself a specification, so a subordinate document called "the spec" would invert
 the precedence it is trying to state. §1 states why "guide" does not mean
 advisory.
+
+Revised in place before publication: §4.1 replaces the four result components
+with OKF, Profile assessment, diagnostics, and a derived gate. The engine's own
+reports become `wayfinder/*` diagnostics: release dispatch problems, the
+project-type note, a link graph that cannot be built, `--fix` failure or
+refusal, and a run that stopped. They are no longer Profile findings, summary
+entries, or fix states. Profile state `UNSUPPORTED` becomes `NOT ASSESSED`,
+gate `UNSUPPORTED` becomes `INCOMPLETE`, and the Judgment Rules component is
+removed because no validator assesses it. SARIF reports diagnostics as
+invocation notifications. Affected sections: §§3.1, 4.1, 4.3, 4.4, 4.5, 4.7,
+and 9. Driver: a link graph failure let link rules pass unassessed, and engine
+failures dressed as rules could not be told apart from bundle findings.
+Migration for implementations: emit `diagnostics` and `gate`, derive the gate
+from OKF, error findings, and error diagnostics, and drop `judgment_rules` and
+`automated_gate`. A bundle is affected only where its result relied on a
+removed rule id or on a graph failure being a `FAIL`; it is now `INCOMPLETE`.

@@ -15,14 +15,11 @@
     }
   },
   "profile": {
-    "release": null,
     "state": "BLOCKED BY OKF",
     "findings": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "FAIL"
   }
 }

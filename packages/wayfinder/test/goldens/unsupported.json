@@ -6,14 +6,20 @@
     }
   },
   "profile": {
-    "release": "2027.1",
-    "state": "UNSUPPORTED",
+    "state": "NOT ASSESSED",
     "findings": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
-    "state": "UNSUPPORTED"
+  "diagnostics": [
+    {
+      "id": "wayfinder/profile-unsupported",
+      "level": "error",
+      "message": "Profile release 2027.1 is not supported; this wayfinder assesses 2026.2 declarations.",
+      "location": {
+        "path": "profile.md"
+      }
+    }
+  ],
+  "gate": {
+    "state": "INCOMPLETE"
   }
 }

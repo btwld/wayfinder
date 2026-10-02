@@ -676,7 +676,7 @@ void main() {
     });
 
     test(
-      'a catalog the engine cannot evaluate is UNSUPPORTED, never partial',
+      'a catalog the engine cannot evaluate is NOT ASSESSED, never partial',
       () async {
         expect(await cli.run(['get', project.path]), 0);
         final lockFile = File(p.join(project.path, 'wayfinder.lock'));
@@ -733,12 +733,15 @@ void main() {
         final report = jsonDecode(output.single) as Map<String, dynamic>;
         expect((report['okf'] as Map)['state'], 'PASS');
         final profile = report['profile'] as Map<String, dynamic>;
-        expect(profile['state'], 'UNSUPPORTED');
-        expect(profile['findings'], hasLength(1));
+        expect(profile['state'], 'NOT ASSESSED');
+        expect(profile['findings'], isEmpty);
+        final diagnostic = (report['diagnostics'] as List).single as Map;
+        expect(diagnostic['id'], 'wayfinder/profile-unresolved');
         expect(
-          (profile['findings'] as List).single['message'],
+          diagnostic['message'],
           contains('unknown builtin at rules[0].check.builtin'),
         );
+        expect(report['gate'], {'state': 'INCOMPLETE'});
         expect(errors, isEmpty);
       },
     );
@@ -799,7 +802,7 @@ void main() {
       expect(await cli.run(['validate', bundle, '--output=json']), 2);
       final report = jsonDecode(output.single) as Map<String, dynamic>;
       expect((report['okf'] as Map)['state'], 'PASS');
-      expect((report['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect((report['profile'] as Map)['state'], 'NOT ASSESSED');
       expect(errors, isEmpty);
       output.clear();
       expect(await cli.run(['graph', bundle]), 0);
@@ -848,7 +851,7 @@ void main() {
       expect(errors, isEmpty);
       final unresolved = jsonDecode(output.single) as Map<String, dynamic>;
       expect((unresolved['okf'] as Map)['state'], 'PASS');
-      expect((unresolved['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect((unresolved['profile'] as Map)['state'], 'NOT ASSESSED');
       expect(
         await File(p.join(project.path, 'wayfinder.lock')).exists(),
         isFalse,
@@ -873,7 +876,7 @@ void main() {
       expect(await cli.run(['validate', bundle, '--output=json']), 2);
       final stale = jsonDecode(output.single) as Map<String, dynamic>;
       expect((stale['okf'] as Map)['state'], 'PASS');
-      expect((stale['profile'] as Map)['state'], 'UNSUPPORTED');
+      expect((stale['profile'] as Map)['state'], 'NOT ASSESSED');
       expect(await lock.readAsBytes(), lockedBytes);
     },
   );
@@ -925,7 +928,8 @@ void main() {
     output.clear();
     expect(await cli.run(['validate', bundle, '--fix', '--output=json']), 0);
     final again = jsonDecode(output.single) as Map<String, dynamic>;
-    expect(again['fix'], {'state': 'APPLIED', 'written': <String>[]});
+    expect(again['fix'], {'written': <String>[]});
+    expect(again['diagnostics'], isEmpty);
     expect((again['profile'] as Map)['state'], 'PASS');
     expect(await _snapshot(bundle), fixed);
     expect(errors, isEmpty);

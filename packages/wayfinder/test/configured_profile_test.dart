@@ -109,25 +109,27 @@ void main() {
     expect(result.exitCode, 0);
   });
 
-  test('does not resolve Profile sources when independent OKF fails', () async {
+  test('reports why no Profile was selected, but runs no Profile rule, when '
+      'independent OKF fails', () async {
     final sample = File(p.join(bundle.path, 'sample.md'));
     await sample.writeAsString(
       (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
     );
-    var resolved = false;
     final result = await const ProfileValidator().validate(
       bundle.path,
-      resolveSources: () async {
-        resolved = true;
-        throw StateError('Profile source resolution must not run');
-      },
+      resolveSources: () async =>
+          const ProfileSourceResolution(error: 'Run wayfinder get.'),
     );
     expect(result.okfState, OkfState.fail);
     expect(result.profileState, ProfileState.blockedByOkf);
-    expect(resolved, isFalse);
+    expect(result.findings, isEmpty);
+    expect(result.diagnostics.map((d) => d.code), [
+      DiagnosticCode.profileUnresolved,
+    ]);
+    expect(result.gate, GateState.fail);
   });
 
-  test('configured type summary identifies the configuration file', () async {
+  test('a project type note identifies the configuration file', () async {
     final config = _config();
     final profile =
         (config['profiles'] as Map<String, Object?>)['bitwild_profile']!
@@ -145,33 +147,27 @@ void main() {
       configPath: customConfig.path,
     );
     expect(result.profileState, ProfileState.pass);
-    expect(
-      result.summary!
-          .where(
-            (entry) => entry.id == 'concepta-profile/configured-type-extension',
-          )
-          .map((entry) => entry.path),
-      [customConfig.path],
-    );
+    final note = result.diagnostics.single;
+    expect(note.code, DiagnosticCode.projectType);
+    expect(note.location, isA<ProjectFileLocation>());
+    expect(note.location!.path, customConfig.path);
+    expect(result.gate, GateState.pass);
   });
 
-  test('a bundle whose only results are notes passes with exit 0', () async {
+  test('a bundle whose only reports are notes passes with exit 0', () async {
     final result = await validateFixture(fixture('configured-extensions'));
     expect(result.findings, isEmpty);
-    expect(result.summary!.map((entry) => entry.id), [
-      'concepta-profile/configured-type-extension',
-    ]);
+    expect(result.diagnostics.map((d) => d.id), ['wayfinder/project-type']);
     expect(result.profileState, ProfileState.pass);
-    expect(result.automatedGateState, AutomatedGateState.pass);
+    expect(result.gate, GateState.pass);
     expect(result.exitCode, 0);
     final text = result.toTextLines().toList();
-    expect(text.sublist(text.indexOf('Summary:')), [
-      'Summary:',
-      'test/fixtures/configured-extensions/wayfinder.json: note '
-          'concepta-profile/configured-type-extension (2026.3 §5.2): '
+    expect(text.sublist(text.indexOf('Diagnostics:')), [
+      'Diagnostics:',
+      'test/fixtures/configured-extensions/wayfinder.json: '
+          'note wayfinder/project-type: '
           'Configured project type Runbook is available to this bundle.',
-      'Judgment Rules: UNASSESSED',
-      'Automated gate: PASS',
+      'Gate: PASS',
     ]);
   });
 
@@ -632,7 +628,7 @@ okf_version: "0.2"
     );
 
     final fixed = await validateBundle(bundle.path, fix: true);
-    expect(fixed.fix!.written, ['area/index.md', 'index.md']);
+    expect(fixed.fixed, ['area/index.md', 'index.md']);
     expect(fixed.profileState, ProfileState.pass);
     expect(
       await index.readAsString(),
@@ -653,7 +649,7 @@ okf_version: "0.2"
     );
 
     final again = await validateBundle(bundle.path, fix: true);
-    expect(again.fix!.written, isEmpty);
+    expect(again.fixed, isEmpty);
     expect(again.profileState, ProfileState.pass);
   });
 
@@ -667,8 +663,8 @@ okf_version: "0.2"
     final before = await _snapshot(legacy);
     final old = await const ProfileValidator().validate(legacy.path, fix: true);
     expect(old.profileRelease, '2026.2');
-    expect(old.fix!.written, isEmpty);
-    expect(old.fix!.reason, isNotNull);
+    expect(old.fixed, isNull);
+    expect(old.diagnostics.map((d) => d.code), [DiagnosticCode.fixNotApplied]);
     expect(await _snapshot(legacy), before);
 
     await File(p.join(bundle.path, 'index.md')).delete();
@@ -678,7 +674,10 @@ okf_version: "0.2"
     );
     final blocked = await validateBundle(bundle.path, fix: true);
     expect(blocked.profileState, ProfileState.blockedByOkf);
-    expect(blocked.fix!.reason, isNotNull);
+    expect(blocked.fixed, isNull);
+    expect(blocked.diagnostics.map((d) => d.code), [
+      DiagnosticCode.fixNotApplied,
+    ]);
     expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
   });
 
@@ -855,8 +854,9 @@ okf_version: "0.2"
     await _writeConfig(project, config);
     final result = await validateBundle(bundle.path);
     expect(result.okfState, OkfState.pass);
-    expect(result.profileState, ProfileState.unsupported);
-    expect(result.findings.single.message, contains('outside the project'));
+    expect(result.profileState, ProfileState.notAssessed);
+    expect(result.diagnostics.single.code, DiagnosticCode.configInvalid);
+    expect(result.diagnostics.single.message, contains('outside the project'));
   });
 
   test('discovers project configuration for a nested bundle path', () async {
@@ -885,8 +885,9 @@ okf_version: "0.2"
     final other = await Directory(p.join(project.path, 'other')).create();
     await _writeBundle(other);
     final result = await validateBundle(other.path);
-    expect(result.profileState, ProfileState.unsupported);
-    expect(result.findings.single.message, contains('not listed'));
+    expect(result.profileState, ProfileState.notAssessed);
+    expect(result.diagnostics.single.code, DiagnosticCode.bundleUnbound);
+    expect(result.diagnostics.single.message, contains('not listed'));
   });
 
   test('rejects a 2026.3 selector in legacy profile.md', () async {
@@ -897,7 +898,8 @@ okf_version: "0.2"
       (await declaration.readAsString()).replaceAll('2026.2', '2026.3'),
     );
     final result = await validateBundle(legacy.path);
-    expect(result.profileState, ProfileState.unsupported);
+    expect(result.profileState, ProfileState.notAssessed);
+    expect(result.diagnostics.single.code, DiagnosticCode.profileUnsupported);
   });
 
   test('reserves nested registry names only under legacy 2026.2', () async {

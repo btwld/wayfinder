@@ -83,7 +83,8 @@ def main() -> None:
                 "--output=json",
             )
         )
-        assert fixed["fix"] == {"state": "APPLIED", "written": []}, fixed
+        assert fixed["fix"] == {"written": []}, fixed
+        assert fixed["gate"] == {"state": "PASS"}, fixed
         assert fixed["profile"]["state"] == "PASS", fixed
         for original in (EXAMPLE / "knowledge").rglob("*"):
             if original.is_file():
@@ -108,7 +109,11 @@ def main() -> None:
         assert missing_lock.returncode == 2, missing_lock.stderr
         unresolved = cli_json(missing_lock.stdout)
         assert unresolved["okf"]["state"] == "PASS", unresolved
-        assert unresolved["profile"]["state"] == "UNSUPPORTED", unresolved
+        assert unresolved["profile"]["state"] == "NOT ASSESSED", unresolved
+        assert [d["id"] for d in unresolved["diagnostics"]] == [
+            "wayfinder/profile-unresolved"
+        ], unresolved
+        assert unresolved["gate"] == {"state": "INCOMPLETE"}, unresolved
         assert not (project / "wayfinder.lock").exists()
         graph = run(
             "dart",

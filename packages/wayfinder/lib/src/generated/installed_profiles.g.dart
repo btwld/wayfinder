@@ -1464,18 +1464,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
       }
     },
     {
-      "id": "configured-type-extension",
-      "category": "vocabulary",
-      "severity": "note",
-      "status": "stable",
-      "ref": "§5.2",
-      "description": "The selected Profile binding registers a project-specific type, which is conformant.",
-      "message": "Configured project type {name} is available to this bundle.",
-      "check": {
-        "builtin": "configured-type-extension"
-      }
-    },
-    {
       "id": "configured-tag-undeclared",
       "category": "vocabulary",
       "severity": "error",
@@ -2274,21 +2262,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
             "resolved": true
           }
         ]
-      }
-    },
-    {
-      "id": "link-graph-unavailable",
-      "category": "linking",
-      "severity": "error",
-      "status": "stable",
-      "ref": "§7.1",
-      "description": "The bundle's OKF link graph or its relationship targets cannot be resolved, so the §7.1 and §7.2 link rules cannot be assessed; validation reports that as an error rather than passing them unassessed.",
-      "message": "The OKF link graph could not be built ({error}); the §7.1 and §7.2 link rules were not assessed.",
-      "check": {
-        "builtin": "link-graph-unavailable",
-        "params": {
-          "path": "index.md"
-        }
       }
     },
     {
@@ -3248,7 +3221,7 @@ const String wayfinderRulesSchema = r'''
             "advisory",
             "note"
           ],
-          "description": "An error fails the automated gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
+          "description": "An error fails the gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
         },
         "status": {
           "enum": [

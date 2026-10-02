@@ -46,12 +46,7 @@ final class Vocabulary {
 }
 
 final class EffectiveProfile {
-  const EffectiveProfile(
-    this.catalogs,
-    this.vocabulary, {
-    this.configPath,
-    this.legacyDispatch,
-  });
+  const EffectiveProfile(this.catalogs, this.vocabulary, {this.legacyDispatch});
 
   final List<RuleCatalog> catalogs;
   final Vocabulary vocabulary;
@@ -66,8 +61,6 @@ final class EffectiveProfile {
     Slot.profileRelationships: ?vocabulary.relationships,
     Slot.profileActors: ?vocabulary.actors,
   };
-
-  final String? configPath;
 
   final ({Map<String, String> declaration, LegacyRegistries registries})?
   legacyDispatch;

@@ -1,12 +1,28 @@
 # Unreleased
 
+- The engine reports on its own run as `EngineDiagnostic`s, a closed set of
+  `wayfinder/*` codes with a level, instead of dressing them as Profile
+  findings. Release dispatch problems (`DispatchRule` is gone), the
+  `link-graph-unavailable` and `configured-type-extension` catalog rules and
+  their builtins, and `--fix` failure or refusal (`ProfileFix` is gone)
+  become diagnostics. `ProfileValidationResult` holds a sealed
+  `ProfileAssessment` (`Assessed`, `BlockedByOkf`, `NotAssessed`) and derives
+  `gate`: `FAIL` when OKF fails or a finding is an error, else `INCOMPLETE`
+  when a diagnostic is an error, else `PASS`, exiting 0, 1 or 2. JSON gains
+  `diagnostics` and `gate` and loses `judgment_rules` and `automated_gate`;
+  `fix` is `{written}`. Profile state `UNSUPPORTED` becomes `NOT ASSESSED`.
+  SARIF reports diagnostics as invocation notifications with
+  `driver.notifications` descriptors, and `executionSuccessful` is false only
+  for an error diagnostic. `internalErrorJson` and `internalErrorSarif`
+  describe a run that stopped. A link graph that cannot be built now makes
+  the gate `INCOMPLETE` rather than `FAIL`. `ProfileValidator` takes a
+  `buildGraph` function so a test can force that path.
 - `index-current` and `validate --fix` compare an index with CRLF line
   endings, as a Windows checkout writes it, equal to the generated LF text,
   so neither reports nor rewrites it.
 - `validate --fix` replaces each generated index atomically, refuses a
-  symbolic link at any path segment, and reports a failed write as
-  `ProfileFix.state` `ProfileFixState.failed` with the files already written;
-  `ProfileFixState` is exported. SARIF locations inside the working directory
+  symbolic link at any path segment, and reports a failed write with the
+  files already written. SARIF locations inside the working directory
   are relative to a recorded `WORKINGDIR` base, and summary results carry
   level `none`.
 - The 2026.2 dispatch parses `types.md` and `actors.md` once and shares
@@ -44,10 +60,10 @@
   entry reads as it was authored. Strings are unchanged.
 - A failure while resolving relationship targets no longer drops the
   `relationships` and `inbound` facts silently. okf's graph and the
-  relationship edges resolve as one link layer; when it fails,
-  `link-graph-unavailable` reports the error under both releases and no
-  link fact exists for a link rule to pass on. `BundleFacts.project` takes a
-  `buildGraph` function so a test can force that path.
+  relationship edges resolve as one link layer; when it fails, no link fact
+  exists for a link rule to pass on, and the run reports it.
+  `BundleFacts.project` takes a `buildGraph` function so a test can force
+  that path.
 - Export `OkfLinkField`, `OkfFieldEdge` and `okfFieldEdges`, the typed
   link-field model and resolution `wayfinder_embeddings` and the CLI graph
   shared with the engine, plus `relationshipsLinkField` for the Profile's
@@ -63,13 +79,11 @@
   fill `ProfileValidationResult.summary` (`ProfileSummaryEntry`), JSON
   `profile.summary`, a text `Summary:` block and SARIF results of kind
   `informational` with level `none`, and never affect a state or the exit code.
-  `configured-type-extension`, `internal-link-unresolved` and
-  `relationship-unresolved` become notes. `evaluate` returns findings and
+  `internal-link-unresolved` and `relationship-unresolved` become notes. `evaluate` returns findings and
   summary entries apart. A declared tag that equals a type, status, trust
   tier or relationship name fails `WayfinderProjectConfig.parse` and binding
   composition, and the 2026.3 catalog drops `tag-literal-duplication`.
-  `link-graph-unavailable` takes a `path` param and reports at `index.md`
-  under 2026.3. 2026.2 is unchanged.
+  2026.2 is unchanged.
 - Profile 2026.3 types relationships in the `relationships` frontmatter key
   instead of a `# Relationships` body section. The 2026.3 catalog declares
   the key in its new `frontmatter_keys`, renames `frontmatter-fields-okf` to
@@ -84,7 +98,7 @@
   `index-semantic-projection` and `directory-index-present` in the 2026.3
   catalog and reports each generated index that is missing or differs.
   `ProfileValidator.validate(fix: true)` writes those indexes first and
-  reports what it wrote as `ProfileValidationResult.fix`. It also reports a
+  reports what it wrote as `ProfileValidationResult.fixed`. It also reports a
   leftover `index.md` the generator no longer writes, such as one in a
   `raw/` tier, so the parent index stops linking to it. Conformance now
   depends on okf's generator output; the configured-fixture goldens fail if an
@@ -98,9 +112,8 @@
 - Inspect OKF independently before Profile dispatch and enforce the 2026.3
   root `okf_version`. Preserve published 2026.2 in-bundle validation without
   migrating it because of an unrelated project configuration.
-- Report `configured-type-extension` at the configuration path as supplied, or
-  `wayfinder.json` when discovered, like the other configuration findings,
-  instead of the file's absolute path.
+- Report a configured project type at the configuration path as supplied, or
+  `wayfinder.json` when discovered, instead of the file's absolute path.
 - Stop reporting nested `profile.md`, `types.md`, or `actors.md` concepts as
   `root-structure-files` under 2026.3, whose §3.5 forbids only the legacy root
   registries. 2026.2 still reserves the names at every depth.

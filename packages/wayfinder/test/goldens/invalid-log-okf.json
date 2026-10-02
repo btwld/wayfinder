@@ -23,14 +23,17 @@
     }
   },
   "profile": {
-    "release": null,
     "state": "BLOCKED BY OKF",
     "findings": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [
+    {
+      "id": "wayfinder/config-missing",
+      "level": "error",
+      "message": "No wayfinder.json lists the bundle, and it has no profile.md declaration."
+    }
+  ],
+  "gate": {
     "state": "FAIL"
   }
 }

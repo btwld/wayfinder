@@ -114,7 +114,7 @@ void main() {
       expected.exitCode,
     );
     expect(jsonDecode(output.single), expected.toJson());
-    expect(expected.toJson()['judgment_rules'], {'state': 'UNASSESSED'});
+    expect(expected.toJson(), containsPair('gate', {'state': 'PASS'}));
     expect(errors, isEmpty);
   });
 
@@ -138,6 +138,41 @@ void main() {
     expect(output.join('\n'), contains('sarif'));
   });
 
+  test('a validate run that stops still writes a parseable json or sarif '
+      'result', () async {
+    const bundle = 'test/fixtures/does-not-exist';
+    expect(await cli.run(['validate', bundle, '--output=json']), 2);
+    final json = jsonDecode(output.single) as Map<String, Object?>;
+    expect(json['gate'], {'state': 'INCOMPLETE'});
+    final [diagnostic as Map<String, Object?>] = json['diagnostics']! as List;
+    expect(diagnostic['id'], 'wayfinder/internal-error');
+    expect(errors.single, 'wayfinder: ${diagnostic['message']}');
+
+    output.clear();
+    errors.clear();
+    expect(await cli.run(['validate', bundle, '--output=sarif']), 2);
+    final sarif = jsonDecode(output.single) as Map<String, Object?>;
+    final [run as Map<String, Object?>] = sarif['runs']! as List;
+    expect(run['results'], isEmpty);
+    expect(run['invocations'], [
+      {
+        'executionSuccessful': false,
+        'toolExecutionNotifications': [
+          containsPair('descriptor', {
+            'id': 'wayfinder/internal-error',
+            'index': 0,
+          }),
+        ],
+      },
+    ]);
+
+    output.clear();
+    errors.clear();
+    expect(await cli.run(['validate', bundle]), 2);
+    expect(output, isEmpty);
+    expect(errors, hasLength(1));
+  });
+
   test(
     'validate reports an unprepared 2026.3 source without writing a lock',
     () async {
@@ -156,12 +191,16 @@ void main() {
       );
       final report = jsonDecode(output.single) as Map<String, dynamic>;
       expect((report['okf'] as Map)['state'], 'PASS');
-      expect((report['profile'] as Map)['state'], 'UNSUPPORTED');
-      expect(
-        ((report['profile'] as Map)['findings'] as List)
-            .single['location']['path'],
-        config,
-      );
+      expect((report['profile'] as Map)['state'], 'NOT ASSESSED');
+      expect(report['diagnostics'], [
+        {
+          'id': 'wayfinder/profile-unresolved',
+          'level': 'error',
+          'message': isNotEmpty,
+          'location': {'path': config},
+        },
+      ]);
+      expect(report['gate'], {'state': 'INCOMPLETE'});
       expect(
         await File(
           '../../packages/wayfinder/test/fixtures/configured-project/wayfinder.lock',
@@ -189,12 +228,16 @@ void main() {
     await index.writeAsString('${await index.readAsString()}\n');
     before['index.md'] = await index.readAsBytes();
 
-    await cli.run(['validate', copy.path, '--fix']);
-    expect(
-      output.first,
-      'Fix: not applied; Profile 2026.2 has no fixable rules.',
-    );
+    expect(await cli.run(['validate', copy.path, '--fix']), 0);
+    expect(output.first, 'OKF: PASS');
     expect(output, contains('Profile 2026.2: PASS'));
+    expect(
+      output,
+      contains(
+        'warning wayfinder/fix-not-applied: '
+        'Profile 2026.2 has no fixable rules.',
+      ),
+    );
     await for (final entity in copy.list(recursive: true)) {
       if (entity is! File) continue;
       final relative = entity.path.substring(copy.path.length + 1);

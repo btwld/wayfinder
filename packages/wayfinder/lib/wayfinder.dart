@@ -3,6 +3,7 @@
 /// Used by the wayfinder_cli command and MCP server.
 library;
 
+export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
 export 'src/profile_finding.dart';
@@ -15,15 +16,18 @@ export 'src/profile_release.dart'
         externalStandardRelationships;
 export 'src/published_schemas.dart' show profileManifestSchemaViolation;
 export 'src/rules/catalog.dart' show RuleCatalog, RuleCatalogException;
-export 'src/sarif.dart' show toSarif;
+export 'src/sarif.dart' show internalErrorSarif, toSarif;
 export 'src/validation.dart'
     show
-        AutomatedGateState,
+        Assessed,
+        BlockedByOkf,
+        GateState,
+        NotAssessed,
         OkfState,
-        ProfileFix,
-        ProfileFixState,
+        ProfileAssessment,
         ProfileState,
         ProfileSourceResolution,
         ProfileValidationResult,
-        ProfileValidator;
+        ProfileValidator,
+        internalErrorJson;
 export 'src/wayfinder_config.dart';

@@ -62,10 +62,6 @@ const builtins = <String, Builtin>{
     tagLiteralDuplication,
     messagePlaceholders: {'failing'},
   ),
-  'configured-type-extension': Builtin(
-    configuredTypeExtension,
-    messagePlaceholders: {'name'},
-  ),
   'type-registry-present': Builtin(
     typeRegistryPresent,
     installedOnlyIn: legacyProfileRelease,
@@ -137,8 +133,8 @@ const builtins = <String, Builtin>{
   ),
   'link-graph-unavailable': Builtin(
     linkGraphUnavailable,
-    paramsSchema: linkGraphUnavailableParams,
     messagePlaceholders: {'error'},
+    installedOnlyIn: legacyProfileRelease,
   ),
   'declared-okf-binding': Builtin(
     declaredOkfBinding,

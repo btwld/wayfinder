@@ -44,17 +44,6 @@ Iterable<Violation> tagLiteralDuplication(
   }
 }
 
-Iterable<Violation> configuredTypeExtension(
-  BundleFacts facts,
-  Map<String, Object?> params,
-) sync* {
-  final configPath = facts.profile.configPath;
-  if (configPath == null) return;
-  for (final name in facts.profile.vocabulary.projectTypes) {
-    yield Violation(configPath, facts: {'name': name});
-  }
-}
-
 Vocabulary legacyRegistryVocabulary(LegacyRegistries registries) {
   final types = registries.types.rows;
   return Vocabulary(
@@ -272,23 +261,14 @@ Iterable<Violation> relationshipLabelExtension(
   }
 }
 
-const linkGraphUnavailableParams = <String, Object?>{
-  'type': 'object',
-  'additionalProperties': false,
-  'properties': {
-    'path': {'type': 'string', 'minLength': 1},
-  },
-};
-
+/// The published 2026.2 rule; later catalogs leave a graph failure to the
+/// engine's `wayfinder/link-graph-unavailable` diagnostic.
 Iterable<Violation> linkGraphUnavailable(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
   if (facts.links case LinksUnavailable(:final error)) {
-    yield Violation(
-      params['path'] as String? ?? 'profile.md',
-      facts: {'error': '$error'},
-    );
+    yield Violation('profile.md', facts: {'error': '$error'});
   }
 }
 

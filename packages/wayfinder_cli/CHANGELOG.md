@@ -1,11 +1,17 @@
 # Unreleased
 
+- `wayfinder validate` and MCP validation end with one derived gate, `PASS`,
+  `FAIL` or `INCOMPLETE`, exiting 0, 1 or 2, and list the engine's
+  `wayfinder/*` diagnostics beside the findings. A run that could not assess
+  everything, such as an unresolved Profile source or a link graph that
+  cannot be built, is `INCOMPLETE` and never `PASS`. JSON drops
+  `judgment_rules` and `automated_gate`. With `--output json` or `sarif`, a
+  run that stops still prints a result carrying `wayfinder/internal-error`.
 - `wayfinder get` decodes the Profile manifest and rule catalog that `git
   show` prints as UTF-8, so a non-ASCII character such as `§` no longer
   comes back as `Â§` on Windows.
 - `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
-  such as a project type in use or an unresolved planned link, as summary
-  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
+  such as an unresolved planned link, as summary entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
   informational results. They never change the gate or the exit code. The resolver rejects
   a composed binding that declares a tag equal to a type, status, trust tier,
   or relationship name.

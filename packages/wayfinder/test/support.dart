@@ -28,22 +28,23 @@ Future<ProfileValidationResult> validateFixture(
   bool discoverConfig = false,
   bool fix = false,
   List<RuleCatalog> catalogs = const [],
+  ProfileValidator validator = const ProfileValidator(),
 }) async {
   final config = File(p.posix.join(path, 'wayfinder.json'));
   if (!await config.exists()) {
-    return const ProfileValidator().validate(path, fix: fix);
+    return validator.validate(path, fix: fix);
   }
   final WayfinderProjectConfig parsed;
   try {
     parsed = WayfinderProjectConfig.parse(await config.readAsString());
   } on WayfinderConfigException {
-    return const ProfileValidator().validate(
+    return validator.validate(
       fixtureBundle(path),
       configPath: discoverConfig ? null : config.path,
       fix: fix,
     );
   }
-  return const ProfileValidator().validate(
+  return validator.validate(
     fixtureBundle(path),
     configPath: discoverConfig ? null : config.path,
     resolvedProfiles: {

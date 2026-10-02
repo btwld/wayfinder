@@ -1,0 +1,228 @@
+import 'dart:io';
+
+import 'package:okf/okf.dart';
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+import 'package:wayfinder/wayfinder.dart';
+
+import 'support.dart';
+
+/// The link rules a graph failure leaves unassessed in the
+/// configured-conventions fixture.
+const _linkRules = {
+  'concepta-profile/internal-link-bundle-relative',
+  'concepta-profile/relationship-bundle-relative',
+  'concepta-profile/relationship-shape',
+  'concepta-profile/used-relationship-declared',
+  'concepta-profile/source-path-unresolved',
+};
+
+final _graphFails = ProfileValidator(
+  buildGraph: (_) => throw StateError('forced'),
+);
+
+void main() {
+  group('the gate is derived from OKF, error findings and error '
+      'diagnostics', () {
+    final cases =
+        <
+          ({
+            String name,
+            String fixture,
+            ProfileValidator validator,
+            bool okf,
+            bool errorFinding,
+            bool errorDiagnostic,
+            GateState gate,
+            int exitCode,
+          })
+        >[
+          (
+            name: 'everything assessed and nothing failed',
+            fixture: 'configured-project',
+            validator: const ProfileValidator(),
+            okf: true,
+            errorFinding: false,
+            errorDiagnostic: false,
+            gate: GateState.pass,
+            exitCode: 0,
+          ),
+          (
+            name: 'an error diagnostic alone',
+            fixture: 'configured-project',
+            validator: _graphFails,
+            okf: true,
+            errorFinding: false,
+            errorDiagnostic: true,
+            gate: GateState.incomplete,
+            exitCode: 2,
+          ),
+          (
+            name: 'an error finding alone',
+            fixture: 'configured-log',
+            validator: const ProfileValidator(),
+            okf: true,
+            errorFinding: true,
+            errorDiagnostic: false,
+            gate: GateState.fail,
+            exitCode: 1,
+          ),
+          (
+            name: 'an error finding outranks an error diagnostic',
+            fixture: 'configured-log',
+            validator: _graphFails,
+            okf: true,
+            errorFinding: true,
+            errorDiagnostic: true,
+            gate: GateState.fail,
+            exitCode: 1,
+          ),
+          (
+            name: 'OKF failure alone',
+            fixture: 'invalid-okf',
+            validator: const ProfileValidator(),
+            okf: false,
+            errorFinding: false,
+            errorDiagnostic: false,
+            gate: GateState.fail,
+            exitCode: 1,
+          ),
+          (
+            name: 'OKF failure outranks an error diagnostic',
+            fixture: 'invalid-index-okf',
+            validator: const ProfileValidator(),
+            okf: false,
+            errorFinding: false,
+            errorDiagnostic: true,
+            gate: GateState.fail,
+            exitCode: 1,
+          ),
+        ];
+    for (final row in cases) {
+      test(row.name, () async {
+        final result = await validateFixture(
+          fixture(row.fixture),
+          validator: row.validator,
+        );
+        expect(result.okfValidation.isConformant, row.okf);
+        expect(
+          result.findings.any((f) => f.severity == OkfFindingSeverity.error),
+          row.errorFinding,
+        );
+        expect(result.diagnostics.any((d) => d.isError), row.errorDiagnostic);
+        expect(result.gate, row.gate);
+        expect(result.exitCode, row.exitCode);
+        expect(result.toJson()['gate'], {'state': row.gate.wireValue});
+        expect(result.toTextLines().last, 'Gate: ${row.gate.wireValue}');
+      });
+    }
+
+    test('no Profile rule runs when OKF fails, so an error finding never '
+        'meets an OKF failure', () async {
+      for (final name in _fixtureNames()) {
+        final result = await validateFixture(fixture(name));
+        if (result.okfValidation.isConformant) continue;
+        expect(result.profile, isA<BlockedByOkf>(), reason: name);
+        expect(result.findings, isEmpty, reason: name);
+        expect(result.summary, isNull, reason: name);
+      }
+    });
+  });
+
+  test('a run that assessed no Profile never passes', () async {
+    var unassessed = 0;
+    for (final name in _fixtureNames()) {
+      for (final fix in [false, true]) {
+        final copy = await copyFixture(name);
+        addTearDown(() => copy.delete(recursive: true));
+        final result = await validateFixture(copy.path, fix: fix);
+        if (result.profile is! NotAssessed) continue;
+        unassessed++;
+        expect(result.gate, GateState.incomplete, reason: name);
+        expect(result.diagnostics.where((d) => d.isError), isNotEmpty);
+      }
+    }
+    expect(unassessed, isPositive, reason: 'fixtures exercise NOT ASSESSED');
+  });
+
+  test('a link graph failure blocks PASS and assesses no link rule', () async {
+    final assessed = await validateFixture(fixture('configured-conventions'));
+    expect(
+      assessed.findings.map((f) => f.id).toSet().intersection(_linkRules),
+      _linkRules,
+      reason: 'with a graph, the fixture exercises every link rule',
+    );
+
+    final unassessed = await validateFixture(
+      fixture('configured-conventions'),
+      validator: _graphFails,
+    );
+    expect(
+      unassessed.findings.map((f) => f.id).toSet().intersection(_linkRules),
+      isEmpty,
+    );
+    final diagnostic = unassessed.diagnostics.single;
+    expect(diagnostic.code, DiagnosticCode.linkGraphUnavailable);
+    expect(diagnostic.message, contains('forced'));
+    expect(diagnostic.location, isNull);
+    expect(diagnostic.code.channel, DiagnosticChannel.execution);
+
+    final passing = await validateFixture(
+      fixture('configured-project'),
+      validator: _graphFails,
+    );
+    expect(passing.profileState, ProfileState.pass);
+    expect(passing.gate, GateState.incomplete);
+  });
+
+  test('a 2026.2 graph failure keeps its published finding beside the '
+      'diagnostic', () async {
+    final result = await validateFixture(
+      fixture('conformant'),
+      validator: _graphFails,
+    );
+    expect(result.profileRelease, '2026.2');
+    final finding = result.findings.single;
+    expect(finding.id, 'concepta-profile/link-graph-unavailable');
+    expect(finding.path, 'profile.md');
+    expect(finding.severity, OkfFindingSeverity.error);
+    expect(finding.message, contains('forced'));
+    expect(result.diagnostics.map((d) => d.code), [
+      DiagnosticCode.linkGraphUnavailable,
+    ]);
+    expect(result.gate, GateState.fail);
+    expect(result.exitCode, 1);
+  });
+
+  test('warnings and notes never change the gate', () async {
+    final note = await validateFixture(fixture('configured-extensions'));
+    expect(note.diagnostics.map((d) => d.level), [DiagnosticLevel.note]);
+    expect(note.gate, GateState.pass);
+
+    final legacy = await copyFixture('conformant');
+    addTearDown(() => legacy.delete(recursive: true));
+    final warning = await validateFixture(legacy.path, fix: true);
+    expect(warning.diagnostics.map((d) => (d.code, d.level)), [
+      (DiagnosticCode.fixNotApplied, DiagnosticLevel.warning),
+    ]);
+    expect(warning.gate, GateState.pass);
+  });
+
+  test('a stopped run reports the internal error and an incomplete '
+      'gate', () {
+    expect(internalErrorJson('boom'), {
+      'diagnostics': [
+        {'id': 'wayfinder/internal-error', 'level': 'error', 'message': 'boom'},
+      ],
+      'gate': {'state': 'INCOMPLETE'},
+    });
+  });
+}
+
+List<String> _fixtureNames() =>
+    Directory(p.join('test', 'fixtures'))
+        .listSync()
+        .whereType<Directory>()
+        .map((directory) => p.basename(directory.path))
+        .toList()
+      ..sort();

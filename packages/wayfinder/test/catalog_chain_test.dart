@@ -138,7 +138,7 @@ void main() {
             contains('client-profile/concept-seen'),
           );
         } else {
-          expect(composed.catalogs?.length, plain.catalogs?.length);
+          expect(composed.catalogs.length, plain.catalogs.length);
           expect(added, isEmpty);
         }
       });

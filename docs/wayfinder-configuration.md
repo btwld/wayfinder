@@ -157,8 +157,9 @@ the installed one is authoritative.
 
 A catalog that names a subject, slot, builtin, or schema keyword this
 `wayfinder` does not support fails `get` with the reason, and a locked catalog
-that a newer release wrote makes `validate` report `UNSUPPORTED` with that
-reason beside the independent OKF result. A catalog is never partially
+that a newer release wrote makes `validate` report the Profile `NOT ASSESSED`,
+with that reason in the `wayfinder/profile-unresolved` diagnostic, beside the
+independent OKF result. A catalog is never partially
 applied. Upgrade `wayfinder` or correct the catalog.
 
 ## Sources and lockfile
@@ -252,14 +253,18 @@ into its local cache.
 For `validate`, Wayfinder processes the explicit bundle in this order:
 
 1. Inspect the bundle and run independent OKF validation.
-2. For an OKF-conformant bundle, discover a project configuration only if it
-   selects this bundle; otherwise retain its legacy 2026.2 dispatch.
+2. Discover a project configuration only if it selects this bundle;
+   otherwise retain its legacy 2026.2 dispatch.
 3. Parse the selected configuration, check safe `applies_to` paths, and read
    the selected chain from a current lock/cache without network or writes.
 4. Check manifest identity, exact Profile release, and OKF binding, and parse
    each catalog the chain names.
-5. Merge standard and project vocabulary, then run every catalog in the chain,
-   base first. Report contextual rules separately as unassessed.
+5. When OKF passed, merge standard and project vocabulary, then run every
+   catalog in the chain, base first. Contextual rules are left to Profile
+   Review.
+6. Derive the gate. An OKF failure or an error finding fails it. Otherwise
+   any error diagnostic, such as a selection that failed in step 2 or 3,
+   makes it `INCOMPLETE`.
 
 Wayfinder checks `wayfinder.json` and each Profile manifest against the
 published schemas first and reports the first violation with its JSON pointer,

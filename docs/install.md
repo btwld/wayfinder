@@ -61,7 +61,7 @@ wayfinder index knowledge
 wayfinder search knowledge "How do I regain access to my account?"
 ```
 
-Validation checks the automated gate; contextual Profile judgment remains an
+Validation derives the deterministic gate; contextual Profile judgment remains an
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
 bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.

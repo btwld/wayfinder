@@ -19,6 +19,11 @@ void main() {
         await log.writeAsString(jsonEncode(await _sarif(fixture(name))));
         instances.addAll(['-i', log.path]);
       }
+      final stopped = File(p.join(logs.path, 'internal-error.sarif'));
+      await stopped.writeAsString(
+        jsonEncode(internalErrorSarif('boom', toolVersion: '0.0.0')),
+      );
+      instances.addAll(['-i', stopped.path]);
       final run = await Process.run('python3', [
         '-m',
         'jsonschema',
@@ -161,13 +166,76 @@ void main() {
     final unsupported = _run(await _sarif(fixture('unsupported')));
     expect(unsupported['properties'], {
       'okf_state': 'PASS',
-      'profile_release': '2027.1',
-      'profile_state': 'UNSUPPORTED',
-      'judgment_rules': 'UNASSESSED',
-      'automated_gate': 'UNSUPPORTED',
+      'profile_release': null,
+      'profile_state': 'NOT ASSESSED',
+      'gate': 'INCOMPLETE',
     });
     expect(unsupported['invocations'], [
-      {'executionSuccessful': false},
+      {
+        'executionSuccessful': false,
+        'toolConfigurationNotifications': [
+          {
+            'descriptor': {'id': 'wayfinder/profile-unsupported', 'index': 0},
+            'level': 'error',
+            'message': {'text': contains('2027.1')},
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {
+                    'uri': 'test/fixtures/unsupported/profile.md',
+                    'uriBaseId': 'WORKINGDIR',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(_notificationDescriptors(unsupported), [
+      {
+        'id': 'wayfinder/profile-unsupported',
+        'shortDescription': {'text': isNotEmpty},
+        'defaultConfiguration': {'level': 'error'},
+      },
+    ]);
+  });
+
+  test('a note diagnostic is a configuration notification that leaves '
+      'execution successful', () async {
+    final run = _run(await _sarif(fixture('configured-extensions')));
+    final [invocation] = run['invocations']! as List<Object?>;
+    expect(invocation, {
+      'executionSuccessful': true,
+      'toolConfigurationNotifications': [
+        containsPair('descriptor', {
+          'id': 'wayfinder/project-type',
+          'index': 0,
+        }),
+      ],
+    });
+    expect(
+      _results(run).map((result) => result.$1),
+      isNot(contains(startsWith('wayfinder/'))),
+    );
+  });
+
+  test('a run that stopped is one execution notification and no '
+      'results', () {
+    final run = _run(_wire(internalErrorSarif('boom', toolVersion: '0.0.0')));
+    expect(run['results'], isEmpty);
+    expect(run['properties'], {'gate': 'INCOMPLETE'});
+    expect(run['invocations'], [
+      {
+        'executionSuccessful': false,
+        'toolExecutionNotifications': [
+          {
+            'descriptor': {'id': 'wayfinder/internal-error', 'index': 0},
+            'level': 'error',
+            'message': {'text': 'boom'},
+          },
+        ],
+      },
     ]);
   });
 
@@ -229,11 +297,25 @@ void main() {
           ),
         ),
       );
-      final uri = _results(run)
-          .singleWhere(
-            (result) => result.$1.endsWith('/configured-type-extension'),
-          )
-          .$3;
+      final uri = switch (run['invocations']) {
+        [
+          {
+            'toolConfigurationNotifications': [
+              {
+                'locations': [
+                  {
+                    'physicalLocation': {
+                      'artifactLocation': {'uri': final String uri},
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ] =>
+          uri,
+        final other => throw StateError('no located notification: $other'),
+      };
       expect(uri, contains('%20spaced/wayfinder.json'));
       expect(
         p.canonicalize(Uri.parse(uri).toFilePath()),
@@ -293,6 +375,15 @@ List<Map<String, Object?>> _artifactLocations(Map<String, Object?> run) => [
         })
           artifact,
 ];
+
+List<Object?> _notificationDescriptors(Map<String, Object?> run) =>
+    switch (run) {
+      {
+        'tool': {'driver': {'notifications': final List<Object?> descriptors}},
+      } =>
+        descriptors,
+      _ => const [],
+    };
 
 Map<String, Map<String, Object?>> _rules(Map<String, Object?> run) {
   final rules = switch (run) {

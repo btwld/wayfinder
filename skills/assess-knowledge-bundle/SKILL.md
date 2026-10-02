@@ -20,11 +20,11 @@ bundle with its own binding rather than assuming it inherits `knowledge/`.
    contextual rules are never applied, but release dispatch does not skip step 2.
 2. Collect automated validation using the command selection in the shared
    [assessment reference](../author-knowledge-bundle/references/profile-assessment.md).
-   Record the independent OKF result, deterministic Profile result, and automated
-   gate even when the release is unsupported or the declaration is defective.
+   Record the independent OKF result, deterministic Profile result, diagnostics,
+   and gate even when the release is unsupported or the declaration is defective.
    When the CLI is unavailable, record `NOT RUN` with the reason; never substitute
    a guess for a deterministic result. If release dispatch was unavailable or
-   unsupported, skip step 3; still complete step 4. The report's Automated gate
+   unsupported, skip step 3; still complete step 4. The report's Gate
    records the collected result, Reviewed notes that contextual review was not
    performed, and Outcome is `NEEDS HUMAN`. Unsupported capability or an
    unreadable declaration is not a judgment failure.

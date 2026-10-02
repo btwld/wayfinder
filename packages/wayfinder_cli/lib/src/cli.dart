@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/wayfinder.dart' show toSarif;
+import 'package:wayfinder/wayfinder.dart'
+    show internalErrorJson, internalErrorSarif, toSarif;
 
 import 'agent_setup.dart';
 import 'graph.dart';
@@ -305,6 +306,8 @@ class WayfinderCli {
         )
         ..addOption('version', help: 'Install this published version.'),
     );
+    String? structuredOutput;
+    String message;
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
@@ -465,6 +468,7 @@ class WayfinderCli {
       final output = command.option('output');
       final json = output == 'json';
       if (name == 'validate') {
+        structuredOutput = output == 'text' ? null : output;
         final result = await validateWithProfileSources(
           bundle,
           configPath: command.option('config'),
@@ -601,19 +605,28 @@ class WayfinderCli {
       }
       return 0;
     } on ArgParserException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on WayfinderException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on FileSystemException catch (error) {
-      _err('wayfinder: ${_safe(error.message)} (${_safe(error.path ?? '')})');
+      message = '${error.message} (${error.path ?? ''})';
     } on FormatException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on Exception catch (error) {
-      _err('wayfinder: ${_safe(error.toString())}');
+      message = error.toString();
     } on ArgumentError catch (error) {
-      _err('wayfinder: ${_safe(error.message.toString())}');
+      message = error.message.toString();
     } on StateError catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
+    }
+    _err('wayfinder: ${_safe(message)}');
+    // A machine reader of validate gets a parseable result even when the run
+    // stopped, so it never mistakes empty output for a pass.
+    switch (structuredOutput) {
+      case 'json':
+        _json(internalErrorJson(message));
+      case 'sarif':
+        _json(internalErrorSarif(message, toolVersion: wayfinderVersion));
     }
     return 2;
   }

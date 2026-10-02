@@ -146,7 +146,7 @@ void main() {
         expect(await cli.run(['validate', root.path, '--output=json']), 2);
         final staleCli = jsonDecode(cliOutput.single) as Map<String, dynamic>;
         expect((staleCli['okf'] as Map)['state'], 'PASS');
-        expect((staleCli['profile'] as Map)['state'], 'UNSUPPORTED');
+        expect((staleCli['profile'] as Map)['state'], 'NOT ASSESSED');
         final staleMcp = await client.callTool(
           const CallToolRequest(name: 'validate'),
         );
@@ -260,22 +260,21 @@ void main() {
         );
       });
 
-      test(
-        'validation preserves findings and unassessed judgment without inference',
-        () async {
-          final expected = await const ProfileValidator().validate(root);
-          final result = await client.callTool(
-            const CallToolRequest(name: 'validate'),
-          );
-          expect(result.isError, isNot(true));
-          expect(_payload(result), {
-            ...expected.toJson(),
-            'exit_code': expected.exitCode,
-          });
-          expect(_payload(result)['judgment_rules'], {'state': 'UNASSESSED'});
-          expect(knowledge.calls, isEmpty);
-        },
-      );
+      test('validation preserves findings, diagnostics and the gate without '
+          'inference', () async {
+        final expected = await const ProfileValidator().validate(root);
+        final result = await client.callTool(
+          const CallToolRequest(name: 'validate'),
+        );
+        expect(result.isError, isNot(true));
+        expect(_payload(result), {
+          ...expected.toJson(),
+          'exit_code': expected.exitCode,
+        });
+        expect(_payload(result), contains('diagnostics'));
+        expect(_payload(result)['gate'], {'state': expected.gate.wireValue});
+        expect(knowledge.calls, isEmpty);
+      });
 
       test('graph projects the ordinary OKF JSON without retrieval', () async {
         final loaded = await const OkfBundleLoader().inspect(root);

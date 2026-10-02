@@ -23,10 +23,6 @@ final class ProfileRuleDescriptor {
     required this.rule,
   });
 
-  const ProfileRuleDescriptor.error(String slug, this.rule)
-    : id = 'concepta-profile/$slug',
-      severity = RuleSeverity.error;
-
   /// Stable `concepta-profile/<rule-slug>` finding ID.
   final String id;
 
@@ -48,38 +44,4 @@ final class FindingDescriptor {
 
   final ProfileRuleDescriptor descriptor;
   final OkfFindingSeverity severity;
-}
-
-abstract final class DispatchRule {
-  static const profileDeclarationPresent = FindingDescriptor._(
-    ProfileRuleDescriptor.error('profile-declaration-present', '§11'),
-    OkfFindingSeverity.error,
-  );
-  static const profileDeclarationReadable = FindingDescriptor._(
-    ProfileRuleDescriptor.error('profile-declaration-readable', '§11'),
-    OkfFindingSeverity.error,
-  );
-  static const profileDeclarationFields = FindingDescriptor._(
-    ProfileRuleDescriptor.error('profile-declaration-fields', '§11'),
-    OkfFindingSeverity.error,
-  );
-  static const configurationReadable = FindingDescriptor._(
-    ProfileRuleDescriptor.error('configuration-readable', '§11'),
-    OkfFindingSeverity.error,
-  );
-  static const configurationBundleBinding = FindingDescriptor._(
-    ProfileRuleDescriptor.error('configuration-bundle-binding', '§11'),
-    OkfFindingSeverity.error,
-  );
-
-  static final all = <ProfileRuleDescriptor>[
-    for (final rule in [
-      profileDeclarationPresent,
-      profileDeclarationReadable,
-      profileDeclarationFields,
-      configurationReadable,
-      configurationBundleBinding,
-    ])
-      rule.descriptor,
-  ];
 }

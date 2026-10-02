@@ -20,7 +20,7 @@ void main() {
       result.stdout,
       contains('concepta-profile/okf-release-binding (2026.2 §11)'),
     );
-    expect(result.stdout, endsWith('Automated gate: FAIL'));
+    expect(result.stdout, endsWith('Gate: FAIL'));
   });
 
   test('validates concept metadata through text and JSON output', () async {
@@ -45,7 +45,7 @@ void main() {
           'profile.md',
       'advisory concepta-profile/generation-provenance-recommended types.md',
     ]);
-    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+    expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
     final textResult = await runCli(<String>[
       'validate',
@@ -103,7 +103,7 @@ void main() {
         expect(value['profile_release'], '2026.2');
         expect(value['rule'], isNotEmpty);
       }
-      expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+      expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
       final text = await runCli(<String>[
         'validate',
@@ -137,7 +137,7 @@ void main() {
         'advisory concepta-profile/relationship-label-extension note.md',
         'advisory concepta-profile/registered-type-extension types.md',
       ]);
-      expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+      expect(output['gate'], <String, Object?>{'state': 'PASS'});
 
       final text = await runCli(<String>[
         'validate',
@@ -145,7 +145,7 @@ void main() {
       ]);
       expect(text.exitCode, 0);
       expect(text.stdout, contains('advisory concepta-profile/'));
-      expect(text.stdout, endsWith('Automated gate: PASS'));
+      expect(text.stdout, endsWith('Gate: PASS'));
     },
   );
 
@@ -170,7 +170,7 @@ void main() {
     ).where((line) => line.contains('source-path-unresolved')).toList();
     expect(unresolved, hasLength(3));
     expect(unresolved, everyElement(endsWith(' note.md')));
-    expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+    expect(output['gate'], <String, Object?>{'state': 'PASS'});
   });
 
   test('joins adjacent footnote references to their definitions', () async {
@@ -217,7 +217,7 @@ void main() {
       final profile = output['profile']! as Map<String, Object?>;
       expect(profile['state'], 'PASS');
       expect(findingSummary(profile), isEmpty);
-      expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+      expect(output['gate'], <String, Object?>{'state': 'PASS'});
     },
   );
 
@@ -241,8 +241,7 @@ void main() {
       'error concepta-profile/index-semantic-projection references/index.md',
     ]);
     expect(profile['state'], 'FAIL');
-    expect(output['judgment_rules'], <String, Object?>{'state': 'UNASSESSED'});
-    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+    expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
     final text = await runCli(<String>[
       'validate',
@@ -251,7 +250,7 @@ void main() {
     expect(text.exitCode, 1);
     expect(text.stdout, contains('concepta-profile/index-semantic-projection'));
     expect(text.stdout, contains('concepta-profile/log-entry-lead-word'));
-    expect(text.stdout, endsWith('Automated gate: FAIL'));
+    expect(text.stdout, endsWith('Gate: FAIL'));
   });
 
   test('flags non-index markdown inside a references raw/ tier', () async {
@@ -278,7 +277,7 @@ void main() {
       hasLength(1),
     );
     expect(profile['state'], 'FAIL');
-    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+    expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
     final text = await runCli(<String>['validate', fixture('invalid-raw')]);
     expect(text.exitCode, 1);
@@ -286,7 +285,7 @@ void main() {
       text.stdout,
       contains('raw/stray.md: error concepta-profile/raw-directory-markdown'),
     );
-    expect(text.stdout, endsWith('Automated gate: FAIL'));
+    expect(text.stdout, endsWith('Gate: FAIL'));
   });
 
   test('flags a raw/ tier sitting directly under references/', () async {
@@ -310,7 +309,7 @@ void main() {
       hasLength(1),
     );
     expect(profile['state'], 'FAIL');
-    expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+    expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
     final text = await runCli(<String>[
       'validate',
@@ -323,7 +322,7 @@ void main() {
         'references/raw: error concepta-profile/raw-directory-placement',
       ),
     );
-    expect(text.stdout, endsWith('Automated gate: FAIL'));
+    expect(text.stdout, endsWith('Gate: FAIL'));
   });
 
   test(
@@ -345,10 +344,7 @@ void main() {
         'advisory concepta-profile/concept-area-name-collision topic.md',
         'advisory concepta-profile/registered-type-extension types.md',
       ]);
-      expect(output['judgment_rules'], <String, Object?>{
-        'state': 'UNASSESSED',
-      });
-      expect(output['automated_gate'], <String, Object?>{'state': 'PASS'});
+      expect(output['gate'], <String, Object?>{'state': 'PASS'});
 
       final text = await runCli(<String>[
         'validate',
@@ -356,7 +352,7 @@ void main() {
       ]);
       expect(text.exitCode, 0);
       expect(text.stdout, contains('concept-area-name-collision'));
-      expect(text.stdout, endsWith('Automated gate: PASS'));
+      expect(text.stdout, endsWith('Gate: PASS'));
     },
   );
 
@@ -481,7 +477,7 @@ void main() {
         'error concepta-profile/index-semantic-projection '
             'references/undecodable/index.md',
       ]);
-      expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+      expect(output['gate'], <String, Object?>{'state': 'FAIL'});
     },
   );
 
@@ -548,7 +544,7 @@ void main() {
         contains('error concepta-profile/root-structure-files topic/$filename'),
         reason: filename,
       );
-      expect(output['automated_gate'], <String, Object?>{'state': 'FAIL'});
+      expect(output['gate'], <String, Object?>{'state': 'FAIL'});
 
       if (filename == 'profile.md') {
         final text = await runCli(<String>['validate', bundle.path]);
@@ -560,7 +556,7 @@ void main() {
             'concepta-profile/root-structure-files',
           ),
         );
-        expect(text.stdout, endsWith('Automated gate: FAIL'));
+        expect(text.stdout, endsWith('Gate: FAIL'));
       }
     }
   });

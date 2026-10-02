@@ -840,7 +840,7 @@
           <p>
             Automated success does not establish subject placement, semantic
             accuracy, source credibility, or complete Profile conformance.
-            Judgment Rules remain <code>UNASSESSED</code> until Profile Review.
+            Validation never assesses Judgment Rules; Profile Review does.
           </p>
         </aside>
         <h3>Configured validation flow</h3>
@@ -848,7 +848,7 @@
           <li>Inspect the explicit bundle and retain its independent OKF result.</li>
           <li>For an OKF-conformant bundle, select a matching <code>applies_to</code> path and read its source chain from a current lock/cache.</li>
           <li>Check manifest identity and release, then validate types, tags, actors, and deterministic Profile rules.</li>
-          <li>Report contextual rules separately as <code>UNASSESSED</code>.</li>
+          <li>Derive the gate. Leave contextual rules to Profile Review.</li>
         </ol>
       </section>
 
