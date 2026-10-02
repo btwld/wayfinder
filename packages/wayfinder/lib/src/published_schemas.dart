@@ -35,6 +35,9 @@ String schemaFailureReason(JsonPredicateFailure failure) => switch (failure) {
     'must not be empty',
   JsonPredicateFailure(keyword: 'minProperties', :final expected) =>
     'must have at least $expected properties',
+  JsonPredicateFailure(keyword: 'minItems', expected: 1) => 'must not be empty',
+  JsonPredicateFailure(keyword: 'minItems', :final expected) =>
+    'must have at least $expected items',
   JsonPredicateFailure(keyword: 'pattern', description: final String text) =>
     'must be $text',
   JsonPredicateFailure(keyword: 'pattern', :final expected) =>
@@ -45,6 +48,8 @@ String schemaFailureReason(JsonPredicateFailure failure) => switch (failure) {
     'has unknown property $property',
   JsonPredicateFailure(keyword: 'propertyNames', :final property) =>
     'has invalid property name ${jsonEncode(property)}',
+  JsonPredicateFailure(keyword: 'oneOf') =>
+    'must match exactly one of its allowed shapes',
   JsonPredicateFailure(:final keyword) => 'fails $keyword',
 };
 

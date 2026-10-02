@@ -242,6 +242,35 @@ void main() {
       );
     });
 
+    test('an extends that is neither parent shape', () {
+      for (final parent in [
+        {'git': 'https://example.test/p.git', 'path': 'profiles/base'},
+        {'ref': 'v1', 'path': 'profiles/base'},
+        {'path': '../base'},
+        {'git': '../sibling', 'ref': 'v1', 'path': 'profiles/base'},
+      ]) {
+        expect(
+          () => ProfilePackage.parse(packageJson(extra: {'extends': parent})),
+          rejectedAt('extends', 'must match exactly one of its allowed shapes'),
+          reason: '$parent',
+        );
+      }
+      expect(
+        () => ProfilePackage.parse(
+          packageJson(
+            extra: {
+              'extends': {
+                'git': 'https://user:secret@example.test/p.git',
+                'ref': 'v1',
+                'path': 'profiles/base',
+              },
+            },
+          ),
+        ),
+        rejectedAt('extends.git', 'must not contain credentials'),
+      );
+    });
+
     test('a rule whose own examples disagree with its check', () {
       expect(
         () => ProfilePackage.parse(
@@ -288,6 +317,41 @@ void main() {
         rejectedAt('rules[0].tests', 'invalid[0] passes'),
       );
     });
+  });
+
+  test('a package names its parent at the same or another revision', () {
+    expect(ProfilePackage.parse(packageJson()).parent, isNull);
+    final same = ProfilePackage.parse(
+      packageJson(
+        extra: {
+          'extends': {'path': './profiles/bitwild'},
+        },
+      ),
+    );
+    expect(
+      same.parent,
+      isA<SameRevision>().having(
+        (parent) => parent.path,
+        'path',
+        'profiles/bitwild',
+      ),
+    );
+    final other = ProfilePackage.parse(
+      packageJson(
+        extra: {
+          'extends': {
+            'git': 'git@example.test:acme/profiles.git',
+            'ref': 'v2026.3',
+            'path': 'profiles/bitwild/',
+          },
+        },
+      ),
+    );
+    final source = (other.parent! as OtherRevision).source;
+    expect(
+      (source.git, source.ref, source.path),
+      ('git@example.test:acme/profiles.git', 'v2026.3', 'profiles/bitwild'),
+    );
   });
 
   test('the id is the finding namespace and the help link is derived', () {

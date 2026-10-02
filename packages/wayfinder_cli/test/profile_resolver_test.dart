@@ -69,10 +69,16 @@ void main() {
               await File(p.join(project.path, 'wayfinder.lock')).readAsString(),
             )
             as Map<String, dynamic>;
-    return (lock['profiles']
+    return (lock['packages']
             as Map<String, dynamic>)['bitwild-profile']['resolved_commit']
         as String;
   }
+
+  Future<Map<String, dynamic>> readLock() async =>
+      jsonDecode(
+            await File(p.join(project.path, 'wayfinder.lock')).readAsString(),
+          )
+          as Map<String, dynamic>;
 
   Future<String> sourceCommit() =>
       _gitOutput(source.path, ['rev-parse', 'HEAD']);
@@ -89,20 +95,24 @@ void main() {
     final result = await WayfinderProfileResolver(
       dataDirectory: data,
     ).resolve(project.path);
-    expect(result.direct, isTrue);
     expect(result.reused, isFalse);
     expect(result.upgraded, isFalse);
     final lock =
         jsonDecode(await File(result.lockPath).readAsString())
             as Map<String, Object?>;
+    expect(lock.keys, ['lock_version', 'configuration_sha256', 'packages']);
     expect(lock['lock_version'], 1);
     expect(lock['configuration_sha256'], isA<String>());
-    final profile =
-        (lock['profiles']! as Map<String, Object?>)['bitwild-profile']!
-            as Map<String, Object?>;
-    expect(profile['requested_ref'], 'v2026.3');
-    expect(profile['profile_release'], '2026.3');
-    expect(profile['resolved_commit'], isA<String>());
+    expect(lock['packages'], {
+      'bitwild-profile': {
+        'source': source.path,
+        'requested_ref': 'v2026.3',
+        'resolved_commit': await sourceCommit(),
+        'path': 'profiles/bitwild',
+        'release': '2026.3',
+      },
+    });
+    expect(result.packages[_bitwild]?.extendsId, isNull);
   });
 
   test(
@@ -114,32 +124,39 @@ void main() {
       await saveConfig(value);
       final resolver = WayfinderProfileResolver(dataDirectory: data);
       final resolved = await resolver.resolve(project.path);
-      expect(resolved.effective[_bitwild]?.selected.release, '2026.3');
-      final lock =
-          jsonDecode(
-                await File(
-                  p.join(project.path, 'wayfinder.lock'),
-                ).readAsString(),
-              )
-              as Map<String, dynamic>;
+      expect(resolved.packages[_bitwild]?.release, '2026.3');
       expect(
-        (lock['profiles'] as Map)['bitwild-profile']['source'],
+        ((await readLock())['packages'] as Map)['bitwild-profile']['source'],
         '../source',
       );
-      final readOnly = await resolver.readLockedForBundle(
+      final selection = await resolver.select(
         p.join(project.path, 'knowledge'),
       );
-      expect(readOnly?.effective[_bitwild]?.selected.release, '2026.3');
+      expect((selection as SelectedProfile).profile.selected.release, '2026.3');
     },
   );
 
-  test('reuses a current lock and cache without resolving again', () async {
-    final resolver = WayfinderProfileResolver(dataDirectory: data);
-    await resolver.resolve(project.path);
-    final second = await resolver.resolve(project.path);
-    expect(second.reused, isTrue);
-    expect(second.upgraded, isFalse);
-  });
+  test(
+    'get twice fetches nothing and leaves the lock byte-identical',
+    () async {
+      final calls = <List<String>>[];
+      final resolver = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+      );
+      await resolver.resolve(project.path);
+      final lock = File(p.join(project.path, 'wayfinder.lock'));
+      final first = await lock.readAsBytes();
+      final modified = await lock.lastModified();
+      calls.clear();
+      final second = await resolver.resolve(project.path);
+      expect(second.reused, isTrue);
+      expect(second.upgraded, isFalse);
+      expect(await lock.readAsBytes(), first);
+      expect(await lock.lastModified(), modified);
+      expect(calls.where(_fetches), isEmpty);
+    },
+  );
 
   test(
     'canonical hash ignores formatting and object key order, but not arrays',
@@ -452,15 +469,47 @@ void main() {
     },
   );
 
-  test('a child Profile composes with its parent and the project', () async {
-    final child = Directory(p.join(source.path, 'child'));
-    await child.create();
-    await File(p.join(child.path, 'wayfinder-profile.json')).writeAsString(
-      jsonEncode({
+  Future<void> commitPackage(
+    String directory,
+    Map<String, Object?> package, {
+    Directory? repository,
+    String? tag,
+  }) async {
+    final root = repository ?? source;
+    final target = Directory(p.join(root.path, directory));
+    await target.create(recursive: true);
+    await File(
+      p.join(target.path, 'wayfinder-profile.json'),
+    ).writeAsString(jsonEncode(package));
+    await _git(root.path, ['add', '.']);
+    await _git(root.path, ['commit', '-q', '-m', 'Package $directory']);
+    if (tag != null) await _git(root.path, ['tag', tag]);
+  }
+
+  Future<void> bindOnly(
+    String id,
+    Map<String, Object?> source, {
+    Map<String, Object?> additions = const {},
+  }) => saveConfig({
+    'version': 1,
+    'profiles': {
+      id: {
+        'source': source,
+        'applies_to': ['./knowledge'],
+        ...additions,
+      },
+    },
+  });
+
+  test(
+    'a package names its parent; the project never wires the chain',
+    () async {
+      await commitPackage('child', {
         'format': 2,
         'id': 'client-profile',
         'release': '3',
         'implements': {'id': 'okf', 'release': '0.2'},
+        'extends': {'path': 'profiles/bitwild'},
         'types': [
           {'name': 'Client Note', 'description': 'A client-specific note'},
         ],
@@ -471,96 +520,210 @@ void main() {
           {'name': 'escalated-to', 'description': 'A client escalation'},
         ],
         'rules': <Object?>[],
-      }),
-    );
-    await _git(source.path, ['add', '.']);
-    await _git(source.path, ['commit', '-q', '-m', 'Child Profile']);
-    final branch = await _gitOutput(source.path, [
-      'symbolic-ref',
-      '--short',
-      'HEAD',
-    ]);
-    await saveConfig({
-      'version': 1,
-      'profiles': {
-        'bitwild-profile': {
-          'source': {
-            'git': source.path,
-            'ref': branch,
-            'path': 'profiles/bitwild',
-          },
-          'applies_to': [],
-        },
-        'client-profile': {
-          'extends': 'bitwild-profile',
-          'source': {'git': source.path, 'ref': branch, 'path': 'child'},
-          'applies_to': ['./knowledge'],
+      }, tag: 'client-v3');
+      await bindOnly(
+        'client-profile',
+        {'git': source.path, 'ref': 'client-v3', 'path': 'child'},
+        additions: {
           'relationships': [
             {'name': 'runs-after', 'description': 'A project ordering'},
           ],
         },
-      },
-    });
-    final result = await WayfinderProfileResolver(
-      dataDirectory: data,
-    ).resolve(project.path);
-    final composed = result.effective[_client]!;
-    expect(composed.chain.map((package) => package.id), [_bitwild, _client]);
-    expect(composed.selected.release, '3');
-    expect(
-      composed.vocabulary.relationships,
-      containsAll(['depends-on', 'escalated-to', 'runs-after']),
-    );
-    expect(composed.vocabulary.types, containsAll(['Guide', 'Client Note']));
-    expect(composed.vocabulary.tags, contains('client-topic'));
-    expect(result.effective[_bitwild]!.chain, hasLength(1));
-    final lock =
-        jsonDecode(
-              await File(p.join(project.path, 'wayfinder.lock')).readAsString(),
-            )
-            as Map<String, dynamic>;
-    expect(lock['profiles']['client-profile']['profile_release'], '3');
+      );
+      final resolver = WayfinderProfileResolver(dataDirectory: data);
+      final result = await resolver.resolve(project.path);
+      final commit = await sourceCommit();
+      expect(result.packages.keys, unorderedEquals([_bitwild, _client]));
+      expect((await readLock())['packages'], {
+        'bitwild-profile': {
+          'source': source.path,
+          'requested_ref': 'client-v3',
+          'resolved_commit': commit,
+          'path': 'profiles/bitwild',
+          'release': '2026.3',
+        },
+        'client-profile': {
+          'source': source.path,
+          'requested_ref': 'client-v3',
+          'resolved_commit': commit,
+          'path': 'child',
+          'release': '3',
+          'extends': 'bitwild-profile',
+        },
+      });
 
-    final colliding = await config();
-    (colliding['profiles']['client-profile']['relationships'] as List).add({
-      'name': 'escalated-to',
-      'description': 'Repeats the child package',
-    });
-    await saveConfig(colliding);
-    await expectLater(
-      WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
-      throwsA(
-        isA<WayfinderProfileResolutionException>()
-            .having(
-              (error) => error.code,
-              'code',
-              DiagnosticCode.profileComposition,
-            )
-            .having(
-              (error) => error.message,
-              'message',
-              'Profile client-profile: The project declares relationship '
-                  'escalated-to, which Profile client-profile already '
-                  'declares.',
-            ),
-      ),
+      final selection =
+          await resolver.select(p.join(project.path, 'knowledge'))
+              as SelectedProfile;
+      final composed = selection.profile;
+      expect(composed.chain.map((package) => package.id), [_bitwild, _client]);
+      expect(composed.selected.release, '3');
+      expect(selection.commits, {_bitwild: commit, _client: commit});
+      expect(
+        composed.vocabulary.relationships,
+        containsAll(['depends-on', 'escalated-to', 'runs-after']),
+      );
+      expect(composed.vocabulary.types, containsAll(['Guide', 'Client Note']));
+      expect(composed.vocabulary.tags, contains('client-topic'));
+
+      final colliding = await config();
+      (colliding['profiles']['client-profile']['relationships'] as List).add({
+        'name': 'escalated-to',
+        'description': 'Repeats the child package',
+      });
+      await saveConfig(colliding);
+      final locked = await File(
+        p.join(project.path, 'wayfinder.lock'),
+      ).readAsString();
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>()
+              .having(
+                (error) => error.code,
+                'code',
+                DiagnosticCode.profileComposition,
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                'Profile client-profile: The project declares relationship '
+                    'escalated-to, which Profile client-profile already '
+                    'declares.',
+              ),
+        ),
+      );
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).readAsString(),
+        locked,
+        reason: 'composition runs at get, before the lock is written',
+      );
+    },
+  );
+
+  test('a parent at another revision resolves from its own ref', () async {
+    final other = await Directory(p.join(temp.path, 'other')).create();
+    await _git(other.path, ['init', '-q']);
+    await _git(other.path, ['config', 'user.email', 'test@example.test']);
+    await _git(other.path, ['config', 'user.name', 'Wayfinder Test']);
+    await commitPackage(
+      'profile',
+      {
+        'format': 2,
+        'id': 'client-profile',
+        'release': '1',
+        'implements': {'id': 'okf', 'release': '0.2'},
+        'extends': {
+          'git': source.path,
+          'ref': 'v2026.3',
+          'path': 'profiles/bitwild',
+        },
+        'rules': <Object?>[],
+      },
+      repository: other,
+      tag: 'client-v1',
     );
-    final taggedLikeRelationship = await config();
-    (taggedLikeRelationship['profiles']['client-profile']['relationships']
-            as List)
-        .removeLast();
-    taggedLikeRelationship['profiles']['client-profile']['tags'] = [
-      {'name': 'escalated-to', 'description': 'Repeats a child relationship'},
-    ];
-    await saveConfig(taggedLikeRelationship);
+    await bindOnly('client-profile', {
+      'git': other.path,
+      'ref': 'client-v1',
+      'path': 'profile',
+    });
+    final resolver = WayfinderProfileResolver(dataDirectory: data);
+    await resolver.resolve(project.path);
+    final packages = (await readLock())['packages'] as Map<String, dynamic>;
+    expect(packages['bitwild-profile'], {
+      'source': source.path,
+      'requested_ref': 'v2026.3',
+      'resolved_commit': await sourceCommit(),
+      'path': 'profiles/bitwild',
+      'release': '2026.3',
+    });
+    expect(packages['client-profile']['source'], other.path);
+    expect(packages['client-profile']['extends'], 'bitwild-profile');
+    final selection = await resolver.select(p.join(project.path, 'knowledge'));
+    expect(
+      (selection as SelectedProfile).profile.chain.map((package) => package.id),
+      [_bitwild, _client],
+    );
+  });
+
+  test('two revisions of one Profile fail at get, naming both refs', () async {
+    final base = await sourceCommit();
+    await advanceSource();
+    await _git(source.path, ['tag', 'v2026.4']);
+    final other = await Directory(p.join(temp.path, 'other')).create();
+    await _git(other.path, ['init', '-q']);
+    await _git(other.path, ['config', 'user.email', 'test@example.test']);
+    await _git(other.path, ['config', 'user.name', 'Wayfinder Test']);
+    await commitPackage(
+      'profile',
+      {
+        'format': 2,
+        'id': 'client-profile',
+        'release': '1',
+        'implements': {'id': 'okf', 'release': '0.2'},
+        'extends': {
+          'git': source.path,
+          'ref': 'v2026.4',
+          'path': 'profiles/bitwild',
+        },
+        'rules': <Object?>[],
+      },
+      repository: other,
+      tag: 'client-v1',
+    );
+    await Directory(p.join(project.path, 'client')).create();
+    final value = await config();
+    value['profiles']['client-profile'] = {
+      'source': {'git': other.path, 'ref': 'client-v1', 'path': 'profile'},
+      'applies_to': ['./client'],
+    };
+    await saveConfig(value);
     await expectLater(
       WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
       throwsA(
         isA<WayfinderProfileResolutionException>().having(
           (error) => error.message,
           'message',
-          'Profile client-profile: The project declares tag escalated-to, '
-              'which equals a declared relationship name.',
+          'Profile bitwild-profile is needed at two revisions: '
+              '${source.path} profiles/bitwild at v2026.3 ($base) and '
+              '${source.path} profiles/bitwild at v2026.4 '
+              '(${await sourceCommit()}). A project locks one revision of '
+              'each Profile; make the refs agree.',
+        ),
+      ),
+    );
+    expect(
+      await File(p.join(project.path, 'wayfinder.lock')).exists(),
+      isFalse,
+    );
+  });
+
+  test('a package that extends itself fails at get', () async {
+    await commitPackage('a', {
+      'format': 2,
+      'id': 'loop-a',
+      'release': '1',
+      'implements': {'id': 'okf', 'release': '0.2'},
+      'extends': {'path': 'b'},
+      'rules': <Object?>[],
+    });
+    await commitPackage('b', {
+      'format': 2,
+      'id': 'loop-b',
+      'release': '1',
+      'implements': {'id': 'okf', 'release': '0.2'},
+      'extends': {'path': 'a'},
+      'rules': <Object?>[],
+    }, tag: 'loop');
+    await bindOnly('loop-a', {'git': source.path, 'ref': 'loop', 'path': 'a'});
+    await expectLater(
+      WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
+      throwsA(
+        isA<WayfinderProfileResolutionException>().having(
+          (error) => error.message,
+          'message',
+          'Profile loop-a extends itself through loop-a, loop-b.',
         ),
       ),
     );
@@ -572,6 +735,7 @@ void main() {
       'id': 'client-profile',
       'release': '2026.3',
       'implements': {'id': 'okf', 'release': '0.2'},
+      'extends': {'path': 'profiles/bitwild'},
       'docs': 'https://client.example/profile/README.md',
       'rules': [
         {
@@ -623,30 +787,18 @@ void main() {
       await _git(source.path, ['tag', tag]);
     }
 
-    Future<void> configure(String ref) => saveConfig({
-      'version': 1,
-      'profiles': {
-        'bitwild-profile': {
-          'source': {
-            'git': source.path,
-            'ref': 'v2026.3',
-            'path': 'profiles/bitwild',
-          },
-          'applies_to': <String>[],
+    Future<void> configure(String ref) => bindOnly(
+      'client-profile',
+      {'git': source.path, 'ref': ref, 'path': 'child'},
+      additions: {
+        'actors': {
+          'process:fixture': {'name': 'Fixture process'},
         },
-        'client-profile': {
-          'extends': 'bitwild-profile',
-          'source': {'git': source.path, 'ref': ref, 'path': 'child'},
-          'applies_to': ['./knowledge'],
-          'actors': {
-            'process:fixture': {'name': 'Fixture process'},
-          },
-          'tags': [
-            {'name': 'governance', 'description': 'Governance topic'},
-          ],
-        },
+        'tags': [
+          {'name': 'governance', 'description': 'Governance topic'},
+        ],
       },
-    });
+    );
 
     setUp(() async {
       await commitChild(childPackage(typeSubset), 'child-good');
@@ -682,38 +834,29 @@ void main() {
       final resolved = await WayfinderProfileResolver(
         dataDirectory: data,
       ).resolve(project.path);
-      expect(resolved.effective[_bitwild]!.chain.map((package) => package.id), [
-        _bitwild,
+      expect(resolved.packages[_client]?.extendsId, _bitwild);
+      expect(resolved.packages[_bitwild]?.extendsId, isNull);
+      final lock = await readLock();
+      expect((lock['packages']['client-profile'] as Map).keys, [
+        'source',
+        'requested_ref',
+        'resolved_commit',
+        'path',
+        'release',
+        'extends',
       ]);
-      final composed = resolved.effective[_client]!;
-      expect(composed.chain.map((package) => package.id), [_bitwild, _client]);
-      expect(
-        composed.selected.rules.single.descriptor.id,
-        'client-profile/type-allowed',
-      );
-      final lock =
-          jsonDecode(
-                await File(
-                  p.join(project.path, 'wayfinder.lock'),
-                ).readAsString(),
-              )
-              as Map<String, dynamic>;
-      expect(
-        (lock['profiles']['client-profile'] as Map).keys,
-        unorderedEquals([
-          'source',
-          'requested_ref',
-          'resolved_commit',
-          'path',
-          'profile_release',
-        ]),
-      );
+      final commit = resolved.packages[_client]!.commit;
 
       expect(await cli.run(['validate', bundle, '--output=json']), 1);
       final report = jsonDecode(output.single) as Map<String, dynamic>;
       final profile = report['profile'] as Map<String, dynamic>;
       expect(profile['state'], 'FAIL');
+      expect(profile['id'], 'client-profile');
       expect(profile['release'], '2026.3');
+      expect(profile['chain'], [
+        {'id': 'bitwild-profile', 'release': '2026.3', 'commit': commit},
+        {'id': 'client-profile', 'release': '2026.3', 'commit': commit},
+      ]);
       expect(profile['findings'], [
         {
           'id': 'client-profile/type-allowed',
@@ -757,29 +900,26 @@ void main() {
           'rev-parse',
           'child-bad^{commit}',
         ]);
-        final base = await _gitOutput(source.path, [
-          'rev-parse',
-          'v2026.3^{commit}',
-        ]);
         await lockFile.writeAsString(
           jsonEncode({
             'lock_version': 1,
             'configuration_sha256':
                 WayfinderProfileResolver.canonicalConfigurationSha256(raw),
-            'profiles': {
+            'packages': {
               'bitwild-profile': {
                 'source': source.path,
-                'requested_ref': 'v2026.3',
-                'resolved_commit': base,
+                'requested_ref': 'child-bad',
+                'resolved_commit': bad,
                 'path': 'profiles/bitwild',
-                'profile_release': '2026.3',
+                'release': '2026.3',
               },
               'client-profile': {
                 'source': source.path,
                 'requested_ref': 'child-bad',
                 'resolved_commit': bad,
                 'path': 'child',
-                'profile_release': '2026.3',
+                'release': '2026.3',
+                'extends': 'bitwild-profile',
               },
             },
           }),
@@ -800,6 +940,57 @@ void main() {
         );
         expect(report['gate'], {'state': 'INCOMPLETE'});
         expect(errors, isEmpty);
+      },
+    );
+
+    test(
+      'a package-declared parent keeps its findings byte-identical',
+      () async {
+        final index = File(p.join(bundle, 'index.md'));
+        await index.writeAsString(
+          (await index.readAsString()).replaceFirst(
+            'A sample guide.',
+            'An edited guide.',
+          ),
+        );
+        Future<List<Object?>> findings() async {
+          output.clear();
+          expect(await cli.run(['get', project.path]), 0);
+          output.clear();
+          await cli.run(['validate', bundle, '--output=json']);
+          final report = jsonDecode(output.single) as Map<String, dynamic>;
+          return (report['profile'] as Map)['findings'] as List<Object?>;
+        }
+
+        final child = await findings();
+        await bindOnly(
+          'bitwild-profile',
+          {'git': source.path, 'ref': 'child-good', 'path': 'profiles/bitwild'},
+          additions: {
+            'actors': {
+              'process:fixture': {'name': 'Fixture process'},
+            },
+            'tags': [
+              {'name': 'governance', 'description': 'Governance topic'},
+            ],
+          },
+        );
+        final parent = await findings();
+        expect(parent.map((f) => (f! as Map)['id']), [
+          'bitwild-profile/index-current',
+        ]);
+        expect(
+          jsonEncode([
+            for (final finding in child)
+              if (((finding! as Map)['id'] as String).startsWith('bitwild-'))
+                finding,
+          ]),
+          jsonEncode(parent),
+        );
+        expect(child.map((f) => (f! as Map)['id']).toSet(), {
+          'bitwild-profile/index-current',
+          'client-profile/type-allowed',
+        });
       },
     );
 
@@ -972,7 +1163,7 @@ void main() {
       'Fix: wrote billing/index.md',
       'Fix: wrote index.md',
     ]);
-    expect(output, contains('Profile 2026.3: PASS'));
+    expect(output, contains('Profile bitwild-profile 2026.3: PASS'));
     expect(
       await File(p.join(bundle, 'billing', 'index.md')).readAsString(),
       '# Guide\n\n* [Invoice](invoice.md) - How invoices are issued.\n',
@@ -1065,17 +1256,10 @@ void main() {
     final resolver = WayfinderProfileResolver(dataDirectory: data);
     final resolved = await resolver.resolve(project.path);
     final acmeId = ProfileId.parse('acme-notes');
-    expect(resolved.effective.keys, [acmeId]);
-    expect(resolved.effective[acmeId]!.chain.map((package) => package.id), [
-      acmeId,
-    ]);
-    final lock =
-        jsonDecode(
-              await File(p.join(project.path, 'wayfinder.lock')).readAsString(),
-            )
-            as Map<String, dynamic>;
-    expect((lock['profiles'] as Map).keys, ['acme-notes']);
-    expect(lock['profiles']['acme-notes']['profile_release'], '1.0');
+    expect(resolved.packages.keys, [acmeId]);
+    final lock = await readLock();
+    expect((lock['packages'] as Map).keys, ['acme-notes']);
+    expect(lock['packages']['acme-notes']['release'], '1.0');
 
     final output = <String>[];
     final errors = <String>[];
@@ -1132,11 +1316,282 @@ void main() {
       profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
     );
     expect(await cli.run(['get', project.path, '--output=json']), 0);
-    expect(jsonDecode(output.single), containsPair('direct', true));
+    expect(
+      (jsonDecode(output.single) as Map)['packages'],
+      contains('bitwild-profile'),
+    );
     output.clear();
     expect(await cli.run(['upgrade', project.path, '--output=json']), 0);
     expect(jsonDecode(output.single), containsPair('upgraded', true));
     expect(errors, isEmpty);
+  });
+
+  group('select', () {
+    late Map<String, String> tags;
+    late List<List<String>> calls;
+    late WayfinderProfileResolver resolver;
+    late String bundle;
+
+    Future<void> writeLock(Map<String, Object?> packages) async {
+      final raw = await File(
+        p.join(project.path, 'wayfinder.json'),
+      ).readAsString();
+      await File(p.join(project.path, 'wayfinder.lock')).writeAsString(
+        jsonEncode({
+          'lock_version': 1,
+          'configuration_sha256':
+              WayfinderProfileResolver.canonicalConfigurationSha256(raw),
+          'packages': packages,
+        }),
+      );
+    }
+
+    Map<String, Object?> locked(
+      String tag,
+      String path, {
+      String release = '2026.3',
+      String? extendsId,
+    }) => {
+      'source': source.path,
+      'requested_ref': tag,
+      'resolved_commit': tags[tag]!,
+      'path': path,
+      'release': release,
+      'extends': ?extendsId,
+    };
+
+    setUp(() async {
+      Map<String, Object?> package(String id, {Object? extend}) => {
+        'format': 2,
+        'id': id,
+        'release': '2026.3',
+        'implements': {'id': 'okf', 'release': '0.2'},
+        'extends': ?extend,
+        'rules': <Object?>[],
+      };
+      await commitPackage(
+        'child',
+        package('client-profile', extend: {'path': 'profiles/bitwild'}),
+        tag: 'arm-child',
+      );
+      await commitPackage(
+        'misnamed',
+        package('someone-else'),
+        tag: 'arm-misnamed',
+      );
+      await commitPackage('unsupported', {
+        ...package('client-profile'),
+        'format': 3,
+      }, tag: 'arm-unsupported');
+      tags = {
+        for (final tag in [
+          'v2026.3',
+          'arm-child',
+          'arm-misnamed',
+          'arm-unsupported',
+        ])
+          tag: await _gitOutput(source.path, ['rev-parse', '$tag^{commit}']),
+      };
+      calls = [];
+      resolver = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+      );
+      await resolver.resolve(project.path);
+      bundle = p.join(project.path, 'knowledge');
+      calls.clear();
+    });
+
+    tearDown(() {
+      expect(
+        calls.where(_fetches),
+        isEmpty,
+        reason: 'validation never fetches',
+      );
+      expect(
+        calls.map((call) => call.first).toSet().difference({
+          'cat-file',
+          'show',
+        }),
+        isEmpty,
+        reason: 'select only reads the local mirror',
+      );
+    });
+
+    Future<EngineDiagnostic> reason({String? configPath, String? at}) async {
+      final selection = await resolver.select(
+        at ?? bundle,
+        configPath: configPath,
+      );
+      expect(selection, isA<UnselectedProfile>());
+      return (selection as UnselectedProfile).reasons.single;
+    }
+
+    test('selects the locked chain with its commits', () async {
+      final selection = await resolver.select(bundle) as SelectedProfile;
+      expect(selection.profile.selected.id, _bitwild);
+      expect(selection.commits, {_bitwild: tags['v2026.3']});
+      expect(selection.config?.path, 'wayfinder.json');
+    });
+
+    test('config-missing when the named file does not exist', () async {
+      final missing = p.join(project.path, 'missing.json');
+      final diagnostic = await reason(configPath: missing);
+      expect(diagnostic.code, DiagnosticCode.configMissing);
+      expect(diagnostic.message, 'Configuration file $missing does not exist.');
+    });
+
+    test('config-invalid when wayfinder.json does not parse', () async {
+      await File(p.join(project.path, 'wayfinder.json')).writeAsString('{');
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.configInvalid);
+      expect(diagnostic.location?.path, 'wayfinder.json');
+    });
+
+    test('bundle-unbound when no entry applies to the bundle', () async {
+      final other = await Directory(p.join(project.path, 'other')).create();
+      final diagnostic = await reason(at: other.path);
+      expect(diagnostic.code, DiagnosticCode.bundleUnbound);
+      expect(
+        diagnostic.message,
+        'Bundle ${other.path} is not listed in wayfinder.json.',
+      );
+    });
+
+    test('profile-unresolved without a lock', () async {
+      await File(p.join(project.path, 'wayfinder.lock')).delete();
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile lock is missing or unreadable. Run wayfinder get.',
+      );
+      expect(diagnostic.location?.path, 'wayfinder.json');
+    });
+
+    test('profile-unresolved when the configuration changed', () async {
+      final value = await config();
+      value['profiles']['bitwild-profile']['tags'] = [
+        {'name': 'new-topic', 'description': 'A new topic'},
+      ];
+      await saveConfig(value);
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile lock is stale: the configuration changed after wayfinder '
+        'get. Run wayfinder get.',
+      );
+    });
+
+    test('profile-unresolved when the lock lacks the chain', () async {
+      await writeLock({
+        'client-profile': locked(
+          'arm-child',
+          'child',
+          extendsId: 'bitwild-profile',
+        ),
+      });
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile lock has no complete chain for Profile bitwild-profile. '
+        'Run wayfinder get.',
+      );
+    });
+
+    test('profile-unresolved when the cache lacks a locked package', () async {
+      await data.delete(recursive: true);
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) is '
+        'not in the local cache. Run wayfinder get.',
+      );
+    });
+
+    test('profile-unresolved when the package release differs', () async {
+      await writeLock({
+        'bitwild-profile': locked(
+          'v2026.3',
+          'profiles/bitwild',
+          release: '2026.9',
+        ),
+      });
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile bitwild-profile at ${tags['v2026.3']} declares release '
+        '2026.3; the lock records 2026.9. Run wayfinder get.',
+      );
+    });
+
+    test('profile-unresolved when the package parent differs', () async {
+      await bindOnly('client-profile', {
+        'git': source.path,
+        'ref': 'arm-child',
+        'path': 'child',
+      });
+      await writeLock({'client-profile': locked('arm-child', 'child')});
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile client-profile at ${tags['arm-child']} declares another '
+        'parent than the lock records. Run wayfinder get.',
+      );
+    });
+
+    test('profile-invalid when the package declares another id', () async {
+      await bindOnly('client-profile', {
+        'git': source.path,
+        'ref': 'arm-misnamed',
+        'path': 'misnamed',
+      });
+      await writeLock({'client-profile': locked('arm-misnamed', 'misnamed')});
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileInvalid);
+      expect(
+        diagnostic.message,
+        'Profile package misnamed at ${source.path} (${tags['arm-misnamed']}) '
+        'declares id someone-else; the lock names it client-profile.',
+      );
+    });
+
+    test('profile-unsupported when the package format is unknown', () async {
+      await bindOnly('client-profile', {
+        'git': source.path,
+        'ref': 'arm-unsupported',
+        'path': 'unsupported',
+      });
+      await writeLock({
+        'client-profile': locked('arm-unsupported', 'unsupported'),
+      });
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnsupported);
+      expect(diagnostic.message, contains('package format 3 is not supported'));
+    });
+
+    test('profile-composition when the project repeats a chain name', () async {
+      final value = await config();
+      value['profiles']['bitwild-profile']['tags'] = [
+        {'name': 'draft', 'description': 'Collides with an OKF status'},
+      ];
+      await saveConfig(value);
+      await writeLock({
+        'bitwild-profile': locked('v2026.3', 'profiles/bitwild'),
+      });
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileComposition);
+      expect(
+        diagnostic.message,
+        'Profile bitwild-profile: The project declares tag draft, which '
+        'equals an OKF status value.',
+      );
+    });
   });
 }
 
@@ -1168,3 +1623,18 @@ Future<String> _gitOutput(String directory, List<String> arguments) async {
   }
   return result.stdout.toString().trim();
 }
+
+/// Records every git invocation, then runs it for real.
+GitRunner _spy(List<List<String>> calls) => (arguments, {workingDirectory}) {
+  calls.add(arguments);
+  return runGit(arguments, workingDirectory: workingDirectory);
+};
+
+/// A git invocation that reaches beyond the local mirror.
+bool _fetches(List<String> call) => const {
+  'clone',
+  'fetch',
+  'remote',
+  'pull',
+  'ls-remote',
+}.contains(call.first);

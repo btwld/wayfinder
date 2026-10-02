@@ -13,7 +13,7 @@ void main() {
     final text = result.toTextLines().join('\n');
 
     expect(result.exitCode, 1);
-    expect(text, contains('Profile 2026.3: FAIL'));
+    expect(text, contains('Profile bitwild-profile 2026.3: FAIL'));
     expect(text, contains('bitwild-profile/okf-release-binding (2026.3)'));
     expect(text, endsWith('Gate: FAIL'));
   });

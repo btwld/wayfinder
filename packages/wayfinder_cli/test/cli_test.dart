@@ -267,7 +267,7 @@ void main() {
 
   test('validate preserves an unconfigured result', () async {
     const bundle = 'test/fixtures/knowledge';
-    final expected = await const ProfileValidator().validate(bundle);
+    final expected = await validateWithProfileSources(bundle);
     expect(expected.exitCode, 2);
     expect(expected.diagnostics.map((d) => d.code), [
       DiagnosticCode.configMissing,

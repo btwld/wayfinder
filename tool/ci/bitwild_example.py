@@ -1,10 +1,10 @@
-"""The Bitwild example project, resolved against a local synthetic Profile Git source.
+"""Example projects, resolved against a local synthetic Profile Git source.
 
-Validation never fetches, so a check of the shipped engine against the example
+Validation never fetches, so a check of the shipped engine against an example
 first needs `wayfinder get` to succeed offline. This builds a one-commit Git
-repository from this checkout's `profiles/bitwild/` package, copies
-`examples/bitwild` beside it, and points the copy's `source.git` at that
-repository. Bitwild reaches the engine the way any Profile does.
+repository from this checkout's Profile packages, copies an example project
+beside it, and points the copy's `source.git` at that repository. Bitwild
+reaches the engine the way any Profile does.
 """
 
 import json
@@ -25,25 +25,43 @@ def _git(*args: str, cwd: Path) -> str:
     ).stdout.strip()
 
 
-def prepare(work: Path) -> Path:
-    """Returns the copied project under [work], its source a local repository."""
+def synthetic_source(work: Path, paths: list) -> tuple:
+    """A one-commit Git repository at [work]/source holding [paths] from this
+    checkout at the same relative paths, and its commit."""
     source = work / "source"
-    (source / "profiles/bitwild").mkdir(parents=True)
-    shutil.copy2(ROOT / "profiles/bitwild/wayfinder-profile.json",
-                 source / "profiles/bitwild/wayfinder-profile.json")
+    for relative in paths:
+        origin, copy = ROOT / relative, source / relative
+        if origin.is_dir():
+            shutil.copytree(origin, copy)
+        else:
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(origin, copy)
     _git("init", "-q", cwd=source)
-    _git("add", "profiles/bitwild/wayfinder-profile.json", cwd=source)
+    _git("add", ".", cwd=source)
     _git("commit", "-q", "-m", "Synthetic Profile", cwd=source)
+    return source, _git("rev-parse", "HEAD", cwd=source)
 
-    project = work / "project"
-    shutil.copytree(EXAMPLE, project)
+
+def bind_project(example: Path, work: Path, source: Path, commit: str,
+                 name: str = "project") -> Path:
+    """Copies [example] to [work]/[name] with every Profile source at [commit]
+    of [source]."""
+    project = work / name
+    shutil.copytree(example, project)
     config_path = project / "wayfinder.json"
     config = json.loads(config_path.read_text())
-    selected = config["profiles"]["bitwild-profile"]["source"]
-    selected["git"] = str(source)
-    selected["ref"] = _git("rev-parse", "HEAD", cwd=source)
+    for entry in config["profiles"].values():
+        entry["source"]["git"] = str(source)
+        entry["source"]["ref"] = commit
     config_path.write_text(json.dumps(config, indent=2) + "\n")
     return project
+
+
+def prepare(work: Path) -> Path:
+    """Returns the copied project under [work], its source a local repository."""
+    source, commit = synthetic_source(
+        work, ["profiles/bitwild/wayfinder-profile.json"])
+    return bind_project(EXAMPLE, work, source, commit)
 
 
 def cli_json(output: str) -> dict:
@@ -63,8 +81,10 @@ def with_git(env: dict) -> dict:
 
 
 def get_and_validate(wayfinder: list, project: Path, env: dict = None,
-                     cwd: Path = None, timeout: int = 180) -> dict:
-    """Runs `get` and `validate` for [project] and returns the passing result."""
+                     cwd: Path = None, timeout: int = 180,
+                     release: str = "2026.3") -> dict:
+    """Runs `get` and `validate` for [project] and returns the passing result
+    of the Profile at [release]."""
     env = with_git(dict(os.environ if env is None else env))
 
     def run(*args: str) -> subprocess.CompletedProcess:
@@ -78,6 +98,6 @@ def get_and_validate(wayfinder: list, project: Path, env: dict = None,
     result = cli_json(validated.stdout)
     assert result["okf"]["state"] == "PASS", result
     assert result["profile"]["state"] == "PASS", result
-    assert result["profile"]["release"] == "2026.3", result
+    assert result["profile"]["release"] == release, result
     assert result["gate"] == {"state": "PASS"}, result
     return result

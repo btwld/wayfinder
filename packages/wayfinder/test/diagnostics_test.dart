@@ -89,10 +89,16 @@ void main() {
           ),
           (
             name: 'OKF failure outranks an error diagnostic',
-            validate: () => const ProfileValidator().validate(
-              fixtureBundle(fixture('invalid-okf')),
-              configPath: 'missing/wayfinder.json',
-            ),
+            validate: () async {
+              final bundle = fixtureBundle(fixture('invalid-okf'));
+              return const ProfileValidator().validate(
+                bundle,
+                await selectFixture(
+                  bundle,
+                  configPath: 'missing/wayfinder.json',
+                ),
+              );
+            },
             okf: false,
             errorFinding: false,
             errorDiagnostic: true,

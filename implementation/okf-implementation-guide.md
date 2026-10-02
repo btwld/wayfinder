@@ -197,7 +197,7 @@ that blocks a complete assessment.
 | `config-missing` | error | no `wayfinder.json` is found above the bundle |
 | `config-invalid` | error | the configuration cannot be read |
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
-| `profile-unresolved` | error | the lock is missing or stale, the cache is missing, or a package is not readable at its locked commit |
+| `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
 | `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks; upgrading wayfinder is the remedy |
 | `profile-composition` | error | the chain and the project additions do not compose (§4.7) |
@@ -229,7 +229,10 @@ empty, whenever the assessed release declares a summary rule. Text prints a
 JSON carries the results as `okf`, `profile`, `diagnostics`, `gate`, and
 `engine`, in that order, with `fix` between `diagnostics` and `gate` when a fix
 ran (§3.1). `diagnostics` is always present, even when empty, and `gate` is
-`{"state": ...}`. `engine` is `{"okf": "<version>"}`, the okf package version
+`{"state": ...}`. When a Profile was assessed, `profile` names it. Its `id`
+and `release` are the bundle's own package, and `chain` lists every package the
+run evaluated, root ancestor first, as `{id, release, commit}` with the
+locked commit. An agent loads one Profile skill per `chain` entry. `engine` is `{"okf": "<version>"}`, the okf package version
 the engine generates indexes with, so a byte change in generated output reads
 as an engine upgrade rather than a Profile change. A finding or summary entry
 whose package names `docs` carries `help_uri`, that URI with the fragment set
@@ -254,8 +257,8 @@ The selected chain's rules are the run's rule descriptors, each with a
 is a notification on the run's invocation, in `toolConfigurationNotifications`
 or `toolExecutionNotifications` by its kind, with one `driver.notifications`
 descriptor per code reported. `executionSuccessful` is `false` exactly when a
-diagnostic is an error. The OKF state, Profile state, and gate are run
-properties because SARIF has no field for them. The exit status is the same
+diagnostic is an error. The OKF state, Profile id and release, Profile
+state, and gate are run properties because SARIF has no field for them. The exit status is the same
 as for text and JSON.
 
 ### 4.2 Findings carry stable identifiers
@@ -346,8 +349,9 @@ provenance or a body link.
 ### 4.4 Version dispatch
 
 A validator MUST dispatch through `wayfinder.json` alone. For a bundle named
-by exactly one `applies_to` path, it reads the selected source chain from a
-current lock/cache and dispatches on each package's `format`, which MUST be
+by exactly one `applies_to` path, it follows the lock's `extends` pointers
+from that entry's id to the root, reads each package from the local cache at
+its locked commit, and dispatches on each package's `format`, which MUST be
 `2`, the package format this engine reads. A Profile's `release` is its own
 name and never selects engine behavior. The chain need not reach any base
 Profile. The engine verifies safe paths, each package's OKF binding, and that
@@ -429,26 +433,33 @@ reads every package, Bitwild's included; the engine embeds no Profile and
 holds no installed rules. A package whose `id` differs from its map key is
 invalid.
 
-Any entry may `extends` a declared parent, and the chain need not reach any
-base Profile. A parent may be source-only with `applies_to: []`. A child
-inherits its parent's package and project additions and adds its own, but
-cannot replace inherited names or change an inherited rule. Missing parents,
-cycles, and ambiguous bundle application fail Profile dispatch. Types, topic
-tags, relationship names and actor lookup are the only project additions; a
-project entry cannot declare frontmatter keys or rules. A registered custom
-type is reported as the `wayfinder/project-type` note diagnostic (§4.1);
-contextual meaning belongs to Profile Review.
+A package names its own parent in `extends`; a project entry never wires a
+chain, so a Profile means the same thing in every project that uses it. A
+parent without `git`, `{"path": ...}`, is the package at that
+repository-root-relative path in the same repository at the same commit as
+the child, so Profiles hosted together release together. A parent with
+`git`, `{"git", "ref", "path"}`, resolves from its own repository and ref;
+its `git` is a URL or an absolute path, never a path relative to one
+project. The chain need not reach any base Profile. A child inherits its
+ancestors' packages and adds its own, but cannot replace inherited names or
+change an inherited rule. A cycle fails `get`. Every entry applies to at
+least one bundle, and ambiguous bundle application fails Profile dispatch.
+Types, topic tags, relationship names and actor lookup are the only project
+additions; a project entry cannot declare frontmatter keys or rules. A
+registered custom type is reported as the `wayfinder/project-type` note
+diagnostic (§4.1); contextual meaning belongs to Profile Review.
 
-The engine composes the chain and the project additions along it into one
+The engine composes the chain and the entry's project additions into one
 effective Profile before evaluating anything. Composition depends on nothing
-else, so the same inputs always compose the same way. A type, tag,
-relationship name, or actor ID MUST be unique across the chain and the project
+else, so the same inputs always compose the same way. A type, tag, or
+relationship name MUST be unique across the chain and the project
 additions; a frontmatter key MUST be unique along the chain; a tag MUST NOT
 equal a type, an OKF status, an OKF trust tier, or a relationship name. Every
 package in a chain binds to the one OKF release the engine reads, which the
 package parser enforces before composition. A violation is a
-composition error, which `get` reports and `validate` reports as the
-`wayfinder/profile-composition` diagnostic. A project entry that repeats one
+composition error. `get` composes every entry's chain before it writes the
+lock, so it reports the error and leaves the lock as it was; `validate`
+reports it as the `wayfinder/profile-composition` diagnostic. A project entry that repeats one
 of its own names is still a configuration error (`config-invalid`).
 
 Validation evaluates the rules of every package in the chain, parent first,
@@ -458,17 +469,23 @@ package reports `wayfinder/profile-invalid`; a package well-formed for
 another engine, through another `format`, an OKF release this okf cannot
 read, or a builtin this engine lacks, reports `wayfinder/profile-unsupported`.
 `get` fails with the same reason, and `validate` leaves the Profile `NOT
-ASSESSED`. A package is never partially applied. The lock gains no field,
-because its commit identifies the package.
+ASSESSED`. A package is never partially applied.
 
 A relative local `source.git` is resolved from the directory containing
 `wayfinder.json`, not the process working directory. Cache identity uses that
 resolved location; the lock preserves the declared source spelling. A
 drive-relative path is invalid.
 
-`get` resolves all declared refs, writes `wayfinder.lock` atomically and
-reuses a current lock. `upgrade` deliberately refreshes mutable refs. A
-canonical-JSON hash invalidates the lock on semantic config changes, not
+`get` resolves every entry's chain and writes `wayfinder.lock` atomically.
+The lock is flat. Its `packages` map holds each Profile id's `source`,
+`requested_ref`, `resolved_commit`, `path`, `release`, and, for a child,
+`extends`, the parent's id. A project locks **one revision per Profile id**,
+so an id names one ruleset and one finding namespace everywhere in it.
+`get` checks that when it adds each package, and two chains that need
+different revisions of one id fail with both refs named. `get` converges.
+With an unchanged configuration, lock and cache, it fetches nothing and
+leaves the lock's bytes alone. `upgrade` deliberately refreshes mutable refs.
+A canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
 credentials, vocabulary or rules. The local Git cache holds fetched
@@ -483,7 +500,8 @@ inspects it under OKF 0.2. A failing OKF result blocks Profile assessment but
 is never reclassified. It parses the selected project config, whose
 diagnostics are reported even when OKF fails, checks safe
 path/identity/release and reads only the selected Profile chain from a
-current lock/cache. Missing or stale source state leaves
+current lock/cache, checking each package's `release` and parent against
+the lock. Missing or stale source state leaves
 the Profile `NOT ASSESSED` with the `wayfinder/profile-unresolved` diagnostic
 alongside the independent OKF report; neither
 CLI `validate` nor read-only MCP `validate` fetches or writes a lock. The
@@ -504,7 +522,7 @@ required by Profile §§14.1–14.2.
 The parser checks `wayfinder.json` and each Profile package against their
 published JSON Schemas, evaluated by the engine's own schema subset and
 embedded in the binary, then runs the cross-document checks a schema cannot
-express. Those cover normalized and canonical paths, `extends` chains, package
+express. Those cover normalized and canonical paths, package parents, package
 identity, rule tests, composition of the effective vocabulary, and actor
 lookup. A schema alone cannot prove filesystem safety, Git availability, or whether a concept
 truthfully uses a type or topic tag. `captures/` remains outside the
@@ -886,6 +904,23 @@ configured bundle must rename its `wayfinder.json` key to `bitwild-profile`,
 point `source.path` at `profiles/bitwild`, and run `wayfinder get`; its
 finding ids change namespace from `concepta-profile/*` to
 `bitwild-profile/*`.
+
+Revised again in place before publication (2026-10-02): composition lives in
+the package. A package names its parent in `extends`, either at the same
+revision (`{"path"}`) or at its own (`{"git", "ref", "path"}`), and
+`wayfinder.json` loses `extends`; every entry applies to at least one bundle.
+The lock's `profiles` map becomes a flat `packages` map keyed by Profile id,
+each entry with `release` and an optional `extends`, holding one revision per
+id. `get` composes each chain before writing the lock and leaves an unchanged
+lock's bytes alone. JSON `profile` adds `id` and `chain`, and SARIF adds the
+`profile_id` run property. Affected sections: §§4.1, 4.4, 4.7, and 9.
+Driver: a Profile whose parent each consumer wired could mean different
+things in different projects, so a Profile's own guidance could not be
+written against a fixed parent. Migration for implementations: read
+`extends` from the package, lock `packages`, and select a bundle's chain by
+the lock's `extends` pointers. A configured bundle whose `wayfinder.json`
+used `extends` names only the child entry, moves the parent into the child
+package's `extends`, and runs `wayfinder get`; an older lock is rewritten.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

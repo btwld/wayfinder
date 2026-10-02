@@ -1,5 +1,16 @@
 # Unreleased
 
+- A project names only the Profile it applies; the package names its parent.
+  `wayfinder get` follows each package's `extends`, reading a same-revision
+  parent from the child's commit, composes every chain before it writes the
+  lock, and locks a flat `packages` map with one revision per Profile id. Two
+  chains that need different revisions of one id fail `get` with both refs
+  named. Run twice with nothing changed, `get` fetches nothing and leaves
+  the lock's bytes alone. A lock in the old `profiles` shape is rewritten.
+  `get --output json` reports `packages` instead of `profiles` and drops
+  `direct`. Validation selects through the resolver's `select`, which never
+  fetches and reports each failure as one diagnostic, including a lock whose
+  chain, release or parent disagrees with the cached package.
 - `wayfinder get` reads each configured source's `wayfinder-profile.json`
   as a format 2 package and composes the chain before writing the lock, so
   a package this engine cannot read, or a chain that does not compose,

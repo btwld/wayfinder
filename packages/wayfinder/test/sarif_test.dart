@@ -158,6 +158,7 @@ void main() {
     final unselected = _run(await _sarif(fixture('malformed')));
     expect(unselected['properties'], {
       'okf_state': 'PASS',
+      'profile_id': null,
       'profile_release': null,
       'profile_state': 'NOT ASSESSED',
       'gate': 'INCOMPLETE',

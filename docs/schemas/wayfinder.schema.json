@@ -138,14 +138,11 @@
         },
         "applies_to": {
           "type": "array",
+          "minItems": 1,
           "items": {
             "$ref": "#/$defs/relativePath"
           },
-          "description": "Bundle paths relative to wayfinder.json. An entry used only as an extends parent may have an empty array."
-        },
-        "extends": {
-          "$ref": "#/$defs/identifier",
-          "description": "Optional parent Profile key."
+          "description": "Bundle paths relative to wayfinder.json. A Profile entry exists to apply its Profile, so at least one path is required."
         },
         "types": {
           "type": "array",
@@ -175,7 +172,7 @@
           }
         }
       },
-      "description": "A direct Profile source and its project applications."
+      "description": "A Profile source and the project bundles it applies to. A Profile names its own parent in its package; the project never wires the chain."
     }
   },
   "type": "object",

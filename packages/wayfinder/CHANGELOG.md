@@ -1,5 +1,18 @@
 # Unreleased
 
+- A package names its own parent in `extends`: `{"path"}` is the package at
+  that path in the same repository at the same commit, and
+  `{"git", "ref", "path"}` resolves its own revision (`PackageParent`,
+  `SameRevision`, `OtherRevision`). `wayfinder.json` loses `extends`, and
+  `applies_to` needs at least one path. `ProfileValidator.validate` takes a
+  `ProfileSelection`, either `SelectedProfile` or `UnselectedProfile`,
+  instead of reading the configuration itself; `WayfinderProjectConfig.bind`
+  finds a bundle's binding or throws `BundleBindingException` with its one
+  diagnostic. `ProfileSourceResolution`, `WayfinderProjectConfig.read`,
+  `resolve` and `WayfinderResolvedConfig` are gone. The JSON result names
+  the assessed Profile as `profile.id` and its chain as `profile.chain`
+  (`{id, release, commit}`, root first), text prints `Profile <id>
+  <release>: <state>`, and SARIF gains the `profile_id` run property.
 - A Profile is one package file, `wayfinder-profile.json` in package
   format 2, read by `ProfilePackage.parse` for every Profile alike. The
   manifest and rule catalog are merged (`standard_types` is `types`,

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 2,
+  "id": "acme-notes",
+  "release": "1.0",
+  "implements": {"id": "okf", "release": "0.2"},
+  "docs": "https://github.com/btwld/wayfinder/blob/main/examples/profiles/two-rule/README.md",
+  "types": [{"name": "Runbook", "description": "Steps to operate a running system"}],
+  "rules": [
+    {
+      "id": "known-type",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every concept type MUST be declared.",
+      "message": "Type {type} is not declared.",
+      "check": {"subject": "concept", "schema": {"properties": {"type": {"$ref": "#/$defs/type-name"}}}},
+      "tests": {"slots": {"profile.types": ["Runbook"]}, "valid": [{"type": "Runbook"}], "invalid": [{"type": "Memo"}]}
+    },
+    {
+      "id": "index-current",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every index.md MUST equal okf's generated index.",
+      "message": {"stale": "{path} is not okf's generated index.", "extra": "{path} is not generated."},
+      "check": {"builtin": "matches-generated", "params": {"generator": "okf-index", "keep": ["index.md"]}}
+    }
+  ],
+  "$defs": {"type-name": {"x-slot": "profile.types"}}
+}

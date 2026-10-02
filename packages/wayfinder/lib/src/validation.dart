@@ -13,7 +13,6 @@ import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
 import 'rules/structure_builtins.dart' show withLfLineEndings;
-import 'wayfinder_config.dart';
 
 enum OkfState {
   pass('PASS'),
@@ -33,6 +32,44 @@ enum ProfileState {
   final String wireValue;
 }
 
+/// What the resolver hands the validator: a Profile to assess, or why there
+/// is none.
+sealed class ProfileSelection {
+  const ProfileSelection();
+}
+
+final class SelectedProfile extends ProfileSelection {
+  const SelectedProfile(this.profile, {this.config, this.commits = const {}});
+
+  final EffectiveProfile profile;
+
+  /// The project file that bound the bundle; null for a selection built by
+  /// hand, as in tests and authoring tools. Project-type notes point here.
+  final ProjectFileLocation? config;
+
+  /// The locked commit of each package in the chain; empty for a selection
+  /// built by hand.
+  final Map<ProfileId, String> commits;
+}
+
+final class UnselectedProfile extends ProfileSelection {
+  /// Throws unless [reasons] holds an error diagnostic, so an unselected run
+  /// can never derive a PASS. A check, not an assert, because asserts are
+  /// compiled out of release builds.
+  UnselectedProfile(Iterable<EngineDiagnostic> reasons)
+    : reasons = List.unmodifiable(reasons) {
+    if (!this.reasons.any((d) => d.isError)) {
+      throw ArgumentError.value(
+        reasons,
+        'reasons',
+        'needs an error diagnostic',
+      );
+    }
+  }
+
+  final List<EngineDiagnostic> reasons;
+}
+
 /// What the Profile layer of a run did.
 sealed class ProfileAssessment {
   const ProfileAssessment();
@@ -43,11 +80,15 @@ final class Assessed extends ProfileAssessment {
   Assessed(
     this.profile,
     Iterable<ProfileFinding> findings,
-    Iterable<ProfileSummaryEntry>? summary,
-  ) : findings = List.unmodifiable(findings),
-      summary = summary == null ? null : List.unmodifiable(summary);
+    Iterable<ProfileSummaryEntry>? summary, {
+    this.commits = const {},
+  }) : findings = List.unmodifiable(findings),
+       summary = summary == null ? null : List.unmodifiable(summary);
 
   final EffectiveProfile profile;
+
+  /// The locked commit of each package in the chain, when known.
+  final Map<ProfileId, String> commits;
 
   /// In canonical okf order.
   final List<ProfileFinding> findings;
@@ -142,6 +183,11 @@ final class ProfileValidationResult {
     _ => null,
   };
 
+  ProfileId? get profileId => switch (profile) {
+    Assessed(:final profile) => profile.selected.id,
+    _ => null,
+  };
+
   List<ProfileFinding> get findings => switch (profile) {
     Assessed(:final findings) => findings,
     _ => const [],
@@ -164,7 +210,18 @@ final class ProfileValidationResult {
       'report': okfReport.toJson(),
     },
     'profile': <String, Object?>{
-      'release': ?profileRelease,
+      if (profile case Assessed(:final profile, :final commits)) ...{
+        'id': profile.selected.id.value,
+        'release': profile.selected.release,
+        'chain': [
+          for (final package in profile.chain)
+            <String, Object>{
+              'id': package.id.value,
+              'release': package.release,
+              'commit': ?commits[package.id],
+            },
+        ],
+      },
       'state': profileState.wireValue,
       'findings': findings.map((finding) => finding.toJson()).toList(),
       if (summary case final summary?)
@@ -191,9 +248,10 @@ final class ProfileValidationResult {
     final errors = _countBySeverity(OkfFindingSeverity.error);
     final advisories = _countBySeverity(OkfFindingSeverity.advisory);
     yield 'OKF Report: $errors error(s), $advisories advisory(ies).';
-    yield switch (profileRelease) {
-      final release? => 'Profile $release: ${profileState.wireValue}',
-      null => 'Profile: ${profileState.wireValue}',
+    yield switch ((profileId, profileRelease)) {
+      (final id?, final release?) =>
+        'Profile $id $release: ${profileState.wireValue}',
+      _ => 'Profile: ${profileState.wireValue}',
     };
     for (final finding in findings) {
       yield finding.toText();
@@ -227,17 +285,6 @@ Map<String, Object?> internalErrorJson(String message) => <String, Object?>{
   'gate': <String, Object>{'state': GateState.incomplete.wireValue},
 };
 
-/// What the resolver could compose from the lock and the local cache,
-/// without fetching: the effective Profile per configured id, or why it
-/// stopped. A missing id is reported as [failure], or as unresolved when
-/// there is none.
-final class ProfileSourceResolution {
-  const ProfileSourceResolution({this.profiles, this.failure});
-
-  final Map<ProfileId, EffectiveProfile>? profiles;
-  final ({DiagnosticCode code, String message})? failure;
-}
-
 /// The failure validation reports when the chain of [id] does not compose.
 /// `get` stops with the same text, so both paths read one format.
 ({DiagnosticCode code, String message}) compositionFailure(
@@ -247,26 +294,6 @@ final class ProfileSourceResolution {
   code: DiagnosticCode.profileComposition,
   message: 'Profile $id: ${error.message}',
 );
-
-/// Which Profile a run assesses, or why there is none.
-sealed class _Selection {
-  const _Selection();
-}
-
-final class _Selected extends _Selection {
-  const _Selected(this.profile, {required this.config});
-
-  final EffectiveProfile profile;
-
-  /// The project file that selected [profile].
-  final ProjectFileLocation config;
-}
-
-final class _Unselected extends _Selection {
-  const _Unselected(this.reason);
-
-  final EngineDiagnostic reason;
-}
 
 final class ProfileValidator {
   const ProfileValidator({
@@ -280,22 +307,19 @@ final class ProfileValidator {
   /// `wayfinder/link-graph-unavailable` diagnostic.
   final OkfGraph Function(OkfBundle) buildGraph;
 
-  /// Never throws for bundle or configuration content: what cannot be
-  /// assessed is reported as a diagnostic.
+  /// Never throws for bundle content: what cannot be assessed is reported
+  /// as a diagnostic. Reads only the bundle; [selection] carries everything
+  /// known about the Profile.
   Future<ProfileValidationResult> validate(
-    String bundlePath, {
-    String? configPath,
-    ProfileSourceResolution resolution = const ProfileSourceResolution(),
+    String bundlePath,
+    ProfileSelection selection, {
     bool fix = false,
   }) async {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
-    final selection = await _configuredSelection(
-      bundlePath,
-      configPath: configPath,
-      resolution: resolution,
-    );
-    final reasons = [if (selection case _Unselected(:final reason)) reason];
+    final reasons = [
+      if (selection case UnselectedProfile(:final reasons)) ...reasons,
+    ];
     if (!validation.isConformant) {
       return ProfileValidationResult._(validation, const BlockedByOkf(), [
         ...reasons,
@@ -304,7 +328,7 @@ final class ProfileValidator {
       ]);
     }
     switch (selection) {
-      case _Unselected():
+      case UnselectedProfile():
         return ProfileValidationResult._(validation, const NotAssessed(), [
           ...reasons,
           if (fix)
@@ -313,18 +337,18 @@ final class ProfileValidator {
               'No supported Profile release was selected.',
             ),
         ]);
-      case _Selected(:final profile, :final config):
-        if (!fix) return _assess(validation, loaded, profile, config);
-        return _fixThenAssess(validation, loaded, profile, config);
+      case SelectedProfile():
+        if (!fix) return _assess(validation, loaded, selection);
+        return _fixThenAssess(validation, loaded, selection);
     }
   }
 
   Future<ProfileValidationResult> _fixThenAssess(
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
-    EffectiveProfile profile,
-    ProjectFileLocation config,
+    SelectedProfile selection,
   ) async {
+    final profile = selection.profile;
     final files = fixes(
       profile,
       BundleFacts.project(loaded, profile: profile, buildGraph: buildGraph),
@@ -333,8 +357,7 @@ final class ProfileValidator {
       return _assess(
         validation,
         loaded,
-        profile,
-        config,
+        selection,
         diagnostics: [
           EngineDiagnostic(
             DiagnosticCode.fixNotApplied,
@@ -352,8 +375,7 @@ final class ProfileValidator {
       return _assess(
         validation,
         loaded,
-        profile,
-        config,
+        selection,
         fixed: written,
         diagnostics: [?failure],
       );
@@ -368,8 +390,7 @@ final class ProfileValidator {
     return _assess(
       revalidation,
       reloaded,
-      profile,
-      config,
+      selection,
       fixed: written,
       diagnostics: [?failure],
     );
@@ -378,11 +399,11 @@ final class ProfileValidator {
   ProfileValidationResult _assess(
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
-    EffectiveProfile profile,
-    ProjectFileLocation config, {
+    SelectedProfile selection, {
     List<String>? fixed,
     List<EngineDiagnostic> diagnostics = const [],
   }) {
+    final profile = selection.profile;
     final facts = BundleFacts.project(
       loaded,
       profile: profile,
@@ -405,13 +426,14 @@ final class ProfileValidator {
         notes
             ? (results.summary.toList()..sort(ProfileSummaryEntry.compare))
             : null,
+        commits: selection.commits,
       ),
       [
         for (final type in profile.project.types)
           EngineDiagnostic(
             DiagnosticCode.projectType,
             'Configured project type ${type.name} is available to this bundle.',
-            location: config,
+            location: selection.config,
           ),
         ...diagnostics,
         if (facts.links case LinksUnavailable(:final error))
@@ -483,131 +505,4 @@ Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
     if (await temporary.exists()) await temporary.delete();
   }
   return true;
-}
-
-/// The Profile the `wayfinder.json` that lists [bundlePath] selects. Without
-/// [configPath], the nearest file above the bundle applies.
-Future<_Selection> _configuredSelection(
-  String bundlePath, {
-  required String? configPath,
-  required ProfileSourceResolution resolution,
-}) async {
-  final File file;
-  if (configPath != null) {
-    file = File(configPath);
-    if (!await file.exists()) {
-      return _Unselected(
-        EngineDiagnostic(
-          DiagnosticCode.configMissing,
-          'Configuration file $configPath does not exist.',
-          location: ProjectFileLocation(path: configPath, file: configPath),
-        ),
-      );
-    }
-  } else if (await _findProjectConfig(bundlePath) case final found?) {
-    file = found;
-  } else {
-    return const _Unselected(
-      EngineDiagnostic(
-        DiagnosticCode.configMissing,
-        'No wayfinder.json was found above the bundle.',
-      ),
-    );
-  }
-  final location = ProjectFileLocation(
-    path: configPath ?? p.basename(file.path),
-    file: file.path,
-  );
-  _Unselected unselected(DiagnosticCode code, String message) =>
-      _Unselected(EngineDiagnostic(code, message, location: location));
-
-  WayfinderProjectConfig config;
-  try {
-    config = await WayfinderProjectConfig.read(file);
-  } on WayfinderConfigException catch (error) {
-    return unselected(DiagnosticCode.configInvalid, error.message);
-  }
-  final String projectRoot;
-  final String requested;
-  try {
-    projectRoot = await file.parent.resolveSymbolicLinks();
-    requested = await Directory(bundlePath).resolveSymbolicLinks();
-  } on FileSystemException catch (error) {
-    return unselected(
-      DiagnosticCode.bundleUnbound,
-      'Configured bundle path is not readable: ${error.message}.',
-    );
-  }
-  String? selectedPath;
-  final realPaths = <String, String>{};
-  final unreadablePaths = <String>[];
-  for (final bundle in config.bundles) {
-    final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
-    try {
-      final realPath = await Directory(configuredPath).resolveSymbolicLinks();
-      realPaths[configuredPath] = realPath;
-      if (p.equals(realPath, requested)) {
-        // Keep the spelling relative to the configuration file for resolve().
-        selectedPath = p.normalize(
-          p.join(file.absolute.parent.path, bundle.path),
-        );
-      }
-    } on FileSystemException {
-      unreadablePaths.add(bundle.path);
-    }
-  }
-  if (unreadablePaths.isNotEmpty) {
-    return unselected(
-      DiagnosticCode.configInvalid,
-      'Configured bundle ${unreadablePaths.first} does not exist or is unreadable.',
-    );
-  }
-  for (final entry in realPaths.entries) {
-    if (!p.isWithin(projectRoot, entry.value)) {
-      return unselected(
-        DiagnosticCode.configInvalid,
-        'Bundle ${entry.key} resolves outside the project.',
-      );
-    }
-    for (final other in realPaths.entries) {
-      if (entry.key != other.key &&
-          (p.equals(entry.value, other.value) ||
-              p.isWithin(entry.value, other.value) ||
-              p.isWithin(other.value, entry.value))) {
-        return unselected(
-          DiagnosticCode.configInvalid,
-          'Configured bundles overlap after resolving symlinks.',
-        );
-      }
-    }
-  }
-  final WayfinderResolvedConfig selected;
-  try {
-    selected = config.resolve(
-      bundlePath: selectedPath ?? bundlePath,
-      configPath: file.absolute.path,
-    );
-  } on WayfinderConfigException catch (error) {
-    return unselected(DiagnosticCode.bundleUnbound, error.message);
-  }
-  final id = selected.profile.id;
-  if (resolution.profiles?[id] case final effective?) {
-    return _Selected(effective, config: location);
-  }
-  final failure = resolution.failure;
-  return unselected(
-    failure?.code ?? DiagnosticCode.profileUnresolved,
-    failure?.message ?? 'Profile $id is unresolved. Run wayfinder get.',
-  );
-}
-
-Future<File?> _findProjectConfig(String bundlePath) async {
-  var directory = p.dirname(File(bundlePath).absolute.path);
-  while (true) {
-    final file = File(p.join(directory, 'wayfinder.json'));
-    if (await file.exists()) return file;
-    final parent = p.dirname(directory);
-    if (parent == directory) return null;
-    directory = parent;
-  }
 }

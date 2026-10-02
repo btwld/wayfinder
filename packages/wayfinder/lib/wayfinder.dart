@@ -29,9 +29,11 @@ export 'src/validation.dart'
         OkfState,
         ProfileAssessment,
         ProfileState,
-        ProfileSourceResolution,
+        ProfileSelection,
         ProfileValidationResult,
         ProfileValidator,
+        SelectedProfile,
+        UnselectedProfile,
         compositionFailure,
         internalErrorJson;
 export 'src/wayfinder_config.dart';

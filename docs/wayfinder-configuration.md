@@ -1,8 +1,9 @@
 # Wayfinder project configuration
 
-Proposed Profile 2026.3 uses one version-1 project configuration shape:
+A project selects its Profiles in one version-1 file, `wayfinder.json`:
 direct Git Profile sources with explicit bundle paths. It is the only way
-Wayfinder selects a Profile.
+Wayfinder selects a Profile. The project says which Profile applies where;
+each Profile package says what it builds on.
 
 Wayfinder uses two JSON documents with different responsibilities:
 
@@ -64,9 +65,10 @@ in the source URL.
 `applies_to` contains bundle directories relative to `wayfinder.json`. Use the
 explicit `./knowledge` form. A path must stay inside the project and identify
 a bundle that exists when the command runs. One Profile entry may list several
-bundle directories. A parent used only by `extends` may have an empty
-`applies_to` array. Use another entry when a bundle needs a different Profile
-or project vocabulary.
+bundle directories, and it lists at least one, because an entry exists to
+apply its Profile. Use another entry when a bundle needs a different Profile
+or project vocabulary. A Profile's parents never need an entry of their own:
+the package names them.
 
 The configuration does not contain a `bundles` array or a `default_bundle`.
 Commands receive a bundle path explicitly, and Profile application is declared
@@ -91,24 +93,18 @@ repeats one of its own names is a configuration error, reported as
 truth, or verification. A project entry adds vocabulary only. It cannot
 declare a frontmatter key or a rule, because only a package carries those.
 
-## Profile inheritance
+## Building on another Profile
 
-`extends` is optional and independent of `applies_to`:
+A Profile package names its own parent in `extends`. The project never wires
+the chain, so a Profile means the same thing in every project that uses it.
+A project that wants Bitwild plus a client's additions names only the
+client's Profile:
 
 ```json
 {
   "version": 1,
   "profiles": {
-    "bitwild-profile": {
-      "source": {
-        "git": "https://github.com/btwld/wayfinder",
-        "ref": "main",
-        "path": "profiles/bitwild"
-      },
-      "applies_to": []
-    },
     "client-profile": {
-      "extends": "bitwild-profile",
       "source": {
         "git": "https://github.com/example/client-profile",
         "ref": "v1.0.0",
@@ -120,25 +116,46 @@ declare a frontmatter key or a rule, because only a package carries those.
 }
 ```
 
-An extending Profile is identified by its own key and package. It inherits
-everything its parent's package declares and everything its parent's project
-entry adds, including actors, then adds the definitions of its own package and
-project entry. A child package lists only what it adds. It cannot replace a
-name or change an inherited rule. Missing parents and cycles are
-configuration errors.
+The client's package declares the parent in one of two shapes:
 
-There is no base Profile. A chain ends wherever its last `extends` ends, and a
-package with no parent stands alone. Bitwild is one package among others,
-fetched like any other, so a chain does not have to reach it. The engine
-evaluates whatever chain the configuration selects.
+```json
+"extends": {"git": "https://github.com/btwld/wayfinder", "ref": "bitwild-v2026.3", "path": "profiles/bitwild"}
+```
 
-The engine composes the chain and the project entries along it before it
-evaluates anything. Composition reads nothing but those inputs, so the same
-packages and entries always compose the same way. It enforces these
-constraints:
+```json
+"extends": {"path": "profiles/bitwild"}
+```
+
+With `git`, the parent is the package at `path` in that repository at `ref`.
+The `git` value is a URL or an absolute path, never a relative one, because a
+relative path would resolve differently in each project. Without `git`, the
+parent is the package at `path`, relative to the repository root, in the same
+repository at the same commit as the child. A repository that hosts several
+Profiles releases them together this way.
+[`examples/profiles/two-rule-child/`](../examples/profiles/two-rule-child/)
+extends Bitwild like this, so any ref of this repository gives both packages
+from one commit.
+
+An extending Profile is identified by its own `id`. It inherits every rule
+and every name its ancestors declare, then adds its own. A child package
+lists only what it adds. It cannot replace a name or change an inherited
+rule, so a parent's findings are the same with or without the child. A
+package that extends itself, directly or through its ancestors, fails `get`.
+
+There is no base Profile. A chain ends at the first package without
+`extends`, and a package with no parent stands alone.
+[`examples/profiles/two-rule/`](../examples/profiles/two-rule/) is a Profile
+with two rules and no parent, and
+[`examples/acme-notes/`](../examples/acme-notes/) is a project that uses it.
+Bitwild is one package among others, fetched like any other, so a chain does
+not have to reach it.
+
+The engine composes the chain and the project entry before it evaluates
+anything. Composition reads nothing but those inputs, so the same packages
+and entry always compose the same way. It enforces these constraints:
 
 - A type, tag, or relationship name is unique across the chain and the
-  project entries along it, and so is an actor ID.
+  project entry.
 - A frontmatter key is unique along the chain.
 - A tag never equals a type, an OKF status value, an OKF trust tier, or a
   relationship name (Profile §5.1).
@@ -146,10 +163,11 @@ constraints:
 Every package in a chain binds to the same OKF release because the engine
 reads one OKF release and refuses any other package when it parses it, before
 composition starts. A violation of the constraints above is a composition
-error. `get` reports it and fails, and
-`validate` reports it as `wayfinder/profile-composition` with the Profile
-`NOT ASSESSED`. Composition owns these checks because only the whole chain
-can show a collision between two packages.
+error. `get` composes every chain before it writes the lock, so it reports
+the error and leaves the lock as it was. `validate` reports it as
+`wayfinder/profile-composition` with the Profile `NOT ASSESSED`. Composition
+owns these checks because only the whole chain can show a collision between
+two packages.
 
 ## Profile packages
 
@@ -221,6 +239,8 @@ The fields have these jobs:
   and reports it with each finding.
 - `implements` names the OKF release the Profile binds to. The engine refuses
   a release its okf dependency cannot read.
+- `extends` optionally names the parent Profile, as described in
+  [Building on another Profile](#building-on-another-profile).
 - `docs` is an optional absolute URI where the Profile explains its rules. A
   finding's help link is that URI with the fragment set to the rule id, so each
   rule id is expected to be a heading there.
@@ -275,30 +295,49 @@ with one of these diagnostics:
 
 ## Sources and lockfile
 
-`wayfinder.lock` records the exact source selected after resolution:
+`wayfinder.lock` records every package the project's Profiles need, keyed by
+Profile id. For the client project above, whose package extends Bitwild at
+`bitwild-v2026.3`, it reads:
 
 ```json
 {
   "lock_version": 1,
   "configuration_sha256": "<hash of canonical wayfinder.json>",
-  "profiles": {
+  "packages": {
     "bitwild-profile": {
       "source": "https://github.com/btwld/wayfinder",
-      "requested_ref": "main",
+      "requested_ref": "bitwild-v2026.3",
       "resolved_commit": "<commit>",
       "path": "profiles/bitwild",
-      "profile_release": "2026.3"
+      "release": "2026.3"
+    },
+    "client-profile": {
+      "source": "https://github.com/example/client-profile",
+      "requested_ref": "v1.0.0",
+      "resolved_commit": "<other commit>",
+      "path": "profile",
+      "release": "1.0.0",
+      "extends": "bitwild-profile"
     }
   }
 }
 ```
 
+The lock stays flat however deep a chain is, because `extends` names the
+parent's entry.
+A parent at the same revision gets its child's `source`, `requested_ref`, and
+`resolved_commit`.
+`release` is the package's own `release`. A project locks one revision of each
+Profile id, so an id names one finding namespace everywhere in the project.
+When two chains need different revisions of the same Profile, `get` fails and
+names both refs; make them agree. A lock in an older shape is treated as
+absent, and `get` rewrites it.
+
 The hash is computed from canonical JSON, so formatting-only edits do not
 invalidate the lock. A semantic change to `wayfinder.json` makes it stale.
-`profile_release` is the package's own `release`. The lock stores
-dependency-resolution metadata only. It has no Profile rules, project
-vocabulary, knowledge content, credentials, or executable validator code.
-The locked commit identifies the package. Commit the lock with
+The lock stores dependency-resolution metadata only. It has no Profile rules,
+project vocabulary, knowledge content, credentials, or executable validator
+code. The locked commit identifies each package. Commit the lock with
 `wayfinder.json`; Git credentials stay outside the configuration and lock,
 and fetched objects remain in the local cache.
 
@@ -310,16 +349,22 @@ wayfinder upgrade [project]    # deliberately advance a branch or tag
 wayfinder validate ./knowledge # read current lock/cache; never fetch or write
 ```
 
-`get` resolves each declared source and respects a current lock. If project
-vocabulary changes, it updates the configuration hash while retaining a
-previously locked commit for an unchanged source. `upgrade` refreshes a mutable
-branch or tag and writes its new commit; a pinned commit does not move.
+`get` resolves each entry's chain and respects a current lock. Run twice with
+nothing changed, it fetches nothing and leaves the lock's bytes as they were.
+If project vocabulary changes, it updates the configuration hash while
+retaining a previously locked commit for an unchanged source. `upgrade`
+refreshes a mutable branch or tag and writes its new commit; a pinned commit
+does not move.
 
-`validate` reads only the packages of the selected Profile chain from a
-current lock and local cache. It never fetches or writes the lock. If either
-is missing or stale, or a package is not readable at its locked commit, it
-still reports the independent OKF result and the
-`wayfinder/profile-unresolved` diagnostic. Run `get` to recover the exact
+`validate` follows the lock's `extends` entries from the bundle's Profile to
+its root and reads each package from the local cache at its locked commit. It
+never fetches or writes the lock. If the lock is missing or stale, lacks the
+chain, or a package is not in the cache or disagrees with the release or
+parent the lock records, it still reports the independent OKF result and the
+`wayfinder/profile-unresolved` diagnostic. When it assesses a Profile, the
+JSON result names it as `profile.id` and lists the chain it evaluated as
+`profile.chain`, root first, each entry with its `id`, `release`, and locked
+`commit`. Run `get` to recover the exact
 locked commit or `upgrade` to deliberately select a new revision. Neither
 command silently substitutes a moved branch or tag for a locked commit.
 `graph`, `index`, and `search` do not use Profile sources or resolve the
@@ -369,7 +414,8 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    bundle, `wayfinder/bundle-unbound`. Either leaves the Profile
    `NOT ASSESSED`.
 3. Parse the selected configuration, check safe `applies_to` paths, and read
-   the selected chain from a current lock/cache without network or writes.
+   the selected chain from a current lock/cache without network or writes,
+   following each locked package's `extends` to the root.
 4. Parse each package in the chain, including its rule tests, then compose
    the chain and the project entry. A package that fails reports
    `profile-invalid` or `profile-unsupported`, and a chain that does not
@@ -385,7 +431,7 @@ Wayfinder checks `wayfinder.json` and each package against the published
 schemas first and reports the first violation with its JSON pointer, for
 example `wayfinder.json is invalid at /profiles/client-profile: has unknown
 property rules.` It then enforces the checks that a schema cannot prove,
-such as `extends` chains, composition, overlapping bundle paths, whether a
+such as package parents, composition, overlapping bundle paths, whether a
 bundle exists, whether a source resolved, and whether a concept's actor
 reference is used correctly.
 

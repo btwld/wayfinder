@@ -264,7 +264,7 @@ void main() {
 
       test('validation preserves findings, diagnostics and the gate without '
           'inference', () async {
-        final expected = await const ProfileValidator().validate(root);
+        final expected = await validateWithProfileSources(root);
         final result = await client.callTool(
           const CallToolRequest(name: 'validate'),
         );

@@ -264,6 +264,12 @@ local Git repository. A minimal configured validator fixture is
 It includes a two-concept subject area to show that truthful placement, not a
 numeric threshold, determines structure.
 
+[`examples/profiles/two-rule/`](examples/profiles/two-rule/) is a complete Profile with two
+rules and no parent, and [`examples/acme-notes/`](examples/acme-notes/) is a project that uses
+it. [`examples/profiles/two-rule-child/`](examples/profiles/two-rule-child/) builds on Bitwild:
+its package names `profiles/bitwild` as its parent at the same commit, so a project names only
+the child. CI resolves both from a synthetic local Git repository.
+
 ## Reading order
 
 - Adopting the profile in a project → [Getting started](#getting-started), then [`implementation/`](implementation/) §2
@@ -320,6 +326,7 @@ dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
 dart run tool/generate_published_schemas.dart --check
 python3 tool/ci/verify-configured-example.py
+python3 tool/ci/verify-independent-profile.py
 ```
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.

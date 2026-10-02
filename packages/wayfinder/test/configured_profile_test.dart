@@ -37,21 +37,9 @@ void main() {
     String? configPath,
     bool fix = false,
   }) async {
-    var resolution = const ProfileSourceResolution();
-    final file = File(configPath ?? p.join(project.path, 'wayfinder.json'));
-    if (await file.exists()) {
-      try {
-        resolution = composeFixture(
-          WayfinderProjectConfig.parse(await file.readAsString()),
-        );
-      } on WayfinderConfigException {
-        // Let the validator report malformed project configuration.
-      }
-    }
     return const ProfileValidator().validate(
       path,
-      configPath: configPath,
-      resolution: resolution,
+      await selectFixture(path, configPath: configPath),
       fix: fix,
     );
   }
@@ -80,12 +68,12 @@ void main() {
     );
     final result = await const ProfileValidator().validate(
       bundle.path,
-      resolution: const ProfileSourceResolution(
-        failure: (
-          code: DiagnosticCode.profileUnresolved,
-          message: 'Run wayfinder get.',
+      UnselectedProfile([
+        const EngineDiagnostic(
+          DiagnosticCode.profileUnresolved,
+          'Run wayfinder get.',
         ),
-      ),
+      ]),
     );
     expect(result.okfState, OkfState.fail);
     expect(result.profileState, ProfileState.blockedByOkf);
@@ -327,9 +315,12 @@ result = value + 1
       'no .. and no whitespace or control characters.',
     );
     expect(
-      message((profile) => profile['extends'] = 'Base'),
-      "$at/extends: must be a Profile id in okf's finding-namespace grammar "
-      '(lowercase kebab-case, starting with a letter).',
+      message((profile) => profile['extends'] = 'bitwild-profile'),
+      '$at: has unknown property extends.',
+    );
+    expect(
+      message((profile) => profile['applies_to'] = <String>[]),
+      '$at/applies_to: must not be empty.',
     );
     expect(
       () => WayfinderProjectConfig.parse(
@@ -345,25 +336,7 @@ result = value + 1
     );
   });
 
-  test('rejects direct Profile path overlap and unknown inheritance', () {
-    final base = {
-      'version': 1,
-      'profiles': {
-        'client': {
-          'source': {
-            'git': 'https://example.test/profile.git',
-            'ref': 'main',
-            'path': 'profiles/bitwild',
-          },
-          'applies_to': ['./knowledge'],
-          'extends': 'missing',
-        },
-      },
-    };
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(base)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
+  test('rejects overlapping bundle paths across Profiles', () {
     final overlapping = {
       'version': 1,
       'profiles': {
@@ -387,54 +360,6 @@ result = value + 1
     };
     expect(
       () => WayfinderProjectConfig.parse(jsonEncode(overlapping)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
-  });
-
-  test('direct parents can be source-only and inheritance cycles fail', () {
-    final config = {
-      'version': 1,
-      'profiles': {
-        'bitwild-profile': {
-          'source': {
-            'git': 'https://example.test/base.git',
-            'ref': 'main',
-            'path': 'profiles/bitwild',
-          },
-          'applies_to': <String>[],
-        },
-        'client-profile': {
-          'source': {
-            'git': 'https://example.test/child.git',
-            'ref': 'main',
-            'path': 'profiles/bitwild',
-          },
-          'extends': 'bitwild-profile',
-          'applies_to': ['./knowledge'],
-        },
-      },
-    };
-    expect(WayfinderProjectConfig.parse(jsonEncode(config)).bundles.length, 1);
-    final profiles = config['profiles']! as Map<String, Object?>;
-    final child = profiles['client-profile']! as Map<String, Object?>;
-    child.remove('extends');
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(config)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
-    child['extends'] = 'bitwild-profile';
-    profiles['other-profile'] = {
-      'source': {
-        'git': 'https://example.test/other.git',
-        'ref': 'main',
-        'path': 'profiles/bitwild',
-      },
-      'extends': 'client-profile',
-      'applies_to': <String>[],
-    };
-    child['extends'] = 'other-profile';
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(config)),
       throwsA(isA<WayfinderConfigException>()),
     );
   });
@@ -610,6 +535,7 @@ okf_version: "0.2"
       final before = await _snapshot(unconfigured);
       final unselected = await const ProfileValidator().validate(
         unconfigured.path,
+        await selectFixture(unconfigured.path),
         fix: true,
       );
       expect(unselected.profileState, ProfileState.notAssessed);

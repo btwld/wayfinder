@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "profiles": {
+    "acme-notes": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "examples/profiles/two-rule"
+      },
+      "applies_to": ["./knowledge"]
+    }
+  }
+}

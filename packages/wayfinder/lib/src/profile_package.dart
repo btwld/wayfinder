@@ -1,11 +1,12 @@
 import 'dart:convert';
 
 import 'package:okf/okf.dart';
+import 'package:path/path.dart' as p;
 
 import 'published_schemas.dart';
 import 'rules/catalog.dart';
 import 'rules/predicate.dart';
-import 'wayfinder_config.dart' show WayfinderDefinition;
+import 'wayfinder_config.dart' show WayfinderDefinition, WayfinderProfileSource;
 
 /// The package `format` this engine evaluates. Engine compatibility is this
 /// integer, never a Profile release. A package with another format is
@@ -51,6 +52,30 @@ extension type const ProfileId._(String value) implements Object {
   }
 }
 
+/// Where a package's parent comes from. `ref` exists exactly when `git`
+/// does, so the two shapes are two types rather than one record with
+/// optional fields.
+sealed class PackageParent {
+  const PackageParent();
+}
+
+/// `"extends": {"path": ...}`: the package at [path], relative to the
+/// repository root, in the same repository at the same commit as the child.
+/// A repository that hosts several Profiles releases them together.
+final class SameRevision extends PackageParent {
+  const SameRevision(this.path);
+
+  final String path;
+}
+
+/// `"extends": {"git": ..., "ref": ..., "path": ...}`: a parent resolved
+/// from its own repository and ref.
+final class OtherRevision extends PackageParent {
+  const OtherRevision(this.source);
+
+  final WayfinderProfileSource source;
+}
+
 /// A malformed package, or one this engine cannot evaluate. Load is the
 /// only step that can fail; once a package has parsed, evaluation never
 /// throws for any bundle.
@@ -82,6 +107,7 @@ final class ProfilePackage {
     required this.id,
     required this.release,
     required this.okfRelease,
+    required this.parent,
     required this.docs,
     required this.types,
     required this.tags,
@@ -144,6 +170,28 @@ final class ProfilePackage {
             (throw ProfilePackageException('docs', 'is not a valid URI')),
       _ => null,
     };
+    final parent = switch (root['extends']) {
+      {
+        'git': final String git,
+        'ref': final String ref,
+        'path': final String path,
+      } =>
+        OtherRevision(
+          WayfinderProfileSource(
+            git: git,
+            ref: ref,
+            path: p.posix.normalize(path),
+          ),
+        ),
+      {'path': final String path} => SameRevision(p.posix.normalize(path)),
+      _ => null,
+    };
+    if (parent case OtherRevision(:final source)) {
+      if (WayfinderProfileSource.locationProblem(source.git)
+          case final problem?) {
+        throw ProfilePackageException('extends.git', problem);
+      }
+    }
     final frontmatterKeys = _definitions(root, 'frontmatter_keys');
     for (final key in frontmatterKeys) {
       if (okfKnownFrontmatterKeys.contains(key.name)) {
@@ -157,6 +205,7 @@ final class ProfilePackage {
       id: id,
       release: root['release']! as String,
       okfRelease: okfRelease,
+      parent: parent,
       docs: docs,
       types: _definitions(root, 'types'),
       tags: _definitions(root, 'tags'),
@@ -204,6 +253,9 @@ final class ProfilePackage {
   /// `implements.release`. The index generator declares it in the indexes
   /// it writes, so the engine holds no copy of it.
   final String okfRelease;
+
+  /// The Profile this one builds on; null for a root Profile.
+  final PackageParent? parent;
 
   /// Where the Profile explains its rules. A rule's help URI is this with
   /// its fragment set to the rule slug; null means findings carry none.

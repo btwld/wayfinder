@@ -162,18 +162,14 @@ void main() {
 
     tearDown(() => project.delete(recursive: true));
 
-    Future<ProfileValidationResult> validate(ProjectVocabulary project) =>
-        const ProfileValidator().validate(
-          bundle,
-          configPath: configPath,
-          resolution: ProfileSourceResolution(
-            profiles: {
-              ProfileId.parse('acme-notes'): EffectiveProfile.compose([
-                acme,
-              ], project: project),
-            },
-          ),
-        );
+    Future<ProfileValidationResult> validate(
+      ProjectVocabulary project, {
+      bool fix = false,
+    }) => const ProfileValidator().validate(
+      bundle,
+      SelectedProfile(EffectiveProfile.compose([acme], project: project)),
+      fix: fix,
+    );
 
     test('and fails on its own rule', () async {
       final result = await validate(
@@ -217,7 +213,11 @@ void main() {
       ]);
       expect(result.gate, GateState.pass);
       expect(result.toJson()['profile'], {
+        'id': 'acme-notes',
         'release': '1.0',
+        'chain': [
+          {'id': 'acme-notes', 'release': '1.0'},
+        ],
         'state': 'PASS',
         'findings': <Object?>[],
       });
@@ -243,22 +243,11 @@ void main() {
         stale.findings.single.message,
         "index.md is not okf's generated index.",
       );
-      final fixed = await const ProfileValidator().validate(
-        bundle,
-        configPath: configPath,
-        fix: true,
-        resolution: ProfileSourceResolution(
-          profiles: {
-            ProfileId.parse('acme-notes'): EffectiveProfile.compose(
-              [acme],
-              project: const ProjectVocabulary(
-                types: [
-                  WayfinderDefinition(name: 'Guide', description: 'A guide'),
-                ],
-              ),
-            ),
-          },
+      final fixed = await validate(
+        const ProjectVocabulary(
+          types: [WayfinderDefinition(name: 'Guide', description: 'A guide')],
         ),
+        fix: true,
       );
       expect(fixed.fixed, ['index.md']);
       expect(fixed.findings, isEmpty);

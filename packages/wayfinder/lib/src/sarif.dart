@@ -106,6 +106,7 @@ Map<String, Object?> toSarif(
     ],
     properties: {
       'okf_state': result.okfState.wireValue,
+      'profile_id': result.profileId?.value,
       'profile_release': result.profileRelease,
       'profile_state': result.profileState.wireValue,
       'gate': result.gate.wireValue,

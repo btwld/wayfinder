@@ -142,14 +142,11 @@ const String wayfinderConfigurationSchema = r'''
         },
         "applies_to": {
           "type": "array",
+          "minItems": 1,
           "items": {
             "$ref": "#/$defs/relativePath"
           },
-          "description": "Bundle paths relative to wayfinder.json. An entry used only as an extends parent may have an empty array."
-        },
-        "extends": {
-          "$ref": "#/$defs/identifier",
-          "description": "Optional parent Profile key."
+          "description": "Bundle paths relative to wayfinder.json. A Profile entry exists to apply its Profile, so at least one path is required."
         },
         "types": {
           "type": "array",
@@ -179,7 +176,7 @@ const String wayfinderConfigurationSchema = r'''
           }
         }
       },
-      "description": "A direct Profile source and its project applications."
+      "description": "A Profile source and the project bundles it applies to. A Profile names its own parent in its package; the project never wires the chain."
     }
   },
   "type": "object",
@@ -260,6 +257,17 @@ const String wayfinderProfileSchema = r'''
       },
       "description": "The OKF release this Profile binds to. The engine refuses a release its okf dependency cannot read, and the index generator declares this release in the indexes it writes."
     },
+    "extends": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sameRevisionParent"
+        },
+        {
+          "$ref": "#/$defs/otherRevisionParent"
+        }
+      ],
+      "description": "The Profile this package builds on. Its rules and vocabulary apply first, and this package only adds to them. Without git, the parent is the package at path in the same repository at the same commit as this package, so Profiles hosted together release together. With git, it is the package at path in that repository at ref."
+    },
     "docs": {
       "$ref": "#/$defs/uri",
       "description": "Where the Profile explains its rules. A finding's help link is this URI with the fragment set to the rule id, so each rule id is expected to be a heading there."
@@ -325,6 +333,56 @@ const String wayfinderProfileSchema = r'''
       "type": "string",
       "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:\\S+$",
       "description": "an absolute URI"
+    },
+    "relativePath": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
+      "description": "a relative path without parent traversal"
+    },
+    "gitLocation": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?:/|[A-Za-z]:[\\\\/]|[A-Za-z][A-Za-z0-9+.-]*://|(?:[^/@:\\\\]+@)?[^/:\\\\]{2,}:)",
+      "description": "a Git URL or an absolute local path, never a relative one, which would resolve differently in each project"
+    },
+    "gitRef": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!-)(?!.*\\.\\.)[^\\x00-\\x20\\x7f]+$",
+      "description": "a valid Git ref, with no leading hyphen, no .. and no whitespace or control characters"
+    },
+    "sameRevisionParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "The parent package directory, relative to the repository root, read at this package's commit."
+        }
+      }
+    },
+    "otherRevisionParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "ref",
+        "path"
+      ],
+      "properties": {
+        "git": {
+          "$ref": "#/$defs/gitLocation"
+        },
+        "ref": {
+          "$ref": "#/$defs/gitRef",
+          "description": "Branch, tag, or commit without a prefix."
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "The parent package directory inside that revision."
+        }
+      }
     },
     "definition": {
       "type": "object",

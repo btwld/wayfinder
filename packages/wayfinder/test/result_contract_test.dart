@@ -21,7 +21,11 @@ void main() {
         'report': <String, Object?>{'findings': <Object?>[]},
       },
       'profile': <String, Object?>{
+        'id': 'bitwild-profile',
         'release': '2026.3',
+        'chain': <Object?>[
+          <String, Object?>{'id': 'bitwild-profile', 'release': '2026.3'},
+        ],
         'state': 'PASS',
         'findings': <Object?>[],
         'summary': <Object?>[],
@@ -31,7 +35,7 @@ void main() {
       'engine': <String, Object?>{'okf': okfPackageVersion},
     });
     final text = result.toTextLines().join('\n');
-    expect(text, contains('Profile 2026.3: PASS'));
+    expect(text, contains('Profile bitwild-profile 2026.3: PASS'));
     expect(text, endsWith('Gate: PASS'));
   });
 
@@ -188,16 +192,15 @@ okf_version: "0.2"
     final configPath = p.posix.join(project, 'wayfinder.json');
     final result = await const ProfileValidator().validate(
       fixtureBundle(project),
-      configPath: configPath,
-      resolution: const ProfileSourceResolution(
-        failure: (
-          code: DiagnosticCode.profileUnsupported,
-          message:
-              'Profile bitwild-profile at https://example.test/wayfinder.git '
-              '(abc) cannot be evaluated by this validator: package format 3 '
-              'is not supported; this wayfinder reads format 2 at format.',
+      UnselectedProfile([
+        EngineDiagnostic(
+          DiagnosticCode.profileUnsupported,
+          'Profile bitwild-profile at https://example.test/wayfinder.git '
+          '(abc) cannot be evaluated by this validator: package format 3 '
+          'is not supported; this wayfinder reads format 2 at format.',
+          location: ProjectFileLocation(path: configPath, file: configPath),
         ),
-      ),
+      ]),
     );
 
     expect(result.exitCode, 2);
@@ -212,22 +215,6 @@ okf_version: "0.2"
       ),
     );
     expect(result.gate, GateState.incomplete);
-  });
-
-  test('reports a binding the resolver composed nothing for', () async {
-    final project = fixture('configured-project');
-    final configPath = p.posix.join(project, 'wayfinder.json');
-    final result = await const ProfileValidator().validate(
-      fixtureBundle(project),
-      configPath: configPath,
-    );
-
-    expect(result.exitCode, 2);
-    expect(result.diagnostics.single.code, DiagnosticCode.profileUnresolved);
-    expect(
-      result.diagnostics.single.message,
-      'Profile bitwild-profile is unresolved. Run wayfinder get.',
-    );
   });
 
   test(

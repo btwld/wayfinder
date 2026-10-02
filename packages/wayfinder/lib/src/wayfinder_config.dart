@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'diagnostics.dart';
 import 'profile_package.dart';
 import 'published_schemas.dart';
 import 'rules/profile.dart';
@@ -49,25 +50,44 @@ final class WayfinderProfileSource {
   final String git;
   final String ref;
   final String path;
+
+  /// Why [git] cannot be recorded as a source, or null. A drive-relative
+  /// path changes meaning with the working directory, and a password or
+  /// HTTP user-info would be copied into the lock.
+  static String? locationProblem(String git) {
+    if (RegExp(r'^[A-Za-z]:(?![/\\])').hasMatch(git)) {
+      return 'must not be a drive-relative path';
+    }
+    final uri = Uri.tryParse(git);
+    // A username-only SSH URL (for example ssh://git@host/repo) is a normal
+    // Git transport form.
+    if (uri != null &&
+        uri.userInfo.isNotEmpty &&
+        !(uri.scheme == 'ssh' &&
+            RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(uri.userInfo))) {
+      return 'must not contain credentials';
+    }
+    return null;
+  }
 }
 
 /// One `profiles.<id>` entry: which package, which bundles, and what the
-/// project adds. Nothing resolved lives here; the resolver composes the
-/// package chain into an [EffectiveProfile].
+/// project adds. Nothing resolved lives here, and the project never wires a
+/// chain: the package names its own parent.
 final class WayfinderProfileBinding {
   const WayfinderProfileBinding({
     required this.id,
     required this.source,
     required this.appliesTo,
     this.project = ProjectVocabulary.none,
-    this.extendsProfile,
   });
 
   final ProfileId id;
   final WayfinderProfileSource source;
+
+  /// Never empty: an entry exists to apply its Profile.
   final List<String> appliesTo;
   final ProjectVocabulary project;
-  final ProfileId? extendsProfile;
 }
 
 final class WayfinderBundleBinding {
@@ -125,7 +145,6 @@ final class WayfinderProjectConfig {
           value! as Map<String, Object?>,
         ),
     };
-    _validateExtensions(profiles);
     final bundles = <WayfinderBundleBinding>[];
     final paths = <String>{};
     for (final profile in profiles.values) {
@@ -145,11 +164,6 @@ final class WayfinderProjectConfig {
         );
       }
     }
-    if (bundles.isEmpty) {
-      throw const WayfinderConfigException(
-        'Profiles must apply to at least one bundle path.',
-      );
-    }
     _rejectNestedPaths(paths);
     return WayfinderProjectConfig(
       version: (json['version']! as num).toInt(),
@@ -158,41 +172,127 @@ final class WayfinderProjectConfig {
     );
   }
 
-  static Future<WayfinderProjectConfig> read(File file) async {
-    try {
-      return parse(await file.readAsString());
-    } on FileSystemException catch (error) {
-      throw WayfinderConfigException(
-        'Cannot read ${file.path}: ${error.message}.',
+  /// The binding that applies to [bundlePath], read from [configPath] or
+  /// from the nearest `wayfinder.json` above the bundle. Reads only the
+  /// project directory, never a lock, cache or network. Throws
+  /// [BundleBindingException] with the one diagnostic that explains why no
+  /// binding applies.
+  static Future<BoundBundle> bind(
+    String bundlePath, {
+    String? configPath,
+  }) async {
+    final File file;
+    if (configPath != null) {
+      file = File(configPath);
+      if (!await file.exists()) {
+        throw BundleBindingException(
+          EngineDiagnostic(
+            DiagnosticCode.configMissing,
+            'Configuration file $configPath does not exist.',
+            location: ProjectFileLocation(path: configPath, file: configPath),
+          ),
+        );
+      }
+    } else if (await _findConfig(bundlePath) case final found?) {
+      file = found;
+    } else {
+      throw const BundleBindingException(
+        EngineDiagnostic(
+          DiagnosticCode.configMissing,
+          'No wayfinder.json was found above the bundle.',
+        ),
       );
     }
-  }
+    final location = ProjectFileLocation(
+      path: configPath ?? p.basename(file.path),
+      file: file.path,
+    );
+    Never unbound(DiagnosticCode code, String message) =>
+        throw BundleBindingException(
+          EngineDiagnostic(code, message, location: location),
+        );
 
-  WayfinderResolvedConfig resolve({
-    required String bundlePath,
-    required String configPath,
-  }) {
-    final projectRoot = p.normalize(File(configPath).absolute.parent.path);
-    final requested = p.normalize(File(bundlePath).absolute.path);
+    final String source;
+    final WayfinderProjectConfig config;
+    try {
+      source = await file.readAsString();
+      config = parse(source);
+    } on FileSystemException catch (error) {
+      unbound(
+        DiagnosticCode.configInvalid,
+        'Cannot read ${file.path}: ${error.message}.',
+      );
+    } on WayfinderConfigException catch (error) {
+      unbound(DiagnosticCode.configInvalid, error.message);
+    }
+    final String projectRoot;
+    final String requested;
+    try {
+      projectRoot = await file.parent.resolveSymbolicLinks();
+      requested = await Directory(bundlePath).resolveSymbolicLinks();
+    } on FileSystemException catch (error) {
+      unbound(
+        DiagnosticCode.bundleUnbound,
+        'Configured bundle path is not readable: ${error.message}.',
+      );
+    }
     WayfinderBundleBinding? selected;
-    for (final bundle in bundles) {
-      final resolved = p.normalize(p.join(projectRoot, bundle.path));
-      if (p.equals(resolved, requested)) {
-        selected = bundle;
-        break;
+    final realPaths = <String, String>{};
+    for (final bundle in config.bundles) {
+      final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
+      try {
+        final realPath = await Directory(configuredPath).resolveSymbolicLinks();
+        realPaths[configuredPath] = realPath;
+        if (p.equals(realPath, requested)) selected = bundle;
+      } on FileSystemException {
+        unbound(
+          DiagnosticCode.configInvalid,
+          'Configured bundle ${bundle.path} does not exist or is unreadable.',
+        );
+      }
+    }
+    for (final entry in realPaths.entries) {
+      if (!p.isWithin(projectRoot, entry.value)) {
+        unbound(
+          DiagnosticCode.configInvalid,
+          'Bundle ${entry.key} resolves outside the project.',
+        );
+      }
+      for (final other in realPaths.entries) {
+        if (entry.key != other.key &&
+            (p.equals(entry.value, other.value) ||
+                p.isWithin(entry.value, other.value) ||
+                p.isWithin(other.value, entry.value))) {
+          unbound(
+            DiagnosticCode.configInvalid,
+            'Configured bundles overlap after resolving symlinks.',
+          );
+        }
       }
     }
     if (selected == null) {
-      throw WayfinderConfigException(
-        'Bundle $bundlePath is not listed in ${p.basename(configPath)}.',
+      unbound(
+        DiagnosticCode.bundleUnbound,
+        'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
       );
     }
-    return WayfinderResolvedConfig(
-      configPath: configPath,
-      projectRoot: projectRoot,
-      bundle: selected,
-      profile: profiles[selected.profile]!,
+    return BoundBundle(
+      binding: config.profiles[selected.profile]!,
+      config: location,
+      projectRoot: p.normalize(file.absolute.parent.path),
+      source: source,
     );
+  }
+
+  static Future<File?> _findConfig(String bundlePath) async {
+    var directory = p.dirname(File(bundlePath).absolute.path);
+    while (true) {
+      final file = File(p.join(directory, 'wayfinder.json'));
+      if (await file.exists()) return file;
+      final parent = p.dirname(directory);
+      if (parent == directory) return null;
+      directory = parent;
+    }
   }
 
   static ProfileId _profileId(String value, String field) {
@@ -209,21 +309,8 @@ final class WayfinderProjectConfig {
   ) {
     final source = json['source']! as Map<String, Object?>;
     final git = source['git']! as String;
-    if (RegExp(r'^[A-Za-z]:(?![/\\])').hasMatch(git)) {
-      throw WayfinderConfigException(
-        'profiles.$id.source.git must not be a drive-relative path.',
-      );
-    }
-    final uri = Uri.tryParse(git);
-    // A username-only SSH URL (for example ssh://git@host/repo) is a normal
-    // Git transport form. Embedded passwords and HTTP user-info are not.
-    if (uri != null &&
-        uri.userInfo.isNotEmpty &&
-        !(uri.scheme == 'ssh' &&
-            RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(uri.userInfo))) {
-      throw WayfinderConfigException(
-        'profiles.$id.source.git must not contain credentials.',
-      );
+    if (WayfinderProfileSource.locationProblem(git) case final problem?) {
+      throw WayfinderConfigException('profiles.$id.source.git $problem.');
     }
     final types = _definitions(json['types']);
     final tags = _definitions(json['tags']);
@@ -256,43 +343,7 @@ final class WayfinderProjectConfig {
             key: _actor(value! as Map<String, Object?>),
         }),
       ),
-      extendsProfile: switch (json['extends']) {
-        final String parent => _profileId(parent, 'profiles.$id.extends'),
-        _ => null,
-      },
     );
-  }
-
-  static void _validateExtensions(
-    Map<ProfileId, WayfinderProfileBinding> profiles,
-  ) {
-    final parents = <ProfileId>{};
-    for (final profile in profiles.values) {
-      final parent = profile.extendsProfile;
-      if (parent != null && !profiles.containsKey(parent)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} extends unknown Profile $parent.',
-        );
-      }
-      if (parent != null) parents.add(parent);
-      final seen = <ProfileId>{profile.id};
-      var current = parent;
-      while (current != null) {
-        if (!seen.add(current)) {
-          throw WayfinderConfigException(
-            'Profile ${profile.id} has an extends cycle.',
-          );
-        }
-        current = profiles[current]?.extendsProfile;
-      }
-    }
-    for (final profile in profiles.values) {
-      if (profile.appliesTo.isEmpty && !parents.contains(profile.id)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} must apply to a bundle or be extended.',
-        );
-      }
-    }
   }
 
   static List<String> _appliesTo(List<String> paths, String field) {
@@ -343,18 +394,36 @@ final class WayfinderProjectConfig {
   ];
 }
 
-final class WayfinderResolvedConfig {
-  const WayfinderResolvedConfig({
-    required this.configPath,
+/// The project binding that applies to one bundle.
+final class BoundBundle {
+  const BoundBundle({
+    required this.binding,
+    required this.config,
     required this.projectRoot,
-    required this.bundle,
-    required this.profile,
+    required this.source,
   });
 
-  final String configPath;
+  final WayfinderProfileBinding binding;
+
+  /// The configuration file, as reports name it.
+  final ProjectFileLocation config;
+
+  /// The directory holding the configuration, where the lock lives and
+  /// relative Git sources resolve.
   final String projectRoot;
-  final WayfinderBundleBinding bundle;
-  final WayfinderProfileBinding profile;
+
+  /// The configuration text the lock's hash covers.
+  final String source;
+}
+
+/// No binding applies to a bundle; [diagnostic] says why.
+final class BundleBindingException implements Exception {
+  const BundleBindingException(this.diagnostic);
+
+  final EngineDiagnostic diagnostic;
+
+  @override
+  String toString() => diagnostic.message;
 }
 
 void _rejectNestedPaths(Set<String> paths) {

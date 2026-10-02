@@ -17,11 +17,13 @@ to a sibling bundle or to an arbitrary subdirectory.
 Before applying Profile rules, resolve the bundle's exact release:
 
 - If project-root `wayfinder.json` has exactly one `applies_to` entry for
-  the requested bundle, read that entry's direct `source` and any additive
-  `extends` chain. The configured `bitwild-profile` package at
-  `profiles/bitwild/wayfinder-profile.json` carries the vocabulary and rules,
-  fetched by `wayfinder get`. A child package may add vocabulary and rules of
-  its own, whose rules only add findings in the child's namespace. The routed
+  the requested bundle, read that entry's direct `source`. The package at
+  that source names its own parent in `extends`, and `wayfinder get` locks
+  the whole chain. The configured `bitwild-profile` package at
+  `profiles/bitwild/wayfinder-profile.json` carries the vocabulary and rules.
+  A child package may add vocabulary and rules of its own, whose rules only
+  add findings in the child's namespace. `wayfinder validate --output json`
+  lists the chain as `profile.chain`, root first. The routed
   concept reference carries its standard vocabulary for standalone skill
   installations. The root index
   declares OKF 0.2. Read the exact source revision from the current

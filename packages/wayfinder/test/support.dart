@@ -29,10 +29,9 @@ final ProfilePackage bitwild = ProfilePackage.parse(
   ).readAsStringSync(),
 );
 
-/// Validates a fixture the way the CLI would after `wayfinder get`: every
-/// binding's chain is [bitwild] followed by [children], composed with the
-/// binding's project additions. A composition error is reported the way the
-/// resolver reports it.
+/// Validates a fixture the way the CLI would after `wayfinder get`, through
+/// [selectFixture]. A fixture holding its own `wayfinder.json` is bound by
+/// that file unless [discoverConfig] asks for the walk up from the bundle.
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
@@ -40,46 +39,47 @@ Future<ProfileValidationResult> validateFixture(
   List<ProfilePackage> children = const [],
   ProfileValidator validator = const ProfileValidator(),
 }) async {
-  final config = File(p.posix.join(path, 'wayfinder.json'));
-  if (!await config.exists()) {
-    return validator.validate(path, fix: fix);
-  }
-  final WayfinderProjectConfig parsed;
-  try {
-    parsed = WayfinderProjectConfig.parse(await config.readAsString());
-  } on WayfinderConfigException {
-    return validator.validate(
-      fixtureBundle(path),
-      configPath: discoverConfig ? null : config.path,
-      fix: fix,
-    );
-  }
+  final config = p.posix.join(path, 'wayfinder.json');
+  final bundle = fixtureBundle(path);
   return validator.validate(
-    fixtureBundle(path),
-    configPath: discoverConfig ? null : config.path,
-    resolution: composeFixture(parsed, children: children),
+    bundle,
+    await selectFixture(
+      bundle,
+      configPath: discoverConfig || !File(config).existsSync() ? null : config,
+      children: children,
+    ),
     fix: fix,
   );
 }
 
-ProfileSourceResolution composeFixture(
-  WayfinderProjectConfig config, {
+/// Selects the Profile for [bundle] as the resolver does, with [bitwild]
+/// followed by [children] standing in for the locked chain: the same
+/// binding lookup, then composition with the binding's project additions.
+Future<ProfileSelection> selectFixture(
+  String bundle, {
+  String? configPath,
   List<ProfilePackage> children = const [],
-}) {
-  final profiles = <ProfileId, EffectiveProfile>{};
-  for (final binding in config.profiles.values) {
-    try {
-      profiles[binding.id] = EffectiveProfile.compose([
+}) async {
+  final BoundBundle bound;
+  try {
+    bound = await WayfinderProjectConfig.bind(bundle, configPath: configPath);
+  } on BundleBindingException catch (error) {
+    return UnselectedProfile([error.diagnostic]);
+  }
+  try {
+    return SelectedProfile(
+      EffectiveProfile.compose([
         bitwild,
         ...children,
-      ], project: binding.project);
-    } on ProfileCompositionException catch (error) {
-      return ProfileSourceResolution(
-        failure: compositionFailure(binding.id, error),
-      );
-    }
+      ], project: bound.binding.project),
+      config: bound.config,
+    );
+  } on ProfileCompositionException catch (error) {
+    final failure = compositionFailure(bound.binding.id, error);
+    return UnselectedProfile([
+      EngineDiagnostic(failure.code, failure.message, location: bound.config),
+    ]);
   }
-  return ProfileSourceResolution(profiles: profiles);
 }
 
 /// A minimal format-2 package for tests: [rules] report as `<id>/<slug>`.

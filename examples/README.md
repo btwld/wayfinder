@@ -30,6 +30,18 @@ the project to a temporary directory, resolves a synthetic local Git source,
 checks the gate, confirms that `--fix` writes nothing, and confirms that generic
 graph reading needs no lock.
 
+[`acme-notes/`](acme-notes/) is a project that uses
+[`profiles/two-rule/`](profiles/two-rule/), a Profile with two rules and no
+parent. Its lock holds that one package; nothing in it depends on Bitwild.
+[`profiles/two-rule-child/`](profiles/two-rule-child/) is a Profile that
+builds on Bitwild. Its package names `profiles/bitwild` as its parent without
+`git`, which means the same repository at the same commit, so a project names
+only the child and `get` locks both packages at one commit. CI's
+[`verify-independent-profile.py`](../tool/ci/verify-independent-profile.py)
+resolves both from a synthetic local Git source, checks the lock and the
+reported chain, and validates after the source is gone, because validation
+reads only the lock and the cache.
+
 **This is not this repository's adopted bundle.** Profile conformance does not
 fix repository location or bundle count; Concepta adoption places its working
 bundle at `knowledge/`. This illustrative project lives under `examples/` so it

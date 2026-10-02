@@ -15,7 +15,14 @@
     }
   },
   "profile": {
+    "id": "bitwild-profile",
     "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "PASS",
     "findings": [],
     "summary": []
