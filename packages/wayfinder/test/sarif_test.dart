@@ -168,6 +168,48 @@ void main() {
     ]);
   });
 
+  test('a location inside the working directory is relative to the '
+      'recorded working directory', () async {
+    final run = _run(await _sarif(fixture('configured-conventions')));
+    final base = switch (run['originalUriBaseIds']) {
+      {'WORKINGDIR': {'uri': final String uri}} => Uri.parse(uri),
+      final other => throw StateError('no WORKINGDIR base: $other'),
+    };
+    expect(base.isScheme('file'), isTrue);
+    expect(p.equals(base.toFilePath(), p.current), isTrue);
+    final locations = _artifactLocations(run);
+    expect(locations, isNotEmpty);
+    for (final location in locations) {
+      expect(location['uriBaseId'], 'WORKINGDIR');
+      final uri = Uri.parse(location['uri']! as String);
+      expect(uri.hasScheme, isFalse);
+      expect(uri.pathSegments, isNot(contains('..')));
+      expect(
+        File(base.resolveUri(uri).toFilePath()).existsSync(),
+        isTrue,
+        reason: '$uri resolves against $base',
+      );
+    }
+  });
+
+  test('a location outside the working directory is an absolute file '
+      'URI', () async {
+    final copy = await copyFixture('configured-conventions');
+    addTearDown(() => copy.delete(recursive: true));
+    expect(p.isWithin(p.current, copy.path), isFalse);
+    final run = _run(await _sarif(copy.path));
+    final locations = _artifactLocations(run);
+    expect(locations, isNotEmpty);
+    for (final location in locations) {
+      expect(location, isNot(contains('uriBaseId')));
+      final uri = Uri.parse(location['uri']! as String);
+      expect(uri.isScheme('file'), isTrue, reason: '$uri');
+      expect(uri.pathSegments, isNot(contains('..')));
+      expect(p.isWithin(copy.path, uri.toFilePath()), isTrue, reason: '$uri');
+      expect(File(uri.toFilePath()).existsSync(), isTrue, reason: '$uri');
+    }
+  });
+
   test(
     'a discovered configuration resolves to its file, percent-encoded',
     () async {
@@ -235,6 +277,18 @@ List<(String, String, String)> _results(Map<String, Object?> run) => [
         (id, level, uri),
       _ => throw StateError('result without one artifact location: $result'),
     },
+];
+
+List<Map<String, Object?>> _artifactLocations(Map<String, Object?> run) => [
+  for (final result in run['results']! as List<Object?>)
+    if (result case {'locations': final List<Object?> locations})
+      for (final location in locations)
+        if (location case {
+          'physicalLocation': {
+            'artifactLocation': final Map<String, Object?> artifact,
+          },
+        })
+          artifact,
 ];
 
 Map<String, Map<String, Object?>> _rules(Map<String, Object?> run) {

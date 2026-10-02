@@ -6,6 +6,8 @@ import 'profile_rule_descriptors.dart';
 import 'rules/catalog.dart';
 import 'validation.dart';
 
+const _workingDirectory = 'WORKINGDIR';
+
 const _schema =
     'https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/'
     'sarif-schema-2.1.0.json';
@@ -15,24 +17,39 @@ const _schema =
 ///
 /// Each finding is a result whose `ruleId` is the finding id, and each
 /// summary entry a result of kind `informational`, whose level SARIF
-/// §3.27.10 requires to be `none`. Locations are
-/// relative to the working directory, joined from [bundlePath] as given (or
-/// the project configuration file, for a finding about it), so code scanning
-/// resolves them against a checkout when validation runs at its root. Every
-/// catalog in the assessed chain supplies one rule descriptor per rule,
-/// fired or not, naming the catalog's release; OKF and dispatch descriptors
-/// appear only for the findings present.
+/// §3.27.10 requires to be `none`. A location inside the working directory
+/// is relative to the run's `WORKINGDIR` base, so code scanning
+/// resolves it against a checkout when validation runs at its root. One
+/// outside is an absolute file URI: a `..` reference would resolve
+/// differently wherever a consumer placed the base. Locations join
+/// [bundlePath] as given (or the project configuration file, for a finding
+/// about it). Every catalog in the assessed chain supplies one rule
+/// descriptor per rule, fired or not, naming the catalog's release; OKF and
+/// dispatch descriptors appear only for the findings present.
 Map<String, Object?> toSarif(
   ProfileValidationResult result, {
   required String bundlePath,
   required String toolVersion,
 }) {
   final config = result.projectConfig;
-  String uri(String path) {
-    final file = config != null && path == config.reported
-        ? config.file
-        : p.join(bundlePath, path);
-    return Uri(pathSegments: p.split(p.relative(file))).toString();
+  final workingDirectory = p.current;
+  Map<String, Object?> artifact(String path) {
+    final file = p.normalize(
+      p.absolute(
+        config != null && path == config.reported
+            ? config.file
+            : p.join(bundlePath, path),
+      ),
+    );
+    if (!p.isWithin(workingDirectory, file)) {
+      return {'uri': Uri.file(file).toString()};
+    }
+    return {
+      'uri': Uri(
+        pathSegments: p.split(p.relative(file, from: workingDirectory)),
+      ).toString(),
+      'uriBaseId': _workingDirectory,
+    };
   }
 
   final okfFindings = result.okfReport.findings;
@@ -76,6 +93,11 @@ Map<String, Object?> toSarif(
                 result.automatedGateState != AutomatedGateState.unsupported,
           },
         ],
+        'originalUriBaseIds': {
+          _workingDirectory: {
+            'uri': Uri.directory(workingDirectory).toString(),
+          },
+        },
         'results': [
           for (final finding in okfFindings)
             _result(
@@ -83,7 +105,7 @@ Map<String, Object?> toSarif(
               _level(finding.severity),
               finding.message,
               location: finding.location,
-              uri: uri,
+              artifact: artifact,
             ),
           for (final finding in result.findings)
             _result(
@@ -91,7 +113,7 @@ Map<String, Object?> toSarif(
               _level(finding.severity),
               finding.message,
               location: OkfFindingLocation(path: finding.path),
-              uri: uri,
+              artifact: artifact,
             ),
           for (final entry in result.summary ?? const <ProfileSummaryEntry>[])
             _result(
@@ -99,7 +121,7 @@ Map<String, Object?> toSarif(
               'none',
               entry.message,
               location: OkfFindingLocation(path: entry.path),
-              uri: uri,
+              artifact: artifact,
               kind: 'informational',
             ),
         ],
@@ -157,7 +179,7 @@ Map<String, Object?> _result(
   String level,
   String message, {
   required OkfFindingLocation? location,
-  required String Function(String path) uri,
+  required Map<String, Object?> Function(String path) artifact,
   String? kind,
 }) => {
   'ruleId': ruleId,
@@ -168,7 +190,7 @@ Map<String, Object?> _result(
     'locations': [
       {
         'physicalLocation': {
-          'artifactLocation': {'uri': uri(location.path)},
+          'artifactLocation': artifact(location.path),
           if (location.line case final line?)
             'region': {'startLine': line, 'startColumn': ?location.column},
         },
