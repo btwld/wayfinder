@@ -32,7 +32,7 @@ void main() {
       expect(text.split('\r\n')[chunk.lineStart - 1], chunk.content);
       expect(
         parsed.textFor(chunk, includeContext: true),
-        'Account access\n\nRecovery\n\nUse the recovery link.',
+        'Title: Account access\n\nSection: Recovery\n\nPassage:\n\nUse the recovery link.',
       );
       expect(
         () => (parsed.metadataFor('guide.md').raw['custom']! as List).add(
@@ -153,7 +153,9 @@ void main() {
       });
       await body.synchronize(first);
       await context.synchronize(first);
-      expect(body.embeddingModelName, isNot(context.embeddingModelName));
+      expect(body.embeddingModelName, endsWith(':okf-body-v1'));
+      expect(context.embeddingModelName, endsWith(':okf-context-v2'));
+      expect((await context.synchronize(first)).embeddedChunks, 0);
       final revised = snapshot({
         'guide.md': concept(
           'Stop writers before restoring.',
@@ -162,7 +164,17 @@ void main() {
       });
       expect((await body.synchronize(revised)).embeddedChunks, 0);
       expect((await context.synchronize(revised)).embeddedChunks, 1);
-      expect(model.documents.last, startsWith('Database recovery\n\n'));
+      expect(model.documents.last, startsWith('Title: Database recovery\n\n'));
+      final described = snapshot({
+        'guide.md': concept(
+          'Stop writers before restoring.',
+          fields: 'title: Database recovery\ndescription: Restore safely\n',
+        ),
+      });
+      expect((await body.synchronize(described)).embeddedChunks, 0);
+      expect((await context.synchronize(described)).embeddedChunks, 1);
+      expect((await context.synchronize(described)).embeddedChunks, 0);
+      expect(model.documents.last, contains('Description: Restore safely'));
       final result = await context.search('Database recovery');
       expect(
         result.matches.single.chunk.content,

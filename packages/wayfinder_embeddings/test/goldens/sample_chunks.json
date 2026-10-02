@@ -186,6 +186,9 @@
         "type": "heading",
         "content": "Table examples",
         "metadata": {
+          "headingPath": [
+            "Table examples"
+          ],
           "headingLevel": 1
         }
       },
@@ -196,6 +199,10 @@
         "type": "code",
         "content": "```markdown\n| Key | Value |\n| --- | ----- |\n| sample | literal |\n```",
         "metadata": {
+          "headingPath": [
+            "Table examples"
+          ],
+          "codeLanguage": "markdown",
           "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
           "parentHeadingLevel": 1
         }
@@ -207,6 +214,10 @@
         "type": "table",
         "content": "| Key | Value |\n| --- | ----- |\n| sample | indexed |",
         "metadata": {
+          "headingPath": [
+            "Table examples"
+          ],
+          "tableHeader": "| Key | Value |\n| --- | ----- |",
           "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
           "parentHeadingLevel": 1
         }
@@ -218,6 +229,9 @@
         "type": "paragraph",
         "content": "The fenced example stays code. The following table is indexed once.",
         "metadata": {
+          "headingPath": [
+            "Table examples"
+          ],
           "parentHeadingId": "10e2d88722cc8fca142427c3a4dd44e64a77f4a8",
           "parentHeadingLevel": 1
         }
