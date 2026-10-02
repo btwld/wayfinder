@@ -346,7 +346,6 @@ final class WayfinderProjectConfig {
     }
   }
 
-  /// Normalizes [paths] so `./knowledge` and `knowledge` are one bundle.
   static List<String> _appliesTo(List<String> paths, String field) {
     final normalized = <String>{};
     for (final path in paths) {
@@ -357,8 +356,6 @@ final class WayfinderProjectConfig {
     return normalized.toList();
   }
 
-  /// Each vocabulary keyed by its singular noun, with the standard
-  /// definitions its project names must not repeat.
   static void _validateDefinitions(
     String id,
     Map<

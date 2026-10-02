@@ -1,25 +1,6 @@
-/// A pass/fail evaluator for a declared JSON Schema 2020-12 keyword subset.
-///
-/// Rule catalogs carry frontmatter constraints as JSON Schema. Wayfinder only
-/// needs a yes/no answer per instance, and it must reject a catalog that uses
-/// a keyword the engine does not evaluate, because a silently ignored keyword
-/// would fail open. [JsonPredicate.compile] therefore parses the schema once
-/// into a tree of keyword nodes and throws for anything outside the subset;
-/// [JsonPredicate.test] walks that tree and never throws.
-///
-/// [JsonPredicate.firstFailure] explains a rejection for configuration
-/// diagnostics. Rule evaluation never calls it: a finding's identity comes
-/// from the rule and its subject, not from where a schema happened to fail.
-library;
-
-/// A schema that cannot be compiled: an unsupported keyword, a malformed
-/// keyword value, an invalid regular expression, an unresolvable `$ref`, or a
-/// `$ref` cycle no instance could ever terminate.
 final class JsonPredicateException implements Exception {
   JsonPredicateException(this.pointer, this.message);
 
-  /// JSON pointer (RFC 6901) of the offending keyword, relative to the root
-  /// schema. Defs from the `defs` argument report under `/$defs/<name>`.
   final String pointer;
   final String message;
 
@@ -27,7 +8,6 @@ final class JsonPredicateException implements Exception {
   String toString() => '$message at #$pointer';
 }
 
-/// The first check an instance fails, in schema document order.
 final class JsonPredicateFailure {
   const JsonPredicateFailure(
     this.pointer,
@@ -37,37 +17,20 @@ final class JsonPredicateFailure {
     this.description,
   });
 
-  /// JSON pointer (RFC 6901) of the instance value the keyword rejected.
   final String pointer;
 
-  /// The failing keyword, or `false` for a boolean `false` schema.
   final String keyword;
 
-  /// What the keyword compares against: the `type` names, the `enum`
-  /// values, the `const` value, the `pattern` source, or a length or count
-  /// bound.
   final Object? expected;
 
-  /// The member a `required`, `additionalProperties` or `propertyNames`
-  /// failure is about.
   final String? property;
 
-  /// For a `pattern` failure, the `description` of the schema object that
-  /// holds the pattern, or else of the `$defs` entry it sits in, so a
-  /// diagnostic can name the rule instead of printing the regex.
   final String? description;
 }
 
-/// A compiled schema that answers whether a JSON instance conforms.
 final class JsonPredicate {
   JsonPredicate._(this._root);
 
-  /// Compiles [schema], a JSON object or boolean schema.
-  ///
-  /// Local `$ref`s resolve against the schema's own `$defs` merged over
-  /// [defs]. A subschema `{"x-slot": name}` means `{"enum": slots[name]}`, or
-  /// the boolean schema `false` when the slot is empty: an empty vocabulary
-  /// accepts nothing, where an empty `enum` would be a schema error.
   factory JsonPredicate.compile(
     Object? schema, {
     Map<String, Object?> defs = const {},
@@ -84,28 +47,19 @@ final class JsonPredicate {
 
   final _Node _root;
 
-  /// Instances are plain JSON values as `jsonDecode` produces them.
   bool test(Object? instance) => _root.test(instance);
 
-  /// Where and why [instance] fails, or null when [test] would pass.
   JsonPredicateFailure? firstFailure(Object? instance) =>
       _root.firstFailure(instance, '');
 }
 
-/// A `$ref` occurrence, kept so targets bind after every def has compiled
-/// and so cycles can be judged on the whole def graph rather than on the
-/// order keywords happened to be visited.
 final class _RefSite {
   _RefSite(this.node, {required this.fromDef, required this.guarded});
 
   final _Ref node;
 
-  /// The def whose body holds this ref; `null` for the root schema.
   final String? fromDef;
 
-  /// Whether an instance-descending keyword (`properties`, `items`, ...) lies
-  /// between the enclosing def's root and this ref. A cycle made only of
-  /// unguarded refs would recurse forever on any instance.
   final bool guarded;
 }
 
@@ -144,8 +98,6 @@ final class _Compiler {
     return node;
   }
 
-  /// Depth-first search over unguarded ref edges between defs. A back edge is
-  /// a cycle with no instance descent, so evaluation could never bottom out.
   void _rejectUnguardedCycles() {
     final edges = <String, List<_RefSite>>{};
     for (final site in _refSites) {
@@ -298,9 +250,6 @@ final class _Compiler {
     };
   }
 
-  /// Compiles a subschema that applies to a part of the instance rather than
-  /// to the instance itself, which is what makes a `$ref` beneath it safe to
-  /// recurse through.
   _Node _descend(Object? schema, String pointer) {
     _descents++;
     try {
@@ -403,7 +352,6 @@ final class _Compiler {
           : throw JsonPredicateException(pointer, 'must be strings'),
   ];
 
-  /// JSON Schema counts are non-negative integers; `2.0` is an integer.
   static int _count(Object? value, String pointer) {
     if (value is num && _isIntegral(value) && value >= 0) return value.toInt();
     throw JsonPredicateException(pointer, 'must be a non-negative integer');
@@ -415,13 +363,9 @@ sealed class _Node {
 
   bool test(Object? v);
 
-  /// The first failing check beneath this node, in schema document order;
-  /// [pointer] locates [v] in the root instance.
   JsonPredicateFailure? firstFailure(Object? v, String pointer);
 }
 
-/// A keyword that judges the instance itself without descending into it,
-/// so a failure is reported where the keyword applies.
 sealed class _Assertion extends _Node {
   const _Assertion();
 
@@ -471,7 +415,6 @@ extension on _JsonType {
   String get jsonName => this == _JsonType.null_ ? 'null' : name;
 }
 
-/// `null_` dodges the Dart keyword.
 const _typeNames = {
   'null': _JsonType.null_,
   'boolean': _JsonType.boolean,
@@ -656,8 +599,6 @@ final class _AdditionalProperties extends _Node {
         (entry) => declared.contains(entry.key) || schema.test(entry.value),
       );
 
-  /// A `false` subschema forbids the member itself, so the failure names
-  /// the member on its object rather than pointing below it.
   @override
   JsonPredicateFailure? firstFailure(Object? v, String pointer) {
     if (v is! Map<String, Object?>) return null;
@@ -807,8 +748,6 @@ final class _AllOf extends _Node {
   }
 }
 
-/// No single branch is to blame when every branch fails, so the failure is
-/// the keyword itself.
 final class _AnyOf extends _Assertion {
   const _AnyOf(this.schemas);
 
@@ -921,8 +860,6 @@ String _pointer(String pointer, String token) =>
 bool _isIntegral(num v) =>
     v is int || (v.isFinite && v == v.truncateToDouble());
 
-/// JSON equality: numbers by value, objects regardless of key order, and
-/// booleans distinct from numbers (which Dart's `==` already guarantees).
 bool _jsonEquals(Object? a, Object? b) => switch ((a, b)) {
   (final num x, final num y) => x == y,
   (final String x, final String y) => x == y,

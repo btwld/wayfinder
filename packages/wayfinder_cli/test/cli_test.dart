@@ -185,7 +185,6 @@ void main() {
       await entity.copy(target.path);
       before[relative] = await entity.readAsBytes();
     }
-    // A hand edit 2026.3's generator would rewrite.
     final index = File('${copy.path}/index.md');
     await index.writeAsString('${await index.readAsString()}\n');
     before['index.md'] = await index.readAsBytes();

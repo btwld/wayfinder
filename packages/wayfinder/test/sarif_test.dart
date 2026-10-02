@@ -186,7 +186,6 @@ void main() {
   );
 }
 
-/// The log as a consumer reads it, after a JSON round trip.
 Map<String, Object?> _wire(Map<String, Object?> log) =>
     jsonDecode(jsonEncode(log)) as Map<String, Object?>;
 

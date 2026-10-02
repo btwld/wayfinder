@@ -6,10 +6,6 @@ import 'package:test/test.dart';
 
 import 'support.dart';
 
-/// Every fixture's full validation result, pinned byte for byte so a refactor
-/// that changes any finding, message, order, or gate shows up as a diff.
-///
-/// Regenerate with `UPDATE_GOLDENS=1 dart test test/golden_test.dart`.
 void main() {
   final update = Platform.environment['UPDATE_GOLDENS'] == '1';
   final goldens = p.join('test', 'goldens');

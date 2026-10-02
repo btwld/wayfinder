@@ -500,8 +500,6 @@ class KnowledgeIndex {
       final source = match.chunk.sourcePath;
       add(source, 'match');
       if (!effective.expandRelationships) continue;
-      // Typed edges come first: an author named them, so they outrank
-      // untyped body links for the context budget.
       for (final edge in snapshot.fieldEdges.where(
         (edge) => edge.source.documentPath == source,
       )) {

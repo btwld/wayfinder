@@ -5,16 +5,9 @@ import '../finding_helpers.dart';
 import 'body.dart';
 import 'profile.dart';
 
-/// The closed set of record kinds a rule may check. Adding a kind is an
-/// engine release; a catalog naming an unknown kind is rejected at load.
 enum SubjectKind {
-  /// One concept's authored frontmatter as plain JSON. Its shape is open, so
-  /// a rule may name any key.
   frontmatter(facts: null),
 
-  /// One concept's derived facts. `edges` is absent when the OKF graph could
-  /// not be built; `relationships` and `inbound` when okf could not resolve
-  /// the relationship targets.
   concept(
     facts: {
       'path',
@@ -32,35 +25,23 @@ enum SubjectKind {
     },
   ),
 
-  /// One distinct actor id used anywhere in the bundle, located at the
-  /// first concept that uses it.
   actor(facts: {'id', 'first_use'}),
 
-  /// One non-root directory of the loaded tree, with its `index.md` as a
-  /// second location.
   directory(facts: {'path', 'has_index'}, locations: {'self', 'index'}),
 
-  /// One loaded path.
   file(facts: {'path', 'name', 'markdown'}),
 
-  /// The bundle root, located at its index.
   root(facts: {'okf_version', 'files'}),
 
-  /// The root log, present when OKF can parse it.
   log(facts: {'entries'});
 
   const SubjectKind({required this.facts, this.locations = const {'self'}});
 
-  /// The fact names a subject of this kind may carry, or null when the
-  /// shape is open.
   final Set<String>? facts;
 
-  /// The location keys a rule may report at.
   final Set<String> locations;
 }
 
-/// One record a rule can check. [facts] is plain JSON; [locations] maps the
-/// kind's location keys to bundle-relative paths.
 final class Subject {
   const Subject(this.kind, this.facts, this.locations);
 
@@ -69,10 +50,6 @@ final class Subject {
   final Map<String, String> locations;
 }
 
-/// The bundle parsed once, shared by every rule. Subjects are built here, in
-/// `loaded.documents` order, and every join (actor first use, tag counts,
-/// link resolution, footnote definitions, area siblings) happens here so
-/// rules never parse.
 final class BundleFacts {
   BundleFacts.project(this.loaded, {required this.profile});
 
@@ -86,8 +63,6 @@ final class BundleFacts {
       path: ParsedBody(document.body),
   };
 
-  /// The OKF graph, or the error that kept it from building. A toolchain
-  /// throw must not take down the whole assessment.
   late final ({OkfGraph? graph, Object? error}) graph = () {
     try {
       return (graph: OkfGraph.fromBundle(loaded.bundle), error: null);
@@ -153,7 +128,6 @@ final class BundleFacts {
 
   Iterable<Subject> of(SubjectKind kind) => _subjects[kind]!;
 
-  /// Every OKF graph edge leaving each concept, in okf's wire terms.
   late final Map<String, List<Map<String, Object?>>> _edges = () {
     final byDocument = <String, List<Map<String, Object?>>>{};
     for (final edge in graph.graph?.edges ?? const <OkfGraphEdge>[]) {
@@ -167,10 +141,6 @@ final class BundleFacts {
     return byDocument;
   }();
 
-  /// Each concept's `relationships` entries that name a target, resolved as
-  /// okf resolves a link target, and the backlinks that resolution yields:
-  /// for each concept, the entries of other concepts that resolve to it.
-  /// Null when okf could not resolve them.
   late final ({
     Map<String, List<Map<String, Object?>>> outbound,
     Map<String, List<Map<String, Object?>>> inbound,
@@ -197,8 +167,6 @@ final class BundleFacts {
           key: [for (final (_, resource) in value) resource],
       });
     } catch (_) {
-      // Like the link graph, a toolchain throw leaves the fact absent
-      // rather than taking down the whole assessment.
       return null;
     }
     final outbound = <String, List<Map<String, Object?>>>{};
@@ -268,8 +236,6 @@ final class BundleFacts {
   }
 }
 
-/// Whether an edge's target is internal and written bundle-relative, in the
-/// terms Profile §7.1 assesses links by.
 Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
   'internal':
       edge.resolution != OkfGraphResolution.external &&
@@ -321,12 +287,10 @@ Map<OkfConceptId, List<OkfGraphEdge?>> _resolveTargets(
   return resolved;
 }
 
-/// The directories of the loaded tree, derived from its file paths.
 final class BundleInventory {
   BundleInventory(Iterable<String> paths)
     : nonRootDirectories = _directories(paths);
 
-  /// Every directory below the root, sorted.
   final List<String> nonRootDirectories;
 
   late final Set<String> _areaDirectories = nonRootDirectories
@@ -338,7 +302,6 @@ final class BundleInventory {
       )
       .toSet();
 
-  /// Whether an area directory named like the concept's stem sits beside it.
   bool hasAreaSibling(String conceptPath) {
     final parent = parentDirectory(conceptPath);
     final stem = p.posix.basenameWithoutExtension(conceptPath);
@@ -349,7 +312,6 @@ final class BundleInventory {
       .where((directory) => parentDirectory(directory) == parent);
 }
 
-/// The directory holding [path], empty at the root.
 String parentDirectory(String path) {
   final directory = p.posix.dirname(path);
   return directory == '.' ? '' : directory;
@@ -373,8 +335,6 @@ Object? _rootOkfVersion(OkfBundleLoadResult loaded) {
   try {
     return _json(OkfDocument.parse(rootIndex).frontmatter['okf_version']);
   } on OkfDocumentException {
-    // The independent OKF result reports the malformed reserved document;
-    // with no readable root binding, the fact is null.
     return null;
   }
 }
@@ -386,8 +346,6 @@ Subject? _log(OkfBundleLoadResult loaded) {
   try {
     parsed = OkfLogDocument.parse(source, sourcePath: 'log.md');
   } on OkfDocumentException {
-    // The independent OKF result reports the malformed reserved document;
-    // there are no entries left to judge.
     return null;
   }
   return Subject(
@@ -415,7 +373,6 @@ List<Subject> _actors(OkfBundleLoadResult loaded) {
   ];
 }
 
-/// The actor ids a concept's frontmatter uses, in field order.
 Iterable<String> actorIds(OkfDocument document) sync* {
   final generated = document.frontmatter['generated'];
   if (generated is Map<Object?, Object?>) {
@@ -434,8 +391,6 @@ Iterable<String> actorIds(OkfDocument document) sync* {
   }
 }
 
-/// YAML values as the JSON the predicate evaluates: string keys, lists,
-/// scalars. Anything else renders as its string form.
 Object? _json(Object? value) => switch (value) {
   Map() => {
     for (final MapEntry(:key, value: nested) in value.entries)

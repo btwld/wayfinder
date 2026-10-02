@@ -11,8 +11,6 @@ import 'builtins.dart';
 import 'facts.dart';
 import 'profile.dart';
 
-/// The 2026.2 standard `# Relationships` labels, which that release reads
-/// from no manifest.
 const _legacyRelationshipLabels = <String>[
   'Superseded by',
   'Depends on',
@@ -46,8 +44,6 @@ Iterable<Violation> tagLiteralDuplication(
   }
 }
 
-/// Reports each project type at the configuration path that declared it, a
-/// location outside the bundle no subject carries.
 Iterable<Violation> configuredTypeExtension(
   BundleFacts facts,
   Map<String, Object?> params,
@@ -59,9 +55,6 @@ Iterable<Violation> configuredTypeExtension(
   }
 }
 
-/// The 2026.2 vocabulary read from the in-bundle registries. A slot is
-/// unavailable while its registry is missing or its table header is wrong,
-/// which keeps the rules that need it from reporting against nothing.
 Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
   final types = _readTypeRegistry(loaded).rows;
   return Vocabulary(
@@ -76,15 +69,11 @@ Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
 final class _Registry {
   const _Registry(this.document, this.rows);
 
-  /// Null when the registry concept is absent.
   final OkfDocument? document;
 
-  /// Null when the first table is absent or its header is not canonical.
   final List<List<String>>? rows;
 }
 
-/// Each validation's registries, read on first use by the builtins that
-/// share them.
 final _typeRegistries = Expando<_Registry>();
 final _actorRegistries = Expando<_Registry>();
 
@@ -300,9 +289,6 @@ Iterable<Violation> relationshipLabelExtension(
   }
 }
 
-/// A graph failure belongs to no one concept, so it reports at the bundle
-/// file the catalog names: `path`, or `profile.md` for a catalog that names
-/// none.
 const linkGraphUnavailableParams = <String, Object?>{
   'type': 'object',
   'additionalProperties': false,

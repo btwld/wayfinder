@@ -352,9 +352,6 @@ final class ProfileValidator {
     return _fixThenAssess(validation, loaded, profile, projectConfig);
   }
 
-  /// Writes the files the selected catalog's fixable rules generate, then
-  /// assesses the bundle as written. A catalog without fixable rules writes
-  /// nothing, so a 2026.2 bundle is never touched.
   Future<ProfileValidationResult> _fixThenAssess(
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
@@ -611,7 +608,6 @@ final class _ConfigRead {
   final WayfinderResolvedConfig? value;
   final ProfileFinding? finding;
 
-  /// The configuration file [finding] is about.
   final String? file;
 }
 

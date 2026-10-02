@@ -437,10 +437,6 @@ final class WayfinderProfileResolver {
     );
   }
 
-  /// The catalog the manifest names, read at the same commit as the
-  /// manifest so the lock's commit identifies both. A catalog this engine
-  /// cannot evaluate fails resolution whole, which `validate` reports as
-  /// `UNSUPPORTED`.
   Future<RuleCatalog> _readCatalog(
     Directory repository,
     String profileId,
@@ -527,8 +523,6 @@ final class WayfinderProfileResolutionException extends WayfinderException {
   const WayfinderProfileResolutionException(super.message);
 }
 
-/// Resolution metadata only. The locked commit identifies a source's
-/// manifest and catalog, so neither is copied here.
 final class _ProfileLock {
   const _ProfileLock({
     required this.configurationSha256,
@@ -670,11 +664,9 @@ final class _ResolvedSource {
   final List<WayfinderDefinition> tags;
   final List<WayfinderDefinition> relationships;
 
-  /// The catalog the manifest names, or null for a manifest without one.
   final RuleCatalog? catalog;
 }
 
-/// Names must be unique, which the manifest schema leaves to Wayfinder.
 List<WayfinderDefinition> _manifestDefinitions(
   Object? value,
   String profileId,

@@ -3,11 +3,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-/// Embeds the installed Profile files under `profile/`, and the schemas that
-/// `wayfinder.json`, Profile manifests and rule catalogs are checked against,
-/// as Dart constants so a release validates offline, from the binary alone.
-/// Run from the workspace root; `--check` exits non-zero when the generated
-/// file is stale.
 Future<void> main(List<String> arguments) async {
   final check = arguments.contains('--check');
   if (arguments.any((argument) => argument != '--check')) {
@@ -87,8 +82,6 @@ Future<void> main(List<String> arguments) async {
   stdout.writeln('Wrote ${p.relative(output.path, from: workspace)}');
 }
 
-/// One generated constant: the current file in `profile/` plus every
-/// immutable snapshot of it under `profile/versions/`.
 final class _EmbeddedSet {
   const _EmbeddedSet(this.constant, this.doc, this.entries);
 
@@ -122,8 +115,6 @@ final class _EmbeddedSet {
     return _EmbeddedSet(constant, doc, sorted);
   }
 
-  /// A manifest keys itself by `id` and `release`; a rule catalog nests
-  /// them under `profile`.
   static (String, String) _key(Map<String, Object?> json, String path) {
     final profile = json['profile'];
     final source = profile is Map<String, Object?> ? profile : json;
@@ -140,7 +131,6 @@ final class _EmbeddedSet {
   final List<MapEntry<(String, String), String>> entries;
 }
 
-/// One generated constant holding a single file.
 final class _EmbeddedFile {
   const _EmbeddedFile(this.constant, this.doc, this.text);
 
@@ -160,7 +150,6 @@ final class _EmbeddedFile {
   final String text;
 }
 
-/// Reads [file] for a raw `'''` string literal, which it cannot contain.
 Future<String> _embeddable(File file) async {
   final text = await file.readAsString();
   if (text.contains("'''")) {

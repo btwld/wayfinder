@@ -1,6 +1,5 @@
 import 'package:markdown/markdown.dart' as markdown;
 
-/// A concept body parsed once, for the facts and builtins that read prose.
 final class ParsedBody {
   ParsedBody(this.source)
     : nodes = markdown.Document(
@@ -10,17 +9,11 @@ final class ParsedBody {
   final String source;
   final List<markdown.Node> nodes;
 
-  /// The text of each level-one heading, in body order.
   List<String> headings() => [
     for (final node in nodes)
       if (node is markdown.Element && node.tag == 'h1') node.textContent,
   ];
 
-  /// The distinct footnote labels the body references or defines: the
-  /// referenced ones first, in first-use order outside code and the footnote
-  /// definitions section, then the labels only a definition carries, in
-  /// source order.
-  ///
   /// A reference the parser joined to its definition survives only as a
   /// `footnote-ref` element, so its label is read back from the link. One
   /// it could not join stays literal text, which also happens to adjacent
@@ -105,8 +98,6 @@ final class ParsedBody {
 
 final RegExp _footnoteReference = RegExp(r'\[\^([^\]]+)\]');
 
-/// A fenced code block, so a `[^label]:` line inside one is not read as a
-/// footnote definition.
 final RegExp _fencedCode = RegExp(
   r'^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?^ {0,3}\1',
   multiLine: true,
@@ -161,7 +152,6 @@ String? _relationshipText(markdown.Node node) {
   return text.toString();
 }
 
-/// The `# Relationships` section's labels, or that its grammar is broken.
 final class Relationships {
   const Relationships(this.labels) : malformed = false;
 

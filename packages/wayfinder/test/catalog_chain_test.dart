@@ -7,8 +7,6 @@ import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
-/// A child Profile's catalog whose rules fire on every bundle: an error per
-/// concept, an advisory at the root and a summary entry per concept.
 final child = RuleCatalog.parse(
   jsonEncode({
     'format': 1,

@@ -6,10 +6,6 @@ import 'package:wayfinder_embeddings/okf_knowledge.dart';
 /// Formats `okf graph` already emits. mermaid and DOT are text for a preview.
 const wayfinderGraphOutputs = ['json', 'dot', 'mermaid'];
 
-/// The frontmatter link fields wayfinder reads beside okf's graph: the
-/// typed `relationships` Profile 2026.3 declares (§7.2). okf's graph reads
-/// no producer key, so without this the relationships would be invisible to
-/// `graph` and to search expansion.
 const wayfinderLinkFields = [
   OkfLinkField('relationships', nameKey: 'relationship'),
 ];
@@ -19,8 +15,6 @@ List<String> wayfinderGraphResolutions() => OkfGraphResolution.values
     .map((resolution) => resolution.wireValue)
     .toList(growable: false);
 
-/// A live OKF graph projection with its typed field edges, or the load
-/// report that blocked it.
 final class WayfinderGraphResult {
   const WayfinderGraphResult._({
     this.graph,
@@ -42,16 +36,11 @@ final class WayfinderGraphResult {
   final OkfReport? report;
   final int exitCode;
 
-  /// okf's graph JSON with one added key, `field_edges`. Every okf key
-  /// keeps its meaning, so an okf graph consumer reads it unchanged.
   Map<String, Object?> toJson() => {
     ..._graph.toJson(),
     'field_edges': [for (final edge in fieldEdges) edge.toJson()],
   };
 
-  /// Renders the graph the way `okf graph --output` does, with each field
-  /// edge added and labelled by its name, without a trailing newline so the
-  /// CLI can writeln once.
   String render(String output) {
     final rendered = switch (output) {
       'json' => const JsonEncoder.withIndent('  ').convert(toJson()),
@@ -69,9 +58,6 @@ final class WayfinderGraphResult {
       (throw StateError('Graph is unavailable when load findings exist.'));
 }
 
-/// Inspects [bundle] and projects the ordinary OKF graph plus the typed
-/// edges of [wayfinderLinkFields], filtered the way okf filters its own
-/// edges. Load findings refuse a graph, matching `okf graph`.
 Future<WayfinderGraphResult> projectWayfinderGraph(
   String bundle, {
   Iterable<String> types = const [],

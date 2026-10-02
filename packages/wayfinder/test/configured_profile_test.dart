@@ -600,7 +600,6 @@ status: stable
 '''
           .trimLeft(),
     );
-    // The 2026.2 projection: a Bundle group, then Profile standard order.
     final index = File(p.join(bundle.path, 'index.md'));
     await index.writeAsString(
       '''
@@ -976,7 +975,6 @@ okf_version: "0.2"
   );
 }
 
-/// Every file's bytes under [root], keyed by relative path.
 Future<Map<String, List<int>>> _snapshot(Directory root) async => {
   await for (final entity in root.list(recursive: true))
     if (entity is File)

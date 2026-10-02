@@ -35,8 +35,6 @@ const rootStructureFilesParams = <String, Object?>{
   },
 };
 
-/// `required` names root files that must exist, reported together at the
-/// first missing one. `reserved` names basenames no nested concept may use.
 Iterable<Violation> rootStructureFiles(
   BundleFacts facts,
   Map<String, Object?> params,
@@ -63,8 +61,6 @@ Iterable<Violation> rootStructureFiles(
   }
 }
 
-/// The indexes okf's reference generator writes for the bundle, with the
-/// root declaring the bound OKF release.
 Map<String, String> generatedIndexes(
   BundleFacts facts,
   Map<String, Object?> params,
@@ -83,9 +79,10 @@ Iterable<Violation> indexCurrent(
       yield Violation(path, facts: {'path': path}, messageId: 'stale');
     }
   }
-  // The generator still lists a directory whose leftover index.md it no
-  // longer writes, such as a 2026.2 raw/ tier, so the file must go. A bundle
-  // without concepts keeps the hand-written root index the Profile requires.
+  // okf's generator lists every directory that has an index.md, even one it
+  // no longer writes, such as a 2026.2 raw/ tier, so the leftover must go. A
+  // bundle without concepts keeps the hand-written root index the Profile
+  // requires.
   for (final path in facts.loaded.indexes.keys) {
     if (generated.containsKey(path) || path == 'index.md') continue;
     yield Violation(path, facts: {'path': path}, messageId: 'extra');
@@ -103,8 +100,6 @@ const indexSemanticProjectionParams = <String, Object?>{
   },
 };
 
-/// `bundle_group` names the root concepts the root index lists under the
-/// `Bundle` group after the log, in that order.
 Iterable<Violation> indexSemanticProjection(
   BundleFacts facts,
   Map<String, Object?> params,
@@ -233,10 +228,6 @@ OkfIndexEntry? _conceptEntry(
   );
 }
 
-/// Parses an index through okf's entry format with targets percent-decoded;
-/// null when the document is not a clean projection: a structural issue, a
-/// non-portable destination, or a target spelling that is not a relative URL
-/// for the decoded path.
 List<OkfIndexEntry>? _parseIndex(String source) {
   final OkfIndexParseResult parsed;
   try {
@@ -271,10 +262,6 @@ final RegExp _percentEscapeRun = RegExp(r'(?:%[0-9A-Fa-f]{2})+');
 // decode a `/` from.
 final RegExp _nonTargetSpelling = RegExp(r'[?#]|%2[Ff]|%(?![0-9A-Fa-f]{2})');
 
-/// Percent-decodes a parsed target so §9 compares every valid spelling of a
-/// path against its raw projection; null when the spelling is not a target:
-/// a malformed escape, a raw `?` or `#`, or an escape hiding a `/`.
-///
 /// Not [Uri.decodeComponent] on the whole target: it throws [ArgumentError] on
 /// raw non-ASCII input, which is a legitimate already-decoded target character.
 String? _decodeTarget(String target) {

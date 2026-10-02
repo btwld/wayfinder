@@ -11,9 +11,6 @@ import 'package:wayfinder/src/rules/evaluate.dart';
 import 'package:wayfinder/src/rules/facts.dart';
 import 'package:wayfinder/src/rules/profile.dart';
 
-/// A catalog no Profile ships, with one rule per fact the engine derives
-/// beyond what the installed catalogs read, so each fact is exercised the
-/// way a Profile author would use it.
 final probeCatalog = RuleCatalog.parse(
   jsonEncode({
     'format': 1,

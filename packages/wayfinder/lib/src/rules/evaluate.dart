@@ -5,11 +5,6 @@ import 'catalog.dart';
 import 'facts.dart';
 import 'profile.dart';
 
-/// The engine: every rule of every catalog in the chain over every subject.
-/// A schema rule that references a slot the vocabulary cannot provide is
-/// skipped. An error or advisory rule reports findings and a note rule
-/// reports summary entries, each carrying its own catalog's release; the
-/// caller orders them.
 ({List<ProfileFinding> findings, List<ProfileSummaryEntry> summary}) evaluate(
   EffectiveProfile profile,
   BundleFacts facts,
@@ -62,9 +57,6 @@ void _evaluate(
       for (final subject in facts.of(check.subject)) {
         final List<Object?> failing;
         if (check.each case final each?) {
-          // An absent or null fact has no elements to judge; a present
-          // value that is not an array fails whole, as its own failing
-          // value.
           final elements = subject.facts[each];
           if (elements == null) continue;
           failing = elements is List<Object?>
@@ -99,9 +91,6 @@ void _evaluate(
   }
 }
 
-/// The files `validate --fix` writes: the union of what every fixable
-/// builtin rule in the chain generates; null when no catalog declares a
-/// fixable rule.
 Map<String, String>? fixes(EffectiveProfile profile, BundleFacts facts) {
   Map<String, String>? files;
   for (final catalog in profile.catalogs) {
@@ -117,9 +106,6 @@ Map<String, String>? fixes(EffectiveProfile profile, BundleFacts facts) {
   return files;
 }
 
-/// Plain substitution: `{failing}` renders the distinct failing values in
-/// first-occurrence order, and `{name}` renders that fact. A placeholder no
-/// fact fills stays visible in the output rather than failing the run.
 String _render(
   RuleMessage message, {
   required List<Object?> failing,

@@ -1,9 +1,5 @@
 import 'package:okf/okf.dart';
 
-/// How loudly a rule reports. An error or advisory is a finding with okf's
-/// severity of the same name; a note reports something the Profile permits,
-/// so it is a summary entry that never affects a state or the exit status
-/// (Profile §14.1).
 enum RuleSeverity {
   error(OkfFindingSeverity.error),
   advisory(OkfFindingSeverity.advisory),
@@ -11,7 +7,6 @@ enum RuleSeverity {
 
   const RuleSeverity(this.finding);
 
-  /// The severity of this rule's findings; null for a note.
   final OkfFindingSeverity? finding;
 }
 
@@ -21,8 +16,6 @@ enum RuleSeverity {
 /// A descriptor is the single authority for its rule's finding ID, severity,
 /// and normative Profile clause reference: every finding is built from the
 /// descriptor of the rule that reports it, so none of the three can drift.
-/// A release's descriptors come from its rule catalog; only the findings
-/// that precede release dispatch are declared in [DispatchRule].
 final class ProfileRuleDescriptor {
   const ProfileRuleDescriptor({
     required this.id,
@@ -44,8 +37,6 @@ final class ProfileRuleDescriptor {
   final String rule;
 }
 
-/// Findings reported while selecting a Profile release, before any catalog
-/// can declare them.
 abstract final class DispatchRule {
   static const profileDeclarationPresent = ProfileRuleDescriptor.error(
     'profile-declaration-present',

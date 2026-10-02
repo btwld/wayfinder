@@ -16,18 +16,11 @@ List<String> findingSummary(Map<String, Object?> profile) =>
 
 String fixture(String name) => p.join('test', 'fixtures', name);
 
-/// A fixture holding `wayfinder.json` is a configured project with its bundle
-/// under `knowledge/`; any other fixture is the bundle itself.
 String fixtureBundle(String path) =>
     File(p.join(path, 'wayfinder.json')).existsSync()
     ? p.join(path, 'knowledge')
     : path;
 
-/// Validates a fixture as [fixtureBundle] lays it out. A configured project
-/// is passed its `wayfinder.json` unless [discoverConfig], and its Profile
-/// sources resolve to the installed release, shipping [catalogs] as if each
-/// source had named them. A configuration that does not parse resolves
-/// nothing, so the validator reports why.
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,

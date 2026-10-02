@@ -24,15 +24,10 @@ final class RuleCatalogException implements Exception {
   String toString() => '$message at $where';
 }
 
-/// Kind of problem, separate from loudness.
 enum RuleCategory { structure, vocabulary, provenance, linking, history }
 
-/// Rule lifecycle. Installed release catalogs are immutable snapshots, so
-/// status matters for catalogs that evolve between their own releases.
 enum RuleStatus { preview, stable, deprecated }
 
-/// A finding's text. The rendered sentence is editorial; the id, severity,
-/// path and template arguments are the contract.
 sealed class RuleMessage {
   const RuleMessage();
 }
@@ -43,8 +38,6 @@ final class SingleMessage extends RuleMessage {
   final String template;
 }
 
-/// Templates keyed by the message id a builtin names, for a rule whose one
-/// id covers more than one condition.
 final class MessageVariants extends RuleMessage {
   const MessageVariants(this.byId);
 
@@ -53,15 +46,10 @@ final class MessageVariants extends RuleMessage {
 
 final RegExp placeholder = RegExp(r'\{(\w+)\}');
 
-/// What a rule evaluates: a schema over one subject kind, or a builtin.
 sealed class RuleCheck {
   const RuleCheck();
 }
 
-/// A yes/no schema over every subject of one kind. With [each], the
-/// predicate runs per element of that array fact and the failing elements'
-/// [failingField] values fill `{failing}`. At most one finding per
-/// (rule, subject).
 final class SchemaCheck extends RuleCheck {
   const SchemaCheck._({
     required this.subject,
@@ -76,20 +64,14 @@ final class SchemaCheck extends RuleCheck {
   final SubjectKind subject;
   final String? each;
 
-  /// The field of a failing element that `{failing}` renders.
   final String failingField;
 
-  /// The subject location key the finding reports at.
   final String at;
   final Object? schema;
 
-  /// The catalog defs this schema reaches through `$ref`, so compiling it
-  /// needs only the slots it references.
   final Map<String, Object?> defs;
   final Set<Slot> slots;
 
-  /// Slot values bind at compile time, so a check compiles once per
-  /// validation with that validation's vocabulary.
   JsonPredicate compile(Map<Slot, List<String>> values) =>
       JsonPredicate.compile(
         schema,
@@ -99,13 +81,9 @@ final class SchemaCheck extends RuleCheck {
         },
       );
 
-  /// An `each` element as the predicate sees it: an object is itself, and a
-  /// scalar becomes `{"value": scalar}` so one schema shape covers both.
   static Object? element(Object? item) =>
       item is Map<String, Object?> ? item : {'value': item};
 
-  /// What a failing element contributes to `{failing}`: its [field] when it
-  /// is an object carrying one, or else the element as written.
   static Object? value(Object? item, String field) => switch (item) {
     final Map<String, Object?> object when object.containsKey(field) =>
       object[field],
@@ -113,8 +91,6 @@ final class SchemaCheck extends RuleCheck {
   };
 }
 
-/// A compiled check with parameters. It returns [Violation]s and never
-/// chooses an id, severity, clause or message; the catalog does.
 final class BuiltinCheck extends RuleCheck {
   const BuiltinCheck(this.name, this.builtin, this.params);
 
@@ -123,8 +99,6 @@ final class BuiltinCheck extends RuleCheck {
   final Map<String, Object?> params;
 }
 
-/// Per-rule examples run as tests: subject facts (or `each` elements) that
-/// must pass and must fail, with the slot values they need.
 final class RuleExamples {
   const RuleExamples({
     required this.valid,
@@ -152,15 +126,12 @@ final class CatalogRule {
   final RuleCategory category;
   final RuleStatus status;
 
-  /// The rule's normative statement.
   final String description;
   final RuleMessage message;
   final RuleCheck check;
 
-  /// Present for every schema check, absent for a builtin.
   final RuleExamples? examples;
 
-  /// Runs the examples; each line names one that did not behave as declared.
   List<String> failingExamples() {
     final check = this.check;
     final examples = this.examples;
@@ -309,9 +280,6 @@ final class RuleCatalog {
   final List<CatalogRule> rules;
 }
 
-/// A schema failure's instance pointer in the catalog's own path grammar:
-/// `/rules/3/check/subject` reads `rules[3].check.subject`, and a failure
-/// about a member of an object names that member.
 String _where(JsonPredicateFailure failure) {
   final segments = [
     for (final segment in failure.pointer.split('/').skip(1))
@@ -465,8 +433,6 @@ SchemaCheck _schemaCheck(
   );
 }
 
-/// Collects the defs and slots a schema reaches, following local `$ref`s
-/// the way the predicate resolves them.
 void _reach(
   Object? schema,
   Map<String, Object?> defs,

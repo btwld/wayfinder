@@ -5,9 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/rules/predicate.dart';
 
-/// Groups whose schema uses a keyword outside the predicate's subset must
-/// fail to compile. Pinning the count per file turns a silently widened or
-/// narrowed subset into a failure instead of a quieter test run.
 const expectedSkippedGroups = <String, int>{
   'type.json': 0,
   'enum.json': 1,
@@ -36,8 +33,6 @@ const expectedSkippedGroups = <String, int>{
   'optional/format/date-time.json': 0,
 };
 
-/// Cases inside a compiled group whose outcome deliberately differs from the
-/// suite. Each entry asserts the divergence, so a fixed one shows up here.
 const acceptedDivergences = <String, String>{};
 
 void main() {

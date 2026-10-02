@@ -693,8 +693,6 @@ void main() {
         );
         expect(await lockFile.readAsString(), locked);
 
-        // A lock written by a release that accepted the catalog and read by
-        // this one. The cache already holds the commit.
         final raw = await File(
           p.join(project.path, 'wayfinder.json'),
         ).readAsString();
@@ -892,7 +890,6 @@ void main() {
       'description: How invoices are issued.\nstatus: stable\n---\n\n'
       '# Invoice\n',
     );
-    // A 2026.2-style projection that the okf generator would not write.
     await File(p.join(bundle, 'index.md')).writeAsString(
       '---\nokf_version: "0.2"\n---\n\n# Bundle\n\n'
       '* [Knowledge Log](log.md)\n\n# Directories\n\n'
@@ -952,7 +949,6 @@ void main() {
   });
 }
 
-/// Every file's bytes under [root], keyed by relative path.
 Future<Map<String, List<int>>> _snapshot(String root) async => {
   await for (final entity in Directory(root).list(recursive: true))
     if (entity is File)
