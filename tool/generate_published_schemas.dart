@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 /// Embeds what the engine must know at runtime but owns elsewhere: the two
 /// published schemas it validates input against, and the version of the
 /// okf package its index generator comes from. okf exports no version
-/// constant, so the engine's pubspec pins okf to one exact version and that
-/// pin is the checked-in source of truth. No Profile is embedded; every
+/// constant, so the engine's pubspec allows exactly one okf patch release
+/// and that constraint is the checked-in source of truth. No Profile is embedded; every
 /// Profile is fetched like any other.
 Future<void> main(List<String> arguments) async {
   final check = arguments.contains('--check');
@@ -100,18 +100,29 @@ Future<String> _embeddable(File file) async {
   return text;
 }
 
-/// The exact version [pubspec] pins [package] to. A range would let the
-/// embedded version drift from the resolved one, so only `name: x.y.z`
-/// is accepted.
+/// The okf version [pubspec] allows. okf exports no version constant, so
+/// the pubspec allows exactly one patch release, written
+/// `'>=x.y.z <x.y.(z+1)'` because pub rejects a bare version for a published
+/// package. Any wider range would let the embedded version drift from the
+/// resolved one.
 Future<String> _pinnedVersion(File pubspec, String package) async {
   final match = RegExp(
-    '^  $package: ([0-9]+\\.[0-9]+\\.[0-9]+(?:[+-][0-9A-Za-z.]+)?)\$',
+    "^  $package: '>=([0-9]+)\\.([0-9]+)\\.([0-9]+) <([0-9]+)\\.([0-9]+)\\.([0-9]+)'\$",
     multiLine: true,
   ).firstMatch(await pubspec.readAsString());
-  if (match == null) {
-    throw FormatException('${pubspec.path} must pin $package to one version');
+  final [major, minor, patch, upperMajor, upperMinor, upperPatch] = [
+    for (var group = 1; group <= 6; group++) int.tryParse(match?[group] ?? ''),
+  ];
+  if (match == null ||
+      upperMajor != major ||
+      upperMinor != minor ||
+      upperPatch != patch! + 1) {
+    throw FormatException(
+      "${pubspec.path} must allow one $package patch release, as "
+      "'>=x.y.z <x.y.(z+1)'",
+    );
   }
-  return match[1]!;
+  return '$major.$minor.$patch';
 }
 
 String _render(List<_Constant> constants) {

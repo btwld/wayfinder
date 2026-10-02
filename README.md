@@ -328,8 +328,9 @@ The engine embeds no Profile. It embeds only the two published schemas,
 `docs/schemas/wayfinder.schema.json` and `docs/schemas/wayfinder-profile.schema.json`, and the
 okf package version, through the generated
 `packages/wayfinder/lib/src/generated/published_schemas.g.dart`. The version comes from the
-exact `okf:` pin in `packages/wayfinder/pubspec.yaml` (every package pins the same version), so
-the embedded value and the resolved dependency cannot drift. After editing either schema or
+`okf:` constraint in `packages/wayfinder/pubspec.yaml`, which allows exactly one patch release
+(`'>=0.5.0 <0.5.1'`; every package uses the same constraint), so the embedded value and the
+resolved dependency cannot drift. pub rejects a bare version for a published package. After editing either schema or
 changing the okf pin, run `dart run tool/generate_published_schemas.dart` and commit the result;
 `--check` is the CI gate for a stale file.
 
