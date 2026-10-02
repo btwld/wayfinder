@@ -1103,9 +1103,13 @@ Indexes are generated. For each `index.md` that the OKF reference index
 generator writes for the bundle, the bundle MUST contain that file with exactly
 the generator's text, generated with the root index declaring
 `okf_version: "0.2"` (§11). The reference generator is `OkfIndexGenerator` in
-the `okf` package release that the companion implementation guide pins. This
-profile adds no grouping, ordering, label, target, or description rule of its
-own. An index MUST NOT carry authored content: a hand edit is drift that the
+`okf` package release 0.5.0. Because the generator's text is the contract, an
+`okf` release whose generator writes different text changes which bytes
+conform, and adopting it requires a Profile revision recorded in §15.3; an
+`okf` release that leaves that text unchanged requires none (§15.1). The
+companion implementation guide binds how tools pin that release and detect
+drift from it. This profile adds no grouping, ordering, label, target, or
+description rule of its own. An index MUST NOT carry authored content: a hand edit is drift that the
 next regeneration discards, and knowledge worth keeping belongs in a concept.
 
 The generator writes an index for every area, sub-area, and `computations/`
@@ -1447,6 +1451,13 @@ claim compatibility with an OKF version it has not been reviewed against.
 Because the binding is exact, references to the upstream specification SHOULD be
 pinned to the commit or tag carrying that version rather than to a moving branch.
 
+The binding names a specification version, not a toolchain, with one
+exception: §9 makes the text written by the reference index generator in `okf`
+package release 0.5.0 part of this release's contract. An `okf` release that
+changes no specification text and leaves that generator's output unchanged
+needs no Profile release. One whose generator output differs needs a Profile
+revision before Profile tooling adopts it, even though OKF 0.2 is unchanged.
+
 The profile and OKF are separately versioned documents, and §15.2 gives the profile a
 version format OKF does not use so the two can never be mistaken for one another.
 Prose MUST still name which document a version refers to. The machine-readable
@@ -1510,7 +1521,9 @@ reference index generator (§9) instead of a Profile-defined projection. The
 `Bundle`, `Directories`, and `Assets` groups, the Profile type order, and the
 label, target-encoding, and per-nonempty-directory rules are withdrawn, and a
 directory holding only non-concept assets, such as a `raw/` tier, needs no
-index. Affected sections: §§1.3, 3, 3.1, 3.4, 3.6, 5.1, 9, 14.1, and Appendix A.
+index. §9 names the generator's `okf` release, 0.5.0, and §15.1 states that a
+release changing the generator's output needs a Profile revision. Affected
+sections: §§1.3, 3, 3.1, 3.4, 3.6, 5.1, 9, 14.1, 15.1, and Appendix A.
 Driver: the custom projection diverged from the index shape OKF's own tooling
 generates, so bundles needed a Profile-specific generator to stay conformant;
 a second knowledge base on the same okf release already checks its indexes with

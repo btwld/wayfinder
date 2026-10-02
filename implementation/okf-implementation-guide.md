@@ -19,9 +19,9 @@ Precedence is a chain, and every link is one-directional:
 
 This document therefore MUST NOT restate, extend, or narrow a profile rule. Where it
 appears to, the profile governs and this text is defective. What it may do is bind
-behaviour the profile deliberately leaves open — for example, the Profile requires
-every index to be the reference generator's output while this guide pins the
-`okf` release that generator comes from.
+behaviour the profile deliberately leaves open — for example, the Profile names
+the `okf` release whose reference generator every index must match, while this
+guide binds how a tool pins that release and detects drift from it.
 
 **"Guide" does not mean advisory.** The requirements below are normative and carry their
 RFC 2119 force; what distinguishes this document from the profile is not strictness but
@@ -89,21 +89,22 @@ not mechanical.
 ## 3. Index generation
 
 Profile 2026.3 makes every index the output of the OKF reference index
-generator (profile §9). This section pins that generator and binds the tools
-that write and check its output. Profile 2026.2 keeps its own semantic
-projection; §3.4 preserves that legacy contract unchanged.
+generator (profile §9), and names the `okf` release that generator comes
+from. This section binds the tools that write and check its output. Profile
+2026.2 keeps its own semantic projection; §3.4 preserves that legacy contract
+unchanged.
 
 ### 3.1 The reference generator (2026.3)
 
-The reference generator for Profile 2026.3 is `OkfIndexGenerator` in `okf`
-0.5.0, the release Wayfinder builds with, run over the loaded bundle with the
-root index declaring `okf_version: "0.2"`. A tool that writes or checks 2026.3
-indexes MUST use this generator release. An `okf` release that changes the
-generator's output changes which bytes conform, so adopting it requires a
-revision of this guide that pins the new release. Wayfinder's package
-constraint stays a caret range for library consumers; its golden reports over
-fixtures with generated indexes fail when a resolved `okf` release changes the
-generator's output.
+Profile 2026.3 §9 names the reference generator: `OkfIndexGenerator` in `okf`
+0.5.0, run over the loaded bundle with the root index declaring
+`okf_version: "0.2"`. A tool that writes or checks 2026.3 indexes MUST produce
+exactly that release's generator text. Wayfinder builds with `okf` 0.5.0, but
+its package constraint stays a caret range (`^0.5.0`) for library consumers,
+so dependency resolution alone does not hold the release. Golden reports over
+fixtures with generated indexes are the check: they fail when a resolved `okf`
+release changes the generator's output, and adopting that release waits for
+the Profile revision §9 requires.
 
 A validator MUST report every path the generator writes whose file is missing
 or whose text differs from the generated text. The comparison is exact: the
@@ -790,6 +791,13 @@ unchanged. Affected sections: §§4.2, 4.4, 4.7, and 9. Driver: Profile 2026.3
 parse a named catalog whole and fail dispatch as `UNSUPPORTED` on anything the
 engine lacks, keep the installed base catalog authoritative, and list every
 catalog's descriptors in SARIF output.
+
+Revised in place before publication: Profile 2026.3 §9 now names the
+generator's `okf` release, so §§1 and 3 cite it there and keep only how a tool
+pins that release and detects drift from it. Affected sections: §§1, 3, 3.1,
+and 9. Driver: a guide that pinned the release decided which index bytes
+conform, which is a bundle rule the Profile owns. Migration for
+implementations: none; the release and the checks are unchanged.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC
