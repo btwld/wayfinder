@@ -104,6 +104,10 @@
 - Stop reporting nested `profile.md`, `types.md`, or `actors.md` concepts as
   `root-structure-files` under 2026.3, whose §3.5 forbids only the legacy root
   registries. 2026.2 still reserves the names at every depth.
+- Profile 2026.3 `log-entry-lead-word` no longer fails a root log without
+  entries. §10 requires a lead word on every entry, not that entries exist.
+  okf's `missing-log-date` and `empty-log-date` errors still reject such a
+  log before Profile validation runs. 2026.2 is unchanged.
 
 # 0.1.0
 

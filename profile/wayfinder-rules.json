@@ -1421,7 +1421,6 @@
         "schema": {
           "properties": {
             "entries": {
-              "minItems": 1,
               "items": {
                 "properties": {
                   "action": {
@@ -1442,12 +1441,12 @@
                 "action": "Creation"
               }
             ]
+          },
+          {
+            "entries": []
           }
         ],
         "invalid": [
-          {
-            "entries": []
-          },
           {
             "entries": [
               {

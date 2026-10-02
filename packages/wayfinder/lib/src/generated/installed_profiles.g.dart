@@ -2751,7 +2751,6 @@ const Map<(String, String), String> installedRuleCatalogs = {
         "schema": {
           "properties": {
             "entries": {
-              "minItems": 1,
               "items": {
                 "properties": {
                   "action": {
@@ -2772,12 +2771,12 @@ const Map<(String, String), String> installedRuleCatalogs = {
                 "action": "Creation"
               }
             ]
+          },
+          {
+            "entries": []
           }
         ],
         "invalid": [
-          {
-            "entries": []
-          },
           {
             "entries": [
               {
