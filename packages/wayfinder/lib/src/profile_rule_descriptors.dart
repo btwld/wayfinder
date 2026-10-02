@@ -37,9 +37,6 @@ final class ProfileRuleDescriptor {
   final String rule;
 }
 
-/// A descriptor whose rule reports findings: an error or advisory rule with
-/// the okf severity it reports at. A note rule has none, so [of] returns
-/// null for its descriptor and the rule reports summary entries instead.
 final class FindingDescriptor {
   const FindingDescriptor._(this.descriptor, this.severity);
 

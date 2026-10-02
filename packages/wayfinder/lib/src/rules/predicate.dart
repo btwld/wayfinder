@@ -59,16 +59,10 @@ final class JsonPredicate {
 
   final _Node _root;
 
-  /// The slot ids the schema reaches, directly or through the defs it
-  /// reaches.
   final Set<String> slots;
 
-  /// The names of the defs the schema reaches.
   final Set<String> defs;
 
-  /// The property names the schema constrains on the instance it is given,
-  /// through `properties` and `required` outside any descent into the
-  /// instance and outside defs.
   final Set<String> rootNames;
 
   bool test(Object? instance) => _root.test(instance);

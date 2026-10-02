@@ -7,19 +7,14 @@ import 'body.dart';
 import 'profile.dart';
 import 'registries.dart';
 
-/// The shape of one fact of a closed subject kind, so a catalog naming a
-/// fact in a way the engine never produces is rejected at load.
 sealed class FactShape {
   const FactShape();
 }
 
-/// One JSON value.
 final class ScalarFact extends FactShape {
   const ScalarFact();
 }
 
-/// A list whose elements are objects with exactly [fields]; a list of
-/// scalars has the one field `value`, which is how a rule sees each one.
 final class ListFact extends FactShape {
   const ListFact(this.fields);
 
@@ -80,8 +75,6 @@ enum SubjectKind {
 
   const SubjectKind({required this.facts, this.locations = const {'self'}});
 
-  /// The facts every subject of this kind carries, or null for the open
-  /// `frontmatter` object, whose keys are the author's.
   final Map<String, FactShape>? facts;
 
   final Set<String> locations;
@@ -109,8 +102,6 @@ final class BundleFacts {
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
 
-  /// The 2026.2 dispatch parsed the registries once for its vocabulary and
-  /// shares them here; a profile built without that dispatch parses them.
   late final LegacyRegistries registries =
       profile.legacy?.registries ?? LegacyRegistries(loaded);
 
@@ -119,9 +110,6 @@ final class BundleFacts {
       path: ParsedBody(document.body),
   };
 
-  /// okf's graph and the Profile's relationship edges, resolved together,
-  /// or the error that stopped them. Link facts are then absent, so no link
-  /// rule passes for lack of them, and `link-graph-unavailable` reports.
   late final ({LinkFacts? links, Object? error}) _links = () {
     try {
       return (links: LinkFacts(loaded.bundle, _buildGraph), error: null);
@@ -294,14 +282,8 @@ final class LinkFacts {
 
   final OkfGraph graph;
 
-  /// Each concept's facts by document path: okf's edges, the relationships
-  /// it declares, and the relationships declared on it.
   final edges = <String, List<Map<String, Object?>>>{};
 
-  /// One element per authored entry, the entry under `entry` with the
-  /// resolution of its `resource` beside it when okf drew an edge. A
-  /// `relationships` value that is not a list stays the authored value, so a
-  /// rule over the elements sees it as one value and decides.
   final relationships = <String, Object?>{};
   final inbound = <String, List<Map<String, Object?>>>{};
 }

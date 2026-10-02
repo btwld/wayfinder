@@ -69,8 +69,6 @@ final class EffectiveProfile {
 
   final String? configPath;
 
-  /// What the 2026.2 dispatch read from the bundle: the profile.md
-  /// declaration and the registries its vocabulary came from.
   final ({Map<String, String> declaration, LegacyRegistries registries})?
   legacy;
 }

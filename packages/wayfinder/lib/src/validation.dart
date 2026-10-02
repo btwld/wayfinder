@@ -426,11 +426,6 @@ final class ProfileValidator {
   }
 }
 
-/// Writes each of [files] whose bytes differ beneath [rootPath], in path
-/// order, stopping at the first failure. Each file is written to a temporary
-/// sibling and renamed into place, so a reader sees the old bytes or the new,
-/// never part of either. A symbolic link at any segment below [rootPath] is
-/// refused, so a write cannot leave the bundle.
 Future<ProfileFix> writeGeneratedFiles(
   String rootPath,
   Map<String, String> files,

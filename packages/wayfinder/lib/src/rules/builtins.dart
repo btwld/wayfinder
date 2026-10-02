@@ -48,17 +48,12 @@ final class Builtin {
 
   final BuiltinFix? fix;
 
-  /// What `params` must satisfy; by default, nothing may be passed.
   final Object? params;
 
-  /// The placeholder names a message may use: `failing` when a violation
-  /// lists failing values, and the fact names every violation carries.
   final Set<String> fills;
 
   final Set<String> messageIds;
 
-  /// The installed Profile release whose conventions this builtin encodes.
-  /// Only that release's installed catalog may name it.
   final String? release;
 }
 

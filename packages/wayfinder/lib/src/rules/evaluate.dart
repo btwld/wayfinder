@@ -131,7 +131,4 @@ String _render(
   });
 }
 
-/// A string reads as itself; any other value reads as compact JSON, so a
-/// failing mapping renders as it was authored rather than as Dart's
-/// `{key: value}`.
 String _show(Object? value) => value is String ? value : jsonEncode(value);

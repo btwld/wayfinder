@@ -19,11 +19,10 @@ final class ProfileFinding {
     this.profileRelease,
   }) : _descriptor = descriptor;
 
-  /// The rule that reported this finding: an error or advisory rule, since
-  /// a note rule has no [FindingDescriptor] and reports
-  /// [ProfileSummaryEntry]s instead.
   final FindingDescriptor _descriptor;
 
+  /// The rule that reported this finding: an error or advisory rule, since
+  /// a note rule reports [ProfileSummaryEntry]s instead.
   ProfileRuleDescriptor get descriptor => _descriptor.descriptor;
 
   final String message;

@@ -61,9 +61,6 @@ final class ParsedBody {
     ];
   }
 
-  /// Labels with a definition line anywhere in the source, fenced code
-  /// included: the reading Profile 2026.2 froze before [footnotes] stopped
-  /// counting an example definition inside a fence.
   late final Set<String> rawDefinitions = _definitions(source);
 
   static Set<String> _definitions(String text) => {
