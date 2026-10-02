@@ -508,7 +508,13 @@ final class WayfinderProfileResolver {
   Future<ProcessResult> _git(
     List<String> arguments, [
     Directory? workingDirectory,
-  ]) => Process.run('git', arguments, workingDirectory: workingDirectory?.path);
+  ]) => Process.run(
+    'git',
+    arguments,
+    workingDirectory: workingDirectory?.path,
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
+  );
 
   void _checkGit(ProcessResult result, String action) {
     if (result.exitCode != 0) {

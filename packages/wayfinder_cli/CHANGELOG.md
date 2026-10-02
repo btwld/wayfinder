@@ -1,5 +1,8 @@
 # Unreleased
 
+- `wayfinder get` decodes the Profile manifest and rule catalog that `git
+  show` prints as UTF-8, so a non-ASCII character such as `§` no longer
+  comes back as `Â§` on Windows.
 - `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
   such as a project type in use or an unresolved planned link, as summary
   entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
