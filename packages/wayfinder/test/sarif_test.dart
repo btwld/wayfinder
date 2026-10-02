@@ -27,9 +27,12 @@ void main() {
       ]);
       expect(run.exitCode, 0, reason: '${run.stdout}\n${run.stderr}'.trim());
     },
-    skip: _jsonschemaAvailable()
+    skip:
+        Platform.environment['WAYFINDER_REQUIRE_JSONSCHEMA'] == '1' ||
+            _jsonschemaAvailable()
         ? false
-        : 'python3 -m jsonschema is unavailable; CI installs it',
+        : 'python3 -m jsonschema is unavailable; set '
+              'WAYFINDER_REQUIRE_JSONSCHEMA=1 to fail instead',
   );
 
   test('each finding is a result with its rule, level and file', () async {

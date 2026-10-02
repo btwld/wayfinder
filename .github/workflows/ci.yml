@@ -39,7 +39,7 @@ jobs:
         working-directory: packages/wayfinder
       - run: dart analyze --fatal-infos
       # sarif_test.dart checks SARIF logs with python3 -m jsonschema and skips
-      # where that is missing, so one leg provides it.
+      # where that is missing, so one leg provides it and requires it.
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         uses: actions/setup-python@v6
         with:
@@ -48,6 +48,8 @@ jobs:
         run: python3 -m pip install jsonschema==4.23.0
       - run: dart test
         working-directory: packages/wayfinder
+        env:
+          WAYFINDER_REQUIRE_JSONSCHEMA: ${{ matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable' && '1' || '' }}
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings

@@ -6,5 +6,7 @@
 (SHA-256 `c3b4bb2d6093897483348925aaa73af03b3e3f4bd4ca38cef26dcb4212a2682e`).
 
 `sarif_test.dart` validates `wayfinder validate --output sarif` logs against it
-with `python3 -m jsonschema`. Tests stay offline, so replace this copy rather
-than fetching the schema at test time.
+with `python3 -m jsonschema`, and skips where that module is missing unless
+`WAYFINDER_REQUIRE_JSONSCHEMA=1`, which the CI leg that installs it sets.
+Tests stay offline, so replace this copy rather than fetching the schema at
+test time.
