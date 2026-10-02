@@ -304,21 +304,22 @@ row through Profile §6.1.1. Unresolved or ambiguous affiliation remains `unknow
 and MUST NOT produce a finding. Validation MUST leave durable-capture boundaries,
 type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
 metadata truth, actor identity and affiliation, missing material provenance,
-evidence for freshness, and semantic tag aliases to Profile Review. A registered
-project-specific type and missing `generated` produce advisories; missing
-`verified` produces no finding.
+evidence for freshness, and semantic tag aliases to Profile Review. Missing
+`generated` produces an advisory and missing `verified` produces no finding. A
+registered project-specific type produces a summary entry under 2026.3
+(Profile §5.2) and an advisory under 2026.2.
 
-For external boundaries under Profile 2026.3, validation MUST check the
-`relationships` frontmatter key of Profile §7.2 as a deterministic rule: a
-present value that is not a list, an entry that is not a mapping of exactly
-`relationship` and `resource`, an empty `resource`, and an undeclared
-relationship name are failures. It MUST resolve each `resource` exactly as the
-OKF graph resolves a link target, and report a non-bundle-relative internal
-target and an unresolved internal target only as advisories that do not affect
-the automated gate or exit status. Under Profile 2026.2 it instead checks the
-one-label/one-target `# Relationships` body shape and reports an additional
-label as an advisory. Under either release it MUST report a non-bundle-relative
-or unresolved internal link only as an advisory and preserve the unresolved
+For external boundaries under Profile 2026.3, validation MUST assess the
+shape and vocabulary requirements Profile §7.2 places on the `relationships`
+frontmatter key as deterministic rules. It MUST resolve each `resource`
+exactly as the OKF graph resolves a link target, and report a
+non-bundle-relative internal target as an advisory and an unresolved internal
+target as a summary entry (Profile §§7.2, 14.1). Under Profile 2026.2 it
+instead checks the one-label/one-target `# Relationships` body shape and
+reports an additional label as an advisory. A non-bundle-relative internal
+link is an advisory under either release; an unresolved internal link is a
+summary entry under 2026.3 and an advisory under 2026.2. Neither affects the
+automated gate or exit status, and validation MUST preserve the unresolved
 edge exposed by the OKF graph. It MUST NOT infer
 relationship meaning, lifecycle ownership, path conformance, whether a date is
 intrinsic identity, or whether an external citation can be repaired. The complete
@@ -503,7 +504,7 @@ producer-side constraints:
 | `type` | Required non-empty string; membership in the `types.md` registry | Membership in the selected Profile's standard types plus binding custom types |
 | `title`, `description` | Required non-empty strings | Unchanged |
 | `status` | Required string with `draft`, `stable`, or `deprecated` | Unchanged unless a future Profile release explicitly changes it |
-| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and checks literal duplication against the declared relationship names |
+| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and rejects at configuration a declared tag name that collides with another declared vocabulary (Profile §5.1) |
 | `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics; actor extraction and trust semantics remain separate | Keep upstream meanings; do not add Profile-specific fields for trust or freshness |
 | `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics | Keep upstream meanings and run the same checks after binding resolution |
 | `relationships` | Not a Profile key, so it fails like any producer-defined key; labelled links live in a `# Relationships` body section | The one key the release declares (Profile §7.2): a list of `relationship` and `resource` mappings, checked for shape, declared names, and target resolution |
@@ -797,9 +798,17 @@ catalog's descriptors in SARIF output.
 Revised in place before publication: Profile 2026.3 §9 now names the
 generator's `okf` release, so §§1 and 3 cite it there and keep only how a tool
 pins that release and detects drift from it, and §3.1 states that `--fix`
-never deletes a leftover index. Affected sections: §§1, 3, 3.1, and 9. Driver: a guide that pinned the release decided which index bytes
-conform, which is a bundle rule the Profile owns. Migration for
-implementations: none; the release and the checks are unchanged.
+never deletes a leftover index. §4.3 reports a registered project type and an
+unresolved internal link or relationship target under 2026.3 as summary
+entries, as §4.1 and Profile §14.1 already did, and cites Profile §7.2 for the
+relationship shape instead of restating it; §4.8 states that a colliding tag
+declaration fails at configuration. Affected sections: §§1, 3, 3.1, 4.3, 4.8,
+and 9. Driver: a guide that pinned the release decided which index bytes
+conform, which is a bundle rule the Profile owns; §§4.3 and 4.8 still
+described the advisories and per-concept tag check that the summary-entry
+revision replaced.
+Migration for implementations: none; the release and the checks are
+unchanged.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC
