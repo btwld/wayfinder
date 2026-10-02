@@ -7,6 +7,8 @@ import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/profile_resolver.dart';
 
+import 'support.dart';
+
 final _bitwild = ProfileId.parse('bitwild-profile');
 final _client = ProfileId.parse('client-profile');
 
@@ -25,12 +27,7 @@ void main() {
     await _git(source.path, ['init', '-q']);
     await _git(source.path, ['config', 'user.email', 'test@example.test']);
     await _git(source.path, ['config', 'user.name', 'Wayfinder Test']);
-    await Directory(
-      p.join(source.path, 'profiles', 'bitwild'),
-    ).create(recursive: true);
-    await File('../../profiles/bitwild/wayfinder-profile.json').copy(
-      p.join(source.path, 'profiles', 'bitwild', 'wayfinder-profile.json'),
-    );
+    await copyBitwildPackage(source.path);
     await _git(source.path, ['add', '.']);
     await _git(source.path, ['commit', '-q', '-m', 'Profile']);
     await _git(source.path, ['tag', 'v2026.3']);
@@ -289,12 +286,7 @@ void main() {
       ).readAsString();
       await data.delete(recursive: true);
       await source.delete(recursive: true);
-      await Directory(
-        p.join(source.path, 'profiles', 'bitwild'),
-      ).create(recursive: true);
-      await File('../../profiles/bitwild/wayfinder-profile.json').copy(
-        p.join(source.path, 'profiles', 'bitwild', 'wayfinder-profile.json'),
-      );
+      await copyBitwildPackage(source.path);
       await _git(source.path, ['init', '-q', '-b', branch]);
       await _git(source.path, ['config', 'user.email', 'test@example.test']);
       await _git(source.path, ['config', 'user.name', 'Wayfinder Test']);

@@ -15,13 +15,14 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from bitwild_example import (EXAMPLE, ROOT, bind_project, cli_json,
-                             get_and_validate, synthetic_source)
+from bitwild_example import (BITWILD, EXAMPLE, ROOT, bind_project,
+                             check_skill, cli_json, get_and_validate,
+                             skill_dirs, synthetic_source)
 
 WAYFINDER = ["dart", "run", "wayfinder_cli:wayfinder"]
 INDEPENDENT = ROOT / "examples/acme-notes"
-SKILL_PATH = "examples/profiles/two-rule/skill"
-SKILL_DIRS = [".claude/skills/acme-notes", ".agents/skills/acme-notes"]
+PACKAGE = "examples/profiles/two-rule"
+SKILL_DIRS = skill_dirs("acme-notes")
 CHILD_PATH = "examples/profiles/two-rule-child"
 
 
@@ -39,33 +40,12 @@ def lock(project: Path) -> dict:
     return json.loads((project / "wayfinder.lock").read_text())
 
 
-def git_show(source: Path, *args: str) -> bytes:
-    return subprocess.run(["git", *args], cwd=source, check=True,
-                          capture_output=True).stdout
-
-
 def written(project: Path) -> dict:
     """Every path `get` writes, with its modification time."""
     paths = [project / "wayfinder.lock"]
     for directory in SKILL_DIRS:
         paths += [project / directory, *(project / directory).rglob("*")]
     return {str(path): path.stat().st_mtime_ns for path in paths}
-
-
-def check_skill(project: Path, source: Path, commit: str) -> None:
-    names = git_show(source, "ls-tree", "-r", "-z", "--name-only",
-                     f"{commit}:{SKILL_PATH}").decode().strip("\0").split("\0")
-    assert "SKILL.md" in names, names
-    expected = {name: git_show(source, "show", f"{commit}:{SKILL_PATH}/{name}")
-                for name in names}
-    assert expected["SKILL.md"].startswith(b"---\nname: acme-notes\n"), expected
-    marker = {"id": "acme-notes", "release": "1.0", "commit": commit}
-    for directory in SKILL_DIRS:
-        root = project / directory
-        files = {path.relative_to(root).as_posix(): path.read_bytes()
-                 for path in root.rglob("*") if path.is_file()}
-        assert json.loads(files.pop(".wayfinder-profile")) == marker, directory
-        assert files == expected, (directory, sorted(files), sorted(expected))
 
 
 def check_independent(work: Path, source: Path, commit: str) -> None:
@@ -76,7 +56,7 @@ def check_independent(work: Path, source: Path, commit: str) -> None:
         {"id": "acme-notes", "release": "1.0", "commit": commit}], result
     assert result["diagnostics"] == [], result
     assert list(lock(project)["packages"]) == ["acme-notes"], lock(project)
-    check_skill(project, source, commit)
+    check_skill(project, source, commit, PACKAGE, "acme-notes", "1.0")
 
     before = written(project)
     again = wayfinder("get", str(project), "--output=json")
@@ -95,7 +75,7 @@ def check_independent(work: Path, source: Path, commit: str) -> None:
                    f"locked commit {commit}. Run wayfinder get.",
         "location": {"path": "wayfinder.json"}}], stale
     assert wayfinder("get", str(project)).returncode == 0
-    check_skill(project, source, commit)
+    check_skill(project, source, commit, PACKAGE, "acme-notes", "1.0")
     assert validate(project)[1]["diagnostics"] == []
 
     runbook = project / "knowledge/operations/restart-the-api.md"
@@ -149,7 +129,7 @@ def main() -> None:
         work = Path(tmp)
         os.environ["WAYFINDER_DATA_DIR"] = str(work / "data")
         source, commit = synthetic_source(
-            work, ["profiles/bitwild/wayfinder-profile.json", "examples/profiles"])
+            work, [BITWILD, "examples/profiles"])
         check_independent(work, source, commit)
         check_child(work, source, commit)
     print("Independent Profile and same-revision child: get, validate, lock, skill pass")

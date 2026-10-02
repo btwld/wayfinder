@@ -8,6 +8,7 @@
     "release": "0.2"
   },
   "docs": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md",
+  "skill": "skill",
   "types": [
     {
       "name": "Glossary Definition",

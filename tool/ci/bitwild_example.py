@@ -15,6 +15,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / "examples/bitwild"
+BITWILD = "profiles/bitwild"
+SKILL_ROOTS = [".claude/skills", ".agents/skills"]
+MARKER = ".wayfinder-profile"
 
 
 def _git(*args: str, cwd: Path) -> str:
@@ -59,9 +62,35 @@ def bind_project(example: Path, work: Path, source: Path, commit: str,
 
 def prepare(work: Path) -> Path:
     """Returns the copied project under [work], its source a local repository."""
-    source, commit = synthetic_source(
-        work, ["profiles/bitwild/wayfinder-profile.json"])
+    source, commit = synthetic_source(work, [BITWILD])
     return bind_project(EXAMPLE, work, source, commit)
+
+
+def skill_dirs(profile_id: str) -> list:
+    return [f"{root}/{profile_id}" for root in SKILL_ROOTS]
+
+
+def check_skill(project: Path, source: Path, commit: str, package: str,
+                profile_id: str, release: str) -> None:
+    """Asserts that each of [project]'s installed skill directories for
+    [profile_id] holds exactly the package's `skill/` at [commit] of
+    [source], plus the marker naming that revision."""
+    tree = f"{commit}:{package}/skill"
+    names = _git("ls-tree", "-r", "-z", "--name-only", tree,
+                 cwd=source).strip("\0").split("\0")
+    assert "SKILL.md" in names, names
+    expected = {name: subprocess.run(
+        ["git", "show", f"{tree}/{name}"], cwd=source, check=True,
+        capture_output=True).stdout for name in names}
+    assert expected["SKILL.md"].startswith(
+        f"---\nname: {profile_id}\n".encode()), expected["SKILL.md"][:80]
+    marker = {"id": profile_id, "release": release, "commit": commit}
+    for directory in skill_dirs(profile_id):
+        root = project / directory
+        files = {path.relative_to(root).as_posix(): path.read_bytes()
+                 for path in root.rglob("*") if path.is_file()}
+        assert json.loads(files.pop(MARKER)) == marker, directory
+        assert files == expected, (directory, sorted(files), sorted(expected))
 
 
 def cli_json(output: str) -> dict:

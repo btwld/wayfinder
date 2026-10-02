@@ -59,17 +59,22 @@ they answer different questions and neither replaces the other.
 
 ## Changing skills
 
-Concept mechanics live in `author-knowledge-bundle`; other skills delegate to it.
-Shared authoring rules belong once in its `references/`. The literal root-file
-templates in `adopt-knowledge-bundle/SEEDING.md` necessarily repeat their content;
-keep them aligned. Adoption's agent instructions should route to the authoring
-skill rather than duplicate its rule explanations.
+Two kinds of skill live here. The generic family under `skills/` knows OKF
+and the `wayfinder` CLI and no particular Profile. Each Profile's judgment
+lives in that Profile's own skill, in its package's `skill/` directory, and
+`wayfinder get` installs it into consuming projects. `create-profile` writes
+and revises Profile skills from the author's answers to its questions.
 
-When a Profile rule changes, search all skills for the old wording, starting with
-the seed templates. A skill can produce valid files while teaching a withdrawn
-rule, which a validator cannot detect. Consumers install the `wayfinder`
-plugin or copy/symlink the skill family; an older copy keeps the release it
-shipped with, and a 2026.2 bundle validates on wayfinder 0.1.x.
+Keep the generic family Profile-agnostic. A convention one Profile chooses
+belongs in that Profile's skill, never in `skills/`. Concept mechanics live in
+`author-knowledge-bundle`, which loads the skill of each Profile in a bundle's
+chain; the other generic skills delegate to it.
+
+When a Profile rule changes, search that Profile's skill for the old wording,
+starting with its adoption seed. A skill can produce valid files while
+teaching a withdrawn rule, which a validator cannot detect. Consumers install
+the generic family as the `wayfinder` plugin or a copy of `skills/`; Profile
+skills arrive pinned to each project's lock.
 
 ## Completing work
 

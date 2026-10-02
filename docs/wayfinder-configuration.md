@@ -460,8 +460,9 @@ Bitwild exactly as it treats any other package. The Bitwild package is
 `bitwild-profile`, release `2026.3`, bound to OKF `0.2`, with twelve types, no
 tags, eleven relationship names, and the `relationships` frontmatter key. Its
 [`README.md`](../profiles/bitwild/README.md) holds one heading per rule id, so
-each finding's help link lands on its rule. The Profile also ships normative
-text and contextual review guidance beside the package.
+each finding's help link lands on its rule. Its
+[skill](../profiles/bitwild/skill/SKILL.md) carries the judgment its rules
+cannot check, including the review map Profile Review uses.
 
 A committed `wayfinder.json` shares the Profile source reference, application
 paths, and project vocabulary. The lock shares the resolved commit. Neither

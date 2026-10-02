@@ -15,6 +15,8 @@ import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/profile_resolver.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   test('rejects missing and non-directory roots before serving', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-root-');
@@ -45,12 +47,7 @@ void main() {
           await entity.copy(p.join(root.path, p.basename(entity.path)));
         }
       }
-      await Directory(
-        p.join(source.path, 'profiles', 'bitwild'),
-      ).create(recursive: true);
-      await File('../../profiles/bitwild/wayfinder-profile.json').copy(
-        p.join(source.path, 'profiles', 'bitwild', 'wayfinder-profile.json'),
-      );
+      await copyBitwildPackage(source.path);
       Future<void> git(List<String> arguments) async {
         final result = await Process.run(
           'git',

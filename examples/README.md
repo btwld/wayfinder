@@ -30,6 +30,12 @@ the project to a temporary directory, resolves a synthetic local Git source,
 checks the gate, confirms that `--fix` writes nothing, and confirms that generic
 graph reading needs no lock.
 
+`get` also installs the Bitwild skill, from
+[`profiles/bitwild/skill/`](../profiles/bitwild/skill/SKILL.md), into
+`.claude/skills/bitwild-profile/` and `.agents/skills/bitwild-profile/`. A real
+project commits those directories with its lock; this example has no lock, so
+it commits neither.
+
 [`acme-notes/`](acme-notes/) is a project that uses
 [`profiles/two-rule/`](profiles/two-rule/), a Profile with two rules and no
 parent. Its lock holds that one package; nothing in it depends on Bitwild.

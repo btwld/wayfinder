@@ -196,6 +196,7 @@ Once a repository is set up, the skill family covers the bundle's whole lifecycl
 | `adopt-knowledge-bundle` | user-invoked | Seeds the bundle and points agents at it (step 2 above) |
 | `assess-knowledge-bundle` | user-invoked | Deliberate whole-bundle assessment, emitting the Profile Review Report |
 | `use-wayfinder` | model-invoked | Searches, indexes and validates the bundle with Wayfinder. Agents reach it when a question may be answered by recorded knowledge, and answer from verified, cited passages |
+| `create-profile` | user-invoked | Creates or revises a Profile package: interviews its author, writes rules with tests and the Profile's skill, and proves both |
 
 You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
 authoring mechanics are loaded before a bundle write and contextual rules are loaded for

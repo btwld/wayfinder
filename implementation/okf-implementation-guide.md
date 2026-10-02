@@ -52,8 +52,9 @@ files, and one agent-instruction paragraph, in this order:
    commit the resulting metadata-only `wayfinder.lock`. Add only project-specific type, tag, and
    actor definitions that actual knowledge uses.
 2. **Seed the bundle.** Create `index.md` carrying `okf_version: "0.2"` and
-   `log.md` under `knowledge/`. The adoption skill's `SEEDING.md` carries the
-   literal template. Once the bundle holds concepts, `wayfinder validate --fix` writes every index (§3.1).
+   `log.md` under `knowledge/`. The Profile skill's adoption reference
+   carries the literal templates, and the adoption skill's `SEEDING.md`
+   carries OKF's for a Profile without one. Once the bundle holds concepts, `wayfinder validate --fix` writes every index (§3.1).
 3. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the
    equivalent) MUST say that durable documentation lives in the bundle, that
    the reader starts at `knowledge/index.md`, and that execution records stay

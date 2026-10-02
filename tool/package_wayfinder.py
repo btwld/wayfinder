@@ -22,7 +22,7 @@ if bundle == archive or bundle in archive.parents:
     parser.error('Archive must be outside the bundle')
 skills = [f'skills/{name}/SKILL.md' for name in [
     'adopt-knowledge-bundle', 'assess-knowledge-bundle',
-    'author-knowledge-bundle', 'use-wayfinder']]
+    'author-knowledge-bundle', 'create-profile', 'use-wayfinder']]
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
              'licenses/objectbox/NOTICE', 'licenses/wayfinder/LICENSE',
              'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:

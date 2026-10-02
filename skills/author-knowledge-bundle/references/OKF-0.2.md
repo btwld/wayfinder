@@ -1,16 +1,16 @@
 <!--
-Vendored reference — not Concepta content.
+Vendored reference, not wayfinder content.
 
   Open Knowledge Format (OKF) 0.2 specification, verbatim.
   Source:  https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md
   Pin:     ad30107c31c06aec8a7d5636e0d1058118604e6f (2026-08-21)
   License: Apache-2.0, (c) Google LLC.
 
-Pinned because Concepta OKF Profile 2026.2 binds to exactly OKF 0.2.
+Pinned because the okf package wayfinder validates with reads OKF 0.2.
 The canonical repository is open-knowledge-format; the same text is mirrored at
 knowledge-catalog 62432a0954, the commit the okf package names.
 Upstream stays authoritative for the record;
-refresh this file only when a new profile release adopts a new OKF version.
+refresh this file only when wayfinder adopts a new OKF version.
 Everything below this comment is upstream text, unmodified.
 -->
 
