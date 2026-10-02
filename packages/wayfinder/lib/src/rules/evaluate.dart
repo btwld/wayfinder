@@ -31,24 +31,25 @@ void _evaluate(
   List<ProfileSummaryEntry> summary,
 ) {
   void report(String message, String path) {
-    if (rule.descriptor.severity == RuleSeverity.note) {
-      summary.add(
-        ProfileSummaryEntry(
-          descriptor: rule.descriptor,
-          message: message,
-          path: path,
-          profileRelease: release,
-        ),
-      );
-    } else {
-      findings.add(
-        ProfileFinding(
-          descriptor: rule.descriptor,
-          message: message,
-          path: path,
-          profileRelease: release,
-        ),
-      );
+    switch (FindingDescriptor.of(rule.descriptor)) {
+      case null:
+        summary.add(
+          ProfileSummaryEntry(
+            descriptor: rule.descriptor,
+            message: message,
+            path: path,
+            profileRelease: release,
+          ),
+        );
+      case final descriptor:
+        findings.add(
+          ProfileFinding(
+            descriptor: descriptor,
+            message: message,
+            path: path,
+            profileRelease: release,
+          ),
+        );
     }
   }
 

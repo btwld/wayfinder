@@ -55,8 +55,7 @@ Iterable<Violation> configuredTypeExtension(
   }
 }
 
-Vocabulary legacyRegistryVocabulary(OkfBundleLoadResult loaded) {
-  final registries = LegacyRegistries(loaded);
+Vocabulary legacyRegistryVocabulary(LegacyRegistries registries) {
   final types = registries.types.rows;
   return Vocabulary(
     standardTypes: legacyStandardTypes.map((row) => row.$1).toList(),

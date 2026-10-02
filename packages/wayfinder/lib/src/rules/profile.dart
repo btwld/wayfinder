@@ -1,6 +1,7 @@
 import 'package:okf/okf.dart';
 
 import 'catalog.dart';
+import 'registries.dart';
 
 enum Slot {
   okfFrontmatterKeys('okf.frontmatterKeys'),
@@ -49,7 +50,7 @@ final class EffectiveProfile {
     this.catalogs,
     this.vocabulary, {
     this.configPath,
-    this.declaration,
+    this.legacy,
   });
 
   final List<RuleCatalog> catalogs;
@@ -68,5 +69,8 @@ final class EffectiveProfile {
 
   final String? configPath;
 
-  final Map<String, String>? declaration;
+  /// What the 2026.2 dispatch read from the bundle: the profile.md
+  /// declaration and the registries its vocabulary came from.
+  final ({Map<String, String> declaration, LegacyRegistries registries})?
+  legacy;
 }

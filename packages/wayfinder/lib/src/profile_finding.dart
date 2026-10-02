@@ -13,15 +13,18 @@ import 'profile_rule_descriptors.dart';
 /// §4.2 requires every Profile finding to name them.
 final class ProfileFinding {
   const ProfileFinding({
-    required this.descriptor,
+    required FindingDescriptor descriptor,
     required this.message,
     required this.path,
     this.profileRelease,
-  });
+  }) : _descriptor = descriptor;
 
   /// The rule that reported this finding: an error or advisory rule, since
-  /// a note rule reports [ProfileSummaryEntry]s instead.
-  final ProfileRuleDescriptor descriptor;
+  /// a note rule has no [FindingDescriptor] and reports
+  /// [ProfileSummaryEntry]s instead.
+  final FindingDescriptor _descriptor;
+
+  ProfileRuleDescriptor get descriptor => _descriptor.descriptor;
 
   final String message;
 
@@ -34,7 +37,7 @@ final class ProfileFinding {
   final String? profileRelease;
 
   String get id => descriptor.id;
-  OkfFindingSeverity get severity => descriptor.severity.finding!;
+  OkfFindingSeverity get severity => _descriptor.severity;
   String get rule => descriptor.rule;
 
   OkfFindingLocation get _location => OkfFindingLocation(path: path);

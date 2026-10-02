@@ -12,7 +12,7 @@ Iterable<Violation> declaredOkfBinding(
   Map<String, Object?> params,
 ) sync* {
   final root = facts.of(SubjectKind.root).single;
-  if (facts.profile.declaration?['okf_version'] != supportedOkfRelease ||
+  if (facts.profile.legacy?.declaration['okf_version'] != supportedOkfRelease ||
       root.facts['okf_version'] != supportedOkfRelease) {
     yield const Violation('profile.md');
   }

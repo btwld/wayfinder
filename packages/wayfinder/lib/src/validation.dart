@@ -15,6 +15,7 @@ import 'rules/catalog.dart';
 import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
+import 'rules/registries.dart';
 import 'wayfinder_config.dart';
 
 enum OkfState {
@@ -340,10 +341,11 @@ final class ProfileValidator {
           fix: unassessed,
         );
       }
+      final registries = LegacyRegistries(loaded);
       profile = EffectiveProfile(
         [RuleCatalog.installed(builtinProfileId, release)],
-        legacyRegistryVocabulary(loaded),
-        declaration: values,
+        legacyRegistryVocabulary(registries),
+        legacy: (declaration: values, registries: registries),
       );
     }
     if (!fix) {

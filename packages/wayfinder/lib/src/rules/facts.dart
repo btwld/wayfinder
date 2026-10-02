@@ -109,7 +109,10 @@ final class BundleFacts {
 
   late final BundleInventory inventory = BundleInventory(loaded.paths);
 
-  late final LegacyRegistries registries = LegacyRegistries(loaded);
+  /// The 2026.2 dispatch parsed the registries once for its vocabulary and
+  /// shares them here; a profile built without that dispatch parses them.
+  late final LegacyRegistries registries =
+      profile.legacy?.registries ?? LegacyRegistries(loaded);
 
   late final Map<String, ParsedBody> bodies = {
     for (final MapEntry(key: path, value: document) in loaded.documents.entries)

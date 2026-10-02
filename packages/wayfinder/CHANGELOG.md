@@ -1,5 +1,10 @@
 # Unreleased
 
+- The 2026.2 dispatch parses `types.md` and `actors.md` once and shares
+  them with the engine through `EffectiveProfile.legacy`, which replaces
+  `declaration`. `ProfileFinding` takes a `FindingDescriptor`, which only
+  an error or advisory descriptor can become, so a note rule has no path
+  to a finding.
 - `RuleCatalog.parse` rejects more at load: a rule whose own examples
   disagree with its schema; `each` over a fact that is not a list;
   `failing_field` that is not an element field; a `properties` or

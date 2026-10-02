@@ -37,33 +37,52 @@ final class ProfileRuleDescriptor {
   final String rule;
 }
 
+/// A descriptor whose rule reports findings: an error or advisory rule with
+/// the okf severity it reports at. A note rule has none, so [of] returns
+/// null for its descriptor and the rule reports summary entries instead.
+final class FindingDescriptor {
+  const FindingDescriptor._(this.descriptor, this.severity);
+
+  static FindingDescriptor? of(ProfileRuleDescriptor descriptor) =>
+      switch (descriptor.severity.finding) {
+        null => null,
+        final severity => FindingDescriptor._(descriptor, severity),
+      };
+
+  final ProfileRuleDescriptor descriptor;
+  final OkfFindingSeverity severity;
+}
+
 abstract final class DispatchRule {
-  static const profileDeclarationPresent = ProfileRuleDescriptor.error(
-    'profile-declaration-present',
-    '§11',
+  static const profileDeclarationPresent = FindingDescriptor._(
+    ProfileRuleDescriptor.error('profile-declaration-present', '§11'),
+    OkfFindingSeverity.error,
   );
-  static const profileDeclarationReadable = ProfileRuleDescriptor.error(
-    'profile-declaration-readable',
-    '§11',
+  static const profileDeclarationReadable = FindingDescriptor._(
+    ProfileRuleDescriptor.error('profile-declaration-readable', '§11'),
+    OkfFindingSeverity.error,
   );
-  static const profileDeclarationFields = ProfileRuleDescriptor.error(
-    'profile-declaration-fields',
-    '§11',
+  static const profileDeclarationFields = FindingDescriptor._(
+    ProfileRuleDescriptor.error('profile-declaration-fields', '§11'),
+    OkfFindingSeverity.error,
   );
-  static const configurationReadable = ProfileRuleDescriptor.error(
-    'configuration-readable',
-    '§11',
+  static const configurationReadable = FindingDescriptor._(
+    ProfileRuleDescriptor.error('configuration-readable', '§11'),
+    OkfFindingSeverity.error,
   );
-  static const configurationBundleBinding = ProfileRuleDescriptor.error(
-    'configuration-bundle-binding',
-    '§11',
+  static const configurationBundleBinding = FindingDescriptor._(
+    ProfileRuleDescriptor.error('configuration-bundle-binding', '§11'),
+    OkfFindingSeverity.error,
   );
 
-  static const all = <ProfileRuleDescriptor>[
-    profileDeclarationPresent,
-    profileDeclarationReadable,
-    profileDeclarationFields,
-    configurationReadable,
-    configurationBundleBinding,
+  static final all = <ProfileRuleDescriptor>[
+    for (final rule in [
+      profileDeclarationPresent,
+      profileDeclarationReadable,
+      profileDeclarationFields,
+      configurationReadable,
+      configurationBundleBinding,
+    ])
+      rule.descriptor,
   ];
 }
