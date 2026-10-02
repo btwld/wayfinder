@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "foundation": {
+    "repository": "btwld/wayfinder",
+    "profile_commit": "d3e3dc59bb87ab72925043c571e5a855886f0e30",
+    "profile_release": "2026.3",
+    "okf_version": "0.2"
+  },
+  "policy": {
+    "execute_upstream_code": false,
+    "follow_resources_links": false,
+    "mirror_sources_by_default": false
+  },
+  "sources": [
+    {
+      "id": "dart-skills",
+      "repository": "https://github.com/dart-lang/skills.git",
+      "ref": "main",
+      "adapter": "skills",
+      "paths": [
+        "resources/dart_skills.yaml",
+        "skills/dart-add-unit-test/SKILL.md"
+      ],
+      "license_evidence": "https://github.com/dart-lang/skills/blob/0d9f1c4a0ae29d6f5180bf6143d7997ec3bacf49/LICENSE"
+    },
+    {
+      "id": "flutter-skills",
+      "repository": "https://github.com/flutter/agent-plugins.git",
+      "ref": "main",
+      "adapter": "skills",
+      "paths": [
+        "resources/flutter_skills.yaml",
+        "skills/flutter-add-widget-test/SKILL.md",
+        "skills/flutter-apply-architecture-best-practices/SKILL.md",
+        "skills/flutter-build-responsive-layout/SKILL.md",
+        "skills/flutter-fix-layout-issues/SKILL.md"
+      ],
+      "license_evidence": "https://github.com/flutter/agent-plugins/blob/8da8c54ecd740fded70f908ad9c46b72a1f21fb5/LICENSE"
+    },
+    {
+      "id": "flutter-docs",
+      "repository": "https://github.com/flutter/website.git",
+      "ref": "main",
+      "adapter": "documentation",
+      "paths": [
+        "sites/docs/src/content/resources/architectural-overview.md",
+        "sites/docs/src/content/resources/inside-flutter.md",
+        "sites/docs/src/content/app-architecture/concepts.md",
+        "sites/docs/src/data/glossary.yml",
+        "sites/docs/src/content/release/release-notes/release-notes-3.35.0.md",
+        "sites/docs/src/content/release/breaking-changes/default-systemuimode-edge-to-edge.md"
+      ],
+      "license_evidence": "https://github.com/flutter/website/blob/ab59c614e780e2d6d44f07ae4a96238028f581a5/LICENSE"
+    }
+  ]
+}

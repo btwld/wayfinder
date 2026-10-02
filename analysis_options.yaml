@@ -1,3 +1,7 @@
 analyzer:
   exclude:
     - tool/release/**
+    # The importer is a standalone package with its own package config. Keep
+    # its tests out of the workspace analysis; CI analyzes and tests it in its
+    # package directory below.
+    - tool/knowledge_import/**
