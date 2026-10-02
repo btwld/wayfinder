@@ -200,6 +200,43 @@ class WayfinderCli {
       if (name == 'search') {
         command
           ..addOption('bundle', help: 'Search only this project bundle name.')
+          ..addMultiOption(
+            'tag',
+            splitCommas: true,
+            help: 'Match any exact tag (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'require-tag',
+            splitCommas: true,
+            help:
+                'Require every specified tag (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'type',
+            splitCommas: true,
+            help:
+                'Match any exact concept type (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'status',
+            splitCommas: true,
+            help:
+                'Match any exact status; absent status is stable (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'path-prefix',
+            splitCommas: true,
+            help:
+                'Match any concept path prefix (comma-separated or repeatable).',
+          )
+          ..addOption(
+            'title-contains',
+            help: 'Literal case-insensitive title substring.',
+          )
+          ..addOption(
+            'description-contains',
+            help: 'Literal case-insensitive description substring.',
+          )
           ..addOption(
             'limit',
             help: 'Maximum context passages (1–100; default 5).',
@@ -620,6 +657,20 @@ class WayfinderCli {
         'Use either an explicit bundle path or --bundle, not both.',
       );
     }
+    KnowledgeMetadataFilter filters;
+    try {
+      filters = KnowledgeMetadataFilter(
+        tags: command.multiOption('tag').toSet(),
+        requiredTags: command.multiOption('require-tag').toSet(),
+        types: command.multiOption('type').toSet(),
+        statuses: command.multiOption('status').toSet(),
+        pathPrefixes: command.multiOption('path-prefix').toSet(),
+        titleContains: command.option('title-contains'),
+        descriptionContains: command.option('description-contains'),
+      );
+    } on ArgumentError catch (error) {
+      throw WayfinderException(error.message.toString());
+    }
     final rawLimit = command.option('limit');
     final convertedLimit = rawLimit == null ? null : int.tryParse(rawLimit);
     if (rawLimit != null && convertedLimit == null) {
@@ -648,6 +699,7 @@ class WayfinderCli {
         bundles.map((bundle) => bundle.root).toList(),
         query,
         limit: limit,
+        filters: filters,
       );
       final result = ProjectSearchResult(bundles, responses, limit: limit);
       if (json) {
@@ -668,6 +720,7 @@ class WayfinderCli {
       command.rest.first,
       query,
       limit: limit,
+      filters: filters,
     );
     if (json) {
       _json(searchOutput(result));

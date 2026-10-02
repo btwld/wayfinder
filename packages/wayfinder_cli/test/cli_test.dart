@@ -546,6 +546,7 @@ class _SearchKnowledge extends WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
   }) async {
     limits.add(limit);
     return KnowledgeSearchResponse(matches: [], context: [], notices: []);
