@@ -14,9 +14,9 @@ import 'profile.dart';
   final slots = profile.slots;
   final findings = <ProfileFinding>[];
   final summary = <ProfileSummaryEntry>[];
-  for (final catalog in profile.catalogs) {
-    for (final rule in catalog.rules) {
-      _evaluate(rule, catalog.release, slots, facts, findings, summary);
+  for (final package in profile.chain) {
+    for (final rule in package.rules) {
+      _evaluate(rule, package.release, slots, facts, findings, summary);
     }
   }
   return (findings: findings, summary: summary);
@@ -55,7 +55,6 @@ void _evaluate(
 
   switch (rule.check) {
     case final SchemaCheck check:
-      if (!check.slots.every(slots.containsKey)) return;
       final predicate = check.compile(slots);
       for (final subject in facts.of(check.subject)) {
         final List<Object?> failing;
@@ -97,14 +96,12 @@ void _evaluate(
 
 Map<String, String>? fixes(EffectiveProfile profile, BundleFacts facts) {
   Map<String, String>? files;
-  for (final catalog in profile.catalogs) {
-    for (final rule in catalog.rules) {
-      if (rule.check case BuiltinCheck(
-        builtin: Builtin(:final fix?),
-        :final params,
-      )) {
-        (files ??= {}).addAll(fix(facts, params));
-      }
+  for (final rule in profile.rules) {
+    if (rule.check case BuiltinCheck(
+      builtin: Builtin(:final fix?),
+      :final params,
+    )) {
+      (files ??= {}).addAll(fix(facts, params));
     }
   }
   return files;

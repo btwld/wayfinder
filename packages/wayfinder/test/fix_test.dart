@@ -51,7 +51,7 @@ void main() {
     expect(result.fixed, isEmpty);
     expect(
       result.findings.map((finding) => finding.id),
-      isNot(contains('concepta-profile/index-current')),
+      isNot(contains('bitwild-profile/index-current')),
     );
     expect(await index.readAsString(), contains('\r\n'));
   });
@@ -74,7 +74,7 @@ void main() {
     expect(failure.message, contains('symbolic link'));
     expect(
       result.findings.map((f) => '${f.id} ${f.path}'),
-      contains('concepta-profile/index-current zone/index.md'),
+      contains('bitwild-profile/index-current zone/index.md'),
     );
     expect(result.gate, GateState.fail);
     expect(result.exitCode, 1);

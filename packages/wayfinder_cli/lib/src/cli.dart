@@ -184,8 +184,8 @@ class WayfinderCli {
             'fix',
             negatable: false,
             help:
-                'Write the indexes the selected Profile generates (2026.3), '
-                'then validate. Never writes when OKF fails.',
+                "Write the files the selected Profile's fixable rules "
+                'generate, then validate. Never writes when OKF fails.',
           );
       }
       if (name == 'index') {

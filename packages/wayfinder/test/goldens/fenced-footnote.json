@@ -10,14 +10,14 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/source-attribution-join",
+        "id": "bitwild-profile/source-attribution-join",
         "severity": "error",
         "message": "A recognized source-attribution reference must join to its footnote definition.",
         "location": {
           "path": "note.md"
         },
         "profile_release": "2026.3",
-        "rule": "§6.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-attribution-join"
       }
     ],
     "summary": []
@@ -25,5 +25,8 @@
   "diagnostics": [],
   "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

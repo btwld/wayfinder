@@ -9,7 +9,7 @@ Wayfinder uses two JSON documents with different responsibilities:
 - [`wayfinder.schema.json`](schemas/wayfinder.schema.json) describes the
   direct-source project configuration.
 - [`wayfinder-profile.schema.json`](schemas/wayfinder-profile.schema.json)
-  describes the manifest shipped with a Profile package.
+  describes a Profile package, the one file a Profile ships.
 
 ## The project file
 
@@ -21,11 +21,11 @@ folders use it:
 {
   "version": 1,
   "profiles": {
-    "bitwild_profile": {
+    "bitwild-profile": {
       "source": {
         "git": "https://github.com/btwld/wayfinder",
         "ref": "main",
-        "path": "profile"
+        "path": "profiles/bitwild"
       },
       "applies_to": ["./knowledge"],
       "tags": [
@@ -48,9 +48,10 @@ folders use it:
 The profile key is the identity. It replaces the old `knowledge_profile` alias;
 there is no second name to connect a Profile to a bundle. `source.git` names the
 repository, `source.ref` selects a branch, tag, or commit, and `source.path`
-is the Profile directory inside that revision. A ref has no `branch/`, `tag/`,
-or `commit/` prefix. The fetched manifest is authoritative for the Profile
-release and must report the same identity as the map key.
+is the directory inside that revision that holds the package file
+`wayfinder-profile.json`. A ref has no `branch/`, `tag/`, or `commit/` prefix.
+The fetched package is authoritative for the Profile release. Its `id` must
+equal the map key, so a key also follows the package id grammar.
 
 For a local Git source, a relative `source.git` path is resolved from the
 directory containing `wayfinder.json`, not the caller's working directory.
@@ -73,8 +74,8 @@ by `applies_to`.
 
 ## Project vocabulary
 
-A Profile package owns the standard types, normative rules, OKF compatibility,
-and review guidance. A project Profile entry may add local vocabulary alongside
+A Profile package owns its types, frontmatter keys, rules, OKF binding, and
+documentation. A project Profile entry may add local vocabulary alongside
 `source` and `applies_to`:
 
 - `types` adds project-specific type names and descriptions.
@@ -83,13 +84,12 @@ and review guidance. A project Profile entry may add local vocabulary alongside
   frontmatter key (Profile §7.2); its description is the name's one definition.
 - `actors` provides lookup metadata for actor IDs used by the project.
 
-The effective type, tag, and relationship registries are the Profile
-vocabulary plus these project additions. Names must be unique and must not
-collide with standard fields or Profile definitions. A tag name also must not
-equal a type or relationship name, an OKF status value, or a trust tier
-(Profile §5.1). Registry presence does
-not prove authorship, truth, or verification. A project entry adds vocabulary
-only: it cannot declare a frontmatter key, which only a Profile release does.
+The effective type, tag, and relationship registries are the vocabulary of
+every package in the chain plus these project additions. A project entry that
+repeats one of its own names is a configuration error, reported as
+`wayfinder/config-invalid`. Registry presence does not prove authorship,
+truth, or verification. A project entry adds vocabulary only. It cannot
+declare a frontmatter key or a rule, because only a package carries those.
 
 ## Profile inheritance
 
@@ -99,16 +99,16 @@ only: it cannot declare a frontmatter key, which only a Profile release does.
 {
   "version": 1,
   "profiles": {
-    "bitwild_profile": {
+    "bitwild-profile": {
       "source": {
         "git": "https://github.com/btwld/wayfinder",
         "ref": "main",
-        "path": "profile"
+        "path": "profiles/bitwild"
       },
       "applies_to": []
     },
-    "client_profile": {
-      "extends": "bitwild_profile",
+    "client-profile": {
+      "extends": "bitwild-profile",
       "source": {
         "git": "https://github.com/example/client-profile",
         "ref": "v1.0.0",
@@ -120,47 +120,158 @@ only: it cannot declare a frontmatter key, which only a Profile release does.
 }
 ```
 
-An extending Profile is identified by its own key and manifest. It inherits
-project types, tags, relationship names, and actors from its declared parent,
-then adds definitions from its own manifest and project entry. A child manifest
-lists only its new types, tags, and relationship names. The chain must reach `bitwild_profile/2026.3`, whose fetched
-vocabulary must exactly match the installed compiled validator. A child may
-add vocabulary and rules; it cannot replace a name or change an inherited
-rule. Missing parents, cycles, collisions, and unsupported releases are errors.
+An extending Profile is identified by its own key and package. It inherits
+everything its parent's package declares and everything its parent's project
+entry adds, including actors, then adds the definitions of its own package and
+project entry. A child package lists only what it adds. It cannot replace a
+name or change an inherited rule. Missing parents and cycles are
+configuration errors.
 
-## Profile rule catalogs
+There is no base Profile. A chain ends wherever its last `extends` ends, and a
+package with no parent stands alone. Bitwild is one package among others,
+fetched like any other, so a chain does not have to reach it. The engine
+evaluates whatever chain the configuration selects.
 
-A Profile's automated rules are its rule catalog, a JSON document in the shape
-of [`wayfinder-rules.schema.json`](schemas/wayfinder-rules.schema.json) that
-the installed `wayfinder` engine evaluates. The base Profile's catalog ships
-inside the binary. A child Profile's manifest may name its own catalog:
+The engine composes the chain and the project entries along it before it
+evaluates anything. Composition reads nothing but those inputs, so the same
+packages and entries always compose the same way. It enforces these
+constraints:
+
+- A type, tag, or relationship name is unique across the chain and the
+  project entries along it, and so is an actor ID.
+- A frontmatter key is unique along the chain.
+- A tag never equals a type, an OKF status value, an OKF trust tier, or a
+  relationship name (Profile §5.1).
+
+Every package in a chain binds to the same OKF release because the engine
+reads one OKF release and refuses any other package when it parses it, before
+composition starts. A violation of the constraints above is a composition
+error. `get` reports it and fails, and
+`validate` reports it as `wayfinder/profile-composition` with the Profile
+`NOT ASSESSED`. Composition owns these checks because only the whole chain
+can show a collision between two packages.
+
+## Profile packages
+
+A Profile is one package file, `wayfinder-profile.json`, in the shape of
+[`wayfinder-profile.schema.json`](schemas/wayfinder-profile.schema.json). One
+file carries the identity, the vocabulary, and the rules, so they cannot
+drift apart within a revision. The Bitwild package is
+[`profiles/bitwild/wayfinder-profile.json`](../profiles/bitwild/wayfinder-profile.json).
+This minimal package shows the shape with two rules:
 
 ```json
 {
-  "id": "client_profile",
-  "release": "2026.3",
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 2,
+  "id": "client-profile",
+  "release": "1.0.0",
   "implements": {"id": "okf", "release": "0.2"},
-  "standard_types": [],
-  "rules": "wayfinder-rules.json"
+  "docs": "https://github.com/example/client-profile/blob/main/profile/README.md",
+  "types": [
+    {"name": "Runbook", "description": "Operational steps for one recurring task"}
+  ],
+  "rules": [
+    {
+      "id": "status-value",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept's `status` MUST be `draft`, `stable`, or `deprecated`.",
+      "message": "Status must be draft, stable, or deprecated.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "properties": {
+            "status": {"enum": ["draft", "stable", "deprecated"]}
+          }
+        }
+      },
+      "tests": {
+        "valid": [{"status": "draft"}, {}],
+        "invalid": [{"status": "final"}]
+      }
+    },
+    {
+      "id": "root-structure-files",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "A bundle MUST contain `index.md` and `log.md` at its root.",
+      "message": "The bundle root must contain index.md and log.md; missing {failing}.",
+      "check": {
+        "builtin": "files-present",
+        "params": {"paths": ["index.md", "log.md"]}
+      }
+    }
+  ]
 }
 ```
 
-The path is relative to the manifest's directory in the same revision. `get`
-reads the catalog at the commit it locks, and `validate` reads it from the
-local cache at that commit, so the lock needs no field for it. The catalog
-must declare the manifest's identity and release, reports in the namespace the
-identity names (`client_profile` reports `client-profile/<rule>`), and cannot
-declare frontmatter keys. Its rules only add findings. Every catalog in the
-chain is evaluated whole, so the base Profile's findings are the same with or
-without the child. The base `bitwild_profile` source must not name a catalog;
-the installed one is authoritative.
+The fields have these jobs:
 
-A catalog that names a subject, slot, builtin, or schema keyword this
-`wayfinder` does not support fails `get` with the reason, and a locked catalog
-that a newer release wrote makes `validate` report the Profile `NOT ASSESSED`,
-with that reason in the `wayfinder/profile-unresolved` diagnostic, beside the
-independent OKF result. A catalog is never partially
-applied. Upgrade `wayfinder` or correct the catalog.
+- `format` is the package format the engine reads, always `2` here. Engine
+  compatibility is this integer, never a Profile release.
+- `id` is the Profile identity in lowercase kebab-case. It is the finding
+  namespace (`client-profile/status-value`), the `wayfinder.json` key, and the
+  lock key. The names `okf`, `wayfinder`, `use-wayfinder`,
+  `author-knowledge-bundle`, `adopt-knowledge-bundle`,
+  `assess-knowledge-bundle`, and `create-profile` are reserved.
+- `release` is the Profile's own release name. The engine treats it as opaque
+  and reports it with each finding.
+- `implements` names the OKF release the Profile binds to. The engine refuses
+  a release its okf dependency cannot read.
+- `docs` is an optional absolute URI where the Profile explains its rules. A
+  finding's help link is that URI with the fragment set to the rule id, so each
+  rule id is expected to be a heading there.
+- `types`, `tags`, `relationships`, and `frontmatter_keys` are lists of
+  `{name, description}` definitions. Any package may declare frontmatter keys.
+  A key OKF already defines is an error.
+- `$defs` holds schemas a rule may reference, including the `x-slot` entries
+  that stand for the composed vocabulary.
+- `rules` holds the package's rules. A rule only adds findings.
+
+A rule's `check` is either a schema check or a builtin. A schema check names
+a `subject` and a JSON Schema in the engine's keyword subset. It may also
+name an `each` array fact, which runs the schema once per element. Its
+`tests` hold valid and invalid examples. The engine runs them when it parses
+the package, so a package whose examples disagree with its own check never
+loads. The root subject also exposes `has_concepts` and `index_links`, the
+root index's link targets in order, or null when the root index is absent or
+unreadable. Each target is resolved the way OKF resolves a link from the
+root: query and fragment are stripped, `.` segments and a leading `/` are
+folded, so `./log.md`, `/log.md` and `log.md#top` all read as `log.md`,
+while an external URL is kept as written.
+
+A builtin is an engine capability for a check a schema cannot express. Each
+builtin is named for what it checks and takes parameters, so one capability
+serves many rules:
+
+| Builtin | Params | Reports |
+| --- | --- | --- |
+| `files-present` | `paths`, a non-empty list of unique bundle-relative paths | one finding listing every missing path as `{failing}` |
+| `path-targets-exist` | `fields`, a non-empty unique subset of `resource`, `sources.resource`, `computation`, `executor.resource`, `attester.resource` | one finding per document and target whose path exists neither in the bundle nor on disk, as `{target}` |
+| `matches-generated` | `generator`, only `okf-index` today. `keep`, paths never reported as extra, default none. `extra`, `report` or `ignore`, default `report`. CRLF line endings on disk are read as LF, as the fix writes them. | a `stale` or `extra` message per `{path}`. `--fix` writes the generator's output. |
+
+The `okf-index` generator declares the package's `implements.release` in the
+indexes it writes. The JSON report names the okf version the engine generated
+with as `engine.okf`, and SARIF names it as a `tool.extensions` entry. A byte
+change in generated output therefore reads as an engine upgrade, not as a
+Profile change.
+
+The engine reads every package through one parser, Bitwild's included, and
+never applies a package it cannot evaluate in part. A package that cannot be
+read makes `get` fail with the reason. A package already locked makes
+`validate` report the Profile `NOT ASSESSED` beside the independent OKF result,
+with one of these diagnostics:
+
+- `wayfinder/profile-invalid` when a package is malformed. A schema
+  violation, a bad id, a repeated name, an OKF frontmatter key, or examples
+  that disagree with their check are all malformed.
+- `wayfinder/profile-unsupported` when a package is well-formed for another
+  engine. It may declare another `format`, an OKF release this okf cannot
+  read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
+- `wayfinder/profile-composition` when the chain does not compose.
 
 ## Sources and lockfile
 
@@ -171,11 +282,11 @@ applied. Upgrade `wayfinder` or correct the catalog.
   "lock_version": 1,
   "configuration_sha256": "<hash of canonical wayfinder.json>",
   "profiles": {
-    "bitwild_profile": {
+    "bitwild-profile": {
       "source": "https://github.com/btwld/wayfinder",
       "requested_ref": "main",
       "resolved_commit": "<commit>",
-      "path": "profile",
+      "path": "profiles/bitwild",
       "profile_release": "2026.3"
     }
   }
@@ -183,12 +294,13 @@ applied. Upgrade `wayfinder` or correct the catalog.
 ```
 
 The hash is computed from canonical JSON, so formatting-only edits do not
-invalidate the lock. A semantic change to `wayfinder.json` makes it stale. The
-lock stores dependency-resolution metadata only: it has no Profile rules,
-project vocabulary, knowledge content, credentials, or executable validator
-code; the locked commit identifies a source's manifest and catalog alike.
-Commit it with `wayfinder.json`; Git credentials stay outside the
-configuration and lock, and fetched objects remain in the local cache.
+invalidate the lock. A semantic change to `wayfinder.json` makes it stale.
+`profile_release` is the package's own `release`. The lock stores
+dependency-resolution metadata only. It has no Profile rules, project
+vocabulary, knowledge content, credentials, or executable validator code.
+The locked commit identifies the package. Commit the lock with
+`wayfinder.json`; Git credentials stay outside the configuration and lock,
+and fetched objects remain in the local cache.
 
 The command surface is deliberately small:
 
@@ -203,19 +315,20 @@ vocabulary changes, it updates the configuration hash while retaining a
 previously locked commit for an unchanged source. `upgrade` refreshes a mutable
 branch or tag and writes its new commit; a pinned commit does not move.
 
-`validate` reads only the selected Profile chain, manifests and catalogs,
-from a current lock and local cache. It never fetches or writes the lock. If
-either is missing or stale, it still reports the independent OKF result and a
-Profile-resolution finding. Run `get` to recover the exact locked commit or `upgrade` to
-deliberately select a new revision. Neither command silently substitutes a
-moved branch or tag for a locked commit. `graph`, `index`, and `search`
-do not use Profile sources or resolve the lock; they read each concept's
-`relationships` key directly, so a relationship name they show need not be
-declared.
+`validate` reads only the packages of the selected Profile chain from a
+current lock and local cache. It never fetches or writes the lock. If either
+is missing or stale, or a package is not readable at its locked commit, it
+still reports the independent OKF result and the
+`wayfinder/profile-unresolved` diagnostic. Run `get` to recover the exact
+locked commit or `upgrade` to deliberately select a new revision. Neither
+command silently substitutes a moved branch or tag for a locked commit.
+`graph`, `index`, and `search` do not use Profile sources or resolve the
+lock; they read each concept's `relationships` key directly, so a
+relationship name they show need not be declared.
 
 ## Tags and captures
 
-The Profile manifest's `tags` array defines stable reusable vocabulary. A
+A Profile package's `tags` array defines stable reusable vocabulary. A
 project entry extends that vocabulary for the bundles in `applies_to`:
 
 ```yaml
@@ -231,17 +344,15 @@ tag validation or Wayfinder search. If a project deliberately exposes
 captures as a searchable OKF bundle, add its path to the appropriate
 `applies_to` list and give it the Profile and vocabulary it needs.
 
-## Profile manifest and sharing
+## Profile packages and sharing
 
-A Profile manifest is distribution and compatibility metadata; the rules it
-may name are a catalog, data rather than code. The installed Bitwild manifest
-is [`profile/wayfinder-profile.json`](../profile/wayfinder-profile.json):
-`bitwild_profile/2026.3`, exactly compatible with OKF `0.2`, with twelve
-standard types, no base tags, and eleven standard relationship names. The
-validator embeds that manifest and its catalog and tests the fetched base
-manifest against them; it loads only the manifests and catalogs the selected
-chain names, each checked against its published schema.
-The Profile package also ships normative text and contextual review guidance.
+A package is data, never code. The engine embeds no Profile, so it treats
+Bitwild exactly as it treats any other package. The Bitwild package is
+`bitwild-profile`, release `2026.3`, bound to OKF `0.2`, with twelve types, no
+tags, eleven relationship names, and the `relationships` frontmatter key. Its
+[`README.md`](../profiles/bitwild/README.md) holds one heading per rule id, so
+each finding's help link lands on its rule. The Profile also ships normative
+text and contextual review guidance beside the package.
 
 A committed `wayfinder.json` shares the Profile source reference, application
 paths, and project vocabulary. The lock shares the resolved commit. Neither
@@ -259,20 +370,22 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    `NOT ASSESSED`.
 3. Parse the selected configuration, check safe `applies_to` paths, and read
    the selected chain from a current lock/cache without network or writes.
-4. Check manifest identity, exact Profile release, and OKF binding, and parse
-   each catalog the chain names.
-5. When OKF passed, merge standard and project vocabulary, then run every
-   catalog in the chain, base first. Contextual rules are left to Profile
+4. Parse each package in the chain, including its rule tests, then compose
+   the chain and the project entry. A package that fails reports
+   `profile-invalid` or `profile-unsupported`, and a chain that does not
+   compose reports `profile-composition`.
+5. When OKF passed, run the rules of every package in the chain against the
+   composed vocabulary, parent first. Contextual rules are left to Profile
    Review.
 6. Derive the gate. An OKF failure or an error finding fails it. Otherwise
-   any error diagnostic, such as a selection that failed in step 2 or 3,
+   any error diagnostic, such as a selection that failed in steps 2 to 4,
    makes it `INCOMPLETE`.
 
-Wayfinder checks `wayfinder.json` and each Profile manifest against the
-published schemas first and reports the first violation with its JSON pointer,
-for example `wayfinder.json is invalid at /profiles/client: has unknown
-property rules.` It then enforces the cross-document checks that a schema
-cannot prove, such as `extends` chains, overlapping bundle paths, whether a
+Wayfinder checks `wayfinder.json` and each package against the published
+schemas first and reports the first violation with its JSON pointer, for
+example `wayfinder.json is invalid at /profiles/client-profile: has unknown
+property rules.` It then enforces the checks that a schema cannot prove,
+such as `extends` chains, composition, overlapping bundle paths, whether a
 bundle exists, whether a source resolved, and whether a concept's actor
 reference is used correctly.
 

@@ -48,12 +48,12 @@ void main() {
       results,
       containsAll([
         (
-          'concepta-profile/used-relationship-declared',
+          'bitwild-profile/used-relationship-declared',
           'error',
           '$bundle/custom-relationship.md',
         ),
         (
-          'concepta-profile/internal-link-bundle-relative',
+          'bitwild-profile/internal-link-bundle-relative',
           'warning',
           '$bundle/relative-link.md',
         ),
@@ -61,15 +61,14 @@ void main() {
     );
     final rules = _rules(run);
     expect(rules.keys, containsAll({...results.map((result) => result.$1)}));
-    expect(rules['concepta-profile/used-relationship-declared'], {
-      'id': 'concepta-profile/used-relationship-declared',
+    expect(rules['bitwild-profile/used-relationship-declared'], {
+      'id': 'bitwild-profile/used-relationship-declared',
       'shortDescription': {'text': isNotEmpty},
+      'helpUri':
+          'https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/'
+          'README.md#used-relationship-declared',
       'defaultConfiguration': {'level': 'error'},
-      'properties': {
-        'category': 'vocabulary',
-        'ref': startsWith('§'),
-        'profile_release': '2026.3',
-      },
+      'properties': {'category': 'vocabulary', 'profile_release': '2026.3'},
     });
     expect(run['invocations'], [
       {'executionSuccessful': true},
@@ -86,8 +85,8 @@ void main() {
         (result) => result['kind'] == 'informational',
       );
       expect(summary.map((result) => result['ruleId']), [
-        'concepta-profile/internal-link-unresolved',
-        'concepta-profile/relationship-unresolved',
+        'bitwild-profile/internal-link-unresolved',
+        'bitwild-profile/relationship-unresolved',
       ]);
       expect(
         results.skipWhile((result) => result['kind'] != 'informational'),
@@ -101,7 +100,7 @@ void main() {
       expect(
         _rules(
           run,
-        )['concepta-profile/internal-link-unresolved']!['defaultConfiguration'],
+        )['bitwild-profile/internal-link-unresolved']!['defaultConfiguration'],
         {'level': 'none'},
       );
     },

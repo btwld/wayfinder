@@ -37,11 +37,23 @@ enum DiagnosticCode {
     DiagnosticChannel.configuration,
     'The configured Profile source is not resolved locally.',
   ),
+  profileInvalid(
+    'profile-invalid',
+    DiagnosticLevel.error,
+    DiagnosticChannel.configuration,
+    'A Profile package in the selected chain is malformed.',
+  ),
   profileUnsupported(
     'profile-unsupported',
     DiagnosticLevel.error,
     DiagnosticChannel.configuration,
-    'This wayfinder cannot assess the selected Profile release.',
+    'This wayfinder cannot read a Profile package in the selected chain.',
+  ),
+  profileComposition(
+    'profile-composition',
+    DiagnosticLevel.error,
+    DiagnosticChannel.configuration,
+    'The selected Profile chain and project additions do not compose.',
   ),
   projectType(
     'project-type',

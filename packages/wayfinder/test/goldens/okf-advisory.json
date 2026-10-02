@@ -23,5 +23,8 @@
   "diagnostics": [],
   "gate": {
     "state": "PASS"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

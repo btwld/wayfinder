@@ -29,5 +29,8 @@
   "diagnostics": [],
   "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

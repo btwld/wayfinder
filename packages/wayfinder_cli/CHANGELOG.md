@@ -1,5 +1,13 @@
 # Unreleased
 
+- `wayfinder get` reads each configured source's `wayfinder-profile.json`
+  as a format 2 package and composes the chain before writing the lock, so
+  a package this engine cannot read, or a chain that does not compose,
+  fails `get` with the reason and leaves the lock untouched. A
+  `wayfinder.json` key is the package id, in kebab-case, and the package
+  must declare that id. Bitwild is `bitwild-profile` at
+  `profiles/bitwild`; no chain has to reach it. The runtime archive no
+  longer ships `profile/`.
 - `wayfinder validate` and MCP validation of a 2026.2 bundle,
   or any bundle with no `wayfinder.json` above it, report
   `wayfinder/config-missing` with the Profile `NOT ASSESSED` and gate

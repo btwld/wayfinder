@@ -2,6 +2,7 @@ import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
+import 'generated/published_schemas.g.dart';
 import 'profile_finding.dart';
 import 'profile_rule_descriptors.dart';
 import 'validation.dart';
@@ -27,10 +28,12 @@ const _schema =
 /// `WORKINGDIR` base, so code scanning resolves it against a checkout when
 /// validation runs at its root. One outside is an absolute file URI: a `..`
 /// reference would resolve differently wherever a consumer placed the base.
-/// Bundle locations join [bundlePath] as given. Every catalog in the
+/// Bundle locations join [bundlePath] as given. Every package in the
 /// assessed chain supplies one rule descriptor per rule, fired or not,
-/// naming the catalog's release; OKF descriptors appear only for the
-/// findings present.
+/// naming the package's release and help link; OKF descriptors appear only
+/// for the findings present. The okf package the engine generates indexes
+/// with is a tool extension, so a change in generated output reads as an
+/// engine upgrade rather than a Profile change.
 Map<String, Object?> toSarif(
   ProfileValidationResult result, {
   required String bundlePath,
@@ -60,11 +63,11 @@ Map<String, Object?> toSarif(
     rules: [
       for (final id in {for (final finding in okfFindings) finding.id})
         _okfDescriptor(id),
-      for (final catalog in result.catalogs)
-        for (final rule in catalog.rules)
+      for (final package in result.chain)
+        for (final rule in package.rules)
           _profileDescriptor(
             rule.descriptor,
-            release: catalog.release,
+            release: package.release,
             description: rule.description,
             category: rule.category.name,
           ),
@@ -180,6 +183,9 @@ Map<String, Object?> _log({
                   },
               ],
           },
+          'extensions': [
+            {'name': 'okf', 'version': okfPackageVersion},
+          ],
         },
         'invocations': [
           {
@@ -225,17 +231,14 @@ Map<String, Object?> _profileDescriptor(
 }) => {
   'id': descriptor.id,
   'shortDescription': {'text': description},
+  if (descriptor.helpUri case final uri?) 'helpUri': '$uri',
   'defaultConfiguration': {
     'level': switch (descriptor.severity.finding) {
       final severity? => _level(severity),
       null => 'none',
     },
   },
-  'properties': {
-    'category': category,
-    'ref': descriptor.rule,
-    'profile_release': release,
-  },
+  'properties': {'category': category, 'profile_release': release},
 };
 
 Map<String, Object?> _result(

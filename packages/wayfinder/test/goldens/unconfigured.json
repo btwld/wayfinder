@@ -18,5 +18,8 @@
   ],
   "gate": {
     "state": "INCOMPLETE"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

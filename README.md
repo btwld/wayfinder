@@ -318,20 +318,26 @@ dart pub get
 dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
-dart run tool/generate_installed_profiles.dart --check
+dart run tool/generate_published_schemas.dart --check
 python3 tool/ci/verify-configured-example.py
 ```
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.
 
-The validator embeds the installed Profile manifests and rule catalogs under `profile/`, and the
-`wayfinder.json`, Profile manifest and rule catalog schemas under `docs/schemas/`, through the
-generated `packages/wayfinder/lib/src/generated/installed_profiles.g.dart`. After editing a
-manifest, catalog or one of those schemas, or adding a snapshot under `profile/versions/`, run
-`dart run tool/generate_installed_profiles.dart` and commit the result; `--check` is the CI gate
-for a stale file. A catalog's shape is `docs/schemas/wayfinder-rules.schema.json`, which the
-loader checks before anything else, and every schema rule carries `tests` that
-`profile_descriptors_test.dart` runs.
+The engine embeds no Profile. It embeds only the two published schemas,
+`docs/schemas/wayfinder.schema.json` and `docs/schemas/wayfinder-profile.schema.json`, and the
+okf package version, through the generated
+`packages/wayfinder/lib/src/generated/published_schemas.g.dart`. The version comes from the
+exact `okf:` pin in `packages/wayfinder/pubspec.yaml` (every package pins the same version), so
+the embedded value and the resolved dependency cannot drift. After editing either schema or
+changing the okf pin, run `dart run tool/generate_published_schemas.dart` and commit the result;
+`--check` is the CI gate for a stale file.
+
+Every Profile, Bitwild included, is a package under `profiles/<name>/` that a project fetches
+through `wayfinder get`, so editing a package needs no regeneration. A package's shape is
+`docs/schemas/wayfinder-profile.schema.json`. The engine runs every schema rule's `tests` when
+it parses the package, so a rule whose examples disagree with its check never loads.
+`profile_package_test.dart` and `profile_descriptors_test.dart` cover that boundary.
 
 `packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
 `packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them

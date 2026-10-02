@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild-profile": {
+      "source": {
+        "git": "https://example.test/wayfinder.git",
+        "ref": "v2026.3",
+        "path": "profiles/bitwild"
+      },
+      "applies_to": ["knowledge"]
+    }
+  }
+}

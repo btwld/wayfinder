@@ -19,34 +19,34 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/concept-baseline-fields",
+        "id": "bitwild-profile/concept-baseline-fields",
         "severity": "error",
         "message": "Every concept must contain non-empty string values for type, title, description, and status.",
         "location": {
           "path": "bad.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#concept-baseline-fields"
       },
       {
-        "id": "concepta-profile/generation-provenance-recommended",
+        "id": "bitwild-profile/generation-provenance-recommended",
         "severity": "advisory",
         "message": "Generation provenance is recommended when it is known.",
         "location": {
           "path": "bad.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#generation-provenance-recommended"
       },
       {
-        "id": "concepta-profile/status-value",
+        "id": "bitwild-profile/status-value",
         "severity": "error",
         "message": "Status must be draft, stable, or deprecated.",
         "location": {
           "path": "bad.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#status-value"
       }
     ],
     "summary": []
@@ -54,5 +54,8 @@
   "diagnostics": [],
   "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

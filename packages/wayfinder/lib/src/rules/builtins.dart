@@ -51,20 +51,29 @@ final class Builtin {
   final Set<String> messageIds;
 }
 
+/// The engine's capabilities, named for what they check and never for a
+/// rule a Profile builds with them. A check belongs here only when a schema
+/// over one subject's facts cannot express it: it needs I/O beyond the
+/// parsed bundle, compares with generated output or fixes, reports
+/// something absent where no subject lives, or reports several findings per
+/// subject. Policy is params, set by the package; engine health is an
+/// `EngineDiagnostic`; no capability names a Profile.
 const builtins = <String, Builtin>{
-  'source-path-unresolved': Builtin(
-    sourcePathUnresolved,
-    messagePlaceholders: {'target'},
-  ),
-  'root-structure-files': Builtin(
-    rootStructureFiles,
-    paramsSchema: rootStructureFilesParams,
+  'files-present': Builtin(
+    filesPresent,
+    paramsSchema: filesPresentParams,
     messagePlaceholders: {'failing'},
   ),
-  'index-current': Builtin(
-    indexCurrent,
+  'path-targets-exist': Builtin(
+    pathTargetsExist,
+    paramsSchema: pathTargetsExistParams,
+    messagePlaceholders: {'target'},
+  ),
+  'matches-generated': Builtin(
+    matchesGenerated,
+    paramsSchema: matchesGeneratedParams,
     messagePlaceholders: {'path'},
-    fix: generatedIndexes,
     messageIds: {'stale', 'extra'},
+    fix: generated,
   ),
 };

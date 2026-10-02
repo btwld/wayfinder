@@ -13,24 +13,25 @@ enum RuleSeverity {
 /// Read-only metadata describing one deterministic Profile rule,
 /// mirroring okf's `okfSpecRuleDescriptors`.
 ///
-/// A descriptor is the single authority for its rule's finding ID, severity,
-/// and normative Profile clause reference: every finding is built from the
-/// descriptor of the rule that reports it, so none of the three can drift.
+/// A descriptor is the single authority for its rule's finding ID, severity
+/// and help link: every finding is built from the descriptor of the rule
+/// that reports it, so none of the three can drift.
 final class ProfileRuleDescriptor {
   const ProfileRuleDescriptor({
     required this.id,
     required this.severity,
-    required this.rule,
+    this.helpUri,
   });
 
-  /// Stable `concepta-profile/<rule-slug>` finding ID.
+  /// Stable `<profile-id>/<rule-slug>` finding ID.
   final String id;
 
   /// Severity emitted when the condition is found.
   final RuleSeverity severity;
 
-  /// The normative Profile clause reference the rule assesses.
-  final String rule;
+  /// The package's `docs` with the fragment set to the rule slug, or null
+  /// when the package names no docs.
+  final Uri? helpUri;
 }
 
 final class FindingDescriptor {

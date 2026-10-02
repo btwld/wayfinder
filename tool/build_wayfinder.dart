@@ -48,12 +48,6 @@ Future<void> main(List<String> arguments) async {
     await File(
       p.join(workspace, 'packages', 'wayfinder_cli', 'LICENSE'),
     ).copy(p.join(bundle, 'LICENSE'));
-    await Directory(p.join(bundle, 'profile')).create(recursive: true);
-    for (final name in ['okf-profile.md', 'wayfinder-profile.json']) {
-      await File(
-        p.join(workspace, 'profile', name),
-      ).copy(p.join(bundle, 'profile', name));
-    }
     // The skill family ships with the runtime it describes, so installing or
     // updating Wayfinder installs matching skills.
     final skills = Directory(p.join(workspace, 'skills'));

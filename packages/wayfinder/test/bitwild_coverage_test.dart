@@ -2,16 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
-import 'package:wayfinder/wayfinder.dart';
+
+import 'support.dart';
 
 /// Deleting a fixture can silently drop the only golden that shows a rule
-/// firing. Every live Bitwild rule must appear in at least one golden.
+/// firing. Every Bitwild rule must appear in at least one golden.
 void main() {
   test('every Bitwild rule fires in at least one golden', () {
-    final catalog = RuleCatalog.installed(
-      builtinProfileId,
-      externalProfileRelease,
-    );
     final fired = <String>{};
     for (final golden in Directory(
       'test/goldens',
@@ -26,9 +23,9 @@ void main() {
       }
     }
 
-    expect(catalog.rules, isNotEmpty);
+    expect(bitwild.rules, isNotEmpty);
     expect(
-      catalog.rules
+      bitwild.rules
           .map((rule) => rule.descriptor.id)
           .where((id) => !fired.contains(id)),
       isEmpty,

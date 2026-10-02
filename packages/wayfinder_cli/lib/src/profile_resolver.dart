@@ -16,7 +16,7 @@ final class ProfileResolutionResult {
     required this.reused,
     required this.upgraded,
     required this.profiles,
-    this.bindings = const {},
+    this.effective = const {},
   });
 
   final String projectRoot;
@@ -26,7 +26,10 @@ final class ProfileResolutionResult {
   final bool reused;
   final bool upgraded;
   final Map<String, Object?> profiles;
-  final Map<String, WayfinderProfileBinding> bindings;
+
+  /// The composed Profile per configured id, from the packages at their
+  /// locked commits.
+  final Map<ProfileId, EffectiveProfile> effective;
 
   Map<String, Object?> toJson() => {
     'project': projectRoot,
@@ -39,7 +42,10 @@ final class ProfileResolutionResult {
   };
 }
 
-/// Resolves direct Git Profile sources and persists their lock metadata.
+/// Resolves Git Profile sources and persists their lock metadata. Pure work
+/// is delegated: a package is read by [ProfilePackage.parse] and a chain is
+/// composed by [EffectiveProfile.compose]; this is the IO shell around Git,
+/// the lock and the cache.
 final class WayfinderProfileResolver {
   WayfinderProfileResolver({Directory? dataDirectory})
     : dataDirectory =
@@ -63,7 +69,7 @@ final class WayfinderProfileResolver {
     }
     final raw = await configFile.readAsString();
     final config = WayfinderProjectConfig.parse(raw);
-    final directProfiles = config.profiles.values.toList(growable: false);
+    final bindings = config.profiles.values.toList(growable: false);
     final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
     final hash = canonicalConfigurationSha256(raw);
     await _checkBundlePaths(config, projectRoot);
@@ -71,7 +77,7 @@ final class WayfinderProfileResolver {
     final previous = await _readLock(lockFile);
     final cached =
         !upgrade && previous != null && previous.configurationSha256 == hash
-        ? await _cachedManifests(previous, directProfiles, projectRoot)
+        ? await _cachedPackages(previous, bindings, projectRoot)
         : null;
     if (cached != null) {
       return ProfileResolutionResult(
@@ -82,15 +88,15 @@ final class WayfinderProfileResolver {
         reused: true,
         upgraded: false,
         profiles: previous!.profileEntriesToJson(),
-        bindings: _composeBindings(config, cached),
+        effective: _composeProfiles(config, cached),
       );
     }
 
     final entries = <String, _LockedProfileSource>{};
-    final manifests = <String, _ResolvedSource>{};
-    for (final profile in directProfiles) {
-      final source = profile.source!;
-      final previousEntry = previous?.profiles[profile.id];
+    final packages = <ProfileId, _ResolvedSource>{};
+    for (final binding in bindings) {
+      final source = binding.source;
+      final previousEntry = previous?.profiles[binding.id.value];
       final previousCommit =
           previousEntry != null &&
               previousEntry.source == source.git &&
@@ -98,23 +104,23 @@ final class WayfinderProfileResolver {
               previousEntry.path == source.path
           ? previousEntry.resolvedCommit
           : null;
-      final cache = await _resolveSource(
-        profile.id,
+      final resolved = await _resolveSource(
+        binding.id,
         source,
         projectRoot: projectRoot,
         upgrade: upgrade,
         preferredCommit: previousCommit,
       );
-      manifests[profile.id] = cache;
-      entries[profile.id] = _LockedProfileSource(
+      packages[binding.id] = resolved;
+      entries[binding.id.value] = _LockedProfileSource(
         source: source.git,
         requestedRef: source.ref,
-        resolvedCommit: cache.commit,
+        resolvedCommit: resolved.commit,
         path: source.path,
-        profileRelease: cache.release,
+        profileRelease: resolved.package.release,
       );
     }
-    final bindings = _composeBindings(config, manifests);
+    final effective = _composeProfiles(config, packages);
     final lock = _ProfileLock(configurationSha256: hash, profiles: entries);
     await _writeLock(lockFile, lock);
     return ProfileResolutionResult(
@@ -125,7 +131,7 @@ final class WayfinderProfileResolver {
       reused: false,
       upgraded: upgrade,
       profiles: lock.profileEntriesToJson(),
-      bindings: bindings,
+      effective: effective,
     );
   }
 
@@ -160,25 +166,16 @@ final class WayfinderProfileResolver {
     final lock = await _readLock(lockFile);
     if (lock == null ||
         lock.configurationSha256 != canonicalConfigurationSha256(raw) ||
-        lock.profiles.keys
-            .toSet()
-            .difference(config.profiles.keys.toSet())
-            .isNotEmpty) {
+        lock.profiles.keys.toSet().difference({
+          for (final id in config.profiles.keys) id.value,
+        }).isNotEmpty) {
       throw const WayfinderProfileResolutionException(
         'Profile lock is missing, invalid, or stale. Run wayfinder get.',
       );
     }
-    final required = <WayfinderProfileBinding>[];
-    var id = selected.profile;
-    while (true) {
-      final profile = config.profiles[id]!;
-      required.add(profile);
-      if (profile.extendsProfile == null) break;
-      id = profile.extendsProfile!;
-    }
-    final cached = await _cachedManifests(
+    final cached = await _cachedPackages(
       lock,
-      required,
+      _chain(config, selected.profile).map((id) => config.profiles[id]!),
       projectRoot,
       requireAll: false,
     );
@@ -195,7 +192,7 @@ final class WayfinderProfileResolver {
       reused: true,
       upgraded: false,
       profiles: lock.profileEntriesToJson(),
-      bindings: _composeBindings(config, cached, selectedId: selected.profile),
+      effective: _composeProfiles(config, cached, selectedId: selected.profile),
     );
   }
 
@@ -237,7 +234,7 @@ final class WayfinderProfileResolver {
   }
 
   Future<_ResolvedSource> _resolveSource(
-    String profileId,
+    ProfileId profileId,
     WayfinderProfileSource source, {
     required String projectRoot,
     required bool upgrade,
@@ -282,13 +279,13 @@ final class WayfinderProfileResolver {
         );
       }
     }
-    return _readManifest(root, profileId, source, commit);
+    return _readPackage(root, profileId, source, commit);
   }
 
   Future<String> _resolveRefWithFetch(
     Directory repository,
     String ref,
-    String profileId,
+    ProfileId profileId,
   ) async {
     final local = await _resolveRef(repository, ref);
     if (local != null) return local;
@@ -343,18 +340,18 @@ final class WayfinderProfileResolver {
 
   static final _commitRef = RegExp(r'^[0-9a-fA-F]{7,40}$');
 
-  Future<Map<String, _ResolvedSource>?> _cachedManifests(
+  Future<Map<ProfileId, _ResolvedSource>?> _cachedPackages(
     _ProfileLock lock,
-    List<WayfinderProfileBinding> profiles,
+    Iterable<WayfinderProfileBinding> bindings,
     String projectRoot, {
     bool requireAll = true,
   }) async {
     final values = lock.profiles;
-    if (requireAll && values.length != profiles.length) return null;
-    final manifests = <String, _ResolvedSource>{};
-    for (final profile in profiles) {
-      final source = profile.source!;
-      final entry = values[profile.id];
+    if (requireAll && values.length != bindings.length) return null;
+    final packages = <ProfileId, _ResolvedSource>{};
+    for (final binding in bindings) {
+      final source = binding.source;
+      final entry = values[binding.id.value];
       if (entry == null ||
           entry.source != source.git ||
           entry.requestedRef != source.ref ||
@@ -366,107 +363,49 @@ final class WayfinderProfileResolver {
       if (!await cache.exists()) return null;
       final present = await _git(['cat-file', '-e', '$commit^{commit}'], cache);
       if (present.exitCode != 0) return null;
-      final manifest = await _readManifest(cache, profile.id, source, commit);
-      if (manifest.release != entry.profileRelease) return null;
-      manifests[profile.id] = manifest;
+      final resolved = await _readPackage(cache, binding.id, source, commit);
+      if (resolved.package.release != entry.profileRelease) return null;
+      packages[binding.id] = resolved;
     }
-    return manifests;
+    return packages;
   }
 
-  Future<_ResolvedSource> _readManifest(
+  /// The package at `<commit>:<path>/wayfinder-profile.json`, parsed by the
+  /// one boundary every Profile goes through. A package that declares
+  /// another id than the configuration names is refused: the id is the
+  /// finding namespace and the lock key, so the two must agree.
+  Future<_ResolvedSource> _readPackage(
     Directory repository,
-    String profileId,
+    ProfileId profileId,
     WayfinderProfileSource source,
     String commit,
   ) async {
+    final origin = 'Profile $profileId at ${source.git} ($commit)';
     final location = '$commit:${source.path}/wayfinder-profile.json';
     final result = await _git(['show', location], repository);
     if (result.exitCode != 0) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) has no manifest at ${source.path}/wayfinder-profile.json.',
+        '$origin has no package at ${source.path}/wayfinder-profile.json.',
       );
     }
-    Object? decoded;
+    final ProfilePackage package;
     try {
-      decoded = jsonDecode(result.stdout.toString());
-    } on FormatException {
+      package = ProfilePackage.parse(result.stdout.toString());
+    } on ProfilePackageException catch (error) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) has an invalid JSON manifest.',
+        '$origin cannot be evaluated by this validator: $error.',
+        code: error.unsupported
+            ? DiagnosticCode.profileUnsupported
+            : DiagnosticCode.profileInvalid,
       );
     }
-    final origin = 'Profile $profileId at ${source.git} ($commit)';
-    if (profileManifestSchemaViolation(decoded) case final violation?) {
-      throw WayfinderProfileResolutionException('$origin manifest $violation.');
-    }
-    final manifest = decoded! as Map<String, Object?>;
-    if (manifest['id'] != profileId ||
-        manifest['release'] != externalProfileRelease) {
+    if (package.id != profileId) {
       throw WayfinderProfileResolutionException(
-        '$origin must declare identity $profileId, supported release $externalProfileRelease, and OKF 0.2.',
+        '$origin declares id ${package.id}; the configuration names it $profileId.',
+        code: DiagnosticCode.profileInvalid,
       );
     }
-    final types = _manifestDefinitions(
-      manifest['standard_types'],
-      profileId,
-      'standard_types',
-    );
-    final tags = _manifestDefinitions(manifest['tags'], profileId, 'tags');
-    final relationships = _manifestDefinitions(
-      manifest['relationships'],
-      profileId,
-      'relationships',
-    );
-    if (profileId == builtinProfileId &&
-        (!_sameDefinitions(types, externalStandardTypes) ||
-            !_sameDefinitions(tags, externalStandardTags) ||
-            !_sameDefinitions(relationships, externalStandardRelationships))) {
-      throw WayfinderProfileResolutionException(
-        '$origin differs from the installed compiled Profile vocabulary.',
-      );
-    }
-    final rules = manifest['rules'] as String?;
-    return _ResolvedSource(
-      commit: commit,
-      release: manifest['release']! as String,
-      types: types,
-      tags: tags,
-      relationships: relationships,
-      catalog: rules == null
-          ? null
-          : await _readCatalog(repository, profileId, source, commit, rules),
-    );
-  }
-
-  Future<RuleCatalog> _readCatalog(
-    Directory repository,
-    String profileId,
-    WayfinderProfileSource source,
-    String commit,
-    String rules,
-  ) async {
-    final origin = 'Profile $profileId at ${source.git} ($commit)';
-    if (profileId == builtinProfileId) {
-      throw WayfinderProfileResolutionException(
-        '$origin must not name a rule catalog; the installed one is authoritative.',
-      );
-    }
-    final path = p.posix.normalize(p.posix.join(source.path, rules));
-    final result = await _git(['show', '$commit:$path'], repository);
-    if (result.exitCode != 0) {
-      throw WayfinderProfileResolutionException(
-        '$origin names rule catalog $rules, which is missing at $path.',
-      );
-    }
-    try {
-      return RuleCatalog.parse(
-        result.stdout.toString(),
-        manifest: (id: profileId, release: externalProfileRelease),
-      );
-    } on RuleCatalogException catch (error) {
-      throw WayfinderProfileResolutionException(
-        '$origin rule catalog $rules cannot be evaluated by this validator: $error.',
-      );
-    }
+    return (commit: commit, package: package);
   }
 
   Future<_ProfileLock?> _readLock(File file) async {
@@ -526,7 +465,13 @@ final class WayfinderProfileResolver {
 }
 
 final class WayfinderProfileResolutionException extends WayfinderException {
-  const WayfinderProfileResolutionException(super.message);
+  const WayfinderProfileResolutionException(
+    super.message, {
+    this.code = DiagnosticCode.profileUnresolved,
+  });
+
+  /// How validation reports this failure when it finds no usable Profile.
+  final DiagnosticCode code;
 }
 
 final class _ProfileLock {
@@ -625,192 +570,101 @@ Future<ProfileValidationResult> validateWithProfileSources(
   String? configPath,
   WayfinderProfileResolver? resolver,
   bool fix = false,
-}) {
+}) async {
+  ProfileResolutionResult? resolved;
+  ({DiagnosticCode code, String message})? failure;
+  try {
+    resolved = await (resolver ?? WayfinderProfileResolver())
+        .readLockedForBundle(bundle, configPath: configPath);
+  } on WayfinderProfileResolutionException catch (error) {
+    failure = (code: error.code, message: error.message);
+  } on WayfinderConfigException catch (error) {
+    failure = (code: DiagnosticCode.profileUnresolved, message: error.message);
+  } on FileSystemException catch (error) {
+    failure = (code: DiagnosticCode.profileUnresolved, message: error.message);
+  } on ProcessException catch (error) {
+    failure = (
+      code: DiagnosticCode.profileUnresolved,
+      message: 'Cannot read the local Profile cache: ${error.message}',
+    );
+  }
   return const ProfileValidator().validate(
     bundle,
     configPath: configPath,
     fix: fix,
-    resolveSources: () async {
-      ProfileResolutionResult? resolved;
-      String? resolutionError;
-      try {
-        resolved = await (resolver ?? WayfinderProfileResolver())
-            .readLockedForBundle(bundle, configPath: configPath);
-      } on WayfinderProfileResolutionException catch (error) {
-        resolutionError = error.message;
-      } on WayfinderConfigException catch (error) {
-        resolutionError = error.message;
-      } on FileSystemException catch (error) {
-        resolutionError = error.message;
-      } on ProcessException catch (error) {
-        resolutionError =
-            'Cannot read the local Profile cache: ${error.message}';
-      }
-      return ProfileSourceResolution(
-        bindings: resolved?.bindings,
-        error: resolutionError,
-      );
-    },
+    resolution: ProfileSourceResolution(
+      profiles: resolved?.effective,
+      failure: failure,
+    ),
   );
 }
 
-final class _ResolvedSource {
-  const _ResolvedSource({
-    required this.commit,
-    required this.release,
-    required this.types,
-    required this.tags,
-    required this.relationships,
-    required this.catalog,
-  });
+typedef _ResolvedSource = ({String commit, ProfilePackage package});
 
-  final String commit;
-  final String release;
-  final List<WayfinderDefinition> types;
-  final List<WayfinderDefinition> tags;
-  final List<WayfinderDefinition> relationships;
-
-  final RuleCatalog? catalog;
-}
-
-List<WayfinderDefinition> _manifestDefinitions(
-  Object? value,
-  String profileId,
-  String field,
-) {
-  final definitions = [
-    for (final item
-        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
-      WayfinderDefinition(
-        name: item['name']! as String,
-        description: item['description']! as String,
-      ),
-  ];
-  final names = <String>{};
-  for (final definition in definitions) {
-    if (!names.add(definition.name)) {
-      throw WayfinderProfileResolutionException(
-        'Profile $profileId manifest $field repeats ${definition.name}.',
-      );
-    }
+/// The configured ids from the root ancestor down to [id].
+List<ProfileId> _chain(WayfinderProjectConfig config, ProfileId id) {
+  final chain = <ProfileId>[];
+  for (ProfileId? current = id; current != null;) {
+    chain.insert(0, current);
+    current = config.profiles[current]!.extendsProfile;
   }
-  return definitions;
+  return chain;
 }
 
-bool _sameDefinitions(
-  List<WayfinderDefinition> definitions,
-  List<(String, String)> installed,
-) =>
-    definitions.length == installed.length &&
-    List.generate(definitions.length, (i) => i).every(
-      (i) =>
-          definitions[i].name == installed[i].$1 &&
-          definitions[i].description == installed[i].$2,
-    );
-
-Map<String, WayfinderProfileBinding> _composeBindings(
+/// Composes each configured Profile, or only [selectedId], from its chain of
+/// packages and the project additions of every entry along that chain. A
+/// composition error carries the code validation reports it under.
+Map<ProfileId, EffectiveProfile> _composeProfiles(
   WayfinderProjectConfig config,
-  Map<String, _ResolvedSource> manifests, {
-  String? selectedId,
+  Map<ProfileId, _ResolvedSource> packages, {
+  ProfileId? selectedId,
 }) {
-  final effective = <String, WayfinderProfileBinding>{};
-  WayfinderProfileBinding compose(String id) {
-    if (effective[id] case final cached?) return cached;
-    final local = config.profiles[id]!;
-    final manifest = manifests[id]!;
-    if (id == builtinProfileId && local.extendsProfile != null) {
-      throw const WayfinderProfileResolutionException(
-        'The installed Bitwild Profile cannot extend another Profile.',
-      );
-    }
-    if (id != builtinProfileId && local.extendsProfile == null) {
-      throw WayfinderProfileResolutionException(
-        'Profile $id must extend $builtinProfileId to use the installed compiled rules.',
-      );
-    }
-    final parent = local.extendsProfile == null
-        ? null
-        : compose(local.extendsProfile!);
-    final types = <WayfinderDefinition>[
-      ...?parent?.types,
-      if (id != builtinProfileId) ...manifest.types,
-      ...local.types,
-    ];
-    final tags = <WayfinderDefinition>[
-      ...?parent?.tags,
-      if (id != builtinProfileId) ...manifest.tags,
-      ...local.tags,
-    ];
-    final relationships = <WayfinderDefinition>[
-      ...?parent?.relationships,
-      if (id != builtinProfileId) ...manifest.relationships,
-      ...local.relationships,
-    ];
-    for (final (field, definitions, standard) in [
-      ('type', types, externalStandardTypes.map((value) => value.$1).toSet()),
-      ('tag', tags, externalStandardTags.map((value) => value.$1).toSet()),
-      (
-        'relationship',
-        relationships,
-        externalStandardRelationships.map((value) => value.$1).toSet(),
-      ),
-    ]) {
-      final names = <String>{...standard};
-      for (final definition in definitions) {
-        if (!names.add(definition.name)) {
+  EffectiveProfile compose(ProfileId id) {
+    final chain = _chain(config, id);
+    final actors = <String, WayfinderActorMetadata>{};
+    for (final member in chain) {
+      for (final entry in config.profiles[member]!.project.actors.entries) {
+        if (actors.containsKey(entry.key)) {
           throw WayfinderProfileResolutionException(
-            'Profile $id has a colliding $field ${definition.name}.',
+            'Profile $member repeats inherited actor ${entry.key}.',
+            code: DiagnosticCode.profileComposition,
           );
         }
+        actors[entry.key] = entry.value;
       }
     }
-    final actors = <String, WayfinderActorMetadata>{...?parent?.actors};
-    for (final entry in local.actors.entries) {
-      if (actors.containsKey(entry.key)) {
-        throw WayfinderProfileResolutionException(
-          'Profile $id repeats inherited actor ${entry.key}.',
-        );
-      }
-      actors[entry.key] = entry.value;
+    try {
+      return EffectiveProfile.compose(
+        [for (final member in chain) packages[member]!.package],
+        project: ProjectVocabulary(
+          types: [
+            for (final member in chain)
+              ...config.profiles[member]!.project.types,
+          ],
+          tags: [
+            for (final member in chain)
+              ...config.profiles[member]!.project.tags,
+          ],
+          relationships: [
+            for (final member in chain)
+              ...config.profiles[member]!.project.relationships,
+          ],
+          actors: Map.unmodifiable(actors),
+        ),
+      );
+    } on ProfileCompositionException catch (error) {
+      final failure = compositionFailure(id, error);
+      throw WayfinderProfileResolutionException(
+        failure.message,
+        code: failure.code,
+      );
     }
-    final catalogs = <RuleCatalog>[...?parent?.catalogs];
-    if (manifest.catalog case final catalog?) {
-      if (catalogs.any(
-        (inherited) => inherited.namespace == catalog.namespace,
-      )) {
-        throw WayfinderProfileResolutionException(
-          'Profile $id rule catalog repeats the namespace ${catalog.namespace} of an ancestor.',
-        );
-      }
-      catalogs.add(catalog);
-    }
-    final binding = WayfinderProfileBinding(
-      id: id,
-      implementsId: builtinProfileId,
-      release: manifest.release,
-      source: local.source,
-      appliesTo: local.appliesTo,
-      extendsProfile: local.extendsProfile,
-      types: List.unmodifiable(types),
-      tags: List.unmodifiable(tags),
-      relationships: List.unmodifiable(relationships),
-      actors: Map.unmodifiable(actors),
-      catalogs: List.unmodifiable(catalogs),
-    );
-    if (binding.tagCollision case final collision?) {
-      throw WayfinderProfileResolutionException('Profile $id has $collision.');
-    }
-    return effective[id] = binding;
   }
 
-  if (selectedId != null) {
-    compose(selectedId);
-  } else {
-    for (final id in config.profiles.keys) {
-      compose(id);
-    }
-  }
-  return Map.unmodifiable(effective);
+  return Map.unmodifiable({
+    for (final id in selectedId == null ? config.profiles.keys : [selectedId])
+      id: compose(id),
+  });
 }
 
 String _canonicalJson(Object? value) {

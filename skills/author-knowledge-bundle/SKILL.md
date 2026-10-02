@@ -18,13 +18,12 @@ Before applying Profile rules, resolve the bundle's exact release:
 
 - If project-root `wayfinder.json` has exactly one `applies_to` entry for
   the requested bundle, read that entry's direct `source` and any additive
-  `extends` chain. The manifest identity and exact release select the rules;
-  `bitwild_profile/2026.3` selects the installed rule catalog for that release.
-  A child must reach that base; its manifest may add vocabulary and name a rule
-  catalog of its own, whose rules only add findings in the child's namespace.
-  In the Wayfinder source tree the base manifest is at
-  `profile/wayfinder-profile.json`; the routed concept reference carries its
-  standard vocabulary for standalone skill installations. The root index
+  `extends` chain. The configured `bitwild-profile` package at
+  `profiles/bitwild/wayfinder-profile.json` carries the vocabulary and rules,
+  fetched by `wayfinder get`. A child package may add vocabulary and rules of
+  its own, whose rules only add findings in the child's namespace. The routed
+  concept reference carries its standard vocabulary for standalone skill
+  installations. The root index
   declares OKF 0.2. Read the exact source revision from the current
   `wayfinder.lock` and local cache. If absent or stale during authorized
   authoring, run `wayfinder get` and include the resulting lock; `validate`

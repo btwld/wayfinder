@@ -80,7 +80,14 @@ enum SubjectKind {
     facts: ClosedFacts({'path': _scalar, 'name': _scalar, 'markdown': _scalar}),
   ),
 
-  root(facts: ClosedFacts({'okf_version': _scalar, 'files': _scalars})),
+  root(
+    facts: ClosedFacts({
+      'okf_version': _scalar,
+      'files': _scalars,
+      'has_concepts': _scalar,
+      'index_links': _scalars,
+    }),
+  ),
 
   log(
     facts: ClosedFacts({
@@ -170,17 +177,7 @@ final class BundleFacts {
         ),
     ],
     SubjectKind.root: [
-      Subject(
-        SubjectKind.root,
-        {
-          'okf_version': _rootOkfVersion(loaded),
-          'files': [
-            for (final path in loaded.paths)
-              if (!path.contains('/')) path,
-          ],
-        },
-        {'self': 'index.md'},
-      ),
+      Subject(SubjectKind.root, _root(loaded), {'self': 'index.md'}),
     ],
     SubjectKind.log: [?_log(loaded)],
   };
@@ -359,14 +356,59 @@ List<String> _directories(Iterable<String> paths) {
   return directories.toList()..sort();
 }
 
-Object? _rootOkfVersion(OkfBundleLoadResult loaded) {
-  final rootIndex = loaded.indexes['index.md'];
-  if (rootIndex == null) return null;
-  try {
-    return _json(OkfDocument.parse(rootIndex).frontmatter['okf_version']);
-  } on OkfDocumentException {
-    return null;
+/// The facts read from the root index are null when it is absent or
+/// unreadable, so a rule about its content stays silent and the rules about
+/// its presence report that instead.
+Map<String, Object?> _root(OkfBundleLoadResult loaded) {
+  OkfDocument? index;
+  if (loaded.indexes['index.md'] case final source?) {
+    try {
+      index = OkfDocument.parse(source);
+    } on OkfDocumentException {
+      index = null;
+    }
   }
+  return {
+    'okf_version': _json(index?.frontmatter['okf_version']),
+    'files': [
+      for (final path in loaded.paths)
+        if (!path.contains('/')) path,
+    ],
+    'has_concepts': loaded.documents.isNotEmpty,
+    'index_links': index == null
+        ? null
+        : [
+            for (final href in ParsedBody(index.body).links())
+              _rootTarget(href),
+          ],
+  };
+}
+
+/// [href] as OKF resolves a link from the root index: an external URL as
+/// written; otherwise the path part without query or fragment, `.` segments
+/// and a leading `/` folded, `..` applied, and an empty path meaning the
+/// index itself. Percent-encoding is kept as written. A path that climbs
+/// above the root is kept as written, since OKF calls it invalid.
+String _rootTarget(String href) {
+  final raw = href.trim();
+  if (RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(raw) ||
+      raw.startsWith('//')) {
+    return raw;
+  }
+  final cut = raw.indexOf(RegExp(r'[?#]'));
+  final path = cut < 0 ? raw : raw.substring(0, cut);
+  if (path.isEmpty) return 'index.md';
+  final segments = <String>[];
+  for (final segment in path.split('/')) {
+    if (segment.isEmpty || segment == '.') continue;
+    if (segment == '..') {
+      if (segments.isEmpty) return raw;
+      segments.removeLast();
+    } else {
+      segments.add(segment);
+    }
+  }
+  return segments.isEmpty ? raw : segments.join('/');
 }
 
 Subject? _log(OkfBundleLoadResult loaded) {

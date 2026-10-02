@@ -6,19 +6,47 @@ import 'package:path/path.dart' as p;
 import 'builtins.dart';
 import 'facts.dart';
 
-Iterable<Violation> sourcePathUnresolved(
+const pathTargetsExistParams = <String, Object?>{
+  'type': 'object',
+  'required': ['fields'],
+  'additionalProperties': false,
+  'properties': {
+    'fields': {
+      'type': 'array',
+      'minItems': 1,
+      'uniqueItems': true,
+      'items': {
+        'enum': [
+          'resource',
+          'sources.resource',
+          'computation',
+          'executor.resource',
+          'attester.resource',
+        ],
+      },
+    },
+  },
+};
+
+/// One finding per (document, target) whose path-valued `fields` entry
+/// names something that exists neither in the bundle nor on disk. Nothing
+/// when the link graph is unavailable; the engine diagnostic covers that.
+Iterable<Violation> pathTargetsExist(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
   final links = facts.links;
   if (links is! LinkFacts) return;
-  final graph = links.graph;
+  final selected = {
+    for (final field in params['fields']! as List<Object?>)
+      OkfGraphEdgeOrigin.values.singleWhere(
+        (origin) => origin.wireValue == field,
+      ),
+  };
   final rootPath = facts.loaded.rootPath;
   final emitted = <(String, String)>{};
-  for (final edge in graph.edges.where(
-    (edge) =>
-        edge.origin == OkfGraphEdgeOrigin.resource ||
-        edge.origin == OkfGraphEdgeOrigin.sourceResource,
+  for (final edge in links.graph.edges.where(
+    (edge) => selected.contains(edge.origin),
   )) {
     // Inside the bundle the graph already knows whether the target exists.
     // A relative path that climbs out of the bundle is `invalid` to the

@@ -5,10 +5,10 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
+import 'generated/published_schemas.g.dart';
 import 'profile_finding.dart';
-import 'profile_release.dart';
+import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
-import 'rules/catalog.dart';
 import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
@@ -38,28 +38,26 @@ sealed class ProfileAssessment {
   const ProfileAssessment();
 }
 
-/// Every rule of [catalogs] ran against the bundle.
+/// Every rule of [profile] ran against the bundle.
 final class Assessed extends ProfileAssessment {
   Assessed(
-    Iterable<RuleCatalog> catalogs,
+    this.profile,
     Iterable<ProfileFinding> findings,
     Iterable<ProfileSummaryEntry>? summary,
-  ) : catalogs = List.unmodifiable(catalogs),
-      findings = List.unmodifiable(findings),
+  ) : findings = List.unmodifiable(findings),
       summary = summary == null ? null : List.unmodifiable(summary);
 
-  /// The catalog chain, base first ([EffectiveProfile.catalogs]).
-  final List<RuleCatalog> catalogs;
+  final EffectiveProfile profile;
 
   /// In canonical okf order.
   final List<ProfileFinding> findings;
 
   /// What the assessment found that the Profile permits, in canonical order.
-  /// Null unless an assessed catalog declares a note rule, so a release
+  /// Null unless an assessed package declares a note rule, so a Profile
   /// without one keeps its output shape.
   final List<ProfileSummaryEntry>? summary;
 
-  String get release => catalogs.first.release;
+  String get release => profile.selected.release;
 }
 
 /// OKF failed, so no Profile rule ran.
@@ -154,8 +152,9 @@ final class ProfileValidationResult {
     _ => null,
   };
 
-  List<RuleCatalog> get catalogs => switch (profile) {
-    Assessed(:final catalogs) => catalogs,
+  /// The assessed packages, root ancestor first; empty when none ran.
+  List<ProfilePackage> get chain => switch (profile) {
+    Assessed(:final profile) => profile.chain,
     _ => const [],
   };
 
@@ -174,6 +173,7 @@ final class ProfileValidationResult {
     'diagnostics': diagnostics.map((d) => d.toJson()).toList(),
     if (fixed case final fixed?) 'fix': <String, Object?>{'written': fixed},
     'gate': <String, Object>{'state': gate.wireValue},
+    'engine': <String, Object>{'okf': okfPackageVersion},
   };
 
   Iterable<String> toTextLines() sync* {
@@ -227,13 +227,26 @@ Map<String, Object?> internalErrorJson(String message) => <String, Object?>{
   'gate': <String, Object>{'state': GateState.incomplete.wireValue},
 };
 
-/// Source data obtained after the independent OKF check has passed.
+/// What the resolver could compose from the lock and the local cache,
+/// without fetching: the effective Profile per configured id, or why it
+/// stopped. A missing id is reported as [failure], or as unresolved when
+/// there is none.
 final class ProfileSourceResolution {
-  const ProfileSourceResolution({this.bindings, this.error});
+  const ProfileSourceResolution({this.profiles, this.failure});
 
-  final Map<String, WayfinderProfileBinding>? bindings;
-  final String? error;
+  final Map<ProfileId, EffectiveProfile>? profiles;
+  final ({DiagnosticCode code, String message})? failure;
 }
+
+/// The failure validation reports when the chain of [id] does not compose.
+/// `get` stops with the same text, so both paths read one format.
+({DiagnosticCode code, String message}) compositionFailure(
+  ProfileId id,
+  ProfileCompositionException error,
+) => (
+  code: DiagnosticCode.profileComposition,
+  message: 'Profile $id: ${error.message}',
+);
 
 /// Which Profile a run assesses, or why there is none.
 sealed class _Selection {
@@ -272,19 +285,15 @@ final class ProfileValidator {
   Future<ProfileValidationResult> validate(
     String bundlePath, {
     String? configPath,
-    Map<String, WayfinderProfileBinding>? resolvedProfiles,
-    String? resolutionError,
-    Future<ProfileSourceResolution> Function()? resolveSources,
+    ProfileSourceResolution resolution = const ProfileSourceResolution(),
     bool fix = false,
   }) async {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
-    final sourceResolution = await resolveSources?.call();
     final selection = await _configuredSelection(
       bundlePath,
       configPath: configPath,
-      resolvedProfiles: sourceResolution?.bindings ?? resolvedProfiles,
-      resolutionError: sourceResolution?.error ?? resolutionError,
+      resolution: resolution,
     );
     final reasons = [if (selection case _Unselected(:final reason)) reason];
     if (!validation.isConformant) {
@@ -329,7 +338,8 @@ final class ProfileValidator {
         diagnostics: [
           EngineDiagnostic(
             DiagnosticCode.fixNotApplied,
-            'Profile ${profile.base.release} has no fixable rules.',
+            'Profile ${profile.selected.id} ${profile.selected.release} '
+            'has no fixable rules.',
           ),
         ],
       );
@@ -379,15 +389,13 @@ final class ProfileValidator {
       buildGraph: buildGraph,
     );
     final results = evaluate(profile, facts);
-    final notes = profile.catalogs.any(
-      (catalog) => catalog.rules.any(
-        (rule) => rule.descriptor.severity == RuleSeverity.note,
-      ),
+    final notes = profile.rules.any(
+      (rule) => rule.descriptor.severity == RuleSeverity.note,
     );
     return ProfileValidationResult._(
       validation,
       Assessed(
-        profile.catalogs,
+        profile,
         results.findings.toList()..sort(
           (left, right) => OkfReport.compareFindings(
             left.toOkfFinding(),
@@ -399,10 +407,10 @@ final class ProfileValidator {
             : null,
       ),
       [
-        for (final name in profile.vocabulary.projectTypes)
+        for (final type in profile.project.types)
           EngineDiagnostic(
             DiagnosticCode.projectType,
-            'Configured project type $name is available to this bundle.',
+            'Configured project type ${type.name} is available to this bundle.',
             location: config,
           ),
         ...diagnostics,
@@ -481,9 +489,8 @@ Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
 /// [configPath], the nearest file above the bundle applies.
 Future<_Selection> _configuredSelection(
   String bundlePath, {
-  String? configPath,
-  Map<String, WayfinderProfileBinding>? resolvedProfiles,
-  String? resolutionError,
+  required String? configPath,
+  required ProfileSourceResolution resolution,
 }) async {
   final File file;
   if (configPath != null) {
@@ -579,50 +586,18 @@ Future<_Selection> _configuredSelection(
     selected = config.resolve(
       bundlePath: selectedPath ?? bundlePath,
       configPath: file.absolute.path,
-      resolvedProfiles: resolvedProfiles,
     );
   } on WayfinderConfigException catch (error) {
     return unselected(DiagnosticCode.bundleUnbound, error.message);
   }
-  final declared = config.profiles[selected.bundle.profile]!;
-  if (declared.source != null) {
-    final effective = resolvedProfiles?[declared.id];
-    if (effective == null ||
-        effective.id != declared.id ||
-        effective.source?.git != declared.source!.git ||
-        effective.source?.ref != declared.source!.ref ||
-        effective.source?.path != declared.source!.path) {
-      return unselected(
-        DiagnosticCode.profileUnresolved,
-        resolutionError ??
-            'Direct Profile source is unresolved. Run wayfinder get.',
-      );
-    }
+  final id = selected.profile.id;
+  if (resolution.profiles?[id] case final effective?) {
+    return _Selected(effective, config: location);
   }
-  final binding = selected.profile;
-  if (binding.release != externalProfileRelease ||
-      binding.implementsId != builtinProfileId) {
-    return unselected(
-      DiagnosticCode.profileUnsupported,
-      'Profile ${binding.implementsId} ${binding.release} is not supported; '
-      'this wayfinder assesses $builtinProfileId $externalProfileRelease.',
-    );
-  }
-  return _Selected(
-    EffectiveProfile(
-      [
-        RuleCatalog.installed(binding.implementsId, binding.release),
-        ...binding.catalogs,
-      ],
-      Vocabulary(
-        projectTypes: binding.types.map((type) => type.name).toList(),
-        types: binding.typeNames.toList(),
-        tags: binding.tagNames.toList(),
-        relationships: binding.relationshipNames.toList(),
-        actors: binding.actors.keys.toList(),
-      ),
-    ),
-    config: location,
+  final failure = resolution.failure;
+  return unselected(
+    failure?.code ?? DiagnosticCode.profileUnresolved,
+    failure?.message ?? 'Profile $id is unresolved. Run wayfinder get.',
   );
 }
 

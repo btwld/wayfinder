@@ -17,8 +17,8 @@
     },
     "identifier": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]*$",
-      "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter)"
     },
     "gitRef": {
       "$ref": "#/$defs/text",

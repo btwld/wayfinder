@@ -2,8 +2,9 @@
 
 Validation never fetches, so a check of the shipped engine against the example
 first needs `wayfinder get` to succeed offline. This builds a one-commit Git
-repository from this checkout's `profile/` manifest, copies `examples/bitwild`
-beside it, and points the copy's `source.git` at that repository.
+repository from this checkout's `profiles/bitwild/` package, copies
+`examples/bitwild` beside it, and points the copy's `source.git` at that
+repository. Bitwild reaches the engine the way any Profile does.
 """
 
 import json
@@ -27,18 +28,18 @@ def _git(*args: str, cwd: Path) -> str:
 def prepare(work: Path) -> Path:
     """Returns the copied project under [work], its source a local repository."""
     source = work / "source"
-    (source / "profile").mkdir(parents=True)
-    shutil.copy2(ROOT / "profile/wayfinder-profile.json",
-                 source / "profile/wayfinder-profile.json")
+    (source / "profiles/bitwild").mkdir(parents=True)
+    shutil.copy2(ROOT / "profiles/bitwild/wayfinder-profile.json",
+                 source / "profiles/bitwild/wayfinder-profile.json")
     _git("init", "-q", cwd=source)
-    _git("add", "profile/wayfinder-profile.json", cwd=source)
+    _git("add", "profiles/bitwild/wayfinder-profile.json", cwd=source)
     _git("commit", "-q", "-m", "Synthetic Profile", cwd=source)
 
     project = work / "project"
     shutil.copytree(EXAMPLE, project)
     config_path = project / "wayfinder.json"
     config = json.loads(config_path.read_text())
-    selected = config["profiles"]["bitwild_profile"]["source"]
+    selected = config["profiles"]["bitwild-profile"]["source"]
     selected["git"] = str(source)
     selected["ref"] = _git("rev-parse", "HEAD", cwd=source)
     config_path.write_text(json.dumps(config, indent=2) + "\n")

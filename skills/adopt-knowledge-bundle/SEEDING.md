@@ -11,11 +11,11 @@ concepts; the binding below replaces them.
 {
   "version": 1,
   "profiles": {
-    "bitwild_profile": {
+    "bitwild-profile": {
       "source": {
         "git": "https://github.com/btwld/wayfinder",
         "ref": "main",
-        "path": "profile"
+        "path": "profiles/bitwild"
       },
       "applies_to": ["./knowledge"]
     }

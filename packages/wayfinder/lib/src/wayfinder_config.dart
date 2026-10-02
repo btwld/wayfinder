@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
-import 'profile_release.dart';
+import 'profile_package.dart';
 import 'published_schemas.dart';
-import 'rules/catalog.dart';
+import 'rules/profile.dart';
 
 /// A malformed or unsafe project configuration.
 final class WayfinderConfigException implements Exception {
@@ -52,76 +51,23 @@ final class WayfinderProfileSource {
   final String path;
 }
 
+/// One `profiles.<id>` entry: which package, which bundles, and what the
+/// project adds. Nothing resolved lives here; the resolver composes the
+/// package chain into an [EffectiveProfile].
 final class WayfinderProfileBinding {
   const WayfinderProfileBinding({
     required this.id,
-    required this.implementsId,
-    required this.release,
-    required this.types,
-    required this.tags,
-    required this.relationships,
-    required this.actors,
-    this.source,
-    this.appliesTo = const [],
+    required this.source,
+    required this.appliesTo,
+    this.project = ProjectVocabulary.none,
     this.extendsProfile,
-    this.catalogs = const [],
   });
 
-  final String id;
-  final String implementsId;
-  final String release;
-  final List<WayfinderDefinition> types;
-  final List<WayfinderDefinition> tags;
-  final List<WayfinderDefinition> relationships;
-  final Map<String, WayfinderActorMetadata> actors;
-  final WayfinderProfileSource? source;
+  final ProfileId id;
+  final WayfinderProfileSource source;
   final List<String> appliesTo;
-  final String? extendsProfile;
-
-  /// The rule catalogs the sources along the effective chain ship, parent
-  /// first, read from the local cache at their locked commits. The installed
-  /// base catalog is never among them (Profile §11).
-  final List<RuleCatalog> catalogs;
-
-  Set<String> get typeNames => {
-    ...externalStandardTypes.map((row) => row.$1),
-    ...types.map((definition) => definition.name),
-  };
-
-  Set<String> get tagNames => {
-    ...externalStandardTags.map((row) => row.$1),
-    ...tags.map((definition) => definition.name),
-  };
-
-  Set<String> get relationshipNames => {
-    ...externalStandardRelationships.map((row) => row.$1),
-    ...relationships.map((definition) => definition.name),
-  };
-
-  /// The first declared tag that equals another vocabulary's value, as
-  /// `tag draft, which equals an OKF status value`, or null. Every used tag is
-  /// declared (Profile §5.1), so a tag that would repeat a concept's type,
-  /// status, trust tier or relationship name is rejected where it is
-  /// declared rather than reported on each concept that uses it.
-  String? get tagCollision {
-    final others = <(String, Iterable<String>)>[
-      ('a declared type name', typeNames),
-      (
-        'an OKF status value',
-        OkfLifecycleStatus.values
-            .where((status) => status != OkfLifecycleStatus.unknown)
-            .map((status) => status.wireValue),
-      ),
-      ('an OKF trust tier', OkfTrustTier.values.map((tier) => tier.wireValue)),
-      ('a declared relationship name', relationshipNames),
-    ];
-    for (final tag in tagNames) {
-      for (final (what, names) in others) {
-        if (names.contains(tag)) return 'tag $tag, which equals $what';
-      }
-    }
-    return null;
-  }
+  final ProjectVocabulary project;
+  final ProfileId? extendsProfile;
 }
 
 final class WayfinderBundleBinding {
@@ -133,7 +79,7 @@ final class WayfinderBundleBinding {
 
   final String id;
   final String path;
-  final String profile;
+  final ProfileId profile;
 }
 
 final class WayfinderProjectConfig {
@@ -144,7 +90,7 @@ final class WayfinderProjectConfig {
   });
 
   final int version;
-  final Map<String, WayfinderProfileBinding> profiles;
+  final Map<ProfileId, WayfinderProfileBinding> profiles;
   final List<WayfinderBundleBinding> bundles;
 
   /// Decodes [source], checks it against the published schema, then runs
@@ -174,7 +120,10 @@ final class WayfinderProjectConfig {
     final profiles = {
       for (final MapEntry(:key, :value)
           in (json['profiles']! as Map<String, Object?>).entries)
-        key: _parseDirectProfile(key, value! as Map<String, Object?>),
+        _profileId(key, 'profiles'): _parseDirectProfile(
+          key,
+          value! as Map<String, Object?>,
+        ),
     };
     _validateExtensions(profiles);
     final bundles = <WayfinderBundleBinding>[];
@@ -222,7 +171,6 @@ final class WayfinderProjectConfig {
   WayfinderResolvedConfig resolve({
     required String bundlePath,
     required String configPath,
-    Map<String, WayfinderProfileBinding>? resolvedProfiles,
   }) {
     final projectRoot = p.normalize(File(configPath).absolute.parent.path);
     final requested = p.normalize(File(bundlePath).absolute.path);
@@ -239,14 +187,20 @@ final class WayfinderProjectConfig {
         'Bundle $bundlePath is not listed in ${p.basename(configPath)}.',
       );
     }
-    final binding =
-        resolvedProfiles?[selected.profile] ?? profiles[selected.profile]!;
     return WayfinderResolvedConfig(
       configPath: configPath,
       projectRoot: projectRoot,
       bundle: selected,
-      profile: binding,
+      profile: profiles[selected.profile]!,
     );
+  }
+
+  static ProfileId _profileId(String value, String field) {
+    try {
+      return ProfileId.parse(value);
+    } on FormatException catch (error) {
+      throw WayfinderConfigException('$field.$value: ${error.message}.');
+    }
   }
 
   static WayfinderProfileBinding _parseDirectProfile(
@@ -275,22 +229,13 @@ final class WayfinderProjectConfig {
     final tags = _definitions(json['tags']);
     final relationships = _definitions(json['relationships']);
     _validateDefinitions(id, {
-      'type': (types, externalStandardTypes),
-      'tag': (tags, externalStandardTags),
-      'relationship': (relationships, externalStandardRelationships),
+      'type': types,
+      'tag': tags,
+      'relationship': relationships,
     });
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
-    final binding = WayfinderProfileBinding(
-      id: id,
-      implementsId: id,
-      release: externalProfileRelease,
-      types: List.unmodifiable(types),
-      tags: List.unmodifiable(tags),
-      relationships: List.unmodifiable(relationships),
-      actors: Map.unmodifiable({
-        for (final MapEntry(:key, :value) in actors.entries)
-          key: _actor(value! as Map<String, Object?>),
-      }),
+    return WayfinderProfileBinding(
+      id: _profileId(id, 'profiles'),
       source: WayfinderProfileSource(
         git: git,
         ref: source['ref']! as String,
@@ -302,32 +247,35 @@ final class WayfinderProjectConfig {
           'profiles.$id.applies_to',
         ),
       ),
-      extendsProfile: json['extends'] as String?,
+      project: ProjectVocabulary(
+        types: List.unmodifiable(types),
+        tags: List.unmodifiable(tags),
+        relationships: List.unmodifiable(relationships),
+        actors: Map.unmodifiable({
+          for (final MapEntry(:key, :value) in actors.entries)
+            key: _actor(value! as Map<String, Object?>),
+        }),
+      ),
+      extendsProfile: switch (json['extends']) {
+        final String parent => _profileId(parent, 'profiles.$id.extends'),
+        _ => null,
+      },
     );
-    if (binding.tagCollision case final collision?) {
-      throw WayfinderConfigException('Profile $id declares $collision.');
-    }
-    return binding;
   }
 
   static void _validateExtensions(
-    Map<String, WayfinderProfileBinding> profiles,
+    Map<ProfileId, WayfinderProfileBinding> profiles,
   ) {
-    final parents = <String>{};
+    final parents = <ProfileId>{};
     for (final profile in profiles.values) {
       final parent = profile.extendsProfile;
-      if (profile.id == builtinProfileId && parent != null) {
-        throw const WayfinderConfigException(
-          'The base Bitwild Profile cannot extend another Profile.',
-        );
-      }
       if (parent != null && !profiles.containsKey(parent)) {
         throw WayfinderConfigException(
           'Profile ${profile.id} extends unknown Profile $parent.',
         );
       }
       if (parent != null) parents.add(parent);
-      final seen = <String>{profile.id};
+      final seen = <ProfileId>{profile.id};
       var current = parent;
       while (current != null) {
         if (!seen.add(current)) {
@@ -336,11 +284,6 @@ final class WayfinderProjectConfig {
           );
         }
         current = profiles[current]?.extendsProfile;
-      }
-      if (profile.id != builtinProfileId && !seen.contains(builtinProfileId)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} must extend a chain reaching $builtinProfileId.',
-        );
       }
     }
     for (final profile in profiles.values) {
@@ -362,22 +305,20 @@ final class WayfinderProjectConfig {
     return normalized.toList();
   }
 
+  /// A name repeated within one entry is rejected here; a name another
+  /// contributor also declares is a composition error, found when the chain
+  /// is composed.
   static void _validateDefinitions(
     String id,
-    Map<
-      String,
-      (List<WayfinderDefinition> project, List<(String, String)> standard)
-    >
-    vocabularies,
+    Map<String, List<WayfinderDefinition>> vocabularies,
   ) {
-    for (final MapEntry(key: noun, value: (project, standard))
+    for (final MapEntry(key: noun, value: definitions)
         in vocabularies.entries) {
       final names = <String>{};
-      for (final definition in project) {
-        if (!names.add(definition.name) ||
-            standard.any((row) => row.$1 == definition.name)) {
+      for (final definition in definitions) {
+        if (!names.add(definition.name)) {
           throw WayfinderConfigException(
-            'Profile $id declares a colliding or duplicate $noun ${definition.name}.',
+            'Profile $id declares a duplicate $noun ${definition.name}.',
           );
         }
       }

@@ -1,5 +1,32 @@
 # Unreleased
 
+- A Profile is one package file, `wayfinder-profile.json` in package
+  format 2, read by `ProfilePackage.parse` for every Profile alike. The
+  manifest and rule catalog are merged (`standard_types` is `types`,
+  `frontmatter_keys` is a list of definitions, the rule shape moves in, the
+  per-rule `ref` is gone), `wayfinder-rules.schema.json` folds into
+  `wayfinder-profile.schema.json`, and the engine embeds no Profile. Bitwild
+  is the package at `profiles/bitwild/` with id `bitwild-profile`, so its
+  findings are `bitwild-profile/*` (formerly `concepta-profile/*`), and it is
+  fetched like any Profile; no chain has to reach it. A package id is the
+  finding namespace, in kebab-case. `EffectiveProfile.compose` merges a
+  chain and the project additions, and a name collision, a repeated
+  frontmatter key or a tag equal to another vocabulary value is the
+  `wayfinder/profile-composition` diagnostic (a tag collision was
+  `config-invalid`). A malformed package is `wayfinder/profile-invalid`; a
+  package with another `format`, an OKF release this okf cannot read or an
+  unknown builtin is `wayfinder/profile-unsupported`. Findings and summary
+  entries carry `help_uri`, the package `docs` URI with the rule id as its
+  fragment, instead of `rule`; SARIF rule descriptors carry `helpUri` and
+  lose `properties.ref`. Builtins are engine capabilities with params:
+  `files-present` (`paths`), `path-targets-exist` (`fields`) and
+  `matches-generated` (`generator`, `keep`, `extra`), and
+  the generator declares the package's `implements.release`. The JSON
+  result gains `engine.okf` and SARIF `tool.extensions` names the okf
+  package the engine generates with. New root facts `has_concepts` and
+  `index_links`, and the Bitwild rule `root-index-lists-log`. The
+  generator is `tool/generate_published_schemas.dart`, writing
+  `published_schemas.g.dart`.
 - The engine selects a Profile only through `wayfinder.json`.
   The 2026.2 dispatch through an in-bundle `profile.md` declaration is gone,
   with its `types.md` and `actors.md` registry readers and its index

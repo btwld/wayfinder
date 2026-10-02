@@ -47,9 +47,9 @@ Adoption of Profile 2026.3 creates one project binding, two bundle root
 files, and one agent-instruction paragraph, in this order:
 
 1. **Select the release.** Write `wayfinder.json` at the project root with one
-   direct `bitwild_profile` Git source and the explicit bundle path in its
-   `applies_to` list. Resolve it with `wayfinder get` and commit the resulting
-   metadata-only `wayfinder.lock`. Add only project-specific type, tag, and
+   direct `bitwild-profile` Git source at `profiles/bitwild` and the explicit
+   bundle path in its `applies_to` list. Resolve it with `wayfinder get` and
+   commit the resulting metadata-only `wayfinder.lock`. Add only project-specific type, tag, and
    actor definitions that actual knowledge uses.
 2. **Seed the bundle.** Create `index.md` carrying `okf_version: "0.2"` and
    `log.md` under `knowledge/`. The adoption skill's `SEEDING.md` carries the
@@ -183,9 +183,9 @@ cascading findings from partial content. `NOT ASSESSED` means no Profile was
 selected, and an error diagnostic always says why.
 
 A diagnostic is the engine reporting on its own run, never on the bundle. Its
-`id` is `wayfinder/<code>` from a closed set the engine owns, so no catalog can
-declare, suppress, or reuse one. A diagnostic carries a `message` and, when it
-has one, a `location` that is either a bundle-relative path or the project
+`id` is `wayfinder/<code>` from a closed set the engine owns, so no Profile
+package can declare, suppress, or reuse one. A diagnostic carries a `message`
+and, when it has one, a `location` that is either a bundle-relative path or the project
 configuration file as the caller named it. Configuration diagnostics say why
 a Profile could not be selected or what the configuration adds to it.
 Execution diagnostics say what the run could not do. Configuration
@@ -197,8 +197,10 @@ that blocks a complete assessment.
 | `config-missing` | error | no `wayfinder.json` is found above the bundle |
 | `config-invalid` | error | the configuration cannot be read |
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
-| `profile-unresolved` | error | the configured source is missing from the lock or cache, or cannot be evaluated |
-| `profile-unsupported` | error | the selected identity or release is one this engine does not assess |
+| `profile-unresolved` | error | the lock is missing or stale, the cache is missing, or a package is not readable at its locked commit |
+| `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
+| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks; upgrading wayfinder is the remedy |
+| `profile-composition` | error | the chain and the project additions do not compose (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |
 | `link-graph-unavailable` | error | the OKF link graph could not be built, so link rules were not assessed |
 | `fix-failed` | error | a `--fix` write failed |
@@ -224,10 +226,14 @@ list whose entries have a finding's `id`, `message`, `location`,
 empty, whenever the assessed release declares a summary rule. Text prints a
 `Summary:` block after the findings when there is an entry.
 
-JSON carries the results as `okf`, `profile`, `diagnostics`, and `gate`, in
-that order, with `fix` between `diagnostics` and `gate` when a fix ran (§3.1).
-`diagnostics` is always present, even when empty, and `gate` is
-`{"state": ...}`. Text prints a `Diagnostics:` block after the summary when
+JSON carries the results as `okf`, `profile`, `diagnostics`, `gate`, and
+`engine`, in that order, with `fix` between `diagnostics` and `gate` when a fix
+ran (§3.1). `diagnostics` is always present, even when empty, and `gate` is
+`{"state": ...}`. `engine` is `{"okf": "<version>"}`, the okf package version
+the engine generates indexes with, so a byte change in generated output reads
+as an engine upgrade rather than a Profile change. A finding or summary entry
+whose package names `docs` carries `help_uri`, that URI with the fragment set
+to the rule id. Text prints a `Diagnostics:` block after the summary when
 there is one, and ends with `Gate:` and the gate's value. When `--output` is
 `json` or `sarif` and the run stops before it has a result, the output is
 still a parseable result. It holds only the `wayfinder/internal-error`
@@ -242,7 +248,9 @@ scanning. Each OKF and Profile finding is one result whose `ruleId` is its
 finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. Each
 summary entry follows the findings as a result of kind `informational` with
 level `none`, as SARIF §3.27.10 requires for a kind other than `fail`.
-The selected release's rules are the run's rule descriptors. Each diagnostic
+The selected chain's rules are the run's rule descriptors, each with a
+`helpUri` when its package names `docs`. The okf package version is a
+`tool.extensions` entry named `okf`. Each diagnostic
 is a notification on the run's invocation, in `toolConfigurationNotifications`
 or `toolExecutionNotifications` by its kind, with one `driver.notifications`
 descriptor per code reported. `executionSuccessful` is `false` exactly when a
@@ -254,9 +262,8 @@ as for text and JSON.
 
 Every deterministic Profile finding MUST carry a stable machine-readable ID
 alongside its prose, `<namespace>/<rule-slug>`, where the namespace is the
-catalog's: `concepta-profile` for the installed rules, and the Profile
-identity in kebab-case for a source catalog (Profile §11). It MUST name the
-release and normative rule reference of the catalog that assessed it. The ID
+`id` of the package that declares the rule, such as `bitwild-profile`
+(Profile §11). It MUST name the release of the package that assessed it. The ID
 MUST describe the semantic rule rather than a section number, implementation
 class, or message text, so integrations can depend on it across refactoring.
 
@@ -340,12 +347,12 @@ provenance or a body link.
 
 A validator MUST dispatch through `wayfinder.json` alone. For a bundle named
 by exactly one `applies_to` path, it reads the selected source chain from a
-current lock/cache and dispatches on manifest identity and exact release.
-`bitwild_profile/2026.3` selects this release. It verifies safe paths, the
-manifest's OKF 0.2 binding, and parity of the base vocabulary with the
-compiled validator. A source manifest supplies declarations and may name the
-rule catalog its Profile ships; the catalog is data the installed engine
-evaluates, read from the cache at the locked commit, never from the network.
+current lock/cache and dispatches on each package's `format`, which MUST be
+`2`, the package format this engine reads. A Profile's `release` is its own
+name and never selects engine behavior. The chain need not reach any base
+Profile. The engine verifies safe paths, each package's OKF binding, and that
+the chain composes (§4.7). A package is data the engine evaluates, read from
+the cache at the locked commit, never from the network.
 
 A bundle with no `wayfinder.json` above it leaves the Profile `NOT ASSESSED`
 with the `wayfinder/config-missing` diagnostic and exit `2`. A bundle that an
@@ -355,8 +362,8 @@ declaration changes neither outcome. A 2026.2 bundle therefore validates on wayf
 0.1.x or migrates to a project binding as Profile §15.3 describes; one engine
 carries one dispatch path, not a frozen copy of every release.
 
-An explicit `--config` path MUST exist and name the requested bundle. Unknown
-IDs or releases leave the Profile `NOT ASSESSED` with the
+An explicit `--config` path MUST exist and name the requested bundle. A
+package this engine cannot read leaves the Profile `NOT ASSESSED` with the
 `wayfinder/profile-unsupported` diagnostic and exit `2`, preserving any
 independent OKF result. A malformed or unreadable selector also prevents
 dispatch, with the configuration diagnostic §4.1 names. The
@@ -388,7 +395,7 @@ Profile Review.
 
 ### 4.7 External Profile binding (2026.3)
 
-This subsection implements Profile §11. The project configuration and manifest shapes are described by
+This subsection implements Profile §11. The project configuration and Profile package shapes are described by
 [`wayfinder.schema.json`](../docs/schemas/wayfinder.schema.json) and
 [`wayfinder-profile.schema.json`](../docs/schemas/wayfinder-profile.schema.json).
 A version-1 project file has **one** form: direct Profile sources and the bundle
@@ -398,11 +405,11 @@ paths they apply to. It has no `bundles`, `implements`, or `default_bundle` key.
 {
   "version": 1,
   "profiles": {
-    "bitwild_profile": {
+    "bitwild-profile": {
       "source": {
         "git": "https://github.com/btwld/wayfinder",
         "ref": "main",
-        "path": "profile"
+        "path": "profiles/bitwild"
       },
       "applies_to": ["./knowledge"],
       "types": [
@@ -413,34 +420,46 @@ paths they apply to. It has no `bundles`, `implements`, or `default_bundle` key.
 }
 ```
 
-The map key is the manifest identity, not an alias. The manifest supplies its
-release, upstream OKF binding and vocabulary. `bitwild_profile/2026.3` is the
-installed closed ruleset; its fetched vocabulary must match the compiled
-standard registry exactly. Each other Profile entry must `extends` a declared
-parent chain reaching this base. A parent may be source-only with
-`applies_to: []`; a child adds manifest and project vocabulary, but cannot
-replace inherited names. Missing parents, cycles, collisions, unsupported
-releases, and ambiguous bundle application fail Profile dispatch. Types,
-topic tags, relationship names and actor lookup are the only local additions;
-a binding cannot declare frontmatter keys. A registered custom type is
-reported as the `wayfinder/project-type` note diagnostic (§4.1); contextual
-meaning belongs to Profile Review.
+The map key is the package `id`, not an alias. A Profile is one package file,
+`wayfinder-profile.json`, at `source.path` in the locked revision. It carries
+the package `format`, the Profile's own `release`, its OKF binding, its
+vocabulary (`types`, `tags`, `relationships`, `frontmatter_keys`), and its
+`rules`, in the shape `wayfinder-profile.schema.json` publishes. One parser
+reads every package, Bitwild's included; the engine embeds no Profile and
+holds no installed rules. A package whose `id` differs from its map key is
+invalid.
 
-A non-base manifest may name its rule catalog (`"rules":
-"wayfinder-rules.json"`, relative to the manifest). The resolver reads the
-catalog with the same revision read as the manifest and parses it whole as
-data (`wayfinder-rules.schema.json`); it must declare the manifest's identity
-and release, report in the namespace Profile §11 derives from that identity,
-and declare no frontmatter keys. The effective catalog chain is the installed
-base catalog followed by each source catalog along `extends`, parent first.
-Validation evaluates every catalog in the chain and each finding names its own
-catalog's release and namespace, so an ancestor's findings never depend on a
-child. A base manifest that names a catalog, a missing catalog file, or a
-catalog naming a subject, slot, builtin, or keyword this engine lacks fails
-resolution with the reason, which `get` reports and `validate` reports as the
-`wayfinder/profile-unresolved` diagnostic with the Profile `NOT ASSESSED`; a
-catalog is never partially applied. The lock gains no field,
-because its commit identifies the manifest and the catalog alike.
+Any entry may `extends` a declared parent, and the chain need not reach any
+base Profile. A parent may be source-only with `applies_to: []`. A child
+inherits its parent's package and project additions and adds its own, but
+cannot replace inherited names or change an inherited rule. Missing parents,
+cycles, and ambiguous bundle application fail Profile dispatch. Types, topic
+tags, relationship names and actor lookup are the only project additions; a
+project entry cannot declare frontmatter keys or rules. A registered custom
+type is reported as the `wayfinder/project-type` note diagnostic (§4.1);
+contextual meaning belongs to Profile Review.
+
+The engine composes the chain and the project additions along it into one
+effective Profile before evaluating anything. Composition depends on nothing
+else, so the same inputs always compose the same way. A type, tag,
+relationship name, or actor ID MUST be unique across the chain and the project
+additions; a frontmatter key MUST be unique along the chain; a tag MUST NOT
+equal a type, an OKF status, an OKF trust tier, or a relationship name. Every
+package in a chain binds to the one OKF release the engine reads, which the
+package parser enforces before composition. A violation is a
+composition error, which `get` reports and `validate` reports as the
+`wayfinder/profile-composition` diagnostic. A project entry that repeats one
+of its own names is still a configuration error (`config-invalid`).
+
+Validation evaluates the rules of every package in the chain, parent first,
+and each finding names its package's `id` as namespace and its package's
+`release`, so an ancestor's findings never depend on a child. A malformed
+package reports `wayfinder/profile-invalid`; a package well-formed for
+another engine, through another `format`, an OKF release this okf cannot
+read, or a builtin this engine lacks, reports `wayfinder/profile-unsupported`.
+`get` fails with the same reason, and `validate` leaves the Profile `NOT
+ASSESSED`. A package is never partially applied. The lock gains no field,
+because its commit identifies the package.
 
 A relative local `source.git` is resolved from the directory containing
 `wayfinder.json`, not the process working directory. Cache identity uses that
@@ -452,7 +471,7 @@ reuses a current lock. `upgrade` deliberately refreshes mutable refs. A
 canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
-credentials, vocabulary or catalogs. The local Git cache holds fetched
+credentials, vocabulary or rules. The local Git cache holds fetched
 objects.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
@@ -482,12 +501,12 @@ indexes. A neighboring malformed `wayfinder.json` cannot make ordinary OKF
 graph reading fail. Those command boundaries implement the separate outcomes
 required by Profile §§14.1–14.2.
 
-The parser checks `wayfinder.json` and each Profile manifest against their
+The parser checks `wayfinder.json` and each Profile package against their
 published JSON Schemas, evaluated by the engine's own schema subset and
 embedded in the binary, then runs the cross-document checks a schema cannot
-express. Those cover normalized and canonical paths, `extends` chains, manifest
-identity and release, the effective vocabulary and actor lookup. A schema
-alone cannot prove filesystem safety, Git availability, or whether a concept
+express. Those cover normalized and canonical paths, `extends` chains, package
+identity, rule tests, composition of the effective vocabulary, and actor
+lookup. A schema alone cannot prove filesystem safety, Git availability, or whether a concept
 truthfully uses a type or topic tag. `captures/` remains outside the
 bundle unless explicitly declared as another OKF bundle; no nested area
 inherits a different Profile.
@@ -504,18 +523,19 @@ bundle conformance constraints:
 | `type` | Required non-empty string; membership in the selected Profile's standard types plus binding custom types |
 | `title`, `description` | Required non-empty strings |
 | `status` | Required string with `draft`, `stable`, or `deprecated`, unless a future Profile release explicitly changes it |
-| `tags` | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and rejects at configuration a declared tag name that collides with another declared vocabulary (Profile §5.1) |
+| `tags` | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and rejects at composition a declared tag name that collides with another declared vocabulary (Profile §5.1) |
 | `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics with upstream meanings; no Profile-specific fields for trust or freshness |
 | `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics, run after binding resolution |
 | `relationships` | The one key the release declares (Profile §7.2): a list of `relationship` and `resource` mappings, checked for shape, declared names, and target resolution |
-| Other frontmatter keys | Keys neither OKF nor the release declares fail; a binding cannot declare frontmatter keys |
+| Other frontmatter keys | Keys neither OKF nor a package in the chain declares fail; a project entry cannot declare frontmatter keys |
 
-A Profile release declares its additional frontmatter keys in its rule
-catalog's `frontmatter_keys`, each with the sentence that defines it, and
-`frontmatter-fields-declared` accepts exactly OKF's keys and those. OKF §4.1
-permits producers additional keys, but a declared key MUST NOT be one OKF 0.2
-defines or redefine an OKF field, so the engine rejects at load a catalog that
-declares an OKF key, and the compatibility review records each declared key.
+Any package declares its additional frontmatter keys in its
+`frontmatter_keys` list, each with the sentence that defines it. Keys are
+unique along the chain, and `frontmatter-fields-declared` accepts exactly
+OKF's keys and those the chain declares. OKF §4.1 permits producers
+additional keys, but a declared key MUST NOT be one OKF 0.2 defines or
+redefine an OKF field, so the engine rejects at load a package that declares
+an OKF key, and the compatibility review records each declared key.
 OKF's own fields keep their meaning: the 2026.3 `relationships` key stays out of
 `sources`, whose OKF §5.1 meaning is derivation.
 
@@ -536,14 +556,14 @@ upstream OKF change before a Profile can depend on it.
 
 Tags remain OKF topic strings, but the next Bitwild binding treats its `tags`
 arrays as a declared vocabulary rather than a list of recommendations. The
-selected Profile manifest declares its base tags and the project binding adds
+packages in the selected chain declare their tags and the project binding adds
 project tags. Wayfinder MUST reject duplicate names within either list and
 collisions between the lists, reject duplicate values within one concept, and
 apply the selected Profile release's explicit rule for an undeclared used tag.
 For Bitwild 2026.3, an undeclared used tag is an error; a Profile that needs an
 open vocabulary must state that as a different release rule. Relationship names
-follow the same model: the manifest's `relationships` list declares the
-standard names, the binding adds project names under the same duplicate and
+follow the same model: each package's `relationships` list declares its
+names, the binding adds project names under the same duplicate and
 collision rules, and an undeclared used name is an error.
 
 The Profile's tag rule remains a Profile convention, not an OKF requirement:
@@ -839,6 +859,33 @@ implementations: delete the in-bundle declaration reader and the 2026.2 rules,
 and report an unconfigured bundle as `config-missing`. A 2026.2 bundle keeps
 validating on wayfinder 0.1.x, or migrates to a `wayfinder.json` binding as
 Profile §15.3 describes. No configured bundle is affected.
+
+Revised in place before publication (2026-10-02): the engine embeds no
+Profile. A Profile is one package file, `wayfinder-profile.json` in package
+format 2, read by one parser for every Profile; the separate manifest and
+rule catalog are gone, `standard_types` is `types`, and `frontmatter_keys` is
+a list any package may declare. There is no base Profile, so a chain need not
+reach Bitwild. Bitwild's package is `bitwild-profile` at `profiles/bitwild/`,
+and its findings are `bitwild-profile/*`. Builtins are engine capabilities
+with params, named for what they check: `files-present`,
+`path-targets-exist`, and `matches-generated`. The per-rule `ref` is removed;
+a package's `docs` URI yields each finding's `help_uri` in JSON and `helpUri`
+in SARIF. JSON adds `engine.okf` and SARIF a `tool.extensions` entry naming
+the okf version used to generate indexes. The new rule
+`bitwild-profile/root-index-lists-log` requires the root index of a bundle
+with no concepts to link only `log.md`. Composition collisions become the
+`wayfinder/profile-composition` diagnostic, and `wayfinder/profile-invalid`
+joins the closed set. Affected sections: §§2.1, 4.1, 4.2, 4.4, 4.7, 4.8, and
+9. Driver: an engine that embedded one Profile and required every chain to
+reach it could not assess a Profile that stands alone, such as one a second
+knowledge base ships, and a change in generated output could not be told
+apart from a Profile change. Migration for implementations: parse format 2
+packages through one boundary, compose the chain before evaluating it, report
+the new diagnostics, and emit `help_uri`, `helpUri`, and `engine.okf`. A
+configured bundle must rename its `wayfinder.json` key to `bitwild-profile`,
+point `source.path` at `profiles/bitwild`, and run `wayfinder get`; its
+finding ids change namespace from `concepta-profile/*` to
+`bitwild-profile/*`.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

@@ -14,6 +14,7 @@ void main() {
 
     expect(jsonEncode(repeated.toJson()), jsonEncode(result.toJson()));
     expect(result.exitCode, 0);
+    expect(result.toJson()['engine'], {'okf': okfPackageVersion});
     expect(result.toJson(), <String, Object?>{
       'okf': <String, Object?>{
         'state': 'PASS',
@@ -27,6 +28,7 @@ void main() {
       },
       'diagnostics': <Object?>[],
       'gate': <String, Object?>{'state': 'PASS'},
+      'engine': <String, Object?>{'okf': okfPackageVersion},
     });
     final text = result.toTextLines().join('\n');
     expect(text, contains('Profile 2026.3: PASS'));
@@ -47,7 +49,7 @@ void main() {
     expect(
       result.summary!.map((entry) => '${entry.descriptor.id} ${entry.path}'),
       [
-        'concepta-profile/relationship-unresolved '
+        'bitwild-profile/relationship-unresolved '
             'reporting/pdf-export-feasibility.md',
       ],
     );
@@ -106,6 +108,7 @@ void main() {
       },
       'diagnostics': <Object?>[],
       'gate': <String, Object?>{'state': 'FAIL'},
+      'engine': <String, Object?>{'okf': okfPackageVersion},
     });
   });
 
@@ -130,6 +133,7 @@ void main() {
         },
       ],
       'gate': <String, Object?>{'state': 'INCOMPLETE'},
+      'engine': <String, Object?>{'okf': okfPackageVersion},
     });
     expect(result.toTextLines().join('\n'), '''OKF: PASS
 OKF Report: 0 error(s), 0 advisory(ies).
@@ -179,28 +183,21 @@ okf_version: "0.2"
     expect(result.gate, GateState.incomplete);
   });
 
-  test('reports an unsupported Profile release without a verdict', () async {
+  test('reports a package this engine cannot read without a verdict', () async {
     final project = fixture('configured-project');
     final configPath = p.posix.join(project, 'wayfinder.json');
-    final declared = WayfinderProjectConfig.parse(
-      await File(configPath).readAsString(),
-    ).profiles[builtinProfileId]!;
     final result = await const ProfileValidator().validate(
       fixtureBundle(project),
       configPath: configPath,
-      resolvedProfiles: {
-        builtinProfileId: WayfinderProfileBinding(
-          id: builtinProfileId,
-          implementsId: builtinProfileId,
-          release: '2027.1',
-          types: declared.types,
-          tags: declared.tags,
-          relationships: declared.relationships,
-          actors: declared.actors,
-          source: declared.source,
-          appliesTo: declared.appliesTo,
+      resolution: const ProfileSourceResolution(
+        failure: (
+          code: DiagnosticCode.profileUnsupported,
+          message:
+              'Profile bitwild-profile at https://example.test/wayfinder.git '
+              '(abc) cannot be evaluated by this validator: package format 3 '
+              'is not supported; this wayfinder reads format 2 at format.',
         ),
-      },
+      ),
     );
 
     expect(result.exitCode, 2);
@@ -209,11 +206,28 @@ okf_version: "0.2"
       result.toTextLines(),
       contains(
         '$configPath: error wayfinder/profile-unsupported: Profile '
-        'bitwild_profile 2027.1 is not supported; this wayfinder assesses '
-        'bitwild_profile 2026.3.',
+        'bitwild-profile at https://example.test/wayfinder.git (abc) cannot '
+        'be evaluated by this validator: package format 3 is not supported; '
+        'this wayfinder reads format 2 at format.',
       ),
     );
     expect(result.gate, GateState.incomplete);
+  });
+
+  test('reports a binding the resolver composed nothing for', () async {
+    final project = fixture('configured-project');
+    final configPath = p.posix.join(project, 'wayfinder.json');
+    final result = await const ProfileValidator().validate(
+      fixtureBundle(project),
+      configPath: configPath,
+    );
+
+    expect(result.exitCode, 2);
+    expect(result.diagnostics.single.code, DiagnosticCode.profileUnresolved);
+    expect(
+      result.diagnostics.single.message,
+      'Profile bitwild-profile is unresolved. Run wayfinder get.',
+    );
   });
 
   test(

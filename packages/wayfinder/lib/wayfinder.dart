@@ -6,16 +6,19 @@ library;
 export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
+export 'src/generated/published_schemas.g.dart' show okfPackageVersion;
 export 'src/profile_finding.dart';
-export 'src/profile_release.dart'
+export 'src/profile_package.dart';
+export 'src/profile_rule_descriptors.dart'
+    show ProfileRuleDescriptor, RuleSeverity;
+export 'src/rules/catalog.dart' show BuiltinCheck, CatalogRule, SchemaCheck;
+export 'src/rules/profile.dart'
     show
-        builtinProfileId,
-        externalProfileRelease,
-        externalStandardTypes,
-        externalStandardTags,
-        externalStandardRelationships;
-export 'src/published_schemas.dart' show profileManifestSchemaViolation;
-export 'src/rules/catalog.dart' show RuleCatalog, RuleCatalogException;
+        EffectiveProfile,
+        ProfileCompositionException,
+        ProjectVocabulary,
+        Slot,
+        Vocabulary;
 export 'src/sarif.dart' show internalErrorSarif, toSarif;
 export 'src/validation.dart'
     show
@@ -29,5 +32,6 @@ export 'src/validation.dart'
         ProfileSourceResolution,
         ProfileValidationResult,
         ProfileValidator,
+        compositionFailure,
         internalErrorJson;
 export 'src/wayfinder_config.dart';

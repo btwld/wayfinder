@@ -10,24 +10,24 @@
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/okf-release-binding",
+        "id": "bitwild-profile/okf-release-binding",
         "severity": "error",
         "message": "The bundle root index must declare okf_version: \"0.2\".",
         "location": {
           "path": "index.md"
         },
         "profile_release": "2026.3",
-        "rule": "§11"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#okf-release-binding"
       },
       {
-        "id": "concepta-profile/root-structure-files",
+        "id": "bitwild-profile/root-structure-files",
         "severity": "error",
         "message": "The configured bundle root must contain index.md and log.md; missing index.md.",
         "location": {
           "path": "index.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.5"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#root-structure-files"
       }
     ],
     "summary": []
@@ -35,5 +35,8 @@
   "diagnostics": [],
   "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

@@ -14,7 +14,7 @@ void main() {
 
     expect(result.exitCode, 1);
     expect(text, contains('Profile 2026.3: FAIL'));
-    expect(text, contains('concepta-profile/okf-release-binding (2026.3 §11)'));
+    expect(text, contains('bitwild-profile/okf-release-binding (2026.3)'));
     expect(text, endsWith('Gate: FAIL'));
   });
 
@@ -25,16 +25,16 @@ void main() {
     expect(result.exitCode, 1);
     expect(profile['state'], 'FAIL');
     expect(findingSummary(profile), <String>[
-      'error concepta-profile/concept-baseline-fields bad.md',
-      'advisory concepta-profile/generation-provenance-recommended bad.md',
-      'error concepta-profile/status-value bad.md',
+      'error bitwild-profile/concept-baseline-fields bad.md',
+      'advisory bitwild-profile/generation-provenance-recommended bad.md',
+      'error bitwild-profile/status-value bad.md',
     ]);
     expect(result.gate, GateState.fail);
     final text = result.toTextLines().join('\n');
     for (final id in <String>[
-      'concepta-profile/concept-baseline-fields',
-      'concepta-profile/status-value',
-      'concepta-profile/generation-provenance-recommended',
+      'bitwild-profile/concept-baseline-fields',
+      'bitwild-profile/status-value',
+      'bitwild-profile/generation-provenance-recommended',
     ]) {
       expect(text, contains(id));
     }
@@ -48,7 +48,7 @@ void main() {
     expect(result.exitCode, 1);
     for (final finding in result.findings) {
       expect(finding.profileRelease, '2026.3');
-      expect(finding.rule, isNotEmpty);
+      expect(finding.helpUri?.fragment, finding.id.split('/').last);
     }
   });
 
@@ -63,10 +63,7 @@ void main() {
     expect(profile['state'], 'PASS');
     expect(
       findingSummary(profile),
-      List.filled(
-        3,
-        'advisory concepta-profile/source-path-unresolved note.md',
-      ),
+      List.filled(3, 'advisory bitwild-profile/source-path-unresolved note.md'),
     );
     expect(result.gate, GateState.pass);
   });
@@ -87,7 +84,7 @@ void main() {
 
     expect(result.exitCode, 1);
     expect(findingSummary(profile), <String>[
-      'error concepta-profile/source-attribution-join note.md',
+      'error bitwild-profile/source-attribution-join note.md',
     ]);
   });
 
@@ -115,8 +112,8 @@ void main() {
 
       expect(result.exitCode, 1);
       expect(findingSummary(profile), <String>[
-        'error concepta-profile/okf-release-binding index.md',
-        'error concepta-profile/root-structure-files index.md',
+        'error bitwild-profile/okf-release-binding index.md',
+        'error bitwild-profile/root-structure-files index.md',
       ]);
     },
   );

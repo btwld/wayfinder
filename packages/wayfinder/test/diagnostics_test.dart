@@ -10,11 +10,11 @@ import 'support.dart';
 /// The link rules a graph failure leaves unassessed in the
 /// configured-conventions fixture.
 const _linkRules = {
-  'concepta-profile/internal-link-bundle-relative',
-  'concepta-profile/relationship-bundle-relative',
-  'concepta-profile/relationship-shape',
-  'concepta-profile/used-relationship-declared',
-  'concepta-profile/source-path-unresolved',
+  'bitwild-profile/internal-link-bundle-relative',
+  'bitwild-profile/relationship-bundle-relative',
+  'bitwild-profile/relationship-shape',
+  'bitwild-profile/used-relationship-declared',
+  'bitwild-profile/source-path-unresolved',
 };
 
 final _graphFails = ProfileValidator(

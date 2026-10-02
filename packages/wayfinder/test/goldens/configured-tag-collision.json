@@ -11,9 +11,9 @@
   },
   "diagnostics": [
     {
-      "id": "wayfinder/config-invalid",
+      "id": "wayfinder/profile-composition",
       "level": "error",
-      "message": "Profile bitwild_profile declares tag draft, which equals an OKF status value.",
+      "message": "Profile bitwild-profile: The project declares tag draft, which equals an OKF status value.",
       "location": {
         "path": "test/fixtures/configured-tag-collision/wayfinder.json"
       }
@@ -21,5 +21,8 @@
   ],
   "gate": {
     "state": "INCOMPLETE"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }
