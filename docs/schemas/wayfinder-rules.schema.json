@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-rules.schema.json",
   "title": "Wayfinder Profile rule catalog",
-  "description": "The automated rules of one Profile release, evaluated by the installed wayfinder engine. Written inside the engine's own JSON Schema keyword subset so the engine validates catalogs with the same predicate it evaluates rules with.",
+  "description": "The automated rules of one Profile release, evaluated by the installed wayfinder engine. Written inside the engine's own JSON Schema keyword subset so the engine validates catalogs with the same predicate it evaluates rules with. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), format \"date-time\", and the x-slot extension. The annotations $schema, $id, $comment, title, description, examples, default, deprecated, and other x- keys are ignored; $defs is read only at the root. Any other keyword makes the catalog unsupported.",
   "type": "object",
   "additionalProperties": false,
   "required": [

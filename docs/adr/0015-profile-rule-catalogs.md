@@ -44,7 +44,9 @@ The validator becomes a closed **engine** with three parts:
    Finding identity, location, and cardinality come from the rule and the
    subject, never from schema-library errors. The engine owns a small
    evaluator for a declared JSON Schema keyword subset, conformance-tested
-   against the JSON-Schema-Test-Suite.
+   against the JSON-Schema-Test-Suite. The description of
+   [`wayfinder-rules.schema.json`](../schemas/wayfinder-rules.schema.json)
+   lists that subset.
 3. **Catalogs.** A catalog declares every rule it enforces. A Profile turns a
    rule off by not declaring it. `extends` imports a parent catalog whole and
    only adds rules in the child's namespace. No consumer overrides or
@@ -101,10 +103,17 @@ regression oracle for engine changes; they compare the full report, so a
 wording change is a reviewed golden diff.
 
 A read-only probe expressed that second gate's 32 rules as a catalog for this
-engine: 22 were expressible and 18 matched its findings exactly across 41
-mutated copies of its bundles; 5 needed a fact or builtin the engine lacked and
-5 compare two revisions rather than one bundle state, which this engine does
-not assess.
+engine. At the latest measurement 23 were expressible and 20 of those matched
+its findings exactly; across the original 41 mutated copies of its bundles, 35
+produced matching findings. Of the other 9 rules, 5 compare two revisions
+rather than one bundle state, which this engine does not assess, and the rest
+need a fact or builtin the engine lacks.
+
+A configured Profile source is trusted for availability. Its catalog is data,
+so it cannot run code or change another catalog's findings, but its `pattern`
+keywords run on Dart's backtracking regular-expression engine, and a hostile
+pattern can stall validation. A project configures only sources it trusts not
+to do that.
 
 Removing the restated rules from the Profile prose is follow-up work, not part
 of this change. Until it lands, the Profile still states every automated rule
