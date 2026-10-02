@@ -32,7 +32,7 @@ typed `relationships` entries.
 Otherwise use the **CLI**, which takes an explicit bundle path:
 
 ```sh
-wayfinder validate <bundle> [--config=wayfinder.json] [--fix] [--output=json]
+wayfinder validate <bundle> [--config=wayfinder.json] [--fix] [--output=json|sarif]
 wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
 wayfinder index <bundle> [--output=json]
 wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
