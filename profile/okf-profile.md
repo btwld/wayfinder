@@ -364,9 +364,10 @@ requires, like any other directory; one holding only non-concept assets needs
 none.
 
 A source directory MAY keep the verbatim originals it preserves in a `raw/`
-subdirectory. Within `raw/` and any of its subdirectories, the only markdown
-file permitted is each directory's own `index.md`: everything else in the tier
-is a non-concept asset (§12) and stays byte-for-byte. A readable mirror derived
+subdirectory. Within `raw/` and any of its subdirectories, no markdown file is
+permitted: everything in the tier is a non-concept asset (§12) and stays
+byte-for-byte, and its directories, holding only assets, carry no `index.md`
+(§9). A readable mirror derived
 from an original is a sibling of `raw/` in its source directory, never inside
 it. Because this rule keys on the name, `raw` is reserved within `references/`
 and MUST NOT name a source directory. The tier belongs to a source directory
