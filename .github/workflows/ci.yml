@@ -61,13 +61,13 @@ jobs:
       - run: dart test
         working-directory: packages/wayfinder_cli
       - if: matrix.sdk == 'stable'
-        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart tool/generate_installed_profiles.dart
+        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart tool/generate_published_schemas.dart
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: dart run tool/generate_installed_profiles.dart --check
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        run: dart run wayfinder_cli:wayfinder validate examples/knowledge
+        run: dart run tool/generate_published_schemas.dart --check
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: python3 tool/ci/verify-configured-example.py
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: python3 tool/ci/verify-independent-profile.py
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder

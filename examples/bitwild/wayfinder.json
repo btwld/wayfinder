@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild-profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "profiles/bitwild"
+      },
+      "applies_to": ["./knowledge"],
+      "types": [
+        {
+          "name": "Meeting Transcript",
+          "description": "A mirrored verbatim transcript of a recorded interaction, held as an immutable snapshot"
+        }
+      ],
+      "tags": [
+        {"name": "reporting", "description": "Reporting and document generation"},
+        {"name": "export", "description": "Exported artifacts such as PDFs"}
+      ],
+      "relationships": [
+        {
+          "name": "assessed-by",
+          "description": "Points from a durable request to an analysis that evaluates whether the request is feasible"
+        }
+      ],
+      "actors": {
+        "human:chris": {
+          "name": "Christiano Higuto",
+          "organization": "Concepta",
+          "role": "Engineering lead",
+          "side": "internal"
+        },
+        "claude-code/opus-5": {
+          "name": "Claude Code",
+          "organization": "Anthropic",
+          "role": "Authoring agent",
+          "side": "tool"
+        },
+        "process:meeting-platform": {
+          "name": "Meeting platform recording",
+          "role": "Recording process",
+          "side": "unknown"
+        },
+        "process:meeting-transcription": {
+          "name": "Meeting transcription",
+          "organization": "Example Transcription Vendor",
+          "role": "Transcription process",
+          "side": "vendor"
+        }
+      }
+    }
+  }
+}

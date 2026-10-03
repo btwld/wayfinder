@@ -1,24 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
-  "title": "Wayfinder Profile manifest",
-  "description": "Identity and declarative machine-readable metadata for a Git-sourced Wayfinder Profile. Its automated rules, when it ships any, are the rule catalog `rules` names, data the installed wayfinder engine evaluates.",
+  "title": "Wayfinder Profile package",
+  "description": "One Profile at one Git revision: its identity, the vocabulary it declares, and the rules `wayfinder validate` enforces for it. Written inside the engine's own JSON Schema keyword subset so the engine validates packages with the same predicate it evaluates rules with. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), format \"date-time\", and the x-slot extension. The annotations $schema, $id, $comment, title, description, examples, default, deprecated, and other x- keys are ignored; $defs is read only at the root. Any other keyword makes the package unsupported.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "format",
     "id",
     "release",
     "implements",
-    "standard_types"
+    "rules"
   ],
   "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "format": {
+      "const": 2,
+      "description": "The package format the engine must read. Engine compatibility is this integer, never a Profile release."
+    },
     "id": {
-      "$ref": "#/$defs/identifier",
-      "description": "Stable Profile identifier."
+      "$ref": "#/$defs/profileId",
+      "description": "The Profile's identity. It is the finding namespace (`<id>/<rule-id>`), the key the project configuration and lock use, and the name of the Profile's installed skill directory."
     },
     "release": {
-      "$ref": "#/$defs/profileRelease",
-      "description": "Immutable Profile release in YYYY.serial form."
+      "$ref": "#/$defs/release",
+      "description": "The Profile's own immutable release name, opaque to the engine."
     },
     "implements": {
       "type": "object",
@@ -32,35 +43,68 @@
           "const": "okf"
         },
         "release": {
-          "const": "0.2"
+          "$ref": "#/$defs/text"
         }
       },
-      "description": "The upstream format and exact release this Profile binds to."
+      "description": "The OKF release this Profile binds to. The engine refuses a release its okf dependency cannot read, and the index generator declares this release in the indexes it writes."
     },
-    "standard_types": {
+    "extends": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sameRevisionParent"
+        },
+        {
+          "$ref": "#/$defs/otherRevisionParent"
+        }
+      ],
+      "description": "The Profile this package builds on. Its rules and vocabulary apply first, and this package only adds to them. Without git, the parent is the package at path in the same repository at the same commit as this package, so Profiles hosted together release together. With git, it is the package at path in that repository at ref."
+    },
+    "docs": {
+      "$ref": "#/$defs/uri",
+      "description": "Where the Profile explains its rules. A finding's help link is this URI with the fragment set to the rule id, so each rule id is expected to be a heading there."
+    },
+    "skill": {
+      "$ref": "#/$defs/relativePath",
+      "description": "The package-relative directory of the Profile's agent skill, holding a SKILL.md whose name is the Profile id. wayfinder get installs it from the locked commit into the project's .claude/skills/<id>/ and .agents/skills/<id>/."
+    },
+    "types": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/typeDefinition"
+        "$ref": "#/$defs/definition"
       },
-      "description": "The standard concept types owned by this Profile. Names must be unique; uniqueness is checked by Wayfinder."
+      "description": "Concept types this Profile declares. Names are unique across the Profile chain and the project entry."
     },
     "tags": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/tagDefinition"
+        "$ref": "#/$defs/definition"
       },
-      "description": "Tags declared by this Profile. Names must be unique; validation compares used tags with the merged Profile and project registry."
+      "description": "Tags this Profile declares. Names are unique across the Profile chain and the project entry, and a tag never equals a type, an OKF status, an OKF trust tier or a relationship name."
     },
     "relationships": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/relationshipDefinition"
+        "$ref": "#/$defs/definition"
       },
-      "description": "Relationship names declared by this Profile for the concept frontmatter key relationships. Names must be unique; validation compares used names with the merged Profile and project vocabulary."
+      "description": "Relationship names this Profile declares for the concept frontmatter key relationships. Names are unique across the Profile chain and the project entry."
+    },
+    "frontmatter_keys": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/definition"
+      },
+      "description": "Producer frontmatter keys this Profile declares under OKF §4.1, each with the sentence that defines it. A key OKF already defines is rejected at load; keys are unique across the Profile chain."
+    },
+    "$defs": {
+      "type": "object",
+      "description": "Schemas rule schemas may $ref as #/$defs/<name>, including x-slot vocabularies."
     },
     "rules": {
-      "$ref": "#/$defs/relativePath",
-      "description": "The Profile's rule catalog (wayfinder-rules.schema.json), relative to this manifest's directory in the same revision. Its rules add findings in the Profile's own namespace; the base Profile never names one, because its catalog is installed with the validator."
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      },
+      "description": "The rules this Profile adds, each reporting as `<id>/<rule-id>`. A Profile only adds rules; it cannot change an ancestor's."
     }
   },
   "$defs": {
@@ -70,22 +114,73 @@
       "pattern": "\\S",
       "description": "a non-empty string"
     },
-    "identifier": {
+    "profileId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]*$",
-      "description": "a valid identifier (lowercase letters, digits, _ and -, starting with a letter)"
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 64,
+      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+-]*$",
+      "description": "a release name of letters, digits, dots, pluses and hyphens, starting with a letter or digit"
+    },
+    "uri": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:\\S+$",
+      "description": "an absolute URI"
     },
     "relativePath": {
       "$ref": "#/$defs/text",
       "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
       "description": "a relative path without parent traversal"
     },
-    "profileRelease": {
-      "type": "string",
-      "pattern": "^[0-9]{4}\\.[0-9]+$",
-      "description": "a Profile release in YYYY.serial form"
+    "gitLocation": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?:/|[A-Za-z]:[\\\\/]|[A-Za-z][A-Za-z0-9+.-]*://|(?:[^/@:\\\\]+@)?[^/:\\\\]{2,}:)",
+      "description": "a Git URL or an absolute local path, never a relative one, which would resolve differently in each project"
     },
-    "typeDefinition": {
+    "gitRef": {
+      "$ref": "#/$defs/text",
+      "pattern": "^(?!-)(?!.*\\.\\.)[^\\x00-\\x20\\x7f]+$",
+      "description": "a valid Git ref, with no leading hyphen, no .. and no whitespace or control characters"
+    },
+    "sameRevisionParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "The parent package directory, relative to the repository root, read at this package's commit."
+        }
+      }
+    },
+    "otherRevisionParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git",
+        "ref",
+        "path"
+      ],
+      "properties": {
+        "git": {
+          "$ref": "#/$defs/gitLocation"
+        },
+        "ref": {
+          "$ref": "#/$defs/gitRef",
+          "description": "Branch, tag, or commit without a prefix."
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath",
+          "description": "The parent package directory inside that revision."
+        }
+      }
+    },
+    "definition": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -101,35 +196,168 @@
         }
       }
     },
-    "tagDefinition": {
+    "rule": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "name",
-        "description"
+        "id",
+        "category",
+        "severity",
+        "status",
+        "description",
+        "message",
+        "check"
       ],
       "properties": {
-        "name": {
-          "$ref": "#/$defs/text"
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+          "description": "Finding slug under the Profile id."
+        },
+        "category": {
+          "enum": [
+            "structure",
+            "vocabulary",
+            "provenance",
+            "linking",
+            "history"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "advisory",
+            "note"
+          ],
+          "description": "An error fails the gate and an advisory does not; both are findings. A note reports something the Profile permits as a summary entry, never a finding."
+        },
+        "status": {
+          "enum": [
+            "preview",
+            "stable",
+            "deprecated"
+          ]
         },
         "description": {
-          "$ref": "#/$defs/text"
+          "type": "string",
+          "minLength": 1,
+          "description": "The rule's normative statement."
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ],
+          "description": "Finding text with {failing} and {fact} placeholders; an object keys variants by the message id a builtin names."
+        },
+        "check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/schema-check"
+            },
+            {
+              "$ref": "#/$defs/builtin-check"
+            }
+          ]
+        },
+        "tests": {
+          "$ref": "#/$defs/tests"
         }
       }
     },
-    "relationshipDefinition": {
+    "schema-check": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "name",
-        "description"
+        "subject",
+        "schema"
       ],
       "properties": {
-        "name": {
-          "$ref": "#/$defs/text"
+        "subject": {
+          "enum": [
+            "frontmatter",
+            "concept",
+            "actor",
+            "directory",
+            "file",
+            "root",
+            "log"
+          ]
         },
-        "description": {
-          "$ref": "#/$defs/text"
+        "each": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An array fact of the subject; the schema runs per element."
+        },
+        "failing_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The field of a failing each element that fills {failing}; value by default."
+        },
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Subject location key to report at; self by default."
+        },
+        "schema": {
+          "type": [
+            "object",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "builtin-check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builtin"
+      ],
+      "properties": {
+        "builtin": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An engine capability: files-present, path-targets-exist or matches-generated. Its params schema is checked at load."
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "invalid"
+      ],
+      "properties": {
+        "slots": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "valid": {
+          "type": "array",
+          "minItems": 1
+        },
+        "invalid": {
+          "type": "array",
+          "minItems": 1
         }
       }
     }

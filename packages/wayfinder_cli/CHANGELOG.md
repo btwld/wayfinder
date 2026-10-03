@@ -10,12 +10,58 @@
   `index` without a path refreshes the same bundle set. Explicit paths retain
   their existing behavior and JSON; missing/stale selected indexes still fail
   search without implicit indexing or partial results.
+- `wayfinder get` and `upgrade` install the skill of every locked package
+  that names one in `skill`, from its locked commit, into the project's
+  `.claude/skills/<id>/` and `.agents/skills/<id>/` with a
+  `.wayfinder-profile` marker. They never replace or remove a directory
+  without the marker and fail before writing the lock when one is in the
+  way. They remove a marked directory whose Profile no longer ships a skill
+  or is no longer locked, and rewrite nothing when every marker is current.
+  Text output lists each skill; `--output json` adds `skills` and
+  `removed_skills`. `validate` reports a missing or outdated copy as the
+  `wayfinder/profile-skill-stale` warning without changing the gate.
+- A project names only the Profile it applies; the package names its parent.
+  `wayfinder get` follows each package's `extends`, reading a same-revision
+  parent from the child's commit, composes every chain before it writes the
+  lock, and locks a flat `packages` map with one source per Profile id, its
+  `git`, `ref`, and `path`, resolved to one commit. Two chains that describe
+  one id with different sources fail `get` naming both sources, even when
+  they resolve to the same commit. Run twice with nothing changed, `get`
+  fetches nothing and leaves the lock's bytes alone. A lock in the old `profiles` shape is rewritten.
+  `get --output json` reports `packages` instead of `profiles` and drops
+  `direct`. Validation selects through the resolver's `select`, which never
+  fetches and reports each failure as one diagnostic, including a lock whose
+  chain, release or parent disagrees with the cached package.
+- `wayfinder get` reads each configured source's `wayfinder-profile.json`
+  as a format 2 package and composes the chain before writing the lock, so
+  a package this engine cannot read, or a chain that does not compose,
+  fails `get` with the reason and leaves the lock untouched. A
+  `wayfinder.json` key is the package id, in kebab-case, and the package
+  must declare that id. Bitwild is `bitwild-profile` at
+  `profiles/bitwild`; no chain has to reach it. The runtime archive no
+  longer ships `profile/`.
+- `wayfinder validate` and MCP validation of a 2026.2 bundle,
+  or any bundle with no `wayfinder.json` above it, report
+  `wayfinder/config-missing` with the Profile `NOT ASSESSED` and gate
+  `INCOMPLETE`, exiting 2. An in-bundle `profile.md` no longer selects a
+  Profile. Stay on wayfinder 0.1.x to keep validating a 2026.2 bundle
+  unchanged, or migrate it to a `wayfinder.json` binding. The runtime
+  archive no longer ships the 2026.2 Profile snapshot. The worked example
+  moved to `examples/bitwild`, a `wayfinder.json` project whose bundle is
+  `examples/bitwild/knowledge`; run `wayfinder get examples/bitwild` before
+  validating it.
+- `wayfinder validate` and MCP validation end with one derived gate, `PASS`,
+  `FAIL` or `INCOMPLETE`, exiting 0, 1 or 2, and list the engine's
+  `wayfinder/*` diagnostics beside the findings. A run that could not assess
+  everything, such as an unresolved Profile source or a link graph that
+  cannot be built, is `INCOMPLETE` and never `PASS`. JSON drops
+  `judgment_rules` and `automated_gate`. With `--output json` or `sarif`, a
+  run that stops still prints a result carrying `wayfinder/internal-error`.
 - `wayfinder get` decodes the Profile manifest and rule catalog that `git
   show` prints as UTF-8, so a non-ASCII character such as `§` no longer
   comes back as `Â§` on Windows.
 - `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
-  such as a project type in use or an unresolved planned link, as summary
-  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
+  such as an unresolved planned link, as summary entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
   informational results. They never change the gate or the exit code. The resolver rejects
   a composed binding that declares a tag equal to a type, status, trust tier,
   or relationship name.

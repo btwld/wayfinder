@@ -6,8 +6,8 @@
 - Scope: Profile 2026.1 and later
 - Amended 2026-10-02 for Profile 2026.3: a `raw/` tier holds no Markdown at
   all. Its directories hold only non-concept assets, so they carry no
-  `index.md` ([Profile §3.4](../../profile/okf-profile.md#34-the-references-directory),
-  [§9](../../profile/okf-profile.md#9-index-files)). The `index.md` exception
+  `index.md` (Bitwild rules [`raw-directory-markdown`](../../profiles/bitwild/README.md#raw-directory-markdown)
+  and [`index-current`](../../profiles/bitwild/README.md#index-current)). The `index.md` exception
   in the Decision below applies to 2026.1 and 2026.2 only.
 
 ## Context

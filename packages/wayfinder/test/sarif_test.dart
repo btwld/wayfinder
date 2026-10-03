@@ -19,6 +19,11 @@ void main() {
         await log.writeAsString(jsonEncode(await _sarif(fixture(name))));
         instances.addAll(['-i', log.path]);
       }
+      final stopped = File(p.join(logs.path, 'internal-error.sarif'));
+      await stopped.writeAsString(
+        jsonEncode(internalErrorSarif('boom', toolVersion: '0.0.0')),
+      );
+      instances.addAll(['-i', stopped.path]);
       final run = await Process.run('python3', [
         '-m',
         'jsonschema',
@@ -43,12 +48,12 @@ void main() {
       results,
       containsAll([
         (
-          'concepta-profile/used-relationship-declared',
+          'bitwild-profile/used-relationship-declared',
           'error',
           '$bundle/custom-relationship.md',
         ),
         (
-          'concepta-profile/internal-link-bundle-relative',
+          'bitwild-profile/internal-link-bundle-relative',
           'warning',
           '$bundle/relative-link.md',
         ),
@@ -56,15 +61,14 @@ void main() {
     );
     final rules = _rules(run);
     expect(rules.keys, containsAll({...results.map((result) => result.$1)}));
-    expect(rules['concepta-profile/used-relationship-declared'], {
-      'id': 'concepta-profile/used-relationship-declared',
+    expect(rules['bitwild-profile/used-relationship-declared'], {
+      'id': 'bitwild-profile/used-relationship-declared',
       'shortDescription': {'text': isNotEmpty},
+      'helpUri':
+          'https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/'
+          'README.md#used-relationship-declared',
       'defaultConfiguration': {'level': 'error'},
-      'properties': {
-        'category': 'vocabulary',
-        'ref': startsWith('§'),
-        'profile_release': '2026.3',
-      },
+      'properties': {'category': 'vocabulary', 'profile_release': '2026.3'},
     });
     expect(run['invocations'], [
       {'executionSuccessful': true},
@@ -81,8 +85,8 @@ void main() {
         (result) => result['kind'] == 'informational',
       );
       expect(summary.map((result) => result['ruleId']), [
-        'concepta-profile/internal-link-unresolved',
-        'concepta-profile/relationship-unresolved',
+        'bitwild-profile/internal-link-unresolved',
+        'bitwild-profile/relationship-unresolved',
       ]);
       expect(
         results.skipWhile((result) => result['kind'] != 'informational'),
@@ -96,7 +100,7 @@ void main() {
       expect(
         _rules(
           run,
-        )['concepta-profile/internal-link-unresolved']!['defaultConfiguration'],
+        )['bitwild-profile/internal-link-unresolved']!['defaultConfiguration'],
         {'level': 'none'},
       );
     },
@@ -125,18 +129,11 @@ void main() {
 
   test('OKF findings are results under their okf ids', () async {
     final run = _run(await _sarif(fixture('invalid-concepts')));
-    expect(_results(run).take(2), [
-      (
-        'okf/invalid-generated',
-        'warning',
-        'test/fixtures/invalid-concepts/bad.md',
-      ),
-      (
-        'okf/invalid-status',
-        'warning',
-        'test/fixtures/invalid-concepts/bad.md',
-      ),
-    ]);
+    expect(_results(run).first, (
+      'okf/invalid-status',
+      'warning',
+      'test/fixtures/invalid-concepts/knowledge/bad.md',
+    ));
     expect(_rules(run)['okf/invalid-status'], {
       'id': 'okf/invalid-status',
       'shortDescription': {'text': isNotEmpty},
@@ -150,24 +147,95 @@ void main() {
       _results(blocked).map((result) => result.$1),
       everyElement(startsWith('okf/')),
     );
+    expect(blocked['properties'], {
+      'okf_state': 'FAIL',
+      'profile_id': 'bitwild-profile',
+      'profile_release': '2026.3',
+      'profile_state': 'BLOCKED BY OKF',
+      'gate': 'FAIL',
+    });
     expect(
-      blocked['properties'],
-      containsPair('profile_state', 'BLOCKED BY OKF'),
+      _rules(blocked).keys,
+      contains('bitwild-profile/okf-release-binding'),
     );
     expect(blocked['invocations'], [
       {'executionSuccessful': true},
     ]);
 
-    final unsupported = _run(await _sarif(fixture('unsupported')));
-    expect(unsupported['properties'], {
+    final unselected = _run(await _sarif(fixture('malformed')));
+    expect(unselected['properties'], {
       'okf_state': 'PASS',
-      'profile_release': '2027.1',
-      'profile_state': 'UNSUPPORTED',
-      'judgment_rules': 'UNASSESSED',
-      'automated_gate': 'UNSUPPORTED',
+      'profile_id': null,
+      'profile_release': null,
+      'profile_state': 'NOT ASSESSED',
+      'gate': 'INCOMPLETE',
     });
-    expect(unsupported['invocations'], [
-      {'executionSuccessful': false},
+    expect(unselected['invocations'], [
+      {
+        'executionSuccessful': false,
+        'toolConfigurationNotifications': [
+          {
+            'descriptor': {'id': 'wayfinder/config-invalid', 'index': 0},
+            'level': 'error',
+            'message': {'text': contains('not valid JSON')},
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {
+                    'uri': 'test/fixtures/malformed/wayfinder.json',
+                    'uriBaseId': 'WORKINGDIR',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(_notificationDescriptors(unselected), [
+      {
+        'id': 'wayfinder/config-invalid',
+        'shortDescription': {'text': isNotEmpty},
+        'defaultConfiguration': {'level': 'error'},
+      },
+    ]);
+  });
+
+  test('a note diagnostic is a configuration notification that leaves '
+      'execution successful', () async {
+    final run = _run(await _sarif(fixture('configured-extensions')));
+    final [invocation] = run['invocations']! as List<Object?>;
+    expect(invocation, {
+      'executionSuccessful': true,
+      'toolConfigurationNotifications': [
+        containsPair('descriptor', {
+          'id': 'wayfinder/project-type',
+          'index': 0,
+        }),
+      ],
+    });
+    expect(
+      _results(run).map((result) => result.$1),
+      isNot(contains(startsWith('wayfinder/'))),
+    );
+  });
+
+  test('a run that stopped is one execution notification and no '
+      'results', () {
+    final run = _run(_wire(internalErrorSarif('boom', toolVersion: '0.0.0')));
+    expect(run['results'], isEmpty);
+    expect(run['properties'], {'gate': 'INCOMPLETE'});
+    expect(run['invocations'], [
+      {
+        'executionSuccessful': false,
+        'toolExecutionNotifications': [
+          {
+            'descriptor': {'id': 'wayfinder/internal-error', 'index': 0},
+            'level': 'error',
+            'message': {'text': 'boom'},
+          },
+        ],
+      },
     ]);
   });
 
@@ -229,11 +297,25 @@ void main() {
           ),
         ),
       );
-      final uri = _results(run)
-          .singleWhere(
-            (result) => result.$1.endsWith('/configured-type-extension'),
-          )
-          .$3;
+      final uri = switch (run['invocations']) {
+        [
+          {
+            'toolConfigurationNotifications': [
+              {
+                'locations': [
+                  {
+                    'physicalLocation': {
+                      'artifactLocation': {'uri': final String uri},
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ] =>
+          uri,
+        final other => throw StateError('no located notification: $other'),
+      };
       expect(uri, contains('%20spaced/wayfinder.json'));
       expect(
         p.canonicalize(Uri.parse(uri).toFilePath()),
@@ -293,6 +375,15 @@ List<Map<String, Object?>> _artifactLocations(Map<String, Object?> run) => [
         })
           artifact,
 ];
+
+List<Object?> _notificationDescriptors(Map<String, Object?> run) =>
+    switch (run) {
+      {
+        'tool': {'driver': {'notifications': final List<Object?> descriptors}},
+      } =>
+        descriptors,
+      _ => const [],
+    };
 
 Map<String, Map<String, Object?>> _rules(Map<String, Object?> run) {
   final rules = switch (run) {

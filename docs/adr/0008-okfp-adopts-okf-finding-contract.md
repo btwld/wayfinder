@@ -4,6 +4,7 @@
 - Date: 2026-08-26
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0008-okfp-adopts-okf-finding-contract.md))
 - Scope: validator report contract; originally implemented in `okfp`
+- Amended, if accepted: by [ADR-0016](0016-independent-profile-packages.md). A Profile finding's namespace is the id of the package that declares the rule, so Bitwild's findings are `bitwild-profile/<rule-slug>`. The engine reports its own state as `wayfinder/<code>` diagnostics, never as findings. A finding's `help_uri` replaces the normative rule reference. The OKF report is unchanged
 
 ## Context
 

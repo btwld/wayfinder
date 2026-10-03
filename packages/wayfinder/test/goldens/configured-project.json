@@ -6,15 +6,23 @@
     }
   },
   "profile": {
+    "id": "bitwild-profile",
     "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "PASS",
     "findings": [],
     "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "PASS"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

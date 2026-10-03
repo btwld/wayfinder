@@ -31,7 +31,7 @@ if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   exit 0
 fi
 cat > "$work/notes.md" <<EOF
-Complete Wayfinder $version native bundles, including built-in Profile validation,
+Complete Wayfinder $version native bundles, including OKF and Profile validation,
 embedding model and required native libraries. Verify the accompanying SHA-256
 checksums before installation. Platform verification and source provenance are
 recorded by the source CI; source commit: $source_sha.

@@ -1,8 +1,16 @@
 final class JsonPredicateException implements Exception {
-  JsonPredicateException(this.pointer, this.message);
+  JsonPredicateException(
+    this.pointer,
+    this.message, {
+    this.unsupported = false,
+  });
 
   final String pointer;
   final String message;
+
+  /// True when the schema may be valid JSON Schema that this engine's
+  /// keyword subset does not cover, as opposed to a malformed schema.
+  final bool unsupported;
 
   @override
   String toString() => '$message at #$pointer';
@@ -271,6 +279,7 @@ final class _Compiler {
             throw JsonPredicateException(
               at,
               'only format "date-time" is supported',
+              unsupported: true,
             );
           }
           nodes.add(const _DateTime());
@@ -279,7 +288,11 @@ final class _Compiler {
         case _ when keyword.startsWith('x-'):
           break;
         default:
-          throw JsonPredicateException(at, 'unsupported keyword "$keyword"');
+          throw JsonPredicateException(
+            at,
+            'unsupported keyword "$keyword"',
+            unsupported: true,
+          );
       }
     }
     if (ifNode != null) {
@@ -309,6 +322,7 @@ final class _Compiler {
       throw JsonPredicateException(
         pointer,
         r'only local $ref to #/$defs/<name> is supported',
+        unsupported: true,
       );
     }
     final token = reference.substring(prefix.length);

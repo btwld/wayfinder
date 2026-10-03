@@ -6,7 +6,7 @@
 - Scope: application commands and local index lifecycle; no Profile rule changes
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 - Amended 2026-10-01 for Profile 2026.3: declared-relationship context also
-  follows the `relationships` frontmatter key ([Profile §7.2](../../profile/okf-profile.md#72-relationships)),
+  follows the `relationships` frontmatter key (Bitwild rule [`relationship-shape`](../../profiles/bitwild/README.md#relationship-shape)),
   read from the saved sources when an index reopens, so the saved index format
   is unchanged. Typed relationships are followed before untyped body links,
   and a hit reached through one names its relationship.

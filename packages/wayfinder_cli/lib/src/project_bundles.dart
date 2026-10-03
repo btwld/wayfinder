@@ -31,11 +31,15 @@ Future<List<ProjectBundle>> discoverProjectBundles(
     final config = File(p.join(directory.path, 'wayfinder.json'));
     if (await config.exists()) {
       try {
-        paths = (await WayfinderProjectConfig.read(
-          config,
-        )).bundles.map((bundle) => bundle.path).toList();
+        paths = WayfinderProjectConfig.parse(
+          await config.readAsString(),
+        ).bundles.map((bundle) => bundle.path).toList();
       } on WayfinderConfigException catch (error) {
         throw WayfinderException(error.message);
+      } on FileSystemException catch (error) {
+        throw WayfinderException(
+          'Cannot read ${config.path}: ${error.message}.',
+        );
       }
       break;
     }

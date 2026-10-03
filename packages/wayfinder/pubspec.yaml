@@ -1,5 +1,5 @@
 name: wayfinder
-description: Core Wayfinder validation library for OKF knowledge bundles and the Bitwild OKF Profile.
+description: Core Wayfinder library that validates OKF knowledge bundles and evaluates the rules of any Profile package.
 version: 0.1.0
 repository: https://github.com/btwld/wayfinder
 issue_tracker: https://github.com/btwld/wayfinder/issues
@@ -18,11 +18,9 @@ resolution: workspace
 dependencies:
   collection: ^1.19.0
   markdown: ^7.3.0
-  okf: ^0.5.0
+  okf: '>=0.5.0 <0.5.1'
   path: ^1.9.1
-  yaml: ^3.1.3
 
 dev_dependencies:
-  args: ^2.7.0
   lints: ">=4.0.0 <7.0.0"
   test: ^1.25.8

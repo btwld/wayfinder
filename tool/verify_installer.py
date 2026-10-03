@@ -6,7 +6,11 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'ci'))
+from bitwild_example import get_and_validate, prepare
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('archive', type=Path)
@@ -92,6 +96,7 @@ cp "$WAYFINDER_TEST_DOWNLOADS/${url##*/}" "$destination"
     install(expected=1)
     assert binary.resolve() == previous
     command('search', corpus, 'password', '--output=json')
-    command('validate', workspace / 'examples/knowledge')
+    get_and_validate([str(binary)], prepare(root / 'example'), env=env, cwd=root,
+                     timeout=120)
     assert not (root / 'commands/okfp').exists()
     print('PASS: no-Dart install, agent skills, quoted paths, retrieval, repair, index reuse, corrupt download refusal.')

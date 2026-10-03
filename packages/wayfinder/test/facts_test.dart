@@ -1,22 +1,24 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/src/profile_release.dart';
 import 'package:wayfinder/src/rules/body.dart';
-import 'package:wayfinder/src/rules/catalog.dart';
 import 'package:wayfinder/src/rules/evaluate.dart';
 import 'package:wayfinder/src/rules/facts.dart';
-import 'package:wayfinder/src/rules/profile.dart';
+import 'package:wayfinder/wayfinder.dart';
 
-final probeCatalog = RuleCatalog.parse(
-  jsonEncode({
-    'format': 1,
-    'namespace': 'probe',
-    'profile': {'id': 'probe', 'release': '2026.1'},
-    'rules': [
+import 'support.dart';
+
+final probe = ProfilePackage.parse(
+  packageJson(
+    id: 'probe',
+    extra: {
+      'types': [
+        {'name': 'Guide', 'description': 'A guide'},
+      ],
+    },
+    rules: [
       rule(
         'heading-context',
         message: 'A concept needs a level-one Context heading.',
@@ -202,7 +204,7 @@ final probeCatalog = RuleCatalog.parse(
         ],
       ),
     ],
-  }),
+  ),
 );
 
 Map<String, Object?> rule(
@@ -216,7 +218,6 @@ Map<String, Object?> rule(
   'category': 'linking',
   'severity': 'error',
   'status': 'stable',
-  'ref': '§1',
   'description': message,
   'message': message,
   'check': check,
@@ -272,13 +273,11 @@ void main() {
     await file.writeAsString(text);
   }
 
-  Future<BundleFacts> project(RuleCatalog catalog) async {
+  Future<BundleFacts> project(ProfilePackage package) async {
     final loaded = await const OkfBundleLoader().inspect(bundle.path);
     return BundleFacts.project(
       loaded,
-      profile: EffectiveProfile([
-        catalog,
-      ], const Vocabulary(standardTypes: [], types: ['Guide'])),
+      profile: EffectiveProfile.compose([package]),
     );
   }
 
@@ -325,7 +324,7 @@ void main() {
 
     test('the concept facts carry headings, status, edges, footnotes and '
         'inbound relationships', () async {
-      final facts = await project(probeCatalog);
+      final facts = await project(probe);
       final engine = concept(facts, 'area/engine.md');
       expect(engine['status'], 'stable');
       expect(engine['headings'], [
@@ -396,7 +395,7 @@ void main() {
     });
 
     test('the probe catalog reports each fact through its rule', () async {
-      final facts = await project(probeCatalog);
+      final facts = await project(probe);
       final findings = [
         for (final finding in evaluate(facts.profile, facts).findings)
           '${finding.id} ${finding.path}: ${finding.message}',
@@ -435,12 +434,10 @@ void main() {
           '---\ntype: Guide\nsources:\n  - {id: s1, resource: spec.md}\n---\n'
               '\nClaim[^s1] without a definition.\n',
         );
-        final facts = await project(
-          RuleCatalog.installed(builtinProfileId, externalProfileRelease),
-        );
+        final facts = await project(bitwild);
         final joins = [
           for (final finding in evaluate(facts.profile, facts).findings)
-            if (finding.id == 'concepta-profile/source-attribution-join')
+            if (finding.id == 'bitwild-profile/source-attribution-join')
               finding.path,
         ];
         expect(joins, ['area/loud.md']);
@@ -448,14 +445,41 @@ void main() {
     );
   });
 
+  test(
+    'root index links are resolved as OKF resolves links from the root',
+    () async {
+      await write('log.md', '# Bundle Update Log\n');
+      await write(
+        'index.md',
+        [
+          '---',
+          'okf_version: "0.2"',
+          '---',
+          '',
+          '[a](./log.md) [b](log.md#top) [c](/log.md?v=1) [d](https://e.test/)',
+          '[e](#top) [f](../outside.md) [g](a/../log.md) [h](mailto:x@e.test)',
+        ].join('\n'),
+      );
+      final root = (await project(probe)).of(SubjectKind.root).single.facts;
+      expect(root['has_concepts'], isFalse);
+      expect(root['index_links'], [
+        'log.md',
+        'log.md',
+        'log.md',
+        'https://e.test/',
+        'index.md',
+        '../outside.md',
+        'log.md',
+        'mailto:x@e.test',
+      ]);
+    },
+  );
+
   test('failing_field needs an each fact', () {
     expect(
-      () => RuleCatalog.parse(
-        jsonEncode({
-          'format': 1,
-          'namespace': 'probe',
-          'profile': {'id': 'probe', 'release': '2026.1'},
-          'rules': [
+      () => ProfilePackage.parse(
+        packageJson(
+          rules: [
             rule(
               'a',
               message: 'm',
@@ -468,10 +492,10 @@ void main() {
               invalid: [<String, Object?>{}],
             ),
           ],
-        }),
+        ),
       ),
       throwsA(
-        isA<RuleCatalogException>().having(
+        isA<ProfilePackageException>().having(
           (error) => error.where,
           'where',
           'rules[0].check.failing_field',

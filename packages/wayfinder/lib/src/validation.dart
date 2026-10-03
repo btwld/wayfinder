@@ -1,22 +1,18 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:markdown/markdown.dart' as markdown;
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
+import 'diagnostics.dart';
+import 'generated/published_schemas.g.dart';
 import 'profile_finding.dart';
-import 'profile_release.dart';
+import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
-import 'rules/builtins.dart';
-import 'rules/catalog.dart';
 import 'rules/evaluate.dart';
 import 'rules/facts.dart';
 import 'rules/profile.dart';
-import 'rules/registries.dart';
 import 'rules/structure_builtins.dart' show withLfLineEndings;
-import 'wayfinder_config.dart';
 
 enum OkfState {
   pass('PASS'),
@@ -29,246 +25,254 @@ enum OkfState {
 enum ProfileState {
   pass('PASS'),
   fail('FAIL'),
-  unsupported('UNSUPPORTED'),
-  blockedByOkf('BLOCKED BY OKF');
+  blockedByOkf('BLOCKED BY OKF'),
+  notAssessed('NOT ASSESSED');
 
   const ProfileState(this.wireValue);
   final String wireValue;
 }
 
-enum AutomatedGateState {
+/// What the resolver hands the validator: a Profile to assess, or why there
+/// is none.
+sealed class ProfileSelection {
+  const ProfileSelection();
+}
+
+final class SelectedProfile extends ProfileSelection {
+  /// Throws when a note is an error, so a selected run derives its gate
+  /// from the assessment alone.
+  SelectedProfile(
+    this.profile, {
+    this.config,
+    this.commits = const {},
+    Iterable<EngineDiagnostic> notes = const [],
+  }) : notes = List.unmodifiable(notes) {
+    if (this.notes.any((d) => d.isError)) {
+      throw ArgumentError.value(notes, 'notes', 'cannot hold an error');
+    }
+  }
+
+  final EffectiveProfile profile;
+
+  /// The project file that bound the bundle; null for a selection built by
+  /// hand, as in tests and authoring tools. Project-type notes point here.
+  final ProjectFileLocation? config;
+
+  /// The locked commit of each package in the chain; empty for a selection
+  /// built by hand.
+  final Map<ProfileId, String> commits;
+
+  /// What selecting found that does not stop the assessment, such as a
+  /// stale Profile skill. Never an error, so it cannot change the gate.
+  final List<EngineDiagnostic> notes;
+}
+
+final class UnselectedProfile extends ProfileSelection {
+  /// Throws unless [reasons] holds an error diagnostic, so an unselected run
+  /// can never derive a PASS.
+  UnselectedProfile(Iterable<EngineDiagnostic> reasons)
+    : reasons = List.unmodifiable(reasons) {
+    if (!this.reasons.any((d) => d.isError)) {
+      throw ArgumentError.value(
+        reasons,
+        'reasons',
+        'needs an error diagnostic',
+      );
+    }
+  }
+
+  final List<EngineDiagnostic> reasons;
+}
+
+/// What the Profile layer of a run did.
+sealed class ProfileAssessment {
+  const ProfileAssessment();
+}
+
+/// Every rule of [profile] ran against the bundle.
+final class Assessed extends ProfileAssessment {
+  Assessed(
+    this.profile,
+    Iterable<ProfileFinding> findings,
+    Iterable<ProfileSummaryEntry>? summary, {
+    this.commits = const {},
+  }) : findings = List.unmodifiable(findings),
+       summary = summary == null ? null : List.unmodifiable(summary);
+
+  final EffectiveProfile profile;
+
+  /// The locked commit of each package in the chain, when known.
+  final Map<ProfileId, String> commits;
+
+  /// In canonical okf order.
+  final List<ProfileFinding> findings;
+
+  /// What the assessment found that the Profile permits, in canonical order.
+  /// Null unless an assessed package declares a note rule, so a Profile
+  /// without one keeps its output shape.
+  final List<ProfileSummaryEntry>? summary;
+
+  String get release => profile.selected.release;
+}
+
+/// OKF failed, so no Profile rule ran. [profile] is the selection that
+/// would have been assessed, when there was one, so reports still name it.
+final class BlockedByOkf extends ProfileAssessment {
+  const BlockedByOkf({this.profile, this.commits = const {}});
+
+  final EffectiveProfile? profile;
+
+  /// The locked commit of each package in the chain, when known.
+  final Map<ProfileId, String> commits;
+}
+
+/// No Profile could be selected; an error diagnostic says why.
+final class NotAssessed extends ProfileAssessment {
+  const NotAssessed();
+}
+
+/// The single outcome of a run, under okf's exit-code contract.
+enum GateState {
   pass('PASS', OkfExitCode.success),
   fail('FAIL', OkfExitCode.findings),
-  unsupported('UNSUPPORTED', OkfExitCode.usage);
+  incomplete('INCOMPLETE', OkfExitCode.usage);
 
-  const AutomatedGateState(this.wireValue, this.okfExitCode);
+  const GateState(this.wireValue, this.okfExitCode);
   final String wireValue;
-
-  /// The process outcome under okf's exit-code contract: gate failure exits
-  /// through `findings`, and an invocation that could not assess the declared
-  /// release exits through `usage`.
   final OkfExitCode okfExitCode;
 
   int get exitCode => okfExitCode.value;
 }
 
-enum ProfileFixState {
-  applied('APPLIED'),
-  failed('FAILED'),
-  notApplied('NOT APPLIED');
-
-  const ProfileFixState(this.wireValue);
-  final String wireValue;
-}
-
-/// What `validate --fix` did before the assessment it precedes.
-final class ProfileFix {
-  ProfileFix.written(Iterable<String> paths)
-    : state = ProfileFixState.applied,
-      written = List<String>.unmodifiable(paths),
-      reason = null;
-
-  /// A write failed after [paths] were written; [reason] names the file.
-  ProfileFix.failed(Iterable<String> paths, String this.reason)
-    : state = ProfileFixState.failed,
-      written = List<String>.unmodifiable(paths);
-
-  const ProfileFix.notApplied(String this.reason)
-    : state = ProfileFixState.notApplied,
-      written = const [];
-
-  final ProfileFixState state;
-
-  /// Bundle-relative paths written, in path order; empty when every fixed
-  /// file was already current.
-  final List<String> written;
-
-  /// Why the fix failed or could not run.
-  final String? reason;
-
-  Map<String, Object?> toJson() => <String, Object?>{
-    'state': state.wireValue,
-    'written': written,
-    'reason': ?reason,
-  };
-
-  Iterable<String> toTextLines() sync* {
-    for (final path in written) {
-      yield 'Fix: wrote $path';
-    }
-    switch (state) {
-      case ProfileFixState.applied when written.isEmpty:
-        yield 'Fix: every generated file is current.';
-      case ProfileFixState.applied:
-        break;
-      case ProfileFixState.failed:
-        yield 'Fix: failed; $reason.';
-      case ProfileFixState.notApplied:
-        yield 'Fix: not applied; $reason.';
-    }
-  }
-}
-
 final class ProfileValidationResult {
-  ProfileValidationResult._({
-    required this.okfValidation,
-    required this.profileRelease,
-    required this.profileState,
-    required Iterable<ProfileFinding> findings,
-    required this.automatedGateState,
-    this.summary,
-    this.fix,
-    this.catalogs,
-    this.projectConfig,
-  }) : findings = List<ProfileFinding>.unmodifiable(findings);
-
-  ProfileValidationResult.blockedByOkf(
-    OkfSpecValidation validation, {
-    ProfileFix? fix,
-  }) : this._(
-         okfValidation: validation,
-         profileRelease: null,
-         profileState: ProfileState.blockedByOkf,
-         findings: const <ProfileFinding>[],
-         automatedGateState: AutomatedGateState.fail,
-         fix: fix,
-       );
-
-  ProfileValidationResult.undispatched(
-    OkfSpecValidation validation,
-    ProfileFinding finding, {
-    ProfileFix? fix,
-    String? configFile,
-  }) : this._(
-         okfValidation: validation,
-         profileRelease: null,
-         profileState: ProfileState.unsupported,
-         findings: <ProfileFinding>[finding],
-         automatedGateState: AutomatedGateState.unsupported,
-         fix: fix,
-         projectConfig: configFile == null
-             ? null
-             : (reported: finding.path, file: configFile),
-       );
-
-  ProfileValidationResult.unsupported(
-    OkfSpecValidation validation,
-    String release, {
-    ProfileFix? fix,
-  }) : this._(
-         okfValidation: validation,
-         profileRelease: release,
-         profileState: ProfileState.unsupported,
-         findings: const <ProfileFinding>[],
-         automatedGateState: AutomatedGateState.unsupported,
-         fix: fix,
-       );
-
-  factory ProfileValidationResult.assessed(
-    OkfSpecValidation validation,
-    ({List<ProfileFinding> findings, List<ProfileSummaryEntry> summary})
-    results,
-    List<RuleCatalog> catalogs, {
-    ProfileFix? fix,
-    ({String reported, String file})? projectConfig,
-  }) {
-    final stableFindings = List<ProfileFinding>.unmodifiable(
-      results.findings.toList()..sort(
-        (left, right) => OkfReport.compareFindings(
-          left.toOkfFinding(),
-          right.toOkfFinding(),
-        ),
-      ),
-    );
-    final failed = stableFindings.any(
-      (finding) => finding.severity == OkfFindingSeverity.error,
-    );
-    return ProfileValidationResult._(
-      okfValidation: validation,
-      profileRelease: catalogs.first.release,
-      profileState: failed ? ProfileState.fail : ProfileState.pass,
-      findings: stableFindings,
-      automatedGateState: failed
-          ? AutomatedGateState.fail
-          : AutomatedGateState.pass,
-      summary:
-          catalogs.any(
-            (catalog) => catalog.rules.any(
-              (rule) => rule.descriptor.severity == RuleSeverity.note,
-            ),
-          )
-          ? List.unmodifiable(
-              results.summary.toList()..sort(ProfileSummaryEntry.compare),
-            )
-          : null,
-      fix: fix,
-      catalogs: List<RuleCatalog>.unmodifiable(catalogs),
-      projectConfig: projectConfig,
-    );
+  /// Throws when [profile] is [NotAssessed] without an error diagnostic: an
+  /// unassessed run must never derive a PASS.
+  ProfileValidationResult._(
+    this.okfValidation,
+    this.profile,
+    Iterable<EngineDiagnostic> diagnostics, {
+    Iterable<String>? fixed,
+  }) : diagnostics = List.unmodifiable(diagnostics),
+       fixed = fixed == null ? null : List.unmodifiable(fixed) {
+    if (profile is NotAssessed && !this.diagnostics.any((d) => d.isError)) {
+      throw ArgumentError.value(
+        diagnostics,
+        'diagnostics',
+        'an unassessed Profile needs an error diagnostic',
+      );
+    }
   }
 
   final OkfSpecValidation okfValidation;
-  final String? profileRelease;
-  final ProfileState profileState;
-  final List<ProfileFinding> findings;
-  final AutomatedGateState automatedGateState;
+  final ProfileAssessment profile;
 
-  /// What the assessment found that the Profile permits, in canonical order.
-  /// Null unless an assessed catalog declares a note rule, so a release
-  /// without one keeps its output shape.
-  final List<ProfileSummaryEntry>? summary;
+  /// The engine's reports about this run, in emission order.
+  final List<EngineDiagnostic> diagnostics;
 
-  /// Present when the caller asked for `--fix`.
-  final ProfileFix? fix;
+  /// Bundle-relative paths `--fix` wrote, in path order; null when no fix
+  /// ran. Why a fix failed or did not run is a diagnostic.
+  final List<String>? fixed;
 
-  /// The catalog chain the bundle was assessed against, base first
-  /// ([EffectiveProfile.catalogs]); null when no release was assessed.
-  final List<RuleCatalog>? catalogs;
+  /// FAIL needs one witness; PASS needs a run that assessed everything.
+  GateState get gate {
+    if (!okfValidation.isConformant) return GateState.fail;
+    if (findings.any((f) => f.severity == OkfFindingSeverity.error)) {
+      return GateState.fail;
+    }
+    if (diagnostics.any((d) => d.isError)) return GateState.incomplete;
+    return GateState.pass;
+  }
 
-  /// Where findings about the project configuration point. Their
-  /// [ProfileFinding.path] is the configured path as given or the file's
-  /// basename, which is not bundle-relative; [file] is the file read.
-  final ({String reported, String file})? projectConfig;
+  int get exitCode => gate.exitCode;
 
   OkfReport get okfReport => okfValidation.report;
   OkfState get okfState =>
       okfValidation.isConformant ? OkfState.pass : OkfState.fail;
 
-  /// A failed fix exits as a failed invocation, whatever the assessment of
-  /// the partly written bundle found.
-  int get exitCode => fix?.state == ProfileFixState.failed
-      ? OkfExitCode.usage.value
-      : automatedGateState.exitCode;
+  ProfileState get profileState => switch (profile) {
+    Assessed(:final findings)
+        when findings.any((f) => f.severity == OkfFindingSeverity.error) =>
+      ProfileState.fail,
+    Assessed() => ProfileState.pass,
+    BlockedByOkf() => ProfileState.blockedByOkf,
+    NotAssessed() => ProfileState.notAssessed,
+  };
+
+  /// The selected Profile, whether or not it was assessed.
+  EffectiveProfile? get _selected => switch (profile) {
+    Assessed(profile: final EffectiveProfile? profile) ||
+    BlockedByOkf(profile: final EffectiveProfile? profile) => profile,
+    NotAssessed() => null,
+  };
+
+  String? get profileRelease => _selected?.selected.release;
+
+  ProfileId? get profileId => _selected?.selected.id;
+
+  List<ProfileFinding> get findings => switch (profile) {
+    Assessed(:final findings) => findings,
+    _ => const [],
+  };
+
+  List<ProfileSummaryEntry>? get summary => switch (profile) {
+    Assessed(:final summary) => summary,
+    _ => null,
+  };
+
+  /// The selected packages, root ancestor first; empty when none was.
+  List<ProfilePackage> get chain => _selected?.chain ?? const [];
 
   Map<String, Object?> toJson() => <String, Object?>{
-    if (fix case final fix?) 'fix': fix.toJson(),
     'okf': <String, Object?>{
       'state': okfState.wireValue,
       'report': okfReport.toJson(),
     },
     'profile': <String, Object?>{
-      'release': profileRelease,
+      if (profile
+          case Assessed(:final profile, :final commits) ||
+              BlockedByOkf(profile: final profile?, :final commits)) ...{
+        'id': profile.selected.id.value,
+        'release': profile.selected.release,
+        'chain': [
+          for (final package in profile.chain)
+            <String, Object>{
+              'id': package.id.value,
+              'release': package.release,
+              'commit': ?commits[package.id],
+            },
+        ],
+      },
       'state': profileState.wireValue,
       'findings': findings.map((finding) => finding.toJson()).toList(),
       if (summary case final summary?)
         'summary': summary.map((entry) => entry.toJson()).toList(),
     },
-    'judgment_rules': const <String, Object>{'state': 'UNASSESSED'},
-    'automated_gate': <String, Object>{'state': automatedGateState.wireValue},
+    'diagnostics': diagnostics.map((d) => d.toJson()).toList(),
+    if (fixed case final fixed?) 'fix': <String, Object?>{'written': fixed},
+    'gate': <String, Object>{'state': gate.wireValue},
+    'engine': <String, Object>{'okf': okfPackageVersion},
   };
 
   Iterable<String> toTextLines() sync* {
-    if (fix case final fix?) yield* fix.toTextLines();
+    if (fixed case final fixed?) {
+      for (final path in fixed) {
+        yield 'Fix: wrote $path';
+      }
+      if (fixed.isEmpty &&
+          !diagnostics.any((d) => d.code == DiagnosticCode.fixFailed)) {
+        yield 'Fix: every generated file is current.';
+      }
+    }
     yield 'OKF: ${okfState.wireValue}';
     yield* okfReport.toTextLines();
     final errors = _countBySeverity(OkfFindingSeverity.error);
     final advisories = _countBySeverity(OkfFindingSeverity.advisory);
     yield 'OKF Report: $errors error(s), $advisories advisory(ies).';
-    final release = profileRelease ?? 'UNDECLARED';
-    yield 'Profile $release: ${profileState.wireValue}';
-    if (profileState == ProfileState.unsupported && profileRelease != null) {
-      yield 'UNSUPPORTED PROFILE RELEASE: $release';
-    }
+    yield switch ((profileId, profileRelease)) {
+      (final id?, final release?) =>
+        'Profile $id $release: ${profileState.wireValue}',
+      _ => 'Profile: ${profileState.wireValue}',
+    };
     for (final finding in findings) {
       yield finding.toText();
     }
@@ -278,8 +282,13 @@ final class ProfileValidationResult {
         yield entry.toText();
       }
     }
-    yield 'Judgment Rules: UNASSESSED';
-    yield 'Automated gate: ${automatedGateState.wireValue}';
+    if (diagnostics.isNotEmpty) {
+      yield 'Diagnostics:';
+      for (final diagnostic in diagnostics) {
+        yield diagnostic.toText();
+      }
+    }
+    yield 'Gate: ${gate.wireValue}';
   }
 
   int _countBySeverity(OkfFindingSeverity severity) => okfReport.findings
@@ -287,145 +296,203 @@ final class ProfileValidationResult {
       .length;
 }
 
-/// Source data obtained after the independent OKF check has passed.
-final class ProfileSourceResolution {
-  const ProfileSourceResolution({this.bindings, this.error});
+/// The JSON of a run that stopped before it had a result: only the
+/// `wayfinder/internal-error` diagnostic and the gate it derives.
+Map<String, Object?> internalErrorJson(String message) => <String, Object?>{
+  'diagnostics': [
+    EngineDiagnostic(DiagnosticCode.internalError, message).toJson(),
+  ],
+  'gate': <String, Object>{'state': GateState.incomplete.wireValue},
+};
 
-  final Map<String, WayfinderProfileBinding>? bindings;
-  final String? error;
-}
+/// The failure validation reports when the chain of [id] does not compose.
+({DiagnosticCode code, String message}) compositionFailure(
+  ProfileId id,
+  ProfileCompositionException error,
+) => (
+  code: DiagnosticCode.profileComposition,
+  message: 'Profile $id: ${error.message}',
+);
 
 final class ProfileValidator {
-  const ProfileValidator({this.loader = const OkfBundleLoader()});
+  const ProfileValidator({
+    this.loader = const OkfBundleLoader(),
+    this.buildGraph = OkfGraph.fromBundle,
+  });
 
   final OkfBundleLoader loader;
 
+  /// Builds the bundle's link graph; a throw becomes a
+  /// `wayfinder/link-graph-unavailable` diagnostic.
+  final OkfGraph Function(OkfBundle) buildGraph;
+
+  /// Never throws for bundle content: what cannot be assessed is reported
+  /// as a diagnostic. Reads only the bundle; [selection] carries everything
+  /// known about the Profile.
   Future<ProfileValidationResult> validate(
-    String bundlePath, {
-    String? configPath,
-    Map<String, WayfinderProfileBinding>? resolvedProfiles,
-    String? resolutionError,
-    Future<ProfileSourceResolution> Function()? resolveSources,
+    String bundlePath,
+    ProfileSelection selection, {
     bool fix = false,
   }) async {
     final loaded = await loader.inspect(bundlePath);
     final validation = loaded.validate();
+    final reasons = switch (selection) {
+      UnselectedProfile(:final reasons) => reasons,
+      SelectedProfile(:final notes) => notes,
+    };
     if (!validation.isConformant) {
-      return ProfileValidationResult.blockedByOkf(
-        validation,
-        fix: fix ? const ProfileFix.notApplied('OKF failed') : null,
-      );
+      return ProfileValidationResult._(validation, _blocked(selection), [
+        ...reasons,
+        if (fix)
+          const EngineDiagnostic(DiagnosticCode.fixNotApplied, 'OKF failed.'),
+      ]);
     }
-    final unassessed = fix
-        ? const ProfileFix.notApplied(
-            'no supported Profile release was selected',
-          )
-        : null;
-    final sourceResolution = await resolveSources?.call();
-    final resolvedConfig = await _readProjectConfig(
-      bundlePath,
-      configPath: configPath,
-      resolvedProfiles: sourceResolution?.bindings ?? resolvedProfiles,
-      resolutionError: sourceResolution?.error ?? resolutionError,
-    );
-    if (resolvedConfig.finding case final finding?) {
-      return ProfileValidationResult.undispatched(
-        validation,
-        finding,
-        fix: unassessed,
-        configFile: resolvedConfig.file,
-      );
+    switch (selection) {
+      case UnselectedProfile():
+        return ProfileValidationResult._(validation, const NotAssessed(), [
+          ...reasons,
+          if (fix)
+            const EngineDiagnostic(
+              DiagnosticCode.fixNotApplied,
+              'No Profile was selected.',
+            ),
+        ]);
+      case SelectedProfile():
+        if (!fix) return _assess(validation, loaded, selection);
+        return _fixThenAssess(validation, loaded, selection);
     }
-    final EffectiveProfile profile;
-    ({String reported, String file})? projectConfig;
-    if (resolvedConfig.value case final configured?) {
-      final binding = configured.profile;
-      if (binding.release != externalProfileRelease ||
-          binding.implementsId != builtinProfileId) {
-        return ProfileValidationResult.unsupported(
-          validation,
-          binding.release,
-          fix: unassessed,
-        );
-      }
-      final reported = configPath ?? p.basename(configured.configPath);
-      profile = _configuredProfile(configured, reportedConfigPath: reported);
-      projectConfig = (reported: reported, file: configured.configPath);
-    } else {
-      final declaration = _readDeclaration(loaded);
-      if (declaration.finding case final finding?) {
-        return ProfileValidationResult.undispatched(
-          validation,
-          finding,
-          fix: unassessed,
-        );
-      }
-      final values = declaration.values!;
-      final release = values['concepta_profile']!;
-      if (release != legacyProfileRelease) {
-        return ProfileValidationResult.unsupported(
-          validation,
-          release,
-          fix: unassessed,
-        );
-      }
-      final registries = LegacyRegistries(loaded);
-      profile = EffectiveProfile(
-        [RuleCatalog.installed(builtinProfileId, release)],
-        legacyRegistryVocabulary(registries),
-        legacyDispatch: (declaration: values, registries: registries),
-      );
-    }
-    if (!fix) {
-      return _assess(validation, loaded, profile, projectConfig: projectConfig);
-    }
-    return _fixThenAssess(validation, loaded, profile, projectConfig);
   }
 
   Future<ProfileValidationResult> _fixThenAssess(
     OkfSpecValidation validation,
     OkfBundleLoadResult loaded,
-    EffectiveProfile profile,
-    ({String reported, String file})? projectConfig,
+    SelectedProfile selection,
   ) async {
-    final files = fixes(profile, BundleFacts.project(loaded, profile: profile));
+    final profile = selection.profile;
+    final files = fixes(
+      profile,
+      BundleFacts.project(loaded, profile: profile, buildGraph: buildGraph),
+    );
     if (files == null) {
       return _assess(
         validation,
         loaded,
-        profile,
-        projectConfig: projectConfig,
-        fix: ProfileFix.notApplied(
-          'Profile ${profile.base.release} has no fixable rules',
-        ),
+        selection,
+        diagnostics: [
+          EngineDiagnostic(
+            DiagnosticCode.fixNotApplied,
+            'Profile ${profile.selected.id} ${profile.selected.release} '
+            'has no fixable rules.',
+          ),
+        ],
       );
     }
-    final fix = await writeGeneratedFiles(loaded.rootPath, files);
-    if (fix.written.isEmpty) {
+    final (:written, :failure) = await writeGeneratedFiles(
+      loaded.rootPath,
+      files,
+    );
+    if (written.isEmpty) {
       return _assess(
         validation,
         loaded,
-        profile,
-        fix: fix,
-        projectConfig: projectConfig,
+        selection,
+        fixed: written,
+        diagnostics: [?failure],
       );
     }
     final reloaded = await loader.inspect(loaded.rootPath);
     final revalidation = reloaded.validate();
     if (!revalidation.isConformant) {
-      return ProfileValidationResult.blockedByOkf(revalidation, fix: fix);
+      return ProfileValidationResult._(revalidation, _blocked(selection), [
+        ...selection.notes,
+        ?failure,
+      ], fixed: written);
     }
     return _assess(
       revalidation,
       reloaded,
-      profile,
-      fix: fix,
-      projectConfig: projectConfig,
+      selection,
+      fixed: written,
+      diagnostics: [?failure],
     );
+  }
+
+  static BlockedByOkf _blocked(ProfileSelection selection) =>
+      switch (selection) {
+        SelectedProfile(:final profile, :final commits) => BlockedByOkf(
+          profile: profile,
+          commits: commits,
+        ),
+        UnselectedProfile() => const BlockedByOkf(),
+      };
+
+  ProfileValidationResult _assess(
+    OkfSpecValidation validation,
+    OkfBundleLoadResult loaded,
+    SelectedProfile selection, {
+    List<String>? fixed,
+    List<EngineDiagnostic> diagnostics = const [],
+  }) {
+    final profile = selection.profile;
+    final facts = BundleFacts.project(
+      loaded,
+      profile: profile,
+      buildGraph: buildGraph,
+    );
+    final results = evaluate(profile, facts);
+    final notes = profile.rules.any(
+      (rule) => rule.descriptor.severity == RuleSeverity.note,
+    );
+    return ProfileValidationResult._(
+      validation,
+      Assessed(
+        profile,
+        results.findings.toList()..sort(
+          (left, right) => OkfReport.compareFindings(
+            left.toOkfFinding(),
+            right.toOkfFinding(),
+          ),
+        ),
+        notes
+            ? (results.summary.toList()..sort(ProfileSummaryEntry.compare))
+            : null,
+        commits: selection.commits,
+      ),
+      [
+        ...selection.notes,
+        for (final type in profile.project.types)
+          EngineDiagnostic(
+            DiagnosticCode.projectType,
+            'Configured project type ${type.name} is available to this bundle.',
+            location: selection.config,
+          ),
+        ...diagnostics,
+        ?_linkGraphUnavailable(profile, facts),
+      ],
+      fixed: fixed,
+    );
+  }
+
+  /// Only a chain with a link rule lost anything to a failed graph build.
+  static EngineDiagnostic? _linkGraphUnavailable(
+    EffectiveProfile profile,
+    BundleFacts facts,
+  ) {
+    if (!profile.needsLinks) return null;
+    if (facts.links case LinksUnavailable(:final error)) {
+      return EngineDiagnostic(
+        DiagnosticCode.linkGraphUnavailable,
+        'The OKF link graph could not be built ($error); '
+        'link rules were not assessed.',
+      );
+    }
+    return null;
   }
 }
 
-Future<ProfileFix> writeGeneratedFiles(
+/// Writes [files] whose text differs, in path order, stopping at the first
+/// failure. [written] lists what changed before any failure.
+Future<({List<String> written, EngineDiagnostic? failure})> writeGeneratedFiles(
   String rootPath,
   Map<String, String> files,
 ) async {
@@ -437,10 +504,17 @@ Future<ProfileFix> writeGeneratedFiles(
       }
     } on FileSystemException catch (error) {
       final cause = error.osError?.message ?? error.message;
-      return ProfileFix.failed(written, 'could not write $path: $cause');
+      return (
+        written: written,
+        failure: EngineDiagnostic(
+          DiagnosticCode.fixFailed,
+          'Could not write $path: $cause.',
+          location: BundleLocation(path),
+        ),
+      );
     }
   }
-  return ProfileFix.written(written);
+  return (written: written, failure: null);
 }
 
 Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
@@ -473,298 +547,4 @@ Future<bool> _writeIfChanged(String rootPath, String path, String text) async {
     if (await temporary.exists()) await temporary.delete();
   }
   return true;
-}
-
-EffectiveProfile _configuredProfile(
-  WayfinderResolvedConfig configured, {
-  required String reportedConfigPath,
-}) {
-  final binding = configured.profile;
-  return EffectiveProfile(
-    [
-      RuleCatalog.installed(binding.implementsId, binding.release),
-      ...binding.catalogs,
-    ],
-    Vocabulary(
-      standardTypes: externalStandardTypes.map((row) => row.$1).toList(),
-      projectTypes: binding.types.map((type) => type.name).toList(),
-      types: binding.typeNames.toList(),
-      tags: binding.tagNames.toList(),
-      relationships: binding.relationshipNames.toList(),
-      actors: binding.actors.keys.toList(),
-    ),
-    configPath: reportedConfigPath,
-  );
-}
-
-ProfileValidationResult _assess(
-  OkfSpecValidation validation,
-  OkfBundleLoadResult loaded,
-  EffectiveProfile profile, {
-  ProfileFix? fix,
-  ({String reported, String file})? projectConfig,
-}) {
-  final facts = BundleFacts.project(loaded, profile: profile);
-  return ProfileValidationResult.assessed(
-    validation,
-    evaluate(profile, facts),
-    profile.catalogs,
-    fix: fix,
-    projectConfig: projectConfig,
-  );
-}
-
-Future<_ConfigRead> _readProjectConfig(
-  String bundlePath, {
-  String? configPath,
-  Map<String, WayfinderProfileBinding>? resolvedProfiles,
-  String? resolutionError,
-}) async {
-  final file = configPath == null
-      ? await _findProjectConfig(bundlePath)
-      : File(configPath);
-  if (file == null || !await file.exists()) {
-    if (configPath != null) {
-      return _ConfigRead.finding(
-        ProfileFinding(
-          descriptor: DispatchRule.configurationReadable,
-          message: 'Configuration file $configPath does not exist.',
-          path: configPath,
-        ),
-        configPath,
-      );
-    }
-    return const _ConfigRead.none();
-  }
-  WayfinderProjectConfig config;
-  try {
-    config = await WayfinderProjectConfig.read(file);
-  } on WayfinderConfigException catch (error) {
-    // An unselected ancestor file cannot silently migrate a 2026.2 bundle.
-    if (configPath == null &&
-        await File(p.join(bundlePath, 'profile.md')).exists()) {
-      return const _ConfigRead.none();
-    }
-    return _ConfigRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.configurationReadable,
-        message: error.message,
-        path: configPath ?? p.basename(file.path),
-        profileRelease: externalProfileRelease,
-      ),
-      file.path,
-    );
-  }
-  try {
-    final projectRoot = await file.parent.resolveSymbolicLinks();
-    final requested = await Directory(bundlePath).resolveSymbolicLinks();
-    String? selectedPath;
-    final realPaths = <String, String>{};
-    final unreadablePaths = <String>[];
-    for (final bundle in config.bundles) {
-      final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
-      try {
-        final realPath = await Directory(configuredPath).resolveSymbolicLinks();
-        realPaths[configuredPath] = realPath;
-        if (p.equals(realPath, requested)) {
-          // Keep the spelling relative to the configuration file for resolve().
-          selectedPath = p.normalize(
-            p.join(file.absolute.parent.path, bundle.path),
-          );
-        }
-      } on FileSystemException {
-        unreadablePaths.add(bundle.path);
-      }
-    }
-    if (configPath == null &&
-        selectedPath == null &&
-        await File(p.join(bundlePath, 'profile.md')).exists()) {
-      // An unrelated project configuration cannot migrate a 2026.2 bundle.
-      return const _ConfigRead.none();
-    }
-    if (unreadablePaths.isNotEmpty) {
-      throw WayfinderConfigException(
-        'Configured bundle ${unreadablePaths.first} does not exist or is unreadable.',
-      );
-    }
-    for (final entry in realPaths.entries) {
-      if (!p.isWithin(projectRoot, entry.value)) {
-        throw WayfinderConfigException(
-          'Bundle ${entry.key} resolves outside the project.',
-        );
-      }
-      for (final other in realPaths.entries) {
-        if (entry.key != other.key &&
-            (p.equals(entry.value, other.value) ||
-                p.isWithin(entry.value, other.value) ||
-                p.isWithin(other.value, entry.value))) {
-          throw WayfinderConfigException(
-            'Configured bundles overlap after resolving symlinks.',
-          );
-        }
-      }
-    }
-    if (configPath == null && selectedPath == null) {
-      throw WayfinderConfigException(
-        'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
-      );
-    }
-    final selected = config.resolve(
-      bundlePath: selectedPath ?? bundlePath,
-      configPath: file.absolute.path,
-      resolvedProfiles: resolvedProfiles,
-    );
-    final declared = config.profiles[selected.bundle.profile]!;
-    if (declared.source != null) {
-      final effective = resolvedProfiles?[declared.id];
-      if (effective == null ||
-          effective.id != declared.id ||
-          effective.source?.git != declared.source!.git ||
-          effective.source?.ref != declared.source!.ref ||
-          effective.source?.path != declared.source!.path) {
-        throw WayfinderConfigException(
-          resolutionError ??
-              'Direct Profile source is unresolved. Run wayfinder get.',
-        );
-      }
-    }
-    return _ConfigRead.value(selected);
-  } on WayfinderConfigException catch (error) {
-    return _ConfigRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.configurationReadable,
-        message: error.message,
-        path: configPath ?? p.basename(file.path),
-        profileRelease: externalProfileRelease,
-      ),
-      file.path,
-    );
-  } on FileSystemException catch (error) {
-    return _ConfigRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.configurationBundleBinding,
-        message: 'Configured bundle path is not readable: ${error.message}.',
-        path: configPath ?? p.basename(file.path),
-        profileRelease: externalProfileRelease,
-      ),
-      file.path,
-    );
-  }
-}
-
-Future<File?> _findProjectConfig(String bundlePath) async {
-  var directory = p.dirname(File(bundlePath).absolute.path);
-  while (true) {
-    final file = File(p.join(directory, 'wayfinder.json'));
-    if (await file.exists()) return file;
-    final parent = p.dirname(directory);
-    if (parent == directory) return null;
-    directory = parent;
-  }
-}
-
-final class _ConfigRead {
-  const _ConfigRead.none() : value = null, finding = null, file = null;
-  const _ConfigRead.value(this.value) : finding = null, file = null;
-  const _ConfigRead.finding(this.finding, this.file) : value = null;
-
-  final WayfinderResolvedConfig? value;
-  final ProfileFinding? finding;
-
-  final String? file;
-}
-
-_DeclarationRead _readDeclaration(OkfBundleLoadResult loaded) {
-  final document = loaded.documents['profile.md'];
-  if (document == null) {
-    return const _DeclarationRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.profileDeclarationPresent,
-        message: 'The bundle must contain profile.md.',
-        path: 'profile.md',
-      ),
-    );
-  }
-  final yamlSource = _firstYamlFence(document.body);
-  if (yamlSource == null) {
-    return const _DeclarationRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.profileDeclarationReadable,
-        message: 'profile.md must contain a fenced yaml declaration.',
-        path: 'profile.md',
-      ),
-    );
-  }
-  Object? parsed;
-  try {
-    parsed = loadYaml(yamlSource);
-  } on YamlException {
-    return const _DeclarationRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.profileDeclarationReadable,
-        message: 'The first fenced yaml declaration in profile.md is invalid.',
-        path: 'profile.md',
-      ),
-    );
-  }
-  if (parsed is! Map) {
-    return const _DeclarationRead.finding(
-      ProfileFinding(
-        descriptor: DispatchRule.profileDeclarationFields,
-        message: 'The Profile declaration must be a YAML mapping.',
-        path: 'profile.md',
-      ),
-    );
-  }
-  final values = <String, String>{};
-  for (final key in const <String>['concepta_profile', 'okf_version']) {
-    final value = parsed[key];
-    if (value is! String || value.trim().isEmpty) {
-      return const _DeclarationRead.finding(
-        ProfileFinding(
-          descriptor: DispatchRule.profileDeclarationFields,
-          message:
-              'The Profile declaration must contain non-empty string '
-              'values for concepta_profile and okf_version.',
-          path: 'profile.md',
-        ),
-      );
-    }
-    values[key] = value;
-  }
-  return _DeclarationRead.values(values);
-}
-
-String? _firstYamlFence(String body) {
-  final nodes = markdown.Document(encodeHtml: false).parse(body);
-  String? find(Iterable<markdown.Node> candidates) {
-    for (final node in candidates) {
-      if (node case final markdown.Element element) {
-        final children = element.children;
-        if (element.tag == 'pre' && children != null && children.isNotEmpty) {
-          final code = children.first;
-          if (code is markdown.Element &&
-              code.tag == 'code' &&
-              code.attributes['class'] == 'language-yaml') {
-            return code.textContent;
-          }
-        }
-        if (children != null) {
-          final nested = find(children);
-          if (nested != null) return nested;
-        }
-      }
-    }
-    return null;
-  }
-
-  return find(nodes);
-}
-
-final class _DeclarationRead {
-  const _DeclarationRead.values(this.values) : finding = null;
-  const _DeclarationRead.finding(this.finding) : values = null;
-
-  final Map<String, String>? values;
-  final ProfileFinding? finding;
 }

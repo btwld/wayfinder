@@ -14,6 +14,20 @@ final class ParsedBody {
       if (node is markdown.Element && node.tag == 'h1') node.textContent,
   ];
 
+  List<String> links() {
+    final targets = <String>[];
+    void collect(markdown.Node node) {
+      if (node is! markdown.Element) return;
+      if (node.tag == 'a') {
+        if (node.attributes['href'] case final href?) targets.add(href);
+      }
+      node.children?.forEach(collect);
+    }
+
+    nodes.forEach(collect);
+    return targets;
+  }
+
   /// A reference the parser joined to its definition survives only as a
   /// `footnote-ref` element, so its label is read back from the link. One
   /// it could not join stays literal text, which also happens to adjacent
@@ -60,8 +74,6 @@ final class ParsedBody {
           (label: label, referenced: false, defined: true),
     ];
   }
-
-  late final Set<String> definitionsIncludingFencedCode = _definitions(source);
 
   static Set<String> _definitions(String text) => {
     for (final match in _footnoteDefinition.allMatches(text)) match[1]!,

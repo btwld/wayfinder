@@ -6,76 +6,84 @@
     }
   },
   "profile": {
+    "id": "bitwild-profile",
     "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/concept-area-name-collision",
+        "id": "bitwild-profile/concept-area-name-collision",
         "severity": "advisory",
         "message": "A concept beside an area of the same name needs contextual placement review.",
         "location": {
           "path": "billing.md"
         },
         "profile_release": "2026.3",
-        "rule": "§14.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#concept-area-name-collision"
       },
       {
-        "id": "concepta-profile/index-current",
+        "id": "bitwild-profile/index-current",
         "severity": "error",
         "message": "orphan/index.md is missing or differs from the generated index; run wayfinder validate --fix.",
         "location": {
           "path": "orphan/index.md"
         },
         "profile_release": "2026.3",
-        "rule": "§9"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#index-current"
       },
       {
-        "id": "concepta-profile/raw-directory-placement",
+        "id": "bitwild-profile/raw-directory-placement",
         "severity": "error",
         "message": "A raw/ tier belongs to a source directory; raw/ must not sit directly under references/.",
         "location": {
           "path": "references/raw"
         },
         "profile_release": "2026.3",
-        "rule": "§3.4"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#raw-directory-placement"
       },
       {
-        "id": "concepta-profile/index-current",
+        "id": "bitwild-profile/index-current",
         "severity": "error",
         "message": "references/raw/index.md is not an index the generator writes; delete it, then run wayfinder validate --fix.",
         "location": {
           "path": "references/raw/index.md"
         },
         "profile_release": "2026.3",
-        "rule": "§9"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#index-current"
       },
       {
-        "id": "concepta-profile/raw-directory-markdown",
+        "id": "bitwild-profile/raw-directory-markdown",
         "severity": "error",
-        "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/ (§12).",
+        "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/.",
         "location": {
           "path": "references/vendor/raw/stray.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.4"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#raw-directory-markdown"
       },
       {
-        "id": "concepta-profile/configuration-legacy-registry",
+        "id": "bitwild-profile/configuration-legacy-registry",
         "severity": "error",
         "message": "types.md is a legacy 2026.2 registry; remove it when using an external Profile binding.",
         "location": {
           "path": "types.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.5, §5.2, §6.1.1, §11"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#configuration-legacy-registry"
       }
     ],
     "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

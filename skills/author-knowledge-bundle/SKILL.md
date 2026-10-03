@@ -1,109 +1,120 @@
 ---
 name: author-knowledge-bundle
-description: Create, edit, move, deprecate, or mirror content in the knowledge bundle at knowledge/ per Bitwild OKF Profile 2026.3 or legacy Concepta 2026.2 (OKF 0.2). Use before any write under knowledge/ — including creating a directory there — when asked to review bundle changes or produce a Profile Review Report, or when another skill needs Profile conventions.
+description: Create, edit, move, deprecate, or mirror content in an OKF knowledge bundle that a project's wayfinder.json binds to a Profile, at knowledge/ by default. Use before any write under the bundle, including creating a directory there, when asked to review bundle changes or produce a Profile Review Report, or when another skill needs the bundle's conventions.
 ---
 
 # Authoring the knowledge bundle
 
-The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the selected Bitwild OKF Profile or legacy Concepta release. Resolve the release from project-root `wayfinder.json` or legacy `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type and never changes an OKF field's meaning. Its one frontmatter key in 2026.3, `relationships`, is an additional producer key OKF §4.1 permits; legacy 2026.2 defines none. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
+The knowledge bundle is an Open Knowledge Format (OKF) bundle, at `knowledge/`
+unless the project says otherwise. OKF is authoritative. The project-root
+`wayfinder.json` binds the bundle to a Profile, and that Profile may build on
+parents. Each Profile in the chain adds two things on top of OKF:
 
-`knowledge/` is the default adoption path. When a project explicitly asks to
-author another configured bundle, substitute that bundle's path throughout
-this workflow and resolve **its** binding. Do not apply `knowledge/`'s binding
-to a sibling bundle or to an arbitrary subdirectory.
+- rules in its package, which `wayfinder validate` enforces;
+- judgment in its skill, which `wayfinder get` installs into the project.
 
-## Release dispatch
+This skill owns the OKF mechanics and the write sequence. The Profile skills
+own every convention beyond OKF. When a project asks you to author another
+bundle, substitute its path throughout and use its own binding. Never apply
+one bundle's binding to a sibling bundle or to a subdirectory.
 
-Before applying Profile rules, resolve the bundle's exact release:
+## Load the Profile chain
 
-- If project-root `wayfinder.json` has exactly one `applies_to` entry for
-  the requested bundle, read that entry's direct `source` and any additive
-  `extends` chain. The manifest identity and exact release select the rules;
-  `bitwild_profile/2026.3` selects the installed rule catalog for that release.
-  A child must reach that base; its manifest may add vocabulary and name a rule
-  catalog of its own, whose rules only add findings in the child's namespace.
-  In the Wayfinder source tree the base manifest is at
-  `profile/wayfinder-profile.json`; the routed concept reference carries its
-  standard vocabulary for standalone skill installations. The root index
-  declares OKF 0.2. Read the exact source revision from the current
-  `wayfinder.lock` and local cache. If absent or stale during authorized
-  authoring, run `wayfinder get` and include the resulting lock; `validate`
-  itself never fetches or writes it. Use `upgrade` only for an intentional
-  mutable-ref advance. If the source cannot be resolved, report that the
-  release cannot be assessed rather than guessing from the entry key.
-- Otherwise, read the first fenced `yaml` block in `knowledge/profile.md`.
-  `concepta_profile: "2026.2"` selects the legacy rules. The immutable 2026.2
-  Profile snapshot is `profile/versions/okf-profile-2026.2.md`.
-- An absent, unreadable, or unsupported selector prevents contextual review.
-  Run read-only validation for its independent OKF result and dispatch finding;
-  never guess or silently apply another release.
+Before writing, find the Profiles that govern the bundle:
 
-Changing a bundle's release is migration work, not an incidental repair.
-Read implementation guide §5 before migrating. Do not simply change a selector:
-move the custom vocabulary and actor lookup to JSON, remove the three legacy
-root concepts, regenerate every index with `wayfinder validate --fix`, and
-review the result.
+```bash
+wayfinder validate knowledge --output json | jq -r '.profile.chain[].id'
+```
 
-**2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
-`profile.md`, `types.md`, and `actors.md` are retired for this release; the
-binding supplies custom type, tag, relationship-name, and actor declarations
-while the selected base Profile supplies standards. Typed relationships are the
-`relationships` frontmatter key, not a `# Relationships` body section. The
-subject-placement rule and the fixed names `architecture/`, `ways-of-working/`,
-`interactions/`, `references/` remain, and `computations/` joins them as the
-optional OKF §10.4 home for Attested Computation concepts. Every index is the output of okf's reference
-index generator, written by `wayfinder validate --fix`; the legacy index
-projection does not apply. A binding applies to a whole bundle, never an area. Release-specific
-notes in the routed references below take precedence over their legacy
-registry examples.
+The chain is root first. It is present whenever a Profile was selected,
+including when OKF fails and the Profile state is `BLOCKED BY OKF`, so you
+can load the Profile skills before you repair an OKF error. For each id,
+read `.claude/skills/<id>/SKILL.md`, or
+`.agents/skills/<id>/SKILL.md` when only that copy exists, in chain order. A
+later Profile adds to an earlier one and never relaxes it. Follow each skill's
+routing for the write at hand.
 
-**Where this skill is silent, OKF 0.2 governs.** Silence means the upstream spec already settles the point, so read it and follow it — never invent a local Profile convention to fill a gap. See [Beyond this profile](#beyond-this-profile) for what that covers in practice. Within what the profile *does* specify, concepts take the shapes taught in the references below and never invented ones.
+The JSON has no chain only when the Profile state is `NOT ASSESSED`. When the
+chain is missing or a Profile skill cannot be loaded, act on the diagnostic
+`validate` reports:
+
+- `wayfinder/config-missing`, `wayfinder/bundle-unbound`, or
+  `wayfinder/config-invalid`: the bundle has no usable binding. Do not guess a
+  Profile. Contextual review cannot run; report that.
+- `wayfinder/profile-unresolved`: the lock is missing or stale. During
+  authorized authoring, run `wayfinder get` and include the resulting
+  `wayfinder.lock` and skill directories in the change. Otherwise report it.
+  `validate` itself never fetches.
+- `wayfinder/profile-invalid`, `wayfinder/profile-unsupported`, or
+  `wayfinder/profile-composition`: a package in the chain cannot be read or
+  composed, so no rule ran. Do not guess the rules. Report the diagnostic.
+  `profile-unsupported` means the package needs a newer wayfinder.
+  `profile-composition` can come from the project's own additions in
+  `wayfinder.json`, so check those first. A malformed package is for its
+  Profile's author to fix.
+- `wayfinder/profile-skill-stale`, or a chain id with no installed skill
+  directory although its package ships one: run `wayfinder get`, which
+  installs the skill pinned to the locked commit. Never edit an installed
+  Profile skill by hand; `get` replaces it.
+
+A chain member that ships no skill adds rules but no judgment. Its findings
+still apply.
+
+Changing which Profile or release a bundle uses is migration work, not an
+incidental repair. Do it only when asked, following the Profile's own
+migration guidance and its changelog. Use `wayfinder upgrade` only for an
+intentional advance of a mutable ref.
 
 ## Route by operation
 
-Read the reference covering the write before making it. One operation commonly
-touches several — a new concept in a new directory needs the first two at least.
+Read the routed material before making the write. One write often touches
+several rows.
 
 | Doing | Read first |
 | --- | --- |
-| Creating or editing a concept — capture bar, types, frontmatter, provenance, execution links | [references/concept-authoring.md](./references/concept-authoring.md) |
-| Creating or naming a directory, placing a concept, moving, deprecating, deleting | [references/structure-and-lifecycle.md](./references/structure-and-lifecycle.md) |
-| Creating or regenerating an `index.md` — every write touches at least one | 2026.3: run `wayfinder validate <bundle> --fix`; legacy 2026.2: [references/index-projection.md](./references/index-projection.md) |
-| Giving links a typed meaning — 2026.3 `relationships` frontmatter, legacy 2026.2 `# Relationships` | [references/relationships.md](./references/relationships.md) |
-| Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
-| Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
-| Changing the declared release, or converting an existing tree | not this skill — see [Release dispatch](#release-dispatch) |
-| Seeding a new bundle from nothing | the [`adopt-knowledge-bundle` skill](../adopt-knowledge-bundle/SKILL.md) |
+| Creating or editing a concept: frontmatter, sources, links | [references/okf-authoring.md](./references/okf-authoring.md), then each Profile skill's routing |
+| Creating a directory, placing, naming, moving, deprecating, deleting, mirroring | each Profile skill's routing |
+| Creating or regenerating an `index.md` | [references/okf-authoring.md](./references/okf-authoring.md#files), then each Profile skill's routing |
+| Profile Review, after any write or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
+| Seeding a new bundle | the [`adopt-knowledge-bundle` skill](../adopt-knowledge-bundle/SKILL.md) |
 | Preparing a reusable bundle for installation | [references/bundle-distribution.md](./references/bundle-distribution.md) |
-| Anything the profile says nothing about | [references/OKF-0.2.md](./references/OKF-0.2.md) |
+| Anything no Profile skill covers | [references/OKF-0.2.md](./references/OKF-0.2.md) |
 
 ## The atomic bundle write
 
-Every write follows this sequence, and is complete only when all of it exists:
+A write is complete only when all of these exist:
 
-1. The concept file, conforming to the routed references above.
-2. Every affected `index.md`. For 2026.3, run `wayfinder validate <bundle> --fix`: it writes okf's generated indexes, then validates. Never hand-edit a 2026.3 index; a hand edit is drift. For legacy 2026.2, rewrite each as the deterministic projection in [references/index-projection.md](./references/index-projection.md); nothing generates those for you, and `--fix` never writes a 2026.2 bundle.
-3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
-4. Automated validation, when `wayfinder validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
-5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
+1. The concept file, following OKF and every Profile skill in the chain.
+2. Every affected `index.md`. If a Profile in the chain requires generated
+   indexes, run `wayfinder validate <bundle> --fix`. It writes them, then
+   validates. Never edit a generated index by hand. Without such a Profile,
+   `--fix` writes nothing and reports `wayfinder/fix-not-applied`. Update
+   each `index.md` the bundle keeps yourself, per OKF §8.
+3. A `log.md` entry for a lifecycle event, under today's `## YYYY-MM-DD`
+   heading, newest first, as `* **<Lead word>**: <what changed>`. The Profile
+   skills say which events to log. A formatting-only change needs no entry.
+4. A passing `wayfinder validate <bundle>` over the whole bundle. Repair
+   deterministic failures before finishing.
+5. A scoped Profile Review per
+   [references/profile-assessment.md](./references/profile-assessment.md),
+   with its report in the interaction or pull request.
 
-Complete the affected indexes, any required lifecycle log entry, and review
-before finishing. Formatting-only changes do not need a log entry.
+## Where the Profile skills are silent
 
-## Beyond this profile
+Follow OKF. The vendored [OKF 0.2 specification](./references/OKF-0.2.md)
+is readable without a network fetch. Silence is deference: a question no
+Profile answers is answered upstream, and following OKF there is correct.
+Silence is not prohibition: a mechanism OKF permits and no Profile mentions is
+permitted. Never invent a convention to fill the gap.
 
-The profile constrains a subset of OKF and leaves the rest alone. When you need something this skill doesn't cover, the answer is in [references/OKF-0.2.md](./references/OKF-0.2.md) — the pinned spec, vendored so it is readable without a network fetch. Read it and follow it; do not invent a convention, and do not assume the omission means the mechanism is unavailable.
-
-What the profile deliberately says little or nothing about:
+OKF mechanisms a Profile often leaves alone:
 
 | Look up | OKF § |
 | --- | --- |
-| **Attested Computation** — `runtime`, `parameters`, `computation`, `executor`, `attester`, the `# Computation` heading, and how a consumer executes and attests | §10 |
-| **`usage_count` and `usage_window`** — adoption and liveness signals on a source, and why they read as trend rather than score | §5.1 |
-| **Lineage through links** — recursing into a source that is itself a concept, so credibility propagates without a `derived_from` field | §5.1 |
-| **Conventional body headings** `# Schema` and `# Examples` | §4.2 |
-| **`resource`** as the canonical URI of the asset a concept describes | §4.1, §6.2 |
-| **Tag-based views**, synthesized at consumption time rather than stored as files | §3.1 |
-| **v0.1 fallbacks** — legacy `timestamp` and body `# Citations` in inherited bundles | §13 |
-
-Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no frontmatter fields beyond OKF's and the release's declared `relationships`, no kind-named directories, `status` as knowledge lifecycle only, and indexes that are okf's generated output (legacy 2026.2: an `index.md` in every nonempty directory with descriptions copied verbatim).
+| Attested Computation: `runtime`, `parameters`, `computation`, `executor`, `attester`, the `# Computation` heading, and how a consumer executes and attests | §10 |
+| `usage_count` and `usage_window` on a source, read as trend rather than score | §5.1 |
+| Lineage through a source that is itself a concept | §5.1 |
+| Conventional body headings `# Schema` and `# Examples` | §4.2 |
+| `resource` as the canonical URI of the asset a concept describes | §4.1, §6.2 |
+| Tag-based views, synthesized when reading rather than stored | §3.1 |
+| v0.1 fallbacks: `timestamp` and body `# Citations` in inherited bundles | §13 |

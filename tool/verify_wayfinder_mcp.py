@@ -141,7 +141,8 @@ def main():
                                  env=env, cwd=cwd, text=True, capture_output=True, timeout=30)
             assert cli.returncode == 0, cli.stderr
             assert graph == json.loads(cli.stdout)
-            assert validate["judgment_rules"] == {"state": "UNASSESSED"}
+            assert validate["gate"]["state"] in {"PASS", "FAIL", "INCOMPLETE"}
+            assert isinstance(validate["diagnostics"], list)
             check("missing-index", lambda: server.tool("search", {"query": "password"}, error=True))
             check("missing-model", lambda: server.tool("index", error=True))
             hidden.rename(model)

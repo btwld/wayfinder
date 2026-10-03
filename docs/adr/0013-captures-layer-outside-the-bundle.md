@@ -20,10 +20,10 @@ Keep `captures/` beside, not inside, the OKF bundle. Group originals by dated
 source event or delivery, with an `intake.md` recording provenance,
 participants, originals and hashes, sensitivity, a bounded summary,
 contradictions, open questions, and the concepts supported. Keep originals
-unaltered. The [adoption skill](../../skills/adopt-knowledge-bundle/SKILL.md)
-already describes this optional workflow and its visibility check; the
-[seed template](../../skills/adopt-knowledge-bundle/SEEDING.md#captures)
-owns its current file layout. Neither makes it a Profile conformance rule.
+unaltered. The Bitwild Profile skill's
+[captures reference](../../profiles/bitwild/skill/references/captures.md)
+describes this optional workflow, its visibility check, and its current file
+layout. Neither makes it a Profile conformance rule.
 
 A project may register a `Source Document` custom type for a concept that
 points to an externally maintained document through OKF

@@ -5,6 +5,7 @@
 - Scope: Profile rule representation, validator engine, and Profile packages from 2026.3 onward
 - Supersedes: [ADR-0004](0004-closed-concepta-profile-validator.md)'s compiled rule representation; [ADR-0014](0014-external-profile-bindings.md)'s vocabulary-only manifest and its exclusion of source-provided rules
 - Amends: [ADR-0008](0008-okfp-adopts-okf-finding-contract.md) (descriptor source, finding arguments, summary entries, SARIF)
+- Amended, if accepted: by [ADR-0016](0016-independent-profile-packages.md). A catalog is the `rules` of one Profile package, with no separate manifest and no installed base catalog. The prose Profile no longer governs the catalog; the package is the Profile. `UNSUPPORTED` becomes the `wayfinder/profile-unsupported` diagnostic, and the four-part result becomes diagnostics and a derived gate
 - Driver: a second real knowledge base's gate, over the same okf release, that keeps its frontmatter rules in JSON Schema
 
 ## Context
@@ -45,8 +46,8 @@ The validator becomes a closed **engine** with three parts:
    subject, never from schema-library errors. The engine owns a small
    evaluator for a declared JSON Schema keyword subset, conformance-tested
    against the JSON-Schema-Test-Suite. The description of
-   [`wayfinder-rules.schema.json`](../schemas/wayfinder-rules.schema.json)
-   lists that subset.
+   [`wayfinder-profile.schema.json`](../schemas/wayfinder-profile.schema.json),
+   which absorbed the catalog schema under ADR-0016, lists that subset.
 3. **Catalogs.** A catalog declares every rule it enforces. A Profile turns a
    rule off by not declaring it. `extends` imports a parent catalog whole and
    only adds rules in the child's namespace. No consumer overrides or

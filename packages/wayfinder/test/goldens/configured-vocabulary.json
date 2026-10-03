@@ -31,116 +31,124 @@
     }
   },
   "profile": {
+    "id": "bitwild-profile",
     "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/source-id-unique",
+        "id": "bitwild-profile/source-id-unique",
         "severity": "error",
         "message": "Source IDs must be unique within a concept.",
         "location": {
           "path": "duplicate-source-ids.md"
         },
         "profile_release": "2026.3",
-        "rule": "§6.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-id-unique"
       },
       {
-        "id": "concepta-profile/frontmatter-fields-declared",
+        "id": "bitwild-profile/frontmatter-fields-declared",
         "severity": "error",
         "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found owner.",
         "location": {
           "path": "extra-key.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#frontmatter-fields-declared"
       },
       {
-        "id": "concepta-profile/used-actor-registered",
+        "id": "bitwild-profile/used-actor-registered",
         "severity": "error",
         "message": "Used actor human:ghost must be represented in the selected Profile binding.",
         "location": {
           "path": "ghost-generated.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.5, §6.1.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#used-actor-registered"
       },
       {
-        "id": "concepta-profile/used-actor-registered",
+        "id": "bitwild-profile/used-actor-registered",
         "severity": "error",
         "message": "Used actor team:writers must be represented in the selected Profile binding.",
         "location": {
           "path": "ghost-source.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.5, §6.1.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#used-actor-registered"
       },
       {
-        "id": "concepta-profile/used-actor-registered",
+        "id": "bitwild-profile/used-actor-registered",
         "severity": "error",
         "message": "Used actor human:auditor must be represented in the selected Profile binding.",
         "location": {
           "path": "ghost-verified.md"
         },
         "profile_release": "2026.3",
-        "rule": "§3.5, §6.1.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#used-actor-registered"
       },
       {
-        "id": "concepta-profile/source-entry-shape",
+        "id": "bitwild-profile/source-entry-shape",
         "severity": "error",
         "message": "Every present source entry must be a mapping with a non-empty resource.",
         "location": {
           "path": "malformed-sources.md"
         },
         "profile_release": "2026.3",
-        "rule": "§6.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-entry-shape"
       },
       {
-        "id": "concepta-profile/concept-baseline-fields",
+        "id": "bitwild-profile/concept-baseline-fields",
         "severity": "error",
         "message": "Every concept must contain non-empty string values for type, title, description, and status.",
         "location": {
           "path": "numeric-status.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#concept-baseline-fields"
       },
       {
-        "id": "concepta-profile/configured-tag-duplicate",
+        "id": "bitwild-profile/configured-tag-duplicate",
         "severity": "error",
         "message": "A concept must not repeat a tag value; found governance.",
         "location": {
           "path": "tagged.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#configured-tag-duplicate"
       },
       {
-        "id": "concepta-profile/configured-tag-undeclared",
+        "id": "bitwild-profile/configured-tag-undeclared",
         "severity": "error",
         "message": "Tags must be declared by the selected Profile binding; found undeclared-topic.",
         "location": {
           "path": "tagged.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.1"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#configured-tag-undeclared"
       },
       {
-        "id": "concepta-profile/used-type-registered",
+        "id": "bitwild-profile/used-type-registered",
         "severity": "error",
         "message": "Used type Widget Spec must be registered by the selected Profile binding.",
         "location": {
           "path": "widget.md"
         },
         "profile_release": "2026.3",
-        "rule": "§5.2"
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#used-type-registered"
       }
     ],
     "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

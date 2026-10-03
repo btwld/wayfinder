@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart';
 
-import 'legacy_cli.dart';
-
 /// One severity/id/path line per profile finding, in report order.
 List<String> findingSummary(Map<String, Object?> profile) =>
     (profile['findings']! as List<Object?>).map((value) {
@@ -23,47 +21,92 @@ String fixtureBundle(String path) =>
     ? p.posix.join(path, 'knowledge')
     : path;
 
+final ProfilePackage bitwild = ProfilePackage.parse(
+  File(
+    p.join('..', '..', 'profiles', 'bitwild', 'wayfinder-profile.json'),
+  ).readAsStringSync(),
+);
+
 Future<ProfileValidationResult> validateFixture(
   String path, {
   bool discoverConfig = false,
   bool fix = false,
-  List<RuleCatalog> catalogs = const [],
+  List<ProfilePackage> children = const [],
+  ProfileValidator validator = const ProfileValidator(),
 }) async {
-  final config = File(p.posix.join(path, 'wayfinder.json'));
-  if (!await config.exists()) {
-    return const ProfileValidator().validate(path, fix: fix);
-  }
-  final WayfinderProjectConfig parsed;
-  try {
-    parsed = WayfinderProjectConfig.parse(await config.readAsString());
-  } on WayfinderConfigException {
-    return const ProfileValidator().validate(
-      fixtureBundle(path),
-      configPath: discoverConfig ? null : config.path,
-      fix: fix,
-    );
-  }
-  return const ProfileValidator().validate(
-    fixtureBundle(path),
-    configPath: discoverConfig ? null : config.path,
-    resolvedProfiles: {
-      for (final entry in parsed.profiles.entries)
-        entry.key: WayfinderProfileBinding(
-          id: entry.key,
-          implementsId: builtinProfileId,
-          release: externalProfileRelease,
-          types: entry.value.types,
-          tags: entry.value.tags,
-          relationships: entry.value.relationships,
-          actors: entry.value.actors,
-          source: entry.value.source,
-          appliesTo: entry.value.appliesTo,
-          catalogs: catalogs,
-        ),
-    },
+  final config = p.posix.join(path, 'wayfinder.json');
+  final bundle = fixtureBundle(path);
+  return validator.validate(
+    bundle,
+    await selectFixture(
+      bundle,
+      configPath: discoverConfig || !File(config).existsSync() ? null : config,
+      children: children,
+    ),
     fix: fix,
   );
 }
+
+Future<ProfileSelection> selectFixture(
+  String bundle, {
+  String? configPath,
+  List<ProfilePackage> children = const [],
+}) async {
+  final BoundBundle bound;
+  try {
+    bound = await WayfinderProjectConfig.bind(bundle, configPath: configPath);
+  } on BundleBindingException catch (error) {
+    return UnselectedProfile([error.diagnostic]);
+  }
+  try {
+    return SelectedProfile(
+      EffectiveProfile.compose([
+        bitwild,
+        ...children,
+      ], project: bound.binding.project),
+      config: bound.config,
+    );
+  } on ProfileCompositionException catch (error) {
+    final failure = compositionFailure(bound.binding.id, error);
+    return UnselectedProfile([
+      EngineDiagnostic(failure.code, failure.message, location: bound.config),
+    ]);
+  }
+}
+
+String packageJson({
+  String id = 'probe',
+  String release = '1.0',
+  List<Object?> rules = const [],
+  Map<String, Object?> extra = const {},
+}) => jsonEncode({
+  'format': 2,
+  'id': id,
+  'release': release,
+  'implements': {'id': 'okf', 'release': '0.2'},
+  ...extra,
+  'rules': rules,
+});
+
+Map<String, Object?> ruleJson(
+  String id, {
+  required String subject,
+  required Object schema,
+  required List<Object?> valid,
+  required List<Object?> invalid,
+  String severity = 'error',
+  String message = 'm',
+  Map<String, Object?> check = const {},
+}) => {
+  'id': id,
+  'category': 'structure',
+  'severity': severity,
+  'status': 'stable',
+  'description': message,
+  'message': message,
+  'check': {'subject': subject, 'schema': schema, ...check},
+  'tests': {'valid': valid, 'invalid': invalid},
+};
 
 Future<Directory> copyFixture(String name) async {
   final source = Directory(fixture(name));
@@ -76,39 +119,4 @@ Future<Directory> copyFixture(String name) async {
     await entity.copy(copy.path);
   }
   return destination;
-}
-
-/// Runs okfp in a separate process — the historical validator contract harness.
-Future<CliResult> runProcess(List<String> arguments) async {
-  final result = await Process.run(
-    Platform.resolvedExecutable,
-    <String>['run', 'test/legacy_cli_main.dart', ...arguments],
-    stdoutEncoding: utf8,
-    stderrEncoding: utf8,
-  );
-  return CliResult(
-    result.exitCode,
-    (result.stdout as String).trimRight(),
-    (result.stderr as String).trimRight(),
-  );
-}
-
-/// Runs okfp in-process through [runOkfpCli].
-Future<CliResult> runCli(List<String> arguments) async {
-  final stdoutLines = <String>[];
-  final stderrLines = <String>[];
-  final exitCode = await runOkfpCli(
-    arguments,
-    out: stdoutLines.add,
-    err: stderrLines.add,
-  );
-  return CliResult(exitCode, stdoutLines.join('\n'), stderrLines.join('\n'));
-}
-
-final class CliResult {
-  const CliResult(this.exitCode, this.stdout, this.stderr);
-
-  final int exitCode;
-  final String stdout;
-  final String stderr;
 }

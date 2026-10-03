@@ -1,0 +1,1613 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 2,
+  "id": "bitwild-profile",
+  "release": "2026.3",
+  "implements": {
+    "id": "okf",
+    "release": "0.2"
+  },
+  "docs": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md",
+  "skill": "skill",
+  "types": [
+    {
+      "name": "Glossary Definition",
+      "description": "One project or domain term"
+    },
+    {
+      "name": "Business Rule",
+      "description": "One standing business rule, constraint, invariant, or policy"
+    },
+    {
+      "name": "Question",
+      "description": "One named unknown, with what is known, what is missing, and what would close it"
+    },
+    {
+      "name": "Request",
+      "description": "A durable request from any relevant source"
+    },
+    {
+      "name": "Analysis",
+      "description": "An investigation, feasibility study, comparison, or recommendation"
+    },
+    {
+      "name": "Decision",
+      "description": "A durable non-architectural decision with an independent lifecycle"
+    },
+    {
+      "name": "Architecture Decision Record",
+      "description": "An architectural decision in ADR form"
+    },
+    {
+      "name": "Architecture Document",
+      "description": "A durable description of the system architecture"
+    },
+    {
+      "name": "Specification",
+      "description": "A specification the project maintains as durable knowledge, not one a tracker owns the state of"
+    },
+    {
+      "name": "Guide",
+      "description": "Durable operational or engineering guidance"
+    },
+    {
+      "name": "Interaction Record",
+      "description": "An interaction whose combined context is itself durable"
+    },
+    {
+      "name": "Attested Computation",
+      "description": "An OKF-defined sanctioned computation with a checkable execution receipt"
+    }
+  ],
+  "tags": [],
+  "relationships": [
+    {
+      "name": "superseded-by",
+      "description": "This concept has been replaced by the target"
+    },
+    {
+      "name": "depends-on",
+      "description": "This concept is only valid while the target holds"
+    },
+    {
+      "name": "constrained-by",
+      "description": "The target limits what this concept may do"
+    },
+    {
+      "name": "part-of",
+      "description": "This concept is a constituent of the target, which is incomplete without it"
+    },
+    {
+      "name": "refines",
+      "description": "This concept narrows or sharpens the target"
+    },
+    {
+      "name": "specified-by",
+      "description": "The target is the specification of this concept"
+    },
+    {
+      "name": "implemented-by",
+      "description": "The target is the work that delivers this concept"
+    },
+    {
+      "name": "resolves",
+      "description": "This concept fully answers or closes the target"
+    },
+    {
+      "name": "partially-resolves",
+      "description": "This concept answers part of the target, which remains open"
+    },
+    {
+      "name": "tracked-by",
+      "description": "The target is the work-tracking record that chases this concept"
+    },
+    {
+      "name": "related-to",
+      "description": "An unlabelled association worth surfacing"
+    }
+  ],
+  "frontmatter_keys": [
+    {
+      "name": "relationships",
+      "description": "The concept's typed relationships to other resources, a list of mappings, each naming one declared relationship and the resource it points to."
+    }
+  ],
+  "$defs": {
+    "text": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "frontmatter-key": {
+      "x-slot": "okf.frontmatterKeys"
+    },
+    "declared-key": {
+      "x-slot": "profile.frontmatterKeys"
+    },
+    "type-name": {
+      "x-slot": "profile.types"
+    },
+    "tag-name": {
+      "x-slot": "profile.tags"
+    },
+    "relationship-name": {
+      "x-slot": "profile.relationships"
+    },
+    "actor-id": {
+      "x-slot": "profile.actors"
+    }
+  },
+  "rules": [
+    {
+      "id": "okf-release-binding",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "The bundle root index MUST declare `okf_version: \"0.2\"`.",
+      "message": "The bundle root index must declare okf_version: \"0.2\".",
+      "check": {
+        "subject": "root",
+        "schema": {
+          "properties": {
+            "okf_version": {
+              "const": "0.2"
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "okf_version": "0.1",
+            "files": [
+              "index.md"
+            ]
+          },
+          {
+            "okf_version": null,
+            "files": []
+          },
+          {
+            "okf_version": 0.2,
+            "files": [
+              "index.md"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "configuration-legacy-registry",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "A bundle using this release MUST NOT carry legacy root `profile.md`, `types.md`, or `actors.md` registries as competing configuration.",
+      "message": "{path} is a legacy 2026.2 registry; remove it when using an external Profile binding.",
+      "check": {
+        "subject": "file",
+        "schema": {
+          "properties": {
+            "path": {
+              "not": {
+                "enum": [
+                  "profile.md",
+                  "types.md",
+                  "actors.md"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area/types.md",
+            "name": "types.md",
+            "markdown": true
+          },
+          {
+            "path": "index.md",
+            "name": "index.md",
+            "markdown": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "profile.md",
+            "name": "profile.md",
+            "markdown": true
+          },
+          {
+            "path": "actors.md",
+            "name": "actors.md",
+            "markdown": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "configured-tag-undeclared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every used tag MUST be declared by a package in the selected chain or by the project binding.",
+      "message": "Tags must be declared by the selected Profile binding; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "tags",
+        "schema": {
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/tag-name"
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.tags": [
+            "governance"
+          ]
+        },
+        "valid": [
+          {
+            "value": "governance",
+            "count": 1
+          }
+        ],
+        "invalid": [
+          {
+            "value": "undeclared",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "configured-tag-duplicate",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept MUST NOT repeat a tag value.",
+      "message": "A concept must not repeat a tag value; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "tags",
+        "schema": {
+          "properties": {
+            "count": {
+              "const": 1
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "value": "governance",
+            "count": 1
+          }
+        ],
+        "invalid": [
+          {
+            "value": "governance",
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "concept-baseline-fields",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept MUST carry nonempty `type`, `title`, `description`, and `status` fields.",
+      "message": "Every concept must contain non-empty string values for type, title, description, and status.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "required": [
+            "type",
+            "title",
+            "description",
+            "status"
+          ],
+          "properties": {
+            "type": {
+              "$ref": "#/$defs/text"
+            },
+            "title": {
+              "$ref": "#/$defs/text"
+            },
+            "description": {
+              "$ref": "#/$defs/text"
+            },
+            "status": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "type": "Guide",
+            "title": "Title",
+            "description": "Summary.",
+            "status": "stable"
+          }
+        ],
+        "invalid": [
+          {
+            "type": "Guide",
+            "title": "Title",
+            "description": "Summary."
+          },
+          {
+            "type": " ",
+            "title": "Title",
+            "description": "Summary.",
+            "status": "stable"
+          },
+          {
+            "type": 1,
+            "title": "Title",
+            "description": "Summary.",
+            "status": "stable"
+          }
+        ]
+      }
+    },
+    {
+      "id": "frontmatter-fields-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept MUST NOT carry a frontmatter key that neither OKF 0.2 defines nor the selected Profile release declares.",
+      "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "keys",
+        "schema": {
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/frontmatter-key"
+                },
+                {
+                  "$ref": "#/$defs/declared-key"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.frontmatterKeys": [
+            "relationships"
+          ]
+        },
+        "valid": [
+          {
+            "value": "type"
+          },
+          {
+            "value": "sources"
+          },
+          {
+            "value": "relationships"
+          }
+        ],
+        "invalid": [
+          {
+            "value": "confidence"
+          },
+          {
+            "value": "relationship"
+          }
+        ]
+      }
+    },
+    {
+      "id": "status-value",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept's `status` MUST be `draft`, `stable`, or `deprecated`.",
+      "message": "Status must be draft, stable, or deprecated.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "pattern": "^\\s*(draft|stable|deprecated)\\s*$"
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "status": "draft"
+          },
+          {
+            "status": " stable "
+          },
+          {
+            "status": ""
+          },
+          {},
+          {
+            "status": 1
+          }
+        ],
+        "invalid": [
+          {
+            "status": "final"
+          },
+          {
+            "status": "Stable"
+          }
+        ]
+      }
+    },
+    {
+      "id": "generation-provenance-recommended",
+      "category": "provenance",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "A concept carries no `generated` field recording how its current content was produced.",
+      "message": "Generation provenance is recommended when it is known.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "required": [
+            "generated"
+          ]
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "generated": {
+              "by": "process:ci"
+            }
+          },
+          {
+            "generated": null
+          }
+        ],
+        "invalid": [
+          {},
+          {
+            "type": "Guide"
+          }
+        ]
+      }
+    },
+    {
+      "id": "used-type-registered",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every used concept type MUST resolve in the merged type registry of the selected Profile binding.",
+      "message": "Used type {type} must be registered by the selected Profile binding.",
+      "check": {
+        "subject": "concept",
+        "schema": {
+          "properties": {
+            "type": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/type-name"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.types": [
+            "Decision"
+          ]
+        },
+        "valid": [
+          {
+            "path": "a.md",
+            "type": "Decision"
+          },
+          {
+            "path": "a.md",
+            "type": null
+          }
+        ],
+        "invalid": [
+          {
+            "path": "a.md",
+            "type": "Unregistered"
+          }
+        ]
+      }
+    },
+    {
+      "id": "used-actor-registered",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "When an actor ID is used in `generated.by`, `verified[].by`, or `sources[].author`, the selected Profile binding MUST contain that exact ID with a nonempty `name`.",
+      "message": "Used actor {id} must be represented in the selected Profile binding.",
+      "check": {
+        "subject": "actor",
+        "schema": {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/actor-id"
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.actors": [
+            "process:ci"
+          ]
+        },
+        "valid": [
+          {
+            "id": "process:ci",
+            "first_use": "a.md"
+          }
+        ],
+        "invalid": [
+          {
+            "id": "agent/unknown",
+            "first_use": "a.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-entry-shape",
+      "category": "provenance",
+      "severity": "error",
+      "status": "stable",
+      "description": "When `sources` is present, every entry MUST be a mapping carrying the nonempty `resource` OKF requires. okf reports the same gap as its `invalid-sources` or `invalid-source` advisory; this rule raises it to an error.",
+      "message": "Every present source entry must be a mapping with a non-empty resource.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "properties": {
+            "sources": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "resource"
+                ],
+                "properties": {
+                  "resource": {
+                    "$ref": "#/$defs/text"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {},
+          {
+            "sources": null
+          },
+          {
+            "sources": []
+          },
+          {
+            "sources": [
+              {
+                "id": "s1",
+                "resource": "/references/a.md"
+              }
+            ]
+          }
+        ],
+        "invalid": [
+          {
+            "sources": "/references/a.md"
+          },
+          {
+            "sources": [
+              1
+            ]
+          },
+          {
+            "sources": [
+              {
+                "id": "s1"
+              }
+            ]
+          },
+          {
+            "sources": [
+              {
+                "resource": " "
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-id-unique",
+      "category": "provenance",
+      "severity": "error",
+      "status": "stable",
+      "description": "Within one concept, each present `sources[].id` MUST be unique.",
+      "message": "Source IDs must be unique within a concept.",
+      "check": {
+        "subject": "concept",
+        "schema": {
+          "properties": {
+            "source_ids": {
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "source_ids": [
+              "s1",
+              "s2"
+            ]
+          },
+          {
+            "source_ids": []
+          }
+        ],
+        "invalid": [
+          {
+            "source_ids": [
+              "s1",
+              "s1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-attribution-join",
+      "category": "provenance",
+      "severity": "error",
+      "status": "stable",
+      "description": "A body footnote reference whose label exactly matches a `sources[].id` is source attribution and MUST join to its footnote definition.",
+      "message": "A recognized source-attribution reference must join to its footnote definition.",
+      "check": {
+        "subject": "concept",
+        "each": "footnotes",
+        "schema": {
+          "if": {
+            "properties": {
+              "is_source_id": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "defined": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "value": "s1",
+            "defined": true,
+            "is_source_id": true
+          },
+          {
+            "value": "aside",
+            "defined": false,
+            "is_source_id": false
+          }
+        ],
+        "invalid": [
+          {
+            "value": "s1",
+            "defined": false,
+            "is_source_id": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-path-unresolved",
+      "category": "provenance",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "A top-level `resource` or `sources[].resource` written as a path resolves to no existing file or directory.",
+      "message": "Source path {target} does not resolve to a file or directory.",
+      "check": {
+        "builtin": "path-targets-exist",
+        "params": {
+          "fields": [
+            "resource",
+            "sources.resource"
+          ]
+        }
+      }
+    },
+    {
+      "id": "relationship-shape",
+      "category": "linking",
+      "severity": "error",
+      "status": "stable",
+      "description": "When `relationships` is present, it MUST be a list whose every entry is a mapping with exactly a nonempty `relationship` name and a nonempty `resource` that okf reads as a link target, never a scope descriptor or an invalid path.",
+      "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "failing_field": "entry",
+        "schema": {
+          "required": [
+            "entry"
+          ],
+          "properties": {
+            "entry": {
+              "type": "object",
+              "required": [
+                "relationship",
+                "resource"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "relationship": {
+                  "$ref": "#/$defs/text"
+                },
+                "resource": {
+                  "$ref": "#/$defs/text"
+                }
+              }
+            },
+            "resolution": {
+              "not": {
+                "enum": [
+                  "invalid",
+                  "descriptor"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/architecture/sync-engine.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "https://example.test/spec"
+            },
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/planned.md"
+            },
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
+          },
+          {
+            "entry": {
+              "relationship": "inspired-by",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": " ",
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "relationship": 1,
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "relationship": "depends-on"
+            }
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": " "
+            }
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/a.md",
+              "note": "extra"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": "depends-on"
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "../outside.md"
+            },
+            "resolution": "invalid",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "QA packet, 23 June 2026"
+            },
+            "resolution": "descriptor",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          },
+          {
+            "value": null
+          },
+          {
+            "value": "depends-on /a.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "used-relationship-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every used relationship name MUST be declared by a package in the selected chain or by the project binding.",
+      "message": "Relationship names must be declared by the selected Profile binding; found {failing}.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "failing_field": "entry",
+        "schema": {
+          "if": {
+            "required": [
+              "entry"
+            ],
+            "properties": {
+              "entry": {
+                "type": "object",
+                "required": [
+                  "relationship"
+                ],
+                "properties": {
+                  "relationship": {
+                    "$ref": "#/$defs/text"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "entry": {
+                "properties": {
+                  "relationship": {
+                    "$ref": "#/$defs/relationship-name"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "slots": {
+          "profile.relationships": [
+            "depends-on"
+          ]
+        },
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": {
+              "relationship": " ",
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": {
+              "relationship": 1,
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": "inspired-by"
+          },
+          {
+            "value": "inspired-by /a.md"
+          },
+          {
+            "value": null
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": "inspired-by",
+              "resource": "/a.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "internal-link-bundle-relative",
+      "category": "linking",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "An internal link uses a target without the leading `/` of a bundle-relative link.",
+      "message": "Internal links should use bundle-relative targets.",
+      "check": {
+        "subject": "concept",
+        "each": "edges",
+        "schema": {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "body"
+              },
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bundle_relative": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "origin": "body",
+            "target": "/area/note.md",
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true
+          },
+          {
+            "origin": "body",
+            "target": "https://example.com",
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
+          }
+        ],
+        "invalid": [
+          {
+            "origin": "body",
+            "target": "note.md",
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "internal-link-unresolved",
+      "category": "linking",
+      "severity": "note",
+      "status": "stable",
+      "description": "An internal link's target is absent from the bundle.",
+      "message": "A link targets an internal resource not yet in the bundle; it remains an OKF graph edge.",
+      "check": {
+        "subject": "concept",
+        "each": "edges",
+        "schema": {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "body"
+              },
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolution": {
+                "enum": [
+                  "resolved-concept",
+                  "resolved-asset"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "origin": "body",
+            "target": "/area/note.md",
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true
+          },
+          {
+            "origin": "body",
+            "target": "https://example.com",
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false
+          },
+          {
+            "origin": "sources.resource",
+            "target": "note.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": false
+          }
+        ],
+        "invalid": [
+          {
+            "origin": "body",
+            "target": "/area/missing.md",
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "relationship-bundle-relative",
+      "category": "linking",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "An internal relationship target is written without the leading `/` of a bundle-relative link.",
+      "message": "Internal relationship targets should be bundle-relative.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "bundle_relative": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/note.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": {
+              "relationship": "tracked-by",
+              "resource": "https://example.test/issues/1"
+            },
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "note.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": false,
+            "resolved": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "relationship-unresolved",
+      "category": "linking",
+      "severity": "note",
+      "status": "stable",
+      "description": "An internal relationship target is absent from the bundle.",
+      "message": "A relationship targets an internal resource not yet in the bundle; it remains a relationship edge.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "schema": {
+          "if": {
+            "properties": {
+              "internal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolved": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/note.md"
+            },
+            "resolution": "resolved-concept",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": true
+          },
+          {
+            "entry": {
+              "relationship": "tracked-by",
+              "resource": "https://example.test/issues/1"
+            },
+            "resolution": "external",
+            "internal": false,
+            "bundle_relative": false,
+            "resolved": false
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/area/missing.md"
+            },
+            "resolution": "unresolved",
+            "internal": true,
+            "bundle_relative": true,
+            "resolved": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "raw-directory-placement",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "A `raw/` tier belongs to a source directory and MUST NOT sit directly under `references/`.",
+      "message": "A raw/ tier belongs to a source directory; raw/ must not sit directly under references/.",
+      "check": {
+        "subject": "directory",
+        "schema": {
+          "properties": {
+            "path": {
+              "not": {
+                "const": "references/raw"
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw",
+            "has_index": true
+          },
+          {
+            "path": "references",
+            "has_index": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/raw",
+            "has_index": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "raw-directory-markdown",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "Within `raw/` and any of its subdirectories under `references/`, no markdown file is permitted; `index-current` reports a leftover `index.md` there.",
+      "message": "A raw/ tier holds only verbatim non-markdown originals; keep a markdown original as a mirrored concept beside raw/.",
+      "check": {
+        "subject": "file",
+        "schema": {
+          "not": {
+            "allOf": [
+              {
+                "properties": {
+                  "markdown": {
+                    "const": true
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "name": {
+                    "not": {
+                      "const": "index.md"
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "path": {
+                    "pattern": "^references/([^/]+/)*raw/"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "references/vendor/raw/index.md",
+            "name": "index.md",
+            "markdown": true
+          },
+          {
+            "path": "references/vendor/raw/original.pdf",
+            "name": "original.pdf",
+            "markdown": false
+          },
+          {
+            "path": "references/vendor/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "area/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ],
+        "invalid": [
+          {
+            "path": "references/vendor/raw/note.md",
+            "name": "note.md",
+            "markdown": true
+          },
+          {
+            "path": "references/raw/deep/note.md",
+            "name": "note.md",
+            "markdown": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "root-structure-files",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "A bundle MUST contain `index.md` and `log.md` at its root.",
+      "message": "The configured bundle root must contain index.md and log.md; missing {failing}.",
+      "check": {
+        "builtin": "files-present",
+        "params": {
+          "paths": [
+            "index.md",
+            "log.md"
+          ]
+        }
+      }
+    },
+    {
+      "id": "root-index-lists-log",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "The root `index.md` of a bundle with no concepts MUST link only `log.md`.",
+      "message": "The root index of a bundle with no concepts must link only log.md.",
+      "check": {
+        "subject": "root",
+        "schema": {
+          "if": {
+            "properties": {
+              "has_concepts": {
+                "const": false
+              },
+              "index_links": {
+                "type": "array"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "index_links": {
+                "const": [
+                  "log.md"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ],
+            "has_concepts": false,
+            "index_links": [
+              "log.md"
+            ]
+          },
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ],
+            "has_concepts": true,
+            "index_links": [
+              "areas/index.md"
+            ]
+          },
+          {
+            "okf_version": null,
+            "files": [
+              "log.md"
+            ],
+            "has_concepts": false,
+            "index_links": null
+          }
+        ],
+        "invalid": [
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ],
+            "has_concepts": false,
+            "index_links": [
+              "log.md",
+              "https://example.test"
+            ]
+          },
+          {
+            "okf_version": "0.2",
+            "files": [
+              "index.md",
+              "log.md"
+            ],
+            "has_concepts": false,
+            "index_links": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "concept-area-name-collision",
+      "category": "structure",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "A concept sits beside an area of the same name rather than inside it.",
+      "message": "A concept beside an area of the same name needs contextual placement review.",
+      "check": {
+        "subject": "concept",
+        "schema": {
+          "properties": {
+            "sibling_directory": {
+              "const": false
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "path": "area/note.md",
+            "sibling_directory": false
+          }
+        ],
+        "invalid": [
+          {
+            "path": "area.md",
+            "sibling_directory": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "index-current",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every directory the OKF reference index generator indexes MUST contain an `index.md` identical to the generator's output for the bundle, and a directory holding only non-concept assets, such as a `raw/` tier, MUST NOT carry one.",
+      "message": {
+        "stale": "{path} is missing or differs from the generated index; run wayfinder validate --fix.",
+        "extra": "{path} is not an index the generator writes; delete it, then run wayfinder validate --fix."
+      },
+      "check": {
+        "builtin": "matches-generated",
+        "params": {
+          "generator": "okf-index",
+          "keep": [
+            "index.md"
+          ]
+        }
+      }
+    },
+    {
+      "id": "log-entry-lead-word",
+      "category": "history",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every root `log.md` entry MUST start with a nonempty bold lead word followed by a colon.",
+      "message": "Every root log entry must begin with a nonempty bold lead word and a colon.",
+      "check": {
+        "subject": "log",
+        "schema": {
+          "properties": {
+            "entries": {
+              "items": {
+                "properties": {
+                  "action": {
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": "Creation"
+              }
+            ]
+          },
+          {
+            "entries": []
+          }
+        ],
+        "invalid": [
+          {
+            "entries": [
+              {
+                "date": "2026-08-22",
+                "action": ""
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

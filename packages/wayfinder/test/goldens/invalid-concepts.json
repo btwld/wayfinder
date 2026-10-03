@@ -4,14 +4,6 @@
     "report": {
       "findings": [
         {
-          "id": "okf/invalid-generated",
-          "severity": "advisory",
-          "message": "generated should contain a non-empty by actor and an optional ISO 8601 at timestamp.",
-          "location": {
-            "path": "bad.md"
-          }
-        },
-        {
           "id": "okf/invalid-status",
           "severity": "advisory",
           "message": "status should be draft, stable, or deprecated.",
@@ -23,75 +15,54 @@
     }
   },
   "profile": {
-    "release": "2026.2",
+    "id": "bitwild-profile",
+    "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "FAIL",
     "findings": [
       {
-        "id": "concepta-profile/concept-baseline-fields",
+        "id": "bitwild-profile/concept-baseline-fields",
         "severity": "error",
         "message": "Every concept must contain non-empty string values for type, title, description, and status.",
         "location": {
           "path": "bad.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#concept-baseline-fields"
       },
       {
-        "id": "concepta-profile/frontmatter-fields-okf",
-        "severity": "error",
-        "message": "Concepta producers may use only OKF 0.2 frontmatter fields; found confidence.",
+        "id": "bitwild-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
         "location": {
           "path": "bad.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#generation-provenance-recommended"
       },
       {
-        "id": "concepta-profile/status-value",
+        "id": "bitwild-profile/status-value",
         "severity": "error",
         "message": "Status must be draft, stable, or deprecated.",
         "location": {
           "path": "bad.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
-      },
-      {
-        "id": "concepta-profile/tag-literal-duplication",
-        "severity": "error",
-        "message": "Tags must not duplicate type, status, trust, or standard relationship values; found Guide, complete, Depends on.",
-        "location": {
-          "path": "bad.md"
-        },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
-      },
-      {
-        "id": "concepta-profile/generation-provenance-recommended",
-        "severity": "advisory",
-        "message": "Generation provenance is recommended when it is known.",
-        "location": {
-          "path": "profile.md"
-        },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
-      },
-      {
-        "id": "concepta-profile/generation-provenance-recommended",
-        "severity": "advisory",
-        "message": "Generation provenance is recommended when it is known.",
-        "location": {
-          "path": "types.md"
-        },
-        "profile_release": "2026.2",
-        "rule": "§5.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#status-value"
       }
-    ]
+    ],
+    "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

@@ -22,7 +22,7 @@ void main() {
       jsonEncode({
         'version': 1,
         'profiles': {
-          'bitwild_profile': {
+          'bitwild-profile': {
             'source': {
               'git': 'https://example.com/profile',
               'ref': 'main',
