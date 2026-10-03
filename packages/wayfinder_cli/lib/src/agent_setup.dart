@@ -13,6 +13,16 @@ typedef RunProcess =
 const _plugin = 'wayfinder@wayfinder';
 const _marketplace = 'btwld/wayfinder';
 
+/// The session bootstrap names one entrypoint; its skill routes other work.
+const wayfinderSessionContext =
+    'Load the use-wayfinder skill for this project\'s knowledge. '
+    'Follow its references to author-knowledge-bundle for writing, '
+    'adopt-knowledge-bundle for adoption, and assess-knowledge-bundle for audits.';
+
+const _sessionCommand = 'wayfinder session-context';
+const _routingStart = '<!-- wayfinder:session-start -->';
+const _routingEnd = '<!-- /wayfinder:session-start -->';
+
 /// Marks a skill directory Wayfinder installed, so it never replaces or removes
 /// a skill the user or another tool put there.
 const skillMarker = '.wayfinder-skill';
@@ -117,6 +127,7 @@ class AgentSetup {
     String bundle = 'knowledge',
     bool force = false,
     bool hooks = false,
+    bool sessionHooks = false,
   }) async {
     if (!await Directory(project).exists()) {
       throw const WayfinderException(
@@ -177,9 +188,115 @@ class AgentSetup {
       );
     }
     if (hooks) await _writeHooks(project, relative);
+    if (sessionHooks) await _writeSessionHooks(project);
     _out(
       'Commit .mcp.json to share the server. Claude Code asks you to approve '
       'project servers before first use.',
+    );
+  }
+
+  /// Installs context-only startup hooks. Grok ignores SessionStart stdout, so
+  /// its bootstrap uses the project instructions it reads at startup instead.
+  Future<void> _writeSessionHooks(String project) async {
+    final updates = <File, String>{};
+    for (final (directory, filename, timeout) in [
+      ('.claude', 'settings.json', 5),
+      ('.codex', 'hooks.json', 5),
+      ('.gemini', 'settings.json', 5000),
+    ]) {
+      final file = File(p.join(project, directory, filename));
+      var config = <String, Object?>{};
+      if (await file.exists()) {
+        final Object? decoded;
+        try {
+          decoded = jsonDecode(await file.readAsString());
+        } on FormatException {
+          throw WayfinderException('${file.path} is not valid JSON.');
+        }
+        if (decoded is! Map<String, Object?>) {
+          throw WayfinderException('${file.path} must contain a JSON object.');
+        }
+        config = decoded;
+      }
+      final hooks = config['hooks'] ?? <String, Object?>{};
+      if (hooks is! Map<String, Object?>) {
+        throw WayfinderException('${file.path} hooks must be an object.');
+      }
+      final start = hooks['SessionStart'] ?? <Object?>[];
+      if (start is! List) {
+        throw WayfinderException('${file.path} SessionStart must be an array.');
+      }
+      // Preserve other handlers even when they share a group with ours.
+      final kept = <Object?>[];
+      for (final group in start) {
+        if (group is! Map<String, Object?> || group['hooks'] is! List) {
+          kept.add(group);
+          continue;
+        }
+        final handlers = group['hooks'] as List;
+        final remaining = handlers
+            .where(
+              (handler) =>
+                  handler is! Map || handler['command'] != _sessionCommand,
+            )
+            .toList();
+        if (remaining.length == handlers.length) {
+          kept.add(group);
+        } else if (remaining.isNotEmpty) {
+          kept.add({...group, 'hooks': remaining});
+        }
+      }
+      config['hooks'] = {
+        ...hooks,
+        'SessionStart': [
+          ...kept,
+          {
+            'hooks': [
+              {
+                'type': 'command',
+                'command': _sessionCommand,
+                'timeout': timeout,
+              },
+            ],
+          },
+        ],
+      };
+      updates[file] = '${const JsonEncoder.withIndent('  ').convert(config)}\n';
+    }
+    final instructions = File(p.join(project, 'AGENTS.md'));
+    final existing = await instructions.exists()
+        ? await instructions.readAsString()
+        : '';
+    final block = '$_routingStart\n$wayfinderSessionContext\n$_routingEnd';
+    final start = existing.indexOf(_routingStart);
+    final end = existing.indexOf(_routingEnd);
+    if (start >= 0 && end >= start) {
+      updates[instructions] = existing.replaceRange(
+        start,
+        end + _routingEnd.length,
+        block,
+      );
+    } else if (start >= 0 || end >= 0) {
+      throw const WayfinderException(
+        'AGENTS.md contains an incomplete Wayfinder session block.',
+      );
+    } else {
+      final separator = existing.isEmpty || existing.endsWith('\n\n')
+          ? ''
+          : existing.endsWith('\n')
+          ? '\n'
+          : '\n\n';
+      updates[instructions] = '$existing$separator$block\n';
+    }
+    // Parse all existing startup configuration before replacing any of it.
+    for (final update in updates.entries) {
+      await update.key.parent.create(recursive: true);
+      await update.key.writeAsString(update.value);
+    }
+    _out(
+      'Configured session context for Claude, Codex and Gemini; '
+      'AGENTS.md supplies startup instructions for Grok. '
+      'Review and trust the hooks in each client before use.',
     );
   }
 

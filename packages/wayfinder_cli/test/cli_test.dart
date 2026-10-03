@@ -35,8 +35,8 @@ void main() {
     expect(await cli.run(['--help']), 0);
     final help = output.join('\n');
     expect(help, contains('validate <bundle>'));
-    expect(help, contains('index <bundle>'));
-    expect(help, contains('search <bundle>'));
+    expect(help, contains('index [<bundle>]'));
+    expect(help, contains('search [<bundle>]'));
     expect(help, contains('graph <bundle>'));
     expect(help, contains('get [<project>]'));
     expect(help, contains('upgrade [<project>]'));
@@ -44,6 +44,28 @@ void main() {
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
   });
+
+  test(
+    'session hook emits model context without retrieval or network',
+    () async {
+      cli = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        notices: true,
+        knowledge: () => throw StateError('Startup must not open retrieval.'),
+        releases: () => throw StateError('Startup must not check for updates.'),
+      );
+      expect(await cli.run(['session-context']), 0);
+      final payload = jsonDecode(output.single) as Map;
+      final context = payload['hookSpecificOutput'] as Map;
+      expect(context['hookEventName'], 'SessionStart');
+      expect(
+        context['additionalContext'],
+        contains('Load the use-wayfinder skill'),
+      );
+      expect(errors, isEmpty);
+    },
+  );
 
   for (final args in [
     <String>[],
@@ -68,6 +90,7 @@ void main() {
     ['graph', '.', '--resolution=nope'],
     ['get', '.', 'extra'],
     ['upgrade', '.', 'extra'],
+    ['session-context', 'extra'],
   ]) {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
@@ -678,6 +701,7 @@ class _SearchKnowledge extends WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
   }) async {
     limits.add(limit);
     return KnowledgeSearchResponse(matches: [], context: [], notices: []);

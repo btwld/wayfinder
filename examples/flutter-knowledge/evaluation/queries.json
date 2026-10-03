@@ -1,0 +1,32 @@
+[
+  {
+    "id": "architecture-caching",
+    "question": "Where should caching live in a Flutter application?",
+    "expected_concepts": ["knowledge/architecture/flutter-application-architecture.md"],
+    "non_claims": ["The architecture skill does not make a domain layer mandatory."]
+  },
+  {
+    "id": "layout-column-list",
+    "question": "Why does a list inside a column fail layout?",
+    "expected_concepts": ["knowledge/layout/flutter-layout-constraints.md"],
+    "non_claims": ["The bundle does not choose one fix without the surrounding constraints."]
+  },
+  {
+    "id": "widget-v-unit",
+    "question": "How do widget tests differ from Dart unit tests?",
+    "expected_concepts": ["knowledge/testing/dart-unit-tests.md", "knowledge/testing/flutter-widget-tests.md"],
+    "non_claims": ["The two skills are not conflated into one test type."]
+  },
+  {
+    "id": "framework-layers",
+    "question": "What is the relationship between widgets, elements, and render objects?",
+    "expected_concepts": ["knowledge/architecture/flutter-framework-layers.md"],
+    "non_claims": ["No universal performance claim is inferred."]
+  },
+  {
+    "id": "future-sdk",
+    "question": "Does this pilot establish advice for an unreleased future SDK?",
+    "expected_concepts": [],
+    "non_claims": ["The pilot is limited to its locked sources and stated release evidence."]
+  }
+]

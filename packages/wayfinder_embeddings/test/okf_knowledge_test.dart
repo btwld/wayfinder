@@ -13,6 +13,141 @@ KnowledgeSnapshot snapshot(Map<String, String> sources, {String id = 'test'}) =>
     KnowledgeSnapshot.fromSources(sources, bundleId: id);
 
 void main() {
+  test('metadata filters preserve raw field semantics', () {
+    final filter = KnowledgeMetadataFilter(
+      tags: {'routing', 'navigation'},
+      requiredTags: {'mobile'},
+      types: {'Guide'},
+      statuses: {'review-ready'},
+      pathPrefixes: {'architecture'},
+      titleContains: 'ROUTES',
+      descriptionContains: 'deep.links',
+    );
+    final raw = <String, Object?>{
+      'tags': ['routing', 'mobile'],
+      'type': 'Guide',
+      'status': 'review-ready',
+      'title': 'App routes',
+      'description': 'Uses deep.links literally',
+    };
+    expect(filter.allows(raw, 'architecture/routes.md'), isTrue);
+    expect(filter.allows(raw, 'architecture-other/routes.md'), isFalse);
+    expect(
+      filter.allows({
+        ...raw,
+        'tags': ['routing'],
+      }, 'architecture/routes.md'),
+      isFalse,
+    );
+    expect(
+      filter.allows({
+        ...raw,
+        'tags': ['Routing', 'mobile'],
+      }, 'architecture/routes.md'),
+      isFalse,
+    );
+    expect(
+      filter.allows({
+        ...raw,
+        'description': 'deepXlinks',
+      }, 'architecture/routes.md'),
+      isFalse,
+    );
+    expect(
+      KnowledgeMetadataFilter(statuses: {'stable'}).allows({}, 'a.md'),
+      isTrue,
+    );
+    expect(
+      KnowledgeMetadataFilter(
+        titleContains: '42',
+      ).allows({'title': 42}, 'a.md'),
+      isFalse,
+    );
+    expect(
+      KnowledgeMetadataFilter(tags: {'42'}).allows({
+        'tags': [42],
+      }, 'a.md'),
+      isFalse,
+    );
+    expect(KnowledgeMetadataFilter().allows({}, 'a.md'), isTrue);
+    expect(() => KnowledgeMetadataFilter(tags: {' '}), throwsArgumentError);
+    expect(
+      () => KnowledgeMetadataFilter(descriptionContains: ''),
+      throwsArgumentError,
+    );
+  });
+
+  test(
+    'metadata eligibility precedes ranking in every retrieval mode',
+    () async {
+      final store = MemoryStore();
+      final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
+      await index.synchronize(
+        snapshot({
+          for (var i = 0; i < 60; i++)
+            'excluded/$i.md': concept(
+              'Account access recovery',
+              fields: 'tags: [other]\n',
+            ),
+          'wanted.md': concept(
+            'Account access recovery',
+            fields: 'tags: [mobile]\n',
+          ),
+        }),
+      );
+      final before = await store.getAllEmbeddings();
+      for (final mode in KnowledgeRetrievalMode.values) {
+        final result = await index.search(
+          'Account access recovery',
+          mode: mode,
+          limit: 1,
+          candidateLimit: 1,
+          policy: KnowledgeSearchPolicy(
+            metadataFilter: KnowledgeMetadataFilter(tags: {'mobile'}),
+            expandRelationships: true,
+          ),
+        );
+        expect(result.matches.single.chunk.sourcePath, 'wanted.md');
+        expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
+          'wanted.md',
+        ]);
+      }
+      expect(await store.getAllEmbeddings(), before);
+    },
+  );
+
+  test('metadata filters exclude linked and governing context', () async {
+    final index = KnowledgeIndex(store: MemoryStore());
+    await index.synchronize(
+      snapshot({
+        'wanted.md': concept(
+          'Routing [related](related.md) [governor](governor.md)',
+          fields: 'tags: [mobile]\n',
+        ),
+        'related.md': concept('Routing details', fields: 'tags: [other]\n'),
+        'governor.md': concept('Routing rules', fields: 'tags: [other]\n'),
+      }),
+    );
+    final result = await index.search(
+      'Routing',
+      mode: KnowledgeRetrievalMode.bm25,
+      contextLimit: 10,
+      policy: KnowledgeSearchPolicy(
+        metadataFilter: KnowledgeMetadataFilter(tags: {'mobile'}),
+        expandRelationships: true,
+        governingSources: {'wanted.md': 'governor.md'},
+      ),
+    );
+    expect(result.matches.map((hit) => hit.chunk.sourcePath), ['wanted.md']);
+    expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
+      'wanted.md',
+    ]);
+    expect(
+      result.notices,
+      contains('Governing source excluded or has no passage: governor.md'),
+    );
+  });
+
   test(
     'OKF defaults, unknown metadata, CRLF citations, and navigation exclusion',
     () {
@@ -33,7 +168,7 @@ void main() {
       expect(text.split('\r\n')[chunk.lineStart - 1], chunk.content);
       expect(
         parsed.textFor(chunk, includeContext: true),
-        'Account access\n\nRecovery\n\nUse the recovery link.',
+        'Title: Account access\n\nSection: Recovery\n\nPassage:\n\nUse the recovery link.',
       );
       expect(
         () => (parsed.metadataFor('guide.md').raw['custom']! as List).add(
@@ -154,7 +289,9 @@ void main() {
       });
       await body.synchronize(first);
       await context.synchronize(first);
-      expect(body.embeddingModelName, isNot(context.embeddingModelName));
+      expect(body.embeddingModelName, endsWith(':okf-body-v1'));
+      expect(context.embeddingModelName, endsWith(':okf-context-v2'));
+      expect((await context.synchronize(first)).embeddedChunks, 0);
       final revised = snapshot({
         'guide.md': concept(
           'Stop writers before restoring.',
@@ -163,7 +300,17 @@ void main() {
       });
       expect((await body.synchronize(revised)).embeddedChunks, 0);
       expect((await context.synchronize(revised)).embeddedChunks, 1);
-      expect(model.documents.last, startsWith('Database recovery\n\n'));
+      expect(model.documents.last, startsWith('Title: Database recovery\n\n'));
+      final described = snapshot({
+        'guide.md': concept(
+          'Stop writers before restoring.',
+          fields: 'title: Database recovery\ndescription: Restore safely\n',
+        ),
+      });
+      expect((await body.synchronize(described)).embeddedChunks, 0);
+      expect((await context.synchronize(described)).embeddedChunks, 1);
+      expect((await context.synchronize(described)).embeddedChunks, 0);
+      expect(model.documents.last, contains('Description: Restore safely'));
       final result = await context.search('Database recovery');
       expect(
         result.matches.single.chunk.content,

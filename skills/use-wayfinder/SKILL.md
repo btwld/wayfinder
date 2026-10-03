@@ -19,6 +19,17 @@ recorded decisions beats one built from general knowledge or a keyword grep that
 misses paraphrases. So when a question touches what the project decided, requires,
 owns, or learned, search first and answer from what you find.
 
+## Session startup and index refresh
+
+`wayfinder setup --session-hooks` prompts Claude, Codex, and Gemini to load this
+skill at session start. Grok reads the same pointer from `AGENTS.md`; its
+SessionStart hook ignores stdout. Follow the related skills below only when the
+task calls for them. Startup supplies instructions and performs no indexing.
+
+`wayfinder setup --hooks` installs bundle-aware Git hooks for pulls, checkouts,
+and rebases. When search reports a stale index, run the MCP `index` tool or
+`wayfinder index <bundle>` and search again.
+
 ## Choose an interface
 
 Prefer the **Wayfinder MCP tools** when they are available (the `wayfinder`
@@ -29,20 +40,28 @@ path. `search` takes `query` and an optional `limit` (1–100, default 5).
 the versioned OKF graph JSON, plus a `field_edges` array holding each concept's
 typed `relationships` entries.
 
-Otherwise use the **CLI**, which takes an explicit bundle path:
+Otherwise use the **CLI**. Search/index default to all project bundles listed by
+the nearest `wayfinder.json`, or conventional `knowledge/` without configuration.
+Use `--bundle <folder-name>` to filter; explicit paths still select one bundle:
 
 ```sh
 wayfinder validate <bundle> [--config=wayfinder.json] [--fix] [--output=json|sarif]
 wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
-wayfinder index <bundle> [--output=json]
-wayfinder search <bundle> "<one quoted query>" [--limit N] [--output=json]
+wayfinder index [<bundle>] [--bundle NAME] [--output=json]
+wayfinder search [<bundle>] "<one quoted query>" [--bundle NAME] [--limit N] [--output=json]
 ```
+
+Project search ranks across selected bundles with a global limit. Its JSON adds
+`bundles` and annotates each match/context hit with `bundle` and `bundlePath`;
+combine that path with `chunk.sourcePath` for project-relative citations. A stale
+selected index fails the whole search: run `wayfinder index` and retry. Explicit
+paths preserve the single-bundle JSON shape. Do not combine a path and `--bundle`.
 
 `--type`, `--path-prefix` and `--resolution` are repeatable and match the MCP
 `types`, `path_prefixes` and `resolutions` filters.
 
-Use `--output=json` when you will parse results; it is the same shape the MCP
-tools return. If neither the tools nor the `wayfinder` command exist, say so and
+Use `--output=json` when you will parse results; explicit-path output has the
+same shape the MCP tools return. If neither the tools nor the `wayfinder` command exist, say so and
 see [Troubleshooting](#troubleshooting) rather than silently falling back to
 grep-only answers.
 
@@ -116,9 +135,9 @@ is a separate review. Route by task:
 
 | Need | Use |
 | --- | --- |
-| Fix findings or write any file under the bundle | `author-knowledge-bundle` skill |
-| Whole-bundle audit with a Profile Review Report | `assess-knowledge-bundle` skill |
-| Seed a bundle in a repository that has none | `adopt-knowledge-bundle` skill |
+| Fix findings or write any file under the bundle | [author-knowledge-bundle](../author-knowledge-bundle/SKILL.md) |
+| Whole-bundle audit with a Profile Review Report | [assess-knowledge-bundle](../assess-knowledge-bundle/SKILL.md) |
+| Seed a bundle in a repository that has none | [adopt-knowledge-bundle](../adopt-knowledge-bundle/SKILL.md) |
 
 ## Troubleshooting
 

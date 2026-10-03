@@ -79,6 +79,15 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           dart analyze --fatal-infos
           dart run test
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart pub get --enforce-lockfile
+        working-directory: tool/knowledge_import
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        working-directory: tool/knowledge_import
+        run: |
+          dart format --output=none --set-exit-if-changed .
+          dart analyze --fatal-infos
+          dart test
 
   native-retrieval:
     strategy:

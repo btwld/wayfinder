@@ -317,6 +317,104 @@ void main() {
       );
     });
 
+    test('session hooks preserve grouped handlers and install once', () async {
+      final claude = File(p.join(project, '.claude', 'settings.json'));
+      await claude.parent.create();
+      const other = {'type': 'command', 'command': 'echo other'};
+      const grouped = {
+        'matcher': 'startup',
+        'hooks': [
+          other,
+          {'type': 'command', 'command': 'wayfinder session-context'},
+        ],
+      };
+      claude.writeAsStringSync(
+        jsonEncode({
+          'model': 'kept',
+          'hooks': {
+            'SessionStart': [grouped],
+            'PostToolUse': [
+              {
+                'hooks': [other],
+              },
+            ],
+          },
+        }),
+      );
+      final instructions = File(p.join(project, 'AGENTS.md'));
+      instructions.writeAsStringSync('# Project\n\nKeep this instruction.\n');
+      await setup().configureProject(project, sessionHooks: true);
+      final paths = [
+        claude.path,
+        p.join(project, '.codex', 'hooks.json'),
+        p.join(project, '.gemini', 'settings.json'),
+        instructions.path,
+      ];
+      final first = [for (final path in paths) File(path).readAsStringSync()];
+      await setup().configureProject(project, sessionHooks: true);
+      expect([for (final path in paths) File(path).readAsStringSync()], first);
+      final kept = jsonDecode(first[0]) as Map;
+      expect(kept['model'], 'kept');
+      expect((kept['hooks'] as Map)['PostToolUse'], [
+        {
+          'hooks': [other],
+        },
+      ]);
+      expect(((kept['hooks'] as Map)['SessionStart'] as List).first, {
+        'matcher': 'startup',
+        'hooks': [other],
+      });
+      for (final (index, timeout) in [(0, 5), (1, 5), (2, 5000)]) {
+        final config = jsonDecode(first[index]) as Map;
+        final groups = (config['hooks'] as Map)['SessionStart'] as List;
+        final handler = ((groups.last as Map)['hooks'] as List).single as Map;
+        expect(handler['command'], 'wayfinder session-context');
+        expect(handler['timeout'], timeout);
+        expect((config['hooks'] as Map).containsKey('Stop'), isFalse);
+      }
+      expect(first.last, startsWith('# Project\n\nKeep this instruction.\n'));
+      expect(first.last, contains(wayfinderSessionContext));
+      expect(Directory(p.join(project, '.githooks')).existsSync(), isFalse);
+      expect(Directory(p.join(project, '.grok')).existsSync(), isFalse);
+      expect(calls, isEmpty);
+    });
+
+    test('invalid startup settings leave agent configuration intact', () async {
+      final claude = File(p.join(project, '.claude', 'settings.json'));
+      await claude.parent.create();
+      claude.writeAsStringSync('{"model":"kept"}');
+      final gemini = File(p.join(project, '.gemini', 'settings.json'));
+      await gemini.parent.create();
+      gemini.writeAsStringSync('{"hooks":{"SessionStart":false}}');
+      await expectLater(
+        () => setup().configureProject(project, sessionHooks: true),
+        throwsA(predicate((e) => e.toString().contains('must be an array'))),
+      );
+      expect(claude.readAsStringSync(), '{"model":"kept"}');
+      expect(gemini.readAsStringSync(), '{"hooks":{"SessionStart":false}}');
+      expect(
+        File(p.join(project, '.codex', 'hooks.json')).existsSync(),
+        isFalse,
+      );
+      expect(File(p.join(project, 'AGENTS.md')).existsSync(), isFalse);
+    });
+
+    test(
+      'incomplete routing marker is preserved without installing hooks',
+      () async {
+        final instructions = File(p.join(project, 'AGENTS.md'));
+        const original =
+            '# Project\n<!-- wayfinder:session-start -->\nCustom text';
+        instructions.writeAsStringSync(original);
+        await expectLater(
+          () => setup().configureProject(project, sessionHooks: true),
+          throwsA(predicate((e) => e.toString().contains('incomplete'))),
+        );
+        expect(instructions.readAsStringSync(), original);
+        expect(Directory(p.join(project, '.claude')).existsSync(), isFalse);
+      },
+    );
+
     test('git hooks index only after a change to the bundle', () async {
       final log = File(p.join(root.path, 'indexed.log'));
       final bin = await Directory(p.join(root.path, 'bin')).create();
@@ -429,6 +527,21 @@ void main() {
       final project = await Directory(p.join(root.path, 'p')).create();
       expect(await cli.run(['setup', project.path]), 0);
       expect(File(p.join(project.path, '.mcp.json')).existsSync(), isTrue);
+      expect(errors, isEmpty);
+    });
+
+    test('session setup is opt-in and does not start retrieval', () async {
+      final project = await Directory(p.join(root.path, 'p')).create();
+      expect(await cli.run(['setup', project.path, '--session-hooks']), 0);
+      expect(
+        File(p.join(project.path, '.codex', 'hooks.json')).existsSync(),
+        isTrue,
+      );
+      expect(File(p.join(project.path, 'AGENTS.md')).existsSync(), isTrue);
+      expect(
+        Directory(p.join(project.path, '.githooks')).existsSync(),
+        isFalse,
+      );
       expect(errors, isEmpty);
     });
 

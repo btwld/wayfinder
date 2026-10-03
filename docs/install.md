@@ -57,14 +57,19 @@ From a project containing `knowledge/`:
 ```sh
 wayfinder --version
 wayfinder validate knowledge
-wayfinder index knowledge
-wayfinder search knowledge "How do I regain access to my account?"
+wayfinder index
+wayfinder search "How do I regain access to my account?"
+wayfinder search "How do I regain access to my account?" --bundle knowledge
 ```
 
 Validation checks the automated gate; contextual Profile judgment remains an
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
 bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.
+
+Project search/index use the bundle paths in the nearest `wayfinder.json`, or
+the conventional `knowledge/` folder when no configuration exists. An explicit
+bundle path still selects one bundle. `--bundle` filters by its folder name.
 
 ## Agent skills and MCP
 
@@ -87,6 +92,26 @@ the plugin runs, so Claude Code connects once when both are present. Commit
 `.mcp.json` to share it; Claude Code asks for approval before starting project
 servers.
 
+To prompt agents to load `use-wayfinder` at session start:
+
+```sh
+wayfinder setup --session-hooks
+```
+
+This adds context-only `SessionStart` hooks to `.claude/settings.json`,
+`.codex/hooks.json`, and `.gemini/settings.json`, preserving existing settings
+and other hooks. Grok reads the same short pointer from a managed block in
+`AGENTS.md`; its `SessionStart` hook ignores stdout. The pointer routes writing,
+adoption, and audits through `use-wayfinder` to the other skills. Install the
+skill family first and review/trust the hooks in each client before use.
+Startup performs no indexing or update checks. Local hooks apply to local agent
+sessions; cloud-orchestrated Codex chats do not run project command hooks.
+
+Host contracts: [Claude](https://code.claude.com/docs/en/hooks#sessionstart),
+[Codex](https://developers.openai.com/codex/hooks#sessionstart), and
+[Gemini](https://geminicli.com/docs/hooks/reference/#sessionstart). Grok's local
+user guide documents its passive hook output and startup `AGENTS.md` loading.
+
 `wayfinder setup --hooks` refreshes the search index after git pulls, checkouts
 and rebases that change the bundle. Each git hook runs
 `wayfinder index knowledge --detach`, which returns at once and re-embeds only
@@ -95,6 +120,7 @@ at most 30 minutes. Each clone enables the git hooks with
 `git config core.hooksPath .githooks`. Otherwise, search reports a stale index,
 and `wayfinder index knowledge` or the MCP `index` tool refreshes it;
 `wayfinder index knowledge --force` rebuilds an index from scratch.
+Both setup flags may be combined: `wayfinder setup --session-hooks --hooks`.
 
 ## Install the Claude Code plugin
 
