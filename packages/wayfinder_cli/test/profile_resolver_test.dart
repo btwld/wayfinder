@@ -297,7 +297,7 @@ void main() {
         '-m',
         'Unrelated Profile history',
       ]);
-      expect(
+      await expectLater(
         resolver.resolve(project.path),
         throwsA(isA<WayfinderProfileResolutionException>()),
       );
@@ -425,7 +425,7 @@ void main() {
       (value['profiles']['bitwild-profile']['source'] as Map)['path'] =
           'missing';
       await saveConfig(value);
-      expect(
+      await expectLater(
         resolver.resolve(project.path),
         throwsA(isA<WayfinderProfileResolutionException>()),
       );
@@ -450,7 +450,7 @@ void main() {
       await Directory(p.join(project.path, 'knowledge')).delete();
       final outside = await Directory(p.join(temp.path, 'outside')).create();
       await Link(p.join(project.path, 'knowledge')).create(outside.path);
-      expect(
+      await expectLater(
         WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
         throwsA(isA<WayfinderProfileResolutionException>()),
       );
@@ -677,11 +677,11 @@ void main() {
         isA<WayfinderProfileResolutionException>().having(
           (error) => error.message,
           'message',
-          'Profile bitwild-profile is needed at two revisions: '
+          'Profile bitwild-profile is needed from two sources: '
               '${source.path} profiles/bitwild at v2026.3 ($base) and '
               '${source.path} profiles/bitwild at v2026.4 '
-              '(${await sourceCommit()}). A project locks one revision of '
-              'each Profile; make the refs agree.',
+              '(${await sourceCommit()}). A project locks one source per '
+              'Profile id; the refs must agree.',
         ),
       ),
     );
@@ -689,6 +689,193 @@ void main() {
       await File(p.join(project.path, 'wayfinder.lock')).exists(),
       isFalse,
     );
+  });
+
+  group('a parent bound directly and reached through a child', () {
+    late Directory other;
+
+    Future<void> extendParentAt(String ref) async {
+      other = await Directory(p.join(temp.path, 'other')).create();
+      await _git(other.path, ['init', '-q']);
+      await _git(other.path, ['config', 'user.email', 'test@example.test']);
+      await _git(other.path, ['config', 'user.name', 'Wayfinder Test']);
+      await commitPackage(
+        'profile',
+        {
+          'format': 2,
+          'id': 'client-profile',
+          'release': '1',
+          'implements': {'id': 'okf', 'release': '0.2'},
+          'extends': {
+            'git': source.path,
+            'ref': ref,
+            'path': 'profiles/bitwild',
+          },
+          'rules': <Object?>[],
+        },
+        repository: other,
+        tag: 'client-v1',
+      );
+      await Directory(p.join(project.path, 'client')).create();
+    }
+
+    Map<String, Object?> direct() => {
+      'source': {
+        'git': source.path,
+        'ref': 'v2026.3',
+        'path': 'profiles/bitwild',
+      },
+      'applies_to': ['./knowledge'],
+    };
+
+    Map<String, Object?> child() => {
+      'source': {'git': other.path, 'ref': 'client-v1', 'path': 'profile'},
+      'applies_to': ['./client'],
+    };
+
+    test(
+      'under two refs at one commit fails get, naming both sources',
+      () async {
+        await _git(source.path, ['branch', 'trunk']);
+        await extendParentAt('trunk');
+        final commit = await sourceCommit();
+        final tagged = '${source.path} profiles/bitwild at v2026.3 ($commit)';
+        final branched = '${source.path} profiles/bitwild at trunk ($commit)';
+        final orders = [
+          (
+            {'bitwild-profile': direct(), 'client-profile': child()},
+            tagged,
+            branched,
+          ),
+          (
+            {'client-profile': child(), 'bitwild-profile': direct()},
+            branched,
+            tagged,
+          ),
+        ];
+        for (final (profiles, first, second) in orders) {
+          await saveConfig({'version': 1, 'profiles': profiles});
+          await expectLater(
+            WayfinderProfileResolver(dataDirectory: data).resolve(project.path),
+            throwsA(
+              isA<WayfinderProfileResolutionException>().having(
+                (error) => error.message,
+                'message',
+                'Profile bitwild-profile is needed from two sources: $first and '
+                    '$second. A project locks one source per Profile id; the '
+                    'refs must agree.',
+              ),
+            ),
+            reason: profiles.keys.join(' then '),
+          );
+          expect(
+            await File(p.join(project.path, 'wayfinder.lock')).exists(),
+            isFalse,
+            reason: profiles.keys.join(' then '),
+          );
+        }
+      },
+    );
+
+    test('under one ref locks it once, and get converges', () async {
+      await extendParentAt('v2026.3');
+      await saveConfig({
+        'version': 1,
+        'profiles': {'bitwild-profile': direct(), 'client-profile': child()},
+      });
+      final calls = <List<String>>[];
+      final resolver = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+      );
+      await resolver.resolve(project.path);
+      final packages = (await readLock())['packages'] as Map<String, dynamic>;
+      expect(packages['bitwild-profile'], {
+        'source': source.path,
+        'requested_ref': 'v2026.3',
+        'resolved_commit': await sourceCommit(),
+        'path': 'profiles/bitwild',
+        'release': '2026.3',
+      });
+      expect(packages['client-profile']['extends'], 'bitwild-profile');
+      calls.clear();
+      expect((await resolver.resolve(project.path)).reused, isTrue);
+      expect(calls.where(_fetches), isEmpty);
+      for (final bundle in ['knowledge', 'client']) {
+        expect(
+          await resolver.select(p.join(project.path, bundle)),
+          isA<SelectedProfile>(),
+          reason: bundle,
+        );
+      }
+    });
+  });
+
+  test('get fetches a locked commit the mirror lacks', () async {
+    final branch = await _gitOutput(source.path, [
+      'symbolic-ref',
+      '--short',
+      'HEAD',
+    ]);
+    final value = await config();
+    (value['profiles']['bitwild-profile']['source'] as Map)['ref'] = branch;
+    await saveConfig(value);
+    final calls = <List<String>>[];
+    final resolver = WayfinderProfileResolver(
+      dataDirectory: data,
+      git: _spy(calls),
+    );
+    await resolver.resolve(project.path);
+    await advanceSource();
+    final pinned = await sourceCommit();
+    final lock = await readLock();
+    (lock['packages'] as Map)['bitwild-profile']['resolved_commit'] = pinned;
+    await File(
+      p.join(project.path, 'wayfinder.lock'),
+    ).writeAsString(jsonEncode(lock));
+    calls.clear();
+    final result = await resolver.resolve(project.path);
+    expect(result.reused, isFalse);
+    expect(await lockCommit(), pinned);
+    expect(calls.where(_fetches).map((call) => call.take(2).toList()), [
+      ['remote', 'update'],
+    ]);
+    expect(
+      await resolver.select(p.join(project.path, 'knowledge')),
+      isA<SelectedProfile>(),
+    );
+  });
+
+  test('git ignores the repository variables of a hook or worktree', () async {
+    final unrelated = await Directory(p.join(temp.path, 'unrelated')).create();
+    await _git(unrelated.path, ['init', '-q']);
+    final environment = {
+      ...Platform.environment,
+      'GIT_DIR': p.join(unrelated.path, '.git'),
+      'GIT_WORK_TREE': unrelated.path,
+    };
+    final resolver = WayfinderProfileResolver(
+      dataDirectory: data,
+      git: (arguments, {workingDirectory, binary = false}) => runGit(
+        arguments,
+        workingDirectory: workingDirectory,
+        binary: binary,
+        environment: environment,
+      ),
+    );
+    await resolver.resolve(project.path);
+    expect(await lockCommit(), await sourceCommit());
+    expect(
+      await resolver.select(p.join(project.path, 'knowledge')),
+      isA<SelectedProfile>(),
+    );
+    final mirror = await Directory(p.join(data.path, 'profiles')).list().single;
+    final gitDir = await runGit(
+      ['rev-parse', '--git-dir'],
+      workingDirectory: mirror.path,
+      environment: environment,
+    );
+    expect(gitDir.stdout.toString().trim(), '.');
   });
 
   test('a package that extends itself fails at get', () async {

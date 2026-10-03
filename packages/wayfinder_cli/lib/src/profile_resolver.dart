@@ -18,17 +18,40 @@ typedef GitRunner =
       bool binary,
     });
 
+/// Runs with [environment], by default the process's, minus the variables
+/// that name a repository. A git hook or linked worktree exports `GIT_DIR`,
+/// and inherited it would point every mirror command at the user's own
+/// repository instead of the one in [workingDirectory].
 Future<ProcessResult> runGit(
   List<String> arguments, {
   String? workingDirectory,
   bool binary = false,
+  Map<String, String>? environment,
 }) => Process.run(
   'git',
   arguments,
   workingDirectory: workingDirectory,
+  environment: {
+    for (final MapEntry(:key, :value)
+        in (environment ?? Platform.environment).entries)
+      if (!_repositoryVariables.contains(key)) key: value,
+  },
+  includeParentEnvironment: false,
   stdoutEncoding: binary ? null : utf8,
   stderrEncoding: utf8,
 );
+
+const _repositoryVariables = {
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_NAMESPACE',
+  'GIT_PREFIX',
+  'GIT_CEILING_DIRECTORIES',
+};
 
 /// One package as `wayfinder get` pinned it. [extendsId] names another
 /// entry of the same lock, so the lock stays flat however deep a chain is.
@@ -56,8 +79,15 @@ final class LockedPackage {
 
   SkillRevision get revision => (id: id, release: release, commit: commit);
 
+  /// A locked package is identified by its source, (git, requested ref,
+  /// path), as pub identifies a git dependency, and then by its commit.
+  /// `select` and `_checkout` look entries up by that source, so two refs
+  /// at one commit are still two packages and may not share one entry.
   bool isSameRevision(LockedPackage other) =>
-      git == other.git && commit == other.commit && path == other.path;
+      git == other.git &&
+      requestedRef == other.requestedRef &&
+      path == other.path &&
+      commit == other.commit;
 
   static LockedPackage? _tryParse(ProfileId id, Object? value) {
     if (value is! Map<String, Object?> ||
@@ -235,12 +265,9 @@ final class WayfinderProfileResolver {
   Future<ProfileResolutionResult> resolve(
     String project, {
     bool upgrade = false,
-    String? configurationFile,
   }) async {
     final projectRoot = p.normalize(Directory(project).absolute.path);
-    final configFile = configurationFile == null
-        ? File(p.join(projectRoot, 'wayfinder.json'))
-        : File(configurationFile);
+    final configFile = File(p.join(projectRoot, 'wayfinder.json'));
     if (!await configFile.exists()) {
       throw WayfinderProfileResolutionException(
         'Project $projectRoot does not contain wayfinder.json.',
@@ -525,9 +552,9 @@ final class WayfinderProfileResolver {
       packages[package.id] = package;
     } else if (!existing.isSameRevision(package)) {
       throw WayfinderProfileResolutionException(
-        'Profile ${package.id} is needed at two revisions: $existing and '
-        '$package. A project locks one revision of each Profile; make the '
-        'refs agree.',
+        'Profile ${package.id} is needed from two sources: $existing and '
+        '$package. A project locks one source per Profile id; the refs must '
+        'agree.',
       );
     }
   }
@@ -617,15 +644,32 @@ final class WayfinderProfileResolver {
         commit: await _resolveRefWithFetch(root, source, session),
       );
     }
-    final present = await _git(['cat-file', '-e', '$preferred^{commit}'], root);
-    if (present.exitCode != 0) {
-      throw WayfinderProfileResolutionException(
-        'Locked commit $preferred of ${source.git} is unavailable. Run '
-        'wayfinder upgrade to select a new revision.',
+    if (!await _hasCommit(root, preferred)) {
+      session.fetched = true;
+      final result = await _git(['remote', 'update', '--prune'], root);
+      _checkGit(
+        result,
+        'refresh Profile source ${source.git} while finding locked commit '
+        '$preferred',
       );
+      if (!await _hasCommit(root, preferred)) {
+        throw WayfinderProfileResolutionException(
+          'Locked commit $preferred of ${source.git} is unavailable even '
+          'after refreshing the source. Run wayfinder upgrade to select a '
+          'new revision.',
+        );
+      }
     }
     return (repository: root, commit: preferred);
   }
+
+  Future<bool> _hasCommit(Directory repository, String commit) async =>
+      (await _git([
+        'cat-file',
+        '-e',
+        '$commit^{commit}',
+      ], repository)).exitCode ==
+      0;
 
   Future<String> _resolveRefWithFetch(
     Directory repository,
@@ -701,13 +745,7 @@ final class WayfinderProfileResolver {
     String projectRoot,
   ) async {
     final cache = _repositoryCache(_gitLocation(locked.git, projectRoot));
-    if (!await cache.exists() ||
-        (await _git([
-              'cat-file',
-              '-e',
-              '${locked.commit}^{commit}',
-            ], cache)).exitCode !=
-            0) {
+    if (!await cache.exists() || !await _hasCommit(cache, locked.commit)) {
       throw WayfinderProfileResolutionException(
         'Profile ${locked.id} at ${locked.git} (${locked.commit}) is not in '
         'the local cache. Run wayfinder get.',
@@ -769,6 +807,12 @@ final class WayfinderProfileResolver {
           '$origin holds $path, which is not a regular file.',
         );
       }
+      if (path == ProfileSkills.marker) {
+        throw WayfinderProfileResolutionException(
+          '$origin holds $path, which is the marker wayfinder writes to own '
+          'the installed directory.',
+        );
+      }
       final blob = await _runGit(
         ['cat-file', 'blob', object],
         workingDirectory: repository.path,
@@ -777,10 +821,37 @@ final class WayfinderProfileResolver {
       _checkGit(blob, 'read $origin/$path');
       files.add((path: path, bytes: blob.stdout as List<int>));
     }
-    if (!files.any((file) => file.path == 'SKILL.md')) {
+    final manifest = files.where((file) => file.path == 'SKILL.md').firstOrNull;
+    if (manifest == null) {
       throw WayfinderProfileResolutionException('$origin has no SKILL.md.');
     }
+    final name = _skillName(manifest.bytes);
+    if (name != locked.id.value) {
+      throw WayfinderProfileResolutionException(
+        '$origin SKILL.md ${name == null ? 'has no name' : 'is named $name'}; '
+        'agents key skills by that name, so it must be ${locked.id}.',
+      );
+    }
     return files;
+  }
+
+  /// The `name` of a SKILL.md's leading `---` frontmatter block, read as
+  /// plain lines rather than YAML: the schema fixes it to the Profile id, so
+  /// anything a line match cannot read is a wrong name.
+  static String? _skillName(List<int> bytes) {
+    final lines = const LineSplitter().convert(
+      utf8.decode(bytes, allowMalformed: true),
+    );
+    if (lines.firstOrNull?.trim() != '---') return null;
+    for (final line in lines.skip(1)) {
+      if (line.trim() == '---') return null;
+      if (RegExp(r'^name:\s*(.*?)\s*$').firstMatch(line) case final match?) {
+        final value = match[1]!;
+        final quoted = RegExp(r'''^(["'])(.*)\1$''').firstMatch(value);
+        return quoted?[2] ?? value;
+      }
+    }
+    return null;
   }
 
   /// When [expected] names an id, a package declaring another is refused:

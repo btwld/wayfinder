@@ -269,6 +269,79 @@ void main() {
     );
   });
 
+  test('a skill that ships an ownership marker fails get', () async {
+    await writeSource(
+      'skill/.wayfinder-profile',
+      '{"id": "someone-else", "release": "1.0", "commit": "${'a' * 40}"}\n',
+    );
+    await commitSource();
+    await expectLater(
+      resolver.resolve(project.path),
+      throwsA(
+        isA<WayfinderProfileResolutionException>().having(
+          (error) => error.message,
+          'message',
+          'Profile acme-notes skill profile/skill at ${source.path} '
+              '(${await commit()}) holds .wayfinder-profile, which is the '
+              'marker wayfinder writes to own the installed directory.',
+        ),
+      ),
+    );
+    expect(await Directory(p.join(project.path, '.claude')).exists(), isFalse);
+    expect(
+      await File(p.join(project.path, 'wayfinder.lock')).exists(),
+      isFalse,
+    );
+
+    await sourceFile('skill/.wayfinder-profile').delete();
+    await writeSource('skill/notes/.wayfinder-profile', 'not the marker\n');
+    await commitSource();
+    await resolver.resolve(project.path);
+    expect(await installed(_claude), {
+      'SKILL.md': await sourceFile('skill/SKILL.md').readAsString(),
+      'notes/.wayfinder-profile': 'not the marker\n',
+      '.wayfinder-profile': marker(await commit()),
+    });
+  });
+
+  test('SKILL.md must name the Profile id', () async {
+    final cases = [
+      ('---\nname: someone-else\n---\n', 'is named someone-else'),
+      ('---\nname: "acme-notes-skill"\n---\n', 'is named acme-notes-skill'),
+      ('---\ndescription: No name here\n---\n', 'has no name'),
+      ('# acme-notes\n\nNo frontmatter.\n', 'has no name'),
+    ];
+    for (final (text, problem) in cases) {
+      await writeSource('skill/SKILL.md', text);
+      await commitSource();
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            'Profile acme-notes skill profile/skill at ${source.path} '
+                '(${await commit()}) SKILL.md $problem; agents key skills by '
+                'that name, so it must be acme-notes.',
+          ),
+        ),
+        reason: text,
+      );
+      expect(
+        await Directory(p.join(project.path, '.claude')).exists(),
+        isFalse,
+        reason: text,
+      );
+    }
+    await writeSource('skill/SKILL.md', '---\nname: "acme-notes"\n---\n');
+    await commitSource();
+    await resolver.resolve(project.path);
+    expect(await installed(_claude), {
+      'SKILL.md': '---\nname: "acme-notes"\n---\n',
+      '.wayfinder-profile': marker(await commit()),
+    });
+  });
+
   test('a skill that holds a symlink fails get', () async {
     await Link(
       p.join(source.path, 'profile', 'skill', 'outside'),
