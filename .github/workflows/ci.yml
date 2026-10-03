@@ -38,8 +38,18 @@ jobs:
         run: dart format --output=none --set-exit-if-changed lib test
         working-directory: packages/wayfinder
       - run: dart analyze --fatal-infos
+      # sarif_test.dart checks SARIF logs with python3 -m jsonschema and skips
+      # where that is missing, so one leg provides it and requires it.
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: python3 -m pip install jsonschema==4.23.0
       - run: dart test
         working-directory: packages/wayfinder
+        env:
+          WAYFINDER_REQUIRE_JSONSCHEMA: ${{ matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable' && '1' || '' }}
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings
@@ -51,7 +61,9 @@ jobs:
       - run: dart test
         working-directory: packages/wayfinder_cli
       - if: matrix.sdk == 'stable'
-        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart
+        run: dart format --output=none --set-exit-if-changed tool/build_wayfinder.dart tool/generate_installed_profiles.dart
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart run tool/generate_installed_profiles.dart --check
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart run wayfinder_cli:wayfinder validate examples/knowledge
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'

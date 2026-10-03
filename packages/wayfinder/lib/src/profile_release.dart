@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'generated/installed_profiles.g.dart';
+
 /// The current external-binding release. Legacy bundles still dispatch to
 /// [legacyProfileRelease] so an existing bundle does not need an immediate
 /// migration.
@@ -5,55 +9,36 @@ const builtinProfileId = 'bitwild_profile';
 const legacyProfileRelease = '2026.2';
 const externalProfileRelease = '2026.3';
 const supportedProfileRelease = externalProfileRelease;
+const supportedOkfRelease = '0.2';
 
-const standardTypes = <(String, String)>[
-  ('Glossary Definition', 'One project or domain term'),
-  (
-    'Business Rule',
-    'One standing business rule, constraint, invariant, or policy',
-  ),
-  (
-    'Question',
-    'One named unknown, with what is known, what is missing, and what would close it',
-  ),
-  ('Request', 'A durable request from any relevant source'),
-  (
-    'Analysis',
-    'An investigation, feasibility study, comparison, or recommendation',
-  ),
-  (
-    'Decision',
-    'A durable non-architectural decision with an independent lifecycle',
-  ),
-  ('Architecture Decision Record', 'An architectural decision in ADR form'),
-  ('Architecture Document', 'A durable description of the system architecture'),
-  (
-    'Specification',
-    'A specification the project maintains as durable knowledge, not one a tracker owns the state of',
-  ),
-  ('Guide', 'Durable operational or engineering guidance'),
-  (
-    'Interaction Record',
-    'An interaction whose combined context is itself durable',
-  ),
-  ('Knowledge Profile', 'The Concepta Profile and OKF release declaration'),
-  (
-    'Type Registry',
-    'The standard and project-specific types available to the bundle',
-  ),
-  (
-    'Actor Registry',
-    'Actor IDs mapped to identity, affiliation, role, and active period',
-  ),
-];
+final legacyStandardTypes = _installedManifest(legacyProfileRelease).types;
 
-/// The external-binding release no longer needs three registry concepts.
-/// Keep the legacy vocabulary above unchanged for 2026.2 dispatch.
-final externalStandardTypes = <(String, String)>[
-  ...standardTypes.take(11),
-  (
-    'Attested Computation',
-    'An OKF-defined sanctioned computation with a checkable execution receipt',
-  ),
-];
-const externalStandardTags = <(String, String)>[];
+final _external = _installedManifest(externalProfileRelease);
+final externalStandardTypes = _external.types;
+final externalStandardTags = _external.tags;
+final externalStandardRelationships = _external.relationships;
+
+({
+  List<(String, String)> types,
+  List<(String, String)> tags,
+  List<(String, String)> relationships,
+})
+_installedManifest(String release) {
+  final manifest =
+      jsonDecode(installedProfileManifests[(builtinProfileId, release)]!)
+          as Map<String, Object?>;
+  List<(String, String)> definitions(String field) => List.unmodifiable(
+    (manifest[field] as List<Object?>? ?? const []).map((item) {
+      final definition = item as Map<String, Object?>;
+      return (
+        definition['name'] as String,
+        definition['description'] as String,
+      );
+    }),
+  );
+  return (
+    types: definitions('standard_types'),
+    tags: definitions('tags'),
+    relationships: definitions('relationships'),
+  );
+}

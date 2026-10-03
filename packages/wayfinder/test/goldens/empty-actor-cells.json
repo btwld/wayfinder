@@ -1,0 +1,50 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/actor-active-interval",
+        "severity": "error",
+        "message": "Actor Active values must be unknown or valid inclusive-exclusive date ranges.",
+        "location": {
+          "path": "actors.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1.1"
+      },
+      {
+        "id": "concepta-profile/actor-row-complete",
+        "severity": "error",
+        "message": "Actor rows must contain an ID, name, organization, side, role, and active value.",
+        "location": {
+          "path": "actors.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§3.5, §6.1.1"
+      },
+      {
+        "id": "concepta-profile/actor-side-value",
+        "severity": "error",
+        "message": "Actor Side must use the closed Profile vocabulary.",
+        "location": {
+          "path": "actors.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1.1"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

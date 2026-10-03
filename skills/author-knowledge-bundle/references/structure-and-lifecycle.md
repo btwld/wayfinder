@@ -7,6 +7,9 @@ naming, placement, identity, moves, and retirement.
 ## Bundle structure
 
 For 2026.3, only `index.md` and `log.md` are required at the bundle root.
+Every index is okf's generated output, written by `wayfinder validate --fix`:
+each directory holding a concept, or a directory below it that does, gets one,
+and an asset-only directory such as a `raw/` tier needs none.
 The project-root `wayfinder.json` selects the Profile and carries extensions.
 `profile.md`, `types.md`, and `actors.md` are retired; do not create them.
 For **legacy 2026.2 only**, `index.md`, `log.md`, `profile.md`, and `types.md` are required at the bundle root. For legacy 2026.2, add `actors.md` whenever `generated.by`, `verified[].by`, or
@@ -20,7 +23,7 @@ distributed bundle.
 
 ```text
 knowledge/
-  index.md          ← root index: okf_version frontmatter, one entry per root concept, area, and references/
+  index.md          ← root index: okf_version frontmatter; 2026.3 generated, 2026.2 one entry per root concept and directory
   log.md            ← root log: dated lifecycle entries, newest first
   # 2026.3: no registry concepts; project-root wayfinder.json is the binding
   # 2026.2 only: profile.md, types.md, conditional actors.md
@@ -42,10 +45,10 @@ knowledge/
 - **Named after what its concepts share** — a capability, a domain, the system, the way the team works. An area name that matches one member concept's title is a signal the name is too narrow: it is named after a part of the set rather than the whole.
 - **Mixed types.** An area holds any types. That is the point of it.
 - **Earned, not predicted.** A genuine shared subject may have an area at any size; a numeric threshold cannot prove the placement. The Profile recommends against speculative areas for a taxonomy the current corpus does not demonstrate.
-- **Indexed.** A nonempty area needs its own `index.md`.
+- **Indexed.** An area needs its own `index.md`: generated for 2026.3, the projection in [index-projection.md](./index-projection.md) for legacy 2026.2.
 - **Nestable** under the same rules. Prefer nesting when a subject genuinely subdivides; every path segment adds identity that external citations may freeze.
 - **Prefer existing placement.** Normally put a new concept into an existing area or the parent directory, unless the current corpus supports a genuine shared subject for a new area. Creating an area is a deliberate act, recorded in `log.md` — the cost of a wrong area is a false claim about the subject of every concept placed there.
-- **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries have path-derived labels and no authored descriptions.
+- **A subject concept is ordinary knowledge.** A specifically named concept may explain the area's subject when it carries durable knowledge. Never create a generic `overview.md` that merely duplicates the generated index; directory index entries carry no authored descriptions.
 
 ### Placement
 
@@ -62,7 +65,7 @@ Creating a bundle from nothing is the `adopt-knowledge-bundle` skill's job; its
 - A concept's ID is its path from the bundle root without `.md`: `reporting/token-contract`. Use readable lowercase kebab-case for each authored slug. Put a date in the path only when chronology is intrinsic to stable identity (for example, Interaction Records and mirrored snapshots), never for creation time, freshness, workflow, or an editable version. Status, owner, priority, and Profile version never appear in filenames.
 - **An ID other systems already cite is part of identity — preserve it verbatim, leading the path.** `d11-collected-revenue-basis`, `architecture/0008-direct-token-consumption`. Requirement numbers, rule codes, question numbers, ADR sequence numbers: never renumber, never trade one for a nicer name. They are cited in trackers, matrices, client documents, and scripts that grep them, so they are already frozen by citation — the concept adopts a frozen identity rather than minting a rival.
 - **A concept may move at any `status`**, for as long as every reference to it can be repaired. A move is complete in one operation: inbound bundle links repointed, affected indexes regenerated, and a `* **Move**:` entry in `log.md` naming both paths. `status` never decides this — movability is about who points at the path, not how reviewed the document is, and holding a finished concept at `draft` to keep it movable is the `status` abuse the profile forbids.
-- **A path freezes when a known citation outside the bundle cannot be repaired** — a tracker issue, a client deliverable, another repo, anywhere you cannot coordinate the update. A repairable external citation does not freeze it merely by crossing the boundary. Before moving a concept carrying `Specified by`, `Tracked by`, or `Implemented by`, you should inspect the linked execution record for citations; the relationship alone is not proof. If a citation cannot be repaired, retain the path and retire by `status: deprecated` plus a `Superseded by` link when a successor exists.
+- **A path freezes when a known citation outside the bundle cannot be repaired** — a tracker issue, a client deliverable, another repo, anywhere you cannot coordinate the update. A repairable external citation does not freeze it merely by crossing the boundary. Before moving a concept carrying a `specified-by`, `tracked-by`, or `implemented-by` relationship (2026.2: the Title Case label), you should inspect the linked execution record for citations; the relationship alone is not proof. If a citation cannot be repaired, retain the path and retire by `status: deprecated` plus a `superseded-by` relationship when a successor exists.
 - Inside the bundle a broken link is tolerated by OKF and repairable by you, which is why the freeze sits at the boundary where neither is true.
-- Stable concepts normally deprecate, and link an available successor with `Superseded by`. Drafts may simply be deleted. Hard-delete stable content only for an exceptional security, privacy, legal, secret-removal, or genuinely erroneous-content reason; Profile Review must assess the reason and known citations.
+- Stable concepts normally deprecate, and point at an available successor with a `superseded-by` relationship (2026.2: a `Superseded by` label). Drafts may simply be deleted. Hard-delete stable content only for an exceptional security, privacy, legal, secret-removal, or genuinely erroneous-content reason; Profile Review must assess the reason and known citations.
 - **Moving concepts into a newly justified area is ordinary work**, not a migration. The current corpus, not a count, must make the shared subject truthful.

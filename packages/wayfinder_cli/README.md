@@ -35,7 +35,9 @@ codes. Automated success keeps judgment rules UNASSESSED.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
-result if the Profile source is unresolved. `graph`, `index`, and `search`
+result if the Profile source is unresolved. `validate --fix` first writes
+okf's generated indexes for a 2026.3 bundle, then validates; it never writes
+a 2026.2 bundle or one that fails OKF. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
@@ -152,14 +154,22 @@ absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
 `graph` reads the live bundle and projects the ordinary OKF relationship
-graph. It does not open the search index or model. `--output` is
-`json` (default), `mermaid`, or `dot`. Mermaid and DOT are text for an
+graph, plus each concept's typed `relationships` entries (Profile 2026.3 §7.2)
+beside it: JSON keeps every okf key and adds them as `field_edges`, and Mermaid
+and DOT label each one with its relationship name. Search expansion follows
+the same typed relationships. It does not open the search index or model.
+`--output` is `json` (default), `mermaid`, or `dot`. Mermaid and DOT are text for an
 external preview such as mermaid.live; they are not a rendered picture.
 Repeatable `--type`, `--path-prefix` and `--resolution` select an induced
 subgraph, matching `okf graph`. Load findings print the OKF report and
 refuse a graph.
 
-The validate, index and search commands accept `--output=json`. Search also accepts `--limit=1..100`
+The validate, index and search commands accept `--output=json`. Validate
+also accepts `--output=sarif`, a SARIF 2.1.0 log of the same findings for
+code scanning upload; a location inside the working directory is relative to
+the `WORKINGDIR` base the log records, and one outside it is an absolute
+file URI.
+Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
 line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages

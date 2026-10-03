@@ -9,6 +9,7 @@ import 'package:wayfinder_cli/src/knowledge.dart';
 
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
+import 'package:wayfinder_cli/src/version.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -140,6 +141,26 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  test('validate --output=sarif writes the result as a SARIF log', () async {
+    const bundle = '../../examples/knowledge';
+    final expected = await const ProfileValidator().validate(bundle);
+    expect(
+      await cli.run(['validate', bundle, '--output=sarif']),
+      expected.exitCode,
+    );
+    final sarif = toSarif(
+      expected,
+      bundlePath: bundle,
+      toolVersion: wayfinderVersion,
+    );
+    expect(jsonDecode(output.single), jsonDecode(jsonEncode(sarif)));
+    expect(errors, isEmpty);
+
+    output.clear();
+    expect(await cli.run(['validate', '--help']), 0);
+    expect(output.join('\n'), contains('sarif'));
+  });
+
   test(
     'validate reports an unprepared 2026.3 source without writing a lock',
     () async {
@@ -173,6 +194,41 @@ void main() {
       expect(errors, isEmpty);
     },
   );
+
+  test('validate --fix never writes a 2026.2 bundle', () async {
+    final copy = await Directory.systemTemp.createTemp('wayfinder-fix-');
+    addTearDown(() => copy.delete(recursive: true));
+    final source = Directory('../../examples/knowledge');
+    final before = <String, List<int>>{};
+    await for (final entity in source.list(recursive: true)) {
+      if (entity is! File) continue;
+      final relative = entity.path.substring(source.path.length + 1);
+      final target = File('${copy.path}/$relative');
+      await target.parent.create(recursive: true);
+      await entity.copy(target.path);
+      before[relative] = await entity.readAsBytes();
+    }
+    final index = File('${copy.path}/index.md');
+    await index.writeAsString('${await index.readAsString()}\n');
+    before['index.md'] = await index.readAsBytes();
+
+    await cli.run(['validate', copy.path, '--fix']);
+    expect(
+      output.first,
+      'Fix: not applied; Profile 2026.2 has no fixable rules.',
+    );
+    expect(output, contains('Profile 2026.2: PASS'));
+    await for (final entity in copy.list(recursive: true)) {
+      if (entity is! File) continue;
+      final relative = entity.path.substring(copy.path.length + 1);
+      expect(
+        await entity.readAsBytes(),
+        before.remove(relative),
+        reason: relative,
+      );
+    }
+    expect(before, isEmpty);
+  });
 
   test('command help and version require no local index or model', () async {
     expect(await cli.run(['index', '--help']), 0);
@@ -434,7 +490,10 @@ title: Generic concept
       const bundle = '../../examples/knowledge';
       final expected = await _okfGraph(bundle);
       expect(await cli.run(['graph', bundle]), 0);
-      expect(jsonDecode(output.single), expected.toJson());
+      expect(jsonDecode(output.single), {
+        ...expected.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(expected.toJson()['schema_version'], '1');
       expect(retrievalOpens, 0);
     });
@@ -461,12 +520,108 @@ title: Generic concept
         query: OkfGraphQuery(pathPrefixes: ['reporting/']),
       );
       expect(await cli.run(['graph', bundle, '--type=Request']), 0);
-      expect(jsonDecode(output.single), requests.toJson());
+      expect(jsonDecode(output.single), {
+        ...requests.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(requests.nodes.length, lessThan(full.nodes.length));
       output.clear();
       expect(await cli.run(['graph', bundle, '--path-prefix=reporting/']), 0);
-      expect(jsonDecode(output.single), reporting.toJson());
+      expect(jsonDecode(output.single), {
+        ...reporting.toJson(),
+        'field_edges': <Object?>[],
+      });
       expect(reporting.nodes.length, lessThan(full.nodes.length));
+    });
+
+    test('adds typed relationship edges beside the okf graph', () async {
+      final bundle = await Directory.systemTemp.createTemp(
+        'wayfinder-typed-graph-',
+      );
+      addTearDown(() => bundle.delete(recursive: true));
+      await File('${bundle.path}/decision.md').writeAsString('''
+---
+type: Decision
+title: Offline mode
+relationships:
+  - {relationship: depends-on, resource: /sync.md}
+  - {relationship: tracked-by, resource: /missing.md}
+---
+
+See the [missing note](/missing.md).
+''');
+      await File('${bundle.path}/sync.md').writeAsString('''
+---
+type: Guide
+title: Sync engine
+---
+''');
+      final okf = await _okfGraph(bundle.path);
+      expect(await cli.run(['graph', bundle.path]), 0);
+      final graph = jsonDecode(output.single) as Map<String, Object?>;
+      for (final MapEntry(:key, :value) in okf.toJson().entries) {
+        expect(graph[key], jsonDecode(jsonEncode(value)), reason: key);
+      }
+      expect(graph['field_edges'], [
+        {
+          'source': 'decision',
+          'field': 'relationships',
+          'name': 'depends-on',
+          'raw_target': '/sync.md',
+          'resolution': 'resolved-concept',
+          'resolved_path': 'sync.md',
+          'target_concept': 'sync',
+        },
+        {
+          'source': 'decision',
+          'field': 'relationships',
+          'name': 'tracked-by',
+          'raw_target': '/missing.md',
+          'resolution': 'unresolved',
+          'resolved_path': 'missing.md',
+        },
+      ]);
+
+      output.clear();
+      expect(await cli.run(['graph', bundle.path, '--output=mermaid']), 0);
+      final mermaid = output.single.split('\n');
+      expect(mermaid.take(okf.toMermaid().trimRight().split('\n').length), [
+        ...okf.toMermaid().trimRight().split('\n'),
+      ]);
+      expect(mermaid, contains('  n0 -->|depends-on| n1'));
+      expect(mermaid, contains('  n0 -->|tracked-by| x0'));
+      expect(
+        mermaid.where((line) => line.contains('["/missing.md"]')),
+        hasLength(1),
+        reason: 'the body link and the relationship share one target node',
+      );
+
+      output.clear();
+      expect(await cli.run(['graph', bundle.path, '--output=dot']), 0);
+      final dot = output.single.split('\n');
+      expect(dot.last, '}');
+      expect(
+        dot,
+        containsAll([
+          '  "concept:decision" -> "concept:sync" [label="depends-on"];',
+          '  "concept:decision" -> "target:unresolved:0" '
+              '[label="tracked-by"];',
+        ]),
+      );
+
+      output.clear();
+      expect(
+        await cli.run(['graph', bundle.path, '--resolution=unresolved']),
+        0,
+      );
+      final unresolved = jsonDecode(output.single) as Map<String, Object?>;
+      expect(
+        (unresolved['field_edges']! as List<Object?>).map(
+          (edge) => (edge! as Map<String, Object?>)['name'],
+        ),
+        ['tracked-by'],
+      );
+      expect(retrievalOpens, 0);
     });
 
     test('load findings print a report and refuse a graph', () async {

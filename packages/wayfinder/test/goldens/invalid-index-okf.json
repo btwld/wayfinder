@@ -1,0 +1,44 @@
+{
+  "okf": {
+    "state": "FAIL",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/invalid-index-structure",
+          "severity": "error",
+          "message": "Index bodies may contain only level-one headings and linked list entries.",
+          "location": {
+            "path": "index.md"
+          }
+        },
+        {
+          "id": "okf/invalid-index-structure",
+          "severity": "error",
+          "message": "Index bodies may contain only level-one headings and linked list entries.",
+          "location": {
+            "path": "index.md"
+          }
+        },
+        {
+          "id": "okf/missing-index-section",
+          "severity": "error",
+          "message": "An index must contain at least one level-one section.",
+          "location": {
+            "path": "index.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": null,
+    "state": "BLOCKED BY OKF",
+    "findings": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

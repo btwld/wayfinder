@@ -8,6 +8,7 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
 
+import 'graph.dart';
 import 'index_result.dart';
 
 typedef _SavedIndex = ({
@@ -322,6 +323,7 @@ class WayfinderKnowledge {
           : await (await KnowledgeSnapshot.load(
               root,
               bundleId: root,
+              linkFields: wayfinderLinkFields,
             )).fitInputs(
               countTokens: encoder.countTokens,
               maxTokens: encoder.maxTokens,
@@ -594,6 +596,7 @@ class WayfinderKnowledge {
         generation: generation,
         snapshot: KnowledgeSnapshot.fromMap(
           Map<String, Object?>.from(record['snapshot']! as Map),
+          linkFields: wayfinderLinkFields,
         ),
       );
     } on Object {

@@ -1,0 +1,67 @@
+{
+  "id": "bitwild_profile",
+  "release": "2026.2",
+  "implements": {
+    "id": "okf",
+    "release": "0.2"
+  },
+  "standard_types": [
+    {
+      "name": "Glossary Definition",
+      "description": "One project or domain term"
+    },
+    {
+      "name": "Business Rule",
+      "description": "One standing business rule, constraint, invariant, or policy"
+    },
+    {
+      "name": "Question",
+      "description": "One named unknown, with what is known, what is missing, and what would close it"
+    },
+    {
+      "name": "Request",
+      "description": "A durable request from any relevant source"
+    },
+    {
+      "name": "Analysis",
+      "description": "An investigation, feasibility study, comparison, or recommendation"
+    },
+    {
+      "name": "Decision",
+      "description": "A durable non-architectural decision with an independent lifecycle"
+    },
+    {
+      "name": "Architecture Decision Record",
+      "description": "An architectural decision in ADR form"
+    },
+    {
+      "name": "Architecture Document",
+      "description": "A durable description of the system architecture"
+    },
+    {
+      "name": "Specification",
+      "description": "A specification the project maintains as durable knowledge, not one a tracker owns the state of"
+    },
+    {
+      "name": "Guide",
+      "description": "Durable operational or engineering guidance"
+    },
+    {
+      "name": "Interaction Record",
+      "description": "An interaction whose combined context is itself durable"
+    },
+    {
+      "name": "Knowledge Profile",
+      "description": "The Concepta Profile and OKF release declaration"
+    },
+    {
+      "name": "Type Registry",
+      "description": "The standard and project-specific types available to the bundle"
+    },
+    {
+      "name": "Actor Registry",
+      "description": "Actor IDs mapped to identity, affiliation, role, and active period"
+    }
+  ],
+  "tags": []
+}

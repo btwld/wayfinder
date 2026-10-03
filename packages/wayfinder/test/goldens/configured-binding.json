@@ -1,0 +1,50 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/unsupported-okf-version",
+          "severity": "advisory",
+          "message": "Version 0.1 is not understood; the bundle was consumed best-effort.",
+          "location": {
+            "path": "index.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": "2026.3",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/index-current",
+        "severity": "error",
+        "message": "index.md is missing or differs from the generated index; run wayfinder validate --fix.",
+        "location": {
+          "path": "index.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§9"
+      },
+      {
+        "id": "concepta-profile/okf-release-binding",
+        "severity": "error",
+        "message": "The bundle root index must declare okf_version: \"0.2\".",
+        "location": {
+          "path": "index.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§11"
+      }
+    ],
+    "summary": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

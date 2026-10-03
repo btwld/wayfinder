@@ -1,0 +1,36 @@
+{
+  "okf": {
+    "state": "FAIL",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/invalid-log-date",
+          "severity": "error",
+          "message": "Log date headings must be valid ISO 8601 dates.",
+          "location": {
+            "path": "log.md"
+          }
+        },
+        {
+          "id": "okf/log-not-newest-first",
+          "severity": "error",
+          "message": "Log date groups must be ordered newest first.",
+          "location": {
+            "path": "log.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": null,
+    "state": "BLOCKED BY OKF",
+    "findings": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

@@ -143,7 +143,9 @@ Read [the authoring skill](../author-knowledge-bundle/SKILL.md) and perform its
 release dispatch. Follow its
 [Profile assessment reference](../author-knowledge-bundle/references/profile-assessment.md)
 with **Scope: whole bundle**, including automated validation and the Profile
-Review Report. Repair clear defects in the new seed within the authorized scope.
+Review Report. For a 2026.3 bundle holding concepts, run
+`wayfinder validate knowledge --fix` so its indexes are okf's generated
+output; `--fix` never writes a 2026.2 bundle. Repair clear defects in the new seed within the authorized scope.
 For an existing bundle, report unrelated defects without silently broadening setup
 into a migration or whole-bundle repair.
 

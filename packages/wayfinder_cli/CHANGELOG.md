@@ -10,6 +10,27 @@
   `index` without a path refreshes the same bundle set. Explicit paths retain
   their existing behavior and JSON; missing/stale selected indexes still fail
   search without implicit indexing or partial results.
+- `wayfinder get` decodes the Profile manifest and rule catalog that `git
+  show` prints as UTF-8, so a non-ASCII character such as `§` no longer
+  comes back as `Â§` on Windows.
+- `wayfinder validate` and MCP validation report what Profile 2026.3 permits,
+  such as a project type in use or an unresolved planned link, as summary
+  entries: JSON `profile.summary`, a text `Summary:` block, and SARIF
+  informational results. They never change the gate or the exit code. The resolver rejects
+  a composed binding that declares a tag equal to a type, status, trust tier,
+  or relationship name.
+- `wayfinder graph` and the MCP `graph` tool add each concept's typed
+  `relationships` frontmatter entries beside okf's graph. JSON keeps every
+  okf key and adds a `field_edges` array; Mermaid and DOT label each added
+  edge with its relationship name. Search expansion follows the same
+  relationships, before untyped body links, and a context hit reached
+  through one carries its `relationship` name. Saved indexes stay
+  compatible.
+- Project bindings accept `relationships`, declared like `tags`, and the
+  resolver composes them through `extends` with the same collision checks.
+- `wayfinder validate --fix` writes okf's generated indexes for a Profile
+  2026.3 bundle, then validates. It writes only index files that differ,
+  never writes a 2026.2 bundle or one that fails OKF, and says which applied.
 - `wayfinder validate` and MCP validation recognize configured Bitwild Profile
   2026.3 bundles; CLI validation accepts `--config` for an explicit project
   file. Both validate read-only from a current lock/cache; `get` and

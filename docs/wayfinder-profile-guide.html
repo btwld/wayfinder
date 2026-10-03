@@ -433,7 +433,7 @@
         <a href="#configuration">Project configuration</a>
         <a href="#sources-lockfile">Sources and lockfile</a>
         <a href="#placement">Where knowledge goes</a>
-        <a href="#metadata">Tags and status</a>
+        <a href="#metadata">Tags, status, and relationships</a>
         <a href="#sharing">Captures and sharing</a>
         <a href="#validation">Validation coverage</a>
         <a href="#boundaries">Schema boundaries</a>
@@ -462,7 +462,9 @@
             <h3>Author the bundle</h3>
             <p>
               Keep <code>index.md</code> and <code>log.md</code>. Add concepts
-              under truthful subjects, using declared types and tags.
+              under truthful subjects, using declared types and tags, then run
+              <code>wayfinder validate --fix</code> to write okf's generated
+              indexes.
             </p>
           </div>
           <div class="step">
@@ -522,7 +524,8 @@
             <h3><code>wayfinder.json</code></h3>
             <p>
               Names the source, applies it to bundle paths, and adds project
-              types, declared tags, and actor lookup metadata.
+              types, declared tags, relationship names, and actor lookup
+              metadata.
             </p>
           </div>
           <div class="card">
@@ -530,7 +533,8 @@
             <h3>Bundle frontmatter</h3>
             <p>
               Uses OKF fields for type, document lifecycle, provenance,
-              sources, and explicitly applied tags.
+              sources, and explicitly applied tags, plus the Profile's one
+              declared key, <code>relationships</code>.
             </p>
           </div>
         </div>
@@ -579,7 +583,8 @@
           prefix. The package manifest supplies the Profile release and must
           match <code>bitwild_profile</code>. The shipped
           <a href="../profile/wayfinder-profile.json">Profile manifest</a>
-          declares twelve standard types and no base tags.
+          declares twelve standard types, no base tags, and eleven standard
+          relationship names.
         </p>
         <div class="card-grid">
           <div class="card"><h3>One entry</h3><p>A Profile entry can apply to several bundle folders.</p></div>
@@ -623,7 +628,7 @@
           <code>extends</code> is optional and independent of
           <code>applies_to</code>. A source-only parent may have an empty
           application list. A child inherits its parent's vocabulary and may
-          add types, tags, and actors. The chain must reach the installed
+          add types, tags, relationship names, and actors. The chain must reach the installed
           Bitwild Profile; remote rule overrides are not executed.
         </p>
         <div class="code-example">
@@ -651,7 +656,7 @@
         <div class="card-grid">
           <div class="card"><h3>Resolve</h3><p><code>wayfinder get</code> writes or refreshes the lock.</p></div>
           <div class="card"><h3>Upgrade</h3><p><code>wayfinder upgrade</code> advances a mutable branch or tag. A pinned commit does not move.</p></div>
-          <div class="card"><h3>Read-only validation</h3><p><code>validate</code> reads a current lock/cache without fetching or writing. <code>graph</code>, <code>index</code>, and <code>search</code> do not resolve Profile sources.</p></div>
+          <div class="card"><h3>Read-only validation</h3><p><code>validate</code> reads a current lock/cache without fetching or writing; only <code>--fix</code> writes, and only okf's generated indexes. <code>graph</code>, <code>index</code>, and <code>search</code> do not resolve Profile sources.</p></div>
         </div>
       </section>
 
@@ -678,8 +683,8 @@
       </section>
 
       <section class="section" id="metadata">
-        <h2>Tags and status</h2>
-        <div class="table-scroll" role="region" aria-label="Status and tag rules" tabindex="0">
+        <h2>Tags, status, and relationships</h2>
+        <div class="table-scroll" role="region" aria-label="Status, tag, and relationship rules" tabindex="0">
           <table>
             <thead>
               <tr>
@@ -708,7 +713,20 @@
                   Each used tag must be declared by the Profile or project
                   entry. Duplicate declarations or uses, undeclared tags, and
                   exact collisions with type, status, trust, or relationship
-                  labels fail.
+                  names fail.
+                </td>
+              </tr>
+              <tr>
+                <td data-label="Field"><code>relationships</code></td>
+                <td data-label="OKF 0.2 meaning">
+                  Not an OKF field; OKF §4.1 lets producers add keys, and
+                  generic readers keep them.
+                </td>
+                <td data-label="Bitwild 2026.3 producer rule">
+                  The one key the Profile declares: a list of
+                  <code>relationship</code> and <code>resource</code>
+                  mappings. Each name must be declared by the Profile or
+                  project entry; it never goes in <code>sources</code>.
                 </td>
               </tr>
             </tbody>
@@ -781,8 +799,8 @@
               <tr>
                 <td data-label="Area">Types</td>
                 <td data-label="Automated validation">
-                  Standard and project name collisions, used-type membership,
-                  and index group order.
+                  Standard and project name collisions and used-type
+                  membership.
                 </td>
                 <td data-label="Contextual Profile Review">Whether the type fits each concept’s meaning.</td>
               </tr>
@@ -796,7 +814,7 @@
               <tr>
                 <td data-label="Area">Metadata</td>
                 <td data-label="Automated validation">
-                  Required fields, OKF field shapes, status values, unknown
+                  Required fields, OKF field shapes, status values, undeclared
                   producer keys, declared/duplicate tags.
                 </td>
                 <td data-label="Contextual Profile Review">
@@ -806,8 +824,8 @@
               <tr>
                 <td data-label="Area">Sources and links</td>
                 <td data-label="Automated validation">
-                  Source shape, ID and attribution joins, and deterministic
-                  link checks.
+                  Source shape, ID and attribution joins, relationship shape
+                  and names, and deterministic link checks.
                 </td>
                 <td data-label="Contextual Profile Review">
                   Whether sources support claims and relationships have the

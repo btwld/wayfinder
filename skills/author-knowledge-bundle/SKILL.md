@@ -5,7 +5,7 @@ description: Create, edit, move, deprecate, or mirror content in the knowledge b
 
 # Authoring the knowledge bundle
 
-The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the selected Bitwild OKF Profile or legacy Concepta release. Resolve the release from project-root `wayfinder.json` or legacy `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type, no frontmatter field, and no metadata semantics of its own. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
+The knowledge bundle at `knowledge/` is an Open Knowledge Format (OKF) bundle following the selected Bitwild OKF Profile or legacy Concepta release. Resolve the release from project-root `wayfinder.json` or legacy `knowledge/profile.md`. The profile is a thin layer on **OKF 0.2**, which is authoritative: it says *which* knowledge is worth storing, *where* it goes, and *how* concepts link, and it defines no file type and never changes an OKF field's meaning. Its one frontmatter key in 2026.3, `relationships`, is an additional producer key OKF §4.1 permits; legacy 2026.2 defines none. Nothing here overrides the [OKF specification](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md), pinned to the 0.2 commit and vendored at [references/OKF-0.2.md](./references/OKF-0.2.md).
 
 `knowledge/` is the default adoption path. When a project explicitly asks to
 author another configured bundle, substitute that bundle's path throughout
@@ -19,9 +19,10 @@ Before applying Profile rules, resolve the bundle's exact release:
 - If project-root `wayfinder.json` has exactly one `applies_to` entry for
   the requested bundle, read that entry's direct `source` and any additive
   `extends` chain. The manifest identity and exact release select the rules;
-  `bitwild_profile/2026.3` selects the compiled rules for that release. A child must
-  reach that base. The source manifests supply vocabulary, not executable
-  rules. In the Wayfinder source tree the base manifest is at
+  `bitwild_profile/2026.3` selects the installed rule catalog for that release.
+  A child must reach that base; its manifest may add vocabulary and name a rule
+  catalog of its own, whose rules only add findings in the child's namespace.
+  In the Wayfinder source tree the base manifest is at
   `profile/wayfinder-profile.json`; the routed concept reference carries its
   standard vocabulary for standalone skill installations. The root index
   declares OKF 0.2. Read the exact source revision from the current
@@ -40,15 +41,19 @@ Before applying Profile rules, resolve the bundle's exact release:
 Changing a bundle's release is migration work, not an incidental repair.
 Read implementation guide §5 before migrating. Do not simply change a selector:
 move the custom vocabulary and actor lookup to JSON, remove the three legacy
-root concepts, regenerate the root index, and validate and review the result.
+root concepts, regenerate every index with `wayfinder validate --fix`, and
+review the result.
 
 **2026.3 difference.** `wayfinder.json` is configuration, not a concept. Root
 `profile.md`, `types.md`, and `actors.md` are retired for this release; the
-binding supplies custom type, tag, and actor declarations while the selected
-base Profile supplies standards. The subject-placement rule and the fixed
-names `architecture/`, `ways-of-working/`, `interactions/`, `references/`
-remain, and `computations/` joins them as the optional OKF §10.4 home for
-Attested Computation concepts. A binding applies to a whole bundle, never an area. Release-specific
+binding supplies custom type, tag, relationship-name, and actor declarations
+while the selected base Profile supplies standards. Typed relationships are the
+`relationships` frontmatter key, not a `# Relationships` body section. The
+subject-placement rule and the fixed names `architecture/`, `ways-of-working/`,
+`interactions/`, `references/` remain, and `computations/` joins them as the
+optional OKF §10.4 home for Attested Computation concepts. Every index is the output of okf's reference
+index generator, written by `wayfinder validate --fix`; the legacy index
+projection does not apply. A binding applies to a whole bundle, never an area. Release-specific
 notes in the routed references below take precedence over their legacy
 registry examples.
 
@@ -63,8 +68,8 @@ touches several — a new concept in a new directory needs the first two at leas
 | --- | --- |
 | Creating or editing a concept — capture bar, types, frontmatter, provenance, execution links | [references/concept-authoring.md](./references/concept-authoring.md) |
 | Creating or naming a directory, placing a concept, moving, deprecating, deleting | [references/structure-and-lifecycle.md](./references/structure-and-lifecycle.md) |
-| Creating or regenerating an `index.md` — every write touches at least one | [references/index-projection.md](./references/index-projection.md) |
-| Giving links a labelled meaning in `# Relationships` | [references/relationships.md](./references/relationships.md) |
+| Creating or regenerating an `index.md` — every write touches at least one | 2026.3: run `wayfinder validate <bundle> --fix`; legacy 2026.2: [references/index-projection.md](./references/index-projection.md) |
+| Giving links a typed meaning — 2026.3 `relationships` frontmatter, legacy 2026.2 `# Relationships` | [references/relationships.md](./references/relationships.md) |
 | Mirroring external material into `references/` | [references/source-mirroring.md](./references/source-mirroring.md) |
 | Profile Review — after any write, or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
 | Changing the declared release, or converting an existing tree | not this skill — see [Release dispatch](#release-dispatch) |
@@ -77,7 +82,7 @@ touches several — a new concept in a new directory needs the first two at leas
 Every write follows this sequence, and is complete only when all of it exists:
 
 1. The concept file, conforming to the routed references above.
-2. Every affected `index.md`, rewritten as the deterministic projection defined in [references/index-projection.md](./references/index-projection.md). Nothing generates indexes for you — follow that reference exactly.
+2. Every affected `index.md`. For 2026.3, run `wayfinder validate <bundle> --fix`: it writes okf's generated indexes, then validates. Never hand-edit a 2026.3 index; a hand edit is drift. For legacy 2026.2, rewrite each as the deterministic projection in [references/index-projection.md](./references/index-projection.md); nothing generates those for you, and `--fix` never writes a 2026.2 bundle.
 3. Its authored `knowledge/log.md` entry — under today's `## YYYY-MM-DD` heading (newest first): `* **Creation**: …`, `* **Update**: …`, `* **Deprecation**: …`, or another nonempty bold lead word followed by a colon. Log meaningful lifecycle events only, never formatting edits. The log is history, not a projection.
 4. Automated validation, when `wayfinder validate` is available: run it over the whole bundle and repair deterministic failures before finishing.
 5. Scoped Profile Review per [references/profile-assessment.md](./references/profile-assessment.md), with its report emitted in the active interaction or pull request.
@@ -101,4 +106,4 @@ What the profile deliberately says little or nothing about:
 | **Tag-based views**, synthesized at consumption time rather than stored as files | §3.1 |
 | **v0.1 fallbacks** — legacy `timestamp` and body `# Citations` in inherited bundles | §13 |
 
-Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no custom frontmatter fields, no kind-named directories, `status` as knowledge lifecycle only, an `index.md` in every nonempty directory with descriptions copied verbatim.
+Two rules govern the gap. Silence is **deference**, so a question the profile does not answer is answered upstream and following OKF there is correct, not a deviation. Silence is **not prohibition**, so a mechanism OKF permits and the profile never mentions is permitted. The profile's actual narrowings are stated as such in the references: no frontmatter fields beyond OKF's and the release's declared `relationships`, no kind-named directories, `status` as knowledge lifecycle only, and indexes that are okf's generated output (legacy 2026.2: an `index.md` in every nonempty directory with descriptions copied verbatim).

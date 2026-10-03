@@ -1,0 +1,19 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2027.1",
+    "state": "UNSUPPORTED",
+    "findings": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "UNSUPPORTED"
+  }
+}
