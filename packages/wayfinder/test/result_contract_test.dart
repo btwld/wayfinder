@@ -107,6 +107,11 @@ void main() {
         },
       },
       'profile': <String, Object?>{
+        'id': 'bitwild-profile',
+        'release': '2026.3',
+        'chain': <Object?>[
+          <String, Object?>{'id': 'bitwild-profile', 'release': '2026.3'},
+        ],
         'state': 'BLOCKED BY OKF',
         'findings': <Object?>[],
       },
@@ -114,6 +119,10 @@ void main() {
       'gate': <String, Object?>{'state': 'FAIL'},
       'engine': <String, Object?>{'okf': okfPackageVersion},
     });
+    expect(
+      result.toTextLines(),
+      contains('Profile bitwild-profile 2026.3: BLOCKED BY OKF'),
+    );
   });
 
   test('a bundle no wayfinder.json lists is not assessed', () async {

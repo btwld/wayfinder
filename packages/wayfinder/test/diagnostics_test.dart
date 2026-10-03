@@ -15,8 +15,35 @@ const _unassessedWhenGraphFails = {
   'bitwild-profile/source-path-unresolved',
 };
 
+/// Every Bitwild rule that reads the link graph; the fixture above fires
+/// only some of them.
+const _linkRules = {
+  ..._unassessedWhenGraphFails,
+  'bitwild-profile/internal-link-unresolved',
+  'bitwild-profile/relationship-unresolved',
+};
+
 final _graphFails = ProfileValidator(
   buildGraph: (_) => throw StateError('forced'),
+);
+
+/// One concept rule that reads no link fact.
+final _typed = ProfilePackage.parse(
+  packageJson(
+    rules: [
+      ruleJson(
+        'typed',
+        subject: 'concept',
+        schema: {
+          'required': ['type'],
+        },
+        valid: [
+          {'type': 'Guide'},
+        ],
+        invalid: [<String, Object?>{}],
+      ),
+    ],
+  ),
 );
 
 void main() {
@@ -159,15 +186,19 @@ void main() {
       reason: 'with a graph, the fixture exercises every link rule',
     );
 
+    expect(
+      bitwild.rules
+          .where((rule) => rule.needsLinks)
+          .map((rule) => rule.descriptor.id)
+          .toSet(),
+      _linkRules,
+    );
     final unassessed = await validateFixture(
       fixture('configured-conventions'),
       validator: _graphFails,
     );
     expect(
-      unassessed.findings
-          .map((f) => f.id)
-          .toSet()
-          .intersection(_unassessedWhenGraphFails),
+      unassessed.findings.map((f) => f.id).toSet().intersection(_linkRules),
       isEmpty,
     );
     final diagnostic = unassessed.diagnostics.single;
@@ -182,6 +213,80 @@ void main() {
     );
     expect(passing.profileState, ProfileState.pass);
     expect(passing.gate, GateState.incomplete);
+  });
+
+  test('a link-free chain passes when the graph cannot be built', () async {
+    final bundle = fixtureBundle(fixture('configured-project'));
+    final result = await _graphFails.validate(
+      bundle,
+      SelectedProfile(EffectiveProfile.compose([_typed])),
+    );
+    expect(result.findings, isEmpty);
+    expect(result.diagnostics, isEmpty);
+    expect(result.gate, GateState.pass);
+  });
+
+  test('a rule that requires a link fact reports nothing when the graph '
+      'cannot be built', () async {
+    final bundle = fixtureBundle(fixture('configured-project'));
+    final linked = ProfilePackage.parse(
+      packageJson(
+        rules: [
+          ruleJson(
+            'has-inbound',
+            subject: 'concept',
+            schema: {
+              'required': ['inbound'],
+            },
+            valid: [
+              {'inbound': <Object?>[]},
+            ],
+            invalid: [<String, Object?>{}],
+          ),
+        ],
+      ),
+    );
+    final assessed = await const ProfileValidator().validate(
+      bundle,
+      SelectedProfile(EffectiveProfile.compose([linked])),
+    );
+    expect(assessed.findings, isEmpty);
+    expect(assessed.gate, GateState.pass);
+
+    final unassessed = await _graphFails.validate(
+      bundle,
+      SelectedProfile(EffectiveProfile.compose([linked])),
+    );
+    expect(unassessed.findings, isEmpty);
+    expect(unassessed.diagnostics.map((d) => d.code), [
+      DiagnosticCode.linkGraphUnavailable,
+    ]);
+    expect(unassessed.gate, GateState.incomplete);
+  });
+
+  test('a selection note is never an error', () {
+    const error = EngineDiagnostic(
+      DiagnosticCode.profileComposition,
+      'Profile probe: nope.',
+    );
+    expect(error.isError, isTrue);
+    expect(
+      () => SelectedProfile(
+        EffectiveProfile.compose([_typed]),
+        notes: const [error],
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('a fix without a selected Profile says so', () async {
+    final copy = await copyFixture('unconfigured');
+    addTearDown(() => copy.delete(recursive: true));
+    final result = await validateFixture(copy.path, fix: true);
+    expect(
+      result.diagnostics.map((d) => d.message),
+      contains('No Profile was selected.'),
+    );
   });
 
   test('warnings and notes never change the gate', () async {

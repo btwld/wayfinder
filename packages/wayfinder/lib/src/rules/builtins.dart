@@ -37,10 +37,14 @@ final class Builtin {
     this.paramsSchema = const {'type': 'object', 'additionalProperties': false},
     this.messagePlaceholders = const {},
     this.messageIds = const {},
+    this.needsLinks = false,
     this.fix,
   });
 
   final BuiltinBody run;
+
+  /// Reads the OKF link graph, so [run] is skipped when it cannot be built.
+  final bool needsLinks;
 
   final BuiltinFix? fix;
 
@@ -68,6 +72,7 @@ const builtins = <String, Builtin>{
     pathTargetsExist,
     paramsSchema: pathTargetsExistParams,
     messagePlaceholders: {'target'},
+    needsLinks: true,
   ),
   'matches-generated': Builtin(
     matchesGenerated,

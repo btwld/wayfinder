@@ -38,6 +38,7 @@ final class SchemaCheck extends RuleCheck {
   const SchemaCheck._({
     required this.subject,
     required this.each,
+    required this.needsLinks,
     required this.failingField,
     required this.at,
     required this.schema,
@@ -47,6 +48,9 @@ final class SchemaCheck extends RuleCheck {
 
   final SubjectKind subject;
   final String? each;
+
+  /// Whether [each] or a root property of [schema] is a link-graph fact.
+  final bool needsLinks;
 
   final String failingField;
 
@@ -103,7 +107,6 @@ final class CatalogRule {
     required this.description,
     required this.message,
     required this.check,
-    required this.examples,
   });
 
   final ProfileRuleDescriptor descriptor;
@@ -114,7 +117,12 @@ final class CatalogRule {
   final RuleMessage message;
   final RuleCheck check;
 
-  final RuleExamples? examples;
+  /// Whether the check reads the OKF link graph; such a rule is not
+  /// assessed when the graph cannot be built.
+  bool get needsLinks => switch (check) {
+    SchemaCheck(:final needsLinks) => needsLinks,
+    BuiltinCheck(builtin: Builtin(:final needsLinks)) => needsLinks,
+  };
 }
 
 /// Compiles a package's `rules` array, already known to match the published
@@ -173,7 +181,6 @@ CatalogRule _rule(
   final check = checkJson.containsKey('builtin')
       ? _builtinCheck(checkJson, '$where.check')
       : _schemaCheck(checkJson, '$where.check', defs);
-  final RuleExamples? examples;
   switch (check) {
     case SchemaCheck():
       if (message is! SingleMessage) {
@@ -190,7 +197,7 @@ CatalogRule _rule(
           'a schema check needs tests',
         );
       }
-      examples = _examples(tests, '$where.tests');
+      final examples = _examples(tests, '$where.tests');
       final provided = {Slot.okfFrontmatterKeys, ...examples.slots.keys};
       for (final slot in check.slots) {
         if (!provided.contains(slot)) {
@@ -236,7 +243,6 @@ CatalogRule _rule(
           }
         }
       }
-      examples = null;
   }
   return CatalogRule._(
     descriptor: ProfileRuleDescriptor(
@@ -249,7 +255,6 @@ CatalogRule _rule(
     description: map['description'] as String,
     message: message,
     check: check,
-    examples: examples,
   );
 }
 
@@ -291,7 +296,9 @@ SchemaCheck _schemaCheck(
       unsupported: error.unsupported,
     );
   }
-  if (subject.facts case ClosedFacts(:final shapes)) {
+  var needsLinks = false;
+  if (subject.facts case ClosedFacts(:final shapes) && final facts) {
+    needsLinks = [...compiled.rootPropertyNames, ?each].any(facts.fromLinks);
     final Set<String> names;
     final String instance;
     if (each == null) {
@@ -323,6 +330,7 @@ SchemaCheck _schemaCheck(
   return SchemaCheck._(
     subject: subject,
     each: each,
+    needsLinks: needsLinks,
     failingField: failingField ?? 'value',
     at: at,
     schema: schema,

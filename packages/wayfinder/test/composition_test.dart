@@ -74,7 +74,10 @@ final child = ProfilePackage.parse(
   packageJson(
     id: 'client-profile',
     release: '2026.3',
-    extra: {'docs': 'https://client.example/profile/README.md'},
+    extra: {
+      'docs': 'https://client.example/profile/README.md',
+      'extends': {'path': 'profiles/bitwild'},
+    },
     rules: [
       ruleJson(
         'title-never',
@@ -294,10 +297,13 @@ void main() {
           everyElement(startsWith('client-profile/')),
         );
         expect(added.map((f) => f.profileRelease), everyElement('2026.3'));
-        if (composed.chain case [_, final second]) {
+        expect(
+          composed.chain.map((package) => package.id),
+          plain.chain.isEmpty ? isEmpty : [bitwild.id, child.id],
+        );
+        if (composed.profile is Assessed) {
           chained++;
-          expect(identical(second, child), isTrue);
-          expect(plain.chain, hasLength(1));
+          expect(identical(composed.chain.last, child), isTrue);
           expect(added.map((f) => f.id), contains('client-profile/root-never'));
           expect(
             composed.summary!.map((e) => e.id),
@@ -306,7 +312,6 @@ void main() {
                 : contains('client-profile/concept-seen'),
           );
         } else {
-          expect(composed.chain.length, plain.chain.length);
           expect(added, isEmpty);
         }
       });
@@ -372,11 +377,29 @@ void main() {
       );
     });
 
+    test('a chain that does not run root to child', () {
+      expect(
+        () => EffectiveProfile.compose([child]),
+        refused(
+          'Profile client-profile declares a parent, so it cannot start a '
+          'chain.',
+        ),
+      );
+      expect(
+        () => EffectiveProfile.compose([bitwild, acme]),
+        refused(
+          'Profile acme-notes declares no parent, so it cannot follow '
+          'bitwild-profile in a chain.',
+        ),
+      );
+    });
+
     test('a name another contributor already declares, per noun', () {
       final repeats = ProfilePackage.parse(
         packageJson(
           id: 'repeats',
           extra: {
+            'extends': {'path': 'profiles/bitwild'},
             'types': [
               {'name': 'Guide', 'description': 'Again'},
             ],
@@ -408,6 +431,7 @@ void main() {
         packageJson(
           id: 'keyed',
           extra: {
+            'extends': {'path': 'profiles/bitwild'},
             'frontmatter_keys': [
               {'name': 'relationships', 'description': 'Again'},
             ],

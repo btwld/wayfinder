@@ -238,7 +238,7 @@ void main() {
         'error wayfinder/config-missing: '
             'No wayfinder.json was found above the bundle.',
         'warning wayfinder/fix-not-applied: '
-            'No supported Profile release was selected.',
+            'No Profile was selected.',
       ]),
     );
     await for (final entity in copy.list(recursive: true)) {

@@ -15,9 +15,12 @@ final class ScalarFact extends FactShape {
 }
 
 final class ListFact extends FactShape {
-  const ListFact(this.fields);
+  const ListFact(this.fields, {this.fromLinks = false});
 
   final Set<String> fields;
+
+  /// Derived from the OKF link graph, so absent when it cannot be built.
+  final bool fromLinks;
 }
 
 sealed class FactSet {
@@ -32,6 +35,11 @@ final class ClosedFacts extends FactSet {
   const ClosedFacts(this.shapes);
 
   final Map<String, FactShape> shapes;
+
+  bool fromLinks(String name) => switch (shapes[name]) {
+    ListFact(fromLinks: true) => true,
+    _ => false,
+  };
 }
 
 const _scalar = ScalarFact();
@@ -55,15 +63,15 @@ enum SubjectKind {
         'resolution',
         'internal',
         'bundle_relative',
-      }),
+      }, fromLinks: true),
       'relationships': ListFact({
         'entry',
         'resolution',
         'internal',
         'bundle_relative',
         'resolved',
-      }),
-      'inbound': ListFact({'relationship', 'from'}),
+      }, fromLinks: true),
+      'inbound': ListFact({'relationship', 'from'}, fromLinks: true),
       'footnotes': ListFact({'value', 'referenced', 'defined', 'is_source_id'}),
       'sibling_directory': _scalar,
     }),

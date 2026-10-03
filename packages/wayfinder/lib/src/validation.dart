@@ -39,12 +39,18 @@ sealed class ProfileSelection {
 }
 
 final class SelectedProfile extends ProfileSelection {
-  const SelectedProfile(
+  /// Throws when a note is an error, so a selected run derives its gate
+  /// from the assessment alone.
+  SelectedProfile(
     this.profile, {
     this.config,
     this.commits = const {},
-    this.notes = const [],
-  });
+    Iterable<EngineDiagnostic> notes = const [],
+  }) : notes = List.unmodifiable(notes) {
+    if (this.notes.any((d) => d.isError)) {
+      throw ArgumentError.value(notes, 'notes', 'cannot hold an error');
+    }
+  }
 
   final EffectiveProfile profile;
 
@@ -109,9 +115,15 @@ final class Assessed extends ProfileAssessment {
   String get release => profile.selected.release;
 }
 
-/// OKF failed, so no Profile rule ran.
+/// OKF failed, so no Profile rule ran. [profile] is the selection that
+/// would have been assessed, when there was one, so reports still name it.
 final class BlockedByOkf extends ProfileAssessment {
-  const BlockedByOkf();
+  const BlockedByOkf({this.profile, this.commits = const {}});
+
+  final EffectiveProfile? profile;
+
+  /// The locked commit of each package in the chain, when known.
+  final Map<ProfileId, String> commits;
 }
 
 /// No Profile could be selected; an error diagnostic says why.
@@ -186,15 +198,16 @@ final class ProfileValidationResult {
     NotAssessed() => ProfileState.notAssessed,
   };
 
-  String? get profileRelease => switch (profile) {
-    Assessed(:final release) => release,
-    _ => null,
+  /// The selected Profile, whether or not it was assessed.
+  EffectiveProfile? get _selected => switch (profile) {
+    Assessed(profile: final EffectiveProfile? profile) ||
+    BlockedByOkf(profile: final EffectiveProfile? profile) => profile,
+    NotAssessed() => null,
   };
 
-  ProfileId? get profileId => switch (profile) {
-    Assessed(:final profile) => profile.selected.id,
-    _ => null,
-  };
+  String? get profileRelease => _selected?.selected.release;
+
+  ProfileId? get profileId => _selected?.selected.id;
 
   List<ProfileFinding> get findings => switch (profile) {
     Assessed(:final findings) => findings,
@@ -206,11 +219,8 @@ final class ProfileValidationResult {
     _ => null,
   };
 
-  /// The assessed packages, root ancestor first; empty when none ran.
-  List<ProfilePackage> get chain => switch (profile) {
-    Assessed(:final profile) => profile.chain,
-    _ => const [],
-  };
+  /// The selected packages, root ancestor first; empty when none was.
+  List<ProfilePackage> get chain => _selected?.chain ?? const [];
 
   Map<String, Object?> toJson() => <String, Object?>{
     'okf': <String, Object?>{
@@ -218,7 +228,9 @@ final class ProfileValidationResult {
       'report': okfReport.toJson(),
     },
     'profile': <String, Object?>{
-      if (profile case Assessed(:final profile, :final commits)) ...{
+      if (profile
+          case Assessed(:final profile, :final commits) ||
+              BlockedByOkf(profile: final profile?, :final commits)) ...{
         'id': profile.selected.id.value,
         'release': profile.selected.release,
         'chain': [
@@ -329,7 +341,7 @@ final class ProfileValidator {
       SelectedProfile(:final notes) => notes,
     };
     if (!validation.isConformant) {
-      return ProfileValidationResult._(validation, const BlockedByOkf(), [
+      return ProfileValidationResult._(validation, _blocked(selection), [
         ...reasons,
         if (fix)
           const EngineDiagnostic(DiagnosticCode.fixNotApplied, 'OKF failed.'),
@@ -342,7 +354,7 @@ final class ProfileValidator {
           if (fix)
             const EngineDiagnostic(
               DiagnosticCode.fixNotApplied,
-              'No supported Profile release was selected.',
+              'No Profile was selected.',
             ),
         ]);
       case SelectedProfile():
@@ -391,7 +403,7 @@ final class ProfileValidator {
     final reloaded = await loader.inspect(loaded.rootPath);
     final revalidation = reloaded.validate();
     if (!revalidation.isConformant) {
-      return ProfileValidationResult._(revalidation, const BlockedByOkf(), [
+      return ProfileValidationResult._(revalidation, _blocked(selection), [
         ...selection.notes,
         ?failure,
       ], fixed: written);
@@ -404,6 +416,15 @@ final class ProfileValidator {
       diagnostics: [?failure],
     );
   }
+
+  static BlockedByOkf _blocked(ProfileSelection selection) =>
+      switch (selection) {
+        SelectedProfile(:final profile, :final commits) => BlockedByOkf(
+          profile: profile,
+          commits: commits,
+        ),
+        UnselectedProfile() => const BlockedByOkf(),
+      };
 
   ProfileValidationResult _assess(
     OkfSpecValidation validation,
@@ -446,15 +467,26 @@ final class ProfileValidator {
             location: selection.config,
           ),
         ...diagnostics,
-        if (facts.links case LinksUnavailable(:final error))
-          EngineDiagnostic(
-            DiagnosticCode.linkGraphUnavailable,
-            'The OKF link graph could not be built ($error); '
-            'link rules were not assessed.',
-          ),
+        ?_linkGraphUnavailable(profile, facts),
       ],
       fixed: fixed,
     );
+  }
+
+  /// Only a chain with a link rule lost anything to a failed graph build.
+  static EngineDiagnostic? _linkGraphUnavailable(
+    EffectiveProfile profile,
+    BundleFacts facts,
+  ) {
+    if (!profile.needsLinks) return null;
+    if (facts.links case LinksUnavailable(:final error)) {
+      return EngineDiagnostic(
+        DiagnosticCode.linkGraphUnavailable,
+        'The OKF link graph could not be built ($error); '
+        'link rules were not assessed.',
+      );
+    }
+    return null;
   }
 }
 

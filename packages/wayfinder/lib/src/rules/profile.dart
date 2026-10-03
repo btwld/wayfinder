@@ -76,11 +76,12 @@ final class ProfileCompositionException implements Exception {
 final class EffectiveProfile {
   const EffectiveProfile._(this.chain, this.project, this.vocabulary);
 
-  /// Pure. Throws [ProfileCompositionException] when the chain is empty or
-  /// repeats an id, when a type, tag or relationship name repeats across
-  /// chain and project, when a frontmatter key repeats along the chain, or
-  /// when a tag equals a type, an OKF status, an OKF trust tier or a
-  /// relationship.
+  /// Pure. Throws [ProfileCompositionException] when the chain is empty,
+  /// repeats an id, does not run from a parentless root through packages
+  /// that each declare a parent, or disagrees on the OKF release; when a
+  /// type, tag or relationship name repeats across chain and project; when
+  /// a frontmatter key repeats along the chain; or when a tag equals a type,
+  /// an OKF status, an OKF trust tier or a relationship.
   ///
   /// Monotonicity is structural: a package contributes only additions and
   /// rules in its own namespace, so nothing here can remove or re-grade an
@@ -95,10 +96,28 @@ final class EffectiveProfile {
       );
     }
     final ids = <ProfileId>{};
-    for (final package in chain) {
+    for (final (index, package) in chain.indexed) {
       if (!ids.add(package.id)) {
         throw ProfileCompositionException(
           'Profile ${package.id} appears twice in the chain.',
+        );
+      }
+      if (index == 0 && package.parent != null) {
+        throw ProfileCompositionException(
+          'Profile ${package.id} declares a parent, so it cannot start a '
+          'chain.',
+        );
+      }
+      if (index > 0 && package.parent == null) {
+        throw ProfileCompositionException(
+          'Profile ${package.id} declares no parent, so it cannot follow '
+          '${chain[index - 1].id} in a chain.',
+        );
+      }
+      if (package.okfRelease != chain.first.okfRelease) {
+        throw ProfileCompositionException(
+          'Profile ${package.id} implements OKF ${package.okfRelease}, but '
+          '${chain.first.id} implements OKF ${chain.first.okfRelease}.',
         );
       }
     }
@@ -181,6 +200,8 @@ final class EffectiveProfile {
 
   /// Rules in evaluation order: ancestors first, each package in file order.
   Iterable<CatalogRule> get rules => chain.expand((package) => package.rules);
+
+  bool get needsLinks => rules.any((rule) => rule.needsLinks);
 
   Map<Slot, List<String>> get slots => {
     Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),

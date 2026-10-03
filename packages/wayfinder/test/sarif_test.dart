@@ -147,9 +147,16 @@ void main() {
       _results(blocked).map((result) => result.$1),
       everyElement(startsWith('okf/')),
     );
+    expect(blocked['properties'], {
+      'okf_state': 'FAIL',
+      'profile_id': 'bitwild-profile',
+      'profile_release': '2026.3',
+      'profile_state': 'BLOCKED BY OKF',
+      'gate': 'FAIL',
+    });
     expect(
-      blocked['properties'],
-      containsPair('profile_state', 'BLOCKED BY OKF'),
+      _rules(blocked).keys,
+      contains('bitwild-profile/okf-release-binding'),
     );
     expect(blocked['invocations'], [
       {'executionSuccessful': true},

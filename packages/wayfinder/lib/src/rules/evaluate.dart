@@ -16,6 +16,7 @@ import 'profile.dart';
   final summary = <ProfileSummaryEntry>[];
   for (final package in profile.chain) {
     for (final rule in package.rules) {
+      if (rule.needsLinks && facts.links is LinksUnavailable) continue;
       _evaluate(rule, package.release, slots, facts, findings, summary);
     }
   }

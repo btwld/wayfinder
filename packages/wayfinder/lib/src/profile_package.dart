@@ -28,9 +28,9 @@ extension type const ProfileId._(String value) implements Object {
   /// id, and the grammar already meets the name's other constraints.
   static const maxLength = 64;
 
-  /// Names a Profile may not take: the other finding namespaces, and
-  /// wayfinder's own skills, which share the agent skill directories with
-  /// installed Profile skills.
+  /// Names a Profile may not take: the other finding namespaces, wayfinder's
+  /// own skills, which share the agent skill directories with installed
+  /// Profile skills, and the directories Claude Code reserves there.
   static const reserved = {
     'okf',
     'wayfinder',
@@ -39,6 +39,8 @@ extension type const ProfileId._(String value) implements Object {
     'adopt-knowledge-bundle',
     'assess-knowledge-bundle',
     'create-profile',
+    'synced',
+    'anthropic-skills',
   };
 
   /// Throws [FormatException] for a malformed or reserved id.

@@ -29,14 +29,12 @@ const pathTargetsExistParams = <String, Object?>{
 };
 
 /// One finding per (document, target) whose path-valued `fields` entry
-/// names something that exists neither in the bundle nor on disk. Nothing
-/// when the link graph is unavailable; the engine diagnostic covers that.
+/// names something that exists neither in the bundle nor on disk.
 Iterable<Violation> pathTargetsExist(
   BundleFacts facts,
   Map<String, Object?> params,
 ) sync* {
-  final links = facts.links;
-  if (links is! LinkFacts) return;
+  final links = facts.links as LinkFacts;
   final selected = {
     for (final field in params['fields']! as List<Object?>)
       OkfGraphEdgeOrigin.values.singleWhere(

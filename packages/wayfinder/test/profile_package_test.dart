@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/published_schemas.g.dart';
 import 'package:wayfinder/wayfinder.dart';
@@ -47,6 +48,19 @@ void main() {
         (rule) => rule.descriptor.id.substring('bitwild-profile/'.length),
       ),
     );
+  });
+
+  test('every skill directory name a Profile would shadow is reserved', () {
+    final skills = Directory(p.join('..', '..', 'skills'))
+        .listSync()
+        .whereType<Directory>()
+        .map((directory) => p.basename(directory.path))
+        .toList();
+    expect(skills, isNotEmpty);
+    for (final name in [...skills, 'synced', 'anthropic-skills']) {
+      expect(ProfileId.reserved, contains(name), reason: name);
+      expect(() => ProfileId.parse(name), throwsFormatException, reason: name);
+    }
   });
 
   Matcher rejectedAt(String where, String message, {bool? unsupported}) =>
