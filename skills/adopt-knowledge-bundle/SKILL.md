@@ -56,9 +56,9 @@ OKF root files in [SEEDING.md](./SEEDING.md#okf-root-files). When the chain
 has several Profiles, the root Profile's seed comes first and each child's
 additions follow.
 
-Create no directories. Seeding creates only the bundle root. Later writes
-earn structure from the project's actual knowledge, so a `knowledge/` that
-holds only its root files is fully set up.
+Seed only what the Profile's adoption guidance names. Without that guidance,
+seed only the OKF root files. A `knowledge/` that holds only its root files
+is fully set up.
 
 Do not invent project types, tags, relationship names, or actor IDs while
 seeding.
@@ -83,9 +83,9 @@ a new bundle.
 
 ### 6. Validate and review
 
-Run `wayfinder validate knowledge`. For a bundle that holds concepts, run
-`wayfinder validate knowledge --fix` first so its indexes are okf's generated
-output. Then follow the authoring skill's
+Run `wayfinder validate knowledge`. For a bundle that holds concepts under a
+Profile that requires generated indexes, run
+`wayfinder validate knowledge --fix` first. Then follow the authoring skill's
 [Profile assessment reference](../author-knowledge-bundle/references/profile-assessment.md)
 with **Scope: whole bundle**, including the Profile Review Report. Repair
 clear defects in the new seed. For an existing bundle, report unrelated

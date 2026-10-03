@@ -56,10 +56,11 @@ okf_version: "<OKF release the Profile implements>"
 * **Initialization**: Established the knowledge bundle.
 ````
 
-Write the root index by hand only while the bundle holds no concepts. Once
-it holds one, `wayfinder validate knowledge --fix` replaces it with okf's
-generated root index and writes every directory index. Never edit a
-generated index by hand.
+If a Profile in the chain requires generated indexes, write this index by
+hand only while the bundle holds no concepts. Once it holds one,
+`wayfinder validate knowledge --fix` writes every generated index. Never
+edit a generated index by hand. Without such a Profile, keep each
+`index.md` current yourself, as OKF §8 describes.
 
 ## Agent instructions
 

@@ -53,8 +53,9 @@ _Avoid_: Rule manifest, per-directory Profile
 
 **Builtin**:
 A check the engine implements and versions, which any package's rule can call by
-name with `params`. It names what it can check, never the rule a Profile builds
-with it.
+name with `params`. It is named for what it checks, never for the rule a Profile
+builds with it. It never holds policy, which belongs in `params`, never names a
+Profile, and never reports engine health, which is a diagnostic.
 _Avoid_: Built-in rule, plugin
 
 **OKF Conformance**:

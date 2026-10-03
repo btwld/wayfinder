@@ -10,8 +10,10 @@ The vendored [OKF 0.2 specification](./OKF-0.2.md) is the authority.
 - Every `.md` file other than `index.md` and `log.md` is a concept document
   (OKF §3.1). Those two names are reserved at every level.
 - Non-Markdown files are assets, not concepts. They carry no frontmatter.
-- Every `index.md` is okf's generated output. Run
-  `wayfinder validate <bundle> --fix` to write it.
+- An `index.md` is optional and navigational (OKF §8). If a Profile in the
+  chain requires generated indexes, run `wayfinder validate <bundle> --fix`
+  to write them and never edit one by hand. Otherwise write or omit each
+  `index.md` as OKF §8 and the Profile skills allow.
 
 ## Frontmatter
 
@@ -35,9 +37,9 @@ tags: [<topic>]
 - Every timestamp is an instant with a UTC offset. A date-only or offset-less
   value raises `okf/timestamp-without-offset`.
   `okf format --migrate-timestamps` rewrites such values.
-- Write a key OKF does not define only when a Profile in the chain declares
-  it. Its package lists it in `frontmatter_keys`, and validation rejects any
-  other key.
+- OKF permits producer keys beyond the ones it defines (OKF §4.1). A Profile
+  may restrict which keys a concept carries. Follow each Profile skill in
+  the chain.
 - When reading, preserve unknown types, fields, and names. Valid OKF you do
   not recognize is content, not an error.
 

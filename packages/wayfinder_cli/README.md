@@ -14,13 +14,14 @@ wayfinder search ./knowledge "How do I regain account access?"
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and the Profile checks its `wayfinder.json` selects and retains their output and exit
-codes. Validation never assesses judgment rules.
+codes. Validation never assesses the judgment a Profile's skill asks for.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
-result if the Profile source is unresolved. `validate --fix` first writes
-okf's generated indexes, then validates; it never writes a bundle without a
-selected Profile or one that fails OKF. A bundle with no `wayfinder.json`
+result if the Profile source is unresolved. When the selected chain has a
+`matches-generated` rule, `validate --fix` first writes okf's generated
+indexes, then validates. It never writes a bundle without a selected
+Profile or one that fails OKF. A bundle with no `wayfinder.json`
 above it, such as a 2026.2 bundle, reports `wayfinder/config-missing`; keep it
 on wayfinder 0.1.x or migrate it. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
@@ -30,7 +31,7 @@ do not resolve Profile sources. See the
 
 For indexing and search without a Dart SDK, install the complete runtime from
 [the installation guide](https://github.com/btwld/wayfinder/blob/main/docs/install.md).
-It includes Wayfinder with built-in Profile validation, the embedding model and required native libraries.
+It includes Wayfinder with OKF and Profile validation, the embedding model and required native libraries.
 The GitHub repository hosts the source, plugin and native release archives.
 
 ## Dart installation

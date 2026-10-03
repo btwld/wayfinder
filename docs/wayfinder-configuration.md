@@ -331,11 +331,12 @@ The lock stays flat however deep a chain is, because `extends` names the
 parent's entry.
 A parent at the same revision gets its child's `source`, `requested_ref`, and
 `resolved_commit`.
-`release` is the package's own `release`. A project locks one revision of each
-Profile id, so an id names one finding namespace everywhere in the project.
-When two chains need different revisions of the same Profile, `get` fails and
-names both refs; make them agree. A lock in an older shape is treated as
-absent, and `get` rewrites it.
+`release` is the package's own `release`. A project locks one source of each
+Profile id, its `git`, `ref`, and `path`, resolved to one commit. An id
+therefore names one finding namespace everywhere in the project. When two
+chains describe the same Profile id with different sources, `get` fails and
+names both sources, even when they resolve to the same commit. Make them
+agree. A lock in an older shape is treated as absent, and `get` rewrites it.
 
 The hash is computed from canonical JSON, so formatting-only edits do not
 invalidate the lock. A semantic change to `wayfinder.json` makes it stale.
@@ -366,10 +367,11 @@ its root and reads each package from the local cache at its locked commit. It
 never fetches or writes the lock. If the lock is missing or stale, lacks the
 chain, or a package is not in the cache or disagrees with the release or
 parent the lock records, it still reports the independent OKF result and the
-`wayfinder/profile-unresolved` diagnostic. When it assesses a Profile, the
-JSON result names it as `profile.id` and lists the chain it evaluated as
+`wayfinder/profile-unresolved` diagnostic. Whenever it selects a Profile,
+including when OKF fails and the state is `BLOCKED BY OKF`, the JSON result
+names it as `profile.id` and `profile.release` and lists its chain as
 `profile.chain`, root first, each entry with its `id`, `release`, and locked
-`commit`. Run `get` to recover the exact
+`commit`. Only a `NOT ASSESSED` result omits them. Run `get` to recover the exact
 locked commit or `upgrade` to deliberately select a new revision. Neither
 command silently substitutes a moved branch or tag for a locked commit.
 `graph`, `index`, and `search` do not use Profile sources or resolve the
@@ -435,7 +437,7 @@ revision, reports the `wayfinder/profile-skill-stale` warning with the
 directories to refresh. It does not change the gate or the exit status,
 because the rules still ran. Run `get` to reinstall the locked revision.
 
-## Tags and captures
+## Tags and directories beside a bundle
 
 A Profile package's `tags` array defines stable reusable vocabulary. A
 project entry extends that vocabulary for the bundles in `applies_to`:
@@ -447,11 +449,11 @@ tags: [customer-reporting]
 A tag definition does not apply a tag automatically. Concepts opt in through
 frontmatter, and a tag must describe the concept's actual topic.
 
-`captures/` is normally an evidence layer beside an OKF bundle, not a bundle or
-Profile scope. Its `intake.md` files therefore do not participate in concept
-tag validation or Wayfinder search. If a project deliberately exposes
-captures as a searchable OKF bundle, add its path to the appropriate
-`applies_to` list and give it the Profile and vocabulary it needs.
+A directory beside an OKF bundle, such as a layer of raw evidence, is not part
+of the bundle or of any Profile's scope. Its files take no part in tag
+validation or Wayfinder search. To make such a directory a searchable OKF
+bundle, add its path to the appropriate `applies_to` list and give it the
+Profile and vocabulary it needs.
 
 ## Profile packages and sharing
 
@@ -506,19 +508,13 @@ reference is used correctly.
 ## Compatibility and migration
 
 The former `profiles` + `bundles` / `implements` version-1 draft was
-never published and is not accepted by the 2026.3 parser. Convert any
+never published and is not accepted by this parser. Convert any
 pre-release draft configuration to direct `source` + `applies_to` before
 validation.
 
-A published 2026.2 bundle declares its Profile inside the bundle, and this
-engine does not read that declaration. Such a bundle reports
+A published Bitwild 2026.2 bundle declares its Profile inside the bundle, and
+this engine does not read that declaration. Such a bundle reports
 `wayfinder/config-missing` and gate `INCOMPLETE` until it migrates. To keep
-validating it unchanged, pin wayfinder 0.1.x.
-
-Migrating a 2026.2 bundle is explicit work: add a direct-source entry and
-lock, move project vocabulary and actor lookup to the project configuration,
-then remove the old root registries and regenerate the index. Preserve
-time-dependent affiliation history as an ordinary project concept before
-removing `actors.md`. Validate and perform contextual Profile Review. Do
-not change a release selector merely to make a validation finding disappear.
-Subject-placement rules remain Profile rules; no placement map belongs in JSON.
+validating it unchanged, pin wayfinder 0.1.x. The
+[Bitwild changelog](../profiles/bitwild/CHANGELOG.md#20263) describes the
+migration to a `wayfinder.json` binding.

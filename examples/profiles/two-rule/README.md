@@ -32,6 +32,10 @@ The package and skill above are their output.
   `https://github.com/btwld/wayfinder`, and `docs` is this README at
   `https://github.com/btwld/wayfinder/blob/main/examples/profiles/two-rule/README.md`.
   It ships a skill.
+- **Enforced or judgment.** A machine enforces two things, both as errors.
+  Every concept type is declared, and every `index.md` equals okf's
+  generated index. Whether a page is a Runbook, and how one is written, is
+  judgment for the skill.
 - **1 to 4. Capture, promotion, splitting, interaction records.** The
   Profile says nothing; OKF governs.
 - **5. Types.** One type, `Runbook`: "Steps to operate a running system".

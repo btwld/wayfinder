@@ -12,7 +12,7 @@ Profile's conventions reach agents through that Profile's own skill.
 | [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Bind a new bundle to a Profile, install its skill, seed the root files the Profile gives, and add agent routing. Generic parts live in [SEEDING.md](adopt-knowledge-bundle/SEEDING.md). |
 | [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared assessment reference and each Profile's review map. |
 | [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
-| [create-profile](create-profile/SKILL.md) | user-invoked | Create or revise a Profile package: interview its author, write its rules with tests and its skill, prove both, and release it. |
+| [create-profile](create-profile/SKILL.md) | user-invoked | Create, revise, or maintain a Profile package: ask its author what a machine enforces and what is judgment, write its rules with tests and its skill, prove both, and release it. |
 
 ## Profile skills
 

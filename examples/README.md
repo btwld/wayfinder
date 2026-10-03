@@ -2,7 +2,7 @@
 
 [`bitwild/`](bitwild/) is a complete project you can read end to end in a few minutes.
 It holds a `wayfinder.json` binding at the project root and a conformant bundle
-under `knowledge/`. It is the worked example from the profile's Appendix A, kept as real files.
+under `knowledge/` that uses the Bitwild Profile.
 Run the shipped gate from the repository root:
 
 ```bash
@@ -20,9 +20,8 @@ only that lock and its cache, never the network, so without `get` it reports
 unresolved `pagination-contract.md` relationship target, and the
 `wayfinder/project-type` diagnostic names the declared `Meeting Transcript` type.
 
-Success proves OKF conformance and the deterministic Profile rules only.
-Complete Profile conformance also requires the contextual Profile Review
-defined by the canonical skill.
+A `PASS` is conformance to the Profile. The Profile Review that Bitwild's
+skill asks for is guidance and is not part of conformance.
 
 The source checkout commits no lock, because the binding follows a branch. CI's
 [`verify-configured-example.py`](../tool/ci/verify-configured-example.py) copies
@@ -48,10 +47,10 @@ resolves both from a synthetic local Git source, checks the lock and the
 reported chain, and validates after the source is gone, because validation
 reads only the lock and the cache.
 
-**This is not this repository's adopted bundle.** Profile conformance does not
-fix repository location or bundle count; Concepta adoption places its working
-bundle at `knowledge/`. This illustrative project lives under `examples/` so it
-cannot be mistaken for the standard's own durable knowledge.
+**This is not this repository's adopted bundle.** Conformance does not fix
+where a bundle lives or how many a repository holds. This illustrative project
+lives under `examples/` so nobody mistakes it for this repository's own
+knowledge.
 
 ## The story it tells
 
@@ -102,8 +101,8 @@ What to look for:
 - **Assets stay assets.** The layout sample is referenced through `sources` and has no
   concept frontmatter. The generated `references/` index lists only the transcript, so
   the asset never needs an invented title or description ([index-current](../profiles/bitwild/README.md#index-current), [what a mirror is](../profiles/bitwild/skill/references/mirroring.md#what-a-mirror-is)).
-- **A declared type catches invention.** `Meeting Transcript` is not in the standard
-  vocabulary, so the project declares it in `wayfinder.json` `types`, and validation
+- **A declared type catches invention.** `Meeting Transcript` is not one of
+  Bitwild's types, so the project declares it in `wayfinder.json` `types`, and validation
   names it in the `wayfinder/project-type` note. An undeclared type fails, which stops a
   typo'd type from passing as a new kind of thing ([used-type-registered](../profiles/bitwild/README.md#used-type-registered)).
 - **Affiliation is never trust.** `wayfinder.json` holds one record per actor id, so

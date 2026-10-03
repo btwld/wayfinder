@@ -29,7 +29,7 @@ coverage matrix mapped each clause to automated validation or review. A
 bundle could pass `wayfinder validate` and still fail its Profile, and no tool
 could say which.
 
-## Decision
+## Proposal
 
 **A Profile is a package, and the package is the Profile.** A Profile is one
 directory at one Git revision holding `wayfinder-profile.json` in package
@@ -61,7 +61,7 @@ id is `bitwild-profile`, and its findings are `bitwild-profile/*`.
 the same revision or at its own Git ref, so a Profile means the same thing in
 every project. A chain need not reach any particular Profile. Composition only
 adds, and format 2 has no field that changes an inherited rule. The lock is
-flat and holds one revision per Profile id per project.
+flat and holds one source per Profile id per project, resolved to one commit.
 
 **The engine reports its own health as diagnostics.** A closed set of
 `wayfinder/*` diagnostics replaces release dispatch states, the link-graph
@@ -73,7 +73,8 @@ ASSESSED` when no Profile could be selected. `UNSUPPORTED` and the judgment
 component are gone.
 
 **Builtins are engine capabilities.** A builtin is a check the engine
-implements, named for what it checks and configured by `params`. A check
+implements, named for what it checks and configured by `params`. It never
+holds policy, never names a Profile, and never reports engine health. A check
 becomes one only when a schema over one subject's facts cannot express it.
 Three remain: `files-present`, `path-targets-exist`, and `matches-generated`.
 The generator text `matches-generated` compares with is engine contract, and
@@ -128,6 +129,16 @@ evaluated rule pass. A link graph failure no longer lets link rules pass.
 needs an ADR and a guide change record, and a `format` bump when an existing
 package would read differently. A change to a Profile follows that Profile's
 own release process in its changelog.
+
+## Decision gate
+
+Accept this ADR when the change that implements it merges. That change must
+show one parser reading every format 2 package, Bitwild fetched from
+`profiles/bitwild/` like any other Profile, and a Profile with no Bitwild in
+its chain, `examples/profiles/two-rule`, passing CI by the same path
+([`verify-independent-profile.py`](../../tool/ci/verify-independent-profile.py)).
+It must also carry the guide's §9 entry. Until then this ADR is not part of
+the engine contract.
 
 ## Reconsider when
 

@@ -16,10 +16,12 @@
   instead of reading the configuration itself; `WayfinderProjectConfig.bind`
   finds a bundle's binding or throws `BundleBindingException` with its one
   diagnostic. `ProfileSourceResolution`, `WayfinderProjectConfig.read`,
-  `resolve` and `WayfinderResolvedConfig` are gone. The JSON result names
-  the assessed Profile as `profile.id` and its chain as `profile.chain`
-  (`{id, release, commit}`, root first), text prints `Profile <id>
-  <release>: <state>`, and SARIF gains the `profile_id` run property.
+  `resolve` and `WayfinderResolvedConfig` are gone. Whenever a Profile was
+  selected, including under `BLOCKED BY OKF`, the JSON result names it as
+  `profile.id` and `profile.release` and its chain as `profile.chain`
+  (`{id, release, commit}`, root first). Only `NOT ASSESSED` omits them.
+  Text prints `Profile <id> <release>: <state>`, and SARIF gains the
+  `profile_id` run property.
 - A Profile is one package file, `wayfinder-profile.json` in package
   format 2, read by `ProfilePackage.parse` for every Profile alike. The
   manifest and rule catalog are merged (`standard_types` is `types`,
@@ -60,10 +62,9 @@
   2026.2-only `reserved` param of `root-structure-files` are deleted, as are
   `LegacyRegistries`, `EffectiveProfile.legacyDispatch`,
   `Vocabulary.standardTypes`, `legacyProfileRelease`, and
-  `legacyStandardTypes`. Only `profile/wayfinder-profile.json` and
-  `profile/wayfinder-rules.json` are embedded, and the `yaml` dependency is
-  dropped. A 2026.2 bundle keeps validating on wayfinder 0.1.x, or migrates
-  to a `wayfinder.json` binding.
+  `legacyStandardTypes`, and the `yaml` dependency is dropped. A 2026.2
+  bundle keeps validating on wayfinder 0.1.x, or migrates to a
+  `wayfinder.json` binding.
 - The engine reports on its own run as `EngineDiagnostic`s, a closed set of
   `wayfinder/*` codes with a level, instead of dressing them as Profile
   findings. Release dispatch problems (`DispatchRule` is gone), the
@@ -89,31 +90,26 @@
   files already written. SARIF locations inside the working directory
   are relative to a recorded `WORKINGDIR` base, and summary results carry
   level `none`.
-- The 2026.2 dispatch parses `types.md` and `actors.md` once and shares
-  them with the engine through `EffectiveProfile.legacyDispatch`, which
-  replaces `declaration`. `ProfileFinding` takes a `FindingDescriptor`,
+- `ProfileFinding` takes a `FindingDescriptor`,
   which only an error or advisory descriptor can become, so a note rule has
   no path to a finding.
-- `RuleCatalog.parse` rejects more at load: a rule whose own examples
+- `ProfilePackage.parse` rejects more at load: a rule whose own examples
   disagree with its schema; `each` over a fact that is not a list;
   `failing_field` that is not an element field; a `properties` or
   `required` name at the subject level that no fact or element field of a
-  closed subject carries; params for a builtin that declares none; a message
-  placeholder the builtin does not fill; and a builtin frozen for 2026.2
-  (the registry readers, `declared-okf-binding`, `relationships-shape`,
-  `relationship-label-extension`, `index-semantic-projection`,
-  `source-attribution-in-source`) in any catalog but the installed 2026.2
-  one. `CatalogRule.failingExamples` is gone; load runs the examples.
-- Profile 2026.3 `relationship-shape` fails a `relationships` value that is
+  closed subject carries; params for a builtin that declares none; and a
+  message placeholder the builtin does not fill. `failingExamples` is gone;
+  load runs the examples.
+- Bitwild 2026.3 `relationship-shape` fails a `relationships` value that is
   null, and an entry whose `resource` okf resolves as `invalid` or as a
-  scope `descriptor`, as §7.2 requires of a link target. The rule moves to
+  scope `descriptor`. The rule moves to
   the `concept` subject: each `relationships` element carries the authored
   `entry` with the `resolution` beside it, and a non-list value stays the
   value itself. `okfFieldEdges` resolves targets as source resources, so
   prose resolves as `descriptor` rather than `unresolved`. The engine tests
   a non-list `each` fact as one `{"value": ...}` instance instead of failing
   it outright, so the rule's schema decides.
-- Profile 2026.3 reports an undeclared relationship name as the new
+- Bitwild 2026.3 reports an undeclared relationship name as the new
   `used-relationship-declared` (vocabulary, error), like
   `used-type-registered` and `used-actor-registered`, instead of
   `relationship-shape`, which now checks that `relationship` is a nonempty
@@ -133,58 +129,49 @@
   shared with the engine, plus `relationshipsLinkField` for the Profile's
   `relationships` key. The engine's relationship facts resolve through the
   same function.
-- The 2026.2 catalog checks `source-attribution-join` through the frozen
-  `source-attribution-in-source` builtin, which reads a footnote definition
-  from the raw source, fenced code included, as before the `footnotes` fact
-  stopped counting definitions inside a fence. 2026.2 output is unchanged
-  from 0.1.x.
-- Profile 2026.3 reports what it permits as summary entries instead of
-  advisories. Catalog rules take a third severity, `note`, whose results
+- Bitwild 2026.3 reports what it permits as summary entries instead of
+  advisories. Rules take a third severity, `note`, whose results
   fill `ProfileValidationResult.summary` (`ProfileSummaryEntry`), JSON
   `profile.summary`, a text `Summary:` block and SARIF results of kind
   `informational` with level `none`, and never affect a state or the exit code.
   `internal-link-unresolved` and `relationship-unresolved` become notes. `evaluate` returns findings and
   summary entries apart. A declared tag that equals a type, status, trust
   tier or relationship name fails `WayfinderProjectConfig.parse` and binding
-  composition, and the 2026.3 catalog drops `tag-literal-duplication`.
-  2026.2 is unchanged.
-- Profile 2026.3 types relationships in the `relationships` frontmatter key
-  instead of a `# Relationships` body section. The 2026.3 catalog declares
+  composition, and Bitwild 2026.3 drops `tag-literal-duplication`.
+- Bitwild 2026.3 types relationships in the `relationships` frontmatter key
+  instead of a `# Relationships` body section. Bitwild 2026.3 declares
   the key in its new `frontmatter_keys`, renames `frontmatter-fields-okf` to
   `frontmatter-fields-declared`, adds `relationship-shape` (error) and the
   `relationship-bundle-relative` and `relationship-unresolved` advisories, and
   drops `relationships-shape` and `relationship-label-extension`.
   `tag-literal-duplication` compares tags with the declared relationship
-  names. Relationship names are vocabulary: the manifest declares eleven
-  standard names and `WayfinderProfileBinding.relationships` adds project
-  names. A catalog declaring an OKF key fails to load. 2026.2 is unchanged.
-- Profile 2026.3 indexes are okf's generated output: `index-current` replaces
-  `index-semantic-projection` and `directory-index-present` in the 2026.3
-  catalog and reports each generated index that is missing or differs.
+  names. Relationship names are vocabulary: Bitwild declares eleven and
+  `WayfinderProfileBinding.relationships` adds project names. A package
+  declaring an OKF key fails to load.
+- Bitwild 2026.3 indexes are okf's generated output: `index-current` replaces
+  `index-semantic-projection` and `directory-index-present` in Bitwild 2026.3
+  and reports each generated index that is missing or differs.
   `ProfileValidator.validate(fix: true)` writes those indexes first and
   reports what it wrote as `ProfileValidationResult.fixed`. It also reports a
   leftover `index.md` the generator no longer writes, such as one in a
   `raw/` tier, so the parent index stops linking to it. Conformance now
   depends on okf's generator output; the configured-fixture goldens fail if an
   okf release changes it, which is the signal to update the guide's pin.
-  2026.2 is unchanged.
-- Add exact `bitwild_profile/2026.3` direct-source project bindings from
-  `wayfinder.json`, with additive `extends`, strict type, tag, actor, and
-  path checks. Version 1 accepts only `source` + `applies_to`; the earlier
-  unpublished `bundles` / `implements` draft is not a compatibility form.
-  Include OKF's Attested Computation in the twelve standard types.
-- Inspect OKF independently before Profile dispatch and enforce the 2026.3
-  root `okf_version`. Preserve published 2026.2 in-bundle validation without
-  migrating it because of an unrelated project configuration.
+- Add direct-source project bindings in `wayfinder.json`, with strict type,
+  tag, actor, and path checks. Version 1 accepts only `source` +
+  `applies_to`; the earlier unpublished `bundles` / `implements` draft is not
+  a compatibility form. Bitwild's twelve types include OKF's Attested
+  Computation.
+- Inspect OKF independently before Profile selection. Bitwild's
+  `okf-release-binding` checks the root `okf_version`.
 - Report a configured project type at the configuration path as supplied, or
   `wayfinder.json` when discovered, instead of the file's absolute path.
-- Stop reporting nested `profile.md`, `types.md`, or `actors.md` concepts as
-  `root-structure-files` under 2026.3, whose §3.5 forbids only the legacy root
-  registries. 2026.2 still reserves the names at every depth.
-- Profile 2026.3 `log-entry-lead-word` no longer fails a root log without
-  entries. §10 requires a lead word on every entry, not that entries exist.
-  okf's `missing-log-date` and `empty-log-date` errors still reject such a
-  log before Profile validation runs. 2026.2 is unchanged.
+- Stop reporting nested `profile.md`, `types.md`, or `actors.md` concepts.
+  Bitwild forbids only the legacy root registries.
+- Bitwild 2026.3 `log-entry-lead-word` no longer fails a root log without
+  entries. The rule requires a lead word on every entry, not that entries
+  exist. okf's `missing-log-date` and `empty-log-date` errors still reject
+  such a log before Profile validation runs.
 
 # 0.1.0
 

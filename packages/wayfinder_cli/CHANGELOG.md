@@ -13,10 +13,11 @@
 - A project names only the Profile it applies; the package names its parent.
   `wayfinder get` follows each package's `extends`, reading a same-revision
   parent from the child's commit, composes every chain before it writes the
-  lock, and locks a flat `packages` map with one revision per Profile id. Two
-  chains that need different revisions of one id fail `get` with both refs
-  named. Run twice with nothing changed, `get` fetches nothing and leaves
-  the lock's bytes alone. A lock in the old `profiles` shape is rewritten.
+  lock, and locks a flat `packages` map with one source per Profile id, its
+  `git`, `ref`, and `path`, resolved to one commit. Two chains that describe
+  one id with different sources fail `get` naming both sources, even when
+  they resolve to the same commit. Run twice with nothing changed, `get`
+  fetches nothing and leaves the lock's bytes alone. A lock in the old `profiles` shape is rewritten.
   `get --output json` reports `packages` instead of `profiles` and drops
   `direct`. Validation selects through the resolver's `select`, which never
   fetches and reports each failure as one diagnostic, including a lock whose

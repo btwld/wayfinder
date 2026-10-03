@@ -93,8 +93,10 @@ grep-only answers.
 
 Run validation before saying a bundle conforms, and after editing one.
 `validate` reads only a current lock/cache: it never fetches or writes.
-`--fix` is the one exception to read-only validation: it first writes okf's
-generated indexes, then validates; it never writes a bundle without a selected
+`--fix` is the one exception to read-only validation. When a rule in the
+selected chain uses `matches-generated`, it first writes okf's generated
+indexes, then validates. Otherwise it writes nothing and reports
+`wayfinder/fix-not-applied`, as it does for a bundle with no selected
 Profile or one OKF rejects. A bundle with no `wayfinder.json` above it
 reports `wayfinder/config-missing`. A missing or stale lock still leaves an
 independent OKF result; run `wayfinder get` to resolve the declared source, or

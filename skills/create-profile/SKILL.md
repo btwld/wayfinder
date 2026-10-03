@@ -1,14 +1,15 @@
 ---
 name: create-profile
-description: Create or revise a wayfinder Profile package for OKF knowledge bundles. Grounds in the author's corpus, interviews the author through a fixed question set, writes the package's rules with tests and its agent skill, proves both against a synthetic Git source, and releases it. Use for /create-profile, "make a Profile for our bundles", "turn our conventions into a Profile", or changing an existing Profile's rules or judgment.
+description: Create, revise, or maintain a wayfinder Profile package for OKF knowledge bundles. Grounds in the author's corpus, asks first what a machine must enforce and what is judgment, writes the package's rules with tests and its agent skill, proves both against a synthetic Git source, releases it, and keeps it current. Use for /create-profile, "make a Profile for our bundles", "turn our conventions into a Profile", or changing an existing Profile's rules or judgment.
 disable-model-invocation: true
 ---
 
 # Create a Profile
 
-A Profile is a package that a project binds its OKF bundle to. Wayfinder
-owns the questions a Profile must answer. The Profile's author owns every
-answer. This skill turns the answers into two artifacts:
+A Profile is a package that a project binds its OKF bundle to. It adds
+guardrails to OKF and stays fully OKF-compliant. The Profile's author owns
+every answer. This skill asks the questions and turns the answers into two
+artifacts:
 
 - `wayfinder-profile.json`, the rules and vocabulary `wayfinder validate`
   enforces;
@@ -27,18 +28,22 @@ instructions. For a revision, also read the package, its `CHANGELOG.md`, its
 skill, and recent `wayfinder validate --output json` results and Profile
 Review reports from projects that use it.
 
-For each question in [references/questions.md](references/questions.md),
-draft an answer with the evidence that suggests it, as `path:line`. The
-corpus shows what authors did, not what they intended. A pattern in the
-corpus is a candidate answer, never a ratified one.
+Draft an answer to the enforcement question in
+[references/questions.md](references/questions.md), and to each checklist
+question the corpus speaks to, with the evidence that suggests it, as
+`path:line`. The corpus shows what authors did, not what they intended. A
+pattern in the corpus is a candidate answer, never a ratified one.
 
 ## 2. Interview the author
 
-Walk the questions in order. For each one, show your draft answer and its
-evidence, and ask the author to ratify, correct, or reject it. Never write an
-answer the author has not ratified. "The Profile says nothing here" is a
-valid answer; OKF then governs. For a revision, ask only the questions the
-change touches, and confirm the rest still hold.
+Ask first what a machine must enforce and what is judgment. That answer can
+be the whole Profile. Then offer the checklist questions, in any order, and
+ask only the ones the author wants to answer. For each question, show your
+draft answer and its evidence, and ask the author to ratify, correct, or
+reject it. Never write an answer the author has not ratified. "The Profile
+says nothing here" is a valid answer to every checklist question. OKF then
+governs. For a revision, ask only the questions the change touches, and
+confirm the rest still hold.
 
 Classify each ratified answer:
 
@@ -65,9 +70,9 @@ lists every field, the subject facts, and the package layout.
   with its check never loads.
 - Give every rule id a heading in `README.md`, because each finding links
   to `docs#<rule-id>`.
-- Write `skill/SKILL.md` with `name` equal to the Profile id. Agent Skills
-  requires the name to match the installed directory, and `get` installs the
-  skill as `.claude/skills/<id>/`.
+- When the Profile has judgment answers, write `skill/SKILL.md` with `name`
+  equal to the Profile id. Agent Skills requires the name to match the
+  installed directory, and `get` installs the skill as `.claude/skills/<id>/`.
 - Give the skill a review map: one check per judgment answer, each with an
   id, a force (required, recommended, or permitted), and a link to the
   guidance it judges. The generic assessment flow reads it. One table row
@@ -123,3 +128,15 @@ the previous release. Then tag the commit. Projects move with
 A revision that changes a rule's meaning or removes a rule id is a breaking
 change for projects that pass today. Say so in the changelog and in the
 release name if the author's scheme marks breaking changes.
+
+## 6. Maintain it
+
+Run this skill again as a revision when a rule or a vocabulary name changes,
+or when review reports keep raising a judgment the skill does not cover.
+
+1. Re-interview only the questions the change touches (step 2).
+2. Compare the skill with the package. Every vocabulary table, rule id, and
+   rule the skill mentions must match the package. A skill can teach a
+   withdrawn rule while every file it produces still validates.
+3. Prove it again (step 4).
+4. Release it with a new `release` value and a changelog entry (step 5).

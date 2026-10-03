@@ -5,28 +5,25 @@ description: Judgment for OKF 0.2 knowledge bundles under the bitwild-profile Pr
 
 # bitwild-profile
 
-`wayfinder validate` enforces this Profile's rules. This skill carries the
-judgment a validator cannot decide: whether knowledge earns a concept, where
-it lives, which type and relationship name fit, and whether provenance and
-lifecycle metadata are truthful.
+`wayfinder validate` enforces this Profile's rules and decides conformance.
+The [Bitwild README](https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md)
+explains each rule under its id, and every finding links there. This skill
+carries the judgment a validator cannot decide:
+whether knowledge earns a concept, where it lives, which type and
+relationship name fit, and whether provenance and lifecycle metadata are
+truthful.
 
 The generic `author-knowledge-bundle` skill owns OKF mechanics: frontmatter
-syntax, the atomic write, generated indexes, and the log format. Read it
-first. This skill adds what the Profile decides on top.
+syntax, the atomic write, and the log format. Read it first. This skill adds
+what the Profile decides on top.
 
-## What this Profile narrows
+## After a write
 
-The Profile is a thin layer on OKF 0.2. It defines no file type and never
-changes the meaning of an OKF field. Compared with bare OKF:
-
-- A concept carries only OKF-defined frontmatter keys plus `relationships`.
-  A project cannot add keys.
-- `status` is knowledge lifecycle only: `draft`, `stable`, or `deprecated`.
-- `tags` carry topic only.
-- Directories name subjects, never kinds of document. Five directory names
-  are fixed; every other name is the project's own.
-- Every `index.md` is okf's generated output.
-- Every root log entry starts with a bold lead word and a colon.
+This Profile requires the indexes okf generates. Run
+`wayfinder validate <bundle> --fix` to write the affected indexes, then
+`wayfinder validate <bundle>`. Never edit a generated index by hand. The
+[adoption reference](references/adoption.md) covers the root index of a
+bundle with no concepts.
 
 ## Where this skill is silent
 

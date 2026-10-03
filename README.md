@@ -6,7 +6,7 @@ of a Profile you choose. A Profile is a package of rules and vocabulary, written
 as data, that adds your team's conventions to OKF while every bundle stays
 readable by any OKF tool. Bitwild is the first Profile, and you can write your
 own with or without it. Results come out as text, JSON, or SARIF, and `--fix`
-writes okf's generated indexes.
+writes okf's generated indexes when a Profile requires them.
 
 The same bundle feeds local semantic search, a link graph, and an MCP server for
 coding agents.
@@ -50,7 +50,8 @@ model and native libraries, so retrieval needs no external embedding service.
 
 `wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
 coding agents. The Claude Code plugin configures this server and supplies the
-author, adopt and assess skills. `wayfinder validate` provides Profile
+`author-knowledge-bundle`, `adopt-knowledge-bundle`, `assess-knowledge-bundle`,
+`use-wayfinder`, and `create-profile` skills. `wayfinder validate` provides Profile
 validation; `wayfinder graph` projects the ordinary OKF relationship graph,
 plus typed `relationships` edges beside it (JSON, or Mermaid/DOT text for an
 external preview). `wayfinder_embeddings` is
@@ -171,12 +172,11 @@ It then runs validation and the Profile skill's review, reporting any unavailabl
 check before claiming completion. Issue-tracker and triage-label setup are out of
 its scope.
 
-**It creates no directories under `knowledge/`, and that is correct.** Under Bitwild a
-directory names a *subject*, and setup has no corpus from which to judge one (see
-Bitwild's [structure guidance](profiles/bitwild/skill/references/structure.md)). A repository whose `knowledge/` is only its root files is fully set up, not
-half-finished — the tree grows out of what the project actually learns rather than
-a guess made on day one. A genuine subject area may be small; no numeric threshold
-decides it.
+**It seeds only what the Profile's adoption guidance names.** Without that
+guidance, it seeds only the OKF root files. A repository whose `knowledge/` is
+only its root files is fully set up. Structure grows later, as each Profile's
+skill describes. Bitwild's [adoption guidance](profiles/bitwild/skill/references/adoption.md),
+for example, says to create no subject directories.
 
 ### 3. Work the flow
 
@@ -192,8 +192,8 @@ Once a repository is set up, the skill family covers the bundle's whole lifecycl
 
 You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
 authoring mechanics and each Profile's skill are loaded before a bundle write or a review.
-Bitwild's subject-named tree is not self-inferrable, so an agent that skips its skill will
-confidently create `decisions/`.
+An agent that skips a Profile's skill applies none of its judgment, such as where a concept
+belongs.
 
 ### 4. Validate the bundle
 
@@ -201,7 +201,7 @@ confidently create `decisions/`.
 wayfinder validate knowledge
 # Machine-readable output:
 wayfinder validate knowledge --output json
-# Write okf's generated indexes first, then validate:
+# Write the generated indexes a Profile requires, then validate:
 wayfinder validate knowledge --fix
 # SARIF 2.1.0 for code scanning:
 wayfinder validate knowledge --output sarif > wayfinder.sarif
@@ -241,6 +241,12 @@ wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 `get` resolves the project's Profile source into `wayfinder.lock`, because
 `validate` never fetches. Without it, validation reports
 `wayfinder/profile-unresolved` and gate `INCOMPLETE`.
+
+To try a Profile that does not build on Bitwild, run
+`wayfinder get examples/acme-notes`, then
+`wayfinder validate examples/acme-notes/knowledge`. Its
+[`acme-notes`](examples/profiles/two-rule/README.md) Profile has two rules
+and no parent.
 
 `index` generates and saves document embeddings locally; `search` reuses them
 and encodes only the query. There is no retrieval-mode flag. See the

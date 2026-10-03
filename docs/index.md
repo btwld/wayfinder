@@ -12,9 +12,11 @@
 
 [Bitwild Profile](../profiles/bitwild/README.md) — The first Profile package: its purpose, one section per rule, and its [changelog](../profiles/bitwild/CHANGELOG.md).
 
+[`acme-notes`](../examples/profiles/two-rule/README.md) is a Profile with two rules and no parent, and [`examples/acme-notes/`](../examples/acme-notes/) is a project that uses it. Neither depends on Bitwild.
+
 ## Configuration guides
 
-[Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, manifest schemas, explicit lock resolution, and read-only validation order.
+[Wayfinder project configuration](wayfinder-configuration.md) — Direct-source project bindings, package schemas, explicit lock resolution, and read-only validation order.
 
 ## Engineering evidence
 

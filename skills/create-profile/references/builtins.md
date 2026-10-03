@@ -3,6 +3,8 @@
 A builtin is a check the engine implements and versions with its release.
 A rule calls it by name with `params`. The rule's id, severity, message, and
 docs belong to the Profile. The capability belongs to the engine. A builtin
+never holds policy, which is the params, never names a Profile, and never
+reports engine health, which is a diagnostic. A builtin
 rule takes no `tests`, because exercising it needs a bundle; prove it with an
 adversarial fixture instead.
 
@@ -82,8 +84,9 @@ reports that as a diagnostic.
 ## `matches-generated`
 
 Compares each file a generator writes with the bundle. A file that differs
-reports the `stale` message. With `extra: "report"`, a file the generator
-would not write reports the `extra` message, unless `keep` lists it. Both
+reports the `stale` message. With `extra: "report"`, an `index.md` the
+generator would not write reports the `extra` message, unless `keep` lists
+it. Both
 fill `{path}`. Line endings on disk are read as LF. `wayfinder validate
 --fix` writes the generator's output. The `okf-index` generator declares the
 package's `implements.release` in the indexes it writes.

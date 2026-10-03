@@ -1,7 +1,7 @@
 # Install Wayfinder
 
 Wayfinder finds and validates knowledge in an existing OKF bundle. Its complete
-native installation includes `wayfinder` with built-in Profile validation,
+native installation includes `wayfinder` with OKF and Profile validation,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
