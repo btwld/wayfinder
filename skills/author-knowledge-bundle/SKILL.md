@@ -77,6 +77,7 @@ several rows.
 | Creating or regenerating an `index.md` | [references/okf-authoring.md](./references/okf-authoring.md#files), then each Profile skill's routing |
 | Profile Review, after any write or when asked | [references/profile-assessment.md](./references/profile-assessment.md) |
 | Seeding a new bundle | the [`adopt-knowledge-bundle` skill](../adopt-knowledge-bundle/SKILL.md) |
+| Preparing a reusable bundle for installation | [references/bundle-distribution.md](./references/bundle-distribution.md) |
 | Anything no Profile skill covers | [references/OKF-0.2.md](./references/OKF-0.2.md) |
 
 ## The atomic bundle write

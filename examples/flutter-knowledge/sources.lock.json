@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "manifest_sha256": "c53490207932be077217e03aa08ecedb0350b4442061485c4ca3136d07548ff4",
+  "resolved_at": "2026-09-30T01:38:01.298064Z",
+  "sources": [
+    {
+      "id": "dart-skills",
+      "repository": "https://github.com/dart-lang/skills.git",
+      "ref": "main",
+      "commit": "0d9f1c4a0ae29d6f5180bf6143d7997ec3bacf49",
+      "adapter": "skills",
+      "files": [
+        {
+          "path": "resources/dart_skills.yaml",
+          "sha256": "eb88e5364cf36732020764ceb6cbf16a990190f43e7d8b283bad56e7f5e99560",
+          "bytes": 35305
+        },
+        {
+          "path": "skills/dart-add-unit-test/SKILL.md",
+          "sha256": "02428fa20c2cb90afcaf17a52c559641b85eb04f2765a54da2bc72ca858c1fce",
+          "bytes": 4709
+        }
+      ],
+      "license_evidence": "https://github.com/dart-lang/skills/blob/0d9f1c4a0ae29d6f5180bf6143d7997ec3bacf49/LICENSE"
+    },
+    {
+      "id": "flutter-skills",
+      "repository": "https://github.com/flutter/agent-plugins.git",
+      "ref": "main",
+      "commit": "8da8c54ecd740fded70f908ad9c46b72a1f21fb5",
+      "adapter": "skills",
+      "files": [
+        {
+          "path": "resources/flutter_skills.yaml",
+          "sha256": "4be01aeec884fdacbd745fd8460b7eddd1454e9c89c0905eaf3649ddd323d27e",
+          "bytes": 38741
+        },
+        {
+          "path": "skills/flutter-add-widget-test/SKILL.md",
+          "sha256": "6c449ebd844e331e661b12630b6ad2a218e84d1bd8ea8377ba9dbd62ffe2798a",
+          "bytes": 6381
+        },
+        {
+          "path": "skills/flutter-apply-architecture-best-practices/SKILL.md",
+          "sha256": "00497869976a903c83f509a59d4b6a501d409fa711eb8e1f89945921e1983b65",
+          "bytes": 6351
+        },
+        {
+          "path": "skills/flutter-build-responsive-layout/SKILL.md",
+          "sha256": "c7a5d18071c625137cad2def9b13f3579d9bdf0aae29621a1825f12b560394c0",
+          "bytes": 6805
+        },
+        {
+          "path": "skills/flutter-fix-layout-issues/SKILL.md",
+          "sha256": "e82c82b4245ef502bd93bc543d4f5968f4ee8043fa7556ffebcb34f30651fc9b",
+          "bytes": 5326
+        }
+      ],
+      "license_evidence": "https://github.com/flutter/agent-plugins/blob/8da8c54ecd740fded70f908ad9c46b72a1f21fb5/LICENSE"
+    },
+    {
+      "id": "flutter-docs",
+      "repository": "https://github.com/flutter/website.git",
+      "ref": "main",
+      "commit": "ab59c614e780e2d6d44f07ae4a96238028f581a5",
+      "adapter": "documentation",
+      "files": [
+        {
+          "path": "sites/docs/src/content/resources/architectural-overview.md",
+          "sha256": "7a083af2585f1b3584c1ec09b407ab10dc87990e23b556a4cba6cf832396d4bb",
+          "bytes": 50345
+        },
+        {
+          "path": "sites/docs/src/content/resources/inside-flutter.md",
+          "sha256": "653563868d373d668dee804f008bd20fee17c6e5f98cea54d7d220ff8af91592",
+          "bytes": 35563
+        },
+        {
+          "path": "sites/docs/src/content/app-architecture/concepts.md",
+          "sha256": "a15d575f9839a102f0473b265caa508db76a943e74a1db7d34230e9e8931a433",
+          "bytes": 8305
+        },
+        {
+          "path": "sites/docs/src/data/glossary.yml",
+          "sha256": "f12930257ed3cb6ec4ed24793999c76234cfeed965a51438ef34a735df59bb1e",
+          "bytes": 20565
+        },
+        {
+          "path": "sites/docs/src/content/release/release-notes/release-notes-3.35.0.md",
+          "sha256": "70400bde43e2aec6fda991f2bf2b6d7e7b9af219a2357521dedcbfa8b34b3c0c",
+          "bytes": 143750
+        },
+        {
+          "path": "sites/docs/src/content/release/breaking-changes/default-systemuimode-edge-to-edge.md",
+          "sha256": "3738175c75a5b42b642ab02efea571a20fc23e102f92df50ff2b702591650987",
+          "bytes": 6323
+        }
+      ],
+      "license_evidence": "https://github.com/flutter/website/blob/ab59c614e780e2d6d44f07ae4a96238028f581a5/LICENSE"
+    }
+  ]
+}

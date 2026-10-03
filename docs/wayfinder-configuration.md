@@ -71,8 +71,11 @@ or project vocabulary. A Profile's parents never need an entry of their own:
 the package names them.
 
 The configuration does not contain a `bundles` array or a `default_bundle`.
-Commands receive a bundle path explicitly, and Profile application is declared
-by `applies_to`.
+Profile application is declared by `applies_to`. `wayfinder search "<query>"`
+and `wayfinder index` discover those paths from the nearest project file.
+`--bundle <folder-name>` optionally selects one bundle; names come from the
+configured folder paths. An explicit bundle path remains available. Validation
+and graph commands still require one explicit bundle.
 
 ## Project vocabulary
 

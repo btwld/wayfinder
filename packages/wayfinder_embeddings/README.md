@@ -35,7 +35,7 @@ atomically synchronizes changed/deleted concepts. Footnote definitions are not
 retrievable passages there: OKF resolves per-claim attribution through `sources`
 (OKF 0.2 §5.1). A concept whose body is only headings and footnotes keeps them,
 so nothing becomes unsearchable. Metadata-only changes reuse
-vectors when they do not change embedding inputs; contextual titles/headings
+vectors when they do not change embedding inputs; contextual titles, short descriptions, and heading paths
 are embedding inputs. A stable caller-supplied bundle ID isolates ownership in a shared store.
 
 Run `dart run example/knowledge_example.dart` for contextual BM25 with no model,
@@ -60,6 +60,26 @@ encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
 [Wayfinder](../wayfinder/README.md) owns atomic snapshot/database publication and
 freshness checks for its local CLI.
+
+### Markdown retrieval context
+
+Contextual inputs use labeled document title, optional description, full heading
+path, structural context, and the original passage, in that order. Descriptions
+must be nonempty strings of at most 240 Unicode scalars; longer descriptions stay
+in metadata and are omitted from the derived input. Tags, type, status, sources,
+and provenance remain metadata. No heading level or block type receives a fixed
+ranking boost.
+
+Tables retain their header and delimiter as context on every fitted fragment.
+Fenced code retains its language identifier. Fitting prefers newline boundaries
+for tables and code, then falls back to whitespace or lossless character splits
+when an individual row or line is too large. Body text and citation offsets are
+preserved; context never becomes source content. If context cannot fit the model
+budget, the existing diagnosed body-only recovery still applies.
+
+This input format uses `okf-context-v2`; body-only inputs retain `okf-body-v1`.
+The CLI detects previous contextual indexes as stale. Run `wayfinder index` once
+to rebuild; subsequent indexing reuses unchanged vectors.
 
 ### Oversized embedding inputs
 

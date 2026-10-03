@@ -20,6 +20,26 @@ typedef _SavedIndex = ({
   KnowledgeSnapshot snapshot,
 });
 
+/// Scoped to one project query; native model ownership stays with the command.
+class _SharedQueryEmbedder extends BaseEmbedder {
+  _SharedQueryEmbedder(this.delegate);
+  final BaseEmbedder delegate;
+  Future<List<double>>? _vector;
+
+  @override
+  String get sourceName => delegate.sourceName;
+  @override
+  String get modelName => delegate.modelName;
+  @override
+  int get dimension => delegate.dimension;
+  @override
+  Future<List<double>> generateEmbedding(String text) =>
+      delegate.generateEmbedding(text);
+  @override
+  Future<List<double>> generateQueryVector(String text) =>
+      _vector ??= delegate.generateQueryVector(text);
+}
+
 class WayfinderException implements Exception {
   const WayfinderException(this.message);
   final String message;
@@ -77,7 +97,7 @@ class WayfinderKnowledge {
     // Model identity, not provenance: re-mirroring the same verified weights
     // must not force every machine to reindex.
     'model': localEmbeddingModel.identityMap,
-    'context': 'okf-context-v1',
+    'context': 'okf-context-v2',
     'chunkCharacters': 1000,
     'longInput': 'reject',
     'snapshot': 1,
@@ -284,7 +304,7 @@ class WayfinderKnowledge {
     }
     final encoder = await _openEncoder();
     try {
-      final space = '${encoder.embedder.modelName}:okf-context-v1';
+      final space = '${encoder.embedder.modelName}:okf-context-v2';
       final compatible =
           previous?.configuration == _configuration &&
           previous?.model == space &&
@@ -401,6 +421,75 @@ class WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
+  }) async {
+    WayfinderEncoder? encoder;
+    try {
+      return await _searchBundle(
+        bundle,
+        query,
+        limit: limit,
+        filters: filters,
+        encoder: () async {
+          return encoder ??= await _openEncoder();
+        },
+      );
+    } finally {
+      await encoder?.embedder.dispose();
+    }
+  }
+
+  /// One model and one query vector for all selected bundles. Each bundle keeps
+  /// its existing saved index, freshness checks and operation lock.
+  Future<List<KnowledgeSearchResponse>> searchBundles(
+    List<String> bundles,
+    String query, {
+    int limit = 5,
+    KnowledgeMetadataFilter? filters,
+  }) async {
+    WayfinderEncoder? encoder;
+    BaseEmbedder? queryEmbedder;
+    try {
+      final results = <KnowledgeSearchResponse>[];
+      for (final bundle in bundles) {
+        try {
+          results.add(
+            await _searchBundle(
+              bundle,
+              query,
+              limit: limit,
+              filters: filters,
+              allContext: true,
+              encoder: () async {
+                encoder ??= await _openEncoder();
+                queryEmbedder ??= _SharedQueryEmbedder(encoder!.embedder);
+                return WayfinderEncoder(
+                  queryEmbedder!,
+                  encoder!.countTokens,
+                  encoder!.maxTokens,
+                );
+              },
+            ),
+          );
+        } on WayfinderException catch (error) {
+          throw WayfinderException(
+            '$bundle: ${error.message} Run wayfinder index to refresh project bundles.',
+          );
+        }
+      }
+      return results;
+    } finally {
+      await encoder?.embedder.dispose();
+    }
+  }
+
+  Future<KnowledgeSearchResponse> _searchBundle(
+    String bundle,
+    String query, {
+    required int limit,
+    required Future<WayfinderEncoder> Function() encoder,
+    bool allContext = false,
+    KnowledgeMetadataFilter? filters,
   }) => _withBundle(bundle, (root, directory) async {
     final record = await _readCurrent(directory);
     if (record == null ||
@@ -416,41 +505,41 @@ class WayfinderKnowledge {
         'Index belongs to another bundle. Run wayfinder index <bundle>.',
       );
     }
-    final encoder = await _openEncoder();
+    final activeEncoder = await encoder();
+    final store = ObjectBoxStore.open(
+      p.join(directory.path, record.generation),
+    );
     try {
-      final store = ObjectBoxStore.open(
-        p.join(directory.path, record.generation),
+      final index = KnowledgeIndex.fromSnapshot(
+        snapshot: snapshot,
+        store: store,
+        embedder: activeEncoder.embedder,
+        includeContext: true,
       );
-      try {
-        final index = KnowledgeIndex.fromSnapshot(
-          snapshot: snapshot,
-          store: store,
-          embedder: encoder.embedder,
-          includeContext: true,
+      if (record.model != index.embeddingModelName ||
+          record.source != activeEncoder.embedder.sourceName) {
+        throw const WayfinderException(
+          'Embedding configuration changed. Run wayfinder index <bundle>.',
         );
-        if (record.model != index.embeddingModelName ||
-            record.source != encoder.embedder.sourceName) {
-          throw const WayfinderException(
-            'Embedding configuration changed. Run wayfinder index <bundle>.',
-          );
-        }
-        final response = await index.search(
-          query,
-          mode: KnowledgeRetrievalMode.dense,
-          limit: limit,
-          policy: KnowledgeSearchPolicy(expandRelationships: true),
-        );
-        if (record.inventory != await _inventory(root)) {
-          throw const WayfinderException(
-            'Knowledge changed during search. Run wayfinder index <bundle>.',
-          );
-        }
-        return response;
-      } finally {
-        await store.close();
       }
+      final response = await index.search(
+        query,
+        mode: KnowledgeRetrievalMode.dense,
+        limit: limit,
+        contextLimit: allContext ? snapshot.conceptPaths.length : null,
+        policy: KnowledgeSearchPolicy(
+          expandRelationships: true,
+          metadataFilter: filters,
+        ),
+      );
+      if (record.inventory != await _inventory(root)) {
+        throw const WayfinderException(
+          'Knowledge changed during search. Run wayfinder index <bundle>.',
+        );
+      }
+      return response;
     } finally {
-      await encoder.embedder.dispose();
+      await store.close();
     }
   });
 
@@ -470,7 +559,7 @@ class WayfinderKnowledge {
     }
     final identity = _encoderIdentity;
     if (identity != null) {
-      if (saved.model != '${identity.model}:okf-context-v1' ||
+      if (saved.model != '${identity.model}:okf-context-v2' ||
           saved.source != identity.source) {
         return false;
       }

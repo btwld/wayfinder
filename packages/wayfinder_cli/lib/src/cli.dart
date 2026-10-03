@@ -7,12 +7,16 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart'
     show internalErrorJson, internalErrorSarif, toSarif;
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'agent_setup.dart';
 import 'graph.dart';
+import 'index_result.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
 import 'profile_resolver.dart';
+import 'project_bundles.dart';
+import 'project_search.dart';
 import 'search_input.dart';
 import 'search_output.dart';
 import 'update.dart';
@@ -28,6 +32,7 @@ class WayfinderCli {
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
     WayfinderProfileResolver Function()? profileResolver,
+    Directory? workingDirectory,
     bool? notices,
     Future<void> Function(List<String> arguments)? spawnDetached,
     Duration? backgroundLimit,
@@ -43,6 +48,7 @@ class WayfinderCli {
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
+       _workingDirectory = workingDirectory ?? Directory.current,
        _releases = releases ?? _noticeReleases,
        _notices = notices ?? _interactive();
 
@@ -53,6 +59,7 @@ class WayfinderCli {
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
   final WayfinderProfileResolver Function()? _profileResolverFactory;
+  final Directory _workingDirectory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
   final Duration _backgroundLimit;
@@ -138,7 +145,7 @@ class WayfinderCli {
     if (_notices &&
         command != null &&
         !command.startsWith('-') &&
-        !{'mcp', 'update'}.contains(command)) {
+        !{'mcp', 'update', 'session-context'}.contains(command)) {
       await _notifyNewerRelease();
     }
     return code;
@@ -190,6 +197,7 @@ class WayfinderCli {
       }
       if (name == 'index') {
         command
+          ..addOption('bundle', help: 'Index only this project bundle name.')
           ..addFlag(
             'force',
             negatable: false,
@@ -207,10 +215,49 @@ class WayfinderCli {
           ..addFlag('background', negatable: false, hide: true);
       }
       if (name == 'search') {
-        command.addOption(
-          'limit',
-          help: 'Maximum context passages (1–100; default 5).',
-        );
+        command
+          ..addOption('bundle', help: 'Search only this project bundle name.')
+          ..addMultiOption(
+            'tag',
+            splitCommas: true,
+            help: 'Match any exact tag (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'require-tag',
+            splitCommas: true,
+            help:
+                'Require every specified tag (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'type',
+            splitCommas: true,
+            help:
+                'Match any exact concept type (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'status',
+            splitCommas: true,
+            help:
+                'Match any exact status; absent status is stable (comma-separated or repeatable).',
+          )
+          ..addMultiOption(
+            'path-prefix',
+            splitCommas: true,
+            help:
+                'Match any concept path prefix (comma-separated or repeatable).',
+          )
+          ..addOption(
+            'title-contains',
+            help: 'Literal case-insensitive title substring.',
+          )
+          ..addOption(
+            'description-contains',
+            help: 'Literal case-insensitive description substring.',
+          )
+          ..addOption(
+            'limit',
+            help: 'Maximum context passages (1–100; default 5).',
+          );
       }
       parser.addCommand(name, command);
     }
@@ -273,6 +320,12 @@ class WayfinderCli {
       );
     }
     parser.addCommand('skills', skills);
+    // Hook adapters need the same JSON on every platform, without retrieval
+    // or an update check merely to supply model instructions.
+    parser.addCommand(
+      'session-context',
+      ArgParser()..addFlag('help', abbr: 'h', negatable: false),
+    );
     parser.addCommand(
       'setup',
       ArgParser()
@@ -286,6 +339,13 @@ class WayfinderCli {
           'force',
           negatable: false,
           help: 'Replace a different wayfinder server entry.',
+        )
+        ..addFlag(
+          'session-hooks',
+          negatable: false,
+          help:
+              'Prompt agents to load use-wayfinder at session start '
+              '(Claude, Codex, Gemini hooks; Grok via AGENTS.md).',
         )
         ..addFlag(
           'hooks',
@@ -319,8 +379,8 @@ class WayfinderCli {
           'Wayfinder — local knowledge tools\n\n'
           'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the selected Profile\n'
-          '  index <bundle>             Update saved local embeddings for changes\n'
-          '  search <bundle> <query>    Search the saved knowledge index\n'
+          '  index [<bundle>]          Update saved local embeddings for changes\n'
+          '  search [<bundle>] <query> Search project bundles or an explicit path\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
           '  get [<project>]            Resolve Profile sources and install their skills\n'
           '  upgrade [<project>]       Advance mutable Profile refs\n'
@@ -341,6 +401,24 @@ class WayfinderCli {
         );
       }
       final name = command.name!;
+      if (name == 'session-context') {
+        if (command.flag('help')) {
+          _out('Usage: wayfinder session-context\n\nAgent startup context.');
+          return 0;
+        }
+        if (command.rest.isNotEmpty) {
+          throw const WayfinderException(
+            'session-context accepts no arguments.',
+          );
+        }
+        _json({
+          'hookSpecificOutput': {
+            'hookEventName': 'SessionStart',
+            'additionalContext': wayfinderSessionContext,
+          },
+        });
+        return 0;
+      }
       if (name == 'get' || name == 'upgrade') {
         if (command.flag('help')) {
           _out(
@@ -437,20 +515,55 @@ class WayfinderCli {
           bundle: command.option('bundle')!,
           force: command.flag('force'),
           hooks: command.flag('hooks'),
+          sessionHooks: command.flag('session-hooks'),
         );
         return 0;
       }
       if (command.flag('help')) {
         _out(
-          'Usage: wayfinder $name <bundle>${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
+          'Usage: wayfinder $name ${name == 'search' || name == 'index' ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
         );
         return 0;
       }
-      if (command.rest.length != (name == 'search' ? 2 : 1) ||
-          command.rest.first.trim().isEmpty) {
-        throw WayfinderException(
-          '$name requires an explicit bundle${name == 'search' ? ' and one quoted query' : ''}.',
+      if (name == 'search') {
+        return await _search(command);
+      }
+      if (name == 'index' && command.rest.isEmpty) {
+        if (command.flag('background') || command.flag('detach')) {
+          throw const WayfinderException(
+            'Background indexing requires an explicit bundle path.',
+          );
+        }
+        final bundles = await discoverProjectBundles(
+          _workingDirectory,
+          name: command.option('bundle'),
         );
+        final results = <Map<String, Object?>>[];
+        final knowledge = _knowledge();
+        for (final bundle in bundles) {
+          final result = await knowledge.index(
+            bundle.root,
+            force: command.flag('force'),
+          );
+          results.add({
+            'name': bundle.name,
+            'path': bundle.path,
+            ...result.toJson(),
+          });
+          if (command.option('output') != 'json') {
+            _printIndex(result);
+          }
+        }
+        if (command.option('output') == 'json') _json({'bundles': results});
+        return 0;
+      }
+      if (name == 'index' && command.option('bundle') != null) {
+        throw const WayfinderException(
+          'Use either an explicit bundle path or --bundle, not both.',
+        );
+      }
+      if (command.rest.length != 1 || command.rest.first.trim().isEmpty) {
+        throw WayfinderException('$name requires an explicit bundle.');
       }
       final bundle = command.rest.first;
       if (name == 'mcp') {
@@ -546,73 +659,12 @@ class WayfinderCli {
         final result = await _knowledge().index(bundle, force: force);
         if (json) {
           _json(result.toJson());
-        } else if (result.current) {
-          _out('Index for ${_safe(bundle)} is current; nothing to update.');
         } else {
-          _out(
-            'Indexed ${_safe(bundle)}: ${result.embeddedChunks} embedded, '
-            '${result.removedChunks} removed, ${result.writtenChunks} passages updated.',
-          );
-          _out('Saved locally: ${_safe(result.index)}');
-        }
-        if (!json) {
-          for (final warning in result.warnings) {
-            _err(
-              'Warning: ${warning.code}: '
-              '${_singleLine(warning.sourcePath)}:${warning.lineStart}-${warning.lineEnd} '
-              '(${warning.affectedChunks} original chunks)',
-            );
-          }
+          _printIndex(result);
         }
         return 0;
       }
-      final rawLimit = command.option('limit');
-      final limit = rawLimit == null ? null : int.tryParse(rawLimit);
-      if (rawLimit != null && limit == null) {
-        throw const WayfinderException(
-          '--limit must be an integer from 1 to 100.',
-        );
-      }
-      final parsed = wayfinderSearchInput.safeParse({
-        'query': command.rest[1],
-        if (rawLimit != null) 'limit': limit,
-      });
-      if (parsed case Fail(:final error)) {
-        final errors = error is SchemaNestedError ? error.errors : [error];
-        throw WayfinderException(
-          errors.map((e) => e.toErrorString()).join('; '),
-        );
-      }
-      final input = parsed.getOrThrow()!;
-      final result = await _knowledge().search(
-        bundle,
-        input['query']! as String,
-        limit: input['limit']! as int,
-      );
-      if (json) {
-        _json(searchOutput(result));
-      } else {
-        for (final hit in result.context) {
-          final chunk = hit.result.chunk;
-          final okf = chunk.metadata['okf'] as Map?;
-          final metadata = okf?['frontmatter'] as Map?;
-          _out(
-            '${_safe(chunk.sourcePath)}:${chunk.lineStart}-${chunk.lineEnd} '
-            '[${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
-          );
-          _out(_safe(chunk.content));
-          _out('');
-        }
-        for (final notice in result.notices) {
-          _out('Notice: ${_safe(notice)}');
-        }
-        _out(
-          result.context.isEmpty
-              ? 'No passages found.'
-              : 'Ranked passages; verify the cited support before answering.',
-        );
-      }
-      return 0;
+      throw const WayfinderException('Unknown command.');
     } on ArgParserException catch (error) {
       message = error.message;
     } on WayfinderException catch (error) {
@@ -636,6 +688,143 @@ class WayfinderCli {
         _json(internalErrorSarif(message, toolVersion: wayfinderVersion));
     }
     return 2;
+  }
+
+  Future<int> _search(ArgResults command) async {
+    if (command.rest.isEmpty ||
+        command.rest.length > 2 ||
+        command.rest.first.trim().isEmpty) {
+      throw const WayfinderException(
+        'search requires one quoted query, with an optional explicit bundle path.',
+      );
+    }
+    final explicit = command.rest.length == 2;
+    if (explicit && command.option('bundle') != null) {
+      throw const WayfinderException(
+        'Use either an explicit bundle path or --bundle, not both.',
+      );
+    }
+    KnowledgeMetadataFilter filters;
+    try {
+      filters = KnowledgeMetadataFilter(
+        tags: command.multiOption('tag').toSet(),
+        requiredTags: command.multiOption('require-tag').toSet(),
+        types: command.multiOption('type').toSet(),
+        statuses: command.multiOption('status').toSet(),
+        pathPrefixes: command.multiOption('path-prefix').toSet(),
+        titleContains: command.option('title-contains'),
+        descriptionContains: command.option('description-contains'),
+      );
+    } on ArgumentError catch (error) {
+      throw WayfinderException(error.message.toString());
+    }
+    final rawLimit = command.option('limit');
+    final convertedLimit = rawLimit == null ? null : int.tryParse(rawLimit);
+    if (rawLimit != null && convertedLimit == null) {
+      throw const WayfinderException(
+        '--limit must be an integer from 1 to 100.',
+      );
+    }
+    final parsed = wayfinderSearchInput.safeParse({
+      'query': command.rest.last,
+      if (rawLimit != null) 'limit': convertedLimit,
+    });
+    if (parsed case Fail(:final error)) {
+      final errors = error is SchemaNestedError ? error.errors : [error];
+      throw WayfinderException(errors.map((e) => e.toErrorString()).join('; '));
+    }
+    final input = parsed.getOrThrow()!;
+    final query = input['query']! as String;
+    final limit = input['limit']! as int;
+    final json = command.option('output') == 'json';
+    if (!explicit) {
+      final bundles = await discoverProjectBundles(
+        _workingDirectory,
+        name: command.option('bundle'),
+      );
+      final responses = await _knowledge().searchBundles(
+        bundles.map((bundle) => bundle.root).toList(),
+        query,
+        limit: limit,
+        filters: filters,
+      );
+      final result = ProjectSearchResult(bundles, responses, limit: limit);
+      if (json) {
+        _json(result.toJson());
+      } else {
+        for (final entry in result.context) {
+          _printHit(
+            entry.hit,
+            prefix: '${entry.bundle.path}/',
+            bundle: entry.bundle.name,
+          );
+        }
+        _printNotices(result.notices, empty: result.context.isEmpty);
+      }
+      return 0;
+    }
+    final result = await _knowledge().search(
+      command.rest.first,
+      query,
+      limit: limit,
+      filters: filters,
+    );
+    if (json) {
+      _json(searchOutput(result));
+    } else {
+      for (final hit in result.context) {
+        _printHit(hit);
+      }
+      _printNotices(result.notices, empty: result.context.isEmpty);
+    }
+    return 0;
+  }
+
+  void _printHit(
+    KnowledgeContextHit hit, {
+    String prefix = '',
+    String? bundle,
+  }) {
+    final chunk = hit.result.chunk;
+    final okf = chunk.metadata['okf'] as Map?;
+    final metadata = okf?['frontmatter'] as Map?;
+    _out(
+      '${_safe('$prefix${chunk.sourcePath}')}:${chunk.lineStart}-${chunk.lineEnd} '
+      '[${bundle == null ? '' : '${_safe(bundle)}; '}'
+      '${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
+    );
+    _out(_safe(chunk.content));
+    _out('');
+  }
+
+  void _printNotices(List<String> notices, {required bool empty}) {
+    for (final notice in notices) {
+      _out('Notice: ${_safe(notice)}');
+    }
+    _out(
+      empty
+          ? 'No passages found.'
+          : 'Ranked passages; verify the cited support before answering.',
+    );
+  }
+
+  void _printIndex(WayfinderIndexResult result) {
+    if (result.current) {
+      _out('Index for ${_safe(result.bundle)} is current; nothing to update.');
+    } else {
+      _out(
+        'Indexed ${_safe(result.bundle)}: ${result.embeddedChunks} embedded, '
+        '${result.removedChunks} removed, ${result.writtenChunks} passages updated.',
+      );
+      _out('Saved locally: ${_safe(result.index)}');
+    }
+    for (final warning in result.warnings) {
+      _err(
+        'Warning: ${warning.code}: '
+        '${_singleLine(warning.sourcePath)}:${warning.lineStart}-${warning.lineEnd} '
+        '(${warning.affectedChunks} original chunks)',
+      );
+    }
   }
 
   void _json(Object? value) =>

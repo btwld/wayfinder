@@ -1,16 +1,33 @@
 # Wayfinder
 
-Use an explicit local OKF bundle. Resolve a configured Profile source with
-`get` before read-only validation:
+Search the current project's configured local OKF bundles. Resolve a configured
+Profile source with `get` before read-only validation:
 
 ```bash
 wayfinder get .
 wayfinder validate ./knowledge
 wayfinder upgrade .
 wayfinder graph ./knowledge --output mermaid
-wayfinder index ./knowledge
-wayfinder search ./knowledge "How do I regain account access?"
+wayfinder index
+wayfinder search "How do I regain account access?"
+wayfinder search "How do I regain account access?" --bundle knowledge
 ```
+
+Project search/index discover the nearest `wayfinder.json` from the current
+folder and use its `applies_to` paths. Without one, a conventional `knowledge/`
+directory is supported. Discovery stops at a Git repository boundary. Bundle
+filters use folder names; ambiguous names require an explicit path. These
+commands do not fetch Profile sources or install bundles.
+
+Search ranks matches across all selected bundles with one query embedding and
+one global `--limit`. Project JSON adds `bundles`, plus `bundle` and `bundlePath`
+on each hit; text citations include the project-relative bundle path. Source
+paths, line numbers, status, and relationship context remain available. A missing
+or stale selected index fails the search, rather than silently returning a subset.
+
+The explicit `index <path>` and `search <path> "<query>"` forms retain their
+single-bundle JSON shape and ignore neighboring configuration. Background
+indexing (`--detach`) continues to require an explicit path.
 
 Index and search always use local embeddings. Validation runs the existing
 OKF and the Profile checks its `wayfinder.json` selects and retains their output and exit
@@ -234,7 +251,7 @@ decision rationale and historical context.
 ```bash
 wayfinder skills install [--agent=all|claude|agents]
 wayfinder skills status
-wayfinder setup [<project>] [--bundle=knowledge] [--hooks]
+wayfinder setup [<project>] [--bundle=knowledge] [--hooks] [--session-hooks]
 wayfinder update [--check] [--version=<version>]
 ```
 
@@ -250,6 +267,13 @@ skip file checkouts and new clones or worktrees. There are no agent Stop hooks:
 search reports a stale index, and the MCP `index` tool refreshes it. Rerunning
 `setup --hooks` removes the Stop hooks earlier releases added to
 `.claude/settings.json` and `.codex/hooks.json` and keeps every other hook.
+
+`setup --session-hooks` separately installs context-only `SessionStart` hooks
+for Claude, Codex, and Gemini, plus a managed `AGENTS.md` pointer for Grok, whose
+startup hooks ignore stdout. The short message prompts loading `use-wayfinder`
+and its references to the author, adopt, and assess skills. Install the skills
+first, then review/trust the local hooks in the client. Startup does no indexing
+or update checks. See the [installation guide](../../docs/install.md#agent-skills-and-mcp).
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. A Dart installation prints its
@@ -350,3 +374,24 @@ An invalid explicit setting fails instead of selecting another model.
 Native builds check the installed and packaged ObjectBox bytes against pinned
 platform hashes and include its license and attribution. See the
 [ObjectBox build review](../../docs/objectbox-build-review.md).
+
+### Filter search by frontmatter
+
+```sh
+wayfinder search "navigation" --tag routing --require-tag mobile --type Guide
+wayfinder search "navigation" --description-contains "deep links" --status stable
+```
+
+`--tag`, `--type`, `--status`, and `--path-prefix` accept comma-separated or repeated values;
+any value within one field may match. Every `--require-tag` must match.
+Different fields combine with AND. Tags, types, and statuses match exact,
+case-sensitive identifiers; absent status matches `stable`, and custom statuses
+are preserved. `--title-contains` and `--description-contains` match literal,
+case-insensitive substrings. Missing or non-string fields do not match text
+filters. Empty filter values are errors.
+
+Filters apply before ranking and also constrain relationship context. They work
+with project search, `--bundle`, and explicit bundle paths. They do not change
+ranking, write the index, or generate document embeddings. The query is still
+required. These flags are currently available in the CLI; MCP search retains its
+existing query/limit contract.

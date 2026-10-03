@@ -162,6 +162,7 @@ class KnowledgeSnapshot {
           lineStart: raw.lineStart + offset,
           lineEnd: raw.lineEnd + offset,
           metadata: {
+            ...raw.metadata,
             'okf': {
               'bundleId': bundleId,
               'frontmatter': frontmatter,
@@ -170,10 +171,24 @@ class KnowledgeSnapshot {
           },
         );
         chunks.add(chunk);
-        final context = <String>{
-          document.title ?? entry.key.value.split('/').last,
-          ...headings.map((heading) => heading.text),
-        }.where((text) => text.trim().isNotEmpty && text != raw.content);
+        final title = document.title ?? entry.key.value.split('/').last;
+        final description = frontmatter['description'];
+        // Bound optional summary context independently of model token fitting.
+        // Omit oversized descriptions rather than cutting a Unicode sequence or
+        // embedding an incomplete claim. The original field remains metadata.
+        final summary = description is String ? description.trim() : '';
+        final context = <String>[
+          if (title.trim().isNotEmpty) 'Title: $title',
+          if (summary.isNotEmpty && summary.runes.length <= 240)
+            'Description: $summary',
+          if (headings.isNotEmpty)
+            'Section: ${headings.map((h) => h.text).join(' > ')}',
+          if (raw.metadata['tableHeader'] case final String header)
+            'Table columns: $header',
+          if (raw.metadata['codeLanguage'] case final String language)
+            'Code language: $language',
+          'Passage:',
+        ];
         contextTexts[id] = [...context, raw.content].join('\n\n');
       }
     }
@@ -347,10 +362,19 @@ class KnowledgeSnapshot {
             // Prefer a whitespace endpoint nearest the midpoint. No inference
             // about other token counts is made from this input's count.
             final middle = (textStart + textEnd) ~/ 2;
-            final boundaries = RegExp(r'\s+')
+            final lineBoundaries = RegExp(r'\n')
                 .allMatches(passage)
                 .map((m) => start + m.end)
-                .where((i) => i > textStart && i < textEnd);
+                .where((i) => i > textStart && i < textEnd)
+                .toList();
+            final boundaries =
+                (chunk.type == 'table' || chunk.type == 'code') &&
+                    lineBoundaries.isNotEmpty
+                ? lineBoundaries
+                : RegExp(r'\s+')
+                      .allMatches(passage)
+                      .map((m) => start + m.end)
+                      .where((i) => i > textStart && i < textEnd);
             int? cut;
             for (final boundary in boundaries) {
               if (cut == null ||

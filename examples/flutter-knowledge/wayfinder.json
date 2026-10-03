@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild-profile": {
+      "source": {
+        "git": "https://github.com/btwld/wayfinder",
+        "ref": "main",
+        "path": "profiles/bitwild"
+      },
+      "applies_to": [
+        "./knowledge"
+      ],
+      "actors": {
+        "process:flutter-knowledge-pilot": {
+          "name": "Flutter/Dart knowledge pilot authoring process",
+          "organization": "Bitwild",
+          "role": "knowledge authoring",
+          "side": "tool"
+        }
+      }
+    }
+  }
+}
