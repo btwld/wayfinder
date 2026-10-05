@@ -36,6 +36,26 @@
         "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#concept-baseline-fields"
       },
       {
+        "id": "bitwild-profile/configured-tag-undeclared",
+        "severity": "error",
+        "message": "Tags must be declared by the selected Profile binding; found Guide, complete, human-reviewed, Depends on.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#configured-tag-undeclared"
+      },
+      {
+        "id": "bitwild-profile/frontmatter-fields-declared",
+        "severity": "error",
+        "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found confidence.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#frontmatter-fields-declared"
+      },
+      {
         "id": "bitwild-profile/generation-provenance-recommended",
         "severity": "advisory",
         "message": "Generation provenance is recommended when it is known.",

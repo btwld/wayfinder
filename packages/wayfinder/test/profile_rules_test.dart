@@ -26,6 +26,8 @@ void main() {
     expect(profile['state'], 'FAIL');
     expect(findingSummary(profile), <String>[
       'error bitwild-profile/concept-baseline-fields bad.md',
+      'error bitwild-profile/configured-tag-undeclared bad.md',
+      'error bitwild-profile/frontmatter-fields-declared bad.md',
       'advisory bitwild-profile/generation-provenance-recommended bad.md',
       'error bitwild-profile/status-value bad.md',
     ]);
