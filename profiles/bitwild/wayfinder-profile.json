@@ -115,7 +115,7 @@
   "$defs": {
     "text": {
       "type": "string",
-      "pattern": "\\S"
+      "pattern": "[^\\s\\u0085]"
     },
     "frontmatter-key": {
       "x-slot": "okf.frontmatterKeys"
@@ -355,6 +355,12 @@
           {
             "type": " ",
             "title": "Title",
+            "description": "Summary.",
+            "status": "stable"
+          },
+          {
+            "type": "Guide",
+            "title": "\u0085",
             "description": "Summary.",
             "status": "stable"
           },
