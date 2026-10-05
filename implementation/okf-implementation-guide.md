@@ -671,7 +671,10 @@ bytes a Profile accepts depend on that release as well as on the package. The
 engine reports the version as `engine.okf`. A wayfinder release that changes
 the generator's output MUST say so in its changelog as a breaking change for
 every Profile that uses `matches-generated`, and its users regenerate with
-`--fix`. A Profile's own release never has to change for it.
+`--fix`. A Profile that omits the `version` param never has to change its own
+release for it. One that sets `version` fails to load on an engine with any
+other `okf` release, so its verdicts change only when the Profile moves the
+pin.
 
 ### 5.7 Composition
 

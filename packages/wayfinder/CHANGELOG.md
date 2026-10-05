@@ -42,7 +42,7 @@
   fragment, instead of `rule`; SARIF rule descriptors carry `helpUri` and
   lose `properties.ref`. Builtins are engine capabilities with params:
   `files-present` (`paths`), `path-targets-exist` (`fields`) and
-  `matches-generated` (`generator`, `keep`, `extra`), and
+  `matches-generated` (`generator`, `version`, `keep`, `extra`), and
   the generator declares the package's `implements.release`. The JSON
   result gains `engine.okf` and SARIF `tool.extensions` names the okf
   package the engine generates with. New root facts `has_concepts` and

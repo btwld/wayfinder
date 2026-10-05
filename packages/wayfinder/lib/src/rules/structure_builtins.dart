@@ -1,5 +1,6 @@
 import 'package:okf/okf_io.dart';
 
+import '../generated/published_schemas.g.dart';
 import 'builtins.dart';
 import 'facts.dart';
 
@@ -39,6 +40,7 @@ const matchesGeneratedParams = <String, Object?>{
     'generator': {
       'enum': ['okf-index'],
     },
+    'version': {'const': okfPackageVersion},
     'keep': {
       'type': 'array',
       'uniqueItems': true,
@@ -53,7 +55,8 @@ const matchesGeneratedParams = <String, Object?>{
 /// What `generator` writes for the bundle, by bundle-relative path. The
 /// generated text declares the Profile's `implements.release`; which okf
 /// generator wrote it is the engine's okf dependency, reported as
-/// `engine.okf`.
+/// `engine.okf`. A package that pins `version` loads only on an engine with
+/// that okf, so a generator upgrade cannot change its verdicts unannounced.
 Map<String, String> generated(BundleFacts facts, Map<String, Object?> params) =>
     switch (params['generator']) {
       'okf-index' => const OkfIndexGenerator().generate(

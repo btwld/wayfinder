@@ -98,13 +98,19 @@ package's `implements.release` in the indexes it writes.
   "additionalProperties": false,
   "properties": {
     "generator": {"enum": ["okf-index"]},
+    "version": {"const": "<the engine's okf version, such as 0.5.0>"},
     "keep": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "extra": {"enum": ["report", "ignore"]}
   }
 }
 ```
 
-`keep` defaults to none and `extra` to `report`.
+`keep` defaults to none and `extra` to `report`. `version` names the okf
+release whose generator the package's verdicts assume, the `engine.okf` value
+of a `wayfinder validate --output json` run. A package that sets it loads only
+on a wayfinder built with that okf, and so reports INCOMPLETE rather than new
+index findings after an okf upgrade. Omit it to accept whatever generator the
+engine ships.
 
 ```json
 {

@@ -159,6 +159,11 @@ void main() {
           },
           {'generator': 'other'},
         ),
+        (
+          'matches-generated',
+          {'generator': 'okf-index', 'version': okfPackageVersion},
+          {'generator': 'okf-index', 'version': '0.0.0'},
+        ),
       ]) {
         test('$builtin ${jsonEncode(bad)}', () {
           final ok = ProfilePackage.parse(
