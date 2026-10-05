@@ -46,6 +46,7 @@ such as `capture, types, structure`.
 | T1 | A standard type matches its intended meaning. | Required | [types.md](types.md#choose-between-neighbours) |
 | T2 | A project type matches the meaning its `wayfinder.json` entry declares. | Required | [types.md](types.md#choose-between-neighbours) |
 | T3 | A rule that turned out to be a policy a Decision selected carries `depends-on` to that Decision. | Recommended | [types.md](types.md#choose-between-neighbours) |
+| T4 | Each project type declared in `wayfinder.json` has a description that truthfully defines it. | Required | [types.md](types.md#project-types) |
 
 ## metadata
 
@@ -60,6 +61,7 @@ such as `capture, types, structure`.
 | M7 | No `verified` event records review, migration, or conformance work. | Required | [metadata.md](metadata.md#production-and-verification) |
 | M8 | `stale_after` appears only with an evidenced horizon, never as a default or placeholder. | Required | [metadata.md](metadata.md#freshness) |
 | M9 | An adopted settledness vocabulary is defined once in a `ways-of-working/` concept. | Recommended | [metadata.md](metadata.md#how-settled-the-subject-is) |
+| M10 | Every timestamp-valued key is a datetime with an explicit UTC offset, never date-only or offset-less. | Required | [metadata.md](metadata.md#baseline-frontmatter) |
 
 ## structure
 
@@ -71,6 +73,9 @@ such as `capture, types, structure`.
 | S4 | No generic `overview.md` or other concept duplicates a generated index. | Required | [structure.md](structure.md#areas) |
 | S5 | A new concept goes into an existing area or the parent unless the corpus supports a new shared subject. | Recommended | [structure.md](structure.md#areas) |
 | S6 | Every concept lives with its subject. | Required | [structure.md](structure.md#placement) |
+| S7 | The bundle contains no nested bundle. | Required | [structure.md](structure.md) |
+| S8 | `wayfinder.json` and `wayfinder.lock` sit outside the bundle. | Required | [structure.md](structure.md) |
+| S9 | `computations/`, where it exists, holds only `Attested Computation` concepts and their indexes. | Required | [structure.md](structure.md#fixed-directories) |
 
 ## identity
 
@@ -84,7 +89,7 @@ such as `capture, types, structure`.
 | I6 | Before a concept with an execution relationship moved, its execution record was checked for citations. | Recommended | [structure.md](structure.md#moves-and-frozen-paths) |
 | I7 | A retired stable concept is deprecated, not deleted. | Recommended | [structure.md](structure.md#retirement) |
 | I8 | A deprecated concept with a successor carries `superseded-by`. | Required | [structure.md](structure.md#retirement) |
-| I9 | A hard-deleted stable concept had an exceptional reason, and its known citations were assessed. | Required | [structure.md](structure.md#retirement) |
+| I9 | A hard-deleted stable concept had an exceptional reason that outweighs historical preservation, and its known citations and successors were assessed. | Required | [structure.md](structure.md#retirement) |
 
 ## relationships
 
@@ -96,6 +101,7 @@ such as `capture, types, structure`.
 | R4 | `related-to` is not standing in for a missing project name. | Recommended | [relationships.md](relationships.md#choose-a-name) |
 | R5 | An unresolved internal target is a deliberate planned link, not a mistake. | Recommended | [relationships.md](relationships.md#choose-a-name) |
 | R6 | Each relationship name fits its declared meaning better than its neighbours. | Recommended | [relationships.md](relationships.md#choose-a-name) |
+| R7 | Each project relationship name declared in `wayfinder.json` has a description that truthfully defines it. | Required | [relationships.md](relationships.md#standard-names) |
 
 ## execution
 
@@ -111,6 +117,8 @@ such as `capture, types, structure`.
 | ID | Check | Force | Guide |
 | --- | --- | --- | --- |
 | L1 | The log records no non-durable source event, formatting-only edit, or unrelated activity. | Required | [structure.md](structure.md#the-log) |
+| L2 | Each lifecycle event in scope has a log entry: a creation, a substantive change, a deprecation, a replacement, a move with both paths, or a new area. | Recommended | [structure.md](structure.md#the-log) |
+| L3 | An entry uses a preferred lead word when one fits. | Recommended | [structure.md](structure.md#the-log) |
 
 ## mirroring
 
@@ -126,6 +134,8 @@ such as `capture, types, structure`.
 | X8 | A non-mirrored source keeps ordinary OKF meaning in `sources[].resource`. | Required | [mirroring.md](mirroring.md#deciding-not-to-mirror) |
 | X9 | A material reason for not mirroring is stated in the body. | Recommended | [mirroring.md](mirroring.md#deciding-not-to-mirror) |
 | X10 | No scope descriptor replaces a known followable resource. | Required | [mirroring.md](mirroring.md#deciding-not-to-mirror) |
+| X11 | Each mirrored Markdown artifact carries a `sources` entry naming its original. | Required | [mirroring.md](mirroring.md#what-a-mirror-is) |
+| X12 | No cited mirror's content changed. | Required | [mirroring.md](mirroring.md#what-a-mirror-is) |
 
 ## captures
 
@@ -172,6 +182,7 @@ here, including an ambiguous required check and a proposed exception. This
 Profile's judgments most often need context from outside the repository:
 
 - whether an external citation can be repaired (I5, I6, I9);
+- whether a hard delete's reason outweighs historical preservation (I9);
 - whether material may live at the repository's visibility (X2, X4);
 - whether a source is still available (X2);
 - whether an actor record or affiliation is true (M6).

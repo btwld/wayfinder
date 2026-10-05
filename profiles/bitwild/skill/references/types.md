@@ -50,7 +50,8 @@ concept's content, never from headings, paths, or keywords.
 
 ## Project types
 
-A project type is allowed once its `wayfinder.json` entry declares it.
+A project type is allowed once its `wayfinder.json` entry declares it with a
+description that truthfully defines it.
 Validation reports each declared project type as the `wayfinder/project-type`
 note, so repeated needs can inform a later release. Do not reject a project
 type because a standard type might also fit. When reading, preserve unknown

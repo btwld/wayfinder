@@ -129,8 +129,9 @@ migration.
   relationship to it.
 - A draft may simply be deleted.
 - Hard-delete stable content only for an exceptional security, privacy,
-  legal, secret-removal, or genuinely erroneous-content reason. Review
-  assesses the reason and the known citations.
+  legal, secret-removal, or genuinely erroneous-content reason that
+  outweighs historical preservation. Review assesses the reason, the known
+  citations, and any successors.
 
 ## The log
 

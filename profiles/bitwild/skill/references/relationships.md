@@ -21,8 +21,8 @@ which records what the content derives from and carries credibility in OKF.
 ## Standard names
 
 The Profile package declares these names. Declare a project name in the
-`wayfinder.json` entry's `relationships`, with a description that defines it
-once. Never invent a name in a concept.
+`wayfinder.json` entry's `relationships`, with a description that truthfully
+defines it once. Never invent a name in a concept.
 
 | Name | Meaning |
 | --- | --- |
