@@ -259,6 +259,17 @@ void main() {
     expect(footnotes, [(label: 'real', referenced: true, defined: true)]);
   });
 
+  test('a footnote definition inside a blockquote is a definition', () {
+    final footnotes = ParsedBody(
+      [
+        'Prose cites a source.[^quoted]',
+        '',
+        '> [^quoted]: defined inside the quote',
+      ].join('\n'),
+    ).footnotes();
+    expect(footnotes, [(label: 'quoted', referenced: true, defined: true)]);
+  });
+
   late Directory bundle;
 
   setUp(() async {
