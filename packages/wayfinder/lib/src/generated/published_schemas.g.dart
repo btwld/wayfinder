@@ -19,12 +19,6 @@ const String wayfinderConfigurationSchema = r'''
       "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
       "description": "a relative path without parent traversal"
     },
-    "identifier": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
-      "maxLength": 64,
-      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
-    },
     "gitRef": {
       "$ref": "#/$defs/text",
       "pattern": "^(?!-)(?!.*\\.\\.)[^\\x00-\\x20\\x7f]+$",
@@ -170,7 +164,10 @@ const String wayfinderConfigurationSchema = r'''
         "actors": {
           "type": "object",
           "propertyNames": {
-            "$ref": "#/$defs/text"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "a non-empty string"
           },
           "additionalProperties": {
             "$ref": "#/$defs/actor"
@@ -195,7 +192,10 @@ const String wayfinderConfigurationSchema = r'''
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "$ref": "#/$defs/identifier"
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+        "maxLength": 64,
+        "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
       },
       "additionalProperties": {
         "$ref": "#/$defs/directProfile"
@@ -212,7 +212,7 @@ const String wayfinderProfileSchema = r'''
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
   "title": "Wayfinder Profile package",
-  "description": "One Profile at one Git revision: its identity, the vocabulary it declares, and the rules `wayfinder validate` enforces for it. Written inside the engine's own JSON Schema keyword subset so the engine validates packages with the same predicate it evaluates rules with. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), and format \"date-time\". The engine supplies one $defs entry per slot, named by the slot id, such as #/$defs/profile.types. The annotations $schema, $id, $comment, title, description, examples, default, and deprecated are ignored; $defs is read only at the root. Any other keyword, including any x- key, makes the package unsupported.",
+  "description": "One Profile at one Git revision: its identity, the vocabulary it declares, and the rules `wayfinder validate` enforces for it. Written inside the JSON Schema keyword subset the engine admits in rule schemas, which Ack evaluates. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), and format \"date-time\". The engine supplies one $defs entry per slot, named by the slot id, such as #/$defs/profile.types. The annotations $schema, $comment, title, description, examples, default, and deprecated must be well-formed 2020-12 values; $id and $defs may appear only at a rule schema's root. Any other keyword, including any x- key, makes the package unsupported.",
   "type": "object",
   "additionalProperties": false,
   "required": [

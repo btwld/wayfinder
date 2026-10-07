@@ -1,6 +1,6 @@
 {
   "name": "wayfinder",
-  "version": "0.1.2",
+  "version": "0.2.0-beta.1",
   "description": "Author, adopt, assess and search OKF knowledge bundles bound to a Profile, create Profiles, and validate and search bundles locally over MCP.",
   "author": { "name": "Concepta" },
   "homepage": "https://github.com/btwld/wayfinder",

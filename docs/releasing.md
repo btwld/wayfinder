@@ -34,36 +34,43 @@ fixed oversized-input indexing ([#100](https://github.com/btwld/wayfinder/issues
 [#101](https://github.com/btwld/wayfinder/pull/101)) and installer input
 validation ([#99](https://github.com/btwld/wayfinder/pull/99)).
 
-### Prepared releases: embeddings 0.2.0 and CLI 0.1.2
+### Prepared pre-releases: 0.2.0-beta.1
 
-Unreleased on `main` since that tag is only
-[#106](https://github.com/btwld/wayfinder/pull/106): an in-place Profile
-2026.2 amendment and the matching skill/example teaching, together with the
-breaking Dart API-placement cleanup in `wayfinder_embeddings`.
+Core `wayfinder` evaluates rule schemas with Ack `^1.7.0-beta.5`, a
+pre-release. Pub requires a package that depends on a pre-release to be one
+itself. All three packages are therefore `0.2.0-beta.1`, and every sibling
+floor is `^0.2.0-beta.1`. Stable `0.2.0` follows once Ack `1.7.0` is stable.
 
 | Component | Prepared version | Publication tag |
 | --- | --- | --- |
-| `wayfinder_cli`, native runtime and plugin | 0.1.2 | `wayfinder-v0.1.2` |
-| `wayfinder_embeddings` | 0.2.0 | `wayfinder_embeddings-v0.2.0` |
-| `wayfinder` core | 0.2.0 | `wayfinder-core-v0.2.0` |
+| `wayfinder_cli`, native runtime and plugin | 0.2.0-beta.1 | `wayfinder-v0.2.0-beta.1` |
+| `wayfinder_embeddings` | 0.2.0-beta.1 | `wayfinder_embeddings-v0.2.0-beta.1` |
+| `wayfinder` core | 0.2.0-beta.1 | `wayfinder-core-v0.2.0-beta.1` |
 
-A CLI and plugin patch is required for the Profile teaching, while the
-embeddings package has a breaking API-placement release. Claude Code refreshes the plugin only when its version changes, and
-`wayfinder update` offers only stable `wayfinder-v` releases, so a 0.1.1 install
-still teaches the withdrawn YAML SHOULDs until this cut. CI requires the CLI
-pubspec, `wayfinderVersion`, and `.claude-plugin/plugin.json` to stay aligned.
+Suffixed versions become GitHub pre-releases. `wayfinder update` offers only
+stable `wayfinder-v` releases, and the installers resolve only a stable latest
+release. A user gets the beta runtime only by naming it in `WAYFINDER_VERSION`.
 
-The version lock is applied on the CLI pubspec, `wayfinderVersion`,
-`.claude-plugin/plugin.json`, and the CLI changelog. The CLI now depends on
-`wayfinder_embeddings` `^0.2.0`.
+The plugin does not follow the GitHub release. Claude Code installs it from
+this repository's default branch, because `.claude-plugin/marketplace.json`
+sets `"source": "./"`. It refreshes the plugin when the version in
+`.claude-plugin/plugin.json` changes, whatever the release flag says. Merging
+this version to the default branch therefore moves plugin users to the
+0.2.0-beta.1 skills, while `wayfinder update` and the installers keep them on
+the latest stable runtime. Run the publication order below right after that
+merge, so the beta runtime ships with the skills.
 
-The Profile package work, with Bitwild as `bitwild-profile` 2026.3 in package
-format 2, and the rule-catalog engine raise core to 0.2.0. The CLI and
-`wayfinder_embeddings` depend on `wayfinder` `^0.2.0`, so publish core first.
+CI requires the CLI pubspec, `wayfinderVersion`, and
+`.claude-plugin/plugin.json` to stay aligned. The version lock is applied on
+the CLI pubspec, `wayfinderVersion`, `.claude-plugin/plugin.json`, and the CLI
+changelog. The CLI depends on `wayfinder_embeddings` `^0.2.0-beta.1`.
+
+The Profile package work puts Bitwild at `bitwild-profile` 2026.3 in package
+format 2. The CLI and `wayfinder_embeddings` depend on `wayfinder`
+`^0.2.0-beta.1`, so publish core first.
 `tool/ci/verify-workspace-floors.py` keeps each sibling floor at the sibling's
 own version and fails while a depended-on package has unreleased changes on a
-version pub.dev already has. Do not describe the prepared CLI release as
-including Bitwild 2026.3 until its release plan is updated.
+version pub.dev already has.
 
 The embeddings release also makes a breaking API-placement cleanup. Callers
 must migrate to receiver-owned chunking, type-owned chunk identity and snapshot
@@ -72,15 +79,22 @@ opening, the top-level `embeddingIdentityKey(...)` and
 listed in the package changelog. No deprecated aliases or compatibility
 wrappers are provided.
 
-This patch withdraws the invented §6.5 producer SHOULDs (quoted timestamps,
+The Profile-teaching fix from
+[#106](https://github.com/btwld/wayfinder/pull/106), an in-place Profile 2026.2
+amendment, was planned as a stable CLI 0.1.2. That release never shipped. The
+fix now waits on this beta and stable 0.2.0. Until a release reaches them, the
+skills bundled with the 0.1.1 runtime still teach the withdrawn YAML SHOULDs.
+The fix withdraws the invented §6.5 producer SHOULDs (quoted timestamps,
 block-style mappings, `verified` as a list) so the Profile, examples, and
 authoring skill copy OKF §5 spelling. Skills treat an unsupported Profile
 release as `NEEDS HUMAN` and refuse to change `concepta_profile`; the method
 is implementation guide §5 when that file is present. Graph CLI filters are
 documented to match MCP.
 
-**Upgrade:** run `wayfinder update` (or reinstall) so the plugin and skills
-refresh. Existing 2026.2 bundles stay conformant; no Profile serial, model
+**Upgrade:** plugin users get the new skills when this version reaches the
+default branch. To run the beta runtime, install with
+`WAYFINDER_VERSION=0.2.0-beta.1`. `wayfinder update` moves to stable 0.2.0 once
+it ships. Existing 2026.2 bundles stay conformant; no Profile serial, model
 change or ObjectBox schema change is needed. Embeddings callers must migrate to
 the receiver-owned and type-owned APIs listed in the package changelog; no
 deprecated aliases or compatibility wrappers are provided. New writes should
@@ -91,23 +105,25 @@ Publication order for this release:
 
 1. Merge this preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
-2. Publish `wayfinder_embeddings-v0.2.0` at the same checked commit and wait
-   for the package to become available on pub.dev.
-3. Outside the workspace, resolve the CLI with hosted dependencies (core 0.1.0,
-   embeddings 0.2.0, no path overrides), analyze it and run
+2. Publish `wayfinder-core-v0.2.0-beta.1`, then
+   `wayfinder_embeddings-v0.2.0-beta.1`, at the same checked commit and wait
+   for each package to become available on pub.dev.
+3. Outside the workspace, resolve the CLI with hosted dependencies (core
+   and embeddings 0.2.0-beta.1, no path overrides), analyze it and run
    `dart pub publish --dry-run`.
-4. Publish `wayfinder-v0.1.2` at the same checked commit and wait for CLI
+4. Publish `wayfinder-v0.2.0-beta.1` at the same checked commit and wait for CLI
    package publication.
-5. Dispatch **Distribute Wayfinder native release** against `wayfinder-v0.1.2`
+5. Dispatch **Distribute Wayfinder native release** against `wayfinder-v0.2.0-beta.1`
    with that successful source CI run ID, then verify the public installer jobs.
 
 ### Release gates
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
 tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
-enforces it. Claude Code updates the plugin only when its version changes, and
-`wayfinder update` offers only stable `wayfinder-v` releases, so suffixed
-prereleases reach neither.
+enforces it. `wayfinder update` offers only stable `wayfinder-v` releases, so
+a suffixed prerelease never reaches it. Claude Code updates the plugin from the
+default branch when its version changes, whatever the release flag says, so
+merging a version bump ships the skills.
 The public installers install GitHub's latest release, so publishing a stable
 release makes it the default at once; verify before dispatching. Only
 application releases may be GitHub's latest release: the installers refuse any

@@ -124,7 +124,8 @@ void main() {
     });
 
     test('reports an up-to-date runtime', () async {
-      await updater([release('wayfinder-v$wayfinderVersion')]).run(check: true);
+      const olderStableRelease = 'wayfinder-v0.0.1';
+      await updater([release(olderStableRelease)]).run(check: true);
       expect(output.single, contains('is up to date'));
     });
 

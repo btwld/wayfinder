@@ -217,7 +217,7 @@ that blocks a complete assessment.
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
 | `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
-| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks; upgrading wayfinder is the remedy |
+| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
 | `profile-composition` | error | the chain and the project additions do not compose (§5.7) |
 | `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |
@@ -498,8 +498,8 @@ graph reading fail. Those command boundaries keep OKF reading independent of
 Profile selection (§5.2).
 
 The parser checks `wayfinder.json` and each Profile package against their
-published JSON Schemas, evaluated by the engine's own schema subset and
-embedded in the binary, then runs the cross-document checks a schema cannot
+published JSON Schemas, evaluated by Ack within the engine's keyword subset
+and embedded in the binary, then runs the cross-document checks a schema cannot
 express. Those cover normalized and canonical paths, package parents, package
 identity, rule tests, composition of the effective vocabulary, and actor
 lookup. A schema alone cannot prove filesystem safety, Git availability, or
@@ -940,6 +940,23 @@ Migration for implementations: compare locked sources rather than commits,
 and emit the selected Profile under `BLOCKED BY OKF`. A configured bundle is
 affected only when two of its chains name one id from different sources. It
 makes them agree and runs `wayfinder get`.
+
+Revised again in place before publication (2026-10-07). Ack, not an
+evaluator the engine owns, evaluates rule schemas and the published schemas
+within the engine's keyword subset, as §4.7 states. The §4.1 diagnostic table
+names a rule schema keyword, `format` or `$ref` form outside that subset as a
+cause of `profile-unsupported`. A rule schema now follows 2020-12 where the
+owned evaluator did not: an empty `enum` matches nothing; a `$ref` below a
+`$defs` entry and a `$id` below the root are unsupported; and a malformed
+annotation, a duplicate `required` or `type` entry, an empty `type` list and
+a `$schema` other than 2020-12 are refused. A published-schema violation is
+the first in Ack's keyword order, and a root `null` is reported as "must not
+be null". Affected sections: §§4.1, 4.7, and 9. Driver: the migration to Ack
+as the only JSON Schema evaluator. Migration for implementations: evaluate
+rule schemas with a 2020-12 evaluator restricted to the subset, and refuse the
+forms above. Every shipped package stays conformant, as the migration's
+parity corpora and a scan of the shipped schemas showed. Format 2 is
+unreleased, so §5.10 needs no `format` bump.
 
 **2026.3.** Binds Profile 2026.3. Implements explicit `wayfinder.json`
 release dispatch while preserving the 2026.2 in-bundle path. Affected sections:

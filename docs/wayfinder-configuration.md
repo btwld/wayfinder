@@ -260,7 +260,8 @@ The fields have these jobs:
 - `rules` holds the package's rules. A rule only adds findings.
 
 A rule's `check` is either a schema check or a builtin. A schema check names
-a `subject` and a JSON Schema in the engine's keyword subset. It may also
+a `subject` and a JSON Schema in the engine's keyword subset, which Ack
+evaluates. It may also
 name an `each` array fact, which runs the schema once per element. Its
 `tests` hold valid and invalid examples. The engine runs them when it parses
 the package, so a package whose examples disagree with its own check never
@@ -502,8 +503,8 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    makes it `INCOMPLETE`.
 
 Wayfinder checks `wayfinder.json` and each package against the published
-schemas first and reports the first violation with its JSON pointer, for
-example `wayfinder.json is invalid at /profiles/client-profile: has unknown
+schemas first and reports the first violation Ack finds, in Ack's keyword
+order, with its JSON pointer, for example `wayfinder.json is invalid at /profiles/client-profile: has unknown
 property rules.` It then enforces the checks that a schema cannot prove,
 such as package parents, composition, overlapping bundle paths, whether a
 bundle exists, whether a source resolved, and whether a concept's actor

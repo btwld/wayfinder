@@ -56,7 +56,7 @@ void _evaluate(
 
   switch (rule.check) {
     case final SchemaCheck check:
-      final predicate = check.compile(slots);
+      final schema = check.schema.bind(slots);
       for (final subject in facts.of(check.subject)) {
         final List<Object?> failing;
         if (check.each case final each?) {
@@ -64,15 +64,15 @@ void _evaluate(
           failing = switch (subject.facts[each]) {
             final List<Object?> elements => [
               for (final element in elements)
-                if (!predicate.test(SchemaCheck.element(element)))
+                if (!schema.accepts(SchemaCheck.element(element)))
                   SchemaCheck.value(element, check.failingField),
             ],
             final value =>
-              predicate.test({'value': value}) ? const [] : [value],
+              schema.accepts({'value': value}) ? const [] : [value],
           };
           if (failing.isEmpty) continue;
         } else {
-          if (predicate.test(subject.facts)) continue;
+          if (schema.accepts(subject.facts)) continue;
           failing = const [];
         }
         report(
