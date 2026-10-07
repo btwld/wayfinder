@@ -97,7 +97,11 @@ abstract final class ProfileSkills {
     }
   }
 
-  static String escapingMessage(List<String> escaped) {
+  /// Why `get` may not install Profile skills under [projectRoot], or null
+  /// when every root resolves inside the project.
+  static Future<String?> escapingProblem(String projectRoot) async {
+    final escaped = await escaping(projectRoot);
+    if (escaped.isEmpty) return null;
     final (verb, pronoun) = escaped.length == 1
         ? ('resolves', 'it')
         : ('resolve', 'them');
@@ -128,9 +132,8 @@ abstract final class ProfileSkills {
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
-    final escaped = await escaping(projectRoot);
-    if (escaped.isNotEmpty) {
-      throw FileSystemException(escapingMessage(escaped), escaped.first);
+    if (await escapingProblem(projectRoot) case final problem?) {
+      throw FileSystemException(problem, projectRoot);
     }
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));

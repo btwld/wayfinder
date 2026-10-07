@@ -298,11 +298,9 @@ final class WayfinderProfileResolver {
       }
     }
     if (skills.isNotEmpty) {
-      final escaped = await ProfileSkills.escaping(projectRoot);
-      if (escaped.isNotEmpty) {
-        throw WayfinderProfileResolutionException(
-          ProfileSkills.escapingMessage(escaped),
-        );
+      if (await ProfileSkills.escapingProblem(projectRoot)
+          case final problem?) {
+        throw WayfinderProfileResolutionException(problem);
       }
     }
     final unowned = await ProfileSkills.unowned(projectRoot, skills.keys);
