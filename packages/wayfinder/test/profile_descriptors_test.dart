@@ -317,13 +317,17 @@ void main() {
       if (check.containsKey('subject')) 'tests': tests,
     };
 
-    String catalog(Map<String, Object?> rule, {String release = '2026.1'}) =>
-        jsonEncode({
-          'format': 1,
-          'namespace': 'x',
-          'profile': {'id': 'x', 'release': release},
-          'rules': [rule],
-        });
+    String catalog(
+      Map<String, Object?> rule, {
+      String release = '2026.1',
+      Map<String, Object?>? defs,
+    }) => jsonEncode({
+      'format': 1,
+      'namespace': 'x',
+      'profile': {'id': 'x', 'release': release},
+      r'$defs': ?defs,
+      'rules': [rule],
+    });
 
     Matcher rejectedAt(String where, String message) => throwsA(
       isA<RuleCatalogException>()
@@ -468,6 +472,93 @@ void main() {
         ),
       );
       expect(nested.rules, hasLength(1), reason: 'names below a descent');
+    });
+
+    test('a name reached through \$ref is checked as if it were inline', () {
+      const typo = {
+        'required': ['typo_path'],
+      };
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'concept',
+                'schema': {
+                  r'$defs': {'shape': typo},
+                  r'$ref': r'#/$defs/shape',
+                },
+              },
+            ),
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'typo_path is not a fact of concept',
+        ),
+        reason: 'a rule-local def',
+      );
+      expect(
+        () => RuleCatalog.parse(
+          catalog(
+            schemaRule(
+              check: {
+                'subject': 'concept',
+                'schema': {
+                  'anyOf': [
+                    {r'$ref': r'#/$defs/outer'},
+                  ],
+                },
+              },
+            ),
+            defs: {
+              'outer': {r'$ref': r'#/$defs/shape'},
+              'shape': typo,
+            },
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'typo_path is not a fact of concept',
+        ),
+        reason: 'a catalog def reached through another def',
+      );
+      final nested = RuleCatalog.parse(
+        catalog(
+          schemaRule(
+            check: {
+              'subject': 'concept',
+              'schema': {
+                'properties': {
+                  'tags': {
+                    'items': {r'$ref': r'#/$defs/tag'},
+                  },
+                },
+              },
+            },
+            tests: {
+              'valid': [
+                {
+                  'tags': [
+                    {'label': 'x'},
+                  ],
+                },
+              ],
+              'invalid': [
+                {
+                  'tags': [<String, Object?>{}],
+                },
+              ],
+            },
+          ),
+          defs: {
+            'tag': {
+              'required': ['label'],
+            },
+          },
+        ),
+      );
+      expect(nested.rules, hasLength(1), reason: 'a def used below a descent');
     });
 
     test('frontmatter stays open', () {
