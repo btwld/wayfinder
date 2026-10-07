@@ -300,7 +300,7 @@ final class _Walk {
     }
     // Ack percent-decodes before splitting the pointer, so a %2F splits too.
     final token = value.startsWith(prefix)
-        ? Uri.decodeComponent(value.substring(prefix.length))
+        ? _decode(value.substring(prefix.length), pointer)
         : null;
     if (token == null || token.contains('/')) {
       throw RuleSchemaException(
@@ -317,6 +317,14 @@ final class _Walk {
       target: name,
       guarded: _depth > 0,
     ));
+  }
+
+  static String _decode(String token, String pointer) {
+    try {
+      return Uri.decodeComponent(token);
+    } on ArgumentError {
+      throw RuleSchemaException(pointer, 'has a malformed percent escape');
+    }
   }
 
   Set<Slot> get slots => {
