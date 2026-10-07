@@ -494,6 +494,33 @@ void main() {
       });
     }
 
+    test('in both roots fails get naming each of them', () async {
+      for (final link in ['.claude', '.agents']) {
+        final target = await Directory(p.join(other.path, link)).create();
+        await Link(p.join(project.path, link)).create(target.path);
+      }
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            '.claude/skills and .agents/skills resolve outside the project '
+                'through a symbolic link, so wayfinder did not install '
+                'Profile skills there. Point them inside the project and run '
+                'the command again.',
+          ),
+        ),
+      );
+      expect(await foreign.exists(), isTrue);
+      expect(await Directory(p.join(other.path, _claude)).exists(), isFalse);
+      expect(await Directory(p.join(other.path, _agents)).exists(), isFalse);
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).exists(),
+        isFalse,
+      );
+    });
+
     Future<void> linkRoot() async {
       await Directory(p.join(project.path, '.agents')).create();
       await Link(
