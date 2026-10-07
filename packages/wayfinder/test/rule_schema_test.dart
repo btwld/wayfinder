@@ -223,16 +223,32 @@ void main() {
         '#/properties/a',
         r'#/$defs/a/properties/b',
         r'other.json#/$defs/a',
+        r'#/$defs/a%2Fnot',
+        r'#/$defs/a%2fnot',
       ]) {
         expect(
           () => RuleSchema.parse({
             r'$ref': ref,
-            r'$defs': {'a': true},
+            r'$defs': {
+              'a': {'not': true},
+              'a/not': true,
+            },
           }),
           refusedAt(r'/$ref', unsupported: true),
           reason: ref,
         );
       }
+      final escaped = RuleSchema.parse(
+        {r'$ref': r'#/$defs/a~1b'},
+        defs: {
+          'a/b': {
+            'required': ['z'],
+          },
+        },
+      );
+      expect(escaped.rootPropertyNames, {'z'});
+      expect(escaped.bind(const {}).accepts(<String, Object?>{}), isFalse);
+      expect(escaped.bind(const {}).accepts({'z': 1}), isTrue);
       expect(
         () => RuleSchema.parse({
           'properties': {
