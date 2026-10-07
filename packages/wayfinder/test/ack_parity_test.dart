@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/rules/builtins.dart';
 import 'package:wayfinder/src/rules/facts.dart';
 import 'package:wayfinder/src/rules/schema.dart';
 import 'package:wayfinder/wayfinder.dart';
@@ -62,6 +63,104 @@ const _metaSchemaInvalid = <String, Object?>{
     },
   },
 };
+
+/// Each builtin's params schema as the old evaluator read it, at 8735c53.
+final _oldParams = <String, Object?>{
+  'files-present': {
+    'type': 'object',
+    'required': ['paths'],
+    'additionalProperties': false,
+    'properties': {
+      'paths': {
+        'type': 'array',
+        'minItems': 1,
+        'uniqueItems': true,
+        'items': {'type': 'string', 'minLength': 1},
+      },
+    },
+  },
+  'path-targets-exist': {
+    'type': 'object',
+    'required': ['fields'],
+    'additionalProperties': false,
+    'properties': {
+      'fields': {
+        'type': 'array',
+        'minItems': 1,
+        'uniqueItems': true,
+        'items': {
+          'enum': [
+            'resource',
+            'sources.resource',
+            'computation',
+            'executor.resource',
+            'attester.resource',
+          ],
+        },
+      },
+    },
+  },
+  'matches-generated': {
+    'type': 'object',
+    'required': ['generator'],
+    'additionalProperties': false,
+    'properties': {
+      'generator': {
+        'enum': ['okf-index'],
+      },
+      'version': {'const': okfPackageVersion},
+      'keep': {
+        'type': 'array',
+        'uniqueItems': true,
+        'items': {'type': 'string', 'minLength': 1},
+      },
+      'extra': {
+        'enum': ['report', 'ignore'],
+      },
+    },
+  },
+};
+
+/// The params builtins_test passes to matches-generated directly.
+const _builtinsTestParams = <Map<String, Object?>>[
+  {'generator': 'okf-index'},
+  {
+    'generator': 'okf-index',
+    'keep': ['assets/index.md'],
+  },
+  {'generator': 'okf-index', 'extra': 'ignore'},
+  {'generator': 'okf-index', 'extra': 'report'},
+];
+
+/// One defect per variant: each key removed, an unknown key, and for each
+/// value a wrong type, an empty string, an unknown member and, for a list,
+/// an empty list, a duplicate item and each of those defects in an item.
+Iterable<Map<String, Object?>> _mutations(Map<String, Object?> params) sync* {
+  for (final key in params.keys) {
+    yield {...params}..remove(key);
+  }
+  yield {...params, 'x': 1};
+  for (final MapEntry(:key, :value) in params.entries) {
+    for (final wrong in <Object?>[1, true, null, '', 'bogus', '0.0.0']) {
+      yield {...params, key: wrong};
+    }
+    if (value is List<Object?>) {
+      yield {...params, key: <Object?>[]};
+      if (value.isNotEmpty) {
+        yield {
+          ...params,
+          key: [...value, value.first],
+        };
+      }
+      for (final item in <Object?>[1, '', 'bogus', <Object?>[]]) {
+        yield {
+          ...params,
+          key: [...value, item],
+        };
+      }
+    }
+  }
+}
 
 final _root = p.normalize(p.join('..', '..'));
 
@@ -242,6 +341,44 @@ void main() {
         _compare('corpus 3 $form', schema, const {}, const [], const {});
       }
       _expectAccepted('corpus 3');
+    });
+
+    test('corpus 4: builtin params, with one mutation per constraint', () {
+      final seeds = <(String, Map<String, Object?>)>[
+        for (final package in [
+          for (final path in _packagePaths) _readPackage(path),
+          for (final json in builtPackages) jsonDecode(json),
+        ])
+          if (package case {'rules': final List<Object?> rules})
+            for (final rule in rules)
+              if (rule case {
+                'check': {
+                  'builtin': final String name,
+                  'params': final Map<String, Object?> params,
+                },
+              } when _oldParams.containsKey(name))
+                (name, params),
+        for (final params in _builtinsTestParams) ('matches-generated', params),
+        for (final name in _oldParams.keys) (name, const {}),
+      ];
+      var cases = 0;
+      for (final (name, seed) in seeds) {
+        final old = JsonPredicate.compile(_oldParams[name]);
+        final ack = builtins[name]!.params;
+        for (final params in [seed, ..._mutations(seed)]) {
+          cases++;
+          final (before, after) = (
+            old.test(params),
+            ack.safeParse(params).isOk,
+          );
+          if (before != after) {
+            _observed['corpus 4 $name ${jsonEncode(params)}'] =
+                'old $before, Ack $after';
+          }
+        }
+      }
+      expect(cases, greaterThan(100));
+      _expectAccepted('corpus 4');
     });
 
     test('no disagreement outside acceptedDeltas', () {

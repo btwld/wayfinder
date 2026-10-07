@@ -5,7 +5,6 @@ import '../profile_package.dart';
 import '../profile_rule_descriptors.dart';
 import 'builtins.dart';
 import 'facts.dart';
-import 'predicate.dart';
 import 'profile.dart';
 import 'schema.dart';
 
@@ -335,7 +334,7 @@ BuiltinCheck _builtinCheck(Map<String, Object?> json, String where) {
     );
   }
   final params = json['params'] as Map<String, Object?>? ?? const {};
-  if (!JsonPredicate.compile(builtin.paramsSchema).test(params)) {
+  if (!builtin.params.safeParse(params).isOk) {
     throw ProfilePackageException(
       '$where.params',
       'params do not match what builtin $name accepts',

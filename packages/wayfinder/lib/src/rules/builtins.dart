@@ -1,3 +1,5 @@
+import 'package:ack/ack.dart';
+
 import 'concept_builtins.dart';
 import 'facts.dart';
 import 'structure_builtins.dart';
@@ -32,14 +34,14 @@ typedef BuiltinFix =
     );
 
 final class Builtin {
-  const Builtin(
+  Builtin(
     this.run, {
-    this.paramsSchema = const {'type': 'object', 'additionalProperties': false},
+    ObjectSchema? params,
     this.messagePlaceholders = const {},
     this.messageIds = const {},
     this.needsLinks = false,
     this.fix,
-  });
+  }) : params = params ?? Ack.object({});
 
   final BuiltinBody run;
 
@@ -48,7 +50,9 @@ final class Builtin {
 
   final BuiltinFix? fix;
 
-  final Object? paramsSchema;
+  /// The `params` this builtin takes, a Dart-authored contract like the
+  /// CLI's tool inputs. Unknown keys are refused.
+  final ObjectSchema params;
 
   final Set<String> messagePlaceholders;
 
@@ -62,21 +66,21 @@ final class Builtin {
 /// something absent where no subject lives, or reports several findings per
 /// subject. Policy is params, set by the package; engine health is an
 /// `EngineDiagnostic`; no capability names a Profile.
-const builtins = <String, Builtin>{
+final builtins = <String, Builtin>{
   'files-present': Builtin(
     filesPresent,
-    paramsSchema: filesPresentParams,
+    params: filesPresentParams,
     messagePlaceholders: {'failing'},
   ),
   'path-targets-exist': Builtin(
     pathTargetsExist,
-    paramsSchema: pathTargetsExistParams,
+    params: pathTargetsExistParams,
     messagePlaceholders: {'target'},
     needsLinks: true,
   ),
   'matches-generated': Builtin(
     matchesGenerated,
-    paramsSchema: matchesGeneratedParams,
+    params: matchesGeneratedParams,
     messagePlaceholders: {'path'},
     messageIds: {'stale', 'extra'},
     fix: generated,
