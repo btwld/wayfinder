@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/published_schemas.g.dart';
+import 'package:wayfinder/src/rules/schema.dart';
 
 void main() {
   final schemas = {
@@ -10,6 +11,10 @@ void main() {
   };
 
   for (final MapEntry(key: name, value: schema) in schemas.entries) {
+    test('$name is written inside the Profile keyword subset', () {
+      expect(() => RuleSchema.parse(schema), returnsNormally);
+    });
+
     // A failure under a propertyNames reached through $ref is located at the
     // def, where the message cannot tell it from a member value's failure.
     // TODO(https://github.com/btwld/ack/issues/203): once Ack reports
