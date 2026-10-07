@@ -1562,12 +1562,14 @@ void main() {
         ...package('client-profile'),
         'format': 3,
       }, tag: 'arm-unsupported');
+      await commitPackage('copy', package('bitwild-profile'), tag: 'arm-copy');
       tags = {
         for (final tag in [
           'v2026.3',
           'arm-child',
           'arm-misnamed',
           'arm-unsupported',
+          'arm-copy',
         ])
           tag: await _gitOutput(source.path, ['rev-parse', '$tag^{commit}']),
       };
@@ -1678,6 +1680,53 @@ void main() {
         'Profile lock has no complete chain for Profile bitwild-profile. '
         'Run wayfinder get.',
       );
+    });
+
+    group('profile-unresolved when the lock records another', () {
+      String message(String git, String ref, String path) =>
+          'Profile lock records bitwild-profile from $git at $ref ($path); '
+          'the configuration names ${source.path} at v2026.3 '
+          '(profiles/bitwild). Run wayfinder get.';
+
+      test('source', () async {
+        final other = p.join(project.path, 'elsewhere');
+        await writeLock({
+          'bitwild-profile': {
+            ...locked('v2026.3', 'profiles/bitwild'),
+            'source': other,
+          },
+        });
+        final diagnostic = await reason();
+        expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+        expect(
+          diagnostic.message,
+          message(other, 'v2026.3', 'profiles/bitwild'),
+        );
+      });
+
+      test('ref', () async {
+        await writeLock({
+          'bitwild-profile': locked('arm-child', 'profiles/bitwild'),
+        });
+        final diagnostic = await reason();
+        expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+        expect(
+          diagnostic.message,
+          message(source.path, 'arm-child', 'profiles/bitwild'),
+        );
+      });
+
+      test('path', () async {
+        await writeLock({
+          'bitwild-profile': {
+            ...locked('arm-copy', 'copy'),
+            'requested_ref': 'v2026.3',
+          },
+        });
+        final diagnostic = await reason();
+        expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+        expect(diagnostic.message, message(source.path, 'v2026.3', 'copy'));
+      });
     });
 
     test('profile-unresolved when the cache lacks a locked package', () async {
