@@ -165,11 +165,13 @@ final class RuleSchema {
 /// A rule schema with its slots filled: pass or fail only. Findings never
 /// read schema-library errors (ADR-0015 §2), so this exposes no error.
 extension type BoundSchema._(AckSchema<Object, Object> _schema) {
-  // TODO(https://github.com/btwld/ack/issues/205): once it and
-  // https://github.com/btwld/ack/issues/206 ship, re-measure validate on a
-  // large bundle; they remove per-call allocations and the copy safeParse
-  // makes of an accepted value.
-  bool accepts(Object? instance) => _schema.safeParse(instance).isOk;
+  // safeParse copies every accepted value. An imported schema validates on
+  // encode without copying, which keeps a large bundle's validate within
+  // budget.
+  // TODO(https://github.com/btwld/ack/issues/206): return to safeParse, Ack's
+  // documented entry point, once it no longer copies; re-measure then, with
+  // https://github.com/btwld/ack/issues/205's allocation fixes.
+  bool accepts(Object? instance) => _schema.safeEncode(instance).isOk;
 }
 
 /// The Profile keyword subset, and how the walk follows each keyword. The
