@@ -118,6 +118,12 @@ final class _Compiler {
   late final bool mayObserveUnnamedRootProperties;
   late final Set<String> reachableDefs;
 
+  /// Keywords that read their instance's properties only by name: the
+  /// annotations, the string and array keywords, `required`, `properties`,
+  /// and the applicators whose subschemas this walk checks on the same
+  /// instance. Any other keyword counts as reading every property, so leaving
+  /// a keyword out costs a needless skip and listing one wrongly hides a link
+  /// dependency.
   static const _namedOnlyKeywords = {
     r'$schema',
     r'$id',
