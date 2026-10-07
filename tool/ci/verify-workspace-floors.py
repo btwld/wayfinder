@@ -11,6 +11,7 @@ not have yet, so that floor can only resolve to the source it was tested on.
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -19,18 +20,25 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def dependencies(text: str) -> dict[str, str]:
+    """Each direct dependency and its inline constraint; "" for a map form."""
     match = re.search(r"^dependencies:\n((?:[ \t]+.*\n|\n)*)", text, re.M)
-    return dict(re.findall(r"^  (\w+):[ \t]*(\S.*)$", match[1], re.M)) if match else {}
+    return dict(re.findall(r"^  (\w+):[ \t]*(.*?)[ \t]*$", match[1], re.M)) if match else {}
 
 
 def unreleased(changelog: Path) -> bool:
-    match = re.match(r"# Unreleased\n(.*?)(?:^# |\Z)", changelog.read_text(), re.M | re.S)
+    match = re.search(r"^# Unreleased\n(.*?)(?=^# |\Z)", changelog.read_text(), re.M | re.S)
     return bool(match and match[1].strip())
 
 
 def published(name: str) -> set[str]:
-    with urllib.request.urlopen(f"https://pub.dev/api/packages/{name}") as response:
-        return {entry["version"] for entry in json.load(response)["versions"]}
+    url = f"https://pub.dev/api/packages/{name}"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return {entry["version"] for entry in json.load(response)["versions"]}
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return set()
+        raise
 
 
 def main() -> int:
@@ -49,7 +57,10 @@ def main() -> int:
                 continue
             depended.add(name)
             if constraint != f"^{packages[name][1]}":
-                failures.append(f"{member}: {name} {constraint}; expected ^{packages[name][1]}")
+                failures.append(
+                    f"{member}: {name} {constraint or '<map form>'}; "
+                    f"expected ^{packages[name][1]}"
+                )
     for name in sorted(depended):
         member, version, _ = packages[name]
         if unreleased(ROOT / member / "CHANGELOG.md") and version in published(name):
