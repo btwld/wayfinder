@@ -62,6 +62,51 @@ abstract final class ProfileSkills {
         directory,
   ];
 
+  /// The roots that a symbolic link at the root or an ancestor places
+  /// outside [projectRoot], where a write or prune would change another
+  /// project's skills. A link that cannot be resolved counts as outside.
+  static Future<List<String>> escaping(String projectRoot) async {
+    final real = await Directory(projectRoot).resolveSymbolicLinks();
+    return [
+      for (final root in roots)
+        if (await _realPath(p.join(projectRoot, root)) case final resolved
+            when resolved == null || !p.isWithin(real, resolved))
+          root,
+    ];
+  }
+
+  /// [path] with every symbolic link resolved, appending the segments that
+  /// do not exist yet to the nearest existing ancestor; null when a link
+  /// does not resolve.
+  static Future<String?> _realPath(String path) async {
+    final missing = <String>[];
+    var existing = path;
+    while (await FileSystemEntity.type(existing, followLinks: false) ==
+        FileSystemEntityType.notFound) {
+      missing.insert(0, p.basename(existing));
+      existing = p.dirname(existing);
+    }
+    try {
+      return p.joinAll([
+        await Directory(existing).resolveSymbolicLinks(),
+        ...missing,
+      ]);
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  static Future<void> _refuseEscaping(String projectRoot) async {
+    if (await escaping(projectRoot) case [final root, ...]) {
+      throw FileSystemException(escapingMessage(root), root);
+    }
+  }
+
+  static String escapingMessage(String root) =>
+      '$root resolves outside the project through a symbolic link, so '
+      'wayfinder did not install or remove Profile skills there. Point it '
+      'inside the project and run the command again.';
+
   /// The directories of [ids] that exist without a marker for their id, so
   /// the user or another tool owns them and `get` must not replace them.
   static Future<List<String>> unowned(
@@ -84,6 +129,7 @@ abstract final class ProfileSkills {
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
+    await _refuseEscaping(projectRoot);
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));
       final _StagingNames(:staged, :old) = _StagingNames(target, revision.id);
@@ -138,6 +184,7 @@ abstract final class ProfileSkills {
     String projectRoot,
     Set<ProfileId> keep,
   ) async {
+    await _refuseEscaping(projectRoot);
     final removed = <String>[];
     for (final root in roots) {
       final parent = Directory(p.join(projectRoot, root));
