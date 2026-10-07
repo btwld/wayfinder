@@ -1,59 +1,210 @@
 import 'dart:convert';
 
+import 'package:ack/ack.dart';
+
 import 'generated/published_schemas.g.dart';
-import 'rules/predicate.dart';
 
-final _configuration = JsonPredicate.compile(
-  jsonDecode(wayfinderConfigurationSchema),
-);
-final _package = JsonPredicate.compile(jsonDecode(wayfinderProfileSchema));
+final _configuration = _PublishedSchema(wayfinderConfigurationSchema);
+final _package = _PublishedSchema(wayfinderProfileSchema);
 
+/// Why [configuration], a decoded `wayfinder.json`, does not match
+/// `docs/schemas/wayfinder.schema.json`, as
+/// `is invalid at <pointer>: <reason>`, or null when it matches.
 String? configurationSchemaViolation(Object? configuration) {
-  final failure = _configuration.firstFailure(configuration);
-  if (failure == null) return null;
-  final where = failure.pointer.isEmpty ? 'the root' : failure.pointer;
-  return 'is invalid at $where: ${schemaFailureReason(failure)}';
+  final violation = _configuration.violation(configuration);
+  if (violation == null) return null;
+  final at = violation.at;
+  final where = at.isEmpty
+      ? 'the root'
+      : at.map((s) => '/${_escape(s)}').join();
+  return 'is invalid at $where: ${violation.reason}';
 }
 
 /// Why [package], a decoded `wayfinder-profile.json`, does not match
 /// `docs/schemas/wayfinder-profile.schema.json`, or null when it does.
-JsonPredicateFailure? profilePackageSchemaFailure(Object? package) =>
-    _package.firstFailure(package);
+/// `where` is a path such as `rules[3].check.subject`, or `package` for the
+/// document itself.
+({String where, String reason})? profilePackageSchemaViolation(
+  Object? package,
+) {
+  final violation = _package.violation(package);
+  if (violation == null) return null;
+  return (
+    where: _packagePath([...violation.at, ?violation.property]),
+    reason: violation.reason,
+  );
+}
 
-String schemaFailureReason(JsonPredicateFailure failure) => switch (failure) {
-  JsonPredicateFailure(keyword: 'type', expected: final List<String> types) =>
-    'must be ${types.map(_typeNoun).join(' or ')}',
-  JsonPredicateFailure(keyword: 'const', :final expected) =>
-    'must be ${jsonEncode(expected)}',
-  JsonPredicateFailure(keyword: 'enum', expected: final List<Object?> values) =>
-    'must be one of ${values.map(_literal).join(', ')}',
-  JsonPredicateFailure(keyword: 'minLength', expected: 1) =>
-    'must be a non-empty string',
-  JsonPredicateFailure(keyword: 'minLength', :final expected) =>
-    'must have at least $expected characters',
-  JsonPredicateFailure(keyword: 'maxLength', :final expected) =>
-    'must have at most $expected characters',
-  JsonPredicateFailure(keyword: 'minProperties', expected: 1) =>
-    'must not be empty',
-  JsonPredicateFailure(keyword: 'minProperties', :final expected) =>
-    'must have at least $expected properties',
-  JsonPredicateFailure(keyword: 'minItems', expected: 1) => 'must not be empty',
-  JsonPredicateFailure(keyword: 'minItems', :final expected) =>
-    'must have at least $expected items',
-  JsonPredicateFailure(keyword: 'pattern', description: final String text) =>
-    'must be $text',
-  JsonPredicateFailure(keyword: 'pattern', :final expected) =>
-    'must match pattern $expected',
-  JsonPredicateFailure(keyword: 'required', :final property) =>
-    'is missing required property $property',
-  JsonPredicateFailure(keyword: 'additionalProperties', :final property) =>
-    'has unknown property $property',
-  JsonPredicateFailure(keyword: 'propertyNames', :final property) =>
-    'has invalid property name ${jsonEncode(property)}',
-  JsonPredicateFailure(keyword: 'oneOf') =>
-    'must match exactly one of its allowed shapes',
-  JsonPredicateFailure(:final keyword) => 'fails $keyword',
-};
+/// The first way a document fails a published schema, in the engine's
+/// words. `at` is the instance location of the object the failure belongs
+/// to; `property` is the member it names, for a missing, unknown or
+/// misnamed member, which the configuration message names in `reason` and
+/// the package message appends to its path.
+typedef _Violation = ({List<String> at, String? property, String reason});
+
+/// One embedded published schema: its decoded document, which supplies the
+/// expected values and descriptions Ack's errors locate but do not carry,
+/// and the Ack schema imported from it once.
+///
+/// Neither schema routes a `propertyNames` subschema through `$ref`
+/// (published_schemas_test), so a property-name failure's pointer passes
+/// through a `propertyNames` keyword.
+final class _PublishedSchema {
+  _PublishedSchema(String source)
+    : _document = jsonDecode(source) as Map<String, Object?> {
+    _schema = Ack.fromJsonSchema(_document);
+  }
+
+  final Map<String, Object?> _document;
+  late final AckSchema<Object, Object> _schema;
+
+  _Violation? violation(Object? value) {
+    final result = _schema.safeParse(value);
+    if (result.isOk) return null;
+    return switch (result.getError()) {
+      final JsonSchemaValidationError error => _keywordViolation(error),
+      // Ack checks a root null before any keyword.
+      SchemaConstraintsError() => (
+        at: const [],
+        property: null,
+        reason: 'must not be null',
+      ),
+      // jsonDecode yields JSON except for numbers too large for a double.
+      SchemaValidationError() => (
+        at: const [],
+        property: null,
+        reason: 'must contain only finite numbers',
+      ),
+      final error => (at: const [], property: null, reason: error.message),
+    };
+  }
+
+  _Violation _keywordViolation(JsonSchemaValidationError error) {
+    final pointer = _tokens(Uri.decodeComponent(error.pointer.substring(1)));
+    final path = _tokens(error.path.substring(1));
+    final owner = path.isEmpty
+        ? const <String>[]
+        : path.sublist(0, path.length - 1);
+    // TODO(https://github.com/btwld/ack/issues/203): classify propertyNames
+    // and additionalProperties failures on the error's keywordLocation, not
+    // its pointer, which stops at a $ref target shared with member values.
+    if (_keywordTokens(pointer).contains('propertyNames')) {
+      return (
+        at: owner,
+        property: path.last,
+        reason: 'has invalid property name ${jsonEncode(path.last)}',
+      );
+    }
+    return switch (error.keyword) {
+      'required' => (
+        at: owner,
+        property: path.last,
+        reason: 'is missing required property ${path.last}',
+      ),
+      '' when pointer.lastOrNull == 'additionalProperties' => (
+        at: owner,
+        property: path.last,
+        reason: 'has unknown property ${path.last}',
+      ),
+      final keyword => (
+        at: path,
+        property: null,
+        reason: _reason(
+          keyword,
+          _at(pointer),
+          _at(pointer.sublist(0, pointer.length - 1)),
+        ),
+      ),
+    };
+  }
+
+  /// The value at [pointer] in the document, or null.
+  Object? _at(List<String> pointer) {
+    Object? node = _document;
+    for (final token in pointer) {
+      node = switch (node) {
+        final Map<String, Object?> map => map[token],
+        final List<Object?> list => list.elementAtOrNull(
+          int.tryParse(token) ?? -1,
+        ),
+        _ => null,
+      };
+    }
+    return node;
+  }
+
+  /// The tokens of [pointer] that name keywords, skipping property and def
+  /// names and array indexes, so a property named `propertyNames` is not
+  /// mistaken for the keyword.
+  static Iterable<String> _keywordTokens(List<String> pointer) sync* {
+    var skipNext = false;
+    for (final token in pointer) {
+      if (skipNext) {
+        skipNext = false;
+        continue;
+      }
+      yield token;
+      skipNext = const {
+        'properties',
+        r'$defs',
+        'allOf',
+        'anyOf',
+        'oneOf',
+      }.contains(token);
+    }
+  }
+}
+
+/// [keyword]'s failure in words. [expected] is the keyword's value and
+/// [schema] the subschema holding it, both read from the engine's own copy
+/// of the published schema.
+String _reason(String keyword, Object? expected, Object? schema) =>
+    switch ((keyword, expected)) {
+      ('type', final String type) => 'must be ${_typeNoun(type)}',
+      ('type', final List<Object?> types) =>
+        'must be ${types.cast<String>().map(_typeNoun).join(' or ')}',
+      ('const', _) => 'must be ${jsonEncode(expected)}',
+      ('enum', final List<Object?> values) =>
+        'must be one of ${values.map(_literal).join(', ')}',
+      ('minLength', 1) => 'must be a non-empty string',
+      ('minLength', _) => 'must have at least $expected characters',
+      ('maxLength', _) => 'must have at most $expected characters',
+      ('minProperties', 1) => 'must not be empty',
+      ('minProperties', _) => 'must have at least $expected properties',
+      ('minItems', 1) => 'must not be empty',
+      ('minItems', _) => 'must have at least $expected items',
+      ('pattern', _) => switch (schema) {
+        {'description': final String text} => 'must be $text',
+        _ => 'must match pattern $expected',
+      },
+      ('oneOf', _) => 'must match exactly one of its allowed shapes',
+      _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
+    };
+
+/// JSON Pointer tokens, unescaped. Ack's error path is a `#`-prefixed RFC
+/// 6901 pointer; its schema pointer is the same after percent-decoding.
+List<String> _tokens(String pointer) => [
+  for (final token in pointer.split('/').skip(1))
+    token.replaceAll('~1', '/').replaceAll('~0', '~'),
+];
+
+String _escape(String token) =>
+    token.replaceAll('~', '~0').replaceAll('/', '~1');
+
+/// [segments] as a path into the package, such as `rules[3].check.subject`,
+/// or `package` for the document itself.
+String _packagePath(List<String> segments) {
+  if (segments.isEmpty) return 'package';
+  final where = StringBuffer();
+  for (final segment in segments) {
+    if (int.tryParse(segment) != null) {
+      where.write('[$segment]');
+    } else {
+      where.write(where.isEmpty ? segment : '.$segment');
+    }
+  }
+  return '$where';
+}
 
 String _typeNoun(String type) => switch (type) {
   'null' => 'null',

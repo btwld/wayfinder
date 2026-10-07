@@ -15,6 +15,14 @@ follows Ack 1.7.0.
   `required` or `type` entry, an empty `type` list and a `$schema` other than
   2020-12 are refused; and Ack words these refusals and a nonproductive
   `$ref` cycle.
+- Ack also checks `wayfinder.json` and each package against the published
+  schemas, and the engine words the first failure as before, with three
+  changes: a root `null` is reported as "must not be null"; with several
+  violations, the first is the first in Ack's keyword order rather than
+  document order; and a number too large for a double is reported as "must
+  contain only finite numbers". `schemaFailureWhere` is gone; it was never
+  meant to be public. Until Ack reports `keywordLocation`, the
+  `wayfinder.json` schema writes its two `propertyNames` subschemas inline.
 - A non-finite frontmatter number (YAML `.inf`, `.nan`) reads as the string
   fact `Infinity` or `NaN`, as other non-JSON scalars already do, so a rule
   schema only ever sees JSON.
