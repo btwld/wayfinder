@@ -449,6 +449,77 @@ void main() {
     }
   });
 
+  group('a skill root that resolves outside the project', () {
+    late Directory other;
+    late Directory foreign;
+
+    setUp(() async {
+      other = await Directory(p.join(temp.path, 'other')).create();
+      foreign = Directory(p.join(other.path, '.agents/skills/old-profile'));
+      await foreign.create(recursive: true);
+      await File(p.join(foreign.path, '.wayfinder-profile')).writeAsString(
+        '{"id": "old-profile", "release": "1", "commit": "${'b' * 40}"}',
+      );
+    });
+
+    const message =
+        '.agents/skills resolves outside the project through a symbolic '
+        'link, so wayfinder did not install or remove Profile skills there. '
+        'Point it inside the project and run the command again.';
+
+    for (final (name, link, target) in [
+      ('at the root', '.agents/skills', '.agents/skills'),
+      ('at an ancestor', '.agents', '.agents'),
+    ]) {
+      test('$name fails get before writing', () async {
+        final path = p.join(project.path, link);
+        await Directory(p.dirname(path)).create(recursive: true);
+        await Link(path).create(p.join(other.path, target));
+        await expectLater(
+          resolver.resolve(project.path),
+          throwsA(
+            isA<WayfinderProfileResolutionException>().having(
+              (error) => error.message,
+              'message',
+              message,
+            ),
+          ),
+        );
+        expect(await foreign.exists(), isTrue);
+        expect(await Directory(p.join(other.path, _agents)).exists(), isFalse);
+        expect(
+          await File(p.join(project.path, 'wayfinder.lock')).exists(),
+          isFalse,
+        );
+      });
+    }
+
+    test('write and prune refuse it', () async {
+      await Directory(p.join(project.path, '.agents')).create();
+      await Link(
+        p.join(project.path, '.agents/skills'),
+      ).create(p.join(other.path, '.agents/skills'));
+      final refused = throwsA(
+        isA<FileSystemException>().having(
+          (error) => error.message,
+          'message',
+          message,
+        ),
+      );
+      await expectLater(ProfileSkills.prune(project.path, {}), refused);
+      await expectLater(
+        ProfileSkills.write(
+          project.path,
+          (id: ProfileId.parse('acme-notes'), release: '1.0', commit: 'a' * 40),
+          [(path: 'SKILL.md', bytes: utf8.encode('x'))],
+        ),
+        refused,
+      );
+      expect(await foreign.exists(), isTrue);
+      expect(await Directory(p.join(other.path, _agents)).exists(), isFalse);
+    });
+  });
+
   test('get lists the installed skills', () async {
     final output = <String>[];
     final cli = WayfinderCli(
