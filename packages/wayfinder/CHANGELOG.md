@@ -80,8 +80,12 @@
   `driver.notifications` descriptors, and `executionSuccessful` is false only
   for an error diagnostic. `internalErrorJson` and `internalErrorSarif`
   describe a run that stopped. A link graph that cannot be built now makes
-  the gate `INCOMPLETE` rather than `FAIL`. `ProfileValidator` takes a
-  `buildGraph` function so a test can force that path.
+  the gate `INCOMPLETE` rather than `FAIL`, and skips every rule that reads
+  a link fact: by name, through a `$ref` applied to the subject, or through a
+  keyword that reads the whole key set (`propertyNames`,
+  `additionalProperties`, `minProperties`, `enum`, `const`).
+  `ProfileValidator` takes a `buildGraph` function so a test can force that
+  path.
 - `index-current` and `validate --fix` compare an index with CRLF line
   endings, as a Windows checkout writes it, equal to the generated LF text,
   so neither reports nor rewrites it.

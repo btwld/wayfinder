@@ -298,7 +298,11 @@ SchemaCheck _schemaCheck(
   }
   var needsLinks = false;
   if (subject.facts case ClosedFacts(:final shapes) && final facts) {
-    needsLinks = [...compiled.rootPropertyNames, ?each].any(facts.fromLinks);
+    needsLinks =
+        [...compiled.rootPropertyNames, ?each].any(facts.fromLinks) ||
+        each == null &&
+            compiled.observesUnnamedRootProperties &&
+            shapes.keys.any(facts.fromLinks);
     final Set<String> names;
     final String instance;
     if (each == null) {

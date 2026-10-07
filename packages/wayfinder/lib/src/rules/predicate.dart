@@ -42,6 +42,7 @@ final class JsonPredicate {
     required this.slots,
     required this.defs,
     required this.rootPropertyNames,
+    required this.observesUnnamedRootProperties,
   });
 
   factory JsonPredicate.compile(
@@ -62,6 +63,7 @@ final class JsonPredicate {
       slots: compiler.reachableSlots,
       defs: compiler.reachableDefs,
       rootPropertyNames: compiler.rootPropertyNames,
+      observesUnnamedRootProperties: compiler.observesUnnamedRootProperties,
     );
   }
 
@@ -72,6 +74,11 @@ final class JsonPredicate {
   final Set<String> defs;
 
   final Set<String> rootPropertyNames;
+
+  /// Whether the schema reads its instance's property names without naming
+  /// them, through `propertyNames`, `additionalProperties`, `minProperties`,
+  /// `enum` or `const`, so it depends on every property present.
+  final bool observesUnnamedRootProperties;
 
   bool test(Object? instance) => _root.test(instance);
 
@@ -98,9 +105,19 @@ final class _Compiler {
   final _refSites = <_RefSite>[];
   final _slotsByDef = <String?, Set<String>>{};
   final _rootNamesByDef = <String?, Set<String>>{};
+  final _unnamedRootDefs = <String?>{};
   late final Set<String> rootPropertyNames;
+  late final bool observesUnnamedRootProperties;
   late final Set<String> reachableDefs;
   late final Set<String> reachableSlots;
+
+  static const _unnamedKeywords = {
+    'propertyNames',
+    'additionalProperties',
+    'minProperties',
+    'enum',
+    'const',
+  };
 
   String? _currentDef;
   String? _currentDefDescription;
@@ -128,11 +145,14 @@ final class _Compiler {
     _rejectUnguardedCycles();
     final reached = _reach(_refSites);
     reachableDefs = reached;
-    rootPropertyNames = {
-      ...?_rootNamesByDef[null],
-      for (final name in _reach(_refSites.where((site) => !site.guarded)))
-        ...?_rootNamesByDef[name],
+    final sameInstance = <String?>{
+      null,
+      ..._reach(_refSites.where((site) => !site.guarded)),
     };
+    rootPropertyNames = {
+      for (final def in sameInstance) ...?_rootNamesByDef[def],
+    };
+    observesUnnamedRootProperties = sameInstance.any(_unnamedRootDefs.contains);
     reachableSlots = {
       ...?_slotsByDef[null],
       for (final name in reached) ...?_slotsByDef[name],
@@ -204,6 +224,9 @@ final class _Compiler {
     _Node? elseNode;
     for (final MapEntry(key: keyword, :value) in map.entries) {
       final at = _pointer(pointer, keyword);
+      if (_descents == 0 && _unnamedKeywords.contains(keyword)) {
+        _unnamedRootDefs.add(_currentDef);
+      }
       switch (keyword) {
         case r'$schema' ||
             r'$id' ||
