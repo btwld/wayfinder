@@ -1,5 +1,10 @@
-# Unreleased
+# 0.2.0-beta.1
 
+A pre-release because core `wayfinder` depends on Ack `^1.7.0-beta.5`;
+`wayfinder update` and the plugin skip it. Stable 0.2.0 follows Ack 1.7.0.
+
+- Requires `ack` `^1.7.0-beta.5` and `wayfinder` and `wayfinder_embeddings`
+  `^0.2.0-beta.1`.
 - `setup --session-hooks` adds project-local, context-only startup hooks for
   Claude, Codex, and Gemini and an `AGENTS.md` pointer for Grok. The short
   bootstrap prompts loading `use-wayfinder` and its related skills; it performs

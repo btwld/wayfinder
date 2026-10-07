@@ -123,8 +123,10 @@ void main() {
       expect(installs, isEmpty);
     });
 
+    // The runtime may be a pre-release, which the stable-only check never
+    // returns, so an older stable release stands for "nothing newer".
     test('reports an up-to-date runtime', () async {
-      await updater([release('wayfinder-v$wayfinderVersion')]).run(check: true);
+      await updater([release('wayfinder-v0.0.1')]).run(check: true);
       expect(output.single, contains('is up to date'));
     });
 
