@@ -399,6 +399,18 @@ final class WayfinderProfileResolver {
           'get.',
         );
       }
+      final leaf = chain.last;
+      final source = bound.binding.source;
+      if (leaf.git != source.git ||
+          leaf.requestedRef != source.ref ||
+          leaf.path != source.path) {
+        return unselected(
+          unresolved,
+          'Profile lock records $id from ${leaf.git} at ${leaf.requestedRef} '
+          '(${leaf.path}); the configuration names ${source.git} at '
+          '${source.ref} (${source.path}). Run wayfinder get.',
+        );
+      }
       final packages = <ProfilePackage>[];
       for (final (index, locked) in chain.indexed) {
         final package = await _readCached(locked, bound.projectRoot);

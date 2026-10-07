@@ -31,7 +31,9 @@
   `get --output json` reports `packages` instead of `profiles` and drops
   `direct`. Validation selects through the resolver's `select`, which never
   fetches and reports each failure as one diagnostic, including a lock whose
-  chain, release or parent disagrees with the cached package.
+  chain, release or parent disagrees with the cached package, or whose
+  selected package records another `git`, `ref` or `path` than the
+  configuration.
 - `wayfinder get` reads each configured source's `wayfinder-profile.json`
   as a format 2 package and composes the chain before writing the lock, so
   a package this engine cannot read, or a chain that does not compose,
