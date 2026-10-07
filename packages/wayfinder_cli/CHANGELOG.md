@@ -19,7 +19,8 @@
   or is no longer locked, and rewrite nothing when every marker is current.
   A skill root that a symbolic link at the root or an ancestor places
   outside the project is never pruned, and it fails `get` before the lock
-  is written when a locked Profile ships a skill to install there.
+  is written when a locked Profile ships a skill to install there; the
+  message names every such root.
   Text output lists each skill; `--output json` adds `skills` and
   `removed_skills`. `validate` reports a missing or outdated copy as the
   `wayfinder/profile-skill-stale` warning without changing the gate.

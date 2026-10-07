@@ -298,9 +298,10 @@ final class WayfinderProfileResolver {
       }
     }
     if (skills.isNotEmpty) {
-      if (await ProfileSkills.escaping(projectRoot) case [final root, ...]) {
+      final escaped = await ProfileSkills.escaping(projectRoot);
+      if (escaped.isNotEmpty) {
         throw WayfinderProfileResolutionException(
-          ProfileSkills.escapingMessage(root),
+          ProfileSkills.escapingMessage(escaped),
         );
       }
     }

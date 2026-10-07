@@ -97,10 +97,14 @@ abstract final class ProfileSkills {
     }
   }
 
-  static String escapingMessage(String root) =>
-      '$root resolves outside the project through a symbolic link, so '
-      'wayfinder did not install Profile skills there. Point it inside the '
-      'project and run the command again.';
+  static String escapingMessage(List<String> escaped) {
+    final (verb, pronoun) = escaped.length == 1
+        ? ('resolves', 'it')
+        : ('resolve', 'them');
+    return '${escaped.join(' and ')} $verb outside the project through a '
+        'symbolic link, so wayfinder did not install Profile skills there. '
+        'Point $pronoun inside the project and run the command again.';
+  }
 
   /// The directories of [ids] that exist without a marker for their id, so
   /// the user or another tool owns them and `get` must not replace them.
@@ -124,8 +128,9 @@ abstract final class ProfileSkills {
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
-    if (await escaping(projectRoot) case [final root, ...]) {
-      throw FileSystemException(escapingMessage(root), root);
+    final escaped = await escaping(projectRoot);
+    if (escaped.isNotEmpty) {
+      throw FileSystemException(escapingMessage(escaped), escaped.first);
     }
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));
