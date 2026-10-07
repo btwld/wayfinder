@@ -498,8 +498,8 @@ graph reading fail. Those command boundaries keep OKF reading independent of
 Profile selection (§5.2).
 
 The parser checks `wayfinder.json` and each Profile package against their
-published JSON Schemas, evaluated by the engine's own schema subset and
-embedded in the binary, then runs the cross-document checks a schema cannot
+published JSON Schemas, evaluated by Ack within the engine's keyword subset
+and embedded in the binary, then runs the cross-document checks a schema cannot
 express. Those cover normalized and canonical paths, package parents, package
 identity, rule tests, composition of the effective vocabulary, and actor
 lookup. A schema alone cannot prove filesystem safety, Git availability, or

@@ -503,8 +503,8 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    makes it `INCOMPLETE`.
 
 Wayfinder checks `wayfinder.json` and each package against the published
-schemas first and reports the first violation with its JSON pointer, for
-example `wayfinder.json is invalid at /profiles/client-profile: has unknown
+schemas first and reports the first violation Ack finds, in Ack's keyword
+order, with its JSON pointer, for example `wayfinder.json is invalid at /profiles/client-profile: has unknown
 property rules.` It then enforces the checks that a schema cannot prove,
 such as package parents, composition, overlapping bundle paths, whether a
 bundle exists, whether a source resolved, and whether a concept's actor

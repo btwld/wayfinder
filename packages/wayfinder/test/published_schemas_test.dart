@@ -3,6 +3,16 @@ import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/published_schemas.g.dart';
 import 'package:wayfinder/src/rules/schema.dart';
+import 'package:wayfinder/wayfinder.dart';
+
+String configMessage(String json) {
+  try {
+    WayfinderProjectConfig.parse(json);
+  } on WayfinderConfigException catch (error) {
+    return error.message;
+  }
+  fail('parsed');
+}
 
 void main() {
   final schemas = {
@@ -44,4 +54,37 @@ void main() {
       expect(offenders, isEmpty);
     });
   }
+
+  group('accepted wording changes', () {
+    test('a root null is reported as null', () {
+      expect(
+        configMessage('null'),
+        'wayfinder.json is invalid at the root: must not be null.',
+      );
+      expect(
+        () => ProfilePackage.parse('null'),
+        throwsA(
+          isA<ProfilePackageException>()
+              .having((error) => error.where, 'where', 'package')
+              .having((error) => error.message, 'message', 'must not be null'),
+        ),
+      );
+    });
+
+    test('the first failure follows Ack keyword order, not document order', () {
+      expect(
+        configMessage('{"surprise": true}'),
+        'wayfinder.json is invalid at the root: is missing required property '
+        'version.',
+      );
+    });
+
+    test('a number too large for a double is not JSON', () {
+      expect(
+        configMessage('{"version": 1e999, "profiles": {}}'),
+        'wayfinder.json is invalid at the root: must contain only finite '
+        'numbers.',
+      );
+    });
+  });
 }

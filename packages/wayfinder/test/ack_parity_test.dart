@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/generated/published_schemas.g.dart';
+import 'package:wayfinder/src/published_schemas.dart';
 import 'package:wayfinder/src/rules/builtins.dart';
 import 'package:wayfinder/src/rules/facts.dart';
 import 'package:wayfinder/src/rules/schema.dart';
@@ -11,6 +13,7 @@ import 'package:wayfinder/wayfinder.dart';
 
 import 'diagnostics_test.dart' as diagnostics;
 import 'oracle/json_predicate.dart';
+import 'oracle/schema_failure.dart';
 import 'profile_descriptors_test.dart' as descriptors;
 import 'support.dart';
 
@@ -32,10 +35,19 @@ const acceptedDeltas = <String, String>{
   'corpus 3 a duplicate type entry': _decision4c,
   'corpus 3 an empty type list': _decision4c,
   r'corpus 3 a draft-07 $schema': _decision4c,
+  'corpus 5 wayfinder.json null': _decision4b,
+  'corpus 5 wayfinder-profile.json null': _decision4b,
+  'corpus 5 wayfinder.json missing and unknown keys':
+      "the first failure follows Ack's keyword order, not document order",
+  'corpus 5 wayfinder.json an infinite number':
+      'jsonDecode reads a number too large for a double as Infinity, which '
+      'is not JSON',
   r'corpus 3 a nested $id':
       r'$id moves the base URI refs resolve against, so only the rule root '
       'may carry it',
 };
+
+const _decision4b = 'Ack checks a root null before any keyword';
 
 const _decision4c =
     'Ack refuses a meta-schema-invalid form the old evaluator ignored';
@@ -160,6 +172,143 @@ Iterable<Map<String, Object?>> _mutations(Map<String, Object?> params) sync* {
       }
     }
   }
+}
+
+/// Documents that show each accepted wording change once.
+final _wordingDeltas = <String, Map<String, Object?>>{
+  'wayfinder.json': {
+    'null': null,
+    'missing and unknown keys': {'surprise': true},
+    'an infinite number': {
+      'version': double.infinity,
+      'profiles': <String, Object?>{},
+    },
+  },
+  'wayfinder-profile.json': {'null': null},
+};
+
+final _oldConfigurationSchema = JsonPredicate.compile(
+  jsonDecode(wayfinderConfigurationSchema),
+);
+final _oldPackageSchema = JsonPredicate.compile(
+  jsonDecode(wayfinderProfileSchema),
+);
+
+String? _oldConfigurationMessage(Object? document) {
+  final failure = _oldConfigurationSchema.firstFailure(document);
+  if (failure == null) return null;
+  final where = failure.pointer.isEmpty ? 'the root' : failure.pointer;
+  return 'is invalid at $where: ${schemaFailureReason(failure)}';
+}
+
+String? _oldPackageMessage(Object? document) {
+  final failure = _oldPackageSchema.firstFailure(document);
+  if (failure == null) return null;
+  return '${schemaFailureWhere(failure, root: 'package')}: '
+      '${schemaFailureReason(failure)}';
+}
+
+/// Single-defect copies of [seed], labelled by defect and JSON Pointer: each
+/// member deleted, an unknown member added to each object, each value
+/// retyped, each string set to `''`, `' '`, 65 characters and `bogus`, each
+/// array emptied, and each key of a map that takes any name renamed to an
+/// invalid one. [old] tells a map that takes any name: one that still
+/// matches with a key renamed to a plain identifier.
+Iterable<(String, Object?)> _defects(
+  Object? seed,
+  String? Function(Object?) old,
+) sync* {
+  final copies = <(String, Object?)>[];
+  void visit(Object? node, List<Object> path) {
+    final pointer = path.map((token) => '/$token').join();
+    Object? copy(void Function(Object? parent) edit) {
+      final document = jsonDecode(jsonEncode(seed));
+      Object? parent = document;
+      for (final token in path) {
+        parent = switch (parent) {
+          final Map<String, Object?> map => map[token],
+          final List<Object?> list => list[token as int],
+          _ => null,
+        };
+      }
+      edit(parent);
+      return document;
+    }
+
+    Object? replace(Object? value) {
+      if (path.isEmpty) return value;
+      final document = jsonDecode(jsonEncode(seed));
+      Object? parent = document;
+      for (final token in path.sublist(0, path.length - 1)) {
+        parent = switch (parent) {
+          final Map<String, Object?> map => map[token],
+          final List<Object?> list => list[token as int],
+          _ => null,
+        };
+      }
+      switch (parent) {
+        case final Map<String, Object?> map:
+          map[path.last as String] = value;
+        case final List<Object?> list:
+          list[path.last as int] = value;
+      }
+      return document;
+    }
+
+    final retyped = switch (node) {
+      String() => 1,
+      num() => '1',
+      bool() => 'true',
+      List<Object?>() => <String, Object?>{},
+      Map<String, Object?>() => <Object?>[],
+      _ => 1,
+    };
+    copies.add(('retype $pointer', replace(retyped)));
+    switch (node) {
+      case String():
+        for (final text in ['', ' ', 'a' * 65, 'bogus']) {
+          copies.add(('set $pointer to ${jsonEncode(text)}', replace(text)));
+        }
+      case final List<Object?> list:
+        copies.add(('empty $pointer', replace(<Object?>[])));
+        for (final (index, item) in list.indexed) {
+          visit(item, [...path, index]);
+        }
+      case final Map<String, Object?> map:
+        copies.add((
+          'add an unknown member to $pointer',
+          copy((parent) => (parent! as Map<String, Object?>)['x-unknown'] = 1),
+        ));
+        for (final key in map.keys) {
+          copies.add((
+            'delete $pointer/$key',
+            copy((parent) => (parent! as Map<String, Object?>).remove(key)),
+          ));
+          Object? renamed(String name) => copy((parent) {
+            final members = parent! as Map<String, Object?>;
+            final entries = members.entries.toList();
+            members
+              ..clear()
+              ..addEntries([
+                for (final entry in entries)
+                  entry.key == key ? MapEntry(name, entry.value) : entry,
+              ]);
+          });
+          if (old(renamed('renamed-key')) == null) {
+            for (final name in [' ', 'Not Valid!', 'a' * 65]) {
+              copies.add((
+                'rename $pointer/$key to ${jsonEncode(name)}',
+                renamed(name),
+              ));
+            }
+          }
+          visit(map[key], [...path, key]);
+        }
+    }
+  }
+
+  visit(seed, const []);
+  yield* copies;
 }
 
 final _root = p.normalize(p.join('..', '..'));
@@ -379,6 +528,48 @@ void main() {
       }
       expect(cases, greaterThan(100));
       _expectAccepted('corpus 4');
+    });
+
+    test('corpus 5: the first failure in words, one defect per mutation', () {
+      final documents = [
+        (
+          'wayfinder.json',
+          jsonDecode(
+            File(
+              p.join(_root, 'examples', 'bitwild', 'wayfinder.json'),
+            ).readAsStringSync(),
+          ),
+          _oldConfigurationMessage,
+          configurationSchemaViolation,
+        ),
+        (
+          'wayfinder-profile.json',
+          _readPackage('profiles/bitwild'),
+          _oldPackageMessage,
+          (Object? package) => switch (profilePackageSchemaViolation(package)) {
+            (:final where, :final reason) => '$where: $reason',
+            null => null,
+          },
+        ),
+      ];
+      var cases = 0;
+      for (final (name, seed, old, ack) in documents) {
+        expect(old(seed), isNull, reason: name);
+        expect(ack(seed), isNull, reason: name);
+        for (final (mutation, document) in [
+          ...?_wordingDeltas[name]?.entries.map((e) => (e.key, e.value)),
+          ..._defects(seed, old),
+        ]) {
+          cases++;
+          final (before, after) = (old(document), ack(document));
+          if (before != after) {
+            _observed['corpus 5 $name $mutation'] =
+                'old "$before", Ack "$after"';
+          }
+        }
+      }
+      expect(cases, greaterThan(1000));
+      _expectAccepted('corpus 5');
     });
 
     test('no disagreement outside acceptedDeltas', () {
