@@ -89,7 +89,8 @@ final class _Compiler {
   final _compiledDefs = <String, _Node>{};
   final _refSites = <_RefSite>[];
   final _slotsByDef = <String?, Set<String>>{};
-  final rootPropertyNames = <String>{};
+  final _rootNamesByDef = <String?, Set<String>>{};
+  late final Set<String> rootPropertyNames;
   late final Set<String> reachableDefs;
   late final Set<String> reachableSlots;
 
@@ -117,8 +118,25 @@ final class _Compiler {
       site.node.target = target;
     }
     _rejectUnguardedCycles();
+    final reached = _reach(_refSites);
+    reachableDefs = reached;
+    rootPropertyNames = {
+      ...?_rootNamesByDef[null],
+      for (final name in _reach(_refSites.where((site) => !site.guarded)))
+        ...?_rootNamesByDef[name],
+    };
+    reachableSlots = {
+      ...?_slotsByDef[null],
+      for (final name in reached) ...?_slotsByDef[name],
+    };
+    return node;
+  }
+
+  /// Defs reachable from the root schema through [sites]. An unguarded site
+  /// applies its def to the same instance as the schema that holds it.
+  static Set<String> _reach(Iterable<_RefSite> sites) {
     final edges = <String?, Set<String>>{};
-    for (final site in _refSites) {
+    for (final site in sites) {
       edges.putIfAbsent(site.fromDef, () => {}).add(site.node.name);
     }
     final reached = <String>{};
@@ -127,12 +145,7 @@ final class _Compiler {
       final name = pending.removeLast();
       if (reached.add(name)) pending.addAll(edges[name] ?? const {});
     }
-    reachableDefs = reached;
-    reachableSlots = {
-      ...?_slotsByDef[null],
-      for (final name in reached) ...?_slotsByDef[name],
-    };
-    return node;
+    return reached;
   }
 
   void _rejectUnguardedCycles() {
@@ -218,14 +231,14 @@ final class _Compiler {
           nodes.add(_MaxLength(_count(value, at)));
         case 'required':
           final names = _strings(value, at);
-          if (_atRoot) rootPropertyNames.addAll(names);
+          _rootNames?.addAll(names);
           nodes.add(_Required(names));
         case 'minProperties':
           nodes.add(_MinProperties(_count(value, at)));
         case 'properties':
-          final atRoot = _atRoot;
+          final rootNames = _rootNames;
           final properties = _schemaMap(value, at);
-          if (atRoot) rootPropertyNames.addAll(properties.keys);
+          rootNames?.addAll(properties.keys);
           nodes.add(_Properties(properties));
         case 'additionalProperties':
           final declared = map['properties'];
@@ -292,7 +305,10 @@ final class _Compiler {
     };
   }
 
-  bool get _atRoot => _currentDef == null && _descents == 0;
+  /// Names that the schema being compiled reads from its own instance, or
+  /// null below a descent, where they belong to a child instance.
+  Set<String>? get _rootNames =>
+      _descents == 0 ? (_rootNamesByDef[_currentDef] ??= {}) : null;
 
   _Node _descend(Object? schema, String pointer) {
     _descents++;
