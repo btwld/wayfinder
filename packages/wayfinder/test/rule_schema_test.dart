@@ -259,6 +259,17 @@ void main() {
       );
     });
 
+    test('a ref with a malformed percent escape is invalid', () {
+      expect(
+        () => RuleSchema.parse({r'$ref': r'#/$defs/%zz'}, defs: {'x': true}),
+        refusedAt(
+          r'/$ref',
+          message: 'has a malformed percent escape',
+          unsupported: false,
+        ),
+      );
+    });
+
     test('Ack refuses a meta-schema-invalid form as malformed', () {
       expect(
         () => RuleSchema.parse({
