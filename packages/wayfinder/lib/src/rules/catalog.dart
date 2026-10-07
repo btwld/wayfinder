@@ -7,6 +7,7 @@ import 'builtins.dart';
 import 'facts.dart';
 import 'predicate.dart';
 import 'profile.dart';
+import 'schema.dart';
 
 enum RuleCategory { structure, vocabulary, provenance, linking, history }
 
@@ -42,8 +43,6 @@ final class SchemaCheck extends RuleCheck {
     required this.failingField,
     required this.at,
     required this.schema,
-    required this.defs,
-    required this.slots,
   });
 
   final SubjectKind subject;
@@ -55,19 +54,9 @@ final class SchemaCheck extends RuleCheck {
   final String failingField;
 
   final String at;
-  final Object? schema;
 
-  final Map<String, Object?> defs;
-  final Set<Slot> slots;
-
-  JsonPredicate compile(Map<Slot, List<String>> values) =>
-      JsonPredicate.compile(
-        schema,
-        defs: defs,
-        slots: {
-          for (final MapEntry(:key, :value) in values.entries) key.id: value,
-        },
-      );
+  /// The gated, analyzed schema; `schema.bind(slots)` evaluates it.
+  final RuleSchema schema;
 
   static Object? element(Object? item) =>
       item is Map<String, Object?> ? item : {'value': item};
@@ -130,8 +119,8 @@ final class CatalogRule {
 /// builtin the engine lacks, a fact named with a shape the engine never
 /// produces, builtin params the builtin does not take, duplicate ids, a
 /// message placeholder nothing fills, a rule whose own examples disagree
-/// with its schema, and any predicate compile error. Pure: slots compile
-/// symbolically, so no bundle or vocabulary is needed.
+/// with its schema, and any schema the gate or Ack refuses. Pure: no bundle
+/// or vocabulary is needed.
 List<CatalogRule> compileRules(
   List<Object?> rules, {
   required ProfileId namespace,
@@ -199,7 +188,7 @@ CatalogRule _rule(
       }
       final examples = _examples(tests, '$where.tests');
       final provided = {Slot.okfFrontmatterKeys, ...examples.slots.keys};
-      for (final slot in check.slots) {
+      for (final slot in check.schema.slots) {
         if (!provided.contains(slot)) {
           throw ProfilePackageException(
             '$where.tests.slots',
@@ -279,17 +268,10 @@ SchemaCheck _schemaCheck(
       'not a location of ${subject.name}',
     );
   }
-  final schema = json['schema'];
-  final JsonPredicate compiled;
+  final RuleSchema schema;
   try {
-    compiled = JsonPredicate.compile(
-      schema,
-      defs: defs,
-      slots: {
-        for (final slot in Slot.values) slot.id: [slot.id],
-      },
-    );
-  } on JsonPredicateException catch (error) {
+    schema = RuleSchema.parse(json['schema'], defs: defs);
+  } on RuleSchemaException catch (error) {
     throw ProfilePackageException(
       '$where.schema',
       '$error',
@@ -299,9 +281,9 @@ SchemaCheck _schemaCheck(
   var needsLinks = false;
   if (subject.facts case ClosedFacts(:final shapes) && final facts) {
     needsLinks =
-        [...compiled.rootPropertyNames, ?each].any(facts.fromLinks) ||
+        [...schema.rootPropertyNames, ?each].any(facts.fromLinks) ||
         each == null &&
-            compiled.mayObserveUnnamedRootProperties &&
+            schema.mayObserveUnnamedRootProperties &&
             shapes.keys.any(facts.fromLinks);
     final Set<String> names;
     final String instance;
@@ -322,7 +304,7 @@ SchemaCheck _schemaCheck(
         throw ProfilePackageException('$where.failing_field', 'not $instance');
       }
     }
-    for (final name in compiled.rootPropertyNames) {
+    for (final name in schema.rootPropertyNames) {
       if (!names.contains(name)) {
         throw ProfilePackageException(
           '$where.schema',
@@ -338,8 +320,6 @@ SchemaCheck _schemaCheck(
     failingField: failingField ?? 'value',
     at: at,
     schema: schema,
-    defs: {for (final name in compiled.defs) name: defs[name]},
-    slots: {for (final id in compiled.slots) Slot.byId(id)!},
   );
 }
 
@@ -401,7 +381,7 @@ RuleExamples _examples(Map<String, Object?> json, String where) {
 }
 
 List<String> _failingExamples(SchemaCheck check, RuleExamples examples) {
-  final predicate = check.compile({
+  final schema = check.schema.bind({
     Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),
     ...examples.slots,
   });
@@ -409,8 +389,8 @@ List<String> _failingExamples(SchemaCheck check, RuleExamples examples) {
       check.each == null ? example : SchemaCheck.element(example);
   return [
     for (final (index, example) in examples.valid.indexed)
-      if (!predicate.test(instance(example))) 'valid[$index] fails',
+      if (!schema.accepts(instance(example))) 'valid[$index] fails',
     for (final (index, example) in examples.invalid.indexed)
-      if (predicate.test(instance(example))) 'invalid[$index] passes',
+      if (schema.accepts(instance(example))) 'invalid[$index] passes',
   ];
 }

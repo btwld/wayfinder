@@ -217,7 +217,7 @@ that blocks a complete assessment.
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
 | `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
-| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks; upgrading wayfinder is the remedy |
+| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
 | `profile-composition` | error | the chain and the project additions do not compose (§5.7) |
 | `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |

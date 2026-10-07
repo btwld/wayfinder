@@ -68,13 +68,17 @@ vocabulary. Names stay unique across the chain and the project entry.
 
 ## Schema checks
 
-A schema check runs a JSON Schema against the facts of each subject. The
-schema uses the engine's keyword subset: `type`, `enum`, `const`, `pattern`,
+A schema check runs a JSON Schema against the facts of each subject, and
+[Ack](https://pub.dev/packages/ack) evaluates it. The schema uses the
+engine's keyword subset: `type`, `enum`, `const`, `pattern`,
 `minLength`, `maxLength`, `required`, `minProperties`, `properties`,
 `additionalProperties`, `propertyNames`, `items`, `uniqueItems`,
 `minItems`, `maxItems`, `contains`, `not`, `allOf`, `anyOf`, `oneOf`,
 `if`/`then`/`else`, `$ref` to `#/$defs/<name>`, and `format: date-time`.
 Any other keyword, including any `x-` key, makes the package unsupported.
+The annotations `$schema`, `$comment`, `title`, `description`, `examples`,
+`default` and `deprecated` must be well-formed 2020-12 values, and `$id` and
+`$defs` may appear only at the schema's root.
 
 | Subject | One per | Facts |
 | --- | --- | --- |

@@ -102,6 +102,12 @@ void main() {
             final Map<String, Object?> defs => defs,
             _ => const <String, Object?>{},
           };
+          ProfilePackage? parsed;
+          try {
+            parsed = ProfilePackage.parse(jsonEncode(package));
+          } on ProfilePackageException {
+            parsed = null;
+          }
           for (final (index, rule) in rules.indexed) {
             if (_schemaRule(rule) case (
               :final schema,
@@ -109,12 +115,20 @@ void main() {
               :final slots,
             )) {
               schemas++;
+              // The schema the package parse built; a package refused for
+              // any reason has its schema compared directly.
+              RuleSchema ack() => switch (parsed?.rules[index].check) {
+                final SchemaCheck check => check.schema,
+                _ => RuleSchema.parse(schema, defs: defs),
+              };
+
               _compare(
                 'corpus 1 $label rules[$index]',
                 schema,
                 defs,
                 examples,
                 slots,
+                ack: ack,
               );
             }
           }
@@ -293,8 +307,9 @@ void _compare(
   Object? schema,
   Map<String, Object?> defs,
   List<Object?> instances,
-  Map<Slot, List<String>> slots,
-) {
+  Map<Slot, List<String>> slots, {
+  RuleSchema Function()? ack,
+}) {
   JsonPredicate? old;
   JsonPredicateException? oldRefusal;
   try {
@@ -308,14 +323,14 @@ void _compare(
   } on JsonPredicateException catch (error) {
     oldRefusal = error;
   }
-  RuleSchema? ack;
+  RuleSchema? parsed;
   RuleSchemaException? ackRefusal;
   try {
-    ack = RuleSchema.parse(schema, defs: defs);
+    parsed = (ack ?? () => RuleSchema.parse(schema, defs: defs))();
   } on RuleSchemaException catch (error) {
     ackRefusal = error;
   }
-  if (old == null || ack == null) {
+  if (old == null || parsed == null) {
     if (oldRefusal?.unsupported != ackRefusal?.unsupported) {
       _observed[label] =
           'old refuses with $oldRefusal '
@@ -325,13 +340,13 @@ void _compare(
     return;
   }
   final analysis = [
-    if (!_sameSet(old.rootPropertyNames, ack.rootPropertyNames))
-      'names ${old.rootPropertyNames} vs ${ack.rootPropertyNames}',
+    if (!_sameSet(old.rootPropertyNames, parsed.rootPropertyNames))
+      'names ${old.rootPropertyNames} vs ${parsed.rootPropertyNames}',
     if (old.mayObserveUnnamedRootProperties !=
-        ack.mayObserveUnnamedRootProperties)
+        parsed.mayObserveUnnamedRootProperties)
       'unnamed ${old.mayObserveUnnamedRootProperties}',
-    if (!_sameSet(old.slots, {for (final slot in ack.slots) slot.id}))
-      'slots ${old.slots} vs ${ack.slots}',
+    if (!_sameSet(old.slots, {for (final slot in parsed.slots) slot.id}))
+      'slots ${old.slots} vs ${parsed.slots}',
   ];
   if (analysis.isNotEmpty) _observed[label] = analysis.join('; ');
   final bound = JsonPredicate.compile(
@@ -339,7 +354,7 @@ void _compare(
     defs: defs,
     slots: {for (final slot in Slot.values) slot.id: slots[slot] ?? const []},
   );
-  final accepts = ack.bind(slots).accepts;
+  final accepts = parsed.bind(slots).accepts;
   for (final (index, instance) in instances.indexed) {
     if (bound.test(instance) != accepts(instance)) {
       _observed['$label [$index]'] =
