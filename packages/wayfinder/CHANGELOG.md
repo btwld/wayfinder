@@ -97,6 +97,11 @@
 - `ProfileFinding` takes a `FindingDescriptor`,
   which only an error or advisory descriptor can become, so a note rule has
   no path to a finding.
+- A rule schema names a composed vocabulary as `{"$ref": "#/$defs/<slot>"}`,
+  such as `#/$defs/profile.types`. The engine supplies those entries, so a
+  package or rule `$defs` entry may not use a slot id. The `x-slot` keyword
+  is gone, and any `x-` keyword now makes a package unsupported rather than
+  being ignored, so every rule schema is plain JSON Schema.
 - `ProfilePackage.parse` rejects more at load: a rule whose own examples
   disagree with its schema; `each` over a fact that is not a list;
   `failing_field` that is not an element field; a `properties` or

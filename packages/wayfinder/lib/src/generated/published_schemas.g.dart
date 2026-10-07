@@ -212,7 +212,7 @@ const String wayfinderProfileSchema = r'''
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
   "title": "Wayfinder Profile package",
-  "description": "One Profile at one Git revision: its identity, the vocabulary it declares, and the rules `wayfinder validate` enforces for it. Written inside the engine's own JSON Schema keyword subset so the engine validates packages with the same predicate it evaluates rules with. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), format \"date-time\", and the x-slot extension. The annotations $schema, $id, $comment, title, description, examples, default, deprecated, and other x- keys are ignored; $defs is read only at the root. Any other keyword makes the package unsupported.",
+  "description": "One Profile at one Git revision: its identity, the vocabulary it declares, and the rules `wayfinder validate` enforces for it. Written inside the engine's own JSON Schema keyword subset so the engine validates packages with the same predicate it evaluates rules with. That subset is type, enum, const, pattern, minLength, maxLength, required, minProperties, properties, additionalProperties, propertyNames, items, uniqueItems, minItems, maxItems, contains, not, allOf, anyOf, oneOf, if/then/else, $ref to a root $defs entry (#/$defs/<name>), and format \"date-time\". The engine supplies one $defs entry per slot, named by the slot id, such as #/$defs/profile.types. The annotations $schema, $id, $comment, title, description, examples, default, and deprecated are ignored; $defs is read only at the root. Any other keyword, including any x- key, makes the package unsupported.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -307,7 +307,7 @@ const String wayfinderProfileSchema = r'''
     },
     "$defs": {
       "type": "object",
-      "description": "Schemas rule schemas may $ref as #/$defs/<name>, including x-slot vocabularies."
+      "description": "Schemas rule schemas may $ref as #/$defs/<name>. A slot id names the entry the engine supplies, so no entry here may use one."
     },
     "rules": {
       "type": "array",

@@ -118,22 +118,22 @@
       "pattern": "[^\\s\\u0085]"
     },
     "frontmatter-key": {
-      "x-slot": "okf.frontmatterKeys"
+      "$ref": "#/$defs/okf.frontmatterKeys"
     },
     "declared-key": {
-      "x-slot": "profile.frontmatterKeys"
+      "$ref": "#/$defs/profile.frontmatterKeys"
     },
     "type-name": {
-      "x-slot": "profile.types"
+      "$ref": "#/$defs/profile.types"
     },
     "tag-name": {
-      "x-slot": "profile.tags"
+      "$ref": "#/$defs/profile.tags"
     },
     "relationship-name": {
-      "x-slot": "profile.relationships"
+      "$ref": "#/$defs/profile.relationships"
     },
     "actor-id": {
-      "x-slot": "profile.actors"
+      "$ref": "#/$defs/profile.actors"
     }
   },
   "rules": [

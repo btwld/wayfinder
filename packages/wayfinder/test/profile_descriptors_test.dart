@@ -280,7 +280,7 @@ void main() {
           packageJson(
             extra: {
               r'$defs': {
-                'name': {'x-slot': 'profile.names'},
+                'name': {r'$ref': r'#/$defs/profile.names'},
               },
             },
             rules: [
@@ -298,7 +298,7 @@ void main() {
             ],
           ),
         ),
-        rejectedAt('rules[0].check.schema', 'unknown slot'),
+        rejectedAt('rules[0].check.schema', r'$ref target is not in $defs'),
       );
     });
 
@@ -308,7 +308,7 @@ void main() {
           packageJson(
             extra: {
               r'$defs': {
-                'type-name': {'x-slot': 'profile.types'},
+                'type-name': {r'$ref': r'#/$defs/profile.types'},
               },
             },
             rules: [

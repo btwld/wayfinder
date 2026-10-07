@@ -65,7 +65,7 @@ final acme = ProfilePackage.parse(
       },
     ],
     r'$defs': {
-      'type-name': {'x-slot': 'profile.types'},
+      'type-name': {r'$ref': r'#/$defs/profile.types'},
     },
   }),
 );

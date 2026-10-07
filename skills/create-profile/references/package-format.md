@@ -73,8 +73,8 @@ schema uses the engine's keyword subset: `type`, `enum`, `const`, `pattern`,
 `minLength`, `maxLength`, `required`, `minProperties`, `properties`,
 `additionalProperties`, `propertyNames`, `items`, `uniqueItems`,
 `minItems`, `maxItems`, `contains`, `not`, `allOf`, `anyOf`, `oneOf`,
-`if`/`then`/`else`, `$ref` to `#/$defs/<name>`, `format: date-time`, and
-`x-slot`. Any other keyword makes the package unsupported.
+`if`/`then`/`else`, `$ref` to `#/$defs/<name>`, and `format: date-time`.
+Any other keyword, including any `x-` key, makes the package unsupported.
 
 | Subject | One per | Facts |
 | --- | --- | --- |
@@ -94,8 +94,10 @@ schema uses the engine's keyword subset: `type`, `enum`, `const`, `pattern`,
 
 ## Slots
 
-A slot is the composed vocabulary: the whole chain plus the project entry. A
-`$defs` entry `{"x-slot": "<slot>"}` stands for "one of these names".
+A slot is the composed vocabulary: the whole chain plus the project entry.
+The engine supplies a `$defs` entry named by each slot id, so
+`{"$ref": "#/$defs/profile.types"}` stands for "one of these names". A
+package's own `$defs` may not use a slot id.
 
 | Slot | Values |
 | --- | --- |

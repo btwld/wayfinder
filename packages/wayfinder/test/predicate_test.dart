@@ -202,10 +202,10 @@ void main() {
     });
   });
 
-  group('x-slot', () {
+  group('slots', () {
     test('an empty slot compiles to false', () {
       final predicate = JsonPredicate.compile(
-        {'x-slot': 'kinds'},
+        {r'$ref': r'#/$defs/kinds'},
         slots: {'kinds': []},
       );
       expect(predicate.test('x'), isFalse);
@@ -220,7 +220,7 @@ void main() {
           },
         },
         defs: {
-          'kind': {'x-slot': 'kinds'},
+          'kind': {r'$ref': r'#/$defs/kinds'},
         },
         slots: {
           'kinds': ['concept', 'decision'],
@@ -234,15 +234,55 @@ void main() {
 
     test('an unknown slot is a compile error', () {
       expect(
-        () => JsonPredicate.compile({'x-slot': 'missing'}),
+        () => JsonPredicate.compile({r'$ref': r'#/$defs/missing'}),
         throwsA(
           isA<JsonPredicateException>().having(
             (e) => e.pointer,
             'pointer',
-            '/x-slot',
+            r'/$ref',
           ),
         ),
       );
+    });
+
+    test('a def named after a slot is a compile error', () {
+      for (final (schema, defs) in [
+        (
+          {
+            r'$defs': {'kinds': true},
+          },
+          const <String, Object?>{},
+        ),
+        (true, {'kinds': true}),
+      ]) {
+        expect(
+          () => JsonPredicate.compile(
+            schema,
+            defs: defs,
+            slots: {
+              'kinds': ['concept'],
+            },
+          ),
+          throwsA(
+            isA<JsonPredicateException>()
+                .having((e) => e.pointer, 'pointer', r'/$defs/kinds')
+                .having((e) => e.message, 'message', contains('reserved')),
+          ),
+        );
+      }
+    });
+
+    test('the retired x-slot keyword is unsupported, like any x- key', () {
+      for (final keyword in ['x-slot', 'x-note']) {
+        expect(
+          () => JsonPredicate.compile({keyword: 'kinds'}),
+          throwsA(
+            isA<JsonPredicateException>()
+                .having((e) => e.pointer, 'pointer', '/$keyword')
+                .having((e) => e.unsupported, 'unsupported', isTrue),
+          ),
+        );
+      }
     });
   });
 

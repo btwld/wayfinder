@@ -254,8 +254,9 @@ The fields have these jobs:
 - `types`, `tags`, `relationships`, and `frontmatter_keys` are lists of
   `{name, description}` definitions. Any package may declare frontmatter keys.
   A key OKF already defines is an error.
-- `$defs` holds schemas a rule may reference, including the `x-slot` entries
-  that stand for the composed vocabulary.
+- `$defs` holds schemas a rule may reference. The engine adds one entry per
+  slot, named by the slot id, such as `#/$defs/profile.types`, for the
+  composed vocabulary; a package entry may not use a slot id.
 - `rules` holds the package's rules. A rule only adds findings.
 
 A rule's `check` is either a schema check or a builtin. A schema check names

@@ -12,13 +12,13 @@
       "pattern": "\\S"
     },
     "frontmatter-key": {
-      "x-slot": "okf.frontmatterKeys"
+      "$ref": "#/$defs/okf.frontmatterKeys"
     },
     "type-name": {
-      "x-slot": "profile.types"
+      "$ref": "#/$defs/profile.types"
     },
     "actor-id": {
-      "x-slot": "profile.actors"
+      "$ref": "#/$defs/profile.actors"
     }
   },
   "rules": [

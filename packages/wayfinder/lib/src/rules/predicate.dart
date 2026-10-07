@@ -56,12 +56,25 @@ final class JsonPredicate {
       final Map<String, Object?> own => {...defs, ...own},
       _ => throw JsonPredicateException(r'/$defs', r'$defs must be an object'),
     };
-    final compiler = _Compiler(merged, slots);
+    for (final name in merged.keys) {
+      if (slots.containsKey(name)) {
+        throw JsonPredicateException(
+          _pointer(r'/$defs', name),
+          'is reserved for the slot of that name',
+        );
+      }
+    }
+    final compiler = _Compiler({
+      ...merged,
+      for (final MapEntry(key: name, value: members) in slots.entries)
+        name: members.isEmpty ? false : {'enum': members},
+    });
     final root = compiler.compile(schema);
+    final slotNames = slots.keys.toSet();
     return JsonPredicate._(
       root,
-      slots: compiler.reachableSlots,
-      defs: compiler.reachableDefs,
+      slots: compiler.reachableDefs.intersection(slotNames),
+      defs: compiler.reachableDefs.difference(slotNames),
       rootPropertyNames: compiler.rootPropertyNames,
       observesUnnamedRootProperties: compiler.observesUnnamedRootProperties,
     );
@@ -97,19 +110,16 @@ final class _RefSite {
 }
 
 final class _Compiler {
-  _Compiler(this._defs, this._slots);
+  _Compiler(this._defs);
 
   final Map<String, Object?> _defs;
-  final Map<String, List<String>> _slots;
   final _compiledDefs = <String, _Node>{};
   final _refSites = <_RefSite>[];
-  final _slotsByDef = <String?, Set<String>>{};
   final _rootNamesByDef = <String?, Set<String>>{};
   final _unnamedRootDefs = <String?>{};
   late final Set<String> rootPropertyNames;
   late final bool observesUnnamedRootProperties;
   late final Set<String> reachableDefs;
-  late final Set<String> reachableSlots;
 
   static const _unnamedKeywords = {
     'propertyNames',
@@ -153,10 +163,6 @@ final class _Compiler {
       for (final def in sameInstance) ...?_rootNamesByDef[def],
     };
     observesUnnamedRootProperties = sameInstance.any(_unnamedRootDefs.contains);
-    reachableSlots = {
-      ...?_slotsByDef[null],
-      for (final name in reached) ...?_slotsByDef[name],
-    };
     return node;
   }
 
@@ -319,10 +325,6 @@ final class _Compiler {
             );
           }
           nodes.add(const _DateTime());
-        case 'x-slot':
-          nodes.add(_slot(_string(value, at), at));
-        case _ when keyword.startsWith('x-'):
-          break;
         default:
           throw JsonPredicateException(
             at,
@@ -377,15 +379,6 @@ final class _Compiler {
     final node = _Ref(name, pointer);
     _refSites.add(_RefSite(node, fromDef: _currentDef, guarded: _descents > 0));
     return node;
-  }
-
-  _Node _slot(String name, String pointer) {
-    final members = _slots[name];
-    if (members == null) {
-      throw JsonPredicateException(pointer, 'unknown slot "$name"');
-    }
-    (_slotsByDef[_currentDef] ??= {}).add(name);
-    return members.isEmpty ? const _Never() : _Enum(members);
   }
 
   Set<_JsonType> _types(Object? value, String pointer) {

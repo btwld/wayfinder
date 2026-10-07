@@ -28,5 +28,5 @@
       "check": {"builtin": "matches-generated", "params": {"generator": "okf-index", "keep": ["index.md"]}}
     }
   ],
-  "$defs": {"type-name": {"x-slot": "profile.types"}}
+  "$defs": {"type-name": {"$ref": "#/$defs/profile.types"}}
 }
