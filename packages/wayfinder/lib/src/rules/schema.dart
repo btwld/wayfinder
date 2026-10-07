@@ -63,12 +63,26 @@ final class RuleSchema {
       },
       r'$defs': merged,
     };
+    final probe = _import(_withSlots(document, const {}));
+    // Ack compiles only what a document reaches, so a def no rule references
+    // is checked through a document that references every def.
+    if (merged.isNotEmpty) {
+      _import(
+        _withSlots({
+          'allOf': [
+            for (final name in merged.keys)
+              {r'$ref': '#/\$defs/${Uri.encodeComponent(_escape(name))}'},
+          ],
+          r'$defs': merged,
+        }, const {}),
+      );
+    }
     return RuleSchema._(
       document,
       slots: walk.slots,
       rootPropertyNames: walk.rootPropertyNames,
       mayObserveUnnamedRootProperties: walk.mayObserveUnnamedRootProperties,
-      probe: _import(_withSlots(document, const {})),
+      probe: probe,
     );
   }
 
@@ -360,8 +374,10 @@ final class _Walk {
       );
 }
 
-String _child(String pointer, String token) =>
-    '$pointer/${token.replaceAll('~', '~0').replaceAll('/', '~1')}';
+String _child(String pointer, String token) => '$pointer/${_escape(token)}';
+
+String _escape(String token) =>
+    token.replaceAll('~', '~0').replaceAll('/', '~1');
 
 String _plainPointer(String fragment) => Uri.decodeComponent(
   fragment.startsWith('#') ? fragment.substring(1) : fragment,
