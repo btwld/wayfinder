@@ -10,10 +10,6 @@ Matcher refusedAt(String pointer, {Object? message, bool? unsupported}) =>
           .having((e) => e.unsupported, 'unsupported', unsupported ?? anything),
     );
 
-/// One passing and one failing instance per admitted keyword. Ack's own
-/// conformance suite owns JSON Schema semantics; this pins that every
-/// keyword the gate admits is evaluated, so an Ack upgrade that drops one
-/// fails here rather than in a Profile.
 final _smoke = <String, ({Object? schema, Object? pass, Object? fail})>{
   'type': (schema: {'type': 'string'}, pass: 'a', fail: 1),
   'enum': (

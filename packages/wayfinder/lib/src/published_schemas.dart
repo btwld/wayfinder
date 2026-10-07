@@ -7,9 +7,6 @@ import 'generated/published_schemas.g.dart';
 final _configuration = _PublishedSchema(wayfinderConfigurationSchema);
 final _package = _PublishedSchema(wayfinderProfileSchema);
 
-/// Why [configuration], a decoded `wayfinder.json`, does not match
-/// `docs/schemas/wayfinder.schema.json`, as
-/// `is invalid at <pointer>: <reason>`, or null when it matches.
 String? configurationSchemaViolation(Object? configuration) {
   final violation = _configuration.violation(configuration);
   if (violation == null) return null;
@@ -22,8 +19,6 @@ String? configurationSchemaViolation(Object? configuration) {
 
 /// Why [package], a decoded `wayfinder-profile.json`, does not match
 /// `docs/schemas/wayfinder-profile.schema.json`, or null when it does.
-/// `where` is a path such as `rules[3].check.subject`, or `package` for the
-/// document itself.
 ({String where, String reason})? profilePackageSchemaViolation(
   Object? package,
 ) {
@@ -35,28 +30,17 @@ String? configurationSchemaViolation(Object? configuration) {
   );
 }
 
-/// The first way a document fails a published schema, in the engine's
-/// words. `at` is the instance location of the object the failure belongs
-/// to; `property` is the member it names, for a missing, unknown or
-/// misnamed member, which the configuration message names in `reason` and
-/// the package message appends to its path.
 typedef _Violation = ({List<String> at, String? property, String reason});
 
 /// One embedded published schema: its decoded document, which supplies the
 /// expected values and descriptions Ack's errors locate but do not carry,
 /// and the Ack schema imported from it once.
-///
-/// Neither schema routes a `propertyNames` subschema through `$ref`
-/// (published_schemas_test), so a property-name failure's pointer passes
-/// through a `propertyNames` keyword.
 final class _PublishedSchema {
   _PublishedSchema(String source)
-    : _document = jsonDecode(source) as Map<String, Object?> {
-    _schema = Ack.fromJsonSchema(_document);
-  }
+    : _document = jsonDecode(source) as Map<String, Object?>;
 
   final Map<String, Object?> _document;
-  late final AckSchema<Object, Object> _schema;
+  late final _schema = Ack.fromJsonSchema(_document);
 
   _Violation? violation(Object? value) {
     final result = _schema.safeParse(value);
@@ -118,7 +102,6 @@ final class _PublishedSchema {
     };
   }
 
-  /// The value at [pointer] in the document, or null.
   Object? _at(List<String> pointer) {
     Object? node = _document;
     for (final token in pointer) {
@@ -133,9 +116,14 @@ final class _PublishedSchema {
     return node;
   }
 
-  /// The tokens of [pointer] that name keywords, skipping property and def
-  /// names and array indexes, so a property named `propertyNames` is not
-  /// mistaken for the keyword.
+  static const _keywordsFollowedByNameOrIndex = {
+    'properties',
+    r'$defs',
+    'allOf',
+    'anyOf',
+    'oneOf',
+  };
+
   static Iterable<String> _keywordTokens(List<String> pointer) sync* {
     var skipNext = false;
     for (final token in pointer) {
@@ -144,38 +132,29 @@ final class _PublishedSchema {
         continue;
       }
       yield token;
-      skipNext = const {
-        'properties',
-        r'$defs',
-        'allOf',
-        'anyOf',
-        'oneOf',
-      }.contains(token);
+      skipNext = _keywordsFollowedByNameOrIndex.contains(token);
     }
   }
 }
 
-/// [keyword]'s failure in words. [expected] is the keyword's value and
-/// [schema] the subschema holding it, both read from the engine's own copy
-/// of the published schema.
-String _reason(String keyword, Object? expected, Object? schema) =>
-    switch ((keyword, expected)) {
+String _reason(String keyword, Object? keywordValue, Object? parentSchema) =>
+    switch ((keyword, keywordValue)) {
       ('type', final String type) => 'must be ${_typeNoun(type)}',
       ('type', final List<Object?> types) =>
         'must be ${types.cast<String>().map(_typeNoun).join(' or ')}',
-      ('const', _) => 'must be ${jsonEncode(expected)}',
+      ('const', _) => 'must be ${jsonEncode(keywordValue)}',
       ('enum', final List<Object?> values) =>
         'must be one of ${values.map(_literal).join(', ')}',
       ('minLength', 1) => 'must be a non-empty string',
-      ('minLength', _) => 'must have at least $expected characters',
-      ('maxLength', _) => 'must have at most $expected characters',
+      ('minLength', _) => 'must have at least $keywordValue characters',
+      ('maxLength', _) => 'must have at most $keywordValue characters',
       ('minProperties', 1) => 'must not be empty',
-      ('minProperties', _) => 'must have at least $expected properties',
+      ('minProperties', _) => 'must have at least $keywordValue properties',
       ('minItems', 1) => 'must not be empty',
-      ('minItems', _) => 'must have at least $expected items',
-      ('pattern', _) => switch (schema) {
+      ('minItems', _) => 'must have at least $keywordValue items',
+      ('pattern', _) => switch (parentSchema) {
         {'description': final String text} => 'must be $text',
-        _ => 'must match pattern $expected',
+        _ => 'must match pattern $keywordValue',
       },
       ('oneOf', _) => 'must match exactly one of its allowed shapes',
       _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
@@ -191,8 +170,6 @@ List<String> _tokens(String pointer) => [
 String _escape(String token) =>
     token.replaceAll('~', '~0').replaceAll('/', '~1');
 
-/// [segments] as a path into the package, such as `rules[3].check.subject`,
-/// or `package` for the document itself.
 String _packagePath(List<String> segments) {
   if (segments.isEmpty) return 'package';
   final where = StringBuffer();
