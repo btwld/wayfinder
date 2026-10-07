@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://example.test/wayfinder.git",
+        "ref": "v2026.3",
+        "path": "profile"
+      },
+      "applies_to": [
+        "knowledge"
+      ],
+      "actors": {
+        "process:fixture": {
+          "name": "Fixture process"
+        }
+      },
+      "tags": [
+        {
+          "name": "governance",
+          "description": "Governance topic"
+        }
+      ],
+      "relationships": [
+        {
+          "name": "runs-after",
+          "description": "This concept applies only after the target has run"
+        }
+      ],
+      "types": [
+        {
+          "name": "Runbook",
+          "description": "Steps to operate a running system"
+        }
+      ]
+    }
+  }
+}

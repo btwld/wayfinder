@@ -394,47 +394,79 @@ final class WayfinderProfileResolver {
         'Profile $profileId at ${source.git} ($commit) has an invalid JSON manifest.',
       );
     }
-    if (decoded is! Map<String, Object?> ||
-        decoded.keys.toSet().difference(const {
-          'id',
-          'release',
-          'implements',
-          'standard_types',
-          'tags',
-        }).isNotEmpty ||
-        decoded['id'] != profileId ||
-        decoded['release'] != externalProfileRelease ||
-        decoded['implements'] is! Map<String, Object?> ||
-        (decoded['implements'] as Map<String, Object?>).length != 2 ||
-        (decoded['implements'] as Map<String, Object?>)['id'] != 'okf' ||
-        (decoded['implements'] as Map<String, Object?>)['release'] != '0.2') {
+    final origin = 'Profile $profileId at ${source.git} ($commit)';
+    if (profileManifestSchemaViolation(decoded) case final violation?) {
+      throw WayfinderProfileResolutionException('$origin manifest $violation.');
+    }
+    final manifest = decoded! as Map<String, Object?>;
+    if (manifest['id'] != profileId ||
+        manifest['release'] != externalProfileRelease) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) must declare identity $profileId, supported release $externalProfileRelease, and OKF 0.2.',
+        '$origin must declare identity $profileId, supported release $externalProfileRelease, and OKF 0.2.',
       );
     }
     final types = _manifestDefinitions(
-      decoded['standard_types'],
+      manifest['standard_types'],
       profileId,
       'standard_types',
     );
-    final tags = _manifestDefinitions(
-      decoded.containsKey('tags') ? decoded['tags'] : const [],
+    final tags = _manifestDefinitions(manifest['tags'], profileId, 'tags');
+    final relationships = _manifestDefinitions(
+      manifest['relationships'],
       profileId,
-      'tags',
+      'relationships',
     );
     if (profileId == builtinProfileId &&
         (!_sameDefinitions(types, externalStandardTypes) ||
-            !_sameDefinitions(tags, externalStandardTags))) {
+            !_sameDefinitions(tags, externalStandardTags) ||
+            !_sameDefinitions(relationships, externalStandardRelationships))) {
       throw WayfinderProfileResolutionException(
-        'Profile $profileId at ${source.git} ($commit) differs from the installed compiled Profile vocabulary.',
+        '$origin differs from the installed compiled Profile vocabulary.',
       );
     }
+    final rules = manifest['rules'] as String?;
     return _ResolvedSource(
       commit: commit,
-      release: decoded['release']! as String,
+      release: manifest['release']! as String,
       types: types,
       tags: tags,
+      relationships: relationships,
+      catalog: rules == null
+          ? null
+          : await _readCatalog(repository, profileId, source, commit, rules),
     );
+  }
+
+  Future<RuleCatalog> _readCatalog(
+    Directory repository,
+    String profileId,
+    WayfinderProfileSource source,
+    String commit,
+    String rules,
+  ) async {
+    final origin = 'Profile $profileId at ${source.git} ($commit)';
+    if (profileId == builtinProfileId) {
+      throw WayfinderProfileResolutionException(
+        '$origin must not name a rule catalog; the installed one is authoritative.',
+      );
+    }
+    final path = p.posix.normalize(p.posix.join(source.path, rules));
+    final result = await _git(['show', '$commit:$path'], repository);
+    if (result.exitCode != 0) {
+      throw WayfinderProfileResolutionException(
+        '$origin names rule catalog $rules, which is missing at $path.',
+      );
+    }
+    try {
+      return RuleCatalog.parse(
+        result.stdout.toString(),
+        manifest: (id: profileId, release: externalProfileRelease),
+      );
+    } on RuleCatalogException catch (error) {
+      throw WayfinderProfileResolutionException(
+        '$origin rule catalog $rules cannot be evaluated by this validator: $error.',
+      );
+    }
   }
 
   Future<_ProfileLock?> _readLock(File file) async {
@@ -476,7 +508,13 @@ final class WayfinderProfileResolver {
   Future<ProcessResult> _git(
     List<String> arguments, [
     Directory? workingDirectory,
-  ]) => Process.run('git', arguments, workingDirectory: workingDirectory?.path);
+  ]) => Process.run(
+    'git',
+    arguments,
+    workingDirectory: workingDirectory?.path,
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
+  );
 
   void _checkGit(ProcessResult result, String action) {
     if (result.exitCode != 0) {
@@ -491,7 +529,6 @@ final class WayfinderProfileResolutionException extends WayfinderException {
   const WayfinderProfileResolutionException(super.message);
 }
 
-/// Resolution metadata only; no fetched vocabulary or executable rules.
 final class _ProfileLock {
   const _ProfileLock({
     required this.configurationSha256,
@@ -587,10 +624,12 @@ Future<ProfileValidationResult> validateWithProfileSources(
   String bundle, {
   String? configPath,
   WayfinderProfileResolver? resolver,
+  bool fix = false,
 }) {
   return const ProfileValidator().validate(
     bundle,
     configPath: configPath,
+    fix: fix,
     resolveSources: () async {
       ProfileResolutionResult? resolved;
       String? resolutionError;
@@ -621,12 +660,17 @@ final class _ResolvedSource {
     required this.release,
     required this.types,
     required this.tags,
+    required this.relationships,
+    required this.catalog,
   });
 
   final String commit;
   final String release;
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
+  final List<WayfinderDefinition> relationships;
+
+  final RuleCatalog? catalog;
 }
 
 List<WayfinderDefinition> _manifestDefinitions(
@@ -634,36 +678,21 @@ List<WayfinderDefinition> _manifestDefinitions(
   String profileId,
   String field,
 ) {
-  if (value is! List) {
-    throw WayfinderProfileResolutionException(
-      'Profile $profileId manifest $field must be an array.',
-    );
-  }
-  final definitions = <WayfinderDefinition>[];
-  final names = <String>{};
-  for (final item in value) {
-    if (item is! Map<String, Object?> ||
-        item.length != 2 ||
-        item['name'] is! String ||
-        (item['name']! as String).trim().isEmpty ||
-        item['description'] is! String ||
-        (item['description']! as String).trim().isEmpty) {
-      throw WayfinderProfileResolutionException(
-        'Profile $profileId manifest $field contains an invalid definition.',
-      );
-    }
-    final name = item['name']! as String;
-    if (!names.add(name)) {
-      throw WayfinderProfileResolutionException(
-        'Profile $profileId manifest $field repeats $name.',
-      );
-    }
-    definitions.add(
+  final definitions = [
+    for (final item
+        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
       WayfinderDefinition(
-        name: name,
+        name: item['name']! as String,
         description: item['description']! as String,
       ),
-    );
+  ];
+  final names = <String>{};
+  for (final definition in definitions) {
+    if (!names.add(definition.name)) {
+      throw WayfinderProfileResolutionException(
+        'Profile $profileId manifest $field repeats ${definition.name}.',
+      );
+    }
   }
   return definitions;
 }
@@ -712,9 +741,19 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       if (id != builtinProfileId) ...manifest.tags,
       ...local.tags,
     ];
+    final relationships = <WayfinderDefinition>[
+      ...?parent?.relationships,
+      if (id != builtinProfileId) ...manifest.relationships,
+      ...local.relationships,
+    ];
     for (final (field, definitions, standard) in [
       ('type', types, externalStandardTypes.map((value) => value.$1).toSet()),
       ('tag', tags, externalStandardTags.map((value) => value.$1).toSet()),
+      (
+        'relationship',
+        relationships,
+        externalStandardRelationships.map((value) => value.$1).toSet(),
+      ),
     ]) {
       final names = <String>{...standard};
       for (final definition in definitions) {
@@ -734,7 +773,18 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       }
       actors[entry.key] = entry.value;
     }
-    return effective[id] = WayfinderProfileBinding(
+    final catalogs = <RuleCatalog>[...?parent?.catalogs];
+    if (manifest.catalog case final catalog?) {
+      if (catalogs.any(
+        (inherited) => inherited.namespace == catalog.namespace,
+      )) {
+        throw WayfinderProfileResolutionException(
+          'Profile $id rule catalog repeats the namespace ${catalog.namespace} of an ancestor.',
+        );
+      }
+      catalogs.add(catalog);
+    }
+    final binding = WayfinderProfileBinding(
       id: id,
       implementsId: builtinProfileId,
       release: manifest.release,
@@ -743,8 +793,14 @@ Map<String, WayfinderProfileBinding> _composeBindings(
       extendsProfile: local.extendsProfile,
       types: List.unmodifiable(types),
       tags: List.unmodifiable(tags),
+      relationships: List.unmodifiable(relationships),
       actors: Map.unmodifiable(actors),
+      catalogs: List.unmodifiable(catalogs),
     );
+    if (binding.tagCollision case final collision?) {
+      throw WayfinderProfileResolutionException('Profile $id has $collision.');
+    }
+    return effective[id] = binding;
   }
 
   if (selectedId != null) {

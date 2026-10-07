@@ -1,0 +1,50 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/raw-directory-placement",
+        "severity": "error",
+        "message": "A raw/ tier belongs to a source directory; raw/ must not sit directly under references/.",
+        "location": {
+          "path": "references/raw"
+        },
+        "profile_release": "2026.2",
+        "rule": "§3.4"
+      },
+      {
+        "id": "concepta-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
+        "location": {
+          "path": "types.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

@@ -50,7 +50,9 @@ Only immutable snapshots, including vendored OKF, carry versions in their names.
 
 An upstream OKF **specification** release requires a new Profile release and a
 compatibility review, even without another convention change. An `okf` package
-release that changes no specification text does not. Never claim unreviewed
+release that changes no specification text does not, unless it changes the
+output of the index generator a Profile names (Profile §9, §15.1); adopting
+that release needs a Profile revision. Never claim unreviewed
 compatibility. Update [compatibility evidence](docs/compatibility-review.md) and
 [assessment coverage](implementation/profile-coverage.md) when their rules change;
 they answer different questions and neither replaces the other.

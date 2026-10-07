@@ -24,9 +24,12 @@ mix their `profile.md`, `types.md`, or `actors.md` into a new bundle.
 }
 ```
 
-Add custom `types`, `tags`, and `actors` to this entry only as needed. Every
-used actor ID and tag must be declared. The selected Profile source supplies
-the twelve standard types; do not copy them into project files. Run
+Add custom `types`, `tags`, `relationships`, and `actors` to this entry only
+as needed. Every used actor ID, tag, and relationship name must be declared.
+The selected Profile source supplies the twelve standard types and eleven
+standard relationship names; do not copy them into project files. Concepts
+write typed links in the `relationships` frontmatter key, never in a
+`# Relationships` body section. Run
 `wayfinder get` and commit its metadata-only `wayfinder.lock` before
 validation. A later `validate` does not fetch or update it. Do not use
 `captures` as a tag merely because a concept cites evidence.
@@ -43,10 +46,12 @@ okf_version: "0.2"
 * [Knowledge Log](log.md)
 ````
 
-Other root concepts are grouped by exact `type`. Standard groups follow the
-base Profile manifest order; custom groups follow in lexical order. Immediate
-subject directories appear under `# Directories`. The subject-placement rule
-and the Profile-defined directory names remain unchanged, with the optional
+This is the only index you write by hand, and only while the bundle holds no
+concepts (Profile §9). Once it holds one, run
+`wayfinder validate knowledge --fix`: it replaces this file with okf's
+generated root index, which does not list `log.md`, and writes every directory
+index. Never edit a generated index by hand. The subject-placement rule and the
+Profile-defined directory names remain unchanged, with the optional
 `computations/` added for Attested Computation concepts (Profile §3.6).
 
 ## `knowledge/log.md`

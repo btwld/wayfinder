@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/wayfinder.dart';
 
 import 'legacy_cli.dart';
 
@@ -13,7 +14,56 @@ List<String> findingSummary(Map<String, Object?> profile) =>
       return '${finding['severity']} ${finding['id']} ${location['path']}';
     }).toList();
 
-String fixture(String name) => p.join('test', 'fixtures', name);
+// Fixture paths use `/` on every platform: a configured fixture's config path
+// is reported as supplied, so goldens must not depend on the host separator.
+String fixture(String name) => p.posix.join('test', 'fixtures', name);
+
+String fixtureBundle(String path) =>
+    File(p.posix.join(path, 'wayfinder.json')).existsSync()
+    ? p.posix.join(path, 'knowledge')
+    : path;
+
+Future<ProfileValidationResult> validateFixture(
+  String path, {
+  bool discoverConfig = false,
+  bool fix = false,
+  List<RuleCatalog> catalogs = const [],
+}) async {
+  final config = File(p.posix.join(path, 'wayfinder.json'));
+  if (!await config.exists()) {
+    return const ProfileValidator().validate(path, fix: fix);
+  }
+  final WayfinderProjectConfig parsed;
+  try {
+    parsed = WayfinderProjectConfig.parse(await config.readAsString());
+  } on WayfinderConfigException {
+    return const ProfileValidator().validate(
+      fixtureBundle(path),
+      configPath: discoverConfig ? null : config.path,
+      fix: fix,
+    );
+  }
+  return const ProfileValidator().validate(
+    fixtureBundle(path),
+    configPath: discoverConfig ? null : config.path,
+    resolvedProfiles: {
+      for (final entry in parsed.profiles.entries)
+        entry.key: WayfinderProfileBinding(
+          id: entry.key,
+          implementsId: builtinProfileId,
+          release: externalProfileRelease,
+          types: entry.value.types,
+          tags: entry.value.tags,
+          relationships: entry.value.relationships,
+          actors: entry.value.actors,
+          source: entry.value.source,
+          appliesTo: entry.value.appliesTo,
+          catalogs: catalogs,
+        ),
+    },
+    fix: fix,
+  );
+}
 
 Future<Directory> copyFixture(String name) async {
   final source = Directory(fixture(name));

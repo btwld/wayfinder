@@ -1,0 +1,146 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/invalid-source",
+          "severity": "advisory",
+          "message": "sources[0] should be a mapping with a non-empty resource.",
+          "location": {
+            "path": "malformed-sources.md"
+          }
+        },
+        {
+          "id": "okf/invalid-source",
+          "severity": "advisory",
+          "message": "sources[1] should be a mapping with a non-empty resource.",
+          "location": {
+            "path": "malformed-sources.md"
+          }
+        },
+        {
+          "id": "okf/invalid-status",
+          "severity": "advisory",
+          "message": "status should be draft, stable, or deprecated.",
+          "location": {
+            "path": "numeric-status.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": "2026.3",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/source-id-unique",
+        "severity": "error",
+        "message": "Source IDs must be unique within a concept.",
+        "location": {
+          "path": "duplicate-source-ids.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/frontmatter-fields-declared",
+        "severity": "error",
+        "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found owner.",
+        "location": {
+          "path": "extra-key.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/used-actor-registered",
+        "severity": "error",
+        "message": "Used actor human:ghost must be represented in the selected Profile binding.",
+        "location": {
+          "path": "ghost-generated.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§3.5, §6.1.1"
+      },
+      {
+        "id": "concepta-profile/used-actor-registered",
+        "severity": "error",
+        "message": "Used actor team:writers must be represented in the selected Profile binding.",
+        "location": {
+          "path": "ghost-source.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§3.5, §6.1.1"
+      },
+      {
+        "id": "concepta-profile/used-actor-registered",
+        "severity": "error",
+        "message": "Used actor human:auditor must be represented in the selected Profile binding.",
+        "location": {
+          "path": "ghost-verified.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§3.5, §6.1.1"
+      },
+      {
+        "id": "concepta-profile/source-entry-shape",
+        "severity": "error",
+        "message": "Every present source entry must be a mapping with a non-empty resource.",
+        "location": {
+          "path": "malformed-sources.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/concept-baseline-fields",
+        "severity": "error",
+        "message": "Every concept must contain non-empty string values for type, title, description, and status.",
+        "location": {
+          "path": "numeric-status.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/configured-tag-duplicate",
+        "severity": "error",
+        "message": "A concept must not repeat a tag value; found governance.",
+        "location": {
+          "path": "tagged.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/configured-tag-undeclared",
+        "severity": "error",
+        "message": "Tags must be declared by the selected Profile binding; found undeclared-topic.",
+        "location": {
+          "path": "tagged.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/used-type-registered",
+        "severity": "error",
+        "message": "Used type Widget Spec must be registered by the selected Profile binding.",
+        "location": {
+          "path": "widget.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.2"
+      }
+    ],
+    "summary": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

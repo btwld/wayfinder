@@ -1,14 +1,19 @@
-# Index projection
+# Index projection (legacy 2026.2 only)
+
+**This reference applies to legacy 2026.2 bundles only.** A 2026.3 bundle's
+indexes are the output of okf's reference index generator (Profile 2026.3 §9):
+run `wayfinder validate <bundle> --fix` to write them and never hand-edit them.
+Nothing below applies to 2026.3.
 
 Part of the `author-knowledge-bundle` skill; `SKILL.md`'s release dispatch and
 atomic write sequence apply. Every affected `index.md` is rewritten as part of
-the atomic bundle write, and nothing generates indexes for you — `wayfinder validate`
-checks the result but does not produce it — so this reference is the complete
-producer spec.
+the atomic bundle write, and nothing generates 2026.2 indexes for you —
+`wayfinder validate` checks the result but does not produce it, and `--fix`
+never writes a 2026.2 bundle — so this reference is the complete producer spec.
 
 An index follows the OKF index format (OKF §8) exactly: no frontmatter, except
 that the bundle-root `index.md` carries `okf_version`, which agrees with the
-selected Profile binding (or legacy declaration). Every nonempty directory has an `index.md`, including every
+`profile.md` declaration. Every nonempty directory has an `index.md`, including every
 area, sub-area, `references/`, and each nonempty subdirectory of `references/`.
 
 Every index is the deterministic semantic projection of its directory —
@@ -22,13 +27,11 @@ regenerating it must lose nothing.
 
 Present groups appear in this order; empty groups are omitted.
 
-1. **`Bundle`** — root index only. In 2026.3 it contains `log.md` alone,
-   with fixed label `Knowledge Log` and no description. Legacy 2026.2 also
-   includes `profile.md`, `types.md`, and present `actors.md`, in that order,
-   with concept titles and descriptions.
+1. **`Bundle`** — root index only. It contains `log.md`, with fixed label
+   `Knowledge Log` and no description, then `profile.md`, `types.md`, and
+   present `actors.md`, in that order, with concept titles and descriptions.
 2. **Type groups** — every other concept, grouped under its exact `type` as the
-   heading. Standard type groups follow the selected Profile manifest order (the legacy
-   `types.md` order for 2026.2);
+   heading. Standard type groups follow the `types.md` order;
    registered project-specific type groups follow afterward in case-sensitive
    lexical order. An unregistered used type also sorts with the project types,
    so the projection stays reproducible while that separate registry defect is
@@ -61,9 +64,9 @@ target — but the percent-encoded form is the canonical spelling okf's own
 tooling writes. The label is not a URL and stays exactly as written; sorting
 uses the decoded target path.
 
-A complete 2026.3 root index covers the root log, every other root concept,
-and every immediate directory. A 2026.2 root index also covers its required
-Profile declaration and type registry, plus the actor registry when present.
+A complete root index covers the root log, the required Profile declaration
+and type registry, the actor registry when present, every other root concept,
+and every immediate directory.
 
 ## Examples
 
@@ -77,7 +80,7 @@ okf_version: "0.2"
 # Bundle
 
 * [Knowledge Log](log.md)
-<!-- Legacy 2026.2 only: profile.md, types.md, and actors.md entries follow here. -->
+<!-- profile.md, types.md, and actors.md entries follow here. -->
 
 # Analysis
 

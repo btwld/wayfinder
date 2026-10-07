@@ -1,0 +1,30 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": null,
+    "state": "UNSUPPORTED",
+    "findings": [
+      {
+        "id": "concepta-profile/configuration-readable",
+        "severity": "error",
+        "message": "Profile bitwild_profile declares tag draft, which equals an OKF status value.",
+        "location": {
+          "path": "test/fixtures/configured-tag-collision/wayfinder.json"
+        },
+        "profile_release": "2026.3",
+        "rule": "§11"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "UNSUPPORTED"
+  }
+}

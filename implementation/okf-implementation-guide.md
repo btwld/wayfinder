@@ -19,9 +19,9 @@ Precedence is a chain, and every link is one-directional:
 
 This document therefore MUST NOT restate, extend, or narrow a profile rule. Where it
 appears to, the profile governs and this text is defective. What it may do is bind
-behaviour the profile deliberately leaves open — for example, the Profile defines
-the semantic index result while this guide requires a generator to be idempotent
-and choose a deterministic Markdown rendering.
+behaviour the profile deliberately leaves open — for example, the Profile names
+the `okf` release whose reference generator every index must match, while this
+guide binds how a tool pins that release and detects drift from it.
 
 **"Guide" does not mean advisory.** The requirements below are normative and carry their
 RFC 2119 force; what distinguishes this document from the profile is not strictness but
@@ -54,7 +54,8 @@ files, and one agent-instruction paragraph, in this order:
 2. **Seed the bundle.** Create `index.md` carrying `okf_version: "0.2"` and
    `log.md` under `knowledge/`. The adoption skill's `SEEDING.md` carries the
    literal template. Do not copy the 2026.2 `profile.md`, `types.md`, or
-   `actors.md` concepts into a new 2026.3 bundle.
+   `actors.md` concepts into a new 2026.3 bundle. Once the bundle holds
+   concepts, `wayfinder validate --fix` writes every index (§3.1).
 3. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the
    equivalent) MUST say that durable documentation lives in the bundle, that
    the reader starts at `knowledge/index.md`, and that execution records stay
@@ -78,21 +79,87 @@ piece of work. A repository MAY run for months with a thin bundle beside an unco
 
 ### 2.3 Definition of done
 
-Adoption is complete when a validator run is clean, the root index lists exactly the
-concepts that exist, and someone who has never seen the repository can find the
-authoritative home for a new decision without asking. The third is the real test and it is
+Adoption is complete when a validator run is clean, every index is current, and
+someone who has never seen the repository can find the authoritative home for a
+new decision without asking. The third is the real test and it is
 not mechanical.
 
 ---
 
 ## 3. Index generation
 
+Profile 2026.3 makes every index the output of the OKF reference index
+generator (profile §9), and names the `okf` release that generator comes
+from. This section binds the tools that write and check its output. Profile
+2026.2 keeps its own semantic projection; §3.4 preserves that legacy contract
+unchanged.
+
+### 3.1 The reference generator (2026.3)
+
+Profile 2026.3 §9 names the reference generator: `OkfIndexGenerator` in `okf`
+0.5.0, run over the loaded bundle with the root index declaring
+`okf_version: "0.2"`. A tool that writes or checks 2026.3 indexes MUST produce
+exactly that release's generator text. Wayfinder builds with `okf` 0.5.0, but
+its package constraint stays a caret range (`^0.5.0`) for library consumers,
+so dependency resolution alone does not hold the release. Golden reports over
+fixtures with generated indexes are the check: they fail when a resolved `okf`
+release changes the generator's output, and adopting that release waits for
+the Profile revision §9 requires.
+
+A validator MUST report every path the generator writes whose file is missing
+or whose text differs from the generated text. The comparison is exact apart
+from line endings: the generator's rendering is the contract, so no
+presentation is left to an implementation and no semantic normalization
+applies. A CRLF line ending, which a checkout may write, compares equal to LF,
+and `--fix` leaves such an index unchanged.
+
+`wayfinder validate <bundle> --fix` is the safe fix, in the convention of
+`eslint --fix` and `ruff --fix`. For a bundle whose selected Profile is
+2026.3, it first writes the generator's output, then validates and reports as
+usual. It MUST:
+
+- **Write only generated `index.md` files**, and only those whose bytes differ.
+  It never deletes a file: an `index.md` the generator does not write stays a
+  finding until the author deletes it.
+- **Write nothing when OKF fails** (`BLOCKED BY OKF`), when Profile dispatch
+  fails, or when the selected release has no fixable rules, as 2026.2 has
+  none. Its output says which applied.
+- **Be idempotent.** A second run over its own output writes nothing.
+- **Refuse to write through a symbolic link** at any path segment below the
+  bundle root, and replace each file atomically.
+- **Report a failed write.** When a write fails it stops, reports the files
+  already written and the failure as fix state `FAILED`, and exits 2.
+
+Its JSON report adds a `fix` object before `okf`; without `--fix` the report
+is unchanged.
+
+`okf index <bundle> --declare-version 0.2 --check` reports the same stale
+paths from the `okf` command line.
+
+### 3.2 Authored history stays outside generation
+
+The root log is not an index input or output. A generator MUST preserve it
+unchanged; an author or authoring workflow records meaningful history separately.
+Current concepts and version-control diffs may assist that workflow, but an
+implementation MUST NOT claim they can reconstruct the log's significance or
+completeness mechanically.
+
+### 3.3 Verification without generation
+
+A validator checks the result a generator maintains (profile §9). A repository
+MAY write indexes by any means and rely on validation to catch drift. The
+generator is an implementation convenience, not a required bundle artifact.
+
+### 3.4 Legacy contract (2026.2)
+
+This subsection binds Profile 2026.2 only. Its semantic projection is the one
+in the 2026.2 Profile snapshot, and ADR-0007 still governs its target
+comparison.
+
 The profile tightens OKF §8's verbatim-description SHOULD into a MUST (profile §9). That is
 what makes an index mechanically checkable and safely regenerable, and it costs a two-file
 write per concept. Past a few dozen concepts the cost is paid by a generator or it is paid
 in drift.
-
-### 3.1 Contract
 
 A generator MUST:
 
@@ -115,8 +182,6 @@ A generator MUST NOT:
   directory descriptions, and extra prose are drift from a generated projection,
   not state to carry forward.
 
-### 3.2 Semantic comparison
-
 A validator MUST parse an index into groups and entries and compare that model with
 the profile §9 projection. It MUST compare membership, group identity and order,
 entry order, labels, targets, and descriptions. It MUST NOT fail semantic
@@ -131,20 +196,8 @@ This comparison keeps two responsibilities separate:
 Presentation lint and automatic formatting are deferred. They MUST NOT be smuggled
 into semantic validation as byte comparison.
 
-### 3.3 Authored history stays outside generation
-
-The root log is not an index input or output. A generator MUST preserve it
-unchanged; an author or authoring workflow records meaningful history separately.
-Current concepts and version-control diffs may assist that workflow, but an
-implementation MUST NOT claim they can reconstruct the log's significance or
-completeness mechanically.
-
-### 3.4 Verification without generation
-
-A validator checks the semantic result a generator maintains (profile §9). A
-repository MAY hand-maintain indexes and rely on validation to catch drift. The
-generator is an implementation convenience, not a required bundle artifact; the
-indexes themselves remain required for every nonempty directory.
+`--fix` never writes a 2026.2 bundle; its indexes stay hand-maintained or come from a
+tool that implements this projection.
 
 ---
 
@@ -152,8 +205,8 @@ indexes themselves remain required for every nonempty directory.
 
 ### 4.1 Results and exit codes
 
-The command surface is `wayfinder validate <bundle> [--config <file>]
-[--output text|json]`. The bundle path is required and implementations MUST
+The command surface is `wayfinder validate <bundle> [--config <file>] [--fix]
+[--output text|json|sarif]`; §3.1 defines `--fix`. The bundle path is required and implementations MUST
 inspect exactly that directory. Config discovery MAY walk up to find the
 project's `wayfinder.json`, but MUST NOT select a different bundle. They MUST NOT
 accept a caller-selected Profile or rule set, or provide `--strict` or
@@ -182,13 +235,33 @@ invocation could not assess the declared release, including usage, I/O, and
 unsupported-release outcomes. Advisories — OKF's or the Profile's — MUST NOT
 change the automated gate or exit status.
 
+The result model also carries summary entries beside the findings. A
+release's summary rules report what it permits (Profile §14.1), and their
+entries MUST NOT appear among the findings or change any component state or
+the exit status. JSON carries them as `profile.summary`, a canonically ordered
+list whose entries have a finding's `id`, `message`, `location`,
+`profile_release`, and `rule` but no `severity`; the list is present, even when
+empty, whenever the assessed release declares a summary rule. Text prints a
+`Summary:` block after the findings when there is an entry.
+
+`sarif` carries the same findings as JSON in a SARIF 2.1.0 log for code
+scanning. Each OKF and Profile finding is one result whose `ruleId` is its
+finding ID; `error` maps to SARIF `error` and `advisory` to `warning`. Each
+summary entry follows the findings as a result of kind `informational` with
+level `none`, as SARIF §3.27.10 requires for a kind other than `fail`.
+The selected release's rules are the run's rule descriptors, and the four
+component states are run properties because SARIF has no field for them. The
+exit status is the same as for text and JSON.
+
 ### 4.2 Findings carry stable identifiers
 
 Every deterministic Profile finding MUST carry a stable machine-readable ID
-alongside its prose in the `concepta-profile/<rule-slug>` namespace, and MUST
-name the Profile release and normative rule reference it assesses. The ID MUST
-describe the semantic rule rather than a section number, implementation class,
-or message text, so integrations can depend on it across refactoring.
+alongside its prose, `<namespace>/<rule-slug>`, where the namespace is the
+catalog's: `concepta-profile` for the installed rules, and the Profile
+identity in kebab-case for a source catalog (Profile §11). It MUST name the
+release and normative rule reference of the catalog that assessed it. The ID
+MUST describe the semantic rule rather than a section number, implementation
+class, or message text, so integrations can depend on it across refactoring.
 
 The closed validator MUST NOT accept suppressions or exceptions. A bundle cannot
 change the immutable rules selected by its declaration, and a caller cannot
@@ -200,15 +273,15 @@ The profile forbids reporting a missing `verified` event (§14.1) and requires t
 reading (§14.2). Concretely, a conforming validator MUST NOT report, at any severity:
 
 - a concept with no `verified` event, or any derived trust tier;
-- an unrecognized `type` or relationship label as anything other than the
-  producer-side registry advisories the Profile names;
+- an unrecognized `type`, tag, or relationship name as anything other than the
+  producer-side vocabulary finding the selected release names;
 - an external URL that does not resolve;
 - a concept using an OKF 0.2 mechanism the profile is silent about.
 
 The producer-defined-frontmatter prohibition is different: the validator MUST
 report a Profile failure when a Profiled Bundle contains a key that OKF 0.2 does
-not define, while preserving the unknown key and leaving the independent OKF
-result unchanged. Tolerant reading governs consumption; the Profile rule governs
+not define and the selected release does not declare (§4.8), while preserving
+the unknown key and leaving the independent OKF result unchanged. Tolerant reading governs consumption; the Profile rule governs
 what Concepta producers write.
 
 The first is the load-bearing one. The only way an author can clear a "missing
@@ -237,24 +310,36 @@ row through Profile §6.1.1. Unresolved or ambiguous affiliation remains `unknow
 and MUST NOT produce a finding. Validation MUST leave durable-capture boundaries,
 type and registered-meaning fit (Profile §§5.1–5.2, §14.1),
 metadata truth, actor identity and affiliation, missing material provenance,
-evidence for freshness, and semantic tag aliases to Profile Review. A registered
-project-specific type and missing `generated` produce advisories; missing
-`verified` produces no finding.
+evidence for freshness, and semantic tag aliases to Profile Review. Missing
+`generated` produces an advisory and missing `verified` produces no finding. A
+registered project-specific type produces a summary entry under 2026.3
+(Profile §5.2) and an advisory under 2026.2.
 
-For external boundaries, validation MUST check the one-label/one-target
-Relationships shape as a deterministic rule. It MUST report a non-bundle-relative
-internal target, an additional relationship label, and an unresolved internal target
-only as advisories that do not affect the automated gate or exit status,
-and it MUST preserve the unresolved edge exposed by the OKF graph. It MUST NOT infer
+For external boundaries under Profile 2026.3, validation MUST assess the
+shape and vocabulary requirements Profile §7.2 places on the `relationships`
+frontmatter key as deterministic rules. It MUST resolve each `resource`
+exactly as the OKF graph resolves a link target, and report a
+non-bundle-relative internal target as an advisory and an unresolved internal
+target as a summary entry (Profile §§7.2, 14.1). Under Profile 2026.2 it
+instead checks the one-label/one-target `# Relationships` body shape and
+reports an additional label as an advisory. A non-bundle-relative internal
+link is an advisory under either release; an unresolved internal link is a
+summary entry under 2026.3 and an advisory under 2026.2. Neither affects the
+automated gate or exit status, and validation MUST preserve the unresolved
+edge exposed by the OKF graph. It MUST NOT infer
 relationship meaning, lifecycle ownership, path conformance, whether a date is
 intrinsic identity, or whether an external citation can be repaired. The complete
 path rule belongs to Profile Review because a preserved external ID has no
 Profile-specific syntax that separates it mechanically from the authored slug.
 
-The implementation MUST use the ordinary OKF graph without an adapter. It exposes
-Relationships targets and unresolved links as the same untyped body edges as any
-other Markdown link and MUST NOT enrich, reinterpret, or replace those edges with
-Profile labels.
+The implementation MUST use the ordinary OKF graph and MUST NOT enrich,
+reinterpret, or replace its edges. Under 2026.2 a `# Relationships` target is the
+same untyped body edge as any other Markdown link. Under 2026.3 an implementation
+that projects a graph or expands search context MAY read each `relationships`
+entry as an additional edge named by its relationship and resolved as the OKF
+graph resolves a link target. OKF's nodes and edges and their meanings stay
+unchanged: a graph output adds such edges under a key of its own, never inside
+OKF's edge list, so a consumer of the OKF graph contract reads it unchanged.
 
 Profile Review assesses whether a cited artifact faces genuine availability risk,
 whether repository visibility and sanitization are appropriate, whether images are
@@ -272,8 +357,10 @@ A validator MUST dispatch using exactly one of two selectors:
   read its selected source chain from a current lock/cache and dispatch on
   manifest identity and exact release. `bitwild_profile/2026.3` selects this
   release. Verify safe paths, the manifest's OKF 0.2 binding, and parity of the
-  base vocabulary with the compiled validator. Source manifests supply
-  declarations, not executable Profile rules.
+  base vocabulary with the compiled validator. A source manifest supplies
+  declarations and may name the rule catalog its Profile ships; the catalog
+  is data the installed engine evaluates, read from the cache at the locked
+  commit, never from the network.
 - For an unlisted legacy bundle, read `concepta_profile` from the first fenced
   `yaml` block in root `profile.md`. `"2026.2"` selects the immutable legacy
   validator; it is never interpreted as 2026.3.
@@ -341,11 +428,27 @@ installed closed ruleset; its fetched vocabulary must match the compiled
 standard registry exactly. Each other Profile entry must `extends` a declared
 parent chain reaching this base. A parent may be source-only with
 `applies_to: []`; a child adds manifest and project vocabulary, but cannot
-replace inherited names or load rules from Git. Missing parents, cycles,
-collisions, unsupported releases, and ambiguous bundle application fail
-Profile dispatch. Types, topic tags and actor lookup are the only local
-additions. A registered custom type is still a non-blocking extension
-advisory; contextual meaning belongs to Profile Review.
+replace inherited names. Missing parents, cycles, collisions, unsupported
+releases, and ambiguous bundle application fail Profile dispatch. Types,
+topic tags, relationship names and actor lookup are the only local additions;
+a binding cannot declare frontmatter keys. A registered custom type is
+reported as a summary entry (§4.1); contextual meaning belongs to Profile
+Review.
+
+A non-base manifest may name its rule catalog (`"rules":
+"wayfinder-rules.json"`, relative to the manifest). The resolver reads the
+catalog with the same revision read as the manifest and parses it whole as
+data (`wayfinder-rules.schema.json`); it must declare the manifest's identity
+and release, report in the namespace Profile §11 derives from that identity,
+and declare no frontmatter keys. The effective catalog chain is the installed
+base catalog followed by each source catalog along `extends`, parent first.
+Validation evaluates every catalog in the chain and each finding names its own
+catalog's release and namespace, so an ancestor's findings never depend on a
+child. A base manifest that names a catalog, a missing catalog file, or a
+catalog naming a subject, slot, builtin, or keyword this engine lacks fails
+resolution with the reason, which `get` reports and `validate` reports as
+`UNSUPPORTED`; a catalog is never partially applied. The lock gains no field,
+because its commit identifies the manifest and the catalog alike.
 
 A relative local `source.git` is resolved from the directory containing
 `wayfinder.json`, not the process working directory. Cache identity uses that
@@ -357,7 +460,8 @@ reuses a current lock. `upgrade` deliberately refreshes mutable refs. A
 canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
-credentials or executable rules. The local Git cache holds fetched objects.
+credentials, vocabulary or catalogs. The local Git cache holds fetched
+objects.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -376,7 +480,8 @@ Profile rules. An unlisted 2026.2 bundle keeps its in-bundle declaration; an
 ancestor project config cannot silently migrate it. Unknown releases never
 fall back to the newest rules.
 
-`graph` projects the ordinary OKF graph without Profile-source resolution.
+`graph` projects the ordinary OKF graph, plus the `relationships` edges §4.3
+permits, without Profile-source resolution.
 Embedding `index` and `search` consume either an explicit bundle or the project's
 configured `applies_to` paths without resolving unused Profile sources. The
 explicit-path forms do not consult neighboring configuration; project discovery
@@ -385,11 +490,13 @@ do not generate Profile navigation indexes. A neighboring malformed `wayfinder.j
 graph reading fail. Those command boundaries implement the separate outcomes
 required by Profile §§14.1–14.2.
 
-The parser implements the schema and cross-document checks rather than
-executing a JSON Schema engine. It checks normalized and canonical paths,
-manifest identity and release, the effective vocabulary and actor lookup. A
-schema alone cannot prove filesystem safety, Git availability, or whether a
-concept truthfully uses a type or topic tag. `captures/` remains outside the
+The parser checks `wayfinder.json` and each Profile manifest against their
+published JSON Schemas, evaluated by the engine's own schema subset and
+embedded in the binary, then runs the cross-document checks a schema cannot
+express. Those cover normalized and canonical paths, `extends` chains, manifest
+identity and release, the effective vocabulary and actor lookup. A schema
+alone cannot prove filesystem safety, Git availability, or whether a concept
+truthfully uses a type or topic tag. `captures/` remains outside the
 bundle unless explicitly declared as another OKF bundle; no nested area
 inherits a different Profile.
 
@@ -398,17 +505,27 @@ inherits a different Profile.
 Validation has two layers of frontmatter checking. The
 upstream `okf` package validates the pinned OKF 0.2 field shapes and preserves
 unknown content for tolerant reading. The Bitwild Profile adds only its
-producer-side constraints:
+bundle conformance constraints:
 
 | Field or family | Legacy 2026.2 coverage | Configured 2026.3 coverage |
 | --- | --- | --- |
 | `type` | Required non-empty string; membership in the `types.md` registry | Membership in the selected Profile's standard types plus binding custom types |
 | `title`, `description` | Required non-empty strings | Unchanged |
 | `status` | Required string with `draft`, `stable`, or `deprecated` | Unchanged unless a future Profile release explicitly changes it |
-| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, and reports an undeclared used tag according to the release rule |
+| `tags` | OKF shape plus an error-level Profile check for literal duplication of type, status, trust, or relationship labels | Bitwild 2026.3 declares the actual Profile and project tag vocabulary in JSON, rejects duplicate declarations and duplicate values within one concept, reports an undeclared used tag according to the release rule, and rejects at configuration a declared tag name that collides with another declared vocabulary (Profile §5.1) |
 | `generated`, `verified`, `stale_after` | OKF shape and timestamp diagnostics; actor extraction and trust semantics remain separate | Keep upstream meanings; do not add Profile-specific fields for trust or freshness |
 | `sources` | OKF shape plus source-entry, unique-ID, attribution-join, and path diagnostics | Keep upstream meanings and run the same checks after binding resolution |
-| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Continue rejecting new keys; a binding cannot authorize arbitrary frontmatter extensions |
+| `relationships` | Not a Profile key, so it fails like any producer-defined key; labelled links live in a `# Relationships` body section | The one key the release declares (Profile §7.2): a list of `relationship` and `resource` mappings, checked for shape, declared names, and target resolution |
+| Other frontmatter keys | Unknown producer-defined keys fail the current Profile rule | Keys neither OKF nor the release declares fail; a binding cannot declare frontmatter keys |
+
+A Profile release declares its additional frontmatter keys in its rule
+catalog's `frontmatter_keys`, each with the sentence that defines it, and
+`frontmatter-fields-declared` accepts exactly OKF's keys and those. OKF §4.1
+permits producers additional keys, but a declared key MUST NOT be one OKF 0.2
+defines or redefine an OKF field, so the engine rejects at load a catalog that
+declares an OKF key, and the compatibility review records each declared key.
+OKF's own fields keep their meaning: the 2026.3 `relationships` key stays out of
+`sources`, whose OKF §5.1 meaning is derivation.
 
 The current implementation therefore has no type-specific property schema. This
 is deliberate: the Profile defines no type-specific body template, and OKF
@@ -421,8 +538,9 @@ If a future Profile needs a type-specific constraint, it MUST constrain existing
 OKF fields using a new reviewed Profile release. It MUST NOT turn
 `wayfinder.json` into a second frontmatter schema or allow a project to add
 fields such as `owner`, `priority`, `confidence`, or `maturity`. Information
-that has no OKF field belongs in the concept body or requires an upstream OKF
-change before a Profile can depend on it.
+that has no OKF field belongs in the concept body or in a key a reviewed Profile
+release declares under OKF §4.1; a new meaning for an OKF field requires an
+upstream OKF change before a Profile can depend on it.
 
 Tags remain OKF topic strings, but the next Bitwild binding treats its `tags`
 arrays as a declared vocabulary rather than a list of recommendations. The
@@ -431,7 +549,10 @@ project tags. Wayfinder MUST reject duplicate names within either list and
 collisions between the lists, reject duplicate values within one concept, and
 apply the selected Profile release's explicit rule for an undeclared used tag.
 For Bitwild 2026.3, an undeclared used tag is an error; a Profile that needs an
-open vocabulary must state that as a different release rule.
+open vocabulary must state that as a different release rule. Relationship names
+follow the same model: the manifest's `relationships` list declares the
+standard names, the binding adds project names under the same duplicate and
+collision rules, and an undeclared used name is an error.
 
 The Profile's tag rule remains a Profile convention, not an OKF requirement:
 generic OKF consumers still tolerate arbitrary tag strings. Semantic aliases
@@ -529,7 +650,8 @@ Three migration invariants are not project-specific and every migration MUST car
    (profile §8.1, §8.2). Never renumber during a migration; a migration is exactly when it
    is most tempting and most damaging.
 3. **Supersession is preserved, not deleted.** Superseded material migrates as `deprecated`
-   concepts with `Superseded by` links, so the history stays inspectable. A migration that
+   concepts with a `superseded-by` relationship (2026.2: a `Superseded by` label), so the
+   history stays inspectable. A migration that
    drops what was replaced destroys the record of how understanding moved.
 
 For a 2026.2 migration, the implementation MUST inventory missing baseline
@@ -554,8 +676,9 @@ cannot make that decision mechanically.
 
 The migration MUST inventory labelled relationships, tracker-owned artifacts,
 specifications, externally cited concept IDs, planned moves, stable concepts selected
-for retirement, and mirrored material. It mechanically reshapes malformed
-Relationships entries, but Profile Review decides path conformance, label meaning,
+for retirement, and mirrored material. It mechanically writes labelled links as
+`relationships` entries (2026.2: reshapes malformed `# Relationships` entries),
+but Profile Review decides path conformance, relationship meaning,
 lifecycle ownership, intrinsic chronology, citation repairability, deletion exceptions,
 mirror classification and placement, availability risk, visibility, sanitization,
 image optimization, and media classification. It externalizes media that Profile
@@ -617,7 +740,7 @@ first-class reference is a rewrite of one link kind, while a private scheme is a
 A tool claims conformance to this guide by satisfying, for the profile release it
 implements:
 
-- the generator contract (§3.1–§3.3), if it writes indexes;
+- the generator contract for its release (§3), if it writes indexes;
 - the exit codes (§4.1), finding IDs (§4.2), the prohibitions (§4.3), and version dispatch
   (§4.4), if it validates;
 - tolerant reading (profile §14.2) in both cases.
@@ -633,11 +756,67 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 release dispatch while preserving the 2026.2 in-bundle path. Affected sections:
 §§2, 4.1, 4.4, 4.7–4.8, and 9. Driver: reusable Profile bindings,
 reproducible source revisions, and removal of repeated in-bundle configuration.
-Migration for implementations: add direct-source configuration, explicit
+It also adds `--output sarif` (§4.1), the same findings as a SARIF 2.1.0 log,
+so CI can upload them to code scanning. Migration for implementations: add direct-source configuration, explicit
 get/upgrade lock management, read-only validation of a selected Profile,
 safe path and registry checks, and per-release index projection; retain legacy
 dispatch and independent OKF results. Existing 2026.2 bundles remain
 supported without edits.
+
+Revised in place before publication: §3 makes 2026.3 indexes the output of
+okf's reference generator, pins `okf` 0.5.0, replaces semantic comparison with
+exact comparison for 2026.3, and adds `validate --fix`; the 2026.2 generator
+contract and semantic comparison move unchanged to §3.4. Affected sections:
+§§1, 2.1, 2.3, 3, and 8. Driver: Profile 2026.3 §9 now defers to okf's
+generator. Migration for implementations: generate and compare 2026.3 indexes
+with the pinned generator, and keep the 2026.2 projection for 2026.2 bundles.
+
+Revised in place before publication: §§4.3 and 4.8 check the 2026.3
+`relationships` frontmatter key and its declared names instead of the
+`# Relationships` body section, accept the frontmatter keys a release declares,
+and let a graph or search projection add relationship edges beside the OKF
+graph without changing it; §4.7 adds relationship names to the binding
+vocabulary, and §4.1 names `--fix` in the command surface. Affected sections:
+§§4.1, 4.3, 4.7, 4.8, 5.5, and 9. Driver: Profile 2026.3 §7.2 moves typed
+relationships into frontmatter. Migration for implementations: parse a
+release's declared keys and relationship vocabulary, resolve relationship
+targets as the OKF graph resolves links, and keep the body-section checks for
+2026.2 bundles.
+
+Revised in place before publication: §4.1 adds summary entries to the result
+model beside the findings, as `profile.summary` in JSON, a `Summary:` text
+block, and SARIF `informational` results; §4.7 reports a registered custom type as a
+summary entry. A graph that cannot be built is reported at `index.md`, which
+every 2026.3 bundle has, instead of `profile.md`. Affected sections: §§4.1, 4.7,
+and 9. Driver: Profile 2026.3 §14.1 now reports what it permits as summary
+entries, and §5.1 checks colliding tag names where the binding declares them.
+Migration for implementations: route a release's summary rules to the summary,
+emit the new JSON key and SARIF informational results, and reject a colliding tag declaration
+while reading and composing the binding; 2026.2 output is unchanged.
+
+Revised in place before publication: §§4.2, 4.4 and 4.7 read a non-base
+source's rule catalog at its locked commit and evaluate the catalog chain,
+base first, with each finding in its catalog's namespace; the lock is
+unchanged. Affected sections: §§4.2, 4.4, 4.7, and 9. Driver: Profile 2026.3
+§11 lets a non-base entry ship a rule catalog. Migration for implementations:
+parse a named catalog whole and fail dispatch as `UNSUPPORTED` on anything the
+engine lacks, keep the installed base catalog authoritative, and list every
+catalog's descriptors in SARIF output.
+
+Revised in place before publication: Profile 2026.3 §9 now names the
+generator's `okf` release, so §§1 and 3 cite it there and keep only how a tool
+pins that release and detects drift from it, and §3.1 states that `--fix`
+never deletes a leftover index. §4.3 reports a registered project type and an
+unresolved internal link or relationship target under 2026.3 as summary
+entries, as §4.1 and Profile §14.1 already did, and cites Profile §7.2 for the
+relationship shape instead of restating it; §4.8 states that a colliding tag
+declaration fails at configuration. Affected sections: §§1, 3, 3.1, 4.3, 4.8,
+and 9. Driver: a guide that pinned the release decided which index bytes
+conform, which is a bundle rule the Profile owns; §§4.3 and 4.8 still
+described the advisories and per-concept tag check that the summary-entry
+revision replaced.
+Migration for implementations: none; the release and the checks are
+unchanged.
 
 **2026.2.** Binds Profile 2026.2. The Profile adopted the upstream OKF 0.2
 revision in which every timestamp is an ISO 8601 datetime with an explicit UTC

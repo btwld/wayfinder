@@ -1,0 +1,28 @@
+{
+  "okf": {
+    "state": "FAIL",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/missing-type",
+          "severity": "error",
+          "message": "Concept frontmatter must contain a non-empty type field.",
+          "location": {
+            "path": "types.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": null,
+    "state": "BLOCKED BY OKF",
+    "findings": []
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

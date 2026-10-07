@@ -1,0 +1,30 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": null,
+    "state": "UNSUPPORTED",
+    "findings": [
+      {
+        "id": "concepta-profile/profile-declaration-fields",
+        "severity": "error",
+        "message": "The Profile declaration must be a YAML mapping.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": null,
+        "rule": "§11"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "UNSUPPORTED"
+  }
+}
