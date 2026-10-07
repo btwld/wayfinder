@@ -69,6 +69,8 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: python3 tool/ci/verify-configured-example.py
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: python3 tool/ci/verify-workspace-floors.py
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
