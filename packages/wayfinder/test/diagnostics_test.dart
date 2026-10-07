@@ -296,6 +296,72 @@ void main() {
           {'inbound': <Object?>[]},
         ],
       ),
+      'through additionalProperties': ruleJson(
+        'no-facts',
+        subject: 'concept',
+        schema: {'additionalProperties': false},
+        valid: [<String, Object?>{}],
+        invalid: [
+          {'inbound': <Object?>[]},
+        ],
+      ),
+      'through minProperties': ruleJson(
+        'some-fact',
+        subject: 'concept',
+        schema: {'minProperties': 1},
+        valid: [
+          {'inbound': <Object?>[]},
+        ],
+        invalid: [<String, Object?>{}],
+      ),
+      'through enum': ruleJson(
+        'no-facts',
+        subject: 'concept',
+        schema: {
+          'enum': [<String, Object?>{}],
+        },
+        valid: [<String, Object?>{}],
+        invalid: [
+          {'inbound': <Object?>[]},
+        ],
+      ),
+      'through const': ruleJson(
+        'no-facts',
+        subject: 'concept',
+        schema: {'const': <String, Object?>{}},
+        valid: [<String, Object?>{}],
+        invalid: [
+          {'inbound': <Object?>[]},
+        ],
+      ),
+      'through a same-instance applicator': ruleJson(
+        'typed-when-nonempty',
+        subject: 'concept',
+        schema: {
+          'if': {'minProperties': 1},
+          'then': {
+            'required': ['type'],
+          },
+        },
+        valid: [<String, Object?>{}],
+        invalid: [
+          {'inbound': <Object?>[]},
+        ],
+      ),
+      r'through $ref to a def that observes every property': ruleJson(
+        'some-fact',
+        subject: 'concept',
+        schema: {
+          r'$defs': {
+            'nonEmpty': {'minProperties': 1},
+          },
+          r'$ref': r'#/$defs/nonEmpty',
+        },
+        valid: [
+          {'inbound': <Object?>[]},
+        ],
+        invalid: [<String, Object?>{}],
+      ),
     };
     for (final MapEntry(key: name, value: rule) in cases.entries) {
       test(name, () async {
