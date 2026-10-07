@@ -88,9 +88,10 @@ final class JsonPredicate {
 
   final Set<String> rootPropertyNames;
 
-  /// Whether the schema reads its instance's property names without naming
-  /// them, through `propertyNames`, `additionalProperties`, `minProperties`,
-  /// `enum` or `const`, so it depends on every property present.
+  /// Whether the schema may read its instance's properties without naming
+  /// them, so it depends on every property present. Any keyword applied to
+  /// the instance itself counts unless it is known to read only named
+  /// properties.
   final bool observesUnnamedRootProperties;
 
   bool test(Object? instance) => _root.test(instance);
@@ -121,12 +122,39 @@ final class _Compiler {
   late final bool observesUnnamedRootProperties;
   late final Set<String> reachableDefs;
 
-  static const _unnamedKeywords = {
-    'propertyNames',
-    'additionalProperties',
-    'minProperties',
-    'enum',
-    'const',
+  /// Keywords known to read their instance's properties only by name. The
+  /// rest fail closed, so an unclassified keyword risks a skip, never a false
+  /// pass.
+  static const _namedOnlyKeywords = {
+    r'$schema',
+    r'$id',
+    r'$comment',
+    'title',
+    'description',
+    'examples',
+    'default',
+    'deprecated',
+    r'$defs',
+    'type',
+    'required',
+    'properties',
+    'pattern',
+    'minLength',
+    'maxLength',
+    'format',
+    'items',
+    'uniqueItems',
+    'minItems',
+    'maxItems',
+    'contains',
+    'not',
+    'allOf',
+    'anyOf',
+    'oneOf',
+    'if',
+    'then',
+    'else',
+    r'$ref',
   };
 
   String? _currentDef;
@@ -230,7 +258,7 @@ final class _Compiler {
     _Node? elseNode;
     for (final MapEntry(key: keyword, :value) in map.entries) {
       final at = _pointer(pointer, keyword);
-      if (_descents == 0 && _unnamedKeywords.contains(keyword)) {
+      if (_descents == 0 && !_namedOnlyKeywords.contains(keyword)) {
         _unnamedRootDefs.add(_currentDef);
       }
       switch (keyword) {
