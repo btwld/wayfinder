@@ -301,7 +301,7 @@ SchemaCheck _schemaCheck(
     needsLinks =
         [...compiled.rootPropertyNames, ?each].any(facts.fromLinks) ||
         each == null &&
-            compiled.observesUnnamedRootProperties &&
+            compiled.mayObserveUnnamedRootProperties &&
             shapes.keys.any(facts.fromLinks);
     final Set<String> names;
     final String instance;

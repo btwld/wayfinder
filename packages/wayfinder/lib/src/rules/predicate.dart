@@ -42,7 +42,7 @@ final class JsonPredicate {
     required this.slots,
     required this.defs,
     required this.rootPropertyNames,
-    required this.observesUnnamedRootProperties,
+    required this.mayObserveUnnamedRootProperties,
   });
 
   factory JsonPredicate.compile(
@@ -76,7 +76,7 @@ final class JsonPredicate {
       slots: compiler.reachableDefs.intersection(slotNames),
       defs: compiler.reachableDefs.difference(slotNames),
       rootPropertyNames: compiler.rootPropertyNames,
-      observesUnnamedRootProperties: compiler.observesUnnamedRootProperties,
+      mayObserveUnnamedRootProperties: compiler.mayObserveUnnamedRootProperties,
     );
   }
 
@@ -88,11 +88,7 @@ final class JsonPredicate {
 
   final Set<String> rootPropertyNames;
 
-  /// Whether the schema may read its instance's properties without naming
-  /// them, so it depends on every property present. Any keyword applied to
-  /// the instance itself counts unless it is known to read only named
-  /// properties.
-  final bool observesUnnamedRootProperties;
+  final bool mayObserveUnnamedRootProperties;
 
   bool test(Object? instance) => _root.test(instance);
 
@@ -119,12 +115,9 @@ final class _Compiler {
   final _rootNamesByDef = <String?, Set<String>>{};
   final _unnamedRootDefs = <String?>{};
   late final Set<String> rootPropertyNames;
-  late final bool observesUnnamedRootProperties;
+  late final bool mayObserveUnnamedRootProperties;
   late final Set<String> reachableDefs;
 
-  /// Keywords known to read their instance's properties only by name. The
-  /// rest fail closed, so an unclassified keyword risks a skip, never a false
-  /// pass.
   static const _namedOnlyKeywords = {
     r'$schema',
     r'$id',
@@ -190,7 +183,9 @@ final class _Compiler {
     rootPropertyNames = {
       for (final def in sameInstance) ...?_rootNamesByDef[def],
     };
-    observesUnnamedRootProperties = sameInstance.any(_unnamedRootDefs.contains);
+    mayObserveUnnamedRootProperties = sameInstance.any(
+      _unnamedRootDefs.contains,
+    );
     return node;
   }
 
