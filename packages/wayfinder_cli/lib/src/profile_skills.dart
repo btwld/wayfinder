@@ -64,7 +64,8 @@ abstract final class ProfileSkills {
 
   /// The roots that a symbolic link at the root or an ancestor places
   /// outside [projectRoot], where a write or prune would change another
-  /// project's skills. A link that cannot be resolved counts as outside.
+  /// project's skills. [write] refuses them and [prune] skips them. A link
+  /// that cannot be resolved counts as outside.
   static Future<List<String>> escaping(String projectRoot) async {
     final real = await Directory(projectRoot).resolveSymbolicLinks();
     return [
@@ -96,16 +97,10 @@ abstract final class ProfileSkills {
     }
   }
 
-  static Future<void> _refuseEscaping(String projectRoot) async {
-    if (await escaping(projectRoot) case [final root, ...]) {
-      throw FileSystemException(escapingMessage(root), root);
-    }
-  }
-
   static String escapingMessage(String root) =>
       '$root resolves outside the project through a symbolic link, so '
-      'wayfinder did not install or remove Profile skills there. Point it '
-      'inside the project and run the command again.';
+      'wayfinder did not install Profile skills there. Point it inside the '
+      'project and run the command again.';
 
   /// The directories of [ids] that exist without a marker for their id, so
   /// the user or another tool owns them and `get` must not replace them.
@@ -129,7 +124,9 @@ abstract final class ProfileSkills {
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
-    await _refuseEscaping(projectRoot);
+    if (await escaping(projectRoot) case [final root, ...]) {
+      throw FileSystemException(escapingMessage(root), root);
+    }
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));
       final _StagingNames(:staged, :old) = _StagingNames(target, revision.id);
@@ -184,9 +181,10 @@ abstract final class ProfileSkills {
     String projectRoot,
     Set<ProfileId> keep,
   ) async {
-    await _refuseEscaping(projectRoot);
+    final outside = await escaping(projectRoot);
     final removed = <String>[];
     for (final root in roots) {
+      if (outside.contains(root)) continue;
       final parent = Directory(p.join(projectRoot, root));
       if (!await parent.exists()) continue;
       final entries = await parent.list(followLinks: false).toList()

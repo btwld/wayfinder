@@ -464,8 +464,8 @@ void main() {
 
     const message =
         '.agents/skills resolves outside the project through a symbolic '
-        'link, so wayfinder did not install or remove Profile skills there. '
-        'Point it inside the project and run the command again.';
+        'link, so wayfinder did not install Profile skills there. Point it '
+        'inside the project and run the command again.';
 
     for (final (name, link, target) in [
       ('at the root', '.agents/skills', '.agents/skills'),
@@ -494,29 +494,52 @@ void main() {
       });
     }
 
-    test('write and prune refuse it', () async {
+    Future<void> linkRoot() async {
       await Directory(p.join(project.path, '.agents')).create();
       await Link(
         p.join(project.path, '.agents/skills'),
       ).create(p.join(other.path, '.agents/skills'));
-      final refused = throwsA(
-        isA<FileSystemException>().having(
-          (error) => error.message,
-          'message',
-          message,
-        ),
-      );
-      await expectLater(ProfileSkills.prune(project.path, {}), refused);
+    }
+
+    test('write refuses it and prune leaves it alone', () async {
+      await linkRoot();
+      expect(await ProfileSkills.prune(project.path, {}), isEmpty);
       await expectLater(
         ProfileSkills.write(
           project.path,
           (id: ProfileId.parse('acme-notes'), release: '1.0', commit: 'a' * 40),
           [(path: 'SKILL.md', bytes: utf8.encode('x'))],
         ),
-        refused,
+        throwsA(
+          isA<FileSystemException>().having(
+            (error) => error.message,
+            'message',
+            message,
+          ),
+        ),
       );
       expect(await foreign.exists(), isTrue);
       expect(await Directory(p.join(other.path, _agents)).exists(), isFalse);
+    });
+
+    test('get passes when no locked Profile ships a skill', () async {
+      final package = sourceFile('wayfinder-profile.json');
+      await package.writeAsString(
+        (await package.readAsString()).replaceFirst(
+          '  "skill": "skill",\n',
+          '',
+        ),
+      );
+      await commitSource();
+      await linkRoot();
+      final result = await resolver.resolve(project.path);
+      expect(result.skills, isEmpty);
+      expect(result.removedSkills, isEmpty);
+      expect(await foreign.exists(), isTrue);
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).exists(),
+        isTrue,
+      );
     });
   });
 
