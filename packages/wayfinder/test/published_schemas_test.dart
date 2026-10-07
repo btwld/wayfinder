@@ -5,6 +5,8 @@ import 'package:wayfinder/src/generated/published_schemas.g.dart';
 import 'package:wayfinder/src/rules/schema.dart';
 import 'package:wayfinder/wayfinder.dart';
 
+import 'support.dart';
+
 String configMessage(String json) {
   try {
     WayfinderProjectConfig.parse(json);
@@ -83,6 +85,60 @@ void main() {
         configMessage('{"version": 1e999, "profiles": {}}'),
         'wayfinder.json is invalid at the root: must contain only finite '
         'numbers.',
+      );
+    });
+  });
+
+  group('an empty member key', () {
+    const profile =
+        '{"source": {"git": "g", "ref": "r", "path": "p"}, '
+        '"applies_to": ["docs"]}';
+
+    test('is named at the configuration root', () {
+      expect(
+        configMessage('{"version": 1, "profiles": {"a": $profile}, "": 1}'),
+        'wayfinder.json is invalid at the root: has unknown property .',
+      );
+    });
+
+    test('is named under profiles and actors', () {
+      expect(
+        configMessage('{"version": 1, "profiles": {"": $profile}}'),
+        'wayfinder.json is invalid at /profiles: has invalid property name "".',
+      );
+      expect(
+        configMessage(
+          '{"version": 1, "profiles": {"a": {"source": {"git": "g", '
+          '"ref": "r", "path": "p"}, "applies_to": ["docs"], '
+          '"actors": {"": {"name": "n"}}}}}',
+        ),
+        'wayfinder.json is invalid at /profiles/a/actors: has invalid '
+        'property name "".',
+      );
+    });
+
+    test('is named in a package rule', () {
+      final rule = {
+        ...ruleJson(
+          'a',
+          subject: 'root',
+          schema: true,
+          valid: [<String, Object?>{}],
+          invalid: [<String, Object?>{}],
+        ),
+        '': 1,
+      };
+      expect(
+        () => ProfilePackage.parse(packageJson(rules: [rule])),
+        throwsA(
+          isA<ProfilePackageException>()
+              .having((error) => error.where, 'where', 'rules[0].')
+              .having(
+                (error) => error.message,
+                'message',
+                'has unknown property ',
+              ),
+        ),
       );
     });
   });
