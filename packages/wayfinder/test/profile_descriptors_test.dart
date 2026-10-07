@@ -458,6 +458,102 @@ void main() {
       expect(nested.rules, hasLength(1), reason: 'names below a descent');
     });
 
+    test('a name reached through \$ref is checked as if it were inline', () {
+      const typo = {
+        'required': ['typo_path'],
+      };
+      expect(
+        () => ProfilePackage.parse(
+          packageJson(
+            rules: [
+              ruleJson(
+                'a',
+                subject: 'concept',
+                schema: {
+                  r'$defs': {'shape': typo},
+                  r'$ref': r'#/$defs/shape',
+                },
+                valid: [<String, Object?>{}],
+                invalid: [<String, Object?>{}],
+              ),
+            ],
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'typo_path is not a fact of concept',
+        ),
+        reason: 'a rule-local def',
+      );
+      expect(
+        () => ProfilePackage.parse(
+          packageJson(
+            extra: {
+              r'$defs': {
+                'outer': {r'$ref': r'#/$defs/shape'},
+                'shape': typo,
+              },
+            },
+            rules: [
+              ruleJson(
+                'a',
+                subject: 'concept',
+                schema: {
+                  'anyOf': [
+                    {r'$ref': r'#/$defs/outer'},
+                  ],
+                },
+                valid: [<String, Object?>{}],
+                invalid: [<String, Object?>{}],
+              ),
+            ],
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'typo_path is not a fact of concept',
+        ),
+        reason: 'a package def reached through another def',
+      );
+      final nested = ProfilePackage.parse(
+        packageJson(
+          extra: {
+            r'$defs': {
+              'tag': {
+                'required': ['label'],
+              },
+            },
+          },
+          rules: [
+            ruleJson(
+              'a',
+              subject: 'concept',
+              schema: {
+                'properties': {
+                  'tags': {
+                    'items': {r'$ref': r'#/$defs/tag'},
+                  },
+                },
+              },
+              valid: [
+                {
+                  'tags': [
+                    {'label': 'x'},
+                  ],
+                },
+              ],
+              invalid: [
+                {
+                  'tags': [<String, Object?>{}],
+                },
+              ],
+            ),
+          ],
+        ),
+      );
+      expect(nested.rules, hasLength(1), reason: 'a def used below a descent');
+    });
+
     test('frontmatter stays open', () {
       final open = ProfilePackage.parse(
         packageJson(

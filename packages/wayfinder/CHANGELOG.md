@@ -96,8 +96,9 @@
 - `ProfilePackage.parse` rejects more at load: a rule whose own examples
   disagree with its schema; `each` over a fact that is not a list;
   `failing_field` that is not an element field; a `properties` or
-  `required` name at the subject level that no fact or element field of a
-  closed subject carries; params for a builtin that declares none; and a
+  `required` name at the subject level, inline or through a `$ref` applied
+  to the same instance, that no fact or element field of a closed subject
+  carries; params for a builtin that declares none; and a
   message placeholder the builtin does not fill. `failingExamples` is gone;
   load runs the examples.
 - Bitwild 2026.3 `relationship-shape` fails a `relationships` value that is

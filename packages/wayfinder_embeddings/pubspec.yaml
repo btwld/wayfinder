@@ -23,7 +23,7 @@ dependencies:
   objectbox: 5.0.4
   okf: '>=0.5.0 <0.5.1'
   path: ^1.8.0
-  wayfinder: ^0.1.0
+  wayfinder: ^0.2.0
 
 dev_dependencies:
   build_runner: ^2.10.1

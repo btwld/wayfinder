@@ -99,8 +99,8 @@ the `wayfinder validate` gate, and let each project repository carry only its ow
 The `wayfinder` package is now the core validation library (formerly
 `okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
 The embeddings library remains `wayfinder_embeddings`. Core 0.1.0 and the
-CLI and embeddings 0.1.1 are published. The next prepared releases are CLI 0.1.2
-and embeddings 0.2.0; see [release status and upgrade notes](docs/releasing.md#prepared-releases-embeddings-020-and-cli-012).
+CLI and embeddings 0.1.1 are published. The next prepared releases are core
+0.2.0, CLI 0.1.2 and embeddings 0.2.0; see [release status and upgrade notes](docs/releasing.md#prepared-releases-embeddings-020-and-cli-012).
 See [migration instructions](docs/install.md#migrate-the-dart-application-package).
 
 ## What is in here
