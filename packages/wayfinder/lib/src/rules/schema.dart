@@ -298,20 +298,18 @@ final class _Walk {
     if (value is! String) {
       throw RuleSchemaException(pointer, 'must be a string');
     }
+    // Ack percent-decodes before splitting the pointer, so a %2F splits too.
     final token = value.startsWith(prefix)
-        ? value.substring(prefix.length)
+        ? Uri.decodeComponent(value.substring(prefix.length))
         : null;
-    final namesTopLevelDef = token != null && !token.contains('/');
-    if (!namesTopLevelDef) {
+    if (token == null || token.contains('/')) {
       throw RuleSchemaException(
         pointer,
         r'only local $ref to #/$defs/<name> is supported',
         unsupported: true,
       );
     }
-    final name = Uri.decodeComponent(
-      token,
-    ).replaceAll('~1', '/').replaceAll('~0', '~');
+    final name = token.replaceAll('~1', '/').replaceAll('~0', '~');
     if (!_defs.containsKey(name) && Slot.byId(name) == null) {
       throw RuleSchemaException(pointer, r'$ref target is not in $defs');
     }
