@@ -65,7 +65,7 @@ final class _PublishedSchema {
 
   _Violation _keywordViolation(JsonSchemaValidationError error) {
     final pointer = _tokens(Uri.decodeComponent(error.pointer.substring(1)));
-    final path = _tokens(error.path.substring(1));
+    final path = _instancePath(error.context);
     final owner = path.isEmpty
         ? const <String>[]
         : path.sublist(0, path.length - 1);
@@ -101,6 +101,13 @@ final class _PublishedSchema {
       ),
     };
   }
+
+  // SchemaContext.path drops empty segments, so an empty member key would
+  // vanish from it.
+  static List<String> _instancePath(SchemaContext context) => [
+    for (var at = context; at.parent != null; at = at.parent!)
+      at.pathSegment ?? at.name,
+  ].reversed.toList();
 
   Object? _at(List<String> pointer) {
     Object? node = _document;
@@ -160,8 +167,7 @@ String _reason(String keyword, Object? keywordValue, Object? parentSchema) =>
       _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
     };
 
-/// JSON Pointer tokens, unescaped. Ack's error path is a `#`-prefixed RFC
-/// 6901 pointer; its schema pointer is the same after percent-decoding.
+/// JSON Pointer tokens, unescaped, of Ack's percent-decoded schema pointer.
 List<String> _tokens(String pointer) => [
   for (final token in pointer.split('/').skip(1))
     token.replaceAll('~1', '/').replaceAll('~0', '~'),
