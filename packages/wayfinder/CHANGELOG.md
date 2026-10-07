@@ -3,7 +3,9 @@
 A pre-release because it depends on Ack `^1.7.0-beta.5`; stable 0.2.0
 follows Ack 1.7.0.
 
-- `wayfinder` depends on `ack`, which evaluates every rule schema. The
+- `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema
+  evaluator and its vendored JSON-Schema-Test-Suite gate. Ack evaluates every
+  rule schema. The
   engine still admits only its keyword subset, checks a schema's property
   names against its subject's facts, and words every message.
   `SchemaCheck.schema` is the parsed rule schema; `SchemaCheck.defs`,

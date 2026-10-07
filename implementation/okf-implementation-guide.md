@@ -941,6 +941,23 @@ and emit the selected Profile under `BLOCKED BY OKF`. A configured bundle is
 affected only when two of its chains name one id from different sources. It
 makes them agree and runs `wayfinder get`.
 
+Revised again in place before publication (2026-10-07). Ack, not an
+evaluator the engine owns, evaluates rule schemas and the published schemas
+within the engine's keyword subset, as §4.7 states. The §4.1 diagnostic table
+names a rule schema keyword, `format` or `$ref` form outside that subset as a
+cause of `profile-unsupported`. A rule schema now follows 2020-12 where the
+owned evaluator did not: an empty `enum` matches nothing; a `$ref` below a
+`$defs` entry and a `$id` below the root are unsupported; and a malformed
+annotation, a duplicate `required` or `type` entry, an empty `type` list and
+a `$schema` other than 2020-12 are refused. A published-schema violation is
+the first in Ack's keyword order, and a root `null` is reported as "must not
+be null". Affected sections: §§4.1, 4.7, and 9. Driver: the migration to Ack
+as the only JSON Schema evaluator. Migration for implementations: evaluate
+rule schemas with a 2020-12 evaluator restricted to the subset, and refuse the
+forms above. Every shipped package stays conformant, as the migration's
+parity corpora and a scan of the shipped schemas showed. Format 2 is
+unreleased, so §5.10 needs no `format` bump.
+
 **2026.3.** Binds Profile 2026.3. Implements explicit `wayfinder.json`
 release dispatch while preserving the 2026.2 in-bundle path. Affected sections:
 §§2, 4.1, 4.4, 4.7–4.8, and 9. Driver: reusable Profile bindings,

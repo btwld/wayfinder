@@ -74,28 +74,19 @@ Future<ProfileSelection> selectFixture(
   }
 }
 
-/// Every package [packageJson] has encoded in this isolate, so
-/// ack_parity_test can compare evaluators over the packages other suites
-/// build.
-final builtPackages = <String>[];
-
 String packageJson({
   String id = 'probe',
   String release = '1.0',
   List<Object?> rules = const [],
   Map<String, Object?> extra = const {},
-}) {
-  final json = jsonEncode({
-    'format': 2,
-    'id': id,
-    'release': release,
-    'implements': {'id': 'okf', 'release': '0.2'},
-    ...extra,
-    'rules': rules,
-  });
-  builtPackages.add(json);
-  return json;
-}
+}) => jsonEncode({
+  'format': 2,
+  'id': id,
+  'release': release,
+  'implements': {'id': 'okf', 'release': '0.2'},
+  ...extra,
+  'rules': rules,
+});
 
 Map<String, Object?> ruleJson(
   String id, {
