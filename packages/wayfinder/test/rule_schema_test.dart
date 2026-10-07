@@ -304,6 +304,45 @@ void main() {
       );
     });
 
+    test('a malformed def is refused whether or not a rule reaches it', () {
+      for (final (def, pointer) in [
+        ({'minLength': -1}, r'/$defs/bad/minLength'),
+        ({'pattern': '('}, r'/$defs/bad/pattern'),
+        ({'type': 'strnig'}, r'/$defs/bad/type'),
+        (
+          {
+            'required': ['a', 'a'],
+          },
+          r'/$defs/bad/required',
+        ),
+        ({'description': 1}, r'/$defs/bad/description'),
+        ({r'$ref': r'#/$defs/bad'}, r'/$defs/bad/$ref'),
+      ]) {
+        for (final (reach, schema) in [
+          ('reached', {r'$ref': r'#/$defs/bad'}),
+          ('unreached', {'type': 'object'}),
+        ]) {
+          expect(
+            () => RuleSchema.parse(schema, defs: {'bad': def}),
+            refusedAt(pointer, unsupported: false),
+            reason: '$reach $def',
+          );
+          expect(
+            () => RuleSchema.parse({
+              ...schema,
+              r'$defs': {'bad': def},
+            }),
+            refusedAt(pointer, unsupported: false),
+            reason: 'rule-local $reach $def',
+          );
+        }
+      }
+      expect(
+        () => RuleSchema.parse(true, defs: {'a/b~c%2Fd#e f': true}),
+        returnsNormally,
+      );
+    });
+
     test('an empty enum matches nothing, as 2020-12 allows', () {
       expect(
         RuleSchema.parse({'enum': <Object?>[]}).bind(const {}).accepts('a'),
