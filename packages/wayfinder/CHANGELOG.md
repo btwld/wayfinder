@@ -3,7 +3,18 @@
 A pre-release because it depends on Ack `^1.7.0-beta.5`; stable 0.2.0
 follows Ack 1.7.0.
 
-- `wayfinder` depends on `ack`.
+- `wayfinder` depends on `ack`, which evaluates every rule schema. The
+  engine still admits only its keyword subset, checks a schema's property
+  names against its subject's facts, and words every message.
+  `SchemaCheck.schema` is the parsed rule schema; `SchemaCheck.defs`,
+  `slots` and `compile` are gone. A rule schema now follows 2020-12 where the
+  old evaluator did not: an empty `enum` matches nothing instead of being
+  refused; a `$ref` below a `$defs` entry and a `$id` below the root are
+  unsupported; a malformed annotation (a non-string `title`, `description` or
+  `$comment`, non-list `examples`, a non-boolean `deprecated`), a duplicate
+  `required` or `type` entry, an empty `type` list and a `$schema` other than
+  2020-12 are refused; and Ack words these refusals and a nonproductive
+  `$ref` cycle.
 - A non-finite frontmatter number (YAML `.inf`, `.nan`) reads as the string
   fact `Infinity` or `NaN`, as other non-JSON scalars already do, so a rule
   schema only ever sees JSON.

@@ -260,7 +260,8 @@ The fields have these jobs:
 - `rules` holds the package's rules. A rule only adds findings.
 
 A rule's `check` is either a schema check or a builtin. A schema check names
-a `subject` and a JSON Schema in the engine's keyword subset. It may also
+a `subject` and a JSON Schema in the engine's keyword subset, which Ack
+evaluates. It may also
 name an `each` array fact, which runs the schema once per element. Its
 `tests` hold valid and invalid examples. The engine runs them when it parses
 the package, so a package whose examples disagree with its own check never
