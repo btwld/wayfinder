@@ -264,6 +264,57 @@ void main() {
     expect(unassessed.gate, GateState.incomplete);
   });
 
+  group('a rule that observes link facts indirectly is not assessed when '
+      'the graph cannot be built', () {
+    final cases = {
+      r'through $ref': ruleJson(
+        'has-inbound',
+        subject: 'concept',
+        schema: {
+          r'$defs': {
+            'linked': {
+              'required': ['inbound'],
+            },
+          },
+          r'$ref': r'#/$defs/linked',
+        },
+        valid: [
+          {'inbound': <Object?>[]},
+        ],
+        invalid: [<String, Object?>{}],
+      ),
+      'through propertyNames': ruleJson(
+        'no-inbound',
+        subject: 'concept',
+        schema: {
+          'propertyNames': {
+            'not': {'const': 'inbound'},
+          },
+        },
+        valid: [<String, Object?>{}],
+        invalid: [
+          {'inbound': <Object?>[]},
+        ],
+      ),
+    };
+    for (final MapEntry(key: name, value: rule) in cases.entries) {
+      test(name, () async {
+        final bundle = fixtureBundle(fixture('configured-project'));
+        final profile = SelectedProfile(
+          EffectiveProfile.compose([
+            ProfilePackage.parse(packageJson(rules: [rule])),
+          ]),
+        );
+        final result = await _graphFails.validate(bundle, profile);
+        expect(result.findings, isEmpty);
+        expect(result.diagnostics.map((d) => d.code), [
+          DiagnosticCode.linkGraphUnavailable,
+        ]);
+        expect(result.gate, GateState.incomplete);
+      });
+    }
+  });
+
   test('a selection note is never an error', () {
     const error = EngineDiagnostic(
       DiagnosticCode.profileComposition,
