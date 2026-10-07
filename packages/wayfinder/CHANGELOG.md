@@ -4,6 +4,9 @@ A pre-release because it depends on Ack `^1.7.0-beta.5`; stable 0.2.0
 follows Ack 1.7.0.
 
 - `wayfinder` depends on `ack`.
+- A non-finite frontmatter number (YAML `.inf`, `.nan`) reads as the string
+  fact `Infinity` or `NaN`, as other non-JSON scalars already do, so a rule
+  schema only ever sees JSON.
 - A package may name its agent skill directory in `skill`
   (`ProfilePackage.skill`), relative to the package. A Profile id has at most
   64 characters (`ProfileId.maxLength`, `maxLength` in both schemas), the
