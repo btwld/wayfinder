@@ -25,11 +25,10 @@ void main() {
       expect(() => RuleSchema.parse(schema), returnsNormally);
     });
 
-    // A failure under a propertyNames reached through $ref is located at the
-    // def, where the message cannot tell it from a member value's failure.
-    // TODO(https://github.com/btwld/ack/issues/203): once Ack reports
-    // keywordLocation, delete this test; wayfinder.schema.json may then use
-    // $ref for its propertyNames subschemas again.
+    // TODO(https://github.com/btwld/ack/issues/203): Ack locates a failure
+    // under a propertyNames reached through $ref at the def, where it reads
+    // as a member value's failure. Once Ack reports keywordLocation, delete
+    // this test; wayfinder.schema.json may then $ref propertyNames again.
     test('$name routes no propertyNames through \$ref', () {
       final offenders = <String>[];
       void visit(Object? node, String pointer, {required bool underNames}) {

@@ -2,8 +2,6 @@ import 'package:ack/ack.dart';
 
 import 'profile.dart' show Slot;
 
-/// A rule schema this engine refuses: outside the Profile keyword subset,
-/// malformed where the walk must read it, or refused by Ack's importer.
 final class RuleSchemaException implements Exception {
   const RuleSchemaException(
     this.pointer,
@@ -11,39 +9,21 @@ final class RuleSchemaException implements Exception {
     this.unsupported = false,
   });
 
-  /// JSON Pointer into the rule's schema, `''` for its root. Package `$defs`
-  /// entries appear under `/$defs/<name>`, as they do in the document Ack
-  /// imports.
   final String pointer;
   final String message;
-
-  /// True when the schema may be valid JSON Schema that the subset does not
-  /// cover, so the remedy is a newer engine rather than a fixed Profile.
   final bool unsupported;
 
   @override
   String toString() => '$message at #$pointer';
 }
 
-/// A rule's `check.schema` after the gate. Constructing one proves three
-/// things, in this order:
+/// A rule's `check.schema` that passed the subset gate and Ack's import.
 ///
-/// 1. Every keyword it reaches is in the Profile subset ([_Keyword]), and
-///    every `$ref` is `#/$defs/<name>` naming a package def, a rule-local
-///    def, or a slot.
-/// 2. The fact analysis ([rootPropertyNames],
-///    [mayObserveUnnamedRootProperties], [slots]) was computed by the same
-///    walk that gated, so no applicator is admitted that the analysis does
-///    not follow.
-/// 3. Ack imports the document this schema evaluates as, with every slot
-///    empty. Slot values change only the members of an `enum`, so [bind]
-///    cannot fail afterwards; that keeps "once a package has parsed,
-///    evaluation never throws" (`ProfilePackageException`).
-///
-/// The document Ack imports is the rule schema with its own `$defs`
-/// replaced by every package def, every rule-local def (winning a name
-/// clash) and one `{"enum": members}` def per slot. Nothing is pruned, so
-/// Ack and the walk always see the same document.
+/// Ack evaluates the same document the walk analyzed: the rule schema plus
+/// every package and rule-local def, nothing pruned, so no reachability has
+/// to agree between the two. [RuleSchema.parse] imports it with every slot
+/// as an empty `enum`; slot values change only `enum` members, so [bind]
+/// cannot fail once a package has parsed.
 final class RuleSchema {
   RuleSchema._(
     this._document, {
@@ -53,7 +33,6 @@ final class RuleSchema {
     required AckSchema<Object, Object> probe,
   }) : _slotFree = slots.isEmpty ? BoundSchema._(probe) : null;
 
-  /// Throws [RuleSchemaException]. [defs] is the package's `$defs`.
   factory RuleSchema.parse(
     Object? schema, {
     Map<String, Object?> defs = const {},
@@ -93,31 +72,16 @@ final class RuleSchema {
     );
   }
 
-  /// The imported document without slot defs: the rule's own keywords and
-  /// every merged def under `$defs`. A boolean rule schema is wrapped as
-  /// `{"allOf": [schema]}` so it can carry `$defs`; pass/fail is unchanged.
   final Map<String, Object?> _document;
 
-  /// Slots the rule reaches through any chain of refs, at any depth. The
-  /// package's tests must give each one a value.
   final Set<Slot> slots;
 
-  /// Property names the schema reads from the instance it is applied to:
-  /// `required` and `properties` names at depth 0, through every ref and
-  /// in-place applicator that keeps the same instance.
   final Set<String> rootPropertyNames;
 
-  /// Whether a keyword applied to the instance itself reads properties it
-  /// does not name (`enum`, `const`, `minProperties`, `additionalProperties`,
-  /// `propertyNames`). Sound by construction: [_Keyword.readsUnnamed] is an
-  /// exhaustive switch, so a new keyword cannot default to "named only".
   final bool mayObserveUnnamedRootProperties;
 
   final BoundSchema? _slotFree;
 
-  /// This schema with [values] as the slot members. A slot missing from
-  /// [values] binds empty. A rule that reaches no slot reuses the schema
-  /// imported at parse, so it compiles once per package load.
   BoundSchema bind(Map<Slot, List<String>> values) =>
       _slotFree ?? BoundSchema._(_import(_withSlots(_document, values)));
 
@@ -132,11 +96,6 @@ final class RuleSchema {
     },
   };
 
-  /// The one `Ack.fromJsonSchema` call for rule schemas. Maps an import
-  /// failure to [RuleSchemaException]: Ack's `unsupported_keyword`,
-  /// `unsupported_dialect` and `unsupported_reference` mean unsupported;
-  /// every other code means the Profile is malformed and wins when both
-  /// appear.
   static AckSchema<Object, Object> _import(Map<String, Object?> document) {
     try {
       return Ack.fromJsonSchema(document);
@@ -148,7 +107,6 @@ final class RuleSchema {
       final shown = invalid.firstOrNull ?? error.diagnostics.first;
       throw RuleSchemaException(
         _plainPointer(shown.pointer),
-        // Ack's sentences end in a period; the engine appends a location.
         shown.message.replaceFirst(RegExp(r'\.$'), ''),
         unsupported: invalid.isEmpty,
       );
@@ -162,23 +120,17 @@ final class RuleSchema {
   };
 }
 
-/// A rule schema with its slots filled: pass or fail only. Findings never
-/// read schema-library errors (ADR-0015 §2), so this exposes no error.
 extension type BoundSchema._(AckSchema<Object, Object> _schema) {
-  // safeParse copies every accepted value. An imported schema validates on
-  // encode without copying, which keeps a large bundle's validate within
-  // budget.
-  // TODO(https://github.com/btwld/ack/issues/206): return to safeParse, Ack's
-  // documented entry point, once it no longer copies; re-measure then, with
-  // https://github.com/btwld/ack/issues/205's allocation fixes.
+  // TODO(https://github.com/btwld/ack/issues/206): safeEncode validates
+  // without the copy safeParse makes of every accepted value. Return to
+  // safeParse, Ack's documented entry point, once it no longer copies, and
+  // re-measure with https://github.com/btwld/ack/issues/205's allocation fixes.
   bool accepts(Object? instance) => _schema.safeEncode(instance).isOk;
 }
 
-/// The Profile keyword subset, and how the walk follows each keyword. The
-/// walk admits exactly these keys; anything else is unsupported. Because the
-/// walk's switch over [_Keyword] is exhaustive, admitting a keyword means
-/// choosing how the analysis follows it: there is no "admitted but not
-/// walked" row.
+/// The Profile keyword subset and how the walk follows each keyword. The
+/// walk's switch over [_Keyword] is exhaustive, so admitting a keyword means
+/// choosing how the fact analysis follows it.
 const Map<String, _Keyword> _subset = {
   r'$schema': _Keyword.annotation,
   r'$comment': _Keyword.annotation,
@@ -216,49 +168,25 @@ const Map<String, _Keyword> _subset = {
   r'$ref': _Keyword.ref,
 };
 
-/// The subset's keyword names, for the conformance smoke test that requires
-/// one passing and one failing case per admitted keyword.
 Iterable<String> get subsetKeywords => _subset.keys;
 
 enum _Keyword {
-  /// Reads nothing from the instance. Ack validates the value's shape.
   annotation,
 
   /// `$id`: it moves the base URI refs resolve against, so only the rule
   /// root may carry it, where it cannot change what `#/$defs/<name>` means.
   rootAnnotation,
 
-  /// `$defs`: read by [RuleSchema.parse] at the rule root only.
   rootDefs,
-
-  /// Reads the instance but no property it does not name.
   assertion,
-
-  /// `format`: only `date-time`.
   format,
-
-  /// Reads the whole value, every property included.
   wholeValue,
-
-  /// Names the properties it reads.
   required,
-
-  /// Names properties; each value is a child instance.
   properties,
-
-  /// One subschema applied to the same instance.
   inPlace,
-
-  /// A list of subschemas applied to the same instance.
   inPlaceList,
-
-  /// One subschema applied to array items.
   itemSchema,
-
-  /// One subschema applied to members or their names; reads every property.
   memberSchema,
-
-  /// `$ref` to `#/$defs/<name>`.
   ref;
 
   bool get readsUnnamed => switch (this) {
@@ -277,19 +205,8 @@ enum _Keyword {
   };
 }
 
-/// One pass over the rule root and every merged def: gate and analysis
-/// together. Each body is walked once, so cycles terminate; whether a cycle
-/// is productive is Ack's call (`nonproductive_reference_cycle`).
-///
-/// Per scope (null for the rule root, else a def name) it records the names
-/// read at depth 0, whether a depth-0 keyword reads unnamed properties, and
-/// its ref edges, each marked guarded when it sits below a descent. The
-/// results are closures over those edges.
-///
-/// The walk checks a value's shape only where it must read it to follow or
-/// analyze (`required`, `properties`, the applicators, `$ref`, `format`).
-/// Every other shape (`minLength: -1`, `description: 1`, duplicate `type`
-/// entries) is Ack's to refuse when [RuleSchema.parse] imports.
+/// Gates and analyzes in one pass. It checks a value's shape only where it
+/// must read it; every other malformed value is Ack's to refuse at import.
 final class _Walk {
   _Walk(this._defs);
 
@@ -384,9 +301,8 @@ final class _Walk {
     final token = value.startsWith(prefix)
         ? value.substring(prefix.length)
         : null;
-    if (token == null || token.contains('/')) {
-      // A ref below a def entry lands here too: Ack would follow it, and
-      // the walk would attribute its names to the wrong instance.
+    final namesTopLevelDef = token != null && !token.contains('/');
+    if (!namesTopLevelDef) {
       throw RuleSchemaException(
         pointer,
         r'only local $ref to #/$defs/<name> is supported',
@@ -405,13 +321,10 @@ final class _Walk {
     ));
   }
 
-  /// Slots reached from the root through edges of any kind.
   Set<Slot> get slots => {
     for (final name in _reach(throughDescents: true)) ?Slot.byId(name),
   };
 
-  /// Scopes applied to the root's own instance: the root, and every def
-  /// reached through edges that sit at depth 0.
   Set<String?> get _sameInstance => {null, ..._reach(throughDescents: false)};
 
   Set<String> get rootPropertyNames => {
@@ -444,8 +357,6 @@ final class _Walk {
 String _child(String pointer, String token) =>
     '$pointer/${token.replaceAll('~', '~0').replaceAll('/', '~1')}';
 
-/// Ack's diagnostic pointers are URI fragments (`#/a%20b`); the engine
-/// reports plain JSON Pointers, as the walk does.
 String _plainPointer(String fragment) => Uri.decodeComponent(
   fragment.startsWith('#') ? fragment.substring(1) : fragment,
 );

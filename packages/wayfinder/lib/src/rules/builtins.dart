@@ -50,8 +50,6 @@ final class Builtin {
 
   final BuiltinFix? fix;
 
-  /// The `params` this builtin takes, a Dart-authored contract like the
-  /// CLI's tool inputs. Unknown keys are refused.
   final ObjectSchema params;
 
   final Set<String> messagePlaceholders;

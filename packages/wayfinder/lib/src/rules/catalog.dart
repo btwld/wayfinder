@@ -54,7 +54,6 @@ final class SchemaCheck extends RuleCheck {
 
   final String at;
 
-  /// The gated, analyzed schema; `schema.bind(slots)` evaluates it.
   final RuleSchema schema;
 
   static Object? element(Object? item) =>
@@ -118,8 +117,7 @@ final class CatalogRule {
 /// builtin the engine lacks, a fact named with a shape the engine never
 /// produces, builtin params the builtin does not take, duplicate ids, a
 /// message placeholder nothing fills, a rule whose own examples disagree
-/// with its schema, and any schema the gate or Ack refuses. Pure: no bundle
-/// or vocabulary is needed.
+/// with its schema, and any schema the gate or Ack refuses.
 List<CatalogRule> compileRules(
   List<Object?> rules, {
   required ProfileId namespace,
