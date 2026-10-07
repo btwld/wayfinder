@@ -1,32 +1,23 @@
 import 'dart:io';
 
+import 'package:ack/ack.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'builtins.dart';
 import 'facts.dart';
 
-const pathTargetsExistParams = <String, Object?>{
-  'type': 'object',
-  'required': ['fields'],
-  'additionalProperties': false,
-  'properties': {
-    'fields': {
-      'type': 'array',
-      'minItems': 1,
-      'uniqueItems': true,
-      'items': {
-        'enum': [
-          'resource',
-          'sources.resource',
-          'computation',
-          'executor.resource',
-          'attester.resource',
-        ],
-      },
-    },
-  },
-};
+final pathTargetsExistParams = Ack.object({
+  'fields': Ack.list(
+    Ack.enumString([
+      'resource',
+      'sources.resource',
+      'computation',
+      'executor.resource',
+      'attester.resource',
+    ]),
+  ).minItems(1).unique(),
+});
 
 /// One finding per (document, target) whose path-valued `fields` entry
 /// names something that exists neither in the bundle nor on disk.
