@@ -30,14 +30,17 @@ single-bundle JSON shape and ignore neighboring configuration. Background
 indexing (`--detach`) continues to require an explicit path.
 
 Index and search always use local embeddings. Validation runs the existing
-OKF and selected Bitwild or legacy Concepta Profile checks and retains their output and exit
-codes. Automated success keeps judgment rules UNASSESSED.
+OKF and the Profile checks its `wayfinder.json` selects and retains their output and exit
+codes. Validation never assesses the judgment a Profile's skill asks for.
 For projects with direct Git Profile sources, `get` writes or reuses
 `wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
 `validate` read only a current lock/cache and preserve the independent OKF
-result if the Profile source is unresolved. `validate --fix` first writes
-okf's generated indexes for a 2026.3 bundle, then validates; it never writes
-a 2026.2 bundle or one that fails OKF. `graph`, `index`, and `search`
+result if the Profile source is unresolved. When the selected chain has a
+`matches-generated` rule, `validate --fix` first writes okf's generated
+indexes, then validates. It never writes a bundle without a selected
+Profile or one that fails OKF. A bundle with no `wayfinder.json`
+above it, such as a 2026.2 bundle, reports `wayfinder/config-missing`; keep it
+on wayfinder 0.1.x or migrate it. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
@@ -45,7 +48,7 @@ do not resolve Profile sources. See the
 
 For indexing and search without a Dart SDK, install the complete runtime from
 [the installation guide](https://github.com/btwld/wayfinder/blob/main/docs/install.md).
-It includes Wayfinder with built-in Profile validation, the embedding model and required native libraries.
+It includes Wayfinder with OKF and Profile validation, the embedding model and required native libraries.
 The GitHub repository hosts the source, plugin and native release archives.
 
 ## Dart installation
@@ -71,9 +74,10 @@ From the workspace root:
 dart pub get
 dart run melos run objectbox:install
 dart run melos run wayfinder_embeddings:prepare
-dart run wayfinder:wayfinder validate examples/knowledge
-dart run wayfinder:wayfinder index examples/knowledge
-dart run wayfinder:wayfinder search examples/knowledge "How is reporting implemented?"
+dart run wayfinder:wayfinder get examples/bitwild
+dart run wayfinder:wayfinder validate examples/bitwild/knowledge
+dart run wayfinder:wayfinder index examples/bitwild/knowledge
+dart run wayfinder:wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 dart run tool/build_wayfinder.dart --offline
 ```
 
@@ -154,7 +158,7 @@ absent, stale or incompatible index and reports the indexing command; it does
 not silently change retrieval methods or update document embeddings.
 
 `graph` reads the live bundle and projects the ordinary OKF relationship
-graph, plus each concept's typed `relationships` entries (Profile 2026.3 §7.2)
+graph, plus each concept's typed `relationships` entries ([engine contract §5.5](../../implementation/okf-implementation-guide.md#55-vocabulary-and-frontmatter-keys))
 beside it: JSON keeps every okf key and adds them as `field_edges`, and Mermaid
 and DOT label each one with its relationship name. Search expansion follows
 the same typed relationships. It does not open the search index or model.
@@ -175,8 +179,10 @@ line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages
 are candidates; verify the supporting text before answering.
 
-Validation preserves exit 0 for automated success, 1 for findings and 2 for
-usage/I/O/unsupported releases. Index/search return 0 on success and 2 when they
+Validation exits 0 for gate `PASS`, 1 for `FAIL` and 2 for `INCOMPLETE`, which
+covers usage and I/O errors and any run with an error diagnostic. With
+`--output json` or `--output sarif`, a run that stops still prints a result
+carrying the `wayfinder/internal-error` diagnostic. Index/search return 0 on success and 2 when they
 cannot complete, including stale indexes, busy stores and missing model assets.
 An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
@@ -206,7 +212,7 @@ The tools are `validate` and `index` (no arguments), `search` with a required
 `query` and optional `limit` (1–100, default 5), and `graph` with optional
 `types`, `path_prefixes` and `resolutions`. Their results contain the same
 JSON as the commands, in one text content block. Validation also includes the
-command's `exit_code`, findings and UNASSESSED judgment without treating a
+command's `exit_code`, findings, diagnostics and gate without treating a
 completed report as a tool error. `graph` returns the versioned OKF graph JSON
 (`schema_version: "1"`). Mermaid and DOT remain CLI text for an external
 preview.

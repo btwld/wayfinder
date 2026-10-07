@@ -15,6 +15,8 @@ import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/profile_resolver.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   test('rejects missing and non-directory roots before serving', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-root-');
@@ -45,10 +47,7 @@ void main() {
           await entity.copy(p.join(root.path, p.basename(entity.path)));
         }
       }
-      await Directory(p.join(source.path, 'profile')).create();
-      await File(
-        '../../profile/wayfinder-profile.json',
-      ).copy(p.join(source.path, 'profile', 'wayfinder-profile.json'));
+      await copyBitwildPackage(source.path);
       Future<void> git(List<String> arguments) async {
         final result = await Process.run(
           'git',
@@ -68,11 +67,11 @@ void main() {
         jsonEncode({
           'version': 1,
           'profiles': {
-            'bitwild_profile': {
+            'bitwild-profile': {
               'source': {
                 'git': source.path,
                 'ref': 'v2026.3',
-                'path': 'profile',
+                'path': 'profiles/bitwild',
               },
               'applies_to': ['knowledge'],
               'actors': {
@@ -137,7 +136,7 @@ void main() {
         final configFile = File(p.join(project.path, 'wayfinder.json'));
         final config =
             jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
-        (((config['profiles'] as Map)['bitwild_profile']['tags']) as List).add({
+        (((config['profiles'] as Map)['bitwild-profile']['tags']) as List).add({
           'name': 'new-topic',
           'description': 'A new project topic',
         });
@@ -146,7 +145,7 @@ void main() {
         expect(await cli.run(['validate', root.path, '--output=json']), 2);
         final staleCli = jsonDecode(cliOutput.single) as Map<String, dynamic>;
         expect((staleCli['okf'] as Map)['state'], 'PASS');
-        expect((staleCli['profile'] as Map)['state'], 'UNSUPPORTED');
+        expect((staleCli['profile'] as Map)['state'], 'NOT ASSESSED');
         final staleMcp = await client.callTool(
           const CallToolRequest(name: 'validate'),
         );
@@ -260,22 +259,21 @@ void main() {
         );
       });
 
-      test(
-        'validation preserves findings and unassessed judgment without inference',
-        () async {
-          final expected = await const ProfileValidator().validate(root);
-          final result = await client.callTool(
-            const CallToolRequest(name: 'validate'),
-          );
-          expect(result.isError, isNot(true));
-          expect(_payload(result), {
-            ...expected.toJson(),
-            'exit_code': expected.exitCode,
-          });
-          expect(_payload(result)['judgment_rules'], {'state': 'UNASSESSED'});
-          expect(knowledge.calls, isEmpty);
-        },
-      );
+      test('validation preserves findings, diagnostics and the gate without '
+          'inference', () async {
+        final expected = await validateWithProfileSources(root);
+        final result = await client.callTool(
+          const CallToolRequest(name: 'validate'),
+        );
+        expect(result.isError, isNot(true));
+        expect(_payload(result), {
+          ...expected.toJson(),
+          'exit_code': expected.exitCode,
+        });
+        expect(_payload(result), contains('diagnostics'));
+        expect(_payload(result)['gate'], {'state': expected.gate.wireValue});
+        expect(knowledge.calls, isEmpty);
+      });
 
       test('graph projects the ordinary OKF JSON without retrieval', () async {
         final loaded = await const OkfBundleLoader().inspect(root);

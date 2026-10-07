@@ -6,7 +6,7 @@
 - Scope: graph projection command and MCP tool; no Profile rule changes
 - Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
 - Amended 2026-10-01 for Profile 2026.3: relationships moved to the
-  `relationships` frontmatter key ([Profile §7.2](../../profile/okf-profile.md#72-relationships)),
+  `relationships` frontmatter key (Bitwild rule [`relationship-shape`](../../profiles/bitwild/README.md#relationship-shape)),
   which okf's graph does not read. `wayfinder graph` and the MCP `graph` tool
   now add each entry beside the unchanged okf graph: JSON gains a
   `field_edges` array, with every okf key and meaning kept, and Mermaid and

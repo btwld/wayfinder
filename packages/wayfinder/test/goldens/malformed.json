@@ -6,25 +6,23 @@
     }
   },
   "profile": {
-    "release": null,
-    "state": "UNSUPPORTED",
-    "findings": [
-      {
-        "id": "concepta-profile/profile-declaration-readable",
-        "severity": "error",
-        "message": "The first fenced yaml declaration in profile.md is invalid.",
-        "location": {
-          "path": "profile.md"
-        },
-        "profile_release": null,
-        "rule": "§11"
+    "state": "NOT ASSESSED",
+    "findings": []
+  },
+  "diagnostics": [
+    {
+      "id": "wayfinder/config-invalid",
+      "level": "error",
+      "message": "wayfinder.json is not valid JSON at offset 34: Unexpected end of input.",
+      "location": {
+        "path": "test/fixtures/malformed/wayfinder.json"
       }
-    ]
+    }
+  ],
+  "gate": {
+    "state": "INCOMPLETE"
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
-    "state": "UNSUPPORTED"
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

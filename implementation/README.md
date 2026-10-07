@@ -1,43 +1,35 @@
-# `implementation/` — the companion implementation guide
+# `implementation/`: the wayfinder engine contract
 
-[`okf-implementation-guide.md`](okf-implementation-guide.md) — current
-**2026.3 guide**, binding Profile 2026.3 exactly to OKF 0.2 while preserving
-2026.2 dispatch.
+[`okf-implementation-guide.md`](okf-implementation-guide.md) is the engine
+contract for Profile package format 2 and OKF 0.2. It binds no single Profile.
 
-[`profile-coverage.md`](profile-coverage.md) is the complete
-rule-to-assessment matrix. It is separate from the OKF compatibility review
-because implementation coverage cannot prove specification compatibility.
+Precedence runs one way. OKF wins over the engine contract, and the engine
+contract wins over each Profile package. The contract is this guide plus the
+JSON Schemas under [`docs/schemas/`](../docs/schemas/). A Profile package adds
+rules within what the contract allows and can never change OKF or the contract.
 
-The profile specifies *what a bundle is*. This document specifies *how one is built, checked,
-and kept*: adoption, the index generator's contract, the validation process contract, and the
-migration method.
-
-The two are normative on different things. The profile binds **bundles** — a bundle either
-conforms or it does not. This guide binds **implementations**: tools, adoptions, migrations.
-"A generator MUST be idempotent" constrains a program, never a bundle, which is why it could
-not have been written in the profile. Both carry RFC 2119 force; "guide" is not the soft one.
-
-Precedence runs one way — OKF over the profile, the profile over this — so where the two
-appear to differ, the profile wins and this text is defective.
+The guide is normative on programs and packages. "A generator MUST be
+idempotent" constrains a tool. "A package MUST NOT declare an OKF key"
+constrains a Profile author. Conformance to a Profile is what `wayfinder
+validate` decides with that Profile selected, so a Profile's own rules,
+rationale, and history live in its package, such as
+[`profiles/bitwild/`](../profiles/bitwild/README.md), not here.
 
 ## What it covers
 
 | § | Chapter | Settles |
 | --- | --- | --- |
-| 2 | Adoption | Project binding, two required root files, the agent-instruction paragraph, and why generic setup creates no directories |
-| 3 | Index generation | The pinned okf reference generator, exact comparison and `validate --fix` for 2026.3; the 2026.2 semantic projection and its presentation-independent comparison; preservation of authored history |
-| 4 | Validation | Exit codes, stable finding IDs, what a validator must never report, and version dispatch |
-| 5 | Migration | Measure, classify, cluster, slice vertically; granularity by the promotion rule; the three invariants every migration carries |
-| 6 | Distribution | Skills installed per developer, tools pinned per repository; no project vendors a copy of the profile |
+| 2 | Adoption | Project binding, seeding the bundle root, and the agent-instruction paragraph |
+| 3 | Index generation | okf's reference generator, exact comparison, and `validate --fix`; preservation of authored history |
+| 4 | Validation | Results, diagnostics, and the derived gate; stable finding IDs; what a validator must never report; dispatch; the project binding and lock |
+| 5 | Profile packages | What a package is; OKF first; the compatibility test; identity, release, and format; vocabulary and frontmatter keys; rules and builtins; composition; exact selection; tolerant reading; how the contract and each Profile change |
+| 6 | Distribution | Profiles distribute themselves as packages; their skills reach projects through `get`; tools pinned per repository |
 | 7 | Cross-bundle references | Deferred until a second bundle exists; ordinary URLs in the meantime |
 
-## Still owed
+## What it does not carry
 
-- **A 2026.2 index generator.** 2026.3 indexes come from okf's generator through
-  `wayfinder validate --fix`, but no tool generates the 2026.2 projection. Its
-  indexes are hand-written and the validator catches the drift.
-
-## What §5 does not carry
-
-A migration's own corpus measurement and slice plan are **project artifacts**. They stay in the
-project being migrated and expire with it. Only the *method* generalizes, and that is §5.
+Migrating an existing document tree into a bundle follows the selected
+Profile's guidance, such as Bitwild's
+[migration reference](../profiles/bitwild/skill/references/migration.md). A
+migration's own corpus measurement and slice plan are project artifacts. They
+stay in the project being migrated.

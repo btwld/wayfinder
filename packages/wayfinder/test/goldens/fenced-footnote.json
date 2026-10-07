@@ -6,14 +6,34 @@
     }
   },
   "profile": {
-    "release": "2026.2",
-    "state": "PASS",
-    "findings": []
+    "id": "bitwild-profile",
+    "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "bitwild-profile/source-attribution-join",
+        "severity": "error",
+        "message": "A recognized source-attribution reference must join to its footnote definition.",
+        "location": {
+          "path": "note.md"
+        },
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-attribution-join"
+      }
+    ],
+    "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
+  "diagnostics": [],
+  "gate": {
+    "state": "FAIL"
   },
-  "automated_gate": {
-    "state": "PASS"
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

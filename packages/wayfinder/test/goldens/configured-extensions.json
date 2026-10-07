@@ -6,25 +6,32 @@
     }
   },
   "profile": {
+    "id": "bitwild-profile",
     "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "PASS",
     "findings": [],
-    "summary": [
-      {
-        "id": "concepta-profile/configured-type-extension",
-        "message": "Configured project type Runbook is available to this bundle.",
-        "location": {
-          "path": "test/fixtures/configured-extensions/wayfinder.json"
-        },
-        "profile_release": "2026.3",
-        "rule": "§5.2"
+    "summary": []
+  },
+  "diagnostics": [
+    {
+      "id": "wayfinder/project-type",
+      "level": "note",
+      "message": "Configured project type Runbook is available to this bundle.",
+      "location": {
+        "path": "test/fixtures/configured-extensions/wayfinder.json"
       }
-    ]
-  },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+    }
+  ],
+  "gate": {
     "state": "PASS"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

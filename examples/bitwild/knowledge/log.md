@@ -1,0 +1,19 @@
+# Knowledge Log
+
+## 2026-10-02
+* **Update**: Adopted Profile 2026.3 through `wayfinder.json`, which replaces the `profile.md`, `types.md`, and `actors.md` registries.
+
+## 2026-09-12
+* **Update**: Adopted Concepta OKF Profile 2026.2 in `profile.md`, which binds the OKF revision that makes every timestamp an instant.
+
+## 2026-07-31
+* **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
+* **Area created**: Established `ways-of-working/` for durable project conventions.
+* **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
+* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
+* **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
+
+## 2026-07-30
+* **Initialization**: Established the knowledge bundle under the Concepta OKF Profile 2026.1.
+* **Creation**: Recorded [Include PDF annotations in the export](/reporting/include-pdf-annotations.md) from the reporting demo.
+* **Creation**: Mirrored the [reporting demo transcript](/references/2026-07-30-reporting-demo-transcript.md).

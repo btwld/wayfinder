@@ -1,0 +1,39 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "id": "bitwild-profile",
+    "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "bitwild-profile/root-index-lists-log",
+        "severity": "error",
+        "message": "The root index of a bundle with no concepts must link only log.md.",
+        "location": {
+          "path": "index.md"
+        },
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#root-index-lists-log"
+      }
+    ],
+    "summary": []
+  },
+  "diagnostics": [],
+  "gate": {
+    "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
+  }
+}

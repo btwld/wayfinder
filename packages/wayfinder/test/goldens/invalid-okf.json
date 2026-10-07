@@ -8,21 +8,29 @@
           "severity": "error",
           "message": "Concept frontmatter must contain a non-empty type field.",
           "location": {
-            "path": "types.md"
+            "path": "untyped.md"
           }
         }
       ]
     }
   },
   "profile": {
-    "release": null,
+    "id": "bitwild-profile",
+    "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "BLOCKED BY OKF",
     "findings": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "FAIL"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }

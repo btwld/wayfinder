@@ -1,4 +1,9 @@
-"""Exercise published installers with no Dart SDK or repository credentials."""
+"""Exercise published installers with no Dart SDK or repository credentials.
+
+Profile validation is not checked here: a published runtime can predate the
+repository's Profile format, so `verify_installer.py` checks validation against
+the archive built from each commit instead.
+"""
 import hashlib
 import json
 import os
@@ -69,10 +74,9 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         raise SystemExit('This check requires an environment without Dart')
     env['PATH'] = str(binary_dir) + os.pathsep + env['PATH']
     wayfinder = str(binary_dir / ('wayfinder' + suffix))
-    fixture = str(ROOT / 'examples/knowledge')
+    fixture = str(ROOT / 'examples/bitwild/knowledge')
     for command in [
         [wayfinder, '--version'],
-        [wayfinder, 'validate', fixture],
         [wayfinder, 'index', fixture],
         [wayfinder, 'search', fixture, 'PDF annotations'],
     ]:
@@ -82,4 +86,4 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
     print(repeated.stdout)
     if json.loads(repeated.stdout)['embeddedChunks'] != 0:
         raise SystemExit('Unchanged public runtime index unexpectedly embedded content')
-print('Public installer, validation, retrieval and index reuse passed without Dart.')
+print('Public installer, retrieval and index reuse passed without Dart.')
