@@ -98,7 +98,8 @@ directory:
 
 1. Commit the package directory, with `skill/`, into a new Git repository.
 2. Create a project whose `wayfinder.json` points at that repository by
-   absolute path, with `ref` set to the commit. Run `wayfinder get`. It
+   absolute path, with `ref` set to the commit, and create the empty bundle
+   directory it applies to. Run `wayfinder get`. It
    parses the package, runs every rule's `tests`, and installs the skill.
    Check that `.claude/skills/<id>/SKILL.md` exists.
 3. Write a small valid sample bundle that uses the Profile's vocabulary. Run

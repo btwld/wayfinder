@@ -40,7 +40,8 @@ The user names the Profile: its id and its Git source (`git`, `ref`, and
 
 ### 3. Bind and install
 
-Write project-root `wayfinder.json` from
+Create the empty `knowledge/` directory, because `get` refuses a configured
+bundle that does not exist. Write project-root `wayfinder.json` from
 [SEEDING.md](./SEEDING.md#wayfinderjson) with that source, then run
 `wayfinder get`. It writes `wayfinder.lock` and installs the Profile's skill
 at `.claude/skills/<id>/` and `.agents/skills/<id>/`. Include all three in the
