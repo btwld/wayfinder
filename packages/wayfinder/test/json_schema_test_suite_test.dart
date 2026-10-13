@@ -5,32 +5,78 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/rules/schema.dart';
 
-const expectedSkippedGroups = <String, int>{
-  'type.json': 0,
-  'enum.json': 0,
-  'const.json': 0,
-  'pattern.json': 0,
-  'minLength.json': 0,
-  'maxLength.json': 0,
-  'required.json': 0,
-  'minProperties.json': 0,
-  'properties.json': 1,
-  'additionalProperties.json': 3,
-  'propertyNames.json': 0,
-  'items.json': 5,
-  'uniqueItems.json': 4,
-  'minItems.json': 0,
-  'maxItems.json': 0,
-  'contains.json': 2,
-  'not.json': 1,
-  'allOf.json': 2,
-  'anyOf.json': 1,
-  'oneOf.json': 1,
-  'if-then-else.json': 4,
-  'ref.json': 21,
-  'boolean_schema.json': 0,
-  'defs.json': 1,
-  'optional/format/date-time.json': 0,
+const expectedSkippedGroups = <String, Set<String>>{
+  'type.json': {},
+  'enum.json': {},
+  'const.json': {},
+  'pattern.json': {},
+  'minLength.json': {},
+  'maxLength.json': {},
+  'required.json': {},
+  'minProperties.json': {},
+  'properties.json': {
+    'properties, patternProperties, additionalProperties interaction',
+  },
+  'additionalProperties.json': {
+    'additionalProperties being false does not allow other properties',
+    'non-ASCII pattern with additionalProperties',
+    'dependentSchemas with additionalProperties',
+  },
+  'propertyNames.json': {},
+  'items.json': {
+    'items and subitems',
+    'prefixItems with no additional items allowed',
+    'items does not look in applicators, valid case',
+    'prefixItems validation adjusts the starting index for items',
+    'items with heterogeneous array',
+  },
+  'uniqueItems.json': {
+    'uniqueItems with an array of items',
+    'uniqueItems with an array of items and additionalItems=false',
+    'uniqueItems=false with an array of items',
+    'uniqueItems=false with an array of items and additionalItems=false',
+  },
+  'minItems.json': {},
+  'maxItems.json': {},
+  'contains.json': {'contains keyword validation', 'items + contains'},
+  'not.json': {
+    "collect annotations inside a 'not', even if collection is disabled",
+  },
+  'allOf.json': {'allOf simple types', 'allOf combined with anyOf, oneOf'},
+  'anyOf.json': {'anyOf'},
+  'oneOf.json': {'oneOf'},
+  'if-then-else.json': {
+    'if and then without else',
+    'if and else without then',
+    'validate against correct branch, then vs else',
+    'non-interference across combined schemas',
+  },
+  'ref.json': {
+    'root pointer ref',
+    'relative pointer ref to object',
+    'relative pointer ref to array',
+    'remote ref, containing refs itself',
+    'Recursive references between schemas',
+    'ref creates new scope when adjacent to keywords',
+    'refs with relative uris and defs',
+    'relative refs with absolute uris and defs',
+    r'$id must be resolved against nearest parent, not just immediate parent',
+    r'order of evaluation: $id and $ref',
+    r'order of evaluation: $id and $anchor and $ref',
+    r'order of evaluation: $id and $ref on nested schema',
+    r'simple URN base URI with $ref via the URN',
+    'URN base URI with URN and JSON pointer ref',
+    'URN base URI with URN and anchor ref',
+    'URN ref with nested pointer ref',
+    'ref to if',
+    'ref to then',
+    'ref to else',
+    'ref with absolute-path-reference',
+    r'empty tokens in $ref json-pointer',
+  },
+  'boolean_schema.json': {},
+  'defs.json': {'validate definition against metaschema'},
+  'optional/format/date-time.json': {},
 };
 
 const acceptedDivergences = <String, String>{};
@@ -46,13 +92,13 @@ void main() {
         final groups =
             jsonDecode(File(p.join(suiteDir, file)).readAsStringSync())
                 as List<Object?>;
-        var skipped = 0;
+        final skipped = <String>{};
         for (final group in groups.cast<Map<String, Object?>>()) {
           final BoundSchema schema;
           try {
             schema = RuleSchema.parse(group['schema']).bind(const {});
           } on RuleSchemaException {
-            skipped++;
+            skipped.add(group['description']! as String);
             continue;
           }
           final cases = (group['tests']! as List<Object?>)
