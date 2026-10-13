@@ -223,7 +223,8 @@ void main() {
             ],
           );
 
-      test('every params constraint has a mutation', () {
+      test('each params constraint keys a mutation, which another constraint '
+          'may also reject', () {
         Iterable<String> constraints(Object? schema, String at) sync* {
           for (final MapEntry(:key, :value)
               in (schema! as Map<String, Object?>).entries) {
