@@ -143,9 +143,7 @@ void main() {
           'extra': 'ignore',
         },
       };
-      // One mutation per constraint, keyed by where the builtin's params
-      // schema states that constraint.
-      final broken = <String, Map<String, Map<String, Object?>>>{
+      final mutationsByConstraint = <String, Map<String, Map<String, Object?>>>{
         'files-present': {
           '/required': {},
           '/additionalProperties': {
@@ -237,27 +235,27 @@ void main() {
                 }
               case 'items':
                 yield* constraints(value, '$at/items');
-              // The package schema already requires params to be an object.
-              case 'type' when at.isEmpty:
-                break;
               default:
                 yield '$at/$key';
             }
           }
         }
 
-        expect(broken.keys.toSet(), builtins.keys.toSet());
+        const paramsTypeCheckedByPackageSchema = '/type';
+        expect(mutationsByConstraint.keys.toSet(), builtins.keys.toSet());
         for (final MapEntry(key: builtin, value: builtinCheck)
             in builtins.entries) {
           expect(
-            broken[builtin]!.keys.toSet(),
-            constraints(builtinCheck.params.toJsonSchema(), '').toSet(),
+            mutationsByConstraint[builtin]!.keys.toSet(),
+            constraints(builtinCheck.params.toJsonSchema(), '').toSet()
+              ..remove(paramsTypeCheckedByPackageSchema),
             reason: builtin,
           );
         }
       });
 
-      for (final MapEntry(key: builtin, value: mutations) in broken.entries) {
+      for (final MapEntry(key: builtin, value: mutations)
+          in mutationsByConstraint.entries) {
         test('$builtin accepts its valid params', () {
           expect(
             ProfilePackage.parse(

@@ -68,15 +68,17 @@ final class PublishedSchema {
   }
 
   PublishedSchemaViolation _keywordViolation(JsonSchemaValidationError error) {
-    final pointer = _tokens(Uri.decodeComponent(error.pointer.substring(1)));
-    // The pointer stops at a $ref target, which member names and member
-    // values may share; the evaluation path tells them apart.
-    final location = _tokens(error.keywordLocation);
+    final schemaLocation = _tokens(
+      Uri.decodeComponent(error.pointer.substring(1)),
+    );
+    final evaluationPath = _tokens(error.keywordLocation);
     final path = _instancePath(error.context);
     final owner = path.isEmpty
         ? const <String>[]
         : path.sublist(0, path.length - 1);
-    if (_keywordTokens(location).any((at) => at.token == 'propertyNames')) {
+    if (_keywordTokens(
+      evaluationPath,
+    ).any((at) => at.token == 'propertyNames')) {
       return (
         at: owner,
         property: path.last,
@@ -89,7 +91,7 @@ final class PublishedSchema {
         property: path.last,
         reason: 'is missing required property ${path.last}',
       ),
-      '' when location.lastOrNull == 'additionalProperties' => (
+      '' when evaluationPath.lastOrNull == 'additionalProperties' => (
         at: owner,
         property: path.last,
         reason: 'has unknown property ${path.last}',
@@ -97,7 +99,11 @@ final class PublishedSchema {
       final keyword => (
         at: path,
         property: null,
-        reason: _reason(keyword, _at(pointer), _description(pointer)),
+        reason: _reason(
+          keyword,
+          _at(schemaLocation),
+          _nearestDescription(schemaLocation),
+        ),
       ),
     };
   }
@@ -109,9 +115,7 @@ final class PublishedSchema {
       at.pathSegment ?? at.name,
   ].reversed.toList();
 
-  /// The description of the schema holding the keyword at [pointer] or,
-  /// when it has none, of the innermost `$defs` entry the keyword lies in.
-  String? _description(List<String> pointer) {
+  String? _nearestDescription(List<String> pointer) {
     if (_at(pointer.sublist(0, pointer.length - 1)) case {
       'description': final String own,
     }) {
@@ -187,7 +191,6 @@ String _reason(String keyword, Object? keywordValue, String? description) =>
       _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
     };
 
-/// The unescaped tokens of a plain JSON Pointer.
 List<String> _tokens(String pointer) => [
   for (final token in pointer.split('/').skip(1))
     token.replaceAll('~1', '/').replaceAll('~0', '~'),

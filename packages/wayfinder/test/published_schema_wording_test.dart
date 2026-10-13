@@ -32,9 +32,6 @@ void main() {
   });
 }
 
-/// The message for each single-defect copy of the Bitwild example's
-/// `wayfinder.json` and the Bitwild package that fails its schema, by
-/// document and defect. A copy it leaves out still matches.
 Map<String, String> publishedSchemaWording({
   required String? Function(Object?) configuration,
   required String? Function(Object?) package,
@@ -62,12 +59,6 @@ Map<String, String> publishedSchemaWording({
   return wording;
 }
 
-/// Single-defect copies of [seed], labelled by defect and JSON Pointer: each
-/// member deleted, an unknown member added to each object, each value
-/// retyped, each string set to `''`, `' '`, 65 characters and `bogus`, each
-/// array emptied, and each key of a map that takes any name renamed to an
-/// invalid one. A map takes any name when it still matches with a key
-/// renamed to a plain identifier.
 Iterable<(String, Object?)> _defects(
   Object? seed,
   String? Function(Object?) message,
@@ -143,7 +134,8 @@ Iterable<(String, Object?)> _defects(
                   entry.key == key ? MapEntry(name, entry.value) : entry,
               ]);
           });
-          if (message(renamed('renamed-key')) == null) {
+          final takesAnyKey = message(renamed('renamed-key')) == null;
+          if (takesAnyKey) {
             for (final name in [' ', 'Not Valid!', 'a' * 65]) {
               copies.add((
                 'rename $pointer/$key to ${jsonEncode(name)}',
