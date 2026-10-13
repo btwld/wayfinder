@@ -8,8 +8,9 @@ import 'package:wayfinder/wayfinder.dart';
 typedef SkillRevision = ({ProfileId id, String release, String commit});
 
 /// One file of a Profile skill at its locked commit, by its POSIX path under
-/// the skill directory.
-typedef SkillFile = ({String path, List<int> bytes});
+/// the skill directory. [executable] is Git's `100755` mode, which a skill
+/// script needs to run directly.
+typedef SkillFile = ({String path, List<int> bytes, bool executable});
 
 /// A Profile skill as `get` left it in the project.
 final class MaterializedSkill {
@@ -163,6 +164,19 @@ abstract final class ProfileSkills {
           final written = File(path);
           await written.parent.create(recursive: true);
           await written.writeAsBytes(file.bytes, flush: true);
+        }
+        final executables = [
+          for (final (:file, :path) in targets)
+            if (file.executable) path,
+        ];
+        if (executables.isNotEmpty && !Platform.isWindows) {
+          final chmod = await Process.run('chmod', ['+x', ...executables]);
+          if (chmod.exitCode != 0) {
+            throw FileSystemException(
+              'could not mark skill files executable: ${chmod.stderr}',
+              staged.path,
+            );
+          }
         }
         final previous = await target.exists()
             ? await target.rename(old)

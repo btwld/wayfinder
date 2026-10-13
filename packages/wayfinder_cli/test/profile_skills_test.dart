@@ -342,6 +342,25 @@ void main() {
     });
   });
 
+  test(
+    'get keeps the executable bit a skill file has at the locked commit',
+    () async {
+      await writeSource('skill/scripts/check.sh', '#!/bin/sh\nexit 0\n');
+      await _run('chmod', ['+x', sourceFile('skill/scripts/check.sh').path]);
+      await commitSource();
+      await resolver.resolve(project.path);
+      for (final directory in [_claude, _agents]) {
+        bool executable(String path) =>
+            File(p.join(project.path, directory, path)).statSync().mode &
+                0x40 !=
+            0;
+        expect(executable('scripts/check.sh'), isTrue, reason: directory);
+        expect(executable('SKILL.md'), isFalse, reason: directory);
+      }
+    },
+    skip: Platform.isWindows ? 'Windows has no executable bit' : false,
+  );
+
   test('a skill that holds a symlink fails get', () async {
     await Link(
       p.join(source.path, 'profile', 'skill', 'outside'),
@@ -427,7 +446,7 @@ void main() {
         ProfileSkills.write(
           project.path,
           (id: ProfileId.parse('acme-notes'), release: '1.0', commit: 'a' * 40),
-          [(path: path, bytes: utf8.encode('x'))],
+          [(path: path, bytes: utf8.encode('x'), executable: false)],
         ),
         throwsA(
           isA<ArgumentError>().having(
@@ -535,7 +554,7 @@ void main() {
         ProfileSkills.write(
           project.path,
           (id: ProfileId.parse('acme-notes'), release: '1.0', commit: 'a' * 40),
-          [(path: 'SKILL.md', bytes: utf8.encode('x'))],
+          [(path: 'SKILL.md', bytes: utf8.encode('x'), executable: false)],
         ),
         throwsA(
           isA<FileSystemException>().having(
@@ -618,6 +637,11 @@ Future<String> _gitInput(
   final output = await process.stdout.transform(utf8.decoder).join();
   if (await process.exitCode != 0) fail('git ${arguments.join(' ')} failed');
   return output.trim();
+}
+
+Future<void> _run(String executable, List<String> arguments) async {
+  final result = await Process.run(executable, arguments);
+  expect(result.exitCode, 0, reason: '${result.stderr}');
 }
 
 Future<void> _git(String directory, List<String> arguments) async {

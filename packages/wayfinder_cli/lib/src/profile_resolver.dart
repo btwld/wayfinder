@@ -837,7 +837,11 @@ final class WayfinderProfileResolver {
         binary: true,
       );
       _checkGit(blob, 'read $origin/$path');
-      files.add((path: path, bytes: blob.stdout as List<int>));
+      files.add((
+        path: path,
+        bytes: blob.stdout as List<int>,
+        executable: mode == '100755',
+      ));
     }
     final manifest = files.where((file) => file.path == 'SKILL.md').firstOrNull;
     if (manifest == null) {

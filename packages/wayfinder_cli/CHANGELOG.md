@@ -13,7 +13,8 @@
 - `wayfinder get` and `upgrade` install the skill of every locked package
   that names one in `skill`, from its locked commit, into the project's
   `.claude/skills/<id>/` and `.agents/skills/<id>/` with a
-  `.wayfinder-profile` marker. They never replace or remove a directory
+  `.wayfinder-profile` marker, keeping each file's executable bit outside
+  Windows. They never replace or remove a directory
   without the marker and fail before writing the lock when one is in the
   way. They remove a marked directory whose Profile no longer ships a skill
   or is no longer locked, and rewrite nothing when every marker is current.
