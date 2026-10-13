@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:test/test.dart';
 import 'package:wayfinder/src/rules/profile.dart';
 import 'package:wayfinder/src/rules/schema.dart';
@@ -216,6 +218,13 @@ void main() {
       }
     });
 
+    test('a format other than date-time is unsupported', () {
+      expect(
+        () => RuleSchema.parse({'format': 'email'}),
+        refusedAt('/format', unsupported: true),
+      );
+    });
+
     test('only a ref to a root def is followed', () {
       for (final ref in [
         '#',
@@ -225,6 +234,7 @@ void main() {
         r'other.json#/$defs/a',
         r'#/$defs/a%2Fnot',
         r'#/$defs/a%2fnot',
+        r'#/$defs//$defs/',
       ]) {
         expect(
           () => RuleSchema.parse({
@@ -302,30 +312,92 @@ void main() {
     });
 
     test('Ack refuses a meta-schema-invalid form as malformed', () {
+      for (final MapEntry(key: keyword, value: value) in <String, Object?>{
+        'required': ['a', 'a'],
+        'title': 1,
+        r'$comment': 1,
+        'description': 1,
+        'examples': 'a',
+        'deprecated': 'yes',
+        'type': ['string', 'string'],
+      }.entries) {
+        expect(
+          () => RuleSchema.parse({keyword: value}),
+          refusedAt('/$keyword', unsupported: false),
+          reason: '$keyword ${jsonEncode(value)}',
+        );
+      }
       expect(
-        () => RuleSchema.parse({
-          'required': ['a', 'a'],
-        }),
-        refusedAt('/required', unsupported: false),
+        () => RuleSchema.parse({'type': <Object?>[]}),
+        refusedAt('/type', unsupported: false),
       );
-      expect(
-        () => RuleSchema.parse({
-          r'$ref': r'#/$defs/a',
-          r'$defs': {
-            'a': {
-              'anyOf': [
-                {r'$ref': r'#/$defs/a'},
-              ],
+    });
+
+    test('a ref cycle must descend into the instance', () {
+      for (final defs in [
+        {
+          'a': {
+            'anyOf': [
+              {r'$ref': r'#/$defs/a'},
+            ],
+          },
+        },
+        {
+          'a': {
+            'anyOf': [
+              {r'$ref': r'#/$defs/b'},
+            ],
+          },
+          'b': {r'$ref': r'#/$defs/a'},
+        },
+      ]) {
+        expect(
+          () => RuleSchema.parse({r'$ref': r'#/$defs/a', r'$defs': defs}),
+          throwsA(
+            isA<RuleSchemaException>()
+                .having((e) => e.unsupported, 'unsupported', isFalse)
+                .having(
+                  (e) => e.message,
+                  'message',
+                  'Reference cycle does not descend into an instance',
+                ),
+          ),
+          reason: '${defs.keys}',
+        );
+      }
+      final tree = RuleSchema.parse({
+        r'$ref': r'#/$defs/node',
+        r'$defs': {
+          'node': {
+            'type': 'object',
+            'required': ['name'],
+            'properties': {
+              'name': {'type': 'string'},
+              'children': {
+                'type': 'array',
+                'items': {r'$ref': r'#/$defs/node'},
+              },
             },
           },
+        },
+      }).bind(const {});
+      expect(
+        tree.accepts({
+          'name': 'root',
+          'children': [
+            {'name': 'leaf', 'children': <Object?>[]},
+          ],
         }),
-        throwsA(
-          isA<RuleSchemaException>().having(
-            (e) => e.unsupported,
-            'unsupported',
-            isFalse,
-          ),
-        ),
+        isTrue,
+      );
+      expect(
+        tree.accepts({
+          'name': 'root',
+          'children': [
+            {'children': <Object?>[]},
+          ],
+        }),
+        isFalse,
       );
     });
 
@@ -394,7 +466,16 @@ void main() {
       });
       expect(bound.accepts({'kind': 'concept'}), isTrue);
       expect(bound.accepts({'kind': 'other'}), isFalse);
+      expect(bound.accepts({'kind': 1}), isFalse);
       expect(schema.bind(const {}).accepts({'kind': 'concept'}), isFalse);
+    });
+
+    test('a root ref to an omitted slot matches nothing', () {
+      final bound = RuleSchema.parse({
+        r'$ref': r'#/$defs/profile.types',
+      }).bind(const {});
+      expect(bound.accepts('x'), isFalse);
+      expect(bound.accepts(null), isFalse);
     });
 
     test('a rule that reaches no slot compiles once', () {
@@ -424,6 +505,12 @@ void main() {
     test('a def named after a slot is reserved', () {
       expect(
         () => RuleSchema.parse(true, defs: {'profile.types': true}),
+        refusedAt(r'/$defs/profile.types', message: contains('reserved')),
+      );
+      expect(
+        () => RuleSchema.parse({
+          r'$defs': {'profile.types': true},
+        }),
         refusedAt(r'/$defs/profile.types', message: contains('reserved')),
       );
     });

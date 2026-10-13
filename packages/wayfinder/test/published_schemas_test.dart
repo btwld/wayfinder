@@ -162,4 +162,14 @@ void main() {
       );
     });
   });
+
+  test('a member key holding a slash is named verbatim', () {
+    expect(
+      configMessage(
+        '{"version": 1, "profiles": {"a": {"source": {"git": "g", '
+        '"ref": "r", "path": "p"}, "applies_to": ["docs"]}}, "x/y": 1}',
+      ),
+      'wayfinder.json is invalid at the root: has unknown property x/y.',
+    );
+  });
 }
