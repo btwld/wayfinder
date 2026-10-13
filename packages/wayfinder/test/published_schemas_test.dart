@@ -54,6 +54,18 @@ void main() {
     expect(reason({'bare': 'b'}), 'must match pattern ^a');
   });
 
+  test('a property named additionalProperties is not an unknown property', () {
+    final schema = PublishedSchema(
+      jsonEncode({
+        'properties': {'additionalProperties': false},
+      }),
+    );
+    final violation = schema.violation({'additionalProperties': 1});
+    expect(violation?.at, ['additionalProperties']);
+    expect(violation?.property, isNull);
+    expect(violation?.reason, 'fails false');
+  });
+
   group('accepted wording changes', () {
     test('a root null is reported as null', () {
       expect(

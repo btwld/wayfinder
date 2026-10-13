@@ -91,11 +91,14 @@ final class PublishedSchema {
         property: path.last,
         reason: 'is missing required property ${path.last}',
       ),
-      '' when evaluationPath.lastOrNull == 'additionalProperties' => (
-        at: owner,
-        property: path.last,
-        reason: 'has unknown property ${path.last}',
-      ),
+      ''
+          when _keywordTokens(evaluationPath).lastOrNull?.token ==
+              'additionalProperties' =>
+        (
+          at: owner,
+          property: path.last,
+          reason: 'has unknown property ${path.last}',
+        ),
       final keyword => (
         at: path,
         property: null,
