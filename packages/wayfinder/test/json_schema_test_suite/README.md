@@ -9,7 +9,10 @@ subset in `lib/src/rules/schema.dart` are vendored, plus
 `LICENSE` file is the suite's own (MIT).
 
 `test/json_schema_test_suite_test.dart` runs every group through `RuleSchema`.
-Groups whose schema leaves the subset are refused and counted, not evaluated.
+A group whose schema leaves the subset must be refused as unsupported, and the
+runner names each refused group per file. Every other case must be accepted
+exactly when it is valid, and the published-schema renderer must report a
+violation exactly when it is invalid.
 
 Refresh with:
 

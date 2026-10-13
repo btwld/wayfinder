@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/published_schemas.dart';
 import 'package:wayfinder/src/rules/schema.dart';
 
 const expectedSkippedGroups = <String, Set<String>>{
@@ -79,13 +80,10 @@ const expectedSkippedGroups = <String, Set<String>>{
   'optional/format/date-time.json': {},
 };
 
-const acceptedDivergences = <String, String>{};
-
 void main() {
   final suiteDir = p.join('test', 'json_schema_test_suite');
 
   group('JSON-Schema-Test-Suite draft2020-12', () {
-    final seenDivergences = <String>{};
     for (final MapEntry(key: file, value: expectedSkips)
         in expectedSkippedGroups.entries) {
       test(file, () {
@@ -94,33 +92,38 @@ void main() {
                 as List<Object?>;
         final skipped = <String>{};
         for (final group in groups.cast<Map<String, Object?>>()) {
+          final description = group['description']! as String;
           final BoundSchema schema;
           try {
             schema = RuleSchema.parse(group['schema']).bind(const {});
-          } on RuleSchemaException {
-            skipped.add(group['description']! as String);
+          } on RuleSchemaException catch (error) {
+            expect(error.unsupported, isTrue, reason: '$file: $description');
+            skipped.add(description);
             continue;
           }
+          final worded = PublishedSchema(
+            jsonEncode(switch (group['schema']) {
+              final bool always => {
+                'allOf': [always],
+              },
+              final other => other,
+            }),
+          );
           final cases = (group['tests']! as List<Object?>)
               .cast<Map<String, Object?>>();
           for (final testCase in cases) {
-            final name = '${group['description']} / ${testCase['description']}';
-            final expected = testCase['valid']! as bool;
-            final actual = schema.accepts(testCase['data']);
-            if (acceptedDivergences.containsKey(name)) {
-              seenDivergences.add(name);
-              expect(actual, isNot(expected), reason: '$file: $name');
-            } else {
-              expect(actual, expected, reason: '$file: $name');
-            }
+            final name = '$file: $description / ${testCase['description']}';
+            final valid = testCase['valid']! as bool;
+            expect(schema.accepts(testCase['data']), valid, reason: name);
+            expect(
+              worded.violation(testCase['data']) == null,
+              valid,
+              reason: '$name worded',
+            );
           }
         }
         expect(skipped, expectedSkips, reason: '$file skipped groups');
       });
     }
-
-    test('every accepted divergence is still exercised', () {
-      expect(seenDivergences, acceptedDivergences.keys.toSet());
-    });
   });
 }
