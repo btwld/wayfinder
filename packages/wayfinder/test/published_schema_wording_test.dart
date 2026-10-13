@@ -7,7 +7,7 @@ import 'package:wayfinder/src/published_schemas.dart';
 
 void main() {
   final update = Platform.environment['UPDATE_GOLDENS'] == '1';
-  final golden = File(p.join('test', 'published_schema_wording.json'));
+  final golden = File(p.join(_directory, 'golden.json'));
 
   test('every single-defect mutation is worded as its golden says', () async {
     final wording = publishedSchemaWording(
@@ -32,23 +32,22 @@ void main() {
   });
 }
 
+final _directory = p.join('test', 'published_schema_wording');
+
 Map<String, String> publishedSchemaWording({
   required String? Function(Object?) configuration,
   required String? Function(Object?) package,
 }) {
-  final root = p.normalize(p.join('..', '..'));
-  Object? read(String path) =>
-      jsonDecode(File(p.join(root, path)).readAsStringSync());
   final labels = <String>{};
   final wording = <String, String>{};
-  for (final (name, seed, message) in [
-    ('wayfinder.json', read('examples/bitwild/wayfinder.json'), configuration),
-    (
-      'wayfinder-profile.json',
-      read('profiles/bitwild/wayfinder-profile.json'),
-      package,
-    ),
+  for (final (name, message) in [
+    ('wayfinder.json', configuration),
+    ('wayfinder-profile.json', package),
+    ('child-wayfinder-profile.json', package),
   ]) {
+    final seed = jsonDecode(
+      File(p.join(_directory, 'seeds', name)).readAsStringSync(),
+    );
     expect(message(seed), isNull, reason: name);
     for (final (defect, document) in _defects(seed, message)) {
       final label = '$name $defect';

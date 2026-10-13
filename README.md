@@ -344,10 +344,12 @@ it parses the package, so a rule whose examples disagree with its check never lo
 from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
 the golden diff with the change. An unexpected golden diff is a regression.
 `published_schema_wording_test.dart` likewise pins, in
-`packages/wayfinder/test/published_schema_wording.json`, the message for every
-single-defect mutation of the Bitwild `wayfinder.json` and package that fails its
-published schema. Regenerate it with the same `UPDATE_GOLDENS=1` after an intended
-wording change or an edit to either seed.
+`packages/wayfinder/test/published_schema_wording/golden.json`, the message for
+every single-defect mutation of its seeds that fails its published schema. The
+seeds are frozen copies of the Bitwild example's `wayfinder.json`, the Bitwild
+package and the `two-rule-child` package, so editing a Profile or an example
+leaves the golden alone. Regenerate it with the same `UPDATE_GOLDENS=1` only
+after an intended wording change.
 
 **Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
 version-dependent and its style is gated on the package's language version, so a floor
