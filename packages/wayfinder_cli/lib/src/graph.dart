@@ -99,7 +99,7 @@ String _mermaid(OkfGraph graph, List<OkfFieldEdge> edges) {
       if (added) lines.add('  $target["${_mermaidText(edge.rawTarget)}"]');
     }
     lines.add(
-      '  ${nodes[edge.source]} -->|${_mermaidText(edge.name ?? edge.field)}| '
+      '  ${nodes[edge.source]} -->|"${_mermaidText(edge.name ?? edge.field)}"| '
       '$target',
     );
   }
