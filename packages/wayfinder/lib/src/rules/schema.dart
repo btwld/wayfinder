@@ -146,7 +146,7 @@ extension type BoundSchema._(AckSchema<Object, Object> _schema) {
 /// walk's switch over [_Keyword] is exhaustive, so admitting a keyword means
 /// choosing how the fact analysis follows it.
 const Map<String, _Keyword> _subset = {
-  r'$schema': _Keyword.annotation,
+  r'$schema': _Keyword.dialect,
   r'$comment': _Keyword.annotation,
   'title': _Keyword.annotation,
   'description': _Keyword.annotation,
@@ -184,8 +184,16 @@ const Map<String, _Keyword> _subset = {
 
 Iterable<String> get subsetKeywords => _subset.keys;
 
+/// The 2020-12 meta-schema URI, with and without its empty fragment. Ack
+/// also imports draft-07, whose keywords mean something else.
+const _dialects = {
+  'https://json-schema.org/draft/2020-12/schema',
+  'https://json-schema.org/draft/2020-12/schema#',
+};
+
 enum _Keyword {
   annotation,
+  dialect,
 
   /// `$id`: it moves the base URI refs resolve against, so only the rule
   /// root may carry it, where it cannot change what `#/$defs/<name>` means.
@@ -206,6 +214,7 @@ enum _Keyword {
   bool get readsUnnamed => switch (this) {
     wholeValue || memberSchema => true,
     annotation ||
+    dialect ||
     rootAnnotation ||
     rootDefs ||
     assertion ||
@@ -258,6 +267,14 @@ final class _Walk {
           break;
         case _Keyword.rootAnnotation || _Keyword.rootDefs:
           if (pointer.isNotEmpty) _unsupported(at, keyword);
+        case _Keyword.dialect:
+          if (!_dialects.contains(value)) {
+            throw RuleSchemaException(
+              at,
+              r'only $schema 2020-12 is supported',
+              unsupported: true,
+            );
+          }
         case _Keyword.format:
           if (value != 'date-time') {
             throw RuleSchemaException(

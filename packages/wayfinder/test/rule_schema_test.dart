@@ -270,18 +270,43 @@ void main() {
       );
     });
 
+    test(r'only a 2020-12 $schema is supported, at any depth', () {
+      for (final dialect in [
+        'https://json-schema.org/draft/2020-12/schema',
+        'https://json-schema.org/draft/2020-12/schema#',
+      ]) {
+        expect(
+          () => RuleSchema.parse({
+            r'$schema': dialect,
+            'properties': {
+              'a': {r'$schema': dialect},
+            },
+          }),
+          returnsNormally,
+        );
+      }
+      expect(
+        () => RuleSchema.parse({
+          r'$schema': 'http://json-schema.org/draft-07/schema#',
+        }),
+        refusedAt(r'/$schema', unsupported: true),
+      );
+      expect(
+        () => RuleSchema.parse({
+          'properties': {
+            'a': {r'$schema': 'https://json-schema.org/draft-07/schema'},
+          },
+        }),
+        refusedAt(r'/properties/a/$schema', unsupported: true),
+      );
+    });
+
     test('Ack refuses a meta-schema-invalid form as malformed', () {
       expect(
         () => RuleSchema.parse({
           'required': ['a', 'a'],
         }),
         refusedAt('/required', unsupported: false),
-      );
-      expect(
-        () => RuleSchema.parse({
-          r'$schema': 'http://json-schema.org/draft-07/schema#',
-        }),
-        refusedAt(r'/$schema', unsupported: true),
       );
       expect(
         () => RuleSchema.parse({
