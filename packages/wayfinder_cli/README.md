@@ -168,7 +168,8 @@ The validate, index and search commands accept `--output=json`. Validate
 also accepts `--output=sarif`, a SARIF 2.1.0 log of the same findings for
 code scanning upload; a location inside the working directory is relative to
 the `WORKINGDIR` base the log records, and one outside it is an absolute
-file URI.
+file URI. A `--fix` that cannot write a file marks the invocation
+unsuccessful and records the reason as a tool execution notification.
 Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
 line ranges, metadata, similarity, context inclusion reasons and link notices.

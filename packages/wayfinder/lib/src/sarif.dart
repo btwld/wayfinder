@@ -25,7 +25,9 @@ const _schema =
 /// [bundlePath] as given (or the project configuration file, for a finding
 /// about it). Every catalog in the assessed chain supplies one rule
 /// descriptor per rule, fired or not, naming the catalog's release; OKF and
-/// dispatch descriptors appear only for the findings present.
+/// dispatch descriptors appear only for the findings present. The
+/// invocation fails exactly when the process exits through `usage`, and
+/// carries the `--fix` outcome as its JSON reports it.
 Map<String, Object?> toSarif(
   ProfileValidationResult result, {
   required String bundlePath,
@@ -89,8 +91,18 @@ Map<String, Object?> toSarif(
         },
         'invocations': [
           {
-            'executionSuccessful':
-                result.automatedGateState != AutomatedGateState.unsupported,
+            'executionSuccessful': result.exitCode != OkfExitCode.usage.value,
+            if (result.fix case ProfileFix(
+              state: ProfileFixState.failed,
+              :final reason?,
+            ))
+              'toolExecutionNotifications': [
+                {
+                  'level': 'error',
+                  'message': {'text': reason},
+                },
+              ],
+            if (result.fix case final fix?) 'properties': {'fix': fix.toJson()},
           },
         ],
         'originalUriBaseIds': {

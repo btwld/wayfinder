@@ -8,7 +8,9 @@
   `ProfileFix.state` `ProfileFixState.failed` with the files already written;
   `ProfileFixState` is exported. SARIF locations inside the working directory
   are relative to a recorded `WORKINGDIR` base, and summary results carry
-  level `none`.
+  level `none`. A failed fix fails the SARIF invocation, which carries the
+  failure reason as an error notification and the fix outcome under
+  `properties.fix`.
 - The 2026.2 dispatch parses `types.md` and `actors.md` once and shares
   them with the engine through `EffectiveProfile.legacyDispatch`, which
   replaces `declaration`. `ProfileFinding` takes a `FindingDescriptor`,
