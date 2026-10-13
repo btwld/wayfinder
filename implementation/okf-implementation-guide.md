@@ -947,8 +947,8 @@ within the engine's keyword subset, as §4.7 states. The §4.1 diagnostic table
 names a rule schema keyword, `$schema` dialect, `format` or `$ref` form
 outside that subset as a cause of `profile-unsupported`. A rule schema now
 follows 2020-12 where the owned evaluator did not: an empty `enum` matches
-nothing; a `$ref` below a `$defs` entry, a `$id` below the root and a
-`$schema` that does not name 2020-12, at any depth, are unsupported; and a
+nothing; a `$ref` below a `$defs` entry, a `$id` or `$schema` below the
+root and a `$schema` that does not name 2020-12 are unsupported; and a
 malformed annotation, a duplicate `required` or `type` entry and an empty
 `type` list are refused. A published-schema violation is
 the first in Ack's keyword order, and a root `null` is reported as "must not

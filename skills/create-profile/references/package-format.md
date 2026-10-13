@@ -80,7 +80,8 @@ The annotations `$schema`, `$comment`, `title`, `description`, `examples`,
 `default` and `deprecated` must be well-formed 2020-12 values. A `$schema`,
 when present, must name the 2020-12 meta-schema,
 `https://json-schema.org/draft/2020-12/schema`; any other makes the package
-unsupported. `$id` and `$defs` may appear only at the schema's root.
+unsupported. `$id`, `$schema` and `$defs` may appear only at the schema's
+root.
 
 | Subject | One per | Facts |
 | --- | --- | --- |

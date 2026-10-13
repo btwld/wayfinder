@@ -280,19 +280,27 @@ void main() {
       );
     });
 
-    test(r'only a 2020-12 $schema is supported, at any depth', () {
+    test(r'only a 2020-12 $schema at the rule root is supported', () {
       for (final dialect in [
         'https://json-schema.org/draft/2020-12/schema',
         'https://json-schema.org/draft/2020-12/schema#',
       ]) {
+        expect(() => RuleSchema.parse({r'$schema': dialect}), returnsNormally);
         expect(
           () => RuleSchema.parse({
-            r'$schema': dialect,
             'properties': {
               'a': {r'$schema': dialect},
             },
           }),
-          returnsNormally,
+          refusedAt(r'/properties/a/$schema', unsupported: true),
+        );
+        expect(
+          () => RuleSchema.parse({
+            r'$defs': {
+              'a': {r'$schema': dialect},
+            },
+          }),
+          refusedAt(r'/$defs/a/$schema', unsupported: true),
         );
       }
       expect(
@@ -300,14 +308,6 @@ void main() {
           r'$schema': 'http://json-schema.org/draft-07/schema#',
         }),
         refusedAt(r'/$schema', unsupported: true),
-      );
-      expect(
-        () => RuleSchema.parse({
-          'properties': {
-            'a': {r'$schema': 'https://json-schema.org/draft-07/schema'},
-          },
-        }),
-        refusedAt(r'/properties/a/$schema', unsupported: true),
       );
     });
 

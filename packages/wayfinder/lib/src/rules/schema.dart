@@ -261,6 +261,7 @@ final class _Walk {
         case _Keyword.rootAnnotation || _Keyword.rootDefs:
           if (pointer.isNotEmpty) _unsupported(at, keyword);
         case _Keyword.dialect:
+          if (pointer.isNotEmpty) _unsupported(at, keyword);
           if (!_draft2020MetaSchemaUris.contains(value)) {
             throw RuleSchemaException(
               at,

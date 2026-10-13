@@ -7,8 +7,8 @@
   `SchemaCheck.schema` is the parsed rule schema; `SchemaCheck.defs`,
   `slots` and `compile` are gone. A rule schema now follows 2020-12 where the
   old evaluator did not: an empty `enum` matches nothing instead of being
-  refused; a `$ref` below a `$defs` entry, a `$id` below the root and a
-  `$schema` that does not name 2020-12, at any depth, are unsupported; a
+  refused; a `$ref` below a `$defs` entry, a `$id` or `$schema` below the
+  root and a `$schema` that does not name 2020-12 are unsupported; a
   malformed annotation (a non-string `title`, `description` or `$comment`,
   non-list `examples`, a non-boolean `deprecated`), a duplicate `required`
   or `type` entry and an empty `type` list are refused; and Ack words these
