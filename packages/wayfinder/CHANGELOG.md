@@ -1,7 +1,4 @@
-# 0.2.0-beta.1
-
-A pre-release because it depends on Ack `^1.7.0-beta.5`; stable 0.2.0
-follows Ack 1.7.0.
+# 0.2.0
 
 - `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema
   evaluator and its vendored JSON-Schema-Test-Suite gate. Ack evaluates every

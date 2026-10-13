@@ -1,7 +1,4 @@
-# 0.2.0-beta.1
-
-A pre-release because `wayfinder` 0.2.0-beta.1, which this package now
-depends on, depends on Ack `^1.7.0-beta.5`. Stable 0.2.0 follows Ack 1.7.0.
+# 0.2.0
 
 - `OkfLinkField` names a producer frontmatter key whose entries are typed
   links, and `okfFieldEdges` resolves them as okf resolves a link target.
