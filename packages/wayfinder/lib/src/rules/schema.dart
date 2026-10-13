@@ -129,7 +129,6 @@ final class RuleSchema {
 
   static const _unsupportedCodes = {
     'unsupported_keyword',
-    'unsupported_dialect',
     'unsupported_reference',
   };
 }
