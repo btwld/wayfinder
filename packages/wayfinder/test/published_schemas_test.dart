@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 import 'package:wayfinder/src/generated/published_schemas.g.dart';
+import 'package:wayfinder/src/published_schemas.dart';
 import 'package:wayfinder/src/rules/schema.dart';
 import 'package:wayfinder/wayfinder.dart';
 
@@ -27,6 +28,31 @@ void main() {
       expect(() => RuleSchema.parse(schema), returnsNormally);
     });
   }
+
+  test('a pattern failure carries the description nearest it', () {
+    final described = PublishedSchema(
+      jsonEncode({
+        'properties': {
+          'own': {'pattern': '^a', 'description': 'own words'},
+          'viaDef': {r'$ref': r'#/$defs/lower', 'description': 'not this'},
+          'bare': {'pattern': '^a'},
+        },
+        r'$defs': {
+          'lower': {
+            'description': 'def words',
+            'allOf': [
+              {'pattern': '^a'},
+            ],
+          },
+        },
+      }),
+    );
+    String? reason(Map<String, Object?> instance) =>
+        described.violation(instance)?.reason;
+    expect(reason({'own': 'b'}), 'must be own words');
+    expect(reason({'viaDef': 'b'}), 'must be def words');
+    expect(reason({'bare': 'b'}), 'must match pattern ^a');
+  });
 
   group('accepted wording changes', () {
     test('a root null is reported as null', () {

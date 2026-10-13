@@ -4,8 +4,8 @@ import 'package:ack/ack.dart';
 
 import 'generated/published_schemas.g.dart';
 
-final _configuration = _PublishedSchema(wayfinderConfigurationSchema);
-final _package = _PublishedSchema(wayfinderProfileSchema);
+final _configuration = PublishedSchema(wayfinderConfigurationSchema);
+final _package = PublishedSchema(wayfinderProfileSchema);
 
 String? configurationSchemaViolation(Object? configuration) {
   final violation = _configuration.violation(configuration);
@@ -30,19 +30,23 @@ String? configurationSchemaViolation(Object? configuration) {
   );
 }
 
-typedef _Violation = ({List<String> at, String? property, String reason});
+typedef PublishedSchemaViolation = ({
+  List<String> at,
+  String? property,
+  String reason,
+});
 
 /// One embedded published schema: its decoded document, which supplies the
 /// expected values and descriptions Ack's errors locate but do not carry,
 /// and the Ack schema imported from it once.
-final class _PublishedSchema {
-  _PublishedSchema(String source)
+final class PublishedSchema {
+  PublishedSchema(String source)
     : _document = jsonDecode(source) as Map<String, Object?>;
 
   final Map<String, Object?> _document;
   late final _schema = Ack.fromJsonSchema(_document);
 
-  _Violation? violation(Object? value) {
+  PublishedSchemaViolation? violation(Object? value) {
     final result = _schema.safeParse(value);
     if (result.isOk) return null;
     return switch (result.getError()) {
@@ -63,7 +67,7 @@ final class _PublishedSchema {
     };
   }
 
-  _Violation _keywordViolation(JsonSchemaValidationError error) {
+  PublishedSchemaViolation _keywordViolation(JsonSchemaValidationError error) {
     final pointer = _tokens(Uri.decodeComponent(error.pointer.substring(1)));
     // The pointer stops at a $ref target, which member names and member
     // values may share; the evaluation path tells them apart.
@@ -72,7 +76,7 @@ final class _PublishedSchema {
     final owner = path.isEmpty
         ? const <String>[]
         : path.sublist(0, path.length - 1);
-    if (_keywordTokens(location).contains('propertyNames')) {
+    if (_keywordTokens(location).any((at) => at.token == 'propertyNames')) {
       return (
         at: owner,
         property: path.last,
@@ -93,11 +97,7 @@ final class _PublishedSchema {
       final keyword => (
         at: path,
         property: null,
-        reason: _reason(
-          keyword,
-          _at(pointer),
-          _at(pointer.sublist(0, pointer.length - 1)),
-        ),
+        reason: _reason(keyword, _at(pointer), _description(pointer)),
       ),
     };
   }
@@ -108,6 +108,24 @@ final class _PublishedSchema {
     for (var at = context; at.parent != null; at = at.parent!)
       at.pathSegment ?? at.name,
   ].reversed.toList();
+
+  /// The description of the schema holding the keyword at [pointer] or,
+  /// when it has none, of the innermost `$defs` entry the keyword lies in.
+  String? _description(List<String> pointer) {
+    if (_at(pointer.sublist(0, pointer.length - 1)) case {
+      'description': final String own,
+    }) {
+      return own;
+    }
+    final def = _keywordTokens(
+      pointer,
+    ).where((at) => at.token == r'$defs').lastOrNull;
+    if (def == null) return null;
+    return switch (_at(pointer.take(def.index + 2).toList())) {
+      {'description': final String text} => text,
+      _ => null,
+    };
+  }
 
   Object? _at(List<String> pointer) {
     Object? node = _document;
@@ -131,20 +149,22 @@ final class _PublishedSchema {
     'oneOf',
   };
 
-  static Iterable<String> _keywordTokens(List<String> pointer) sync* {
+  static Iterable<({int index, String token})> _keywordTokens(
+    List<String> pointer,
+  ) sync* {
     var skipNext = false;
-    for (final token in pointer) {
+    for (final (index, token) in pointer.indexed) {
       if (skipNext) {
         skipNext = false;
         continue;
       }
-      yield token;
+      yield (index: index, token: token);
       skipNext = _keywordsFollowedByNameOrIndex.contains(token);
     }
   }
 }
 
-String _reason(String keyword, Object? keywordValue, Object? parentSchema) =>
+String _reason(String keyword, Object? keywordValue, String? description) =>
     switch ((keyword, keywordValue)) {
       ('type', final String type) => 'must be ${_typeNoun(type)}',
       ('type', final List<Object?> types) =>
@@ -159,10 +179,10 @@ String _reason(String keyword, Object? keywordValue, Object? parentSchema) =>
       ('minProperties', _) => 'must have at least $keywordValue properties',
       ('minItems', 1) => 'must not be empty',
       ('minItems', _) => 'must have at least $keywordValue items',
-      ('pattern', _) => switch (parentSchema) {
-        {'description': final String text} => 'must be $text',
-        _ => 'must match pattern $keywordValue',
-      },
+      ('pattern', _) =>
+        description == null
+            ? 'must match pattern $keywordValue'
+            : 'must be $description',
       ('oneOf', _) => 'must match exactly one of its allowed shapes',
       _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
     };
