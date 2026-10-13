@@ -93,7 +93,9 @@
   symbolic link at any path segment, and reports a failed write with the
   files already written. SARIF locations inside the working directory
   are relative to a recorded `WORKINGDIR` base, and summary results carry
-  level `none`.
+  level `none`. A failed fix fails the SARIF invocation through its
+  `wayfinder/fix-failed` notification, and the run's `fix` property lists
+  the files written before it.
 - `ProfileFinding` takes a `FindingDescriptor`,
   which only an error or advisory descriptor can become, so a note rule has
   no path to a finding.

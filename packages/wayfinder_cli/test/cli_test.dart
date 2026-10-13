@@ -603,7 +603,7 @@ title: Generic concept
 type: Decision
 title: Offline mode
 relationships:
-  - {relationship: depends-on, resource: /sync.md}
+  - {relationship: depends|on, resource: /sync.md}
   - {relationship: tracked-by, resource: /missing.md}
 ---
 
@@ -625,7 +625,7 @@ title: Sync engine
         {
           'source': 'decision',
           'field': 'relationships',
-          'name': 'depends-on',
+          'name': 'depends|on',
           'raw_target': '/sync.md',
           'resolution': 'resolved-concept',
           'resolved_path': 'sync.md',
@@ -647,8 +647,8 @@ title: Sync engine
       expect(mermaid.take(okf.toMermaid().trimRight().split('\n').length), [
         ...okf.toMermaid().trimRight().split('\n'),
       ]);
-      expect(mermaid, contains('  n0 -->|depends-on| n1'));
-      expect(mermaid, contains('  n0 -->|tracked-by| x0'));
+      expect(mermaid, contains('  n0 -->|"depends|on"| n1'));
+      expect(mermaid, contains('  n0 -->|"tracked-by"| x0'));
       expect(
         mermaid.where((line) => line.contains('["/missing.md"]')),
         hasLength(1),
@@ -662,7 +662,7 @@ title: Sync engine
       expect(
         dot,
         containsAll([
-          '  "concept:decision" -> "concept:sync" [label="depends-on"];',
+          '  "concept:decision" -> "concept:sync" [label="depends|on"];',
           '  "concept:decision" -> "target:unresolved:0" '
               '[label="tracked-by"];',
         ]),

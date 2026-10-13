@@ -239,6 +239,54 @@ void main() {
     ]);
   });
 
+  test('a failed fix is a failed invocation that names its reason and what '
+      'it wrote', () async {
+    final project = await copyFixture('configured-project');
+    addTearDown(() => project.delete(recursive: true));
+    final bundle = fixtureBundle(project.path);
+    final outside = await Directory.systemTemp.createTemp('wayfinder-outside-');
+    addTearDown(() => outside.delete(recursive: true));
+    final zone = await Directory(p.join(bundle, 'zone')).create();
+    await File(p.join(bundle, 'sample.md')).copy(p.join(zone.path, 'zone.md'));
+    await Link(
+      p.join(zone.path, 'index.md'),
+    ).create(p.join(outside.path, 'index.md'));
+
+    final result = await validateFixture(project.path, fix: true);
+    final run = _run(
+      _wire(toSarif(result, bundlePath: bundle, toolVersion: '0.0.0')),
+    );
+    expect(run['invocations'], [
+      {
+        'executionSuccessful': false,
+        'toolExecutionNotifications': [
+          {
+            'descriptor': {'id': 'wayfinder/fix-failed', 'index': 0},
+            'level': 'error',
+            'message': {'text': contains('symbolic link')},
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {
+                    'uri': Uri.file(
+                      p.join(p.canonicalize(bundle), 'zone', 'index.md'),
+                    ).toString(),
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(
+      run['properties'],
+      containsPair('fix', {
+        'written': ['index.md'],
+      }),
+    );
+  });
+
   test('a location inside the working directory is relative to the '
       'recorded working directory', () async {
     final run = _run(await _sarif(fixture('configured-conventions')));

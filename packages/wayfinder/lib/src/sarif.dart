@@ -23,6 +23,8 @@ const _schema =
 /// and execution diagnostics in `toolExecutionNotifications`, described by
 /// `driver.notifications`. `executionSuccessful` is false iff a diagnostic is
 /// an error, which is when the gate cannot pass for want of an assessment.
+/// A `--fix` run's written paths are in the run's `fix` property, as in its
+/// JSON, so a failed fix also shows what it wrote first.
 ///
 /// A location inside the working directory is relative to the run's
 /// `WORKINGDIR` base, so code scanning resolves it against a checkout when
@@ -110,6 +112,7 @@ Map<String, Object?> toSarif(
       'profile_release': result.profileRelease,
       'profile_state': result.profileState.wireValue,
       'gate': result.gate.wireValue,
+      if (result.fixed case final fixed?) 'fix': {'written': fixed},
     },
   );
 }
