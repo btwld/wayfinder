@@ -268,9 +268,13 @@ void main() {
               {
                 'physicalLocation': {
                   'artifactLocation': {
-                    'uri': Uri.file(
-                      p.join(p.canonicalize(bundle), 'zone', 'index.md'),
-                    ).toString(),
+                    'uri': predicate<String>(
+                      (uri) => p.equals(
+                        Uri.parse(uri).toFilePath(),
+                        p.join(bundle, 'zone', 'index.md'),
+                      ),
+                      'the refused zone/index.md',
+                    ),
                   },
                 },
               },
