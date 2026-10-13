@@ -19,6 +19,12 @@ const String wayfinderConfigurationSchema = r'''
       "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.$)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\x00-\\x1f\\x7f]+$",
       "description": "a relative path without parent traversal"
     },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 64,
+      "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
+    },
     "gitRef": {
       "$ref": "#/$defs/text",
       "pattern": "^(?!-)(?!.*\\.\\.)[^\\x00-\\x20\\x7f]+$",
@@ -164,10 +170,7 @@ const String wayfinderConfigurationSchema = r'''
         "actors": {
           "type": "object",
           "propertyNames": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S",
-            "description": "a non-empty string"
+            "$ref": "#/$defs/text"
           },
           "additionalProperties": {
             "$ref": "#/$defs/actor"
@@ -192,10 +195,7 @@ const String wayfinderConfigurationSchema = r'''
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
-        "maxLength": 64,
-        "description": "a Profile id in okf's finding-namespace grammar (lowercase kebab-case, starting with a letter) of at most 64 characters, so it is also a valid Agent Skills name for the Profile's installed skill directory"
+        "$ref": "#/$defs/identifier"
       },
       "additionalProperties": {
         "$ref": "#/$defs/directProfile"

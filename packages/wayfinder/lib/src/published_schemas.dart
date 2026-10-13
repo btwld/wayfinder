@@ -65,14 +65,14 @@ final class _PublishedSchema {
 
   _Violation _keywordViolation(JsonSchemaValidationError error) {
     final pointer = _tokens(Uri.decodeComponent(error.pointer.substring(1)));
+    // The pointer stops at a $ref target, which member names and member
+    // values may share; the evaluation path tells them apart.
+    final location = _tokens(error.keywordLocation);
     final path = _instancePath(error.context);
     final owner = path.isEmpty
         ? const <String>[]
         : path.sublist(0, path.length - 1);
-    // TODO(https://github.com/btwld/ack/issues/203): classify propertyNames
-    // and additionalProperties failures on the error's keywordLocation, not
-    // its pointer, which stops at a $ref target shared with member values.
-    if (_keywordTokens(pointer).contains('propertyNames')) {
+    if (_keywordTokens(location).contains('propertyNames')) {
       return (
         at: owner,
         property: path.last,
@@ -85,7 +85,7 @@ final class _PublishedSchema {
         property: path.last,
         reason: 'is missing required property ${path.last}',
       ),
-      '' when pointer.lastOrNull == 'additionalProperties' => (
+      '' when location.lastOrNull == 'additionalProperties' => (
         at: owner,
         property: path.last,
         reason: 'has unknown property ${path.last}',
@@ -167,7 +167,7 @@ String _reason(String keyword, Object? keywordValue, Object? parentSchema) =>
       _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
     };
 
-/// JSON Pointer tokens, unescaped, of Ack's percent-decoded schema pointer.
+/// The unescaped tokens of a plain JSON Pointer.
 List<String> _tokens(String pointer) => [
   for (final token in pointer.split('/').skip(1))
     token.replaceAll('~1', '/').replaceAll('~0', '~'),

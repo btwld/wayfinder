@@ -26,34 +26,6 @@ void main() {
     test('$name is written inside the Profile keyword subset', () {
       expect(() => RuleSchema.parse(schema), returnsNormally);
     });
-
-    // TODO(https://github.com/btwld/ack/issues/203): Ack locates a failure
-    // under a propertyNames reached through $ref at the def, where it reads
-    // as a member value's failure. Once Ack reports keywordLocation, delete
-    // this test; wayfinder.schema.json may then $ref propertyNames again.
-    test('$name routes no propertyNames through \$ref', () {
-      final offenders = <String>[];
-      void visit(Object? node, String pointer, {required bool underNames}) {
-        switch (node) {
-          case final Map<String, Object?> map:
-            if (underNames && map.containsKey(r'$ref')) offenders.add(pointer);
-            for (final MapEntry(:key, :value) in map.entries) {
-              visit(
-                value,
-                '$pointer/$key',
-                underNames: underNames || key == 'propertyNames',
-              );
-            }
-          case final List<Object?> list:
-            for (final (index, item) in list.indexed) {
-              visit(item, '$pointer/$index', underNames: underNames);
-            }
-        }
-      }
-
-      visit(schema, '', underNames: false);
-      expect(offenders, isEmpty);
-    });
   }
 
   group('accepted wording changes', () {
@@ -87,6 +59,28 @@ void main() {
         'numbers.',
       );
     });
+  });
+
+  test('a member name and a member value failing one def are told apart', () {
+    const profile =
+        '"source": {"git": "g", "ref": "r", "path": "p"}, '
+        '"applies_to": ["docs"]';
+    expect(
+      configMessage(
+        '{"version": 1, "profiles": {"a": {$profile, '
+        '"actors": {" ": {"name": "n"}}}}}',
+      ),
+      'wayfinder.json is invalid at /profiles/a/actors: has invalid '
+      'property name " ".',
+    );
+    expect(
+      configMessage(
+        '{"version": 1, "profiles": {"a": {$profile, '
+        '"actors": {"x": {"name": " "}}}}}',
+      ),
+      'wayfinder.json is invalid at /profiles/a/actors/x/name: must be a '
+      'non-empty string.',
+    );
   });
 
   group('an empty member key', () {
