@@ -135,11 +135,7 @@ final class RuleSchema {
 }
 
 extension type BoundSchema._(AckSchema<Object, Object> _schema) {
-  // TODO(https://github.com/btwld/ack/issues/206): safeEncode validates
-  // without the copy safeParse makes of every accepted value. Return to
-  // safeParse, Ack's documented entry point, once it no longer copies, and
-  // re-measure with https://github.com/btwld/ack/issues/205's allocation fixes.
-  bool accepts(Object? instance) => _schema.safeEncode(instance).isOk;
+  bool accepts(Object? instance) => _schema.safeParse(instance).isOk;
 }
 
 /// The Profile keyword subset and how the walk follows each keyword. The
