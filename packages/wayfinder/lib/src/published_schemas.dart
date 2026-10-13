@@ -76,9 +76,7 @@ final class PublishedSchema {
     final owner = path.isEmpty
         ? const <String>[]
         : path.sublist(0, path.length - 1);
-    if (_keywordTokens(
-      evaluationPath,
-    ).any((at) => at.token == 'propertyNames')) {
+    if (_keywordTokens(evaluationPath).contains('propertyNames')) {
       return (
         at: owner,
         property: path.last,
@@ -92,7 +90,7 @@ final class PublishedSchema {
         reason: 'is missing required property ${path.last}',
       ),
       ''
-          when _keywordTokens(evaluationPath).lastOrNull?.token ==
+          when _keywordTokens(evaluationPath).lastOrNull ==
               'additionalProperties' =>
         (
           at: owner,
@@ -105,7 +103,7 @@ final class PublishedSchema {
         reason: _reason(
           keyword,
           _at(schemaLocation),
-          _nearestDescription(schemaLocation),
+          () => _nearestDescription(schemaLocation),
         ),
       ),
     };
@@ -118,21 +116,16 @@ final class PublishedSchema {
       at.pathSegment ?? at.name,
   ].reversed.toList();
 
-  String? _nearestDescription(List<String> pointer) {
-    if (_at(pointer.sublist(0, pointer.length - 1)) case {
-      'description': final String own,
-    }) {
-      return own;
-    }
-    final def = _keywordTokens(
-      pointer,
-    ).where((at) => at.token == r'$defs').lastOrNull;
-    if (def == null) return null;
-    return switch (_at(pointer.take(def.index + 2).toList())) {
-      {'description': final String text} => text,
-      _ => null,
-    };
-  }
+  String? _nearestDescription(List<String> schemaLocation) => switch ((
+    _at(schemaLocation.sublist(0, schemaLocation.length - 1)),
+    schemaLocation.first == r'$defs'
+        ? _at(schemaLocation.take(2).toList())
+        : null,
+  )) {
+    ({'description': final String own}, _) => own,
+    (_, {'description': final String def}) => def,
+    _ => null,
+  };
 
   Object? _at(List<String> pointer) {
     Object? node = _document;
@@ -156,43 +149,44 @@ final class PublishedSchema {
     'oneOf',
   };
 
-  static Iterable<({int index, String token})> _keywordTokens(
-    List<String> pointer,
-  ) sync* {
+  static Iterable<String> _keywordTokens(List<String> pointer) sync* {
     var skipNext = false;
-    for (final (index, token) in pointer.indexed) {
+    for (final token in pointer) {
       if (skipNext) {
         skipNext = false;
         continue;
       }
-      yield (index: index, token: token);
+      yield token;
       skipNext = _keywordsFollowedByNameOrIndex.contains(token);
     }
   }
 }
 
-String _reason(String keyword, Object? keywordValue, String? description) =>
-    switch ((keyword, keywordValue)) {
-      ('type', final String type) => 'must be ${_typeNoun(type)}',
-      ('type', final List<Object?> types) =>
-        'must be ${types.cast<String>().map(_typeNoun).join(' or ')}',
-      ('const', _) => 'must be ${jsonEncode(keywordValue)}',
-      ('enum', final List<Object?> values) =>
-        'must be one of ${values.map(_literal).join(', ')}',
-      ('minLength', 1) => 'must be a non-empty string',
-      ('minLength', _) => 'must have at least $keywordValue characters',
-      ('maxLength', _) => 'must have at most $keywordValue characters',
-      ('minProperties', 1) => 'must not be empty',
-      ('minProperties', _) => 'must have at least $keywordValue properties',
-      ('minItems', 1) => 'must not be empty',
-      ('minItems', _) => 'must have at least $keywordValue items',
-      ('pattern', _) =>
-        description == null
-            ? 'must match pattern $keywordValue'
-            : 'must be $description',
-      ('oneOf', _) => 'must match exactly one of its allowed shapes',
-      _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
-    };
+String _reason(
+  String keyword,
+  Object? keywordValue,
+  String? Function() description,
+) => switch ((keyword, keywordValue)) {
+  ('type', final String type) => 'must be ${_typeNoun(type)}',
+  ('type', final List<Object?> types) =>
+    'must be ${types.cast<String>().map(_typeNoun).join(' or ')}',
+  ('const', _) => 'must be ${jsonEncode(keywordValue)}',
+  ('enum', final List<Object?> values) =>
+    'must be one of ${values.map(_literal).join(', ')}',
+  ('minLength', 1) => 'must be a non-empty string',
+  ('minLength', _) => 'must have at least $keywordValue characters',
+  ('maxLength', _) => 'must have at most $keywordValue characters',
+  ('minProperties', 1) => 'must not be empty',
+  ('minProperties', _) => 'must have at least $keywordValue properties',
+  ('minItems', 1) => 'must not be empty',
+  ('minItems', _) => 'must have at least $keywordValue items',
+  ('pattern', _) => switch (description()) {
+    final text? => 'must be $text',
+    null => 'must match pattern $keywordValue',
+  },
+  ('oneOf', _) => 'must match exactly one of its allowed shapes',
+  _ => 'fails ${keyword.isEmpty ? 'false' : keyword}',
+};
 
 List<String> _tokens(String pointer) => [
   for (final token in pointer.split('/').skip(1))
