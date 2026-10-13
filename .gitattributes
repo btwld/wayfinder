@@ -6,6 +6,7 @@ packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
 
 # The golden test compares bytes; a CRLF checkout would fail every golden.
 packages/wayfinder/test/goldens/** text eol=lf
+packages/wayfinder/test/published_schema_wording.json text eol=lf
 
 # index-current compares exact bytes and Profile packages are read verbatim,
 # so a CRLF checkout would flag every fixture index and change the packages.
