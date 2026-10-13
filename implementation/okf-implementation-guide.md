@@ -217,7 +217,7 @@ that blocks a complete assessment.
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
 | `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
-| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
+| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `$schema` dialect, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
 | `profile-composition` | error | the chain and the project additions do not compose (§5.7) |
 | `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |
@@ -944,12 +944,13 @@ makes them agree and runs `wayfinder get`.
 Revised again in place before publication (2026-10-07). Ack, not an
 evaluator the engine owns, evaluates rule schemas and the published schemas
 within the engine's keyword subset, as §4.7 states. The §4.1 diagnostic table
-names a rule schema keyword, `format` or `$ref` form outside that subset as a
-cause of `profile-unsupported`. A rule schema now follows 2020-12 where the
-owned evaluator did not: an empty `enum` matches nothing; a `$ref` below a
-`$defs` entry and a `$id` below the root are unsupported; and a malformed
-annotation, a duplicate `required` or `type` entry, an empty `type` list and
-a `$schema` other than 2020-12 are refused. A published-schema violation is
+names a rule schema keyword, `$schema` dialect, `format` or `$ref` form
+outside that subset as a cause of `profile-unsupported`. A rule schema now
+follows 2020-12 where the owned evaluator did not: an empty `enum` matches
+nothing; a `$ref` below a `$defs` entry, a `$id` below the root and a
+`$schema` that does not name 2020-12, at any depth, are unsupported; and a
+malformed annotation, a duplicate `required` or `type` entry and an empty
+`type` list are refused. A published-schema violation is
 the first in Ack's keyword order, and a root `null` is reported as "must not
 be null". Affected sections: §§4.1, 4.7, and 9. Driver: the migration to Ack
 as the only JSON Schema evaluator. Migration for implementations: evaluate

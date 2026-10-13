@@ -7,12 +7,12 @@
   `SchemaCheck.schema` is the parsed rule schema; `SchemaCheck.defs`,
   `slots` and `compile` are gone. A rule schema now follows 2020-12 where the
   old evaluator did not: an empty `enum` matches nothing instead of being
-  refused; a `$ref` below a `$defs` entry and a `$id` below the root are
-  unsupported; a malformed annotation (a non-string `title`, `description` or
-  `$comment`, non-list `examples`, a non-boolean `deprecated`), a duplicate
-  `required` or `type` entry, an empty `type` list and a `$schema` other than
-  2020-12 are refused; and Ack words these refusals and a nonproductive
-  `$ref` cycle.
+  refused; a `$ref` below a `$defs` entry, a `$id` below the root and a
+  `$schema` that does not name 2020-12, at any depth, are unsupported; a
+  malformed annotation (a non-string `title`, `description` or `$comment`,
+  non-list `examples`, a non-boolean `deprecated`), a duplicate `required`
+  or `type` entry and an empty `type` list are refused; and Ack words these
+  refusals and a nonproductive `$ref` cycle.
 - Ack also checks `wayfinder.json` and each package against the published
   schemas, and the engine words the first failure as before, with three
   changes: a root `null` is reported as "must not be null"; with several
