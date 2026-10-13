@@ -1,10 +1,9 @@
 # 0.2.0
 
 - `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema
-  evaluator and its vendored JSON-Schema-Test-Suite gate. Ack evaluates every
-  rule schema. The
-  engine still admits only its keyword subset, checks a schema's property
-  names against its subject's facts, and words every message.
+  evaluator. Ack evaluates every rule schema. The engine still admits only its
+  keyword subset, checks a schema's property names against its subject's
+  facts, and words every message.
   `SchemaCheck.schema` is the parsed rule schema; `SchemaCheck.defs`,
   `slots` and `compile` are gone. A rule schema now follows 2020-12 where the
   old evaluator did not: an empty `enum` matches nothing instead of being
