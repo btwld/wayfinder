@@ -99,8 +99,8 @@ the `wayfinder validate` gate, and let each project repository carry only its ow
 The `wayfinder` package is now the core validation library (formerly
 `okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
 The embeddings library remains `wayfinder_embeddings`. Core 0.1.0 and the
-CLI and embeddings 0.1.1 are published. The next prepared releases are core
-0.2.0, CLI 0.1.2 and embeddings 0.2.0; see [release status and upgrade notes](docs/releasing.md#prepared-releases-embeddings-020-and-cli-012).
+CLI and embeddings 0.1.1 are published. The next prepared release is
+0.2.0 of all three packages; see [release status and upgrade notes](docs/releasing.md#prepared-release-020).
 See [migration instructions](docs/install.md#migrate-the-dart-application-package).
 
 ## What is in here
@@ -343,6 +343,13 @@ it parses the package, so a rule whose examples disagree with its check never lo
 `packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
 from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
 the golden diff with the change. An unexpected golden diff is a regression.
+`published_schema_wording_test.dart` likewise pins, in
+`packages/wayfinder/test/published_schema_wording/golden.json`, the message for
+every single-defect mutation of its seeds that fails its published schema. The
+seeds are frozen copies of the Bitwild example's `wayfinder.json`, the Bitwild
+package and the `two-rule-child` package, so editing a Profile or an example
+leaves the golden alone. Regenerate it with the same `UPDATE_GOLDENS=1` only
+after an intended wording change.
 
 **Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
 version-dependent and its style is gated on the package's language version, so a floor

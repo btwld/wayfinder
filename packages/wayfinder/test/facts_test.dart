@@ -297,6 +297,19 @@ void main() {
       .singleWhere((subject) => subject.locations['self'] == path)
       .facts;
 
+  test('a non-finite frontmatter number reads as a string', () async {
+    await write(
+      'area/odd.md',
+      '---\ntype: Guide\nweight: .inf\nratio: .nan\n---\n',
+    );
+    final frontmatter = (await project(probe))
+        .of(SubjectKind.frontmatter)
+        .singleWhere((subject) => subject.locations['self'] == 'area/odd.md')
+        .facts;
+    expect(frontmatter['weight'], 'Infinity');
+    expect(frontmatter['ratio'], 'NaN');
+  });
+
   group('over a bundle', () {
     setUp(() async {
       await write(

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/rules/builtins.dart';
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -128,73 +129,151 @@ void main() {
     });
 
     group('builtin params outside the params schema', () {
-      for (final (builtin, good, bad) in [
-        (
-          'files-present',
-          {
-            'paths': ['index.md'],
+      final valid = <String, Map<String, Object?>>{
+        'files-present': {
+          'paths': ['index.md'],
+        },
+        'path-targets-exist': {
+          'fields': ['resource'],
+        },
+        'matches-generated': {
+          'generator': 'okf-index',
+          'version': okfPackageVersion,
+          'keep': ['index.md'],
+          'extra': 'ignore',
+        },
+      };
+      final mutationsByConstraint = <String, Map<String, Map<String, Object?>>>{
+        'files-present': {
+          '/required': {},
+          '/additionalProperties': {
+            'paths': ['a'],
+            'x': 1,
           },
-          {'required': <String>[]},
-        ),
-        (
-          'path-targets-exist',
-          {
+          '/properties/paths/type': {'paths': 'a'},
+          '/properties/paths/minItems': {'paths': <Object?>[]},
+          '/properties/paths/uniqueItems': {
+            'paths': ['a', 'a'],
+          },
+          '/properties/paths/items/type': {
+            'paths': [1],
+          },
+          '/properties/paths/items/minLength': {
+            'paths': [''],
+          },
+        },
+        'path-targets-exist': {
+          '/required': {},
+          '/additionalProperties': {
             'fields': ['resource'],
+            'x': 1,
           },
-          {
+          '/properties/fields/type': {'fields': 'resource'},
+          '/properties/fields/minItems': {'fields': <Object?>[]},
+          '/properties/fields/uniqueItems': {
+            'fields': ['resource', 'resource'],
+          },
+          '/properties/fields/items/type': {
+            'fields': [1],
+          },
+          '/properties/fields/items/enum': {
             'fields': ['body'],
           },
-        ),
-        (
-          'matches-generated',
-          {'generator': 'okf-index'},
-          {'generator': 'okf-index', 'x': 1},
-        ),
-        (
-          'matches-generated',
-          {
+        },
+        'matches-generated': {
+          '/required': {},
+          '/additionalProperties': {'generator': 'okf-index', 'x': 1},
+          '/properties/generator/type': {'generator': 1},
+          '/properties/generator/const': {'generator': 'other'},
+          '/properties/version/type': {'generator': 'okf-index', 'version': 1},
+          '/properties/version/const': {
             'generator': 'okf-index',
-            'keep': ['index.md'],
-            'extra': 'ignore',
+            'version': '0.0.0',
           },
-          {'generator': 'other'},
-        ),
-        (
-          'matches-generated',
-          {'generator': 'okf-index', 'version': okfPackageVersion},
-          {'generator': 'okf-index', 'version': '0.0.0'},
-        ),
-      ]) {
-        test('$builtin ${jsonEncode(bad)}', () {
-          final ok = ProfilePackage.parse(
-            packageJson(
-              rules: [
-                builtinRule(
-                  check: {'builtin': builtin, 'params': good},
-                  message: builtin == 'matches-generated'
-                      ? {'stale': 's', 'extra': 'e'}
-                      : 'm',
-                ),
-              ],
-            ),
-          );
-          expect(ok.rules.single.check, isA<BuiltinCheck>());
-          expect(
-            () => ProfilePackage.parse(
-              packageJson(
-                rules: [
-                  builtinRule(
-                    check: {'builtin': builtin, 'params': bad},
-                    message: builtin == 'matches-generated'
-                        ? {'stale': 's', 'extra': 'e'}
-                        : 'm',
-                  ),
-                ],
+          '/properties/keep/type': {'generator': 'okf-index', 'keep': 'a'},
+          '/properties/keep/uniqueItems': {
+            'generator': 'okf-index',
+            'keep': ['a', 'a'],
+          },
+          '/properties/keep/items/type': {
+            'generator': 'okf-index',
+            'keep': [1],
+          },
+          '/properties/keep/items/minLength': {
+            'generator': 'okf-index',
+            'keep': [''],
+          },
+          '/properties/extra/type': {'generator': 'okf-index', 'extra': 1},
+          '/properties/extra/enum': {
+            'generator': 'okf-index',
+            'extra': 'bogus',
+          },
+        },
+      };
+
+      String package(String builtin, Map<String, Object?> params) =>
+          packageJson(
+            rules: [
+              builtinRule(
+                check: {'builtin': builtin, 'params': params},
+                message: builtin == 'matches-generated'
+                    ? {'stale': 's', 'extra': 'e'}
+                    : 'm',
               ),
-            ),
-            rejectedAt('rules[0].check.params', 'params do not match'),
+            ],
+          );
+
+      test('each params constraint keys a mutation, which another constraint '
+          'may also reject', () {
+        Iterable<String> constraints(Object? schema, String at) sync* {
+          for (final MapEntry(:key, :value)
+              in (schema! as Map<String, Object?>).entries) {
+            switch (key) {
+              case 'properties':
+                for (final MapEntry(key: name, value: property)
+                    in (value! as Map<String, Object?>).entries) {
+                  yield* constraints(property, '$at/properties/$name');
+                }
+              case 'items':
+                yield* constraints(value, '$at/items');
+              default:
+                yield '$at/$key';
+            }
+          }
+        }
+
+        const paramsTypeCheckedByPackageSchema = '/type';
+        expect(mutationsByConstraint.keys.toSet(), builtins.keys.toSet());
+        for (final MapEntry(key: builtin, value: builtinCheck)
+            in builtins.entries) {
+          expect(
+            mutationsByConstraint[builtin]!.keys.toSet(),
+            constraints(builtinCheck.params.toJsonSchema(), '').toSet()
+              ..remove(paramsTypeCheckedByPackageSchema),
+            reason: builtin,
+          );
+        }
+      });
+
+      for (final MapEntry(key: builtin, value: mutations)
+          in mutationsByConstraint.entries) {
+        test('$builtin accepts its valid params', () {
+          expect(
+            ProfilePackage.parse(
+              package(builtin, valid[builtin]!),
+            ).rules.single.check,
+            isA<BuiltinCheck>(),
           );
         });
+        for (final MapEntry(key: constraint, value: params)
+            in mutations.entries) {
+          test('$builtin $constraint ${jsonEncode(params)}', () {
+            expect(
+              () => ProfilePackage.parse(package(builtin, params)),
+              rejectedAt('rules[0].check.params', 'params do not match'),
+            );
+          });
+        }
       }
     });
 

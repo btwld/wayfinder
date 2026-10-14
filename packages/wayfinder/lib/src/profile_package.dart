@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 
 import 'published_schemas.dart';
 import 'rules/catalog.dart';
-import 'rules/predicate.dart';
 import 'wayfinder_config.dart' show WayfinderDefinition, WayfinderProfileSource;
 
 /// The package `format` this engine evaluates. Engine compatibility is this
@@ -149,11 +148,11 @@ final class ProfilePackage {
         unsupported: true,
       );
     }
-    if (profilePackageSchemaFailure(decoded) case final failure?) {
-      throw ProfilePackageException(
-        schemaFailureWhere(failure, root: 'package'),
-        schemaFailureReason(failure),
-      );
+    if (profilePackageSchemaViolation(decoded) case (
+      :final where,
+      :final reason,
+    )) {
+      throw ProfilePackageException(where, reason);
     }
     final root = decoded! as Map<String, Object?>;
     final okfRelease =
@@ -277,27 +276,4 @@ final class ProfilePackage {
   /// `<id>/<slug>` and its help URI, so reporting cannot drift from the
   /// package.
   final List<CatalogRule> rules;
-}
-
-/// [failure]'s pointer as a path into the document, such as
-/// `rules[3].check.subject`, or [root] for the document itself.
-String schemaFailureWhere(
-  JsonPredicateFailure failure, {
-  required String root,
-}) {
-  final segments = [
-    for (final segment in failure.pointer.split('/').skip(1))
-      segment.replaceAll('~1', '/').replaceAll('~0', '~'),
-    ?failure.property,
-  ];
-  if (segments.isEmpty) return root;
-  final where = StringBuffer();
-  for (final segment in segments) {
-    if (int.tryParse(segment) != null) {
-      where.write('[$segment]');
-    } else {
-      where.write(where.isEmpty ? segment : '.$segment');
-    }
-  }
-  return '$where';
 }

@@ -477,6 +477,8 @@ Object? _json(Object? value) => switch (value) {
       '$key': _json(nested),
   },
   Iterable() => [for (final item in value) _json(item)],
-  null || String() || num() || bool() => value,
+  // A non-finite double (YAML `.inf`, `.nan`) is not JSON, and Ack refuses
+  // any value that is not, so it joins the other scalars read as strings.
+  null || String() || num(isFinite: true) || bool() => value,
   _ => '$value',
 };

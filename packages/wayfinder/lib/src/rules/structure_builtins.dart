@@ -1,22 +1,13 @@
+import 'package:ack/ack.dart';
 import 'package:okf/okf_io.dart';
 
 import '../generated/published_schemas.g.dart';
 import 'builtins.dart';
 import 'facts.dart';
 
-const filesPresentParams = <String, Object?>{
-  'type': 'object',
-  'required': ['paths'],
-  'additionalProperties': false,
-  'properties': {
-    'paths': {
-      'type': 'array',
-      'minItems': 1,
-      'uniqueItems': true,
-      'items': {'type': 'string', 'minLength': 1},
-    },
-  },
-};
+final filesPresentParams = Ack.object({
+  'paths': Ack.list(Ack.string().minLength(1)).minItems(1).unique(),
+});
 
 Iterable<Violation> filesPresent(
   BundleFacts facts,
@@ -32,25 +23,12 @@ Iterable<Violation> filesPresent(
   }
 }
 
-const matchesGeneratedParams = <String, Object?>{
-  'type': 'object',
-  'required': ['generator'],
-  'additionalProperties': false,
-  'properties': {
-    'generator': {
-      'enum': ['okf-index'],
-    },
-    'version': {'const': okfPackageVersion},
-    'keep': {
-      'type': 'array',
-      'uniqueItems': true,
-      'items': {'type': 'string', 'minLength': 1},
-    },
-    'extra': {
-      'enum': ['report', 'ignore'],
-    },
-  },
-};
+final matchesGeneratedParams = Ack.object({
+  'generator': Ack.literal('okf-index'),
+  'version': Ack.literal(okfPackageVersion).optional(),
+  'keep': Ack.list(Ack.string().minLength(1)).unique().optional(),
+  'extra': Ack.enumString(['report', 'ignore']).optional(),
+});
 
 /// What `generator` writes for the bundle, by bundle-relative path. The
 /// generated text declares the Profile's `implements.release`; which okf

@@ -168,6 +168,29 @@ void main() {
       );
     });
 
+    test('a rule schema ref with a malformed percent escape', () {
+      expect(
+        () => ProfilePackage.parse(
+          packageJson(
+            rules: [
+              ruleJson(
+                'a',
+                subject: 'concept',
+                schema: {r'$ref': r'#/$defs/%zz'},
+                valid: [<String, Object?>{}],
+                invalid: [<String, Object?>{}],
+              ),
+            ],
+          ),
+        ),
+        rejectedAt(
+          'rules[0].check.schema',
+          'has a malformed percent escape',
+          unsupported: false,
+        ),
+      );
+    });
+
     test('a missing required key, named', () {
       final json = jsonDecode(packageJson()) as Map<String, Object?>;
       json.remove('release');

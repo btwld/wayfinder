@@ -1,0 +1,41 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 2,
+  "id": "acme-bitwild",
+  "release": "1.0",
+  "implements": {"id": "okf", "release": "0.2"},
+  "extends": {"path": "profiles/bitwild"},
+  "docs": "https://github.com/btwld/wayfinder/blob/main/examples/profiles/two-rule-child/README.md",
+  "tags": [{"name": "billing", "description": "Billing and invoicing"}],
+  "rules": [
+    {
+      "id": "title-without-period",
+      "category": "structure",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept title MUST NOT end with a period.",
+      "message": "Title {title} ends with a period.",
+      "check": {"subject": "frontmatter", "schema": {"properties": {"title": {"not": {"pattern": "\\.$"}}}}},
+      "tests": {"valid": [{"title": "Invoice runs"}], "invalid": [{"title": "Invoice runs."}]}
+    },
+    {
+      "id": "request-tagged",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A Request MUST carry at least one tag.",
+      "message": "A Request carries no tag.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "if": {"required": ["type"], "properties": {"type": {"const": "Request"}}},
+          "then": {"required": ["tags"], "properties": {"tags": {"minItems": 1}}}
+        }
+      },
+      "tests": {
+        "valid": [{"type": "Request", "tags": ["billing"]}, {"type": "Guide"}],
+        "invalid": [{"type": "Request"}, {"type": "Request", "tags": []}]
+      }
+    }
+  ]
+}

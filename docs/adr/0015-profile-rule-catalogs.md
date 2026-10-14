@@ -2,6 +2,7 @@
 
 - Status: proposed
 - Date: 2026-10-01
+- Revised: 2026-10-07 (before release: Ack evaluates rule schemas; [earlier text](https://github.com/btwld/wayfinder/blob/8735c53/docs/adr/0015-profile-rule-catalogs.md))
 - Scope: Profile rule representation, validator engine, and Profile packages from 2026.3 onward
 - Supersedes: [ADR-0004](0004-closed-concepta-profile-validator.md)'s compiled rule representation; [ADR-0014](0014-external-profile-bindings.md)'s vocabulary-only manifest and its exclusion of source-provided rules
 - Amends: [ADR-0008](0008-okfp-adopts-okf-finding-contract.md) (descriptor source, finding arguments, summary entries, SARIF)
@@ -43,9 +44,11 @@ The validator becomes a closed **engine** with three parts:
 2. **Checks.** A rule's check is either a JSON Schema evaluated against one
    subject kind, answering pass or fail, or a named builtin with parameters.
    Finding identity, location, and cardinality come from the rule and the
-   subject, never from schema-library errors. The engine owns a small
-   evaluator for a declared JSON Schema keyword subset, conformance-tested
-   against the JSON-Schema-Test-Suite. The description of
+   subject, never from schema-library errors.
+   [Ack](https://pub.dev/packages/ack) evaluates each schema. The engine owns
+   the declared JSON Schema keyword subset it admits, the analysis that checks
+   a schema's property names against its subject's facts, and all message
+   wording. The description of
    [`wayfinder-profile.schema.json`](../schemas/wayfinder-profile.schema.json),
    which absorbed the catalog schema under ADR-0016, lists that subset.
 3. **Catalogs.** A catalog declares every rule it enforces. A Profile turns a
@@ -87,6 +90,14 @@ validation, and the four-part result from ADR-0004 are unchanged. The frozen
   finding identity would depend on schema-library error reports, which the two
   Dart libraries produce differently, and one schema cannot carry a severity or
   clause per rule.
+- **An evaluator owned by the engine.** The first version of this decision
+  chose one, because schema-library error reports differ between libraries.
+  Ack replaced it before release. Findings never read schema errors, so only
+  pass or fail comes from Ack, and the two published schemas word their first
+  failure from the `keyword` and `pointer` locators Ack reports since
+  [ack#198](https://github.com/btwld/ack/pull/198) to
+  [ack#200](https://github.com/btwld/ack/pull/200), read against the engine's
+  own copy of the schema.
 - **A facts document with location templates.** Rejected because the template
   language duplicates what a typed subject already knows.
 - **An expression language (CEL, JSONLogic).** Rejected for lack of a mature
