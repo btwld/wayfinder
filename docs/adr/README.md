@@ -26,13 +26,14 @@ choice and links there.
 
 | ADR | Status | Decision |
 | --- | --- | --- |
-| [0004](0004-closed-concepta-profile-validator.md) | Accepted; partly superseded for 2026.3 by 0014 | Closed Profile validator over independent OKF |
-| [0006](0006-raw-tier-under-references.md) | Accepted | Optional per-source `raw/` tier for verbatim originals |
-| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted | Compare index URLs after percent-decoding |
+| [0004](0004-closed-concepta-profile-validator.md) | Accepted; superseded in part by 0014 for 2026.3 and, if accepted, by 0015 for rule representation | Closed Profile validator over independent OKF |
+| [0006](0006-raw-tier-under-references.md) | Accepted; amended for 2026.3 raw-tier indexes | Optional per-source `raw/` tier for verbatim originals |
+| [0007](0007-index-targets-compared-percent-decoded.md) | Accepted for 2026.2; superseded for 2026.3 by Profile §9 | Compare index URLs after percent-decoding |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted | Preserve OKF's finding-report wire format |
 | [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
-| [0010](0010-wayfinder-cli.md) | Accepted | Wayfinder CLI for validation and persistent local search |
+| [0010](0010-wayfinder-cli.md) | Accepted; amended for 2026.3 relationships | Wayfinder CLI for validation and persistent local search |
 | [0011](0011-wayfinder-mcp.md) | Accepted | Wayfinder MCP adapter over local stdio |
-| [0012](0012-wayfinder-graph-projection.md) | Accepted | Project the ordinary OKF graph |
+| [0012](0012-wayfinder-graph-projection.md) | Accepted; amended for 2026.3 relationships | Project the ordinary OKF graph, plus typed relationship edges beside it |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
-| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3 | Direct Git sources, additive vocabulary and exact-release dispatch |
+| [0014](0014-external-profile-bindings.md) | Accepted for 2026.3; superseded in part, if accepted, by 0015 for source rule catalogs | Direct Git sources, additive vocabulary and exact-release dispatch |
+| [0015](0015-profile-rule-catalogs.md) | Proposed | Evaluate Profiles as rule catalogs over parsed bundle facts |

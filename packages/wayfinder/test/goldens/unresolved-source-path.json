@@ -1,0 +1,50 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "PASS",
+    "findings": [
+      {
+        "id": "concepta-profile/source-path-unresolved",
+        "severity": "advisory",
+        "message": "Source path ../nowhere/2026 08 19 meeting.docx does not resolve to a file or directory.",
+        "location": {
+          "path": "note.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/source-path-unresolved",
+        "severity": "advisory",
+        "message": "Source path ../nowhere/original.docx does not resolve to a file or directory.",
+        "location": {
+          "path": "note.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/source-path-unresolved",
+        "severity": "advisory",
+        "message": "Source path /missing.md does not resolve to a file or directory.",
+        "location": {
+          "path": "note.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "PASS"
+  }
+}

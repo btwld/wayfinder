@@ -1,0 +1,30 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.3",
+    "state": "PASS",
+    "findings": [],
+    "summary": [
+      {
+        "id": "concepta-profile/configured-type-extension",
+        "message": "Configured project type Runbook is available to this bundle.",
+        "location": {
+          "path": "test/fixtures/configured-extensions/wayfinder.json"
+        },
+        "profile_release": "2026.3",
+        "rule": "§5.2"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "PASS"
+  }
+}

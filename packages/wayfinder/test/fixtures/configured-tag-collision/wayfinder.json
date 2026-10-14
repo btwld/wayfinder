@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "profiles": {
+    "bitwild_profile": {
+      "source": {
+        "git": "https://example.test/wayfinder.git",
+        "ref": "v2026.3",
+        "path": "profile"
+      },
+      "applies_to": [
+        "knowledge"
+      ],
+      "actors": {
+        "process:fixture": {
+          "name": "Fixture process"
+        }
+      },
+      "tags": [
+        {
+          "name": "governance",
+          "description": "Governance topic"
+        },
+        {
+          "name": "draft",
+          "description": "Deliberately repeats a status value"
+        }
+      ]
+    }
+  }
+}

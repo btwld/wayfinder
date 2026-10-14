@@ -1,0 +1,70 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/actor-registry-columns",
+        "severity": "error",
+        "message": "The actor registry must use the six fixed columns in canonical order.",
+        "location": {
+          "path": "actors.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1.1"
+      },
+      {
+        "id": "concepta-profile/actor-registry-kind",
+        "severity": "error",
+        "message": "actors.md must have type Actor Registry.",
+        "location": {
+          "path": "actors.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§3.5, §6.1.1"
+      },
+      {
+        "id": "concepta-profile/profile-declaration-kind",
+        "severity": "error",
+        "message": "profile.md must have type Knowledge Profile.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§11"
+      },
+      {
+        "id": "concepta-profile/type-registry-columns",
+        "severity": "error",
+        "message": "The type registry must use exactly Type and Intended content columns.",
+        "location": {
+          "path": "types.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§6.1.1"
+      },
+      {
+        "id": "concepta-profile/type-registry-kind",
+        "severity": "error",
+        "message": "types.md must have type Type Registry.",
+        "location": {
+          "path": "types.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.2"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

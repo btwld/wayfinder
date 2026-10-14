@@ -9,10 +9,11 @@ unchanged under `profile/versions/okf-profile-2026.2.md`.
 
 The Bitwild OKF Profile is a set of conventions for keeping durable project
 knowledge as an [Open Knowledge Format][okf] bundle in the same repository as the
-code it describes. It is a *profile*, not a format: it defines no file type, no
-frontmatter field, and no metadata semantics of its own. Every mechanism it uses
-— bundles, concepts, frontmatter families, cross-links, indexes, logs — is
-defined by OKF and used with its OKF meaning.
+code it describes. It is a *profile*, not a format: it defines no file type and
+never changes what an OKF field means. Its one frontmatter key, `relationships`
+(§7.2), is an additional producer key of the kind OKF §4.1 permits. Every other
+mechanism it uses — bundles, concepts, frontmatter families, cross-links,
+indexes, logs — is defined by OKF and used with its OKF meaning.
 
 OKF is authoritative. Where this profile and OKF appear to differ, OKF wins, and
 the profile is in error. What the profile contributes is narrower: **which**
@@ -108,20 +109,20 @@ how* Bitwild uses it, never *what it means*.
 | §2 | Bundle, concept, concept ID, frontmatter, body, link, source, provenance | Inherited verbatim (§2) |
 | §3 | Directory tree of markdown, domain-independent structure | Constrained: fixed bundle-root files and project directories name subjects (§3) |
 | §3.1 | Reserved `index.md` / `log.md` | Inherited; usage constrained (§9, §10) |
-| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained for Bitwild producers: `type`, `title`, `description`, and `status` are required, types are declared by the selected Profile binding, tags use its declared vocabulary, and producer-defined fields are prohibited (§5.1, §5.2) |
+| §4.1 | Frontmatter, required `type`, recommended `title`/`description`/`resource`/`tags`, producer extensions | Constrained: `type`, `title`, `description`, and `status` are required, types are declared by the selected Profile binding, tags use its declared vocabulary, and the only producer key is the release-declared `relationships` (§5.1, §5.2, §7.2) |
 | §4.1 | Types are not centrally registered; consumers tolerate unknown types | Inherited: the selected type registry is a producer-side declaration and never a reason to reject (§5.2, §14.2) |
-| §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Inherited: no type-specific template; optional labelled relationships remain ordinary Markdown (§5.3, §7.2) |
+| §4.2 | Free-form body, structural markdown, conventional headings, footnote attribution | Inherited: no type-specific template, and no body content carries Profile-specific machine meaning (§5.3) |
 | §5 | Timestamp-valued keys as ISO 8601 datetimes with an explicit UTC offset | Inherited; a date-only or offset-less value MUST NOT be written (§6.5) |
 | §5.1 | `sources`, credibility signals, `usage_window`, per-claim footnotes | Inherited unchanged; mechanisms surfaced rather than summarized (§6.1) |
 | §5.2 | `generated`, `verified` | Constrained: `generated` is recommended and must never be fabricated; `verified` records only verification that occurred, and its absence is meaningful (§6.2) |
 | §5.3 | Trust tiers derived, not stored | Inherited unchanged; the binding actor lookup makes organizational identity legible without touching tiers (§6.1.1) |
 | §5.4 | `status`: `draft` / `stable` / `deprecated` | Constrained to the knowledge lifecycle of the document only; assessing the subject is body content, with no field and no derivation (§6.3, §6.3.1) |
 | §5.5 | `stale_after` as an absolute instant | Constrained: evidence-based, conditional (§6.4) |
-| §6.1 | Markdown links, bundle-relative preferred, broken links tolerated | Inherited; labelled subset added (§7); internal links repaired on a move (§8.2) |
+| §6.1 | Markdown links, bundle-relative preferred, broken links tolerated | Inherited; typed relationship targets follow the same rules (§7); internal links repaired on a move (§8.2) |
 | §6.2 | Path-valued fields | Inherited unchanged |
 | §6.3 | `references/` mirrors external material as concepts | Inherited; mirroring policy added (§12) |
 | §7 | Actor convention (`producer/version`, `human:`, `process:`) | Inherited verbatim; IDs stay opaque and optional affiliation lives in binding lookup (§6.1.1) |
-| §8 | Index files, `okf_version` at bundle root only | Constrained: required per nonempty directory, deterministic, grouped by type (§9) |
+| §8 | Index files, `okf_version` at bundle root only | Constrained: every index is the reference generator's output, required wherever it writes one (§9) |
 | §9 | Date-grouped log entries, newest first | Constrained: knowledge lifecycle events only (§10) |
 | §10 | Attested Computation and its computation keys | Inherited unchanged (§1.3) |
 | §11 | Tolerant-reader conformance | Inherited and reinforced (§14.2) |
@@ -139,10 +140,10 @@ rather than a divergence, and it is how a profile quietly becomes the competing
 standard §1.2 forbids.
 
 Silence is also not prohibition. Where OKF permits something and this document says
-nothing, it is permitted. The narrowings are the ones stated as such — custom
-frontmatter fields (§5.1), directory names (§3), `status` semantics (§6.3), index
-presence and descriptions (§9) — and each is written as an explicit MUST or MUST
-NOT. Absence of a rule is never one of them.
+nothing, it is permitted. The narrowings are the ones stated as such —
+frontmatter fields neither OKF nor the release declares (§5.1), directory names
+(§3), `status` semantics (§6.3), index presence and content (§9) — and each is
+written as an explicit MUST or MUST NOT. Absence of a rule is never one of them.
 
 ### 1.4 Prior art
 
@@ -178,6 +179,7 @@ throughout. This profile adds:
   and declared by the selected Profile binding (§5.2). Kind is never carried by a
   directory name.
 - **Type registry**: the selected Profile manifest's standard types plus the project binding's custom types (§5.2).
+- **Relationship vocabulary**: the selected Profile manifest's standard relationship names plus the project binding's additional names (§7.2).
 - **Actor lookup**: the project binding's metadata for actor IDs used in the bundle (§6.1.1).
 - **Durable knowledge**: an outcome worth preserving in the project after the
   activity that produced it has ended. The subject matter of the bundle.
@@ -227,7 +229,7 @@ not subdivide distribution. Bitwild adoption binds one such bundle to
   <concept>.md          # A concept whose subject has no area yet (§3.1).
 
   <area>/               # Area (§3.1). Mixed types, project-named.
-    index.md            # The area's generated semantic index (§9).
+    index.md            # The area's generated index (§9).
     <concept>.md        # Every other file is an ordinary concept. None is privileged.
     <sub-area>/         # Nested areas are permitted (§3.1).
       index.md
@@ -270,7 +272,7 @@ obey five rules:
    NOT create speculative structure for subjects the current corpus does not
    demonstrate. Structure grows out of knowledge rather than a predicted taxonomy;
    a numeric threshold cannot establish whether a subject is genuine.
-4. **Indexed.** A nonempty area MUST contain an `index.md` (§9).
+4. **Indexed.** An area MUST contain its generated `index.md` (§9).
 5. **Nestable.** An area MAY contain sub-areas under the same five rules. Authors
    SHOULD nest only when a subject genuinely subdivides; every path segment is
    identity (§8.1), so depth multiplies the paths an external citation can freeze
@@ -357,13 +359,15 @@ durable outcome contributes that outcome to *its* subject's area, not a record t
 the bundle as first-class concepts — and is **not** an area. It is therefore exempt
 from the subject-naming rule of §3.1: mirrored material is
 heterogeneous, is organized by source and date rather than by subject, and MAY be
-organized into subdirectories. A nonempty `references/` MUST still carry an
-`index.md`, and so MUST each of its nonempty subdirectories.
+organized into subdirectories. Its directories carry the generated indexes §9
+requires, like any other directory; one holding only non-concept assets needs
+none.
 
 A source directory MAY keep the verbatim originals it preserves in a `raw/`
-subdirectory. Within `raw/` and any of its subdirectories, the only markdown
-file permitted is each directory's own `index.md`: everything else in the tier
-is a non-concept asset (§12) and stays byte-for-byte. A readable mirror derived
+subdirectory. Within `raw/` and any of its subdirectories, no markdown file is
+permitted: everything in the tier is a non-concept asset (§12) and stays
+byte-for-byte, and its directories, holding only assets, carry no `index.md`
+(§9). A readable mirror derived
 from an original is a sibling of `raw/` in its source directory, never inside
 it. Because this rule keys on the name, `raw` is reserved within `references/`
 and MUST NOT name a source directory. The tier belongs to a source directory
@@ -403,7 +407,7 @@ under §3.3. When `computations/` exists:
    is not an area: it sorts no mixed knowledge by kind, because its membership is
    one type by construction, as `interactions/` is.
 2. It MAY nest under §3.1 rule 5, for example by the subject or runtime the
-   computations share, and every nonempty directory in it MUST contain an
+   computations share, and each of its directories MUST contain its generated
    `index.md` (§9).
 3. The concepts that use a computation stay with their own subjects and link to
    it with an ordinary link (OKF §10.4). A computation's location changes no
@@ -498,8 +502,9 @@ frontmatter, free-form body.
 
 ### 5.1 Baseline frontmatter
 
-The profile introduces **no** frontmatter fields. Every key used is defined by
-OKF, with its OKF meaning.
+Every frontmatter key a concept uses is defined by OKF, with its OKF meaning, or
+declared by the selected Profile release. OKF §4.1 lets producers include
+additional keys; this release declares exactly one, `relationships` (§7.2).
 
 A concept MUST carry nonempty `type`, `title`, `description`, and `status` fields:
 
@@ -515,7 +520,7 @@ status: draft | stable | deprecated
 Only `type` is required for OKF conformance (OKF §4.1). The other three are
 additional producer requirements of this Profile: `title` and `description` make
 identity and discovery legible without opening the body, `description` supplies
-the index projection (§9), and explicit `status` prevents OKF's absent-means-stable
+each concept's index entry (§9), and explicit `status` prevents OKF's absent-means-stable
 default from misrepresenting a draft. Authors MUST choose truthful values; Profile
 Review assesses semantic accuracy while Automated Profile Validation checks the
 fields' presence, shape, and permitted `status` value (§14.1).
@@ -527,24 +532,33 @@ provenance to satisfy the recommendation (§6.2).
 The optional OKF fields `resource`, `tags`, `sources`, `verified`, and
 `stale_after` remain available with their OKF-defined meanings. Sections §5.1 and
 §6 state the Profile's specific producer rules for using them.
-Bitwild producers MUST NOT introduce namespaced or otherwise producer-defined
-frontmatter fields. This constrains what Bitwild writes; it does not change OKF's
-tolerant-reader contract. Consumers MUST NOT reject a document for an unknown field
-and SHOULD preserve unknown keys when round-tripping, exactly as OKF requires
-(OKF §4.1, §11; §14.2).
-Establishing conventions before extending the schema keeps the profile
-interoperable by construction.
+A concept in a Profiled Bundle MAY carry the frontmatter keys the selected
+Profile release declares, and MUST NOT carry any other namespaced or
+producer-defined frontmatter key. A declared key MUST NOT be a key OKF 0.2 defines and MUST NOT
+give an OKF key another meaning; a Profile that needs an OKF field to mean
+something else pursues it upstream (§15.1). A project binding cannot declare frontmatter keys; it
+adds vocabulary only (§11). This sets the Profile conformance bar; it does not
+change OKF's tolerant-reader contract. Consumers MUST NOT reject a document for
+an unknown field and SHOULD preserve unknown keys when round-tripping, exactly as
+OKF requires (OKF §4.1, §11; §14.2).
+Declaring keys in the release, rather than letting each producer add its own,
+keeps the profile interoperable by construction: a generic OKF reader loads a
+declared key as one more unknown key, and every Profile consumer reads it with
+its one declared meaning.
 
 **`tags` carry topic, and nothing else.** A tag groups concepts by what they are
-about — a domain, capability, or theme a reader might sweep for. A tag MUST NOT
-exactly repeat the concept's `type`, `status`, derived trust tier, or a standard
-relationship label. A tag also MUST NOT serve as a semantic alias for kind,
-lifecycle, trust, or how settled the subject is. Automated Profile Validation
-checks exact duplication; Profile Review assesses semantic aliases (§14.1). Each
-of those meanings has a field or mechanism that a consumer reads, and a tag is either
+about — a domain, capability, or theme a reader might sweep for. A declared tag
+name MUST NOT equal a declared type name, an OKF `status` value (`draft`,
+`stable`, `deprecated`), an OKF trust tier (`unverified`, `machine-confirmed`,
+`human-reviewed`), or a declared relationship name (§7.2). Because every used
+tag is declared, no tag on a concept can then repeat its type, status, trust
+tier, or a relationship name. A tag also MUST NOT serve as a semantic alias for
+kind, lifecycle, trust, or how settled the subject is. Automated Profile
+Validation checks the declared names when it reads the binding (§11); Profile
+Review assesses semantic aliases (§14.1). Each of those meanings has a field or mechanism that a consumer reads, and a tag is either
 redundant on the day it is written or wrong on the day the real signal changes —
-`partially-resolved` on a question is a fact about an inbound `Partially resolves`
-edge, and nothing updates it when a second edge lands. The prohibition is the same
+`partially-resolved` on a question is a fact about an inbound `partially-resolves`
+relationship, and nothing updates it when a second one lands. The prohibition is the same
 one §5.2, §6.3, and §6.3.1 each make for their own field, stated once for the field
 that has no meaning of its own to defend it.
 
@@ -565,8 +579,8 @@ MAY add project-specific types with a nonempty name and truthful description.
 Custom names MUST be unique and MUST NOT collide with a standard name. Every
 used concept type MUST resolve in the merged registry; an unregistered use is
 a producer-side Profile failure, not grounds for a generic OKF reader to reject
-the document (§14.2). A registered custom type is conformant and produces a
-non-blocking advisory so recurring extensions can inform a later release.
+the document (§14.2). A registered custom type is conformant and is reported
+as a summary entry (§14.1) so recurring extensions can inform a later release.
 
 The standard vocabulary:
 
@@ -598,7 +612,7 @@ was written down:
 - **A `Business Rule` is not a `Decision`.** A rule describes how the business
   already works and nobody chose it; a decision records a choice with alternatives.
   A rule that turns out to be a policy someone selected is a Decision, and the rule
-  concept SHOULD link to it with `Depends on`.
+  concept SHOULD carry a `depends-on` relationship to it.
 - **An `Architecture Decision Record` is not a `Decision`.** Use `Architecture
   Decision Record` when the decision shapes the software's structure and an engineer
   deciding how to build would want to read it; use `Decision` for every other
@@ -609,7 +623,7 @@ was written down:
   document, and a genre cannot decide where something lives. What decides it is which
   system owns the artifact's state. A spec filed as a GitHub issue has a status, an
   assignee, and a tracker lifecycle: it is an execution record, it is linked with
-  `Specified by`, and §7.3 forbids mirroring it. A spec the project maintains as
+  a `specified-by` relationship, and §7.3 forbids mirroring it. A spec the project maintains as
   durable knowledge — one that outlives the work it scoped, that later concepts cite,
   and whose state is nothing but `status` — is a `Specification` concept, and it lives
   in the area of its subject like any other concept (§3.3). The same words can be
@@ -622,8 +636,8 @@ behavioral rule classes — or any other notation that suits its domain. The typ
 commits to *one standing rule per concept*, not to a particular way of writing one.
 
 `Question` carries no state in its type or its path. Whether a question is still
-open is read from inbound relationships (§7.2): a `Resolves` edge means closed, a
-`Partially resolves` edge means narrowed, neither means open. A resolved question
+open is read from inbound relationships (§7.2): a `resolves` relationship means
+closed, a `partially-resolves` relationship means narrowed, neither means open. A resolved question
 stays `stable` rather than becoming `deprecated` — how understanding arrived at an
 answer is knowledge in its own right.
 
@@ -632,8 +646,9 @@ answer is knowledge in its own right.
 Bodies remain free-form, as OKF permits. The Profile defines no type-specific body
 template and missing headings are not a conformance finding. Compact authoring
 templates belong to the Profile skill, where they can help writers without becoming
-bundle rules. Of the body, only an optional `# Relationships` section (§7.2)
-carries Profile-specific machine meaning when present.
+bundle rules. No part of the body carries Profile-specific machine meaning: typed
+relationships live in frontmatter (§7.2), and a `# Relationships` heading is
+ordinary prose.
 
 ### 5.4 Example
 
@@ -652,6 +667,9 @@ sources:
     title: Reporting demo transcript, 30 July 2026
     author: process:meeting-transcription
     last_modified: 2026-07-30T00:00:00Z
+relationships:
+  - relationship: specified-by
+    resource: https://github.com/conceptadev/example/issues/128
 ---
 
 # Request
@@ -667,10 +685,6 @@ currently re-enter annotations by hand after export.
 # Constraints
 
 Export must stay within the existing generation budget.
-
-# Relationships
-
-- Specified by: [Annotation export spec](https://github.com/conceptadev/example/issues/128)
 
 [^demo-0730]: Reporting demo transcript, 30 July 2026
 ```
@@ -802,10 +816,10 @@ credibility verdict apply here unchanged: such a judgment is subjective, unporta
 between consumers, and goes stale (OKF §5.1). An assessment separated from its
 reasoning is the thing that rots; written beside its evidence, it does not.
 
-**Nor is it derivable from links.** `Constrained by` edges toward open items are
-useful navigation — a reader following one finds what is missing — but they encode no
-assessment: the label means the target limits this concept, which a fully settled
-constraint also does, and a link MAY be knowledge not yet written (§7.1). Absence of
+**Nor is it derivable from links.** `constrained-by` relationships toward open
+items are useful navigation — a reader following one finds what is missing — but they encode no
+assessment: the name means the target limits this concept, which a fully settled
+constraint also does, and a target MAY be knowledge not yet written (§7.1, §7.2). Absence of
 such edges is silence, not evidence, and cannot distinguish a settled subject from an
 unexamined one. `verified` differs only because OKF §5.3 *defines* its absence as
 meaningful. OKF §11 points the same way: derive trust tiers and staleness "only from
@@ -846,82 +860,104 @@ timestamp, because such a value names no instant.
 Links between concepts follow OKF §6.1. Bundle-relative links (a leading `/`)
 SHOULD be preferred for internal targets, because they survive document moves
 within a subdirectory. An internal link whose target is absent MAY remain in a
-conformant bundle and MAY represent knowledge not yet written. It is a
-non-blocking advisory; Profile Review decides whether it is a useful planned edge
-or a repairable mistake in context.
+conformant bundle and MAY represent knowledge not yet written. It is reported
+as a summary entry, not a finding (§14.1); Profile Review decides whether it is
+a useful planned edge or a repairable mistake in context.
 
 Provenance and navigation stay separate mechanisms: `sources` records where
-content came from, links record how a reader traverses the knowledge.
+content came from, links record how a reader traverses the knowledge, and
+`relationships` records the links whose meaning is worth typing (§7.2).
 
-### 7.2 The Relationships section
+### 7.2 Relationships
 
-A concept MAY carry a `# Relationships` section giving selected links a stable
-semantic label. Each bullet MUST carry exactly one label and one target:
+A concept MAY carry a top-level `relationships` frontmatter key recording typed
+links from it to other resources. When present, `relationships` MUST be a list,
+and each entry MUST be a mapping with exactly two keys: `relationship`, a name in
+the selected relationship vocabulary, and `resource`, a nonempty target:
 
-```markdown
-# Relationships
-
-- Superseded by: [Token contract](/architecture/token-contract.md)
-- Depends on: [Offline mode decision](/architecture/support-offline-mode.md)
-- Implemented by: [PR #142](https://github.com/conceptadev/example/pull/142)
+```yaml
+relationships:
+  - relationship: superseded-by
+    resource: /architecture/token-contract.md
+  - relationship: depends-on
+    resource: /architecture/support-offline-mode.md
+  - relationship: implemented-by
+    resource: https://github.com/conceptadev/example/pull/142
 ```
 
-The preferred, extensible labels are:
+`resource` MUST be a link target as OKF §6.1 defines one, a bundle path or a URL,
+and an internal target SHOULD be bundle-relative, as §7.1 prefers for links.
+Unlike `sources[].resource`, it is never a scope descriptor: a relationship
+points at something a reader can follow. An internal target absent from the
+bundle MAY remain and MAY represent knowledge not yet written; like an unresolved
+link (§7.1), it is reported as a summary entry, not a finding (§14.1).
 
-| Label | Meaning, read from the containing concept outward |
-|-------|---------------------------------------------------|
-| Superseded by | This concept has been replaced by the target |
-| Depends on | This concept is only valid while the target holds |
-| Constrained by | The target limits what this concept may do |
-| Part of | This concept is a constituent of the target, which is incomplete without it |
-| Refines | This concept narrows or sharpens the target |
-| Specified by | The target is the specification of this concept |
-| Implemented by | The target is the work that delivers this concept |
-| Resolves | This concept fully answers or closes the target |
-| Partially resolves | This concept answers part of the target, which remains open |
-| Tracked by | The target is the work-tracking record that chases this concept |
-| Related to | An unlabelled association worth surfacing |
+Relationships are not provenance and MUST NOT be recorded in `sources`. OKF §5.1
+defines `sources` as what a concept's content derives from and lets a consumer
+infer credibility through it; a concept that depends on, refines, or is tracked by
+its target has not derived its content from it. `relationships` is the additional
+producer key §5.1 declares, so it neither reuses nor redefines an OKF key. A
+generic OKF consumer loads it as an unknown key, and every link in the body stays
+an ordinary OKF edge.
 
-`Part of` is written in one direction only. Backlinks are computed, never authored
-(§13), so a reciprocal "composed of" label would be redundant. Use it where a
+The installed `bitwild_profile/2026.3` manifest (§11) MUST declare the standard
+relationship names below in this order and with these meanings:
+
+| Name | Meaning, read from the containing concept outward |
+|------|---------------------------------------------------|
+| `superseded-by` | This concept has been replaced by the target |
+| `depends-on` | This concept is only valid while the target holds |
+| `constrained-by` | The target limits what this concept may do |
+| `part-of` | This concept is a constituent of the target, which is incomplete without it |
+| `refines` | This concept narrows or sharpens the target |
+| `specified-by` | The target is the specification of this concept |
+| `implemented-by` | The target is the work that delivers this concept |
+| `resolves` | This concept fully answers or closes the target |
+| `partially-resolves` | This concept answers part of the target, which remains open |
+| `tracked-by` | The target is the work-tracking record that chases this concept |
+| `related-to` | An unlabelled association worth surfacing |
+
+`part-of` is written in one direction only. Backlinks are computed, never authored
+(§13), so a reciprocal "composed of" name would be redundant. Use it where a
 concept is a constituent rather than a narrowing: two buckets that sum to a balance
-are `Part of` it, not `Refines` of it and not peers of it.
+are `part-of` it, not `refines` of it and not peers of it.
 
-`Tracked by` names the edge every project was reaching for `Related to` to express: an
+`tracked-by` names the edge every project was reaching for `related-to` to express: an
 open item lives in the bundle as knowledge, while who owes it and by when lives in the
-tracker (§6.3, §7.3), and the two need a link. It is neither `Specified by` nor
-`Implemented by` — a question is not specified or implemented by the issue chasing it —
-and it carries no state: whether the item is still open is read from inbound `Resolves`
-and `Partially resolves` edges (§5.2), never from the tracker record's status.
+tracker (§6.3, §7.3), and the two need a link. It is neither `specified-by` nor
+`implemented-by` — a question is not specified or implemented by the issue chasing it —
+and it carries no state: whether the item is still open is read from inbound `resolves`
+and `partially-resolves` relationships (§5.2), never from the tracker record's status.
 
-`Resolves` and `Partially resolves` are distinguished because most evidence narrows
-an open item without closing it. Reserve `Resolves` for genuine closure; a source
-that moves a question forward while leaving it open uses `Partially resolves`. Using
-`Resolves` loosely makes open items read as settled. Together they are how a
+`resolves` and `partially-resolves` are distinguished because most evidence narrows
+an open item without closing it. Reserve `resolves` for genuine closure; a source
+that moves a question forward while leaving it open uses `partially-resolves`. Using
+`resolves` loosely makes open items read as settled. Together they are how a
 `Question`'s openness is read (§5.2), which is why the distinction is load-bearing
 rather than stylistic.
 
-Reaching for `Related to` repeatedly signals a missing label. A project finding it on
-a large share of its edges is better served naming the relationship — with a
-project-specific label, or by proposing one for a later profile release.
+Reaching for `related-to` repeatedly signals a missing name. A project finding it on
+a large share of its relationships is better served naming the relationship — with a
+project-declared name, or by proposing one for a later profile release.
 
-Projects MAY use additional labels. A project using one SHOULD define its meaning
-once in a durable `Guide` concept so authors apply it consistently. A nonstandard
-label is only a non-blocking advisory. Profile Review assesses whether the label and
-target express the intended relationship. Consumers MUST tolerate labels they do not
-recognize. Markdown links elsewhere in the body remain valid untyped edges; labelling
-adds body context, not a link requirement or a new graph type.
+Every used relationship name MUST appear in the selected Profile manifest or
+project binding's declared relationship vocabulary (§11). The project binding MAY
+declare additional names; definitions MUST have unique names and nonempty, truthful
+descriptions, and project names MUST NOT collide with Profile names. The
+declaration is where a project defines a name's meaning once, so authors apply it
+consistently. Profile Review assesses whether the name and target express the
+intended relationship. Consumers MUST tolerate names they do not recognize (§14.2).
 
-A Profiled Bundle MUST NOT encode relationship labels or targets in
-producer-defined frontmatter. The Profile defines no relationship schema beyond
-ordinary Markdown body links.
+Markdown links in the body remain valid untyped edges. A `# Relationships`
+heading in the body has no Profile meaning in this release: it is ordinary prose,
+and the links under it are ordinary links.
 
 ### 7.3 Execution records
 
 Execution systems stay authoritative and external. GitHub issues and pull
-requests, and Linear records, are linked from concepts — with `Specified by`,
-`Implemented by`, or `Tracked by` (§7.2) — and MUST NOT be mirrored into the
-bundle. Their state is read from the tracker, never copied into frontmatter or body.
+requests, and Linear records, are linked from concepts — with `specified-by`,
+`implemented-by`, or `tracked-by` relationships (§7.2) — and MUST NOT be mirrored
+into the bundle. Their state is read from the tracker, never copied into frontmatter or body.
 
 **The test is state ownership, not document genre.** An artifact is an execution
 record when a tracker owns its lifecycle — it has a status, an assignee, a
@@ -998,13 +1034,15 @@ Example IDs:
 A concept's path MAY change for as long as every known citation to it can be repaired.
 A move is complete when three things hold, in one operation:
 
-1. Every known inbound link inside the bundle points at the new path.
+1. Every known inbound link and relationship target inside the bundle points at
+   the new path.
 2. Every affected index entry is regenerated (§9).
 3. `log.md` records the move (§10).
 
 A move that leaves a known inbound internal link unchanged is incomplete. The
-unresolved edge remains loadable and advisory under §7.1; it does not become an OKF
-or Profile conformance failure merely because it reveals unfinished move work.
+unresolved edge remains loadable and is reported as a summary entry under §7.1; it
+does not become an OKF or Profile conformance failure merely because it reveals
+unfinished move work.
 
 **`status` does not enter into it.** Movability is a property of who is pointing at
 the path, never of how reviewed the document is. A rule that froze paths at `stable`
@@ -1031,9 +1069,10 @@ normative upstream against a failure that upstream declined to treat as fatal.
 Outside the bundle there is no tolerant reader on the other end, and that asymmetry
 is real rather than stipulated.
 
-A concept carrying `Specified by`, `Tracked by`, or `Implemented by` toward an
-execution record (§7.3) SHOULD be reviewed for external citations before a move;
-the relationship alone does not prove that its path is frozen.
+A concept carrying a `specified-by`, `tracked-by`, or `implemented-by`
+relationship toward an execution record (§7.3) SHOULD be reviewed for external
+citations before a move; the relationship alone does not prove that its path is
+frozen.
 
 This is also why §3.1 grows areas rather than predicting them — but not because a
 move is expensive, since by the rule above it is cheap. An area name is a claim
@@ -1044,7 +1083,8 @@ claim. Counting concepts cannot establish it.
 
 The normal retirement path for a stable concept SHOULD be deprecation, not
 deletion: set `status: deprecated`. Where a successor exists, the deprecated
-concept MUST link it with `Superseded by`. Historical meaning stays inspectable.
+concept MUST carry a `superseded-by` relationship to it. Historical meaning stays
+inspectable.
 
 Draft concepts MAY be deleted outright. A stable concept MAY be hard-deleted only
 for an exceptional security, privacy, legal, secret-removal, or genuinely erroneous-
@@ -1056,103 +1096,38 @@ be inferred safely from final bundle state alone.
 
 ## 9. Index files
 
-Index files follow the OKF index format (OKF §8) exactly: no frontmatter, except
-that the bundle-root `index.md` MAY carry `okf_version`.
-
-A nonempty directory MUST contain an `index.md`, including every area, sub-area,
-`references/`, and nonempty subdirectory of `references/`. Indexes are what make a
-bundle navigable without reading it, so an agent reaches the root index, then a
+Index files follow the OKF index format (OKF §8). Indexes are what make a bundle
+navigable without reading it, so an agent reaches the root index, then a
 directory index, then a concept.
 
-Every index MUST be the deterministic semantic projection of its directory defined
-below. Conformance compares the parsed groups, membership, order, labels, targets,
-and descriptions; harmless Markdown presentation differences do not affect it.
-An index MUST NOT carry authored ordering, directory descriptions, or other unique
-knowledge.
+Indexes are generated. For each `index.md` that the OKF reference index
+generator writes for the bundle, the bundle MUST contain that file with exactly
+the generator's text, generated with the root index declaring
+`okf_version: "0.2"` (§11). The reference generator is `OkfIndexGenerator` in
+`okf` package release 0.5.0. Because the generator's text is the contract, an
+`okf` release whose generator writes different text changes which bytes
+conform, and adopting it requires a Profile revision recorded in §15.3; an
+`okf` release that leaves that text unchanged requires none (§15.1). The
+companion implementation guide binds how tools pin that release and detect
+drift from it. Line endings are not part of that text: an index whose lines end
+in CRLF, as a checkout may write them, matches the same text with LF. This
+profile adds no grouping, ordering, label, target, or
+description rule of its own. An index MUST NOT carry authored content: a hand edit is drift that the
+next regeneration discards, and knowledge worth keeping belongs in a concept.
 
-The projection includes immediate children only and omits the index itself:
+The generator writes an index for every area, sub-area, and `computations/`
+directory, and for each level of `references/` at or above a mirrored concept. A
+directory holding only non-concept assets, such as a `raw/` tier (§3.4), gets no
+generated index and MUST NOT carry one: the generator would still link to a
+leftover index it no longer maintains. A bundle with no concepts gets no generated root
+index; until its first concept exists, its root `index.md` MUST declare
+`okf_version: "0.2"` and list only `log.md`.
 
-1. At the root, `log.md` forms `Bundle`. It has the fixed label
-   `Knowledge Log` and no description. Configuration is not indexed as a concept.
-2. Every other concept is grouped under its exact `type`. Standard type groups
-   follow the manifest order in §5.2. Registered project-specific type groups
-   follow afterward in case-sensitive lexical order; an unregistered used type
-   also sorts there so the projection remains reproducible while that separate
-   registry defect is repaired.
-3. Immediate subdirectories form `Directories`. Each label is the final path
-   segment exactly as written, each target is the relative directory path with a
-   trailing slash, and directory entries carry no description.
-4. An immediate non-Markdown file under `references/` or one of its descendants
-   forms `Assets`. Its label is its filename exactly as written, its target is the
-   relative file path, and it carries no description. Other non-Markdown files are
-   outside this Profile projection.
-
-Empty groups MUST be omitted. Present groups MUST appear in this order: `Bundle`
-when applicable, type groups, `Directories`, then `Assets`. Within each type group,
-entries MUST sort by `title` and then target path, both case-sensitive. Directory
-and asset entries MUST sort by target path. Every target MUST be relative to the
-index containing it.
-
-A target is written as a relative URL (OKF §8): a character a plain Markdown link
-destination cannot carry literally — a space, a parenthesis, a character outside
-ASCII — MUST be percent-encoded (RFC 3986) or carried by the angle-bracket
-destination form (CommonMark). Conformance compares each target percent-decoded
-against the projected path, so every valid spelling of the same target matches
-the projection; a percent sign outside a valid escape sequence does not parse as
-a target. A spelling a relative-URL consumer reads differently from the decoded
-comparison does not parse as a target either: a raw `?` or `#` MUST be
-percent-encoded — a URL splits at them into query and fragment — and an escape
-MUST NOT decode to `/`, which a URL reads as data, never as a path separator.
-Labels are not URLs and stay verbatim — an asset's label is its
-filename exactly as written even when its target is encoded.
-
-The root index MUST carry `okf_version: "0.2"` (§11). A complete root index
-covers the root log, every root concept, and every immediate directory.
-
-```markdown
----
-okf_version: "0.2"
----
-
-# Bundle
-
-* [Knowledge Log](log.md)
-
-# Analysis
-
-* [Retention window](retention-window.md) - How long generated exports are kept before deletion.
-
-# Directories
-
-* [references](references/)
-* [reporting](reporting/)
-```
-
-An area index uses the same projection. Exact registered type names are headings:
-
-```markdown
-# Glossary Definition
-
-* [Annotation](annotation.md) - A reviewer comment anchored to a region of a rendered report.
-* [Export profile](export-profile.md) - The named settings bundle an export is rendered under.
-
-# Business Rule
-
-* [Annotations are immutable once exported](annotations-immutable-once-exported.md) - An exported annotation is never edited in place.
-
-# Question
-
-* [Annotation types in scope](annotation-types-in-scope.md) - Which annotation kinds must survive the PDF export.
-
-# Request
-
-* [Include PDF annotations in the export](include-pdf-annotations.md) - Client asks that reviewer annotations survive the PDF export.
-```
-
-The verbatim-description rule deliberately tightens OKF §8's SHOULD to a MUST.
-Together with derived membership, grouping, ordering, labels, and targets, it makes
-an index mechanically checkable and safely regenerable without a second source of
-truth.
+Requiring the generator's output tightens OKF §8, where an entry SHOULD carry
+the linked concept's description and generation is optional. Every index is
+then mechanically checkable and safely regenerable, with no second source of
+truth. Using the reference generator instead of a Profile-specific projection
+keeps one index shape across OKF tooling.
 
 ---
 
@@ -1186,7 +1161,7 @@ stale finds out where the concept went:
 * **Area created**: Grouped the request and analysis under their shared `reporting/` subject.
 * **Area created**: Established `ways-of-working/` for durable project conventions.
 * **Creation**: Recorded [PDF export feasibility](/reporting/pdf-export-feasibility.md).
-* **Creation**: Defined the project relationship label [Assessed by](/ways-of-working/relationship-labels.md).
+* **Creation**: Recorded how reviewers apply the project relationship `assessed-by` in [Assessment guidance](/ways-of-working/assessment-guidance.md).
 * **Update**: Verified [Include PDF annotations in the export](/reporting/include-pdf-annotations.md).
 
 ## 2026-07-30
@@ -1217,13 +1192,26 @@ Unknown Profile IDs or releases MUST NOT silently fall back.
 
 A Profile entry MAY name one parent through `extends`, independently of its
 `applies_to` list. A parent used only for inheritance MAY have an empty
-`applies_to` list. Inheritance is additive: an entry MAY add type and tag
-definitions and actor lookup, but names MUST be unique across the effective
-chain and MUST NOT collide with installed standards. A child MUST NOT replace,
-omit, or parameterize Profile rules, reinterpret OKF semantics, or load
-executable rules from its source. A non-base entry MUST extend a chain reaching
-`bitwild_profile`; the base MUST NOT extend another entry. Missing parents,
-cycles, and ambiguous composition MUST NOT be accepted.
+`applies_to` list. Inheritance is additive: an entry MAY add type, tag, and
+relationship definitions and actor lookup, but names MUST be unique across the
+effective chain and MUST NOT collide with installed standards. An entry MUST
+NOT declare frontmatter keys (§5.1) or reinterpret OKF semantics. A non-base
+entry MUST extend a chain reaching `bitwild_profile`; the base MUST NOT extend
+another entry. Missing parents, cycles, and ambiguous composition MUST NOT be
+accepted.
+
+A Profile's automated rules are its rule catalog, data the installed validator
+evaluates. A non-base entry's manifest MAY name a rule catalog in its source
+(`rules`, a path relative to the manifest in the same revision). The catalog
+MUST declare the manifest's identity and release, MUST report in the namespace
+that identity names (the entry key with each `_` written as `-`), and MUST NOT
+declare frontmatter keys. Its rules add findings in that namespace only: a
+child MUST NOT replace, omit, re-grade, or parameterize an ancestor's rules, so
+the findings of every ancestor are the same with or without the child. The
+base `bitwild_profile` source MUST NOT name a catalog; the installed one is
+authoritative. A catalog that names a subject, slot, builtin, or keyword the
+installed validator does not support MUST make dispatch `UNSUPPORTED`; a
+catalog is never partially applied.
 
 `applies_to` paths MUST be relative, unique, inside the project after symlink
 resolution, and not nested within one another. Several independent bundles MAY
@@ -1308,9 +1296,11 @@ Indexes (§9) are **projections**: derived mechanically from concepts, discardab
 and rebuildable at any time. An index MUST NOT become a source of truth. The
 authored root log is history and is expressly outside this category (§10).
 
-The Profile adds no graph contract. Markdown links and provenance retain their
-OKF meanings; relationship labels remain ordinary body
-Markdown. Graph consumers follow OKF directly.
+Graph views are projections as well. The Profile adds nothing to OKF's graph:
+Markdown links and provenance retain their OKF meanings, and graph consumers
+follow OKF directly. Tooling MAY project the typed relationships of §7.2 beside
+OKF's graph as additional named edges, provided every OKF edge and its meaning
+stay unchanged.
 
 Reading a kind as a set — every ADR, the whole glossary, all open questions — is a
 projection filtered by `type`, not a directory. That is what allows directories to
@@ -1340,6 +1330,13 @@ Deterministic Rule result separately and leaves Judgment Rules explicitly
 unassessed. Its orchestration and result-state contract belongs exclusively to
 the companion guide.
 
+The installed rule catalog (§11) is the machine-readable form of the rules
+Automated Profile Validation applies for this release. Each catalog rule cites
+the clause it assesses and describes what that clause requires or permits, and
+it MUST agree with that clause. The catalog adds no requirement of its own: where a
+rule and the clause it cites differ, this document governs and the catalog is
+in error.
+
 **Profile Review** assesses Judgment Rules contextually and reports its result
 separately from Automated Profile Validation. **Complete Profile Assessment**
 combines both bodies of evidence; neither one alone claims complete Profile
@@ -1350,19 +1347,18 @@ remains mandatory, and an automated advisory remains non-blocking. Neither
 assessment mode changes or reinterprets OKF conformance.
 
 Deterministic structural failures include a missing required root file, an
-invalid project binding, duplicate registry entries, a missing or semantically
-stale index, a malformed or out-of-order root log, a root index carrying no
+invalid project binding, duplicate registry entries, a missing or stale
+generated index, a malformed or out-of-order root log, a root index carrying no
 `okf_version`, and an unavailable Profile release or OKF-version disagreement.
 Deterministic concept failures include a missing or empty `type`, `title`,
-`description`, or `status`; a non-OKF `status` value; a producer-defined
-frontmatter field; an unregistered used type or actor; invalid actor lookup
-metadata; duplicate or undeclared tags; and malformed source entries or
-attribution joins. Literal tag duplication with machine-readable type, status,
-or trust values is also deterministic.
-
-Deterministic external-boundary failures include a malformed Relationships entry
-that does not contain exactly one label and one target. Contextual meaning is not
-inferred merely because this shape is mechanically visible.
+`description`, or `status`; a non-OKF `status` value; a frontmatter field neither
+OKF nor the release declares; an unregistered used type or actor; invalid actor
+lookup metadata; duplicate or undeclared tags; malformed source entries or
+attribution joins; and a malformed `relationships` value or entry, including an
+undeclared relationship name. A declared tag name that equals a declared type
+name, an OKF status value or trust tier, or a declared relationship name is an
+invalid project binding (§5.1). Contextual meaning is not inferred merely because a relationship's
+shape is mechanically visible.
 
 Contextual Profile Review assesses whether a project directory names a
 genuine shared subject, whether placement follows that subject, whether structure
@@ -1372,7 +1368,7 @@ lifecycle events. It also assesses the durable-capture and concept-boundary rule
 whether a standard or project-specific type and its registered meaning fit the
 content; whether metadata, actor identity, sources, status, freshness,
 and tags are truthful in context. For external boundaries it assesses relationship
-meaning, project-label definitions, execution and specification lifecycle ownership,
+meaning, project relationship-name definitions, execution and specification lifecycle ownership,
 the identity meaning of dates and preserved external IDs, repairability of known
 external citations during moves, stable-concept deletion exceptions, and whether a
 mirror is cited, genuinely at availability risk, safe at repository visibility, and
@@ -1385,11 +1381,11 @@ Profile-specific syntax that a validator could distinguish from the authored slu
 Neither assessment mode checks type-specific
 body templates; §5.3 defines none. A small genuine area is not a finding.
 
-Other advisories include missing `generated` provenance; a registered
-project-specific type; a concept sitting beside an area of the same name rather
-than inside it; a nonstandard relationship label; and an unresolved internal link.
-These advisories MUST NOT affect Profile conformance, the automated gate, or exit
-status. A relationship to an execution record may prompt contextual move review but
+Other advisories include missing `generated` provenance; a concept sitting
+beside an area of the same name rather than inside it; and an internal link or
+relationship target that is not bundle-relative. Each asks an author to act or
+to review. These advisories MUST NOT affect Profile conformance, the automated
+gate, or exit status. A relationship to an execution record may prompt contextual move review but
 is not itself a finding (§8.2).
 
 **A concept without a `verified` event is not a finding.** Absence of verification is
@@ -1401,18 +1397,26 @@ Tooling MAY *summarize* trust tiers and organizational provenance across a bundl
 since knowing how much of a bundle is unverified or internally asserted is useful. A
 summary is not a finding and MUST NOT affect exit status.
 
+Automated Profile Validation reports what this Profile permits as **summary
+entries**, not advisories: a registered project-specific type (§5.2), and an
+unresolved internal link or relationship target, which stays a loadable edge
+(§7.1, §7.2, §14.2). Tooling MUST report summary entries separately from
+findings, and they MUST NOT affect Profile conformance, the automated gate, or
+exit status.
+
 ### 14.2 Tolerant reading
 
 Consumers MUST preserve OKF's tolerant-reader behaviour (OKF §11). Unknown
-concept types, unknown frontmatter keys, unknown relationship labels, unregistered
+concept types, unknown frontmatter keys, unknown relationship names, unregistered
 actors, missing optional content, and broken links MUST remain loadable. Unknown
 frontmatter SHOULD remain available to downstream consumers rather than being
 dropped on round-trip, preserving OKF §4.1's exact force.
 
-The type, tag, and actor registries are producer-side declarations in the
-binding. They make drift visible to Profile tooling; they MUST NOT license a
-generic OKF consumer to reject a concept. A consumer encountering an unlisted
-type, tag, or actor behaves exactly as OKF §11 requires.
+The type, tag, relationship, and actor vocabularies are producer-side
+declarations in the binding. They make drift visible to Profile tooling; they
+MUST NOT license a generic OKF consumer to reject a concept. A consumer
+encountering an unlisted type, tag, relationship name, or actor behaves exactly
+as OKF §11 requires.
 
 External resource availability MUST NOT be a conformance gate: a link that
 404s today is a link, not a malformed document.
@@ -1457,6 +1461,13 @@ claim compatibility with an OKF version it has not been reviewed against.
 Because the binding is exact, references to the upstream specification SHOULD be
 pinned to the commit or tag carrying that version rather than to a moving branch.
 
+The binding names a specification version, not a toolchain, with one
+exception: §9 makes the text written by the reference index generator in `okf`
+package release 0.5.0 part of this release's contract. An `okf` release that
+changes no specification text and leaves that generator's output unchanged
+needs no Profile release. One whose generator output differs needs a Profile
+revision before Profile tooling adopts it, even though OKF 0.2 is unchanged.
+
 The profile and OKF are separately versioned documents, and §15.2 gives the profile a
 version format OKF does not use so the two can never be mistaken for one another.
 Prose MUST still name which document a version refers to. The machine-readable
@@ -1492,8 +1503,8 @@ OKF's normative requirements always take precedence over any profile release
 
 **2026.3.** Moves Profile selection and project vocabulary out of bundle
 concepts into direct Git-sourced project-root `wayfinder.json` entries. Entries
-may add vocabulary through explicit parent chains, but never executable rules.
-The installed `bitwild_profile` validator remains closed. Affected sections:
+may add vocabulary through explicit parent chains. The installed
+`bitwild_profile` validator remains closed. Affected sections:
 §§1.3, 2, 3.5, 5.1–5.2, 6.1.1, 9, 11, 14, 15.3 and Appendix A. Driver: real
 adoption and validation work found repeated standard `types.md` tables,
 mandatory actor tables for routine agent provenance, and `profile.md`
@@ -1514,6 +1525,86 @@ affiliation history from the old table must be preserved as ordinary knowledge
 before the table is removed; a single JSON lookup cannot express dated rows.
 This is an opt-in
 migration, not a silent reinterpretation of old bundles.
+
+Revised in place before publication: every index is the output of the OKF
+reference index generator (§9) instead of a Profile-defined projection. The
+`Bundle`, `Directories`, and `Assets` groups, the Profile type order, and the
+label, target-encoding, and per-nonempty-directory rules are withdrawn, and a
+directory holding only non-concept assets, such as a `raw/` tier, needs no
+index. §9 names the generator's `okf` release, 0.5.0, and §15.1 states that a
+release changing the generator's output needs a Profile revision. Affected
+sections: §§1.3, 3, 3.1, 3.4, 3.6, 5.1, 9, 14.1, 15.1, and Appendix A.
+Driver: the custom projection diverged from the index shape OKF's own tooling
+generates, so bundles needed a Profile-specific generator to stay conformant;
+a second knowledge base on the same okf release already checks its indexes with
+`okf index --check`,
+and teammates on the native `wayfinder` binary need the generator without a
+Dart toolchain. Migration impact: an index written to the earlier 2026.3
+projection no longer conforms. `wayfinder validate --fix` regenerates every
+index the generator writes but never deletes a file, so delete each `index.md`
+it then reports as one the generator does not write, such as one left in a
+`raw/` tier or another asset-only directory. 2026.2 bundles and the 2026.2
+projection are unaffected.
+
+Revised in place before publication: typed relationships move from the
+`# Relationships` body section to the top-level frontmatter key `relationships`,
+a list of `relationship` and `resource` mappings, which this release declares as
+its one additional producer key under OKF §4.1. A declared key never reuses or
+redefines an OKF key, and relationships stay out of `sources`, whose OKF §5.1
+meaning is derivation. Relationship names become declared vocabulary like tags:
+the manifest declares the eleven standard names in kebab-case, a project binding
+MAY declare more, and an undeclared name is an error rather than an advisory.
+Affected sections: the preamble, §§1.3, 2, 5.1–5.4, 6.3.1, 7.1–7.3, 8.2, 8.3,
+10, 11, 13, 14.1, 14.2, and Appendix A. Driver: a labelled body link reached OKF's graph,
+and Wayfinder graph and search, only as an untyped link, and checking the body
+grammar needed a Profile-specific Markdown parser; a second knowledge base on
+the same okf release records its typed edges in frontmatter, where its gate checks
+names and targets with a schema. Migration impact: a bundle written to the earlier 2026.3 text
+that carries a `# Relationships` section still conforms, but the section is
+ordinary prose and its labels no longer type anything. To keep them, move each
+bullet into `relationships`, with its label in kebab-case as `relationship` and
+its link target as `resource`, delete the emptied section, and declare each
+nonstandard label in the binding's `relationships` list. 2026.2 bundles keep the
+body section under 2026.2.
+
+Revised in place before publication: a non-base entry's source may ship a rule
+catalog, the data form every Profile's automated rules now take, and its rules
+add findings in the entry's own namespace. The earlier text forbade loading
+executable rules from a source; a catalog is data the installed validator
+evaluates, so that line holds and the prohibition narrows to replacing,
+omitting, re-grading, or parameterizing an ancestor's rules, declaring
+frontmatter keys, and shipping a catalog for the base. §14.1 makes the
+installed catalog the machine-readable form of the automated rules, which must
+agree with the clauses they cite. Affected sections: §§11 and 14.1.
+Driver: a second knowledge base on the same okf release keeps its own rules
+beside its vocabulary, and a child Profile with vocabulary but no rules could
+not express a stricter policy, such as a closed type subset, without a
+validator release. Migration impact: none for bundles; a conformant 2026.3
+bundle stays conformant, since no existing source names a catalog and an
+ancestor's findings are unchanged by a child's. A child catalog the installed
+validator cannot evaluate makes dispatch `UNSUPPORTED` rather than silently
+dropping rules; upgrade the validator or correct the catalog. 2026.2 bundles
+are unaffected.
+
+Revised in place before publication: what the Profile permits is reported as a
+summary entry, not an advisory. A registered project-specific type and an
+unresolved internal link or relationship target are conformant, so tooling
+reports them apart from findings, and only advisories that ask an author to act
+or review remain. A declared tag name MUST NOT equal a declared type name, an
+OKF status value or trust tier, or a declared relationship name; this replaces
+the per-concept check of a tag against that concept's own type, status, trust
+tier, and relationship names. Affected sections: §§5.1, 5.2, 7.1, 7.2, 8.2,
+and 14.1. Driver: SARIF output for code scanning raised every advisory as a
+warning, including each project type in use and each planned link, which no
+author action clears; and once every used tag is declared, a tag that repeats
+another vocabulary is a property of the declaration, which the per-concept
+check reported once per concept that used it and not at all while unused.
+Migration impact: no concept changes, and no bundle's result changes except
+through its tags. A binding that declares a tag equal to any declared type
+name, status value, trust tier, or relationship name now fails at
+configuration, before any concept is assessed, even when no concept uses the
+tag or the tag equals a type other than the type of the concept that carries
+it; rename or remove that tag. 2026.2 bundles are unaffected.
 
 **2026.2.** Adopts the upstream OKF 0.2 revision that makes every timestamp an
 ISO 8601 datetime with an explicit UTC offset, and moves the pinned
@@ -1584,9 +1675,10 @@ project/
 ```
 
 `reporting/` is an illustrative project subject, not a prescribed directory.
-The root index includes `log.md` and the `reporting/` directory, not
-`wayfinder.json`. `Request` and `Analysis` come from the installed standard
-vocabulary; only project tags, actors, or custom types appear in the entry.
-A separate `research/` bundle may appear in the same entry's `applies_to` list
-or another entry with different vocabulary. It does not inherit a
-Profile from `knowledge/`, and `knowledge/reporting/` cannot select one.
+The root index is the generator's output: it lists the `reporting/` directory
+but not `log.md` or `wayfinder.json`. `Request` and `Analysis` come from the
+installed standard vocabulary; only project tags, relationship names, actors,
+or custom types appear in the entry. A separate `research/` bundle may appear in the same entry's
+`applies_to` list or another entry with different vocabulary. It does not
+inherit a Profile from `knowledge/`, and `knowledge/reporting/` cannot select
+one.

@@ -1,0 +1,70 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/root-structure-files",
+        "severity": "error",
+        "message": "The bundle root must contain index.md, log.md, profile.md, and types.md; missing log.md, types.md.",
+        "location": {
+          "path": "log.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§3.5"
+      },
+      {
+        "id": "concepta-profile/concept-baseline-fields",
+        "severity": "error",
+        "message": "Every concept must contain non-empty string values for type, title, description, and status.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/okf-release-binding",
+        "severity": "error",
+        "message": "The declaration, root index, and Profile release must all bind to OKF 0.2.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§11"
+      },
+      {
+        "id": "concepta-profile/type-registry-present",
+        "severity": "error",
+        "message": "The bundle must contain types.md.",
+        "location": {
+          "path": "types.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.2"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

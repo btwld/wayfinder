@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
+import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
 
 import '../../wayfinder_embeddings.dart';
 import '../util/similarity.dart';
@@ -138,11 +139,16 @@ class KnowledgeContextHit {
     this.reason, {
     this.viaPath,
     this.edge,
+    this.fieldEdge,
   });
   final SearchResult result;
   final String reason;
   final String? viaPath;
+
+  /// The okf graph edge a `relationship` hit was reached through, or
+  /// [fieldEdge] when a frontmatter link field declared it.
   final OkfGraphEdge? edge;
+  final OkfFieldEdge? fieldEdge;
 }
 
 class KnowledgeSearchResponse {
@@ -504,7 +510,13 @@ class KnowledgeIndex {
     final context = <KnowledgeContextHit>[];
     final seen = <String>{};
     final notices = <String>[];
-    void add(String path, String reason, {String? via, OkfGraphEdge? edge}) {
+    void add(
+      String path,
+      String reason, {
+      String? via,
+      OkfGraphEdge? edge,
+      OkfFieldEdge? fieldEdge,
+    }) {
       if (context.length >= budget || seen.contains(path)) return;
       final governor = effective.governingSources[path];
       if (governor != null) {
@@ -524,23 +536,59 @@ class KnowledgeIndex {
           reason,
           viaPath: via,
           edge: edge,
+          fieldEdge: fieldEdge,
         ),
       );
     }
 
+    void follow(
+      String source, {
+      required OkfConceptId? targetConcept,
+      required OkfGraphResolution resolution,
+      required String rawTarget,
+      OkfGraphEdge? edge,
+      OkfFieldEdge? fieldEdge,
+    }) {
+      final target = targetConcept?.documentPath;
+      if (target != null && byPath.containsKey(target)) {
+        add(
+          target,
+          'relationship',
+          via: source,
+          edge: edge,
+          fieldEdge: fieldEdge,
+        );
+      } else if (resolution == OkfGraphResolution.unresolved ||
+          resolution == OkfGraphResolution.invalid) {
+        notices.add('Unresolved relationship: $rawTarget');
+      }
+    }
+
     for (final match in matches) {
-      add(match.chunk.sourcePath, 'match');
+      final source = match.chunk.sourcePath;
+      add(source, 'match');
       if (!effective.expandRelationships) continue;
-      for (final edge in snapshot.graph.edges.where(
-        (edge) => edge.source.documentPath == match.chunk.sourcePath,
+      for (final edge in snapshot.fieldEdges.where(
+        (edge) => edge.source.documentPath == source,
       )) {
-        final target = edge.targetConcept?.documentPath;
-        if (target != null && byPath.containsKey(target)) {
-          add(target, 'relationship', via: match.chunk.sourcePath, edge: edge);
-        } else if (edge.resolution == OkfGraphResolution.unresolved ||
-            edge.resolution == OkfGraphResolution.invalid) {
-          notices.add('Unresolved relationship: ${edge.rawTarget}');
-        }
+        follow(
+          source,
+          targetConcept: edge.targetConcept,
+          resolution: edge.resolution,
+          rawTarget: edge.rawTarget,
+          fieldEdge: edge,
+        );
+      }
+      for (final edge in snapshot.graph.edges.where(
+        (edge) => edge.source.documentPath == source,
+      )) {
+        follow(
+          source,
+          targetConcept: edge.targetConcept,
+          resolution: edge.resolution,
+          rawTarget: edge.rawTarget,
+          edge: edge,
+        );
       }
     }
     return KnowledgeSearchResponse(

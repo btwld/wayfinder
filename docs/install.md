@@ -161,7 +161,8 @@ If the older marketplace is named `okf-profile`, use
 that only `wayfinder@wayfinder` is enabled and `/mcp` lists one Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
 plugin together; they do not require removing the marketplace again.
 
-`wayfinder graph` projects the ordinary OKF relationship graph. Mermaid and
+`wayfinder graph` projects the ordinary OKF relationship graph, plus typed
+`relationships` edges beside it. Mermaid and
 DOT output are text for an external preview; Wayfinder does not render a
 picture. Upstream `okf` remains a separate optional tool for write and
 concept-authoring operations. Its Windows binary availability is tracked

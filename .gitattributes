@@ -3,3 +3,18 @@ packages/wayfinder_embeddings/fixtures/** text eol=lf
 
 # Compressed benchmark artifacts must not undergo line-ending conversion.
 packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
+
+# The golden test compares bytes; a CRLF checkout would fail every golden.
+packages/wayfinder/test/goldens/** text eol=lf
+
+# index-current compares exact bytes and embedded catalogs are read verbatim,
+# so a CRLF checkout would flag every fixture index and change the catalogs.
+packages/wayfinder/test/fixtures/** text eol=lf
+examples/** text eol=lf
+profile/** text eol=lf
+docs/schemas/** text eol=lf
+packages/wayfinder/lib/src/generated/** text eol=lf
+
+# The CLI tests copy and edit these files as LF text, as the other fixture
+# directories above are pinned.
+packages/wayfinder_cli/test/fixtures/** text eol=lf

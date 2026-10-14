@@ -55,5 +55,51 @@
       "description": "An OKF-defined sanctioned computation with a checkable execution receipt"
     }
   ],
-  "tags": []
+  "tags": [],
+  "relationships": [
+    {
+      "name": "superseded-by",
+      "description": "This concept has been replaced by the target"
+    },
+    {
+      "name": "depends-on",
+      "description": "This concept is only valid while the target holds"
+    },
+    {
+      "name": "constrained-by",
+      "description": "The target limits what this concept may do"
+    },
+    {
+      "name": "part-of",
+      "description": "This concept is a constituent of the target, which is incomplete without it"
+    },
+    {
+      "name": "refines",
+      "description": "This concept narrows or sharpens the target"
+    },
+    {
+      "name": "specified-by",
+      "description": "The target is the specification of this concept"
+    },
+    {
+      "name": "implemented-by",
+      "description": "The target is the work that delivers this concept"
+    },
+    {
+      "name": "resolves",
+      "description": "This concept fully answers or closes the target"
+    },
+    {
+      "name": "partially-resolves",
+      "description": "This concept answers part of the target, which remains open"
+    },
+    {
+      "name": "tracked-by",
+      "description": "The target is the work-tracking record that chases this concept"
+    },
+    {
+      "name": "related-to",
+      "description": "An unlabelled association worth surfacing"
+    }
+  ]
 }

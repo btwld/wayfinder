@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_cli/src/search_output.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:test/test.dart';
 
@@ -91,6 +92,46 @@ void main() {
           expect(
             await File(p.join(bundle.path, 'recovery.md')).readAsString(),
             original,
+          );
+        },
+      );
+
+      test(
+        'search follows typed relationships from a reopened index',
+        () async {
+          final recovery = File(p.join(bundle.path, 'recovery.md'));
+          await recovery.writeAsString(
+            (await recovery.readAsString())
+                .replaceFirst(
+                  'status: stable\n',
+                  'status: stable\n'
+                      'relationships:\n'
+                      '  - {relationship: related-to, resource: /weather.md}\n',
+                )
+                .replaceFirst(
+                  'See [weather](weather.md) for an unrelated example.\n',
+                  '',
+                ),
+          );
+          await knowledge.index(bundle.path);
+          final result = await knowledge.search(
+            bundle.path,
+            'password recovery',
+          );
+          final related = result.context.singleWhere(
+            (hit) => hit.reason == 'relationship',
+          );
+          expect(related.result.chunk.sourcePath, 'weather.md');
+          expect(related.edge, isNull);
+          expect(related.fieldEdge!.name, 'related-to');
+          expect(
+            searchOutput(result)['context'],
+            contains(
+              allOf(
+                containsPair('reason', 'relationship'),
+                containsPair('relationship', 'related-to'),
+              ),
+            ),
           );
         },
       );

@@ -45,7 +45,7 @@ breaking Dart API-placement cleanup in `wayfinder_embeddings`.
 | --- | --- | --- |
 | `wayfinder_cli`, native runtime and plugin | 0.1.2 | `wayfinder-v0.1.2` |
 | `wayfinder_embeddings` | 0.2.0 | `wayfinder_embeddings-v0.2.0` |
-| `wayfinder` core | Remains at published 0.1.0 | No new tag |
+| `wayfinder` core | 0.2.0 | `wayfinder-core-v0.2.0` |
 
 A CLI and plugin patch is required for the Profile teaching, while the
 embeddings package has a breaking API-placement release. Claude Code refreshes the plugin only when its version changes, and
@@ -55,13 +55,14 @@ pubspec, `wayfinderVersion`, and `.claude-plugin/plugin.json` to stay aligned.
 
 The version lock is applied on the CLI pubspec, `wayfinderVersion`,
 `.claude-plugin/plugin.json`, and the CLI changelog. The CLI now depends on
-`wayfinder_embeddings` `^0.2.0`; core remains unchanged.
+`wayfinder_embeddings` `^0.2.0`.
 
-The `bitwild_profile/2026.3` configuration work on `feat/config-json` is
-unpublished. Its core validator change requires a new `wayfinder` core package
-release before a CLI/native release carrying the configured validator and
-matching skills. Do not describe the prepared 0.1.2 release above as including
-Profile 2026.3 unless that release plan and its package pins are explicitly
+The Profile 2026.3 configuration and rule-catalog engine raise core to 0.2.0,
+and the CLI and `wayfinder_embeddings` depend on `wayfinder` `^0.2.0`, so
+publish core first. `tool/ci/verify-workspace-floors.py` keeps each sibling
+floor at the sibling's own version and fails while a depended-on package has
+unreleased changes on a version pub.dev already has. Do not describe the
+prepared CLI release as including Profile 2026.3 until its release plan is
 updated.
 
 The embeddings release also makes a breaking API-placement cleanup. Callers

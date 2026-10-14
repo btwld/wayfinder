@@ -1,0 +1,97 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": [
+        {
+          "id": "okf/invalid-generated",
+          "severity": "advisory",
+          "message": "generated should contain a non-empty by actor and an optional ISO 8601 at timestamp.",
+          "location": {
+            "path": "bad.md"
+          }
+        },
+        {
+          "id": "okf/invalid-status",
+          "severity": "advisory",
+          "message": "status should be draft, stable, or deprecated.",
+          "location": {
+            "path": "bad.md"
+          }
+        }
+      ]
+    }
+  },
+  "profile": {
+    "release": "2026.2",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/concept-baseline-fields",
+        "severity": "error",
+        "message": "Every concept must contain non-empty string values for type, title, description, and status.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/frontmatter-fields-okf",
+        "severity": "error",
+        "message": "Concepta producers may use only OKF 0.2 frontmatter fields; found confidence.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/status-value",
+        "severity": "error",
+        "message": "Status must be draft, stable, or deprecated.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/tag-literal-duplication",
+        "severity": "error",
+        "message": "Tags must not duplicate type, status, trust, or standard relationship values; found Guide, complete, Depends on.",
+        "location": {
+          "path": "bad.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
+        "location": {
+          "path": "profile.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      },
+      {
+        "id": "concepta-profile/generation-provenance-recommended",
+        "severity": "advisory",
+        "message": "Generation provenance is recommended when it is known.",
+        "location": {
+          "path": "types.md"
+        },
+        "profile_release": "2026.2",
+        "rule": "§5.1"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

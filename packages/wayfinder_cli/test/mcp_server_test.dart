@@ -285,7 +285,10 @@ void main() {
           const CallToolRequest(name: 'graph'),
         );
         expect(result.isError, isNot(true));
-        expect(_payload(result), expected.toJson());
+        expect(_payload(result), {
+          ...expected.toJson(),
+          'field_edges': <Object?>[],
+        });
         final filtered = await client.callTool(
           const CallToolRequest(
             name: 'graph',
@@ -294,13 +297,13 @@ void main() {
             },
           ),
         );
-        expect(
-          _payload(filtered),
-          OkfGraph.fromBundle(
+        expect(_payload(filtered), {
+          ...OkfGraph.fromBundle(
             loaded.bundle,
             query: OkfGraphQuery(conceptTypes: ['reference']),
           ).toJson(),
-        );
+          'field_edges': <Object?>[],
+        });
         expect(knowledge.calls, isEmpty);
       });
 

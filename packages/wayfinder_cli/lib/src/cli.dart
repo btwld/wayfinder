@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/wayfinder.dart' show toSarif;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'agent_setup.dart';
@@ -171,12 +172,27 @@ class WayfinderCli {
     for (final name in ['validate', 'index', 'search']) {
       final command = ArgParser()
         ..addFlag('help', abbr: 'h', negatable: false)
-        ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text');
-      if (name == 'validate') {
-        command.addOption(
-          'config',
-          help: 'Project wayfinder.json path (defaults beside the bundle).',
+        ..addOption(
+          'output',
+          allowed: ['text', 'json', if (name == 'validate') 'sarif'],
+          defaultsTo: 'text',
+          help: name == 'validate'
+              ? 'Output format; sarif is a SARIF 2.1.0 log for code scanning.'
+              : null,
         );
+      if (name == 'validate') {
+        command
+          ..addOption(
+            'config',
+            help: 'Project wayfinder.json path (defaults beside the bundle).',
+          )
+          ..addFlag(
+            'fix',
+            negatable: false,
+            help:
+                'Write the indexes the selected Profile generates (2026.3), '
+                'then validate. Never writes when OKF fails.',
+          );
       }
       if (name == 'index') {
         command
@@ -559,17 +575,28 @@ class WayfinderCli {
         _out(result.render(command.option('output')!));
         return 0;
       }
-      final json = command.option('output') == 'json';
+      final output = command.option('output');
+      final json = output == 'json';
       if (name == 'validate') {
         final result = await validateWithProfileSources(
           bundle,
           configPath: command.option('config'),
           resolver: _profileResolver(),
+          fix: command.flag('fix'),
         );
-        if (json) {
-          _json(result.toJson());
-        } else {
-          result.toTextLines().forEach(_out);
+        switch (output) {
+          case 'json':
+            _json(result.toJson());
+          case 'sarif':
+            _json(
+              toSarif(
+                result,
+                bundlePath: bundle,
+                toolVersion: wayfinderVersion,
+              ),
+            );
+          default:
+            result.toTextLines().forEach(_out);
         }
         return result.exitCode;
       }

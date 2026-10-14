@@ -22,3 +22,6 @@ HANDOFF.md
 
 # Local review notes, installation backups, and verification caches.
 .context/
+
+# Python bytecode from tool/ci scripts.
+__pycache__/

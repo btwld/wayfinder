@@ -1,0 +1,130 @@
+{
+  "okf": {
+    "state": "PASS",
+    "report": {
+      "findings": []
+    }
+  },
+  "profile": {
+    "release": "2026.3",
+    "state": "FAIL",
+    "findings": [
+      {
+        "id": "concepta-profile/used-relationship-declared",
+        "severity": "error",
+        "message": "Relationship names must be declared by the selected Profile binding; found {\"relationship\":\"inspired-by\",\"resource\":\"/sample.md\"}.",
+        "location": {
+          "path": "custom-relationship.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/relationship-shape",
+        "severity": "error",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"tracked-by\",\"resource\":\"QA follow-up packet, 23 June 2026, retained outside this bundle\"}.",
+        "location": {
+          "path": "descriptor-relationship.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/source-attribution-join",
+        "severity": "error",
+        "message": "A recognized source-attribution reference must join to its footnote definition.",
+        "location": {
+          "path": "footnote-missing.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/relationship-shape",
+        "severity": "error",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"depends-on\",\"resource\":\"../outside.md\"}, {\"relationship\":\"depends-on\",\"resource\":\"/bad%zzescape.md\"}.",
+        "location": {
+          "path": "invalid-relationship.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/relationship-shape",
+        "severity": "error",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found {\"relationship\":\"part-of\"}.",
+        "location": {
+          "path": "malformed-relationships.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/source-path-unresolved",
+        "severity": "advisory",
+        "message": "Source path /references/missing.pdf does not resolve to a file or directory.",
+        "location": {
+          "path": "missing-source-path.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§6.1"
+      },
+      {
+        "id": "concepta-profile/relationship-shape",
+        "severity": "error",
+        "message": "Each relationships entry must be a mapping with exactly a relationship name and a resource that is a link target; found null.",
+        "location": {
+          "path": "null-relationships.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      },
+      {
+        "id": "concepta-profile/internal-link-bundle-relative",
+        "severity": "advisory",
+        "message": "Internal links should use bundle-relative targets.",
+        "location": {
+          "path": "relative-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.1"
+      },
+      {
+        "id": "concepta-profile/relationship-bundle-relative",
+        "severity": "advisory",
+        "message": "Internal relationship targets should be bundle-relative.",
+        "location": {
+          "path": "relative-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2"
+      }
+    ],
+    "summary": [
+      {
+        "id": "concepta-profile/internal-link-unresolved",
+        "message": "A link targets an internal resource not yet in the bundle; it remains an OKF graph edge.",
+        "location": {
+          "path": "unresolved-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.1, §14.1–§14.2"
+      },
+      {
+        "id": "concepta-profile/relationship-unresolved",
+        "message": "A relationship targets an internal resource not yet in the bundle; it remains a relationship edge.",
+        "location": {
+          "path": "unresolved-link.md"
+        },
+        "profile_release": "2026.3",
+        "rule": "§7.2, §14.1–§14.2"
+      }
+    ]
+  },
+  "judgment_rules": {
+    "state": "UNASSESSED"
+  },
+  "automated_gate": {
+    "state": "FAIL"
+  }
+}

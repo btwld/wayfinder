@@ -1,7 +1,14 @@
 # Wayfinder
 
-Find, connect, and use your project's knowledge. Wayfinder provides local OKF
-validation, persistent semantic search, and an MCP server for coding agents.
+Wayfinder checks, connects, and serves your project's knowledge. It validates an
+OKF bundle, then lints it against a Profile: a versioned set of rules, written as
+data, that layers your team's conventions on top of OKF while keeping every
+bundle readable by any OKF tool. The Bitwild Profile ships built in; a child
+Profile can add its own vocabulary and rules. Results come out as text, JSON, or
+SARIF, and `--fix` regenerates the indexes the Profile generates.
+
+The same bundle feeds local semantic search, a link graph, and an MCP server for
+coding agents.
 
 Source code, plugin files, documentation and binary releases live together in
 this public repository. Install the complete native runtime to use Wayfinder
@@ -43,8 +50,9 @@ model and native libraries, so retrieval needs no external embedding service.
 `wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
 coding agents. The Claude Code plugin configures this server and supplies the
 author, adopt and assess skills. `wayfinder validate` provides Profile
-validation; `wayfinder graph` projects the ordinary OKF relationship graph
-(JSON, or Mermaid/DOT text for an external preview). `wayfinder_embeddings` is
+validation; `wayfinder graph` projects the ordinary OKF relationship graph,
+plus typed `relationships` edges beside it (JSON, or Mermaid/DOT text for an
+external preview). `wayfinder_embeddings` is
 the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
 tools remain separate capabilities.
 
@@ -89,8 +97,8 @@ the `wayfinder validate` gate, and let each project repository carry only its ow
 The `wayfinder` package is now the core validation library (formerly
 `okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
 The embeddings library remains `wayfinder_embeddings`. Core 0.1.0 and the
-CLI and embeddings 0.1.1 are published. The next prepared releases are CLI 0.1.2
-and embeddings 0.2.0; see [release status and upgrade notes](docs/releasing.md#prepared-releases-embeddings-020-and-cli-012).
+CLI and embeddings 0.1.1 are published. The next prepared releases are core
+0.2.0, CLI 0.1.2 and embeddings 0.2.0; see [release status and upgrade notes](docs/releasing.md#prepared-releases-embeddings-020-and-cli-012).
 See [migration instructions](docs/install.md#migrate-the-dart-application-package).
 
 ## What is in here
@@ -193,6 +201,10 @@ profile will confidently create `decisions/`.
 wayfinder validate knowledge
 # Machine-readable output:
 wayfinder validate knowledge --output json
+# Profile 2026.3: write okf's generated indexes first, then validate:
+wayfinder validate knowledge --fix
+# SARIF 2.1.0 for code scanning:
+wayfinder validate knowledge --output sarif > wayfinder.sarif
 ```
 
 The command requires exactly one explicit bundle directory and inspects only that
@@ -298,11 +310,26 @@ dart pub get
 dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
 (cd packages/wayfinder && dart test)
+dart run tool/generate_installed_profiles.dart --check
 dart run wayfinder_cli:wayfinder validate examples/knowledge
 python3 tool/ci/verify-configured-example.py
 ```
 
 `melos lint` runs analysis, formatting and tests across all three packages at once.
+
+The validator embeds the installed Profile manifests and rule catalogs under `profile/`, and the
+`wayfinder.json`, Profile manifest and rule catalog schemas under `docs/schemas/`, through the
+generated `packages/wayfinder/lib/src/generated/installed_profiles.g.dart`. After editing a
+manifest, catalog or one of those schemas, or adding a snapshot under `profile/versions/`, run
+`dart run tool/generate_installed_profiles.dart` and commit the result; `--check` is the CI gate
+for a stale file. A catalog's shape is `docs/schemas/wayfinder-rules.schema.json`, which the
+loader checks before anything else, and every schema rule carries `tests` that
+`profile_descriptors_test.dart` runs.
+
+`packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
+`packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
+from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
+the golden diff with the change. An unexpected golden diff is a regression.
 
 **Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
 version-dependent and its style is gated on the package's language version, so a floor

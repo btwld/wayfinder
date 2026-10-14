@@ -23,7 +23,7 @@ dependencies:
   okf: ^0.5.0
   wayfinder_embeddings: ^0.2.0
   mcp_dart: ^2.4.2
-  wayfinder: ^0.1.0
+  wayfinder: ^0.2.0
   path: ^1.9.1
 
 dev_dependencies:

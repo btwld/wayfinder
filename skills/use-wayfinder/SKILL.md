@@ -37,14 +37,15 @@ plugin registers them as `validate`, `index`, `search` and `graph`). They are bo
 bundle — `knowledge/` by default, or `WAYFINDER_KNOWLEDGE_DIR` — so they take no
 path. `search` takes `query` and an optional `limit` (1–100, default 5).
 `graph` takes optional `types`, `path_prefixes` and `resolutions` and returns
-the versioned OKF graph JSON.
+the versioned OKF graph JSON, plus a `field_edges` array holding each concept's
+typed `relationships` entries.
 
 Otherwise use the **CLI**. Search/index default to all project bundles listed by
 the nearest `wayfinder.json`, or conventional `knowledge/` without configuration.
 Use `--bundle <folder-name>` to filter; explicit paths still select one bundle:
 
 ```sh
-wayfinder validate <bundle> [--config=wayfinder.json] [--output=json]
+wayfinder validate <bundle> [--config=wayfinder.json] [--fix] [--output=json|sarif]
 wayfinder graph <bundle> [--output=json|mermaid|dot] [--type TYPE] [--path-prefix PREFIX] [--resolution STATE]
 wayfinder index [<bundle>] [--bundle NAME] [--output=json]
 wayfinder search [<bundle>] "<one quoted query>" [--bundle NAME] [--limit N] [--output=json]
@@ -82,8 +83,9 @@ grep-only answers.
      (relative to the bundle), `chunk.lineStart`–`chunk.lineEnd`,
      `chunk.content`, and `chunk.metadata.okf.frontmatter` (including `status`),
      plus a `reason`: `match` (direct hit), `relationship` (reached through a
-     labelled link from a match — `viaPath` names that match), or `governing`
-     (a governing source pulled in ahead of the passage it governs).
+     link from a match — `viaPath` names that match, and `relationship` names
+     the typed relationship when one was followed), or `governing` (a governing
+     source pulled in ahead of the passage it governs).
    - `matches` — the raw similarity hits behind `context`.
    - `notices` — gaps worth reporting, such as an unresolved relationship link.
    Text output prints the same passages as `path:start-end [status; reason]`.
@@ -110,13 +112,19 @@ grep-only answers.
 
 Run validation before saying a bundle conforms, and after editing one.
 For a configured 2026.3 bundle, `validate` reads only a current lock/cache:
-it never fetches or writes. A missing or stale lock still leaves an independent
+it never fetches or writes. `--fix` is the one exception to read-only
+validation: for a 2026.3 bundle it first writes okf's generated indexes, then
+validates; it never writes a 2026.2 bundle or one OKF rejects. A missing or
+stale lock still leaves an independent
 OKF result; run `wayfinder get` to resolve the declared source, or
 `wayfinder upgrade` only when intentionally advancing a mutable ref.
 `graph`, `index`, and `search` do not need Profile-source resolution.
 
 - Exit `0` and `PASS`: the automated gate passed. Advisory findings may remain;
-  mention the relevant ones without treating them as failures.
+  mention the relevant ones without treating them as failures. Summary entries
+  (`profile.summary`, or the text `Summary:` block) report what the Profile
+  permits, such as a project type in use or a planned link; they are never
+  findings.
 - Exit `1` and `FAIL`: error findings exist. Report each with its `id`, path and
   message.
 - Exit `2`: the bundle could not be assessed — for example an unsupported or

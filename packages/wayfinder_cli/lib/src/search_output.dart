@@ -9,6 +9,7 @@ Map<String, Object?> searchOutput(KnowledgeSearchResponse result) => {
         'similarity': hit.result.similarity,
         'reason': hit.reason,
         if (hit.viaPath != null) 'viaPath': hit.viaPath,
+        'relationship': ?hit.fieldEdge?.name,
       },
   ],
   'matches': [

@@ -5,6 +5,7 @@
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0004-closed-concepta-profile-validator.md))
 - Scope: first Concepta Profile validator; in-bundle selection through 2026.2
 - Superseded in part by [ADR-0014](0014-external-profile-bindings.md) for Profile 2026.3
+- Superseded in part, if accepted: by [ADR-0015](0015-profile-rule-catalogs.md), which replaces the compiled rule representation with rule catalogs evaluated by a closed engine; the OKF boundary, closed validator, exact-release dispatch and four-part result stand
 - Driver: [Profile specification](https://github.com/btwld/wayfinder/issues/21) and [validator delivery](https://github.com/btwld/wayfinder/issues/20)
 - Deferred exploration: [#17](https://github.com/btwld/wayfinder/issues/17)
 

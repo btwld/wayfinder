@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
 import 'profile_release.dart';
+import 'published_schemas.dart';
+import 'rules/catalog.dart';
 
 /// A malformed or unsafe project configuration.
 final class WayfinderConfigException implements Exception {
@@ -56,10 +59,12 @@ final class WayfinderProfileBinding {
     required this.release,
     required this.types,
     required this.tags,
+    required this.relationships,
     required this.actors,
     this.source,
     this.appliesTo = const [],
     this.extendsProfile,
+    this.catalogs = const [],
   });
 
   final String id;
@@ -67,10 +72,16 @@ final class WayfinderProfileBinding {
   final String release;
   final List<WayfinderDefinition> types;
   final List<WayfinderDefinition> tags;
+  final List<WayfinderDefinition> relationships;
   final Map<String, WayfinderActorMetadata> actors;
   final WayfinderProfileSource? source;
   final List<String> appliesTo;
   final String? extendsProfile;
+
+  /// The rule catalogs the sources along the effective chain ship, parent
+  /// first, read from the local cache at their locked commits. The installed
+  /// base catalog is never among them (Profile §11).
+  final List<RuleCatalog> catalogs;
 
   Set<String> get typeNames => {
     ...externalStandardTypes.map((row) => row.$1),
@@ -81,6 +92,36 @@ final class WayfinderProfileBinding {
     ...externalStandardTags.map((row) => row.$1),
     ...tags.map((definition) => definition.name),
   };
+
+  Set<String> get relationshipNames => {
+    ...externalStandardRelationships.map((row) => row.$1),
+    ...relationships.map((definition) => definition.name),
+  };
+
+  /// The first declared tag that equals another vocabulary's value, as
+  /// `tag draft, which equals an OKF status value`, or null. Every used tag is
+  /// declared (Profile §5.1), so a tag that would repeat a concept's type,
+  /// status, trust tier or relationship name is rejected where it is
+  /// declared rather than reported on each concept that uses it.
+  String? get tagCollision {
+    final others = <(String, Iterable<String>)>[
+      ('a declared type name', typeNames),
+      (
+        'an OKF status value',
+        OkfLifecycleStatus.values
+            .where((status) => status != OkfLifecycleStatus.unknown)
+            .map((status) => status.wireValue),
+      ),
+      ('an OKF trust tier', OkfTrustTier.values.map((tier) => tier.wireValue)),
+      ('a declared relationship name', relationshipNames),
+    ];
+    for (final tag in tagNames) {
+      for (final (what, names) in others) {
+        if (names.contains(tag)) return 'tag $tag, which equals $what';
+      }
+    }
+    return null;
+  }
 }
 
 final class WayfinderBundleBinding {
@@ -106,8 +147,10 @@ final class WayfinderProjectConfig {
   final Map<String, WayfinderProfileBinding> profiles;
   final List<WayfinderBundleBinding> bundles;
 
+  /// Decodes [source], checks it against the published schema, then runs
+  /// the cross-document checks the schema cannot express.
   static WayfinderProjectConfig parse(String source) {
-    Object? decoded;
+    final Object? decoded;
     try {
       decoded = jsonDecode(source);
     } on FormatException catch (error) {
@@ -118,30 +161,15 @@ final class WayfinderProjectConfig {
     // jsonDecode keeps only the last occurrence of an object key. Check the
     // source as well so duplicate binding or actor IDs cannot be overwritten.
     _JsonDuplicateKeyScanner(source).scan();
-    if (decoded is! Map<String, Object?>) {
-      throw const WayfinderConfigException(
-        'wayfinder.json must contain a JSON object.',
-      );
+    if (configurationSchemaViolation(decoded) case final violation?) {
+      throw WayfinderConfigException('wayfinder.json $violation.');
     }
-    _keys(decoded, const {'version', 'profiles'}, 'wayfinder.json');
-    final version = _int(decoded['version'], 'version');
-    if (version != 1) {
-      throw WayfinderConfigException(
-        'wayfinder.json version must be 1, got $version.',
-      );
-    }
-    final profileObject = _object(decoded['profiles'], 'profiles');
-    if (profileObject.isEmpty) {
-      throw const WayfinderConfigException('profiles must not be empty.');
-    }
-    final profiles = <String, WayfinderProfileBinding>{};
-    for (final entry in profileObject.entries) {
-      _id(entry.key, 'profiles key');
-      if (profiles.containsKey(entry.key)) {
-        throw WayfinderConfigException('Duplicate Profile ${entry.key}.');
-      }
-      profiles[entry.key] = _parseDirectProfile(entry.key, entry.value);
-    }
+    final json = decoded! as Map<String, Object?>;
+    final profiles = {
+      for (final MapEntry(:key, :value)
+          in (json['profiles']! as Map<String, Object?>).entries)
+        key: _parseDirectProfile(key, value! as Map<String, Object?>),
+    };
     _validateExtensions(profiles);
     final bundles = <WayfinderBundleBinding>[];
     final paths = <String>{};
@@ -169,7 +197,7 @@ final class WayfinderProjectConfig {
     }
     _rejectNestedPaths(paths);
     return WayfinderProjectConfig(
-      version: version,
+      version: (json['version']! as num).toInt(),
       profiles: Map.unmodifiable(profiles),
       bundles: List.unmodifiable(bundles),
     );
@@ -215,19 +243,12 @@ final class WayfinderProjectConfig {
     );
   }
 
-  static WayfinderProfileBinding _parseDirectProfile(String id, Object? value) {
-    final object = _object(value, 'profile $id');
-    _keys(object, const {
-      'source',
-      'applies_to',
-      'extends',
-      'types',
-      'actors',
-      'tags',
-    }, 'profile $id');
-    final sourceObject = _object(object['source'], 'profiles.$id.source');
-    _keys(sourceObject, const {'git', 'ref', 'path'}, 'profiles.$id.source');
-    final git = _string(sourceObject['git'], 'profiles.$id.source.git');
+  static WayfinderProfileBinding _parseDirectProfile(
+    String id,
+    Map<String, Object?> json,
+  ) {
+    final source = json['source']! as Map<String, Object?>;
+    final git = source['git']! as String;
     if (RegExp(r'^[A-Za-z]:(?![/\\])').hasMatch(git)) {
       throw WayfinderConfigException(
         'profiles.$id.source.git must not be a drive-relative path.',
@@ -244,57 +265,43 @@ final class WayfinderProjectConfig {
         'profiles.$id.source.git must not contain credentials.',
       );
     }
-    final ref = _string(sourceObject['ref'], 'profiles.$id.source.ref');
-    if (ref.startsWith('-') ||
-        ref.contains('..') ||
-        RegExp(r'[\x00-\x20\x7f]').hasMatch(ref)) {
-      throw WayfinderConfigException(
-        'profiles.$id.source.ref is not a valid Git ref.',
-      );
-    }
-    final sourcePath = _string(
-      sourceObject['path'],
-      'profiles.$id.source.path',
-    );
-    _validateRelativePath(sourcePath, 'profiles.$id.source.path');
-    final applies = _paths(object['applies_to'], 'profiles.$id.applies_to');
-    final types = _definitions(
-      object['types'],
-      'profiles.$id.types',
-      present: object.containsKey('types'),
-    );
-    final tags = _definitions(
-      object['tags'],
-      'profiles.$id.tags',
-      present: object.containsKey('tags'),
-    );
-    _validateDefinitions(id, types, tags);
-    final actors = _actors(
-      object['actors'],
-      id,
-      present: object.containsKey('actors'),
-    );
-    final extendsProfile = _optionalString(
-      object['extends'],
-      'profiles.$id.extends',
-      present: object.containsKey('extends'),
-    );
-    if (extendsProfile != null) _id(extendsProfile, 'profiles.$id.extends');
-    return WayfinderProfileBinding(
+    final types = _definitions(json['types']);
+    final tags = _definitions(json['tags']);
+    final relationships = _definitions(json['relationships']);
+    _validateDefinitions(id, {
+      'type': (types, externalStandardTypes),
+      'tag': (tags, externalStandardTags),
+      'relationship': (relationships, externalStandardRelationships),
+    });
+    final actors = json['actors'] as Map<String, Object?>? ?? const {};
+    final binding = WayfinderProfileBinding(
       id: id,
       implementsId: id,
       release: externalProfileRelease,
       types: List.unmodifiable(types),
       tags: List.unmodifiable(tags),
-      actors: Map.unmodifiable(actors),
+      relationships: List.unmodifiable(relationships),
+      actors: Map.unmodifiable({
+        for (final MapEntry(:key, :value) in actors.entries)
+          key: _actor(value! as Map<String, Object?>),
+      }),
       source: WayfinderProfileSource(
         git: git,
-        ref: ref,
-        path: p.posix.normalize(sourcePath),
+        ref: source['ref']! as String,
+        path: p.posix.normalize(source['path']! as String),
       ),
-      appliesTo: List.unmodifiable(applies),
-      extendsProfile: extendsProfile,
+      appliesTo: List.unmodifiable(
+        _appliesTo(
+          (json['applies_to']! as List<Object?>).cast<String>(),
+          'profiles.$id.applies_to',
+        ),
+      ),
+      extendsProfile: json['extends'] as String?,
     );
+    if (binding.tagCollision case final collision?) {
+      throw WayfinderConfigException('Profile $id declares $collision.');
+    }
+    return binding;
   }
 
   static void _validateExtensions(
@@ -339,118 +346,54 @@ final class WayfinderProjectConfig {
     }
   }
 
-  static List<String> _paths(Object? value, String field) {
-    if (value is! List) {
-      throw WayfinderConfigException('$field must be an array.');
-    }
-    final paths = <String>[];
+  static List<String> _appliesTo(List<String> paths, String field) {
     final normalized = <String>{};
-    for (final item in value) {
-      final path = _string(item, '$field[]');
-      _validateRelativePath(path, '$field[]');
-      final clean = p.posix.normalize(path);
-      if (!normalized.add(clean)) {
+    for (final path in paths) {
+      if (!normalized.add(p.posix.normalize(path))) {
         throw WayfinderConfigException('$field contains duplicate path $path.');
       }
-      paths.add(clean);
     }
-    return paths;
-  }
-
-  static void _validateRelativePath(String value, String field) {
-    if (p.isAbsolute(value) ||
-        p.windows.isAbsolute(value) ||
-        RegExp(r'^[A-Za-z]:').hasMatch(value) ||
-        _hasParentSegment(value) ||
-        value == '.' ||
-        value == '..' ||
-        value.contains('\\') ||
-        RegExp(r'[\x00-\x1f\x7f]').hasMatch(value)) {
-      throw WayfinderConfigException(
-        '$field must be a relative path without parent traversal.',
-      );
-    }
+    return normalized.toList();
   }
 
   static void _validateDefinitions(
     String id,
-    List<WayfinderDefinition> types,
-    List<WayfinderDefinition> tags,
+    Map<
+      String,
+      (List<WayfinderDefinition> project, List<(String, String)> standard)
+    >
+    vocabularies,
   ) {
-    final typeNames = <String>{};
-    for (final definition in types) {
-      if (!typeNames.add(definition.name) ||
-          externalStandardTypes.any((row) => row.$1 == definition.name)) {
-        throw WayfinderConfigException(
-          'Profile $id declares a colliding or duplicate type ${definition.name}.',
-        );
-      }
-    }
-    final tagNames = <String>{};
-    for (final definition in tags) {
-      if (!tagNames.add(definition.name) ||
-          externalStandardTags.any((row) => row.$1 == definition.name)) {
-        throw WayfinderConfigException(
-          'Profile $id declares a colliding or duplicate tag ${definition.name}.',
-        );
+    for (final MapEntry(key: noun, value: (project, standard))
+        in vocabularies.entries) {
+      final names = <String>{};
+      for (final definition in project) {
+        if (!names.add(definition.name) ||
+            standard.any((row) => row.$1 == definition.name)) {
+          throw WayfinderConfigException(
+            'Profile $id declares a colliding or duplicate $noun ${definition.name}.',
+          );
+        }
       }
     }
   }
 
-  static Map<String, WayfinderActorMetadata> _actors(
-    Object? value,
-    String id, {
-    required bool present,
-  }) {
-    final actorObject = _optionalObject(
-      value,
-      'profiles.$id.actors',
-      present: present,
-    );
-    final actors = <String, WayfinderActorMetadata>{};
-    for (final entry in actorObject.entries) {
-      _string(entry.key, 'actor id');
-      final actor = _object(entry.value, 'actor ${entry.key}');
-      _keys(actor, const {
-        'name',
-        'organization',
-        'role',
-        'side',
-      }, 'actor ${entry.key}');
-      final side = _optionalString(
-        actor['side'],
-        'profiles.$id.actors.${entry.key}.side',
-        present: actor.containsKey('side'),
+  static WayfinderActorMetadata _actor(Map<String, Object?> json) =>
+      WayfinderActorMetadata(
+        name: json['name']! as String,
+        organization: json['organization'] as String?,
+        role: json['role'] as String?,
+        side: json['side'] as String?,
       );
-      if (side != null &&
-          !const {
-            'client',
-            'internal',
-            'vendor',
-            'tool',
-            'unknown',
-          }.contains(side)) {
-        throw WayfinderConfigException(
-          'Actor ${entry.key} has invalid side $side.',
-        );
-      }
-      actors[entry.key] = WayfinderActorMetadata(
-        name: _string(actor['name'], 'profiles.$id.actors.${entry.key}.name'),
-        organization: _optionalString(
-          actor['organization'],
-          'profiles.$id.actors.${entry.key}.organization',
-          present: actor.containsKey('organization'),
-        ),
-        role: _optionalString(
-          actor['role'],
-          'profiles.$id.actors.${entry.key}.role',
-          present: actor.containsKey('role'),
-        ),
-        side: side,
-      );
-    }
-    return actors;
-  }
+
+  static List<WayfinderDefinition> _definitions(Object? value) => [
+    for (final item
+        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
+      WayfinderDefinition(
+        name: item['name']! as String,
+        description: item['description']! as String,
+      ),
+  ];
 }
 
 final class WayfinderResolvedConfig {
@@ -466,87 +409,6 @@ final class WayfinderResolvedConfig {
   final WayfinderBundleBinding bundle;
   final WayfinderProfileBinding profile;
 }
-
-String _string(Object? value, String field) {
-  if (value is! String || value.trim().isEmpty) {
-    throw WayfinderConfigException('$field must be a non-empty string.');
-  }
-  return value;
-}
-
-String? _optionalString(Object? value, String field, {required bool present}) {
-  if (!present) return null;
-  return _string(value, field);
-}
-
-int _int(Object? value, String field) {
-  if (value is! int) {
-    throw WayfinderConfigException('$field must be an integer.');
-  }
-  return value;
-}
-
-Map<String, Object?> _object(Object? value, String field) {
-  if (value is! Map) {
-    throw WayfinderConfigException('$field must be an object.');
-  }
-  final result = <String, Object?>{};
-  for (final entry in value.entries) {
-    if (entry.key is! String) {
-      throw WayfinderConfigException('$field keys must be strings.');
-    }
-    result[entry.key as String] = entry.value;
-  }
-  return result;
-}
-
-Map<String, Object?> _optionalObject(
-  Object? value,
-  String field, {
-  required bool present,
-}) {
-  if (!present) return const <String, Object?>{};
-  return _object(value, field);
-}
-
-List<WayfinderDefinition> _definitions(
-  Object? value,
-  String field, {
-  required bool present,
-}) {
-  if (!present) return const <WayfinderDefinition>[];
-  if (value is! List) {
-    throw WayfinderConfigException('$field must be an array.');
-  }
-  return [
-    for (final item in value)
-      (() {
-        final object = _object(item, '$field entry');
-        _keys(object, const {'name', 'description'}, '$field entry');
-        return WayfinderDefinition(
-          name: _string(object['name'], '$field[].name'),
-          description: _string(object['description'], '$field[].description'),
-        );
-      })(),
-  ];
-}
-
-void _id(String value, String field) {
-  if (!RegExp(r'^[a-z][a-z0-9_-]*$').hasMatch(value)) {
-    throw WayfinderConfigException('$field $value is not a valid identifier.');
-  }
-}
-
-void _keys(Map<String, Object?> object, Set<String> allowed, String field) {
-  for (final key in object.keys) {
-    if (!allowed.contains(key)) {
-      throw WayfinderConfigException('$field has unknown property $key.');
-    }
-  }
-}
-
-bool _hasParentSegment(String value) =>
-    p.posix.split(value).any((segment) => segment == '..');
 
 void _rejectNestedPaths(Set<String> paths) {
   for (final path in paths) {
