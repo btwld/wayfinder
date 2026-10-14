@@ -13,7 +13,7 @@ final class OkfLinkField {
   final String nameKey;
 }
 
-/// The Profile's typed relationships (Profile §7.2), the one link field the
+/// The `relationships` frontmatter key (guide §5.5), the one link field the
 /// engine projects into facts and the CLI overlays on okf's graph.
 const relationshipsLinkField = OkfLinkField(
   'relationships',

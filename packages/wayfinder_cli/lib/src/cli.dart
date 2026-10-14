@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/wayfinder.dart' show toSarif;
+import 'package:wayfinder/wayfinder.dart'
+    show internalErrorJson, internalErrorSarif, toSarif;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'agent_setup.dart';
@@ -190,8 +191,8 @@ class WayfinderCli {
             'fix',
             negatable: false,
             help:
-                'Write the indexes the selected Profile generates (2026.3), '
-                'then validate. Never writes when OKF fails.',
+                "Write the files the selected Profile's fixable rules "
+                'generate, then validate. Never writes when OKF fails.',
           );
       }
       if (name == 'index') {
@@ -365,6 +366,8 @@ class WayfinderCli {
         )
         ..addOption('version', help: 'Install this published version.'),
     );
+    String? structuredOutput;
+    String message;
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
@@ -379,7 +382,7 @@ class WayfinderCli {
           '  index [<bundle>]          Update saved local embeddings for changes\n'
           '  search [<bundle>] <query> Search project bundles or an explicit path\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
-          '  get [<project>]            Resolve declared Profile sources\n'
+          '  get [<project>]            Resolve Profile sources and install their skills\n'
           '  upgrade [<project>]       Advance mutable Profile refs\n'
           '  mcp <bundle>               Serve these tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
@@ -441,6 +444,15 @@ class WayfinderCli {
               : 'resolved';
           _out('Profile sources $state for ${_safe(result.projectRoot)}.');
           _out('Lock: ${_safe(result.lockPath)}');
+          for (final skill in result.skills) {
+            _out(
+              '${skill.written ? 'Installed' : 'Current'} skill ${skill.id} '
+              '→ ${skill.directories.join(', ')}',
+            );
+          }
+          for (final directory in result.removedSkills) {
+            _out('Removed skill $directory');
+          }
         }
         return 0;
       }
@@ -578,6 +590,7 @@ class WayfinderCli {
       final output = command.option('output');
       final json = output == 'json';
       if (name == 'validate') {
+        structuredOutput = output == 'text' ? null : output;
         final result = await validateWithProfileSources(
           bundle,
           configPath: command.option('config'),
@@ -653,19 +666,26 @@ class WayfinderCli {
       }
       throw const WayfinderException('Unknown command.');
     } on ArgParserException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on WayfinderException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on FileSystemException catch (error) {
-      _err('wayfinder: ${_safe(error.message)} (${_safe(error.path ?? '')})');
+      message = '${error.message} (${error.path ?? ''})';
     } on FormatException catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
     } on Exception catch (error) {
-      _err('wayfinder: ${_safe(error.toString())}');
+      message = error.toString();
     } on ArgumentError catch (error) {
-      _err('wayfinder: ${_safe(error.message.toString())}');
+      message = error.message.toString();
     } on StateError catch (error) {
-      _err('wayfinder: ${_safe(error.message)}');
+      message = error.message;
+    }
+    _err('wayfinder: ${_safe(message)}');
+    switch (structuredOutput) {
+      case 'json':
+        _json(internalErrorJson(message));
+      case 'sarif':
+        _json(internalErrorSarif(message, toolVersion: wayfinderVersion));
     }
     return 2;
   }

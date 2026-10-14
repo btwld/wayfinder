@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
-import 'profile_release.dart';
+import 'diagnostics.dart';
+import 'profile_package.dart';
 import 'published_schemas.dart';
-import 'rules/catalog.dart';
+import 'rules/profile.dart';
 
 /// A malformed or unsafe project configuration.
 final class WayfinderConfigException implements Exception {
@@ -20,6 +20,25 @@ final class WayfinderConfigException implements Exception {
 
 final class WayfinderDefinition {
   const WayfinderDefinition({required this.name, required this.description});
+
+  /// Reads a schema-checked list of `{name, description}` objects. Throws
+  /// [FormatException] whose source is the first name the list repeats.
+  static List<WayfinderDefinition> parseList(Object? value) {
+    final names = <String>{};
+    final definitions = <WayfinderDefinition>[];
+    for (final item
+        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>()) {
+      final name = item['name']! as String;
+      if (!names.add(name)) throw FormatException('repeats a name', name);
+      definitions.add(
+        WayfinderDefinition(
+          name: name,
+          description: item['description']! as String,
+        ),
+      );
+    }
+    return List.unmodifiable(definitions);
+  }
 
   final String name;
   final String description;
@@ -50,78 +69,44 @@ final class WayfinderProfileSource {
   final String git;
   final String ref;
   final String path;
-}
 
-final class WayfinderProfileBinding {
-  const WayfinderProfileBinding({
-    required this.id,
-    required this.implementsId,
-    required this.release,
-    required this.types,
-    required this.tags,
-    required this.relationships,
-    required this.actors,
-    this.source,
-    this.appliesTo = const [],
-    this.extendsProfile,
-    this.catalogs = const [],
-  });
-
-  final String id;
-  final String implementsId;
-  final String release;
-  final List<WayfinderDefinition> types;
-  final List<WayfinderDefinition> tags;
-  final List<WayfinderDefinition> relationships;
-  final Map<String, WayfinderActorMetadata> actors;
-  final WayfinderProfileSource? source;
-  final List<String> appliesTo;
-  final String? extendsProfile;
-
-  /// The rule catalogs the sources along the effective chain ship, parent
-  /// first, read from the local cache at their locked commits. The installed
-  /// base catalog is never among them (Profile §11).
-  final List<RuleCatalog> catalogs;
-
-  Set<String> get typeNames => {
-    ...externalStandardTypes.map((row) => row.$1),
-    ...types.map((definition) => definition.name),
-  };
-
-  Set<String> get tagNames => {
-    ...externalStandardTags.map((row) => row.$1),
-    ...tags.map((definition) => definition.name),
-  };
-
-  Set<String> get relationshipNames => {
-    ...externalStandardRelationships.map((row) => row.$1),
-    ...relationships.map((definition) => definition.name),
-  };
-
-  /// The first declared tag that equals another vocabulary's value, as
-  /// `tag draft, which equals an OKF status value`, or null. Every used tag is
-  /// declared (Profile §5.1), so a tag that would repeat a concept's type,
-  /// status, trust tier or relationship name is rejected where it is
-  /// declared rather than reported on each concept that uses it.
-  String? get tagCollision {
-    final others = <(String, Iterable<String>)>[
-      ('a declared type name', typeNames),
-      (
-        'an OKF status value',
-        OkfLifecycleStatus.values
-            .where((status) => status != OkfLifecycleStatus.unknown)
-            .map((status) => status.wireValue),
-      ),
-      ('an OKF trust tier', OkfTrustTier.values.map((tier) => tier.wireValue)),
-      ('a declared relationship name', relationshipNames),
-    ];
-    for (final tag in tagNames) {
-      for (final (what, names) in others) {
-        if (names.contains(tag)) return 'tag $tag, which equals $what';
-      }
+  /// Why [git] cannot be recorded as a source, or null. A drive-relative
+  /// path changes meaning with the working directory, and a password or
+  /// HTTP user-info would be copied into the lock.
+  static String? locationProblem(String git) {
+    if (RegExp(r'^[A-Za-z]:(?![/\\])').hasMatch(git)) {
+      return 'must not be a drive-relative path';
+    }
+    final uri = Uri.tryParse(git);
+    // A username-only SSH URL (for example ssh://git@host/repo) is a normal
+    // Git transport form.
+    if (uri != null &&
+        uri.userInfo.isNotEmpty &&
+        !(uri.scheme == 'ssh' &&
+            RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(uri.userInfo))) {
+      return 'must not contain credentials';
     }
     return null;
   }
+}
+
+/// One `profiles.<id>` entry: which package, which bundles, and what the
+/// project adds. Nothing resolved lives here, and the project never wires a
+/// chain: the package names its own parent.
+final class WayfinderProfileBinding {
+  const WayfinderProfileBinding({
+    required this.id,
+    required this.source,
+    required this.appliesTo,
+    this.project = ProjectVocabulary.none,
+  });
+
+  final ProfileId id;
+  final WayfinderProfileSource source;
+
+  /// Never empty: an entry exists to apply its Profile.
+  final List<String> appliesTo;
+  final ProjectVocabulary project;
 }
 
 final class WayfinderBundleBinding {
@@ -133,7 +118,7 @@ final class WayfinderBundleBinding {
 
   final String id;
   final String path;
-  final String profile;
+  final ProfileId profile;
 }
 
 final class WayfinderProjectConfig {
@@ -144,7 +129,7 @@ final class WayfinderProjectConfig {
   });
 
   final int version;
-  final Map<String, WayfinderProfileBinding> profiles;
+  final Map<ProfileId, WayfinderProfileBinding> profiles;
   final List<WayfinderBundleBinding> bundles;
 
   /// Decodes [source], checks it against the published schema, then runs
@@ -154,8 +139,14 @@ final class WayfinderProjectConfig {
     try {
       decoded = jsonDecode(source);
     } on FormatException catch (error) {
+      // Not error.toString(): its source excerpt and caret differ by SDK.
+      final at = error.offset == null ? '' : ' at offset ${error.offset}';
+      final reason = error.message
+          .split('\n')
+          .first
+          .replaceFirst(RegExp(r'\.$'), '');
       throw WayfinderConfigException(
-        'wayfinder.json is not valid JSON: $error',
+        'wayfinder.json is not valid JSON$at: $reason.',
       );
     }
     // jsonDecode keeps only the last occurrence of an object key. Check the
@@ -168,9 +159,11 @@ final class WayfinderProjectConfig {
     final profiles = {
       for (final MapEntry(:key, :value)
           in (json['profiles']! as Map<String, Object?>).entries)
-        key: _parseDirectProfile(key, value! as Map<String, Object?>),
+        _profileId(key, 'profiles'): _parseDirectProfile(
+          key,
+          value! as Map<String, Object?>,
+        ),
     };
-    _validateExtensions(profiles);
     final bundles = <WayfinderBundleBinding>[];
     final paths = <String>{};
     for (final profile in profiles.values) {
@@ -190,11 +183,6 @@ final class WayfinderProjectConfig {
         );
       }
     }
-    if (bundles.isEmpty) {
-      throw const WayfinderConfigException(
-        'Profiles must apply to at least one bundle path.',
-      );
-    }
     _rejectNestedPaths(paths);
     return WayfinderProjectConfig(
       version: (json['version']! as num).toInt(),
@@ -203,44 +191,135 @@ final class WayfinderProjectConfig {
     );
   }
 
-  static Future<WayfinderProjectConfig> read(File file) async {
-    try {
-      return parse(await file.readAsString());
-    } on FileSystemException catch (error) {
-      throw WayfinderConfigException(
-        'Cannot read ${file.path}: ${error.message}.',
+  /// The binding that applies to [bundlePath], read from [configPath] or
+  /// from the nearest `wayfinder.json` above the bundle. Reads only the
+  /// project directory, never a lock, cache or network. Throws
+  /// [BundleBindingException] with the one diagnostic that explains why no
+  /// binding applies.
+  static Future<BoundBundle> bind(
+    String bundlePath, {
+    String? configPath,
+  }) async {
+    final File file;
+    if (configPath != null) {
+      file = File(configPath);
+      if (!await file.exists()) {
+        throw BundleBindingException(
+          EngineDiagnostic(
+            DiagnosticCode.configMissing,
+            'Configuration file $configPath does not exist.',
+            location: ProjectFileLocation(path: configPath, file: configPath),
+          ),
+        );
+      }
+    } else if (await _findConfig(bundlePath) case final found?) {
+      file = found;
+    } else {
+      throw const BundleBindingException(
+        EngineDiagnostic(
+          DiagnosticCode.configMissing,
+          'No wayfinder.json was found above the bundle.',
+        ),
       );
     }
-  }
+    final location = ProjectFileLocation(
+      path: configPath ?? p.basename(file.path),
+      file: file.path,
+    );
+    Never unbound(DiagnosticCode code, String message) =>
+        throw BundleBindingException(
+          EngineDiagnostic(code, message, location: location),
+        );
 
-  WayfinderResolvedConfig resolve({
-    required String bundlePath,
-    required String configPath,
-    Map<String, WayfinderProfileBinding>? resolvedProfiles,
-  }) {
-    final projectRoot = p.normalize(File(configPath).absolute.parent.path);
-    final requested = p.normalize(File(bundlePath).absolute.path);
+    final String source;
+    final WayfinderProjectConfig config;
+    try {
+      source = await file.readAsString();
+      config = parse(source);
+    } on FileSystemException catch (error) {
+      unbound(
+        DiagnosticCode.configInvalid,
+        'Cannot read ${file.path}: ${error.message}.',
+      );
+    } on WayfinderConfigException catch (error) {
+      unbound(DiagnosticCode.configInvalid, error.message);
+    }
+    final String projectRoot;
+    final String requested;
+    try {
+      projectRoot = await file.parent.resolveSymbolicLinks();
+      requested = await Directory(bundlePath).resolveSymbolicLinks();
+    } on FileSystemException catch (error) {
+      unbound(
+        DiagnosticCode.bundleUnbound,
+        'Configured bundle path is not readable: ${error.message}.',
+      );
+    }
     WayfinderBundleBinding? selected;
-    for (final bundle in bundles) {
-      final resolved = p.normalize(p.join(projectRoot, bundle.path));
-      if (p.equals(resolved, requested)) {
-        selected = bundle;
-        break;
+    final realPaths = <String, String>{};
+    for (final bundle in config.bundles) {
+      final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
+      try {
+        final realPath = await Directory(configuredPath).resolveSymbolicLinks();
+        realPaths[configuredPath] = realPath;
+        if (p.equals(realPath, requested)) selected = bundle;
+      } on FileSystemException {
+        unbound(
+          DiagnosticCode.configInvalid,
+          'Configured bundle ${bundle.path} does not exist or is unreadable.',
+        );
+      }
+    }
+    for (final entry in realPaths.entries) {
+      if (!p.isWithin(projectRoot, entry.value)) {
+        unbound(
+          DiagnosticCode.configInvalid,
+          'Bundle ${entry.key} resolves outside the project.',
+        );
+      }
+      for (final other in realPaths.entries) {
+        if (entry.key != other.key &&
+            (p.equals(entry.value, other.value) ||
+                p.isWithin(entry.value, other.value) ||
+                p.isWithin(other.value, entry.value))) {
+          unbound(
+            DiagnosticCode.configInvalid,
+            'Configured bundles overlap after resolving symlinks.',
+          );
+        }
       }
     }
     if (selected == null) {
-      throw WayfinderConfigException(
-        'Bundle $bundlePath is not listed in ${p.basename(configPath)}.',
+      unbound(
+        DiagnosticCode.bundleUnbound,
+        'Bundle $bundlePath is not listed in ${p.basename(file.path)}.',
       );
     }
-    final binding =
-        resolvedProfiles?[selected.profile] ?? profiles[selected.profile]!;
-    return WayfinderResolvedConfig(
-      configPath: configPath,
-      projectRoot: projectRoot,
-      bundle: selected,
-      profile: binding,
+    return BoundBundle(
+      binding: config.profiles[selected.profile]!,
+      config: location,
+      projectRoot: p.normalize(file.absolute.parent.path),
+      source: source,
     );
+  }
+
+  static Future<File?> _findConfig(String bundlePath) async {
+    var directory = p.dirname(File(bundlePath).absolute.path);
+    while (true) {
+      final file = File(p.join(directory, 'wayfinder.json'));
+      if (await file.exists()) return file;
+      final parent = p.dirname(directory);
+      if (parent == directory) return null;
+      directory = parent;
+    }
+  }
+
+  static ProfileId _profileId(String value, String field) {
+    try {
+      return ProfileId.parse(value);
+    } on FormatException catch (error) {
+      throw WayfinderConfigException('$field.$value: ${error.message}.');
+    }
   }
 
   static WayfinderProfileBinding _parseDirectProfile(
@@ -249,42 +328,19 @@ final class WayfinderProjectConfig {
   ) {
     final source = json['source']! as Map<String, Object?>;
     final git = source['git']! as String;
-    if (RegExp(r'^[A-Za-z]:(?![/\\])').hasMatch(git)) {
-      throw WayfinderConfigException(
-        'profiles.$id.source.git must not be a drive-relative path.',
-      );
+    if (WayfinderProfileSource.locationProblem(git) case final problem?) {
+      throw WayfinderConfigException('profiles.$id.source.git $problem.');
     }
-    final uri = Uri.tryParse(git);
-    // A username-only SSH URL (for example ssh://git@host/repo) is a normal
-    // Git transport form. Embedded passwords and HTTP user-info are not.
-    if (uri != null &&
-        uri.userInfo.isNotEmpty &&
-        !(uri.scheme == 'ssh' &&
-            RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(uri.userInfo))) {
-      throw WayfinderConfigException(
-        'profiles.$id.source.git must not contain credentials.',
-      );
-    }
-    final types = _definitions(json['types']);
-    final tags = _definitions(json['tags']);
-    final relationships = _definitions(json['relationships']);
-    _validateDefinitions(id, {
-      'type': (types, externalStandardTypes),
-      'tag': (tags, externalStandardTags),
-      'relationship': (relationships, externalStandardRelationships),
-    });
+    final types = _definitions(id, 'type', json['types']);
+    final tags = _definitions(id, 'tag', json['tags']);
+    final relationships = _definitions(
+      id,
+      'relationship',
+      json['relationships'],
+    );
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
-    final binding = WayfinderProfileBinding(
-      id: id,
-      implementsId: id,
-      release: externalProfileRelease,
-      types: List.unmodifiable(types),
-      tags: List.unmodifiable(tags),
-      relationships: List.unmodifiable(relationships),
-      actors: Map.unmodifiable({
-        for (final MapEntry(:key, :value) in actors.entries)
-          key: _actor(value! as Map<String, Object?>),
-      }),
+    return WayfinderProfileBinding(
+      id: _profileId(id, 'profiles'),
       source: WayfinderProfileSource(
         git: git,
         ref: source['ref']! as String,
@@ -296,54 +352,16 @@ final class WayfinderProjectConfig {
           'profiles.$id.applies_to',
         ),
       ),
-      extendsProfile: json['extends'] as String?,
+      project: ProjectVocabulary(
+        types: types,
+        tags: tags,
+        relationships: relationships,
+        actors: Map.unmodifiable({
+          for (final MapEntry(:key, :value) in actors.entries)
+            key: _actor(value! as Map<String, Object?>),
+        }),
+      ),
     );
-    if (binding.tagCollision case final collision?) {
-      throw WayfinderConfigException('Profile $id declares $collision.');
-    }
-    return binding;
-  }
-
-  static void _validateExtensions(
-    Map<String, WayfinderProfileBinding> profiles,
-  ) {
-    final parents = <String>{};
-    for (final profile in profiles.values) {
-      final parent = profile.extendsProfile;
-      if (profile.id == builtinProfileId && parent != null) {
-        throw const WayfinderConfigException(
-          'The base Bitwild Profile cannot extend another Profile.',
-        );
-      }
-      if (parent != null && !profiles.containsKey(parent)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} extends unknown Profile $parent.',
-        );
-      }
-      if (parent != null) parents.add(parent);
-      final seen = <String>{profile.id};
-      var current = parent;
-      while (current != null) {
-        if (!seen.add(current)) {
-          throw WayfinderConfigException(
-            'Profile ${profile.id} has an extends cycle.',
-          );
-        }
-        current = profiles[current]?.extendsProfile;
-      }
-      if (profile.id != builtinProfileId && !seen.contains(builtinProfileId)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} must extend a chain reaching $builtinProfileId.',
-        );
-      }
-    }
-    for (final profile in profiles.values) {
-      if (profile.appliesTo.isEmpty && !parents.contains(profile.id)) {
-        throw WayfinderConfigException(
-          'Profile ${profile.id} must apply to a bundle or be extended.',
-        );
-      }
-    }
   }
 
   static List<String> _appliesTo(List<String> paths, String field) {
@@ -356,28 +374,6 @@ final class WayfinderProjectConfig {
     return normalized.toList();
   }
 
-  static void _validateDefinitions(
-    String id,
-    Map<
-      String,
-      (List<WayfinderDefinition> project, List<(String, String)> standard)
-    >
-    vocabularies,
-  ) {
-    for (final MapEntry(key: noun, value: (project, standard))
-        in vocabularies.entries) {
-      final names = <String>{};
-      for (final definition in project) {
-        if (!names.add(definition.name) ||
-            standard.any((row) => row.$1 == definition.name)) {
-          throw WayfinderConfigException(
-            'Profile $id declares a colliding or duplicate $noun ${definition.name}.',
-          );
-        }
-      }
-    }
-  }
-
   static WayfinderActorMetadata _actor(Map<String, Object?> json) =>
       WayfinderActorMetadata(
         name: json['name']! as String,
@@ -386,28 +382,49 @@ final class WayfinderProjectConfig {
         side: json['side'] as String?,
       );
 
-  static List<WayfinderDefinition> _definitions(Object? value) => [
-    for (final item
-        in (value as List<Object?>? ?? const []).cast<Map<String, Object?>>())
-      WayfinderDefinition(
-        name: item['name']! as String,
-        description: item['description']! as String,
-      ),
-  ];
+  static List<WayfinderDefinition> _definitions(
+    String id,
+    String noun,
+    Object? value,
+  ) {
+    try {
+      return WayfinderDefinition.parseList(value);
+    } on FormatException catch (error) {
+      throw WayfinderConfigException(
+        'Profile $id declares a duplicate $noun ${error.source}.',
+      );
+    }
+  }
 }
 
-final class WayfinderResolvedConfig {
-  const WayfinderResolvedConfig({
-    required this.configPath,
+final class BoundBundle {
+  const BoundBundle({
+    required this.binding,
+    required this.config,
     required this.projectRoot,
-    required this.bundle,
-    required this.profile,
+    required this.source,
   });
 
-  final String configPath;
+  final WayfinderProfileBinding binding;
+
+  final ProjectFileLocation config;
+
+  /// The directory holding the configuration, where the lock lives and
+  /// relative Git sources resolve.
   final String projectRoot;
-  final WayfinderBundleBinding bundle;
-  final WayfinderProfileBinding profile;
+
+  /// The configuration text the lock's hash covers.
+  final String source;
+}
+
+/// No binding applies to a bundle; [diagnostic] says why.
+final class BundleBindingException implements Exception {
+  const BundleBindingException(this.diagnostic);
+
+  final EngineDiagnostic diagnostic;
+
+  @override
+  String toString() => diagnostic.message;
 }
 
 void _rejectNestedPaths(Set<String> paths) {

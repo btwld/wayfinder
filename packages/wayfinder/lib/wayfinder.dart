@@ -3,27 +3,37 @@
 /// Used by the wayfinder_cli command and MCP server.
 library;
 
+export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
+export 'src/generated/published_schemas.g.dart' show okfPackageVersion;
 export 'src/profile_finding.dart';
-export 'src/profile_release.dart'
+export 'src/profile_package.dart';
+export 'src/profile_rule_descriptors.dart'
+    show ProfileRuleDescriptor, RuleSeverity;
+export 'src/rules/catalog.dart' show BuiltinCheck, CatalogRule, SchemaCheck;
+export 'src/rules/profile.dart'
     show
-        builtinProfileId,
-        externalProfileRelease,
-        externalStandardTypes,
-        externalStandardTags,
-        externalStandardRelationships;
-export 'src/published_schemas.dart' show profileManifestSchemaViolation;
-export 'src/rules/catalog.dart' show RuleCatalog, RuleCatalogException;
-export 'src/sarif.dart' show toSarif;
+        EffectiveProfile,
+        ProfileCompositionException,
+        ProjectVocabulary,
+        Slot,
+        Vocabulary;
+export 'src/sarif.dart' show internalErrorSarif, toSarif;
 export 'src/validation.dart'
     show
-        AutomatedGateState,
+        Assessed,
+        BlockedByOkf,
+        GateState,
+        NotAssessed,
         OkfState,
-        ProfileFix,
-        ProfileFixState,
+        ProfileAssessment,
         ProfileState,
-        ProfileSourceResolution,
+        ProfileSelection,
         ProfileValidationResult,
-        ProfileValidator;
+        ProfileValidator,
+        SelectedProfile,
+        UnselectedProfile,
+        compositionFailure,
+        internalErrorJson;
 export 'src/wayfinder_config.dart';

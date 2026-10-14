@@ -4,13 +4,13 @@
     "name": "Concepta"
   },
   "metadata": {
-    "description": "Wayfinder: author, adopt, assess and search Concepta OKF Profile knowledge bundles."
+    "description": "Wayfinder: author, adopt, assess and search OKF knowledge bundles bound to a Profile."
   },
   "plugins": [
     {
       "name": "wayfinder",
       "source": "./",
-      "description": "Author, adopt, assess, and search a knowledge bundle under the Concepta OKF Profile 2026.2 (OKF 0.2). Installs as a unit; the skills share versioned references."
+      "description": "Author, adopt, assess, and search an OKF knowledge bundle bound to a Profile, and create Profiles. Installs as a unit; the skills share versioned references."
     }
   ]
 }

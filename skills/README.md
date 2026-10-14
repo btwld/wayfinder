@@ -1,22 +1,32 @@
 # Skills
 
-The agent workflows for [Bitwild OKF Profile 2026.3](../profile/okf-profile.md)
-and [legacy Concepta 2026.2](../profile/versions/okf-profile-2026.2.md),
-shipped together as the `wayfinder` plugin.
+Wayfinder's own agent workflows, shipped together as the `wayfinder` plugin.
+They know OKF and the `wayfinder` CLI, and no particular Profile. Each
+Profile's conventions reach agents through that Profile's own skill.
 
 ## The family
 
 | Skill | Invocation | Responsibility |
 | --- | --- | --- |
-| [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model-invoked | Author bundle content and perform Profile Review. Routes to shared references by operation. |
-| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Seed a new bundle, preserve an existing one, and add agent routing. Uses literal [root-file templates](adopt-knowledge-bundle/SEEDING.md) and delegates review to the authoring skill. |
-| [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared authoring and review instructions. |
+| [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model-invoked | Author bundle content and perform Profile Review. Owns OKF mechanics and the write sequence, and loads the skill of each Profile in the bundle's chain. |
+| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Bind a new bundle to a Profile, install its skill, seed the root files the Profile gives, and add agent routing. Generic parts live in [SEEDING.md](adopt-knowledge-bundle/SEEDING.md). |
+| [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared assessment reference and each Profile's review map. |
 | [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
+| [create-profile](create-profile/SKILL.md) | user-invoked | Create, revise, or maintain a Profile package: ask its author what a machine enforces and what is judgment, write its rules with tests and its skill, prove both, and release it. |
 
-The family refuses a declared-release change rather than performing it. The
-method is [implementation guide §5](../implementation/okf-implementation-guide.md#5-migration)
-when that document is present; there is no separate migration skill. The
-authoring skill owns that refusal.
+## Profile skills
+
+A Profile's judgment ships as that Profile's skill, in its package, beside
+the rules that `wayfinder validate` enforces. `create-profile` writes it.
+`wayfinder get` installs it into each project that uses the Profile, as
+`.claude/skills/<id>/` and `.agents/skills/<id>/`, pinned to the commit the
+lock records, and the project commits it. Its name is the Profile id, which
+`validate --output json` lists as `profile.chain[].id`, so the authoring
+skill loads the skill of each Profile in a bundle's chain. See
+[Profile skills](../docs/wayfinder-configuration.md#profile-skills).
+
+This family installs at user level, once per machine, and stays the same for
+every Profile. Profile skills install per project.
 
 ## Installation and routing
 
@@ -33,7 +43,7 @@ it serves `knowledge/` relative to the consuming project. Set
 `WAYFINDER_KNOWLEDGE_DIR` to an explicit bundle path when it lives elsewhere, and
 `WAYFINDER_EXECUTABLE` if the executable is not on `PATH`. The source repository
 itself has no `knowledge/`; contributors enabling the plugin here must select a
-real bundle, such as the generic example. No root `.mcp.json` auto-starts a server
+real bundle, such as an example project. No root `.mcp.json` auto-starts a server
 merely because this repository was cloned.
 
 Follow the [plugin migration sequence](../docs/install.md#migrate-an-existing-plugin-installation) when changing from an older marketplace or `wayfinder-dist` to the main public
@@ -43,33 +53,25 @@ Keep upstream `okf` write tools separately configured if needed. Wayfinder's
 not replace concept-authoring writes.
 
 Install the family as a unit: sibling references make a partial installation
-incomplete. Keep each installation on one commit so the seed templates, authoring
-rules, and assessment instructions agree.
+incomplete.
 
 `author-knowledge-bundle` owns concept mechanics. Its description routes bundle
-writes and reviews to those instructions; adoption also puts an explicit pointer
-in the consuming repository's agent instructions. The other two skills delegate
-instead of maintaining independent rule text. Adoption's literal seed templates
-are the exception because the resulting root files must stand alone.
+writes and reviews to it, and adoption also puts an explicit pointer in the
+consuming repository's agent instructions. The other skills delegate instead
+of keeping their own rule text.
 
-## Pinned OKF and Profile rules
-
-The Profile is authoritative for Concepta conventions. Its authoring instructions
-are distributed under `author-knowledge-bundle/references/` so an installed copy
-can work without access to this repository. The entrypoint checks the bundle's
-declared release before applying them.
+## Pinned OKF
 
 The [vendored OKF 0.2 specification](author-knowledge-bundle/references/OKF-0.2.md)
-provides upstream mechanisms the Profile leaves open, including Attested
-Computation and source credibility signals. Attested Computation is included
-in the 2026.3 standard type vocabulary; its contract still comes from OKF
-§10. The specification is pinned to upstream commit
-`ad30107` in the canonical `open-knowledge-format` repository, with Apache-2.0
-attribution, so offline consumers read the reviewed specification instead of a
-changing `main` URL. Keep it as a reference, not a
-second skill or a rewritten specification.
+answers every question no Profile skill settles. It is pinned to upstream
+commit `ad30107` in the canonical `open-knowledge-format` repository, with
+Apache-2.0 attribution, so offline consumers read the reviewed specification
+instead of a changing `main` URL. Keep it as a reference, not a second skill
+or a rewritten specification.
 
-When a Profile rule changes, search the whole skill family for its old wording,
-starting with `SEEDING.md`. Check that requirements, recommendations, and optional
-mechanisms retain their original force. Conforming output alone cannot establish
-that a skill teaches the right rule.
+## Changing these skills
+
+Keep them Profile-agnostic. A convention one Profile chooses belongs in that
+Profile's skill, written through `create-profile`, never here. When the CLI's
+contract changes, such as a diagnostic id or the JSON shape, search the whole
+family for the old wording, starting with `SEEDING.md`.

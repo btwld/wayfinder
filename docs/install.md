@@ -1,7 +1,7 @@
 # Install Wayfinder
 
 Wayfinder finds and validates knowledge in an existing OKF bundle. Its complete
-native installation includes `wayfinder` with built-in Profile validation,
+native installation includes `wayfinder` with OKF and Profile validation,
 ObjectBox, the embedding runtime, a verified embedding model and license notices.
 It does not require Dart, GitHub credentials or administrator access.
 
@@ -62,10 +62,13 @@ wayfinder search "How do I regain access to my account?"
 wayfinder search "How do I regain access to my account?" --bundle knowledge
 ```
 
-Validation checks the automated gate; contextual Profile judgment remains an
+Validation derives the deterministic gate; contextual Profile judgment remains an
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
-bundle is `examples/knowledge`; it does not contain a root `knowledge/` directory.
+project is `examples/bitwild`, whose bundle is `examples/bitwild/knowledge`; the
+repository has no root `knowledge/` directory. Run `wayfinder get
+examples/bitwild` first, because validation reads the Profile from the lock and
+never fetches it.
 
 Project search/index use the bundle paths in the nearest `wayfinder.json`, or
 the conventional `knowledge/` folder when no configuration exists. An explicit

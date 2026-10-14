@@ -1,9 +1,11 @@
 # wayfinder
 
-Core Dart validation library for OKF knowledge bundles and the Bitwild OKF Profile.
-It provides `ProfileValidator`, validation results, finding types and automated
-gate states. The existing validation rules, finding identifiers and exit-state
-mapping are unchanged by the package rename.
+Core Dart library that validates an OKF bundle with okf, then evaluates the
+rules of the Profile package a project selects. It embeds no Profile.
+`ProfilePackage` parses a package, and `ProfileValidator` returns a
+`ProfileValidationResult` with the OKF report, Profile findings, engine
+diagnostics (`EngineDiagnostic`), and the gate derived from them
+(`GateState`).
 
 ```dart
 import 'package:wayfinder/wayfinder.dart';

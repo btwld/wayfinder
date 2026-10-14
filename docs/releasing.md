@@ -57,13 +57,13 @@ The version lock is applied on the CLI pubspec, `wayfinderVersion`,
 `.claude-plugin/plugin.json`, and the CLI changelog. The CLI now depends on
 `wayfinder_embeddings` `^0.2.0`.
 
-The Profile 2026.3 configuration and rule-catalog engine raise core to 0.2.0,
-and the CLI and `wayfinder_embeddings` depend on `wayfinder` `^0.2.0`, so
-publish core first. `tool/ci/verify-workspace-floors.py` keeps each sibling
-floor at the sibling's own version and fails while a depended-on package has
-unreleased changes on a version pub.dev already has. Do not describe the
-prepared CLI release as including Profile 2026.3 until its release plan is
-updated.
+The Profile package work, with Bitwild as `bitwild-profile` 2026.3 in package
+format 2, and the rule-catalog engine raise core to 0.2.0. The CLI and
+`wayfinder_embeddings` depend on `wayfinder` `^0.2.0`, so publish core first.
+`tool/ci/verify-workspace-floors.py` keeps each sibling floor at the sibling's
+own version and fails while a depended-on package has unreleased changes on a
+version pub.dev already has. Do not describe the prepared CLI release as
+including Bitwild 2026.3 until its release plan is updated.
 
 The embeddings release also makes a breaking API-placement cleanup. Callers
 must migrate to receiver-owned chunking, type-owned chunk identity and snapshot

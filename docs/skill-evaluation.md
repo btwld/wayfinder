@@ -73,7 +73,7 @@ packaging or cross-platform CI was rerun for these documentation-only changes.
 
 Evaluated 2026-09-11 while adding the model-invoked `use-wayfinder` skill with
 the skill-creator workflow. Four synthetic scenarios ran against separate copies
-of `examples/knowledge`, once with the skill and once without, using the
+of the worked example bundle, now `examples/bitwild/knowledge`, once with the skill and once without, using the
 Wayfinder 0.0.1 CLI. Every run was told the `wayfinder` command existed, so the
 baseline is an informed agent, not one unaware of Wayfinder.
 

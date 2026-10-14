@@ -3,57 +3,32 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/src/generated/installed_profiles.g.dart';
-import 'package:wayfinder/src/profile_release.dart' show legacyStandardTypes;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
 
 void main() {
-  test('the generated installed Profile files are current', () async {
-    for (final (name, embedded) in [
-      ('wayfinder-profile', installedProfileManifests),
-      ('wayfinder-rules', installedRuleCatalogs),
-    ]) {
-      final files = [
-        File('../../profile/$name.json'),
-        ...Directory('../../profile/versions')
-            .listSync()
-            .whereType<File>()
-            .where((file) => p.basename(file.path).startsWith('$name-')),
-      ];
-      final keys = <(String, String)>{};
-      for (final file in files) {
-        final text = await file.readAsString();
-        final json = jsonDecode(text) as Map<String, Object?>;
-        final source = json['profile'] is Map<String, Object?>
-            ? json['profile'] as Map<String, Object?>
-            : json;
-        final key = (source['id'] as String, source['release'] as String);
-        keys.add(key);
-        expect(
-          embedded[key],
-          text,
-          reason:
-              '${file.path} is not embedded; run '
-              'dart run tool/generate_installed_profiles.dart',
-        );
-      }
-      expect(embedded.keys.toSet(), keys, reason: name);
-    }
-    for (final (path, embedded) in [
-      ('wayfinder.schema.json', wayfinderConfigurationSchema),
-      ('wayfinder-profile.schema.json', wayfinderProfileManifestSchema),
-    ]) {
+  test(
+    'the engine embeds its schemas and okf version, and no Profile',
+    () async {
+      final source = await File(
+        'lib/src/generated/published_schemas.g.dart',
+      ).readAsString();
       expect(
-        embedded,
-        await File('../../docs/schemas/$path').readAsString(),
-        reason: path,
+        RegExp(
+          r'^const String (\w+)',
+          multiLine: true,
+        ).allMatches(source).map((match) => match[1]),
+        [
+          'wayfinderConfigurationSchema',
+          'wayfinderProfileSchema',
+          'okfPackageVersion',
+        ],
       );
-    }
-    expect(externalStandardTypes.length, 12);
-    expect(legacyStandardTypes.length, 14);
-  });
+      expect(source, isNot(contains('bitwild')));
+    },
+  );
+
   late Directory project;
   late Directory bundle;
 
@@ -62,33 +37,9 @@ void main() {
     String? configPath,
     bool fix = false,
   }) async {
-    Map<String, WayfinderProfileBinding>? resolved;
-    final file = File(configPath ?? p.join(project.path, 'wayfinder.json'));
-    if (await file.exists()) {
-      try {
-        final config = WayfinderProjectConfig.parse(await file.readAsString());
-        resolved = {
-          for (final entry in config.profiles.entries)
-            entry.key: WayfinderProfileBinding(
-              id: entry.key,
-              implementsId: builtinProfileId,
-              release: externalProfileRelease,
-              types: entry.value.types,
-              tags: entry.value.tags,
-              relationships: entry.value.relationships,
-              actors: entry.value.actors,
-              source: entry.value.source,
-              appliesTo: entry.value.appliesTo,
-            ),
-        };
-      } on WayfinderConfigException {
-        // Let the validator report malformed project configuration.
-      }
-    }
     return const ProfileValidator().validate(
       path,
-      configPath: configPath,
-      resolvedProfiles: resolved,
+      await selectFixture(path, configPath: configPath),
       fix: fix,
     );
   }
@@ -109,28 +60,34 @@ void main() {
     expect(result.exitCode, 0);
   });
 
-  test('does not resolve Profile sources when independent OKF fails', () async {
+  test('reports why no Profile was selected, but runs no Profile rule, when '
+      'independent OKF fails', () async {
     final sample = File(p.join(bundle.path, 'sample.md'));
     await sample.writeAsString(
       (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
     );
-    var resolved = false;
     final result = await const ProfileValidator().validate(
       bundle.path,
-      resolveSources: () async {
-        resolved = true;
-        throw StateError('Profile source resolution must not run');
-      },
+      UnselectedProfile([
+        const EngineDiagnostic(
+          DiagnosticCode.profileUnresolved,
+          'Run wayfinder get.',
+        ),
+      ]),
     );
     expect(result.okfState, OkfState.fail);
     expect(result.profileState, ProfileState.blockedByOkf);
-    expect(resolved, isFalse);
+    expect(result.findings, isEmpty);
+    expect(result.diagnostics.map((d) => d.code), [
+      DiagnosticCode.profileUnresolved,
+    ]);
+    expect(result.gate, GateState.fail);
   });
 
-  test('configured type summary identifies the configuration file', () async {
+  test('a project type note identifies the configuration file', () async {
     final config = _config();
     final profile =
-        (config['profiles'] as Map<String, Object?>)['bitwild_profile']!
+        (config['profiles'] as Map<String, Object?>)['bitwild-profile']!
             as Map<String, Object?>;
     profile['types'] = [
       {'name': 'Project Note', 'description': 'A local project note.'},
@@ -145,33 +102,27 @@ void main() {
       configPath: customConfig.path,
     );
     expect(result.profileState, ProfileState.pass);
-    expect(
-      result.summary!
-          .where(
-            (entry) => entry.id == 'concepta-profile/configured-type-extension',
-          )
-          .map((entry) => entry.path),
-      [customConfig.path],
-    );
+    final note = result.diagnostics.single;
+    expect(note.code, DiagnosticCode.projectType);
+    expect(note.location, isA<ProjectFileLocation>());
+    expect(note.location!.path, customConfig.path);
+    expect(result.gate, GateState.pass);
   });
 
-  test('a bundle whose only results are notes passes with exit 0', () async {
+  test('a bundle whose only reports are notes passes with exit 0', () async {
     final result = await validateFixture(fixture('configured-extensions'));
     expect(result.findings, isEmpty);
-    expect(result.summary!.map((entry) => entry.id), [
-      'concepta-profile/configured-type-extension',
-    ]);
+    expect(result.diagnostics.map((d) => d.id), ['wayfinder/project-type']);
     expect(result.profileState, ProfileState.pass);
-    expect(result.automatedGateState, AutomatedGateState.pass);
+    expect(result.gate, GateState.pass);
     expect(result.exitCode, 0);
     final text = result.toTextLines().toList();
-    expect(text.sublist(text.indexOf('Summary:')), [
-      'Summary:',
-      'test/fixtures/configured-extensions/wayfinder.json: note '
-          'concepta-profile/configured-type-extension (2026.3 §5.2): '
+    expect(text.sublist(text.indexOf('Diagnostics:')), [
+      'Diagnostics:',
+      'test/fixtures/configured-extensions/wayfinder.json: '
+          'note wayfinder/project-type: '
           'Configured project type Runbook is available to this bundle.',
-      'Judgment Rules: UNASSESSED',
-      'Automated gate: PASS',
+      'Gate: PASS',
     ]);
   });
 
@@ -188,7 +139,7 @@ void main() {
         jsonEncode({
           'version': 1,
           'profiles': {
-            'main': {'implements': 'bitwild_profile/2026.3'},
+            'main': {'implements': 'bitwild-profile/2026.3'},
           },
           'bundles': [
             {'id': 'knowledge', 'path': 'knowledge', 'profile': 'main'},
@@ -223,7 +174,7 @@ void main() {
       expect(wrong.profileState, ProfileState.fail);
       expect(
         wrong.findings.map((finding) => finding.id),
-        contains('concepta-profile/okf-release-binding'),
+        contains('bitwild-profile/okf-release-binding'),
       );
     },
   );
@@ -280,7 +231,7 @@ result = value + 1
       jsonEncode({
         'version': 1,
         'profiles': {
-          'bitwild_profile': {
+          'bitwild-profile': {
             'source': {
               'git': 'https://example.test/profile.git',
               'ref': 'v2026.3',
@@ -295,9 +246,9 @@ result = value + 1
       'knowledge',
       'captures-bundle',
     ]);
-    final profile = config.profiles['bitwild_profile']!;
-    expect(profile.source!.path, 'profile');
-    expect(profile.source!.ref, 'v2026.3');
+    final profile = config.profiles[ProfileId.parse('bitwild-profile')]!;
+    expect(profile.source.path, 'profile');
+    expect(profile.source.ref, 'v2026.3');
     expect(profile.appliesTo, ['knowledge', 'captures-bundle']);
   });
 
@@ -305,7 +256,7 @@ result = value + 1
     String message(void Function(Map<String, dynamic> profile) edit) {
       final config = jsonDecode(jsonEncode(_config())) as Map<String, dynamic>;
       edit(
-        (config['profiles'] as Map<String, dynamic>)['bitwild_profile']
+        (config['profiles'] as Map<String, dynamic>)['bitwild-profile']
             as Map<String, dynamic>,
       );
       try {
@@ -316,7 +267,7 @@ result = value + 1
       fail('parsed');
     }
 
-    const at = 'wayfinder.json is invalid at /profiles/bitwild_profile';
+    const at = 'wayfinder.json is invalid at /profiles/bitwild-profile';
     expect(
       message((profile) => profile['rules'] = {'allow_anything': true}),
       '$at: has unknown property rules.',
@@ -364,9 +315,12 @@ result = value + 1
       'no .. and no whitespace or control characters.',
     );
     expect(
-      message((profile) => profile['extends'] = 'Base'),
-      '$at/extends: must be a valid identifier '
-      '(lowercase letters, digits, _ and -, starting with a letter).',
+      message((profile) => profile['extends'] = 'bitwild-profile'),
+      '$at: has unknown property extends.',
+    );
+    expect(
+      message((profile) => profile['applies_to'] = <String>[]),
+      '$at/applies_to: must not be empty.',
     );
     expect(
       () => WayfinderProjectConfig.parse(
@@ -380,46 +334,24 @@ result = value + 1
         ),
       ),
     );
-  });
-
-  test('installed manifests satisfy the published manifest schema', () {
-    for (final MapEntry(:key, value: text)
-        in installedProfileManifests.entries) {
-      expect(
-        profileManifestSchemaViolation(jsonDecode(text)),
-        isNull,
-        reason: '$key',
-      );
-    }
-    final manifest =
-        jsonDecode(installedProfileManifests.values.first)
-            as Map<String, dynamic>;
-    (manifest['implements'] as Map<String, dynamic>)['release'] = '0.3';
+    final long = 'a' * 65;
+    final config = _config();
+    (config['profiles'] as Map<String, dynamic>)[long] =
+        (config['profiles'] as Map<String, dynamic>).remove('bitwild-profile');
     expect(
-      profileManifestSchemaViolation(manifest),
-      'is invalid at /implements/release: must be "0.2"',
+      () => WayfinderProjectConfig.parse(jsonEncode(config)),
+      throwsA(
+        isA<WayfinderConfigException>().having(
+          (error) => error.message,
+          'message',
+          'wayfinder.json is invalid at /profiles: has invalid property name '
+              '"$long".',
+        ),
+      ),
     );
   });
 
-  test('rejects direct Profile path overlap and unknown inheritance', () {
-    final base = {
-      'version': 1,
-      'profiles': {
-        'client': {
-          'source': {
-            'git': 'https://example.test/profile.git',
-            'ref': 'main',
-            'path': 'profile',
-          },
-          'applies_to': ['./knowledge'],
-          'extends': 'missing',
-        },
-      },
-    };
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(base)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
+  test('rejects overlapping bundle paths across Profiles', () {
     final overlapping = {
       'version': 1,
       'profiles': {
@@ -427,7 +359,7 @@ result = value + 1
           'source': {
             'git': 'https://example.test/one.git',
             'ref': 'main',
-            'path': 'profile',
+            'path': 'profiles/bitwild',
           },
           'applies_to': ['./knowledge'],
         },
@@ -435,7 +367,7 @@ result = value + 1
           'source': {
             'git': 'https://example.test/two.git',
             'ref': 'main',
-            'path': 'profile',
+            'path': 'profiles/bitwild',
           },
           'applies_to': ['./knowledge/references'],
         },
@@ -447,54 +379,6 @@ result = value + 1
     );
   });
 
-  test('direct parents can be source-only and inheritance cycles fail', () {
-    final config = {
-      'version': 1,
-      'profiles': {
-        'bitwild_profile': {
-          'source': {
-            'git': 'https://example.test/base.git',
-            'ref': 'main',
-            'path': 'profile',
-          },
-          'applies_to': <String>[],
-        },
-        'client_profile': {
-          'source': {
-            'git': 'https://example.test/child.git',
-            'ref': 'main',
-            'path': 'profile',
-          },
-          'extends': 'bitwild_profile',
-          'applies_to': ['./knowledge'],
-        },
-      },
-    };
-    expect(WayfinderProjectConfig.parse(jsonEncode(config)).bundles.length, 1);
-    final profiles = config['profiles']! as Map<String, Object?>;
-    final child = profiles['client_profile']! as Map<String, Object?>;
-    child.remove('extends');
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(config)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
-    child['extends'] = 'bitwild_profile';
-    profiles['other_profile'] = {
-      'source': {
-        'git': 'https://example.test/other.git',
-        'ref': 'main',
-        'path': 'profile',
-      },
-      'extends': 'client_profile',
-      'applies_to': <String>[],
-    };
-    child['extends'] = 'other_profile';
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(config)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
-  });
-
   test(
     'direct Profile rejects unsafe paths, credentials and rule overrides',
     () {
@@ -502,14 +386,14 @@ result = value + 1
         'source': <String, Object?>{
           'git': 'https://example.test/base.git',
           'ref': 'main',
-          'path': 'profile',
+          'path': 'profiles/bitwild',
         },
         'applies_to': ['./knowledge'],
       };
       WayfinderProjectConfig parse() => WayfinderProjectConfig.parse(
         jsonEncode({
           'version': 1,
-          'profiles': {'bitwild_profile': profile},
+          'profiles': {'bitwild-profile': profile},
         }),
       );
       for (final path in [
@@ -526,7 +410,8 @@ result = value + 1
         profile['applies_to'] = ['./knowledge'];
         (profile['source']! as Map<String, Object?>)['path'] = path;
         expect(() => parse(), throwsA(isA<WayfinderConfigException>()));
-        (profile['source']! as Map<String, Object?>)['path'] = 'profile';
+        (profile['source']! as Map<String, Object?>)['path'] =
+            'profiles/bitwild';
       }
       profile['applies_to'] = ['./knowledge'];
       (profile['source']! as Map<String, Object?>)['git'] =
@@ -538,7 +423,7 @@ result = value + 1
       (profile['source']! as Map<String, Object?>)['git'] =
           'ssh://git@example.test/base.git';
       expect(
-        parse().profiles['bitwild_profile']!.source!.git,
+        parse().profiles[ProfileId.parse('bitwild-profile')]!.source.git,
         'ssh://git@example.test/base.git',
       );
       (profile['source']! as Map<String, Object?>)['git'] =
@@ -569,10 +454,10 @@ result = value + 1
       expect(
         result.findings.map((finding) => finding.id),
         containsAll([
-          'concepta-profile/used-type-registered',
-          'concepta-profile/configured-tag-undeclared',
-          'concepta-profile/configured-tag-duplicate',
-          'concepta-profile/used-actor-registered',
+          'bitwild-profile/used-type-registered',
+          'bitwild-profile/configured-tag-undeclared',
+          'bitwild-profile/configured-tag-duplicate',
+          'bitwild-profile/used-actor-registered',
         ]),
       );
     },
@@ -626,13 +511,13 @@ okf_version: "0.2"
     expect(stale.profileState, ProfileState.fail);
     expect(
       stale.findings
-          .where((finding) => finding.id == 'concepta-profile/index-current')
+          .where((finding) => finding.id == 'bitwild-profile/index-current')
           .map((finding) => finding.path),
       ['area/index.md', 'index.md'],
     );
 
     final fixed = await validateBundle(bundle.path, fix: true);
-    expect(fixed.fix!.written, ['area/index.md', 'index.md']);
+    expect(fixed.fixed, ['area/index.md', 'index.md']);
     expect(fixed.profileState, ProfileState.pass);
     expect(
       await index.readAsString(),
@@ -653,36 +538,45 @@ okf_version: "0.2"
     );
 
     final again = await validateBundle(bundle.path, fix: true);
-    expect(again.fix!.written, isEmpty);
+    expect(again.fixed, isEmpty);
     expect(again.profileState, ProfileState.pass);
   });
 
-  test('--fix never writes a 2026.2 bundle or one OKF rejects', () async {
-    final legacy = await copyFixture('structure-boundary');
-    addTearDown(() => legacy.delete(recursive: true));
-    final index = File(p.join(legacy.path, 'index.md'));
-    await index.writeAsString(
-      (await index.readAsString()).replaceFirst('# Bundle', '# Navigation'),
-    );
-    final before = await _snapshot(legacy);
-    final old = await const ProfileValidator().validate(legacy.path, fix: true);
-    expect(old.profileRelease, '2026.2');
-    expect(old.fix!.written, isEmpty);
-    expect(old.fix!.reason, isNotNull);
-    expect(await _snapshot(legacy), before);
+  test(
+    '--fix never writes an unconfigured bundle or one OKF rejects',
+    () async {
+      final unconfigured = await copyFixture('unconfigured');
+      addTearDown(() => unconfigured.delete(recursive: true));
+      final before = await _snapshot(unconfigured);
+      final unselected = await const ProfileValidator().validate(
+        unconfigured.path,
+        await selectFixture(unconfigured.path),
+        fix: true,
+      );
+      expect(unselected.profileState, ProfileState.notAssessed);
+      expect(unselected.fixed, isNull);
+      expect(unselected.diagnostics.map((d) => d.code), [
+        DiagnosticCode.configMissing,
+        DiagnosticCode.fixNotApplied,
+      ]);
+      expect(await _snapshot(unconfigured), before);
 
-    await File(p.join(bundle.path, 'index.md')).delete();
-    final sample = File(p.join(bundle.path, 'sample.md'));
-    await sample.writeAsString(
-      (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
-    );
-    final blocked = await validateBundle(bundle.path, fix: true);
-    expect(blocked.profileState, ProfileState.blockedByOkf);
-    expect(blocked.fix!.reason, isNotNull);
-    expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
-  });
+      await File(p.join(bundle.path, 'index.md')).delete();
+      final sample = File(p.join(bundle.path, 'sample.md'));
+      await sample.writeAsString(
+        (await sample.readAsString()).replaceFirst('type: Guide\n', ''),
+      );
+      final blocked = await validateBundle(bundle.path, fix: true);
+      expect(blocked.profileState, ProfileState.blockedByOkf);
+      expect(blocked.fixed, isNull);
+      expect(blocked.diagnostics.map((d) => d.code), [
+        DiagnosticCode.fixNotApplied,
+      ]);
+      expect(await File(p.join(bundle.path, 'index.md')).exists(), isFalse);
+    },
+  );
 
-  test('rejects unknown fields and duplicate or colliding definitions', () {
+  test('rejects unknown fields and duplicate definitions', () {
     final valid = _config();
     expect(
       () => WayfinderProjectConfig.parse(
@@ -691,58 +585,53 @@ okf_version: "0.2"
       throwsA(isA<WayfinderConfigException>()),
     );
     final binding =
-        (valid['profiles'] as Map<String, Object?>)['bitwild_profile']!
+        (valid['profiles'] as Map<String, Object?>)['bitwild-profile']!
             as Map<String, Object?>;
-    binding['types'] = [
-      {'name': 'Guide', 'description': 'Collision'},
-    ];
-    expect(
-      () => WayfinderProjectConfig.parse(jsonEncode(valid)),
-      throwsA(isA<WayfinderConfigException>()),
-    );
-    binding.remove('types');
     binding['tags'] = [
       {'name': 'governance', 'description': 'Topic'},
       {'name': 'governance', 'description': 'Duplicate'},
     ];
     expect(
       () => WayfinderProjectConfig.parse(jsonEncode(valid)),
-      throwsA(isA<WayfinderConfigException>()),
+      throwsA(
+        isA<WayfinderConfigException>().having(
+          (error) => error.message,
+          'message',
+          'Profile bitwild-profile declares a duplicate tag governance.',
+        ),
+      ),
     );
     binding.remove('tags');
-    for (final relationships in [
-      [
-        {'name': 'depends-on', 'description': 'Collides with a standard name'},
-      ],
-      [
-        {'name': 'runs-after', 'description': 'Project name'},
-        {'name': 'runs-after', 'description': 'Duplicate'},
-      ],
-    ]) {
-      binding['relationships'] = relationships;
-      expect(
-        () => WayfinderProjectConfig.parse(jsonEncode(valid)),
-        throwsA(
-          isA<WayfinderConfigException>().having(
-            (error) => error.message,
-            'message',
-            contains('colliding or duplicate relationship'),
-          ),
+    binding['relationships'] = [
+      {'name': 'runs-after', 'description': 'Project name'},
+      {'name': 'runs-after', 'description': 'Duplicate'},
+    ];
+    expect(
+      () => WayfinderProjectConfig.parse(jsonEncode(valid)),
+      throwsA(
+        isA<WayfinderConfigException>().having(
+          (error) => error.message,
+          'message',
+          'Profile bitwild-profile declares a duplicate relationship '
+              'runs-after.',
         ),
-      );
-    }
+      ),
+    );
     binding['relationships'] = [
       {'name': 'runs-after', 'description': 'Project name'},
     ];
     expect(
-      WayfinderProjectConfig.parse(
-        jsonEncode(valid),
-      ).profiles['bitwild_profile']!.relationshipNames,
-      containsAll(['depends-on', 'runs-after']),
+      WayfinderProjectConfig.parse(jsonEncode(valid))
+          .profiles[ProfileId.parse('bitwild-profile')]!
+          .project
+          .relationships
+          .map((definition) => definition.name),
+      ['runs-after'],
     );
   });
 
-  test('rejects a declared tag that equals another vocabulary value', () {
+  test('a declaration that collides with the Profile chain is reported when '
+      'the chain is composed, not by the configuration', () async {
     for (final (field, name, collision) in [
       ('tags', 'draft', 'tag draft, which equals an OKF status value'),
       (
@@ -761,10 +650,21 @@ okf_version: "0.2"
         'incident',
         'tag incident, which equals a declared relationship name',
       ),
+      (
+        'types',
+        'Guide',
+        'type Guide, which Profile bitwild-profile already declares',
+      ),
+      (
+        'relationships',
+        'depends-on',
+        'relationship depends-on, which Profile bitwild-profile already '
+            'declares',
+      ),
     ]) {
       final config = _config();
       final binding =
-          (config['profiles'] as Map<String, Object?>)['bitwild_profile']!
+          (config['profiles'] as Map<String, Object?>)['bitwild-profile']!
               as Map<String, Object?>;
       binding['tags'] = [
         {'name': 'incident', 'description': 'An incident topic'},
@@ -775,17 +675,16 @@ okf_version: "0.2"
         (list) => [...list as List<Object?>, definition],
         ifAbsent: () => [definition],
       );
+      await _writeConfig(project, config);
+      final result = await validateBundle(bundle.path);
+      expect(result.profileState, ProfileState.notAssessed, reason: name);
+      expect(result.diagnostics.single.code, DiagnosticCode.profileComposition);
       expect(
-        () => WayfinderProjectConfig.parse(jsonEncode(config)),
-        throwsA(
-          isA<WayfinderConfigException>().having(
-            (error) => error.message,
-            'message',
-            'Profile bitwild_profile declares $collision.',
-          ),
-        ),
+        result.diagnostics.single.message,
+        'Profile bitwild-profile: The project declares $collision.',
         reason: '$field $name',
       );
+      expect(result.gate, GateState.incomplete);
     }
   });
 
@@ -799,7 +698,7 @@ okf_version: "0.2"
     for (final key in ['types', 'tags', 'relationships', 'actors']) {
       final config = jsonDecode(jsonEncode(_config())) as Map<String, dynamic>;
       final binding =
-          (config['profiles'] as Map<String, dynamic>)['bitwild_profile']!
+          (config['profiles'] as Map<String, dynamic>)['bitwild-profile']!
               as Map<String, dynamic>;
       binding[key] = null;
       expect(
@@ -809,7 +708,7 @@ okf_version: "0.2"
     }
     final config = jsonDecode(jsonEncode(_config())) as Map<String, dynamic>;
     final binding =
-        (config['profiles'] as Map<String, dynamic>)['bitwild_profile']!
+        (config['profiles'] as Map<String, dynamic>)['bitwild-profile']!
             as Map<String, dynamic>;
     final actor =
         (binding['actors'] as Map<String, dynamic>)['process:test']!
@@ -847,7 +746,7 @@ okf_version: "0.2"
     addTearDown(() => outside.delete(recursive: true));
     await Link(p.join(project.path, 'escape')).create(outside.path);
     final config = _config();
-    ((config['profiles'] as Map<String, Object?>)['bitwild_profile']!
+    ((config['profiles'] as Map<String, Object?>)['bitwild-profile']!
         as Map<String, Object?>)['applies_to'] = [
       'knowledge',
       'escape',
@@ -855,15 +754,16 @@ okf_version: "0.2"
     await _writeConfig(project, config);
     final result = await validateBundle(bundle.path);
     expect(result.okfState, OkfState.pass);
-    expect(result.profileState, ProfileState.unsupported);
-    expect(result.findings.single.message, contains('outside the project'));
+    expect(result.profileState, ProfileState.notAssessed);
+    expect(result.diagnostics.single.code, DiagnosticCode.configInvalid);
+    expect(result.diagnostics.single.message, contains('outside the project'));
   });
 
   test('discovers project configuration for a nested bundle path', () async {
     final nested = await Directory(p.join(project.path, 'nested')).create();
     final moved = await bundle.rename(p.join(nested.path, 'knowledge'));
     final config = _config();
-    ((config['profiles'] as Map<String, Object?>)['bitwild_profile']!
+    ((config['profiles'] as Map<String, Object?>)['bitwild-profile']!
         as Map<String, Object?>)['applies_to'] = [
       'nested/knowledge',
     ];
@@ -873,106 +773,62 @@ okf_version: "0.2"
     expect(result.profileRelease, '2026.3');
   });
 
-  test('keeps an unlisted legacy bundle on its declared release', () async {
-    final legacy = await copyFixture('conformant');
-    final moved = await legacy.rename(p.join(project.path, 'legacy'));
-    final result = await validateBundle(moved.path);
-    expect(result.profileRelease, '2026.2');
-    expect(result.profileState, ProfileState.pass);
-  });
-
-  test('reports an unlisted nonlegacy bundle as a binding error', () async {
+  test('reports an unlisted bundle as a binding error, even with a 2026.2 '
+      'declaration', () async {
     final other = await Directory(p.join(project.path, 'other')).create();
     await _writeBundle(other);
-    final result = await validateBundle(other.path);
-    expect(result.profileState, ProfileState.unsupported);
-    expect(result.findings.single.message, contains('not listed'));
+    for (final declared in [false, true]) {
+      if (declared) await _writeRetiredRegistries(other);
+      final result = await validateBundle(other.path);
+      expect(
+        result.profileState,
+        ProfileState.notAssessed,
+        reason: '$declared',
+      );
+      expect(result.diagnostics.single.code, DiagnosticCode.bundleUnbound);
+      expect(result.diagnostics.single.message, contains('not listed'));
+    }
   });
 
-  test('rejects a 2026.3 selector in legacy profile.md', () async {
-    final legacy = await copyFixture('conformant');
-    addTearDown(() => legacy.delete(recursive: true));
-    final declaration = File(p.join(legacy.path, 'profile.md'));
-    await declaration.writeAsString(
-      (await declaration.readAsString()).replaceAll('2026.2', '2026.3'),
-    );
-    final result = await validateBundle(legacy.path);
-    expect(result.profileState, ProfileState.unsupported);
-  });
-
-  test('reserves nested registry names only under legacy 2026.2', () async {
-    const concept = '''
+  test('a nested registry name is an ordinary concept', () async {
+    final area = await Directory(p.join(bundle.path, 'area')).create();
+    await File(p.join(area.path, 'types.md')).writeAsString('''
 ---
 type: Guide
 title: Area types
-description: An ordinary concept named like a legacy registry.
+description: An ordinary concept named like a former registry.
 status: stable
+generated: {by: process:test, at: 2026-09-27T00:00:00Z}
 ---
 
 # Area types
-''';
-    Future<List<String?>> reservedNameFindings(
-      Directory root,
-      String release,
-    ) async {
-      final area = await Directory(p.join(root.path, 'area')).create();
-      await File(p.join(area.path, 'types.md')).writeAsString(concept);
-      final result = await validateBundle(root.path);
-      expect(result.okfState, OkfState.pass);
-      expect(result.profileRelease, release);
-      return result.findings
-          .where(
-            (finding) => finding.id == 'concepta-profile/root-structure-files',
-          )
-          .map((finding) => finding.path)
-          .toList();
-    }
-
-    expect(await reservedNameFindings(bundle, '2026.3'), isEmpty);
-    final legacy = await copyFixture('conformant');
-    addTearDown(() => legacy.delete(recursive: true));
-    expect(await reservedNameFindings(legacy, '2026.2'), ['area/types.md']);
+''');
+    final result = await validateBundle(bundle.path, fix: true);
+    expect(result.okfState, OkfState.pass);
+    expect(result.profileState, ProfileState.pass);
   });
 
-  test(
-    'migrates a legacy root without reinterpreting its old release',
-    () async {
-      await File(p.join(project.path, 'wayfinder.json')).delete();
-      await bundle.delete(recursive: true);
-      final legacy = await copyFixture('conformant');
-      bundle = await legacy.rename(p.join(project.path, 'knowledge'));
-      final old = await validateBundle(bundle.path);
-      expect(old.profileRelease, '2026.2');
-      expect(old.profileState, ProfileState.pass);
+  test('a configured bundle must drop its 2026.2 registries', () async {
+    await _writeRetiredRegistries(bundle);
+    final halfway = await validateBundle(bundle.path);
+    expect(halfway.profileState, ProfileState.fail);
+    expect(
+      halfway.findings
+          .where(
+            (finding) =>
+                finding.id == 'bitwild-profile/configuration-legacy-registry',
+          )
+          .map((finding) => finding.path),
+      ['actors.md', 'profile.md', 'types.md'],
+    );
 
-      await _writeConfig(project);
-      final halfway = await validateBundle(bundle.path);
-      expect(halfway.profileState, ProfileState.fail);
-      expect(
-        halfway.findings.map((finding) => finding.id),
-        contains('concepta-profile/configuration-legacy-registry'),
-      );
-
-      for (final name in ['profile.md', 'types.md', 'actors.md']) {
-        await File(p.join(bundle.path, name)).delete();
-      }
-      await File(p.join(bundle.path, 'index.md')).writeAsString(
-        '''
----
-okf_version: "0.2"
----
-
-# Bundle
-
-* [Knowledge Log](log.md)
-'''
-            .trimLeft(),
-      );
-      final migrated = await validateBundle(bundle.path);
-      expect(migrated.profileRelease, '2026.3');
-      expect(migrated.profileState, ProfileState.pass);
-    },
-  );
+    for (final name in ['profile.md', 'types.md', 'actors.md']) {
+      await File(p.join(bundle.path, name)).delete();
+    }
+    final migrated = await validateBundle(bundle.path);
+    expect(migrated.profileRelease, '2026.3');
+    expect(migrated.profileState, ProfileState.pass);
+  });
 }
 
 Future<Map<String, List<int>>> _snapshot(Directory root) async => {
@@ -984,11 +840,11 @@ Future<Map<String, List<int>>> _snapshot(Directory root) async => {
 Map<String, Object?> _config() => {
   'version': 1,
   'profiles': {
-    'bitwild_profile': {
+    'bitwild-profile': {
       'source': {
         'git': 'https://example.test/wayfinder.git',
         'ref': 'v2026.3',
-        'path': 'profile',
+        'path': 'profiles/bitwild',
       },
       'applies_to': ['knowledge'],
       'actors': {
@@ -1046,4 +902,23 @@ A sample guide.
 '''
         .trimLeft(),
   );
+}
+
+Future<void> _writeRetiredRegistries(Directory bundle) async {
+  for (final (name, type) in [
+    ('profile.md', 'Knowledge Profile'),
+    ('types.md', 'Type Registry'),
+    ('actors.md', 'Actor Registry'),
+  ]) {
+    await File(p.join(bundle.path, name)).writeAsString('''
+---
+type: $type
+title: $type
+description: A 2026.2 registry left in the bundle.
+status: stable
+---
+
+# $type
+''');
+  }
 }

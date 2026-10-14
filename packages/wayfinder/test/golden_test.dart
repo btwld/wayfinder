@@ -20,8 +20,8 @@ void main() {
   for (final name in fixtures) {
     test('$name matches its golden', () async {
       final result = await validateFixture(fixture(name));
-      final actual =
-          '${const JsonEncoder.withIndent('  ').convert(result.toJson())}\n';
+      final json = _withMaskedOkfVersion(result.toJson());
+      final actual = '${const JsonEncoder.withIndent('  ').convert(json)}\n';
       final golden = File(p.join(goldens, '$name.json'));
       if (update) {
         await golden.parent.create(recursive: true);
@@ -53,3 +53,6 @@ void main() {
     expect(orphans, isEmpty, reason: 'delete goldens of removed fixtures');
   }, skip: update);
 }
+
+Map<String, Object?> _withMaskedOkfVersion(Map<String, Object?> json) =>
+    json..['engine'] = const {'okf': '<okf-package-version>'};

@@ -1,8 +1,16 @@
 final class JsonPredicateException implements Exception {
-  JsonPredicateException(this.pointer, this.message);
+  JsonPredicateException(
+    this.pointer,
+    this.message, {
+    this.unsupported = false,
+  });
 
   final String pointer;
   final String message;
+
+  /// True when the schema may be valid JSON Schema that this engine's
+  /// keyword subset does not cover, as opposed to a malformed schema.
+  final bool unsupported;
 
   @override
   String toString() => '$message at #$pointer';
@@ -34,6 +42,7 @@ final class JsonPredicate {
     required this.slots,
     required this.defs,
     required this.rootPropertyNames,
+    required this.mayObserveUnnamedRootProperties,
   });
 
   factory JsonPredicate.compile(
@@ -47,13 +56,27 @@ final class JsonPredicate {
       final Map<String, Object?> own => {...defs, ...own},
       _ => throw JsonPredicateException(r'/$defs', r'$defs must be an object'),
     };
-    final compiler = _Compiler(merged, slots);
+    for (final name in merged.keys) {
+      if (slots.containsKey(name)) {
+        throw JsonPredicateException(
+          _pointer(r'/$defs', name),
+          'is reserved for the slot of that name',
+        );
+      }
+    }
+    final compiler = _Compiler({
+      ...merged,
+      for (final MapEntry(key: name, value: members) in slots.entries)
+        name: members.isEmpty ? false : {'enum': members},
+    });
     final root = compiler.compile(schema);
+    final slotNames = slots.keys.toSet();
     return JsonPredicate._(
       root,
-      slots: compiler.reachableSlots,
-      defs: compiler.reachableDefs,
+      slots: compiler.reachableDefs.intersection(slotNames),
+      defs: compiler.reachableDefs.difference(slotNames),
       rootPropertyNames: compiler.rootPropertyNames,
+      mayObserveUnnamedRootProperties: compiler.mayObserveUnnamedRootProperties,
     );
   }
 
@@ -64,6 +87,8 @@ final class JsonPredicate {
   final Set<String> defs;
 
   final Set<String> rootPropertyNames;
+
+  final bool mayObserveUnnamedRootProperties;
 
   bool test(Object? instance) => _root.test(instance);
 
@@ -82,17 +107,54 @@ final class _RefSite {
 }
 
 final class _Compiler {
-  _Compiler(this._defs, this._slots);
+  _Compiler(this._defs);
 
   final Map<String, Object?> _defs;
-  final Map<String, List<String>> _slots;
   final _compiledDefs = <String, _Node>{};
   final _refSites = <_RefSite>[];
-  final _slotsByDef = <String?, Set<String>>{};
   final _rootNamesByDef = <String?, Set<String>>{};
+  final _unnamedRootDefs = <String?>{};
   late final Set<String> rootPropertyNames;
+  late final bool mayObserveUnnamedRootProperties;
   late final Set<String> reachableDefs;
-  late final Set<String> reachableSlots;
+
+  /// Keywords that read their instance's properties only by name: the
+  /// annotations, the string and array keywords, `required`, `properties`,
+  /// and the applicators whose subschemas this walk checks on the same
+  /// instance. Any other keyword counts as reading every property, so leaving
+  /// a keyword out costs a needless skip and listing one wrongly hides a link
+  /// dependency.
+  static const _namedOnlyKeywords = {
+    r'$schema',
+    r'$id',
+    r'$comment',
+    'title',
+    'description',
+    'examples',
+    'default',
+    'deprecated',
+    r'$defs',
+    'type',
+    'required',
+    'properties',
+    'pattern',
+    'minLength',
+    'maxLength',
+    'format',
+    'items',
+    'uniqueItems',
+    'minItems',
+    'maxItems',
+    'contains',
+    'not',
+    'allOf',
+    'anyOf',
+    'oneOf',
+    'if',
+    'then',
+    'else',
+    r'$ref',
+  };
 
   String? _currentDef;
   String? _currentDefDescription;
@@ -120,15 +182,16 @@ final class _Compiler {
     _rejectUnguardedCycles();
     final reached = _reach(_refSites);
     reachableDefs = reached;
+    final sameInstance = <String?>{
+      null,
+      ..._reach(_refSites.where((site) => !site.guarded)),
+    };
     rootPropertyNames = {
-      ...?_rootNamesByDef[null],
-      for (final name in _reach(_refSites.where((site) => !site.guarded)))
-        ...?_rootNamesByDef[name],
+      for (final def in sameInstance) ...?_rootNamesByDef[def],
     };
-    reachableSlots = {
-      ...?_slotsByDef[null],
-      for (final name in reached) ...?_slotsByDef[name],
-    };
+    mayObserveUnnamedRootProperties = sameInstance.any(
+      _unnamedRootDefs.contains,
+    );
     return node;
   }
 
@@ -196,6 +259,9 @@ final class _Compiler {
     _Node? elseNode;
     for (final MapEntry(key: keyword, :value) in map.entries) {
       final at = _pointer(pointer, keyword);
+      if (_descents == 0 && !_namedOnlyKeywords.contains(keyword)) {
+        _unnamedRootDefs.add(_currentDef);
+      }
       switch (keyword) {
         case r'$schema' ||
             r'$id' ||
@@ -284,15 +350,16 @@ final class _Compiler {
             throw JsonPredicateException(
               at,
               'only format "date-time" is supported',
+              unsupported: true,
             );
           }
           nodes.add(const _DateTime());
-        case 'x-slot':
-          nodes.add(_slot(_string(value, at), at));
-        case _ when keyword.startsWith('x-'):
-          break;
         default:
-          throw JsonPredicateException(at, 'unsupported keyword "$keyword"');
+          throw JsonPredicateException(
+            at,
+            'unsupported keyword "$keyword"',
+            unsupported: true,
+          );
       }
     }
     if (ifNode != null) {
@@ -325,6 +392,7 @@ final class _Compiler {
       throw JsonPredicateException(
         pointer,
         r'only local $ref to #/$defs/<name> is supported',
+        unsupported: true,
       );
     }
     final token = reference.substring(prefix.length);
@@ -340,15 +408,6 @@ final class _Compiler {
     final node = _Ref(name, pointer);
     _refSites.add(_RefSite(node, fromDef: _currentDef, guarded: _descents > 0));
     return node;
-  }
-
-  _Node _slot(String name, String pointer) {
-    final members = _slots[name];
-    if (members == null) {
-      throw JsonPredicateException(pointer, 'unknown slot "$name"');
-    }
-    (_slotsByDef[_currentDef] ??= {}).add(name);
-    return members.isEmpty ? const _Never() : _Enum(members);
   }
 
   Set<_JsonType> _types(Object? value, String pointer) {

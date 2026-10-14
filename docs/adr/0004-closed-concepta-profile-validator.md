@@ -5,11 +5,12 @@
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0004-closed-concepta-profile-validator.md))
 - Scope: first Concepta Profile validator; in-bundle selection through 2026.2
 - Superseded in part by [ADR-0014](0014-external-profile-bindings.md) for Profile 2026.3
-- Superseded in part, if accepted: by [ADR-0015](0015-profile-rule-catalogs.md), which replaces the compiled rule representation with rule catalogs evaluated by a closed engine; the OKF boundary, closed validator, exact-release dispatch and four-part result stand
+- Superseded in part, if accepted: by [ADR-0015](0015-profile-rule-catalogs.md), which replaces the compiled rule representation with rule catalogs evaluated by a closed engine
+- Superseded, if accepted: by [ADR-0016](0016-independent-profile-packages.md), which replaces the closed validator with independent Profile packages, exact-release dispatch with package selection, and the four-part result with diagnostics and a derived gate; the OKF boundary stands as the engine contract
 - Driver: [Profile specification](https://github.com/btwld/wayfinder/issues/21) and [validator delivery](https://github.com/btwld/wayfinder/issues/20)
 - Deferred exploration: [#17](https://github.com/btwld/wayfinder/issues/17)
 
-This record describes the historical design through [Profile 2026.2](../../profile/versions/okf-profile-2026.2.md); [Profile 2026.1](../../profile/versions/okf-profile-2026.1.md) is also preserved. Read [ADR-0014](0014-external-profile-bindings.md) and the [proposed Profile](../../profile/okf-profile.md) for 2026.3 behavior.
+This record describes the historical design through [Profile 2026.2](../../profiles/bitwild/versions/okf-profile-2026.2.md); [Profile 2026.1](../../profiles/bitwild/versions/okf-profile-2026.1.md) is also preserved. Read [ADR-0016](0016-independent-profile-packages.md) and the [Bitwild Profile](../../profiles/bitwild/README.md) for current behavior.
 
 ## Context
 
@@ -39,8 +40,8 @@ is open to registered project types. The root `log.md` is authored history,
 while `index.md` files are discardable semantic projections. The Profile
 constrains subject placement, durable concept boundaries, provenance, status,
 relationships, and source mirroring without redefining their OKF mechanisms.
-The immutable [2026.1](../../profile/versions/okf-profile-2026.1.md) and
-[2026.2](../../profile/versions/okf-profile-2026.2.md) Profiles own their
+The immutable [2026.1](../../profiles/bitwild/versions/okf-profile-2026.1.md) and
+[2026.2](../../profiles/bitwild/versions/okf-profile-2026.2.md) Profiles own their
 exact bundle rules; this ADR does not duplicate them.
 
 Validation has two distinct assessment modes:
@@ -89,9 +90,10 @@ in-bundle selection and registries for 2026.3, retaining the closed validator,
 independent OKF result, and legacy-release dispatch. These later decisions do
 not rewrite what 2026.2 bundles meant.
 
-Rule-level [OKF compatibility evidence](../compatibility-review-2026.2.md)
-and [assessment coverage](../../implementation/profile-coverage-2026.2.md)
-answer different questions and remain separate from this decision record.
+Rule-level OKF compatibility evidence and assessment coverage for 2026.2
+answered different questions and stayed separate from this decision record.
+Git history keeps both documents; they were removed when the engine stopped
+assessing 2026.2.
 
 ## Reconsider when
 

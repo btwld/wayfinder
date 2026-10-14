@@ -7,7 +7,7 @@ description: Search, index, validate, and project the relationship graph of a pr
 
 Wayfinder is a local tool for an Open Knowledge Format (OKF) knowledge bundle,
 usually `knowledge/` in the project root. It does four things: **validate** the
-bundle against OKF and its selected Bitwild or legacy Concepta Profile release, **index** it into
+bundle against OKF and the Profile its `wayfinder.json` binds it to, **index** it into
 saved local embeddings, **search** that index for cited passages, and **graph**
 the ordinary OKF relationship graph. Nothing is sent off the machine, and
 indexing writes only derived data outside the bundle. Graph is a live
@@ -111,26 +111,38 @@ grep-only answers.
 ## Validate
 
 Run validation before saying a bundle conforms, and after editing one.
-For a configured 2026.3 bundle, `validate` reads only a current lock/cache:
-it never fetches or writes. `--fix` is the one exception to read-only
-validation: for a 2026.3 bundle it first writes okf's generated indexes, then
-validates; it never writes a 2026.2 bundle or one OKF rejects. A missing or
-stale lock still leaves an independent
-OKF result; run `wayfinder get` to resolve the declared source, or
+`validate` reads only a current lock/cache: it never fetches or writes.
+`--fix` is the one exception to read-only validation. When a rule in the
+selected chain uses `matches-generated`, it first writes okf's generated
+indexes, then validates. Otherwise it writes nothing and reports
+`wayfinder/fix-not-applied`, as it does for a bundle with no selected
+Profile or one OKF rejects. A bundle with no `wayfinder.json` above it
+reports `wayfinder/config-missing`. A missing or stale lock still leaves an
+independent OKF result; run `wayfinder get` to resolve the declared source, or
 `wayfinder upgrade` only when intentionally advancing a mutable ref.
 `graph`, `index`, and `search` do not need Profile-source resolution.
 
-- Exit `0` and `PASS`: the automated gate passed. Advisory findings may remain;
-  mention the relevant ones without treating them as failures. Summary entries
-  (`profile.summary`, or the text `Summary:` block) report what the Profile
-  permits, such as a project type in use or a planned link; they are never
-  findings.
-- Exit `1` and `FAIL`: error findings exist. Report each with its `id`, path and
-  message.
-- Exit `2`: the bundle could not be assessed — for example an unsupported or
-  missing Profile release, or a command error. Report the reason, not a verdict.
+The result ends with one gate, derived from three parts: the OKF result, the
+Profile findings, and the engine's diagnostics (`diagnostics` in JSON, the
+text `Diagnostics:` block). A diagnostic has a `wayfinder/` id and reports on
+the run, not on the bundle.
 
-Validation is only the automated part of the Profile gate; contextual judgment
+- Exit `0` and gate `PASS`: OKF passed, no finding is an error, and every
+  selected rule ran. Advisory findings may remain; mention the relevant ones
+  without treating them as failures. Summary entries (`profile.summary`, or
+  the text `Summary:` block) report what the Profile permits, such as a
+  planned link. Note and warning diagnostics, such as
+  `wayfinder/project-type`, are information too. None of these are failures.
+- Exit `1` and gate `FAIL`: OKF failed or a Profile finding is an error.
+  Report each error with its `id`, path and message.
+- Exit `2` and gate `INCOMPLETE`: the run could not assess everything, so it
+  is not a pass. An error diagnostic names why, for example
+  `wayfinder/profile-unresolved` (run `wayfinder get`),
+  `wayfinder/config-missing`, or `wayfinder/link-graph-unavailable`. Report
+  the diagnostic, not a verdict. With `--output json` a run that stopped
+  still prints a result carrying `wayfinder/internal-error`.
+
+Validation covers only the deterministic rules; contextual judgment
 is a separate review. Route by task:
 
 | Need | Use |

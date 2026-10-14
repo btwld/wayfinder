@@ -1,9 +1,6 @@
-import '../profile_release.dart';
 import 'concept_builtins.dart';
 import 'facts.dart';
 import 'structure_builtins.dart';
-
-export 'concept_builtins.dart' show legacyRegistryVocabulary;
 
 final class Violation {
   const Violation(
@@ -40,11 +37,14 @@ final class Builtin {
     this.paramsSchema = const {'type': 'object', 'additionalProperties': false},
     this.messagePlaceholders = const {},
     this.messageIds = const {},
-    this.installedOnlyIn,
+    this.needsLinks = false,
     this.fix,
   });
 
   final BuiltinBody run;
+
+  /// Reads the OKF link graph, so [run] is skipped when it cannot be built.
+  final bool needsLinks;
 
   final BuiltinFix? fix;
 
@@ -53,112 +53,32 @@ final class Builtin {
   final Set<String> messagePlaceholders;
 
   final Set<String> messageIds;
-
-  final String? installedOnlyIn;
 }
 
+/// The engine's capabilities, named for what they check and never for a
+/// rule a Profile builds with them. A check belongs here only when a schema
+/// over one subject's facts cannot express it: it needs I/O beyond the
+/// parsed bundle, compares with generated output or fixes, reports
+/// something absent where no subject lives, or reports several findings per
+/// subject. Policy is params, set by the package; engine health is an
+/// `EngineDiagnostic`; no capability names a Profile.
 const builtins = <String, Builtin>{
-  'tag-literal-duplication': Builtin(
-    tagLiteralDuplication,
+  'files-present': Builtin(
+    filesPresent,
+    paramsSchema: filesPresentParams,
     messagePlaceholders: {'failing'},
   ),
-  'configured-type-extension': Builtin(
-    configuredTypeExtension,
-    messagePlaceholders: {'name'},
-  ),
-  'type-registry-present': Builtin(
-    typeRegistryPresent,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'type-registry-kind': Builtin(
-    typeRegistryKind,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'type-registry-columns': Builtin(
-    typeRegistryColumns,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'type-registry-standards': Builtin(
-    typeRegistryStandards,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'type-registry-order': Builtin(
-    typeRegistryOrder,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'registered-type-extension': Builtin(
-    registeredTypeExtension,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-registry-required': Builtin(
-    actorRegistryRequired,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-registry-kind': Builtin(
-    actorRegistryKind,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-registry-columns': Builtin(
-    actorRegistryColumns,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-row-complete': Builtin(
-    actorRowComplete,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-side-value': Builtin(
-    actorSideValue,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-active-interval': Builtin(
-    actorActiveInterval,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'actor-active-overlap': Builtin(
-    actorActiveOverlap,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'source-path-unresolved': Builtin(
-    sourcePathUnresolved,
+  'path-targets-exist': Builtin(
+    pathTargetsExist,
+    paramsSchema: pathTargetsExistParams,
     messagePlaceholders: {'target'},
+    needsLinks: true,
   ),
-  'source-attribution-in-source': Builtin(
-    sourceAttributionInSource,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'relationships-shape': Builtin(
-    relationshipsShape,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'relationship-label-extension': Builtin(
-    relationshipLabelExtension,
-    messagePlaceholders: {'label'},
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'link-graph-unavailable': Builtin(
-    linkGraphUnavailable,
-    paramsSchema: linkGraphUnavailableParams,
-    messagePlaceholders: {'error'},
-  ),
-  'declared-okf-binding': Builtin(
-    declaredOkfBinding,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'root-structure-files': Builtin(
-    rootStructureFiles,
-    paramsSchema: rootStructureFilesParams,
-    messagePlaceholders: {'failing'},
-    messageIds: {'missing', 'reserved'},
-  ),
-  'index-semantic-projection': Builtin(
-    indexSemanticProjection,
-    paramsSchema: indexSemanticProjectionParams,
-    installedOnlyIn: legacyProfileRelease,
-  ),
-  'index-current': Builtin(
-    indexCurrent,
+  'matches-generated': Builtin(
+    matchesGenerated,
+    paramsSchema: matchesGeneratedParams,
     messagePlaceholders: {'path'},
-    fix: generatedIndexes,
     messageIds: {'stale', 'extra'},
+    fix: generated,
   ),
 };

@@ -4,11 +4,11 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/src/profile_release.dart';
-import 'package:wayfinder/src/rules/catalog.dart';
 import 'package:wayfinder/src/rules/evaluate.dart';
 import 'package:wayfinder/src/rules/facts.dart';
-import 'package:wayfinder/src/rules/profile.dart';
+import 'package:wayfinder/wayfinder.dart';
+
+import 'support.dart';
 
 void main() {
   late Directory bundle;
@@ -29,18 +29,7 @@ void main() {
     final loaded = await const OkfBundleLoader().inspect(bundle.path);
     return BundleFacts.project(
       loaded,
-      profile: EffectiveProfile(
-        [RuleCatalog.installed(builtinProfileId, externalProfileRelease)],
-        Vocabulary(
-          standardTypes: const [],
-          types: const ['Guide'],
-          tags: const [],
-          relationships: externalStandardRelationships
-              .map((row) => row.$1)
-              .toList(),
-          actors: const [],
-        ),
-      ),
+      profile: EffectiveProfile.compose([bitwild]),
     );
   }
 
@@ -138,7 +127,7 @@ void main() {
     final findings = evaluate(facts.profile, facts).findings;
     Map<String, String> messages(String rule) => {
       for (final finding in findings)
-        if (finding.id == 'concepta-profile/$rule')
+        if (finding.id == 'bitwild-profile/$rule')
           finding.path: finding.message,
     };
     final shape = messages('relationship-shape');
@@ -158,36 +147,5 @@ void main() {
         'found {"relationship":"inspired-by","resource":"/scalar.md"}.',
       ),
     });
-  });
-
-  test('load rejects a declared frontmatter key OKF already defines', () {
-    final catalog = jsonDecode(
-      jsonEncode({
-        'format': 1,
-        'namespace': 'x',
-        'profile': {'id': 'x', 'release': '2026.1'},
-        'frontmatter_keys': {'sources': 'Provenance, again.'},
-        'rules': <Object?>[],
-      }),
-    );
-    expect(
-      () => RuleCatalog.parse(jsonEncode(catalog)),
-      throwsA(
-        isA<RuleCatalogException>()
-            .having((error) => error.where, 'where', 'frontmatter_keys.sources')
-            .having(
-              (error) => error.message,
-              'message',
-              contains('OKF frontmatter key'),
-            ),
-      ),
-    );
-    expect(
-      RuleCatalog.installed(
-        builtinProfileId,
-        externalProfileRelease,
-      ).frontmatterKeys.keys,
-      ['relationships'],
-    );
   });
 }

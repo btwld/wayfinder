@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the complete Wayfinder runtime with built-in Profile validation.
+# Install the complete Wayfinder runtime with OKF and Profile validation.
 # No Dart SDK, GitHub credentials or administrator privileges are required.
 set -eu
 fail() { printf 'wayfinder install: %s\n' "$*" >&2; exit 1; }

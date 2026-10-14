@@ -219,8 +219,8 @@ void main() {
         expect(
           await cli(
             notices: true,
-          ).run(['validate', '../../examples/knowledge']),
-          0,
+          ).run(['validate', '../../examples/bitwild/knowledge']),
+          2,
         );
         expect(errors.single, contains('newer Wayfinder is available: 99.0.0'));
         expect(output.join('\n'), isNot(contains('99.0.0')));
@@ -228,11 +228,13 @@ void main() {
     );
 
     test('stays silent when disabled or already current', () async {
-      await cli(notices: false).run(['validate', '../../examples/knowledge']);
+      await cli(
+        notices: false,
+      ).run(['validate', '../../examples/bitwild/knowledge']);
       await cli(
         notices: true,
         releases: [release('wayfinder-v$wayfinderVersion')],
-      ).run(['validate', '../../examples/knowledge']);
+      ).run(['validate', '../../examples/bitwild/knowledge']);
       expect(errors, isEmpty);
     });
 

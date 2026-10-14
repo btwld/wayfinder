@@ -7,7 +7,11 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "ci"))
+from bitwild_example import get_and_validate, prepare
 
 
 def main():
@@ -42,7 +46,11 @@ def main():
             return result
 
         run("help", "--help")
-        run("validation", "validate", workspace / "examples/knowledge", "--output=json")
+        start = time.perf_counter()
+        example = prepare(temp / "example")
+        get_and_validate([str(binary)], example, env=env, cwd=cwd, timeout=90)
+        reports.append({"case": "validation", "wallMs": (time.perf_counter()-start)*1000,
+                        "exitCode": 0})
         graph = json.loads(run("graph", "graph", corpus, "--output=json").stdout)
         assert graph.get("schema_version") == "1"
         mermaid = run("graph-mermaid", "graph", corpus, "--output=mermaid")
@@ -150,7 +158,7 @@ def main():
         model.rename(app / "models/hidden.gguf")
         current = json.loads(run("warnings-without-model", "index", corpus, "--output=json").stdout)
         assert current["current"] and current["warnings"] == warnings
-        run("validation-without-model", "validate", workspace / "examples/knowledge")
+        run("validation-without-model", "validate", example / "knowledge")
         assert "Reinstall" in run("missing-model", "search", corpus, "password", expected=2).stderr
         model.write_bytes(b"corrupt")
         assert "verification" in run("corrupt-model", "search", corpus, "password", expected=2).stderr

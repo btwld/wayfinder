@@ -14,13 +14,30 @@ final class ParsedBody {
       if (node is markdown.Element && node.tag == 'h1') node.textContent,
   ];
 
+  List<String> links() {
+    final targets = <String>[];
+    void collect(markdown.Node node) {
+      if (node is! markdown.Element) return;
+      if (node.tag == 'a') {
+        if (node.attributes['href'] case final href?) targets.add(href);
+      }
+      node.children?.forEach(collect);
+    }
+
+    nodes.forEach(collect);
+    return targets;
+  }
+
   /// A reference the parser joined to its definition survives only as a
-  /// `footnote-ref` element, so its label is read back from the link. One
-  /// it could not join stays literal text, which also happens to adjacent
-  /// references such as `[^a][^b]` when both definitions exist, so the
-  /// definition is checked in the source rather than inferred from the tree.
+  /// `footnote-ref` element, so its label is read back from the link, and
+  /// the join proves the definition wherever it sits, a blockquote included.
+  /// One it could not join stays literal text, which also happens to
+  /// adjacent references such as `[^a][^b]` when both definitions exist, so
+  /// its definition is checked in the source rather than inferred from the
+  /// tree.
   List<({String label, bool referenced, bool defined})> footnotes() {
     final labels = <String>{};
+    final joined = <String>{};
     void collect(markdown.Node node, {bool excluded = false}) {
       if (node case final markdown.Text text) {
         if (excluded) return;
@@ -35,7 +52,9 @@ final class ParsedBody {
               .firstOrNull;
           final href = link?.attributes['href'] ?? '';
           if (href.startsWith('#fn-')) {
-            labels.add(Uri.decodeComponent(href.substring(4)));
+            final label = Uri.decodeComponent(href.substring(4));
+            labels.add(label);
+            joined.add(label);
           }
           return;
         }
@@ -54,14 +73,16 @@ final class ParsedBody {
     final defined = _definitions(source.replaceAll(_fencedCode, ''));
     return [
       for (final label in labels)
-        (label: label, referenced: true, defined: defined.contains(label)),
+        (
+          label: label,
+          referenced: true,
+          defined: joined.contains(label) || defined.contains(label),
+        ),
       for (final label in defined)
         if (!labels.contains(label))
           (label: label, referenced: false, defined: true),
     ];
   }
-
-  late final Set<String> definitionsIncludingFencedCode = _definitions(source);
 
   static Set<String> _definitions(String text) => {
     for (final match in _footnoteDefinition.allMatches(text)) match[1]!,

@@ -30,8 +30,8 @@ relationship parser.
 ## Knowledge signals are not a single priority score
 
 The pinned [OKF §5](../skills/author-knowledge-bundle/references/OKF-0.2.md)
-governs these meanings; [profile §6](../profile/okf-profile.md) describes
-Concepta's requirements for their use.
+governs these meanings. A Profile's rules and skill can narrow their use, as
+Bitwild's [metadata guidance](../profiles/bitwild/skill/references/metadata.md) does.
 
 | Signal | Useful for | Does not establish |
 | --- | --- | --- |

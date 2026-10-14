@@ -5,8 +5,8 @@
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0007-index-targets-compared-percent-decoded.md))
 - Scope: Profile index projection, 2026.1 and 2026.2
 - Superseded for Profile 2026.3 by its in-place revision that makes every index
-  the output of okf's reference generator ([Profile §9](../../profile/okf-profile.md#9-index-files)
-  and §15.3); there is no projection left to compare. This record still governs
+  the output of okf's reference generator (Bitwild rule
+  [`index-current`](../../profiles/bitwild/README.md#index-current)); there is no projection left to compare. This record still governs
   2026.2.
 
 ## Context

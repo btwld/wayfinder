@@ -131,10 +131,12 @@ the application model remains Arctic XS Q8_0.
 
 ## Command-line entry points
 
-From the repository root, the profile CLI validates a bundle:
+From the repository root, the profile CLI resolves the example project's
+Profile source and validates its bundle:
 
 ```bash
-dart run wayfinder_cli:wayfinder validate examples/knowledge
+dart run wayfinder_cli:wayfinder get examples/bitwild
+dart run wayfinder_cli:wayfinder validate examples/bitwild/knowledge
 ```
 
 `okfp --help` currently lists only `validate`; it has no embedding or search

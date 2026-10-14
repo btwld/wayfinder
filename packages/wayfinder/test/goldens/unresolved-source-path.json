@@ -6,45 +6,54 @@
     }
   },
   "profile": {
-    "release": "2026.2",
+    "id": "bitwild-profile",
+    "release": "2026.3",
+    "chain": [
+      {
+        "id": "bitwild-profile",
+        "release": "2026.3"
+      }
+    ],
     "state": "PASS",
     "findings": [
       {
-        "id": "concepta-profile/source-path-unresolved",
+        "id": "bitwild-profile/source-path-unresolved",
         "severity": "advisory",
         "message": "Source path ../nowhere/2026 08 19 meeting.docx does not resolve to a file or directory.",
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§6.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-path-unresolved"
       },
       {
-        "id": "concepta-profile/source-path-unresolved",
+        "id": "bitwild-profile/source-path-unresolved",
         "severity": "advisory",
         "message": "Source path ../nowhere/original.docx does not resolve to a file or directory.",
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§6.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-path-unresolved"
       },
       {
-        "id": "concepta-profile/source-path-unresolved",
+        "id": "bitwild-profile/source-path-unresolved",
         "severity": "advisory",
         "message": "Source path /missing.md does not resolve to a file or directory.",
         "location": {
           "path": "note.md"
         },
-        "profile_release": "2026.2",
-        "rule": "§6.1"
+        "profile_release": "2026.3",
+        "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#source-path-unresolved"
       }
-    ]
+    ],
+    "summary": []
   },
-  "judgment_rules": {
-    "state": "UNASSESSED"
-  },
-  "automated_gate": {
+  "diagnostics": [],
+  "gate": {
     "state": "PASS"
+  },
+  "engine": {
+    "okf": "<okf-package-version>"
   }
 }
