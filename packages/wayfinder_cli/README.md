@@ -191,7 +191,7 @@ load findings refuse a graph, and 2 for usage or I/O failure.
 ## MCP server
 
 ```bash
-wayfinder mcp /absolute/path/to/knowledge
+wayfinder mcp
 ```
 
 Configure a local MCP host to launch the packaged executable. For hosts using
@@ -202,18 +202,33 @@ the common `mcpServers` configuration shape:
   "mcpServers": {
     "wayfinder": {
       "command": "/absolute/path/to/bundle/bin/wayfinder",
-      "args": ["mcp", "/absolute/path/to/knowledge"]
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-The process serves one bundle over stdio; stdout is reserved for JSON-RPC.
+Launch from the consuming project. With no bundle argument, MCP uses the same
+project discovery as CLI search/index: all `applies_to` paths in the nearest
+`wayfinder.json`, or the conventional `knowledge/` fallback. It reads configuration
+on each call without resolving Profile sources. No per-query bundle list is needed.
+Search ranks across these bundles with one query embedding and a global limit;
+its JSON is the same as project CLI search, including bundle-aware citations.
+Index refreshes them all. Validate and graph return a `bundles` array containing
+each bundle's independent report with `name` and project-relative `path`;
+each validation report retains its own gate and `exit_code`.
+
+`wayfinder mcp <bundle>` still binds every tool to that single bundle and retains
+the original JSON shapes. With no positional argument, a nonblank
+`WAYFINDER_KNOWLEDGE_DIR` also selects one explicit bundle. Unset that variable
+to search all configured bundles. The process serves stdio; stdout is reserved
+for JSON-RPC.
 The tools are `validate` and `index` (no arguments), `search` with a required
 `query` and optional `limit` (1–100, default 5), and `graph` with optional
 `types`, `path_prefixes` and `resolutions`. Their results contain the same
-JSON as the commands, in one text content block. Validation also includes the
-command's `exit_code`, findings, diagnostics and gate without treating a
+JSON as the commands (wrapped per bundle for project validate/graph), in one
+text content block. Validation also includes the command's `exit_code`,
+findings, diagnostics and gate without treating a
 completed report as a tool error. `graph` returns the versioned OKF graph JSON
 (`schema_version: "1"`). Mermaid and DOT remain CLI text for an external
 preview.
@@ -252,7 +267,7 @@ decision rationale and historical context.
 ```bash
 wayfinder skills install [--agent=all|claude|agents]
 wayfinder skills status
-wayfinder setup [<project>] [--bundle=knowledge] [--hooks] [--session-hooks]
+wayfinder setup [<project>] [--bundle=<path>] [--hooks] [--session-hooks]
 wayfinder update [--check] [--version=<version>]
 ```
 
@@ -260,10 +275,14 @@ Native bundles include the skill family. `skills install` uses the `wayfinder`
 Claude Code plugin when the `claude` CLI is available, otherwise copies the
 skills to `~/.claude/skills`. It also copies them to `~/.agents/skills` for Codex
 and other Agent Skills clients. It marks its copies and never replaces or
-removes a skill it did not install. `setup` adds `wayfinder mcp <bundle>` to a
-project's `.mcp.json` and preserves other servers. `setup --hooks` also runs
-`wayfinder index <bundle> --detach` after git pulls, checkouts and rebases that
-change the bundle (`.githooks/`, enabled with `core.hooksPath`). The git hooks
+removes a skill it did not install. `setup` adds project-wide `wayfinder mcp` to a
+project's `.mcp.json` and preserves other servers; `--bundle=<path>` instead
+binds it to one bundle. To replace an existing single-bundle entry, run
+`wayfinder setup --force`, unset `WAYFINDER_KNOWLEDGE_DIR`, and restart the host.
+`setup --hooks` also runs `wayfinder index <bundle> --detach` after git pulls,
+checkouts and rebases that
+change the bundle (`--bundle` or `knowledge` by default; `.githooks/`, enabled
+with `core.hooksPath`). The git hooks
 skip file checkouts and new clones or worktrees. There are no agent Stop hooks:
 search reports a stale index, and the MCP `index` tool refreshes it. Rerunning
 `setup --hooks` removes the Stop hooks earlier releases added to

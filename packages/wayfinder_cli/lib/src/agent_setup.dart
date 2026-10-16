@@ -124,7 +124,7 @@ class AgentSetup {
   /// plugin server and this project server as one endpoint.
   Future<void> configureProject(
     String project, {
-    String bundle = 'knowledge',
+    String? bundle,
     bool force = false,
     bool hooks = false,
     bool sessionHooks = false,
@@ -134,11 +134,14 @@ class AgentSetup {
         'The project must be an existing directory.',
       );
     }
-    final relative = p.posix.normalize(bundle.replaceAll(r'\', '/'));
-    if (bundle.trim().isEmpty ||
-        p.isAbsolute(bundle) ||
-        relative == '..' ||
-        relative.startsWith('../')) {
+    final relative = p.posix.normalize(
+      (bundle ?? 'knowledge').replaceAll(r'\', '/'),
+    );
+    if (bundle != null &&
+        (bundle.trim().isEmpty ||
+            p.isAbsolute(bundle) ||
+            relative == '..' ||
+            relative.startsWith('../'))) {
       throw const WayfinderException(
         '--bundle must be a path inside the project.',
       );
@@ -164,7 +167,7 @@ class AgentSetup {
     final entry = {
       'type': 'stdio',
       'command': 'wayfinder',
-      'args': ['mcp', relative],
+      'args': ['mcp', if (bundle != null) relative],
     };
     final existing = servers['wayfinder'];
     if (existing != null && jsonEncode(existing) == jsonEncode(entry)) {
@@ -181,7 +184,9 @@ class AgentSetup {
       );
       _out('Configured the Wayfinder MCP server in ${file.path}.');
     }
-    if (!await Directory(p.join(project, relative)).exists()) {
+    if ((bundle != null ||
+            !await File(p.join(project, 'wayfinder.json')).exists()) &&
+        !await Directory(p.join(project, relative)).exists()) {
       _out(
         'Note: $relative does not exist yet. Adopt a knowledge bundle before '
         'using the tools.',

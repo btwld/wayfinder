@@ -48,7 +48,7 @@ source paths and line ranges. Run `index` again after editing the bundle;
 unchanged content reuses its vectors. The complete installation includes the
 model and native libraries, so retrieval needs no external embedding service.
 
-`wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
+`wayfinder mcp` exposes `validate`, `index`, `search` and `graph` to
 coding agents. The Claude Code plugin configures this server and supplies the
 `author-knowledge-bundle`, `adopt-knowledge-bundle`, `assess-knowledge-bundle`,
 `use-wayfinder`, and `create-profile` skills. `wayfinder validate` provides Profile
@@ -130,8 +130,9 @@ the MCP server to a project's `.mcp.json`. To install the plugin in Claude Code
 yourself:
 
 First [install the complete Wayfinder runtime](docs/install.md). Run
-Claude Code from the consuming project with a `knowledge/` bundle, or set
-`WAYFINDER_KNOWLEDGE_DIR` to its explicit path before launching Claude Code.
+Claude Code from the consuming project; the MCP server searches all bundles
+configured in `wayfinder.json` (or `knowledge/` without a configuration). Set
+`WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle.
 The plugin registers Wayfinder's local MCP server; search and indexing require
 the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
 binary outside `PATH`.
@@ -253,8 +254,9 @@ and encodes only the query. There is no retrieval-mode flag. See the
 [Wayfinder guide](packages/wayfinder_cli/README.md) for setup, packaging and local data
 locations. Existing `okfp validate` remains supported.
 
-`wayfinder mcp <bundle>` exposes the same validation, index, search and graph
-services to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
+`wayfinder mcp` exposes the same validation, index, search and graph
+services across the project's configured bundles over stdio. An explicit
+`wayfinder mcp <bundle>` stays single-bundle. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
 for the launch configuration and tool lifecycle.
 
 ## Examples

@@ -9,7 +9,7 @@
   "mcpServers": {
     "wayfinder": {
       "command": "${WAYFINDER_EXECUTABLE:-wayfinder}",
-      "args": ["mcp", "${WAYFINDER_KNOWLEDGE_DIR:-knowledge}"]
+      "args": ["mcp"]
     }
   }
 }
