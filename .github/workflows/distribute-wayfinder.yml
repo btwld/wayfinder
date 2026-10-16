@@ -93,30 +93,6 @@ jobs:
           DISTRIBUTION: build/distribution
         run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-github
 
-  publish-homebrew:
-    needs: publish-github
-    # Off until the tap token exists (#65). Set the repository variable
-    # WAYFINDER_HOMEBREW to true to publish the formula again.
-    if: vars.WAYFINDER_HOMEBREW == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@v8
-        with:
-          name: wayfinder-distribution
-          path: build/distribution
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: '3.11.0'
-      - run: dart pub -C tool/release get --enforce-lockfile
-      - name: Update the public Homebrew tap
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
-          DISTRIBUTION: build/distribution
-        run: dart --packages=tool/release/.dart_tool/package_config.json tool/release/grind.dart wayfinder-deploy-homebrew
-
   verify-public-install:
     needs: publish-github
     strategy:

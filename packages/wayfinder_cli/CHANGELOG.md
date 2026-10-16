@@ -13,6 +13,9 @@
   Profile package formats are unchanged.
 - Requires `ack` `^1.7.0` and `wayfinder` and `wayfinder_embeddings`
   `^0.2.0`.
+- The `wayfinder` and `okfp` Homebrew formulas are removed from
+  `btwld/homebrew-tap`. `wayfinder update` tells a Homebrew installation the
+  formula was removed and to reinstall with the install script.
 - `setup --session-hooks` adds project-local, context-only startup hooks for
   Claude, Codex, and Gemini and an `AGENTS.md` pointer for Grok. The short
   bootstrap prompts loading `use-wayfinder` and its related skills; it performs
