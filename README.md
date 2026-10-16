@@ -1,19 +1,26 @@
 # Wayfinder
 
-Wayfinder checks, connects, and serves your project's knowledge. It validates an
-OKF bundle with okf, then runs a static-analysis engine over it with the rules
-of a Profile you choose. A Profile is a package of rules and vocabulary, written
-as data, that adds your team's conventions to OKF while every bundle stays
-readable by any OKF tool. Bitwild is the first Profile, and you can write your
-own with or without it. Results come out as text, JSON, or SARIF, and `--fix`
-writes okf's generated indexes when a Profile requires them.
+Wayfinder helps teams and coding agents find and maintain project knowledge.
+Keep decisions, domain concepts, and guides alongside your code in an
+[Open Knowledge Format (OKF)][okf] bundle: Markdown files with YAML frontmatter.
 
-The same bundle feeds local semantic search, a link graph, and an MCP server for
-coding agents.
+- **Find context with citations.** Search in natural language and follow results
+  back to source files and line ranges.
+- **Check team conventions in CI.** Validate OKF and the rules you choose,
+  packaged as a Profile, with one CI gate.
+- **Give agents the same knowledge.** Expose the bundle through MCP and use
+  skills to author, adopt, and review it.
+- **Keep your knowledge portable.** The bundle stays readable as files and by
+  other OKF tools, without Wayfinder or a Profile installed.
 
-Source code, plugin files, documentation and binary releases live together in
-this public repository. Install the complete native runtime to use Wayfinder
-without a Dart SDK. On macOS Apple Silicon or Linux x64:
+Indexing and search run locally. The native installation includes the embedding
+model and libraries; no Dart SDK or external embedding service is needed.
+
+[okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
+
+## Install
+
+On macOS Apple Silicon or Linux x64:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.sh | sh
@@ -25,293 +32,207 @@ On Windows x64, in PowerShell:
 irm https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | iex
 ```
 
-The [installation guide](docs/install.md) covers plugin setup,
-upgrades and troubleshooting.
-[GitHub releases](https://github.com/btwld/wayfinder/releases) contain the
-complete runtime bundles; the [Dart package guide](packages/wayfinder_cli/README.md)
-covers library dependencies and source development.
-
-## How it works
-
-Point Wayfinder at an explicit OKF bundle in your project:
-
-```sh
-wayfinder validate knowledge
-wayfinder index knowledge
-wayfinder search knowledge "How is reporting implemented?"
-```
-
-Validation checks OKF and the rules of the configured Profile. Indexing reads
-its documents, computes embeddings locally and saves a local search index.
-Search reuses that index and embeds only the query, returning passages with
-source paths and line ranges. Run `index` again after editing the bundle;
-unchanged content reuses its vectors. The complete installation includes the
-model and native libraries, so retrieval needs no external embedding service.
-
-`wayfinder mcp knowledge` exposes `validate`, `index`, `search` and `graph` to
-coding agents. The Claude Code plugin configures this server and supplies the
-`author-knowledge-bundle`, `adopt-knowledge-bundle`, `assess-knowledge-bundle`,
-`use-wayfinder`, and `create-profile` skills. `wayfinder validate` provides Profile
-validation; `wayfinder graph` projects the ordinary OKF relationship graph,
-plus typed `relationships` edges beside it (JSON, or Mermaid/DOT text for an
-external preview). `wayfinder_embeddings` is
-the reusable Dart retrieval library. Upstream `okf` write and concept-authoring
-tools remain separate capabilities.
-
-## Profiles
-
-A Profile is what `wayfinder validate` enforces. Each one is a directory at one
-Git revision holding `wayfinder-profile.json`: its identity, its OKF binding, its
-vocabulary, and its rules. It can also ship a README that explains each rule
-and a skill that carries the judgment no rule can decide. A project names the
-Profile it uses in `wayfinder.json`, and `wayfinder get` pins it in
-`wayfinder.lock`. A bundle conforms to a Profile when `wayfinder validate` with
-that Profile selected ends with the gate `PASS`.
-
-Every Profile only adds to OKF. OKF runs first, and its result stands on its
-own. A Profile can build on another through `extends` in its package, but no
-Profile is a base. The [engine contract](implementation/okf-implementation-guide.md#5-profile-packages)
-says what every package must meet, and the `create-profile` skill writes one.
-
-[Bitwild](profiles/bitwild/README.md) is the first Profile. It keeps durable
-project knowledge as an [Open Knowledge Format][okf] bundle beside the code:
-which knowledge earns a concept, where it lives, and how it links to the
-systems where work happens. Its release is **2026.3**, profiling **OKF 0.2
-exactly**. Its [changelog](profiles/bitwild/CHANGELOG.md) records each release
-and its migration. Bitwild 2026.2 bundles keep validating on wayfinder 0.1.x.
-
-[okf]: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
-
-## The dividing line
-
-Everything in this repository is **company-generic**: it holds reusable ways of working.
-
-A project's `knowledge/` bundle holds *what we know about that project* — its domain, its
-decisions, its open questions. Nothing here is ever a prerequisite for reading one. A bundle
-must stay readable on its own when a client receives only their project repository, so a
-Profile is referenced from `wayfinder.json` and pinned by the lock, never copied in.
-
-That is why this repository is consumed rather than vendored: install the skills once, pin
-the `wayfinder validate` gate, and let each project repository carry only its own knowledge.
-
-## Dart package migration
-
-The `wayfinder` package is now the core validation library (formerly
-`okf_profile`). Install `wayfinder_cli` for the `wayfinder` command and MCP server.
-The embeddings library remains `wayfinder_embeddings`. Core 0.1.0 and the
-CLI and embeddings 0.1.1 are published. The next prepared release is
-0.2.0 of all three packages; see [release status and upgrade notes](docs/releasing.md#prepared-release-020).
-See [migration instructions](docs/install.md#migrate-the-dart-application-package).
-
-## What is in here
-
-| Path | Holds |
-| --- | --- |
-| [`implementation/`](implementation/) | The engine contract: Profile packages, adoption, index generation, validation, and distribution |
-| [`profiles/bitwild/`](profiles/bitwild/) | The Bitwild Profile package: its rules, README, changelog, skill, and archived releases |
-| [`skills/`](skills/) | Wayfinder's generic agent skills to author, adopt, assess, and search a bundle, and to create a Profile, shipped as the `wayfinder` plugin |
-| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | Local CLI and MCP server for validation, graph projection, persistent embedding indexes and semantic search |
-| [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Chunking, BM25 and dense retrieval utilities, with memory and optional ObjectBox storage |
-| [`examples/`](examples/) | A complete worked bundle you can read end to end, and two small Profiles |
-| [`packages/wayfinder/`](packages/wayfinder/) | Core validation library and its tests |
-| [`tool/`](tool/) | CI and release tooling |
-| [`docs/`](docs/index.md) | Glossary, architecture decisions, compatibility evidence, operations, and historical engineering evidence |
-| [`AGENTS.md`](AGENTS.md) | Instructions for contributing to this repository |
+The installer includes the runtime and agent skills. See the
+[installation guide](docs/install.md) for plugin setup, upgrades, and
+troubleshooting, or [GitHub releases](https://github.com/btwld/wayfinder/releases)
+for runtime bundles. Dart users can find
+[package migration instructions](docs/install.md#migrate-the-dart-application-package)
+and [release status](docs/releasing.md#prepared-release-020) in the guides.
 
 ## Getting started
 
-### 1. Install the skills
+In a project with a configured `knowledge/` bundle:
 
-The skills live in [`skills/`](skills/). The [native installer](docs/install.md)
-installs them with the runtime: through the `wayfinder` plugin when the `claude`
-CLI is available, and in `~/.agents/skills` for agents such as Codex.
-`wayfinder update` refreshes them with the runtime, and `wayfinder setup` adds
-the MCP server to a project's `.mcp.json`. To install the plugin in Claude Code
-yourself:
-
-First [install the complete Wayfinder runtime](docs/install.md). Run
-Claude Code from the consuming project with a `knowledge/` bundle, or set
-`WAYFINDER_KNOWLEDGE_DIR` to its explicit path before launching Claude Code.
-The plugin registers Wayfinder's local MCP server; search and indexing require
-the complete native/model installation. `WAYFINDER_EXECUTABLE` can select a
-binary outside `PATH`.
-
-```
-/plugin marketplace add btwld/wayfinder
-/plugin install wayfinder@wayfinder
-```
-
-For an existing installation, follow the [plugin migration sequence](docs/install.md#migrate-an-existing-plugin-installation): uninstall the old plugin and remove its marketplace registration before adding the public repository. This leaves one enabled skill family and MCP server.
-
-Copying or symlinking the skill directories into `~/.claude/skills/` also works — install
-the family as a unit, since the skills reference each other by sibling path. Symlinking is
-the better fallback: the skills are versioned with the engine they describe, and a copy
-silently ages past it. See [skills/README.md](skills/README.md) for the full set and what
-each one does.
-
-These skills are wayfinder's own and install once per machine. A Profile's skill is
-different: it ships in the Profile package, and `wayfinder get` installs it into the
-project's `.claude/skills/<id>/` and `.agents/skills/<id>/` at the commit the lock pins.
-Commit those directories with the lock. See
-[Profile skills](docs/wayfinder-configuration.md#profile-skills).
-
-### 2. Set up a project repository
-
-In the repository where you want to adopt a Profile, run:
-
-```
-/adopt-knowledge-bundle
-```
-
-It is prompt-driven: it explores what the repository already has and applies the
-requested setup, asking when an unresolved choice or conflict needs your input.
-It preserves existing bundles and seeds `wayfinder.json` plus the new bundle's
-`index.md` and `log.md` under `knowledge/`, then writes the `AGENTS.md` blocks
-that point agents into the bundle.
-It then runs validation and the Profile skill's review, reporting any unavailable
-check before claiming completion. Issue-tracker and triage-label setup are out of
-its scope.
-
-**It seeds only what the Profile's adoption guidance names.** Without that
-guidance, it seeds only the OKF root files. A repository whose `knowledge/` is
-only its root files is fully set up. Structure grows later, as each Profile's
-skill describes. Bitwild's [adoption guidance](profiles/bitwild/skill/references/adoption.md),
-for example, says to create no subject directories.
-
-### 3. Work the flow
-
-Once a repository is set up, the skill family covers the bundle's whole lifecycle:
-
-| Skill | Invocation | What it does |
-| --- | --- | --- |
-| `author-knowledge-bundle` | model-invoked | Creates, edits, moves, deprecates, and mirrors bundle content, and reviews the result. Agents reach it automatically before changing `knowledge/` or when asked for Profile Review |
-| `adopt-knowledge-bundle` | user-invoked | Seeds the bundle and points agents at it (step 2 above) |
-| `assess-knowledge-bundle` | user-invoked | Deliberate whole-bundle assessment, emitting the Profile Review Report |
-| `use-wayfinder` | model-invoked | Searches, indexes and validates the bundle with Wayfinder. Agents reach it when a question may be answered by recorded knowledge, and answer from verified, cited passages |
-| `create-profile` | user-invoked | Creates or revises a Profile package: interviews its author, writes rules with tests and the Profile's skill, and proves both |
-
-You do not need to invoke `author-knowledge-bundle` yourself. It is model-invoked so
-authoring mechanics and each Profile's skill are loaded before a bundle write or a review.
-An agent that skips a Profile's skill applies none of its judgment, such as where a concept
-belongs.
-
-### 4. Validate the bundle
-
-```bash
+```sh
+wayfinder get .
 wayfinder validate knowledge
-# Machine-readable output:
-wayfinder validate knowledge --output json
-# Write the generated indexes a Profile requires, then validate:
-wayfinder validate knowledge --fix
-# SARIF 2.1.0 for code scanning:
-wayfinder validate knowledge --output sarif > wayfinder.sarif
+wayfinder index knowledge
+wayfinder search knowledge "How is reporting implemented?"
+wayfinder graph knowledge --output mermaid
 ```
 
-The command requires exactly one explicit bundle directory and inspects only that
-directory. It runs the independent OKF check and every rule of the Profile chain
-the project's `wayfinder.json` selects, then derives one gate. Exit `0` (`PASS`)
-means OKF passed, no Profile finding is an error, and every selected rule ran;
-advisories remain non-blocking. Exit `1` (`FAIL`) means OKF or a Profile rule
-failed. Exit `2` (`INCOMPLETE`) means the run could not assess
-everything, for example a missing `wayfinder.json`, an unresolved or
-unsupported Profile, a link graph
-that could not be built, or a usage or I/O error. A `wayfinder/` diagnostic in
-the output names the reason.
+`get` resolves the Profile selected in `wayfinder.json` and pins it in
+`wayfinder.lock`. Run it before validation: `validate` reads the lock and local
+cache, but never fetches a Profile.
 
-A `PASS` is conformance to the selected Profile. It is not a review of the
-judgment that Profile's skill asks for, such as whether a placement fits its
-subject or a source is truthful. The `author-knowledge-bundle` skill runs that
-review with each Profile's skill. One `wayfinder validate <bundle>` invocation is the
-single supported CI gate. A separate upstream `okf validate` invocation
-is optional when focused OKF diagnostics are useful.
+`index` saves document embeddings locally. Run it again after editing the bundle;
+unchanged content reuses its vectors. `search` reuses the index and embeds only
+the query. It returns candidate passages, not generated answers; check the cited
+text before using it. For projects with several bundles, `wayfinder index` and
+`wayfinder search "your question"` use the configured bundle paths. An explicit
+path selects just one bundle.
 
-## Search local knowledge with Wayfinder
+**Starting a new bundle?** In your coding agent, invoke
+`/adopt-knowledge-bundle`. It explores the repository, binds the bundle to a
+Profile, seeds the files its adoption guidance calls for, and adds agent
+instructions. Existing bundles are preserved. Without Profile-specific seed
+guidance, a new bundle starts with only OKF's `index.md` and `log.md`.
 
-After installing the native runtime, try the illustrative bundle from a clone
-of this repository:
+### Try an example
 
-```bash
+From a clone of this repository, use the [Bitwild example](examples/bitwild/):
+
+```sh
 wayfinder get examples/bitwild
 wayfinder validate examples/bitwild/knowledge
-wayfinder graph examples/bitwild/knowledge --output mermaid
 wayfinder index examples/bitwild/knowledge
 wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 ```
 
-`get` resolves the project's Profile source into `wayfinder.lock`, because
-`validate` never fetches. Without it, validation reports
-`wayfinder/profile-unresolved` and gate `INCOMPLETE`.
+There is no root `knowledge/` directory in this repository. The
+[examples guide](examples/README.md) explains the worked bundle and includes a
+small independent Profile you can use without Bitwild.
 
-To try a Profile that does not build on Bitwild, run
-`wayfinder get examples/acme-notes`, then
-`wayfinder validate examples/acme-notes/knowledge`. Its
-[`acme-notes`](examples/profiles/two-rule/README.md) Profile has two rules
-and no parent.
+## Use with coding agents
 
-`index` generates and saves document embeddings locally; `search` reuses them
-and encodes only the query. There is no retrieval-mode flag. See the
-[Wayfinder guide](packages/wayfinder_cli/README.md) for setup, packaging and local data
-locations. Existing `okfp validate` remains supported.
+The installer supplies Wayfinder's skills through the Claude Code plugin when
+the `claude` CLI is available, or as skill directories otherwise. It also installs
+them in `~/.agents/skills` for Codex and other Agent Skills clients.
+`wayfinder update` refreshes the skills with the runtime.
 
-`wayfinder mcp <bundle>` exposes the same validation, index, search and graph
-services to local MCP hosts over stdio. See the [MCP setup](packages/wayfinder_cli/README.md#mcp-server)
-for the launch configuration and tool lifecycle.
+To add the MCP server to a project's `.mcp.json`, run:
 
-## Examples
+```sh
+wayfinder setup
+```
 
-[`examples/bitwild/`](examples/bitwild/) is a complete project, small enough to read in one
-sitting: a `wayfinder.json` binding and a `knowledge/` bundle. It shows Bitwild's central
-separations: a source event produces durable knowledge, which links to an execution record,
-with generated indexes and an authored log. CI resolves its Profile source from a synthetic
-local Git repository. A minimal configured validator fixture is
-[`packages/wayfinder/test/fixtures/configured-project/`](packages/wayfinder/test/fixtures/configured-project/).
+The server exposes `validate`, `index`, `search`, and `graph`. Other MCP hosts can
+launch `wayfinder mcp knowledge` over stdio; see the
+[MCP guide](packages/wayfinder_cli/README.md#mcp-server). For manual plugin
+installation or migration, follow the
+[plugin setup guide](docs/install.md#install-the-claude-code-plugin).
 
-It includes a two-concept subject area to show that truthful placement, not a
-numeric threshold, determines structure.
+| Skill | Use it to |
+| --- | --- |
+| `adopt-knowledge-bundle` | Set up a bundle and connect it to a Profile. |
+| `author-knowledge-bundle` | Create, edit, move, deprecate, or mirror content, then review it. |
+| `assess-knowledge-bundle` | Review the whole bundle using its Profile's guidance. |
+| `use-wayfinder` | Search, index, validate, and explore the graph; answer from verified passages. |
+| `create-profile` | Create or revise a Profile's rules, tests, and skill. |
 
-[`examples/profiles/two-rule/`](examples/profiles/two-rule/) is a complete Profile with two
-rules and no parent, and [`examples/acme-notes/`](examples/acme-notes/) is a project that uses
-it. [`examples/profiles/two-rule-child/`](examples/profiles/two-rule-child/) builds on Bitwild:
-its package names `profiles/bitwild` as its parent at the same commit, so a project names only
-the child. CI resolves both from a synthetic local Git repository.
+Agents load `author-knowledge-bundle` and `use-wayfinder` as needed. You invoke
+adoption, assessment, and Profile creation explicitly. Install the
+[skill family](skills/README.md) together: the skills reference one another.
 
-## Reading order
+A Profile's own skill is separate. `wayfinder get` installs it into the project's
+`.claude/skills/<id>/` and `.agents/skills/<id>/`, pinned to the locked commit.
+Commit those directories with the lock. See
+[Profile skills](docs/wayfinder-configuration.md#profile-skills).
 
-- Adopting a Profile in a project → [Getting started](#getting-started), then the
-  [engine contract](implementation/okf-implementation-guide.md) §2
-- Writing or editing a concept → the `author-knowledge-bundle` skill, which loads each
-  Profile's skill and carries the pinned OKF 0.2 text
-- Writing a Profile → the `create-profile` skill, then the engine contract §5
-- Building tooling → the engine contract §3 (index generation) and §4 (validation)
-- Converting an existing `docs/` tree → the selected Profile's guidance, such as Bitwild's
-  [migration reference](profiles/bitwild/skill/references/migration.md)
-- Proposing a change → [Contributing](#contributing) below
+## Profiles
+
+A Profile packages your team's vocabulary and validation rules in
+`wayfinder-profile.json`. It can also include a README explaining the rules and
+an agent skill for judgment that rules cannot automate.
+
+The project selects a Profile in `wayfinder.json`. Every Profile adds to OKF
+without changing what OKF fields mean, and the bundle stays readable by any OKF
+tool. A Profile can extend another, but none is a required base or default.
+
+[Bitwild](profiles/bitwild/README.md) is the first Profile. It guides what earns
+a concept, where knowledge belongs, and how it links to the systems where work
+happens. You can use it, extend it, or write an independent Profile with
+`create-profile`. The [two-rule example](examples/profiles/two-rule/README.md)
+shows an independent package; the
+[engine contract](implementation/okf-implementation-guide.md#5-profile-packages)
+defines the package format.
+
+This repository holds reusable tooling, skills, and Profiles. Your project's
+domain knowledge, decisions, and open questions belong in its own bundle.
+Reference a Profile through configuration and the lock; do not copy this
+repository into the bundle.
+
+## CLI, MCP, and Dart APIs
+
+| Interface | Use it for | Entry point |
+| --- | --- | --- |
+| CLI | Terminal workflows and CI, with text or JSON results; validation also supports SARIF. | [`wayfinder`](packages/wayfinder_cli/README.md) |
+| MCP | Agent access to `validate`, `index`, `search`, and `graph` for one bundle over stdio. | [`wayfinder mcp <bundle>`](packages/wayfinder_cli/README.md#mcp-server) |
+| Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
+| Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` |
+
+The interfaces have different scopes. CLI search can span configured bundles
+and [filter frontmatter](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
+MCP search uses the bundle chosen at server startup and accepts only `query`
+and an optional `limit`. Indexing is explicit in both: search does not rebuild
+a missing or stale index. MCP does not expose concept-authoring writes.
+
+The application uses local embeddings. The Dart OKF retrieval adapter defaults
+to BM25 and lets callers choose dense or hybrid retrieval; see its
+[API guide](packages/wayfinder_embeddings/README.md#search-an-okf-bundle).
+
+## Validation and CI
+
+Validation requires one explicit bundle directory. It checks OKF first, then
+the rules in the selected Profile chain, and returns one gate:
+
+| Exit | Gate | Meaning |
+| --- | --- | --- |
+| `0` | `PASS` | OKF passed, every selected rule ran, and no Profile finding is an error. Advisories do not block. |
+| `1` | `FAIL` | OKF or a Profile rule failed. |
+| `2` | `INCOMPLETE` | The run could not assess everything, such as a missing configuration, unresolved Profile, or I/O error. |
+
+Use `wayfinder validate knowledge` as the CI gate. Text is the default output;
+JSON and SARIF are also available:
+
+```sh
+wayfinder validate knowledge --output json
+wayfinder validate knowledge --output sarif > wayfinder.sarif
+```
+
+To write OKF's generated indexes when the selected Profile requires them, then
+validate, run `wayfinder validate knowledge --fix`.
+
+**A passing gate is conformance, not a content review.** It does not establish
+whether a source is truthful or a concept belongs where it was placed. The
+authoring and assessment skills use each Profile's skill to review that judgment.
+See the [validation contract](implementation/okf-implementation-guide.md#4-validation)
+for result details and diagnostics.
+
+## Documentation
+
+| If you want to… | Start here |
+| --- | --- |
+| Install, upgrade, or troubleshoot | [Installation guide](docs/install.md) |
+| Configure a project or change its Profile | [Project configuration](docs/wayfinder-configuration.md) |
+| Author or review bundle content | [Agent skills](skills/README.md) |
+| Write a Profile | [`create-profile`](skills/create-profile/SKILL.md) and the [engine contract](implementation/okf-implementation-guide.md#5-profile-packages) |
+| Explore a worked bundle | [Examples](examples/README.md) |
+| Develop or release Wayfinder | [Contributor guide](docs/contributing.md) and [release guide](docs/releasing.md) |
+
+The [documentation index](docs/index.md) also covers vocabulary, compatibility,
+architecture decisions, and retrieval evidence.
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| [`packages/wayfinder/`](packages/wayfinder/) | Core Dart validation library and tests |
+| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | CLI and MCP server |
+| [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Reusable local retrieval library |
+| [`profiles/bitwild/`](profiles/bitwild/) | Bitwild's rules, skill, rationale, and releases |
+| [`skills/`](skills/) | Profile-agnostic agent skills |
+| [`implementation/`](implementation/) | Engine contract |
+| [`examples/`](examples/) | Illustrative bundles and Profile packages |
+| [`docs/`](docs/index.md) | Guides, schemas, decisions, and compatibility evidence |
+| [`tool/`](tool/) | CI and release tooling |
 
 ## Contributing
 
-Changes come in two kinds, and [`AGENTS.md`](AGENTS.md) lists what each needs.
+Read [AGENTS.md](AGENTS.md) for scope and change requirements. The authority order
+is **OKF → engine contract → Profile package**. Contract changes need an ADR and
+change record; Profile changes follow that package's release process and need
+evidence from a real corpus.
 
-- **The engine contract** says what any Profile package is and how the engine reads it.
-  It changes through an ADR and the guide's change record, and a change that would make an
-  existing package read differently bumps the package `format`.
-- **A Profile** changes through its own release process. A Bitwild rule earns its way in
-  by being needed on a real corpus and by being generic. If it names a client, a domain, or
-  a project's own vocabulary, it belongs in that project's binding or bundle. Each change
-  has a [changelog](profiles/bitwild/CHANGELOG.md) entry stating the **driver** and the
-  migration impact.
-
-The driver is the part that does the work. A change record without one is a preference
-dressed as a rule, and nobody can tell them apart later.
-
-Two rules govern every Profile edit. **Silence is deference.** Where a Profile says nothing
-and OKF settles the point, follow OKF and do not mint a convention in its place. **Precedence
-is a chain.** OKF wins over the engine contract, which wins over each Profile package.
+The [contributor guide](docs/contributing.md) covers schema generation, goldens,
+formatting, and native development. Developing the workspace requires Dart
+3.11.0 or later; use a stable SDK for formatting.
 
 ## Contributor checks
 
-From the repository root, the core checks used by [CI](.github/workflows/ci.yml) are:
+From the repository root, run the core checks used by [CI](.github/workflows/ci.yml):
 
-```bash
+```sh
 dart pub get
 dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
 dart analyze --fatal-infos
@@ -321,68 +242,6 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`melos lint` runs analysis, formatting and tests across all three packages at once.
-
-The engine embeds no Profile. It embeds only the two published schemas,
-`docs/schemas/wayfinder.schema.json` and `docs/schemas/wayfinder-profile.schema.json`, and the
-okf package version, through the generated
-`packages/wayfinder/lib/src/generated/published_schemas.g.dart`. The version comes from the
-`okf:` constraint in `packages/wayfinder/pubspec.yaml`, which allows exactly one patch release
-(`'>=0.5.0 <0.5.1'`; every package uses the same constraint), so the embedded value and the
-resolved dependency cannot drift. pub rejects a bare version for a published package. After editing either schema or
-changing the okf pin, run `dart run tool/generate_published_schemas.dart` and commit the result;
-`--check` is the CI gate for a stale file.
-
-Every Profile, Bitwild included, is a package under `profiles/<name>/` that a project fetches
-through `wayfinder get`, so editing a package needs no regeneration. A package's shape is
-`docs/schemas/wayfinder-profile.schema.json`. The engine runs every schema rule's `tests` when
-it parses the package, so a rule whose examples disagree with its check never loads.
-`profile_package_test.dart` and `profile_descriptors_test.dart` cover that boundary.
-
-`packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
-`packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
-from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
-the golden diff with the change. An unexpected golden diff is a regression.
-`published_schema_wording_test.dart` likewise pins, in
-`packages/wayfinder/test/published_schema_wording/golden.json`, the message for
-every single-defect mutation of its seeds that fails its published schema. The
-seeds are frozen copies of the Bitwild example's `wayfinder.json`, the Bitwild
-package and the `two-rule-child` package, so editing a Profile or an example
-leaves the golden alone. Regenerate it with the same `UPDATE_GOLDENS=1` only
-after an intended wording change.
-
-**Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
-version-dependent and its style is gated on the package's language version, so a floor
-SDK and a newer stable can disagree on the same file. CI checks formatting on `stable`
-only — that is what defines the canonical style — while the floor job still analyzes and
-tests. Formatting with the floor SDK can produce output CI rejects.
-
-For skill or documentation changes, also check local links and compare changed
-rule wording with its authoritative source. Release-tool changes additionally
-use the checks under `tool/release/` in CI. Example-gate success covers the
-Profile's rules; the judgment its skill asks for is reviewed separately.
-
-See the [release guide](docs/releasing.md) for package publication and native binaries.
-
-## Dart workspace development
-
-Developing the workspace requires Dart 3.11.0 or later. Run `melos get` at the
-repository root, then `melos lint` to analyze, check formatting, and test all workspace
-packages. Every package declares the same Dart 3.11.0 minimum, matching
-`btwld/mix`, so one SDK serves the whole workspace.
-
-`wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
-license preserved in the package directory. See its [README](packages/wayfinder_embeddings/README.md)
-and the [retrieval documentation guide](docs/wayfinder_embeddings.md) for the
-implementation, evaluation runbook and recorded decisions. Its optional native
-backend needs `melos run objectbox:install`; regenerate its committed ObjectBox
-files with `melos build` only when entity schemas change.
-
-For native semantic retrieval, `melos run wayfinder_embeddings:prepare` stages the pinned
-25.28 MB model. `melos run wayfinder_embeddings:build` creates a
-CLI bundle containing the model and native libraries. See the
-[local search implementation and measurements](docs/wayfinder_embeddings_local_search.md).
-The accepted model choice and next retrieval experiments are recorded in
-[ADR-0009](docs/adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
-bundle validation; search examples and evaluation commands live in the
-[embedding package](packages/wayfinder_embeddings/README.md#command-line-entry-points).
+`dart run melos run lint` runs analysis, formatting, and tests across all three
+packages. For documentation or skill changes, also check local links and compare
+changed rule wording with its authoritative source.

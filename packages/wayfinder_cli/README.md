@@ -74,10 +74,10 @@ From the workspace root:
 dart pub get
 dart run melos run objectbox:install
 dart run melos run wayfinder_embeddings:prepare
-dart run wayfinder:wayfinder get examples/bitwild
-dart run wayfinder:wayfinder validate examples/bitwild/knowledge
-dart run wayfinder:wayfinder index examples/bitwild/knowledge
-dart run wayfinder:wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
+dart run wayfinder_cli:wayfinder get examples/bitwild
+dart run wayfinder_cli:wayfinder validate examples/bitwild/knowledge
+dart run wayfinder_cli:wayfinder index examples/bitwild/knowledge
+dart run wayfinder_cli:wayfinder search examples/bitwild/knowledge "How is reporting implemented?"
 dart run tool/build_wayfinder.dart --offline
 ```
 

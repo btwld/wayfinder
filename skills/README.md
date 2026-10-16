@@ -30,7 +30,7 @@ every Profile. Profile skills install per project.
 
 ## Installation and routing
 
-Use the [root README's installation instructions](../README.md#1-install-the-skills).
+Use the [root README's agent setup instructions](../README.md#use-with-coding-agents).
 The native installer installs this family (`wayfinder skills install`) and
 `wayfinder update` refreshes it; `wayfinder setup` configures a project's MCP
 server.

@@ -58,7 +58,7 @@ round-trips fitted passages and the source inputs needed to reconstruct the OKF
 graph. `KnowledgeIndex.fromSnapshot` opens a committed snapshot without document
 encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
-[Wayfinder](../wayfinder/README.md) owns atomic snapshot/database publication and
+[Wayfinder CLI](../wayfinder_cli/README.md) owns atomic snapshot/database publication and
 freshness checks for its local CLI.
 
 ### Markdown retrieval context
@@ -140,7 +140,7 @@ dart run wayfinder_cli:wayfinder validate examples/bitwild/knowledge
 ```
 
 `okfp --help` currently lists only `validate`; it has no embedding or search
-subcommand. [Wayfinder](../wayfinder/README.md) adds top-level `validate`, `index`
+subcommand. [Wayfinder CLI](../wayfinder_cli/README.md) adds top-level `validate`, `index`
 and `search` commands using local embeddings. The following developer commands run from this package directory
 (`packages/wayfinder_embeddings`):
 
