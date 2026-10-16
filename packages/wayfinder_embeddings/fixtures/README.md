@@ -1,5 +1,10 @@
 # Fixtures
 
+The protocols and full measurements behind the recorded results are kept at
+commit `7728c1f`: the [component experiment](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_ablation.md),
+the [model-free versus local embedding benchmark](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_comparison.md),
+and the [small-model comparison](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_model_comparison.md).
+
 ## embedding_comparison/
 
 100 synthetic concepts and 160 questions, split by topic before retrieval.
@@ -8,7 +13,6 @@ dense, and hybrid. A known strict-support annotation limitation is documented
 in the fixture README. Results and executable/source provenance live in
 `benchmarks/embedding_comparison_*`. Per-process raw reports are regenerated
 from the benchmark commands rather than checked in.
-See [measured costs and quality](../../../docs/wayfinder_embeddings_comparison.md).
 
 ## okf_retrieval/
 
@@ -16,8 +20,7 @@ See [measured costs and quality](../../../docs/wayfinder_embeddings_comparison.m
 development and 17 held-out questions before evaluation. This is an unprofiled
 retrieval fixture, not a normative bundle template. It tests lifecycle, explicit
 governing sources, heading context, and declared links using the real OKF parser.
-Do not adjust judgments to fit model output. See the
-[protocol and measured results](../../../docs/wayfinder_embeddings_ablation.md).
+Do not adjust judgments to fit model output.
 `benchmarks/okf_ablation_results.json` records both stores and all seven
 configurations, including per-query correctness. Native CI retains full rankings.
 
@@ -79,8 +82,7 @@ UPDATE_GOLDENS=1 dart test test/fixtures_pipeline_golden_test.dart
 ## benchmarks/
 
 `model_comparison_*` records the follow-up Arctic XS/S and BGE-small comparison,
-including Q8/Q4 variants. It reuses `embedding_comparison/` unchanged. See the
-[model comparison protocol and results](../../../docs/wayfinder_embeddings_model_comparison.md).
+including Q8/Q4 variants. It reuses `embedding_comparison/` unchanged.
 
 `local_metrics_baseline.json` records aggregate and per-group metrics for the
 pinned native model after the storage cleanup. It carries model identity,

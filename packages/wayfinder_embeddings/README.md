@@ -118,16 +118,9 @@ snapshots without it have empty diagnostics. Call `fitInputs()` explicitly befor
 New boundaries or omitted context can change retrieval results; ranking algorithms
 and model identity are unchanged.
 
-See [the component experiment](../../docs/wayfinder_embeddings_ablation.md) for
-measured improvements and regressions with and without embeddings.
-
-The [model-free versus local embedding benchmark](../../docs/wayfinder_embeddings_comparison.md)
-adds a frozen topic-separated test set and isolated runtime, build, update, and
-storage-scale measurements. Its keyword control stays in evaluation tooling.
-The [small-model comparison](../../docs/wayfinder_embeddings_model_comparison.md)
-tests Arctic XS, Arctic S and BGE-small, including Q8/Q4 variants, using the same
-frozen passages and judgments. Alternative weights stay in benchmark tooling;
-the application model remains Arctic XS Q8_0.
+Benchmark inputs and recorded results live in [`fixtures/`](fixtures/README.md).
+Alternative model weights stay in benchmark tooling; the application model
+remains Arctic XS Q8_0.
 
 ## Command-line entry points
 
@@ -139,9 +132,8 @@ dart run wayfinder_cli:wayfinder get examples/bitwild
 dart run wayfinder_cli:wayfinder validate examples/bitwild/knowledge
 ```
 
-`okfp --help` currently lists only `validate`; it has no embedding or search
-subcommand. [Wayfinder CLI](../wayfinder_cli/README.md) adds top-level `validate`, `index`
-and `search` commands using local embeddings. The following developer commands run from this package directory
+The [Wayfinder CLI](../wayfinder_cli/README.md) adds `index` and `search`
+commands using local embeddings. The following developer commands run from this package directory
 (`packages/wayfinder_embeddings`):
 
 ```bash
@@ -166,7 +158,7 @@ evaluation; it is not an interactive OKF bundle search interface. Use the
 `KnowledgeSnapshot`/`KnowledgeIndex` API for a consumer's own bundle and query.
 
 The [accepted decision](../../docs/adr/0009-local-knowledge-retrieval.md) keeps
-XS as the local model and records the next passage-selection experiments.
+XS as the local model.
 
 ## Ingest and search
 
@@ -348,7 +340,7 @@ The build creates `build/wayfinder_embeddings/bundle/` with an executable under 
 native libraries under `lib/` (ObjectBox's DLL is beside the executable on
 Windows), and weights, manifest, license, and attribution under `models/`.
 Distribute the whole bundle. Runtime model lookup uses the executable location,
-then the development `models/` directory; `WAYFINDER_EMBEDDING_MODEL` (or the legacy `KNOWLEDGE_EMBEDDING_MODEL`) or the
+then the development `models/` directory; `WAYFINDER_EMBEDDING_MODEL` or the
 CLI's `--model` can override it. Runtime inference never downloads weights.
 
 `LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
@@ -376,13 +368,9 @@ Existing databases using the previous vector schema require reindexing into a
 ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
 when changing the schema; preserve `lib/objectbox-model.json` UID history.
 
-Run `dart run example/native_example.dart` after preparing the model. The
-[implementation report](../../docs/wayfinder_embeddings_local_search.md) explains
-model selection, build tradeoffs, and measured retrieval behavior.
-The [knowledge retrieval review](../../docs/wayfinder_embeddings_knowledge_retrieval.md)
-covers authority, lifecycle, ObjectBox filtering, and new tests with and without
-embeddings. Generic Markdown chunking preserves caller-supplied metadata; an
-OKF adapter still needs to parse and supply the concept metadata.
+Run `dart run example/native_example.dart` after preparing the model.
+Generic Markdown chunking preserves caller-supplied metadata; an OKF adapter
+still needs to parse and supply the concept metadata.
 
 ## Custom chunkers and embedders
 
@@ -392,37 +380,24 @@ Extend `BaseChunker` or `BaseEmbedder`. Register a chunker with
 
 ## Evaluation
 
-The [documentation guide](../../docs/wayfinder_embeddings.md) maps each
-experiment to its question and limitations. The retrieval benchmark, the qrels
-fixture, and the BM25 regression gate live in `tool/`.
-See [the evaluation runbook](../../docs/wayfinder_embeddings_eval.md)
-for commands, metrics, and the regression gate.
+The retrieval benchmark and the BM25 regression gate live in `tool/`; their
+fixtures and judgments live in `fixtures/`. Run from this package:
+
+```bash
+dart test test/fixtures_pipeline_golden_test.dart test/retrieval_fixture_gate_test.dart
+dart run tool/compare_embeddings.dart \
+  --embedders=bm25 --store=memory --top=10 \
+  --queries=fixtures/corpus/retrieval_queries.json \
+  --qrels=fixtures/corpus/retrieval_qrels.json \
+  --validate-golden \
+  --metrics-output=comparison_results/bm25_metrics.json \
+  --baseline-metrics=fixtures/corpus/bm25_metrics_baseline.json
+```
+
+The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
+Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
 
 ## License
 
 Dart package: BSD 3-Clause. See `LICENSE`. The bundled model uses Apache-2.0;
 its license and conversion attribution are in `tool/model_assets/`.
-
-## Migrating from knowledge_embeddings
-
-Use `wayfinder_embeddings: ^0.0.1-dev.0` and replace all package import prefixes
-with `package:wayfinder_embeddings/`. The main entrypoint is
-`wayfinder_embeddings.dart`; the OKF adapter remains `okf_knowledge.dart`.
-Migrate the dependency and imports together because Dart types from different
-package identities are distinct.
-
-The rename preserves ObjectBox model UIDs, chunk IDs and embedding identity.
-Existing supported stores can open without reindexing; the library writes both
-`wayfinder_embeddings.schema` and the legacy `knowledge_embeddings.schema`
-during the transition. Invalid or conflicting markers are refused.
-
-`WAYFINDER_EMBEDDING_MODEL` takes precedence over the legacy variable, including
-when its value is invalid. Preparation checks the new `wayfinder-embeddings`
-cache and then verified legacy `concepta-knowledge` cache bytes before downloading.
-This preserves offline use of previously prepared models.
-
-The old Melos `embeddings:prepare` and `embeddings:build` tasks remain aliases for
-one development release. Use `wayfinder_embeddings:prepare` and
-`wayfinder_embeddings:build` in new automation. See the
-[ObjectBox build review](../../docs/objectbox-build-review.md) for pins,
-asset verification, schema handling and tested-platform limits.

@@ -512,11 +512,6 @@ reference is used correctly.
 
 ## Compatibility and migration
 
-The former `profiles` + `bundles` / `implements` version-1 draft was
-never published and is not accepted by this parser. Convert any
-pre-release draft configuration to direct `source` + `applies_to` before
-validation.
-
 A published Bitwild 2026.2 bundle declares its Profile inside the bundle, and
 this engine does not read that declaration. Such a bundle reports
 `wayfinder/config-missing` and gate `INCOMPLETE` until it migrates. To keep

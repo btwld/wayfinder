@@ -1,46 +1,48 @@
-# ADR-0008: Reuse OKF's finding report as the validator wire format
+# ADR-0008: Publish okf's finding report unchanged
 
 - Status: accepted
 - Date: 2026-08-26
-- Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0008-okfp-adopts-okf-finding-contract.md))
-- Scope: validator report contract; originally implemented in `okfp`
-- Amended, if accepted: by [ADR-0016](0016-independent-profile-packages.md). A Profile finding's namespace is the id of the package that declares the rule, so Bitwild's findings are `bitwild-profile/<rule-slug>`. The engine reports its own state as `wayfinder/<code>` diagnostics, never as findings. A finding's `help_uri` replaces the normative rule reference. The OKF report is unchanged
+- Updated: 2026-10-02 (Profile-id finding namespace and `wayfinder/*` diagnostics, with [ADR-0016](0016-independent-profile-packages.md))
+- Scope: the validation report's OKF component and the grammar of Profile findings
 
 ## Context
 
-OKF 0.2 replaced the earlier validator report, warning tier, and separate
-bundle-load issue channel with ordered `OkfFinding` values in one `OkfReport`.
-Reconstructing the old shape would lose OKF's identifiers and severity meanings.
+OKF 0.2 reports conformance as ordered `OkfFinding` values in one
+`OkfReport`, with namespaced identifiers and a two-tier error/advisory
+severity. A load failure is a finding like any other. Reshaping that report
+into a validator-specific form would lose okf's identifiers and severity
+meanings and create a second, lossy wire contract.
 
 ## Decision
 
-Publish OKF's report directly under `okf.report`. Load failures are findings
-in that report, not a separate `okf.load_issues` array. Validate through
-`OkfBundleLoadResult.validate()` and let OKF decide conformance without a
-Profile-side strict mode or severity reinterpretation.
+Publish okf's own report projection as the OKF component of every result.
+Validate through okf, let okf decide OKF conformance, and never reinterpret a
+severity or add a strict mode. OKF conformance is `PASS` exactly when okf
+reports no error.
 
-Profile findings use the same finding grammar and canonical ordering in the
-stable `concepta-profile/<rule-slug>` namespace. Profile release and normative
-rule references live in a Profile rule-descriptor table, not invented fields
-in OKF's wire format. Keep OKF and Profile states distinct.
+Profile findings speak the same grammar and canonical ordering. Each finding
+id is `<profile-id>/<rule-slug>`, where the namespace is the id of the package
+that declares the rule. Rule metadata, such as the package release and the
+`help_uri`, comes from the package, never from fields added to okf's wire
+format. The engine reports its own state as `wayfinder/<code>` diagnostics,
+never as findings. SARIF 2.1.0 carries the same findings for code scanning.
+The [engine contract §4.1](../../implementation/okf-implementation-guide.md#41-results-and-exit-codes)
+holds the exact shape.
 
 ## Options considered
 
-- Keeping the pre-0.2 report and load-issue fields was rejected because it
-  would lose OKF's current identifiers and severity semantics.
-- Translating the new report into a compatibility shape was rejected because
-  it would create a second, lossy wire contract.
+- Keeping a validator-specific report shape was rejected because it would
+  lose okf's identifiers and severity semantics.
+- Translating okf's report into a compatibility shape was rejected because it
+  would create a second wire contract to keep in step.
 
 ## Consequences
 
-Consumers of the older `valid`, count, `diagnostics`, or `load_issues` fields
-must read the findings array. The change was versioned in the original
-`okf_profile` package; no compatibility projection of the old JSON is kept.
-OKF advisories remain non-blocking. The four-part result and `BLOCKED BY OKF`
-behavior from [ADR-0004](0004-closed-concepta-profile-validator.md) remain.
+A consumer of okf's finding contract reads the OKF component without knowing
+Wayfinder. OKF advisories never fail the gate, and a Profile finding never
+enters the OKF report.
 
 ## Reconsider when
 
-Reopen the wire contract only when the pinned OKF report contract changes or a
-consumer demonstrates a missing representation that cannot be carried in the
-existing separate Profile state and descriptor metadata.
+The pinned okf report contract changes, or a consumer needs a representation
+the separate Profile result and diagnostics cannot carry.

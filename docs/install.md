@@ -43,12 +43,9 @@ corrupt downloads; they are not a claim of code signing or notarization.
 
 ## Homebrew
 
-The `conceptadev/tap/wayfinder` formula is no longer updated and still installs
-0.0.1-dev.1. Use the install script instead. If you installed the formula, run
-`brew uninstall wayfinder` so an older `wayfinder` does not shadow the script's.
-Wayfinder includes Profile validation through `wayfinder validate`. Existing
-standalone `okfp` installations remain usable, but Wayfinder does not require
-them, and previously installed `okfp` commands are not removed automatically.
+Homebrew is not a supported channel. If you installed the old
+`conceptadev/tap/wayfinder` formula, run `brew uninstall wayfinder` so it does
+not shadow the script's `wayfinder`.
 
 ## Use a knowledge bundle
 
@@ -147,29 +144,17 @@ Set `WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
 `WAYFINDER_EXECUTABLE` when the executable
 is outside `PATH`.
 
-### Migrate an existing plugin installation
-
-When moving from the old private marketplace or `wayfinder-dist`, remove its
-registration as well as the installed plugin. Claude Code refuses to register
-a different repository under an existing marketplace name.
+If Claude Code reports that a `wayfinder` marketplace already exists from an
+older source, such as a private marketplace or `wayfinder-dist`, remove the old
+plugin and marketplace, then run the two commands above again:
 
 ```text
 /plugin uninstall concepta-knowledge@wayfinder
 /plugin marketplace remove wayfinder
-/plugin marketplace add btwld/wayfinder
-/plugin install wayfinder@wayfinder
 ```
 
-If you installed `wayfinder@wayfinder` from `wayfinder-dist`, use
-`/plugin uninstall wayfinder@wayfinder` for the first command. The remaining
-commands are the same. This switches the marketplace to the main public
-repository without registering a duplicate server.
-
-If the older marketplace is named `okf-profile`, use
-`/plugin uninstall concepta-knowledge@okf-profile` and
-`/plugin marketplace remove okf-profile` for the first two commands. Verify
-that only `wayfinder@wayfinder` is enabled and `/mcp` lists one Wayfinder server. Normal later upgrades update the `wayfinder` marketplace and
-plugin together; they do not require removing the marketplace again.
+If the old plugin is named `wayfinder@wayfinder`, uninstall that instead. `/mcp`
+should then list one Wayfinder server.
 
 `wayfinder graph` projects the ordinary OKF relationship graph, plus typed
 `relationships` edges beside it. Mermaid and
@@ -191,8 +176,8 @@ Run the installer again to install the newest release, or the one
 `WAYFINDER_VERSION` names, and to repair an installation.
 Restart Claude Code to use the updated executable. An upgrade keeps index data
 separate from runtime files. `WAYFINDER_DATA_DIR` selects an explicit data root;
-the existing Station-data migration and model environment overrides are described
-in the [application package guide](https://pub.dev/packages/wayfinder).
+model environment overrides are described in the
+[CLI package guide](https://pub.dev/packages/wayfinder_cli).
 
 If a command is missing, check its installation directory is on the `PATH` used
 to launch your terminal or Claude Code. If an asset is missing, rerun the complete
@@ -225,23 +210,10 @@ dart pub global activate wayfinder_cli
 ```
 
 Global activation supports validation and MCP validation. Retrieval additionally
-needs the native library/model setup described in the [package guide](https://pub.dev/packages/wayfinder);
+needs the native library/model setup described in the [package guide](https://pub.dev/packages/wayfinder_cli);
 the complete native installer handles those assets for end users. The reusable
-library is `wayfinder_embeddings`; migrate its dependency and all imports together
-when replacing `knowledge_embeddings`.
+library is `wayfinder_embeddings`.
 
-## Migrate the Dart application package
-
-Before 0.0.1, `wayfinder` was the CLI package. It is now the core library.
-Migrate a global Dart installation with:
-
-```sh
-dart pub global deactivate wayfinder
-dart pub global activate wayfinder_cli
-wayfinder --version
-```
-
-Script users keep the `wayfinder` command and upgrade with `wayfinder update`.
-MCP remains in the CLI package (`wayfinder mcp`, or `mcp <bundle>` for one bundle); no extra MCP install is
-needed. Library consumers replace `okf_profile` with `wayfinder` and import
-`package:wayfinder/wayfinder.dart`. Existing published versions remain available.
+If `wayfinder --version` still reports a version before 0.0.1, the old global
+`wayfinder` package owns the command. Run `dart pub global deactivate wayfinder`,
+then activate `wayfinder_cli` again.

@@ -1,7 +1,7 @@
 {
   "recorded": "2026-09-09",
   "corpusSha256": "347d8e02c7812b8e47c040a35f085e9bb02ae2f68da4f5438de5f726d2d780e4",
-  "protocol": "../../../../docs/knowledge_embeddings_ablation.md",
+  "protocol": "https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_ablation.md",
   "splits": {
     "development": {
       "split": "development",

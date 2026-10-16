@@ -35,9 +35,7 @@ irm https://raw.githubusercontent.com/btwld/wayfinder/main/tool/install.ps1 | ie
 The installer includes the runtime and agent skills. See the
 [installation guide](docs/install.md) for plugin setup, upgrades, and
 troubleshooting, or [GitHub releases](https://github.com/btwld/wayfinder/releases)
-for runtime bundles. Dart users can find
-[package migration instructions](docs/install.md#migrate-the-dart-application-package)
-and [release status](docs/releasing.md#prepared-release-020) in the guides.
+for runtime bundles.
 
 ## Getting started
 
@@ -101,7 +99,7 @@ configured bundles, with a `knowledge/` fallback. Other MCP hosts can launch
 `wayfinder mcp` over stdio. Use `wayfinder mcp <bundle>` or set
 `WAYFINDER_KNOWLEDGE_DIR` to restrict it to one explicit bundle. See the
 [MCP guide](packages/wayfinder_cli/README.md#mcp-server). For manual plugin
-installation or migration, follow the
+installation, follow the
 [plugin setup guide](docs/install.md#install-the-claude-code-plugin).
 
 | Skill | Use it to |
