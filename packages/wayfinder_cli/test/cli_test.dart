@@ -41,7 +41,7 @@ void main() {
     expect(help, contains('graph <bundle>'));
     expect(help, contains('get [<project>]'));
     expect(help, contains('upgrade [<project>]'));
-    expect(help, contains('mcp <bundle>'));
+    expect(help, contains('mcp [<bundle>]'));
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
   });
@@ -82,7 +82,7 @@ void main() {
     ['search', '.', 'query', '--limit=2.0'],
     ['search', '.', '  \t'],
     ['search', '.', '\u0085'],
-    ['mcp'],
+    ['mcp', ' '],
     ['mcp', '.', 'another-root'],
     ['mcp', '.', '--output=json'],
     ['graph'],

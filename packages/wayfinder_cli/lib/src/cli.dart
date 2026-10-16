@@ -332,8 +332,7 @@ class WayfinderCli {
         ..addFlag('help', abbr: 'h', negatable: false)
         ..addOption(
           'bundle',
-          defaultsTo: 'knowledge',
-          help: 'Bundle path relative to the project.',
+          help: 'Bind MCP to one bundle path instead of all project bundles.',
         )
         ..addFlag(
           'force',
@@ -384,7 +383,7 @@ class WayfinderCli {
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
           '  get [<project>]            Resolve Profile sources and install their skills\n'
           '  upgrade [<project>]       Advance mutable Profile refs\n'
-          '  mcp <bundle>               Serve these tools over MCP stdio\n'
+          '  mcp [<bundle>]             Serve project or single-bundle tools over MCP stdio\n'
           '  skills <install|status|remove>\n'
           '                             Manage the agent skills for this runtime\n'
           '  setup [<project>]          Configure the MCP server in .mcp.json\n'
@@ -512,7 +511,7 @@ class WayfinderCli {
         }
         await _agentSetup(_out).configureProject(
           command.rest.firstOrNull ?? '.',
-          bundle: command.option('bundle')!,
+          bundle: command.option('bundle'),
           force: command.flag('force'),
           hooks: command.flag('hooks'),
           sessionHooks: command.flag('session-hooks'),
@@ -521,12 +520,30 @@ class WayfinderCli {
       }
       if (command.flag('help')) {
         _out(
-          'Usage: wayfinder $name ${name == 'search' || name == 'index' ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
+          'Usage: wayfinder $name ${{'search', 'index', 'mcp'}.contains(name) ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
         );
         return 0;
       }
       if (name == 'search') {
         return await _search(command);
+      }
+      if (name == 'mcp') {
+        if (command.rest.length > 1 ||
+            (command.rest.isNotEmpty && command.rest.first.trim().isEmpty)) {
+          throw const WayfinderException(
+            'mcp accepts at most one bundle path.',
+          );
+        }
+        final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
+        await WayfinderMcpServer(
+          rootPath:
+              command.rest.firstOrNull ??
+              (override == null || override.trim().isEmpty ? null : override),
+          workingDirectory: _workingDirectory,
+          knowledge: _knowledge(),
+          profileResolver: _profileResolver(),
+        ).serve();
+        return 0;
       }
       if (name == 'index' && command.rest.isEmpty) {
         if (command.flag('background') || command.flag('detach')) {
@@ -566,13 +583,6 @@ class WayfinderCli {
         throw WayfinderException('$name requires an explicit bundle.');
       }
       final bundle = command.rest.first;
-      if (name == 'mcp') {
-        await WayfinderMcpServer(
-          rootPath: bundle,
-          knowledge: _knowledge(),
-        ).serve();
-        return 0;
-      }
       if (name == 'graph') {
         final result = await projectWayfinderGraph(
           bundle,

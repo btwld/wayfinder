@@ -1,5 +1,16 @@
 # 0.2.0
 
+- `wayfinder mcp` without a bundle now discovers all configured project bundles,
+  matching CLI project search/index. Search ranks them together with one query
+  embedding, a global limit, and bundle-aware citations; index refreshes them
+  all. Validate and graph return independent reports under `bundles`, with
+  each validation report keeping its own gate and `exit_code`. No implicit
+  indexing or partial search results are introduced. Explicit `mcp <bundle>`
+  launches retain their result shapes; `WAYFINDER_KNOWLEDGE_DIR` remains an
+  explicit single-bundle override. The plugin and new `setup` entries default
+  to project mode. Existing entries need `wayfinder setup --force` and a host
+  restart; unset the environment override for project-wide search. Bundles and
+  Profile package formats are unchanged.
 - Requires `ack` `^1.7.0` and `wayfinder` and `wayfinder_embeddings`
   `^0.2.0`.
 - `setup --session-hooks` adds project-local, context-only startup hooks for

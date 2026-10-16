@@ -33,9 +33,15 @@ and rebases. When search reports a stale index, run the MCP `index` tool or
 ## Choose an interface
 
 Prefer the **Wayfinder MCP tools** when they are available (the `wayfinder`
-plugin registers them as `validate`, `index`, `search` and `graph`). They are bound to one
-bundle — `knowledge/` by default, or `WAYFINDER_KNOWLEDGE_DIR` — so they take no
-path. `search` takes `query` and an optional `limit` (1–100, default 5).
+plugin registers them as `validate`, `index`, `search` and `graph`). By default
+they discover all project bundles from `wayfinder.json`, or `knowledge/` without
+a configuration. `search` takes `query` and an optional `limit` (1–100, default 5),
+ranking across those bundles with one global limit; it needs no bundle list.
+`index` refreshes them all. Project `validate` and `graph` return independent
+reports in `bundles`, each with `name` and project-relative `path`; read every
+validation report's gate and `exit_code` before claiming the project passes.
+An explicit `wayfinder mcp <bundle>` launch or `WAYFINDER_KNOWLEDGE_DIR` restricts
+the tools to one bundle and preserves the single-bundle result shapes.
 `graph` takes optional `types`, `path_prefixes` and `resolutions` and returns
 the versioned OKF graph JSON, plus a `field_edges` array holding each concept's
 typed `relationships` entries.
@@ -51,7 +57,8 @@ wayfinder index [<bundle>] [--bundle NAME] [--output=json]
 wayfinder search [<bundle>] "<one quoted query>" [--bundle NAME] [--limit N] [--output=json]
 ```
 
-Project search ranks across selected bundles with a global limit. Its JSON adds
+Project search (CLI or MCP) ranks across selected bundles with a global limit.
+Its JSON adds
 `bundles` and annotates each match/context hit with `bundle` and `bundlePath`;
 combine that path with `chunk.sourcePath` for project-relative citations. A stale
 selected index fails the whole search: run `wayfinder index` and retry. Explicit
@@ -61,8 +68,9 @@ paths preserve the single-bundle JSON shape. Do not combine a path and `--bundle
 `types`, `path_prefixes` and `resolutions` filters.
 
 Use `--output=json` when you will parse results; explicit-path output has the
-same shape the MCP tools return. If neither the tools nor the `wayfinder` command exist, say so and
-see [Troubleshooting](#troubleshooting) rather than silently falling back to
+same shape a single-bundle MCP launch returns. If neither the tools nor the
+`wayfinder` command exist, say so and see [Troubleshooting](#troubleshooting)
+rather than silently falling back to
 grep-only answers.
 
 ## Search, then verify
@@ -91,7 +99,8 @@ grep-only answers.
    Text output prints the same passages as `path:start-end [status; reason]`.
 4. **Verify before answering.** Ranking is similarity, not truth: open the cited
    file at those lines and confirm it actually supports your claim. Cite as
-   `knowledge/<sourcePath>:<start>-<end>` (the path as seen from the project).
+   `<bundlePath>/<sourcePath>:<start>-<end>` for project search, or the selected
+   bundle's path plus `sourcePath` for single-bundle search.
 5. **Respect lifecycle status.** Every status is searchable, including `draft`
    and `deprecated`. Say when support is only a draft, and never present a
    deprecated passage as current guidance — look for what superseded it.
@@ -157,7 +166,8 @@ is a separate review. Route by task:
 | --- | --- |
 | `wayfinder` not found; MCP server missing from `/mcp` | Not installed or not on the `PATH` the agent was launched with. Install the complete runtime (see the Wayfinder install guide), or set `WAYFINDER_EXECUTABLE` for the plugin. `wayfinder setup` adds the server to a project's `.mcp.json`. Restart the client after installing. |
 | Wayfinder reports a newer release | `wayfinder update` upgrades the runtime and refreshes these skills. |
-| Tools search the wrong bundle, or report no `knowledge/` | The MCP server serves `knowledge/` relative to where the client started. Set `WAYFINDER_KNOWLEDGE_DIR` to the bundle and restart, or use the CLI with an explicit path. |
+| Tools search only one bundle | Unset `WAYFINDER_KNOWLEDGE_DIR` and launch `wayfinder mcp` from the project. For an existing `.mcp.json`, run `wayfinder setup --force` and restart the host. Explicit bundle launches intentionally search only that bundle. |
+| No project bundles found | Start the host from the consuming project and check `wayfinder.json`'s `applies_to` paths, or the conventional `knowledge/` directory. Discovery never fetches bundles. |
 | `Index is missing, stale or incompatible` / `Index belongs to another bundle` / `Embedding configuration changed` | Run `index` on the same bundle, then search again. |
 | `Knowledge changed while indexing` / `during search` | Files changed mid-command. Let edits finish and rerun. |
 | `Index is busy` | Another Wayfinder command holds this bundle. Retry after it finishes. |

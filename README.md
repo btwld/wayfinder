@@ -94,8 +94,10 @@ To add the MCP server to a project's `.mcp.json`, run:
 wayfinder setup
 ```
 
-The server exposes `validate`, `index`, `search`, and `graph`. Other MCP hosts can
-launch `wayfinder mcp knowledge` over stdio; see the
+The server exposes `validate`, `index`, `search`, and `graph` across the project's
+configured bundles, with a `knowledge/` fallback. Other MCP hosts can launch
+`wayfinder mcp` over stdio. Use `wayfinder mcp <bundle>` or set
+`WAYFINDER_KNOWLEDGE_DIR` to restrict it to one explicit bundle. See the
 [MCP guide](packages/wayfinder_cli/README.md#mcp-server). For manual plugin
 installation, follow the
 [plugin setup guide](docs/install.md#install-the-claude-code-plugin).
@@ -149,11 +151,11 @@ repository into the bundle.
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
 | Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` |
 
-The interfaces have different scopes. CLI search can span configured bundles
-and [filter frontmatter](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
-MCP search uses the bundle chosen at server startup and accepts only `query`
-and an optional `limit`. Indexing is explicit in both: search does not rebuild
-a missing or stale index. MCP does not expose concept-authoring writes.
+CLI and MCP search can span configured bundles. CLI search also supports
+[frontmatter filters](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
+MCP search accepts only `query` and an optional `limit`. Indexing is explicit in
+both: search does not rebuild a missing or stale index. MCP does not expose
+concept-authoring writes.
 
 The application uses local embeddings. The Dart OKF retrieval adapter defaults
 to BM25 and lets callers choose dense or hybrid retrieval; see its

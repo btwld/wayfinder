@@ -171,7 +171,7 @@ void main() {
     const entry = {
       'type': 'stdio',
       'command': 'wayfinder',
-      'args': ['mcp', 'knowledge'],
+      'args': ['mcp'],
     };
 
     test('writes the plugin-equivalent server and is idempotent', () async {
@@ -214,7 +214,10 @@ void main() {
       File(p.join(project, '.mcp.json')).writeAsStringSync(
         jsonEncode({
           'mcpServers': {
-            'wayfinder': {'command': '/old/wayfinder'},
+            'wayfinder': {
+              ...entry,
+              'args': ['mcp', 'knowledge'],
+            },
           },
         }),
       );

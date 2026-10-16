@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/graph.dart';
@@ -473,6 +474,293 @@ void main() {
         },
       );
     });
+
+    group('$protocol project bundles', () {
+      late Directory project;
+      late _Knowledge knowledge;
+      late McpClient client;
+      late IOStreamTransport serverTransport;
+      late Future<void> serving;
+      const paths = ['.wayfinder/bundles/shared-kit', 'knowledge'];
+      Future<void> configure(List<String> bundles) =>
+          File(p.join(project.path, 'wayfinder.json')).writeAsString(
+            jsonEncode({
+              'version': 1,
+              'profiles': {
+                'test-profile': {
+                  'source': {
+                    'git': 'https://example.test/profile',
+                    'ref': 'main',
+                    'path': 'profile',
+                  },
+                  'applies_to': bundles,
+                },
+              },
+            }),
+          );
+      setUp(() async {
+        project = await Directory.systemTemp.createTemp(
+          'wayfinder-mcp-project-',
+        );
+        await Directory(p.join(project.path, '.git')).create();
+        for (final path in [...paths, 'unconfigured']) {
+          final bundle = await Directory(
+            p.join(project.path, path),
+          ).create(recursive: true);
+          await for (final file in Directory(
+            'test/fixtures/knowledge',
+          ).list()) {
+            if (file is File) {
+              await file.copy(p.join(bundle.path, p.basename(file.path)));
+            }
+          }
+        }
+        await configure(paths);
+        knowledge = _Knowledge();
+        final incoming = StreamController<List<int>>();
+        final outgoing = StreamController<List<int>>();
+        serverTransport = IOStreamTransport(
+          stream: incoming.stream,
+          sink: outgoing.sink,
+        );
+        serving = WayfinderMcpServer(
+          workingDirectory: project,
+          knowledge: knowledge,
+        ).serve(transport: serverTransport);
+        client = McpClient(
+          const Implementation(name: 'project-test', version: '1.0.0'),
+          options: McpClientOptions(protocol: protocol),
+        );
+        await client.connect(
+          IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+        );
+      });
+      tearDown(() async {
+        await client.close();
+        await serverTransport.close();
+        await serving;
+        await project.delete(recursive: true);
+      });
+
+      test(
+        'search defaults to all configured bundles with CLI-equivalent ranking and citations',
+        () async {
+          await client.listTools();
+          expect(knowledge.calls, isEmpty);
+          final result = await client.callTool(
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'limit': 2},
+            ),
+          );
+          expect(result.isError, isNot(true));
+          final payload = _payload(result);
+          final matches = payload['matches'] as List;
+          expect(matches.map((hit) => hit['bundle']), [
+            'knowledge',
+            'shared-kit',
+          ]);
+          expect(matches.map((hit) => hit['bundlePath']), [
+            'knowledge',
+            paths.first,
+          ]);
+          expect(matches.map((hit) => hit['chunk']['sourcePath']), [
+            'guide.md',
+            'guide.md',
+          ]);
+          expect(payload['context'], hasLength(2));
+          expect(payload['bundles'], hasLength(2));
+          expect(knowledge.calls, hasLength(1));
+          expect(knowledge.calls.single, startsWith('searchBundles:'));
+          expect(knowledge.calls.single, isNot(contains('unconfigured')));
+          final output = <String>[];
+          final cli = WayfinderCli(
+            out: output.add,
+            knowledge: () => knowledge,
+            workingDirectory: project,
+            notices: false,
+          );
+          expect(
+            await cli.run(['search', 'caching', '--limit=2', '--output=json']),
+            0,
+          );
+          expect(payload, jsonDecode(output.single));
+          final limited = _payload(
+            await client.callTool(
+              const CallToolRequest(
+                name: 'search',
+                arguments: {'query': 'caching', 'limit': 1},
+              ),
+            ),
+          );
+          expect((limited['matches'] as List).single['bundle'], 'knowledge');
+          expect(limited['context'], hasLength(1));
+        },
+      );
+
+      test(
+        'index refreshes every configured bundle with CLI-equivalent JSON',
+        () async {
+          final result = await client.callTool(
+            const CallToolRequest(name: 'index'),
+          );
+          expect(result.isError, isNot(true));
+          final bundles = _payload(result)['bundles'] as List;
+          expect(bundles.map((bundle) => bundle['path']), paths);
+          expect(knowledge.calls.map((call) => p.basename(call)), [
+            'shared-kit',
+            'knowledge',
+          ]);
+          final output = <String>[];
+          final cli = WayfinderCli(
+            out: output.add,
+            knowledge: () => knowledge,
+            workingDirectory: project,
+            notices: false,
+          );
+          expect(await cli.run(['index', '--output=json']), 0);
+          expect(_payload(result), jsonDecode(output.single));
+          expect(
+            await File(p.join(project.path, 'wayfinder.lock')).exists(),
+            isFalse,
+          );
+        },
+      );
+
+      test('validation and graph keep independent bundle reports', () async {
+        final validation = _payload(
+          await client.callTool(const CallToolRequest(name: 'validate')),
+        );
+        final graph = _payload(
+          await client.callTool(const CallToolRequest(name: 'graph')),
+        );
+        for (var i = 0; i < paths.length; i++) {
+          final root = await Directory(
+            p.join(project.path, paths[i]),
+          ).resolveSymbolicLinks();
+          final expected = await validateWithProfileSources(root);
+          expect((validation['bundles'] as List)[i], {
+            'name': p.basename(paths[i]),
+            'path': paths[i],
+            ...expected.toJson(),
+            'exit_code': expected.exitCode,
+          });
+          expect((graph['bundles'] as List)[i], {
+            'name': p.basename(paths[i]),
+            'path': paths[i],
+            ...(await projectWayfinderGraph(root)).toJson(),
+          });
+        }
+        expect(knowledge.calls, isEmpty);
+        expect(
+          await File(p.join(project.path, 'wayfinder.lock')).exists(),
+          isFalse,
+        );
+      });
+
+      test(
+        'graph load failures identify the bundle and leave the session usable',
+        () async {
+          final broken = File(p.join(project.path, paths.first, 'broken.md'));
+          await broken.writeAsBytes(const [0xff, 0xfe]);
+          final result = await client.callTool(
+            const CallToolRequest(name: 'graph'),
+          );
+          expect(result.isError, true);
+          final message = (result.content.single as TextContent).text;
+          expect(message, startsWith('${paths.first}: '));
+          expect(message, contains('broken.md'));
+          expect(message, contains('okf/invalid-utf8'));
+          await broken.delete();
+          expect(
+            (await client.callTool(
+              const CallToolRequest(name: 'graph'),
+            )).isError,
+            isNot(true),
+          );
+          expect(knowledge.calls, isEmpty);
+        },
+      );
+
+      test(
+        'missing and stale bundles fail search without partial output or implicit indexing',
+        () async {
+          final missing = Directory(p.join(project.path, paths.first));
+          await missing.delete(recursive: true);
+          final absent = await client.callTool(
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching'},
+            ),
+          );
+          expect(absent.isError, true);
+          expect(
+            (absent.content.single as TextContent).text,
+            contains('does not exist'),
+          );
+          expect(knowledge.calls, isEmpty);
+          await missing.create(recursive: true);
+          knowledge.failSearch = true;
+          final stale = await client.callTool(
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching'},
+            ),
+          );
+          expect(stale.isError, true);
+          expect(
+            (stale.content.single as TextContent).text,
+            contains('wayfinder index'),
+          );
+          expect(
+            knowledge.calls.every((call) => call.startsWith('searchBundles:')),
+            isTrue,
+          );
+          knowledge.failSearch = false;
+          expect(
+            (await client.callTool(
+              const CallToolRequest(name: 'index'),
+            )).isError,
+            isNot(true),
+          );
+          expect(
+            (await client.callTool(
+              const CallToolRequest(
+                name: 'search',
+                arguments: {'query': 'caching'},
+              ),
+            )).isError,
+            isNot(true),
+          );
+        },
+      );
+
+      test(
+        'discovery follows configuration edits and supports conventional knowledge fallback',
+        () async {
+          await configure(['knowledge']);
+          final selected = _payload(
+            await client.callTool(
+              const CallToolRequest(
+                name: 'search',
+                arguments: {'query': 'caching'},
+              ),
+            ),
+          );
+          expect((selected['bundles'] as List).single['name'], 'knowledge');
+          await File(p.join(project.path, 'wayfinder.json')).delete();
+          final fallback = _payload(
+            await client.callTool(
+              const CallToolRequest(
+                name: 'search',
+                arguments: {'query': 'caching'},
+              ),
+            ),
+          );
+          expect(fallback['bundles'], selected['bundles']);
+        },
+      );
+    });
   }
 
   test('graph load findings are a tool error', () async {
@@ -522,6 +810,39 @@ class _Knowledge extends WayfinderKnowledge {
   bool indexFinished = false;
   bool failSearch = false;
   List<KnowledgeInputDiagnostic> warnings = const [];
+
+  @override
+  Future<List<KnowledgeSearchResponse>> searchBundles(
+    List<String> bundles,
+    String query, {
+    int limit = 5,
+    KnowledgeMetadataFilter? filters,
+  }) async {
+    calls.add('searchBundles:${bundles.join(',')}:$query:$limit');
+    if (failSearch) {
+      throw const WayfinderException('Index is stale. Run wayfinder index.');
+    }
+    return [
+      for (final bundle in bundles)
+        KnowledgeSearchResponse(
+          matches: [
+            SearchResult(
+              chunk: Chunk(
+                sourcePath: 'guide.md',
+                lineStart: 1,
+                lineEnd: 2,
+                content: 'Caching guidance',
+                type: 'paragraph',
+              ),
+              embedding: null,
+              similarity: p.basename(bundle) == 'knowledge' ? 0.9 : 0.5,
+            ),
+          ],
+          context: [],
+          notices: [],
+        ),
+    ];
+  }
 
   @override
   Future<WayfinderIndexResult> index(

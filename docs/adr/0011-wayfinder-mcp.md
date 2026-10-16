@@ -10,15 +10,30 @@
 Agents need Wayfinder validation and retrieval without parsing shell output
 or maintaining another search implementation. Upstream `okf mcp` serves
 format-level reads and writes; it does not replace Wayfinder's gate or
-semantic search.
+semantic search. A project can hold its own knowledge and installed reference
+bundles, and an agent needs one search across them, as the CLI already
+provides.
 
 ## Decision
 
-Run `wayfinder mcp <bundle>` as a local stdio server bound to one canonical
-bundle at startup. Tool arguments cannot select another bundle or retrieval
-mode. Use the MCP SDK for transport, negotiation, and framing, and Ack for
-argument validation and defaults. Stdout carries JSON-RPC only; diagnostics
-go to stderr. Dependency versions live in the
+Run `wayfinder mcp` as a local stdio server over the project's configured
+bundles, using the same discovery boundary and conventional `knowledge/`
+fallback as CLI project search. Discovery runs on each call and never fetches
+sources. Search uses one query embedding and one global result limit and keeps
+bundle-aware citations. Index explicitly refreshes every selected bundle; a
+missing or stale index fails search rather than returning a subset. Validation
+and graph stay independent per bundle, returned under `bundles` with each
+bundle's name and project-relative path. Validation gates and graph node
+identities are never merged across bundles.
+
+An explicit `wayfinder mcp <bundle>` binds to that canonical bundle at startup
+and keeps the single-bundle result shapes. A nonblank `WAYFINDER_KNOWLEDGE_DIR`
+selects that mode when no argument is given. Tool arguments cannot select an
+arbitrary path or retrieval mode.
+
+Use the MCP SDK for transport, negotiation, and framing, and Ack for argument
+validation and defaults. Stdout carries JSON-RPC only; diagnostics go to
+stderr. Dependency versions live in the
 [package manifest](../../packages/wayfinder_cli/pubspec.yaml).
 
 Expose the CLI's `validate`, `index`, `search`, and read-only `graph`
@@ -29,13 +44,15 @@ execution failures use `isError` without ending the session. Search returns
 candidate passages, citations, and notices, not an answer-confidence claim.
 
 Discovery and validation need no model. Indexing is explicit and writes only
-derived app data; search refuses stale indexes. Tool annotations mark
-read-only calls and non-destructive indexing, while the host controls
-approval. There is no HTTP host, authentication, or bundle-authoring tool.
+derived app data. Tool annotations mark read-only calls and non-destructive
+indexing, while the host controls approval. There is no HTTP host,
+authentication, or bundle-authoring tool.
 
 Each retrieval call owns and disposes its model and store. Overlapping calls
 may return a busy error. Disconnect drains active operations, but
-cancellation does not roll back a generation already being built.
+cancellation does not roll back a generation already being built. Indexing is
+atomic per bundle, not across bundles: a later bundle's failure does not roll
+back an earlier completed index.
 
 ## Options considered
 
@@ -46,9 +63,11 @@ cancellation does not roll back a generation already being built.
 ## Consequences
 
 The server reuses CLI behavior rather than defining a second validation or
-retrieval contract. A shared long-lived model would need measured benefit and
-explicit concurrency, cancellation, and replacement rules. Current tool
-arguments and limits live in the [CLI guide](../../packages/wayfinder_cli/README.md).
+retrieval contract; the engine's report, schemas, Profile packages, bundle
+content, and storage formats are the same as on the command line. A shared
+long-lived model would need measured benefit and explicit concurrency,
+cancellation, and replacement rules. Current tool arguments and limits live in
+the [CLI guide](../../packages/wayfinder_cli/README.md).
 
 ## Reconsider when
 

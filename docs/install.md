@@ -87,10 +87,16 @@ wayfinder setup
 ```
 
 `wayfinder setup` adds the MCP server to the current project's `.mcp.json` as
-`wayfinder mcp knowledge` (`--bundle` selects another path). That is the command
+`wayfinder mcp`, searching all configured project bundles (`--bundle=<path>`
+instead binds it to one bundle). That is the command
 the plugin runs, so Claude Code connects once when both are present. Commit
 `.mcp.json` to share it; Claude Code asks for approval before starting project
 servers.
+
+To change an existing single-bundle entry to project-wide search, run
+`wayfinder setup --force`, unset `WAYFINDER_KNOWLEDGE_DIR`, and restart the MCP
+host. Bundles still need to be listed in `wayfinder.json`'s `applies_to` paths;
+you do not need to name them on each search.
 
 To prompt agents to load `use-wayfinder` at session start:
 
@@ -133,8 +139,9 @@ Install and verify the commands first. From the consuming project, in Claude Cod
 
 The plugin includes the author, adopt, assess and use-wayfinder skill family and
 registers the Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
-`index`, `search` and `graph`. Set `WAYFINDER_KNOWLEDGE_DIR` before launching Claude Code
-when the bundle is not `knowledge/`, and `WAYFINDER_EXECUTABLE` when the executable
+`index`, `search` and `graph`. By default it serves all configured project bundles.
+Set `WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
+`WAYFINDER_EXECUTABLE` when the executable
 is outside `PATH`.
 
 `wayfinder graph` projects the ordinary OKF relationship graph, plus typed

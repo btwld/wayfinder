@@ -39,8 +39,8 @@ for Claude, Codex, and Gemini; Grok reads it from `AGENTS.md`. That skill links
 to author, adopt, and assess for the relevant task. Startup does no indexing.
 The `wayfinder` plugin also registers the installed Wayfinder MCP server. Install
 the CLI first; use the complete native bundle for indexing and search. By default
-it serves `knowledge/` relative to the consuming project. Set
-`WAYFINDER_KNOWLEDGE_DIR` to an explicit bundle path when it lives elsewhere, and
+it serves all configured project bundles, with a `knowledge/` fallback. Set
+`WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
 `WAYFINDER_EXECUTABLE` if the executable is not on `PATH`. The source repository
 itself has no `knowledge/`; contributors enabling the plugin here must select a
 real bundle, such as an example project. No root `.mcp.json` auto-starts a server
