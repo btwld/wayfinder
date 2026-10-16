@@ -1,5 +1,10 @@
 # Fixtures
 
+The protocols and full measurements behind the recorded results are kept at
+commit `7728c1f`: the [component experiment](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_ablation.md),
+the [model-free versus local embedding benchmark](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_comparison.md),
+and the [small-model comparison](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_model_comparison.md).
+
 ## embedding_comparison/
 
 100 synthetic concepts and 160 questions, split by topic before retrieval.

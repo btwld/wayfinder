@@ -21,7 +21,7 @@ relevant guide; an ADR records the durable choice and links there.
 
 | ADR | Decision |
 | --- | --- |
-| [0008](0008-okf-finding-contract.md) | Publish okf's finding report unchanged and speak its grammar for Profile findings |
+| [0008](0008-okfp-adopts-okf-finding-contract.md) | Publish okf's finding report unchanged and speak its grammar for Profile findings |
 | [0009](0009-local-knowledge-retrieval.md) | Arctic Embed XS for local embeddings; BM25 stays the library default |
 | [0010](0010-wayfinder-cli.md) | One CLI validates, indexes, and searches local knowledge |
 | [0011](0011-wayfinder-mcp.md) | Serve Wayfinder tools over local MCP stdio, across the project's bundles |

@@ -144,6 +144,18 @@ Set `WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
 `WAYFINDER_EXECUTABLE` when the executable
 is outside `PATH`.
 
+If Claude Code reports that a `wayfinder` marketplace already exists from an
+older source, such as a private marketplace or `wayfinder-dist`, remove the old
+plugin and marketplace, then run the two commands above again:
+
+```text
+/plugin uninstall concepta-knowledge@wayfinder
+/plugin marketplace remove wayfinder
+```
+
+If the old plugin is named `wayfinder@wayfinder`, uninstall that instead. `/mcp`
+should then list one Wayfinder server.
+
 `wayfinder graph` projects the ordinary OKF relationship graph, plus typed
 `relationships` edges beside it. Mermaid and
 DOT output are text for an external preview; Wayfinder does not render a
@@ -201,3 +213,7 @@ Global activation supports validation and MCP validation. Retrieval additionally
 needs the native library/model setup described in the [package guide](https://pub.dev/packages/wayfinder_cli);
 the complete native installer handles those assets for end users. The reusable
 library is `wayfinder_embeddings`.
+
+If `wayfinder --version` still reports a version before 0.0.1, the old global
+`wayfinder` package owns the command. Run `dart pub global deactivate wayfinder`,
+then activate `wayfinder_cli` again.
