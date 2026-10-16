@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-26
+- Updated: 2026-10-02 (Profile-id finding namespace and `wayfinder/*` diagnostics, with [ADR-0016](0016-independent-profile-packages.md))
 - Scope: the validation report's OKF component and the grammar of Profile findings
 
 ## Context
