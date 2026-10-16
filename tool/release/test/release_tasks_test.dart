@@ -24,26 +24,25 @@ void main() {
       allOf(
         contains('pkg-compile-native'),
         contains('wayfinder-deploy-github'),
-        contains('wayfinder-deploy-homebrew'),
+        isNot(contains('wayfinder-deploy-homebrew')),
       ),
     );
   });
 
-  test('separates GitHub, Homebrew and public installer jobs', () {
+  test('separates GitHub and public installer jobs', () {
     final workflow = File(
       '${repository.path}$separator.github${separator}workflows${separator}distribute-wayfinder.yml',
     ).readAsStringSync();
 
     expect(workflow, contains('\n  prepare:'));
     expect(workflow, contains('\n  publish-github:'));
-    expect(workflow, contains('\n  publish-homebrew:'));
+    expect(workflow, isNot(contains('publish-homebrew')));
     expect(workflow, contains('\n  verify-public-install:'));
     expect(
       workflow,
       isNot(contains(RegExp(r'^  distribute:', multiLine: true))),
     );
     expect(RegExp(r'wayfinder-deploy-github').allMatches(workflow).length, 1);
-    expect(RegExp(r'wayfinder-deploy-homebrew').allMatches(workflow).length, 1);
     expect(workflow, contains('needs: publish-github'));
     expect(workflow, contains('WAYFINDER_VERSION'));
     expect(workflow, contains('WAYFINDER_USE_LOCAL_INSTALLER'));

@@ -39,17 +39,6 @@ Future<void> wayfinderDeployGithub() async {
   );
 }
 
-@Task('Update the Wayfinder formula in Concepta’s existing Homebrew tap.')
-Future<void> wayfinderDeployHomebrew() async {
-  await runAsync(
-    'python3',
-    arguments: <String>[
-      'tool/ci/update-wayfinder-homebrew.py',
-      _requiredEnvironment('DISTRIBUTION'),
-    ],
-  );
-}
-
 String _requiredEnvironment(String name) {
   final value = Platform.environment[name];
   if (value == null || value.trim().isEmpty) {
