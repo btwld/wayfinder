@@ -1,9 +1,6 @@
 include: package:lints/recommended.yaml
 
 analyzer:
-  exclude:
-    # Reference sources migrated from conceptadev/okf; not part of the package.
-    - implementation/**
   language:
     strict-casts: true
     strict-inference: true

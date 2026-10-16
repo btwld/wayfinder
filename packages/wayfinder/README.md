@@ -11,11 +11,6 @@ diagnostics (`EngineDiagnostic`), and the gate derived from them
 import 'package:wayfinder/wayfinder.dart';
 ```
 
-This package replaces `okf_profile`. Replace that dependency with `wayfinder`
-and change imports from `package:okf_profile/okf_profile.dart` to
-`package:wayfinder/wayfinder.dart`. Previously published `okf_profile` versions
-remain available for existing consumers.
-
 For the command and MCP server, install **wayfinder_cli**:
 
 ```sh
@@ -27,7 +22,3 @@ wayfinder mcp knowledge
 For indexing and search without native setup, use the complete scripted
 installation in the [installation guide](../../docs/install.md).
 The reusable retrieval library is `wayfinder_embeddings`.
-
-Before 0.0.1, the published `wayfinder` prereleases were the application package.
-CLI users migrating from those prereleases must deactivate the old package and
-activate `wayfinder_cli`; `wayfinder` is now a library with no executable.

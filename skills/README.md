@@ -46,8 +46,6 @@ itself has no `knowledge/`; contributors enabling the plugin here must select a
 real bundle, such as an example project. No root `.mcp.json` auto-starts a server
 merely because this repository was cloned.
 
-Follow the [plugin migration sequence](../docs/install.md#migrate-an-existing-plugin-installation) when changing from an older marketplace or `wayfinder-dist` to the main public
-Wayfinder repository.
 Keep upstream `okf` write tools separately configured if needed. Wayfinder's
 `validate`, `index`, `search` and `graph` tools project and retrieve; they do
 not replace concept-authoring writes.

@@ -1,7 +1,7 @@
 {
   "recorded": "2026-09-09",
   "corpusSha256": "347d8e02c7812b8e47c040a35f085e9bb02ae2f68da4f5438de5f726d2d780e4",
-  "protocol": "../../../../docs/knowledge_embeddings_ablation.md",
+  "protocol": "../README.md#okf_retrieval",
   "splits": {
     "development": {
       "split": "development",
