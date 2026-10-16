@@ -32,7 +32,7 @@ choice and links there.
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Accepted; amended, if accepted, by 0016 for the finding namespace | Preserve OKF's finding-report wire format |
 | [0009](0009-local-knowledge-retrieval.md) | Accepted | Keep Arctic XS for optional embeddings; BM25 remains the library default |
 | [0010](0010-wayfinder-cli.md) | Accepted; amended for 2026.3 relationships | Wayfinder CLI for validation and persistent local search |
-| [0011](0011-wayfinder-mcp.md) | Accepted | Wayfinder MCP adapter over local stdio |
+| [0011](0011-wayfinder-mcp.md) | Accepted; amended for project-wide discovery | Wayfinder MCP adapter over local stdio |
 | [0012](0012-wayfinder-graph-projection.md) | Accepted; amended for 2026.3 relationships | Project the ordinary OKF graph, plus typed relationship edges beside it |
 | [0013](0013-captures-layer-outside-the-bundle.md) | Proposed | Optional capture workflow; standardizing a source-document type remains open |
 | [0014](0014-external-profile-bindings.md) | Accepted for 2026.3; superseded in part, if accepted, by 0015 for source rule catalogs and by 0016 for the base, chain wiring, and dispatch | Direct Git sources, additive vocabulary and exact-release dispatch |

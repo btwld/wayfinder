@@ -15,7 +15,8 @@ import time
 class Session:
     def __init__(self, binary, corpus, cwd, env):
         self.process = subprocess.Popen(
-            [str(binary), "mcp", str(corpus)], cwd=cwd, env=env,
+            [str(binary), "mcp", *([] if corpus is None else [str(corpus)])],
+            cwd=cwd, env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, bufsize=1,
         )
@@ -112,6 +113,7 @@ def main():
         env = dict(os.environ, WAYFINDER_DATA_DIR=str(temp / "data"))
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
         env.pop("WAYFINDER_EMBEDDING_MODEL", None)
+        env.pop("WAYFINDER_KNOWLEDGE_DIR", None)
         binary = app / "bin" / ("wayfinder.exe" if os.name == "nt" else "wayfinder")
 
         def check(name, action):
@@ -177,6 +179,44 @@ def main():
         try:
             check("restart", server.initialize)
             found = check("search-persisted-index", lambda: server.tool("search", {"query": "password"}))
+            assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+        finally:
+            server.close()
+
+        # The plugin/default invocation searches configured bundles together.
+        kit_path = ".wayfinder/bundles/shared-kit"
+        shutil.copytree(corpus, temp / kit_path)
+        (temp / ".git").mkdir()
+        (temp / "wayfinder.json").write_text(json.dumps({
+            "version": 1,
+            "profiles": {"test-profile": {
+                "source": {"git": "https://example.test/profile", "ref": "main", "path": "profile"},
+                "applies_to": ["knowledge", kit_path],
+            }},
+        }))
+        server = Session(binary, None, temp, env)
+        try:
+            check("project-initialize", server.initialize)
+            indexed = check("project-index", lambda: server.tool("index"))
+            assert {b["path"] for b in indexed["bundles"]} == {"knowledge", kit_path}
+            found = check("project-search", lambda: server.tool("search", {"query": "password", "limit": 100}))
+            assert {h["bundlePath"] for h in found["matches"]} == {"knowledge", kit_path}
+            cli = subprocess.run([str(binary), "search", "password", "--limit=100", "--output=json"],
+                                 env=env, cwd=temp, text=True, capture_output=True, timeout=120)
+            assert cli.returncode == 0, cli.stderr
+            cli_result = json.loads(cli.stdout)
+            assert {(h["bundlePath"], h["chunk"]["id"]) for h in found["matches"]} == {
+                (h["bundlePath"], h["chunk"]["id"]) for h in cli_result["matches"]}
+            validate = check("project-validate", lambda: server.tool("validate"))
+            assert {b["path"] for b in validate["bundles"]} == {"knowledge", kit_path}
+        finally:
+            server.close()
+
+        server = Session(binary, None, cwd, dict(env, WAYFINDER_KNOWLEDGE_DIR=str(corpus)))
+        try:
+            server.initialize()
+            found = check("environment-single-bundle-override", lambda: server.tool("search", {"query": "password"}))
+            assert "bundles" not in found
             assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
         finally:
             server.close()

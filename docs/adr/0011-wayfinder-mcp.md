@@ -5,6 +5,9 @@
 - Revised: 2026-09-28 (condensed; [pre-rewrite record](https://github.com/btwld/wayfinder/blob/dfd46e1/docs/adr/0011-station-mcp.md))
 - Scope: local MCP adapter; no Profile rule changes
 - Builds on [ADR-0010](0010-wayfinder-cli.md)
+- Amended 2026-10-16 for project-wide discovery: project knowledge and installed
+  reference bundles need one agent search, matching the CLI added in #121.
+  Explicit single-bundle launches keep their existing behavior and JSON.
 
 ## Context
 
@@ -15,9 +18,23 @@ or semantic search.
 
 ## Decision
 
-Run `wayfinder mcp <bundle>` as a local stdio server bound to one canonical
-bundle at startup. Tool arguments cannot select another bundle or retrieval
-mode. Use the MCP SDK for transport, negotiation, and framing, and the
+Run `wayfinder mcp` as a local stdio server over the project's configured
+bundles, using the same discovery boundary and conventional `knowledge/`
+fallback as CLI project search. Discover on each call without fetching sources.
+Search uses one query embedding and one global result limit, preserving
+bundle-aware citations. Index explicitly refreshes every selected bundle;
+a missing or stale index fails search rather than returning a subset.
+Validation and graph remain independent per bundle, returned under `bundles`
+with each bundle's name and project-relative path. Validation gates and graph
+node identities are never merged across bundles.
+
+An explicit `wayfinder mcp <bundle>` stays bound to that canonical bundle at
+startup and preserves its original result shapes. A nonblank
+`WAYFINDER_KNOWLEDGE_DIR` selects that mode when no argument is supplied. The
+plugin and new setup entries default to project mode; migrate existing entries
+with `wayfinder setup --force` and restart the host. Tool arguments cannot
+select an arbitrary path or retrieval mode. Use the MCP SDK for transport,
+negotiation, and framing, and the
 published ACK adapter for argument validation and defaults. Stdout carries
 JSON-RPC only; diagnostics use stderr. Keep dependency versions in the
 [package manifest](../../packages/wayfinder_cli/pubspec.yaml), not this ADR.
@@ -39,6 +56,11 @@ Each retrieval call owns and disposes its model and store. Overlapping calls
 may return a busy error. Disconnect drains active operations, but cancellation
 does not roll back a generation already being built; normal generation and
 OS-lock recovery still apply after hard termination.
+
+Project-wide indexing remains atomic per bundle, not across bundles: a later
+bundle's failure does not roll back an earlier completed index. Only MCP
+adapter orchestration changes; the engine's validation report, schemas, Profile
+packages, bundle content, and storage formats are unchanged.
 
 ## Options considered
 
