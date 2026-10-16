@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-01
+- Updated: 2026-10-07 (Ack evaluates rule schemas)
 - Scope: how a Profile's rules are represented and evaluated
 - Driver: a second knowledge base, over the same okf release, that keeps its frontmatter rules in JSON Schema
 

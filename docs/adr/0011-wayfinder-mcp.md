@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-09
+- Updated: 2026-10-16 (project-wide discovery across configured bundles)
 - Scope: local MCP adapter; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md)
 

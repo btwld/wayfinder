@@ -14,7 +14,8 @@ what came before. A Profile's own rationale lives in its package, such as the
 
 ## Record format
 
-A short header with `Status`, `Date`, and `Scope`, then `Context`, `Decision`,
+A short header with `Status`, `Date`, and `Scope`, plus `Updated` with the
+date and a few words when the decision changed after it, then `Context`, `Decision`,
 and `Consequences`. Add `Options considered` or `Reconsider when` only when
 they carry distinct evidence. Commands and dependency details belong in the
 relevant guide; an ADR records the durable choice and links there.

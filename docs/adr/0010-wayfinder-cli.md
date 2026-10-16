@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-09
+- Updated: 2026-10-01 (typed `relationships` context in search)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 

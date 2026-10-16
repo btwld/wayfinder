@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-11
+- Updated: 2026-10-01 (typed `relationships` edges beside the okf graph)
 - Scope: the `graph` command and MCP tool; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
 
