@@ -30,6 +30,8 @@
 
 [Install Wayfinder](install.md) — Native installation without Dart, plugin setup and migration, usage, upgrades and troubleshooting.
 
+[Contribute to Wayfinder](contributing.md) — Change requirements, contributor checks, schema generation, goldens, and native development.
+
 [Release Wayfinder](releasing.md) — Package tags, pub.dev OIDC, verified native bundles and cli_pkg/Grinder tasks.
 
 ## Decisions and historical records

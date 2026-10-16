@@ -11,8 +11,8 @@ diagnostics (`EngineDiagnostic`), and the gate derived from them
 import 'package:wayfinder/wayfinder.dart';
 ```
 
-This package replaces `okf_profile`. Change the dependency to `wayfinder: ^0.0.1`
-and imports from `package:okf_profile/okf_profile.dart` to
+This package replaces `okf_profile`. Replace that dependency with `wayfinder`
+and change imports from `package:okf_profile/okf_profile.dart` to
 `package:wayfinder/wayfinder.dart`. Previously published `okf_profile` versions
 remain available for existing consumers.
 
