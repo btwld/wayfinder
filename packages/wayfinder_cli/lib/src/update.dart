@@ -120,8 +120,7 @@ class ReleaseChecker {
 ///
 /// It reruns the release's own installer, which verifies every download and
 /// installs the bundled skills. A Dart installation is upgraded by pub; the
-/// Homebrew formula is no longer updated, so Homebrew users reinstall with the
-/// script.
+/// Homebrew formula was removed, so Homebrew users reinstall with the script.
 class Updater {
   Updater({
     required void Function(String) out,
@@ -186,8 +185,8 @@ class Updater {
     final path = p.normalize(executable);
     if (path.contains('${p.separator}Cellar${p.separator}')) {
       _out(
-        'Wayfinder $target is available. The Homebrew formula is no longer '
-        'updated: reinstall with the install script '
+        'Wayfinder $target is available. The Homebrew formula was removed: '
+        'reinstall with the install script '
         '(https://github.com/btwld/wayfinder/blob/main/docs/install.md), '
         'then run brew uninstall wayfinder.',
       );

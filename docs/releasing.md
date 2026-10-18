@@ -84,17 +84,12 @@ with the successful source CI run ID. CI must belong to that exact commit and
 provide macOS ARM64, Linux x64 and Windows x64 bundles. Fetch tags at checkout so
 the publishing adapter can verify the application tag locally.
 
-The cli_pkg/Grinder entry points are `wayfinder-deploy-github` and
-`wayfinder-deploy-homebrew`. Project adapters retain complete native libraries,
+The cli_pkg/Grinder entry point is `wayfinder-deploy-github`. Its adapter retain complete native libraries,
 model, licenses and checksums; cli_pkg's default executable archive is insufficient.
 The publisher verifies the existing tag and marks only suffixed versions as
 prereleases. GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`.
 
-Homebrew is not a supported channel, and the `btwld/homebrew-tap` formula
-is not updated. The `publish-homebrew` job stays in the workflow but runs only
-when the repository variable `WAYFINDER_HOMEBREW` is `true`, which also requires
-`HOMEBREW_TAP_GH_TOKEN` with Contents read/write on that tap. Never print the
-token or use it for GitHub release publication.
+Homebrew is not a distribution channel. The release publishes no formula.
 
 Native GitHub publication and public installer verification are separate
 dependent jobs. A failed job can be retried without republishing packages or
