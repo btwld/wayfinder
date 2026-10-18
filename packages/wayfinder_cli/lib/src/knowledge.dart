@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ffi';
@@ -18,6 +19,12 @@ typedef _SavedIndex = ({
   String inventory,
   String generation,
   KnowledgeSnapshot snapshot,
+});
+
+typedef _CachedSavedIndex = ({
+  String directory,
+  String text,
+  _SavedIndex index,
 });
 
 /// Scoped to one project query; native model ownership stays with the command.
@@ -63,6 +70,7 @@ class WayfinderEncoder {
 class WayfinderKnowledge {
   WayfinderKnowledge({
     Directory? dataDirectory,
+    this.keepEncoderAlive = false,
     Future<WayfinderEncoder> Function()? openEncoder,
     ({String model, String source})? encoderIdentity,
   }) : dataDirectory = dataDirectory ?? defaultDataDirectory(),
@@ -77,6 +85,106 @@ class WayfinderKnowledge {
     return env.containsKey('WAYFINDER_EMBEDDING_MODEL') ||
         env.containsKey('KNOWLEDGE_EMBEDDING_MODEL');
   }
+
+  /// MCP keeps a lazily opened encoder across calls; one-shot CLI calls do not.
+  /// Retrieval operations are serialized while sharing the native encoder.
+  final bool keepEncoderAlive;
+  int _encoderSessions = 0;
+  bool get _retainEncoder => keepEncoderAlive || _encoderSessions > 0;
+  final Object _encoderRetentionKey = Object();
+  WayfinderEncoder? _retainedEncoder;
+  // Reuse only one completely parsed record, never an open store or response.
+  // File contents are still read on every call; source freshness is independent.
+  static const _maxCachedSnapshotBytes = 64 * 1024 * 1024;
+  _CachedSavedIndex? _cachedSavedIndex;
+  Future<void> _pending = Future.value();
+  Future<void>? _closing;
+
+  Future<T> _retrieval<T>(Future<T> Function() action) {
+    if (_closing != null) {
+      return Future.error(StateError('Wayfinder knowledge service is closed.'));
+    }
+    // Admission decides both serialization and encoder ownership. Async source
+    // reads must not let an older standalone operation join a newer session.
+    final retain = _retainEncoder;
+    Future<T> run() =>
+        runZoned(action, zoneValues: {_encoderRetentionKey: retain});
+    if (!retain) {
+      // One-shot callers retain their existing concurrency, but shutdown must
+      // still wait until every accepted operation releases its own resources.
+      final result = Future<T>.sync(run);
+      final settled = result.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {},
+      );
+      _pending = Future.wait([_pending, settled]).then<void>((_) {});
+      return result;
+    }
+    final result = _pending.then((_) async {
+      try {
+        return await run();
+      } catch (_) {
+        _cachedSavedIndex = null;
+        // Do not reuse a potentially failed native encoder on the next call.
+        await _disposeRetainedEncoder();
+        rethrow;
+      }
+    });
+    _pending = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  Future<WayfinderEncoder> _acquireEncoder() async {
+    final retain =
+        Zone.current[_encoderRetentionKey] as bool? ?? _retainEncoder;
+    if (!retain) return _openEncoder();
+    return _retainedEncoder ??= await _openEncoder();
+  }
+
+  Future<void> _releaseEncoder(WayfinderEncoder? encoder) async {
+    // A standalone operation can overlap the start of a retained session. Its
+    // private encoder stays privately owned even when the session policy changes.
+    if (!identical(encoder, _retainedEncoder)) {
+      await encoder?.embedder.dispose();
+    }
+  }
+
+  /// Retains one lazily opened encoder for a multi-step command, then releases
+  /// it. The long-lived MCP policy still owns its encoder beyond this scope.
+  Future<T> withEncoderSession<T>(Future<T> Function() action) async {
+    if (_closing != null) {
+      throw StateError('Wayfinder knowledge service is closed.');
+    }
+    _encoderSessions++;
+    try {
+      return await action();
+    } finally {
+      _encoderSessions--;
+      while (!_retainEncoder) {
+        final pending = _pending;
+        await pending;
+        // Another session may have accepted work and already ended its action
+        // while this drain awaited an older tail. Dispose only at a stable tail.
+        if (_retainEncoder) break;
+        if (!identical(pending, _pending)) continue;
+        await _disposeRetainedEncoder();
+        break;
+      }
+    }
+  }
+
+  Future<void> _disposeRetainedEncoder() async {
+    final encoder = _retainedEncoder;
+    _retainedEncoder = null;
+    await encoder?.embedder.dispose();
+  }
+
+  /// Reject new work, drain accepted operations, then release native resources.
+  Future<void> dispose() => _closing ??= () async {
+    await _pending;
+    _cachedSavedIndex = null;
+    await _disposeRetainedEncoder();
+  }();
 
   final Directory dataDirectory;
   final Future<WayfinderEncoder> Function() _openEncoder;
@@ -278,7 +386,10 @@ class WayfinderKnowledge {
 
   /// Creates or refreshes the saved index. A current index returns without
   /// loading the model; [force] discards it and re-embeds every passage.
-  Future<WayfinderIndexResult> index(
+  Future<WayfinderIndexResult> index(String bundle, {bool force = false}) =>
+      _retrieval(() => _index(bundle, force: force));
+
+  Future<WayfinderIndexResult> _index(
     String bundle, {
     bool force = false,
   }) => _withBundle(bundle, (root, directory) async {
@@ -304,7 +415,7 @@ class WayfinderKnowledge {
         warnings: previous!.snapshot.diagnostics,
       );
     }
-    final encoder = await _openEncoder();
+    final encoder = await _acquireEncoder();
     try {
       final space = '${encoder.embedder.modelName}:okf-context-v2';
       final compatible =
@@ -415,7 +526,7 @@ class WayfinderKnowledge {
         }
       }
     } finally {
-      await encoder.embedder.dispose();
+      await _releaseEncoder(encoder);
     }
   });
 
@@ -423,6 +534,14 @@ class WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
+  }) =>
+      _retrieval(() => _search(bundle, query, limit: limit, filters: filters));
+
+  Future<KnowledgeSearchResponse> _search(
+    String bundle,
+    String query, {
+    required int limit,
     KnowledgeMetadataFilter? filters,
   }) async {
     WayfinderEncoder? encoder;
@@ -433,11 +552,11 @@ class WayfinderKnowledge {
         limit: limit,
         filters: filters,
         encoder: () async {
-          return encoder ??= await _openEncoder();
+          return encoder ??= await _acquireEncoder();
         },
       );
     } finally {
-      await encoder?.embedder.dispose();
+      await _releaseEncoder(encoder);
     }
   }
 
@@ -447,6 +566,15 @@ class WayfinderKnowledge {
     List<String> bundles,
     String query, {
     int limit = 5,
+    KnowledgeMetadataFilter? filters,
+  }) => _retrieval(
+    () => _searchBundles(bundles, query, limit: limit, filters: filters),
+  );
+
+  Future<List<KnowledgeSearchResponse>> _searchBundles(
+    List<String> bundles,
+    String query, {
+    required int limit,
     KnowledgeMetadataFilter? filters,
   }) async {
     WayfinderEncoder? encoder;
@@ -463,7 +591,7 @@ class WayfinderKnowledge {
               filters: filters,
               allContext: true,
               encoder: () async {
-                encoder ??= await _openEncoder();
+                encoder ??= await _acquireEncoder();
                 queryEmbedder ??= _SharedQueryEmbedder(encoder!.embedder);
                 return WayfinderEncoder(
                   queryEmbedder!,
@@ -479,7 +607,7 @@ class WayfinderKnowledge {
       }
       return results;
     } finally {
-      await encoder?.embedder.dispose();
+      await _releaseEncoder(encoder);
     }
   }
 
@@ -581,22 +709,33 @@ class WayfinderKnowledge {
 
   Future<_SavedIndex?> _readCurrent(Directory directory) async {
     final pointer = File(p.join(directory.path, 'current'));
-    if (!await pointer.exists()) return null;
+    if (!await pointer.exists()) {
+      _cachedSavedIndex = null;
+      return null;
+    }
     try {
       final generation = await pointer.readAsString();
       if (!_generationName.hasMatch(generation)) throw const FormatException();
-      final record = Map<String, Object?>.from(
-        jsonDecode(
-              await File(
-                p.join(directory.path, generation, 'snapshot.json'),
-              ).readAsString(),
-            )
-            as Map,
-      );
+      final text = await File(
+        p.join(directory.path, generation, 'snapshot.json'),
+      ).readAsString();
+      final canonicalDirectory = keepEncoderAlive
+          ? await directory.resolveSymbolicLinks()
+          : null;
+      final cached = _cachedSavedIndex;
+      if (keepEncoderAlive &&
+          cached != null &&
+          cached.directory == canonicalDirectory &&
+          cached.index.generation == generation &&
+          cached.text == text) {
+        return cached.index;
+      }
+      _cachedSavedIndex = null;
+      final record = Map<String, Object?>.from(jsonDecode(text) as Map);
       for (final key in ['configuration', 'model', 'source', 'inventory']) {
         if (record[key] is! String) throw const FormatException();
       }
-      return (
+      final saved = (
         configuration: record['configuration']! as String,
         model: record['model']! as String,
         source: record['source']! as String,
@@ -607,7 +746,20 @@ class WayfinderKnowledge {
           linkFields: wayfinderLinkFields,
         ),
       );
+      if (keepEncoderAlive &&
+          _closing == null &&
+          (text.length * 3 <= _maxCachedSnapshotBytes ||
+              (text.length <= _maxCachedSnapshotBytes &&
+                  utf8.encode(text).length <= _maxCachedSnapshotBytes))) {
+        _cachedSavedIndex = (
+          directory: canonicalDirectory!,
+          text: text,
+          index: saved,
+        );
+      }
+      return saved;
     } on Object {
+      _cachedSavedIndex = null;
       throw const WayfinderException(
         'Saved index is incomplete or incompatible. Run wayfinder index <bundle>.',
       );

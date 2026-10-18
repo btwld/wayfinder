@@ -37,7 +37,9 @@ and inventory to detect edits; search refuses an absent, stale, or
 incompatible index and directs the caller to `wayfinder index`. Search
 includes every lifecycle state and bounded relationship context, following
 typed `relationships` entries before untyped body links, and never derives
-authority from type, verification, or similarity.
+authority from type, verification, or similarity. MCP retains one lazily opened
+encoder across serialized retrieval calls, evicting it on failure and disposing
+it on disconnect, while one-shot CLI commands open and close their own encoder.
 
 ## Consequences
 

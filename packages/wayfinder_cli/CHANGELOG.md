@@ -1,11 +1,21 @@
 # Unreleased
 
+- Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval
+  service instead of the one-shot CLI default. Preserve explicit Dart knowledge
+  factory overrides and ordinary one-shot command behavior.
+- Reuse one parsed snapshot in persistent MCP services only when its canonical
+  index directory, generation, and reread complete JSON text are unchanged.
+  Cap retained JSON at 64 MiB UTF-8; larger records bypass the cache. Preserve
+  source freshness, per-call store closure, exact search output, and one-shot
+  CLI behavior. Failures, missing records, and disconnect clear the entry.
 - **BREAKING:** Search is dense-only. Remove CLI `--mode` (including dense)
   and MCP `mode`. Retired inputs are rejected explicitly; unsupported MCP fields
   are not silently discarded. Every actual search requires the verified local
   encoder and compatible vectors; there is no model-free fallback. Existing
   compatible saved indexes need no rebuild solely for this cutoff. Model/input
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
+- Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
+  freshness and per-bundle locks; evict on failure and dispose on disconnect.
 
 # 0.2.0
 

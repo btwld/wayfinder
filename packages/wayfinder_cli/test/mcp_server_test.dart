@@ -194,6 +194,7 @@ void main() {
         await client.close();
         await serverTransport.close();
         await serving;
+        expect(knowledge.disposed, isTrue);
       });
 
       test('MCP rejects every supplied retired mode', () async {
@@ -852,6 +853,14 @@ class _Knowledge extends WayfinderKnowledge {
   Completer<void>? finishIndex;
   bool indexFinished = false;
   bool failSearch = false;
+  bool disposed = false;
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await super.dispose();
+  }
+
   List<KnowledgeInputDiagnostic> warnings = const [];
 
   @override

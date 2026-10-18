@@ -245,8 +245,21 @@ local writes. There is no per-call bundle override. Search uses dense retrieval
 only; a verified local encoder is required. Unsupported request fields, including
 retired `mode`, are rejected.
 
-The server currently opens and closes the encoder for each index/search call;
-a long-lived connection does not yet keep the model warm. Configure the host's
+The server keeps one lazily opened encoder across index/search calls and
+serializes retrieval operations that share it. The CLI delegates MCP retrieval
+ownership to the server, so `wayfinder mcp` uses this persistent lifetime.
+An explicit Dart `knowledge` factory override keeps the caller's chosen lifetime.
+Each call still checks source
+freshness and closes its store. Failed calls evict the encoder; disconnect drains
+accepted calls and disposes it. The service also retains at most one parsed
+snapshot whose JSON text is at most 64 MiB in UTF-8. Every call rereads the
+pointer and snapshot text; reuse requires the same canonical index directory,
+generation, and complete text. Changed, missing, or invalid records, failed
+retrievals, and disconnect clear that entry. Larger records bypass the cache.
+This avoids repeated parsing and graph reconstruction for unchanged snapshots;
+it retains no open store or search response and skips no source freshness check.
+Alternating bundles evict each other's entry. One-shot CLI commands do not cache
+snapshots and still load their own model. Configure the host's
 tool timeout for first-use startup and the size of the corpus. Overlapping
 retrieval calls can return a busy error. On disconnect, active operations finish
 and release their resources; cancellation does not roll back indexing. The

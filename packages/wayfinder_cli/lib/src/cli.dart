@@ -22,12 +22,21 @@ import 'search_output.dart';
 import 'update.dart';
 import 'version.dart';
 
+typedef WayfinderMcpServerFactory =
+    WayfinderMcpServer Function({
+      String? rootPath,
+      Directory? workingDirectory,
+      WayfinderKnowledge? knowledge,
+      WayfinderProfileResolver? profileResolver,
+    });
+
 /// Wayfinder's application commands; validation shares the existing public API.
 class WayfinderCli {
   WayfinderCli({
     void Function(String)? out,
     void Function(String)? err,
     WayfinderKnowledge Function()? knowledge,
+    WayfinderMcpServerFactory? mcpServer,
     AgentSetup Function(void Function(String) out)? agentSetup,
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
@@ -38,13 +47,16 @@ class WayfinderCli {
     Duration? backgroundLimit,
     Duration? bundlePoll,
     Never Function(int code)? terminate,
+    Future<void> Function(WayfinderMcpServer)? serveMcp,
   }) : _spawnDetached = spawnDetached ?? _startDetached,
        _backgroundLimit = backgroundLimit ?? _defaultBackgroundLimit,
        _bundlePoll = bundlePoll ?? const Duration(seconds: 5),
        _terminate = terminate ?? exit,
+       _serveMcp = serveMcp ?? ((server) => server.serve()),
        _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
-       _knowledge = knowledge ?? WayfinderKnowledge.new,
+       _knowledgeOverride = knowledge,
+       _mcpServer = mcpServer ?? WayfinderMcpServer.new,
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
@@ -54,7 +66,8 @@ class WayfinderCli {
 
   final void Function(String) _out;
   final void Function(String) _err;
-  final WayfinderKnowledge Function() _knowledge;
+  final WayfinderKnowledge Function()? _knowledgeOverride;
+  final WayfinderMcpServerFactory _mcpServer;
   final AgentSetup Function(void Function(String) out) _agentSetup;
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
@@ -65,8 +78,12 @@ class WayfinderCli {
   final Duration _backgroundLimit;
   final Duration _bundlePoll;
   final Never Function(int code) _terminate;
+  final Future<void> Function(WayfinderMcpServer) _serveMcp;
 
   static const _defaultBackgroundLimit = Duration(minutes: 30);
+
+  WayfinderKnowledge _knowledge() =>
+      _knowledgeOverride?.call() ?? WayfinderKnowledge();
 
   WayfinderProfileResolver _profileResolver() =>
       _profileResolverFactory?.call() ??
@@ -535,14 +552,22 @@ class WayfinderCli {
           );
         }
         final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
-        await WayfinderMcpServer(
+        final knowledge = _knowledgeOverride?.call();
+        // An explicit override keeps caller ownership and its encoder session.
+        // Otherwise the server chooses its persistent retrieval service.
+        final server = _mcpServer(
           rootPath:
               command.rest.firstOrNull ??
               (override == null || override.trim().isEmpty ? null : override),
           workingDirectory: _workingDirectory,
-          knowledge: _knowledge(),
+          knowledge: knowledge,
           profileResolver: _profileResolver(),
-        ).serve();
+        );
+        if (knowledge == null) {
+          await _serveMcp(server);
+        } else {
+          await knowledge.withEncoderSession(() => _serveMcp(server));
+        }
         return 0;
       }
       if (name == 'index' && command.rest.isEmpty) {

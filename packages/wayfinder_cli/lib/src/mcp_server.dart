@@ -18,8 +18,9 @@ import 'version.dart';
 
 /// Exposes project-wide tools, or one explicitly selected bundle.
 ///
-/// Each retrieval call owns and closes its encoder/store. Disconnect waits for
-/// active calls to release those resources; cancellation is not a rollback.
+/// Retrieval calls share one lazy encoder and serialize its use. Each call still
+/// checks source freshness and closes its store. Disconnect drains active calls
+/// and disposes the encoder; cancellation is not a rollback.
 class WayfinderMcpServer {
   WayfinderMcpServer({
     this.rootPath,
@@ -27,7 +28,7 @@ class WayfinderMcpServer {
     WayfinderKnowledge? knowledge,
     WayfinderProfileResolver? profileResolver,
   }) : _workingDirectory = workingDirectory ?? Directory.current,
-       _knowledge = knowledge ?? WayfinderKnowledge(),
+       _knowledge = knowledge ?? WayfinderKnowledge(keepEncoderAlive: true),
        _profileResolver = profileResolver ?? WayfinderProfileResolver();
 
   final String? rootPath;
@@ -220,7 +221,11 @@ class WayfinderMcpServer {
       try {
         await Future.wait(active.toList());
       } finally {
-        await server.close();
+        try {
+          await _knowledge.dispose();
+        } finally {
+          await server.close();
+        }
       }
     }
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/search_output.dart';
@@ -64,6 +65,26 @@ void main() {
         return File(p.join(dir.path, 'current'));
       }
 
+      WayfinderKnowledge retained({
+        bool keepEncoderAlive = true,
+        Future<void>? opening,
+        Completer<void>? started,
+      }) => WayfinderKnowledge(
+        dataDirectory: data,
+        keepEncoderAlive: keepEncoderAlive,
+        openEncoder: () async {
+          if (started != null && !started.isCompleted) started.complete();
+          await opening;
+          final encoder = _Encoder(model, failInference);
+          encoders.add(encoder);
+          return WayfinderEncoder(
+            encoder,
+            (text) async => text.split(' ').length,
+            512,
+          );
+        },
+      );
+
       test(
         'dense search opens an encoder but stale search fails before inference',
         () async {
@@ -108,7 +129,325 @@ void main() {
             ),
           ),
         );
+        await unavailable.dispose();
       });
+
+      test(
+        'standalone admission stays private across async source reads and a later session',
+        () async {
+          await knowledge.index(bundle.path);
+          final other = await Directory(
+            p.join(temp.path, 'other-bundle'),
+          ).create();
+          for (final file in bundle.listSync().whereType<File>()) {
+            await file.copy(p.join(other.path, p.basename(file.path)));
+          }
+          await knowledge.index(other.path);
+          final opened = <_Encoder>[];
+          final service = WayfinderKnowledge(
+            dataDirectory: data,
+            openEncoder: () async {
+              final encoder = _Encoder(model, false);
+              opened.add(encoder);
+              encoders.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.length,
+                512,
+              );
+            },
+          );
+          // Both calls are admitted before the session. Source inventory I/O
+          // yields before either can acquire its encoder.
+          final first = service.search(bundle.path, 'password');
+          final second = service.search(other.path, 'weather');
+          await service.withEncoderSession(() async {
+            await Future.wait([first, second]);
+            expect(opened, hasLength(2));
+            expect(opened.every((encoder) => encoder.closed), isTrue);
+            await service.search(bundle.path, 'password');
+            expect(opened, hasLength(3));
+            expect(opened.last.closed, isFalse);
+          });
+          expect(
+            opened.every((encoder) => encoder.closed && encoder.disposals == 1),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'standalone encoder stays privately owned when a scoped session starts',
+        () async {
+          await knowledge.index(bundle.path);
+          final started = Completer<void>();
+          final release = Completer<void>();
+          final opened = <_Encoder>[];
+          var calls = 0;
+          final service = WayfinderKnowledge(
+            dataDirectory: data,
+            openEncoder: () async {
+              final ordinal = calls++;
+              if (ordinal == 0) {
+                started.complete();
+                await release.future;
+              }
+              final encoder = _Encoder(model, false);
+              encoders.add(encoder);
+              opened.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.length,
+                512,
+              );
+            },
+          );
+          final standalone = service.search(bundle.path, 'password');
+          await started.future;
+          final session = service.withEncoderSession(
+            () => service.search(bundle.path, 'weather'),
+          );
+          release.complete();
+          await Future.wait([standalone, session]);
+          expect(opened, hasLength(2));
+          expect(
+            opened.every((encoder) => encoder.closed && encoder.disposals == 1),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'a session ending after drain does not dispose a newer active session',
+        () async {
+          await knowledge.index(bundle.path);
+          final started = Completer<void>();
+          final release = Completer<void>();
+          final secondReady = Completer<void>();
+          final secondFinish = Completer<void>();
+          final opened = <_Encoder>[];
+          final service = WayfinderKnowledge(
+            dataDirectory: data,
+            openEncoder: () async {
+              if (!started.isCompleted) {
+                started.complete();
+                await release.future;
+              }
+              final encoder = _Encoder(model, false);
+              encoders.add(encoder);
+              opened.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.length,
+                512,
+              );
+            },
+          );
+          late Future<KnowledgeSearchResponse> accepted;
+          final first = service.withEncoderSession(() async {
+            accepted = service.search(bundle.path, 'password');
+            await started.future;
+          });
+          await started.future;
+          // Let the first action finish and enter its pending-operation drain.
+          await Future<void>.delayed(Duration.zero);
+          final second = service.withEncoderSession(() async {
+            await accepted;
+            await service.search(bundle.path, 'weather');
+            secondReady.complete();
+            await secondFinish.future;
+          });
+          release.complete();
+          await first;
+          await secondReady.future;
+          try {
+            expect(opened, hasLength(1));
+            expect(opened.single.closed, isFalse);
+          } finally {
+            secondFinish.complete();
+            await second;
+          }
+          expect(opened.single.disposals, 1);
+          expect(opened.single.closed, isTrue);
+        },
+      );
+
+      test(
+        'session finalizers follow newly accepted pending work before disposal',
+        () async {
+          await knowledge.index(bundle.path);
+          final firstStarted = Completer<void>();
+          final secondStarted = Completer<void>();
+          final firstRelease = Completer<void>();
+          final secondRelease = Completer<void>();
+          final opened = <_Encoder>[];
+          final service = WayfinderKnowledge(
+            dataDirectory: data,
+            openEncoder: () async {
+              final encoder = _GatedEncoder(
+                model,
+                {'password': firstStarted, 'weather': secondStarted},
+                {
+                  'password': firstRelease.future,
+                  'weather': secondRelease.future,
+                },
+              );
+              encoders.add(encoder);
+              opened.add(encoder);
+              return WayfinderEncoder(
+                encoder,
+                (text) async => text.length,
+                512,
+              );
+            },
+          );
+          late Future<KnowledgeSearchResponse> acceptedFirst;
+          var firstFinished = false;
+          final first = service
+              .withEncoderSession(() async {
+                acceptedFirst = service.search(bundle.path, 'password');
+                await firstStarted.future;
+              })
+              .then((_) {
+                firstFinished = true;
+              });
+          await firstStarted.future;
+          await Future<void>.delayed(Duration.zero);
+          late Future<KnowledgeSearchResponse> acceptedSecond;
+          final second = service.withEncoderSession(() async {
+            acceptedSecond = service.search(bundle.path, 'weather');
+          });
+          firstRelease.complete();
+          await acceptedFirst;
+          await secondStarted.future;
+          try {
+            expect(firstFinished, isFalse);
+            expect(opened, hasLength(1));
+            expect(opened.single.closed, isFalse);
+          } finally {
+            secondRelease.complete();
+            await acceptedSecond;
+            await Future.wait([first, second]);
+          }
+          expect(opened.single.disposals, 1);
+        },
+      );
+
+      test(
+        'shared encoder serializes concurrent queries and disposes once',
+        () async {
+          await knowledge.index(bundle.path);
+          final shared = retained();
+          final opened = encoders.length;
+          try {
+            final results = await Future.wait([
+              shared.search(bundle.path, 'password recovery'),
+              shared.search(bundle.path, 'weather'),
+            ]);
+            expect(results.first.matches.first.chunk.sourcePath, 'recovery.md');
+            expect(
+              results.last.matches.any(
+                (hit) => hit.chunk.sourcePath == 'weather.md',
+              ),
+              isTrue,
+            );
+            expect(encoders.last.queryTexts, ['password recovery', 'weather']);
+            expect(encoders.length, opened + 1);
+            expect(encoders.last.queries, 2);
+            expect(encoders.last.closed, isFalse);
+          } finally {
+            await shared.dispose();
+            await shared.dispose();
+          }
+          expect(encoders.last.disposals, 1);
+          await expectLater(
+            shared.search(bundle.path, 'weather'),
+            throwsStateError,
+          );
+        },
+      );
+
+      test(
+        'retained encoder does not bypass source freshness checks',
+        () async {
+          await knowledge.index(bundle.path);
+          final shared = retained();
+          final file = File(p.join(bundle.path, 'recovery.md'));
+          final original = await file.readAsString();
+          try {
+            await shared.search(bundle.path, 'password');
+            final encoder = encoders.last;
+            await file.writeAsString('$original\nNew guidance.\n');
+            await expectLater(
+              shared.search(bundle.path, 'password'),
+              throwsA(isA<WayfinderException>()),
+            );
+            expect(encoder.closed, isTrue);
+            await shared.index(bundle.path);
+            expect(
+              (await shared.search(bundle.path, 'password')).matches,
+              isNotEmpty,
+            );
+            expect(encoders.last, isNot(same(encoder)));
+          } finally {
+            await shared.dispose();
+          }
+        },
+      );
+
+      test(
+        'failed inference evicts the retained encoder and next call recovers',
+        () async {
+          await knowledge.index(bundle.path);
+          final shared = retained();
+          try {
+            await shared.search(bundle.path, 'password');
+            final failed = encoders.last..failQuery = true;
+            await expectLater(
+              shared.search(bundle.path, 'weather'),
+              throwsStateError,
+            );
+            expect(failed.closed, isTrue);
+            expect(
+              (await shared.search(bundle.path, 'weather')).matches,
+              isNotEmpty,
+            );
+            expect(encoders.last, isNot(same(failed)));
+          } finally {
+            await shared.dispose();
+          }
+        },
+      );
+
+      for (final keepAlive in [false, true]) {
+        test(
+          'shutdown drains accepted retrieval (retained=$keepAlive)',
+          () async {
+            await knowledge.index(bundle.path);
+            final started = Completer<void>();
+            final opening = Completer<void>();
+            final shared = retained(
+              keepEncoderAlive: keepAlive,
+              opening: opening.future,
+              started: started,
+            );
+            final work = shared.search(bundle.path, 'password');
+            await started.future;
+            var closed = false;
+            final closing = shared.dispose().then((_) => closed = true);
+            await expectLater(
+              shared.search(bundle.path, 'weather'),
+              throwsStateError,
+            );
+            expect(closed, isFalse);
+            opening.complete();
+            expect((await work).matches, isNotEmpty);
+            await closing;
+            expect(encoders.last.closed, isTrue);
+            expect(encoders.last.disposals, 1);
+          },
+        );
+      }
 
       test(
         'first index persists; reopen searches encode only queries',
@@ -724,7 +1063,10 @@ class _Encoder extends BaseEmbedder {
   final bool fail;
   int documents = 0;
   int queries = 0;
+  final queryTexts = <String>[];
   bool closed = false;
+  bool failQuery = false;
+  int disposals = 0;
   @override
   String get sourceName => 'wayfinder-fixture';
   @override
@@ -744,12 +1086,29 @@ class _Encoder extends BaseEmbedder {
 
   @override
   Future<List<double>> generateQueryVector(String text) async {
+    if (closed || failQuery) throw StateError('Query inference failed');
     queries++;
+    queryTexts.add(text);
     return vector(text);
   }
 
   @override
   Future<void> dispose() async {
+    disposals++;
     closed = true;
+  }
+}
+
+class _GatedEncoder extends _Encoder {
+  _GatedEncoder(String model, this.started, this.waiters) : super(model, false);
+  final Map<String, Completer<void>> started;
+  final Map<String, Future<void>> waiters;
+
+  @override
+  Future<List<double>> generateQueryVector(String text) async {
+    final entered = started[text];
+    if (entered != null && !entered.isCompleted) entered.complete();
+    await waiters[text];
+    return super.generateQueryVector(text);
   }
 }
