@@ -39,8 +39,7 @@ result if the Profile source is unresolved. When the selected chain has a
 `matches-generated` rule, `validate --fix` first writes okf's generated
 indexes, then validates. It never writes a bundle without a selected
 Profile or one that fails OKF. A bundle with no `wayfinder.json`
-above it, such as a 2026.2 bundle, reports `wayfinder/config-missing`; keep it
-on wayfinder 0.1.x or migrate it. `graph`, `index`, and `search`
+above it reports `wayfinder/config-missing`. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).
 
@@ -149,9 +148,8 @@ but search still rejects stale or configuration-incompatible indexes; there is
 no automatic fallback to old vectors.
 
 Native first-use initialization remains variable. Reusing document vectors
-does not remove model startup or the first query's inference cost. The
-[initial runtime report](../../docs/wayfinder_embeddings_local_search.md#model-latency-and-memory)
-records the observed first-use delays and faster subsequent launches.
+does not remove model startup or the first query's inference cost; later
+launches are faster.
 
 After editing knowledge files, run `wayfinder index` again. Search detects an
 absent, stale or incompatible index and reports the indexing command; it does
@@ -187,6 +185,12 @@ carrying the `wayfinder/internal-error` diagnostic. Index/search return 0 on suc
 cannot complete, including stale indexes, busy stores and missing model assets.
 An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
+
+Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
+invalid explicit setting fails instead of selecting another model.
+
+Native builds check the installed and packaged ObjectBox bytes against pinned
+platform hashes and include its license and attribution.
 
 ## MCP server
 
@@ -260,7 +264,7 @@ default and normalizes integral JSON numbers before the callback. It preserves
 the advertised nonblank query, 1–100 limit and closed-object constraints.
 
 See [ADR-0011](../../docs/adr/0011-wayfinder-mcp.md) for the MCP adapter's
-decision rationale and historical context.
+decision rationale.
 
 ## Agent skills, project setup and updates
 
@@ -297,8 +301,8 @@ or update checks. See the [installation guide](../../docs/install.md#agent-skill
 
 `update` reruns the release's verified installer for installer-managed
 runtimes, then refreshes the skills and plugin. A Dart installation prints its
-upgrade command instead; the Homebrew formula is no longer updated, so a
-Homebrew installation is told to reinstall with the install script. Interactive commands also print a one-line
+upgrade command instead. The Homebrew formula was removed, so a Homebrew
+installation is told to reinstall with the install script. Interactive commands also print a one-line
 stderr notice when a newer stable release exists. That check is the only
 network request Wayfinder makes on its own: at most once a day it reads the
 GitHub Releases API and sends no bundle content. It never runs for `mcp`, when
@@ -354,8 +358,8 @@ The checked-in fixture is generic; it is not a conformant profile template or
 independent model-quality benchmark. Native CI exercises Linux/macOS.
 
 See [ADR-0010](../../docs/adr/0010-wayfinder-cli.md) for the application decision
-and [the retrieval evidence](../../docs/wayfinder_embeddings.md) for model and
-ranking limitations. Existing `okfp` installations continue to work.
+and [ADR-0009](../../docs/adr/0009-local-knowledge-retrieval.md) for model and
+ranking limitations.
 
 CLI and MCP search share the ACK query, limit, and default contract. The CLI
 converts integer argument text before validation; MCP accepts JSON integers,
@@ -363,39 +367,7 @@ including integral JSON numbers such as `2.0`. Invalid arguments fail before
 opening retrieval resources. Whitespace-only queries include Unicode NEXT LINE
 (`U+0085`), preserving the CLI rule in MCP as well.
 
-## License
-
-Wayfinder is distributed under the BSD 3-Clause license in [LICENSE](LICENSE).
-Dependencies and separately downloaded models/native libraries retain their
-own licenses. The repository's OKF Profile materials retain their existing
-license.
-
-## Moving from the Station prototype
-
-Use `wayfinder` in place of `station` and `WAYFINDER_DATA_DIR` in place of
-`STATION_DATA_DIR`. Default app-data directories now use `Wayfinder` on
-macOS/Windows and `wayfinder` on Linux. Run `wayfinder index <bundle>` to build
-the index at its new location. Existing Station data is left intact.
-
-To deliberately reuse the previous location, point `WAYFINDER_DATA_DIR` at it;
-normal index compatibility checks still apply. Update MCP executable paths.
-The `okfp` command and knowledge bundle format are unchanged.
-
-## Upgrading the retrieval package
-
-Wayfinder 0.0.1-dev.1 uses `wayfinder_embeddings`. Existing Wayfinder indexes
-remain compatible; no model, schema UID or vector-identity change is introduced
-by the package rename. Keep the complete native bundle together when upgrading.
-
-Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. The old
-`KNOWLEDGE_EMBEDDING_MODEL` remains a fallback when the new variable is absent.
-An invalid explicit setting fails instead of selecting another model.
-
-Native builds check the installed and packaged ObjectBox bytes against pinned
-platform hashes and include its license and attribution. See the
-[ObjectBox build review](../../docs/objectbox-build-review.md).
-
-### Filter search by frontmatter
+## Filter search by frontmatter
 
 ```sh
 wayfinder search "navigation" --tag routing --require-tag mobile --type Guide
@@ -415,3 +387,10 @@ with project search, `--bundle`, and explicit bundle paths. They do not change
 ranking, write the index, or generate document embeddings. The query is still
 required. These flags are currently available in the CLI; MCP search retains its
 existing query/limit contract.
+
+## License
+
+Wayfinder is distributed under the BSD 3-Clause license in [LICENSE](LICENSE).
+Dependencies and separately downloaded models/native libraries retain their
+own licenses. The repository's OKF Profile materials retain their existing
+license.

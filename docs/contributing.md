@@ -81,18 +81,15 @@ repository root, then `dart run melos run lint` to analyze, check formatting, an
 packages. Every package declares the same Dart 3.11.0 minimum, so one SDK serves
 the whole workspace.
 
-`wayfinder_embeddings` moved here from Orbit with its tests, fixtures, and BSD
-license preserved in the package directory. See its [README](../packages/wayfinder_embeddings/README.md)
-and the [retrieval documentation guide](wayfinder_embeddings.md) for the
-implementation, evaluation runbook and recorded decisions. Its optional native
+`wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
+package directory. See its [README](../packages/wayfinder_embeddings/README.md)
+for the implementation and evaluation commands. Its optional native
 backend needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
 files with `dart run melos run build` only when entity schemas change.
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a
-CLI bundle containing the model and native libraries. See the
-[local search implementation and measurements](wayfinder_embeddings_local_search.md).
-The accepted model choice and next retrieval experiments are recorded in
-[ADR-0009](adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
+CLI bundle containing the model and native libraries. The model choice is
+recorded in [ADR-0009](adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
 bundle validation; search examples and evaluation commands live in the
 [embedding package](../packages/wayfinder_embeddings/README.md#command-line-entry-points).
