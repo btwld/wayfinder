@@ -70,12 +70,19 @@ void main() {
         workflow.buildChunkManifest(rebased, rebasedDir),
         workflow.buildChunkManifest(original, fixturesDir),
       );
-      final textResults = BM25LexicalIndex.fromChunks(original).search(
-        'paragraphs indexed',
-        options: SearchOptions(filePatterns: ['**/*.txt']),
-      );
+      final textResults = original
+          .where(
+            (chunk) =>
+                SearchOptions(filePatterns: ['**/*.txt']).matchesFilters(chunk),
+          )
+          .toList();
       expect(textResults, isNotEmpty);
-      expect(textResults.first.chunk.content, contains('multiple paragraphs'));
+      expect(
+        textResults.any(
+          (chunk) => chunk.content.contains('multiple paragraphs'),
+        ),
+        isTrue,
+      );
     },
   );
 

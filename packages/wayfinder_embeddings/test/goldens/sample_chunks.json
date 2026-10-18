@@ -153,11 +153,11 @@
         "metadata": {}
       },
       {
-        "id": "fd7fed48c6005988ff25f94971ae96bfd153eee1",
+        "id": "e4d7069aac6117bd9f31ebdc7b852c0375afe474",
         "lineStart": 5,
         "lineEnd": 5,
         "type": "paragraph",
-        "content": "The exact BM25 lexical index will rank chunks without vector hashing.",
+        "content": "The dense searcher ranks chunks with compatible local embeddings.",
         "metadata": {}
       },
       {

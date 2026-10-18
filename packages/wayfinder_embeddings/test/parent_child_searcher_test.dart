@@ -263,7 +263,7 @@ void main() {
       },
     );
 
-    test('can wrap a hybrid searcher directly', () async {
+    test('can wrap a dense searcher directly', () async {
       final parent = Chunk(
         sourcePath: 'lib/auth_service.dart',
         lineStart: 1,
@@ -293,20 +293,16 @@ void main() {
         ),
       );
 
-      final hybridSearcher = HybridContentSearcher(
-        lexicalIndex: BM25LexicalIndex.fromChunks([parent, child]),
-        semanticSearcher: ContentSearcher(
-          store: store,
-          embedder: _FakeDenseEmbedder(
-            queryVectors: {
-              'refresh token': const [1.0, 0.0],
-            },
-          ),
+      final denseSearcher = ContentSearcher(
+        store: store,
+        embedder: _FakeDenseEmbedder(
+          queryVectors: {
+            'refresh token': const [1.0, 0.0],
+          },
         ),
-        candidateLimit: 2,
       );
       final searcher = ParentChildSearcher(
-        searcher: hybridSearcher,
+        searcher: denseSearcher,
         resolver: ParentChildResolver(chunks: [parent, child]),
       );
 

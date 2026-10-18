@@ -68,6 +68,11 @@ class ContentSearcher implements Searcher {
   /// [options] is an optional set of search options to filter the results.
   ///
   /// Returns a list of search results, sorted by similarity (highest first).
+  ///
+  /// A nonempty eligible collection without compatible vectors throws. The
+  /// coverage check runs only when retrieval is empty; partial vector coverage
+  /// remains the ingestion caller's responsibility. Use KnowledgeIndex for an
+  /// exact per-passage coverage check before ranking an OKF snapshot.
   @override
   Future<List<SearchResult>> search(
     String query, {
@@ -81,26 +86,47 @@ class ContentSearcher implements Searcher {
 
     final queryVector = await _getQueryVector(normalizedQuery);
 
+    final List<SearchResult> results;
     if (options == null) {
-      return _store.findSimilar(
+      results = await _store.findSimilar(
         queryVector,
         _embedder.sourceName,
         _embedder.modelName,
         limit: limit,
       );
+    } else {
+      results = await fetchUntilFiltered<SearchResult>(
+        limit: limit,
+        fetch: (fetchLimit) => _store.findSimilar(
+          queryVector,
+          _embedder.sourceName,
+          _embedder.modelName,
+          limit: fetchLimit,
+        ),
+        refine: (candidates) => candidates
+            .where((result) => options.matchesFilters(result.chunk))
+            .toList(),
+      );
     }
-
-    return fetchUntilFiltered<SearchResult>(
-      limit: limit,
-      fetch: (fetchLimit) => _store.findSimilar(
-        queryVector,
-        _embedder.sourceName,
-        _embedder.modelName,
-        limit: fetchLimit,
-      ),
-      refine: (candidates) => candidates
-          .where((result) => options.matchesFilters(result.chunk))
-          .toList(),
-    );
+    if (results.isEmpty) {
+      // Only the empty-result path inspects the eligible collection. Normal
+      // ANN queries do not scan the corpus or promise complete vector coverage.
+      final eligible = (await _store.getAllChunks())
+          .where((chunk) => options?.matchesFilters(chunk) ?? true)
+          .map((chunk) => chunk.id)
+          .toSet();
+      if (eligible.isNotEmpty &&
+          (await _store.getEmbeddingsForChunks(
+            eligible,
+            source: _embedder.sourceName,
+            modelName: _embedder.modelName,
+          )).isEmpty) {
+        throw StateError(
+          'Dense search requires compatible embeddings for the eligible '
+          'collection. Ingest it with the configured embedder before searching.',
+        );
+      }
+    }
+    return results;
   }
 }

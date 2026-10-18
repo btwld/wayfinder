@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-/// Run from the package directory; append --dense to use the prepared model.
-Future<void> main(List<String> args) async {
-  final embedder = args.contains('--dense') ? await LlamaEmbedder.open() : null;
+/// Run from the package directory after preparing the local embedding model.
+Future<void> main() async {
+  final embedder = await LlamaEmbedder.open();
   final store = MemoryStore();
   try {
     final snapshot = await KnowledgeSnapshot.load(
@@ -16,15 +16,12 @@ Future<void> main(List<String> args) async {
       store: store,
       embedder: embedder,
       includeContext: true,
-      countTokens: embedder?.countTokens,
-      maxTokens: embedder?.model.maxTokens,
+      countTokens: embedder.countTokens,
+      maxTokens: embedder.model.maxTokens,
     );
     await index.synchronize(snapshot);
     final response = await index.search(
       'Can a payment charge be retried automatically?',
-      mode: embedder == null
-          ? KnowledgeRetrievalMode.bm25
-          : KnowledgeRetrievalMode.dense,
       policy: KnowledgeSearchPolicy(
         currentOnly: true,
         asOf: DateTime.utc(2026, 9, 9),
@@ -46,6 +43,6 @@ Future<void> main(List<String> args) async {
     }
   } finally {
     await store.close();
-    await embedder?.dispose();
+    await embedder.dispose();
   }
 }

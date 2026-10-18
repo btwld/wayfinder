@@ -1,4 +1,4 @@
-# Model-free versus semantic retrieval fixture
+# Synthetic dense-retrieval fixture
 
 100 synthetic, generic OKF concepts form 140 passages. The 160 questions cover
 20 topics: ten topics for development and ten different topics for testing.
@@ -8,7 +8,7 @@ retrieval. All existing regression fixtures remain unchanged.
 
 `manifest.json` records source/query hashes and the shared contextual passage
 identity. The actual model tokenizer verified every passage fits its budget
-before isolated model-free measurements. No model is required to parse this
+before the original measurements. No model is required to parse this
 fixture or reproduce the passage identity.
 
 These are authored synthetic questions with repeated templates, not independent
@@ -23,4 +23,7 @@ judged miss as an unsupported or incorrect passage.
 
 No client data, new profile fields, or universal authority ordering is encoded.
 The explicit governing map is a consumer policy for this synthetic scenario.
-Results are in [`../benchmarks/`](../benchmarks/).
+For current commands, use the
+[evaluation guide](../../README.md#evaluation). Historical
+measurements used the original frozen judgments; this fixture has not been
+regraded to match the current retrieval implementation.

@@ -6,27 +6,19 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'src/knowledge_case_evaluation.dart';
 
-/// Run from the package directory with OUTPUT and optional --native.
-/// Native mode compares both stores; BM25-only mode needs no embedding model.
+/// Run from the package directory with OUTPUT and a prepared local model.
+/// Evaluates genuine dense retrieval with both storage backends.
 Future<void> main(List<String> args) async {
-  if (args.isEmpty ||
-      args.length > 2 ||
-      (args.length == 2 && args[1] != '--native')) {
-    throw ArgumentError(
-      'Usage: evaluate_knowledge_cases.dart OUTPUT [--native]',
-    );
+  if (args.length != 1) {
+    throw ArgumentError('Usage: evaluate_knowledge_cases.dart OUTPUT');
   }
   final fixture = await KnowledgeCases.load();
   final directory = await Directory.systemTemp.createTemp('knowledge_cases');
   LlamaEmbedder? embedder;
   try {
-    if (args.contains('--native')) {
-      embedder = await LlamaEmbedder.open(
-        modelFile: defaultEmbeddingModelFile(),
-      );
-    }
+    embedder = await LlamaEmbedder.open(modelFile: defaultEmbeddingModelFile());
     final results = <String, Object?>{};
-    for (final kind in ['memory', if (embedder != null) 'objectbox']) {
+    for (final kind in ['memory', 'objectbox']) {
       final BaseStore store = kind == 'memory'
           ? MemoryStore()
           : ObjectBoxStore.open(p.join(directory.path, 'db'));
@@ -39,7 +31,7 @@ Future<void> main(List<String> args) async {
     final output = File(args.first);
     await output.parent.create(recursive: true);
     await output.writeAsString(
-      '${const JsonEncoder.withIndent('  ').convert({'model': embedder?.modelName, 'limit': fixture.limit, 'results': results})}\n',
+      '${const JsonEncoder.withIndent('  ').convert({'model': embedder.modelName, 'limit': fixture.limit, 'results': results})}\n',
     );
     stdout.writeln('Wrote knowledge retrieval cases to ${output.path}');
   } finally {

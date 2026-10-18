@@ -1,3 +1,12 @@
+# Unreleased
+
+- **BREAKING:** Search is dense-only. Remove CLI `--mode` (including dense)
+  and MCP `mode`. Retired inputs are rejected explicitly; unsupported MCP fields
+  are not silently discarded. Every actual search requires the verified local
+  encoder and compatible vectors; there is no model-free fallback. Existing
+  compatible saved indexes need no rebuild solely for this cutoff. Model/input
+  identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
+
 # 0.2.0
 
 - `wayfinder mcp` without a bundle now discovers all configured project bundles,

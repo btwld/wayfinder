@@ -6,7 +6,9 @@ import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-import '../tool/benchmark_retrieval.dart';
+import '../tool/benchmark_retrieval.dart' show judge;
+import '../tool/benchmark_retrieval.dart' as benchmark;
+import 'support/counting_embedder.dart';
 
 void main() {
   test(
@@ -52,21 +54,30 @@ void main() {
       }
     },
   );
-  test('keyword counts distinct shared tokens and breaks ties by source', () {
-    final snapshot = KnowledgeSnapshot.fromSources({
-      'b.md': '---\ntitle: B\n---\nrotateSessionKey rotateSessionKey',
-      'a.md': '---\ntitle: A\n---\nrotate session key',
-      'c.md': '---\ntitle: C\n---\nunrelated',
-    }, bundleId: 'keyword');
-    final hits = KeywordIndex(
-      snapshot,
-    ).search('rotateSessionKey rotateSessionKey', KnowledgeSearchPolicy());
-    expect(hits.map((hit) => hit.chunk.sourcePath), ['a.md', 'b.md']);
-    expect(hits.map((hit) => hit.similarity), [3.0, 3.0]);
-    expect(
-      KeywordIndex(snapshot).search('absent', KnowledgeSearchPolicy()),
-      isEmpty,
-    );
+  test('retired benchmark arms fail before model or artifact access', () async {
+    final directory = await Directory.systemTemp.createTemp('retired-arm');
+    addTearDown(() => directory.delete(recursive: true));
+    for (final arm in ['keyword', 'bm25', 'hybrid']) {
+      final output = '${directory.path}/$arm.json';
+      await expectLater(
+        benchmark.main([
+          '--arm=$arm',
+          '--database=${directory.path}/db',
+          '--output=$output',
+          '--fixture=${directory.path}/missing',
+          '--model-file=${directory.path}/missing.gguf',
+        ]),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            contains('dense retrieval only'),
+          ),
+        ),
+      );
+      expect(await File(output).exists(), isFalse);
+      expect(await Directory('${directory.path}/db').exists(), isFalse);
+    }
   });
   test('judgments require the supporting passage, not just its path', () {
     final hit = SearchResult(
@@ -99,7 +110,7 @@ void main() {
       final snapshot = KnowledgeSnapshot.fromSources({
         'a.md': 'Original passage',
       }, bundleId: 'canonical');
-      final index = KnowledgeIndex(store: store);
+      final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
       await index.synchronize(snapshot);
       final forged = SearchResult(
         chunk: snapshot.chunks.single.copyWith(

@@ -495,8 +495,7 @@ typedef StoreFactory = BaseStore Function(Directory outputDir);
 
 /// Builds the first-pass [Searcher] a comparison run uses.
 ///
-/// [chunks] are the persisted corpus chunks, so a lexical index can be built
-/// over the same text the store holds. [candidateLimit] is the first-pass
+/// [chunks] are the persisted corpus chunks. [candidateLimit] is the first-pass
 /// window the workflow resolved from `topK` and `--candidates`.
 typedef SearcherFactory =
     Searcher Function({
@@ -513,18 +512,6 @@ Searcher denseSearcherFactory({
   required List<Chunk> chunks,
   required int candidateLimit,
 }) => ContentSearcher(store: store, embedder: embedder);
-
-/// Builds a [HybridContentSearcher] that fuses BM25 with the dense vectors.
-Searcher hybridSearcherFactory({
-  required BaseStore store,
-  required BaseEmbedder embedder,
-  required List<Chunk> chunks,
-  required int candidateLimit,
-}) => HybridContentSearcher(
-  lexicalIndex: BM25LexicalIndex.fromChunks(chunks),
-  semanticSearcher: ContentSearcher(store: store, embedder: embedder),
-  candidateLimit: candidateLimit,
-);
 
 /// Remembers query vectors so the artifact writer and the searcher share one
 /// embedding request per query.
@@ -555,20 +542,6 @@ class _QueryVectorCache extends BaseEmbedder {
   Future<List<double>> generateQueryVector(String text) async {
     return _queryVectors[text] ??= await _delegate.generateQueryVector(text);
   }
-}
-
-/// Adapts the synchronous [BM25LexicalIndex] to the [Searcher] interface.
-class _LexicalSearcher implements Searcher {
-  _LexicalSearcher(this._index);
-
-  final BM25LexicalIndex _index;
-
-  @override
-  Future<List<SearchResult>> search(
-    String query, {
-    int limit = 5,
-    SearchOptions? options,
-  }) async => _index.search(query, limit: limit, options: options);
 }
 
 const int _defaultExpandedCandidateLimit = 50;
@@ -663,7 +636,6 @@ Future<IngestionResult> persistAndSearch({
     final firstPassLimit = _resolveFirstPassLimit(
       topK: checkedTopK,
       candidateLimit: checkedCandidateLimit,
-      expandCandidates: true,
     );
     final searcher = _withReranker(
       searcherFactory(
@@ -717,92 +689,6 @@ Future<IngestionResult> persistAndSearch({
       queriesPath: corpus.paths.queries,
       searchResultsPath: corpus.paths.searchResults,
       resultsPath: corpus.paths.resultsMarkdown,
-      queryVectors: queryVectors,
-      searchResultsByQuery: searchResultsByQuery,
-      topK: checkedTopK,
-    );
-  } finally {
-    await scope.dispose();
-  }
-}
-
-Future<IngestionResult> persistLexicalSearch({
-  required ChunkerRegistry registry,
-  required List<File> files,
-  required Directory fixturesDir,
-  required Directory outputDir,
-  required List<Chunk> dryRunChunks,
-  required List<String> queries,
-  int topK = 5,
-  int? candidateLimit,
-  RerankerFactory? rerankerFactory,
-  StoreFactory? storeFactory,
-}) async {
-  final checkedTopK = checkPositive(topK, 'topK');
-  final checkedCandidateLimit = candidateLimit == null
-      ? null
-      : checkPositive(candidateLimit, 'candidateLimit');
-  final checkedQueries = _checkWorkflowQueries(queries);
-
-  outputDir.createSync(recursive: true);
-  final scope = LifecycleScope();
-
-  try {
-    final reranker = rerankerFactory == null
-        ? null
-        : scope.track(rerankerFactory.call(), (r) => r.dispose());
-    final store = scope.track(
-      storeFactory == null ? MemoryStore() : storeFactory.call(outputDir),
-      (s) => s.close(),
-    );
-    await store.storeBatch(chunks: dryRunChunks, embeddings: const []);
-    final chunks = await store.getAllChunks();
-    final paths = _WorkflowArtifactPaths(outputDir);
-
-    _writeChunksJson(paths.chunks, chunks, fixturesDir.path);
-
-    const embeddings = <Embedding>[];
-    _writeEmbeddingsJson(paths.embeddings, embeddings);
-
-    final firstPassLimit = _resolveFirstPassLimit(
-      topK: checkedTopK,
-      candidateLimit: checkedCandidateLimit,
-      expandCandidates: reranker != null,
-    );
-    final searcher = _withReranker(
-      _LexicalSearcher(BM25LexicalIndex.fromChunks(chunks)),
-      reranker: reranker,
-      candidateLimit: firstPassLimit,
-    );
-    final queryVectors = <String, List<double>>{};
-    final searchResultsByQuery = <String, List<SearchResult>>{};
-    for (final query in checkedQueries) {
-      queryVectors[query] = const <double>[];
-      searchResultsByQuery[query] = await searcher.search(
-        query,
-        limit: checkedTopK,
-      );
-    }
-
-    _writeQueryVectorsJson(paths.queries, queryVectors);
-    _writeSearchResultsJson(
-      paths.searchResults,
-      searchResultsByQuery,
-      fixturesDir.path,
-      contextChunks: chunks,
-    );
-
-    return IngestionResult(
-      chunks: chunks,
-      embeddings: embeddings,
-      processedCounts: _processedCountsByFile(chunks, fixturesDir.path),
-      skippedFiles: const <String>[],
-      duplicateIds: const <String>[],
-      chunksPath: paths.chunks,
-      embeddingsPath: paths.embeddings,
-      queriesPath: paths.queries,
-      searchResultsPath: paths.searchResults,
-      resultsPath: paths.resultsMarkdown,
       queryVectors: queryVectors,
       searchResultsByQuery: searchResultsByQuery,
       topK: checkedTopK,
@@ -878,14 +764,7 @@ Searcher _withReranker(
   );
 }
 
-int _resolveFirstPassLimit({
-  required int topK,
-  required int? candidateLimit,
-  required bool expandCandidates,
-}) {
-  if (!expandCandidates) {
-    return topK;
-  }
+int _resolveFirstPassLimit({required int topK, required int? candidateLimit}) {
   return max(topK, candidateLimit ?? _defaultExpandedCandidateLimit);
 }
 
@@ -975,18 +854,6 @@ Map<String, Object?> _readGoldenManifest(File goldenFile) {
     }
     return MapEntry(key, value);
   });
-}
-
-Map<String, int> _processedCountsByFile(
-  List<Chunk> chunks,
-  String fixturesRoot,
-) {
-  final counts = <String, int>{};
-  for (final chunk in chunks) {
-    final relative = p.relative(chunk.sourcePath, from: fixturesRoot);
-    counts[relative] = (counts[relative] ?? 0) + 1;
-  }
-  return counts;
 }
 
 void _writeGolden(File goldenFile, Map<String, Object?> manifest) {

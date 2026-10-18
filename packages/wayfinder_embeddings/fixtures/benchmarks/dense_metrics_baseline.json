@@ -1,0 +1,76 @@
+{
+  "k": 10,
+  "runs": [
+    {
+      "name": "dense",
+      "queryCount": 65,
+      "metrics": {
+        "k": 10,
+        "recall": 0.953846153846154,
+        "ndcg": 0.8379763443549283,
+        "mrr": 0.8678205128205128
+      },
+      "queryGroups": [
+        {
+          "name": "dart",
+          "queryCount": 50,
+          "metrics": {
+            "k": 10,
+            "recall": 0.9733333333333334,
+            "ndcg": 0.8345510270546399,
+            "mrr": 0.8481666666666666
+          }
+        },
+        {
+          "name": "typescript",
+          "queryCount": 7,
+          "metrics": {
+            "k": 10,
+            "recall": 0.9047619047619049,
+            "ndcg": 0.8169649771534653,
+            "mrr": 0.8571428571428571
+          }
+        },
+        {
+          "name": "markdown",
+          "queryCount": 8,
+          "metrics": {
+            "k": 10,
+            "recall": 0.875,
+            "ndcg": 0.8777695237830123,
+            "mrr": 1.0
+          }
+        }
+      ]
+    }
+  ],
+  "model": {
+    "id": "arctic-embed-xs-q8_0",
+    "url": "https://huggingface.co/mradermacher/snowflake-arctic-embed-xs-GGUF/resolve/143419f28857ed7f3b1afd13713f3b3955231338/snowflake-arctic-embed-xs.Q8_0.gguf",
+    "sha256": "a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582",
+    "bytes": 25279840,
+    "dimensions": 384,
+    "maxTokens": 512,
+    "queryPrefix": "Represent this sentence for searching relevant passages: ",
+    "license": "Apache-2.0",
+    "modelName": "arctic-embed-xs-q8_0:ca155ddd9dbd1d4c455e52e3307b807f2b52da123dc2f81297cfc96e17db2695",
+    "longInputPolicy": "truncate",
+    "truncatedInputs": 1
+  },
+  "configuration": {
+    "store": "objectbox",
+    "minimumSearchCandidates": 50,
+    "llamadart": "0.8.23",
+    "date": "2026-09-09"
+  },
+  "provenance": {
+    "kind": "historical-dense-row-extraction",
+    "sourceCommit": "4995f8d2bd9195e1239857cc8c1ab7ebb3f57da6",
+    "sourcePath": "packages/wayfinder_embeddings/fixtures/benchmarks/local_metrics_baseline.json",
+    "sourceSha256": "2b8457c57fdb0153ec1931741f43dd33eac23d78e9bb0c222bb4f5c98837a2a2",
+    "note": "Existing dense metrics copied without regrading or a new evaluation run; other retrieval runs retired.",
+    "omittedConfigurationKeys": [
+      "hybridCandidates"
+    ]
+  }
+}

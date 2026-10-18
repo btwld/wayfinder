@@ -379,7 +379,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -396,8 +396,8 @@ void main() {
       );
 
       expect(decoded.k, 10);
-      expect(decoded.runNamed('bm25')?.queryCount, 50);
-      expect(decoded.runNamed('bm25')?.metrics.ndcg, 0.74);
+      expect(decoded.runNamed('dense')?.queryCount, 50);
+      expect(decoded.runNamed('dense')?.metrics.ndcg, 0.74);
     });
 
     test('serializes benchmark reports with optional query-level rows', () {
@@ -417,7 +417,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 2,
             metrics: RetrievalMetrics(k: 10, recall: 0.5, ndcg: 0.5, mrr: 0.5),
             queryEvaluations: [relevantQuery, missedQuery],
@@ -428,7 +428,7 @@ void main() {
       final decoded = RetrievalBenchmarkReport.fromMap(
         jsonDecode(jsonEncode(report.toMap())) as Map<String, Object?>,
       );
-      final decodedRun = decoded.runNamed('bm25')!;
+      final decodedRun = decoded.runNamed('dense')!;
 
       expect(decodedRun.queryEvaluations, [relevantQuery, missedQuery]);
       expect(
@@ -470,7 +470,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 3,
             metrics: RetrievalMetrics(
               k: 10,
@@ -487,7 +487,7 @@ void main() {
       final decoded = RetrievalBenchmarkReport.fromMap(
         jsonDecode(jsonEncode(report.toMap())) as Map<String, Object?>,
       );
-      final decodedGroups = decoded.runNamed('bm25')!.queryGroupSummaries;
+      final decodedGroups = decoded.runNamed('dense')!.queryGroupSummaries;
 
       expect(decodedGroups.map((group) => group.name), [
         'dart',
@@ -558,7 +558,7 @@ void main() {
       );
       expect(
         () => RetrievalRunSummary(
-          name: 'bm25',
+          name: 'dense',
           queryCount: 1,
           metrics: query.metrics,
           queryEvaluations: [query],
@@ -568,7 +568,7 @@ void main() {
       );
       expect(
         () => RetrievalRunSummary(
-          name: 'bm25',
+          name: 'dense',
           queryCount: 1,
           metrics: query.metrics,
           queryEvaluations: [query],
@@ -593,14 +593,14 @@ void main() {
         'k': 10,
         'runs': [
           {
-            'name': 'bm25',
+            'name': 'dense',
             'queryCount': 50,
             'metrics': {'k': 10, 'recall': 0.8, 'ndcg': 0.7, 'mrr': 0.6},
           },
         ],
       });
 
-      expect(decoded.runNamed('bm25')?.queryEvaluations, isEmpty);
+      expect(decoded.runNamed('dense')?.queryEvaluations, isEmpty);
     });
 
     test('rejects malformed benchmark report and run summaries', () {
@@ -612,19 +612,22 @@ void main() {
       );
       expect(
         () =>
-            RetrievalRunSummary(name: 'bm25', queryCount: 0, metrics: metrics),
+            RetrievalRunSummary(name: 'dense', queryCount: 0, metrics: metrics),
         throwsArgumentError,
       );
       expect(
-        () =>
-            RetrievalRunSummary(name: 'bm25', queryCount: -1, metrics: metrics),
+        () => RetrievalRunSummary(
+          name: 'dense',
+          queryCount: -1,
+          metrics: metrics,
+        ),
         throwsArgumentError,
       );
       expect(
         () => RetrievalBenchmarkReport(
           k: 0,
           runs: [
-            RetrievalRunSummary(name: 'bm25', queryCount: 1, metrics: metrics),
+            RetrievalRunSummary(name: 'dense', queryCount: 1, metrics: metrics),
           ],
         ),
         throwsArgumentError,
@@ -637,15 +640,15 @@ void main() {
         () => RetrievalBenchmarkReport(
           k: 10,
           runs: [
-            RetrievalRunSummary(name: 'bm25', queryCount: 1, metrics: metrics),
-            RetrievalRunSummary(name: 'bm25', queryCount: 1, metrics: metrics),
+            RetrievalRunSummary(name: 'dense', queryCount: 1, metrics: metrics),
+            RetrievalRunSummary(name: 'dense', queryCount: 1, metrics: metrics),
           ],
         ),
         throwsArgumentError,
       );
       expect(
         () => RetrievalRunSummary(
-          name: 'bm25',
+          name: 'dense',
           queryCount: 2,
           metrics: metrics,
           queryEvaluations: [
@@ -661,7 +664,7 @@ void main() {
       );
       expect(
         () => RetrievalRunSummary(
-          name: 'bm25',
+          name: 'dense',
           queryCount: 1,
           metrics: metrics,
           queryEvaluations: [
@@ -677,7 +680,7 @@ void main() {
       );
       expect(
         () => RetrievalRunSummary(
-          name: 'bm25',
+          name: 'dense',
           queryCount: 1,
           metrics: metrics,
           queryEvaluations: [
@@ -696,7 +699,7 @@ void main() {
     test('rejects malformed serialized benchmark run summaries', () {
       final metrics = RetrievalMetrics(k: 10, recall: 0.8, ndcg: 0.7, mrr: 0.6);
       final baseMap = <String, Object?>{
-        'name': 'bm25',
+        'name': 'dense',
         'queryCount': 1,
         'metrics': metrics.toMap(),
       };
@@ -725,7 +728,7 @@ void main() {
     test('rejects malformed serialized benchmark reports', () {
       final metrics = RetrievalMetrics(k: 10, recall: 0.8, ndcg: 0.7, mrr: 0.6);
       final run = RetrievalRunSummary(
-        name: 'bm25',
+        name: 'dense',
         queryCount: 1,
         metrics: metrics,
       ).toMap();
@@ -781,13 +784,13 @@ void main() {
       final report = RetrievalBenchmarkReport(
         k: 10,
         runs: [
-          RetrievalRunSummary(name: 'bm25', queryCount: 1, metrics: metrics),
+          RetrievalRunSummary(name: 'dense', queryCount: 1, metrics: metrics),
         ],
       );
       expect(RetrievalBenchmarkReport.fromMap(report.toMap()), report);
 
       final issue = RetrievalRegressionIssue(
-        runName: 'bm25',
+        runName: 'dense',
         metricName: 'recall',
         baselineValue: 0.9,
         currentValue: 0.8,
@@ -844,7 +847,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -859,7 +862,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -881,7 +884,7 @@ void main() {
       expect(result.passed, isFalse);
       expect(
         result.issues.map((issue) => '${issue.runName}:${issue.metricName}'),
-        containsAll(['bm25:recall', 'bm25:ndcg']),
+        containsAll(['dense:recall', 'dense:ndcg']),
       );
     });
 
@@ -890,7 +893,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -927,7 +930,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -975,7 +978,7 @@ void main() {
           (issue) =>
               '${issue.runName}:${issue.queryGroupName}:${issue.metricName}',
         ),
-        containsAll(['bm25:typescript:recall', 'bm25:typescript:ndcg']),
+        containsAll(['dense:typescript:recall', 'dense:typescript:ndcg']),
       );
     });
 
@@ -984,7 +987,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 2,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1021,7 +1024,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 2,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1066,7 +1069,10 @@ void main() {
           (issue) =>
               '${issue.runName}:${issue.queryGroupName}:${issue.metricName}',
         ),
-        containsAll(['bm25:typescript:queryGroup', 'bm25:markdown:queryGroup']),
+        containsAll([
+          'dense:typescript:queryGroup',
+          'dense:markdown:queryGroup',
+        ]),
       );
     });
 
@@ -1075,7 +1081,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1135,7 +1141,7 @@ void main() {
       );
       expect(
         () => RetrievalRegressionIssue(
-          runName: 'bm25',
+          runName: 'dense',
           metricName: '\t',
           baselineValue: 0.9,
           currentValue: 0.8,
@@ -1146,7 +1152,7 @@ void main() {
       );
       expect(
         () => RetrievalRegressionIssue(
-          runName: 'bm25',
+          runName: 'dense',
           metricName: 'recall',
           baselineValue: double.nan,
           currentValue: 0.8,
@@ -1157,7 +1163,7 @@ void main() {
       );
       expect(
         () => RetrievalRegressionIssue(
-          runName: 'bm25',
+          runName: 'dense',
           metricName: 'recall',
           baselineValue: 0.9,
           currentValue: 0.8,
@@ -1168,7 +1174,7 @@ void main() {
       );
       expect(
         () => RetrievalRegressionIssue(
-          runName: 'bm25',
+          runName: 'dense',
           metricName: 'recall',
           baselineValue: 0.9,
           currentValue: 0.8,
@@ -1181,7 +1187,7 @@ void main() {
 
     test('serializes regression issues for reports', () {
       final issue = RetrievalRegressionIssue(
-        runName: 'bm25',
+        runName: 'dense',
         queryGroupName: 'typescript',
         metricName: 'recall',
         baselineValue: 0.9,
@@ -1191,7 +1197,7 @@ void main() {
       );
 
       expect(issue.toMap(), {
-        'runName': 'bm25',
+        'runName': 'dense',
         'queryGroupName': 'typescript',
         'metricName': 'recall',
         'baselineValue': 0.9,
@@ -1206,7 +1212,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1221,7 +1227,7 @@ void main() {
         k: 5,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 5,
@@ -1256,7 +1262,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 50,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1271,7 +1277,7 @@ void main() {
         k: 10,
         runs: [
           RetrievalRunSummary(
-            name: 'bm25',
+            name: 'dense',
             queryCount: 49,
             metrics: RetrievalMetrics(
               k: 10,
@@ -1291,7 +1297,7 @@ void main() {
       expect(result.passed, isFalse);
       expect(result.issues, [
         RetrievalRegressionIssue(
-          runName: 'bm25',
+          runName: 'dense',
           metricName: 'queryCount',
           baselineValue: 50,
           currentValue: 49,
@@ -1307,7 +1313,7 @@ void main() {
           k: 10,
           runs: [
             RetrievalRunSummary(
-              name: 'bm25',
+              name: 'dense',
               queryCount: 50,
               metrics: RetrievalMetrics(
                 k: 5,

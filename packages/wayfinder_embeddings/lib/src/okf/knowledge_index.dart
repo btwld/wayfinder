@@ -8,8 +8,6 @@ import '../../wayfinder_embeddings.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 
-enum KnowledgeRetrievalMode { bm25, dense, hybrid }
-
 /// Deterministic frontmatter eligibility, independent of retrieval scores.
 /// Values within each set use OR, except [requiredTags], which uses AND.
 /// Different fields combine with AND. Identifiers are exact and case-sensitive;
@@ -172,7 +170,7 @@ class KnowledgeSearchResponse {
 
 /// Synchronizes one bundle and searches an explicit eligible concept set.
 ///
-/// The caller owns the store and optional embedder. Synchronization must not
+/// The caller owns the store and embedder. Synchronization must not
 /// overlap searches on this instance. Separate instances should coordinate
 /// writes to the same bundle. Dense scoring is exact after eligibility filtering;
 /// ObjectBox supplies indexed vector reads rather than a post-filtered ANN pool.
@@ -185,7 +183,7 @@ class KnowledgeIndex {
   KnowledgeIndex.fromSnapshot({
     required KnowledgeSnapshot snapshot,
     required this.store,
-    this.embedder,
+    required this.embedder,
     this.includeContext = false,
   }) : countTokens = null,
        maxTokens = null,
@@ -193,7 +191,7 @@ class KnowledgeIndex {
 
   KnowledgeIndex({
     required this.store,
-    this.embedder,
+    required this.embedder,
     this.includeContext = false,
     this.countTokens,
     this.maxTokens,
@@ -206,19 +204,17 @@ class KnowledgeIndex {
     }
   }
   final BaseStore store;
-  final BaseEmbedder? embedder;
+  final BaseEmbedder embedder;
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
   final int? maxTokens;
   KnowledgeSnapshot? _snapshot;
-  BM25LexicalIndex? _lexical;
   bool _synchronizing = false;
   int _searches = 0;
   final _queryCache = <String, List<double>>{};
 
-  String? get embeddingModelName => embedder == null
-      ? null
-      : '${embedder!.modelName}:okf-${includeContext ? 'context-v2' : 'body-v1'}';
+  String get embeddingModelName =>
+      '${embedder.modelName}:okf-${includeContext ? 'context-v2' : 'body-v1'}';
 
   /// Embeds missing/changed inputs before one atomic replacement. Failed loads
   /// or inference leave the prior store/index usable. Other bundles are retained.
@@ -255,13 +251,11 @@ class KnowledgeIndex {
           .map((chunk) => chunk.id)
           .toSet();
       final model = embeddingModelName;
-      final cached = embedder == null
-          ? <String>{}
-          : (await store.getEmbeddingsForChunks(
-              ids,
-              source: embedder!.sourceName,
-              modelName: model!,
-            )).map((item) => item.chunkId).toSet();
+      final cached = (await store.getEmbeddingsForChunks(
+        ids,
+        source: embedder.sourceName,
+        modelName: model,
+      )).map((item) => item.chunkId).toSet();
       final pending = <({Chunk chunk, String text})>[];
       final writes = <Chunk>[];
       for (final chunk in snapshot.chunks) {
@@ -269,14 +263,12 @@ class KnowledgeIndex {
           ...?previous[chunk.id]?.metadata['okfEmbeddingInputs']
               as Map<String, Object?>?,
         };
-        if (embedder != null) {
-          final text = snapshot.textFor(chunk, includeContext: includeContext);
-          final hash = sha256.convert(utf8.encode(text)).toString();
-          if (!cached.contains(chunk.id) || inputHashes[model] != hash) {
-            pending.add((chunk: chunk, text: text));
-          }
-          inputHashes[model!] = hash;
+        final text = snapshot.textFor(chunk, includeContext: includeContext);
+        final hash = sha256.convert(utf8.encode(text)).toString();
+        if (!cached.contains(chunk.id) || inputHashes[model] != hash) {
+          pending.add((chunk: chunk, text: text));
         }
+        inputHashes[model] = hash;
         final updated = chunk.copyWith(
           metadata: {
             ...chunk.metadata,
@@ -288,33 +280,24 @@ class KnowledgeIndex {
       final vectors = <Embedding>[];
       for (var offset = 0; offset < pending.length; offset += 32) {
         final batch = pending.skip(offset).take(32).toList();
-        final encoded = await embedder!.generateEmbeddings(
+        final encoded = await embedder.generateEmbeddings(
           batch.map((item) => item.text).toList(),
         );
         if (encoded.length != batch.length ||
-            encoded.any((vector) => vector.length != embedder!.dimension)) {
+            encoded.any((vector) => vector.length != embedder.dimension)) {
           throw StateError('Embedder returned an invalid batch shape.');
         }
         for (var i = 0; i < batch.length; i++) {
           vectors.add(
             Embedding(
               chunkId: batch[i].chunk.id,
-              source: embedder!.sourceName,
-              modelName: model!,
+              source: embedder.sourceName,
+              modelName: model,
               vector: encoded[i],
             ),
           );
         }
       }
-      // Construct the new read snapshot before committing the store update.
-      final lexical = BM25LexicalIndex.fromChunks(
-        snapshot.chunks.map(
-          (chunk) => chunk.copyWith(
-            id: chunk.id,
-            content: snapshot.textFor(chunk, includeContext: includeContext),
-          ),
-        ),
-      );
       if (writes.isNotEmpty || vectors.isNotEmpty || removed.isNotEmpty) {
         await store.replaceChunks(
           chunks: writes,
@@ -323,7 +306,6 @@ class KnowledgeIndex {
         );
       }
       _snapshot = snapshot;
-      _lexical = lexical;
       return (
         embeddedChunks: pending.length,
         removedChunks: removed.length,
@@ -336,122 +318,65 @@ class KnowledgeIndex {
 
   Future<KnowledgeSearchResponse> search(
     String query, {
-    KnowledgeRetrievalMode mode = KnowledgeRetrievalMode.bm25,
     KnowledgeSearchPolicy? policy,
     int limit = 5,
     int? contextLimit,
-    int candidateLimit = 50,
   }) async {
     final snapshot = _snapshot;
     if (snapshot == null || _synchronizing) {
       throw StateError('Synchronize the index before searching.');
-    }
-    if (candidateLimit <= 0) {
-      throw ArgumentError.value(candidateLimit, 'candidateLimit');
     }
     final budget = contextLimit ?? limit;
     if (query.trim().isEmpty || limit <= 0 || budget <= 0) {
       return KnowledgeSearchResponse(matches: [], context: [], notices: []);
     }
     final effective = policy ?? KnowledgeSearchPolicy();
-    final conceptPaths = snapshot.conceptPaths;
-    for (final path in [
-      ...effective.governingSources.keys,
-      ...effective.governingSources.values,
-    ]) {
-      if (!conceptPaths.contains(path)) {
-        throw ArgumentError('Unknown governing concept: $path');
-      }
-    }
+    final eligible = _eligibleChunks(snapshot, effective);
     _searches++;
     try {
-      final eligible = {
-        for (final chunk in snapshot.chunks)
-          if (effective.allows(snapshot, chunk.sourcePath)) chunk.id: chunk,
-      };
-      final options = SearchOptions(
-        filePaths: eligible.values
-            .map((chunk) => chunk.sourcePath)
-            .toSet()
-            .toList(),
-      );
-      final lexical = mode == KnowledgeRetrievalMode.dense || eligible.isEmpty
-          ? <SearchResult>[]
-          : (_lexical ??= BM25LexicalIndex.fromChunks(
-                  snapshot.chunks.map(
-                    (chunk) => chunk.copyWith(
-                      id: chunk.id,
-                      content: snapshot.textFor(
-                        chunk,
-                        includeContext: includeContext,
-                      ),
-                    ),
-                  ),
-                ))
-                .search(query, limit: snapshot.chunks.length, options: options)
-                .where((hit) => eligible.containsKey(hit.chunk.id))
-                .map(
-                  (hit) => SearchResult(
-                    chunk: eligible[hit.chunk.id]!,
-                    embedding: null,
-                    similarity: hit.similarity,
-                  ),
-                )
-                .toList();
       final dense = <SearchResult>[];
-      if (mode != KnowledgeRetrievalMode.bm25) {
-        if (embedder == null) {
-          throw StateError('Semantic search requires an embedder.');
-        }
-        if (eligible.isNotEmpty) {
-          final key = query.trim();
-          final vector =
-              _queryCache.remove(key) ??
-              await embedder!.generateQueryVector(key);
-          _queryCache[key] = vector;
-          if (_queryCache.length > 100) {
-            _queryCache.remove(_queryCache.keys.first);
-          }
-          final stored = await store.getEmbeddingsForChunks(
-            eligible.keys.toSet(),
-            source: embedder!.sourceName,
-            modelName: embeddingModelName!,
+      if (eligible.isNotEmpty) {
+        final stored = await store.getEmbeddingsForChunks(
+          eligible.keys.toSet(),
+          source: embedder.sourceName,
+          modelName: embeddingModelName,
+        );
+        if (stored.length != eligible.length) {
+          throw StateError(
+            'Dense search requires compatible embeddings for every eligible '
+            'passage. Synchronize the index again.',
           );
-          if (stored.length != eligible.length) {
-            throw StateError('Vectors changed; synchronize the index again.');
-          }
-          for (final embedding in stored) {
-            dense.add(
-              SearchResult(
-                chunk: eligible[embedding.chunkId]!,
-                embedding: embedding,
-                similarity: cosineSimilarity(vector, embedding.vector),
-              ),
-            );
-          }
-          dense.sort((a, b) {
-            final score = b.similarity.compareTo(a.similarity);
-            if (score != 0) return score;
-            final path = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
-            return path == 0 ? a.chunk.id.compareTo(b.chunk.id) : path;
-          });
         }
+        final key = query.trim();
+        final vector =
+            _queryCache.remove(key) ?? await embedder.generateQueryVector(key);
+        _queryCache[key] = vector;
+        if (_queryCache.length > 100) {
+          _queryCache.remove(_queryCache.keys.first);
+        }
+        for (final embedding in stored) {
+          dense.add(
+            SearchResult(
+              chunk: eligible[embedding.chunkId]!,
+              embedding: embedding,
+              similarity: cosineSimilarity(vector, embedding.vector),
+            ),
+          );
+        }
+        dense.sort((a, b) {
+          final score = b.similarity.compareTo(a.similarity);
+          if (score != 0) return score;
+          final path = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
+          return path == 0 ? a.chunk.id.compareTo(b.chunk.id) : path;
+        });
       }
-      final ranked = switch (mode) {
-        KnowledgeRetrievalMode.bm25 => lexical,
-        KnowledgeRetrievalMode.dense => dense,
-        KnowledgeRetrievalMode.hybrid => fuseReciprocalRanks([
-          lexical
-              .take(candidateLimit < limit ? limit : candidateLimit)
-              .toList(),
-          dense.take(candidateLimit < limit ? limit : candidateLimit).toList(),
-        ], limit: eligible.length),
-      };
-      return contextForMatches(
-        ranked,
+      return _contextForEligible(
+        snapshot,
+        eligible,
+        dense,
         policy: effective,
         limit: limit,
-        contextLimit: budget,
+        budget: budget,
       );
     } finally {
       _searches--;
@@ -475,19 +400,44 @@ class KnowledgeIndex {
       return KnowledgeSearchResponse(matches: [], context: [], notices: []);
     }
     final effective = policy ?? KnowledgeSearchPolicy();
+    return _contextForEligible(
+      snapshot,
+      _eligibleChunks(snapshot, effective),
+      ranked,
+      policy: effective,
+      limit: limit,
+      budget: budget,
+    );
+  }
+
+  Map<String, Chunk> _eligibleChunks(
+    KnowledgeSnapshot snapshot,
+    KnowledgeSearchPolicy policy,
+  ) {
     final paths = snapshot.conceptPaths;
     for (final path in [
-      ...effective.governingSources.keys,
-      ...effective.governingSources.values,
+      ...policy.governingSources.keys,
+      ...policy.governingSources.values,
     ]) {
       if (!paths.contains(path)) {
         throw ArgumentError('Unknown governing concept: $path');
       }
     }
-    final eligible = {
+    return {
       for (final chunk in snapshot.chunks)
-        if (effective.allows(snapshot, chunk.sourcePath)) chunk.id: chunk,
+        if (policy.allows(snapshot, chunk.sourcePath)) chunk.id: chunk,
     };
+  }
+
+  KnowledgeSearchResponse _contextForEligible(
+    KnowledgeSnapshot snapshot,
+    Map<String, Chunk> eligible,
+    Iterable<SearchResult> ranked, {
+    required KnowledgeSearchPolicy policy,
+    required int limit,
+    required int budget,
+  }) {
+    final effective = policy;
     final best = <String, SearchResult>{};
     for (final hit in ranked.where(
       (hit) => eligible.containsKey(hit.chunk.id),

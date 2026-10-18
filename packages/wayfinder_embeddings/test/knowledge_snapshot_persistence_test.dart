@@ -4,6 +4,8 @@ import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
+import 'support/counting_embedder.dart';
+
 void main() {
   test(
     'saved token-fitted snapshot retains exact passages, graph and citations',
@@ -35,11 +37,16 @@ void main() {
       );
       final store = MemoryStore();
       addTearDown(store.close);
-      final writer = KnowledgeIndex(store: store, includeContext: true);
+      final writer = KnowledgeIndex(
+        store: store,
+        embedder: CountingEmbedder(),
+        includeContext: true,
+      );
       await writer.synchronize(fitted);
       final before = await writer.search('password');
       final reader = KnowledgeIndex.fromSnapshot(
         snapshot: restored,
+        embedder: CountingEmbedder(),
         store: store,
         includeContext: true,
       );
@@ -48,7 +55,7 @@ void main() {
         after.matches.map((hit) => hit.chunk).toList(),
         before.matches.map((hit) => hit.chunk).toList(),
       );
-      expect(await store.getAllEmbeddings(), isEmpty);
+      expect(await store.getAllEmbeddings(), hasLength(fitted.chunks.length));
     },
   );
 

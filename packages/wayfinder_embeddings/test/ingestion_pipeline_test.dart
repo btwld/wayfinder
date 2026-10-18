@@ -250,9 +250,9 @@ void main() {
         modelName: 'dense-model',
         vector: const [1.0, 0.0],
       );
-      final lexicalEmbedder = _ConstantEmbedder(
+      final alternateEmbedder = _ConstantEmbedder(
         sourceName: 'local',
-        modelName: 'local-bm25',
+        modelName: 'test-model',
         vector: const [0.0, 1.0],
       );
 
@@ -264,7 +264,7 @@ void main() {
 
       await IngestionPipeline(
         chunkerRegistry: registry,
-        embedder: lexicalEmbedder,
+        embedder: alternateEmbedder,
         store: store,
       ).ingestFiles([dartFile]);
 
@@ -277,7 +277,7 @@ void main() {
       );
 
       await denseEmbedder.dispose();
-      await lexicalEmbedder.dispose();
+      await alternateEmbedder.dispose();
       await store.close();
     });
 
@@ -327,9 +327,8 @@ void main() {
       expect(await store.getChunk(original.id), updated);
       expect(await store.getEmbedding(original.id), vector);
       expect(
-        BM25LexicalIndex.fromChunks(await store.getAllChunks()).search(
-          'recovery',
-          options: SearchOptions(metadataFilters: {'status': 'stable'}),
+        (await store.getAllChunks()).where(
+          SearchOptions(metadataFilters: {'status': 'stable'}).matchesFilters,
         ),
         isEmpty,
       );

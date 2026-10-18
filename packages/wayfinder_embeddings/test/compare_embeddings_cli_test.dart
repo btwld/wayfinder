@@ -158,15 +158,15 @@ void main() {
 
     test('rejects unknown requested embedder descriptors', () {
       expect(
-        () => runLabels(['bm25', 'not-a-model']),
-        throwsArgumentErrorSaying("Unknown semantic embedder 'not-a-model'"),
+        () => runLabels(['dense', 'not-a-model']),
+        throwsArgumentErrorSaying("Unknown embedder 'not-a-model'"),
       );
     });
 
     test('rejects malformed embedder descriptors', () {
       expect(
-        () => runLabels(['hybrid:']),
-        throwsArgumentErrorSaying('Unknown semantic embedder'),
+        () => runLabels(['dense:']),
+        throwsArgumentErrorSaying('Unknown embedder'),
       );
       expect(
         () => runLabels(['rerank:']),
@@ -178,8 +178,8 @@ void main() {
 
     test('rejects duplicate comparison run labels', () {
       expect(
-        () => runLabels(['bm25', 'lexical']),
-        throwsArgumentErrorSaying("Duplicate comparison run label 'bm25'"),
+        () => runLabels(['dense', 'llamadart']),
+        throwsArgumentErrorSaying("Duplicate comparison run label 'dense'"),
       );
     });
 
@@ -187,10 +187,10 @@ void main() {
       expect(
         () => runLabels(
           CompareOptions.parse(const [
-            '--embedders=bm25,bm25',
+            '--embedders=dense,dense',
           ]).embedderDescriptors,
         ),
-        throwsArgumentErrorSaying("Duplicate comparison run label 'bm25'"),
+        throwsArgumentErrorSaying("Duplicate comparison run label 'dense'"),
       );
     });
 
@@ -204,22 +204,46 @@ void main() {
         throwsArgumentErrorSaying('--embedders requires at least one'),
       );
       expect(
-        () => CompareOptions.parse(const ['--embedders=bm25,,hybrid']),
+        () => CompareOptions.parse(const ['--embedders=dense,,rerank:dense']),
         throwsArgumentErrorSaying('--embedders contains an empty descriptor'),
       );
     });
 
+    test('defaults to dense retrieval', () {
+      expect(CompareOptions.parse(const []).embedderDescriptors, ['dense']);
+    });
+
+    for (final descriptor in const [
+      'bm25',
+      'lexical',
+      'hybrid',
+      'rerank:bm25',
+      'rerank:lexical',
+      'rerank:hybrid',
+    ]) {
+      test('rejects retired descriptor $descriptor before opening a model', () {
+        var opened = false;
+        expect(
+          () => ComparisonRun.parse(descriptor, () async {
+            opened = true;
+            throw StateError('Must not open the model');
+          }),
+          throwsArgumentErrorSaying(
+            'This tool supports dense retrieval only. Use dense or rerank:dense.',
+          ),
+        );
+        expect(opened, isFalse);
+      });
+    }
+
     test('resolves valid comparison run labels', () {
-      expect(
-        runLabels(['bm25', 'hybrid', 'dense', 'rerank:bm25', 'rerank:hybrid']),
-        ['bm25', 'hybrid', 'dense', 'rerank-bm25', 'rerank-hybrid'],
-      );
+      expect(runLabels(['dense', 'rerank:dense']), ['dense', 'rerank-dense']);
     });
 
     test('requires a reranker endpoint for reranked runs', () {
       expect(
         () => validateRerankerOptions(
-          resolveComparisonRuns(const ['rerank:bm25']),
+          resolveComparisonRuns(const ['rerank:dense']),
           null,
         ),
         throwsArgumentErrorSaying(
@@ -228,7 +252,7 @@ void main() {
       );
       expect(
         () => validateRerankerOptions(
-          resolveComparisonRuns(const ['bm25']),
+          resolveComparisonRuns(const ['dense']),
           null,
         ),
         returnsNormally,
@@ -370,7 +394,7 @@ void main() {
 
     test('formats query group regression issue labels', () {
       final runIssue = RetrievalRegressionIssue(
-        runName: 'bm25',
+        runName: 'dense',
         metricName: 'recall',
         baselineValue: 0.9,
         currentValue: 0.8,
@@ -378,7 +402,7 @@ void main() {
         actualDrop: 0.1,
       );
       final groupIssue = RetrievalRegressionIssue(
-        runName: 'bm25',
+        runName: 'dense',
         queryGroupName: 'typescript',
         metricName: 'ndcg',
         baselineValue: 0.9,
@@ -387,8 +411,8 @@ void main() {
         actualDrop: 0.1,
       );
 
-      expect(formatRegressionIssueName(runIssue), 'bm25.recall');
-      expect(formatRegressionIssueName(groupIssue), 'bm25[typescript].ndcg');
+      expect(formatRegressionIssueName(runIssue), 'dense.recall');
+      expect(formatRegressionIssueName(groupIssue), 'dense[typescript].ndcg');
     });
 
     test('resolves regression gate threshold overrides', () {

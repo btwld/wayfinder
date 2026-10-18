@@ -5,7 +5,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import '../tool/src/pipeline_workflow.dart' as workflow;
 import '../tool/src/retrieval_evaluator.dart';
@@ -14,7 +13,7 @@ const _minimumQueryGroupCounts = {'dart': 50, 'typescript': 7, 'markdown': 8};
 
 void main() {
   group('fixtures/corpus retrieval gate', () {
-    test('qrels chunk ids are current and BM25 stays within baseline', () async {
+    test('qrels, query groups, and emitted chunk ids are consistent', () async {
       final fixtureDir = Directory(
         p.join(Directory.current.path, 'fixtures/corpus'),
       );
@@ -33,12 +32,6 @@ void main() {
       final judgments = RelevanceJudgments.fromMap(
         _readObjectMap(File(p.join(fixtureDir.path, 'retrieval_qrels.json'))),
       );
-      final baseline = RetrievalBenchmarkReport.fromMap(
-        _readObjectMap(
-          File(p.join(fixtureDir.path, 'bm25_metrics_baseline.json')),
-        ),
-      );
-
       expect(queriesById.length, inInclusiveRange(50, 200));
       expect(
         judgments.relevanceByQuery.keys,
@@ -64,17 +57,6 @@ void main() {
               '${minimum.key} needs enough qrels queries to catch slice regressions.',
         );
       }
-      final baselineRun = baseline.runNamed('bm25');
-      expect(baselineRun, isNotNull);
-      expect(
-        baselineRun!.queryCount,
-        queriesById.length,
-        reason: 'The checked-in baseline must cover every qrels query.',
-      );
-      _expectQueryGroupSummaryCounts(
-        baselineRun.queryGroupSummaries,
-        queryGroupCounts,
-      );
       final registry = workflow.buildDefaultRegistry();
       final files = workflow.collectFixtureFiles(fixtureDir);
       final preview = workflow.PreviewResult.fromFiles(
@@ -100,49 +82,6 @@ void main() {
         isEmpty,
         reason:
             'Qrels must point at chunk ids emitted by the current chunkers.',
-      );
-
-      final lexicalIndex = BM25LexicalIndex.fromChunks(preview.chunks);
-      final rankedByQuery = <String, List<String>>{};
-      for (final queryEntry in queriesById.entries) {
-        rankedByQuery[queryEntry.key] = lexicalIndex
-            .search(queryEntry.value, limit: baseline.k)
-            .map(
-              (result) =>
-                  workflow.stableFixtureChunkId(result.chunk, fixtureDir),
-            )
-            .toList(growable: false);
-      }
-
-      final evaluation = RetrievalEvaluation.evaluate(
-        judgments: judgments,
-        rankedChunkIdsByQuery: rankedByQuery,
-        k: baseline.k,
-      );
-      final current = RetrievalBenchmarkReport(
-        k: baseline.k,
-        runs: [
-          RetrievalRunSummary(
-            name: 'bm25',
-            queryCount: evaluation.queryCount,
-            metrics: evaluation.average,
-            queryEvaluations: evaluation.queries,
-            queryGroupSummaries: summarizeRetrievalQueryGroups(
-              queryEvaluations: evaluation.queries,
-              groupByQueryId: queryGroupsById,
-            ),
-          ),
-        ],
-      );
-      final gate = RetrievalRegressionGateResult.evaluate(
-        current: current,
-        baseline: baseline,
-      );
-
-      expect(
-        gate.issues,
-        isEmpty,
-        reason: const JsonEncoder.withIndent('  ').convert(gate.toMap()),
       );
     });
 
@@ -188,25 +127,6 @@ Map<String, int> _countQueryGroups(Map<String, String> queryGroupsById) {
     counts[group] = (counts[group] ?? 0) + 1;
   }
   return counts;
-}
-
-void _expectQueryGroupSummaryCounts(
-  List<RetrievalQueryGroupSummary> summaries,
-  Map<String, int> queryGroupCounts, {
-  String reportName = 'The checked-in baseline',
-}) {
-  expect(
-    summaries.map((summary) => summary.name),
-    unorderedEquals(queryGroupCounts.keys),
-    reason: '$reportName must include every tracked query group.',
-  );
-  for (final summary in summaries) {
-    expect(
-      summary.queryCount,
-      queryGroupCounts[summary.name],
-      reason: '$reportName group ${summary.name} must match qrels coverage.',
-    );
-  }
 }
 
 Map<String, Object?> _readObjectMap(File file) {

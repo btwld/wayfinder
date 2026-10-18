@@ -211,45 +211,23 @@ Future<void> main(List<String> args) async {
         ..createSync(recursive: true);
       stdout.writeln('\n→ ${run.label}');
 
-      final ingestion = switch (run.kind) {
-        ComparisonRunKind.lexical => await workflow.persistLexicalSearch(
-          registry: registry,
-          files: files,
-          fixturesDir: config.fixturesRoot,
-          outputDir: output,
-          dryRunChunks: preview.chunks,
-          queries: queries,
-          topK: topK,
-          candidateLimit: candidateLimit,
-          storeFactory: storeFactory(run.label, storeKind),
-          rerankerFactory: rerankerFactory(
-            run,
-            rerankerUrl,
-            rerankerRequestTimeout,
-          ),
+      final ingestion = await workflow.persistAndSearch(
+        registry: registry,
+        files: files,
+        fixturesDir: config.fixturesRoot,
+        outputDir: output,
+        dryRunChunks: preview.chunks,
+        queries: queries,
+        topK: topK,
+        candidateLimit: candidateLimit,
+        embedderFactory: run.embedderFactory,
+        rerankerFactory: rerankerFactory(
+          run,
+          rerankerUrl,
+          rerankerRequestTimeout,
         ),
-        ComparisonRunKind.semantic ||
-        ComparisonRunKind.hybrid => await workflow.persistAndSearch(
-          registry: registry,
-          files: files,
-          fixturesDir: config.fixturesRoot,
-          outputDir: output,
-          dryRunChunks: preview.chunks,
-          queries: queries,
-          topK: topK,
-          candidateLimit: candidateLimit,
-          embedderFactory: run.embedderFactory!,
-          searcherFactory: run.kind == ComparisonRunKind.hybrid
-              ? workflow.hybridSearcherFactory
-              : workflow.denseSearcherFactory,
-          rerankerFactory: rerankerFactory(
-            run,
-            rerankerUrl,
-            rerankerRequestTimeout,
-          ),
-          storeFactory: storeFactory(run.label, storeKind),
-        ),
-      };
+        storeFactory: storeFactory(run.label, storeKind),
+      );
 
       comparisonResults[run.label] = ingestion;
       if (ingestion.skippedFiles.isNotEmpty) {

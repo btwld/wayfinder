@@ -1,8 +1,8 @@
 # ADR-0010: One CLI validates, indexes, and searches local knowledge
 
-- Status: accepted
+- Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-01 (typed `relationships` context in search)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md))
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -19,8 +19,9 @@ Expose `wayfinder validate`, `wayfinder index`, and `wayfinder search`.
 Validation runs the engine contract and needs no model.
 
 The application indexes with verified local Arctic XS embeddings and searches
-saved document vectors with an encoded query. It has no retrieval-mode flag;
-the reusable library keeps lexical and hybrid alternatives. Build tooling
+saved document vectors with an encoded query. Both the application and the
+reusable library use dense-only retrieval ([ADR-0017](0017-dense-only-retrieval.md));
+retired lexical and hybrid mode choices are rejected. Build tooling
 owns model acquisition, and the native distribution includes the verified
 artifact. Runtime commands never download or train a model.
 

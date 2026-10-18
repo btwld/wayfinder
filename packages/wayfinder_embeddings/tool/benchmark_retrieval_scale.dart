@@ -11,6 +11,7 @@ import 'benchmark_retrieval.dart' show elapsed, summarize;
 Future<void> main(List<String> args) async {
   if (args.length != 2) throw ArgumentError('SIZE OUTPUT');
   final size = int.parse(args[0]);
+  if (size <= 0) throw ArgumentError.value(size, 'SIZE', 'must be positive');
   final random = Random(91307);
   final chunks = [
     for (var i = 0; i < size; i++)
@@ -33,11 +34,6 @@ Future<void> main(List<String> args) async {
         vector: List.generate(384, (_) => random.nextDouble() - .5),
       ),
   ];
-  final lexical = BM25LexicalIndex.fromChunks(chunks);
-  final words = {
-    for (final chunk in chunks)
-      chunk.id: tokenizeLexicalText(chunk.content).toSet(),
-  };
   final ids = chunks.map((chunk) => chunk.id).toSet();
   final byId = {for (final chunk in chunks) chunk.id: chunk};
   final directory = await Directory.systemTemp.createTemp('retrieval_scale');
@@ -52,33 +48,11 @@ Future<void> main(List<String> args) async {
         final clock = Stopwatch()..start();
         await store.storeBatch(chunks: chunks, embeddings: vectors);
         final writeMs = elapsed(clock);
-        final timings = {
-          for (final arm in ['keyword', 'bm25', 'dense', 'hybrid'])
-            arm: <double>[],
-        };
+        final denseTimings = <double>[];
         final firstIds = <String>[];
         for (var pass = 0; pass < 4; pass++) {
           for (var q = 0; q < 10; q++) {
             final target = (q * 997) % size;
-            final text = 'Record $target processing operation';
-            clock.reset();
-            final queryWords = tokenizeLexicalText(text).toSet();
-            final keyword = [
-              for (final chunk in chunks)
-                SearchResult(
-                  chunk: chunk,
-                  embedding: null,
-                  similarity: words[chunk.id]!
-                      .intersection(queryWords)
-                      .length
-                      .toDouble(),
-                ),
-            ];
-            keyword.sort((a, b) => b.similarity.compareTo(a.similarity));
-            final keywordMs = elapsed(clock);
-            clock.reset();
-            final bm25 = lexical.search(text, limit: 50);
-            final bm25Ms = elapsed(clock);
             clock.reset();
             final loaded = await store.getEmbeddingsForChunks(
               ids,
@@ -101,15 +75,7 @@ Future<void> main(List<String> args) async {
             if (dense.first.chunk.id != chunks[target].id) {
               throw StateError('Exact lookup lost target');
             }
-            clock.reset();
-            fuseReciprocalRanks([bm25, dense.take(50).toList()], limit: 10);
-            final hybridMs = bm25Ms + denseMs + elapsed(clock);
-            if (pass > 0) {
-              timings['keyword']!.add(keywordMs);
-              timings['bm25']!.add(bm25Ms);
-              timings['dense']!.add(denseMs);
-              timings['hybrid']!.add(hybridMs);
-            }
+            if (pass > 0) denseTimings.add(denseMs);
             if (pass == 0) firstIds.add(dense.first.chunk.id);
           }
         }
@@ -122,9 +88,7 @@ Future<void> main(List<String> args) async {
         results[kind] = {
           'writeMs': writeMs,
           'databaseBytes': databaseBytes,
-          'timings': timings.map(
-            (key, value) => MapEntry(key, summarize(value)),
-          ),
+          'timings': {'dense': summarize(denseTimings)},
           'exactTargets': firstIds,
           'processPeakRssBytes': ProcessInfo.maxRss,
         };

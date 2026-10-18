@@ -58,8 +58,8 @@ final ArgParser compareArgParser = ArgParser()
   )
   ..addOption(
     'embedders',
-    help: 'Comma-separated run descriptors, for example bm25,hybrid.',
-    defaultsTo: 'bm25',
+    help: 'Comma-separated runs: dense or rerank:dense.',
+    defaultsTo: 'dense',
   )
   ..addOption('queries', help: 'Query id to query text mapping file.')
   ..addOption('qrels', help: 'BEIR-style query relevance judgments file.')
@@ -181,7 +181,7 @@ class CompareOptions {
   /// Folder that receives the run artifacts.
   String get outputDir => _filePath('output')!;
 
-  /// Run descriptors, for example `['bm25', 'hybrid']`.
+  /// Run descriptors, for example `['dense', 'rerank:dense']`.
   List<String> get embedderDescriptors {
     final raw = _required('embedders');
     final rawDescriptors = raw.split(',');
@@ -715,63 +715,42 @@ Map<String, String> _parseQueryGroupsJson(Object? decoded) {
   return groups;
 }
 
-enum ComparisonRunKind { lexical, semantic, hybrid }
-
 class ComparisonRun {
   const ComparisonRun({
     required this.label,
-    required this.kind,
     this.rerank = false,
-    this.embedderFactory,
+    required this.embedderFactory,
   });
 
   /// Parses one comparison-run descriptor and selects its run configuration.
   factory ComparisonRun.parse(
     String descriptor,
     Future<BaseEmbedder> Function() openEmbedder,
-  ) {
-    final normalized = descriptor.trim().toLowerCase();
-    if (normalized.startsWith('rerank:')) {
-      final baseDescriptor = _requiredDescriptorSuffix(
+  ) => switch (descriptor.trim().toLowerCase()) {
+    final normalized when normalized.startsWith('rerank:') => ComparisonRun.parse(
+      _requiredDescriptorSuffix(
         descriptor: normalized,
         prefix: 'rerank:',
         message:
             'rerank descriptor requires a base run descriptor after "rerank:".',
-      );
-      return ComparisonRun.parse(baseDescriptor, openEmbedder).reranked();
-    }
-
-    if (normalized == 'bm25' || normalized == 'lexical') {
-      return const ComparisonRun(
-        label: 'bm25',
-        kind: ComparisonRunKind.lexical,
-      );
-    }
-
-    if (normalized == 'hybrid') {
-      return ComparisonRun(
-        label: 'hybrid',
-        kind: ComparisonRunKind.hybrid,
-        embedderFactory: (_) => openEmbedder(),
-      );
-    }
-
-    if (normalized == 'dense' || normalized == 'llamadart') {
-      return ComparisonRun(
-        label: 'dense',
-        kind: ComparisonRunKind.semantic,
-        embedderFactory: (_) => openEmbedder(),
-      );
-    }
-    throw ArgumentError(
-      "Unknown semantic embedder '$descriptor'. Use bm25, dense, hybrid, or rerank:<run>.",
-    );
-  }
+      ),
+      openEmbedder,
+    ).reranked(),
+    'bm25' || 'lexical' || 'hybrid' => throw ArgumentError(
+      'This tool supports dense retrieval only. Use dense or rerank:dense.',
+    ),
+    'dense' || 'llamadart' => ComparisonRun(
+      label: 'dense',
+      embedderFactory: (_) => openEmbedder(),
+    ),
+    _ => throw ArgumentError(
+      "Unknown embedder '$descriptor'. Use dense or rerank:dense.",
+    ),
+  };
 
   final String label;
-  final ComparisonRunKind kind;
   final bool rerank;
-  final workflow.EmbedderFactory? embedderFactory;
+  final workflow.EmbedderFactory embedderFactory;
 
   ComparisonRun reranked() {
     if (rerank) {
@@ -781,7 +760,6 @@ class ComparisonRun {
     }
     return ComparisonRun(
       label: 'rerank-$label',
-      kind: kind,
       rerank: true,
       embedderFactory: embedderFactory,
     );

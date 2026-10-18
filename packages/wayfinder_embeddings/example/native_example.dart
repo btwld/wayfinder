@@ -16,10 +16,7 @@ Future<void> main() async {
     await pipeline.ingest(
       registry.chunkFiles([File('fixtures/samples/search.txt')]),
     );
-    final searcher = HybridContentSearcher(
-      lexicalIndex: BM25LexicalIndex.fromChunks(await store.getAllChunks()),
-      semanticSearcher: ContentSearcher(store: store, embedder: embedder),
-    );
+    final searcher = ContentSearcher(store: store, embedder: embedder);
     for (final result in await searcher.search('search documents offline')) {
       stdout.writeln(
         '${result.chunk.sourcePath}:${result.chunk.lineStart}: ${result.chunk.content}',

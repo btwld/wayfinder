@@ -49,12 +49,8 @@ Future<void> main(List<String> args) async {
           reopenMs = _ms(watch);
         }
         watch.reset();
-        final persistedChunks = await store.getAllChunks();
+        await store.getAllChunks();
         final readChunksMs = _ms(watch);
-        watch.reset();
-        final lexical = BM25LexicalIndex.fromChunks(persistedChunks);
-        final lexicalBuildMs = _ms(watch);
-        final lexicalMs = <double>[];
         final denseMs = <double>[];
         // Two full warmup passes, then ten measured passes over all queries.
         for (var pass = 0; pass < 12; pass++) {
@@ -64,12 +60,6 @@ Future<void> main(List<String> args) async {
                 .map((value) => value.toDouble())
                 .toList();
             watch.reset();
-            final lexicalHits = lexical.search(
-              row['query'] as String,
-              limit: 10,
-            );
-            final lexicalElapsed = _ms(watch);
-            watch.reset();
             final denseHits = await store.findSimilar(
               vector,
               identity.source,
@@ -77,13 +67,12 @@ Future<void> main(List<String> args) async {
               limit: 10,
             );
             final denseElapsed = _ms(watch);
-            if (lexicalHits.isEmpty || denseHits.isEmpty) {
+            if (denseHits.isEmpty) {
               throw StateError(
                 'Benchmark query unexpectedly returned no hits.',
               );
             }
             if (pass >= 2) {
-              lexicalMs.add(lexicalElapsed);
               denseMs.add(denseElapsed);
             }
           }
@@ -93,8 +82,6 @@ Future<void> main(List<String> args) async {
           'writeMs': writeMs,
           'reopenMs': ?reopenMs,
           'readChunksMs': readChunksMs,
-          'bm25BuildMs': lexicalBuildMs,
-          'bm25SearchMs': _summary(lexicalMs),
           'denseSearchMs': _summary(denseMs),
           'minimumSearchCandidates': kind == 'objectbox' ? 50 : null,
         };
