@@ -388,6 +388,14 @@ void main() {
               arguments: {'query': 'caching', 'researchTrace': true},
             ),
             const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'surroundingLines': -1},
+            ),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'contextTokens': 0},
+            ),
+            const CallToolRequest(
               name: 'index',
               arguments: {'bundle': '/another/root'},
             ),
@@ -642,6 +650,47 @@ void main() {
         },
       );
 
+      test('opt-in windows use one global budget and match CLI JSON', () async {
+        final result = await client.callTool(
+          const CallToolRequest(
+            name: 'search',
+            arguments: {
+              'query': 'caching',
+              'limit': 2,
+              'surroundingLines': 0,
+              'contextTokens': 30,
+            },
+          ),
+        );
+        expect(result.isError, isNot(true));
+        final payload = _payload(result);
+        expect(payload['matches'], hasLength(2));
+        expect(payload['context'], hasLength(2));
+        expect(payload['contextWindows'], hasLength(1));
+        expect((payload['contextBudget'] as Map)['usedTokens'], 28);
+        expect((payload['contextBudget'] as Map)['maxTokens'], 30);
+        expect(payload['contextDiagnostics'], hasLength(1));
+        final output = <String>[];
+        final cli = WayfinderCli(
+          out: output.add,
+          knowledge: () => knowledge,
+          workingDirectory: project,
+          notices: false,
+        );
+        expect(
+          await cli.run([
+            'search',
+            'caching',
+            '--limit=2',
+            '--surrounding-lines=0',
+            '--context-tokens=30',
+            '--output=json',
+          ]),
+          0,
+        );
+        expect(payload, jsonDecode(output.single));
+      });
+
       test(
         'index refreshes every configured bundle with CLI-equivalent JSON',
         () async {
@@ -856,6 +905,16 @@ class _Knowledge extends WayfinderKnowledge {
   bool disposed = false;
 
   @override
+  Future<KnowledgeContextAssembly> assembleContextWindows(
+    List<KnowledgeContextWindowInput> inputs,
+    KnowledgeContextWindowOptions options,
+  ) => const KnowledgeContextWindowAssembler().assemble(
+    inputs,
+    options: options,
+    countTokens: (text) async => text.runes.length,
+  );
+
+  @override
   Future<void> dispose() async {
     disposed = true;
     await super.dispose();
@@ -868,6 +927,7 @@ class _Knowledge extends WayfinderKnowledge {
     List<String> bundles,
     String query, {
     int limit = 5,
+
     KnowledgeMetadataFilter? filters,
   }) async {
     calls.add('searchBundles:${bundles.join(',')}:$query:$limit');
@@ -892,6 +952,7 @@ class _Knowledge extends WayfinderKnowledge {
           ],
           context: [],
           notices: [],
+          sourceTexts: {'guide.md': 'Caching guidance\nSecond line'},
         ),
     ];
   }
@@ -921,6 +982,7 @@ class _Knowledge extends WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+
     KnowledgeMetadataFilter? filters,
   }) async {
     calls.add('search:$bundle:$query:$limit');

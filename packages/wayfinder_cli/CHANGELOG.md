@@ -8,6 +8,13 @@
   Cap retained JSON at 64 MiB UTF-8; larger records bypass the cache. Preserve
   source freshness, per-call store closure, exact search output, and one-shot
   CLI behavior. Failures, missing records, and disconnect clear the entry.
+- Add opt-in CLI `--surrounding-lines`/`--context-tokens` and MCP
+  `surroundingLines`/`contextTokens`. Return separate line-accurate context
+  windows, measured global source-text budget and full omission diagnostics;
+  text mode shows compact notices. Existing output without opt-in, raw matches,
+  embeddings and index compatibility remain unchanged.
+- Prioritize direct context with up to two passages per concept and at most one
+  related slot (limits below three are direct-only); print section headings.
 - **BREAKING:** Search is dense-only. Remove CLI `--mode` (including dense)
   and MCP `mode`. Retired inputs are rejected explicitly; unsupported MCP fields
   are not silently discarded. Every actual search requires the verified local

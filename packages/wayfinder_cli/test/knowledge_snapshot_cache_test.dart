@@ -392,6 +392,8 @@ void main() {
 
 Map<String, Object?> _response(KnowledgeSearchResponse response) => {
   ...searchOutput(response),
+  'sourceTexts': response.sourceTexts,
+  'governingSources': response.governingSources,
   'edges': [
     for (final hit in response.context)
       {'edge': hit.edge?.toJson(), 'fieldEdge': hit.fieldEdge?.toJson()},

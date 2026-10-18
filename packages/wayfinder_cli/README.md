@@ -178,6 +178,43 @@ line ranges, metadata, similarity, context inclusion reasons and link notices.
 All lifecycle states remain eligible and status is displayed. Ranked passages
 are candidates; verify the supporting text before answering.
 
+### Optional surrounding context
+
+An individual passage can stop before a nearby qualification or correction. To
+request bounded surrounding source lines, opt in explicitly:
+
+```sh
+wayfinder search "Who may remove a record?" --surrounding-lines=12 --context-tokens=4096 --output=json
+```
+
+`--surrounding-lines=0..100` requests that many lines before and after each
+selected passage. `--context-tokens=1..65536` caps the combined window source
+text. Supplying either enables windows; the omitted option then defaults to 12
+lines or 4096 tokens. These are initial policy values, not measured optima. With
+neither option, output and retrieval behavior are unchanged.
+
+JSON adds `contextWindows`, `contextBudget`, and `contextDiagnostics`, retaining
+the original `matches`, `context`, scores, IDs and metadata. Each window has exact
+inclusive source lines and original contributing passage IDs/ranges/reasons.
+Overlapping/adjacent ranges merge within one bundle/source, never across bundles.
+The token budget applies once, after global selection, to source text joined with
+two newlines in window order. It uses the configured model's tokenizer, including
+that tokenizer's special tokens once for the combined string. Citations, metadata,
+original matches/context and diagnostics are **additional rendered overhead**.
+`contextBudget.usedTokens` reports the measured source-text count and the budget
+scope. This is not a full-response token limit.
+
+All selected core source spans take precedence over surrounding lines: the
+assembler reduces the radius uniformly until they fit. If core spans still
+exceed the cap, whole lowest-ranked windows are omitted and reported. A source
+line is never cut. Governing context cannot be omitted while retaining its
+dependent subordinate context. Text output shows windows and compact, bounded
+notices; JSON retains complete diagnostic details. Missing or stale indexes still
+fail before expansion; no source, embedding or index is written. Opt-in window
+assembly uses the configured model tokenizer. Search always requires the encoder.
+Line windows do not guarantee complete speaker turns or governing sections. A
+later exception can remain outside them; verify the broader source when needed.
+
 Validation exits 0 for gate `PASS`, 1 for `FAIL` and 2 for `INCOMPLETE`, which
 covers usage and I/O errors and any run with an error diagnostic. With
 `--output json` or `--output sarif`, a run that stops still prints a result
@@ -244,6 +281,10 @@ indexes and never indexes implicitly. The host can require approval for index's
 local writes. There is no per-call bundle override. Search uses dense retrieval
 only; a verified local encoder is required. Unsupported request fields, including
 retired `mode`, are rejected.
+Optional `surroundingLines` (0–100) or `contextTokens` (1–65536) enables the same
+global context-window policy and additive JSON fields as CLI. If both are absent,
+the existing output is unchanged. Supplying only one uses the opt-in default for
+the other. Window assembly uses the configured model tokenizer.
 
 The server keeps one lazily opened encoder across index/search calls and
 serializes retrieval operations that share it. The CLI delegates MCP retrieval
@@ -403,7 +444,7 @@ ranking, write the index, or generate document embeddings. The query is still
 required. These flags are currently available in the CLI; MCP search retains its
 existing query/limit contract.
 
-## Dense retrieval
+## Dense retrieval and context selection
 
 Search is dense-only. It opens the verified local encoder for the query and
 uses a current saved index. A missing model fails; search never falls back to
@@ -413,6 +454,14 @@ another retrieval method or silently rebuilds the index.
 wayfinder search knowledge "permission policy" --limit=5
 wayfinder search knowledge "POL-123" --limit=5
 ```
+
+The application keeps up to two ranked passages per concept. With a limit of
+three or more it reserves at most one slot for related context, after direct
+matches. With a limit of one or two it returns direct context only. Unused link
+slots return to direct matches. Text output includes `Section:` heading paths;
+JSON already carries them in chunk metadata. Neither a heading nor `stable`
+status establishes current authority. Read governing sources and resolve
+contradictory sections before answering.
 
 These are candidate rankings, not calibrated relevance scores. Existing
 compatible embedding indexes remain usable; dense-only does not change their

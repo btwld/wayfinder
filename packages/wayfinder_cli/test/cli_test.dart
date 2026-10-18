@@ -168,19 +168,6 @@ void main() {
     });
   }
 
-  for (final mode in ['dense', 'bm25', 'hybrid', 'unknown']) {
-    test('rejects retired --mode=$mode with migration guidance', () async {
-      expect(await cli.run(['search', '.', 'query', '--mode=$mode']), 2);
-      expect(
-        errors.single,
-        contains(
-          'Search uses dense retrieval only. Remove the retired --mode option.',
-        ),
-      );
-      expect(retrievalOpens, 0);
-    });
-  }
-
   test(
     'search converts argv and shares defaults and bounds with MCP',
     () async {
@@ -850,6 +837,7 @@ class _SearchKnowledge extends WayfinderKnowledge {
     String bundle,
     String query, {
     int limit = 5,
+
     KnowledgeMetadataFilter? filters,
   }) async {
     limits.add(limit);

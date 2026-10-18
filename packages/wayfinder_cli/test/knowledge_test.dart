@@ -133,6 +133,65 @@ void main() {
       });
 
       test(
+        'opt-in windows use indexed sources and tokenizer without changing the index',
+        () async {
+          await knowledge.index(bundle.path);
+          final current = await pointer();
+          final before = await current.readAsString();
+          final response = await knowledge.search(
+            bundle.path,
+            'password recovery',
+          );
+          final original = searchOutput(response);
+          final opened = encoders.length;
+          final inputs = knowledgeContextWindowInputs(bundle.path, response);
+          final windows = await knowledge.assembleContextWindows(
+            inputs,
+            KnowledgeContextWindowOptions(surroundingLines: 2, maxTokens: 4096),
+          );
+          expect(windows.windows, isNotEmpty);
+          expect(windows.sourceTextTokens, lessThanOrEqualTo(4096));
+          expect(encoders.length, opened + 1);
+          expect(await current.readAsString(), before);
+          expect(searchOutput(response), original);
+          expect(response.sourceTexts, isNotEmpty);
+          expect(original, isNot(contains('sourceTexts')));
+        },
+      );
+
+      test(
+        'CLI window assembly reuses the dense query encoder and closes it',
+        () async {
+          await knowledge.index(bundle.path);
+          final opened = encoders.length;
+          final output = <String>[];
+          final errors = <String>[];
+          final cli = WayfinderCli(
+            out: output.add,
+            err: errors.add,
+            knowledge: () => knowledge,
+            notices: false,
+          );
+          expect(
+            await cli.run([
+              'search',
+              bundle.path,
+              'password recovery',
+              '--surrounding-lines=2',
+              '--output=json',
+            ]),
+            0,
+            reason: errors.join('\n'),
+          );
+          expect(encoders.length, opened + 1);
+          expect(encoders.last.queryTexts, ['password recovery']);
+          expect(encoders.last.closed, isTrue);
+          final payload = jsonDecode(output.single) as Map;
+          expect(payload['contextWindows'], isNotEmpty);
+        },
+      );
+
+      test(
         'standalone admission stays private across async source reads and a later session',
         () async {
           await knowledge.index(bundle.path);
@@ -467,7 +526,9 @@ void main() {
           expect(result.matches.first.chunk.sourcePath, 'recovery.md');
           expect(result.matches.first.chunk.lineStart, greaterThan(5));
           expect(
-            result.context.any((hit) => hit.reason == 'relationship'),
+            result.context.any(
+              (hit) => hit.result.chunk.sourcePath == 'weather.md',
+            ),
             isTrue,
           );
           final second = await knowledge.index(bundle.path);
@@ -481,45 +542,46 @@ void main() {
         },
       );
 
-      test(
-        'search follows typed relationships from a reopened index',
-        () async {
-          final recovery = File(p.join(bundle.path, 'recovery.md'));
-          await recovery.writeAsString(
-            (await recovery.readAsString())
-                .replaceFirst(
-                  'status: stable\n',
-                  'status: stable\n'
-                      'relationships:\n'
-                      '  - {relationship: related-to, resource: /weather.md}\n',
-                )
-                .replaceFirst(
-                  'See [weather](weather.md) for an unrelated example.\n',
-                  '',
-                ),
-          );
-          await knowledge.index(bundle.path);
-          final result = await knowledge.search(
-            bundle.path,
-            'password recovery',
-          );
-          final related = result.context.singleWhere(
-            (hit) => hit.reason == 'relationship',
-          );
-          expect(related.result.chunk.sourcePath, 'weather.md');
-          expect(related.edge, isNull);
-          expect(related.fieldEdge!.name, 'related-to');
-          expect(
-            searchOutput(result)['context'],
-            contains(
-              allOf(
-                containsPair('reason', 'relationship'),
-                containsPair('relationship', 'related-to'),
+      test('search follows typed relationships from a reopened index', () async {
+        final recovery = File(p.join(bundle.path, 'recovery.md'));
+        await recovery.writeAsString(
+          (await recovery.readAsString())
+              .replaceFirst(
+                'status: stable\n',
+                'status: stable\n'
+                    'relationships:\n'
+                    '  - {relationship: related-to, resource: /weather.md}\n',
+              )
+              .replaceFirst(
+                'See [weather](weather.md) for an unrelated example.\n',
+                '',
               ),
+        );
+        await recovery.writeAsString(
+          '${await recovery.readAsString()}\nPassword recovery confirms account access.\n',
+        );
+        await knowledge.index(bundle.path);
+        final result = await knowledge.search(
+          bundle.path,
+          'password recovery',
+          limit: 3,
+        );
+        final related = result.context.singleWhere(
+          (hit) => hit.reason == 'relationship',
+        );
+        expect(related.result.chunk.sourcePath, 'weather.md');
+        expect(related.edge, isNull);
+        expect(related.fieldEdge!.name, 'related-to');
+        expect(
+          searchOutput(result)['context'],
+          contains(
+            allOf(
+              containsPair('reason', 'relationship'),
+              containsPair('relationship', 'related-to'),
             ),
-          );
-        },
-      );
+          ),
+        );
+      });
 
       test(
         'a current index skips the encoder; force re-embeds every passage',
@@ -590,7 +652,7 @@ void main() {
           for (final response in responses) {
             expect(response.matches.first.chunk.sourcePath, 'recovery.md');
             expect(
-              response.context.any((hit) => hit.reason == 'relationship'),
+              response.context.every((hit) => hit.reason == 'match'),
               isTrue,
             );
           }

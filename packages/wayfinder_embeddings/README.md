@@ -81,6 +81,49 @@ This input format uses `okf-context-v2`; body-only inputs retain `okf-body-v1`.
 The CLI detects previous contextual indexes as stale. Run `wayfinder index` once
 to rebuild; subsequent indexing reuses unchanged vectors.
 
+### Opt-in section and message passages
+
+`KnowledgeSnapshot.load` and `fromSources` accept `groupSections: true`.
+This mode groups adjacent prose within a heading section. Single-line setext
+headings are recognized as context. Standalone bold labels and named timestamp
+lines start separate source blocks, so a labelled request does not merge with
+the next labelled reply. These are formatting cues, not inferred authorship or
+approval authority. Unlabelled prose follows section boundaries.
+
+The grouped mode bypasses the preliminary character budget. Before embedding,
+call `fitInputs` with a real tokenizer and an optional `targetTokens`:
+
+```dart
+final grouped = await KnowledgeSnapshot.load(
+  bundlePath,
+  bundleId: stableBundleId,
+  groupSections: true,
+);
+final fitted = await grouped.fitInputs(
+  countTokens: countEffectiveModelInput,
+  targetTokens: preferredInputTokens,
+  maxTokens: maximumInputTokens,
+  includeContext: true,
+);
+```
+
+The counter must include the model's document prompt and special tokens, not
+only the body. A complete unit below `maxTokens` stays intact even above the
+soft target. Oversized prose splits at blank-line blocks, then sentence
+boundaries, then the existing whitespace/Unicode-safe fallback. Tables and code
+prefer line boundaries. Fitted inputs repeat explicit source labels as context,
+alongside existing table headers and language metadata. Source body bytes and
+citation ranges are not rewritten. Horizontal separators are apparatus; an
+apparatus-only document remains searchable.
+
+This is opt-in Dart API behavior, not a new CLI default or a model switch.
+Snapshot metadata identifies `markdown-sections-v1`. Cache/publication keys must
+include the chunking mode, target/cap, model, tokenizer, and input format. Rebuild
+from sources when changing the policy: refitting saved fragments does not merge
+them back into larger units. `toMap/fromMap` preserves the resulting passages.
+The caller still owns model compatibility and store dimensions. Size choices
+need corpus-specific retrieval validation; larger chunks are not always better.
+
 ### Oversized embedding inputs
 
 `KnowledgeSnapshot.fitInputs()` measures each complete input with the supplied
@@ -421,10 +464,70 @@ simplicity in [ADR-0017](../../docs/adr/0017-dense-only-retrieval.md):
   both always require genuine model inference. Preview examples remain model-free.
 
 Generic `Searcher`, reranking, TEI endpoints, reranker candidate limits, parent/child
-expansion, storage, and context policy remain available.
+expansion, storage, context policy, and opt-in section grouping remain available.
 Model-load errors fail, and the OKF adapter rejects missing eligible vectors.
 
 The cutoff does not change model identity, input format, snapshot format, or
 store schema. Compatible existing saved indexes remain usable. Independent
 changes to contextual input or an opt-in chunking policy still have their own
 rebuild requirements. No bundle or Profile migration is introduced.
+
+### Bounded context policies
+
+`KnowledgeSearchPolicy.maxPassagesPerConcept` defaults to one. Set it to two
+when a concept may need complementary supporting passages. Original chunk IDs
+and line ranges are retained; duplicate chunk IDs never consume another slot.
+
+`maxRelationshipPassages` defaults to null, preserving match-then-links ordering.
+Setting a nonnegative limit reserves at most that many context slots for related
+concepts, after direct matches, while retaining at least one direct slot. Unused
+slots return to direct matches. Explicit governing-source policies still take
+precedence. This is consumer retrieval policy, not an OKF authority rule.
+
+### Opt-in surrounding source windows
+
+A retrieved paragraph can omit the next qualification or correction.
+`KnowledgeContextWindowAssembler` expands selected hits after retrieval, without
+changing their ranks, scores, embeddings, IDs, indexed text or index identity:
+
+```dart
+final inputs = knowledgeContextWindowInputs(snapshot.bundleId, response);
+final assembly = await const KnowledgeContextWindowAssembler().assemble(
+  inputs,
+  options: KnowledgeContextWindowOptions(
+    surroundingLines: 12,
+    maxTokens: 4096,
+  ),
+  countTokens: embedder.countTokens,
+);
+```
+
+The values above illustrate a bounded policy, not a measured optimum. There is
+no expansion unless a caller invokes the assembler. For multiple bundles, collect
+inputs after global hit selection and call the assembler once. `sourceId` and
+relative source path jointly identify a source; equal paths in different bundles
+never merge.
+
+Windows contain exact, inclusive source-line ranges, with CRLF/CR normalized to
+LF. Overlapping or adjacent ranges merge and retain all original hit provenance.
+The original `KnowledgeSearchResponse.matches` and `context` remain unchanged.
+Its in-process `sourceTexts` retain indexed sources for this step; serializers do
+not emit those complete documents.
+
+The budget counts the windows' source text joined in output order with `\n\n`,
+using the caller's actual tokenizer. Any special tokens that tokenizer adds are
+counted once for the combined string, not once per window. This is **not a full
+rendered-response budget**: citations, metadata, original matches/context and
+diagnostics are additional. The assembly reports its used and maximum tokens,
+requested/applied surrounding lines, exact accounting scope and full diagnostics.
+
+If the requested windows exceed the budget, the assembler reduces surrounding
+lines uniformly, retaining all selected core spans first. If the cores still
+exceed it, whole lowest-ranked windows are omitted. It never cuts a line or
+silently truncates a passage. Explicit governing-source dependencies are kept;
+if governing context is unavailable or omitted, dependent subordinate context is
+also omitted and reported. No authority is inferred from document text or score.
+
+A line window is not a complete speaker turn or governing section. A later
+qualification or correction can remain outside the window. Verify broader source
+context when the answer depends on completeness.

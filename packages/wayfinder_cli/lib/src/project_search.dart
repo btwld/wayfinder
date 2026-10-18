@@ -8,11 +8,7 @@ typedef ProjectContext = ({ProjectBundle bundle, KnowledgeContextHit hit});
 
 /// Ranks across bundles without conflating equal source paths in different roots.
 class ProjectSearchResult {
-  ProjectSearchResult(
-    this.bundles,
-    List<KnowledgeSearchResponse> results, {
-    required int limit,
-  }) {
+  ProjectSearchResult(this.bundles, this.results, {required int limit}) {
     final candidates =
         <ProjectMatch>[
           for (var i = 0; i < bundles.length; i++)
@@ -30,21 +26,40 @@ class ProjectSearchResult {
     final seen = <(String, String)>{};
     void add(ProjectBundle bundle, KnowledgeContextHit hit) {
       if (context.length < limit &&
-          seen.add((bundle.root, hit.result.chunk.sourcePath))) {
+          seen.add((bundle.root, hit.result.chunk.id))) {
         context.add((bundle: bundle, hit: hit));
       }
     }
 
-    for (final match in matches) {
+    final directSlots = limit >= 3 ? limit - 1 : limit;
+    for (final match in matches.take(directSlots)) {
       add(match.bundle, KnowledgeContextHit(match.hit, 'match'));
+    }
+    // One optional related concept may not displace the direct-match budget.
+    var relatedAdded = false;
+    for (final match in matches) {
       final result = results[bundles.indexOf(match.bundle)];
       for (final related in result.context.where(
         (hit) =>
             hit.reason == 'relationship' &&
             hit.viaPath == match.hit.chunk.sourcePath,
       )) {
+        if (relatedAdded || limit < 3) break;
+        if (context.any(
+          (entry) =>
+              entry.bundle.root == match.bundle.root &&
+              entry.hit.result.chunk.sourcePath ==
+                  related.result.chunk.sourcePath,
+        )) {
+          continue;
+        }
+        final before = context.length;
         add(match.bundle, related);
+        relatedAdded = context.length > before;
       }
+    }
+    for (final match in matches.skip(directSlots)) {
+      add(match.bundle, KnowledgeContextHit(match.hit, 'match'));
     }
     for (var i = 0; i < bundles.length; i++) {
       notices.addAll(results[i].notices.map((n) => '${bundles[i].name}: $n'));
@@ -52,9 +67,25 @@ class ProjectSearchResult {
   }
 
   final List<ProjectBundle> bundles;
+  final List<KnowledgeSearchResponse> results;
   final matches = <ProjectMatch>[];
   final context = <ProjectContext>[];
   final notices = <String>[];
+
+  /// Assemble only after global ranking/selection, so equal relative paths in
+  /// separate bundles stay distinct and the token budget is shared by all.
+  List<KnowledgeContextWindowInput> contextWindowInputs() {
+    final seen = <(String, String)>{};
+    return [
+      for (final entry in context)
+        for (final input in knowledgeContextWindowInputs(
+          entry.bundle.root,
+          results[bundles.indexOf(entry.bundle)],
+          selected: [entry.hit],
+        ))
+          if (seen.add((input.sourceId, input.hit.result.chunk.id))) input,
+    ];
+  }
 
   Map<String, Object?> toJson() => {
     'bundles': bundles.map((bundle) => bundle.toJson()).toList(),
@@ -75,7 +106,7 @@ class ProjectSearchResult {
           'chunk': entry.hit.result.chunk.toMap(),
           'similarity': entry.hit.result.similarity,
           'reason': entry.hit.reason,
-          if (entry.hit.viaPath != null) 'viaPath': entry.hit.viaPath,
+          'viaPath': ?entry.hit.viaPath,
         },
     ],
     'notices': notices,

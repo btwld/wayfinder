@@ -17,6 +17,21 @@
   input identity, storage schema, context, or chunking change is implied by this
   cutoff. Compatible saved indexes remain usable.
 
+- Add opt-in section/message grouping to Markdown and OKF snapshot chunking,
+  with source-label context and tokenizer-aware soft-target fitting. Complete
+  source units can exceed the target up to the hard cap. Preserve original
+  body spans, table headers, lossless oversized-input recovery, and snapshot
+  round trips. Existing paragraph/character-budget and CLI defaults remain
+  unchanged. Callers must rebuild from sources and include the chunking policy
+  in cache identity when enabling or changing it.
+- Add an opt-in, post-retrieval source-window assembler with exact source-line
+  ranges, overlap merging, original hit provenance, global tokenizer accounting,
+  explicit budget diagnostics and governing-dependency-safe omissions. Indexed
+  chunks, retrieval scores and default search output are unchanged.
+- Add opt-in per-concept passage limits and a bounded direct-first relationship
+  budget to `KnowledgeSearchPolicy`. Preserve library defaults, source citations,
+  metadata eligibility, and explicit governing-source precedence.
+
 # 0.2.0
 
 - `OkfLinkField` names a producer frontmatter key whose entries are typed
@@ -36,9 +51,6 @@ compatibility wrappers are provided:
 - Replace `chunkFiles(registry, files, ...)` with
   `registry.chunkFiles(files, ...)`.
 - Replace `deterministicChunkId(...)` with `Chunk.computeId(...)`.
-- Replace `ReciprocalRankFusion.defaultRankConstant` with
-  `defaultReciprocalRankConstant`, and `ReciprocalRankFusion.fuse(...)` with
-  `fuseReciprocalRanks(...)`.
 - Replace `RetrievalEvaluator.evaluate(...)` with
   `RetrievalEvaluation.evaluate(...)`, and `.evaluateQuery(...)` with
   `QueryRetrievalEvaluation.evaluate(...)`.
@@ -86,7 +98,9 @@ Stable release for the Wayfinder package split; retrieval APIs are unchanged.
 
 ## History before the package rename
 
-The entries below describe releases of `knowledge_embeddings`.
+The entries below describe releases of `knowledge_embeddings`, not current
+support. Their BM25/hybrid/fusion paths and model-free retrieval defaults are
+superseded by the dense-only migration above.
 
 ## 0.0.1-dev.1
 

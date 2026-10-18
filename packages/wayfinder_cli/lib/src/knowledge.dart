@@ -538,6 +538,32 @@ class WayfinderKnowledge {
   }) =>
       _retrieval(() => _search(bundle, query, limit: limit, filters: filters));
 
+  /// Applies one global source-text token budget after bundle selection. This
+  /// read-only step uses the configured model's tokenizer, never embeds source
+  /// text or writes an index. Context assembly also loads a tokenizer.
+  Future<KnowledgeContextAssembly> assembleContextWindows(
+    List<KnowledgeContextWindowInput> inputs,
+    KnowledgeContextWindowOptions options,
+  ) => _retrieval(() async {
+    if (inputs.isEmpty) {
+      return const KnowledgeContextWindowAssembler().assemble(
+        inputs,
+        options: options,
+        countTokens: (_) async => 0,
+      );
+    }
+    final encoder = await _acquireEncoder();
+    try {
+      return await const KnowledgeContextWindowAssembler().assemble(
+        inputs,
+        options: options,
+        countTokens: encoder.countTokens,
+      );
+    } finally {
+      await _releaseEncoder(encoder);
+    }
+  });
+
   Future<KnowledgeSearchResponse> _search(
     String bundle,
     String query, {
@@ -656,6 +682,8 @@ class WayfinderKnowledge {
         contextLimit: allContext ? snapshot.conceptPaths.length : null,
         policy: KnowledgeSearchPolicy(
           expandRelationships: true,
+          maxPassagesPerConcept: 2,
+          maxRelationshipPassages: limit >= 3 ? 1 : 0,
           metadataFilter: filters,
         ),
       );

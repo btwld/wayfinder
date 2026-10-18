@@ -1,22 +1,35 @@
 # Wayfinder operations
 
-## Choose the interface
+Read only the section needed. Project instructions override setup defaults.
 
-Check for the **Wayfinder MCP tools** (`search`, `index`, `validate`, `graph`,
-usually prefixed `mcp__wayfinder__` or `mcp__plugin_wayfinder_wayfinder__`) and
-prefer them. Default `wayfinder mcp` launches discover every bundle in the
-nearest `wayfinder.json` (`applies_to`), or the conventional `knowledge/` fallback.
-`search` takes `{"query": "<one natural-language question>", "limit": 5}`. It uses
-dense retrieval across those bundles with one global limit; it needs no bundle list.
-Every actual search requires the local encoder. Do not send retired `mode` fields;
-unsupported fields are rejected. `index` refreshes them all. Project `validate`
-and `graph` return independent reports in `bundles`, each with `name` and
-project-relative `path`; read every validation report's gate and `exit_code` before
-claiming the project passes. An explicit `wayfinder mcp <bundle>` launch or
-`WAYFINDER_KNOWLEDGE_DIR` restricts the tools to one bundle and preserves the
-single-bundle result shapes. `graph` takes optional `types`, `path_prefixes` and
-`resolutions` and returns the versioned OKF graph JSON, plus a `field_edges` array
-holding each concept's typed `relationships` entries.
+## Session startup and index refresh
+
+`wayfinder setup --session-hooks` prompts Claude, Codex, and Gemini to load this
+skill at session start. Grok reads the same pointer from `AGENTS.md`; its
+SessionStart hook ignores stdout. Follow the related skills below only when the
+task calls for them. Startup supplies instructions and performs no indexing.
+
+`wayfinder setup --hooks` installs bundle-aware Git hooks for pulls, checkouts,
+and rebases. When search reports a stale index, run the MCP `index` tool or
+`wayfinder index <bundle>` and search again.
+
+## Choose an interface
+
+Prefer the **Wayfinder MCP tools** when they are available (the `wayfinder`
+plugin registers them as `validate`, `index`, `search` and `graph`). By default
+they discover all project bundles from `wayfinder.json`, or `knowledge/` without
+a configuration. `search` takes `query`, optional `limit` (1–100, default 5), and optional
+source-window settings. It uses dense retrieval across those bundles with one
+global limit; it needs no bundle list. Every actual search requires the local
+encoder. Do not send retired `mode` fields; unsupported fields are rejected.
+`index` refreshes them all. Project `validate` and `graph` return independent
+reports in `bundles`, each with `name` and project-relative `path`; read every
+validation report's gate and `exit_code` before claiming the project passes.
+An explicit `wayfinder mcp <bundle>` launch or `WAYFINDER_KNOWLEDGE_DIR` restricts
+the tools to one bundle and preserves the single-bundle result shapes.
+`graph` takes optional `types`, `path_prefixes` and `resolutions` and returns
+the versioned OKF graph JSON, plus a `field_edges` array holding each concept's
+typed `relationships` entries.
 
 Otherwise use the **CLI**. Search/index default to all project bundles listed by
 the nearest `wayfinder.json`, or conventional `knowledge/` without configuration.
@@ -30,11 +43,11 @@ wayfinder search [<bundle>] "<one quoted query>" [--bundle NAME] [--limit N] [--
 ```
 
 Project search (CLI or MCP) ranks across selected bundles with a global limit.
-Its JSON adds `bundles` and annotates each match/context hit with `bundle` and
-`bundlePath`; combine that path with `chunk.sourcePath` for project-relative
-citations. A stale selected index fails the whole search: run `wayfinder index`
-and retry. Explicit paths preserve the single-bundle JSON shape. Do not combine
-a path and `--bundle`.
+Its JSON adds
+`bundles` and annotates each match/context hit with `bundle` and `bundlePath`;
+combine that path with `chunk.sourcePath` for project-relative citations. A stale
+selected index fails the whole search: run `wayfinder index` and retry. Explicit
+paths preserve the single-bundle JSON shape. Do not combine a path and `--bundle`.
 
 For **graph**, `--type`, `--path-prefix` and `--resolution` are repeatable and match the MCP
 `types`, `path_prefixes` and `resolutions` filters.
@@ -42,7 +55,25 @@ For **graph**, `--type`, `--path-prefix` and `--resolution` are repeatable and m
 Use `--output=json` when you will parse results; explicit-path output has the
 same shape a single-bundle MCP launch returns. If neither the tools nor the
 `wayfinder` command exist, say so and see [Troubleshooting](#troubleshooting)
-rather than silently falling back to grep-only answers.
+rather than silently falling back to
+grep-only answers.
+
+## Search output and source windows
+
+Text output shows `path:start-end [status; reason]` and section headings.
+JSON and MCP results distinguish raw similarity `matches` from bounded `context`
+containing direct, related, and governing passages. Context keeps up to two ranked
+passages per concept. With a limit of three or more, at most one slot is reserved
+for related context; unused space returns to direct matches. Smaller limits are
+direct-only. These bounds do not determine authority or completeness.
+
+MCP `surroundingLines` (0–100) or `contextTokens` (1–65536) requests exact source
+`contextWindows`. If either is supplied, the other defaults to 12 surrounding
+lines or 4096 tokens. The token budget is shared across windows, not per hit.
+Inspect `contextDiagnostics` for omitted windows and reduced radii. For example,
+`{"query":"<focused question>","limit":5,"surroundingLines":20,"contextTokens":8192}`
+asks for more context; it does not guarantee that every needed passage fits.
+Read a returned file directly when a window misses a relevant section or qualifier.
 
 ## Validate
 

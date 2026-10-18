@@ -81,11 +81,19 @@ class KnowledgeSearchPolicy {
     Set<String> conceptTypes = const {},
     Set<String> pathPrefixes = const {},
     this.expandRelationships = false,
+    this.maxPassagesPerConcept = 1,
+    this.maxRelationshipPassages,
     Map<String, String> governingSources = const {},
   }) : statuses = statuses == null ? null : Set.unmodifiable(statuses),
        conceptTypes = Set.unmodifiable(conceptTypes),
        pathPrefixes = Set.unmodifiable(pathPrefixes),
        governingSources = Map.unmodifiable(governingSources) {
+    if (maxPassagesPerConcept < 1 ||
+        (maxRelationshipPassages != null && maxRelationshipPassages! < 0)) {
+      throw ArgumentError(
+        'Passage limits must be positive (relationships may be zero).',
+      );
+    }
     if (currentOnly && asOf == null) {
       throw ArgumentError('currentOnly requires an explicit asOf date.');
     }
@@ -112,6 +120,16 @@ class KnowledgeSearchPolicy {
   final Set<String> conceptTypes;
   final Set<String> pathPrefixes;
   final bool expandRelationships;
+
+  /// Maximum query-ranked passages retained from one concept. Defaults to the
+  /// historical one-passage policy; citations remain the original chunk ranges.
+  final int maxPassagesPerConcept;
+
+  /// When set, reserve at most this many slots for related concepts, after
+  /// direct matches. Unused slots return to direct matches. At least one direct
+  /// slot is retained. Null preserves historical match-then-links ordering.
+  /// Explicit governing sources still precede the passages they govern.
+  final int? maxRelationshipPassages;
 
   /// Lower-authority concept path -> governing concept path. No inference from
   /// concept type, link label, verification tier, or similarity establishes it.
@@ -154,11 +172,15 @@ class KnowledgeSearchResponse {
     required List<SearchResult> matches,
     required List<KnowledgeContextHit> context,
     required List<String> notices,
+    Map<String, String> sourceTexts = const {},
+    Map<String, String> governingSources = const {},
   }) : matches = List.unmodifiable(matches),
        context = List.unmodifiable(context),
-       notices = List.unmodifiable(notices);
+       notices = List.unmodifiable(notices),
+       sourceTexts = Map.unmodifiable(sourceTexts),
+       governingSources = Map.unmodifiable(governingSources);
 
-  /// Query-ranked matches, one best passage per concept.
+  /// Query-ranked matches, bounded by the selected per-concept passage policy.
   final List<SearchResult> matches;
 
   /// Bounded context after applying explicit governing and relationship policy.
@@ -166,6 +188,13 @@ class KnowledgeSearchResponse {
 
   /// Missing/excluded governing context and unresolved links are visible here.
   final List<String> notices;
+
+  /// Indexed source text for optional post-retrieval context assembly. This
+  /// in-process data is not part of the CLI/MCP JSON representation.
+  final Map<String, String> sourceTexts;
+
+  /// Explicit dependencies retained for budget-safe context assembly.
+  final Map<String, String> governingSources;
 }
 
 /// Synchronizes one bundle and searches an explicit eligible concept set.
@@ -439,35 +468,53 @@ class KnowledgeIndex {
   }) {
     final effective = policy;
     final best = <String, SearchResult>{};
-    for (final hit in ranked.where(
-      (hit) => eligible.containsKey(hit.chunk.id),
-    )) {
-      final chunk = eligible[hit.chunk.id]!;
-      best.putIfAbsent(
-        chunk.sourcePath,
-        () => SearchResult(
-          chunk: chunk,
-          embedding: hit.embedding,
-          similarity: hit.similarity,
-        ),
+    final selected = <SearchResult>[];
+    final selectedIds = <String>{};
+    final selectedCounts = <String, int>{};
+    for (final hit in ranked) {
+      final chunk = eligible[hit.chunk.id];
+      if (chunk == null || !selectedIds.add(chunk.id)) continue;
+      final canonical = SearchResult(
+        chunk: chunk,
+        embedding: hit.embedding,
+        similarity: hit.similarity,
       );
+      best.putIfAbsent(chunk.sourcePath, () => canonical);
+      final count = selectedCounts[chunk.sourcePath] ?? 0;
+      if (count < effective.maxPassagesPerConcept) {
+        selected.add(canonical);
+        selectedCounts[chunk.sourcePath] = count + 1;
+      }
     }
-    final matches = best.values.take(limit).toList();
+    final matches = selected.take(limit).toList();
     final byPath = <String, Chunk>{};
     for (final chunk in eligible.values) {
       byPath.putIfAbsent(chunk.sourcePath, () => chunk);
     }
     final context = <KnowledgeContextHit>[];
     final seen = <String>{};
+    final contextCounts = <String, int>{};
+    var relationshipCount = 0;
     final notices = <String>[];
     void add(
       String path,
       String reason, {
       String? via,
+      SearchResult? direct,
       OkfGraphEdge? edge,
       OkfFieldEdge? fieldEdge,
     }) {
-      if (context.length >= budget || seen.contains(path)) return;
+      final count = contextCounts[path] ?? 0;
+      if (context.length >= budget ||
+          count >= effective.maxPassagesPerConcept ||
+          (direct == null && count > 0)) {
+        return;
+      }
+      if (reason == 'relationship' &&
+          effective.maxRelationshipPassages != null &&
+          relationshipCount >= effective.maxRelationshipPassages!) {
+        return;
+      }
       final governor = effective.governingSources[path];
       if (governor != null) {
         if (!byPath.containsKey(governor)) {
@@ -476,12 +523,16 @@ class KnowledgeIndex {
           add(governor, 'governing', via: path);
         }
       }
-      if (context.length >= budget || !seen.add(path)) return;
-      final chunk = byPath[path];
-      if (chunk == null) return;
+      final chunk = direct?.chunk ?? best[path]?.chunk ?? byPath[path];
+      if (chunk == null || context.length >= budget || !seen.add(chunk.id)) {
+        return;
+      }
+      contextCounts[path] = count + 1;
+      if (reason == 'relationship') relationshipCount++;
       context.add(
         KnowledgeContextHit(
-          best[path] ??
+          direct ??
+              best[path] ??
               SearchResult(chunk: chunk, embedding: null, similarity: 0),
           reason,
           viaPath: via,
@@ -514,10 +565,8 @@ class KnowledgeIndex {
       }
     }
 
-    for (final match in matches) {
-      final source = match.chunk.sourcePath;
-      add(source, 'match');
-      if (!effective.expandRelationships) continue;
+    void expand(String source) {
+      if (!effective.expandRelationships) return;
       for (final edge in snapshot.fieldEdges.where(
         (edge) => edge.source.documentPath == source,
       )) {
@@ -541,10 +590,40 @@ class KnowledgeIndex {
         );
       }
     }
+
+    final relationshipLimit = effective.maxRelationshipPassages;
+    if (relationshipLimit == null) {
+      for (final match in matches) {
+        add(match.chunk.sourcePath, 'match', direct: match);
+        expand(match.chunk.sourcePath);
+      }
+    } else {
+      final reserved = effective.expandRelationships
+          ? relationshipLimit.clamp(0, budget - 1)
+          : 0;
+      final directCount = budget - reserved;
+      for (final match in matches.take(directCount)) {
+        add(match.chunk.sourcePath, 'match', direct: match);
+      }
+      for (final source in matches.map((hit) => hit.chunk.sourcePath).toSet()) {
+        expand(source);
+      }
+      for (final match in matches.skip(directCount)) {
+        add(match.chunk.sourcePath, 'match', direct: match);
+      }
+    }
     return KnowledgeSearchResponse(
       matches: matches,
       context: context,
       notices: notices.toSet().toList(),
+      sourceTexts: {
+        for (final path in {
+          ...matches.map((hit) => hit.chunk.sourcePath),
+          ...context.map((hit) => hit.result.chunk.sourcePath),
+        })
+          path: snapshot.sources[path]!,
+      },
+      governingSources: effective.governingSources,
     );
   }
 }

@@ -47,8 +47,11 @@ Results include ranked `matches` and bounded `context`. Project results include
 Inspect direct matches when linked context is unhelpful. Do not discard relevant
 governing context. Use CLI `--output=json` for programmatic selection.
 
-When excerpts omit needed context, read the source directly. Do not keep
-increasing search limits instead of reading a known source.
+When excerpts omit needed context, read the source or request surrounding lines.
+MCP `surroundingLines` and `contextTokens` add bounded `contextWindows`; check
+`contextDiagnostics` for omitted windows. These limits bound output, not evidence
+sufficiency. See [search output](references/operations.md)
+for details. Do not keep increasing search limits instead of reading a known source.
 
 ## 3. Verify and answer
 

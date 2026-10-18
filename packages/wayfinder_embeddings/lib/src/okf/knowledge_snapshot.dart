@@ -50,12 +50,25 @@ class KnowledgeSnapshot {
   final Map<String, String> sources;
   final List<String> assets;
 
+  static final _newlinePattern = RegExp(r'\n');
+  static final _blankLinePattern = RegExp(r'\n[ \t]*\n');
+  static final _sentenceBoundaryPattern = RegExp(
+    r'[.!?]["\x27\u201d\u2019)]*\s+',
+  );
+  static final _whitespacePattern = RegExp(r'\s+');
+  static final _proseBoundaryPatterns = [
+    _blankLinePattern,
+    _sentenceBoundaryPattern,
+  ];
+  static final _lineBoundaryPatterns = [_newlinePattern];
+
   /// Loads a complete inventory using OKF's symlink and parse protections.
   /// No store mutation occurs until the entire snapshot has been read.
   static Future<KnowledgeSnapshot> load(
     String root, {
     required String bundleId,
     int maxChunkLength = 1000,
+    bool groupSections = false,
     Iterable<OkfLinkField> linkFields = const [],
   }) async {
     final loaded = await const OkfBundleLoader().inspect(root);
@@ -74,6 +87,7 @@ class KnowledgeSnapshot {
       bundleId: bundleId,
       assets: loaded.assets,
       maxChunkLength: maxChunkLength,
+      groupSections: groupSections,
       linkFields: linkFields,
     );
   }
@@ -85,6 +99,7 @@ class KnowledgeSnapshot {
     required String bundleId,
     Iterable<String> assets = const [],
     int maxChunkLength = 1000,
+    bool groupSections = false,
     Iterable<OkfLinkField> linkFields = const [],
   }) {
     if (bundleId.trim().isEmpty) {
@@ -112,7 +127,10 @@ class KnowledgeSnapshot {
       logs: logs,
       assets: assets,
     );
-    final chunker = MarkdownChunker(maxChunkLength: maxChunkLength);
+    final chunker = MarkdownChunker(
+      maxChunkLength: maxChunkLength,
+      groupSections: groupSections,
+    );
     final chunks = <Chunk>[];
     final metadata = <String, OkfMetadata>{};
     final contextTexts = <String, String>{};
@@ -141,16 +159,20 @@ class KnowledgeSnapshot {
       // attribution through `sources` rather than footnote prose (OKF 0.2
       // §5.1). A body made only of apparatus still has to be searchable.
       final onlyApparatus = bodyChunks.every(
-        (chunk) => chunk.type == 'heading' || chunk.type == 'footnote',
+        (chunk) =>
+            chunk.type == 'heading' ||
+            chunk.type == 'footnote' ||
+            chunk.type == 'separator',
       );
       for (final raw in bodyChunks) {
-        if (raw.type == 'heading') {
-          final level = raw.metadata['headingLevel']! as int;
-          headings.removeWhere((heading) => heading.level >= level);
-          headings.add((level: level, text: raw.content));
-          if (!onlyApparatus) continue;
-        } else if (raw.type == 'footnote' && !onlyApparatus) {
-          continue;
+        switch (raw.type) {
+          case 'heading':
+            final level = raw.metadata['headingLevel']! as int;
+            headings.removeWhere((heading) => heading.level >= level);
+            headings.add((level: level, text: raw.content));
+            if (!onlyApparatus) continue;
+          case 'footnote' || 'separator' when !onlyApparatus:
+            continue;
         }
         // Identity uses body-relative ranges so adding frontmatter does not
         // invalidate unchanged body embeddings. Citation ranges remain absolute.
@@ -167,6 +189,7 @@ class KnowledgeSnapshot {
               'bundleId': bundleId,
               'frontmatter': frontmatter,
               'headingPath': headings.map((heading) => heading.text).toList(),
+              if (groupSections) 'chunking': 'markdown-sections-v1',
             },
           },
         );
@@ -187,6 +210,8 @@ class KnowledgeSnapshot {
             'Table columns: $header',
           if (raw.metadata['codeLanguage'] case final String language)
             'Code language: $language',
+          if (raw.metadata['blockLabel'] case final String label)
+            'Source label: $label',
           'Passage:',
         ];
         contextTexts[id] = [...context, raw.content].join('\n\n');
@@ -279,12 +304,26 @@ class KnowledgeSnapshot {
   /// or truncation. Whitespace stays attached to nonblank text. Irreducible
   /// contextual failures retry the original chunk without derived context;
   /// irreducible body failures remain errors.
+  ///
+  /// With [targetTokens], complete units that fit [maxTokens] stay intact.
+  /// Oversized units pack paragraph/row/sentence spans toward the soft target.
+  /// [countTokens] must count the full effective model input, including any
+  /// model-specific prompt and special tokens added outside [textFor].
   Future<KnowledgeSnapshot> fitInputs({
     required Future<int> Function(String) countTokens,
     required int maxTokens,
     required bool includeContext,
+    int? targetTokens,
   }) async {
     if (maxTokens <= 0) throw ArgumentError.value(maxTokens, 'maxTokens');
+    if (targetTokens != null &&
+        (targetTokens <= 0 || targetTokens > maxTokens)) {
+      throw ArgumentError.value(
+        targetTokens,
+        'targetTokens',
+        'must be positive and no greater than maxTokens',
+      );
+    }
     final output = <Chunk>[];
     final texts = <String, String>{};
     final recoveries = {for (final r in _recoveries) (r.originalId, r.code): r};
@@ -359,10 +398,40 @@ class KnowledgeSnapshot {
             // the nonblank span; the full, untrimmed halves are measured again.
             final textStart = end - passage.trimLeft().length;
             final textEnd = start + passage.trimRight().length;
+            if (targetTokens != null) {
+              // Prefer complete Markdown blocks, then sentences. An atom may
+              // exceed the target but not the hard cap. Every emitted span is
+              // measured again; token counts need not be additive/monotonic.
+              final patterns = chunk.type == 'table' || chunk.type == 'code'
+                  ? _lineBoundaryPatterns
+                  : _proseBoundaryPatterns;
+              for (final pattern in patterns) {
+                final boundaries = pattern
+                    .allMatches(passage)
+                    .map((match) => start + match.end)
+                    .where((point) => point > textStart && point < textEnd);
+                int? cut;
+                for (final point in boundaries) {
+                  final size = await countTokens(
+                    '$prefix${chunk.content.substring(start, point)}',
+                  );
+                  if (size <= targetTokens) {
+                    cut = point;
+                  } else {
+                    // Preserve the first whole atom when it fits the cap.
+                    cut ??= point;
+                    break;
+                  }
+                }
+                if (cut != null) {
+                  return await fit(start, cut) && await fit(cut, end);
+                }
+              }
+            }
             // Prefer a whitespace endpoint nearest the midpoint. No inference
             // about other token counts is made from this input's count.
             final middle = (textStart + textEnd) ~/ 2;
-            final lineBoundaries = RegExp(r'\n')
+            final lineBoundaries = _newlinePattern
                 .allMatches(passage)
                 .map((m) => start + m.end)
                 .where((i) => i > textStart && i < textEnd)
@@ -371,7 +440,7 @@ class KnowledgeSnapshot {
                 (chunk.type == 'table' || chunk.type == 'code') &&
                     lineBoundaries.isNotEmpty
                 ? lineBoundaries
-                : RegExp(r'\s+')
+                : _whitespacePattern
                       .allMatches(passage)
                       .map((m) => start + m.end)
                       .where((i) => i > textStart && i < textEnd);

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'graph.dart';
 import 'graph_input.dart';
@@ -161,12 +162,16 @@ class WayfinderMcpServer {
           'original path/line citations and metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
           'remain eligible; verify the cited text before answering. Search uses '
-          'dense embeddings and requires the local encoder.',
+          'dense embeddings and requires the local encoder. Optional surroundingLines '
+          'or contextTokens adds exact source contextWindows with a global '
+          'source-text budget, separate from original hits and rendered overhead; '
+          'omissions and radius reductions are reported in contextDiagnostics.',
       input: wayfinderSearchInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
+        final windowOptions = searchContextWindowOptions(arguments);
         if (root == null) {
           final bundles = await discoverProjectBundles(project);
           final responses = await _knowledge.searchBundles(
@@ -174,10 +179,23 @@ class WayfinderMcpServer {
             query,
             limit: limit,
           );
-          return ProjectSearchResult(bundles, responses, limit: limit).toJson();
+          final result = ProjectSearchResult(bundles, responses, limit: limit);
+          final assembly = windowOptions == null
+              ? null
+              : await _knowledge.assembleContextWindows(
+                  result.contextWindowInputs(),
+                  windowOptions,
+                );
+          return {...result.toJson(), ...?assembly?.toJson()};
         }
         final result = await _knowledge.search(root, query, limit: limit);
-        return searchOutput(result);
+        final assembly = windowOptions == null
+            ? null
+            : await _knowledge.assembleContextWindows(
+                knowledgeContextWindowInputs(root, result),
+                windowOptions,
+              );
+        return {...searchOutput(result), ...?assembly?.toJson()};
       }),
     );
     server.registerAckTool(

@@ -274,6 +274,16 @@ class WayfinderCli {
           ..addOption(
             'limit',
             help: 'Maximum context passages (1–100; default 5).',
+          )
+          ..addOption(
+            'surrounding-lines',
+            help:
+                'Opt in to source-line context windows (0–100; opt-in default 12).',
+          )
+          ..addOption(
+            'context-tokens',
+            help:
+                'Opt-in window source-text token budget (1–65536; default 4096).',
           );
       }
       parser.addCommand(name, command);
@@ -765,9 +775,23 @@ class WayfinderCli {
         '--limit must be an integer from 1 to 100.',
       );
     }
+    final windowInput = <String, int>{};
+    for (final (flag, key) in [
+      ('surrounding-lines', 'surroundingLines'),
+      ('context-tokens', 'contextTokens'),
+    ]) {
+      final raw = command.option(flag);
+      if (raw == null) continue;
+      final value = int.tryParse(raw);
+      if (value == null) {
+        throw WayfinderException('--$flag must be an integer.');
+      }
+      windowInput[key] = value;
+    }
     final parsed = wayfinderSearchInput.safeParse({
       'query': command.rest.last,
       if (rawLimit != null) 'limit': convertedLimit,
+      ...windowInput,
     });
     if (parsed case Fail(:final error)) {
       final errors = error is SchemaNestedError ? error.errors : [error];
@@ -776,48 +800,127 @@ class WayfinderCli {
     final input = parsed.getOrThrow()!;
     final query = input['query']! as String;
     final limit = input['limit']! as int;
-    final json = command.option('output') == 'json';
-    if (!explicit) {
-      final bundles = await discoverProjectBundles(
-        _workingDirectory,
-        name: command.option('bundle'),
-      );
-      final responses = await _knowledge().searchBundles(
-        bundles.map((bundle) => bundle.root).toList(),
+    final windowOptions = searchContextWindowOptions(input);
+    final bundles = explicit
+        ? null
+        : await discoverProjectBundles(
+            _workingDirectory,
+            name: command.option('bundle'),
+          );
+    final knowledge = _knowledge();
+    return knowledge.withEncoderSession(() async {
+      final json = command.option('output') == 'json';
+      if (bundles != null) {
+        final responses = await knowledge.searchBundles(
+          bundles.map((bundle) => bundle.root).toList(),
+          query,
+          limit: limit,
+          filters: filters,
+        );
+        final result = ProjectSearchResult(bundles, responses, limit: limit);
+        final assembly = windowOptions == null
+            ? null
+            : await knowledge.assembleContextWindows(
+                result.contextWindowInputs(),
+                windowOptions,
+              );
+        if (json) {
+          _json({...result.toJson(), ...?assembly?.toJson()});
+        } else if (assembly != null) {
+          for (final window in assembly.windows) {
+            final bundle = bundles.singleWhere(
+              (bundle) => bundle.root == window.sourceId,
+            );
+            _printContextWindow(
+              window,
+              prefix: '${bundle.path}/',
+              bundle: bundle.name,
+            );
+          }
+          _printWindowNotices(result.notices, assembly);
+        } else {
+          for (final entry in result.context) {
+            _printHit(
+              entry.hit,
+              prefix: '${entry.bundle.path}/',
+              bundle: entry.bundle.name,
+            );
+          }
+          _printNotices(result.notices, empty: result.context.isEmpty);
+        }
+        return 0;
+      }
+      final result = await knowledge.search(
+        command.rest.first,
         query,
         limit: limit,
         filters: filters,
       );
-      final result = ProjectSearchResult(bundles, responses, limit: limit);
+      final assembly = windowOptions == null
+          ? null
+          : await knowledge.assembleContextWindows(
+              knowledgeContextWindowInputs(command.rest.first, result),
+              windowOptions,
+            );
       if (json) {
-        _json(result.toJson());
+        _json({...searchOutput(result), ...?assembly?.toJson()});
+      } else if (assembly != null) {
+        for (final window in assembly.windows) {
+          _printContextWindow(window);
+        }
+        _printWindowNotices(result.notices, assembly);
       } else {
-        for (final entry in result.context) {
-          _printHit(
-            entry.hit,
-            prefix: '${entry.bundle.path}/',
-            bundle: entry.bundle.name,
-          );
+        for (final hit in result.context) {
+          _printHit(hit);
         }
         _printNotices(result.notices, empty: result.context.isEmpty);
       }
       return 0;
-    }
-    final result = await _knowledge().search(
-      command.rest.first,
-      query,
-      limit: limit,
-      filters: filters,
+    });
+  }
+
+  void _printContextWindow(
+    KnowledgeContextWindow window, {
+    String prefix = '',
+    String? bundle,
+  }) {
+    _out(
+      '${_safe('$prefix${window.sourcePath}')}:${window.lineStart}-${window.lineEnd} '
+      '[${bundle == null ? '' : '${_safe(bundle)}; '}source window]',
     );
-    if (json) {
-      _json(searchOutput(result));
-    } else {
-      for (final hit in result.context) {
-        _printHit(hit);
-      }
-      _printNotices(result.notices, empty: result.context.isEmpty);
+    final passages = window.inputs
+        .take(3)
+        .map((input) {
+          final chunk = input.hit.result.chunk;
+          return '${chunk.lineStart}-${chunk.lineEnd} (${input.hit.reason})';
+        })
+        .join(', ');
+    _out(
+      'Original passages: $passages${window.inputs.length > 3 ? ', +${window.inputs.length - 3} more' : ''}',
+    );
+    _out(_safe(window.content));
+    _out('');
+  }
+
+  void _printWindowNotices(
+    List<String> notices,
+    KnowledgeContextAssembly assembly,
+  ) {
+    final codes = <String, int>{};
+    for (final item in assembly.diagnostics) {
+      codes.update(item.code, (count) => count + 1, ifAbsent: () => 1);
     }
-    return 0;
+    _out(
+      'Context source-text budget: ${assembly.sourceTextTokens}/${assembly.options.maxTokens} tokens; '
+      'rendering, metadata, original matches and diagnostics are additional.',
+    );
+    if (codes.isNotEmpty) {
+      _out(
+        'Notice: ${codes.entries.take(3).map((entry) => '${entry.key}: ${entry.value}').join('; ')}. '
+        'Full context diagnostics are available with --output=json.',
+      );
+    }
+    _printNotices(notices, empty: assembly.windows.isEmpty, compact: true);
   }
 
   void _printHit(
@@ -833,13 +936,29 @@ class WayfinderCli {
       '[${bundle == null ? '' : '${_safe(bundle)}; '}'
       '${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
     );
+    final headings = chunk.metadata['headingPath'];
+    if (headings is List && headings.isNotEmpty) {
+      _out('Section: ${_safe(headings.join(' > '))}');
+    }
     _out(_safe(chunk.content));
     _out('');
   }
 
-  void _printNotices(List<String> notices, {required bool empty}) {
-    for (final notice in notices) {
-      _out('Notice: ${_safe(notice)}');
+  void _printNotices(
+    List<String> notices, {
+    required bool empty,
+    bool compact = false,
+  }) {
+    for (final notice in compact ? notices.take(3) : notices) {
+      final detail = compact && notice.runes.length > 240
+          ? '${String.fromCharCodes(notice.runes.take(240))}…'
+          : notice;
+      _out('Notice: ${_safe(detail)}');
+    }
+    if (compact && notices.length > 3) {
+      _out(
+        'Notice: ${notices.length - 3} additional notices; full details with --output=json.',
+      );
     }
     _out(
       empty

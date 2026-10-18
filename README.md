@@ -153,10 +153,10 @@ repository into the bundle.
 
 CLI and MCP search can span configured bundles. CLI search also supports
 [frontmatter filters](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
-MCP search accepts only `query` and an optional `limit`. Search is dense-only
-and requires the verified local embedding model. Indexing is explicit in both:
-search does not rebuild a missing or stale index. MCP does not expose
-concept-authoring writes.
+MCP search accepts `query`, an optional `limit`, and optional source-window
+settings. Search is dense-only and requires the verified local embedding model.
+Indexing is explicit: CLI and MCP search do not rebuild a missing or stale index.
+MCP does not expose concept-authoring writes.
 
 The Dart OKF adapter also requires an embedder; there is no model-free search
 fallback. Chunk preview and snapshot parsing remain model-free. See the
