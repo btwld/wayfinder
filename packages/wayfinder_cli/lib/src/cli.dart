@@ -676,7 +676,12 @@ class WayfinderCli {
       }
       throw const WayfinderException('Unknown command.');
     } on ArgParserException catch (error) {
-      message = error.message;
+      message =
+          arguments.any(
+            (value) => value == '--mode' || value.startsWith('--mode='),
+          )
+          ? 'Search uses dense retrieval only. Remove the retired --mode option.'
+          : error.message;
     } on WayfinderException catch (error) {
       message = error.message;
     } on FileSystemException catch (error) {

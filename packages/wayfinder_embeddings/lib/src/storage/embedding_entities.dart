@@ -9,7 +9,6 @@ const int objectBoxEmbeddingDimension = 384;
 
 /// Persisted embedding with a fixed 384-dimensional cosine HNSW index.
 ///
-/// Lexical BM25 ranking operates on chunks and does not use this entity.
 @Entity()
 class EmbeddingEntity {
   /// Internal ObjectBox identifier.

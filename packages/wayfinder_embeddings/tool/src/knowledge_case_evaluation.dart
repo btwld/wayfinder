@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -34,81 +33,57 @@ class KnowledgeCases {
     return KnowledgeCases._(chunks, cases, data['limit'] as int);
   }
 
-  /// Evaluates BM25 before any vectors are written, then optional dense/hybrid.
+  /// Evaluates dense retrieval against the fixed passage judgments.
   /// The caller owns [store] and [embedder]. No timing claims are made here.
   Future<List<Map<String, Object?>>> evaluate(
     BaseStore store, {
-    BaseEmbedder? embedder,
+    required BaseEmbedder embedder,
   }) async {
-    await store.storeBatch(chunks: chunks, embeddings: const []);
-    final lexical = BM25LexicalIndex.fromChunks(await store.getAllChunks());
+    await IngestionPipeline(
+      chunkerRegistry: ChunkerRegistry(),
+      embedder: embedder,
+      store: store,
+    ).ingest([(file: File('fixture'), chunks: chunks)]);
+    final searcher = ContentSearcher(store: store, embedder: embedder);
     final rows = <Map<String, Object?>>[];
-    Future<void> run(
-      String mode,
-      FutureOr<List<SearchResult>> Function(
-        String query, {
-        int limit,
-        SearchOptions? options,
-      })
-      search,
-    ) async {
-      for (final row in cases) {
-        final raw = row['options'] as Map<String, Object?>? ?? const {};
-        final options = raw.isEmpty
-            ? null
-            : SearchOptions(
-                filePaths:
-                    (raw['filePaths'] as List?)?.cast<String>() ?? const [],
-                filePatterns:
-                    (raw['filePatterns'] as List?)?.cast<String>() ?? const [],
-                metadataFilters:
-                    raw['metadataFilters'] as Map<String, Object?>? ?? const {},
-              );
-        final hits = await search(
-          row['query'] as String,
-          limit: limit,
-          options: options,
-        );
-        if (options != null &&
-            hits.any((hit) => !options.matchesFilters(hit.chunk))) {
-          throw StateError(
-            '$mode returned an ineligible result for ${row['id']}',
-          );
-        }
-        final relevant = (row['relevantIds'] as List).cast<String>();
-        rows.add({
-          'case': row['id'],
-          'mode': mode,
-          'ids': hits.map((hit) => hit.chunk.id).toList(),
-          'scores': hits.map((hit) => hit.similarity).toList(),
-          'top1Relevant': relevant.isEmpty
-              ? null
-              : hits.isNotEmpty && relevant.contains(hits.first.chunk.id),
-          'recall': relevant.isEmpty
-              ? null
-              : hits.where((hit) => relevant.contains(hit.chunk.id)).length /
-                    relevant.length,
-          'noAnswerCandidates': relevant.isEmpty ? hits.length : null,
-        });
-      }
-    }
-
-    await run('bm25', lexical.search);
-    if (embedder != null) {
-      await IngestionPipeline(
-        chunkerRegistry: ChunkerRegistry(),
-        embedder: embedder,
-        store: store,
-      ).ingest([(file: File('fixture'), chunks: chunks)]);
-      final dense = ContentSearcher(store: store, embedder: embedder);
-      await run('dense', dense.search);
-      await run(
-        'hybrid',
-        HybridContentSearcher(
-          lexicalIndex: lexical,
-          semanticSearcher: dense,
-        ).search,
+    for (final row in cases) {
+      final raw = row['options'] as Map<String, Object?>? ?? const {};
+      final options = raw.isEmpty
+          ? null
+          : SearchOptions(
+              filePaths:
+                  (raw['filePaths'] as List?)?.cast<String>() ?? const [],
+              filePatterns:
+                  (raw['filePatterns'] as List?)?.cast<String>() ?? const [],
+              metadataFilters:
+                  raw['metadataFilters'] as Map<String, Object?>? ?? const {},
+            );
+      final hits = await searcher.search(
+        row['query'] as String,
+        limit: limit,
+        options: options,
       );
+      if (options != null &&
+          hits.any((hit) => !options.matchesFilters(hit.chunk))) {
+        throw StateError(
+          'dense returned an ineligible result for ${row['id']}',
+        );
+      }
+      final relevant = (row['relevantIds'] as List).cast<String>();
+      rows.add({
+        'case': row['id'],
+        'mode': 'dense',
+        'ids': hits.map((hit) => hit.chunk.id).toList(),
+        'scores': hits.map((hit) => hit.similarity).toList(),
+        'top1Relevant': relevant.isEmpty
+            ? null
+            : hits.isNotEmpty && relevant.contains(hits.first.chunk.id),
+        'recall': relevant.isEmpty
+            ? null
+            : hits.where((hit) => relevant.contains(hit.chunk.id)).length /
+                  relevant.length,
+        'noAnswerCandidates': relevant.isEmpty ? hits.length : null,
+      });
     }
     return rows;
   }

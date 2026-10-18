@@ -55,8 +55,7 @@ class IngestionPipeline {
   /// (default) the pipeline reports chunks the store already holds, or that
   /// appeared earlier in this call, through [onDuplicateChunk]. An existing
   /// chunk still receives a missing embedding for the current source/model.
-  /// Metadata changes are persisted without re-embedding unchanged text. A
-  /// caller holding a lexical index must rebuild it to see those changes.
+  /// Metadata changes are persisted without re-embedding unchanged text.
   /// With deduplication enabled, reusing an explicit ID for different text
   /// throws [StateError]; use content-derived IDs when the source changes.
   Future<void> ingest(

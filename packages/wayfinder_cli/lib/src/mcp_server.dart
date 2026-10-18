@@ -154,12 +154,13 @@ class WayfinderMcpServer {
     server.registerAckTool(
       'search',
       description:
-          'Search saved local embeddings across all configured project bundles, '
+          'Search the saved index across all configured project bundles, '
           'or the explicit startup bundle. Returns the same JSON as '
           'wayfinder search --output=json: ranked matches, bounded context with '
           'original path/line citations and metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
-          'remain eligible; verify the cited text before answering.',
+          'remain eligible; verify the cited text before answering. Search uses '
+          'dense embeddings and requires the local encoder.',
       input: wayfinderSearchInput,
       annotations: readOnly,
       callback: (arguments, extra) => call(() async {

@@ -19,7 +19,6 @@ Future<void> main(List<String> args) async {
     )
     ..addOption('output', mandatory: true)
     ..addOption('stores', defaultsTo: 'memory,objectbox')
-    ..addFlag('native', negatable: false)
     ..addFlag('timing', defaultsTo: true, help: 'Measure warm query latency.');
   final options = parser.parse(args);
   if (options.rest.isNotEmpty) {
@@ -50,13 +49,13 @@ Future<void> main(List<String> args) async {
   final report = <String, Object?>{};
   try {
     final loading = Stopwatch()..start();
-    if (options.flag('native')) embedder = await LlamaEmbedder.open();
+    embedder = await LlamaEmbedder.open();
     report.addAll({
       'split': options.option('split'),
       'queryCount': queries.length,
       'querySha256': sha256.convert(utf8.encode(queryText)).toString(),
       'conceptCount': snapshot.conceptPaths.length,
-      'model': embedder?.modelName,
+      'model': embedder.modelName,
       'modelOpenMs': loading.elapsedMicroseconds / 1000,
       'limit': limit,
       'asOf': data['asOf'],
@@ -76,8 +75,8 @@ Future<void> main(List<String> args) async {
             store: store,
             embedder: embedder,
             includeContext: contextual,
-            countTokens: embedder?.countTokens,
-            maxTokens: embedder?.model.maxTokens,
+            countTokens: embedder.countTokens,
+            maxTokens: embedder.model.maxTokens,
           );
           final building = Stopwatch()..start();
           final sync = await index.synchronize(snapshot);
@@ -133,121 +132,113 @@ Future<void> main(List<String> args) async {
               links: true,
             ),
           ].where((config) => config.context == contextual)) {
-            for (final mode in KnowledgeRetrievalMode.values.where(
-              (mode) => embedder != null || mode == KnowledgeRetrievalMode.bm25,
-            )) {
-              final rows = <Map<String, Object?>>[];
-              final times = <double>[];
-              for (var pass = 0; pass < (measureTiming ? 3 : 1); pass++) {
-                for (final row in queries) {
-                  final history = row['history'] == true;
-                  final policy = KnowledgeSearchPolicy(
-                    currentOnly: config.lifecycle && !history,
-                    asOf: date,
-                    statuses: history ? {OkfLifecycleStatus.deprecated} : null,
-                    pathPrefixes:
-                        (row['scope'] as List?)?.cast<String>().toSet() ?? {},
-                    governingSources: config.authority ? governors : {},
-                    expandRelationships: config.links,
-                  );
-                  final watch = Stopwatch()..start();
-                  final response = await index.search(
-                    row['query']! as String,
-                    mode: mode,
-                    limit: limit,
-                    contextLimit: limit,
-                    policy: policy,
-                  );
-                  if (pass > 0) times.add(watch.elapsedMicroseconds / 1000);
-                  if (pass != 0) continue;
-                  final supports = (row['support']! as List)
-                      .cast<Map<String, Object?>>();
-                  bool supportsClaim(
-                    KnowledgeContextHit hit,
-                    Map<String, Object?> support,
-                  ) =>
-                      hit.result.chunk.sourcePath == support['path'] &&
-                      hit.result.chunk.content.contains(
-                        support['contains']! as String,
-                      );
-                  final relevantRanks = <int>[
-                    for (var i = 0; i < response.context.length; i++)
-                      if (supports.any(
-                        (support) =>
-                            supportsClaim(response.context[i], support),
-                      ))
-                        i + 1,
-                  ];
-                  for (final hit in response.context) {
-                    if (!policy.allows(snapshot, hit.result.chunk.sourcePath)) {
-                      throw StateError(
-                        'Ineligible context leaked for ${row['id']}',
-                      );
-                    }
+            final rows = <Map<String, Object?>>[];
+            final times = <double>[];
+            for (var pass = 0; pass < (measureTiming ? 3 : 1); pass++) {
+              for (final row in queries) {
+                final history = row['history'] == true;
+                final policy = KnowledgeSearchPolicy(
+                  currentOnly: config.lifecycle && !history,
+                  asOf: date,
+                  statuses: history ? {OkfLifecycleStatus.deprecated} : null,
+                  pathPrefixes:
+                      (row['scope'] as List?)?.cast<String>().toSet() ?? {},
+                  governingSources: config.authority ? governors : {},
+                  expandRelationships: config.links,
+                );
+                final watch = Stopwatch()..start();
+                final response = await index.search(
+                  row['query']! as String,
+                  limit: limit,
+                  contextLimit: limit,
+                  policy: policy,
+                );
+                if (pass > 0) times.add(watch.elapsedMicroseconds / 1000);
+                if (pass != 0) continue;
+                final supports = (row['support']! as List)
+                    .cast<Map<String, Object?>>();
+                bool supportsClaim(
+                  KnowledgeContextHit hit,
+                  Map<String, Object?> support,
+                ) =>
+                    hit.result.chunk.sourcePath == support['path'] &&
+                    hit.result.chunk.content.contains(
+                      support['contains']! as String,
+                    );
+                final relevantRanks = <int>[
+                  for (var i = 0; i < response.context.length; i++)
+                    if (supports.any(
+                      (support) => supportsClaim(response.context[i], support),
+                    ))
+                      i + 1,
+                ];
+                for (final hit in response.context) {
+                  if (!policy.allows(snapshot, hit.result.chunk.sourcePath)) {
+                    throw StateError(
+                      'Ineligible context leaked for ${row['id']}',
+                    );
                   }
-                  rows.add({
-                    'id': row['id'],
-                    'group': row['group'],
-                    'top1': supports.isEmpty ? null : relevantRanks.contains(1),
-                    'recall': supports.isEmpty
-                        ? null
-                        : supports
-                                  .where(
-                                    (support) => response.context.any(
-                                      (hit) => supportsClaim(hit, support),
-                                    ),
-                                  )
-                                  .length /
-                              supports.length,
-                    'rr': supports.isEmpty
-                        ? null
-                        : relevantRanks.isEmpty
-                        ? 0.0
-                        : 1 / relevantRanks.first,
-                    'context': [
-                      for (final hit in response.context)
-                        {
-                          'path': hit.result.chunk.sourcePath,
-                          'lineStart': hit.result.chunk.lineStart,
-                          'lineEnd': hit.result.chunk.lineEnd,
-                          'content': hit.result.chunk.content,
-                          'reason': hit.reason,
-                          'via': hit.viaPath,
-                          'edgeOrigin': hit.edge?.origin.wireValue,
-                        },
-                    ],
-                    'matches': response.matches
-                        .map((hit) => hit.chunk.sourcePath)
-                        .toList(),
-                    'notices': response.notices,
-                  });
                 }
+                rows.add({
+                  'id': row['id'],
+                  'group': row['group'],
+                  'top1': supports.isEmpty ? null : relevantRanks.contains(1),
+                  'recall': supports.isEmpty
+                      ? null
+                      : supports
+                                .where(
+                                  (support) => response.context.any(
+                                    (hit) => supportsClaim(hit, support),
+                                  ),
+                                )
+                                .length /
+                            supports.length,
+                  'rr': supports.isEmpty
+                      ? null
+                      : relevantRanks.isEmpty
+                      ? 0.0
+                      : 1 / relevantRanks.first,
+                  'context': [
+                    for (final hit in response.context)
+                      {
+                        'path': hit.result.chunk.sourcePath,
+                        'lineStart': hit.result.chunk.lineStart,
+                        'lineEnd': hit.result.chunk.lineEnd,
+                        'content': hit.result.chunk.content,
+                        'reason': hit.reason,
+                        'via': hit.viaPath,
+                        'edgeOrigin': hit.edge?.origin.wireValue,
+                      },
+                  ],
+                  'matches': response.matches
+                      .map((hit) => hit.chunk.sourcePath)
+                      .toList(),
+                  'notices': response.notices,
+                });
               }
-              times.sort();
-              storeRuns['${config.name}/${mode.name}'] = {
-                'aggregate': _metrics(rows),
-                'groups': {
-                  for (final group
-                      in rows.map((row) => row['group']! as String).toSet())
-                    group: _metrics(
-                      rows.where((row) => row['group'] == group).toList(),
-                    ),
-                },
-                'queryP50Ms': measureTiming
-                    ? times[(times.length * .5).floor()]
-                    : null,
-                'queryP95Ms': measureTiming
-                    ? times[(times.length * .95).floor()]
-                    : null,
-                'syncMs': syncMs,
-                'embeddedChunks': sync.embeddedChunks,
-                'chunks': (await store.getStats())['chunks'],
-                'queries': rows,
-              };
-              stdout.writeln(
-                '$kind ${config.name}/${mode.name}: ${_metrics(rows)}',
-              );
             }
+            times.sort();
+            storeRuns['${config.name}/dense'] = {
+              'aggregate': _metrics(rows),
+              'groups': {
+                for (final group
+                    in rows.map((row) => row['group']! as String).toSet())
+                  group: _metrics(
+                    rows.where((row) => row['group'] == group).toList(),
+                  ),
+              },
+              'queryP50Ms': measureTiming
+                  ? times[(times.length * .5).floor()]
+                  : null,
+              'queryP95Ms': measureTiming
+                  ? times[(times.length * .95).floor()]
+                  : null,
+              'syncMs': syncMs,
+              'embeddedChunks': sync.embeddedChunks,
+              'chunks': (await store.getStats())['chunks'],
+              'queries': rows,
+            };
+            stdout.writeln('$kind ${config.name}/dense: ${_metrics(rows)}');
           }
         } finally {
           await store.close();

@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-/// Shows how to chunk a small mixed-language codebase and run exact BM25 search.
+/// Shows model-free chunk preview and metadata filtering for source code.
 Future<void> main() async {
   final exampleDir = Directory('fixtures/samples');
   final dartFile = File(p.join(exampleDir.path, 'calculator.dart'));
@@ -45,30 +45,15 @@ Future<void> main() async {
     'Preview located ${previewChunks.length} chunks across ${files.length} files.',
   );
 
-  final store = MemoryStore();
-  for (final chunk in previewChunks) {
-    await store.storeChunk(chunk);
-  }
-
-  final lexicalIndex = BM25LexicalIndex.fromChunks(await store.getAllChunks());
-  // Filter by file pattern and chunk type. The chunkers put symbol facts such
-  // as `class` and `name` in the metadata; filter on those keys, not on keys
-  // no chunker writes.
-  final searchResults = lexicalIndex.search(
-    'divide numbers safely',
-    options: SearchOptions(filePatterns: ['**/*.dart'], chunkTypes: ['method']),
+  // Chunkers write symbol facts such as `class` and `name` into metadata.
+  final options = SearchOptions(
+    filePatterns: ['**/*.dart'],
+    chunkTypes: ['method'],
   );
-
-  stdout.writeln('\nTop result for "divide numbers safely":');
-  if (searchResults.isEmpty) {
-    stdout.writeln('No matches found.');
-  } else {
-    final top = searchResults.first;
-    final relative = p.relative(top.chunk.sourcePath, from: exampleDir.path);
-    stdout.writeln(
-      ' • $relative:${top.chunk.lineStart}-${top.chunk.lineEnd} score=${top.similarity.toStringAsFixed(4)}',
-    );
+  stdout.writeln('\nDart method chunks:');
+  for (final chunk in previewChunks.where(options.matchesFilters)) {
+    final relative = p.relative(chunk.sourcePath, from: exampleDir.path);
+    stdout.writeln(' • $relative:${chunk.lineStart}-${chunk.lineEnd}');
   }
-
-  await store.close();
+  stdout.writeln('Preview only. Run native_example.dart for dense search.');
 }

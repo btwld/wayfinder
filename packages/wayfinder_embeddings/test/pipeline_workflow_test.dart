@@ -186,13 +186,14 @@ void main() {
         final registry = ChunkerRegistry()..registerChunker(TextChunker());
 
         await expectLater(
-          workflow.persistLexicalSearch(
+          workflow.persistAndSearch(
             registry: registry,
             files: const [],
             fixturesDir: fixturesDir,
-            outputDir: Directory(p.join(tempDir.path, 'lexical')),
+            outputDir: Directory(p.join(tempDir.path, 'dense')),
             dryRunChunks: const [],
             queries: const ['query'],
+            embedderFactory: (_) => _FixtureDenseEmbedder(),
             topK: 0,
           ),
           throwsA(
@@ -217,11 +218,10 @@ void main() {
         );
         await expectLater(
           workflow.persistAndSearch(
-            searcherFactory: workflow.hybridSearcherFactory,
             registry: registry,
             files: const [],
             fixturesDir: fixturesDir,
-            outputDir: Directory(p.join(tempDir.path, 'hybrid-top')),
+            outputDir: Directory(p.join(tempDir.path, 'dense-top')),
             dryRunChunks: const [],
             queries: const ['query'],
             topK: 0,
@@ -234,11 +234,10 @@ void main() {
         );
         await expectLater(
           workflow.persistAndSearch(
-            searcherFactory: workflow.hybridSearcherFactory,
             registry: registry,
             files: const [],
             fixturesDir: fixturesDir,
-            outputDir: Directory(p.join(tempDir.path, 'hybrid-candidates')),
+            outputDir: Directory(p.join(tempDir.path, 'dense-candidates')),
             dryRunChunks: const [],
             queries: const ['query'],
             candidateLimit: 0,
@@ -268,13 +267,14 @@ void main() {
         final registry = ChunkerRegistry()..registerChunker(TextChunker());
 
         await expectLater(
-          workflow.persistLexicalSearch(
+          workflow.persistAndSearch(
             registry: registry,
             files: const [],
             fixturesDir: fixturesDir,
-            outputDir: Directory(p.join(tempDir.path, 'lexical')),
+            outputDir: Directory(p.join(tempDir.path, 'dense')),
             dryRunChunks: const [],
             queries: const [' '],
+            embedderFactory: (_) => _FixtureDenseEmbedder(),
           ),
           throwsA(
             isA<ArgumentError>().having(
@@ -305,11 +305,10 @@ void main() {
         );
         await expectLater(
           workflow.persistAndSearch(
-            searcherFactory: workflow.hybridSearcherFactory,
             registry: registry,
             files: const [],
             fixturesDir: fixturesDir,
-            outputDir: Directory(p.join(tempDir.path, 'hybrid')),
+            outputDir: Directory(p.join(tempDir.path, 'dense')),
             dryRunChunks: const [],
             queries: const ['\t'],
             embedderFactory: (_) => _FixtureDenseEmbedder(),
@@ -464,7 +463,7 @@ void main() {
     });
   });
 
-  group('pipeline workflow search modes', () {
+  group('pipeline workflow dense search', () {
     late Directory tempDir;
     late Directory fixturesDir;
     late Directory outputDir;
@@ -530,41 +529,17 @@ void main() {
       );
     }
 
-    test('lexical search writes no hashed BM25 embeddings', () async {
-      final store = _ClosingStore();
-      final result = await workflow.persistLexicalSearch(
+    test('dense search can rerank a wider candidate set', () async {
+      final result = await workflow.persistAndSearch(
         registry: registry,
         files: files,
         fixturesDir: fixturesDir,
-        outputDir: Directory(p.join(outputDir.path, 'bm25')),
-        dryRunChunks: preview.chunks,
-        queries: const ['refresh token'],
-        topK: 3,
-        storeFactory: (_) => store,
-      );
-
-      expect(store.closed, isTrue);
-      expect(await store.getAllChunks(), result.chunks);
-      expect(result.embeddings, isEmpty);
-      expect(result.queryVectors['refresh token'], isEmpty);
-      expect(result.searchResultsByQuery['refresh token'], isNotEmpty);
-      expect(
-        result.searchResultsByQuery['refresh token']!.first.embedding,
-        isNull,
-      );
-      expect(File(result.embeddingsPath).readAsStringSync(), '[]');
-    });
-
-    test('lexical search can rerank a wider candidate set', () async {
-      final result = await workflow.persistLexicalSearch(
-        registry: registry,
-        files: files,
-        fixturesDir: fixturesDir,
-        outputDir: Directory(p.join(outputDir.path, 'bm25_reranked')),
+        outputDir: Directory(p.join(outputDir.path, 'dense_reranked')),
         dryRunChunks: preview.chunks,
         queries: const ['refresh token'],
         topK: 1,
         candidateLimit: 3,
+        embedderFactory: (_) => _FixtureDenseEmbedder(),
         rerankerFactory: () => _FixtureReranker(
           scoresBySourceName: const {
             'session.txt': 0.99,
@@ -581,36 +556,6 @@ void main() {
       expect(results.single.similarity, 0.99);
       expect(result.topK, 1);
     });
-
-    test(
-      'hybrid search fuses lexical rankings with dense embeddings',
-      () async {
-        final embedder = _FixtureDenseEmbedder();
-        final result = await workflow.persistAndSearch(
-          searcherFactory: workflow.hybridSearcherFactory,
-          registry: registry,
-          files: files,
-          fixturesDir: fixturesDir,
-          outputDir: Directory(p.join(outputDir.path, 'hybrid')),
-          dryRunChunks: preview.chunks,
-          queries: const ['refresh token'],
-          topK: 3,
-          embedderFactory: (_) => embedder,
-          storeFactory: (_) => MemoryStore(),
-        );
-
-        final results = result.searchResultsByQuery['refresh token']!;
-
-        expect(result.embeddings, hasLength(result.chunks.length));
-        expect(result.embeddings.map((embedding) => embedding.source).toSet(), {
-          'fixture-dense',
-        });
-        expect(results, hasLength(3));
-        expect(results.first.chunk.sourcePath, contains('auth_controller.txt'));
-        expect(results.first.similarity, closeTo(1 / 61 + 1 / 62, 1e-12));
-        expect(embedder.queryVectorCalls, 1);
-      },
-    );
 
     test('semantic search reuses query vectors written to artifacts', () async {
       final embedder = _FixtureDenseEmbedder();
@@ -653,13 +598,23 @@ void main() {
           metadata: const {'class': 'AuthService', 'name': 'refreshToken'},
         );
 
-        final result = await workflow.persistLexicalSearch(
-          registry: registry,
-          files: const [],
+        final file = _writeFixture(fixturesDir, 'auth_service.dart', 'fixture');
+        final result = await workflow.persistAndSearch(
+          registry: ChunkerRegistry()
+            ..registerChunker(_PresetChunker([parent, child])),
+          files: [file],
           fixturesDir: fixturesDir,
           outputDir: Directory(p.join(outputDir.path, 'parent_child')),
           dryRunChunks: [parent, child],
           queries: const ['refresh token'],
+          embedderFactory: (_) => _FixtureDenseEmbedder(),
+          searcherFactory:
+              ({
+                required store,
+                required embedder,
+                required chunks,
+                required candidateLimit,
+              }) => _PresetSearcher(SearchResult(chunk: child, similarity: 1)),
           topK: 1,
         );
 
@@ -749,4 +704,27 @@ class _FixtureReranker extends SearchReranker {
     }).toList()..sort((a, b) => b.similarity.compareTo(a.similarity));
     return sorted.take(limit ?? sorted.length).toList(growable: false);
   }
+}
+
+class _PresetChunker extends BaseChunker {
+  _PresetChunker(this.chunks);
+  final List<Chunk> chunks;
+
+  @override
+  String get contentType => 'dart';
+
+  @override
+  List<Chunk> chunkContent(String content, ChunkMetadata metadata) => chunks;
+}
+
+class _PresetSearcher implements Searcher {
+  _PresetSearcher(this.hit);
+  final SearchResult hit;
+
+  @override
+  Future<List<SearchResult>> search(
+    String query, {
+    int limit = 5,
+    SearchOptions? options,
+  }) async => [hit];
 }

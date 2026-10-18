@@ -25,12 +25,9 @@ export 'src/models/chunk_metadata.dart';
 export 'src/models/embedding.dart';
 export 'src/models/search_result.dart';
 // Search
-export 'src/search/bm25_lexical_index.dart';
 export 'src/search/content_searcher.dart';
-export 'src/search/hybrid_content_searcher.dart';
 export 'src/search/parent_child_resolver.dart';
 export 'src/search/parent_child_searcher.dart';
-export 'src/search/reciprocal_rank_fusion.dart';
 export 'src/search/reranking_content_searcher.dart';
 export 'src/search/search_options.dart';
 export 'src/search/search_reranker.dart';

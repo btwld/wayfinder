@@ -2,38 +2,42 @@ import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import '../tool/src/knowledge_case_evaluation.dart';
+import 'support/counting_embedder.dart';
 
 void main() {
-  test(
-    'lexical knowledge cases honor explicit scopes without embeddings',
-    () async {
-      final fixture = await KnowledgeCases.load();
-      final store = MemoryStore();
-      addTearDown(store.close);
-      final rows = await fixture.evaluate(store);
-      expect(rows, hasLength(13));
-      expect(await store.getAllEmbeddings(), isEmpty);
-      for (final id in [
-        'exact_symbol',
-        'current_recovery',
-        'historical_recovery',
-        'authority_scoped',
-        'scope_server',
-        'scope_browser',
-        'freshness_scoped',
-        'missing_trust',
-      ]) {
+  test('dense case evaluation preserves scopes and vector coverage', () async {
+    final fixture = await KnowledgeCases.load();
+    final store = MemoryStore();
+    addTearDown(store.close);
+    final embedder = CountingEmbedder();
+    final rows = await fixture.evaluate(store, embedder: embedder);
+    expect(rows, hasLength(fixture.cases.length));
+    expect(embedder.documents, hasLength(fixture.chunks.length));
+    expect(await store.getAllEmbeddings(), hasLength(fixture.chunks.length));
+    expect(rows.map((row) => row['mode']).toSet(), {'dense'});
+    final chunksById = {for (final chunk in fixture.chunks) chunk.id: chunk};
+    for (final row in rows) {
+      final source = fixture.cases.singleWhere(
+        (item) => item['id'] == row['case'],
+      );
+      final raw = source['options'] as Map<String, Object?>? ?? const {};
+      final options = SearchOptions(
+        filePaths: (raw['filePaths'] as List?)?.cast<String>() ?? const [],
+        filePatterns:
+            (raw['filePatterns'] as List?)?.cast<String>() ?? const [],
+        metadataFilters:
+            raw['metadataFilters'] as Map<String, Object?>? ?? const {},
+      );
+      for (final id in row['ids']! as List) {
         expect(
-          rows.singleWhere((row) => row['case'] == id)['top1Relevant'],
+          options.matchesFilters(chunksById[id]!),
           isTrue,
-          reason: id,
+          reason: '${row['case']}/$id',
         );
       }
-      // Shared ordinary words still produce lexical candidates for an
-      // unanswerable question. Retrieval is not an answerability check.
-      final noAnswer = rows.singleWhere((row) => row['case'] == 'no_answer');
-      expect(noAnswer['ids'], isNotEmpty);
-      expect(noAnswer['top1Relevant'], isNull);
-    },
-  );
+    }
+    // Constant test vectors check mechanics, not relevance quality.
+    final noAnswer = rows.singleWhere((row) => row['case'] == 'no_answer');
+    expect(noAnswer['top1Relevant'], isNull);
+  });
 }

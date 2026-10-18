@@ -3,7 +3,7 @@ import 'search_options.dart';
 
 /// One ranked-retrieval entry point.
 ///
-/// `ContentSearcher`, `HybridContentSearcher`, and `RerankingContentSearcher`
+/// `ContentSearcher` and `RerankingContentSearcher`
 /// implement it, so composition needs no delegate typedefs.
 abstract interface class Searcher {
   /// Returns at most [limit] results for [query], best first.

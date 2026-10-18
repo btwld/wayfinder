@@ -196,6 +196,26 @@ void main() {
         await serving;
       });
 
+      test('MCP rejects every supplied retired mode', () async {
+        for (final mode in ['dense', 'bm25', 'hybrid']) {
+          final result = await client.callTool(
+            CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'password', 'mode': mode},
+            ),
+          );
+          expect(result.isError, isTrue);
+        }
+        expect(knowledge.calls, isEmpty);
+        final result = await client.callTool(
+          const CallToolRequest(
+            name: 'search',
+            arguments: {'query': 'password'},
+          ),
+        );
+        expect(result.isError, isNot(true));
+      });
+
       test('discovery is lazy and tools describe their effects', () async {
         final tools = (await client.listTools()).tools;
         expect(
@@ -344,6 +364,29 @@ void main() {
         () async {
           for (final request in [
             const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'reranker': 'bge-v2-m3-metal'},
+            ),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'reranker': 'qwen3-0.6b-metal'},
+            ),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'researchContext': 'dense'},
+            ),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {
+                'query': 'caching',
+                'researchContext': 'dense-sections',
+              },
+            ),
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching', 'researchTrace': true},
+            ),
+            const CallToolRequest(
               name: 'index',
               arguments: {'bundle': '/another/root'},
             ),
@@ -377,7 +420,7 @@ void main() {
             ),
             const CallToolRequest(
               name: 'search',
-              arguments: {'query': 'x', 'mode': 'dense'},
+              arguments: {'query': 'x', 'mode': 'unknown'},
             ),
             const CallToolRequest(name: 'graph', arguments: {'mode': 'dense'}),
             const CallToolRequest(name: 'graph', arguments: {'types': null}),

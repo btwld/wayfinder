@@ -72,7 +72,12 @@ void main() {
     <String>[],
     ['profile', 'validate', '../../examples/bitwild/knowledge'],
     ['knowledge', 'search', '.', 'query'],
-    ['search', '.', 'query', '--mode=dense'],
+    ['search', '.', 'query', '--mode=unknown'],
+    ['search', '.', 'query', '--reranker=bge-v2-m3-metal'],
+    ['search', '.', 'query', '--reranker=qwen3-0.6b-metal'],
+    ['search', '.', 'query', '--research-context=dense'],
+    ['search', '.', 'query', '--research-context=dense-sections'],
+    ['search', '.', 'query', '--research-trace'],
     ['index'],
     ['search', '.'],
     ['search', '.', ''],
@@ -85,6 +90,7 @@ void main() {
     ['mcp', ' '],
     ['mcp', '.', 'another-root'],
     ['mcp', '.', '--output=json'],
+    ['mcp', '.', '--reranker=qwen3-0.6b-metal'],
     ['graph'],
     ['graph', '.', 'extra'],
     ['graph', '.', '--output=text'],
@@ -96,6 +102,19 @@ void main() {
     test('rejects invalid usage $args', () async {
       expect(await cli.run(args), 2);
       expect(errors, isNotEmpty);
+      expect(retrievalOpens, 0);
+    });
+  }
+
+  for (final mode in ['dense', 'bm25', 'hybrid', 'unknown']) {
+    test('rejects retired --mode=$mode with migration guidance', () async {
+      expect(await cli.run(['search', '.', 'query', '--mode=$mode']), 2);
+      expect(
+        errors.single,
+        contains(
+          'Search uses dense retrieval only. Remove the retired --mode option.',
+        ),
+      );
       expect(retrievalOpens, 0);
     });
   }

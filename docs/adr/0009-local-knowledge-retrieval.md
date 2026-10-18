@@ -1,6 +1,6 @@
 # ADR-0009: Use Arctic Embed XS for local knowledge embeddings
 
-- Status: accepted
+- Status: accepted; retrieval defaults superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
 - Scope: retrieval tooling; no bundle or Profile rule
 
@@ -11,7 +11,7 @@ Benchmarks over the fixtures in
 compared keyword, BM25, dense, and hybrid retrieval, then compared Arctic
 Embed XS Q8_0 with Arctic S Q8/Q4 and BGE-small Q8/Q4 on identical passages
 and frozen judgments. On the 60 answerable test questions, XS and both larger
-Q8 models returned the expected first context in 50 cases. XS had the highest
+Q8 models returned the expected first-context in 50 cases. XS had the highest
 recall@10 of the candidates and a lower per-query cost than the larger Q8
 models; BGE-small Q4 was slightly smaller but lost one first-context
 judgment. These are synthetic partitions, not independent real-corpus
@@ -26,9 +26,11 @@ Inference uses local weights; preparation handles download and verification.
 Changing a download mirror without changing the verified bytes does not
 invalidate vector identity.
 
-The reusable OKF adapter defaults to BM25; dense and hybrid retrieval stay
-optional. The Wayfinder application makes its own fixed semantic-search
-choice in [ADR-0010](0010-wayfinder-cli.md). Similarity never establishes
+The original decision retained BM25 as the reusable OKF adapter default, with
+dense and hybrid retrieval optional, while the Wayfinder application selected
+semantic search in [ADR-0010](0010-wayfinder-cli.md).
+[ADR-0017](0017-dense-only-retrieval.md) supersedes only those defaults and mode
+choices with dense-only retrieval. Similarity never establishes
 authority, freshness, correctness, or answerability. ObjectBox is optional
 storage, not a relevance policy.
 

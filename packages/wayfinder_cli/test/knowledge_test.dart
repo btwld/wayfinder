@@ -65,6 +65,52 @@ void main() {
       }
 
       test(
+        'dense search opens an encoder but stale search fails before inference',
+        () async {
+          await knowledge.index(bundle.path);
+          final opened = encoders.length;
+          final result = await knowledge.search(
+            bundle.path,
+            'password recovery',
+          );
+          expect(result.matches.first.chunk.sourcePath, 'recovery.md');
+          expect(encoders.length, opened + 1);
+          await File(
+            p.join(bundle.path, 'recovery.md'),
+          ).writeAsString('changed');
+          await expectLater(
+            knowledge.search(bundle.path, 'password'),
+            throwsA(isA<WayfinderException>()),
+          );
+          expect(encoders.length, opened + 1);
+        },
+      );
+
+      test('project search preserves a model failure and its path', () async {
+        await knowledge.index(bundle.path);
+        final unavailable = WayfinderKnowledge(
+          dataDirectory: data,
+          openEncoder: () async => throw const WayfinderException(
+            'Embedding model unavailable (/missing/model.gguf). Reinstall the runtime.',
+          ),
+        );
+        await expectLater(
+          unavailable.searchBundles([bundle.path], 'password'),
+          throwsA(
+            isA<WayfinderException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('/missing/model.gguf'),
+                contains('Reinstall'),
+                isNot(contains('Run wayfinder index')),
+              ),
+            ),
+          ),
+        );
+      });
+
+      test(
         'first index persists; reopen searches encode only queries',
         () async {
           final original = await File(

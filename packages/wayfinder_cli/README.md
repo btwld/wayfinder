@@ -241,7 +241,9 @@ Use `index` explicitly before the first search and after source edits. It saves
 document embeddings in the same local app-data directory used by the CLI.
 Discovery and validation work without a model. Search reports missing/stale
 indexes and never indexes implicitly. The host can require approval for index's
-local writes. There is no per-call bundle override or retrieval-mode option.
+local writes. There is no per-call bundle override. Search uses dense retrieval
+only; a verified local encoder is required. Unsupported request fields, including
+retired `mode`, are rejected.
 
 The server currently opens and closes the encoder for each index/search call;
 a long-lived connection does not yet keep the model warm. Configure the host's
@@ -387,6 +389,37 @@ with project search, `--bundle`, and explicit bundle paths. They do not change
 ranking, write the index, or generate document embeddings. The query is still
 required. These flags are currently available in the CLI; MCP search retains its
 existing query/limit contract.
+
+## Dense retrieval
+
+Search is dense-only. It opens the verified local encoder for the query and
+uses a current saved index. A missing model fails; search never falls back to
+another retrieval method or silently rebuilds the index.
+
+```sh
+wayfinder search knowledge "permission policy" --limit=5
+wayfinder search knowledge "POL-123" --limit=5
+```
+
+These are candidate rankings, not calibrated relevance scores. Existing
+compatible embedding indexes remain usable; dense-only does not change their
+model, input identity, snapshot format, or storage schema.
+
+### Dense-only migration
+
+Remove CLI `--mode`, including `--mode=dense`, and MCP `mode` from callers.
+Retired BM25/hybrid requests are rejected explicitly, not reinterpreted as
+dense. MCP rejects unsupported fields rather than silently discarding them;
+refresh tool discovery after upgrading. This is a breaking command-contract
+change. See [ADR-0017](../../docs/adr/0017-dense-only-retrieval.md).
+
+Dart callers remove retrieval `mode:` and supply the required encoder to the
+index. [Embeddings migration](../wayfinder_embeddings/README.md#dense-only-migration)
+covers removed APIs. Generic reranking and its candidate windows remain
+available. Chunk preview and snapshot parsing remain model-free; they are not
+actual search. If eligible saved passages lack compatible vectors, synchronize
+the index again. If the model cannot open, repair its configured local path or
+runtime assets before retrying; reindexing alone does not repair a model load.
 
 ## License
 

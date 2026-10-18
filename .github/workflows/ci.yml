@@ -128,13 +128,13 @@ jobs:
       - run: python3 tool/verify_wayfinder_mcp.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-mcp.json"
         shell: bash
         working-directory: .
-      - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json" --native
+      - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json"
         shell: bash
       - name: Compare OKF retrieval components on both fixed splits
         shell: bash
         run: |
-          dart run tool/evaluate_okf_retrieval.dart --native --no-timing --split=development --output="$RUNNER_TEMP/okf-development.json"
-          dart run tool/evaluate_okf_retrieval.dart --native --no-timing --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
+          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=development --output="$RUNNER_TEMP/okf-development.json"
+          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
       - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash
@@ -147,10 +147,10 @@ jobs:
             --fixtures="$corpus" \
             --queries="$corpus/retrieval_queries.json" \
             --qrels="$corpus/retrieval_qrels.json" \
-            --embedders=bm25,dense,hybrid --store=objectbox \
+            --embedders=dense --store=objectbox \
             --top=10 --candidates=50 --long-input=truncate \
             --output="$RUNNER_TEMP/retrieval-results" \
-            --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/local_metrics_baseline.json" \
+            --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/dense_metrics_baseline.json" \
             --metrics-output="$RUNNER_TEMP/retrieval-metrics.json"
       - name: Archive the complete native application bundle
         if: matrix.sdk == 'stable'

@@ -153,13 +153,15 @@ repository into the bundle.
 
 CLI and MCP search can span configured bundles. CLI search also supports
 [frontmatter filters](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
-MCP search accepts only `query` and an optional `limit`. Indexing is explicit in
-both: search does not rebuild a missing or stale index. MCP does not expose
+MCP search accepts only `query` and an optional `limit`. Search is dense-only
+and requires the verified local embedding model. Indexing is explicit in both:
+search does not rebuild a missing or stale index. MCP does not expose
 concept-authoring writes.
 
-The application uses local embeddings. The Dart OKF retrieval adapter defaults
-to BM25 and lets callers choose dense or hybrid retrieval; see its
-[API guide](packages/wayfinder_embeddings/README.md#search-an-okf-bundle).
+The Dart OKF adapter also requires an embedder; there is no model-free search
+fallback. Chunk preview and snapshot parsing remain model-free. See the
+[API guide](packages/wayfinder_embeddings/README.md#search-an-okf-bundle) and
+[dense-only migration](docs/adr/0017-dense-only-retrieval.md).
 
 ## Validation and CI
 

@@ -5,91 +5,71 @@ commit `7728c1f`: the [component experiment](https://github.com/btwld/wayfinder/
 the [model-free versus local embedding benchmark](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_comparison.md),
 and the [small-model comparison](https://github.com/btwld/wayfinder/blob/7728c1f/docs/wayfinder_embeddings_model_comparison.md).
 
-## embedding_comparison/
+## corpus/
 
-100 synthetic concepts and 160 questions, split by topic before retrieval.
-The four-arm benchmark compares keyword matching, BM25 with no model, local
-dense, and hybrid. A known strict-support annotation limitation is documented
-in the fixture README. Results and executable/source provenance live in
-`benchmarks/embedding_comparison_*`. Per-process raw reports are regenerated
-from the benchmark commands rather than checked in.
+Mixed Dart, TypeScript, and Markdown sources with 65 queries (`retrieval_queries.json`),
+graded relevance judgments (`retrieval_qrels.json`), and surface groups
+(`retrieval_query_groups.json`). Keep non-corpus files outside `corpus/`: the
+chunk golden test processes every `.dart`, `.ts`, `.tsx`, `.md`, `.markdown`,
+and `.txt` file under that root.
+
+`test/retrieval_fixture_gate_test.dart` checks structural fixture integrity and
+slice coverage without loading a model. It is not a relevance gate. Genuine
+dense relevance against `benchmarks/dense_metrics_baseline.json` runs in the
+native CI job when the local model is prepared.
 
 ## okf_retrieval/
 
-34 synthetic OKF concepts and 35 passage-judged questions, divided into 18
-development and 17 held-out questions before evaluation. This is an unprofiled
-retrieval fixture, not a normative bundle template. It tests lifecycle, explicit
-governing sources, heading context, and declared links using the real OKF parser.
-Do not adjust judgments to fit model output.
-`benchmarks/okf_ablation_results.json` records both stores and all seven
-configurations, including per-query correctness. Native CI retains full rankings.
+34 synthetic OKF concepts and 35 passage-judged questions cover lifecycle,
+explicit governing sources, heading context, and declared links. The development
+and held-out splits contain 18 and 17 questions. This unprofiled fixture is not
+a normative bundle template. Do not adjust judgments to fit model output.
+
+`dart run tool/evaluate_okf_retrieval.dart --output=REPORT` requires the local
+model. It reports dense results for both stores and the context-policy variants.
+See the [evaluation guide](../README.md#evaluation).
 
 ## knowledge_retrieval/
 
-`cases.json` contains 13 synthetic chunks and 13 judged questions, including
-authority conflicts, current/history scopes, stale guidance, paraphrases,
-negation, missing verification, and an unanswerable question. Metadata is
-caller-projected; this is not an example conformant bundle. Run
-`dart run tool/evaluate_knowledge_cases.dart OUTPUT [--native]` from the package
-directory. Native mode compares BM25, dense, and hybrid with both stores.
-These diagnostic cases are separate from the unchanged 65-query corpus gate.
+`cases.json` holds 13 synthetic chunks and 13 judged questions. Cases include
+scope, authority conflicts, stale guidance, paraphrases, negation, missing
+verification, and an unanswerable question. Metadata is caller-projected.
 
-## corpus/
+`dart run tool/evaluate_knowledge_cases.dart REPORT` requires the local model
+and evaluates dense retrieval with both stores. These diagnostics are separate
+from the 65-query corpus gate.
 
-`corpus/` is the local retrieval corpus. It mixes Dart, TypeScript, and Markdown
-to exercise retrieval across those surfaces. The chunk golden test and the
-BM25 regression gate both target this folder.
+## embedding_comparison/
 
-The corpus also holds the retrieval benchmark artifacts:
-
-- `retrieval_queries.json` - query ids mapped to human-readable query text.
-- `retrieval_qrels.json` - BEIR-style qrels ("query relevance judgments") keyed
-  by the fixture-relative `stableId` emitted in comparison artifacts, with
-  graded relevance from 0 to 3.
-- `retrieval_query_groups.json` - query ids grouped by driver surface
-  (`dart`, `typescript`, `markdown`) so comparison metrics can report
-  per-language/document slices before changing defaults. The package fixture
-  gate enforces minimum coverage for these slices so aggregate metrics cannot
-  hide a missing TypeScript or Markdown driver.
-- `bm25_metrics_baseline.json` - the checked-in exact BM25 baseline used by the
-  package test-suite regression gate.
-
-Keep new files that must not be chunked outside `corpus/`. The golden test
-chunks every `.dart`, `.ts`, `.tsx`, `.md`, `.markdown`, and `.txt` file it
-finds under the corpus root.
+100 synthetic concepts and 160 topic-separated questions retain frozen support
+judgments. The [fixture notes](embedding_comparison/README.md) state the known
+annotation limits. Current benchmark runners use dense retrieval only.
 
 ## samples/
 
-`samples/` holds reusable, synthetic example inputs. `calculator.dart` and
-`search.txt` were moved from `example/`; `use_calculator.ts` was extracted from
-the code example's inline setup. The examples read these files directly and
-leave them unchanged. `tables.md` exercises the boundary between literal table
-syntax in a code fence and an actual Markdown table.
+Reusable example inputs exercise all four chunkers, including code fences and
+Markdown tables. Preview examples read these files without changing them.
+`test/fixtures_pipeline_golden_test.dart` checks corpus and sample chunk content,
+line ranges, metadata, and portable identities. LF line endings are preserved.
 
-`test/fixtures_pipeline_golden_test.dart` checks both corpora. The goldens record
-content, line ranges, type, metadata, and fixture-relative ids, including parent
-heading references. `.gitattributes` preserves fixture LF line endings so hashes
-survive Windows checkouts. The sample corpus also exercises text retrieval;
-it does not alter the historical 65-query benchmark.
-
-To refresh both snapshots after reviewing an intentional change, run from the
+After reviewing an intended chunk change, regenerate the snapshots from the
 package directory:
 
-```bash
+```sh
 UPDATE_GOLDENS=1 dart test test/fixtures_pipeline_golden_test.dart
 ```
 
+The sample corpus is independent of the historical 65-query relevance baseline.
+
 ## benchmarks/
 
-`model_comparison_*` records the follow-up Arctic XS/S and BGE-small comparison,
-including Q8/Q4 variants. It reuses `embedding_comparison/` unchanged.
+`dense_metrics_baseline.json` contains the existing dense row from the committed
+2026-09-09 native baseline. Its `provenance` records the original commit, path,
+checksum, and omitted configuration key. This extraction changes no metric or
+judgment and is not a new evaluation. Its original model identity predates the
+current identity spelling; the gate compares metric drops, not that old string.
+The original run used the recorded truncation policy. Do not present its results
+as current accuracy on a different corpus, chunk policy, or model.
 
-`local_metrics_baseline.json` records aggregate and per-group metrics for the
-pinned native model after the storage cleanup. It carries model identity,
-token policy, and candidate settings, without duplicating full ranked outputs.
-Its recorded `modelName` is the identity string in force when the run happened;
-dropping the download URL and license from model identity changed that string,
-so a fresh run reports a different one. The gate compares metric drops only.
-The native CI job compares its live BM25, dense, and hybrid runs against these
-metrics. Model preparation is required for this gate. The regular deterministic
-test suite continues to use the independent BM25 baseline in `corpus/`.
+Obsolete multi-method reports are retired from the active tree. Their committed
+originals remain in Git history; current reproduction uses the [evaluation guide](../README.md#evaluation).

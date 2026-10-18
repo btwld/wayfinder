@@ -10,15 +10,11 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'src/benchmark_models.dart';
 
-/// One isolated retrieval arm. The orchestrator owns process/build timing.
+/// One isolated dense retrieval run. The orchestrator owns process/build timing.
 Future<void> main(List<String> args) async {
   final total = Stopwatch()..start();
   final parser = ArgParser()
-    ..addOption(
-      'arm',
-      allowed: ['keyword', 'bm25', 'dense', 'hybrid'],
-      defaultsTo: 'bm25',
-    )
+    ..addOption('arm', defaultsTo: 'dense', help: 'Dense retrieval only.')
     ..addOption('store', allowed: ['memory', 'objectbox'], defaultsTo: 'memory')
     ..addOption(
       'split',
@@ -38,6 +34,11 @@ Future<void> main(List<String> args) async {
     ..addFlag('verify-token-budget', negatable: false);
   final options = parser.parse(args);
   final arm = options.option('arm')!;
+  if (arm != 'dense') {
+    throw ArgumentError(
+      'This benchmark supports dense retrieval only. Use --arm=dense.',
+    );
+  }
   final iterations = int.parse(options.option('iterations')!);
   if (options.rest.isNotEmpty || iterations < 0) {
     throw ArgumentError('Use named options and nonnegative iterations.');
@@ -60,270 +61,263 @@ Future<void> main(List<String> args) async {
       .cast<Map<String, dynamic>>()
       .where((row) => row['split'] == options.option('split'))
       .toList();
-  final semantic = arm == 'dense' || arm == 'hybrid';
   final watch = Stopwatch()..start();
-  final model = semantic || options.flag('verify-token-budget')
-      ? await LlamaEmbedder.open(
-          model: modelSpec,
-          modelFile: modelPath == null ? null : File(modelPath),
-        )
-      : null;
-  final modelOpenMs = elapsed(watch);
-  final encoder = model == null ? null : MeasuredEmbedder(model);
-  watch.reset();
-  final store = MeasuredStore(
-    options.option('store') == 'memory'
-        ? MemoryStore()
-        : ObjectBoxStore.open(options.option('database')!),
+  final model = await LlamaEmbedder.open(
+    model: modelSpec,
+    modelFile: modelPath == null ? null : File(modelPath),
   );
-  final storeOpenMs = elapsed(watch);
+  final modelOpenMs = elapsed(watch);
+  final encoder = MeasuredEmbedder(model);
+  watch.reset();
   try {
-    watch.reset();
-    final snapshot = KnowledgeSnapshot.fromSources(
-      sources,
-      bundleId: 'comparison',
+    final store = MeasuredStore(
+      options.option('store') == 'memory'
+          ? MemoryStore()
+          : ObjectBoxStore.open(options.option('database')!),
     );
-    final parseMs = elapsed(watch);
-    var tokenizationMs = 0.0;
-    if (options.flag('verify-token-budget')) {
+    final storeOpenMs = elapsed(watch);
+    try {
       watch.reset();
-      for (final chunk in snapshot.chunks) {
-        if (await model!.countTokens(
-              snapshot.textFor(chunk, includeContext: true),
-            ) >
-            model.model.maxTokens) {
-          throw StateError('Shared passage exceeds budget: ${chunk.id}');
+      final snapshot = KnowledgeSnapshot.fromSources(
+        sources,
+        bundleId: 'comparison',
+      );
+      final parseMs = elapsed(watch);
+      var tokenizationMs = 0.0;
+      if (options.flag('verify-token-budget')) {
+        watch.reset();
+        for (final chunk in snapshot.chunks) {
+          if (await model.countTokens(
+                snapshot.textFor(chunk, includeContext: true),
+              ) >
+              model.model.maxTokens) {
+            throw StateError('Shared passage exceeds budget: ${chunk.id}');
+          }
+        }
+        tokenizationMs = elapsed(watch);
+      }
+      KnowledgeIndex makeIndex() =>
+          KnowledgeIndex(store: store, embedder: encoder, includeContext: true);
+      var index = makeIndex();
+      watch.reset();
+      final sync = await index.synchronize(snapshot);
+      final syncMs = elapsed(watch);
+      final initialDocumentMs = encoder.documentMs;
+      final initialWriteMs = store.writeMs;
+      final initialReadMs = store.readMs;
+      final governors = (data['governingSources'] as Map<String, dynamic>)
+          .cast<String, String>();
+      KnowledgeSearchPolicy policy(
+        Map<String, dynamic> row, {
+        bool context = true,
+      }) => KnowledgeSearchPolicy(
+        currentOnly: row['history'] != true,
+        asOf: DateTime.parse(data['asOf'] as String),
+        statuses: row['history'] == true
+            ? {OkfLifecycleStatus.deprecated}
+            : null,
+        expandRelationships: context,
+        governingSources: context ? governors : const {},
+      );
+      Future<
+        ({
+          List<SearchResult> matches,
+          KnowledgeSearchResponse context,
+          double searchMs,
+          double contextMs,
+          double encodingMs,
+        })
+      >
+      search(Map<String, dynamic> row) async {
+        final clock = Stopwatch()..start();
+        final before = encoder.queryMs;
+        final raw = (await index.search(
+          row['query'] as String,
+          policy: policy(row, context: false),
+          limit: 10,
+          contextLimit: 10,
+        )).matches;
+        final searchMs = elapsed(clock);
+        clock.reset();
+        final context = index.contextForMatches(
+          raw,
+          policy: policy(row),
+          limit: 10,
+          contextLimit: 10,
+        );
+        return (
+          matches: raw,
+          context: context,
+          searchMs: searchMs,
+          contextMs: elapsed(clock),
+          encodingMs: (encoder.queryMs) - before,
+        );
+      }
+
+      final quality = <Map<String, Object?>>[];
+      double? firstResultMs;
+      for (final row in rows) {
+        final result = await search(row);
+        firstResultMs ??= elapsed(total);
+        final supports = (row['support'] as List<dynamic>)
+            .cast<Map<String, dynamic>>();
+        final context = result.context.context
+            .map((hit) => hit.result)
+            .toList();
+        quality.add({
+          'id': row['id'],
+          'topic': row['topic'],
+          'group': row['group'],
+          'raw': judge(result.matches, supports),
+          'context': judge(context, supports),
+          'matches': result.matches.map((hit) => hit.chunk.sourcePath).toList(),
+          'passages': [
+            for (final hit in result.context.context)
+              {
+                'path': hit.result.chunk.sourcePath,
+                'line': hit.result.chunk.lineStart,
+                'content': hit.result.chunk.content,
+                'reason': hit.reason,
+              },
+          ],
+        });
+      }
+      final random = Random(91307);
+      final uncached = <double>[];
+      final encoded = <double>[];
+      final ranking = <double>[];
+      final assembly = <double>[];
+      final queryCountBefore = encoder.queries;
+      // Fresh index instances clear the query cache without reloading the engine.
+      // Synchronization occurs outside query intervals and must reuse all vectors.
+      while (uncached.length < iterations) {
+        index = makeIndex();
+        final reused = await index.synchronize(snapshot);
+        if (reused.embeddedChunks != 0) throw StateError('Vector reuse failed');
+        final shuffled = [...rows]..shuffle(random);
+        for (final row in shuffled) {
+          if (uncached.length >= iterations) break;
+          final result = await search(row);
+          uncached.add(result.searchMs + result.contextMs);
+          encoded.add(result.encodingMs);
+          ranking.add(result.searchMs - result.encodingMs);
+          assembly.add(result.contextMs);
         }
       }
-      tokenizationMs = elapsed(watch);
-    }
-    KnowledgeIndex makeIndex() => KnowledgeIndex(
-      store: store,
-      embedder: semantic ? encoder : null,
-      includeContext: true,
-    );
-    var index = makeIndex();
-    watch.reset();
-    final sync = await index.synchronize(snapshot);
-    final syncMs = elapsed(watch);
-    final initialDocumentMs = encoder?.documentMs ?? 0;
-    final initialWriteMs = store.writeMs;
-    final initialReadMs = store.readMs;
-    final governors = (data['governingSources'] as Map<String, dynamic>)
-        .cast<String, String>();
-    KnowledgeSearchPolicy policy(
-      Map<String, dynamic> row, {
-      bool context = true,
-    }) => KnowledgeSearchPolicy(
-      currentOnly: row['history'] != true,
-      asOf: DateTime.parse(data['asOf'] as String),
-      statuses: row['history'] == true ? {OkfLifecycleStatus.deprecated} : null,
-      expandRelationships: context,
-      governingSources: context ? governors : const {},
-    );
-    final keyword = arm == 'keyword' ? KeywordIndex(snapshot) : null;
-    Future<
-      ({
-        List<SearchResult> matches,
-        KnowledgeSearchResponse context,
-        double searchMs,
-        double contextMs,
-        double encodingMs,
-      })
-    >
-    search(Map<String, dynamic> row) async {
-      final clock = Stopwatch()..start();
-      final before = encoder?.queryMs ?? 0;
-      final raw = arm == 'keyword'
-          ? keyword!.search(row['query'] as String, policy(row, context: false))
-          : (await index.search(
-              row['query'] as String,
-              mode: KnowledgeRetrievalMode.values.byName(arm),
-              policy: policy(row, context: false),
-              limit: 10,
-              contextLimit: 10,
-            )).matches;
-      final searchMs = elapsed(clock);
-      clock.reset();
-      final context = index.contextForMatches(
-        raw,
-        policy: policy(row),
-        limit: 10,
-        contextLimit: 10,
+      final uncachedQueryEncodings = (encoder.queries) - queryCountBefore;
+      // Each split has 80 queries, below the adapter's 100-entry cache bound.
+      for (var pass = 0; pass < 2; pass++) {
+        for (final row in rows) {
+          await search(row);
+        }
+      }
+      final cacheBefore = encoder.queries;
+      final cached = <double>[];
+      while (cached.length < iterations) {
+        final shuffled = [...rows]..shuffle(random);
+        for (final row in shuffled) {
+          if (cached.length >= iterations) break;
+          final result = await search(row);
+          cached.add(result.searchMs + result.contextMs);
+        }
+      }
+      final cachedQueryEncodings = (encoder.queries) - cacheBefore;
+      if (cachedQueryEncodings != 0 || uncachedQueryEncodings != iterations) {
+        throw StateError('Cache scenario did not match its label');
+      }
+      final updateRows = <String, Object?>{};
+      final changed = {...sources};
+      final firstPath = changed.keys.first;
+      changed[firstPath] = changed[firstPath]!.replaceFirst(
+        'type: reference',
+        'type: reference\nverified: false',
       );
-      return (
-        matches: raw,
-        context: context,
-        searchMs: searchMs,
-        contextMs: elapsed(clock),
-        encodingMs: (encoder?.queryMs ?? 0) - before,
+      watch.reset();
+      final metadata = await index.synchronize(
+        KnowledgeSnapshot.fromSources(changed, bundleId: 'comparison'),
       );
-    }
-
-    final quality = <Map<String, Object?>>[];
-    double? firstResultMs;
-    for (final row in rows) {
-      final result = await search(row);
-      firstResultMs ??= elapsed(total);
-      final supports = (row['support'] as List<dynamic>)
-          .cast<Map<String, dynamic>>();
-      final context = result.context.context.map((hit) => hit.result).toList();
-      quality.add({
-        'id': row['id'],
-        'topic': row['topic'],
-        'group': row['group'],
-        'raw': judge(result.matches, supports),
-        'context': judge(context, supports),
-        'matches': result.matches.map((hit) => hit.chunk.sourcePath).toList(),
-        'passages': [
-          for (final hit in result.context.context)
-            {
-              'path': hit.result.chunk.sourcePath,
-              'line': hit.result.chunk.lineStart,
-              'content': hit.result.chunk.content,
-              'reason': hit.reason,
-            },
-        ],
-      });
-    }
-    final random = Random(91307);
-    final uncached = <double>[];
-    final encoded = <double>[];
-    final ranking = <double>[];
-    final assembly = <double>[];
-    final queryCountBefore = encoder?.queries ?? 0;
-    // Fresh index instances clear the query cache without reloading the engine.
-    // Synchronization occurs outside query intervals and must reuse all vectors.
-    while (uncached.length < iterations) {
-      index = makeIndex();
-      final reused = await index.synchronize(snapshot);
-      if (reused.embeddedChunks != 0) throw StateError('Vector reuse failed');
-      final shuffled = [...rows]..shuffle(random);
-      for (final row in shuffled) {
-        if (uncached.length >= iterations) break;
-        final result = await search(row);
-        uncached.add(result.searchMs + result.contextMs);
-        encoded.add(result.encodingMs);
-        ranking.add(result.searchMs - result.encodingMs);
-        assembly.add(result.contextMs);
+      updateRows['metadata'] = {
+        'ms': elapsed(watch),
+        'embedded': metadata.embeddedChunks,
+        'written': metadata.writtenChunks,
+      };
+      if (metadata.embeddedChunks != 0) {
+        throw StateError('Metadata change encoded vectors');
       }
+      changed[firstPath] =
+          '${changed[firstPath]}\nAdditional operational note.\n';
+      final deletedPath = changed.keys.firstWhere(
+        (path) => path.endsWith('/expired.md'),
+      );
+      changed.remove(deletedPath);
+      watch.reset();
+      final body = await index.synchronize(
+        KnowledgeSnapshot.fromSources(changed, bundleId: 'comparison'),
+      );
+      updateRows['bodyAndDelete'] = {
+        'ms': elapsed(watch),
+        'embedded': body.embeddedChunks,
+        'written': body.writtenChunks,
+        'removed': body.removedChunks,
+      };
+      // Restore the original corpus, so a subsequent process measures honest reuse.
+      await index.synchronize(snapshot);
+      final stats = await store.getStats();
+      final report = {
+        'arm': arm,
+        'store': options.option('store'),
+        'split': options.option('split'),
+        'runtime': Platform.version,
+        'modelOpened': true,
+        'modelIdentity': model.modelName,
+        'modelSpec': model.model.toMap(),
+        'truncatedInputs': model.truncatedInputs,
+        'passageManifestSha256': sha256
+            .convert(
+              utf8.encode(
+                jsonEncode([
+                  for (final chunk in snapshot.chunks)
+                    [chunk.id, snapshot.textFor(chunk, includeContext: true)],
+                ]),
+              ),
+            )
+            .toString(),
+        'chunks': snapshot.chunks.length,
+        'concepts': snapshot.conceptPaths.length,
+        'modelOpenMs': modelOpenMs,
+        'storeOpenMs': storeOpenMs,
+        'parseMs': parseMs,
+        'tokenBudgetVerificationMs': tokenizationMs,
+        'syncMs': syncMs,
+        'initialDocumentEncodingMs': initialDocumentMs,
+        'initialWriteMs': initialWriteMs,
+        'initialReadMs': initialReadMs,
+        'initialEmbedded': sync.embeddedChunks,
+        'timeToFirstResultMs': firstResultMs,
+        'uncached': summarize(uncached),
+        'queryEncoding': summarize(encoded),
+        'rankingAndRawContext': summarize(ranking),
+        'policyAssembly': summarize(assembly),
+        'cached': summarize(cached),
+        'uncachedQueryEncodings': uncachedQueryEncodings,
+        'cachedQueryEncodings': cachedQueryEncodings,
+        'totalDocumentEncodings': encoder.documents,
+        'totalQueryEncodings': encoder.queries,
+        'updates': updateRows,
+        'stats': stats,
+        'peakRssBytes': ProcessInfo.maxRss,
+        'quality': quality,
+      };
+      final output = File(options.option('output')!);
+      await output.parent.create(recursive: true);
+      await output.writeAsString(
+        '${const JsonEncoder.withIndent('  ').convert(report)}\n',
+      );
+    } finally {
+      await store.close();
     }
-    final uncachedQueryEncodings = (encoder?.queries ?? 0) - queryCountBefore;
-    // Each split has 80 queries, below the adapter's 100-entry cache bound.
-    for (var pass = 0; pass < 2; pass++) {
-      for (final row in rows) {
-        await search(row);
-      }
-    }
-    final cacheBefore = encoder?.queries ?? 0;
-    final cached = <double>[];
-    while (cached.length < iterations) {
-      final shuffled = [...rows]..shuffle(random);
-      for (final row in shuffled) {
-        if (cached.length >= iterations) break;
-        final result = await search(row);
-        cached.add(result.searchMs + result.contextMs);
-      }
-    }
-    final cachedQueryEncodings = (encoder?.queries ?? 0) - cacheBefore;
-    if (cachedQueryEncodings != 0 ||
-        (semantic && uncachedQueryEncodings != iterations)) {
-      throw StateError('Cache scenario did not match its label');
-    }
-    final updateRows = <String, Object?>{};
-    final changed = {...sources};
-    final firstPath = changed.keys.first;
-    changed[firstPath] = changed[firstPath]!.replaceFirst(
-      'type: reference',
-      'type: reference\nverified: false',
-    );
-    watch.reset();
-    final metadata = await index.synchronize(
-      KnowledgeSnapshot.fromSources(changed, bundleId: 'comparison'),
-    );
-    updateRows['metadata'] = {
-      'ms': elapsed(watch),
-      'embedded': metadata.embeddedChunks,
-      'written': metadata.writtenChunks,
-    };
-    if (metadata.embeddedChunks != 0) {
-      throw StateError('Metadata change encoded vectors');
-    }
-    changed[firstPath] =
-        '${changed[firstPath]}\nAdditional operational note.\n';
-    final deletedPath = changed.keys.firstWhere(
-      (path) => path.endsWith('/expired.md'),
-    );
-    changed.remove(deletedPath);
-    watch.reset();
-    final body = await index.synchronize(
-      KnowledgeSnapshot.fromSources(changed, bundleId: 'comparison'),
-    );
-    updateRows['bodyAndDelete'] = {
-      'ms': elapsed(watch),
-      'embedded': body.embeddedChunks,
-      'written': body.writtenChunks,
-      'removed': body.removedChunks,
-    };
-    // Restore the original corpus, so a subsequent process measures honest reuse.
-    await index.synchronize(snapshot);
-    final stats = await store.getStats();
-    if (!semantic && ((stats['embeddings'] as num?) ?? 0) != 0) {
-      throw StateError('Model-free arm stored vectors');
-    }
-    final report = {
-      'arm': arm,
-      'store': options.option('store'),
-      'split': options.option('split'),
-      'runtime': Platform.version,
-      'modelOpened': model != null,
-      'modelIdentity': semantic ? model?.modelName : null,
-      'modelSpec': model?.model.toMap(),
-      'truncatedInputs': model?.truncatedInputs ?? 0,
-      'passageManifestSha256': sha256
-          .convert(
-            utf8.encode(
-              jsonEncode([
-                for (final chunk in snapshot.chunks)
-                  [chunk.id, snapshot.textFor(chunk, includeContext: true)],
-              ]),
-            ),
-          )
-          .toString(),
-      'chunks': snapshot.chunks.length,
-      'concepts': snapshot.conceptPaths.length,
-      'modelOpenMs': modelOpenMs,
-      'storeOpenMs': storeOpenMs,
-      'parseMs': parseMs,
-      'tokenBudgetVerificationMs': tokenizationMs,
-      'syncMs': syncMs,
-      'initialDocumentEncodingMs': initialDocumentMs,
-      'initialWriteMs': initialWriteMs,
-      'initialReadMs': initialReadMs,
-      'initialEmbedded': sync.embeddedChunks,
-      'timeToFirstResultMs': firstResultMs,
-      'uncached': summarize(uncached),
-      'queryEncoding': summarize(encoded),
-      'rankingAndRawContext': summarize(ranking),
-      'policyAssembly': summarize(assembly),
-      'cached': summarize(cached),
-      'uncachedQueryEncodings': uncachedQueryEncodings,
-      'cachedQueryEncodings': cachedQueryEncodings,
-      'totalDocumentEncodings': encoder?.documents ?? 0,
-      'totalQueryEncodings': encoder?.queries ?? 0,
-      'updates': updateRows,
-      'stats': stats,
-      'peakRssBytes': ProcessInfo.maxRss,
-      'quality': quality,
-    };
-    final output = File(options.option('output')!);
-    await output.parent.create(recursive: true);
-    await output.writeAsString(
-      '${const JsonEncoder.withIndent('  ').convert(report)}\n',
-    );
   } finally {
-    await store.close();
-    await model?.dispose();
+    await model.dispose();
   }
 }
 
@@ -379,47 +373,6 @@ Map<String, Object?> judge(
         : 1 / ranks.first,
     'candidates': hits.length,
   };
-}
-
-/// Diagnostic distinct-term baseline using the production BM25 tokenizer.
-class KeywordIndex {
-  KeywordIndex(this.snapshot)
-    : terms = {
-        for (final chunk in snapshot.chunks)
-          chunk.id: tokenizeLexicalText(
-            snapshot.textFor(chunk, includeContext: true),
-          ).toSet(),
-      };
-  final KnowledgeSnapshot snapshot;
-  final Map<String, Set<String>> terms;
-  List<SearchResult> search(String query, KnowledgeSearchPolicy policy) {
-    final queryTerms = tokenizeLexicalText(query).toSet();
-    final hits = <SearchResult>[];
-    for (final chunk in snapshot.chunks) {
-      if (!policy.allows(snapshot, chunk.sourcePath)) continue;
-      final score = terms[chunk.id]!.intersection(queryTerms).length;
-      if (score > 0) {
-        hits.add(
-          SearchResult(
-            chunk: chunk,
-            embedding: null,
-            similarity: score.toDouble(),
-          ),
-        );
-      }
-    }
-    hits.sort((a, b) {
-      final score = b.similarity.compareTo(a.similarity);
-      if (score != 0) return score;
-      final path = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
-      return path != 0 ? path : a.chunk.lineStart.compareTo(b.chunk.lineStart);
-    });
-    final best = <String, SearchResult>{};
-    for (final hit in hits) {
-      best.putIfAbsent(hit.chunk.sourcePath, () => hit);
-    }
-    return best.values.take(10).toList();
-  }
 }
 
 class MeasuredEmbedder extends BaseEmbedder {

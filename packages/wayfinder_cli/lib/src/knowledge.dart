@@ -136,6 +136,7 @@ class WayfinderKnowledge {
   }
 
   static Future<WayfinderEncoder> _openLocalEncoder() async {
+    String? modelPath;
     try {
       var model = defaultEmbeddingModelFile();
       if (!model.existsSync() &&
@@ -148,6 +149,7 @@ class WayfinderKnowledge {
           model = File.fromUri(package.resolve('../models/embedding.gguf'));
         }
       }
+      modelPath = model.path;
       final embedder = await LlamaEmbedder.open(modelFile: model);
       return WayfinderEncoder(
         embedder,
@@ -155,13 +157,13 @@ class WayfinderKnowledge {
         embedder.model.maxTokens,
       );
     } on FileSystemException {
-      throw const WayfinderException(
-        'The local embedding model is missing or unreadable. Reinstall the complete '
+      throw WayfinderException(
+        'The local embedding model is missing or unreadable ($modelPath). Reinstall the complete '
         'Wayfinder bundle; for source development run melos run wayfinder_embeddings:prepare.',
       );
     } on FormatException {
-      throw const WayfinderException(
-        'The local embedding model failed verification. Reinstall the complete Wayfinder bundle.',
+      throw WayfinderException(
+        'The local embedding model failed verification ($modelPath). Reinstall the complete Wayfinder bundle.',
       );
     }
   }
@@ -472,9 +474,7 @@ class WayfinderKnowledge {
             ),
           );
         } on WayfinderException catch (error) {
-          throw WayfinderException(
-            '$bundle: ${error.message} Run wayfinder index to refresh project bundles.',
-          );
+          throw WayfinderException('$bundle: ${error.message}');
         }
       }
       return results;
@@ -524,7 +524,6 @@ class WayfinderKnowledge {
       }
       final response = await index.search(
         query,
-        mode: KnowledgeRetrievalMode.dense,
         limit: limit,
         contextLimit: allContext ? snapshot.conceptPaths.length : null,
         policy: KnowledgeSearchPolicy(
@@ -538,6 +537,15 @@ class WayfinderKnowledge {
         );
       }
       return response;
+    } on StateError catch (error) {
+      if (error.message.startsWith(
+        'Dense search requires compatible embeddings',
+      )) {
+        throw WayfinderException(
+          '${error.message} Run wayfinder index <bundle>.',
+        );
+      }
+      rethrow;
     } finally {
       await store.close();
     }

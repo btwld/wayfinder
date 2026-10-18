@@ -172,24 +172,24 @@ void runStoreContract(BaseStore Function() createStore) {
         modelName: 'model-a',
         vector: testVector384(seed: 1),
       );
-      final lexicalEmbedding = Embedding(
+      final alternateEmbedding = Embedding(
         chunkId: chunk.id,
         source: 'local',
-        modelName: 'local-bm25',
+        modelName: 'test-model',
         vector: testVector384(seed: 2),
       );
 
       await store.storeChunk(chunk);
       await store.storeEmbedding(denseEmbedding);
-      await store.storeEmbedding(lexicalEmbedding);
+      await store.storeEmbedding(alternateEmbedding);
 
       expect(
         await store.getEmbedding(
           chunk.id,
           source: 'local',
-          modelName: 'local-bm25',
+          modelName: 'test-model',
         ),
-        equals(lexicalEmbedding),
+        equals(alternateEmbedding),
       );
       expect(await store.getEmbedding(chunk.id, source: 'missing'), isNull);
       expect(await store.getAllEmbeddings(), hasLength(2));
@@ -272,7 +272,7 @@ void runStoreContract(BaseStore Function() createStore) {
     await store.storeEmbedding(
       Embedding(
         chunkId: chunkA.id,
-        source: 'bm25',
+        source: 'test-dense',
         modelName: 'local',
         vector: testVector384(seed: 1),
       ),
@@ -280,7 +280,7 @@ void runStoreContract(BaseStore Function() createStore) {
     await store.storeEmbedding(
       Embedding(
         chunkId: chunkB.id,
-        source: 'bm25',
+        source: 'test-dense',
         modelName: 'local',
         vector: testVector384(seed: 2),
       ),
@@ -288,7 +288,7 @@ void runStoreContract(BaseStore Function() createStore) {
 
     final results = await store.findSimilar(
       testVector384(seed: 1),
-      'bm25',
+      'test-dense',
       'local',
     );
     expect(results, hasLength(2));
@@ -351,7 +351,7 @@ void runStoreContract(BaseStore Function() createStore) {
     await store.storeEmbedding(
       Embedding(
         chunkId: chunk.id,
-        source: 'bm25',
+        source: 'test-dense',
         modelName: 'local',
         vector: testVector384(seed: 5),
       ),
@@ -360,7 +360,7 @@ void runStoreContract(BaseStore Function() createStore) {
     expect(
       await store.findSimilar(
         testVector384(seed: 5),
-        'bm25',
+        'test-dense',
         'local',
         limit: 0,
       ),
@@ -369,7 +369,7 @@ void runStoreContract(BaseStore Function() createStore) {
     expect(
       await store.findSimilar(
         testVector384(seed: 5),
-        'bm25',
+        'test-dense',
         'local',
         limit: -1,
       ),
@@ -504,7 +504,7 @@ void runStoreContract(BaseStore Function() createStore) {
     );
     final embedding = Embedding(
       chunkId: chunk.id,
-      source: 'bm25',
+      source: 'test-dense',
       modelName: 'local',
       vector: testVector384(seed: 3),
     );
@@ -575,7 +575,7 @@ void runStoreContract(BaseStore Function() createStore) {
     await store.storeEmbedding(
       Embedding(
         chunkId: chunk.id,
-        source: 'bm25',
+        source: 'test-dense',
         modelName: 'local',
         vector: testVector384(seed: 4),
       ),

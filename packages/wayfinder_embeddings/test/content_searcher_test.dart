@@ -130,6 +130,64 @@ void main() {
       await embedder.dispose();
     });
 
+    test(
+      'nonempty collection without compatible vectors fails clearly',
+      () async {
+        for (final embedding in await store.getAllEmbeddings()) {
+          await store.deleteEmbedding(embedding.chunkId);
+        }
+        await expectLater(
+          searcher.search('auth service'),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('requires compatible embeddings'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('empty eligible collection is a valid empty result', () async {
+      for (final embedding in await store.getAllEmbeddings()) {
+        await store.deleteEmbedding(embedding.chunkId);
+      }
+      expect(
+        await searcher.search(
+          'auth service',
+          options: SearchOptions(filePaths: ['not-present.dart']),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('missing vectors are checked within the eligible collection', () async {
+      final missing = (await store.getAllChunks()).singleWhere(
+        (chunk) => chunk.sourcePath.endsWith('auth_controller.dart'),
+      );
+      await store.deleteEmbedding(missing.id);
+      // Other chunks still have compatible vectors; they cannot mask this error.
+      await expectLater(
+        searcher.search(
+          'auth service',
+          options: SearchOptions(filePaths: [missing.sourcePath]),
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('successful dense search does not scan every chunk', () async {
+      final checked = _NoScanStore();
+      addTearDown(checked.close);
+      await checked.storeBatch(
+        chunks: await store.getAllChunks(),
+        embeddings: await store.getAllEmbeddings(),
+      );
+      final dense = ContentSearcher(store: checked, embedder: embedder);
+      expect(await dense.search('auth service'), isNotEmpty);
+    });
+
     test('applies file path filters', () async {
       final results = await searcher.search(
         'auth service',
@@ -273,4 +331,10 @@ class FakeEmbedder extends BaseEmbedder {
     }
     return vector;
   }
+}
+
+class _NoScanStore extends MemoryStore {
+  @override
+  Future<List<Chunk>> getAllChunks() =>
+      throw StateError('Successful queries must not scan the corpus.');
 }

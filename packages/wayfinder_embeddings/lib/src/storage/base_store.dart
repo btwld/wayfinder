@@ -83,7 +83,7 @@ abstract class BaseStore {
   /// Finds chunks similar to a query vector.
   ///
   /// [queryVector] is the non-empty, finite vector representation of the query.
-  /// [source] is the source of the embeddings to search (e.g., 'bm25', 'openai').
+  /// [source] is the source of the embeddings to search (e.g., 'llamadart', 'openai').
   /// [modelName] is the name of the model used to generate the embeddings.
   /// [limit] is the maximum number of results to return.
   Future<List<SearchResult>> findSimilar(

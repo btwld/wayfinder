@@ -1,16 +1,15 @@
 # Wayfinder Embeddings
 
 Chunk, embed, and search code and documents from Dart. The package runs
-locally: exact BM25 over chunk text, dense vectors from an in-process llamadart model, and
-Reciprocal Rank Fusion (RRF) over the two.
+locally with dense vectors from an in-process llamadart model.
 
 ## What it does
 
 - **Chunk** Dart, TypeScript, Markdown, and text files into addressable
   segments with line ranges and symbol metadata. Chunk ids are stable hashes of
   the source path, line range, type, and content.
-- **Rank** chunks for a natural-language query with lexical, dense, or hybrid
-  retrieval, with optional cross-encoder reranking.
+- **Rank** chunks for a natural-language query with dense
+  retrieval and optional cross-encoder reranking.
 - **Expand** a precise hit to its enclosing class, namespace, or file.
 
 Chunk budgets count non-whitespace characters, so indentation and blank lines
@@ -38,16 +37,17 @@ so nothing becomes unsearchable. Metadata-only changes reuse
 vectors when they do not change embedding inputs; contextual titles, short descriptions, and heading paths
 are embedding inputs. A stable caller-supplied bundle ID isolates ownership in a shared store.
 
-Run `dart run example/knowledge_example.dart` for contextual BM25 with no model,
-or append `--dense` after preparing the local model. The example explicitly
+Run `dart run example/knowledge_example.dart` after preparing the local model. The example explicitly
 selects current guidance, a query date, governing sources, and one-hop links.
 These are consumer choices, not new OKF rules. History queries can select
 historical status instead. Draft and unverified concepts remain eligible.
 
-The adapter defaults to BM25 and no implicit policy; enable `includeContext`
-for title/heading inputs and supply `countTokens`/`maxTokens` with an encoder.
+The adapter requires `embedder:` and applies no implicit knowledge policy.
+Enable `includeContext` for title/heading inputs and supply
+`countTokens`/`maxTokens` from the encoder.
 Dense retrieval scores the entire eligible vector set exactly; ObjectBox adds
-persistence, not a relevance advantage. The caller owns the store and encoder.
+persistence, not a relevance advantage. Search fails if an eligible passage
+lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
 inclusion reasons and unresolved/excluded-context notices. They are candidates,
@@ -141,18 +141,18 @@ commands using local embeddings. The following developer commands run from this 
 dart run tool/prepare_model.dart
 
 # Run the fixed-query OKF fixture example with local embeddings.
-dart run example/knowledge_example.dart --dense
+dart run example/knowledge_example.dart
 
 # Compare retrieval components on the committed OKF fixture.
-dart run tool/evaluate_okf_retrieval.dart --native --stores=memory --split=development --output=comparison_results/okf-development.json
+dart run tool/evaluate_okf_retrieval.dart --stores=memory --split=development --output=comparison_results/okf-development.json
 
 # Build the generic corpus evaluation CLI with its native assets.
 # ObjectBox must already be installed: run melos run objectbox:install at root.
 dart run tool/build_wayfinder_embeddings.dart --offline
 ```
 
-Run `dart run example/knowledge_example.dart` without `--dense` for BM25 and
-no model loading. The example's bundle and query are fixed in its source.
+The knowledge example always loads the prepared model. Its bundle and query
+are fixed in its source. The basic and code examples are model-free previews.
 `compare_embeddings` accepts a corpus directory and query/judgment files for
 evaluation; it is not an interactive OKF bundle search interface. Use the
 `KnowledgeSnapshot`/`KnowledgeIndex` API for a consumer's own bundle and query.
@@ -191,12 +191,8 @@ Future<void> main() async {
     final chunked = registry.chunkFiles(files).toList();
     await pipeline.ingest(chunked);
 
-    // 3. Fuse exact BM25 with the dense vectors.
-    final chunks = await store.getAllChunks();
-    final searcher = HybridContentSearcher(
-      lexicalIndex: BM25LexicalIndex.fromChunks(chunks),
-      semanticSearcher: ContentSearcher(store: store, embedder: embedder),
-    );
+    // 3. Search the dense vectors.
+    final searcher = ContentSearcher(store: store, embedder: embedder);
 
     // 4. Search.
     final results = await searcher.search('refresh auth token', limit: 10);
@@ -212,33 +208,38 @@ Future<void> main() async {
 ```
 
 `SearchOptions` selects file paths, glob patterns, chunk types, and metadata.
-BM25 filters before scoring. Dense search filters ranked candidates and doubles
+Generic dense search filters ranked candidates and doubles
 its fetch window up to 32 times the requested limit; selective filters can
 therefore return fewer results even when more matches exist deeper in the store.
 
 Ingestion deduplicates chunk ids across both stored data and the current call.
 An existing chunk still receives a missing embedding for the active source/model.
-Metadata-only updates are persisted without regenerating vectors. Rebuild any
-existing BM25 index to see the updated snapshot. Changed text needs a new chunk
+Metadata-only updates are persisted without regenerating vectors. Changed text needs a new chunk
 ID; ingestion does not remove obsolete chunks automatically. Delete those
 chunks explicitly or rebuild a fresh store when synchronizing changed files.
 
+For generic search, an empty-result check rejects eligible content with no
+compatible vectors. Successful ANN queries do not scan the whole collection or
+verify partial coverage; ingestion callers own that boundary. The OKF adapter
+checks every eligible passage before ranking. Missing models and incompatible
+vectors never trigger another retrieval method.
+
 ## Composing searchers
 
-`ContentSearcher`, `HybridContentSearcher`, and `RerankingContentSearcher` all
-implement `Searcher`, so they compose without adapters.
+`ContentSearcher` and `RerankingContentSearcher` implement `Searcher`, so they
+compose without adapters. Generic custom searchers remain supported.
 
 ```dart
 // Cross-encoder precision stage over any first-pass searcher.
 final reranked = RerankingContentSearcher(
-  searcher: hybridSearcher,
+  searcher: denseSearcher,
   reranker: TeiReranker(baseUrl: Uri.parse('http://127.0.0.1:8080')),
   candidateLimit: 50,
 );
 
 // Small-to-large: match precise child chunks, present the enclosing context.
 final contextual = ParentChildSearcher(
-  searcher: hybridSearcher,
+  searcher: denseSearcher,
   resolver: ParentChildResolver(chunks: chunks),
 );
 final contextualResults = await contextual.search('refresh auth token');
@@ -287,7 +288,8 @@ dart run example/basic_example.dart
 dart run example/code_example.dart
 ```
 
-Both read the checked-in `fixtures/samples/` files. The sample corpus covers
+Both preview the checked-in `fixtures/samples/` files without loading a model.
+They do not create a searchable index. The sample corpus covers
 all four chunkers, including plain text and Markdown table examples inside code
 fences. Markdown code blocks retain literal table syntax; actual tables inherit
 their heading metadata and are omitted when `includeTables` is false.
@@ -380,18 +382,20 @@ Extend `BaseChunker` or `BaseEmbedder`. Register a chunker with
 
 ## Evaluation
 
-The retrieval benchmark and the BM25 regression gate live in `tool/`; their
-fixtures and judgments live in `fixtures/`. Run from this package:
+The retrieval benchmark and the genuine dense regression gate live in `tool/`;
+their fixtures and judgments live in [`fixtures/`](fixtures/README.md). Run from
+this package after preparing the model:
 
 ```bash
 dart test test/fixtures_pipeline_golden_test.dart test/retrieval_fixture_gate_test.dart
 dart run tool/compare_embeddings.dart \
-  --embedders=bm25 --store=memory --top=10 \
+  --embedders=dense --store=memory --top=10 \
+  --long-input=truncate \
   --queries=fixtures/corpus/retrieval_queries.json \
   --qrels=fixtures/corpus/retrieval_qrels.json \
-  --validate-golden \
-  --metrics-output=comparison_results/bm25_metrics.json \
-  --baseline-metrics=fixtures/corpus/bm25_metrics_baseline.json
+  --query-groups=fixtures/corpus/retrieval_query_groups.json \
+  --metrics-output=comparison_results/dense_metrics.json \
+  --baseline-metrics=fixtures/benchmarks/dense_metrics_baseline.json
 ```
 
 The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
@@ -401,3 +405,26 @@ Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
 
 Dart package: BSD 3-Clause. See `LICENSE`. The bundled model uses Apache-2.0;
 its license and conversion attribution are in `tool/model_assets/`.
+
+## Dense-only migration
+
+This is a breaking Dart and command-contract change, selected for product
+simplicity in [ADR-0017](../../docs/adr/0017-dense-only-retrieval.md):
+
+- Supply `embedder:` to `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot`.
+- Remove `KnowledgeRetrievalMode`, search `mode:`, and OKF `candidateLimit:`.
+- Replace `HybridContentSearcher` with `ContentSearcher`. BM25, lexical
+  tokenization, and reciprocal-rank-fusion APIs are removed without aliases.
+- Use `dense` or `rerank:dense` in evaluation tools. `llamadart` remains a dense
+  alias. Retired `bm25`, `lexical`, `hybrid`, and reranked variants fail explicitly.
+- Remove the evaluator's `--native` and knowledge example's `--dense` toggles;
+  both always require genuine model inference. Preview examples remain model-free.
+
+Generic `Searcher`, reranking, TEI endpoints, reranker candidate limits, parent/child
+expansion, storage, and context policy remain available.
+Model-load errors fail, and the OKF adapter rejects missing eligible vectors.
+
+The cutoff does not change model identity, input format, snapshot format, or
+store schema. Compatible existing saved indexes remain usable. Independent
+changes to contextual input or an opt-in chunking policy still have their own
+rebuild requirements. No bundle or Profile migration is introduced.

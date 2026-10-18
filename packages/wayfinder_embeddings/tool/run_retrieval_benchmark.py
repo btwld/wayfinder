@@ -1,4 +1,4 @@
-"""Run isolated compiled arms; long performance runs are deliberately manual."""
+"""Run isolated compiled dense benchmarks; long performance runs are deliberately manual."""
 import argparse
 import json
 import pathlib
@@ -11,7 +11,7 @@ parser.add_argument('--binary', required=True)
 parser.add_argument('--output', required=True)
 parser.add_argument('--split', choices=['development', 'test'], required=True)
 parser.add_argument('--starts', type=int, default=10)
-parser.add_argument('--models-directory', help='Prepared experimental model directories; omitting retains the original XS-only comparison')
+parser.add_argument('--models-directory', help='Prepared experimental model directories; omit for the bundled local model')
 options = parser.parse_args()
 output = pathlib.Path(options.output).resolve()
 output.mkdir(parents=True, exist_ok=True)
@@ -26,9 +26,7 @@ if options.models_directory:
         models.append((spec['id'], manifest.parent / 'embedding.gguf'))
     if not models:
         raise ValueError('No prepared model manifests found')
-cases = ([(arm, None, None) for arm in ['keyword', 'bm25']] +
-         [(arm, model, path) for model, path in models for arm in ['dense', 'hybrid']]
-         if models else [(arm, None, None) for arm in ['keyword', 'bm25', 'dense', 'hybrid']])
+cases = [('dense', model, path) for model, path in models] if models else [('dense', None, None)]
 for repetition in range(options.starts):
     offset = repetition % len(cases)
     ordered = cases[offset:] + cases[:offset]
@@ -52,10 +50,8 @@ for repetition in range(options.starts):
                     subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
                 wall = (time.perf_counter() - start) * 1000
                 result = json.loads(path.read_text())
-                if arm in ['keyword', 'bm25']:
-                    assert not result['modelOpened']
-                    assert result['totalDocumentEncodings'] == result['totalQueryEncodings'] == 0
-                    assert result['stats']['embeddings'] == 0
+                assert result['modelOpened']
+                assert result['stats']['embeddings'] > 0
                 if scenario == 'reopen':
                     assert result['initialEmbedded'] == 0
                 assert result['truncatedInputs'] == 0

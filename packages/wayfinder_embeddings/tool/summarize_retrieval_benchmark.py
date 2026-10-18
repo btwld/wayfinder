@@ -8,7 +8,7 @@ import random
 parser = argparse.ArgumentParser()
 parser.add_argument('directory')
 parser.add_argument('output')
-parser.add_argument('--models', action='store_true', help='Group dense/hybrid runs by model and compare model pairs')
+parser.add_argument('--models', action='store_true', help='Group dense runs by model and compare model pairs')
 args = parser.parse_args()
 root = pathlib.Path(args.directory)
 
@@ -46,11 +46,13 @@ def paired(rows, baseline):
             'losses': [key for key, value in differences.items() if value < 0]}
 
 def case_name(run):
-    if args.models and run['arm'] in ['dense', 'hybrid']:
+    if run['arm'] != 'dense':
+        raise ValueError('This summarizer accepts dense retrieval runs only')
+    if args.models:
         return run['arm'] + '/' + run['modelSpec']['id']
     return run['arm']
 
-report = {'splits': {}, 'comparisons': {}}
+report = {'splits': {}}
 for split in ['development', 'test']:
     runs = [json.loads(p.read_text()) for p in (root/split).glob('*.json') if p.name != 'index.json']
     assert len({r['passageManifestSha256'] for r in runs}) == 1, 'Cases must share identical passages'
@@ -79,20 +81,12 @@ for split in ['development', 'test']:
                        'queries': [{key: q[key] for key in ['id','topic','group','raw','context']} for q in rows]}
             report['splits'][split][arm][store] = summary
         assert report['splits'][split][arm]['memory']['queries']==report['splits'][split][arm]['objectbox']['queries']
-    baseline = report['splits'][split]['bm25']['memory']['queries']
-    report['comparisons'][split] = {}
-    for arm in cases:
-        if arm == 'bm25':
-            continue
-        rows = report['splits'][split][arm]['memory']['queries']
-        report['comparisons'][split][arm] = paired(rows, baseline)
     if args.models:
         pairs = report.setdefault('modelComparisons', {}).setdefault(split, [])
-        for mode in ['dense', 'hybrid']:
-            for baseline_name, candidate in itertools.combinations([c for c in cases if c.startswith(mode + '/')], 2):
-                pairs.append({'baseline': baseline_name, 'candidate': candidate,
-                              **paired(report['splits'][split][candidate]['memory']['queries'],
-                                       report['splits'][split][baseline_name]['memory']['queries'])})
+        for baseline_name, candidate in itertools.combinations(cases, 2):
+            pairs.append({'baseline': baseline_name, 'candidate': candidate,
+                          **paired(report['splits'][split][candidate]['memory']['queries'],
+                                   report['splits'][split][baseline_name]['memory']['queries'])})
 report['scale'] = {p.stem:json.loads(p.read_text()) for p in root.glob('scale-*.json')}
 for name in ['builds','model-preparation','token-validation']:
     path=root/(name+'.json')
@@ -101,4 +95,5 @@ pathlib.Path(args.output).write_text(json.dumps(report,indent=2)+'\n')
 for arm,data in report['splits']['test'].items():
     print(arm, data['memory']['context'], 'uncached',data['memory']['uncached'],
           'start',data['memory']['fresh']['timeToFirstResultMs'])
-print('Paired comparisons:',report['comparisons']['test'])
+if args.models:
+    print('Dense model comparisons:', report['modelComparisons']['test'])

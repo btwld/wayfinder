@@ -6,6 +6,8 @@ import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
+import 'support/counting_embedder.dart';
+
 String concept(String body, {String fields = ''}) =>
     '---\ntype: Guideline\n$fields---\n\n$body\n';
 
@@ -77,47 +79,66 @@ void main() {
     );
   });
 
-  test(
-    'metadata eligibility precedes ranking in every retrieval mode',
-    () async {
-      final store = MemoryStore();
-      final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
-      await index.synchronize(
-        snapshot({
-          for (var i = 0; i < 60; i++)
-            'excluded/$i.md': concept(
-              'Account access recovery',
-              fields: 'tags: [other]\n',
-            ),
-          'wanted.md': concept(
+  test('dense search refuses missing eligible vectors', () async {
+    final store = MemoryStore();
+    final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
+    await index.synchronize(
+      snapshot({'guide.md': concept('Recovery guidance.')}),
+    );
+    final chunk = (await store.getAllChunks()).single;
+    await store.deleteEmbedding(chunk.id);
+    await expectLater(
+      index.search('recovery'),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('every eligible passage'),
+        ),
+      ),
+    );
+  });
+
+  test('metadata eligibility precedes dense ranking', () async {
+    final store = MemoryStore();
+    final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
+    await index.synchronize(
+      snapshot({
+        for (var i = 0; i < 60; i++)
+          'excluded/$i.md': concept(
             'Account access recovery',
-            fields: 'tags: [mobile]\n',
+            fields: 'tags: [other]\n',
           ),
-        }),
-      );
-      final before = await store.getAllEmbeddings();
-      for (final mode in KnowledgeRetrievalMode.values) {
-        final result = await index.search(
+        'wanted.md': concept(
           'Account access recovery',
-          mode: mode,
-          limit: 1,
-          candidateLimit: 1,
-          policy: KnowledgeSearchPolicy(
-            metadataFilter: KnowledgeMetadataFilter(tags: {'mobile'}),
-            expandRelationships: true,
-          ),
-        );
-        expect(result.matches.single.chunk.sourcePath, 'wanted.md');
-        expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
-          'wanted.md',
-        ]);
-      }
-      expect(await store.getAllEmbeddings(), before);
-    },
-  );
+          fields: 'tags: [mobile]\n',
+        ),
+      }),
+    );
+    final before = await store.getAllEmbeddings();
+    {
+      final result = await index.search(
+        'Account access recovery',
+
+        limit: 1,
+        policy: KnowledgeSearchPolicy(
+          metadataFilter: KnowledgeMetadataFilter(tags: {'mobile'}),
+          expandRelationships: true,
+        ),
+      );
+      expect(result.matches.single.chunk.sourcePath, 'wanted.md');
+      expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
+        'wanted.md',
+      ]);
+    }
+    expect(await store.getAllEmbeddings(), before);
+  });
 
   test('metadata filters exclude linked and governing context', () async {
-    final index = KnowledgeIndex(store: MemoryStore());
+    final index = KnowledgeIndex(
+      store: MemoryStore(),
+      embedder: CountingEmbedder(),
+    );
     await index.synchronize(
       snapshot({
         'wanted.md': concept(
@@ -130,7 +151,7 @@ void main() {
     );
     final result = await index.search(
       'Routing',
-      mode: KnowledgeRetrievalMode.bm25,
+
       contextLimit: 10,
       policy: KnowledgeSearchPolicy(
         metadataFilter: KnowledgeMetadataFilter(tags: {'mobile'}),
@@ -324,7 +345,10 @@ void main() {
     () async {
       final store = MemoryStore();
       final index = KnowledgeIndex(store: store, embedder: CountingEmbedder());
-      final foreign = KnowledgeIndex(store: store);
+      final foreign = KnowledgeIndex(
+        store: store,
+        embedder: CountingEmbedder(),
+      );
       await foreign.synchronize(
         snapshot({'guide.md': concept('Foreign body')}, id: 'other'),
       );
@@ -343,8 +367,11 @@ void main() {
         (await store.getAllChunks()).map((chunk) => chunk.content),
         unorderedEquals(['Foreign body', 'New instructions']),
       );
-      expect(await store.getAllEmbeddings(), hasLength(1));
-      expect((await index.search('Old')).matches, isEmpty);
+      expect(await store.getAllEmbeddings(), hasLength(2));
+      expect(
+        (await index.search('Old')).matches.map((hit) => hit.chunk.content),
+        isNot(contains('Old instructions')),
+      );
       expect(
         (await index.search('New')).matches.single.chunk.content,
         'New instructions',
@@ -423,12 +450,11 @@ void main() {
         currentOnly: true,
         asOf: DateTime.utc(2026, 9, 9),
       );
-      for (final mode in KnowledgeRetrievalMode.values) {
+      {
         final hits = await index.search(
           'Account access recovery',
-          mode: mode,
+
           limit: 2,
-          candidateLimit: 1,
           policy: current,
         );
         expect(
@@ -438,7 +464,7 @@ void main() {
       }
       final none = await index.search(
         'Account access recovery',
-        mode: KnowledgeRetrievalMode.dense,
+
         policy: KnowledgeSearchPolicy(pathPrefixes: {'missing'}),
       );
       expect(none.matches, isEmpty);
@@ -448,7 +474,10 @@ void main() {
   test(
     'current filtering uses the stale boundary and retains missing verification',
     () async {
-      final index = KnowledgeIndex(store: MemoryStore());
+      final index = KnowledgeIndex(
+        store: MemoryStore(),
+        embedder: CountingEmbedder(),
+      );
       await index.synchronize(
         snapshot({
           'old.md': concept(
@@ -476,7 +505,10 @@ void main() {
   test(
     'governing chains precede matches without changing query scores',
     () async {
-      final index = KnowledgeIndex(store: MemoryStore());
+      final index = KnowledgeIndex(
+        store: MemoryStore(),
+        embedder: CountingEmbedder(focus: 'Local debug'),
+      );
       await index.synchronize(
         snapshot({
           'implementation.md': concept('Local debug may disable encryption.'),
@@ -486,6 +518,7 @@ void main() {
       );
       final result = await index.search(
         'Local debug',
+        limit: 1,
         contextLimit: 3,
         policy: KnowledgeSearchPolicy(
           governingSources: {
@@ -534,7 +567,10 @@ void main() {
   test(
     'declared link expansion is bounded, deduplicated, and scope-aware',
     () async {
-      final index = KnowledgeIndex(store: MemoryStore());
+      final index = KnowledgeIndex(
+        store: MemoryStore(),
+        embedder: CountingEmbedder(focus: 'LaunchProcedure'),
+      );
       await index.synchronize(
         snapshot({
           'guide/start.md': concept(
@@ -547,6 +583,7 @@ void main() {
       );
       final result = await index.search(
         'LaunchProcedure',
+        limit: 1,
         contextLimit: 2,
         policy: KnowledgeSearchPolicy(expandRelationships: true),
       );
@@ -624,10 +661,15 @@ void main() {
       reason: 'okf reads no producer key, so the edges exist only as typed',
     );
 
-    final index = KnowledgeIndex(store: MemoryStore());
+    final index = KnowledgeIndex(
+      store: MemoryStore(),
+      embedder: CountingEmbedder(focus: 'OfflineMode'),
+    );
     await index.synchronize(typed);
     final result = await index.search(
       'OfflineMode',
+      limit: 1,
+      contextLimit: 2,
       policy: KnowledgeSearchPolicy(expandRelationships: true),
     );
     expect(result.context.map((hit) => hit.result.chunk.sourcePath), [
@@ -646,10 +688,15 @@ void main() {
       for (final edge in typed.fieldEdges) edge.toJson(),
     ]);
 
-    final untyped = KnowledgeIndex(store: MemoryStore());
+    final untyped = KnowledgeIndex(
+      store: MemoryStore(),
+      embedder: CountingEmbedder(focus: 'OfflineMode'),
+    );
     await untyped.synchronize(snapshot(sources, id: 'untyped'));
     final plain = await untyped.search(
       'OfflineMode',
+      limit: 1,
+      contextLimit: 2,
       policy: KnowledgeSearchPolicy(expandRelationships: true),
     );
     expect(plain.context.map((hit) => hit.result.chunk.sourcePath), [
@@ -749,27 +796,4 @@ void main() {
       );
     },
   );
-}
-
-class CountingEmbedder extends BaseEmbedder {
-  final documents = <String>[];
-  bool fail = false;
-  @override
-  String get sourceName => 'test';
-  @override
-  String get modelName => 'fixed';
-  @override
-  int get dimension => 384;
-  @override
-  Future<List<double>> generateEmbedding(String text) async {
-    if (fail) throw StateError('inference failed');
-    documents.add(text);
-    return [1, ...List<double>.filled(383, 0)];
-  }
-
-  @override
-  Future<List<double>> generateQueryVector(String text) async => [
-    1,
-    ...List<double>.filled(383, 0),
-  ];
 }

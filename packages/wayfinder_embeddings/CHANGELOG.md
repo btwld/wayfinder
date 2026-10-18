@@ -1,3 +1,22 @@
+# Unreleased
+
+- **BREAKING:** Dense-only retrieval replaces the former BM25/hybrid paths.
+  Supply `embedder:` to both `KnowledgeIndex` constructors; remove
+  `KnowledgeRetrievalMode`, search `mode:`, and OKF `candidateLimit:`.
+  Remove lexical tokenization, BM25, hybrid searcher, and reciprocal-rank-fusion
+  APIs without deprecated aliases. Use `ContentSearcher` instead.
+- Keep generic `Searcher`, reranking, `rerank:dense`, TEI, and reranker candidate
+  limits. Evaluation defaults to `dense`; retired descriptors fail before work.
+  Actual evaluators always load the model; remove their `--native` toggle and
+  the knowledge example's `--dense` toggle. Basic/code examples and validation
+  are explicitly preview-only. Fixture gates remain structural; native CI owns
+  genuine dense relevance checks against an extracted historical dense baseline.
+- Fail actual OKF search when eligible passages lack compatible vectors. Generic
+  search detects an empty compatible embedding space without scanning successful
+  ANN queries; callers still own partial vector coverage. No model, snapshot,
+  input identity, storage schema, context, or chunking change is implied by this
+  cutoff. Compatible saved indexes remain usable.
+
 # 0.2.0
 
 - `OkfLinkField` names a producer frontmatter key whose entries are typed

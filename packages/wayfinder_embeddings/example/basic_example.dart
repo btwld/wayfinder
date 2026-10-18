@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-/// Demonstrates chunk preview and exact BM25 lexical search over a text file.
+/// Demonstrates chunk preview without loading an embedding model.
 Future<void> main() async {
   final sampleFile = File('fixtures/samples/search.txt');
 
@@ -31,22 +31,15 @@ Future<void> main() async {
 
   if (previewChunks.isEmpty) {
     stdout.writeln(
-      'No chunks produced for ${sampleFile.path}; nothing to ingest.',
+      'No chunks produced for ${sampleFile.path}; nothing to preview.',
     );
     return;
   }
 
   stdout.writeln('Dry-run preview produced ${previewChunks.length} chunks.');
 
-  final store = MemoryStore();
-  for (final chunk in previewChunks) {
-    await store.storeChunk(chunk);
-  }
-  final indexedChunks = await store.getAllChunks();
-  stdout.writeln('Stored ${indexedChunks.length} chunks in MemoryStore.');
-
   stdout.writeln('\nChunk previews:');
-  for (final chunk in indexedChunks) {
+  for (final chunk in previewChunks) {
     final preview = chunk.content.length > 80
         ? '${chunk.content.substring(0, 80)}…'
         : chunk.content;
@@ -55,18 +48,5 @@ Future<void> main() async {
     );
   }
 
-  final lexicalIndex = BM25LexicalIndex.fromChunks(indexedChunks);
-  const query = 'search for similar content';
-  final results = lexicalIndex.search(query, limit: 3);
-
-  stdout.writeln('\nSearch results for "$query":');
-  for (var i = 0; i < results.length; i++) {
-    final result = results[i];
-    stdout.writeln(
-      ' #${i + 1} score=${result.similarity.toStringAsFixed(4)} lines ${result.chunk.lineStart}-${result.chunk.lineEnd}',
-    );
-    stdout.writeln('    ${result.chunk.content.replaceAll('\n', ' ')}');
-  }
-
-  await store.close();
+  stdout.writeln('Preview only. Run native_example.dart for dense search.');
 }

@@ -123,10 +123,7 @@ void main() {
           ('How do I reset my password?', 'recovery.md', 'Reset your password'),
           ('Will it rain this weekend?', 'weather.md', 'Rain is forecast'),
         ]) {
-          final hits = await reader.search(
-            query,
-            mode: KnowledgeRetrievalMode.hybrid,
-          );
+          final hits = await reader.search(query);
           expect(hits.matches.first.chunk.sourcePath, path);
           expect(hits.matches.first.chunk.content, contains(passage));
           final hit = hits.matches.first.chunk;
@@ -297,8 +294,8 @@ void main() {
           reason: '${row['case']}/${row['mode']}',
         );
       }
-      // The encoder retrieves the paraphrase missed by the lexical baseline,
-      // while the unscoped deprecated hit still ranks first.
+      // The encoder retrieves the fixture paraphrase, while the unscoped
+      // deprecated hit still ranks first.
       expect(
         rows.singleWhere(
           (row) => row['case'] == 'paraphrase' && row['mode'] == 'dense',
