@@ -38,24 +38,20 @@ class Embedding extends Equatable {
     String? source,
     String? modelName,
     List<double>? vector,
-  }) {
-    return Embedding(
-      chunkId: chunkId ?? this.chunkId,
-      source: source ?? this.source,
-      modelName: modelName ?? this.modelName,
-      vector: vector ?? this.vector,
-    );
-  }
+  }) => Embedding(
+    chunkId: chunkId ?? this.chunkId,
+    source: source ?? this.source,
+    modelName: modelName ?? this.modelName,
+    vector: vector ?? this.vector,
+  );
 
   /// Converts this embedding to a map.
-  Map<String, Object?> toMap() {
-    return {
-      'chunkId': chunkId,
-      'source': source,
-      'modelName': modelName,
-      'vector': List<double>.of(vector),
-    };
-  }
+  Map<String, Object?> toMap() => {
+    'chunkId': chunkId,
+    'source': source,
+    'modelName': modelName,
+    'vector': List<double>.of(vector),
+  };
 
   /// Creates an embedding from a map.
   Embedding.fromMap(Map<String, Object?> map)
@@ -70,9 +66,8 @@ class Embedding extends Equatable {
   List<Object?> get props => [chunkId, source, modelName, vector];
 
   @override
-  String toString() {
-    return 'Embedding(chunkId: $chunkId, source: $source, modelName: $modelName, vectorSize: ${vector.length})';
-  }
+  String toString() =>
+      'Embedding(chunkId: $chunkId, source: $source, modelName: $modelName, vectorSize: ${vector.length})';
 }
 
 List<double> _readVector(List<Object?> rawVector) {
@@ -86,8 +81,7 @@ List<double> _readVector(List<Object?> rawVector) {
   }
 
   final vector = <double>[];
-  for (var index = 0; index < rawVector.length; index++) {
-    final value = rawVector[index];
+  for (final (index, value) in rawVector.indexed) {
     if (value is! num) {
       throw formatFieldError(
         'Embedding',
@@ -114,8 +108,8 @@ List<double> _checkVector(List<double> vector) {
   if (vector.isEmpty) {
     throw ArgumentError.value(vector, 'vector', 'must not be empty');
   }
-  for (var index = 0; index < vector.length; index++) {
-    checkFinite(vector[index], 'vector[$index]');
+  for (final (index, value) in vector.indexed) {
+    checkFinite(value, 'vector[$index]');
   }
   return vector;
 }

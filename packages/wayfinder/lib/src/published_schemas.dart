@@ -172,7 +172,7 @@ String _reason(
     'must be ${types.cast<String>().map(_typeNoun).join(' or ')}',
   ('const', _) => 'must be ${jsonEncode(keywordValue)}',
   ('enum', final List<Object?> values) =>
-    'must be one of ${values.map(_literal).join(', ')}',
+    'must be one of ${values.map((v) => v is String ? v : jsonEncode(v)).join(', ')}',
   ('minLength', 1) => 'must be a non-empty string',
   ('minLength', _) => 'must have at least $keywordValue characters',
   ('maxLength', _) => 'must have at most $keywordValue characters',
@@ -214,5 +214,3 @@ String _typeNoun(String type) => switch (type) {
   'object' || 'array' || 'integer' => 'an $type',
   _ => 'a $type',
 };
-
-String _literal(Object? value) => value is String ? value : jsonEncode(value);

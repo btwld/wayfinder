@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'checks.dart';
+
 /// Computes cosine similarity between two vectors.
 ///
 /// Finite vectors are scaled before accumulation to avoid overflow and
@@ -35,11 +37,8 @@ double _validateSimilarityVector(List<double> vector, String name) {
   }
 
   var scale = 0.0;
-  for (var index = 0; index < vector.length; index++) {
-    final value = vector[index];
-    if (!value.isFinite) {
-      throw ArgumentError.value(value, '$name[$index]', 'must be finite');
-    }
+  for (final (index, value) in vector.indexed) {
+    checkFinite(value, '$name[$index]');
     scale = max(scale, value.abs());
   }
   return scale;

@@ -235,7 +235,7 @@ Map<String, Object?> _profileDescriptor(
 }) => {
   'id': descriptor.id,
   'shortDescription': {'text': description},
-  if (descriptor.helpUri case final uri?) 'helpUri': '$uri',
+  'helpUri': ?descriptor.helpUri?.toString(),
   'defaultConfiguration': {
     'level': switch (descriptor.severity.finding) {
       final severity? => _level(severity),

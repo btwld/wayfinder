@@ -92,12 +92,13 @@ class ReleaseChecker {
             release['prerelease'] == true) {
           continue;
         }
-        final tag = release['tag_name'];
-        if (tag is! String || !tag.startsWith(_tag)) continue;
-        final version = tag.substring(_tag.length);
-        if (_stable.hasMatch(version) &&
-            (newest == null || compareVersions(version, newest) > 0)) {
-          newest = version;
+        if (release['tag_name'] case final String tag
+            when tag.startsWith(_tag)) {
+          final version = tag.substring(_tag.length);
+          if (_stable.hasMatch(version) &&
+              (newest == null || compareVersions(version, newest) > 0)) {
+            newest = version;
+          }
         }
       }
     }

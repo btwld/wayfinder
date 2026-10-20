@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
@@ -177,7 +178,7 @@ class KnowledgeSnapshot {
         // Omit oversized descriptions rather than cutting a Unicode sequence or
         // embedding an incomplete claim. The original field remains metadata.
         final summary = description is String ? description.trim() : '';
-        final context = <String>[
+        contextTexts[id] = [
           if (title.trim().isNotEmpty) 'Title: $title',
           if (summary.isNotEmpty && summary.runes.length <= 240)
             'Description: $summary',
@@ -188,8 +189,8 @@ class KnowledgeSnapshot {
           if (raw.metadata['codeLanguage'] case final String language)
             'Code language: $language',
           'Passage:',
-        ];
-        contextTexts[id] = [...context, raw.content].join('\n\n');
+          raw.content,
+        ].join('\n\n');
       }
     }
     return KnowledgeSnapshot._(
@@ -213,9 +214,9 @@ class KnowledgeSnapshot {
     'bundleId': bundleId,
     'sources': sources,
     'assets': assets,
-    'chunks': chunks.map((chunk) => chunk.toMap()).toList(),
+    'chunks': [for (final chunk in chunks) chunk.toMap()],
     'contextTexts': _contextTexts,
-    'inputRecoveries': _recoveries.map((r) => r.toMap()).toList(),
+    'inputRecoveries': [for (final r in _recoveries) r.toMap()],
   };
 
   /// Reopens saved passages without tokenization or embedding inference.
@@ -320,12 +321,6 @@ class KnowledgeSnapshot {
         // On context failure retry the complete original body, including when
         // this snapshot was already fitted and reopened. Ordinary refits retain
         // their existing fragment boundaries and IDs.
-        final retryMetadata = Map<String, Object?>.from(originalMetadata)
-          ..remove('parentChunkId')
-          ..remove('characterStart')
-          ..remove('characterEnd')
-          ..remove('originalLineStart')
-          ..remove('originalLineEnd');
         final inputsToFit = restart
             ? [
                 first.copyWith(
@@ -333,7 +328,15 @@ class KnowledgeSnapshot {
                   content: group.map((chunk) => chunk.content).join(),
                   lineStart: originalStart,
                   lineEnd: originalEnd,
-                  metadata: {...first.metadata, 'okf': retryMetadata},
+                  metadata: {
+                    ...first.metadata,
+                    'okf': Map<String, Object?>.from(originalMetadata)
+                      ..remove('parentChunkId')
+                      ..remove('characterStart')
+                      ..remove('characterEnd')
+                      ..remove('originalLineStart')
+                      ..remove('originalLineEnd'),
+                  },
                 ),
               ]
             : group;
@@ -517,10 +520,8 @@ List<KnowledgeInputDiagnostic> _aggregate(List<_InputRecovery> recoveries) {
       KnowledgeInputDiagnostic(
         code: entry.key.$2,
         sourcePath: entry.key.$1,
-        lineStart: values
-            .map((r) => r.lineStart)
-            .reduce((a, b) => a < b ? a : b),
-        lineEnd: values.map((r) => r.lineEnd).reduce((a, b) => a > b ? a : b),
+        lineStart: values.map((r) => r.lineStart).reduce(math.min),
+        lineEnd: values.map((r) => r.lineEnd).reduce(math.max),
         affectedChunks: values.length,
       ),
     );

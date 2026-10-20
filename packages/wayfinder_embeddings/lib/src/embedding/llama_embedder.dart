@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:llamadart/llamadart.dart';
 
+import '../util/checks.dart';
 import 'base_embedder.dart';
 import 'embedding_model_spec.dart';
 
@@ -105,10 +106,7 @@ class LlamaEmbedder extends BaseEmbedder {
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
     _ensureOpen();
-    final prepared = <String>[];
-    for (final text in texts) {
-      prepared.add(await _prepare(text));
-    }
+    final prepared = [for (final text in texts) await _prepare(text)];
     if (prepared.isEmpty) return const [];
     final vectors = await _engine.embedBatch(prepared, normalize: true);
     if (vectors.length != texts.length) {
@@ -116,18 +114,14 @@ class LlamaEmbedder extends BaseEmbedder {
         'Embedding runtime returned ${vectors.length} vectors for ${texts.length} inputs.',
       );
     }
-    for (final vector in vectors) {
-      _validateVector(vector);
-    }
+    vectors.forEach(_validateVector);
     return vectors;
   }
 
   @override
   Future<List<double>> generateQueryVector(String text) async {
     _ensureOpen();
-    if (text.trim().isEmpty) {
-      throw ArgumentError.value(text, 'text', 'must not be blank');
-    }
+    checkNotBlank(text, 'text');
     final vector = await _engine.embed(
       await _prepare('${model.queryPrefix}$text'),
       normalize: true,
@@ -137,9 +131,7 @@ class LlamaEmbedder extends BaseEmbedder {
   }
 
   Future<String> _prepare(String text) async {
-    if (text.trim().isEmpty) {
-      throw ArgumentError.value(text, 'text', 'must not be blank');
-    }
+    checkNotBlank(text, 'text');
     final tokens = await _engine.tokenize(text);
     if (tokens.length <= model.maxTokens) return text;
     if (longInputPolicy == LongInputPolicy.reject) {
@@ -193,10 +185,11 @@ class LlamaEmbedder extends BaseEmbedder {
 const _engineStartAttempts = 2;
 
 /// Whether loading failed because the native worker never finished starting.
-bool _isBackendStartFailure(Object error) =>
-    error is LlamaBackendInitializationException ||
-    (error is LlamaException &&
-        error.details is LlamaBackendInitializationException);
+bool _isBackendStartFailure(Object error) => switch (error) {
+  LlamaBackendInitializationException() => true,
+  LlamaException(details: LlamaBackendInitializationException()) => true,
+  _ => false,
+};
 
 String _modelIdentity(EmbeddingModelSpec model, LongInputPolicy policy) {
   final configuration = jsonEncode({

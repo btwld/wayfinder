@@ -43,9 +43,8 @@ class ChunkerRegistry {
   }
 
   /// Gets a chunker by content type.
-  BaseChunker? getChunkerByType(String contentType) {
-    return _chunkers[contentType.toLowerCase()];
-  }
+  BaseChunker? getChunkerByType(String contentType) =>
+      _chunkers[contentType.toLowerCase()];
 
   /// Gets a chunker for a file.
   ///
@@ -108,7 +107,6 @@ class ChunkerRegistry {
   }
 
   /// Gets all registered chunkers.
-  List<BaseChunker> getAllChunkers() {
-    return List<BaseChunker>.unmodifiable(_chunkers.values.toSet());
-  }
+  List<BaseChunker> getAllChunkers() =>
+      List<BaseChunker>.unmodifiable(_chunkers.values.toSet());
 }

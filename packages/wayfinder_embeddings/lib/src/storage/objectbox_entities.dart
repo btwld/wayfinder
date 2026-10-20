@@ -44,24 +44,17 @@ class ChunkEntity {
 
   /// Reconstructs the metadata as a map.
   @Transient()
-  Map<String, Object?> get metadata {
-    if (metadataJson.isEmpty) return const <String, Object?>{};
-    final decoded = jsonDecode(metadataJson);
-    if (decoded is Map) {
-      return Map<String, Object?>.from(decoded);
-    }
-    throw StateError(
-      'Chunk metadata JSON did not decode to a map. Raw value: $decoded',
-    );
-  }
+  Map<String, Object?> get metadata => metadataJson.isEmpty
+      ? const <String, Object?>{}
+      : switch (jsonDecode(metadataJson)) {
+          final Map<Object?, Object?> decoded => Map<String, Object?>.from(
+            decoded,
+          ),
+          final other => throw StateError(
+            'Chunk metadata JSON did not decode to a map. Raw value: $other',
+          ),
+        };
 
   /// Updates the metadata JSON.
-  set metadata(Map<String, Object?> value) {
-    metadataJson = jsonEncode(value);
-  }
-
-  /// Updates the metadata JSON using a pre-encoded string.
-  void setMetadataJson(String value) {
-    metadataJson = value;
-  }
+  set metadata(Map<String, Object?> value) => metadataJson = jsonEncode(value);
 }

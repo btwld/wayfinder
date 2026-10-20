@@ -288,7 +288,9 @@ final class LinkFacts extends Links {
             if (resolved[id]![index] case final edge?) ...{
               'resolution': edge.resolution.wireValue,
               ..._targetFacts(edge),
-              'resolved': _resolved(edge),
+              'resolved':
+                  edge.resolution == OkfGraphResolution.resolvedConcept ||
+                  edge.resolution == OkfGraphResolution.resolvedAsset,
             },
           },
       ];
@@ -320,10 +322,6 @@ Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
       !edge.rawTarget.startsWith('#'),
   'bundle_relative': edge.rawTarget.startsWith('/'),
 };
-
-bool _resolved(OkfGraphEdge edge) =>
-    edge.resolution == OkfGraphResolution.resolvedConcept ||
-    edge.resolution == OkfGraphResolution.resolvedAsset;
 
 final class BundleInventory {
   BundleInventory(Iterable<String> paths)
@@ -454,17 +452,15 @@ List<Subject> _actors(OkfBundleLoadResult loaded) {
 }
 
 Iterable<String> actorIds(OkfDocument document) sync* {
-  final generated = document.frontmatter['generated'];
-  if (generated is Map<Object?, Object?>) {
-    if (nonEmptyString(generated['by']) case final actor?) yield actor;
+  if (document.frontmatter['generated'] case {'by': final by}) {
+    if (nonEmptyString(by) case final actor?) yield actor;
   }
   final verified = document.frontmatter['verified'];
   final events = verified is List ? verified : <Object?>[verified];
   for (final event in events.whereType<Map<Object?, Object?>>()) {
     if (nonEmptyString(event['by']) case final actor?) yield actor;
   }
-  final sources = document.frontmatter['sources'];
-  if (sources is List) {
+  if (document.frontmatter['sources'] case final List<Object?> sources) {
     for (final source in sources.whereType<Map<Object?, Object?>>()) {
       if (nonEmptyString(source['author']) case final actor?) yield actor;
     }

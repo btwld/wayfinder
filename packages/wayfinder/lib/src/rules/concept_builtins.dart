@@ -48,7 +48,10 @@ Iterable<Violation> pathTargetsExist(
       OkfGraphResolution.invalid =>
         _leavesBundle(edge) && !_existsOnDisk(rootPath, edge),
       OkfGraphResolution.descriptor =>
-        _hasPathPrefix(edge.rawTarget) && !_existsOnDisk(rootPath, edge),
+        (edge.rawTarget.startsWith('/') ||
+                edge.rawTarget.startsWith('./') ||
+                edge.rawTarget.startsWith('../')) &&
+            !_existsOnDisk(rootPath, edge),
       _ => false,
     };
     if (missing && emitted.add((edge.source.documentPath, edge.rawTarget))) {
@@ -67,9 +70,6 @@ bool _leavesBundle(OkfGraphEdge edge) {
   final joined = p.posix.normalize(p.posix.join(directory, target));
   return joined == '..' || joined.startsWith('../');
 }
-
-bool _hasPathPrefix(String raw) =>
-    raw.startsWith('/') || raw.startsWith('./') || raw.startsWith('../');
 
 bool _existsOnDisk(String rootPath, OkfGraphEdge edge) {
   final target = _pathPart(edge.rawTarget);

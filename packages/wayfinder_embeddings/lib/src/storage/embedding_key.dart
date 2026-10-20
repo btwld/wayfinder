@@ -5,6 +5,4 @@ String embeddingIdentityKey({
   required String chunkId,
   required String source,
   required String modelName,
-}) {
-  return jsonEncode(<String>[chunkId, source, modelName]);
-}
+}) => jsonEncode(<String>[chunkId, source, modelName]);

@@ -139,9 +139,7 @@ class WayfinderKnowledge {
     String? modelPath;
     try {
       var model = defaultEmbeddingModelFile();
-      if (!model.existsSync() &&
-          !Platform.environment.containsKey('WAYFINDER_EMBEDDING_MODEL') &&
-          !Platform.environment.containsKey('KNOWLEDGE_EMBEDDING_MODEL')) {
+      if (!model.existsSync() && !_modelOverride()) {
         final package = await Isolate.resolvePackageUri(
           Uri.parse('package:wayfinder_embeddings/wayfinder_embeddings.dart'),
         );
@@ -314,11 +312,10 @@ class WayfinderKnowledge {
       final oldDatabase = previous == null
           ? null
           : File(p.join(directory.path, previous.generation, 'data.mdb'));
-      if (oldDatabase != null) {
-        if (!await oldDatabase.exists() ||
-            !ObjectBoxStore.hasSupportedSchema(oldDatabase.parent.path)) {
-          previous = null;
-        }
+      if (oldDatabase != null &&
+          (!await oldDatabase.exists() ||
+              !ObjectBoxStore.hasSupportedSchema(oldDatabase.parent.path))) {
+        previous = null;
       }
       final fitted = compatible && previous?.inventory == inventory
           ? previous!.snapshot
@@ -432,9 +429,7 @@ class WayfinderKnowledge {
         query,
         limit: limit,
         filters: filters,
-        encoder: () async {
-          return encoder ??= await _openEncoder();
-        },
+        encoder: () async => encoder ??= await _openEncoder(),
       );
     } finally {
       await encoder?.embedder.dispose();
@@ -585,28 +580,29 @@ class WayfinderKnowledge {
     try {
       final generation = await pointer.readAsString();
       if (!_generationName.hasMatch(generation)) throw const FormatException();
-      final record = Map<String, Object?>.from(
-        jsonDecode(
-              await File(
-                p.join(directory.path, generation, 'snapshot.json'),
-              ).readAsString(),
-            )
-            as Map,
-      );
-      for (final key in ['configuration', 'model', 'source', 'inventory']) {
-        if (record[key] is! String) throw const FormatException();
+      final text = await File(
+        p.join(directory.path, generation, 'snapshot.json'),
+      ).readAsString();
+      if (jsonDecode(text) case {
+        'configuration': final String configuration,
+        'model': final String model,
+        'source': final String source,
+        'inventory': final String inventory,
+        'snapshot': final Map<Object?, Object?> snapshot,
+      }) {
+        return (
+          configuration: configuration,
+          model: model,
+          source: source,
+          inventory: inventory,
+          generation: generation,
+          snapshot: KnowledgeSnapshot.fromMap(
+            Map<String, Object?>.from(snapshot),
+            linkFields: wayfinderLinkFields,
+          ),
+        );
       }
-      return (
-        configuration: record['configuration']! as String,
-        model: record['model']! as String,
-        source: record['source']! as String,
-        inventory: record['inventory']! as String,
-        generation: generation,
-        snapshot: KnowledgeSnapshot.fromMap(
-          Map<String, Object?>.from(record['snapshot']! as Map),
-          linkFields: wayfinderLinkFields,
-        ),
-      );
+      throw const FormatException();
     } on Object {
       throw const WayfinderException(
         'Saved index is incomplete or incompatible. Run wayfinder index <bundle>.',

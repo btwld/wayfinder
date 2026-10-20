@@ -35,18 +35,16 @@ class IngestionPipeline {
     FileSkippedCallback? onFileSkipped,
     DuplicateChunkCallback? onDuplicateChunk,
     bool dedupe = true,
-  }) {
-    return ingest(
-      chunkerRegistry.chunkFiles(
-        files,
-        contentTypes: contentTypes,
-        onFileProcessed: onFileProcessed,
-        onFileSkipped: onFileSkipped,
-      ),
-      onDuplicateChunk: onDuplicateChunk,
-      dedupe: dedupe,
-    );
-  }
+  }) => ingest(
+    chunkerRegistry.chunkFiles(
+      files,
+      contentTypes: contentTypes,
+      onFileProcessed: onFileProcessed,
+      onFileSkipped: onFileSkipped,
+    ),
+    onDuplicateChunk: onDuplicateChunk,
+    dedupe: dedupe,
+  );
 
   /// Stores the chunks of every entry in [chunkedFiles] plus their embeddings.
   ///

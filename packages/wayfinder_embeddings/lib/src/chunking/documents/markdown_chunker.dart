@@ -1,5 +1,6 @@
 import '../../models/chunk.dart';
 import '../../models/chunk_metadata.dart';
+import '../../util/checks.dart';
 import '../base_chunker.dart';
 import '../chunk_budget.dart';
 
@@ -36,10 +37,7 @@ class MarkdownChunker extends BaseChunker {
     this.includeHeadings = true,
     this.includeCodeBlocks = true,
     this.includeTables = true,
-  }) : maxChunkLength = checkPositiveChunkConfig(
-         maxChunkLength,
-         'maxChunkLength',
-       );
+  }) : maxChunkLength = checkPositive(maxChunkLength, 'maxChunkLength');
 
   @override
   List<Chunk> chunkContent(String content, ChunkMetadata metadata) {
@@ -147,8 +145,9 @@ class MarkdownChunker extends BaseChunker {
           currentBlockType = 'code';
           blockStartLine = lineNumber;
           currentBlock = rawLine;
-          final info = fenceInfo;
-          codeLanguage = info.isEmpty ? null : info.split(RegExp(r'\s+')).first;
+          codeLanguage = fenceInfo.isEmpty
+              ? null
+              : fenceInfo.split(RegExp(r'\s+')).first;
         }
         continue;
       }
@@ -255,21 +254,19 @@ class MarkdownChunker extends BaseChunker {
     List<String> headingPath = const [],
     String? codeLanguage,
     String? tableHeader,
-  }) {
-    return Chunk(
-      sourcePath: sourcePath,
-      lineStart: lineStart,
-      lineEnd: lineEnd,
-      content: content,
-      type: type,
-      metadata: {
-        'headingPath': headingPath,
-        'codeLanguage': ?codeLanguage,
-        'tableHeader': ?tableHeader,
-        if (headingLevel > 0) 'headingLevel': headingLevel,
-        'parentHeadingId': ?parentHeadingId,
-        'parentHeadingLevel': ?parentHeadingLevel,
-      },
-    );
-  }
+  }) => Chunk(
+    sourcePath: sourcePath,
+    lineStart: lineStart,
+    lineEnd: lineEnd,
+    content: content,
+    type: type,
+    metadata: {
+      'headingPath': headingPath,
+      'codeLanguage': ?codeLanguage,
+      'tableHeader': ?tableHeader,
+      if (headingLevel > 0) 'headingLevel': headingLevel,
+      'parentHeadingId': ?parentHeadingId,
+      'parentHeadingLevel': ?parentHeadingLevel,
+    },
+  );
 }

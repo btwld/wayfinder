@@ -180,9 +180,7 @@ String _mermaidText(String value) => _visibleControlCharacters(value)
 String _visibleControlCharacters(String value) {
   final output = StringBuffer();
   for (final rune in value.runes) {
-    if (rune == 0x0a) {
-      output.write('\n');
-    } else if (rune < 0x20 || rune >= 0x7f && rune <= 0x9f) {
+    if (rune != 0x0a && (rune < 0x20 || rune >= 0x7f && rune <= 0x9f)) {
       output.write('\\u{${rune.toRadixString(16).padLeft(4, '0')}}');
     } else {
       output.writeCharCode(rune);

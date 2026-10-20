@@ -123,7 +123,7 @@ class KnowledgeSearchPolicy {
         (!currentOnly ||
             (metadata.status != OkfLifecycleStatus.deprecated &&
                 !metadata.isStale(asOf))) &&
-        (statuses == null || statuses!.contains(metadata.status)) &&
+        (statuses?.contains(metadata.status) ?? true) &&
         (conceptTypes.isEmpty || conceptTypes.contains(metadata.type)) &&
         (pathPrefixes.isEmpty ||
             pathPrefixes.any(OkfConceptId.fromDocumentPath(path).isWithin));
@@ -270,10 +270,7 @@ class KnowledgeIndex {
         }
         inputHashes[model] = hash;
         final updated = chunk.copyWith(
-          metadata: {
-            ...chunk.metadata,
-            if (inputHashes.isNotEmpty) 'okfEmbeddingInputs': inputHashes,
-          },
+          metadata: {...chunk.metadata, 'okfEmbeddingInputs': inputHashes},
         );
         if (previous[chunk.id] != updated) writes.add(updated);
       }
@@ -437,20 +434,18 @@ class KnowledgeIndex {
     required int limit,
     required int budget,
   }) {
-    final effective = policy;
     final best = <String, SearchResult>{};
-    for (final hit in ranked.where(
-      (hit) => eligible.containsKey(hit.chunk.id),
-    )) {
-      final chunk = eligible[hit.chunk.id]!;
-      best.putIfAbsent(
-        chunk.sourcePath,
-        () => SearchResult(
-          chunk: chunk,
-          embedding: hit.embedding,
-          similarity: hit.similarity,
-        ),
-      );
+    for (final hit in ranked) {
+      if (eligible[hit.chunk.id] case final chunk?) {
+        best.putIfAbsent(
+          chunk.sourcePath,
+          () => SearchResult(
+            chunk: chunk,
+            embedding: hit.embedding,
+            similarity: hit.similarity,
+          ),
+        );
+      }
     }
     final matches = best.values.take(limit).toList();
     final byPath = <String, Chunk>{};
@@ -468,7 +463,7 @@ class KnowledgeIndex {
       OkfFieldEdge? fieldEdge,
     }) {
       if (context.length >= budget || seen.contains(path)) return;
-      final governor = effective.governingSources[path];
+      final governor = policy.governingSources[path];
       if (governor != null) {
         if (!byPath.containsKey(governor)) {
           notices.add('Governing source excluded or has no passage: $governor');
@@ -517,7 +512,7 @@ class KnowledgeIndex {
     for (final match in matches) {
       final source = match.chunk.sourcePath;
       add(source, 'match');
-      if (!effective.expandRelationships) continue;
+      if (!policy.expandRelationships) continue;
       for (final edge in snapshot.fieldEdges.where(
         (edge) => edge.source.documentPath == source,
       )) {

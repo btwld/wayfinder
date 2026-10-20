@@ -9,6 +9,7 @@ import 'package:wayfinder_embeddings/objectbox.g.dart';
 import '../models/chunk.dart';
 import '../models/embedding.dart';
 import '../models/search_result.dart';
+import '../util/checks.dart';
 import '../util/similarity.dart';
 import 'base_store.dart';
 import 'embedding_entities.dart';
@@ -114,14 +115,8 @@ class ObjectBoxStore extends BaseStore {
   @override
   Future<Chunk?> getChunk(String chunkId) async {
     _ensureOpen();
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
-    final query = _chunkBox.query(ChunkEntity_.chunkId.equals(chunkId)).build();
-    try {
-      final entity = query.findFirst();
-      return entity == null ? null : _chunkFromEntity(entity);
-    } finally {
-      query.close();
-    }
+    checkNotBlank(chunkId, 'chunkId');
+    return _getChunkByIdSync(chunkId);
   }
 
   @override
@@ -131,7 +126,7 @@ class ObjectBoxStore extends BaseStore {
     String? modelName,
   }) async {
     _ensureOpen();
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     validateEmbeddingIdentityFilter(source, 'source');
     validateEmbeddingIdentityFilter(modelName, 'modelName');
 
@@ -231,7 +226,7 @@ class ObjectBoxStore extends BaseStore {
               objectBoxCosineDistanceToSimilarity(scored.score),
             ),
           )
-          .whereType<SearchResult>()
+          .nonNulls
           .toList();
     } finally {
       query.close();
@@ -252,7 +247,7 @@ class ObjectBoxStore extends BaseStore {
                 cosineSimilarity(queryVectorF32, entity.vector),
               ),
             )
-            .whereType<SearchResult>()
+            .nonNulls
             .toList();
       } finally {
         fallback.close();
@@ -295,7 +290,7 @@ class ObjectBoxStore extends BaseStore {
   @override
   Future<void> deleteChunk(String chunkId) async {
     _ensureOpen();
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     _store.runInTransaction(TxMode.write, () {
       final query = _chunkBox
           .query(ChunkEntity_.chunkId.equals(chunkId))
@@ -312,7 +307,7 @@ class ObjectBoxStore extends BaseStore {
   @override
   Future<void> deleteEmbedding(String chunkId) async {
     _ensureOpen();
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     _deleteEmbeddingsSync(chunkId);
   }
 
@@ -465,39 +460,33 @@ class ObjectBoxStore extends BaseStore {
 
   // Conversion methods
 
-  ChunkEntity _chunkEntityFromChunk(Chunk chunk, int id) {
-    return ChunkEntity(
-      id: id,
-      chunkId: chunk.id,
-      sourcePath: chunk.sourcePath,
-      lineStart: chunk.lineStart,
-      lineEnd: chunk.lineEnd,
-      content: chunk.content,
-      type: chunk.type,
-      metadataJson: jsonEncode(chunk.metadata),
-    );
-  }
+  ChunkEntity _chunkEntityFromChunk(Chunk chunk, int id) => ChunkEntity(
+    id: id,
+    chunkId: chunk.id,
+    sourcePath: chunk.sourcePath,
+    lineStart: chunk.lineStart,
+    lineEnd: chunk.lineEnd,
+    content: chunk.content,
+    type: chunk.type,
+    metadataJson: jsonEncode(chunk.metadata),
+  );
 
-  Chunk _chunkFromEntity(ChunkEntity entity) {
-    return Chunk(
-      id: entity.chunkId,
-      sourcePath: entity.sourcePath,
-      lineStart: entity.lineStart,
-      lineEnd: entity.lineEnd,
-      content: entity.content,
-      type: entity.type,
-      metadata: entity.metadata,
-    );
-  }
+  Chunk _chunkFromEntity(ChunkEntity entity) => Chunk(
+    id: entity.chunkId,
+    sourcePath: entity.sourcePath,
+    lineStart: entity.lineStart,
+    lineEnd: entity.lineEnd,
+    content: entity.content,
+    type: entity.type,
+    metadata: entity.metadata,
+  );
 
-  Embedding _embeddingFromEntity(EmbeddingEntity entity) {
-    return Embedding(
-      chunkId: entity.chunkId,
-      source: entity.source,
-      modelName: entity.modelName,
-      vector: entity.vector,
-    );
-  }
+  Embedding _embeddingFromEntity(EmbeddingEntity entity) => Embedding(
+    chunkId: entity.chunkId,
+    source: entity.source,
+    modelName: entity.modelName,
+    vector: entity.vector,
+  );
 }
 
 /// Converts ObjectBox cosine distance into cosine similarity.
@@ -505,9 +494,8 @@ class ObjectBoxStore extends BaseStore {
 /// ObjectBox vector nearest-neighbor scores are distances sorted ascending.
 /// [SearchResult.similarity] is a higher-is-better cosine similarity score.
 @visibleForTesting
-double objectBoxCosineDistanceToSimilarity(double distance) {
-  return (1.0 - distance).clamp(-1.0, 1.0).toDouble();
-}
+double objectBoxCosineDistanceToSimilarity(double distance) =>
+    (1.0 - distance).clamp(-1.0, 1.0).toDouble();
 
 /// Validates that a vector can be stored or queried by the current ObjectBox
 /// HNSW schema.

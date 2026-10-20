@@ -15,9 +15,8 @@ class ProjectSearchResult {
   }) {
     final candidates =
         <ProjectMatch>[
-          for (var i = 0; i < bundles.length; i++)
-            for (final hit in results[i].matches)
-              (bundle: bundles[i], hit: hit),
+          for (final (i, bundle) in bundles.indexed)
+            for (final hit in results[i].matches) (bundle: bundle, hit: hit),
         ]..sort((a, b) {
           final score = b.hit.similarity.compareTo(a.hit.similarity);
           if (score != 0) return score;
@@ -46,8 +45,8 @@ class ProjectSearchResult {
         add(match.bundle, related);
       }
     }
-    for (var i = 0; i < bundles.length; i++) {
-      notices.addAll(results[i].notices.map((n) => '${bundles[i].name}: $n'));
+    for (final (i, bundle) in bundles.indexed) {
+      notices.addAll(results[i].notices.map((n) => '${bundle.name}: $n'));
     }
   }
 
@@ -57,7 +56,7 @@ class ProjectSearchResult {
   final notices = <String>[];
 
   Map<String, Object?> toJson() => {
-    'bundles': bundles.map((bundle) => bundle.toJson()).toList(),
+    'bundles': [for (final bundle in bundles) bundle.toJson()],
     'matches': [
       for (final match in matches)
         {
@@ -75,7 +74,7 @@ class ProjectSearchResult {
           'chunk': entry.hit.result.chunk.toMap(),
           'similarity': entry.hit.result.similarity,
           'reason': entry.hit.reason,
-          if (entry.hit.viaPath != null) 'viaPath': entry.hit.viaPath,
+          'viaPath': ?entry.hit.viaPath,
         },
     ],
     'notices': notices,

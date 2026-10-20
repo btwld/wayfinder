@@ -114,15 +114,18 @@ final class RuleSchema {
     try {
       return Ack.fromJsonSchema(document);
     } on JsonSchemaImportException catch (error) {
-      final invalid = [
-        for (final diagnostic in error.diagnostics)
-          if (!_unsupportedCodes.contains(diagnostic.code)) diagnostic,
-      ];
-      final shown = invalid.firstOrNull ?? error.diagnostics.first;
+      final invalid = error.diagnostics
+          .where((diagnostic) => !_unsupportedCodes.contains(diagnostic.code))
+          .firstOrNull;
+      final shown = invalid ?? error.diagnostics.first;
       throw RuleSchemaException(
-        _plainPointer(shown.pointer),
+        Uri.decodeComponent(
+          shown.pointer.startsWith('#')
+              ? shown.pointer.substring(1)
+              : shown.pointer,
+        ),
         shown.message.replaceFirst(RegExp(r'\.$'), ''),
-        unsupported: invalid.isEmpty,
+        unsupported: invalid == null,
       );
     }
   }
@@ -367,7 +370,7 @@ final class _Walk {
 
   Set<String> _reach({required bool throughDescents}) {
     final reached = <String>{};
-    final pending = [null as String?];
+    final pending = <String?>[null];
     while (pending.isNotEmpty) {
       for (final edge in _edges[pending.removeLast()] ?? const <Never>{}) {
         if (edge.guarded && !throughDescents) continue;
@@ -389,7 +392,3 @@ String _child(String pointer, String token) => '$pointer/${_escape(token)}';
 
 String _escape(String token) =>
     token.replaceAll('~', '~0').replaceAll('/', '~1');
-
-String _plainPointer(String fragment) => Uri.decodeComponent(
-  fragment.startsWith('#') ? fragment.substring(1) : fragment,
-);
