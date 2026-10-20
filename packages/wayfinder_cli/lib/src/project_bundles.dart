@@ -93,3 +93,50 @@ Future<List<ProjectBundle>> discoverProjectBundles(
   }
   return bundles;
 }
+
+/// Resolves a citation prefix for an explicitly selected bundle [bundleRoot]
+/// when launched from [workingDirectory].
+Future<String> explicitBundlePrefix(
+  Directory workingDirectory,
+  String bundleRoot,
+) async {
+  final workingRoot = await workingDirectory.exists()
+      ? await workingDirectory.resolveSymbolicLinks()
+      : p.normalize(workingDirectory.absolute.path);
+  final rawBundle = p.isAbsolute(bundleRoot)
+      ? bundleRoot
+      : p.join(workingRoot, bundleRoot);
+  final bundleDir = Directory(rawBundle);
+  final resolvedBundle = await bundleDir.exists()
+      ? await bundleDir.resolveSymbolicLinks()
+      : p.normalize(bundleDir.absolute.path);
+  var directory = Directory(workingRoot);
+  Directory? legacyProject;
+  Directory? projectRoot;
+  while (true) {
+    if (await File(p.join(directory.path, 'wayfinder.json')).exists()) {
+      projectRoot = directory;
+      break;
+    }
+    if (await Directory(p.join(directory.path, 'knowledge')).exists()) {
+      legacyProject ??= directory;
+    }
+    final hasGit =
+        await FileSystemEntity.type(p.join(directory.path, '.git')) !=
+        FileSystemEntityType.notFound;
+    if (hasGit || directory.parent.path == directory.path) {
+      projectRoot = legacyProject ?? (hasGit ? directory : null);
+      break;
+    }
+    directory = directory.parent;
+  }
+  final base =
+      projectRoot != null &&
+          (p.equals(projectRoot.path, resolvedBundle) ||
+              p.isWithin(projectRoot.path, resolvedBundle))
+      ? projectRoot.path
+      : workingRoot;
+  return p.isWithin(base, resolvedBundle)
+      ? '${p.posix.joinAll(p.split(p.relative(resolvedBundle, from: base)))}/'
+      : '';
+}

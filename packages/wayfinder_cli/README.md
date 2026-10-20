@@ -138,7 +138,9 @@ background index completes, the next foreground call reports its saved warnings.
 Consumers enforcing a closed JSON response shape must allow the new `warnings`
 field.
 
-This changes application index configuration from version 2 to 3. Run
+This changes application index configuration to version 4 (excluding
+`Attested Computation` body passages from embedding while retaining their
+metadata and graph relationships). Run
 `wayfinder index <bundle>` once to rebuild even if source bytes are unchanged;
 subsequent unchanged calls reuse the index. Snapshot version 1 remains readable
 with additive recovery fields. No bundle migration, Profile release, model change,
@@ -217,21 +219,23 @@ project discovery as CLI search/index: all `applies_to` paths in the nearest
 `wayfinder.json`, or the conventional `knowledge/` fallback. It reads configuration
 on each call without resolving Profile sources. No per-query bundle list is needed.
 Search ranks across these bundles with one query embedding and a global limit;
-its JSON is the same as project CLI search, including bundle-aware citations.
+its Markdown output (`## Matches` and `## Related Context`) is the same as
+project CLI text search, including bundle-aware `<path>:<lineStart>-<lineEnd>`
+citations, essential metadata, and resolved local source links.
 Index refreshes them all. Validate and graph return a `bundles` array containing
 each bundle's independent report with `name` and project-relative `path`;
 each validation report retains its own gate and `exit_code`.
 
-`wayfinder mcp <bundle>` still binds every tool to that single bundle and retains
-the original JSON shapes. With no positional argument, a nonblank
-`WAYFINDER_KNOWLEDGE_DIR` also selects one explicit bundle. Unset that variable
-to search all configured bundles. The process serves stdio; stdout is reserved
-for JSON-RPC.
+`wayfinder mcp <bundle>` still binds every tool to that single bundle. With no
+positional argument, a nonblank `WAYFINDER_KNOWLEDGE_DIR` also selects one
+explicit bundle. Unset that variable to search all configured bundles. The
+process serves stdio; stdout is reserved for JSON-RPC.
 The tools are `validate` and `index` (no arguments), `search` with a required
 `query` and optional `limit` (1–100, default 5), and `graph` with optional
-`types`, `path_prefixes` and `resolutions`. Their results contain the same
-JSON as the commands (wrapped per bundle for project validate/graph), in one
-text content block. Validation also includes the command's `exit_code`,
+`types`, `path_prefixes` and `resolutions`. `validate`, `index`, and `graph`
+return the same JSON as the commands (wrapped per bundle for project
+validate/graph), while `search` returns Markdown matching CLI text search, in
+one text content block. Validation also includes the command's `exit_code`,
 findings, diagnostics and gate without treating a
 completed report as a tool error. `graph` returns the versioned OKF graph JSON
 (`schema_version: "1"`). Mermaid and DOT remain CLI text for an external
@@ -245,8 +249,21 @@ local writes. There is no per-call bundle override. Search uses dense retrieval
 only; a verified local encoder is required. Unsupported request fields, including
 retired `mode`, are rejected.
 
-The server currently opens and closes the encoder for each index/search call;
-a long-lived connection does not yet keep the model warm. Configure the host's
+The server keeps one lazily opened encoder across index/search calls and
+serializes retrieval operations that share it. The CLI delegates MCP retrieval
+ownership to the server, so `wayfinder mcp` uses this persistent lifetime.
+An explicit Dart `knowledge` factory override keeps the caller's chosen lifetime.
+Each call still checks source
+freshness and closes its store. Failed calls evict the encoder; disconnect drains
+accepted calls and disposes it. The service also retains parsed snapshots in an
+LRU cache bounded by 64 MiB of UTF-8 JSON text across bundles. Every call rereads
+the pointer and snapshot text; reuse requires the same canonical index directory,
+generation, and complete text. Changed, missing, or invalid records, failed
+retrievals, and disconnect clear the affected entry (or cache on dispose). Larger
+records bypass the cache. This avoids repeated parsing and graph reconstruction
+for unchanged snapshots across multi-bundle searches; it retains no open store or
+search response and skips no source freshness check. One-shot CLI commands do not
+cache snapshots and still load their own model. Configure the host's
 tool timeout for first-use startup and the size of the corpus. Overlapping
 retrieval calls can return a busy error. On disconnect, active operations finish
 and release their resources; cancellation does not roll back indexing. The

@@ -79,18 +79,13 @@ class KnowledgeSnapshot {
     );
   }
 
-  /// Parses source text through OKF; producer-defined metadata is retained.
-  /// [bundleId] must be stable across updates and unique within a shared store.
-  factory KnowledgeSnapshot.fromSources(
-    Map<String, String> sources, {
-    required String bundleId,
-    Iterable<String> assets = const [],
-    int maxChunkLength = 1000,
-    Iterable<OkfLinkField> linkFields = const [],
-  }) {
-    if (bundleId.trim().isEmpty) {
-      throw ArgumentError.value(bundleId, 'bundleId');
-    }
+  static ({
+    OkfBundle bundle,
+    Map<String, OkfMetadata> metadata,
+    Map<String, Map<String, Object?>> frontmatter,
+    Set<String> excludedPaths,
+  })
+  _parseBundle(Map<String, String> sources, Iterable<String> assets) {
     final documents = <String, OkfDocument>{};
     final indexes = <String, String>{};
     final logs = <String, String>{};
@@ -113,18 +108,52 @@ class KnowledgeSnapshot {
       logs: logs,
       assets: assets,
     );
+    final metadata = <String, OkfMetadata>{};
+    final frontmatter = <String, Map<String, Object?>>{};
+    final excludedPaths = <String>{};
+    for (final entry in bundle.concepts.entries) {
+      final path = entry.key.documentPath;
+      final frozen = freezeMetadataMap(
+        entry.value.frontmatter,
+        name: 'frontmatter',
+      );
+      frontmatter[path] = frozen;
+      metadata[path] = OkfMetadata.fromFrontmatter(frozen);
+      if (frozen['type'] == 'Attested Computation') {
+        excludedPaths.add(path);
+      }
+    }
+    return (
+      bundle: bundle,
+      metadata: metadata,
+      frontmatter: frontmatter,
+      excludedPaths: excludedPaths,
+    );
+  }
+
+  /// Parses source text through OKF; producer-defined metadata is retained.
+  /// [bundleId] must be stable across updates and unique within a shared store.
+  factory KnowledgeSnapshot.fromSources(
+    Map<String, String> sources, {
+    required String bundleId,
+    Iterable<String> assets = const [],
+    int maxChunkLength = 1000,
+    Iterable<OkfLinkField> linkFields = const [],
+  }) {
+    if (bundleId.trim().isEmpty) {
+      throw ArgumentError.value(bundleId, 'bundleId');
+    }
+    final parsed = _parseBundle(sources, assets);
+    final bundle = parsed.bundle;
+    final metadata = parsed.metadata;
     final chunker = MarkdownChunker(maxChunkLength: maxChunkLength);
     final chunks = <Chunk>[];
-    final metadata = <String, OkfMetadata>{};
     final contextTexts = <String, String>{};
     for (final entry in bundle.concepts.entries) {
       final path = entry.key.documentPath;
+      if (parsed.excludedPaths.contains(path)) continue;
       final document = entry.value;
-      final frontmatter = freezeMetadataMap(
-        document.frontmatter,
-        name: 'frontmatter',
-      );
-      metadata[path] = OkfMetadata.fromFrontmatter(frontmatter);
+      final frontmatter = parsed.frontmatter[path]!;
       final source = sources[path]!
           .replaceAll('\r\n', '\n')
           .replaceAll('\r', '\n');
@@ -229,40 +258,53 @@ class KnowledgeSnapshot {
     if (map['version'] != 1) {
       throw const FormatException('Unsupported knowledge snapshot version.');
     }
-    final original = KnowledgeSnapshot.fromSources(
-      Map<String, String>.from(map['sources']! as Map),
-      bundleId: map['bundleId']! as String,
-      assets: List<String>.from(map['assets']! as List),
-      linkFields: linkFields,
-    );
-    final chunks = (map['chunks']! as List)
+    final bundleId = map['bundleId']! as String;
+    if (bundleId.trim().isEmpty) {
+      throw ArgumentError.value(bundleId, 'bundleId');
+    }
+    final sources = Map<String, String>.from(map['sources']! as Map);
+    final assets = List<String>.from(map['assets']! as List);
+    final parsed = _parseBundle(sources, assets);
+    final rawChunks = (map['chunks']! as List)
         .map((value) => Chunk.fromMap(Map<String, Object?>.from(value as Map)))
         .toList();
-    final contexts = Map<String, String>.from(map['contextTexts']! as Map);
-    final ids = chunks.map((chunk) => chunk.id).toSet();
-    if (ids.length != chunks.length ||
-        contexts.length != ids.length ||
-        chunks.any(
+    final rawContexts = Map<String, String>.from(map['contextTexts']! as Map);
+    final rawIds = rawChunks.map((chunk) => chunk.id).toSet();
+    if (rawIds.length != rawChunks.length ||
+        rawContexts.length != rawIds.length ||
+        rawChunks.any(
           (chunk) =>
-              !original.conceptPaths.contains(chunk.sourcePath) ||
-              !(contexts[chunk.id]?.endsWith(chunk.content) ?? false),
+              !parsed.metadata.containsKey(chunk.sourcePath) ||
+              !(rawContexts[chunk.id]?.endsWith(chunk.content) ?? false),
         )) {
       throw const FormatException('Inconsistent saved knowledge passages.');
     }
+    final chunks = [
+      for (final chunk in rawChunks)
+        if (!parsed.excludedPaths.contains(chunk.sourcePath)) chunk,
+    ];
+    final keptIds = {for (final chunk in chunks) chunk.id};
+    final contexts = {
+      for (final entry in rawContexts.entries)
+        if (keptIds.contains(entry.key)) entry.key: entry.value,
+    };
     return KnowledgeSnapshot._(
-      original.bundleId,
+      bundleId,
       List.unmodifiable(chunks),
-      original.graph,
-      original.fieldEdges,
-      original._metadata,
+      OkfGraph.fromBundle(parsed.bundle),
+      List.unmodifiable(okfFieldEdges(parsed.bundle, linkFields)),
+      Map.unmodifiable(parsed.metadata),
       Map.unmodifiable(contexts),
-      original.sources,
-      original.assets,
+      Map.unmodifiable(sources),
+      List.unmodifiable(assets),
       List.unmodifiable(
-        (map['inputRecoveries'] as List? ?? const []).map(
-          (value) =>
-              _InputRecovery.fromMap(Map<String, Object?>.from(value as Map)),
-        ),
+        (map['inputRecoveries'] as List? ?? const [])
+            .map(
+              (value) => _InputRecovery.fromMap(
+                Map<String, Object?>.from(value as Map),
+              ),
+            )
+            .where((r) => !parsed.excludedPaths.contains(r.sourcePath)),
       ),
     );
   }

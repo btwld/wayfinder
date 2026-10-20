@@ -42,8 +42,8 @@ Reuse resolved paths and batch independent reads. Follow source and relationship
 links within the authorized corpus; an unresolved graph link does not prove that
 its source is absent.
 
-Results include ranked `matches` and bounded `context`. Project results include
-`bundlePath`; combine it with `chunk.sourcePath` for a project-relative citation.
+Results return Markdown grouped under `## Matches` and `## Related Context` with
+`<path>:<lineStart>-<lineEnd>` citations, essential metadata, and source links.
 Inspect direct matches when linked context is unhelpful. Do not discard relevant
 governing context. Use CLI `--output=json` for programmatic selection.
 
