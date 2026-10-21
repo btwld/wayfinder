@@ -69,10 +69,7 @@ class WayfinderCli {
   static const _defaultBackgroundLimit = Duration(minutes: 30);
 
   WayfinderProfileResolver _profileResolver() =>
-      _profileResolverFactory?.call() ??
-      WayfinderProfileResolver(
-        dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
-      );
+      _profileResolverFactory?.call() ?? WayfinderProfileResolver();
 
   /// Relaunches this command outside the caller's process group. A compiled
   /// executable reruns itself; `dart run` also needs its script.
@@ -115,16 +112,6 @@ class WayfinderCli {
       await slot.release();
     }
   }
-
-  Updater _updater(void Function(String) out) =>
-      _updaterFactory?.call(out) ??
-      Updater(
-        out: out,
-        checker: ReleaseChecker(
-          dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
-        ),
-        setup: _agentSetup(out),
-      );
 
   // Agents, CI and MCP clients never trigger the network check.
   static bool _interactive() {
@@ -492,9 +479,19 @@ class WayfinderCli {
         if (command.rest.isNotEmpty) {
           throw const WayfinderException('update accepts no arguments.');
         }
-        await _updater(
-          _out,
-        ).run(check: command.flag('check'), version: command.option('version'));
+        final updater =
+            _updaterFactory?.call(_out) ??
+            Updater(
+              out: _out,
+              checker: ReleaseChecker(
+                dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
+              ),
+              setup: _agentSetup(_out),
+            );
+        await updater.run(
+          check: command.flag('check'),
+          version: command.option('version'),
+        );
         return 0;
       }
       if (name == 'setup') {
@@ -742,7 +739,7 @@ class WayfinderCli {
     }
     final parsed = wayfinderSearchInput.safeParse({
       'query': command.rest.last,
-      if (rawLimit != null) 'limit': convertedLimit,
+      'limit': ?convertedLimit,
     });
     if (parsed case Fail(:final error)) {
       final errors = error is SchemaNestedError ? error.errors : [error];

@@ -25,9 +25,7 @@ abstract class BaseChunker {
   bool canHandle(String contentType) {
     final normalized = contentType.toLowerCase();
     return this.contentType.toLowerCase() == normalized ||
-        supportedExtensions
-            .map((value) => value.toLowerCase())
-            .contains(normalized);
+        supportedExtensions.any((value) => value.toLowerCase() == normalized);
   }
 
   /// Chunk content into segments.

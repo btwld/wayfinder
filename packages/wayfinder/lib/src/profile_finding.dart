@@ -51,7 +51,7 @@ final class ProfileFinding {
   Map<String, Object?> toJson() => <String, Object?>{
     ...toOkfFinding().toJson(),
     'profile_release': profileRelease,
-    if (helpUri case final uri?) 'help_uri': '$uri',
+    'help_uri': ?helpUri?.toString(),
   };
 
   String toText() =>
@@ -99,7 +99,7 @@ final class ProfileSummaryEntry {
     'message': message,
     'location': _location.toJson(),
     'profile_release': profileRelease,
-    if (helpUri case final uri?) 'help_uri': '$uri',
+    'help_uri': ?helpUri?.toString(),
   };
 
   String toText() => '$_location: note $id ($profileRelease): $message';

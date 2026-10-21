@@ -49,15 +49,16 @@ class Chunk extends Equatable {
        lineStart = _checkLineStart(lineStart),
        lineEnd = _checkLineEnd(lineStart, lineEnd),
        type = checkNotBlank(type, 'type'),
-       metadata = _checkMetadataMap(metadata),
-       id = _resolveChunkId(
-         id: id,
-         sourcePath: sourcePath,
-         lineStart: lineStart,
-         lineEnd: lineEnd,
-         content: content,
-         type: type,
-       );
+       metadata = freezeMetadataMap(metadata, name: 'metadata'),
+       id = id != null
+           ? checkNotBlank(id, 'id')
+           : computeId(
+               sourcePath: sourcePath,
+               lineStart: lineStart,
+               lineEnd: lineEnd,
+               content: content,
+               type: type,
+             );
 
   /// Creates a copy of this chunk with the given fields replaced with new values.
   Chunk copyWith({
@@ -93,17 +94,15 @@ class Chunk extends Equatable {
   }
 
   /// Converts this chunk to a map.
-  Map<String, Object?> toMap() {
-    return {
-      'id': id,
-      'sourcePath': sourcePath,
-      'lineStart': lineStart,
-      'lineEnd': lineEnd,
-      'content': content,
-      'type': type,
-      'metadata': metadataMapSnapshot(metadata),
-    };
-  }
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'sourcePath': sourcePath,
+    'lineStart': lineStart,
+    'lineEnd': lineEnd,
+    'content': content,
+    'type': type,
+    'metadata': metadataMapSnapshot(metadata),
+  };
 
   /// Creates a chunk from a map.
   factory Chunk.fromMap(Map<String, Object?> map) {
@@ -145,7 +144,11 @@ class Chunk extends Equatable {
       lineEnd: lineEnd,
       content: content,
       type: type,
-      metadata: _readMetadataMap(metadata),
+      metadata: readMetadataMap(
+        metadata,
+        context: 'Chunk.fromMap',
+        fieldName: 'metadata',
+      ),
     );
   }
 
@@ -179,9 +182,8 @@ class Chunk extends Equatable {
   ];
 
   @override
-  String toString() {
-    return 'Chunk(id: $id, sourcePath: $sourcePath, lineStart: $lineStart, lineEnd: $lineEnd, type: $type)';
-  }
+  String toString() =>
+      'Chunk(id: $id, sourcePath: $sourcePath, lineStart: $lineStart, lineEnd: $lineEnd, type: $type)';
 }
 
 int _checkLineStart(int value) {
@@ -200,35 +202,4 @@ int _checkLineEnd(int lineStart, int lineEnd) {
     );
   }
   return lineEnd;
-}
-
-String _resolveChunkId({
-  required String? id,
-  required String sourcePath,
-  required int lineStart,
-  required int lineEnd,
-  required String content,
-  required String type,
-}) {
-  if (id != null) {
-    return checkNotBlank(id, 'id');
-  }
-  return Chunk.computeId(
-    sourcePath: sourcePath,
-    lineStart: lineStart,
-    lineEnd: lineEnd,
-    content: content,
-    type: type,
-  );
-}
-
-Map<String, Object?> _checkMetadataMap(Map<String, Object?> metadata) =>
-    freezeMetadataMap(metadata, name: 'metadata');
-
-Map<String, Object?> _readMetadataMap(Map<Object?, Object?> metadata) {
-  return readMetadataMap(
-    metadata,
-    context: 'Chunk.fromMap',
-    fieldName: 'metadata',
-  );
 }

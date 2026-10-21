@@ -53,21 +53,24 @@ class SearchOptions {
     List<String>? filePatterns,
     List<String>? chunkTypes,
     Map<String, Object?>? metadataFilters,
-  }) {
-    return SearchOptions(
-      filePaths: filePaths ?? this.filePaths,
-      filePatterns: filePatterns ?? this.filePatterns,
-      chunkTypes: chunkTypes ?? this.chunkTypes,
-      metadataFilters: metadataFilters ?? this.metadataFilters,
-    );
-  }
+  }) => SearchOptions(
+    filePaths: filePaths ?? this.filePaths,
+    filePatterns: filePatterns ?? this.filePatterns,
+    chunkTypes: chunkTypes ?? this.chunkTypes,
+    metadataFilters: metadataFilters ?? this.metadataFilters,
+  );
 
   /// Returns whether the given chunk matches the filters.
   bool matchesFilters(Chunk chunk) {
     // Check file path filter
-    if (filePaths.isNotEmpty &&
-        !filePaths.any((path) => _matchesFilePath(chunk.sourcePath, path))) {
-      return false;
+    if (filePaths.isNotEmpty) {
+      final source = _normalizePathForFilter(chunk.sourcePath);
+      if (!filePaths.any((path) {
+        final filter = _normalizePathForFilter(path);
+        return source == filter || source.endsWith('/$filter');
+      })) {
+        return false;
+      }
     }
 
     if (filePatterns.isNotEmpty) {
@@ -87,25 +90,18 @@ class SearchOptions {
     // Check metadata filters
     for (final entry in metadataFilters.entries) {
       final key = entry.key;
-      final value = entry.value;
-
       if (!chunk.metadata.containsKey(key)) {
         return false;
       }
-
       final chunkValue = chunk.metadata[key];
-      if (value is Iterable && value is! String) {
-        if (!value.contains(chunkValue)) {
-          return false;
-        }
-      } else if (value is RegExp) {
-        if (chunkValue is! String || !value.hasMatch(chunkValue)) {
-          return false;
-        }
-      } else {
-        if (chunkValue != value) {
-          return false;
-        }
+      final matches = switch (entry.value) {
+        final Iterable<Object?> value => value.contains(chunkValue),
+        final RegExp value =>
+          chunkValue is String && value.hasMatch(chunkValue),
+        final value => chunkValue == value,
+      };
+      if (!matches) {
+        return false;
       }
     }
 
@@ -136,12 +132,6 @@ class SearchOptions {
     return RegExp(buffer.toString());
   }
 
-  static bool _matchesFilePath(String sourcePath, String filterPath) {
-    final source = _normalizePathForFilter(sourcePath);
-    final filter = _normalizePathForFilter(filterPath);
-    return source == filter || source.endsWith('/$filter');
-  }
-
   static bool _matchesFilePattern(String normalizedSourcePath, RegExp pattern) {
     if (pattern.hasMatch(normalizedSourcePath)) {
       return true;
@@ -169,8 +159,8 @@ class SearchOptions {
   }
 
   static List<String> _checkNonBlankList(List<String> values, String name) {
-    for (var index = 0; index < values.length; index++) {
-      checkNotBlank(values[index], '$name[$index]');
+    for (final (index, value) in values.indexed) {
+      checkNotBlank(value, '$name[$index]');
     }
     return List<String>.unmodifiable(values);
   }
@@ -178,38 +168,30 @@ class SearchOptions {
   static Map<String, Object?> _checkMetadataFilters(
     Map<String, Object?> filters,
   ) {
-    return Map<String, Object?>.unmodifiable({
-      for (final entry in filters.entries)
-        _checkMetadataFilterKey(entry.key): _freezeMetadataFilterValue(
-          entry.value,
-        ),
-    });
+    final checked = <String, Object?>{};
+    for (final entry in filters.entries) {
+      if (entry.key.trim().isEmpty) {
+        throw ArgumentError.value(
+          entry.key,
+          'metadataFilters',
+          'keys must not be blank',
+        );
+      }
+      checked[entry.key] = _freezeMetadataFilterValue(entry.value);
+    }
+    return Map<String, Object?>.unmodifiable(checked);
   }
 
-  static String _checkMetadataFilterKey(String key) {
-    if (key.trim().isEmpty) {
-      throw ArgumentError.value(
-        key,
-        'metadataFilters',
-        'keys must not be blank',
-      );
-    }
-    return key;
-  }
-
-  static Object? _freezeMetadataFilterValue(Object? value) {
-    if (value is Map) {
-      return Map<Object?, Object?>.unmodifiable({
-        for (final entry in value.entries)
-          entry.key: _freezeMetadataFilterValue(entry.value),
-      });
-    }
-    if (value is Set) {
-      return Set<Object?>.unmodifiable(value.map(_freezeMetadataFilterValue));
-    }
-    if (value is Iterable && value is! String) {
-      return List<Object?>.unmodifiable(value.map(_freezeMetadataFilterValue));
-    }
-    return value;
-  }
+  static Object? _freezeMetadataFilterValue(Object? value) => switch (value) {
+    final Map<Object?, Object?> value => Map<Object?, Object?>.unmodifiable({
+      for (final entry in value.entries)
+        entry.key: _freezeMetadataFilterValue(entry.value),
+    }),
+    final Set<Object?> value => Set<Object?>.unmodifiable(
+      value.map(_freezeMetadataFilterValue),
+    ),
+    final Iterable<Object?> value when value is! String =>
+      List<Object?>.unmodifiable(value.map(_freezeMetadataFilterValue)),
+    _ => value,
+  };
 }

@@ -34,6 +34,6 @@ class WayfinderIndexResult {
     'writtenChunks': writtenChunks,
     'elapsedMs': elapsedMs,
     'current': current,
-    'warnings': warnings.map((warning) => warning.toJson()).toList(),
+    'warnings': [for (final warning in warnings) warning.toJson()],
   };
 }

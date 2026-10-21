@@ -35,24 +35,27 @@ class SearchResult extends Equatable {
     Chunk? chunk,
     Object? embedding = _unspecifiedEmbedding,
     double? similarity,
-  }) {
-    return SearchResult(
-      chunk: chunk ?? this.chunk,
-      embedding: identical(embedding, _unspecifiedEmbedding)
-          ? this.embedding
-          : _checkCopyWithEmbedding(embedding),
-      similarity: similarity ?? this.similarity,
-    );
-  }
+  }) => SearchResult(
+    chunk: chunk ?? this.chunk,
+    embedding: switch (embedding) {
+      _ when identical(embedding, _unspecifiedEmbedding) => this.embedding,
+      null => null,
+      final Embedding value => value,
+      _ => throw ArgumentError.value(
+        embedding,
+        'embedding',
+        'must be an Embedding, null, or omitted',
+      ),
+    },
+    similarity: similarity ?? this.similarity,
+  );
 
   /// Converts this search result to a map.
-  Map<String, Object?> toMap() {
-    return {
-      'chunk': chunk.toMap(),
-      'embedding': embedding?.toMap(),
-      'similarity': similarity,
-    };
-  }
+  Map<String, Object?> toMap() => {
+    'chunk': chunk.toMap(),
+    'embedding': embedding?.toMap(),
+    'similarity': similarity,
+  };
 
   /// Creates a search result from a map.
   factory SearchResult.fromMap(Map<String, Object?> map) {
@@ -95,23 +98,7 @@ class SearchResult extends Equatable {
   List<Object?> get props => [chunk, embedding, similarity];
 
   @override
-  String toString() {
-    return 'SearchResult(chunk: $chunk, similarity: $similarity)';
-  }
+  String toString() => 'SearchResult(chunk: $chunk, similarity: $similarity)';
 }
 
 const Object _unspecifiedEmbedding = Object();
-
-Embedding? _checkCopyWithEmbedding(Object? value) {
-  if (value == null) {
-    return null;
-  }
-  if (value is Embedding) {
-    return value;
-  }
-  throw ArgumentError.value(
-    value,
-    'embedding',
-    'must be an Embedding, null, or omitted',
-  );
-}

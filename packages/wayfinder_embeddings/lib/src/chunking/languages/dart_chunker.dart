@@ -29,8 +29,17 @@ import 'package:analyzer/dart/ast/ast.dart';
 
 import '../../models/chunk.dart';
 import '../../models/chunk_metadata.dart';
+import '../../util/checks.dart';
 import '../base_chunker.dart';
 import '../chunk_budget.dart';
+
+typedef _AddNode =
+    void Function(
+      AstNode node,
+      String type, {
+      Map<String, Object?> metadataOverrides,
+      bool isContainer,
+    });
 
 class DartChunker extends BaseChunker {
   DartChunker({
@@ -39,10 +48,7 @@ class DartChunker extends BaseChunker {
         true, // avoid duplicating body with members
     this.emitDirectivesChunk = true, // include library/import/export/part
     this.includeDocAndAnnotations = true, // include /// docs & @annotations
-  }) : maxChunkLength = checkPositiveChunkConfig(
-         maxChunkLength,
-         'maxChunkLength',
-       );
+  }) : maxChunkLength = checkPositive(maxChunkLength, 'maxChunkLength');
 
   /// Upper bound for chunk text length, measured in non-whitespace characters.
   final int maxChunkLength;
@@ -75,17 +81,13 @@ class DartChunker extends BaseChunker {
 
     // ----------------- helpers -----------------
 
-    String slice(int start, int end) => content.substring(start, end);
-
     int lineForOffset(int offset) => lineInfo
         .getLocation(offset.clamp(0, content.isEmpty ? 0 : content.length - 1))
         .lineNumber;
 
     /// For nodes, `end` is exclusive; compute a stable inclusive end line.
-    int safeEndLine(AstNode node) {
-      final inclusive = (node.end > node.offset) ? node.end - 1 : node.offset;
-      return lineForOffset(inclusive);
-    }
+    int safeEndLine(AstNode node) =>
+        lineForOffset((node.end > node.offset) ? node.end - 1 : node.offset);
 
     /// Prefer doc comment start or first annotation start, else node.offset.
     int declStartOffset(AstNode node) {
@@ -98,35 +100,29 @@ class DartChunker extends BaseChunker {
       return node.offset;
     }
 
+    int? fnBodyBoundary(FunctionBody b) => switch (b) {
+      BlockFunctionBody() => b.block.leftBracket.offset,
+      ExpressionFunctionBody() => b.functionDefinition.offset, // '=>'
+      EmptyFunctionBody() => b.semicolon.offset,
+      _ => null,
+    };
+
     /// Where the "body" begins:
     /// - containers: '{'
     /// - methods/functions: '{' or '=>', or ';' (empty)
     /// - ctors: '{' or ';'
     /// Returns null if not applicable.
-    int? bodyBoundaryOffset(AstNode node) {
-      if (node is ClassDeclaration) return node.leftBracket.offset;
-      if (node is MixinDeclaration) return node.leftBracket.offset;
-      if (node is ExtensionDeclaration) return node.leftBracket.offset;
-      if (node is ExtensionTypeDeclaration) return node.leftBracket.offset;
-      if (node is EnumDeclaration) return node.leftBracket.offset;
-
-      int? fnBodyBoundary(FunctionBody b) {
-        if (b is BlockFunctionBody) return b.block.leftBracket.offset;
-        if (b is ExpressionFunctionBody) {
-          return b.functionDefinition.offset; // '=>'
-        }
-        if (b is EmptyFunctionBody) return b.semicolon.offset;
-        return null;
-      }
-
-      if (node is MethodDeclaration) return fnBodyBoundary(node.body);
-      if (node is ConstructorDeclaration) return fnBodyBoundary(node.body);
-      if (node is FunctionDeclaration) {
-        return fnBodyBoundary(node.functionExpression.body);
-      }
-
-      return null;
-    }
+    int? bodyBoundaryOffset(AstNode node) => switch (node) {
+      ClassDeclaration() => node.leftBracket.offset,
+      MixinDeclaration() => node.leftBracket.offset,
+      ExtensionDeclaration() => node.leftBracket.offset,
+      ExtensionTypeDeclaration() => node.leftBracket.offset,
+      EnumDeclaration() => node.leftBracket.offset,
+      MethodDeclaration() => fnBodyBoundary(node.body),
+      ConstructorDeclaration() => fnBodyBoundary(node.body),
+      FunctionDeclaration() => fnBodyBoundary(node.functionExpression.body),
+      _ => null,
+    };
 
     void addNode(
       AstNode node,
@@ -136,11 +132,9 @@ class DartChunker extends BaseChunker {
     }) {
       final start = declStartOffset(node);
       final endExclusive = node.end;
-      String chunkText = slice(start, endExclusive);
+      String chunkText = content.substring(start, endExclusive);
 
-      final Map<String, Object?> md = metadataOverrides.isEmpty
-          ? <String, dynamic>{}
-          : Map<String, Object?>.from(metadataOverrides);
+      final md = <String, Object?>{...metadataOverrides};
 
       var chunkEndLine = safeEndLine(node);
 
@@ -152,7 +146,7 @@ class DartChunker extends BaseChunker {
 
       if (bodyStart != null && needsSummary) {
         // Stop BEFORE '{' or '=>' or ';' (do not include it)
-        final summary = slice(start, bodyStart).trimRight();
+        final summary = content.substring(start, bodyStart).trimRight();
         if (summary.isNotEmpty) {
           chunkText = summary;
           // Use the line of the last character before bodyStart, not bodyStart itself
@@ -192,7 +186,7 @@ class DartChunker extends BaseChunker {
           sourcePath: metadata.sourcePath,
           lineStart: lineForOffset(dStart),
           lineEnd: lineForOffset(dEnd - 1),
-          content: slice(dStart, dEnd).trimRight(),
+          content: content.substring(dStart, dEnd).trimRight(),
           type: 'directives',
           metadata: {'count': unit.directives.length},
         ),
@@ -217,7 +211,16 @@ class DartChunker extends BaseChunker {
         case TopLevelVariableDeclaration():
           _handleTopLevelVariableDeclaration(declaration, addNode);
         case TypeAlias():
-          _handleTypeAlias(declaration, addNode);
+          addNode(
+            declaration,
+            'typeAlias',
+            metadataOverrides: {
+              'name': declaration.name.lexeme,
+              if (declaration is GenericTypeAlias)
+                'typeParams': ?declaration.typeParameters?.toSource(),
+              // intentionally avoiding aliasedType to reduce API fragility
+            },
+          );
       }
     }
 
@@ -238,16 +241,59 @@ class DartChunker extends BaseChunker {
     return chunks;
   }
 
-  void _handleClassDeclaration(
-    ClassDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
+  void _addMethod(
+    MethodDeclaration member,
+    Map<String, Object?> scope,
+    _AddNode addNode, {
+    bool includeStaticAndTypeParams = true,
+  }) {
+    final kind = member.isGetter
+        ? 'getter'
+        : member.isSetter
+        ? 'setter'
+        : 'method';
+    final name = member.operatorKeyword != null
+        ? 'operator ${member.name.lexeme}'
+        : member.name.lexeme;
+    addNode(
+      member,
+      kind,
+      metadataOverrides: {
+        ...scope,
+        'name': name,
+        if (includeStaticAndTypeParams) 'static': member.isStatic,
+        if (includeStaticAndTypeParams)
+          'typeParams': ?member.typeParameters?.toSource(),
+        'returnType': ?member.returnType?.toSource(),
+        'params': ?member.parameters?.toSource(),
+        'external': member.externalKeyword != null,
+        'abstract': member.body is EmptyFunctionBody,
+      },
+    );
+  }
+
+  void _addField(
+    FieldDeclaration member,
+    Map<String, Object?> scope,
+    _AddNode addNode,
   ) {
+    addNode(
+      member,
+      'field',
+      metadataOverrides: {
+        ...scope,
+        'static': member.isStatic,
+        'external': member.externalKeyword != null,
+        'late': member.fields.lateKeyword != null,
+        'final': member.fields.keyword?.lexeme == 'final',
+        'const': member.fields.keyword?.lexeme == 'const',
+        'names': [for (final v in member.fields.variables) v.name.lexeme],
+        'type': ?member.fields.type?.toSource(),
+      },
+    );
+  }
+
+  void _handleClassDeclaration(ClassDeclaration declaration, _AddNode addNode) {
     final className = declaration.name.lexeme;
     addNode(
       declaration,
@@ -255,49 +301,25 @@ class DartChunker extends BaseChunker {
       metadataOverrides: {
         'name': className,
         'abstract': declaration.abstractKeyword != null,
-        if (declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
-        if (declaration.extendsClause != null)
-          'extends': declaration.extendsClause!.superclass.toSource(),
+        'typeParams': ?declaration.typeParameters?.toSource(),
+        'extends': ?declaration.extendsClause?.superclass.toSource(),
         if (declaration.withClause != null)
-          'with': declaration.withClause!.mixinTypes
-              .map((t) => t.toSource())
-              .toList(),
+          'with': [
+            for (final t in declaration.withClause!.mixinTypes) t.toSource(),
+          ],
         if (declaration.implementsClause != null)
-          'implements': declaration.implementsClause!.interfaces
-              .map((t) => t.toSource())
-              .toList(),
+          'implements': [
+            for (final t in declaration.implementsClause!.interfaces)
+              t.toSource(),
+          ],
       },
       isContainer: true,
     );
 
+    final scope = <String, Object?>{'class': className};
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
-        final kind = member.isGetter
-            ? 'getter'
-            : member.isSetter
-            ? 'setter'
-            : 'method';
-        final name = member.operatorKeyword != null
-            ? 'operator ${member.name.lexeme}'
-            : member.name.lexeme;
-        addNode(
-          member,
-          kind,
-          metadataOverrides: {
-            'class': className,
-            'name': name,
-            'static': member.isStatic,
-            if (member.typeParameters != null)
-              'typeParams': member.typeParameters!.toSource(),
-            if (member.returnType != null)
-              'returnType': member.returnType!.toSource(),
-            if (member.parameters != null)
-              'params': member.parameters!.toSource(),
-            'external': member.externalKeyword != null,
-            'abstract': member.body is EmptyFunctionBody,
-          },
-        );
+        _addMethod(member, scope, addNode);
       } else if (member is ConstructorDeclaration) {
         addNode(
           member,
@@ -308,119 +330,54 @@ class DartChunker extends BaseChunker {
             'factory': member.factoryKeyword != null,
             'params': member.parameters.toSource(),
             if (member.initializers.isNotEmpty)
-              'initializers': member.initializers
-                  .map((i) => i.toSource())
-                  .toList(),
+              'initializers': [
+                for (final i in member.initializers) i.toSource(),
+              ],
             'external': member.externalKeyword != null,
             'const': member.constKeyword != null,
           },
         );
       } else if (member is FieldDeclaration) {
-        addNode(
-          member,
-          'field',
-          metadataOverrides: {
-            'class': className,
-            'static': member.isStatic,
-            'external': member.externalKeyword != null,
-            'late': member.fields.lateKeyword != null,
-            'final': member.fields.keyword?.lexeme == 'final',
-            'const': member.fields.keyword?.lexeme == 'const',
-            'names': member.fields.variables.map((v) => v.name.lexeme).toList(),
-            if (member.fields.type != null)
-              'type': member.fields.type!.toSource(),
-          },
-        );
+        _addField(member, scope, addNode);
       }
     }
   }
 
-  void _handleMixinDeclaration(
-    MixinDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
-  ) {
+  void _handleMixinDeclaration(MixinDeclaration declaration, _AddNode addNode) {
     final mixinName = declaration.name.lexeme;
     addNode(
       declaration,
       'mixin',
       metadataOverrides: {
         'name': mixinName,
-        if (declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
+        'typeParams': ?declaration.typeParameters?.toSource(),
         if (declaration.onClause != null)
-          'on': declaration.onClause!.superclassConstraints
-              .map((t) => t.toSource())
-              .toList(),
+          'on': [
+            for (final t in declaration.onClause!.superclassConstraints)
+              t.toSource(),
+          ],
         if (declaration.implementsClause != null)
-          'implements': declaration.implementsClause!.interfaces
-              .map((t) => t.toSource())
-              .toList(),
+          'implements': [
+            for (final t in declaration.implementsClause!.interfaces)
+              t.toSource(),
+          ],
       },
       isContainer: true,
     );
 
+    final scope = <String, Object?>{'mixin': mixinName};
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
-        final kind = member.isGetter
-            ? 'getter'
-            : member.isSetter
-            ? 'setter'
-            : 'method';
-        final name = member.operatorKeyword != null
-            ? 'operator ${member.name.lexeme}'
-            : member.name.lexeme;
-        addNode(
-          member,
-          kind,
-          metadataOverrides: {
-            'mixin': mixinName,
-            'name': name,
-            'static': member.isStatic,
-            if (member.typeParameters != null)
-              'typeParams': member.typeParameters!.toSource(),
-            if (member.returnType != null)
-              'returnType': member.returnType!.toSource(),
-            if (member.parameters != null)
-              'params': member.parameters!.toSource(),
-            'external': member.externalKeyword != null,
-            'abstract': member.body is EmptyFunctionBody,
-          },
-        );
+        _addMethod(member, scope, addNode);
       } else if (member is FieldDeclaration) {
-        addNode(
-          member,
-          'field',
-          metadataOverrides: {
-            'mixin': mixinName,
-            'static': member.isStatic,
-            'external': member.externalKeyword != null,
-            'late': member.fields.lateKeyword != null,
-            'final': member.fields.keyword?.lexeme == 'final',
-            'const': member.fields.keyword?.lexeme == 'const',
-            'names': member.fields.variables.map((v) => v.name.lexeme).toList(),
-            if (member.fields.type != null)
-              'type': member.fields.type!.toSource(),
-          },
-        );
+        _addField(member, scope, addNode);
       }
     }
   }
 
   void _handleExtensionDeclaration(
     ExtensionDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
+    _AddNode addNode,
   ) {
     final extensionName = declaration.name?.lexeme;
     final onClause = declaration.onClause?.extendedType.toSource();
@@ -430,70 +387,27 @@ class DartChunker extends BaseChunker {
       metadataOverrides: {
         'name': ?extensionName,
         'on': ?onClause,
-        if (declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
+        'typeParams': ?declaration.typeParameters?.toSource(),
       },
       isContainer: true,
     );
 
+    final scope = <String, Object?>{
+      'extension': ?extensionName,
+      'on': onClause,
+    };
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
-        final kind = member.isGetter
-            ? 'getter'
-            : member.isSetter
-            ? 'setter'
-            : 'method';
-        final name = member.operatorKeyword != null
-            ? 'operator ${member.name.lexeme}'
-            : member.name.lexeme;
-        addNode(
-          member,
-          kind,
-          metadataOverrides: {
-            'extension': ?extensionName,
-            'on': onClause,
-            'name': name,
-            'static': member.isStatic,
-            if (member.typeParameters != null)
-              'typeParams': member.typeParameters!.toSource(),
-            if (member.returnType != null)
-              'returnType': member.returnType!.toSource(),
-            if (member.parameters != null)
-              'params': member.parameters!.toSource(),
-            'external': member.externalKeyword != null,
-            'abstract': member.body is EmptyFunctionBody,
-          },
-        );
+        _addMethod(member, scope, addNode);
       } else if (member is FieldDeclaration) {
-        addNode(
-          member,
-          'field',
-          metadataOverrides: {
-            'extension': ?extensionName,
-            'on': onClause,
-            'static': member.isStatic,
-            'external': member.externalKeyword != null,
-            'late': member.fields.lateKeyword != null,
-            'final': member.fields.keyword?.lexeme == 'final',
-            'const': member.fields.keyword?.lexeme == 'const',
-            'names': member.fields.variables.map((e) => e.name.lexeme).toList(),
-            if (member.fields.type != null)
-              'type': member.fields.type!.toSource(),
-          },
-        );
+        _addField(member, scope, addNode);
       }
     }
   }
 
   void _handleExtensionTypeDeclaration(
     ExtensionTypeDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
+    _AddNode addNode,
   ) {
     final name = declaration.name.lexeme;
     addNode(
@@ -501,118 +415,52 @@ class DartChunker extends BaseChunker {
       'extensionType',
       metadataOverrides: {
         'name': name,
-        if (declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
+        'typeParams': ?declaration.typeParameters?.toSource(),
         'on': declaration.representation.fieldType.toSource(),
         if (declaration.implementsClause != null)
-          'implements': declaration.implementsClause!.interfaces
-              .map((t) => t.toSource())
-              .toList(),
+          'implements': [
+            for (final t in declaration.implementsClause!.interfaces)
+              t.toSource(),
+          ],
       },
       isContainer: true,
     );
 
+    final scope = <String, Object?>{'extensionType': name};
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
-        final kind = member.isGetter
-            ? 'getter'
-            : member.isSetter
-            ? 'setter'
-            : 'method';
-        final mname = member.operatorKeyword != null
-            ? 'operator ${member.name.lexeme}'
-            : member.name.lexeme;
-        addNode(
-          member,
-          kind,
-          metadataOverrides: {
-            'extensionType': name,
-            'name': mname,
-            'static': member.isStatic,
-            if (member.typeParameters != null)
-              'typeParams': member.typeParameters!.toSource(),
-            if (member.returnType != null)
-              'returnType': member.returnType!.toSource(),
-            if (member.parameters != null)
-              'params': member.parameters!.toSource(),
-            'external': member.externalKeyword != null,
-            'abstract': member.body is EmptyFunctionBody,
-          },
-        );
+        _addMethod(member, scope, addNode);
       } else if (member is FieldDeclaration) {
-        addNode(
-          member,
-          'field',
-          metadataOverrides: {
-            'extensionType': name,
-            'static': member.isStatic,
-            'external': member.externalKeyword != null,
-            'late': member.fields.lateKeyword != null,
-            'final': member.fields.keyword?.lexeme == 'final',
-            'const': member.fields.keyword?.lexeme == 'const',
-            'names': member.fields.variables.map((e) => e.name.lexeme).toList(),
-            if (member.fields.type != null)
-              'type': member.fields.type!.toSource(),
-          },
-        );
+        _addField(member, scope, addNode);
       }
     }
   }
 
-  void _handleEnumDeclaration(
-    EnumDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
-  ) {
+  void _handleEnumDeclaration(EnumDeclaration declaration, _AddNode addNode) {
     final enumName = declaration.name.lexeme;
     addNode(
       declaration,
       'enum',
       metadataOverrides: {
         'name': enumName,
-        if (declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
+        'typeParams': ?declaration.typeParameters?.toSource(),
         if (declaration.withClause != null)
-          'with': declaration.withClause!.mixinTypes
-              .map((t) => t.toSource())
-              .toList(),
+          'with': [
+            for (final t in declaration.withClause!.mixinTypes) t.toSource(),
+          ],
         if (declaration.implementsClause != null)
-          'implements': declaration.implementsClause!.interfaces
-              .map((t) => t.toSource())
-              .toList(),
+          'implements': [
+            for (final t in declaration.implementsClause!.interfaces)
+              t.toSource(),
+          ],
       },
       isContainer: true,
     );
 
+    final scope = <String, Object?>{'enum': enumName};
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
-        final kind = member.isGetter
-            ? 'getter'
-            : member.isSetter
-            ? 'setter'
-            : 'method';
-        final name = member.operatorKeyword != null
-            ? 'operator ${member.name.lexeme}'
-            : member.name.lexeme;
-        addNode(
-          member,
-          kind,
-          metadataOverrides: {
-            'enum': enumName,
-            'name': name,
-            if (member.returnType != null)
-              'returnType': member.returnType!.toSource(),
-            if (member.parameters != null)
-              'params': member.parameters!.toSource(),
-            'external': member.externalKeyword != null,
-            'abstract': member.body is EmptyFunctionBody,
-          },
-        );
+        _addMethod(member, scope, addNode, includeStaticAndTypeParams: false);
       } else if (member is ConstructorDeclaration) {
         addNode(
           member,
@@ -630,13 +478,7 @@ class DartChunker extends BaseChunker {
 
   void _handleFunctionDeclaration(
     FunctionDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
+    _AddNode addNode,
   ) {
     final kind = declaration.isGetter
         ? 'getter'
@@ -648,13 +490,10 @@ class DartChunker extends BaseChunker {
       kind,
       metadataOverrides: {
         'name': declaration.name.lexeme,
-        if (declaration.returnType != null)
-          'returnType': declaration.returnType!.toSource(),
-        if (declaration.functionExpression.parameters != null)
-          'params': declaration.functionExpression.parameters!.toSource(),
-        if (declaration.functionExpression.typeParameters != null)
-          'typeParams': declaration.functionExpression.typeParameters!
-              .toSource(),
+        'returnType': ?declaration.returnType?.toSource(),
+        'params': ?declaration.functionExpression.parameters?.toSource(),
+        'typeParams': ?declaration.functionExpression.typeParameters
+            ?.toSource(),
         'external': declaration.externalKeyword != null,
       },
     );
@@ -662,50 +501,20 @@ class DartChunker extends BaseChunker {
 
   void _handleTopLevelVariableDeclaration(
     TopLevelVariableDeclaration declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
+    _AddNode addNode,
   ) {
     addNode(
       declaration,
       'topLevelVariable',
       metadataOverrides: {
-        'names': declaration.variables.variables
-            .map((e) => e.name.lexeme)
-            .toList(),
-        if (declaration.variables.type != null)
-          'type': declaration.variables.type!.toSource(),
+        'names': [
+          for (final e in declaration.variables.variables) e.name.lexeme,
+        ],
+        'type': ?declaration.variables.type?.toSource(),
         'late': declaration.variables.lateKeyword != null,
         'final': declaration.variables.keyword?.lexeme == 'final',
         'const': declaration.variables.keyword?.lexeme == 'const',
         'external': declaration.externalKeyword != null,
-      },
-    );
-  }
-
-  void _handleTypeAlias(
-    TypeAlias declaration,
-    void Function(
-      AstNode node,
-      String type, {
-      Map<String, Object?> metadataOverrides,
-      bool isContainer,
-    })
-    addNode,
-  ) {
-    addNode(
-      declaration,
-      'typeAlias',
-      metadataOverrides: {
-        'name': declaration.name.lexeme,
-        if (declaration is GenericTypeAlias &&
-            declaration.typeParameters != null)
-          'typeParams': declaration.typeParameters!.toSource(),
-        // intentionally avoiding aliasedType to reduce API fragility
       },
     );
   }

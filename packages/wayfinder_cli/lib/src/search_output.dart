@@ -8,7 +8,7 @@ Map<String, Object?> searchOutput(KnowledgeSearchResponse result) => {
         'chunk': hit.result.chunk.toMap(),
         'similarity': hit.result.similarity,
         'reason': hit.reason,
-        if (hit.viaPath != null) 'viaPath': hit.viaPath,
+        'viaPath': ?hit.viaPath,
         'relationship': ?hit.fieldEdge?.name,
       },
   ],

@@ -138,7 +138,10 @@ abstract final class ProfileSkills {
     }
     for (final directory in directories(revision.id)) {
       final target = Directory(p.join(projectRoot, directory));
-      final _StagingNames(:staged, :old) = _StagingNames(target, revision.id);
+      final stamp = '$pid-${DateTime.now().microsecondsSinceEpoch}';
+      final prefix = p.join(target.parent.path, '.${revision.id.value}.');
+      final staged = Directory('${prefix}staged-$stamp');
+      final old = '${prefix}old-$stamp';
       final targets = [
         for (final file in files)
           (
@@ -214,7 +217,7 @@ abstract final class ProfileSkills {
       for (final entry in entries) {
         if (entry is! Directory) continue;
         final name = p.basename(entry.path);
-        final interrupted = _StagingNames.idOf(name);
+        final interrupted = _stagingNamePattern.firstMatch(name)?[1];
         final id = interrupted ?? (name.startsWith('.') ? null : name);
         if (id == null ||
             (interrupted == null && keep.any((kept) => kept.value == id)) ||
@@ -227,6 +230,10 @@ abstract final class ProfileSkills {
     }
     return removed;
   }
+
+  static final _stagingNamePattern = RegExp(
+    r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$',
+  );
 
   static Future<void> _createMarked(
     Directory directory,
@@ -262,23 +269,4 @@ abstract final class ProfileSkills {
     }
     return null;
   }
-}
-
-final class _StagingNames {
-  _StagingNames(Directory target, ProfileId id)
-    : this._(
-        p.join(target.parent.path, '.${id.value}.'),
-        '$pid-${DateTime.now().microsecondsSinceEpoch}',
-      );
-
-  _StagingNames._(String prefix, String stamp)
-    : staged = Directory('${prefix}staged-$stamp'),
-      old = '${prefix}old-$stamp';
-
-  final Directory staged;
-  final String old;
-
-  static final _pattern = RegExp(r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$');
-
-  static String? idOf(String name) => _pattern.firstMatch(name)?[1];
 }

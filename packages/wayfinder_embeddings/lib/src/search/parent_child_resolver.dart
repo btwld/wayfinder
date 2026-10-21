@@ -26,14 +26,12 @@ class ParentChildSearchResult extends Equatable {
   bool get expanded => parentChunk != null && parentChunk!.id != child.chunk.id;
 
   /// Converts this result to a map.
-  Map<String, Object?> toMap() {
-    return {
-      'child': child.toMap(),
-      'parentChunk': parentChunk?.toMap(),
-      'contextChunk': contextChunk.toMap(),
-      'expanded': expanded,
-    };
-  }
+  Map<String, Object?> toMap() => {
+    'child': child.toMap(),
+    'parentChunk': parentChunk?.toMap(),
+    'contextChunk': contextChunk.toMap(),
+    'expanded': expanded,
+  };
 
   /// Creates a parent-child search result from a map.
   factory ParentChildSearchResult.fromMap(Map<String, Object?> map) {
@@ -148,15 +146,12 @@ class ParentChildResolver {
     required Iterable<Chunk> chunks,
     Set<String> parentTypes = defaultParentTypes,
   }) : parentTypes = Set<String>.unmodifiable(parentTypes),
-       _chunks = List<Chunk>.unmodifiable(chunks) {
-    _chunksBySourcePath = _indexBySourcePath(_chunks);
-  }
+       _chunksBySourcePath = _indexBySourcePath(List<Chunk>.of(chunks));
 
   /// Chunk types considered as parent context.
   final Set<String> parentTypes;
 
-  final List<Chunk> _chunks;
-  late final Map<String, List<Chunk>> _chunksBySourcePath;
+  final Map<String, List<Chunk>> _chunksBySourcePath;
 
   /// Expands search [results] with parent context.
   ///
@@ -215,7 +210,7 @@ class ParentChildResolver {
         if (!entry.value.contains(candidate.type)) {
           continue;
         }
-        if (_symbolNameMatches(candidate, symbol)) {
+        if (_symbolNameKeys.any((key) => candidate.metadata[key] == symbol)) {
           matches.add(candidate);
         }
       }
@@ -238,7 +233,9 @@ class ParentChildResolver {
     }
 
     matches.sort((a, b) {
-      final bySpan = _lineSpan(a).compareTo(_lineSpan(b));
+      final bySpan = (a.lineEnd - a.lineStart).compareTo(
+        b.lineEnd - b.lineStart,
+      );
       if (bySpan != 0) return bySpan;
       final byStart = b.lineStart.compareTo(a.lineStart);
       if (byStart != 0) return byStart;
@@ -264,15 +261,6 @@ class ParentChildResolver {
     return index;
   }
 
-  static bool _symbolNameMatches(Chunk candidate, String symbol) {
-    for (final key in _symbolNameKeys) {
-      if (candidate.metadata[key] == symbol) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   static int _compareSymbolParents(Chunk a, Chunk b, Chunk child) {
     final aBefore = a.lineStart <= child.lineStart;
     final bBefore = b.lineStart <= child.lineStart;
@@ -285,17 +273,13 @@ class ParentChildResolver {
     );
     if (byDistance != 0) return byDistance;
 
-    final bySpan = _lineSpan(a).compareTo(_lineSpan(b));
+    final bySpan = (a.lineEnd - a.lineStart).compareTo(b.lineEnd - b.lineStart);
     if (bySpan != 0) return bySpan;
     return a.id.compareTo(b.id);
   }
 
-  static bool _contains(Chunk parent, Chunk child) {
-    if (parent.lineStart > child.lineStart || parent.lineEnd < child.lineEnd) {
-      return false;
-    }
-    return parent.lineStart < child.lineStart || parent.lineEnd > child.lineEnd;
-  }
-
-  static int _lineSpan(Chunk chunk) => chunk.lineEnd - chunk.lineStart;
+  static bool _contains(Chunk parent, Chunk child) =>
+      parent.lineStart <= child.lineStart &&
+      parent.lineEnd >= child.lineEnd &&
+      (parent.lineStart < child.lineStart || parent.lineEnd > child.lineEnd);
 }

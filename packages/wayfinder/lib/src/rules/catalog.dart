@@ -361,19 +361,20 @@ void _checkPlaceholders(String template, SchemaCheck check, String where) {
 }
 
 RuleExamples _examples(Map<String, Object?> json, String where) {
-  final slots = <Slot, List<String>>{};
   final declared = json['slots'] as Map<String, Object?>? ?? const {};
-  for (final MapEntry(:key, :value) in declared.entries) {
-    final slot = Slot.byId(key);
-    if (slot == null) {
-      throw ProfilePackageException('$where.slots', 'unknown slot "$key"');
-    }
-    slots[slot] = List<String>.from(value as List<Object?>);
-  }
   return RuleExamples(
     valid: json['valid'] as List<Object?>,
     invalid: json['invalid'] as List<Object?>,
-    slots: slots,
+    slots: {
+      for (final MapEntry(:key, :value) in declared.entries)
+        (Slot.byId(key) ??
+            (throw ProfilePackageException(
+              '$where.slots',
+              'unknown slot "$key"',
+            ))): List<String>.from(
+          value as List<Object?>,
+        ),
+    },
   );
 }
 

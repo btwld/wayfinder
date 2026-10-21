@@ -90,34 +90,39 @@ final class LockedPackage {
       commit == other.commit;
 
   static LockedPackage? _tryParse(ProfileId id, Object? value) {
-    if (value is! Map<String, Object?> ||
-        value.length != (value.containsKey('extends') ? 6 : 5) ||
-        value['source'] is! String ||
-        value['requested_ref'] is! String ||
-        value['resolved_commit'] is! String ||
-        !RegExp(
-          r'^[0-9a-f]{40}$',
-        ).hasMatch(value['resolved_commit']! as String) ||
-        value['path'] is! String ||
-        value['release'] is! String) {
-      return null;
-    }
-    ProfileId? extendsId;
-    if (value.containsKey('extends')) {
-      if (value['extends'] case final String parent) {
-        extendsId = _profileIdOrNull(parent);
+    if (value case <String, Object?>{
+      'source': final String git,
+      'requested_ref': final String requestedRef,
+      'resolved_commit': final String commit,
+      'path': final String path,
+      'release': final String release,
+    } when RegExp(r'^[0-9a-f]{40}$').hasMatch(commit)) {
+      if (value.length == 5) {
+        return LockedPackage(
+          id: id,
+          release: release,
+          git: git,
+          requestedRef: requestedRef,
+          commit: commit,
+          path: path,
+        );
       }
-      if (extendsId == null) return null;
+      if (value.length == 6 && value['extends'] is String) {
+        final extendsId = _profileIdOrNull(value['extends']! as String);
+        if (extendsId != null) {
+          return LockedPackage(
+            id: id,
+            release: release,
+            git: git,
+            requestedRef: requestedRef,
+            commit: commit,
+            path: path,
+            extendsId: extendsId,
+          );
+        }
+      }
     }
-    return LockedPackage(
-      id: id,
-      release: value['release']! as String,
-      git: value['source']! as String,
-      requestedRef: value['requested_ref']! as String,
-      commit: value['resolved_commit']! as String,
-      path: value['path']! as String,
-      extendsId: extendsId,
-    );
+    return null;
   }
 
   Map<String, Object?> toJson() => {
@@ -147,30 +152,27 @@ final class ProfileLock {
   /// Null for anything but the current shape, including an older lock,
   /// which `get` then rewrites.
   static ProfileLock? tryParse(Object? value) {
-    if (value is! Map<String, Object?> ||
-        value.length != 3 ||
-        value['lock_version'] != 1 ||
-        value['configuration_sha256'] is! String ||
-        !RegExp(
-          r'^[0-9a-f]{64}$',
-        ).hasMatch(value['configuration_sha256']! as String) ||
-        value['packages'] is! Map<String, Object?>) {
-      return null;
+    if (value case <String, Object?>{
+      'lock_version': 1,
+      'configuration_sha256': final String sha,
+      'packages': final Map<String, Object?> rawPackages,
+    } when value.length == 3 && RegExp(r'^[0-9a-f]{64}$').hasMatch(sha)) {
+      final packages = <ProfileId, LockedPackage>{};
+      for (final entry in rawPackages.entries) {
+        final id = _profileIdOrNull(entry.key);
+        final package = id == null
+            ? null
+            : LockedPackage._tryParse(id, entry.value);
+        if (package == null) return null;
+        packages[package.id] = package;
+      }
+      if (packages.isEmpty) return null;
+      return ProfileLock(
+        configurationSha256: sha,
+        packages: Map.unmodifiable(packages),
+      );
     }
-    final packages = <ProfileId, LockedPackage>{};
-    for (final entry in (value['packages']! as Map<String, Object?>).entries) {
-      final id = _profileIdOrNull(entry.key);
-      final package = id == null
-          ? null
-          : LockedPackage._tryParse(id, entry.value);
-      if (package == null) return null;
-      packages[package.id] = package;
-    }
-    if (packages.isEmpty) return null;
-    return ProfileLock(
-      configurationSha256: value['configuration_sha256']! as String,
-      packages: Map.unmodifiable(packages),
-    );
+    return null;
   }
 
   /// Packages in id order, so the same packages always write the same bytes.
@@ -493,11 +495,8 @@ final class WayfinderProfileResolver {
     }
   }
 
-  static String canonicalConfigurationSha256(String raw) {
-    final decoded = jsonDecode(raw);
-    final canonical = _canonicalJson(decoded);
-    return sha256.convert(utf8.encode(canonical)).toString();
-  }
+  static String canonicalConfigurationSha256(String raw) =>
+      sha256.convert(utf8.encode(_canonicalJson(jsonDecode(raw)))).toString();
 
   Future<List<({LockedPackage locked, ProfilePackage package})>> _resolveChain(
     WayfinderProfileBinding binding,
@@ -638,7 +637,7 @@ final class WayfinderProfileResolver {
       );
       try {
         session.fetched = true;
-        final result = await _git([
+        final result = await _runGit([
           'clone',
           '--mirror',
           '--',
@@ -653,7 +652,11 @@ final class WayfinderProfileResolver {
       }
     } else if (preferred == null && !_commitRef.hasMatch(source.ref)) {
       session.fetched = true;
-      final result = await _git(['remote', 'update', '--prune'], root);
+      final result = await _runGit([
+        'remote',
+        'update',
+        '--prune',
+      ], workingDirectory: root.path);
       _checkGit(result, 'refresh Profile source ${source.git}');
     }
     if (preferred == null) {
@@ -664,7 +667,11 @@ final class WayfinderProfileResolver {
     }
     if (!await _hasCommit(root, preferred)) {
       session.fetched = true;
-      final result = await _git(['remote', 'update', '--prune'], root);
+      final result = await _runGit([
+        'remote',
+        'update',
+        '--prune',
+      ], workingDirectory: root.path);
       _checkGit(
         result,
         'refresh Profile source ${source.git} while finding locked commit '
@@ -682,11 +689,11 @@ final class WayfinderProfileResolver {
   }
 
   Future<bool> _hasCommit(Directory repository, String commit) async =>
-      (await _git([
+      (await _runGit([
         'cat-file',
         '-e',
         '$commit^{commit}',
-      ], repository)).exitCode ==
+      ], workingDirectory: repository.path)).exitCode ==
       0;
 
   Future<String> _resolveRefWithFetch(
@@ -697,7 +704,11 @@ final class WayfinderProfileResolver {
     final local = await _resolveRef(repository, source.ref);
     if (local != null) return local;
     session.fetched = true;
-    final result = await _git(['remote', 'update', '--prune'], repository);
+    final result = await _runGit([
+      'remote',
+      'update',
+      '--prune',
+    ], workingDirectory: repository.path);
     _checkGit(
       result,
       'refresh Profile source ${source.git} while finding ref ${source.ref}',
@@ -715,11 +726,11 @@ final class WayfinderProfileResolver {
         : <String>['refs/heads/$ref^{commit}', 'refs/tags/$ref^{commit}'];
     final matches = <String>[];
     for (final candidate in candidates) {
-      final result = await _git([
+      final result = await _runGit([
         'rev-parse',
         '--verify',
         candidate,
-      ], repository);
+      ], workingDirectory: repository.path);
       if (result.exitCode == 0) matches.add(result.stdout.toString().trim());
     }
     if (matches.length == 1) return matches.single;
@@ -799,12 +810,12 @@ final class WayfinderProfileResolver {
     final tree = p.posix.join(locked.path, skill);
     final origin =
         'Profile ${locked.id} skill $tree at ${locked.git} (${locked.commit})';
-    final listing = await _git([
+    final listing = await _runGit([
       'ls-tree',
       '-r',
       '-z',
       '${locked.commit}:$tree',
-    ], repository);
+    ], workingDirectory: repository.path);
     if (listing.exitCode != 0) {
       throw WayfinderProfileResolutionException('$origin is not a directory.');
     }
@@ -885,10 +896,10 @@ final class WayfinderProfileResolver {
     (ProfileId, String)? expected,
   }) async {
     final origin = 'Profile package ${source.path} at ${source.git} ($commit)';
-    final result = await _git([
+    final result = await _runGit([
       'show',
       '$commit:${source.path}/wayfinder-profile.json',
-    ], repository);
+    ], workingDirectory: repository.path);
     if (result.exitCode != 0) {
       throw WayfinderProfileResolutionException(
         '$origin has no package at ${source.path}/wayfinder-profile.json.',
@@ -935,11 +946,6 @@ final class WayfinderProfileResolver {
       rethrow;
     }
   }
-
-  Future<ProcessResult> _git(
-    List<String> arguments, [
-    Directory? workingDirectory,
-  ]) => _runGit(arguments, workingDirectory: workingDirectory?.path);
 
   void _checkGit(ProcessResult result, String action) {
     if (result.exitCode != 0) {

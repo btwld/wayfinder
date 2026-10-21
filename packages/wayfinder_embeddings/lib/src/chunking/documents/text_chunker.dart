@@ -1,5 +1,6 @@
 import '../../models/chunk.dart';
 import '../../models/chunk_metadata.dart';
+import '../../util/checks.dart';
 import '../base_chunker.dart';
 import '../chunk_budget.dart';
 
@@ -25,10 +26,7 @@ class TextChunker extends BaseChunker {
     int maxChunkLength = 1000,
     this.splitOnParagraphs = true,
     this.splitOnSentences = false,
-  }) : maxChunkLength = checkPositiveChunkConfig(
-         maxChunkLength,
-         'maxChunkLength',
-       );
+  }) : maxChunkLength = checkPositive(maxChunkLength, 'maxChunkLength');
 
   @override
   List<Chunk> chunkContent(String content, ChunkMetadata metadata) {
@@ -47,10 +45,7 @@ class TextChunker extends BaseChunker {
 
         // Find the actual position of this paragraph in the original content
         final paragraphIndex = content.indexOf(paragraph, searchFrom);
-        final lineStart = content
-            .substring(0, paragraphIndex)
-            .split('\n')
-            .length;
+        final lineStart = _lineNumberAt(lineStarts, paragraphIndex);
         final paragraphLines = paragraph.split('\n');
         final lineEnd = lineStart + paragraphLines.length - 1;
         searchFrom = paragraphIndex + paragraph.length;

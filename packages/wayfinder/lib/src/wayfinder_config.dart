@@ -159,16 +159,13 @@ final class WayfinderProjectConfig {
     final profiles = {
       for (final MapEntry(:key, :value)
           in (json['profiles']! as Map<String, Object?>).entries)
-        _profileId(key, 'profiles'): _parseDirectProfile(
-          key,
-          value! as Map<String, Object?>,
-        ),
+        if (_profileId(key) case final id)
+          id: _parseDirectProfile(id, value! as Map<String, Object?>),
     };
     final bundles = <WayfinderBundleBinding>[];
     final paths = <String>{};
     for (final profile in profiles.values) {
-      for (var index = 0; index < profile.appliesTo.length; index++) {
-        final path = profile.appliesTo[index];
+      for (final (index, path) in profile.appliesTo.indexed) {
         if (!paths.add(path)) {
           throw WayfinderConfigException(
             'Bundle path $path is applied by more than one Profile.',
@@ -314,16 +311,16 @@ final class WayfinderProjectConfig {
     }
   }
 
-  static ProfileId _profileId(String value, String field) {
+  static ProfileId _profileId(String value) {
     try {
       return ProfileId.parse(value);
     } on FormatException catch (error) {
-      throw WayfinderConfigException('$field.$value: ${error.message}.');
+      throw WayfinderConfigException('profiles.$value: ${error.message}.');
     }
   }
 
   static WayfinderProfileBinding _parseDirectProfile(
-    String id,
+    ProfileId id,
     Map<String, Object?> json,
   ) {
     final source = json['source']! as Map<String, Object?>;
@@ -331,16 +328,16 @@ final class WayfinderProjectConfig {
     if (WayfinderProfileSource.locationProblem(git) case final problem?) {
       throw WayfinderConfigException('profiles.$id.source.git $problem.');
     }
-    final types = _definitions(id, 'type', json['types']);
-    final tags = _definitions(id, 'tag', json['tags']);
+    final types = _definitions(id.value, 'type', json['types']);
+    final tags = _definitions(id.value, 'tag', json['tags']);
     final relationships = _definitions(
-      id,
+      id.value,
       'relationship',
       json['relationships'],
     );
     final actors = json['actors'] as Map<String, Object?>? ?? const {};
     return WayfinderProfileBinding(
-      id: _profileId(id, 'profiles'),
+      id: id,
       source: WayfinderProfileSource(
         git: git,
         ref: source['ref']! as String,
@@ -357,8 +354,14 @@ final class WayfinderProjectConfig {
         tags: tags,
         relationships: relationships,
         actors: Map.unmodifiable({
-          for (final MapEntry(:key, :value) in actors.entries)
-            key: _actor(value! as Map<String, Object?>),
+          for (final MapEntry(:key, value: actor)
+              in actors.cast<String, Map<String, Object?>>().entries)
+            key: WayfinderActorMetadata(
+              name: actor['name']! as String,
+              organization: actor['organization'] as String?,
+              role: actor['role'] as String?,
+              side: actor['side'] as String?,
+            ),
         }),
       ),
     );
@@ -373,14 +376,6 @@ final class WayfinderProjectConfig {
     }
     return normalized.toList();
   }
-
-  static WayfinderActorMetadata _actor(Map<String, Object?> json) =>
-      WayfinderActorMetadata(
-        name: json['name']! as String,
-        organization: json['organization'] as String?,
-        role: json['role'] as String?,
-        side: json['side'] as String?,
-      );
 
   static List<WayfinderDefinition> _definitions(
     String id,
@@ -445,9 +440,7 @@ final class _JsonDuplicateKeyScanner {
   final String source;
   int offset = 0;
 
-  void scan() => _value();
-
-  void _value() {
+  void scan() {
     _whitespace();
     if (source[offset] == '{') {
       _object();
@@ -480,7 +473,7 @@ final class _JsonDuplicateKeyScanner {
       }
       _whitespace();
       offset++; // Colon.
-      _value();
+      scan();
       _whitespace();
       if (source[offset] == '}') {
         offset++;
@@ -499,7 +492,7 @@ final class _JsonDuplicateKeyScanner {
       return;
     }
     while (true) {
-      _value();
+      scan();
       _whitespace();
       if (source[offset] == ']') {
         offset++;

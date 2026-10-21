@@ -234,21 +234,19 @@ class AgentSetup {
       // Preserve other handlers even when they share a group with ours.
       final kept = <Object?>[];
       for (final group in start) {
-        if (group is! Map<String, Object?> || group['hooks'] is! List) {
+        if (group case {'hooks': final List<Object?> handlers}) {
+          final remaining = [
+            for (final handler in handlers)
+              if (handler is! Map || handler['command'] != _sessionCommand)
+                handler,
+          ];
+          if (remaining.length == handlers.length) {
+            kept.add(group);
+          } else if (remaining.isNotEmpty) {
+            kept.add({...group, 'hooks': remaining});
+          }
+        } else {
           kept.add(group);
-          continue;
-        }
-        final handlers = group['hooks'] as List;
-        final remaining = handlers
-            .where(
-              (handler) =>
-                  handler is! Map || handler['command'] != _sessionCommand,
-            )
-            .toList();
-        if (remaining.length == handlers.length) {
-          kept.add(group);
-        } else if (remaining.isNotEmpty) {
-          kept.add({...group, 'hooks': remaining});
         }
       }
       config['hooks'] = {
@@ -360,29 +358,36 @@ class AgentSetup {
     if (decoded is! Map<String, Object?>) {
       throw WayfinderException('${file.path} must contain a JSON object.');
     }
-    final hooks = decoded['hooks'];
-    final stop = hooks is Map<String, Object?> ? hooks['Stop'] : null;
-    if (stop is! List) return;
-    bool ours(Object? group) =>
-        group is Map &&
-        group['hooks'] is List &&
-        (group['hooks'] as List).any(
-          (entry) =>
-              entry is Map && '${entry['command']}'.contains('wayfinder index'),
-        );
-    final kept = [...stop.where((group) => !ours(group))];
-    if (kept.length == stop.length) return;
-    final remaining = {...hooks as Map<String, Object?>}..remove('Stop');
-    if (kept.isNotEmpty) remaining['Stop'] = kept;
-    final config = {...decoded}..remove('hooks');
-    if (remaining.isNotEmpty) config['hooks'] = remaining;
-    if (config.isEmpty) {
-      await file.delete();
-      return;
+    if (decoded case {
+      'hooks':
+          final Map<String, Object?> hooks &&
+          {'Stop': final List<Object?> stop},
+    }) {
+      bool ours(Object? group) =>
+          group is Map &&
+          group['hooks'] is List &&
+          (group['hooks'] as List).any(
+            (entry) =>
+                entry is Map &&
+                '${entry['command']}'.contains('wayfinder index'),
+          );
+      final kept = [
+        for (final group in stop)
+          if (!ours(group)) group,
+      ];
+      if (kept.length == stop.length) return;
+      final remaining = {...hooks}..remove('Stop');
+      if (kept.isNotEmpty) remaining['Stop'] = kept;
+      final config = {...decoded}..remove('hooks');
+      if (remaining.isNotEmpty) config['hooks'] = remaining;
+      if (config.isEmpty) {
+        await file.delete();
+        return;
+      }
+      await file.writeAsString(
+        '${const JsonEncoder.withIndent('  ').convert(config)}\n',
+      );
     }
-    await file.writeAsString(
-      '${const JsonEncoder.withIndent('  ').convert(config)}\n',
-    );
   }
 
   /// Points this clone at .githooks unless another hooks path is configured.

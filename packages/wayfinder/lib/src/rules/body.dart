@@ -11,7 +11,8 @@ final class ParsedBody {
 
   List<String> headings() => [
     for (final node in nodes)
-      if (node is markdown.Element && node.tag == 'h1') node.textContent,
+      if (node case markdown.Element(tag: 'h1', :final textContent))
+        textContent,
   ];
 
   List<String> links() {
@@ -70,7 +71,12 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
-    final defined = _definitions(source.replaceAll(_fencedCode, ''));
+    final defined = {
+      for (final match in _footnoteDefinition.allMatches(
+        source.replaceAll(_fencedCode, ''),
+      ))
+        match[1]!,
+    };
     return [
       for (final label in labels)
         (
@@ -83,10 +89,6 @@ final class ParsedBody {
           (label: label, referenced: false, defined: true),
     ];
   }
-
-  static Set<String> _definitions(String text) => {
-    for (final match in _footnoteDefinition.allMatches(text)) match[1]!,
-  };
 
   late final Relationships? relationships = _parseRelationships();
 

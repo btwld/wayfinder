@@ -1,5 +1,6 @@
 import '../../models/chunk.dart';
 import '../../models/chunk_metadata.dart';
+import '../../util/checks.dart';
 import '../base_chunker.dart';
 import '../chunk_budget.dart';
 
@@ -10,10 +11,7 @@ import '../chunk_budget.dart';
 /// parsers or fragile line-by-line regexes.
 class TypeScriptChunker extends BaseChunker {
   TypeScriptChunker({int maxChunkLength = 1600})
-    : maxChunkLength = checkPositiveChunkConfig(
-        maxChunkLength,
-        'maxChunkLength',
-      );
+    : maxChunkLength = checkPositive(maxChunkLength, 'maxChunkLength');
 
   static final _classPattern = RegExp(
     r'^\s*(?:export\s+)?(?:abstract\s+)?class\s+(\w+)',
@@ -76,12 +74,8 @@ class TypeScriptChunker extends BaseChunker {
     bool inLineComment = false;
     bool inBlockComment = false;
 
-    _ActiveBlock? currentClass;
-    _ActiveBlock? currentEnum;
-    _ActiveBlock? currentFunction;
-    _ActiveBlock? currentInterface;
-    _ActiveBlock? currentNamespace;
-    _ActiveBlock? currentTypeAlias;
+    _ActiveBlock? currentTopLevel;
+    _ActiveBlock? currentMemberFunction;
 
     int currentLine = 1;
     int statementStartPos = 0;
@@ -168,20 +162,15 @@ class TypeScriptChunker extends BaseChunker {
           lineStarts,
           fallback: currentLine,
         );
-        final typeAlias = _typeAliasBlock(statement, startLine);
-        if (typeAlias != null) {
-          chunks.add(_buildChunk(typeAlias, currentLine, lines, metadata));
-        } else {
-          final arrowFunction = _functionBlock(statement, startLine);
-          if (arrowFunction != null) {
-            chunks.add(
-              _buildChunk(arrowFunction, currentLine, lines, metadata),
-            );
-          }
+        final block =
+            _typeAliasBlock(statement, startLine) ??
+            _functionBlock(statement, startLine);
+        if (block != null) {
+          chunks.add(_buildChunk(block, currentLine, lines, metadata));
         }
         statementStartPos = i + 1;
       } else if (braceLevel == 1 && char == ';') {
-        if (currentClass != null) {
+        if (currentTopLevel?.type == 'class') {
           final statement = content.substring(statementStartPos, i + 1).trim();
           final arrowMethodMatch = _arrowMethodPattern.firstMatch(statement);
           if (arrowMethodMatch != null) {
@@ -199,7 +188,7 @@ class TypeScriptChunker extends BaseChunker {
                   arrowMethodMatch.group(1)!,
                   startLine,
                   parentKey: 'class',
-                  parentName: currentClass.name,
+                  parentName: currentTopLevel!.name,
                 ),
                 currentLine,
                 lines,
@@ -223,51 +212,27 @@ class TypeScriptChunker extends BaseChunker {
         );
 
         if (braceLevel == 0) {
-          final block = _topLevelBlock(signature, startLine, bodyStartLine);
-          switch (block?.type) {
-            case 'class':
-              currentClass = block;
-            case 'enum':
-              currentEnum = block;
-            case 'function':
-              currentFunction = block;
-            case 'interface':
-              currentInterface = block;
-            case 'namespace':
-              currentNamespace = block;
-            case 'type':
-              currentTypeAlias = block;
-          }
-        } else if (braceLevel == 1 && currentClass != null) {
-          final methodMatch = _methodPattern.firstMatch(signature);
-          if (methodMatch != null) {
-            currentFunction = _ActiveBlock(
+          currentTopLevel = _topLevelBlock(signature, startLine, bodyStartLine);
+        } else if (braceLevel == 1 && currentTopLevel?.type == 'class') {
+          final match =
+              _methodPattern.firstMatch(signature) ??
+              _arrowMethodPattern.firstMatch(signature);
+          if (match != null) {
+            currentMemberFunction = _ActiveBlock(
               'method',
-              methodMatch.group(1)!,
+              match.group(1)!,
               startLine,
               bodyStartLine: bodyStartLine,
               parentKey: 'class',
-              parentName: currentClass.name,
+              parentName: currentTopLevel!.name,
             );
-          } else {
-            final arrowMethodMatch = _arrowMethodPattern.firstMatch(signature);
-            if (arrowMethodMatch != null) {
-              currentFunction = _ActiveBlock(
-                'method',
-                arrowMethodMatch.group(1)!,
-                startLine,
-                bodyStartLine: bodyStartLine,
-                parentKey: 'class',
-                parentName: currentClass.name,
-              );
-            }
           }
-        } else if (braceLevel == 1 && currentNamespace != null) {
-          currentFunction = _namespaceFunctionBlock(
+        } else if (braceLevel == 1 && currentTopLevel?.type == 'namespace') {
+          currentMemberFunction = _namespaceFunctionBlock(
             signature,
             startLine,
             bodyStartLine,
-            currentNamespace.name,
+            currentTopLevel!.name,
           );
         }
 
@@ -280,41 +245,20 @@ class TypeScriptChunker extends BaseChunker {
         if (braceLevel < 0) braceLevel = 0;
 
         if (braceLevel == 0) {
-          if (currentClass != null) {
-            chunks.add(_buildChunk(currentClass, currentLine, lines, metadata));
-            currentClass = null;
-          } else if (currentEnum != null) {
-            chunks.add(_buildChunk(currentEnum, currentLine, lines, metadata));
-            currentEnum = null;
-          } else if (currentInterface != null) {
+          if (currentTopLevel != null) {
             chunks.add(
-              _buildChunk(currentInterface, currentLine, lines, metadata),
+              _buildChunk(currentTopLevel, currentLine, lines, metadata),
             );
-            currentInterface = null;
-          } else if (currentNamespace != null) {
-            chunks.add(
-              _buildChunk(currentNamespace, currentLine, lines, metadata),
-            );
-            currentNamespace = null;
-          } else if (currentTypeAlias != null) {
-            chunks.add(
-              _buildChunk(currentTypeAlias, currentLine, lines, metadata),
-            );
-            currentTypeAlias = null;
-          } else if (currentFunction != null) {
-            chunks.add(
-              _buildChunk(currentFunction, currentLine, lines, metadata),
-            );
-            currentFunction = null;
+            currentTopLevel = null;
           }
         } else if (braceLevel == 1 &&
-            (currentClass != null || currentNamespace != null)) {
-          if (currentFunction != null) {
-            chunks.add(
-              _buildChunk(currentFunction, currentLine, lines, metadata),
-            );
-            currentFunction = null;
-          }
+            currentMemberFunction != null &&
+            (currentTopLevel?.type == 'class' ||
+                currentTopLevel?.type == 'namespace')) {
+          chunks.add(
+            _buildChunk(currentMemberFunction, currentLine, lines, metadata),
+          );
+          currentMemberFunction = null;
         }
 
         if (braceLevel == 0 || braceLevel == 1) {
@@ -382,9 +326,13 @@ class TypeScriptChunker extends BaseChunker {
     if (block.bodyStartLine != null &&
         !fitsNonWhitespaceBudget(fullContent, maxChunkLength)) {
       final summaryEnd = block.bodyStartLine!.clamp(safeStart, safeEnd);
-      final summary = _withoutTrailingOpeningBrace(
-        lines.sublist(safeStart - 1, summaryEnd).join('\n'),
-      );
+      final trimmed = lines
+          .sublist(safeStart - 1, summaryEnd)
+          .join('\n')
+          .trimRight();
+      final summary = trimmed.endsWith('{')
+          ? trimmed.substring(0, trimmed.length - 1).trimRight()
+          : trimmed;
       if (summary.isNotEmpty) {
         chunkContent = summary;
         chunkEnd = safeStart + summary.split('\n').length - 1;
@@ -401,13 +349,6 @@ class TypeScriptChunker extends BaseChunker {
       type: block.type,
       metadata: metadataMap,
     );
-  }
-
-  String _withoutTrailingOpeningBrace(String value) {
-    final trimmed = value.trimRight();
-    return trimmed.endsWith('{')
-        ? trimmed.substring(0, trimmed.length - 1).trimRight()
-        : trimmed;
   }
 
   _ActiveBlock? _topLevelBlock(
@@ -472,20 +413,17 @@ class TypeScriptChunker extends BaseChunker {
     int startLine,
     int bodyStartLine,
     String namespaceName,
-  ) {
-    final block = _functionBlock(signature, startLine, bodyStartLine);
-    if (block == null) {
-      return null;
-    }
-    return _ActiveBlock(
+  ) => switch (_functionBlock(signature, startLine, bodyStartLine)) {
+    final block? => _ActiveBlock(
       block.type,
       block.name,
       block.startLine,
       bodyStartLine: block.bodyStartLine,
       parentKey: 'namespace',
       parentName: namespaceName,
-    );
-  }
+    ),
+    null => null,
+  };
 
   _ActiveBlock? _functionBlock(
     String signature,
@@ -519,18 +457,15 @@ class TypeScriptChunker extends BaseChunker {
     String statement,
     int startLine, {
     int? bodyStartLine,
-  }) {
-    final typeAliasMatch = _typeAliasPattern.firstMatch(statement);
-    if (typeAliasMatch == null) {
-      return null;
-    }
-    return _ActiveBlock(
+  }) => switch (_typeAliasPattern.firstMatch(statement)) {
+    final match? => _ActiveBlock(
       'type',
-      typeAliasMatch.group(1)!,
+      match.group(1)!,
       startLine,
       bodyStartLine: bodyStartLine,
-    );
-  }
+    ),
+    null => null,
+  };
 
   List<int> _lineStarts(String content) {
     final starts = <int>[0];

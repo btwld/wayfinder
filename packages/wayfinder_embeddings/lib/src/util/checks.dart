@@ -58,64 +58,68 @@ String readString(
   String key, {
   required String context,
   bool allowBlank = false,
-}) {
-  final value = map[key];
-  if (value is! String) {
-    throw _formatError(context, key, 'must be a String', value);
-  }
-  if (!allowBlank && value.trim().isEmpty) {
-    throw _formatError(context, key, 'must not be blank', value);
-  }
-  return value;
-}
+}) => switch (map[key]) {
+  final String value when allowBlank || value.trim().isNotEmpty => value,
+  final String value => throw formatFieldError(
+    context,
+    key,
+    'must not be blank',
+    value,
+  ),
+  final value => throw formatFieldError(
+    context,
+    key,
+    'must be a String',
+    value,
+  ),
+};
 
 /// Reads an int at [key], rejecting a missing or mistyped value.
-int readInt(Map<String, Object?> map, String key, {required String context}) {
-  final value = map[key];
-  if (value is! int) {
-    throw _formatError(context, key, 'must be an int', value);
-  }
-  return value;
-}
+int readInt(Map<String, Object?> map, String key, {required String context}) =>
+    switch (map[key]) {
+      final int value => value,
+      final value => throw formatFieldError(
+        context,
+        key,
+        'must be an int',
+        value,
+      ),
+    };
 
 /// Reads a double at [key], accepting any finite number.
 double readDouble(
   Map<String, Object?> map,
   String key, {
   required String context,
-}) {
-  final value = map[key];
-  if (value is! num) {
-    throw _formatError(context, key, 'must be a number', value);
-  }
-  return value.toDouble();
-}
+}) => switch (map[key]) {
+  final num value => value.toDouble(),
+  final value => throw formatFieldError(
+    context,
+    key,
+    'must be a number',
+    value,
+  ),
+};
 
 /// Reads a map at [key], rejecting a missing or mistyped value.
 Map<Object?, Object?> readMap(
   Map<String, Object?> map,
   String key, {
   required String context,
-}) {
-  final value = map[key];
-  if (value is! Map) {
-    throw _formatError(context, key, 'must be a Map', value);
-  }
-  return value;
-}
+}) => switch (map[key]) {
+  final Map<Object?, Object?> value => value,
+  final value => throw formatFieldError(context, key, 'must be a Map', value),
+};
 
 /// Reads a list at [key], rejecting a missing or mistyped value.
 List<Object?> readList(
   Map<String, Object?> map,
   String key, {
   required String context,
-}) {
-  final value = map[key];
-  if (value is! List) {
-    throw _formatError(context, key, 'must be a List', value);
-  }
-  return value;
-}
+}) => switch (map[key]) {
+  final List<Object?> value => value,
+  final value => throw formatFieldError(context, key, 'must be a List', value),
+};
 
 /// Builds the shared `fromMap` failure message.
 FormatException formatFieldError(
@@ -123,13 +127,4 @@ FormatException formatFieldError(
   String field,
   String requirement,
   Object? value,
-) => _formatError(context, field, requirement, value);
-
-FormatException _formatError(
-  String context,
-  String field,
-  String requirement,
-  Object? value,
-) {
-  return FormatException("$context.fromMap: '$field' $requirement, got $value");
-}
+) => FormatException("$context.fromMap: '$field' $requirement, got $value");

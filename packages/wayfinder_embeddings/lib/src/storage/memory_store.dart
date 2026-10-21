@@ -1,6 +1,7 @@
 import '../models/chunk.dart';
 import '../models/embedding.dart';
 import '../models/search_result.dart';
+import '../util/checks.dart';
 import '../util/similarity.dart';
 import 'base_store.dart';
 import 'embedding_key.dart';
@@ -40,7 +41,7 @@ class MemoryStore extends BaseStore {
 
   @override
   Future<Chunk?> getChunk(String chunkId) async {
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     return chunks[chunkId];
   }
 
@@ -50,7 +51,7 @@ class MemoryStore extends BaseStore {
     String? source,
     String? modelName,
   }) async {
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     validateEmbeddingIdentityFilter(source, 'source');
     validateEmbeddingIdentityFilter(modelName, 'modelName');
 
@@ -64,22 +65,23 @@ class MemoryStore extends BaseStore {
       )];
     }
 
-    return embeddings.values.where((embedding) {
-      return embedding.chunkId == chunkId &&
-          (source == null || embedding.source == source) &&
-          (modelName == null || embedding.modelName == modelName);
-    }).firstOrNull;
+    return embeddings.values
+        .where(
+          (embedding) =>
+              embedding.chunkId == chunkId &&
+              (source == null || embedding.source == source) &&
+              (modelName == null || embedding.modelName == modelName),
+        )
+        .firstOrNull;
   }
 
   @override
-  Future<List<Chunk>> getAllChunks() async {
-    return List<Chunk>.unmodifiable(chunks.values);
-  }
+  Future<List<Chunk>> getAllChunks() async =>
+      List<Chunk>.unmodifiable(chunks.values);
 
   @override
-  Future<List<Embedding>> getAllEmbeddings() async {
-    return List<Embedding>.unmodifiable(embeddings.values);
-  }
+  Future<List<Embedding>> getAllEmbeddings() async =>
+      List<Embedding>.unmodifiable(embeddings.values);
 
   @override
   Future<void> replaceChunks({
@@ -131,24 +133,16 @@ class MemoryStore extends BaseStore {
     }
     validateQueryVector(queryVector);
 
-    final filteredEmbeddings = embeddings.values.where((embedding) {
-      return embedding.source == source && embedding.modelName == modelName;
-    }).toList();
-
-    final results = <SearchResult>[];
-    for (final embedding in filteredEmbeddings) {
-      final chunk = chunks[embedding.chunkId];
-      if (chunk == null) continue;
-
-      final similarity = cosineSimilarity(queryVector, embedding.vector);
-      results.add(
-        SearchResult(
-          chunk: chunk,
-          embedding: embedding,
-          similarity: similarity,
-        ),
-      );
-    }
+    final results = [
+      for (final embedding in embeddings.values.toList())
+        if (embedding.source == source && embedding.modelName == modelName)
+          if (chunks[embedding.chunkId] case final chunk?)
+            SearchResult(
+              chunk: chunk,
+              embedding: embedding,
+              similarity: cosineSimilarity(queryVector, embedding.vector),
+            ),
+    ];
 
     results.sort((a, b) {
       final byScore = b.similarity.compareTo(a.similarity);
@@ -162,7 +156,7 @@ class MemoryStore extends BaseStore {
 
   @override
   Future<void> deleteChunk(String chunkId) async {
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     chunks.remove(chunkId);
     // Cascade-delete associated embeddings to match ObjectBoxStore behavior.
     embeddings.removeWhere((_, value) => value.chunkId == chunkId);
@@ -170,14 +164,15 @@ class MemoryStore extends BaseStore {
 
   @override
   Future<void> deleteEmbedding(String chunkId) async {
-    validateRequiredStorageIdentity(chunkId, 'chunkId');
+    checkNotBlank(chunkId, 'chunkId');
     embeddings.removeWhere((_, value) => value.chunkId == chunkId);
   }
 
   @override
-  Future<Map<String, Object?>> getStats() async {
-    return {'chunks': chunks.length, 'embeddings': embeddings.length};
-  }
+  Future<Map<String, Object?>> getStats() async => {
+    'chunks': chunks.length,
+    'embeddings': embeddings.length,
+  };
 
   @override
   Future<void> close() async {

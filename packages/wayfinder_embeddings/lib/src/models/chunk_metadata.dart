@@ -29,20 +29,21 @@ class ChunkMetadata extends Equatable {
     Map<String, Object?> additionalMetadata = const {},
   }) : sourcePath = checkNotBlank(sourcePath, 'sourcePath'),
        contentType = checkNotBlank(contentType, 'contentType'),
-       additionalMetadata = _checkAdditionalMetadata(additionalMetadata);
+       additionalMetadata = freezeMetadataMap(
+         additionalMetadata,
+         name: 'additionalMetadata',
+       );
 
   /// Creates a copy of this metadata with the given fields replaced with new values.
   ChunkMetadata copyWith({
     String? sourcePath,
     String? contentType,
     Map<String, Object?>? additionalMetadata,
-  }) {
-    return ChunkMetadata(
-      sourcePath: sourcePath ?? this.sourcePath,
-      contentType: contentType ?? this.contentType,
-      additionalMetadata: additionalMetadata ?? this.additionalMetadata,
-    );
-  }
+  }) => ChunkMetadata(
+    sourcePath: sourcePath ?? this.sourcePath,
+    contentType: contentType ?? this.contentType,
+    additionalMetadata: additionalMetadata ?? this.additionalMetadata,
+  );
 
   /// Create metadata from a file.
   ChunkMetadata.fromFile(File file, {String? contentType})
@@ -53,21 +54,21 @@ class ChunkMetadata extends Equatable {
       );
 
   /// Converts this metadata to a map.
-  Map<String, Object?> toMap() {
-    return {
-      'sourcePath': sourcePath,
-      'contentType': contentType,
-      'additionalMetadata': metadataMapSnapshot(additionalMetadata),
-    };
-  }
+  Map<String, Object?> toMap() => {
+    'sourcePath': sourcePath,
+    'contentType': contentType,
+    'additionalMetadata': metadataMapSnapshot(additionalMetadata),
+  };
 
   /// Creates metadata from a map.
   ChunkMetadata.fromMap(Map<String, Object?> map)
     : this(
         sourcePath: readString(map, 'sourcePath', context: 'ChunkMetadata'),
         contentType: readString(map, 'contentType', context: 'ChunkMetadata'),
-        additionalMetadata: _readAdditionalMetadataMap(
+        additionalMetadata: readMetadataMap(
           readMap(map, 'additionalMetadata', context: 'ChunkMetadata'),
+          context: 'ChunkMetadata.fromMap',
+          fieldName: 'additionalMetadata',
         ),
       );
 
@@ -75,21 +76,6 @@ class ChunkMetadata extends Equatable {
   List<Object?> get props => [sourcePath, contentType, additionalMetadata];
 
   @override
-  String toString() {
-    return 'ChunkMetadata(sourcePath: $sourcePath, contentType: $contentType)';
-  }
-}
-
-Map<String, Object?> _checkAdditionalMetadata(
-  Map<String, Object?> additionalMetadata,
-) => freezeMetadataMap(additionalMetadata, name: 'additionalMetadata');
-
-Map<String, Object?> _readAdditionalMetadataMap(
-  Map<Object?, Object?> additionalMetadata,
-) {
-  return readMetadataMap(
-    additionalMetadata,
-    context: 'ChunkMetadata.fromMap',
-    fieldName: 'additionalMetadata',
-  );
+  String toString() =>
+      'ChunkMetadata(sourcePath: $sourcePath, contentType: $contentType)';
 }

@@ -22,13 +22,9 @@ abstract class BaseEmbedder {
   ///
   /// The default implementation calls [generateEmbedding] once per text.
   /// Embedders whose backend accepts a batch should override this method.
-  Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
-    final vectors = <List<double>>[];
-    for (final text in texts) {
-      vectors.add(await generateEmbedding(text));
-    }
-    return vectors;
-  }
+  Future<List<List<double>>> generateEmbeddings(List<String> texts) async => [
+    for (final text in texts) await generateEmbedding(text),
+  ];
 
   /// Generates a **query** embedding for the given text (used for search).
   /// Default falls back to document behavior for embedders that don't differentiate.

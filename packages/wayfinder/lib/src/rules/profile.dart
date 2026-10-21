@@ -17,12 +17,8 @@ enum Slot {
 
   final String id;
 
-  static Slot? byId(String id) {
-    for (final slot in values) {
-      if (slot.id == id) return slot;
-    }
-    return null;
-  }
+  static Slot? byId(String id) =>
+      values.where((slot) => slot.id == id).firstOrNull;
 }
 
 /// The composed names rules see. Every list is always present, so every
@@ -178,10 +174,10 @@ final class EffectiveProfile {
     final names = <String, String>{};
     for (final (owner, definitions) in contributions) {
       for (final definition in definitions) {
-        if (names.containsKey(definition.name)) {
+        if (names[definition.name] case final previousOwner?) {
           throw ProfileCompositionException(
             '$owner declares $noun ${definition.name}, which '
-            '${names[definition.name]} already declares.',
+            '$previousOwner already declares.',
           );
         }
         names[definition.name] = owner;

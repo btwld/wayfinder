@@ -160,7 +160,10 @@ class TeiReranker extends SearchReranker {
 }
 
 Uri _rerankUri(Uri baseUrl) {
-  final path = _withoutTrailingSlash(baseUrl.path);
+  var path = baseUrl.path;
+  while (path.length > 1 && path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
   if (path.endsWith('/rerank')) {
     return baseUrl.replace(path: path);
   }
@@ -168,15 +171,7 @@ Uri _rerankUri(Uri baseUrl) {
   return baseUrl.replace(path: rerankPath);
 }
 
-String _withoutTrailingSlash(String path) {
-  var normalized = path;
-  while (normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.substring(0, normalized.length - 1);
-  }
-  return normalized;
-}
-
-List<_RerankScore> _parseRerankScores(
+List<({int index, double score})> _parseRerankScores(
   Object? decoded, {
   required int candidateCount,
 }) {
@@ -192,7 +187,7 @@ List<_RerankScore> _parseRerankScores(
     );
   }
 
-  final scores = <_RerankScore>[];
+  final scores = <({int index, double score})>[];
   final seenIndexes = <int>{};
   for (final entry in decoded) {
     if (entry is! Map) {
@@ -227,16 +222,9 @@ List<_RerankScore> _parseRerankScores(
         "TEI rerank entry 'score' must be finite, got $rawScore.",
       );
     }
-    scores.add(_RerankScore(index: rawIndex, score: score));
+    scores.add((index: rawIndex, score: score));
   }
   return scores;
-}
-
-class _RerankScore {
-  const _RerankScore({required this.index, required this.score});
-
-  final int index;
-  final double score;
 }
 
 /// Exception thrown when a reranker runtime call fails.

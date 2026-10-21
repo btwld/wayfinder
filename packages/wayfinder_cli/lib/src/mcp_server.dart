@@ -145,10 +145,9 @@ class WayfinderMcpServer {
         openWorldHint: false,
       ),
       callback: (arguments, extra) => call(
-        () => forBundles((bundle) async {
-          final result = await _knowledge.index(bundle);
-          return result.toJson();
-        }),
+        () => forBundles(
+          (bundle) async => (await _knowledge.index(bundle)).toJson(),
+        ),
       ),
     );
     server.registerAckTool(
@@ -195,9 +194,12 @@ class WayfinderMcpServer {
         () => forBundles((bundle) async {
           final result = await projectWayfinderGraph(
             bundle,
-            types: _graphStrings(arguments['types']),
-            pathPrefixes: _graphStrings(arguments['path_prefixes']),
-            resolutions: _graphStrings(arguments['resolutions']),
+            types: (arguments['types'] as List?)?.cast<String>() ?? const [],
+            pathPrefixes:
+                (arguments['path_prefixes'] as List?)?.cast<String>() ??
+                const [],
+            resolutions:
+                (arguments['resolutions'] as List?)?.cast<String>() ?? const [],
           );
           if (result.graph == null) {
             throw WayfinderException(result.report!.toText());
@@ -249,9 +251,4 @@ class WayfinderMcpServer {
 
   CallToolResult _error(String message) =>
       CallToolResult(isError: true, content: [TextContent(text: message)]);
-}
-
-Iterable<String> _graphStrings(Object? value) {
-  if (value == null) return const [];
-  return (value as List).cast<String>();
 }
