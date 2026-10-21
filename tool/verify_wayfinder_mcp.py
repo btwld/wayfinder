@@ -71,7 +71,7 @@ class Session:
         result = self.request("tools/call", {"name": name, "arguments": arguments or {}})
         assert bool(result.get("isError")) == error, result
         text = result["content"][0]["text"]
-        return text if error else json.loads(text)
+        return text if error or name == "search" else json.loads(text)
 
     def close(self):
         try:
@@ -155,9 +155,9 @@ def main():
             found = check("semantic-search", lambda: server.tool("search", {
                 "query": "How can I regain access after forgetting my password?", "limit": 3,
             }))
-            assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
-            assert found["matches"][0]["chunk"]["lineStart"] > 5
-            assert len(found["context"]) <= 3
+            assert "## Matches" in found
+            assert "### knowledge/recovery.md:" in found
+            assert "[stable; match]" in found
             assert pointer.read_text() == generation
             unchanged = check("reuse-vectors", lambda: server.tool("index"))
             assert unchanged["embeddedChunks"] == 0
@@ -169,7 +169,8 @@ def main():
             updated = check("metadata-refresh", lambda: server.tool("index"))
             assert updated["embeddedChunks"] == 0
             found = check("search-refreshed-metadata", lambda: server.tool("search", {"query": "password"}))
-            assert found["matches"][0]["chunk"]["metadata"]["okf"]["frontmatter"]["status"] == "draft"
+            assert "### knowledge/recovery.md:" in found
+            assert "[draft; match]" in found
             source.write_bytes(originals["recovery.md"])
             check("restore-index", lambda: server.tool("index"))
         finally:
@@ -179,7 +180,7 @@ def main():
         try:
             check("restart", server.initialize)
             found = check("search-persisted-index", lambda: server.tool("search", {"query": "password"}))
-            assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+            assert "### knowledge/recovery.md:" in found
         finally:
             server.close()
 
@@ -200,13 +201,12 @@ def main():
             indexed = check("project-index", lambda: server.tool("index"))
             assert {b["path"] for b in indexed["bundles"]} == {"knowledge", kit_path}
             found = check("project-search", lambda: server.tool("search", {"query": "password", "limit": 100}))
-            assert {h["bundlePath"] for h in found["matches"]} == {"knowledge", kit_path}
-            cli = subprocess.run([str(binary), "search", "password", "--limit=100", "--output=json"],
+            assert "### knowledge/recovery.md:" in found
+            assert f"### {kit_path}/recovery.md:" in found
+            cli = subprocess.run([str(binary), "search", "password", "--limit=100"],
                                  env=env, cwd=temp, text=True, capture_output=True, timeout=120)
             assert cli.returncode == 0, cli.stderr
-            cli_result = json.loads(cli.stdout)
-            assert {(h["bundlePath"], h["chunk"]["id"]) for h in found["matches"]} == {
-                (h["bundlePath"], h["chunk"]["id"]) for h in cli_result["matches"]}
+            assert found.strip() == cli.stdout.strip()
             validate = check("project-validate", lambda: server.tool("validate"))
             assert {b["path"] for b in validate["bundles"]} == {"knowledge", kit_path}
         finally:
@@ -216,8 +216,8 @@ def main():
         try:
             server.initialize()
             found = check("environment-single-bundle-override", lambda: server.tool("search", {"query": "password"}))
-            assert "bundles" not in found
-            assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+            assert "shared-kit" not in found
+            assert "### knowledge/recovery.md:" in found
         finally:
             server.close()
 

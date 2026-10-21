@@ -796,4 +796,56 @@ void main() {
       );
     },
   );
+
+  test(
+    'Attested Computation concepts stay in metadata and graph while excluded from passages',
+    () {
+      final parsed = snapshot({
+        'alpha.md': concept(
+          'LaunchProcedure [computation](computations/view.md).',
+        ),
+        'computations/view.md':
+            '---\ntype: Attested Computation\ntitle: View\n---\n\n'
+            'render_view("LaunchProcedure")\n',
+        'custom.md':
+            '---\ntype: attested computation\ntitle: Custom\n---\n\n'
+            'Custom lowercase type keeps its passages.\n',
+      });
+      expect(parsed.conceptPaths, contains('computations/view.md'));
+      expect(
+        parsed.metadataFor('computations/view.md').type,
+        'Attested Computation',
+      );
+      expect(
+        parsed.chunks.any((c) => c.sourcePath == 'computations/view.md'),
+        isFalse,
+      );
+      expect(parsed.chunks.any((c) => c.sourcePath == 'custom.md'), isTrue);
+      final map = parsed.toMap();
+      final chunks = List<Map<String, Object?>>.from(map['chunks']! as List)
+        ..add(
+          Chunk(
+            id: 'stale-computation-chunk',
+            sourcePath: 'computations/view.md',
+            lineStart: 6,
+            lineEnd: 6,
+            content: 'render_view("LaunchProcedure")',
+            type: 'paragraph',
+          ).toMap(),
+        );
+      final contexts = Map<String, String>.from(map['contextTexts']! as Map)
+        ..['stale-computation-chunk'] =
+            'Title: View\n\nPassage:\n\nrender_view("LaunchProcedure")';
+      final reopened = KnowledgeSnapshot.fromMap({
+        ...map,
+        'chunks': chunks,
+        'contextTexts': contexts,
+      });
+      expect(
+        reopened.chunks.any((c) => c.sourcePath == 'computations/view.md'),
+        isFalse,
+      );
+      expect(reopened.chunks.map((c) => c.id), parsed.chunks.map((c) => c.id));
+    },
+  );
 }

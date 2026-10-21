@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:okf/okf_io.dart';
+import 'package:mcp_dart/mcp_dart.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/profile_resolver.dart';
 
 import 'package:wayfinder/wayfinder.dart';
@@ -45,6 +47,66 @@ void main() {
     expect(help, isNot(contains('--mode')));
     expect(help, isNot(contains('models prepare')));
   });
+
+  test(
+    'MCP command delegates its default retrieval lifetime to the server',
+    () async {
+      final working = Directory('test/fixtures/knowledge');
+      final servers = <_CommandMcpServer>[];
+      cli = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        notices: false,
+        workingDirectory: working,
+        mcpServer: ({rootPath, workingDirectory, knowledge, profileResolver}) {
+          // A nonnull default here was the production wiring bug: it disabled
+          // both encoder retention and snapshot reuse before the server ran.
+          expect(knowledge, isNull);
+          expect(workingDirectory, same(working));
+          expect(profileResolver, isNotNull);
+          final server = _CommandMcpServer();
+          servers.add(server);
+          return server;
+        },
+      );
+      expect(await cli.run(['mcp', working.path]), 0);
+      expect(await cli.run(['mcp']), 0);
+      expect(servers, hasLength(2));
+      expect(servers.every((server) => server.served), isTrue);
+      expect(errors, isEmpty);
+    },
+  );
+
+  test(
+    'MCP command preserves an explicit knowledge factory override',
+    () async {
+      final injected = _SearchKnowledge();
+      final server = _CommandMcpServer();
+      var factoryCalls = 0;
+      cli = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        notices: false,
+        knowledge: () {
+          factoryCalls++;
+          return injected;
+        },
+        mcpServer: ({rootPath, workingDirectory, knowledge, profileResolver}) {
+          expect(knowledge, same(injected));
+          expect(
+            knowledge!.keepEncoderAlive,
+            isFalse,
+            reason: 'An explicit override must not be silently reconfigured.',
+          );
+          return server;
+        },
+      );
+      expect(await cli.run(['mcp', '.']), 0);
+      expect(factoryCalls, 1);
+      expect(server.served, isTrue);
+      expect(errors, isEmpty);
+    },
+  );
 
   test(
     'session hook emits model context without retrieval or network',
@@ -713,6 +775,15 @@ title: Sync engine
       expect(retrievalOpens, 0);
     });
   });
+}
+
+class _CommandMcpServer extends WayfinderMcpServer {
+  bool served = false;
+
+  @override
+  Future<void> serve({Transport? transport}) async {
+    served = true;
+  }
 }
 
 Future<OkfGraph> _okfGraph(String bundle, {OkfGraphQuery? query}) async {

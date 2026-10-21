@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-09
-- Updated: 2026-10-16 (project-wide discovery across configured bundles)
+- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output)
 - Scope: local MCP adapter; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md)
 
@@ -38,8 +38,9 @@ stderr. Dependency versions live in the
 [package manifest](../../packages/wayfinder_cli/pubspec.yaml).
 
 Expose the CLI's `validate`, `index`, `search`, and read-only `graph`
-([ADR-0012](0012-wayfinder-graph-projection.md)) services. Return each result
-once as JSON in one text content block. A validation report with failing
+([ADR-0012](0012-wayfinder-graph-projection.md)) services. Return `validate`,
+`index`, and `graph` results as JSON in one text content block, and `search`
+results as Markdown in one text content block. A validation report with failing
 findings is a completed result with an `exit_code`, not a failed tool call;
 execution failures use `isError` without ending the session. Search returns
 candidate passages, citations, and notices, not an answer-confidence claim.
@@ -49,11 +50,13 @@ derived app data. Tool annotations mark read-only calls and non-destructive
 indexing, while the host controls approval. There is no HTTP host,
 authentication, or bundle-authoring tool.
 
-Each retrieval call owns and disposes its model and store. Overlapping calls
-may return a busy error. Disconnect drains active operations, but
-cancellation does not roll back a generation already being built. Indexing is
-atomic per bundle, not across bundles: a later bundle's failure does not roll
-back an earlier completed index.
+The server retains one lazily opened encoder and a bounded verified snapshot
+cache across serialized retrieval calls, evicting the encoder on failure and
+disposing it on disconnect, while each retrieval call opens and closes its own
+store. Overlapping calls may return a busy error. Disconnect drains active
+operations, but cancellation does not roll back a generation already being
+built. Indexing is atomic per bundle, not across bundles: a later bundle's
+failure does not roll back an earlier completed index.
 
 ## Options considered
 
@@ -65,12 +68,11 @@ back an earlier completed index.
 
 The server reuses CLI behavior rather than defining a second validation or
 retrieval contract; the engine's report, schemas, Profile packages, bundle
-content, and storage formats are the same as on the command line. A shared
-long-lived model would need measured benefit and explicit concurrency,
-cancellation, and replacement rules. Current tool arguments and limits live in
-the [CLI guide](../../packages/wayfinder_cli/README.md).
+content, and storage formats are the same as on the command line. Current tool
+arguments and limits live in the
+[CLI guide](../../packages/wayfinder_cli/README.md).
 
 ## Reconsider when
 
-A real deployment needs remote hosting, authentication, shared warm model
-state, or stronger cancellation and concurrency guarantees.
+A real deployment needs remote hosting, authentication, or stronger
+cancellation and concurrency guarantees.

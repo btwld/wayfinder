@@ -18,8 +18,9 @@ import 'version.dart';
 
 /// Exposes project-wide tools, or one explicitly selected bundle.
 ///
-/// Each retrieval call owns and closes its encoder/store. Disconnect waits for
-/// active calls to release those resources; cancellation is not a rollback.
+/// Retrieval calls share one lazy encoder and serialize its use. Each call still
+/// checks source freshness and closes its store. Disconnect drains active calls
+/// and disposes the encoder; cancellation is not a rollback.
 class WayfinderMcpServer {
   WayfinderMcpServer({
     this.rootPath,
@@ -27,7 +28,7 @@ class WayfinderMcpServer {
     WayfinderKnowledge? knowledge,
     WayfinderProfileResolver? profileResolver,
   }) : _workingDirectory = workingDirectory ?? Directory.current,
-       _knowledge = knowledge ?? WayfinderKnowledge(),
+       _knowledge = knowledge ?? WayfinderKnowledge(keepEncoderAlive: true),
        _profileResolver = profileResolver ?? WayfinderProfileResolver();
 
   final String? rootPath;
@@ -46,6 +47,9 @@ class WayfinderMcpServer {
     }
     final canonical = await directory.resolveSymbolicLinks();
     final root = rootPath == null ? null : canonical;
+    final rootPrefix = root == null
+        ? ''
+        : await explicitBundlePrefix(_workingDirectory, root);
     final project = Directory(canonical);
     final scopeInstructions = root == null
         ? 'Tools operate on all configured project bundles; search ranks them '
@@ -92,14 +96,19 @@ class WayfinderMcpServer {
     );
     final active = <Future<CallToolResult>>{};
     var closing = false;
-    Future<CallToolResult> call(
-      Future<Map<String, Object?>> Function() action,
-    ) {
+    Future<CallToolResult> track(Future<CallToolResult> Function() action) {
       if (closing) return Future.value(_error('Wayfinder is shutting down.'));
-      final result = _guard(action);
+      final result = action();
       active.add(result);
       return result.whenComplete(() => active.remove(result));
     }
+
+    Future<CallToolResult> callText(Future<String> Function() action) =>
+        track(() => _guardText(action));
+
+    Future<CallToolResult> call(
+      Future<Map<String, Object?>> Function() action,
+    ) => callText(() async => jsonEncode(await action()));
 
     const readOnly = ToolAnnotations(
       readOnlyHint: true,
@@ -154,15 +163,15 @@ class WayfinderMcpServer {
       'search',
       description:
           'Search the saved index across all configured project bundles, '
-          'or the explicit startup bundle. Returns the same JSON as '
-          'wayfinder search --output=json: ranked matches, bounded context with '
-          'original path/line citations and metadata, and notices. Missing or '
+          'or the explicit startup bundle. Returns clean Markdown with '
+          '## Matches and ## Related Context, original <path>:<lineStart>-<lineEnd> '
+          'citations, essential metadata, and notices. Missing or '
           'stale indexes require an explicit index call. All lifecycle states '
           'remain eligible; verify the cited text before answering. Search uses '
           'dense embeddings and requires the local encoder.',
       input: wayfinderSearchInput,
       annotations: readOnly,
-      callback: (arguments, extra) => call(() async {
+      callback: (arguments, extra) => callText(() async {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
         if (root == null) {
@@ -172,10 +181,16 @@ class WayfinderMcpServer {
             query,
             limit: limit,
           );
-          return ProjectSearchResult(bundles, responses, limit: limit).toJson();
+          return formatProjectSearchMarkdown(
+            ProjectSearchResult(bundles, responses, limit: limit),
+          );
         }
         final result = await _knowledge.search(root, query, limit: limit);
-        return searchOutput(result);
+        return formatSearchMarkdown(
+          result,
+          prefix: rootPrefix,
+          bundleRoot: root,
+        );
       }),
     );
     server.registerAckTool(
@@ -222,20 +237,18 @@ class WayfinderMcpServer {
       try {
         await Future.wait(active.toList());
       } finally {
-        await server.close();
+        try {
+          await _knowledge.dispose();
+        } finally {
+          await server.close();
+        }
       }
     }
   }
 
-  Future<CallToolResult> _guard(
-    Future<Map<String, Object?>> Function() action,
-  ) async {
+  Future<CallToolResult> _guardText(Future<String> Function() action) async {
     try {
-      // A single JSON text block also works with clients that ignore structured
-      // content, without duplicating every passage on the wire (as in OKF MCP).
-      return CallToolResult(
-        content: [TextContent(text: jsonEncode(await action()))],
-      );
+      return CallToolResult(content: [TextContent(text: await action())]);
     } on WayfinderException catch (error) {
       return _error(error.message);
     } on FormatException catch (error) {

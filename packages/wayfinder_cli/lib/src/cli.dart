@@ -22,12 +22,21 @@ import 'search_output.dart';
 import 'update.dart';
 import 'version.dart';
 
+typedef WayfinderMcpServerFactory =
+    WayfinderMcpServer Function({
+      String? rootPath,
+      Directory? workingDirectory,
+      WayfinderKnowledge? knowledge,
+      WayfinderProfileResolver? profileResolver,
+    });
+
 /// Wayfinder's application commands; validation shares the existing public API.
 class WayfinderCli {
   WayfinderCli({
     void Function(String)? out,
     void Function(String)? err,
     WayfinderKnowledge Function()? knowledge,
+    WayfinderMcpServerFactory? mcpServer,
     AgentSetup Function(void Function(String) out)? agentSetup,
     Updater Function(void Function(String) out)? updater,
     ReleaseChecker Function()? releases,
@@ -44,7 +53,8 @@ class WayfinderCli {
        _terminate = terminate ?? exit,
        _out = out ?? stdout.writeln,
        _err = err ?? stderr.writeln,
-       _knowledge = knowledge ?? WayfinderKnowledge.new,
+       _knowledgeOverride = knowledge,
+       _mcpServer = mcpServer ?? WayfinderMcpServer.new,
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
@@ -54,7 +64,8 @@ class WayfinderCli {
 
   final void Function(String) _out;
   final void Function(String) _err;
-  final WayfinderKnowledge Function() _knowledge;
+  final WayfinderKnowledge Function()? _knowledgeOverride;
+  final WayfinderMcpServerFactory _mcpServer;
   final AgentSetup Function(void Function(String) out) _agentSetup;
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
@@ -67,6 +78,9 @@ class WayfinderCli {
   final Never Function(int code) _terminate;
 
   static const _defaultBackgroundLimit = Duration(minutes: 30);
+
+  WayfinderKnowledge _knowledge() =>
+      _knowledgeOverride?.call() ?? WayfinderKnowledge();
 
   WayfinderProfileResolver _profileResolver() =>
       _profileResolverFactory?.call() ?? WayfinderProfileResolver();
@@ -532,14 +546,22 @@ class WayfinderCli {
           );
         }
         final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
-        await WayfinderMcpServer(
+        final knowledge = _knowledgeOverride?.call();
+        // An explicit override keeps caller ownership and its encoder session.
+        // Otherwise the server chooses its persistent retrieval service.
+        final server = _mcpServer(
           rootPath:
               command.rest.firstOrNull ??
               (override == null || override.trim().isEmpty ? null : override),
           workingDirectory: _workingDirectory,
-          knowledge: _knowledge(),
+          knowledge: knowledge,
           profileResolver: _profileResolver(),
-        ).serve();
+        );
+        if (knowledge == null) {
+          await server.serve();
+        } else {
+          await knowledge.withEncoderSession(server.serve);
+        }
         return 0;
       }
       if (name == 'index' && command.rest.isEmpty) {
@@ -764,19 +786,13 @@ class WayfinderCli {
       if (json) {
         _json(result.toJson());
       } else {
-        for (final entry in result.context) {
-          _printHit(
-            entry.hit,
-            prefix: '${entry.bundle.path}/',
-            bundle: entry.bundle.name,
-          );
-        }
-        _printNotices(result.notices, empty: result.context.isEmpty);
+        _out(formatProjectSearchMarkdown(result, escape: _safe));
       }
       return 0;
     }
+    final bundle = command.rest.first;
     final result = await _knowledge().search(
-      command.rest.first,
+      bundle,
       query,
       limit: limit,
       filters: filters,
@@ -784,40 +800,17 @@ class WayfinderCli {
     if (json) {
       _json(searchOutput(result));
     } else {
-      for (final hit in result.context) {
-        _printHit(hit);
-      }
-      _printNotices(result.notices, empty: result.context.isEmpty);
+      final prefix = await explicitBundlePrefix(_workingDirectory, bundle);
+      _out(
+        formatSearchMarkdown(
+          result,
+          prefix: prefix,
+          bundleRoot: bundle,
+          escape: _safe,
+        ),
+      );
     }
     return 0;
-  }
-
-  void _printHit(
-    KnowledgeContextHit hit, {
-    String prefix = '',
-    String? bundle,
-  }) {
-    final chunk = hit.result.chunk;
-    final okf = chunk.metadata['okf'] as Map?;
-    final metadata = okf?['frontmatter'] as Map?;
-    _out(
-      '${_safe('$prefix${chunk.sourcePath}')}:${chunk.lineStart}-${chunk.lineEnd} '
-      '[${bundle == null ? '' : '${_safe(bundle)}; '}'
-      '${_safe(metadata?['status']?.toString() ?? 'stable')}; ${hit.reason}]',
-    );
-    _out(_safe(chunk.content));
-    _out('');
-  }
-
-  void _printNotices(List<String> notices, {required bool empty}) {
-    for (final notice in notices) {
-      _out('Notice: ${_safe(notice)}');
-    }
-    _out(
-      empty
-          ? 'No passages found.'
-          : 'Ranked passages; verify the cited support before answering.',
-    );
   }
 
   void _printIndex(WayfinderIndexResult result) {
