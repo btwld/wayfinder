@@ -624,46 +624,42 @@ void main() {
       }
     });
 
-    test(
-      'hears undo-failed for a step whose undo fails',
-      () async {
-        final plan = await adoption.plan(bitwild());
-        final reports = <AdoptionStepReport>[];
-        final failure = await applyFailure(
-          plan,
-          hostStep: () async {
-            // The seeded files can no longer be removed.
-            await _chmod('555', bundle());
-            throw StateError('The host failed.');
-          },
-          onStep: reports.add,
-        );
-        await _chmod('755', bundle());
-        if (!failure.steps.any(
-          (step) => step.outcome == AdoptionStepOutcome.undoFailed,
-        )) {
-          markTestSkipped('This user deletes files in a read-only directory.');
-          return;
-        }
-        expect(outcomes(reports).skip(10), [
-          (AdoptionStep.host, AdoptionStepOutcome.started),
-          (AdoptionStep.host, AdoptionStepOutcome.failed),
-          (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
-          (AdoptionStep.profile, AdoptionStepOutcome.undone),
-          (AdoptionStep.configuration, AdoptionStepOutcome.undone),
-          (AdoptionStep.bundle, AdoptionStepOutcome.undoFailed),
-        ]);
-        expect(
-          jsonEncode(reports.last.toJson()),
-          jsonEncode(
-            failure.steps
-                .firstWhere((step) => step.step == AdoptionStep.bundle)
-                .toJson(),
-          ),
-        );
-      },
-      skip: Platform.isWindows ? 'chmod is POSIX' : false,
-    );
+    test('hears undo-failed for a step whose undo fails', () async {
+      final plan = await adoption.plan(bitwild());
+      final reports = <AdoptionStepReport>[];
+      final failure = await applyFailure(
+        plan,
+        hostStep: () async {
+          // The seeded files can no longer be removed.
+          await _chmod('555', bundle());
+          throw StateError('The host failed.');
+        },
+        onStep: reports.add,
+      );
+      await _chmod('755', bundle());
+      if (!failure.steps.any(
+        (step) => step.outcome == AdoptionStepOutcome.undoFailed,
+      )) {
+        markTestSkipped('This user deletes files in a read-only directory.');
+        return;
+      }
+      expect(outcomes(reports).skip(10), [
+        (AdoptionStep.host, AdoptionStepOutcome.started),
+        (AdoptionStep.host, AdoptionStepOutcome.failed),
+        (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
+        (AdoptionStep.profile, AdoptionStepOutcome.undone),
+        (AdoptionStep.configuration, AdoptionStepOutcome.undone),
+        (AdoptionStep.bundle, AdoptionStepOutcome.undoFailed),
+      ]);
+      expect(
+        jsonEncode(reports.last.toJson()),
+        jsonEncode(
+          failure.steps
+              .firstWhere((step) => step.step == AdoptionStep.bundle)
+              .toJson(),
+        ),
+      );
+    }, skip: Platform.isWindows ? 'chmod is POSIX' : false);
 
     test('a check that refuses the plan is the only step reported', () async {
       final plan = await adoption.plan(bitwild());
