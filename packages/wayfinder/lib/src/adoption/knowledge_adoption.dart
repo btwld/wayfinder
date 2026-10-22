@@ -8,6 +8,8 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import '../diagnostics.dart';
+import '../knowledge_assessment.dart';
+import '../profile_package.dart';
 import '../project/cancellation.dart';
 import '../project/exception.dart';
 import '../project/profile_resolver.dart';
@@ -42,12 +44,14 @@ final class KnowledgeAdoptionPlan {
     required List<int> configuration,
     required Map<String, List<int>> bundleFiles,
     required List<int>? gitignoreAppend,
+    required List<String> hostInputs,
   }) : _dataDirectory = dataDirectory,
        _inputs = inputs,
        _resolution = resolution,
        _configuration = configuration,
        _bundleFiles = bundleFiles,
-       _gitignoreAppend = gitignoreAppend;
+       _gitignoreAppend = gitignoreAppend,
+       _hostInputs = hostInputs;
 
   final AdoptionRequest request;
 
@@ -96,6 +100,10 @@ final class KnowledgeAdoptionPlan {
   final List<int> _configuration;
   final Map<String, List<int>> _bundleFiles;
   final List<int>? _gitignoreAppend;
+
+  /// The request's host inputs, normalized, which applying checks with the
+  /// rest of [_inputs].
+  final List<String> _hostInputs;
 
   /// Whether [KnowledgeAdoption.apply] can write this plan: it has no
   /// conflicts.
@@ -166,17 +174,24 @@ final class KnowledgeAdoptionResult {
 /// It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or Git hooks: the
 /// plan returns the agent-instruction block as text, and registering an MCP
 /// server or hooks is the host's choice. Run it on the isolate that does the
-/// process's okf bundle I/O (ADR-0018).
+/// process's okf bundle I/O (ADR-0018); only the Profile assessment may run
+/// elsewhere, through a [KnowledgeAssessor].
 final class KnowledgeAdoption {
+  /// [resolver] resolves, locks and installs the Profile; [assess] judges
+  /// the bundle against it, by default on the calling isolate; [clock]
+  /// dates the first log entry.
   KnowledgeAdoption({
     required this.resolver,
+    KnowledgeAssessor assess = assessOnCallingIsolate,
     DateTime Function() clock = DateTime.now,
-  }) : _clock = clock;
+  }) : _assess = assess,
+       _clock = clock;
 
   /// Resolves the Profile and writes the lock and skills. Applying holds
   /// its `get` lock of the project, so no `get` changes the project
   /// meanwhile.
   final WayfinderProfileResolver resolver;
+  final KnowledgeAssessor _assess;
   final DateTime Function() _clock;
 
   /// Reads the project, resolves the requested Profile, and returns what
@@ -186,11 +201,18 @@ final class KnowledgeAdoption {
   /// cache as it is. A fetch it may not make throws
   /// `ProfileFetchRequiredException` (`fetch-required`) naming it.
   ///
+  /// The Profile is the one the package at the request's source declares;
+  /// a request that names another throws [AdoptionProfileConflictException]
+  /// (`adoption-profile-conflict`). The bundle as applying leaves it is
+  /// judged once, through the adoption's [KnowledgeAssessor], which gets
+  /// [cancel] and whose failures, such as `assessment-timeout`, planning
+  /// throws.
+  ///
   /// Throws `adoption-invalid` for a request that cannot describe an
-  /// adoption, such as a malformed bundle path, source or seed concept;
-  /// `adoption-failed` when the project or Git cannot be read; and the
-  /// resolver's codes, such as `profile-unresolved`, when the Profile does
-  /// not resolve. What the project holds is reported as
+  /// adoption, such as a malformed bundle path, source, seed concept or
+  /// host input; `adoption-failed` when the project or Git cannot be read;
+  /// and the resolver's codes, such as `profile-unresolved`, when the
+  /// Profile does not resolve. What the project holds is reported as
   /// [KnowledgeAdoptionPlan.conflicts].
   Future<KnowledgeAdoptionPlan> plan(
     AdoptionRequest request, {
@@ -227,6 +249,7 @@ final class KnowledgeAdoption {
     }
     final bundle = _bundlePath(request.bundle);
     final concepts = _concepts(request.concepts);
+    final hostInputs = _hostInputs(request.hostInputs);
     if (request.bindExisting && concepts.isNotEmpty) {
       throw _invalid(
         'Seed concepts need a new bundle; binding an existing one writes '
@@ -237,8 +260,21 @@ final class KnowledgeAdoption {
     if (WayfinderProfileSource.locationProblem(git) case final problem?) {
       throw _invalid('Profile source $git $problem.');
     }
+    final path = p.posix.normalize(request.source.path);
+    // Refuse a request that cannot be a binding before any Git runs.
+    _configuration(
+      request,
+      bundle,
+      id: request.profile ?? _anyProfile,
+      ref: request.source.ref ?? _anyCommit,
+      path: path,
+    );
 
-    final inputs = await AdoptionInputs.read(projectRoot, bundle);
+    final inputs = await AdoptionInputs.read(
+      projectRoot,
+      bundle,
+      hostInputs: hostInputs,
+    );
     final conflicts = <AdoptionConflict>[
       for (final path in const ['wayfinder.json', 'wayfinder.lock'])
         if (inputs.entries[path] != 'absent')
@@ -251,38 +287,40 @@ final class KnowledgeAdoption {
     ];
     final mode = await _bundleMode(projectRoot, bundle, request, conflicts);
 
-    final fetches = <ProfileFetch>[];
-    var ref = request.source.ref;
-    if (ref == null) {
-      final resolved = await resolveDefaultBranch(
-        resolver,
-        projectRoot: projectRoot,
+    // The package's own id keys the binding; a request without a ref binds
+    // the commit its default branch resolves to.
+    final (:package, fetches: sourceFetches) = await resolveSourcePackage(
+      resolver,
+      projectRoot: projectRoot,
+      git: git,
+      ref: request.source.ref,
+      path: path,
+      offline: request.offline,
+      allowFetch: request.allowFetch,
+      cancel: cancel,
+    );
+    if (request.profile case final requested? when requested != package.id) {
+      throw AdoptionProfileConflictException(
+        requested: requested,
+        declared: package.id,
         git: git,
-        offline: request.offline,
-        allowFetch: request.allowFetch,
-        cancel: cancel,
+        path: path,
+        commit: package.commit,
       );
-      ref = resolved.commit;
-      fetches.addAll(resolved.fetches);
     }
+    final id = package.id;
     final source = WayfinderProfileSource(
       git: git,
-      ref: ref,
-      path: p.posix.normalize(request.source.path),
+      ref: package.ref,
+      path: path,
     );
-    final configuration = KnowledgeSeeds.configuration(
-      profile: request.profile.value,
-      git: source.git,
+    final configuration = _configuration(
+      request,
+      bundle,
+      id: id,
       ref: source.ref,
-      path: source.path,
-      bundle: bundle,
-      vocabulary: request.vocabulary,
+      path: path,
     );
-    try {
-      WayfinderProjectConfig.parse(configuration);
-    } on WayfinderConfigException catch (error) {
-      throw _invalid(error.message);
-    }
     final configurationBytes = utf8.encode(configuration);
     final resolution = await planCandidateResolution(
       resolver,
@@ -290,9 +328,10 @@ final class KnowledgeAdoption {
       configuration: configurationBytes,
       offline: request.offline,
       allowFetch: request.allowFetch,
+      pinned: package,
       cancel: cancel,
     );
-    fetches.addAll(resolution.plan.fetches);
+    final fetches = [...sourceFetches, ...resolution.plan.fetches];
     final problems = resolution.skillProblems;
     for (final root in ProfileSkills.roots) {
       if (problems.any(
@@ -336,13 +375,13 @@ final class KnowledgeAdoption {
       );
     }
 
-    final composed = resolution.profiles[request.profile]!;
+    final composed = resolution.profiles[id]!;
     final chain = ProfileLock(
       configurationSha256: '',
       packages: resolution.plan.packages,
-    ).chainOf(request.profile)!;
+    ).chainOf(id)!;
     final profile = AdoptionProfile(
-      id: request.profile,
+      id: id,
       release: chain.last.release,
       git: source.git,
       ref: source.ref,
@@ -391,10 +430,11 @@ final class KnowledgeAdoption {
         );
       }
     }
-    final validation = const ProfileValidator().validateLoaded(
-      loaded,
-      selection,
-    );
+    final validation = (await _assess(
+      KnowledgeAssessmentInput.bundle(bundle: loaded, selection: selection),
+      cancel,
+    )).candidate;
+    throwIfCancelled(cancel);
 
     final (gitignore, gitignoreAppend) = await _gitignore(
       projectRoot,
@@ -457,6 +497,7 @@ final class KnowledgeAdoption {
       configuration: configurationBytes,
       bundleFiles: Map.unmodifiable(bundleFiles),
       gitignoreAppend: gitignoreAppend,
+      hostInputs: hostInputs,
     );
   }
 
@@ -465,19 +506,34 @@ final class KnowledgeAdoption {
   ///
   /// The check step refuses a plan with conflicts (`adoption-conflict`), one
   /// another adoption's Profile cache planned (`adoption-invalid`), and one
-  /// whose project files, bundle, skill directories or Profile cache changed
-  /// since planning (`adoption-stale`, `resolution-stale`), before writing
-  /// anything. It takes the resolver's `get` lock of the project and holds
-  /// it until every step has finished or been undone, so no `get` or other
-  /// adoption changes the project meanwhile; while another holder has it,
-  /// the check fails with `resolution-busy`. [cancel] is checked before each
-  /// step (`cancelled`).
+  /// whose project files, bundle, skill directories, host inputs or Profile
+  /// cache changed since planning (`adoption-stale`, naming the changed
+  /// paths in [KnowledgeAdoptionException.changedPaths], and
+  /// `resolution-stale`), before writing anything. It takes the resolver's
+  /// `get` lock of the project and holds it until every step has finished
+  /// or been undone, so no `get` or other adoption changes the project
+  /// meanwhile; while another holder has it, the check fails with
+  /// `resolution-busy`. [cancel] is checked as each step starts
+  /// (`cancelled`).
   ///
   /// [hostStep] runs the host's own writes, such as placing
   /// [KnowledgeAdoptionPlan.agentInstructions] in `AGENTS.md`, as the
   /// [AdoptionStep.host] step after Wayfinder's files are in place. When it
   /// throws, every earlier step is undone like any other failure; it undoes
-  /// its own partial writes before throwing.
+  /// its own partial writes before throwing. A file it writes belongs in the
+  /// request's `hostInputs`, so the check step refuses the plan when that
+  /// file changed since planning.
+  ///
+  /// [onStep] hears each step as it happens, on the calling isolate: an
+  /// [AdoptionStepOutcome.started] report as a step begins, then its end
+  /// (`done`, `skipped` or `failed`), and, after a failure, an `undone` or
+  /// `undo-failed` report for each earlier step as its undo finishes, latest
+  /// first. A host shows progress with it. When it throws for a step's
+  /// `started`, `done` or `skipped` report, that step fails with what it
+  /// threw, its own writes and the earlier steps are undone, and apply
+  /// throws as for any failure, so a test can stop adoption at any step;
+  /// what it throws for a report of a failure or an undo is ignored, since
+  /// apply already reports that failure.
   ///
   /// When a step fails, the steps before it are undone in reverse order and
   /// [KnowledgeAdoptionException] reports each step, so the project holds no
@@ -485,16 +541,21 @@ final class KnowledgeAdoption {
   /// last, after the lock is released, and undoes nothing: a gate other
   /// than `PASS` returns a result that is not
   /// [KnowledgeAdoptionResult.complete]. It binds the bundle within the
-  /// plan's project root, so it never reads a `wayfinder.json` above it.
+  /// plan's project root, so it never reads a `wayfinder.json` above it, and
+  /// judges it through the adoption's [KnowledgeAssessor] with [cancel]. A
+  /// validation that fails to run, cancelled or stopped by the assessor
+  /// included, reports the validate step `failed` with its code and leaves
+  /// [KnowledgeAdoptionResult.validation] null.
   Future<KnowledgeAdoptionResult> apply(
     KnowledgeAdoptionPlan plan, {
     WayfinderCancellation? cancel,
     Future<void> Function()? hostStep,
+    void Function(AdoptionStepReport report)? onStep,
   }) async {
-    final run = _Run();
+    final run = _Run(onStep);
     final root = plan.projectRoot;
     try {
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.check, cancel);
       if (plan.conflicts case [final first, ...final rest]) {
         throw WayfinderException(
           'adoption-conflict',
@@ -516,29 +577,21 @@ final class KnowledgeAdoption {
         () => _write(plan, run, cancel, hostStep),
       );
     } on Object catch (error) {
-      // _write undoes its steps while it still holds the project.
+      // _write records its failure and undoes its steps while it still holds
+      // the project; these finish a failure before or after it.
+      run.fail(error);
       await run.undo();
       throw run.failure(error);
     }
 
-    run.step = AdoptionStep.validate;
     ProfileValidationResult? validation;
     try {
-      validation = await validateWithProfileSources(
-        p.joinAll([root, ...p.posix.split(plan.bundle)]),
-        projectRoot: root,
-        resolver: resolver,
-      );
+      run.start(AdoptionStep.validate, cancel);
+      validation = await _validate(plan, cancel);
       run.done(const [], 'Gate ${validation.gate.wireValue}.');
     } on Object catch (error) {
-      run.records.add(
-        _StepRecord(
-          run.step,
-          AdoptionStepOutcome.failed,
-          const [],
-          error is WayfinderException ? error.message : '$error',
-        ),
-      );
+      validation = null;
+      run.fail(error);
     }
     return KnowledgeAdoptionResult(
       projectRoot: root,
@@ -550,6 +603,27 @@ final class KnowledgeAdoption {
       validation: validation,
       agentInstructions: plan.agentInstructions,
     );
+  }
+
+  /// The adopted bundle as `validate` reports it, binding it within the
+  /// project root, with the Profile judged through the adoption's assessor.
+  Future<ProfileValidationResult> _validate(
+    KnowledgeAdoptionPlan plan,
+    WayfinderCancellation? cancel,
+  ) async {
+    final bundle = _native(plan.projectRoot, plan.bundle);
+    final selection = await selectWithProfileSources(
+      bundle,
+      projectRoot: plan.projectRoot,
+      resolver: resolver,
+    );
+    throwIfCancelled(cancel);
+    final loaded = await const OkfBundleLoader().inspect(bundle);
+    throwIfCancelled(cancel);
+    return (await _assess(
+      KnowledgeAssessmentInput.bundle(bundle: loaded, selection: selection),
+      cancel,
+    )).candidate;
   }
 
   /// The steps from the check on, under the project's `get` lock. Undoes
@@ -567,19 +641,13 @@ final class KnowledgeAdoption {
       final changed = (await AdoptionInputs.read(
         root,
         plan.bundle,
+        hostInputs: plan._hostInputs,
       )).changedSince(plan._inputs);
-      if (changed.isNotEmpty) {
-        throw WayfinderException(
-          'adoption-stale',
-          '${changed.join(', ')} changed after adoption was planned. Plan '
-              'again.',
-        );
-      }
+      if (changed.isNotEmpty) throw _StaleInputs(changed);
       await plan._resolution.checkCache();
       run.done();
 
-      run.step = AdoptionStep.bundle;
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.bundle, cancel);
       if (plan.mode == AdoptionBundleMode.seed) {
         await _writeBundle(plan, run.onUndo);
         run.done([
@@ -589,19 +657,16 @@ final class KnowledgeAdoption {
         run.skipped('Bound the existing bundle without writing in it.');
       }
 
-      run.step = AdoptionStep.configuration;
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.configuration, cancel);
       final configuration = File(p.join(root, 'wayfinder.json'));
       await _writeAtomically(configuration, plan._configuration);
       run.onUndo(() => _deleteIfHolds(configuration, plan._configuration));
       run.done(const ['wayfinder.json']);
 
-      run.step = AdoptionStep.profile;
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.profile, cancel);
       await _installProfile(plan, run, backups);
 
-      run.step = AdoptionStep.gitignore;
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.gitignore, cancel);
       if (plan._gitignoreAppend case final append?) {
         final gitignore = File(p.join(root, '.gitignore'));
         final original = await _readBytes(gitignore);
@@ -622,15 +687,15 @@ final class KnowledgeAdoption {
         );
       }
 
-      run.step = AdoptionStep.host;
-      throwIfCancelled(cancel);
+      run.start(AdoptionStep.host, cancel);
       if (hostStep != null) {
         await hostStep();
         run.done();
       } else {
         run.skipped('The host gave no step.');
       }
-    } on Object {
+    } on Object catch (error) {
+      run.fail(error);
       await run.undo();
       rethrow;
     }
@@ -1084,6 +1149,66 @@ final class KnowledgeAdoption {
     return result;
   }
 
+  /// The `wayfinder.json` text that binds [id] from the request's source at
+  /// [ref] and [path], refusing as `adoption-invalid` a request that cannot
+  /// be one.
+  static String _configuration(
+    AdoptionRequest request,
+    String bundle, {
+    required ProfileId id,
+    required String ref,
+    required String path,
+  }) {
+    final configuration = KnowledgeSeeds.configuration(
+      profile: id.value,
+      git: request.source.git,
+      ref: ref,
+      path: path,
+      bundle: bundle,
+      vocabulary: request.vocabulary,
+    );
+    try {
+      WayfinderProjectConfig.parse(configuration);
+    } on WayfinderConfigException catch (error) {
+      // Without a requested id, name the entry as `<id>`, not the stand-in.
+      throw _invalid(
+        request.profile == null
+            ? error.message
+                  .replaceAll('/profiles/$_anyProfile/', '/profiles/<id>/')
+                  .replaceAll('profiles.$_anyProfile.', 'profiles.<id>.')
+            : error.message,
+      );
+    }
+    return configuration;
+  }
+
+  /// Stands in for a Profile id or a commit the request leaves to the
+  /// source, while the rest of the request is checked before any Git.
+  static final _anyProfile = ProfileId.parse('profile');
+  static final _anyCommit = '0' * 40;
+
+  /// The request's host inputs, normalized, once each and in path order.
+  static List<String> _hostInputs(List<String> paths) {
+    final result = SplayTreeSet<String>();
+    for (final path in paths) {
+      final normalized = p.posix.normalize(path);
+      if (path.contains(r'\') ||
+          p.posix.isAbsolute(normalized) ||
+          RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
+          normalized == '.' ||
+          p.posix
+              .split(normalized)
+              .any((segment) => segment == '..' || segment == '.git')) {
+        throw _invalid(
+          'Host input $path must be a path inside the project, as a relative '
+          'POSIX path outside .git.',
+        );
+      }
+      result.add(normalized);
+    }
+    return List.unmodifiable(result);
+  }
+
   static WayfinderException _invalid(String message) =>
       WayfinderException('adoption-invalid', message);
 
@@ -1127,78 +1252,174 @@ final class KnowledgeAdoption {
   }
 }
 
-/// The steps of one [KnowledgeAdoption.apply]: what each reported, and
-/// what undoes each.
+/// The steps of one [KnowledgeAdoption.apply]: what each reported, what
+/// undoes each, and the listener that hears each report as it happens.
 final class _Run {
+  _Run(this._listener);
+
+  final void Function(AdoptionStepReport report)? _listener;
+
   /// The step running, or the last that ran.
   AdoptionStep step = AdoptionStep.check;
+
+  /// Each step's report so far, in step order.
   final records = <_StepRecord>[];
   final _undo = <({AdoptionStep step, Future<void> Function() action})>[];
   final _undoFailures = <({AdoptionStep step, String failure})>[];
+  bool _failed = false;
+
+  /// Starts [next]: reports it started, then checks [cancel].
+  void start(AdoptionStep next, WayfinderCancellation? cancel) {
+    step = next;
+    _listener?.call(AdoptionStepReport(next, AdoptionStepOutcome.started));
+    throwIfCancelled(cancel);
+  }
 
   void done([List<String> paths = const [], String? message]) =>
-      records.add(_StepRecord(step, AdoptionStepOutcome.done, paths, message));
+      _end(_StepRecord(step, AdoptionStepOutcome.done, paths, message));
 
-  void skipped(String message) => records.add(
-    _StepRecord(step, AdoptionStepOutcome.skipped, const [], message),
-  );
+  void skipped(String message) =>
+      _end(_StepRecord(step, AdoptionStepOutcome.skipped, const [], message));
+
+  /// Records how the running step ended, then reports it; what the listener
+  /// throws fails the step.
+  void _end(_StepRecord record) {
+    records.add(record);
+    _listener?.call(record.report);
+  }
+
+  /// Records that the running step failed with [error], once. A step that
+  /// had ended, when the listener threw for its end, is failed instead, and
+  /// its writes are undone as its own.
+  void fail(Object error) {
+    if (_failed) return;
+    _failed = true;
+    records.removeWhere((record) => record.step == step);
+    final record = _StepRecord(
+      step,
+      AdoptionStepOutcome.failed,
+      const [],
+      _messageOf(error),
+      _codeOf(error),
+    );
+    records.add(record);
+    _tell(record.report);
+  }
 
   /// Registers what undoes part of the running step.
   void onUndo(Future<void> Function() action) =>
       _undo.add((step: step, action: action));
 
-  /// Runs every registered undo once, last first, recording each failure
-  /// and going on with the rest.
+  /// Runs every registered undo once, last first: the failed step's own,
+  /// then each finished step's, reporting that step `undone`, or
+  /// `undo-failed` when one of its undos failed; a failure is recorded and
+  /// the rest go on.
   Future<void> undo() async {
-    while (_undo.isNotEmpty) {
-      final (:step, :action) = _undo.removeLast();
-      try {
-        await action();
-      } on Object catch (failure) {
-        _undoFailures.add((step: step, failure: '$failure'));
+    final actions = <AdoptionStep, List<Future<void> Function()>>{};
+    for (final (:step, :action) in _undo) {
+      (actions[step] ??= []).add(action);
+    }
+    _undo.clear();
+    Future<bool> undoStep(AdoptionStep step) async {
+      var undone = true;
+      for (final action in (actions.remove(step) ?? const []).reversed) {
+        try {
+          await action();
+        } on Object catch (failure) {
+          undone = false;
+          _undoFailures.add((step: step, failure: '$failure'));
+        }
       }
+      return undone;
+    }
+
+    await undoStep(step);
+    for (var index = records.length - 1; index >= 0; index--) {
+      final record = records[index];
+      if (record.outcome != AdoptionStepOutcome.done ||
+          record.step == AdoptionStep.check) {
+        continue;
+      }
+      final undone = await undoStep(record.step);
+      records[index] = _StepRecord(
+        record.step,
+        undone ? AdoptionStepOutcome.undone : AdoptionStepOutcome.undoFailed,
+        record.paths,
+      );
+      _tell(records[index].report);
+    }
+    // Registered by no step that finished or failed: none is expected.
+    for (final step in actions.keys.toList().reversed) {
+      await undoStep(step);
     }
   }
 
-  /// [error] as the failure of [step], with each step before it reported
-  /// undone, or `undo-failed` when undoing it failed.
+  /// [error] as the failure of the failed step, with each step before it
+  /// reported undone, or `undo-failed` when undoing it failed.
   KnowledgeAdoptionException failure(Object error) {
-    final message = error is WayfinderException ? error.message : '$error';
-    final failedUndo = {for (final (:step, failure: _) in _undoFailures) step};
+    final message = _messageOf(error);
     return KnowledgeAdoptionException(
-      error is WayfinderException ? error.code : 'adoption-failed',
+      _codeOf(error),
       _undoFailures.isEmpty
           ? message
           : '$message Undoing the earlier steps also failed, so the '
                 'project may hold part of the adoption: '
                 '${[for (final (step: _, :failure) in _undoFailures) failure].join('; ')}',
-      steps: List.unmodifiable([
-        for (final record in records)
-          record.outcome == AdoptionStepOutcome.done &&
-                  record.step != AdoptionStep.check
-              ? AdoptionStepReport(
-                  record.step,
-                  failedUndo.contains(record.step)
-                      ? AdoptionStepOutcome.undoFailed
-                      : AdoptionStepOutcome.undone,
-                  paths: record.paths,
-                )
-              : record.report,
-        AdoptionStepReport(step, AdoptionStepOutcome.failed, message: message),
-      ]),
+      steps: List.unmodifiable([for (final record in records) record.report]),
       cause: error,
+      changedPaths: error is _StaleInputs ? error.paths : const [],
     );
   }
+
+  /// Reports a failure or an undo; what the listener throws is ignored,
+  /// since apply already reports that failure.
+  void _tell(AdoptionStepReport report) {
+    try {
+      _listener?.call(report);
+    } on Object {
+      // The failure being reported stands.
+    }
+  }
+
+  static String _codeOf(Object error) =>
+      error is WayfinderException ? error.code : 'adoption-failed';
+
+  static String _messageOf(Object error) =>
+      error is WayfinderException ? error.message : '$error';
 }
 
 final class _StepRecord {
-  _StepRecord(this.step, this.outcome, [this.paths = const [], this.message]);
+  _StepRecord(
+    this.step,
+    this.outcome, [
+    this.paths = const [],
+    this.message,
+    this.code,
+  ]);
 
   final AdoptionStep step;
   final AdoptionStepOutcome outcome;
   final List<String> paths;
   final String? message;
+  final String? code;
 
-  AdoptionStepReport get report =>
-      AdoptionStepReport(step, outcome, paths: paths, message: message);
+  AdoptionStepReport get report => AdoptionStepReport(
+    step,
+    outcome,
+    paths: paths,
+    message: message,
+    code: code,
+  );
+}
+
+/// `adoption-stale`: the project paths the check step found changed since
+/// planning.
+final class _StaleInputs extends WayfinderException {
+  _StaleInputs(this.paths)
+    : super(
+        'adoption-stale',
+        '${paths.join(', ')} changed after adoption was planned. Plan again.',
+      );
+
+  final List<String> paths;
 }

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (registering an actor is a minimal edit applied through an offline relock, [ADR-0018](0018-embeddable-libraries.md))
+- Updated: 2026-10-22 (registering an actor is a minimal edit applied through an offline relock, [ADR-0018](0018-embeddable-libraries.md)); 2026-10-22 (the host's assessor judges the bundle, as it does writes, and core offers a bounded one; the binding takes the id its package declares; a host's own inputs share the staleness check; `apply` reports each step as it starts and ends)
 - Scope: `package:wayfinder/adoption.dart`, the generic adoption seed, the configuration encoder and editor, and the resolver's fetch policy; no Profile rule and no change to results
 - Builds on [ADR-0018](0018-embeddable-libraries.md)
 
@@ -29,17 +29,26 @@ directories it installs or replaces; and the conflicts that stop it. It also
 validates the bundle as applying will leave it, so the gate is known before
 any write. `KnowledgeAdoption.apply` refuses a plan with a conflict, one made
 with another Profile cache, or one whose project files, bundle, skill
-directories or cached package files changed since planning, before writing
-anything. It then writes the seeded bundle (staged as a hidden sibling and
-renamed into place), `wayfinder.json`, the lock and the skills through the
-resolver, the `.gitignore` line, and finally runs the host's own step if
-the host gives one, reporting each step and checking the host's
-cancellation before each. When a step fails, it undoes the earlier ones in
-reverse, restoring a replaced skill directory, so the project holds no
-partial bundle; a step whose undo also fails is reported `undo-failed`.
-Validation runs last, binding the bundle within the project root
-(ADR-0018), and undoes nothing: a gate other than `PASS` leaves adoption
-incomplete (guide §2.3).
+directories, host inputs or cached package files changed since planning,
+before writing anything. It then writes the seeded bundle (staged as a
+hidden sibling and renamed into place), `wayfinder.json`, the lock and the
+skills through the resolver, the `.gitignore` line, and finally runs the
+host's own step if the host gives one, checking the host's cancellation as
+each step starts. When a step fails, it undoes the earlier ones in reverse,
+restoring a replaced skill directory, so the project holds no partial
+bundle; a step whose undo also fails is reported `undo-failed`. Validation
+runs last, binding the bundle within the project root (ADR-0018), and
+undoes nothing: a gate other than `PASS`, or a validation that cannot run,
+leaves adoption incomplete (guide §2.3).
+
+**Applying reports each step as it happens.** The host's listener hears a
+step start, then end (`done`, `skipped` or `failed`), and after a failure
+the undo of each earlier step, latest first, so a host shows progress
+without inferring it from cancellation checks. A listener that throws for a
+step's start or end fails that step like any failure inside it, so a test
+can stop adoption at any step; what it throws while a failure is reported
+is ignored. A failed step's report carries its code, so a host can tell a
+cancelled or timed-out validation from a failed one.
 
 **Applying holds the project as `get` does.** From the check step until
 every step has finished or been undone, `apply` holds the resolver's
@@ -67,7 +76,37 @@ again with it allowed; what the person declines is never fetched.
 **The binding pins what it resolved.** A request without a ref binds the
 source's default branch as the commit it resolves to, so the binding moves
 only when someone changes it. A request with a ref keeps that ref, and the
-lock pins its commit.
+lock pins its commit. The binding is keyed by the id the package declares,
+read at that commit before the chain resolves, so a host need not know it:
+a request may leave it out, and one that names another id is
+`adoption-profile-conflict`, carrying both ids, before anything is written.
+Reading the id fetches nothing more; the chain then resolves at the commit
+already read.
+
+**The host bounds the Profile's assessment.** A Profile's rules are the one
+unbounded step: a `pattern` can backtrack without end on a concept's text,
+and adoption judges a bundle twice, at planning and after applying.
+`KnowledgeAdoption` takes the `KnowledgeAssessor` that `KnowledgeWriter`
+takes ([ADR-0019](0019-profile-aware-writes.md)), with a
+`KnowledgeAssessmentInput` that holds the one bundle and no base, so one
+assessor serves both. The default runs in process, as `wayfinder validate`
+does for a Profile its user chose; `KnowledgeAssessmentInput.assessWithin`
+runs the assessment on an isolate of its own that is killed at a timeout or
+when cancelled. Core offers that
+helper because `ProfilePackage.parseWithin` already bounds a package's own
+tests the same way and the isolate handling is easy to get subtly wrong,
+while the timeout, and what a host tells a person when it passes, stay the
+host's. Generating the seed's indexes stays on the calling isolate, as a
+write's projection does: it runs only the builtin generators, never a
+Profile's patterns. A planning assessment that fails stops planning; an
+apply's fails only the validate step.
+
+**A host's own files share the staleness check.** A host names the files
+its step writes or its request came from, such as `AGENTS.md`, as host
+inputs. The plan digests them with the files adoption writes, and the check
+step refuses the plan as `adoption-stale`, naming every changed path,
+before anything is written, rather than at the host's step after
+Wayfinder's files are in place.
 
 **Adoption writes only Wayfinder's files.** It writes `wayfinder.json`,
 `wayfinder.lock`, the bundle, the Profile skills under `.claude/skills/<id>`

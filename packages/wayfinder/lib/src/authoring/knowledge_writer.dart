@@ -7,12 +7,11 @@ import 'package:path/path.dart' as p;
 
 import '../diagnostics.dart';
 import '../field_edges.dart';
+import '../knowledge_assessment.dart';
 import '../profile_finding.dart';
 import '../project/cancellation.dart';
 import '../project/exception.dart';
 import '../project/profile_resolver.dart';
-import '../rules/evaluate.dart';
-import '../rules/facts.dart';
 import '../rules/structure_builtins.dart' show withLfLineEndings;
 import '../validation.dart';
 import '../wayfinder_config.dart';
@@ -122,93 +121,6 @@ final class KnowledgeCommitResult {
 
   final List<String> changedPaths;
 }
-
-/// What a write's Profile assessment judges, all in memory: the bundle
-/// ([base]) and okf's prepared candidate ([candidate]) as okf loaded them,
-/// and the [selection] both are judged with.
-///
-/// It holds no file handle, lock or callback into the writer, so a host may
-/// send it to another isolate and run [assess] there.
-final class KnowledgeAssessmentInput {
-  const KnowledgeAssessmentInput({
-    required this.base,
-    required this.candidate,
-    required this.selection,
-    this.validator = const ProfileValidator(),
-  });
-
-  final OkfBundleLoadResult base;
-  final OkfBundleLoadResult candidate;
-  final ProfileSelection selection;
-  final ProfileValidator validator;
-
-  /// Judges [base] and [candidate] with `ProfileValidator.validateLoaded`,
-  /// and runs the base's rules even when OKF blocks it, so a write that
-  /// repairs OKF is charged only with the findings it adds.
-  ///
-  /// Synchronous, and reads no bundle file and takes no lock; only the
-  /// `path-targets-exist` builtin checks the disk, for a path target the
-  /// loaded bundle does not hold. A Profile rule can be slow, so a host
-  /// that needs a deadline runs this on an isolate it can kill.
-  KnowledgeAssessment assess() {
-    final baseResult = validator.validateLoaded(base, selection);
-    return KnowledgeAssessment(
-      base: baseResult,
-      candidate: validator.validateLoaded(candidate, selection),
-      baseFindings: switch ((baseResult.profile, selection)) {
-        (Assessed(:final findings), _) => findings,
-        (BlockedByOkf(), SelectedProfile(:final profile)) => evaluate(
-          profile,
-          BundleFacts.project(
-            base,
-            profile: profile,
-            buildGraph: validator.buildGraph,
-          ),
-        ).findings,
-        _ => const [],
-      },
-    );
-  }
-}
-
-/// The verdicts [KnowledgeAssessmentInput.assess] reaches.
-final class KnowledgeAssessment {
-  KnowledgeAssessment({
-    required this.base,
-    required this.candidate,
-    required Iterable<ProfileFinding> baseFindings,
-  }) : baseFindings = List.unmodifiable(baseFindings);
-
-  /// The bundle as `validate` reports it.
-  final ProfileValidationResult base;
-
-  /// The candidate as `validate` would report it after the commit.
-  final ProfileValidationResult candidate;
-
-  /// The Profile findings of the base's rules, even when OKF blocks the
-  /// base; the candidate's findings are compared with these.
-  final List<ProfileFinding> baseFindings;
-}
-
-/// Runs a write's Profile assessment for [KnowledgeWriter.prepare], which
-/// calls it once per plan, after okf's shared claim on the bundle is
-/// released, with what okf loaded and prepared in memory.
-///
-/// It returns what [KnowledgeAssessmentInput.assess] returns for [input].
-/// The default runs that on the calling isolate. A host that must bound a
-/// Profile's rules runs it on an isolate it kills at a deadline, or when
-/// [cancel], the cancellation `prepare` was given, is cancelled; whatever
-/// it throws, such as [WayfinderException.cancelled], `prepare` throws.
-typedef KnowledgeAssessor =
-    Future<KnowledgeAssessment> Function(
-      KnowledgeAssessmentInput input,
-      WayfinderCancellation? cancel,
-    );
-
-Future<KnowledgeAssessment> _assessHere(
-  KnowledgeAssessmentInput input,
-  WayfinderCancellation? cancel,
-) async => input.assess();
 
 /// A prepared write: the bundle as it stands, the candidate it would become,
 /// and the verdict that decides whether [KnowledgeWriter.commit] writes it.
@@ -350,7 +262,7 @@ final class KnowledgeWriter {
   KnowledgeWriter({
     this.resolver,
     this.validator = const ProfileValidator(),
-    KnowledgeAssessor assess = _assessHere,
+    KnowledgeAssessor assess = assessOnCallingIsolate,
     DateTime Function() clock = DateTime.now,
   }) : _assess = assess,
        _clock = clock;
@@ -507,13 +419,19 @@ final class KnowledgeWriter {
       cancel,
     );
     throwIfCancelled(cancel);
+    final judgedBase =
+        assessment.base ??
+        (throw StateError(
+          'The KnowledgeAssessor returned no base for a write; return what '
+          'KnowledgeAssessmentInput.assess returns.',
+        ));
     final (:introduced, :preExisting) = _delta(
       assessment.baseFindings,
       assessment.candidate.findings,
       (finding) => (finding.id, finding.path),
     );
     final (introduced: introducedOkf, preExisting: preExistingOkf) = _delta(
-      assessment.base.okfReport.findings,
+      judgedBase.okfReport.findings,
       assessment.candidate.okfReport.findings,
       (finding) => (finding.id.value, finding.location?.path),
     );
@@ -521,13 +439,13 @@ final class KnowledgeWriter {
       bundle: base.rootPath,
       change: change,
       selection: chosen,
-      base: assessment.base,
+      base: judgedBase,
       candidate: assessment.candidate,
       diff: diff,
       introduced: introduced,
       preExisting: preExisting,
       introducedDiagnostics: _newDiagnostics(
-        assessment.base.diagnostics,
+        judgedBase.diagnostics,
         assessment.candidate.diagnostics,
       ),
       introducedOkf: introducedOkf,

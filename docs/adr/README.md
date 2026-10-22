@@ -31,5 +31,5 @@ relevant guide; an ADR records the durable choice and links there.
 | [0016](0016-independent-profile-packages.md) | Every Profile is an independent package the validator enforces |
 | [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; preserve model, storage, context, and generic reranking |
 | [0018](0018-embeddable-libraries.md) | Public project and retrieval libraries. The host injects resources. Index locks are flock. |
-| [0019](0019-profile-aware-writes.md) | One write path through okf's projection seam: rewrite only indexes whose generated text changes, caller-authored log entries, an in-memory delta gate a host may run on another isolate, and stale plans refused by the project files their selection came from |
-| [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing |
+| [0019](0019-profile-aware-writes.md) | One write path through okf's projection seam: rewrite only indexes whose generated text changes, caller-authored log entries, an in-memory delta gate a host may run on another isolate or bound, and stale plans refused by the project files their selection came from |
+| [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing; the binding takes the package's id, the host's assessor judges the bundle, a host's own files share the staleness check, and each step is reported as it happens |

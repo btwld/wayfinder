@@ -34,13 +34,13 @@ final class AdoptionSeedConcept {
   final String text;
 }
 
-/// What to adopt: the Profile [profile] from [source], applied to the
-/// bundle directory [bundle] of the project at [projectRoot].
+/// What to adopt: the Profile package at [source], applied to the bundle
+/// directory [bundle] of the project at [projectRoot].
 final class AdoptionRequest {
   const AdoptionRequest({
     required this.projectRoot,
-    required this.profile,
     required this.source,
+    this.profile,
     this.bundle = KnowledgeSeeds.bundle,
     this.ignoreOkfLock = true,
     this.bindExisting = false,
@@ -52,14 +52,18 @@ final class AdoptionRequest {
     this.date,
     this.offline = false,
     this.allowFetch,
+    this.hostInputs = const [],
   });
 
   /// The directory that will hold `wayfinder.json`.
   final String projectRoot;
 
-  /// The Profile id, which keys the `wayfinder.json` entry. The package at
-  /// [source] must declare it.
-  final ProfileId profile;
+  /// The Profile id the request expects, which keys the `wayfinder.json`
+  /// entry; null takes the id the package at [source] declares. When given,
+  /// the package must declare it: planning throws
+  /// `AdoptionProfileConflictException` (`adoption-profile-conflict`) for
+  /// one that declares another.
+  final ProfileId? profile;
   final AdoptionSource source;
 
   /// The bundle directory, relative to [projectRoot], as a POSIX path.
@@ -110,4 +114,13 @@ final class AdoptionRequest {
   /// A host asks the person about the named source before planning, then
   /// about each fetch a refusal names, and plans again with it allowed.
   final ProfileFetchPolicy? allowFetch;
+
+  /// Project files or directories, as project-relative POSIX paths, that
+  /// the host read to make the request or that its own step writes, such
+  /// as `AGENTS.md`. Planning digests each, as it does the files adoption
+  /// writes, and applying refuses the plan with `adoption-stale` before
+  /// writing anything when one changed since, absent or present, so the
+  /// host's step shares adoption's staleness check. A directory counts with
+  /// everything below it.
+  final List<String> hostInputs;
 }

@@ -386,19 +386,24 @@ Future<void> main() async {
 
 `prepare` reads the bundle under okf's shared claim, releases it, and then
 runs the Profile assessment once through a `KnowledgeAssessor`, with plain
-data and no lock. The default runs it on the calling isolate; another
-isolate works too:
+data and no lock. The default runs it on the calling isolate. A Profile's
+rules can be slow, such as a `pattern` that backtracks without end on a
+concept, so a host that needs a deadline passes
+`KnowledgeAssessmentInput.assessWithin`, which runs the assessment on an
+isolate of its own and kills it when the timeout (30 seconds by default)
+passes or `cancel` fires:
 
 ```dart
 final writer = KnowledgeWriter(
   resolver: resolver,
-  assess: (input, cancel) => Isolate.run(input.assess),
+  assess: (input, cancel) => input.assessWithin(cancel: cancel),
 );
 ```
 
-A Profile's rules can be slow, so a host that needs a deadline spawns an
-isolate it kills when the deadline passes or `cancel` fires. Run every other
-step on the isolate that does the process's other okf bundle I/O. A commit leaves okf's
+It throws `assessment-timeout` at the timeout, `cancelled` when cancelled,
+and `assessment-failed` when the assessment stops on an error.
+`KnowledgeAdoption` takes the same assessor. Run every other step on the
+isolate that does the process's other okf bundle I/O. A commit leaves okf's
 `.okf.lock` in the bundle, as `validate --fix` does; ignore it in Git.
 [ADR-0019](../../docs/adr/0019-profile-aware-writes.md) records these
 decisions.
@@ -426,27 +431,30 @@ import 'dart:io';
 
 import 'package:wayfinder/adoption.dart';
 import 'package:wayfinder/project.dart';
-import 'package:wayfinder/wayfinder.dart';
 
 Future<void> main() async {
   final adoption = KnowledgeAdoption(
     resolver: WayfinderProfileResolver(
       dataDirectory: WayfinderDataDirectory.resolve(),
     ),
+    // Judge the bundle on an isolate that is killed after 30 seconds.
+    assess: (input, cancel) => input.assessWithin(cancel: cancel),
   );
   // The sources the person approved fetching.
   final approved = {'https://github.com/btwld/wayfinder'};
   final plan = await adoption.plan(
     AdoptionRequest(
       projectRoot: Directory.current.path,
-      profile: ProfileId.parse('bitwild-profile'),
       source: const AdoptionSource(
         git: 'https://github.com/btwld/wayfinder',
         path: 'profiles/bitwild',
       ),
       allowFetch: (fetch) => approved.contains(fetch.location),
+      // Read and written by the host step below.
+      hostInputs: const ['AGENTS.md'],
     ),
   );
+  print('Profile ${plan.profile.id.value} ${plan.profile.release}');
   for (final file in plan.files) print('${file.action.wireValue} ${file.path}');
   for (final conflict in plan.conflicts) print(conflict);
   if (!plan.applicable) return;
@@ -454,6 +462,8 @@ Future<void> main() async {
     plan,
     // The host's own writes, undone with the rest if they fail.
     hostStep: () async => print(plan.agentInstructions), // for AGENTS.md
+    // Progress: each step as it starts and ends.
+    onStep: (step) => print('${step.step.wireValue} ${step.outcome.wireValue}'),
   );
   print('gate ${result.validation?.gate.wireValue}');
 }
@@ -464,6 +474,11 @@ Future<void> main() async {
   writes with its text or digest, every Git fetch, the Profile's source,
   release and chain, the conflicts that stop it, and the gate the adopted
   bundle will have.
+- The binding takes the id the package at the source declares, so a request
+  may leave `profile` out; `plan.profile.id` names it. A request that names
+  another id throws `AdoptionProfileConflictException`
+  (`adoption-profile-conflict`), with the `requested` and `declared` ids,
+  before anything is written.
 - `allowFetch` decides each clone or refresh before it runs, including one of
   a chain parent's repository that the request never names: no plan can list
   those before it reads the child. A refused fetch throws
@@ -481,7 +496,23 @@ Future<void> main() async {
   it with `resolution-busy` before anything is written. It undoes earlier
   steps when one fails or `cancel` fires, so the project never holds a
   partial bundle, and reports a step whose undo failed as `undo-failed`. It
-  then validates: `PASS` completes adoption.
+  then validates: `PASS` completes adoption. A validation that cannot run,
+  such as one the assessor stops, fails only the `validate` step, with its
+  `code`, and undoes nothing.
+- The request's `hostInputs` name project files the host read or its step
+  writes, such as `AGENTS.md`. The plan digests them with the files adoption
+  writes, and `apply` refuses with `adoption-stale` when one changed, before
+  writing anything; `KnowledgeAdoptionException.changedPaths` names what
+  changed.
+- `onStep` hears each step as it happens: `started` as it begins, then
+  `done`, `skipped` or `failed`, and after a failure `undone` or
+  `undo-failed` for each earlier step, latest first. When it throws for a
+  step's start or end, that step fails and the earlier ones are undone, so a
+  test can stop adoption at any step.
+- Planning judges the bundle as applying leaves it, and `apply` judges the
+  adopted bundle, each through the adoption's `KnowledgeAssessor`, the one
+  `KnowledgeWriter` takes: in process by default, or bounded with
+  `KnowledgeAssessmentInput.assessWithin`.
 - It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks. The plan
   returns the `### Knowledge bundle` block as text for the host to place.
 - An existing `wayfinder.json` or `wayfinder.lock`, a bundle directory that
