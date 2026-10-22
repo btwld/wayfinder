@@ -149,6 +149,7 @@ repository into the bundle.
 | CLI | Terminal workflows and CI, with text or JSON results; validation also supports SARIF. | [`wayfinder`](packages/wayfinder_cli/README.md) |
 | MCP | Agent access to `validate`, `index`, `search`, and `graph` for one bundle over stdio. | [`wayfinder mcp <bundle>`](packages/wayfinder_cli/README.md#mcp-server) |
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
+| Dart projects | Embed what the CLI does with a project: discover its bundles, resolve and select Profiles, validate, and project the graph. | [`WayfinderProject` and `WayfinderProfileResolver`](packages/wayfinder/README.md#projects) from `package:wayfinder/project.dart` |
 | Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` |
 
 CLI and MCP search can span configured bundles. CLI search also supports
@@ -209,8 +210,8 @@ architecture decisions, and retrieval evidence.
 
 | Path | Contents |
 | --- | --- |
-| [`packages/wayfinder/`](packages/wayfinder/) | Core Dart validation library and tests |
-| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | CLI and MCP server |
+| [`packages/wayfinder/`](packages/wayfinder/) | Core Dart validation and project library, and tests |
+| [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | CLI and MCP server, a shell over the libraries |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Reusable local retrieval library |
 | [`profiles/bitwild/`](profiles/bitwild/) | Bitwild's rules, skill, rationale, and releases |
 | [`skills/`](skills/) | Profile-agnostic agent skills |

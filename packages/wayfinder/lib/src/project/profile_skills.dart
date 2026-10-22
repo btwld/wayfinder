@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/wayfinder.dart';
+
+import '../profile_package.dart';
 
 /// The locked revision a Profile skill comes from, as its marker records it.
 typedef SkillRevision = ({ProfileId id, String release, String commit});
@@ -206,8 +207,29 @@ abstract final class ProfileSkills {
     String projectRoot,
     Set<ProfileId> keep,
   ) async {
-    final outside = await escaping(projectRoot);
     final removed = <String>[];
+    for (final (:entry, :reported) in await _prunable(projectRoot, keep)) {
+      await entry.delete(recursive: true);
+      if (reported case final path?) removed.add(path);
+    }
+    return removed;
+  }
+
+  /// What [prune] would delete and report, without deleting anything.
+  static Future<List<String>> prunable(
+    String projectRoot,
+    Set<ProfileId> keep,
+  ) async => [
+    for (final (entry: _, :reported) in await _prunable(projectRoot, keep))
+      ?reported,
+  ];
+
+  static Future<List<({Directory entry, String? reported})>> _prunable(
+    String projectRoot,
+    Set<ProfileId> keep,
+  ) async {
+    final outside = await escaping(projectRoot);
+    final found = <({Directory entry, String? reported})>[];
     for (final root in roots) {
       if (outside.contains(root)) continue;
       final parent = Directory(p.join(projectRoot, root));
@@ -224,11 +246,13 @@ abstract final class ProfileSkills {
             !await _owned(entry, id)) {
           continue;
         }
-        await entry.delete(recursive: true);
-        if (interrupted == null) removed.add('$root/$name');
+        found.add((
+          entry: entry,
+          reported: interrupted == null ? '$root/$name' : null,
+        ));
       }
     }
-    return removed;
+    return found;
   }
 
   static final _stagingNamePattern = RegExp(

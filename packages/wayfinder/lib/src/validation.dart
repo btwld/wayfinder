@@ -314,6 +314,29 @@ Map<String, Object?> internalErrorJson(String message) => <String, Object?>{
   message: 'Profile $id: ${error.message}',
 );
 
+/// What a selected Profile's fixable rules generate for a bundle.
+final class ProfileProjection {
+  const ProfileProjection({this.buildGraph = OkfGraph.fromBundle});
+
+  /// Builds the bundle's link graph, as [ProfileValidator.buildGraph] does.
+  final OkfGraph Function(OkfBundle) buildGraph;
+
+  /// Each bundle-relative path the chain's fixable rules generate, with its
+  /// text: what `validate --fix` writes. Null when no rule in the chain is
+  /// fixable. Reads only [loaded]; writes nothing.
+  Map<String, String>? generatedFiles(
+    SelectedProfile selection,
+    OkfBundleLoadResult loaded,
+  ) => fixes(
+    selection.profile,
+    BundleFacts.project(
+      loaded,
+      profile: selection.profile,
+      buildGraph: buildGraph,
+    ),
+  );
+}
+
 final class ProfileValidator {
   const ProfileValidator({
     this.loader = const OkfBundleLoader(),
@@ -328,40 +351,78 @@ final class ProfileValidator {
 
   /// Never throws for bundle content: what cannot be assessed is reported
   /// as a diagnostic. Reads only the bundle; [selection] carries everything
-  /// known about the Profile.
+  /// known about the Profile. With [fix], first writes what
+  /// [ProfileProjection.generatedFiles] returns, then validates the bundle
+  /// again from disk.
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
     bool fix = false,
   }) async {
     final loaded = await loader.inspect(bundlePath);
+    if (!fix) return validateLoaded(loaded, selection);
     final validation = loaded.validate();
-    final reasons = switch (selection) {
-      UnselectedProfile(:final reasons) => reasons,
-      SelectedProfile(:final notes) => notes,
+    final fixNotApplied = switch (selection) {
+      _ when !validation.isConformant => 'OKF failed.',
+      UnselectedProfile() => 'No Profile was selected.',
+      SelectedProfile() => null,
     };
-    if (!validation.isConformant) {
-      return ProfileValidationResult._(validation, _blocked(selection), [
-        ...reasons,
-        if (fix)
-          const EngineDiagnostic(DiagnosticCode.fixNotApplied, 'OKF failed.'),
-      ]);
+    if (fixNotApplied != null) {
+      return _validateLoaded(
+        loaded,
+        selection,
+        validation: validation,
+        diagnostics: [
+          EngineDiagnostic(DiagnosticCode.fixNotApplied, fixNotApplied),
+        ],
+      );
     }
+    return _fixThenAssess(validation, loaded, selection as SelectedProfile);
+  }
+
+  /// Validates a bundle okf already loaded, such as a candidate an authoring
+  /// tool built in memory, against [selection]. Never throws for bundle
+  /// content, and reads nothing from disk.
+  ProfileValidationResult validateLoaded(
+    OkfBundleLoadResult loaded,
+    ProfileSelection selection,
+  ) => _validateLoaded(loaded, selection);
+
+  ProfileValidationResult _validateLoaded(
+    OkfBundleLoadResult loaded,
+    ProfileSelection selection, {
+    OkfSpecValidation? validation,
+    List<EngineDiagnostic> diagnostics = const [],
+    List<String>? fixed,
+  }) {
+    final okf = validation ?? loaded.validate();
     switch (selection) {
-      case UnselectedProfile():
-        return ProfileValidationResult._(validation, const NotAssessed(), [
+      case _ when !okf.isConformant:
+        return ProfileValidationResult._(okf, _blocked(selection), [
+          ..._reasons(selection),
+          ...diagnostics,
+        ], fixed: fixed);
+      case UnselectedProfile(:final reasons):
+        return ProfileValidationResult._(okf, const NotAssessed(), [
           ...reasons,
-          if (fix)
-            const EngineDiagnostic(
-              DiagnosticCode.fixNotApplied,
-              'No Profile was selected.',
-            ),
-        ]);
+          ...diagnostics,
+        ], fixed: fixed);
       case SelectedProfile():
-        if (!fix) return _assess(validation, loaded, selection);
-        return _fixThenAssess(validation, loaded, selection);
+        return _assess(
+          okf,
+          loaded,
+          selection,
+          fixed: fixed,
+          diagnostics: diagnostics,
+        );
     }
   }
+
+  static List<EngineDiagnostic> _reasons(ProfileSelection selection) =>
+      switch (selection) {
+        UnselectedProfile(:final reasons) => reasons,
+        SelectedProfile(:final notes) => notes,
+      };
 
   Future<ProfileValidationResult> _fixThenAssess(
     OkfSpecValidation validation,
@@ -369,10 +430,9 @@ final class ProfileValidator {
     SelectedProfile selection,
   ) async {
     final profile = selection.profile;
-    final files = fixes(
-      profile,
-      BundleFacts.project(loaded, profile: profile, buildGraph: buildGraph),
-    );
+    final files = ProfileProjection(
+      buildGraph: buildGraph,
+    ).generatedFiles(selection, loaded);
     if (files == null) {
       return _assess(
         validation,
@@ -401,15 +461,7 @@ final class ProfileValidator {
       );
     }
     final reloaded = await loader.inspect(loaded.rootPath);
-    final revalidation = reloaded.validate();
-    if (!revalidation.isConformant) {
-      return ProfileValidationResult._(revalidation, _blocked(selection), [
-        ...selection.notes,
-        ?failure,
-      ], fixed: written);
-    }
-    return _assess(
-      revalidation,
+    return _validateLoaded(
       reloaded,
       selection,
       fixed: written,

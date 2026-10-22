@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
-import 'package:wayfinder_cli/src/project_bundles.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
@@ -176,58 +176,6 @@ void main() {
     expect(knowledge.indexed.map(p.basename), ['flutter-dev-kit']);
   });
   test(
-    'discovery works from a project subdirectory without resolving sources',
-    () async {
-      final child = await Directory(
-        p.join(project.path, 'lib', 'ui'),
-      ).create(recursive: true);
-      final bundles = await discoverProjectBundles(child);
-      expect(bundles.map((bundle) => bundle.name), [
-        'flutter-dev-kit',
-        'knowledge',
-      ]);
-      expect(
-        await File(p.join(project.path, 'wayfinder.lock')).exists(),
-        isFalse,
-      );
-    },
-  );
-  test('legacy knowledge directory works without config', () async {
-    await File(p.join(project.path, 'wayfinder.json')).delete();
-    final bundles = await discoverProjectBundles(project);
-    expect(bundles.single.name, 'knowledge');
-  });
-  test(
-    'project config wins over an unrelated knowledge folder in a child',
-    () async {
-      final child = await Directory(p.join(project.path, 'lib')).create();
-      await Directory(p.join(child.path, 'knowledge')).create();
-      final bundles = await discoverProjectBundles(child);
-      expect(bundles.map((bundle) => bundle.name), [
-        'flutter-dev-kit',
-        'knowledge',
-      ]);
-      expect(bundles.last.path, 'knowledge');
-      expect(
-        bundles.last.root,
-        await Directory(
-          p.join(project.path, 'knowledge'),
-        ).resolveSymbolicLinks(),
-      );
-    },
-  );
-  test(
-    'discovery stops at a Git boundary instead of inheriting another project',
-    () async {
-      final nested = await Directory(p.join(project.path, 'nested')).create();
-      await File(p.join(nested.path, '.git')).writeAsString('gitdir: unused');
-      await expectLater(
-        discoverProjectBundles(nested),
-        throwsA(isA<WayfinderException>()),
-      );
-    },
-  );
-  test(
     'malformed config refuses project search instead of searching a subset',
     () async {
       await File(p.join(project.path, 'wayfinder.json')).writeAsString('{}');
@@ -327,7 +275,10 @@ class _ProjectKnowledge extends WayfinderKnowledge {
     searched.addAll(bundles);
     queries.add(query);
     if (stale) {
-      throw const WayfinderException('Index is stale. Run wayfinder index.');
+      throw const WayfinderException(
+        'index-stale',
+        'Index is stale. Run wayfinder index.',
+      );
     }
     return [for (final bundle in bundles) _response(bundle)];
   }

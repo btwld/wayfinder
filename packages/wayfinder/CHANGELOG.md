@@ -1,5 +1,41 @@
 # 0.3.0 (unreleased)
 
+- New `package:wayfinder/project.dart`, moved from `wayfinder_cli`'s private
+  sources so a host can embed what the command does (ADR-0018):
+  `WayfinderProject.discover` and `ProjectBundle`;
+  `WayfinderProfileResolver`, now with a required `dataDirectory`, and its
+  lock types; `validateWithProfileSources`, now with a required `resolver`;
+  `ProfileSkills`; `projectWayfinderGraph`, `wayfinderLinkFields` and the Ack
+  `wayfinderGraphInput`; `WayfinderDataDirectory.resolve`; and
+  `WayfinderException`, which gains a stable `code` beside its message.
+- The resolver splits `get` into `plan`, which may fetch into the cache but
+  writes nothing in the project, and `apply`, which writes it and throws
+  `resolution-stale` when the configuration, lock or cache changed since.
+  `resolve` runs both. `select` reads the lock and the package files a plan
+  kept under `profiles/packages/`, and never runs Git; a 0.2 cache has no
+  package files, so `select` reports `profile-unresolved` until the next
+  `get`. `WayfinderProfileResolutionException.code` is now the diagnostic's
+  value; the `DiagnosticCode` is `diagnostic`.
+- `GitRunner` returns `GitResult`, whose `stdout` holds bytes, and takes a
+  `WayfinderCancellation` in place of `binary`. The default `runGit` drops
+  every `GIT_*` variable, never prompts, runs SSH in batch mode, skips Git LFS
+  downloads, disables hooks, the filesystem monitor and the `ext::` transport,
+  and kills a command with its children after `timeout` (five minutes) or on
+  cancellation (`git-timeout`, `cancelled`). `wayfinderGitOptions` and
+  `wayfinderGitEnvironment` let a host's runner apply the same.
+- `WayfinderFileLock` is an exclusive lock that holds across processes and
+  across the isolates of one process: `flock(2)` through `dart:ffi` on POSIX,
+  `RandomAccessFile.lock` on Windows. A plan holds
+  `profiles/<sha256(location)>.lock` while it clones or refreshes a source,
+  waiting up to 120 seconds; `apply` and `resolve` hold
+  `projects/<sha256(root)>.get.lock` and throw `resolution-busy` while another
+  holder has it. The project lock records its root.
+- `ProfileValidator.validateLoaded` validates an `OkfBundleLoadResult`
+  without reading the disk, and `ProfileProjection.generatedFiles` returns the
+  files `validate --fix` writes. `validate` delegates to both; its results are
+  unchanged.
+- `wayfinder` depends on `crypto` and `ffi`.
+
 # 0.2.0
 
 - `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema

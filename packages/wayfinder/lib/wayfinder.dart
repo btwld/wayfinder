@@ -1,6 +1,6 @@
-/// Core validation for Wayfinder knowledge bundles.
-///
-/// Used by the wayfinder_cli command and MCP server.
+/// Core validation for Wayfinder knowledge bundles: OKF, then the rules of
+/// a selected Profile package. Projects on disk, Profile resolution and the
+/// graph projection are in `package:wayfinder/project.dart`.
 library;
 
 export 'src/diagnostics.dart';
@@ -28,6 +28,7 @@ export 'src/validation.dart'
         NotAssessed,
         OkfState,
         ProfileAssessment,
+        ProfileProjection,
         ProfileState,
         ProfileSelection,
         ProfileValidationResult,

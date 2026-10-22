@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/search_output.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
