@@ -282,7 +282,9 @@ release.
   `ProfileSkills.escapingProblem`. A stale lock's reason reads `the
   configuration changed after the lock was written`, a busy project
   `Another Profile resolution is changing <root>`, and a lock change found
-  once a package is read names that package.
+  once a package is read names that package. Adoption's `bundle-okf-invalid`
+  and `skill-foreign` conflicts no longer name `okf validate` or
+  `wayfinder get`.
 
 # 0.2.0
 

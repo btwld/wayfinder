@@ -385,8 +385,8 @@ final class KnowledgeAdoption {
           AdoptionConflict(
             'bundle-okf-invalid',
             bundle,
-            '$bundle fails OKF, so adoption does not bind it. Repair it with '
-                '`okf validate $bundle` and plan again.',
+            '$bundle fails OKF, so adoption does not bind it. Repair what '
+                'OKF validation reports and plan again.',
           ),
         );
       }
