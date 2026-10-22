@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
+- Updated: 2026-10-22, a host's root bounds discovery and binding; required concept fields and installed Profile skill text are public
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -27,10 +28,16 @@ adds `ProfileValidator.validateLoaded`, which validates a bundle okf already
 loaded and reads no bundle file (only `path-targets-exist` still checks, on
 disk relative to the bundle root, a link target okf's graph cannot resolve
 inside the bundle), and `ProfileProjection.generatedFiles`, the files `--fix`
-would write.
+would write. `EffectiveProfile.requiredConceptFields` lists the frontmatter
+keys every concept must carry: those an error rule's `frontmatter` schema
+check names in a `required` it applies unconditionally. A host can then say
+what a concept needs without evaluating rules.
 `package:wayfinder/project.dart` holds project discovery, the data directory,
 Profile resolution and selection, validation from that selection, the graph
 projection with its Ack input, cancellation, the Git runner and the file lock.
+`ProfileSkills.read` returns a Profile skill's installed `SKILL.md` only when
+its marker holds the locked revision, the check behind
+`profile-skill-stale`.
 The index lifecycle follows the same pattern as a `wayfinder_embeddings`
 entry. The core depends on none of `wayfinder_embeddings`, ObjectBox,
 llamadart or analyzer.
@@ -43,6 +50,17 @@ data directory (`WayfinderDataDirectory.resolve()` by default), a `GitRunner`
 (`runGit` by default), a `WayfinderCancellation`, and the validator's okf
 loader and graph builder. Failures are `WayfinderException`s with a stable
 `code` beside the message the CLI prints.
+
+**A host's root bounds the project.** A host knows the workspace or
+worktree it opens, and a `wayfinder.json` or Git boundary above it, such as
+one in a home directory, is not that project's. `WayfinderProject.discover`
+therefore reads nothing above the root it is given: the bundles are those
+the root's own `wayfinder.json` applies to, or its `knowledge/` directory.
+Binding takes the same bound: with `projectRoot`, the search for a bundle's
+`wayfinder.json` stops at that root, and a bundle with none there reports
+`config-missing`. The command still finds the project from any directory
+inside it by asking for its search of ancestors (`searchAncestors: true`)
+and binding without a bound, so its results and exit codes are unchanged.
 
 **Git runs hardened and bounded.** `runGit` drops the `GIT_*` variables a
 hook or linked worktree exports, such as `GIT_DIR`. It keeps only those that
