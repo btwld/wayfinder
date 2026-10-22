@@ -663,6 +663,7 @@ final class WayfinderProfileResolver {
         selection: SelectedProfile(
           profile,
           config: config,
+          projectRoot: projectRoot,
           commits: {for (final locked in chain) locked.id: locked.commit},
           notes: notes,
         ),
