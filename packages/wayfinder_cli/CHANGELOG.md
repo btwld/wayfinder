@@ -37,8 +37,10 @@
   instead of reporting `wayfinder/profile-unresolved`, so the gate no longer
   turns `INCOMPLETE` (exit code 2) over it. `get` reports such a directory as
   one it did not install, as it does an unmarked one. A marker that is not a
-  regular file, such as a named pipe, which made the command wait forever,
-  or that is larger than 64 KiB counts the same way.
+  regular file when checked, such as a named pipe, which made the command
+  wait forever, or that is larger than 64 KiB counts the same way, and `get`
+  refuses to install the skill of a Profile whose release is too long for
+  its marker to stay within 64 KiB.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command

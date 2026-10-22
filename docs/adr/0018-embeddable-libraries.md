@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs); 2026-10-22 (the knowledge store's notices are typed, a search can be cancelled, a retained encoder can be released while the snapshots stay, the model cache removes its model, and `forget` deletes lock files and forgets a project root's indexes); 2026-10-22 (a Profile skill read reads the real paths it checked and can be bounded in bytes, a selection names its project root, and skill writes and prunes keep to the real roots they checked)
-- Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs); 2026-10-22 (the knowledge store's notices are typed, a search can be cancelled, a retained encoder can be released while the snapshots stay, the model cache removes its model, and `forget` deletes lock files and forgets a project root's indexes); 2026-10-22 (a Profile skill read reads the real paths it checked and can be bounded in bytes, a selection names its project root, skill writes and prunes keep to the real roots they checked, and `get` writes no marker it would not read back)
+- Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results beyond a Profile skill marker that is unreadable, not a regular file or over 64 KiB counting as no marker
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
 ## Context
@@ -42,24 +42,34 @@ its marker holds the locked revision, the check behind
 text, so a concurrent `get` never makes it return another revision's text.
 It confines the marker and `SKILL.md` by their real paths and reads those
 paths, so a symbolic link retargeted after the check cannot move the read
-outside the project, and it drops a text whose real path holds a link once
-read. Dart opens a file only by following its path, so a link put in place
-and removed again while the file opens is the one swap this cannot see; a
-host that must exclude it keeps writers out of the project while it reads.
+outside the project. It opens each only when it is a regular file, checked
+without following links just before the open, and drops a text whose real
+path holds a link once read or whose marker has become a link. Dart opens a
+file only by following its path, and an open of a named pipe waits for a
+writer, so two swaps in the moment between that check and the open remain
+out of reach: a link put in place and removed again before the read ends,
+whose target the read returns, and a named pipe, which holds the read. A
+host that must exclude them keeps writers out of the project while it
+reads.
 A host bounds what a huge file costs with `maxBytes`: the read stops one
 byte past it, and a longer file is cut at the last UTF-8 character boundary
 within it and reported `truncated` rather than refused, since a host that
 shows a skill can still show its start and say it was cut. A marker is read
-up to 64 KiB, far beyond any Wayfinder writes, and only when it is a regular
-file, so a named pipe or a huge file marks no revision instead of holding
-the read.
+up to 64 KiB and only when it is a regular file when checked, so a named
+pipe or a huge file marks no revision instead of holding the read. Only a
+release tens of thousands of characters long would make Wayfinder's own
+marker larger, and `get` refuses to install such a skill rather than write
+a marker it would not read back.
 `SelectedProfile.projectRoot` names the directory of the `wayfinder.json`
 that bound the selection, where its skills are installed and its
 `profile-skill-stale` notes looked, so a host passes it to `read` rather
-than derive it from the configuration's path. `get` installs and prunes
-skills the same way, under the real path of each skill root it confined to
-the project, and replaces a directory only after checking its marker just
-before moving it.
+than derive it from the configuration's path; the constructor refuses a
+root that is not the configuration's absolute directory. `get` installs and
+prunes skills the same way, under the real path of each skill root it
+confined to the project. It checks every directory's marker before writing
+any, and each again just before moving it aside, so it never replaces a
+directory without one; a directory that appears in between stops the write
+after the roots before it were replaced.
 `package:wayfinder_embeddings/knowledge_store.dart` holds the index
 lifecycle: `WayfinderKnowledgeStore` reports a bundle's index `status`,
 indexes it with progress events and cancellation, searches one bundle or a
