@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -13,6 +15,11 @@ typedef SkillRevision = ({ProfileId id, String release, String commit});
 /// the skill directory. [executable] is Git's `100755` mode, which a skill
 /// script needs to run directly.
 typedef SkillFile = ({String path, List<int> bytes, bool executable});
+
+/// An installed `SKILL.md`, as [ProfileSkills.read] returns it. [truncated]
+/// is true when the file holds more than the read's `maxBytes`, so [text] is
+/// only its start, cut at a character boundary.
+typedef ProfileSkillText = ({String text, bool truncated});
 
 /// A Profile skill as `get` left it in the project.
 final class MaterializedSkill {
@@ -65,56 +72,129 @@ abstract final class ProfileSkills {
         directory,
   ];
 
-  /// The installed `SKILL.md` text of [revision]: from the first directory
-  /// in [directories] order that holds [revision], the check [stale] and
+  /// The installed `SKILL.md` of [revision]: from the first directory in
+  /// [directories] order that holds [revision], the check [stale] and
   /// validation's `profile-skill-stale` note make. Null when none does, as
   /// before `get` or after the lock moved on, and when that directory has
-  /// no readable `SKILL.md`. Reads nothing that a symbolic link places
-  /// outside [projectRoot], and never writes.
+  /// no readable UTF-8 `SKILL.md`. [projectRoot] is the directory of the
+  /// `wayfinder.json` that bound the bundle, which a selection names as
+  /// [SelectedProfile.projectRoot]. Reads nothing that a symbolic link
+  /// places outside it, and never writes.
+  ///
+  /// Each file is confined by its real path, and that real path is what is
+  /// read, so a symbolic link retargeted after the check does not move the
+  /// read. The text is returned only when its real path still holds no
+  /// symbolic link after the read, so a file replaced by a link meanwhile
+  /// is not returned either; what Dart cannot exclude is a link that is put
+  /// in place and taken away again while the file is being opened.
+  ///
+  /// With [maxBytes], at most `maxBytes + 1` bytes are read: a longer file
+  /// is cut at the last character boundary within its first [maxBytes]
+  /// bytes and returned with `truncated` set, so a host can bound what a
+  /// huge file costs it. The marker is read up to 64 KiB; a larger one
+  /// marks no revision.
   ///
   /// It takes no lock. The marker is read again after `SKILL.md`, and the
   /// text is returned only when it still names [revision], so a `get` that
   /// replaces the directory meanwhile yields the next directory or null,
   /// never another revision's text.
-  static Future<String?> read(
+  static Future<ProfileSkillText?> read(
     String projectRoot,
-    SkillRevision revision,
-  ) async {
+    SkillRevision revision, {
+    int? maxBytes,
+  }) async {
+    if (maxBytes != null) RangeError.checkNotNegative(maxBytes, 'maxBytes');
     final String real;
     try {
       real = await Directory(projectRoot).resolveSymbolicLinks();
     } on FileSystemException {
       return null;
     }
-    Future<bool> inside(String file) async {
-      if (await FileSystemEntity.type(file) != FileSystemEntityType.file) {
-        return false;
-      }
-      final resolved = await _realPath(file);
-      return resolved != null && p.isWithin(real, resolved);
+    // The real path of the regular file at [path] when it lies inside the
+    // project; null otherwise. Only this path is read afterwards.
+    Future<String?> confined(String path) async {
+      final resolved = await _realPath(path);
+      if (resolved == null || !p.isWithin(real, resolved)) return null;
+      return await FileSystemEntity.type(resolved, followLinks: false) ==
+              FileSystemEntityType.file
+          ? resolved
+          : null;
     }
 
     for (final directory in directories(revision.id)) {
       final path = p.join(projectRoot, directory);
-      final skill = p.join(path, 'SKILL.md');
       try {
-        if (await inside(p.join(path, marker)) &&
-            await inside(skill) &&
-            await _markedRevision(Directory(path)) == revision) {
-          final text = await File(skill).readAsString();
-          if (await _markedRevision(Directory(path)) == revision) return text;
+        final markerFile = await confined(p.join(path, marker));
+        final skillFile = await confined(p.join(path, 'SKILL.md'));
+        if (markerFile == null ||
+            skillFile == null ||
+            await _revisionIn(File(markerFile)) != revision) {
+          continue;
+        }
+        final text = await _readText(File(skillFile), maxBytes);
+        final now = await _realPath(skillFile);
+        if (now != null &&
+            p.equals(now, skillFile) &&
+            await _revisionIn(File(markerFile)) == revision) {
+          return text;
         }
       } on FileSystemException {
         // Unreadable: the next directory may still hold the revision.
+      } on FormatException {
+        // Not UTF-8 text: the next directory may still hold the revision.
       }
     }
     return null;
   }
 
+  /// [file]'s UTF-8 text; with [maxBytes], cut at the last character
+  /// boundary within its first [maxBytes] bytes when it is longer.
+  static Future<ProfileSkillText> _readText(File file, int? maxBytes) async {
+    if (maxBytes == null) {
+      return (text: utf8.decode(await file.readAsBytes()), truncated: false);
+    }
+    final (:bytes, :more) = await _readPrefix(file, maxBytes);
+    if (!more) return (text: utf8.decode(bytes), truncated: false);
+    // bytes holds one byte past the limit. Keep whole characters: step back
+    // over the continuation bytes (10xxxxxx) of one cut at the limit.
+    var end = maxBytes;
+    for (var step = 0; step < 3 && end > 0; step++) {
+      if (bytes[end] & 0xC0 != 0x80) break;
+      end--;
+    }
+    return (
+      text: utf8.decode(Uint8List.sublistView(bytes, 0, end)),
+      truncated: true,
+    );
+  }
+
+  /// [file]'s first `limit + 1` bytes at most, and whether it holds more
+  /// than [limit]. Never reads further.
+  static Future<({Uint8List bytes, bool more})> _readPrefix(
+    File file,
+    int limit,
+  ) async {
+    final handle = await file.open();
+    try {
+      final builder = BytesBuilder(copy: false);
+      while (builder.length <= limit) {
+        final chunk = await handle.read(
+          min(limit + 1 - builder.length, 64 * 1024),
+        );
+        if (chunk.isEmpty) break;
+        builder.add(chunk);
+      }
+      final bytes = builder.takeBytes();
+      return (bytes: bytes, more: bytes.length > limit);
+    } finally {
+      await handle.close();
+    }
+  }
+
   /// The skill revision of each package in [selection]'s chain that ships a
   /// skill and has a locked commit, root ancestor first: what [read] and
-  /// [stale] take. Empty for a selection built by hand, which records no
-  /// commits.
+  /// [stale] take, with [SelectedProfile.projectRoot]. Empty for a
+  /// selection built by hand, which records no commits.
   static List<SkillRevision> revisionsOf(SelectedProfile selection) => [
     for (final package in selection.profile.chain)
       if (package.skill != null)
@@ -375,11 +455,23 @@ abstract final class ProfileSkills {
 
   /// The revision [directory]'s marker records; null without a marker, or
   /// with one that cannot be read or parsed, which marks no revision.
-  static Future<SkillRevision?> _markedRevision(Directory directory) async {
-    final file = File(p.join(directory.path, marker));
+  static Future<SkillRevision?> _markedRevision(Directory directory) =>
+      _revisionIn(File(p.join(directory.path, marker)));
+
+  /// Far more than any [markerText]; a larger file is not one Wayfinder
+  /// wrote, and is never read whole.
+  static const _markerMaxBytes = 64 * 1024;
+
+  /// The revision the marker [file] records; null when it is not a regular
+  /// file, is larger than 64 KiB, or cannot be read or parsed.
+  static Future<SkillRevision?> _revisionIn(File file) async {
     try {
-      if (!await file.exists()) return null;
-      if (jsonDecode(await file.readAsString()) case {
+      if (await FileSystemEntity.type(file.path) != FileSystemEntityType.file) {
+        return null;
+      }
+      final (:bytes, :more) = await _readPrefix(file, _markerMaxBytes);
+      if (more) return null;
+      if (jsonDecode(utf8.decode(bytes)) case {
         'id': final String id,
         'release': final String release,
         'commit': final String commit,

@@ -81,7 +81,12 @@ export 'src/project/profile_resolver.dart'
         WayfinderProfileResolver,
         validateWithProfileSources;
 export 'src/project/profile_skills.dart'
-    show MaterializedSkill, ProfileSkills, SkillFile, SkillRevision;
+    show
+        MaterializedSkill,
+        ProfileSkillText,
+        ProfileSkills,
+        SkillFile,
+        SkillRevision;
 export 'src/project/profile_status.dart'
     show
         ProfileBindingState,
