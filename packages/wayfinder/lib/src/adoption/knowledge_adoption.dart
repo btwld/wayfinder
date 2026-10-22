@@ -275,6 +275,21 @@ final class KnowledgeAdoption {
       bundle,
       hostInputs: hostInputs,
     );
+    for (final path in hostInputs) {
+      switch (inputs.entries[path]) {
+        case AdoptionInputs.outside:
+          throw _invalid(
+            'Host input $path resolves through a symbolic link outside the '
+            'project, to the project directory itself, or into .git. Name '
+            'a path inside the project.',
+          );
+        case AdoptionInputs.unresolved:
+          throw _invalid(
+            'Host input $path passes through more symbolic links than '
+            'resolve, as a loop of links does.',
+          );
+      }
+    }
     final conflicts = <AdoptionConflict>[
       for (final path in const ['wayfinder.json', 'wayfinder.lock'])
         if (inputs.entries[path] != 'absent')
@@ -519,10 +534,11 @@ final class KnowledgeAdoption {
   /// [hostStep] runs the host's own writes, such as placing
   /// [KnowledgeAdoptionPlan.agentInstructions] in `AGENTS.md`, as the
   /// [AdoptionStep.host] step after Wayfinder's files are in place. When it
-  /// throws, every earlier step is undone like any other failure; it undoes
-  /// its own partial writes before throwing. A file it writes belongs in the
-  /// request's `hostInputs`, so the check step refuses the plan when that
-  /// file changed since planning.
+  /// throws, every earlier step is undone like any other failure; adoption
+  /// cannot undo the host's writes, so it undoes its own partial writes
+  /// before throwing. Once it returns, its writes stay, whatever follows. A
+  /// file it writes belongs in the request's `hostInputs`, so the check step
+  /// refuses the plan when that file changed since planning.
   ///
   /// [onStep] hears each step as it happens, on the calling isolate: an
   /// [AdoptionStepOutcome.started] report as a step begins, then its end
@@ -531,9 +547,11 @@ final class KnowledgeAdoption {
   /// first. A host shows progress with it. When it throws for a step's
   /// `started`, `done` or `skipped` report, that step fails with what it
   /// threw, its own writes and the earlier steps are undone, and apply
-  /// throws as for any failure, so a test can stop adoption at any step;
-  /// what it throws for a report of a failure or an undo is ignored, since
-  /// apply already reports that failure.
+  /// throws as for any failure, so a test can stop adoption at any step.
+  /// What it throws for a report of a failure or an undo is ignored, since
+  /// apply already reports that failure, and so is what it throws for the
+  /// host step's `done`, since the host's writes are then in place and
+  /// adoption cannot undo them.
   ///
   /// When a step fails, the steps before it are undone in reverse order and
   /// [KnowledgeAdoptionException] reports each step, so the project holds no
@@ -1196,9 +1214,8 @@ final class KnowledgeAdoption {
           p.posix.isAbsolute(normalized) ||
           RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
           normalized == '.' ||
-          p.posix
-              .split(normalized)
-              .any((segment) => segment == '..' || segment == '.git')) {
+          p.posix.split(normalized).contains('..') ||
+          AdoptionInputs.inGit(normalized)) {
         throw _invalid(
           'Host input $path must be a path inside the project, as a relative '
           'POSIX path outside .git.',
@@ -1282,10 +1299,17 @@ final class _Run {
       _end(_StepRecord(step, AdoptionStepOutcome.skipped, const [], message));
 
   /// Records how the running step ended, then reports it; what the listener
-  /// throws fails the step.
+  /// throws fails the step, except for the host step's `done`: the host's
+  /// writes are in place and adoption cannot undo them, so that report is
+  /// told as a failure is.
   void _end(_StepRecord record) {
     records.add(record);
-    _listener?.call(record.report);
+    if (record.step == AdoptionStep.host &&
+        record.outcome == AdoptionStepOutcome.done) {
+      _tell(record.report);
+    } else {
+      _listener?.call(record.report);
+    }
   }
 
   /// Records that the running step failed with [error], once. A step that
