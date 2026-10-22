@@ -42,27 +42,48 @@ void main() {
         ...root.listSync().whereType<Directory>(),
   ];
 
-  /// A configuration key the way an ObjectBox-backed store (Wayfinder 0.3
-  /// before read-while-index) derived it, for [model].
-  String objectBoxConfigurationKey(String model) => sha256
+  /// A configuration key the way the store derives it from [configuration]
+  /// and the deterministic encoder's [model].
+  String keyFor(String model, Map<String, Object?> configuration) => sha256
       .convert(
         utf8.encode(
           jsonEncode({
-            'configuration': jsonEncode({
-              'version': 4,
-              'context': 'okf-context-v2',
-              'chunkCharacters': 1000,
-              'longInput': 'reject',
-              'snapshot': 1,
-              'store': '384-v1',
-              'chunkIds': 'bundle-relative',
-            }),
+            'configuration': jsonEncode(configuration),
             'model': '$model:okf-context-v2',
             'source': DeterministicTestEmbedder.source,
           }),
         ),
       )
       .toString();
+
+  /// The configuration an ObjectBox-backed store (Wayfinder 0.3 before
+  /// read-while-index) wrote, before the llama.cpp runtime was named.
+  const objectBoxConfiguration = {
+    'version': 4,
+    'context': 'okf-context-v2',
+    'chunkCharacters': 1000,
+    'longInput': 'reject',
+    'snapshot': 1,
+    'store': '384-v1',
+    'chunkIds': 'bundle-relative',
+  };
+
+  /// The configurations earlier stores wrote that differ from the current one
+  /// in one respect each: the ObjectBox store, plain-file generations before
+  /// the runtime was named, and an ObjectBox store that named it.
+  final earlierConfigurations = <String, Map<String, Object?>>{
+    'ObjectBox, version 4': objectBoxConfiguration,
+    'plain files, version 4': {...objectBoxConfiguration, 'store': 'f32-v1'},
+    'ObjectBox, version 5': {
+      'version': 5,
+      'runtime': wayfinderLlamaCppRuntime,
+      for (final MapEntry(:key, :value) in objectBoxConfiguration.entries)
+        if (key != 'version') key: value,
+    },
+  };
+
+  String objectBoxConfigurationKey(String model) =>
+      keyFor(model, objectBoxConfiguration);
 
   List<String> generations(Directory namespace) => [
     for (final entry in namespace.listSync().whereType<Directory>())
@@ -88,11 +109,14 @@ void main() {
         isNot(sha256.convert(utf8.encode(bundle.root)).toString()),
         reason: 'never the key of a 0.2 index directory',
       );
-      expect(
-        configurationKey,
-        isNot(objectBoxConfigurationKey(provider.model)),
-        reason: 'never the key of an ObjectBox-backed index',
-      );
+      for (final MapEntry(key: earlier, value: configuration)
+          in earlierConfigurations.entries) {
+        expect(
+          configurationKey,
+          isNot(keyFor(provider.model, configuration)),
+          reason: 'never the key of an index an earlier store wrote: $earlier',
+        );
+      }
       expect(jsonDecode(await writerLock(result.index).readAsString()), {
         'root': bundle.root,
       });
@@ -112,9 +136,16 @@ void main() {
                 ).readAsString(),
               )
               as Map;
+      final configuration = Map<String, Object?>.from(
+        jsonDecode(record['configuration'] as String) as Map,
+      );
+      expect(configuration['store'], 'f32-v1');
+      expect(configuration['version'], 5);
+      expect(configuration['runtime'], wayfinderLlamaCppRuntime);
       expect(
-        (jsonDecode(record['configuration'] as String) as Map)['store'],
-        'f32-v1',
+        keyFor(provider.model, configuration),
+        configurationKey,
+        reason: 'the key hashes the recorded configuration with the encoder',
       );
       final chunks = ((record['snapshot'] as Map)['chunks'] as List).length;
       final vectors = record['vectors'] as Map;

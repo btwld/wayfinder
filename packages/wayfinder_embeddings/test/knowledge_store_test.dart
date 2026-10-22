@@ -610,13 +610,22 @@ void main() {
           jsonDecode(record['configuration'] as String) as Map;
       expect(configuration['version'], 5);
       expect(configuration['runtime'], wayfinderLlamaCppRuntime);
+      expect(configuration['store'], 'f32-v1');
       expect(configuration['chunkIds'], 'bundle-relative');
-      // What a version 4 index, from before the runtime was named, records.
-      configuration['version'] = 4;
-      configuration.remove('runtime');
-      record['configuration'] = jsonEncode(configuration);
-      await recordFile.writeAsString(jsonEncode(record));
-      expect(await knowledge.status(bundle), isA<KnowledgeIndexIncompatible>());
+      // What earlier indexes record: an ObjectBox store's version 5, which
+      // named the runtime, and plain files' version 4, which did not.
+      for (final earlier in [
+        {...configuration, 'store': '384-v1'},
+        {...configuration, 'version': 4}..remove('runtime'),
+      ]) {
+        record['configuration'] = jsonEncode(earlier);
+        await recordFile.writeAsString(jsonEncode(record));
+        expect(
+          await knowledge.status(bundle),
+          isA<KnowledgeIndexIncompatible>(),
+          reason: '$earlier',
+        );
+      }
       await expectLater(
         knowledge.searchBundle(bundle, 'password'),
         throwsA(
