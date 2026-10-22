@@ -241,6 +241,29 @@ void main() {
       expect(legacy.listSync().map((e) => e.path).toSet(), listing);
     });
 
+    test('indexes where a generation\'s path passes 260 characters', () async {
+      // Windows refuses to create a directory without the long-path prefix
+      // once its path reaches 248 characters, as Directory.createTemp did.
+      data = Directory(
+        p.join(temp.path, 'a' * 40, 'b' * 40, 'c' * 40, 'd' * 40, 'data'),
+      );
+      final result = await store().index(bundle);
+      final generation = currentGeneration(result.index);
+      expect(generation.path.length, greaterThan(260));
+      expect(
+        p.basename(generation.path),
+        matches(RegExp(r'^generation-[0-9a-f]{8}$')),
+      );
+      expect(
+        (await store().searchBundle(bundle, 'password')).matches,
+        isNotEmpty,
+      );
+      final forced = await store().index(bundle, force: true);
+      expect(currentGeneration(forced.index).path, isNot(generation.path));
+      await store().forget(bundle);
+      expect(await Directory(p.dirname(result.index)).exists(), isFalse);
+    });
+
     test(
       'an ObjectBox-backed index is never read, changed or deleted',
       () async {

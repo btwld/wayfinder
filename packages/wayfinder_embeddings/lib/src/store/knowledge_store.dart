@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -238,6 +239,25 @@ class WayfinderKnowledgeStore {
   static const _chunkIdNamespace = '.';
 
   static final _generationName = RegExp(r'^generation-[a-zA-Z0-9_-]+$');
+
+  /// Creates a new, uniquely named generation directory in [directory],
+  /// whose writer lock the caller holds.
+  ///
+  /// Not `Directory.createTemp`: on Windows it creates the directory without
+  /// the long-path prefix, so it fails once the path reaches 248 characters,
+  /// which a data directory under a long user profile path does.
+  /// `Directory.create` takes the prefix, and the held writer lock keeps
+  /// another writer from choosing the same name.
+  static Future<Directory> _stageGeneration(Directory directory) async {
+    final random = Random.secure();
+    while (true) {
+      final suffix = random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
+      final staged = Directory(p.join(directory.path, 'generation-$suffix'));
+      if (await staged.exists()) continue;
+      return staged.create();
+    }
+  }
+
   static final _supersededName = RegExp(
     r'^(generation-[a-zA-Z0-9_-]+)\.superseded$',
   );
@@ -439,7 +459,7 @@ class WayfinderKnowledgeStore {
         final dimension = opened.embedder.dimension;
         final bytes = IndexGeneration.encode(rows, dimension);
         await directory.create(recursive: true);
-        final staged = await directory.createTemp('generation-');
+        final staged = await _stageGeneration(directory);
         var published = false;
         try {
           await File(
