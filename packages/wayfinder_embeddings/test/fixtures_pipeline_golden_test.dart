@@ -17,9 +17,18 @@ void main() {
             ? Platform.environment['FIXTURES_ROOT'] ?? 'fixtures/corpus'
             : 'fixtures/samples',
       );
+      final goldenPath = fixture == 'corpus'
+          ? workflow.corpusGoldenPath
+          : 'test/goldens/sample_chunks.json';
       expect(fixturesDir.existsSync(), isTrue);
+      // The corpus's Dart chunks come from its golden, which
+      // wayfinder_dart_chunker checks; the built-in chunkers make the rest.
       final preview = workflow.PreviewResult.fromFiles(
-        registry: workflow.buildDefaultRegistry(),
+        registry: workflow.buildDefaultRegistry(
+          reference: fixture == 'corpus'
+              ? workflow.ReferenceChunks.load(File(goldenPath), fixturesDir)
+              : null,
+        ),
         files: workflow.collectFixtureFiles(fixturesDir),
         fixturesDir: fixturesDir,
       );
@@ -29,9 +38,7 @@ void main() {
         packageRoot: Directory.current,
         fixturesDir: fixturesDir,
         preview: preview,
-        goldenPath: fixture == 'corpus'
-            ? 'test/goldens/baseline_chunks.json'
-            : 'test/goldens/sample_chunks.json',
+        goldenPath: goldenPath,
       );
     });
   }
@@ -65,7 +72,7 @@ void main() {
           ),
         );
       }
-      expect(contentTypes, {'dart', 'typescript', 'markdown', 'text'});
+      expect(contentTypes, {'typescript', 'markdown', 'text'});
       expect(
         workflow.buildChunkManifest(rebased, rebasedDir),
         workflow.buildChunkManifest(original, fixturesDir),

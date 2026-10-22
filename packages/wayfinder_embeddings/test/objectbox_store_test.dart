@@ -9,12 +9,17 @@ import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
 import 'package:wayfinder_embeddings/src/storage/objectbox_entities.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
+import 'support/objectbox_0_2_0_fixture.dart';
 import 'support/store_contract.dart';
+
+/// A store that `wayfinder_embeddings` 0.2.0 wrote; see its README.
+const _fixture020 = 'test/fixtures/objectbox-0.2.0';
 
 /// Why the ObjectBox tests cannot run, or null when the native library is here.
 ///
 /// ObjectBox needs a platform library that is not committed. Install it with
-/// `melos run objectbox:install`.
+/// `melos run objectbox:install`. `WAYFINDER_REQUIRE_NATIVE=1` runs the tests
+/// anyway, so a missing library fails instead of skipping.
 final String? _missingNativeLibrary = _findMissingNativeLibrary();
 
 String? _findMissingNativeLibrary() {
@@ -31,8 +36,12 @@ String? _findMissingNativeLibrary() {
   if (candidates.any((path) => File(path).existsSync())) {
     return null;
   }
+  if (Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1') {
+    return null;
+  }
   return 'The ObjectBox native library ($name) is not installed. '
-      'Run `melos run objectbox:install`.';
+      'Run `melos run objectbox:install`. '
+      'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.';
 }
 
 void main() {
@@ -230,6 +239,76 @@ void main() {
         }
       },
     );
+
+    test('opens a database written by 0.2.0 and keeps writing to it', () async {
+      final directory = Directory(p.join(tempDir.path, 'written-by-0.2.0'))
+        ..createSync();
+      for (final file
+          in Directory(_fixture020).listSync().whereType<File>().where(
+            (file) => p.basename(file.path) != 'README.md',
+          )) {
+        file.copySync(p.join(directory.path, p.basename(file.path)));
+      }
+
+      final store = ObjectBoxStore.open(directory.path);
+      try {
+        expect(await store.getAllChunks(), fixtureChunks);
+        expect(await store.getAllEmbeddings(), fixtureEmbeddings);
+        expect(
+          await store.getEmbedding(
+            fixtureChunks.first.id,
+            source: fixtureSource,
+            modelName: fixtureOtherModelName,
+          ),
+          fixtureEmbeddings.last,
+        );
+        final results = await store.findSimilar(
+          fixtureVector(3),
+          fixtureSource,
+          fixtureModelName,
+          limit: 2,
+        );
+        expect(results.first.chunk, fixtureChunks[2]);
+        expect(results.first.similarity, closeTo(1.0, 1e-5));
+
+        final added = Chunk(
+          sourcePath: 'knowledge/guidance/added.md',
+          lineStart: 1,
+          lineEnd: 2,
+          content: 'Written by the current release.',
+          type: 'paragraph',
+        );
+        await store.storeBatch(
+          chunks: [added],
+          embeddings: [
+            Embedding(
+              chunkId: added.id,
+              source: fixtureSource,
+              modelName: fixtureModelName,
+              vector: fixtureVector(20),
+            ),
+          ],
+        );
+      } finally {
+        await store.close();
+      }
+
+      final reopened = ObjectBoxStore.open(directory.path);
+      try {
+        final chunks = await reopened.getAllChunks();
+        expect(chunks, hasLength(fixtureChunks.length + 1));
+        expect(chunks.take(fixtureChunks.length), fixtureChunks);
+        final results = await reopened.findSimilar(
+          fixtureVector(20),
+          fixtureSource,
+          fixtureModelName,
+          limit: 1,
+        );
+        expect(results.single.chunk.content, 'Written by the current release.');
+      } finally {
+        await reopened.close();
+      }
+    });
 
     test('refuses an unmarked database without changing its data', () async {
       final directory = p.join(tempDir.path, 'old-schema');

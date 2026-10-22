@@ -118,6 +118,22 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
+<!--
+Release bookkeeping: the last two bullets (#110) amend the `WayfinderFileLock`
+bullet above; fold them into it if both ship in one release.
+-->
+- `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
+  each project whose root no longer exists, such as a removed worktree, once
+  no `get` used it for a period (30 days by default), and returns the deleted
+  files. It reads a lock's note only while the lock is free and leaves a held
+  one. `WayfinderKnowledgeStore.prune` calls it.
+- `WayfinderFileLock.tryExclusive` tries a refused lock again for up to
+  100 ms before it returns null, so an `isHeld` probe, which holds a shared
+  lock for an instant, never reads as a holder. `tryExclusive` and
+  `exclusive` return a lock only while the file's path still names the file
+  they locked (the same device and inode on POSIX), and otherwise open the
+  path again, so a cleanup that deletes a lock file while holding it never
+  leaves two holders on different files.
 
 # 0.2.0
 

@@ -22,7 +22,7 @@ is a chain.** OKF wins over the engine contract, which wins over each Profile pa
 ## Checks
 
 Run the [core contributor checks](../README.md#contributor-checks) from the
-repository root. `dart run melos run lint` checks all three workspace packages.
+repository root. `dart run melos run lint` checks all four workspace packages.
 
 ## Schemas and Profile packages
 
@@ -69,9 +69,9 @@ search JSON for the project and for one bundle. It runs the project in
 the frozen Profile in `test/fixtures/contract-profile/` from a local Git
 source, so a Bitwild release leaves these goldens alone. It normalizes
 temporary paths, the index key, chunk IDs, the Profile commit, the server
-version and timings. The retrieval goldens need ObjectBox
-(`melos run objectbox:install`) and are skipped without it, so native CI runs
-them; regenerating fails without it. Regenerate from `packages/wayfinder_cli`
+version and timings; a test beside them checks that the project indexed
+elsewhere gets the same chunk IDs. The goldens need no native library, so
+every CI job runs them. Regenerate from `packages/wayfinder_cli`
 with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
 intended contract change, and review the diff with it. `mcp_dart` and `ack`
 serialize the MCP results and input schemas, so upgrading either can move
@@ -102,8 +102,19 @@ the whole workspace.
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)
 for the implementation and evaluation commands. Its optional native
-backend needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
-files with `dart run melos run build` only when entity schemas change.
+`ObjectBoxStore` backend, which the knowledge store and the `wayfinder` command
+do not use, needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
+files with `dart run melos run build` only when entity schemas change. The root
+`pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
+natively; change the override, the installer and
+`tool/objectbox_assets/manifest.json` together.
+`wayfinder_dart_chunker` holds the analyzer-based Dart chunker, so
+`wayfinder_embeddings` does not depend on `analyzer`. Nothing in
+`wayfinder_embeddings` may depend on it, including as a dev dependency.
+`python3 tool/ci/verify-embeddings-closure.py` checks both rules in CI. The
+chunker's tests also check the Dart chunks that the judged retrieval corpus
+replays, and write that corpus golden; see
+its [README](../packages/wayfinder_dart_chunker/README.md#development).
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a

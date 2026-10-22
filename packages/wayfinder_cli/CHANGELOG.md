@@ -40,6 +40,63 @@
   five minutes is stopped; clones report progress, so a long clone keeps
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
+- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
+- `index` and `search` come from the `wayfinder_embeddings` knowledge store,
+  and the MCP server's tools with them. The CLI finds the model in its
+  bundle and passes it in. It does not load ObjectBox. Output and exit codes
+  are unchanged except as listed below.
+- Errors for an unusable index name what is wrong: `Index is missing`,
+  `Index is stale`, `Saved index is incomplete or incompatible`,
+  `The saved index has another configuration`, `Index belongs to another
+  bundle` or `Embedding configuration changed`, each followed by
+  `Run wayfinder index <bundle>.`; `Index is missing, stale or incompatible`
+  is gone.
+- A bundle that holds okf's `.okf.lock` indexes and searches; before, `index`
+  failed with `Knowledge changed while loading`.
+- Chunk IDs no longer depend on the bundle's absolute path, so equal scores
+  rank the same in every worktree.
+- With `WAYFINDER_EMBEDDING_MODEL` set, `index` checks the file before it
+  reports a current index, and so can report one; before, it reloaded the
+  model on every run. `index <bundle> --detach` checks it first too, and an
+  invalid setting fails with the foreground's error and exit code 2; before,
+  `--detach` reported `started` and the background run failed.
+- Native bundles no longer include the `analyzer` packages or their license
+  files. Search and indexing are unchanged; the CLI never chunked Dart source.
+- Builds with `llamadart` 0.15 through `wayfinder_embeddings` 0.3.0: native
+  bundles carry llama.cpp from `llamadart-native` v0.7.0-2 instead of v0.4.0,
+  still CPU only. `licenses/embedding_runtime/` attributes it, and now also
+  the cpp-httplib and JSON for Modern C++ code it contains. Index
+  configuration version 5 names the new runtime, whose vectors differ
+  slightly, so an index an earlier build wrote is not read and `index`
+  builds each bundle once. Search results on the judged corpus and the OKF
+  evaluation are unchanged.
+- `search`, and the MCP server's `search` tool, keep working while another
+  command indexes the bundle (#110): they serve the last completed index with
+  a `refresh-in-progress` notice. Passages of files edited since are marked
+  `source changed` (`"sourceChanged": true` in JSON) and listed in a
+  `source-changed` notice. Without an index running, a stale index still
+  fails. Only `index` holds a bundle's lock: a second `index` of the bundle
+  still fails with `Index is busy`, and `index --detach` reports `running`.
+  A search's momentary probe of that lock never makes an `index` busy.
+  The MCP server's calls share its encoder one model call at a time, so a
+  search no longer waits for a whole index.
+- **BREAKING:** indexes are plain files in
+  `indexes/bundles/<bundle key>/<configuration key>/generation-*`, and the
+  `index` field of `index --output=json` names that directory. The CLI store
+  does not use ObjectBox. An index in an earlier layout, Wayfinder 0.2's or
+  an ObjectBox database in `indexes/<bundle-key>/`, is never read, changed
+  or deleted, so the first `index` after upgrading builds each bundle again;
+  delete those directories by hand to reclaim their space. Native bundles
+  no longer ship ObjectBox or its license notice.
+- The background-index slot, `background-index.lock`, is a `flock` lock
+  (`WayfinderFileLock`) like Wayfinder's other lock files, so it excludes
+  other isolates as well as other processes. It does not exclude a background
+  index of an earlier release.
+- The MCP server's `search` stops when the client cancels the call, or
+  disconnects while it runs, before it encodes the query or scores passages,
+  instead of finishing a search whose result no one reads. An `index` still
+  runs to its end. The output of `search`, and of the MCP `search` tool, is
+  unchanged.
 
 # 0.2.0
 

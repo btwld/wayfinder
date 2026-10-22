@@ -1,12 +1,13 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-import 'project_search.dart';
+import '../models/chunk.dart';
 
-typedef _MarkdownPassage = ({
+/// One passage as the search Markdown prints it: its citation `prefix`,
+/// the `bundle` name shown in its bracket, the `bundleRoot` its relative
+/// `sources` resolve against, and whether its file changed after indexing.
+typedef MarkdownPassage = ({
   String prefix,
   String? bundle,
   String? bundleRoot,
@@ -14,11 +15,12 @@ typedef _MarkdownPassage = ({
   String reason,
   String? relationship,
   String? viaPath,
+  bool sourceChanged,
 });
 
 typedef _PassageKey = (String, String, int, int);
 
-_PassageKey _keyOf(_MarkdownPassage passage) => (
+_PassageKey _keyOf(MarkdownPassage passage) => (
   passage.prefix,
   passage.chunk.sourcePath,
   passage.chunk.lineStart,
@@ -137,7 +139,7 @@ List<String> _formatSources(
 }
 
 String? _formatRelation(
-  _MarkdownPassage passage, {
+  MarkdownPassage passage, {
   required String Function(String) escape,
 }) {
   if (passage.reason == 'match' ||
@@ -153,7 +155,7 @@ String? _formatRelation(
 }
 
 String _renderPassage(
-  _MarkdownPassage passage, {
+  MarkdownPassage passage, {
   required Iterable<String> relations,
   required String Function(String) escape,
 }) {
@@ -164,7 +166,7 @@ String _renderPassage(
   final citation =
       '${_inline('${passage.prefix}${chunk.sourcePath}', escape)}:${chunk.lineStart}-${chunk.lineEnd}';
   final bracket =
-      '[${passage.bundle == null ? '' : '${_inline(passage.bundle!, escape)}; '}${_inline(status, escape)}; ${_inline(passage.reason, escape)}]';
+      '[${passage.bundle == null ? '' : '${_inline(passage.bundle!, escape)}; '}${_inline(status, escape)}; ${_inline(passage.reason, escape)}${passage.sourceChanged ? '; source changed' : ''}]';
   final lines = <String>['### $citation $bracket'];
 
   final type = frontmatter?['type']?.toString().trim();
@@ -202,12 +204,14 @@ String _renderPassage(
   return lines.join('\n');
 }
 
-String _renderSearchMarkdown({
-  required List<_MarkdownPassage> matches,
-  required List<_MarkdownPassage> context,
+/// `## Matches` and `## Related Context`, then the notices, with control
+/// characters escaped.
+String renderSearchMarkdown({
+  required List<MarkdownPassage> matches,
+  required List<MarkdownPassage> context,
   required List<String> notices,
-  required String Function(String) escape,
 }) {
+  const escape = _escapeControlChars;
   final relationsByKey = <_PassageKey, Set<String>>{};
   for (final item in context) {
     if (_formatRelation(item, escape: escape) case final String rel) {
@@ -255,93 +259,3 @@ String _renderSearchMarkdown({
   ];
   return lines.join('\n');
 }
-
-/// Formats a single-bundle search response as clean Markdown with
-/// `## Matches` and `## Related Context`.
-String formatSearchMarkdown(
-  KnowledgeSearchResponse result, {
-  String prefix = '',
-  String? bundle,
-  String? bundleRoot,
-  String Function(String) escape = _escapeControlChars,
-}) => _renderSearchMarkdown(
-  matches: [
-    for (final hit in result.matches)
-      (
-        prefix: prefix,
-        bundle: bundle,
-        bundleRoot: bundleRoot,
-        chunk: hit.chunk,
-        reason: 'match',
-        relationship: null,
-        viaPath: null,
-      ),
-  ],
-  context: [
-    for (final hit in result.context)
-      (
-        prefix: prefix,
-        bundle: bundle,
-        bundleRoot: bundleRoot,
-        chunk: hit.result.chunk,
-        reason: hit.reason,
-        relationship: hit.fieldEdge?.name,
-        viaPath: hit.viaPath,
-      ),
-  ],
-  notices: result.notices,
-  escape: escape,
-);
-
-/// Formats a multi-bundle project search response as clean Markdown with
-/// `## Matches` and `## Related Context`.
-String formatProjectSearchMarkdown(
-  ProjectSearchResult result, {
-  String Function(String) escape = _escapeControlChars,
-}) => _renderSearchMarkdown(
-  matches: [
-    for (final match in result.matches)
-      (
-        prefix: '${match.bundle.path}/',
-        bundle: match.bundle.name,
-        bundleRoot: match.bundle.root,
-        chunk: match.hit.chunk,
-        reason: 'match',
-        relationship: null,
-        viaPath: null,
-      ),
-  ],
-  context: [
-    for (final entry in result.context)
-      (
-        prefix: '${entry.bundle.path}/',
-        bundle: entry.bundle.name,
-        bundleRoot: entry.bundle.root,
-        chunk: entry.hit.result.chunk,
-        reason: entry.hit.reason,
-        relationship: entry.hit.fieldEdge?.name,
-        viaPath: entry.hit.viaPath,
-      ),
-  ],
-  notices: result.notices,
-  escape: escape,
-);
-
-/// The shared CLI JSON representation preserves original citations and metadata.
-Map<String, Object?> searchOutput(KnowledgeSearchResponse result) => {
-  'context': [
-    for (final hit in result.context)
-      {
-        'chunk': hit.result.chunk.toMap(),
-        'similarity': hit.result.similarity,
-        'reason': hit.reason,
-        'viaPath': ?hit.viaPath,
-        'relationship': ?hit.fieldEdge?.name,
-      },
-  ],
-  'matches': [
-    for (final hit in result.matches)
-      {'chunk': hit.chunk.toMap(), 'similarity': hit.similarity},
-  ],
-  'notices': result.notices,
-};

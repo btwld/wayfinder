@@ -10,6 +10,7 @@ The public repository is `btwld/wayfinder`. All Dart packages use the
 | `wayfinder` | Core Profile validation library | `wayfinder-core-v<version>` | `publish-wayfinder.yml` |
 | `wayfinder_cli` | `wayfinder` command and MCP server | `wayfinder-v<version>` | `publish-wayfinder-cli.yml` |
 | `wayfinder_embeddings` | Reusable retrieval library | `wayfinder_embeddings-v<version>` | `publish-wayfinder-embeddings.yml` |
+| `wayfinder_dart_chunker` | Dart source chunking for `wayfinder_embeddings` | `wayfinder_dart_chunker-v<version>` | `publish-wayfinder-dart-chunker.yml` |
 
 The application retains `wayfinder-v` tags and native archive names for installer
 compatibility. The core uses a distinct tag namespace so independent library
@@ -20,7 +21,10 @@ releases cannot collide with application releases.
 Preparation does not publish. Publish changed core or `wayfinder_embeddings`
 dependencies before the CLI, then resolve the CLI from hosted dependencies
 outside the workspace and run its publish dry run. An unchanged dependency does
-not need another release. `tool/ci/verify-workspace-floors.py` keeps each
+not need another release. `wayfinder_dart_chunker` depends on
+`wayfinder_embeddings`, and no other package depends on it, so publish it after
+the `wayfinder_embeddings` version it requires is on pub.dev; it is off the
+CLI's path. `tool/ci/verify-workspace-floors.py` keeps each
 sibling floor at the sibling's own version and fails while a depended-on
 package has unreleased changes on a version pub.dev already has.
 A changelog collects those changes under `# Unreleased`, or under
@@ -55,6 +59,8 @@ Publication order:
 5. Dispatch **Distribute Wayfinder native release** against
    `wayfinder-v<version>` with that successful source CI run ID, then verify
    the public installer jobs.
+6. If `wayfinder_dart_chunker` changed, publish
+   `wayfinder_dart_chunker-v<version>` at the same checked commit.
 
 ### Release gates
 
@@ -74,8 +80,14 @@ overwrite published archives.
 `wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
 configuration accepts `btwld/wayfinder` tags matching
 `wayfinder-v{{version}}`. The core package accepts
-`wayfinder-core-v{{version}}`, and `wayfinder_embeddings` accepts
-`wayfinder_embeddings-v{{version}}`. GitHub tag
+`wayfinder-core-v{{version}}`, `wayfinder_embeddings` accepts
+`wayfinder_embeddings-v{{version}}`, and `wayfinder_dart_chunker` is to
+accept `wayfinder_dart_chunker-v{{version}}`. pub.dev can configure automated
+publishing only for a package that exists, so the first
+`wayfinder_dart_chunker` version is published by hand: from a clean checkout of
+the checked commit, a `concepta.dev` admin runs `dart pub publish` in
+`packages/wayfinder_dart_chunker`, moves the package to the publisher, and
+configures its GitHub publishing before the next version is tagged. GitHub tag
 creation using the built-in workflow token must not be relied on to trigger
 publication. Each publish workflow recognizes an already-published version and
 skips upload.
@@ -117,7 +129,8 @@ published release cannot be demoted — an immutable release accepts edits only 
 its title and notes. Deleting the release is the only way to withdraw it, and the tag name cannot be
 reused afterwards.
 
-Pub.dev publication uses OIDC for all three packages.
+Pub.dev publication uses OIDC for every package, after the first manual
+`wayfinder_dart_chunker` upload.
 
 Pass the real publish `dart pub publish --force` and nothing else. `--force`
 answers the confirmation a workflow cannot and uploads whenever there are no

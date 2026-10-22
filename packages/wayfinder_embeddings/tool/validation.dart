@@ -37,18 +37,34 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('\n1. Setting up chunkers and preview pipeline...');
-  final registry = workflow.buildDefaultRegistry();
-  final preview = workflow.PreviewResult.fromFiles(
-    registry: registry,
-    files: files,
-    fixturesDir: config.fixturesRoot,
-    onFileProcessed: (file, chunks) {
-      final relative = p.relative(file.path, from: config.fixturesRoot.path);
-      stdout.writeln('  • $relative -> ${chunks.length} chunks');
-    },
+  // The golden also supplies the chunks of files no built-in chunker handles,
+  // the corpus's Dart sources; wayfinder_dart_chunker's tests check those.
+  final golden = File(
+    p.join(config.packageRoot.path, workflow.corpusGoldenPath),
   );
+  final workflow.PreviewResult preview;
+  try {
+    final registry = workflow.buildDefaultRegistry(
+      reference: workflow.ReferenceChunks.load(golden, config.fixturesRoot),
+    );
+    preview = workflow.PreviewResult.fromFiles(
+      registry: registry,
+      files: files,
+      fixturesDir: config.fixturesRoot,
+      onFileProcessed: (file, chunks) {
+        final relative = p.relative(file.path, from: config.fixturesRoot.path);
+        stdout.writeln('  • $relative -> ${chunks.length} chunks');
+      },
+    );
+  } on Exception catch (error) {
+    stderr.writeln(error);
+    exit(1);
+  } on StateError catch (error) {
+    stderr.writeln(error.message);
+    exit(1);
+  }
 
-  _reportSkips('Preview', preview.skipped);
+  workflow.reportSkippedFiles('Preview', preview.skipped, stdout);
   stdout.writeln('Preview produced ${preview.chunks.length} total chunks.');
 
   stdout.writeln('\n2. Comparing manifest against golden snapshot...');
@@ -57,12 +73,11 @@ Future<void> main(List<String> args) async {
       packageRoot: config.packageRoot,
       fixturesDir: config.fixturesRoot,
       preview: preview,
+      goldenPath: workflow.corpusGoldenPath,
     );
   } on StateError catch (error) {
     stderr.writeln(error);
-    stderr.writeln(
-      'Inspect ${config.outputDir.path} or rerun with UPDATE_GOLDENS=1.',
-    );
+    stderr.writeln('Inspect ${config.outputDir.path}.');
     exit(1);
   }
 
@@ -89,18 +104,4 @@ String? _resolveArg(List<String> args, String key) {
   }
   final envKey = key.replaceAll('--', '').toUpperCase();
   return Platform.environment[envKey] ?? Platform.environment['${envKey}_ROOT'];
-}
-
-void _reportSkips(String label, Map<String, Map<String, String?>> skipped) {
-  if (skipped.isEmpty) {
-    stdout.writeln('$label: no files were skipped.');
-    return;
-  }
-
-  stdout.writeln('$label skipped files:');
-  skipped.forEach((path, info) {
-    final reason = info['reason'] ?? 'unspecified';
-    final inferred = info['inferredType'] ?? 'unknown';
-    stdout.writeln('  - $path ($reason - inferred $inferred)');
-  });
 }

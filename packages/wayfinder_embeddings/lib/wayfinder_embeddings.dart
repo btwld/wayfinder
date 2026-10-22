@@ -11,12 +11,11 @@ export 'src/chunking/chunker_registry.dart';
 export 'src/chunking/documents/markdown_chunker.dart';
 export 'src/chunking/documents/text_chunker.dart';
 // Language-specific chunkers
-export 'src/chunking/languages/dart_chunker.dart';
 export 'src/chunking/languages/typescript_chunker.dart';
 // Embedding
 export 'src/embedding/base_embedder.dart';
 export 'src/embedding/embedding_model_spec.dart';
-export 'src/embedding/llama_embedder.dart';
+export 'src/embedding/llama_embedder.dart' hide llamaCppWorkerStartTimeout;
 // Ingestion
 export 'src/ingestion/ingestion_pipeline.dart';
 // Core models

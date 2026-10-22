@@ -5,10 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/index_result.dart';
-import 'package:wayfinder_cli/src/knowledge.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 void main() {
   late Directory project;
@@ -128,6 +126,7 @@ void main() {
       expect(result['context'], hasLength(2));
       expect((result['bundles'] as List), hasLength(2));
       expect(knowledge.queries, ['caching']);
+      expect(knowledge.policies, [StaleIndexPolicy.serveWhileRefreshing]);
       expect(errors, isEmpty);
     },
   );
@@ -240,7 +239,7 @@ void main() {
   test(
     'stale bundle fails the full search with no partial output or implicit indexing',
     () async {
-      knowledge.stale = true;
+      knowledge.staleIndex = true;
       expect(await cli.run(['search', 'caching']), 2);
       expect(output, isEmpty);
       expect(knowledge.indexed, isEmpty);
@@ -273,32 +272,40 @@ void main() {
   });
 }
 
-class _ProjectKnowledge extends WayfinderKnowledge {
+class _ProjectKnowledge extends WayfinderKnowledgeStore {
+  _ProjectKnowledge()
+    : super(
+        dataDirectory: Directory.systemTemp,
+        encoder: DeterministicEncoderProvider(),
+      );
   final searched = <String>[];
   final queries = <String>[];
   final indexed = <String>[];
   final forced = <bool>[];
   KnowledgeMetadataFilter? receivedFilters;
-  bool stale = false;
+  bool staleIndex = false;
+  final policies = <StaleIndexPolicy>[];
   bool related = false;
 
   @override
-  Future<List<KnowledgeSearchResponse>> searchBundles(
-    List<String> bundles,
+  Future<KnowledgeProjectSearch> search(
+    List<ProjectBundle> bundles,
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     receivedFilters = filters;
-    searched.addAll(bundles);
+    searched.addAll(bundles.map((bundle) => bundle.root));
     queries.add(query);
-    if (stale) {
-      throw const WayfinderException(
-        'index-stale',
-        'Index is stale. Run wayfinder index.',
-      );
+    policies.add(stale);
+    if (staleIndex) {
+      throw const WayfinderException('index-stale', 'Index is stale.');
     }
-    return [for (final bundle in bundles) _response(bundle)];
+    return KnowledgeProjectSearch(bundles, [
+      for (final bundle in bundles) _response(bundle.root),
+    ], limit: limit);
   }
 
   KnowledgeSearchResponse _response(String bundle) {
@@ -345,13 +352,15 @@ class _ProjectKnowledge extends WayfinderKnowledge {
 
   @override
   Future<WayfinderIndexResult> index(
-    String bundle, {
+    ProjectBundle bundle, {
     bool force = false,
+    void Function(IndexProgress progress)? onProgress,
+    WayfinderCancellation? cancel,
   }) async {
-    indexed.add(bundle);
+    indexed.add(bundle.root);
     forced.add(force);
     return WayfinderIndexResult(
-      bundle: bundle,
+      bundle: bundle.root,
       index: 'saved',
       embeddedChunks: 0,
       removedChunks: 0,

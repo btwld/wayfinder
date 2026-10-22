@@ -27,6 +27,17 @@ jobs:
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
+      # llamadart's build hook downloads its native release for every test,
+      # run or build that reaches it (about 700 MiB on Windows x64). It reuses
+      # an extracted release without hashing it again, so the key names the
+      # llamadart version and release; release workflows always download.
+      - id: llamadart
+        shell: bash
+        run: python3 tool/ci/llamadart-native-cache.py
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.llamadart.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.llamadart.outputs.key }}
       - run: bash tool/ci/verify-installer-pins.sh
         shell: bash
         working-directory: .
@@ -57,6 +68,11 @@ jobs:
         working-directory: packages/wayfinder_embeddings
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_dart_chunker
+      - run: dart test
+        working-directory: packages/wayfinder_dart_chunker
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
       - run: dart test
         working-directory: packages/wayfinder_cli
@@ -70,6 +86,8 @@ jobs:
         run: python3 tool/ci/verify-independent-profile.py
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: python3 tool/ci/verify-workspace-floors.py
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: python3 tool/ci/verify-embeddings-closure.py
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder
@@ -110,14 +128,31 @@ jobs:
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
+      # As in the test job: llamadart's native release, keyed exactly.
+      - id: llamadart
+        shell: bash
+        working-directory: .
+        run: python3 tool/ci/llamadart-native-cache.py
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.llamadart.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.llamadart.outputs.key }}
       - uses: actions/cache@v4
         with:
           path: packages/wayfinder_embeddings/models
           key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
       - run: dart run tool/prepare_model.dart
+      # ObjectBoxStore's tests and the retrieval bundle's compare_embeddings
+      # need it; the knowledge store and the wayfinder bundle do not.
       - run: dart run melos run objectbox:install
         working-directory: .
-      - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
+      # The whole package: the test job skips every test that needs
+      # ObjectBox or the model. WAYFINDER_REQUIRE_NATIVE runs them anyway, as
+      # WAYFINDER_REQUIRE_JSONSCHEMA does for the schema leg, so a missing
+      # install fails this job instead of exiting 0.
+      - run: dart test
+        env:
+          WAYFINDER_REQUIRE_NATIVE: "1"
       - run: dart test
         working-directory: packages/wayfinder_cli
       - run: dart run tool/build_wayfinder.dart --offline
@@ -143,8 +178,11 @@ jobs:
           mkdir "$RUNNER_TEMP/retrieval-cwd"
           cd "$RUNNER_TEMP/retrieval-cwd"
           corpus="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/corpus"
+          # The corpus's Dart chunks replay from its golden; the bundle has no
+          # Dart chunker (see packages/wayfinder_embeddings/fixtures/README.md).
           "$RUNNER_TEMP/retrieval-bundle/bin/compare_embeddings" \
             --fixtures="$corpus" \
+            --reference-chunks="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/test/goldens/baseline_chunks.json" \
             --queries="$corpus/retrieval_queries.json" \
             --qrels="$corpus/retrieval_qrels.json" \
             --embedders=dense --store=objectbox \
