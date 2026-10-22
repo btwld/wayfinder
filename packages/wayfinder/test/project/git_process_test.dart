@@ -293,57 +293,53 @@ void main() {
     });
   });
 
-  group(
-    'with the default starter',
-    () {
-      late Directory temp;
+  group('with the default starter', () {
+    late Directory temp;
 
-      setUp(() async {
-        temp = await Directory.systemTemp.createTemp('wayfinder-git-process-');
-      });
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('wayfinder-git-process-');
+    });
 
-      tearDown(() => temp.delete(recursive: true));
+    tearDown(() => temp.delete(recursive: true));
 
-      test('a command that floods stdout is stopped', () async {
-        final watch = Stopwatch()..start();
-        await expectLater(
-          runGit(
-            ['-c', 'alias.flood=!yes', 'flood'],
-            workingDirectory: temp.path,
-            maxOutputBytes: 1 << 16,
-          ),
-          failsWith('git-output-too-large'),
-        );
-        expect(watch.elapsed, lessThan(const Duration(seconds: 20)));
-      });
+    test('a command that floods stdout is stopped', () async {
+      final watch = Stopwatch()..start();
+      await expectLater(
+        runGit(
+          ['-c', 'alias.flood=!yes', 'flood'],
+          workingDirectory: temp.path,
+          maxOutputBytes: 1 << 16,
+        ),
+        failsWith('git-output-too-large'),
+      );
+      expect(watch.elapsed, lessThan(const Duration(seconds: 20)));
+    });
 
-      test('a helper left holding stderr does not hold the command', () async {
-        final watch = Stopwatch()..start();
-        final result = await runGit([
-          '-c',
-          'alias.linger=!sleep 8 >/dev/null & echo done',
-          'linger',
-        ], workingDirectory: temp.path);
-        expect(result.exitCode, 0, reason: result.stderr);
-        expect(result.text, 'done\n');
-        expect(watch.elapsed, lessThan(const Duration(seconds: 6)));
-      });
+    test('a helper left holding stderr does not hold the command', () async {
+      final watch = Stopwatch()..start();
+      final result = await runGit([
+        '-c',
+        'alias.linger=!sleep 8 >/dev/null & echo done',
+        'linger',
+      ], workingDirectory: temp.path);
+      expect(result.exitCode, 0, reason: result.stderr);
+      expect(result.text, 'done\n');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 6)));
+    });
 
-      test('a helper left holding stdout fails the command', () async {
-        final watch = Stopwatch()..start();
-        await expectLater(
-          runGit(
-            ['-c', 'alias.linger=!sleep 6 2>/dev/null & echo done', 'linger'],
-            workingDirectory: temp.path,
-            timeout: const Duration(seconds: 2),
-          ),
-          failsWith('git-output-incomplete'),
-        );
-        expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
-      });
-    },
-    skip: Platform.isWindows ? 'the aliases are POSIX shell' : false,
-  );
+    test('a helper left holding stdout fails the command', () async {
+      final watch = Stopwatch()..start();
+      await expectLater(
+        runGit(
+          ['-c', 'alias.linger=!sleep 6 2>/dev/null & echo done', 'linger'],
+          workingDirectory: temp.path,
+          timeout: const Duration(seconds: 2),
+        ),
+        failsWith('git-output-incomplete'),
+      );
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+    });
+  }, skip: Platform.isWindows ? 'the aliases are POSIX shell' : false);
 
   group('the subcommand of a command line', () {
     test('skips global options and their values', () {
