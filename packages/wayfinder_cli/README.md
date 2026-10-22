@@ -353,6 +353,11 @@ knowledge in per-user application data on every machine that runs it. Nothing
 leaves the machine; deleting the index directory removes the copy, and indexing
 rebuilds it from the original bundle.
 
+An installed `wayfinder` loads the model from its own bundle. A source checkout's
+`wayfinder_embeddings:prepare`, and an application that embeds
+`wayfinder_embeddings`, download it once into `models/<model-id>/` under the
+same app-data root; deleting that directory costs one download.
+
 `get` keeps each Profile source as a bare mirror under `profiles/`, and the
 package file of each package it read under `profiles/packages/`, which is all
 `validate` reads. A cache from Wayfinder 0.2 has no package files; `validate`

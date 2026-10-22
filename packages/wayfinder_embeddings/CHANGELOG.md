@@ -36,6 +36,11 @@
   `EmbeddingModelCache.inDirectory`. Failures are `WayfinderException`s
   (`model-download-failed`, `model-invalid`, `cancelled`). Adds the `http`
   dependency.
+- `tool/prepare_model.dart` downloads through `EmbeddingModelCache` instead of
+  llamadart's download manager, and prints download progress. It still stages
+  `models/embedding.gguf` and its manifest, still copies a verified model from
+  the llamadart caches earlier releases filled, leaving their files there, and
+  `--offline` still refuses to download.
 
 # 0.2.0
 

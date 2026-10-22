@@ -139,7 +139,7 @@ commands using local embeddings. The following developer commands run from this 
 (`packages/wayfinder_embeddings`):
 
 ```bash
-# Download/cache and verify the pinned XS model once.
+# Download, cache and verify the pinned XS model once, then stage it in models/.
 dart run tool/prepare_model.dart
 
 # Run the fixed-query OKF fixture example with local embeddings.
@@ -322,11 +322,15 @@ melos run objectbox:install
 melos run wayfinder_embeddings:build
 ```
 
-The prepare step uses llamadart's shared download cache, an immutable revision,
-and SHA-256 verification. It stages `models/embedding.gguf` and a manifest;
-weights stay out of Git. `objectbox:install` verifies its pinned release archive
-the same way, so every native asset a bundle ships is checked against a recorded
-hash. From this package, add `--offline` to
+The prepare step downloads the model once per machine through
+[`EmbeddingModelCache`](#provision-the-model-from-an-application), from an
+immutable revision, into the cache's default directory in the Wayfinder data
+directory, and verifies its size and SHA-256. It then stages a verified copy as
+`models/embedding.gguf` with a manifest; weights stay out of Git. A model that
+an earlier release downloaded into llamadart's shared cache is copied from
+there instead, and stays where it is. `objectbox:install` verifies its pinned
+release archive the same way, so every native asset a bundle ships is checked
+against a recorded hash. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
 require an already staged or cached model. Native build hooks may still need
 their own runtime cache; `--offline` controls model acquisition only.
