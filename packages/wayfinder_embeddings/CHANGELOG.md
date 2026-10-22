@@ -1,6 +1,7 @@
 # 0.3.0 (unreleased)
 
 - Requires `wayfinder` `^0.3.0`.
+- Requires `okf` `^0.5.1`.
 
 # 0.2.0
 
