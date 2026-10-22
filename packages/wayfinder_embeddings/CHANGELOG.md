@@ -71,6 +71,7 @@
   unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
   working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
   store still builds each bundle once in its new layout (see above).
+- Requires `okf` `^0.5.1`.
 - New `package:wayfinder_embeddings/model_cache.dart` entry with
   `EmbeddingModelCache`, so an application can obtain the pinned Arctic Embed
   XS Q8_0 model itself. `target` describes the download (source URL, size,

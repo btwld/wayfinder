@@ -57,10 +57,12 @@ Bitwild. They now name generic engine capabilities and pass Bitwild's choices
 as params. `root-structure-files` uses `files-present` with `paths`.
 `source-path-unresolved` uses `path-targets-exist` with `fields`.
 `index-current` uses `matches-generated` with `generator`, `keep`, and
-`version` pinned to okf 0.5.0, so an okf upgrade in a later wayfinder cannot
-change index verdicts under a locked Bitwild. The rule ids stay, so findings
-keep their ids. Migration impact: none for bundles. Bitwild loads only on a
-wayfinder built with okf 0.5.0 until a later revision moves the pin.
+`version` pinned to okf's index generator revision 0.5.0, so a generator
+change in a later wayfinder cannot change index verdicts under a locked
+Bitwild. The rule ids stay, so findings keep their ids. Migration impact: none
+for bundles. Bitwild loads only on a wayfinder whose okf generator is at
+revision 0.5.0, as every okf 0.5 release is, until a later Bitwild release
+moves the pin.
 
 **New rule `root-index-lists-log`.** The root `index.md` of a bundle with no
 concepts must link only `log.md`. The prose text required it, but no rule

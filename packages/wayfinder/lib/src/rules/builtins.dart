@@ -41,9 +41,15 @@ final class Builtin {
     this.messageIds = const {},
     this.needsLinks = false,
     this.fix,
+    this.explainParams,
   }) : params = params ?? Ack.object({});
 
   final BuiltinBody run;
+
+  /// Why params that [params] rejects cannot load here, when the reason is
+  /// something only the engine knows, such as a pin to code it does not run.
+  /// Null when the params schema says all there is to say.
+  final String? Function(Map<String, Object?> params)? explainParams;
 
   /// Reads the OKF link graph, so [run] is skipped when it cannot be built.
   final bool needsLinks;
@@ -82,5 +88,6 @@ final builtins = <String, Builtin>{
     messagePlaceholders: {'path'},
     messageIds: {'stale', 'extra'},
     fix: generated,
+    explainParams: matchesGeneratedRevisionMismatch,
   ),
 };

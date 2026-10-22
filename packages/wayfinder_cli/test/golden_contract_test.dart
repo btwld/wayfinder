@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:okf/okf.dart' show okfVersion;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
@@ -25,9 +26,9 @@ import 'support.dart';
 /// deterministic encoder instead of the local model. Its passages are written
 /// so that no two chunks of one concept tie, because ties fall back to chunk
 /// IDs. Temporary paths, the bundle and configuration keys, chunk IDs, the
-/// Profile commit, the server version and timings are normalized; every other
-/// byte is compared. Retrieval needs ObjectBox
-/// (`melos run objectbox:install`).
+/// Profile commit, the server version, the okf release in `engine.okf` and
+/// timings are normalized; every other byte is compared. Retrieval needs
+/// ObjectBox (`melos run objectbox:install`).
 ///
 /// Regenerate with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart`
 /// only for an intended contract change, then review the diff. Regenerating
@@ -149,7 +150,25 @@ void main() {
         }),
       );
     }
-    await expectGolden('validate.json', fixture.json(payload));
+    // engine.okf is the resolved okf release, which moves with any okf patch
+    // inside the pubspec range. Pin it to okfVersion here and keep it out of
+    // the golden, as the core goldens do.
+    for (final report in reports) {
+      expect(report['engine'], {'okf': okfVersion});
+    }
+    await expectGolden(
+      'validate.json',
+      fixture.json({
+        ...payload,
+        'bundles': [
+          for (final report in reports)
+            {
+              ...report,
+              'engine': const {'okf': '<okf-package-version>'},
+            },
+        ],
+      }),
+    );
   });
 
   group(

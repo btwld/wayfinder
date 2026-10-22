@@ -1,5 +1,17 @@
 # Unreleased
 
+- `validate --fix` holds okf's exclusive bundle lock while it loads the bundle
+  again, writes the generated indexes and validates, so it waits for an okf
+  read or write of the bundle in another process instead of interleaving with
+  it. One with nothing to write takes no lock, and a lock it cannot take, as
+  in a bundle it may not write, is reported as `wayfinder/fix-failed` with
+  exit code 1, as a failed write always was.
+- Like okf's own writes, a `validate --fix` that writes leaves `.okf.lock` at
+  the bundle root. Add `.okf.lock` to the project's `.gitignore`. `index` and
+  `search` leave the file out of the bundle inventory they compare, at any
+  depth, as okf's loader does; before, a bundle holding one failed `index`
+  with `Knowledge changed while loading` and `search` reported the index
+  stale.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
@@ -52,6 +64,13 @@
   `Index is busy`.
 - Native bundles no longer include the `analyzer` packages or their license
   files. Search and indexing are unchanged; the CLI never chunked Dart source.
+- Requires `okf` `^0.5.1`. `validate --output json` reports the okf release
+  it runs as `engine.okf`, `0.5.1` or later, and a Profile's
+  `matches-generated` `version` names okf's index generator revision, which
+  stays 0.5.0. Index verdicts are unchanged, and a Profile that pins
+  `version` to `0.5.0`, such as Bitwild 2026.3, keeps loading. A `version`
+  that names another revision fails to load with a reason that names the
+  revision this wayfinder runs.
 
 # 0.2.0
 
