@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_slow_async_io
 // Tests create small temporary query files for CLI parser coverage.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -450,5 +451,58 @@ void main() {
       expect(overrides.maxNdcgDrop, 0.01);
       expect(overrides.maxMrrDrop, 0.04);
     });
+
+    test(
+      'refuses to score qrels over Dart files without reference chunks',
+      () async {
+        final temp = Directory.systemTemp.createTempSync(
+          'compare_embeddings_dart_qrels_test',
+        );
+        addTearDown(() => temp.deleteSync(recursive: true));
+        final corpus = Directory('${temp.path}/corpus')..createSync();
+        File(
+          '${corpus.path}/greeter.dart',
+        ).writeAsStringSync('class Greeter {\n  void greet() {}\n}\n');
+        File(
+          '${corpus.path}/notes.md',
+        ).writeAsStringSync('# Notes\n\nGreet people.\n');
+        final queries = File('${temp.path}/queries.json')
+          ..writeAsStringSync(jsonEncode({'q1': 'greet people'}));
+        final qrels = File('${temp.path}/qrels.json')
+          ..writeAsStringSync(
+            jsonEncode({
+              'q1': {'judged-dart-chunk': 2},
+            }),
+          );
+
+        // No model is opened: the run stops at the corpus preview.
+        final result = await Process.run(Platform.resolvedExecutable, [
+          'run',
+          'tool/compare_embeddings.dart',
+          '--fixtures=${corpus.path}',
+          '--output=${temp.path}/out',
+          '--queries=${queries.path}',
+          '--qrels=${qrels.path}',
+        ]);
+
+        expect(result.exitCode, 1, reason: '${result.stdout}${result.stderr}');
+        expect(
+          result.stdout,
+          allOf(
+            contains('Preview skipped files:'),
+            contains('greeter.dart (unsupported_content_type - inferred dart)'),
+          ),
+        );
+        expect(
+          result.stderr,
+          allOf(
+            contains('no chunker handles 1 fixture file(s): greeter.dart'),
+            contains('--reference-chunks=test/goldens/baseline_chunks.json'),
+          ),
+        );
+        expect(result.stdout, isNot(contains('Running per-embedder')));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   });
 }
