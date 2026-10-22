@@ -319,6 +319,10 @@ Future<void> main() async {
   rollback failed too. A plan commits once.
 - `prepare` and `commit` take a `WayfinderCancellation`, checked between
   steps; a cancelled commit writes nothing and leaves the plan committable.
+- Without a `selection`, `prepare` binds the bundle through the nearest
+  `wayfinder.json` above it, towards the filesystem root by default. A host
+  passes the project root it opens as `projectRoot`, and binding then reads
+  nothing above it, as `WayfinderProjectConfig.bind` does.
 
 `prepare` reads the bundle under okf's shared claim, releases it, and then
 runs the Profile assessment once through a `KnowledgeAssessor`, with plain

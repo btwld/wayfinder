@@ -853,6 +853,36 @@ void main() {
     expect(plan.assessed, isFalse);
     expect(plan.candidate.gate, GateState.incomplete);
   });
+
+  test('a project root bounds the binding, so a bundle with no '
+      'wayfinder.json within it is judged by OKF alone', () async {
+    Future<KnowledgeWritePlan> prepare(String projectRoot) => writer.prepare(
+      bundle,
+      _createContract(),
+      stamp: _agent,
+      logEntry: _creation,
+      projectRoot: projectRoot,
+    );
+    final bound = await prepare(project);
+    expect(bound.assessed, isTrue);
+    expect(bound.committable, isTrue);
+
+    // A host that opens the bundle directory itself as its project.
+    final unbound = await prepare(bundle);
+    expect(unbound.assessed, isFalse);
+    final selection = unbound.selection as UnselectedProfile;
+    expect(selection.reasons.map((reason) => reason.code), [
+      DiagnosticCode.configMissing,
+    ]);
+    // No project file was bound, so a configuration change is no reason
+    // to refuse the plan.
+    final config = File(p.join(project, 'wayfinder.json'));
+    await config.writeAsString('${await config.readAsString()}\n');
+    expect(
+      (await writer.commit(unbound)).changedPaths,
+      contains(_contract.documentPath),
+    );
+  });
 }
 
 /// Why a test cannot take write permission away, or null when it can: on
