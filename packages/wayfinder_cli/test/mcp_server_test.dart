@@ -16,6 +16,81 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
+  test('search serves the published index with notices while another '
+      'process indexes, and index reports busy', () async {
+    final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-read-');
+    addTearDown(() => temp.delete(recursive: true));
+    final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+    for (final file in Directory(
+      'test/fixtures/knowledge',
+    ).listSync().whereType<File>()) {
+      await file.copy(p.join(bundle.path, p.basename(file.path)));
+    }
+    final incoming = StreamController<List<int>>();
+    final outgoing = StreamController<List<int>>();
+    final transport = IOStreamTransport(
+      stream: incoming.stream,
+      sink: outgoing.sink,
+    );
+    final serving = WayfinderMcpServer(
+      rootPath: bundle.path,
+      knowledge: WayfinderKnowledgeStore(
+        dataDirectory: Directory(p.join(temp.path, 'data')),
+        retainEncoder: true,
+        encoder: DeterministicEncoderProvider(
+          create: () => DeterministicTestEmbedder(vectorOf: keywordVector),
+        ),
+      ),
+    ).serve(transport: transport);
+    final client = McpClient(
+      const Implementation(name: 'wayfinder-test', version: '1.0.0'),
+    );
+    await client.connect(
+      IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+    );
+    WayfinderFileLock? writer;
+    try {
+      final indexed = await client.callTool(
+        const CallToolRequest(name: 'index'),
+      );
+      expect(indexed.isError, isNot(true));
+      final index = _payload(indexed)['index']! as String;
+      final recovery = File(p.join(bundle.path, 'recovery.md'));
+      await recovery.writeAsString(
+        '${await recovery.readAsString()}\nUse a backup code.\n',
+      );
+      writer = await WayfinderFileLock.tryExclusive(
+        File(p.join(index, 'writer.lock')),
+      );
+      final found = await client.callTool(
+        const CallToolRequest(name: 'search', arguments: {'query': 'password'}),
+      );
+      expect(found.isError, isNot(true));
+      final text = (found.content.single as TextContent).text;
+      expect(text, contains('recovery.md:'));
+      expect(text, contains('match; source changed]'));
+      expect(text, contains('Notice: refresh-in-progress: '));
+      expect(text, contains('Notice: source-changed: recovery.md '));
+      final busy = await client.callTool(const CallToolRequest(name: 'index'));
+      expect(busy.isError, isTrue);
+      expect((busy.content.single as TextContent).text, contains('busy'));
+      await writer!.release();
+      final stale = await client.callTool(
+        const CallToolRequest(name: 'search', arguments: {'query': 'password'}),
+      );
+      expect(stale.isError, isTrue, reason: 'no refresh runs any more');
+      expect(
+        (stale.content.single as TextContent).text,
+        contains('Index is stale'),
+      );
+    } finally {
+      await writer?.release();
+      await client.close();
+      await transport.close();
+      await serving;
+    }
+  });
+
   test('rejects missing and non-directory roots before serving', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-root-');
     addTearDown(() => temp.delete(recursive: true));
@@ -999,6 +1074,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
   }) async {
     calls.add(
       'searchBundles:${bundles.map((b) => b.root).join(',')}:$query:$limit',
@@ -1056,6 +1132,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
   }) async {
     calls.add('search:${bundle.root}:$query:$limit');
     if (failSearch) {
@@ -1079,6 +1156,7 @@ class _HitKnowledge extends _Knowledge {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
   }) async {
     final hit = SearchResult(
       chunk: Chunk(

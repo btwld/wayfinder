@@ -26,6 +26,11 @@ def main():
         app = temp / "relocated wayfinder"
         shutil.copytree(Path(args.bundle).resolve(), app)
         binary = app / "bin" / ("wayfinder.exe" if os.name == "nt" else "wayfinder")
+        # Indexes are plain generation files: no ObjectBox library ships.
+        assert not [f for f in app.rglob("*objectbox*") if f.is_file()
+                    and "licenses" not in f.relative_to(app).parts[:1]], \
+            "the bundle ships an ObjectBox library"
+        assert not (app / "licenses" / "objectbox").exists()
         corpus = temp / "knowledge"
         shutil.copytree(workspace / "packages/wayfinder_cli/test/fixtures/knowledge", corpus)
         cwd = temp / "empty"
@@ -60,10 +65,18 @@ def main():
         assert first["embeddedChunks"] > 0
         reports[-1]["counts"] = first
         index = Path(first["index"])
+        assert index.parent.parent.name == "bundles", index
         pointer = index / "current"
         generation = pointer.read_text()
         snapshot = index / generation / "snapshot.json"
         checksum = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+        assert sorted(p.name for p in (index / generation).iterdir()) == [
+            "snapshot.json", "vectors.f32"]
+        record = json.loads(snapshot.read_text())
+        vectors = (index / generation / "vectors.f32").read_bytes()
+        assert record["vectors"]["sha256"] == hashlib.sha256(vectors).hexdigest()
+        assert vectors[:6] == b"WFVF32"
+        assert len(vectors) == 16 + 4 * record["vectors"]["dimension"] * record["vectors"]["count"]
         result = json.loads(run("fresh-search", "search", corpus,
                                 "How do I regain access after forgetting my password?",
                                 "--output=json").stdout)
@@ -90,17 +103,25 @@ def main():
         updated = json.loads(run("delete-index", "index", corpus, "--output=json").stdout)
         assert updated["removedChunks"] == 1 and updated["embeddedChunks"] == 0
 
-        # A second process cannot open the same index until the OS lock is
-        # released. The flock(2) lock file sits beside the index directory.
+        # Only writers lock: while another process holds the flock(2) writer
+        # lock in the index directory, a second index is busy, and search
+        # serves the published generation with a refresh notice (#110).
         if os.name != "nt":
             import fcntl
-            lock_file = index.parent / f"{index.name}.lock"
+            lock_file = index / "writer.lock"
             assert json.loads(lock_file.read_text()) == {"root": first["bundle"]}
             with lock_file.open("a") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 busy = run("cross-process-lock", "index", corpus, expected=2)
                 assert "busy" in busy.stderr
-            run("lock-released", "search", corpus, "password", "--output=json")
+                served = json.loads(run("search-while-indexing", "search", corpus,
+                                        "password", "--output=json").stdout)
+                assert served["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+                assert any(n.startswith("refresh-in-progress: ")
+                           for n in served["notices"]), served["notices"]
+            released = json.loads(run("lock-released", "search", corpus, "password",
+                                      "--output=json").stdout)
+            assert not any(n.startswith("refresh-") for n in released["notices"])
 
             # Killing the lock owner releases its OS lock automatically.
             holder = subprocess.Popen(
@@ -112,11 +133,38 @@ def main():
             )
             try:
                 assert holder.stdout.readline().strip() == "locked"
-                run("crash-owner-busy", "search", corpus, "password", expected=2)
+                run("crash-owner-busy", "index", corpus, "--force", expected=2)
+                run("crash-owner-search", "search", corpus, "password", "--output=json")
             finally:
                 holder.kill()
                 holder.wait(timeout=10)
-            run("crash-lock-recovered", "search", corpus, "password", "--output=json")
+            run("crash-lock-recovered", "index", corpus, "--output=json")
+
+            # A search loop in other processes keeps working while index --force
+            # publishes new generations.
+            forced = subprocess.Popen([str(binary), "index", corpus, "--force"],
+                                      cwd=cwd, env=env, text=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            start = time.perf_counter()
+            loops = refreshes = 0
+            try:
+                while forced.poll() is None or loops == 0:
+                    result = subprocess.run(
+                        [str(binary), "search", str(corpus), "password", "--output=json"],
+                        cwd=cwd, env=env, text=True, capture_output=True, timeout=90,
+                    )
+                    assert result.returncode == 0, (result.stdout, result.stderr)
+                    found = json.loads(result.stdout)
+                    assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+                    loops += 1
+                    refreshes += any(n.startswith("refresh-in-progress: ")
+                                     for n in found["notices"])
+            finally:
+                out, err = forced.communicate(timeout=120)
+            assert forced.returncode == 0, (out, err)
+            reports.append({"case": "search-loop-during-force",
+                            "wallMs": (time.perf_counter()-start)*1000,
+                            "searches": loops, "refreshNotices": refreshes})
 
         # Oversized context and indented separators are recoverable, not index failures.
         oversized = corpus / "oversized.md"
@@ -148,7 +196,7 @@ def main():
         # A genuine load failure must still preserve the published generation.
         generation = pointer.read_text()
         preserved = {name: hashlib.sha256((index / generation / name).read_bytes()).hexdigest()
-                     for name in ("snapshot.json", "data.mdb")}
+                     for name in ("snapshot.json", "vectors.f32")}
         saved = recovery.read_bytes()
         recovery.write_text("---\ntitle: [unterminated\n---\nInvalid frontmatter.\n")
         run("failed-index", "index", corpus, expected=2)

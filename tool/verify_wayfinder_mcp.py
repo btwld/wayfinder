@@ -232,16 +232,32 @@ def main():
         finally:
             server.close()
 
-        library = app / ("bin" if os.name == "nt" else "lib") / (
-            "objectbox.dll" if os.name == "nt" else
-            "libobjectbox.dylib" if sys.platform == "darwin" else "libobjectbox.so")
-        library.unlink()
+        # The server needs no ObjectBox library, and the bundle ships none.
+        assert not [f for f in app.rglob("*objectbox*") if f.is_file()
+                    and "licenses" not in f.relative_to(app).parts[:1]]
         server = Session(binary, corpus, cwd, env)
         try:
             server.initialize()
-            error = check("missing-native-library-keeps-json-stdout", lambda:
-                          server.tool("search", {"query": "password"}, error=True))
-            assert "ObjectBox native library is missing" in error, error
+            found = check("search-without-objectbox", lambda:
+                          server.tool("search", {"query": "password"}))
+            assert "### knowledge/recovery.md:" in found
+            # Only writers lock: while another process holds the writer lock,
+            # index is busy and search serves the published index (#110).
+            if os.name != "nt":
+                import fcntl
+                index = Path(json.loads(subprocess.run(
+                    [str(binary), "index", str(corpus), "--output=json"],
+                    env=env, cwd=cwd, text=True, capture_output=True,
+                    timeout=120).stdout)["index"])
+                with (index / "writer.lock").open("a") as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    busy = check("index-busy-while-held",
+                                 lambda: server.tool("index", error=True))
+                    assert "busy" in busy, busy
+                    served = check("search-while-indexing", lambda:
+                                   server.tool("search", {"query": "password"}))
+                    assert "### knowledge/recovery.md:" in served
+                    assert "Notice: refresh-in-progress: " in served, served
         finally:
             server.close()
     Path(args.output).write_text(json.dumps({"cases": reports}, indent=2) + "\n")

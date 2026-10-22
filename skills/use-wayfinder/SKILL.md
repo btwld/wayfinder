@@ -67,6 +67,9 @@ State remaining gaps without inventing facts.
 
 - For missing, stale, or incompatible indexes, refresh the same selected bundles
   and retry. Do not rebuild a working index or use `--force` routinely.
+- A `refresh-in-progress` notice means an index is running and the results come
+  from the previous one. Reread passages marked `source changed` in their files
+  before citing them.
 - Navigation/history files such as `index.md` and `log.md` are not indexed
   passages. Read them directly. Search does not read binary payloads.
 - For setup, index, validate, graph, or runtime failures, read the relevant

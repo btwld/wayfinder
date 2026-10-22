@@ -6,24 +6,6 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
-/// The ObjectBox library `melos run objectbox:install` puts in `lib/`, where
-/// ObjectBox finds it when tests run from this package.
-final objectBoxLibrary = File(
-  p.join(
-    'lib',
-    Platform.isMacOS
-        ? 'libobjectbox.dylib'
-        : Platform.isWindows
-        ? 'objectbox.dll'
-        : 'libobjectbox.so',
-  ),
-);
-
-/// Skips store tests that need ObjectBox when it is not installed.
-Object? get skipWithoutObjectBox => objectBoxLibrary.existsSync()
-    ? false
-    : 'Install ObjectBox to run store persistence tests.';
-
 /// Copies the store fixture bundle to `<parent>/<name>` and returns it as a
 /// project bundle.
 Future<ProjectBundle> copyStoreBundle(
@@ -49,7 +31,7 @@ ProjectBundle bundleAt(String path) => ProjectBundle(
 );
 
 /// A [DeterministicTestEmbedder] that can fail, and wait before encoding a
-/// query or finishing its disposal.
+/// document or a query, or before finishing its disposal.
 class TestEmbedder extends DeterministicTestEmbedder {
   TestEmbedder(String model, {this.failDocuments = false})
     : super(modelName: model);
@@ -57,11 +39,13 @@ class TestEmbedder extends DeterministicTestEmbedder {
   final bool failDocuments;
   bool failQueries = false;
   Future<void> Function(String query)? beforeQuery;
+  Future<void> Function(String text)? beforeDocument;
   Future<void> Function()? beforeDispose;
 
   @override
   Future<List<double>> generateEmbedding(String text) async {
     if (failDocuments) throw StateError('Inference failed');
+    await beforeDocument?.call(text);
     return super.generateEmbedding(text);
   }
 
@@ -114,6 +98,14 @@ final class TestEncoderProvider implements WayfinderEncoderProvider {
     return WayfinderEncoder(embedder, countTokens, maxTokens);
   }
 }
+
+/// The writer lock of the index directory [index], which index and forget
+/// hold.
+File writerLock(String index) => File(p.join(index, 'writer.lock'));
+
+/// The directory of the generation [index]'s `current` pointer names.
+Directory currentGeneration(String index) =>
+    Directory(p.join(index, File(p.join(index, 'current')).readAsStringSync()));
 
 /// Every file under [directory] by relative path, with its bytes, and every
 /// directory with an empty list: a byte-level picture of a tree.

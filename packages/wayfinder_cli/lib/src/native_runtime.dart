@@ -1,27 +1,24 @@
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
     show defaultEmbeddingModelFile, localEmbeddingModel;
 
-// The native resources only the installed command owns: ObjectBox's library
-// and the local model, located next to the executable in a native bundle or in
-// the wayfinder_embeddings package during development. The retrieval library
-// never looks for them itself (ADR-0018).
+// The native resource only the installed command owns: the local model,
+// located next to the executable in a native bundle or in the
+// wayfinder_embeddings package during development. The retrieval library
+// never looks for it itself (ADR-0018).
 
-/// The knowledge store `wayfinder` uses: Wayfinder's data directory, the
-/// local model, and ObjectBox loaded from the bundle. The MCP server
-/// [retainEncoder]s across calls; one-shot commands do not.
+/// The knowledge store `wayfinder` uses: Wayfinder's data directory and the
+/// local model. The MCP server [retainEncoder]s across calls; one-shot
+/// commands do not.
 WayfinderKnowledgeStore openKnowledgeStore({bool retainEncoder = false}) =>
     WayfinderKnowledgeStore(
       dataDirectory: WayfinderDataDirectory.resolve(),
       encoder: const _InstalledModel(),
       retainEncoder: retainEncoder,
-      loadObjectBox: loadObjectBox,
     );
 
 /// Fails with `model-missing` or `model-invalid` when
@@ -36,56 +33,6 @@ Future<void> verifyModelOverride() async {
     return;
   }
   await LocalModelEncoderProvider(modelFile: await _modelFile()).verify();
-}
-
-var _objectBoxLoaded = false;
-
-/// Loads ObjectBox's native library before ObjectBox's own discovery runs,
-/// which can print to stdout and corrupt an MCP transport. Does nothing once
-/// the process provides ObjectBox's symbols.
-Future<void> loadObjectBox() async {
-  if (_objectBoxLoaded) return;
-  // DynamicLibrary.process is unavailable on Windows.
-  if (!Platform.isWindows) {
-    try {
-      if (DynamicLibrary.process().providesSymbol('obx_version')) {
-        _objectBoxLoaded = true;
-        return;
-      }
-    } on Object {
-      // Locate the library below.
-    }
-  }
-  final name = Platform.isWindows
-      ? 'objectbox.dll'
-      : Platform.isMacOS
-      ? 'libobjectbox.dylib'
-      : 'libobjectbox.so';
-  var library = File(
-    p.join(_installation.path, Platform.isWindows ? 'bin' : 'lib', name),
-  );
-  if (!library.existsSync()) {
-    final package = await _embeddingsPackage();
-    if (package != null) library = File.fromUri(package.resolve(name));
-  }
-  if (!library.existsSync()) {
-    throw const WayfinderException(
-      'objectbox-unavailable',
-      'The ObjectBox native library is missing. Reinstall the complete '
-          'Wayfinder bundle; for source development run melos run '
-          'objectbox:install.',
-    );
-  }
-  try {
-    DynamicLibrary.open(library.absolute.path);
-  } on ArgumentError {
-    throw const WayfinderException(
-      'objectbox-unavailable',
-      'The ObjectBox native library cannot load on this platform. '
-          'Reinstall the matching Wayfinder bundle.',
-    );
-  }
-  _objectBoxLoaded = true;
 }
 
 /// The root of an installed native bundle: the parent of the executable's

@@ -6,6 +6,24 @@ import '../models/search_result.dart';
 import '../okf/knowledge_index.dart';
 import 'search_output.dart';
 
+/// What a search found out about one bundle's index besides its passages.
+final class KnowledgeSearchFreshness {
+  const KnowledgeSearchFreshness({
+    this.refreshing = false,
+    this.changedPaths = const {},
+  });
+
+  /// Another operation was refreshing the bundle's index, and the search
+  /// served the last published generation
+  /// (`StaleIndexPolicy.serveWhileRefreshing`).
+  final bool refreshing;
+
+  /// Bundle-relative paths added, removed or edited after the served
+  /// generation was built; empty unless a stale generation was served while
+  /// [refreshing].
+  final Set<String> changedPaths;
+}
+
 /// One cited passage of a search: a match, or context reached from one.
 ///
 /// [sourcePath] is relative to [bundle]'s root, and [lineStart] to
@@ -20,12 +38,14 @@ final class KnowledgeCitation {
     required this.reason,
     this.viaPath,
     this.relationship,
+    this.sourceChanged = false,
   });
 
   factory KnowledgeCitation._of(
     ProjectBundle bundle,
     SearchResult result, {
     required String reason,
+    required KnowledgeSearchFreshness freshness,
     String? viaPath,
     String? relationship,
   }) => KnowledgeCitation._(
@@ -35,15 +55,18 @@ final class KnowledgeCitation {
     reason: reason,
     viaPath: viaPath,
     relationship: relationship,
+    sourceChanged: freshness.changedPaths.contains(result.chunk.sourcePath),
   );
 
   factory KnowledgeCitation._context(
     ProjectBundle bundle,
     KnowledgeContextHit hit,
+    KnowledgeSearchFreshness freshness,
   ) => KnowledgeCitation._of(
     bundle,
     hit.result,
     reason: hit.reason,
+    freshness: freshness,
     viaPath: hit.viaPath,
     relationship: hit.fieldEdge?.name,
   );
@@ -67,6 +90,11 @@ final class KnowledgeCitation {
   /// The typed `relationships` entry this context was reached through, such
   /// as `depends-on`; null for an untyped body link.
   final String? relationship;
+
+  /// The passage's file changed after the served index was built, so the
+  /// cited lines may no longer hold this text. Only a search that served a
+  /// stale generation during a refresh sets it.
+  final bool sourceChanged;
 
   String get sourcePath => chunk.sourcePath;
   int get lineStart => chunk.lineStart;
@@ -112,13 +140,20 @@ final class KnowledgeProjectSearch {
   /// Ranks the per-bundle [responses], one for each of [bundles] in order,
   /// keeping the best [limit] matches and at most [limit] context passages:
   /// each match, followed by the relationship context reached from it.
+  /// [freshness], when given, has one entry per bundle too.
   KnowledgeProjectSearch(
     List<ProjectBundle> bundles,
     List<KnowledgeSearchResponse> responses, {
     required int limit,
+    List<KnowledgeSearchFreshness>? freshness,
   }) : bundles = List.unmodifiable(bundles),
-       responses = List.unmodifiable(responses) {
-    if (bundles.length != responses.length) {
+       responses = List.unmodifiable(responses),
+       freshness = List.unmodifiable(
+         freshness ??
+             List.filled(bundles.length, const KnowledgeSearchFreshness()),
+       ) {
+    if (bundles.length != responses.length ||
+        this.freshness.length != bundles.length) {
       throw ArgumentError('Supply one response per bundle.');
     }
     final candidates =
@@ -143,20 +178,40 @@ final class KnowledgeProjectSearch {
       }
     }
 
+    KnowledgeSearchFreshness freshnessOf(ProjectBundle bundle) =>
+        this.freshness[bundles.indexOf(bundle)];
     for (final match in ranked) {
-      add(KnowledgeCitation._of(match.bundle, match.hit, reason: 'match'));
+      add(
+        KnowledgeCitation._of(
+          match.bundle,
+          match.hit,
+          reason: 'match',
+          freshness: freshnessOf(match.bundle),
+        ),
+      );
       final response = responses[bundles.indexOf(match.bundle)];
       for (final related in response.context.where(
         (hit) =>
             hit.reason == 'relationship' &&
             hit.viaPath == match.hit.chunk.sourcePath,
       )) {
-        add(KnowledgeCitation._context(match.bundle, related));
+        add(
+          KnowledgeCitation._context(
+            match.bundle,
+            related,
+            freshnessOf(match.bundle),
+          ),
+        );
       }
     }
     matches = List.unmodifiable([
       for (final match in ranked)
-        KnowledgeCitation._of(match.bundle, match.hit, reason: 'match'),
+        KnowledgeCitation._of(
+          match.bundle,
+          match.hit,
+          reason: 'match',
+          freshness: freshnessOf(match.bundle),
+        ),
     ]);
     this.context = List.unmodifiable(context);
     notices = List.unmodifiable([
@@ -170,6 +225,9 @@ final class KnowledgeProjectSearch {
 
   /// Each bundle's own response, which the result was ranked from.
   final List<KnowledgeSearchResponse> responses;
+
+  /// What the search found out about each bundle's index, in order.
+  final List<KnowledgeSearchFreshness> freshness;
 
   /// The best matches across all bundles, best first.
   late final List<KnowledgeCitation> matches;
@@ -191,6 +249,7 @@ final class KnowledgeProjectSearch {
           'bundlePath': match.bundle.path,
           'chunk': match.chunk.toMap(),
           'similarity': match.similarity,
+          if (match.sourceChanged) 'sourceChanged': true,
         },
     ],
     'context': [
@@ -202,6 +261,7 @@ final class KnowledgeProjectSearch {
           'similarity': entry.similarity,
           'reason': entry.reason,
           'viaPath': ?entry.viaPath,
+          if (entry.sourceChanged) 'sourceChanged': true,
         },
     ],
     'notices': notices,
@@ -225,23 +285,35 @@ final class KnowledgeProjectSearch {
     reason: citation.reason,
     relationship: citation.relationship,
     viaPath: citation.viaPath,
+    sourceChanged: citation.sourceChanged,
   );
 }
 
 /// A search of one bundle, with its context unranked against other bundles.
 final class KnowledgeBundleSearch {
-  KnowledgeBundleSearch(this.bundle, this.response)
-    : matches = List.unmodifiable([
-        for (final hit in response.matches)
-          KnowledgeCitation._of(bundle, hit, reason: 'match'),
-      ]),
-      context = List.unmodifiable([
-        for (final hit in response.context)
-          KnowledgeCitation._context(bundle, hit),
-      ]);
+  KnowledgeBundleSearch(
+    this.bundle,
+    this.response, {
+    this.freshness = const KnowledgeSearchFreshness(),
+  }) : matches = List.unmodifiable([
+         for (final hit in response.matches)
+           KnowledgeCitation._of(
+             bundle,
+             hit,
+             reason: 'match',
+             freshness: freshness,
+           ),
+       ]),
+       context = List.unmodifiable([
+         for (final hit in response.context)
+           KnowledgeCitation._context(bundle, hit, freshness),
+       ]);
 
   /// The bundle searched.
   final ProjectBundle bundle;
+
+  /// What the search found out about the bundle's index.
+  final KnowledgeSearchFreshness freshness;
 
   /// The underlying response, with the graph edges each context passage was
   /// reached through.
@@ -266,11 +338,16 @@ final class KnowledgeBundleSearch {
           'reason': entry.reason,
           'viaPath': ?entry.viaPath,
           'relationship': ?entry.relationship,
+          if (entry.sourceChanged) 'sourceChanged': true,
         },
     ],
     'matches': [
       for (final match in matches)
-        {'chunk': match.chunk.toMap(), 'similarity': match.similarity},
+        {
+          'chunk': match.chunk.toMap(),
+          'similarity': match.similarity,
+          if (match.sourceChanged) 'sourceChanged': true,
+        },
     ],
     'notices': notices,
   };
@@ -288,6 +365,7 @@ final class KnowledgeBundleSearch {
       reason: citation.reason,
       relationship: citation.relationship,
       viaPath: citation.viaPath,
+      sourceChanged: citation.sourceChanged,
     );
     return renderSearchMarkdown(
       matches: [for (final match in matches) passage(match)],
