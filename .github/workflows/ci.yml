@@ -124,7 +124,9 @@ jobs:
       - run: dart run tool/prepare_model.dart
       - run: dart run melos run objectbox:install
         working-directory: .
-      - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
+      # The whole package: the test job skips every test that needs
+      # ObjectBox or the model, including the knowledge store's.
+      - run: dart test
       - run: dart test
         working-directory: packages/wayfinder_cli
       - run: dart run tool/build_wayfinder.dart --offline
