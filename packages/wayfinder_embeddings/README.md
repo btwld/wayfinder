@@ -131,7 +131,14 @@ try {
   included, with its `writer.lock` and the directories that leaves empty;
   `forgetProjectRoot` does the same for every bundle at or inside a project
   root, which it finds by the bundle root each index's `writer.lock`
-  records, so it works once the worktree is gone. `prune` deletes the
+  records, so it works once the worktree is gone. It is `index-busy`,
+  deleting nothing, while an operation holds one of those indexes or one
+  whose recorded root cannot be read; Windows reads no held lock file, so
+  there it is busy while any bundle that has no other configuration's index
+  is being indexed, whichever project it belongs to. An index whose lock
+  records no root, as an interrupted writer can leave, is not found, and
+  `prune` keeps it too while its configuration is the store's; `forget` of
+  its bundle deletes it. `prune` deletes the
   indexes of roots that no longer exist and of other configurations unused
   for 30 days, the `get` locks of project roots that no longer exist
   (`WayfinderProfileResolver.pruneProjectLocks`), and model downloads

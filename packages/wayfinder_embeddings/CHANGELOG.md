@@ -249,8 +249,14 @@ bullets above ship first, move these under the next release.
   at or inside a project root, found by the bundle root each index's
   `writer.lock` records, so a host can remove a deleted worktree's indexes
   without its bundle list. It returns the bundle roots it forgot, and throws
-  `index-busy`, deleting nothing, while an operation indexes one of them. A
-  blank root, which would name the working directory, is refused.
+  `index-busy`, deleting nothing, while an operation indexes one of them, or
+  holds an index whose recorded root cannot be read. Windows reads no held
+  lock file, so there it is busy while any bundle that has no other
+  configuration's index is being indexed, whichever project it belongs to.
+  An index whose lock records no root, as an interrupted writer can leave,
+  is not found; while its configuration is the store's, `prune` keeps it
+  too, and `forget` of its bundle deletes it. A blank root, which would name
+  the working directory, is refused.
 
 # 0.2.0
 

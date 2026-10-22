@@ -224,8 +224,10 @@ exclude one of this release. Only writers hold an index's lock: searches read
 immutable generations without it, so a search during an index keeps working
 ([ADR-0010](0010-wayfinder-cli.md)). The writer lock records the bundle root,
 which also lets `forgetProjectRoot` find the bundles of a project that is
-gone, and its modification time is the index's last use: a writer writes the
-note, and a search or `status` sets the time. `forget` and `forgetProjectRoot`
+gone; a held lock whose note it cannot read, as on Windows, makes it
+`index-busy` rather than skip an index that may be the project's. Its
+modification time is the index's last use: a writer writes the note, and a
+search or `status` sets the time. `forget` and `forgetProjectRoot`
 delete the index's pointer and generations while holding the lock, then the
 lock file and the directories that leaves empty, since a host forgets an
 index it means to be gone, such as a removed worktree's. `prune` deletes the
