@@ -838,6 +838,18 @@ Future<void> main(List<String> arguments) async {
         expect(await store().forgetProjectRoot(project.path), hasLength(2));
       });
 
+      test('refuses a blank root, which would name the working '
+          'directory', () async {
+        final before = await treeBytes(indexes());
+        for (final blank in ['', '  ']) {
+          await expectLater(
+            store().forgetProjectRoot(blank),
+            throwsArgumentError,
+          );
+        }
+        expect(await treeBytes(indexes()), before);
+      });
+
       test('leaves an index whose lock records no root for prune', () async {
         final unnoted = writerLock(indexed[nested]!.single);
         await unnoted.writeAsString('');
