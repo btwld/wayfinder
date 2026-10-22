@@ -284,8 +284,11 @@ cache snapshots and still load their own model. Configure the host's
 tool timeout for first-use startup and the size of the corpus. A second `index`
 of a bundle while one runs returns a busy error; `search` meanwhile serves the
 last completed index with a `refresh-in-progress` notice, as the command does.
-On disconnect, active operations finish
-and release their resources; cancellation does not roll back indexing. The
+A `search` the client cancels stops before its next step, such as encoding
+the query or scoring passages, and so does one still running when the client
+disconnects. On disconnect, other active operations finish, an `index`
+included, and release their resources; cancellation does not roll back
+indexing. The
 server projects the ordinary OKF graph and does not expose upstream OKF's
 concept-authoring write tools. See [ADR-0012](../../docs/adr/0012-wayfinder-graph-projection.md).
 
