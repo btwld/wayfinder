@@ -144,6 +144,116 @@ void main() {
     expect(validation.profileId, _bitwild);
   });
 
+  test('every Git command of a plan runs under the mirror lock', () async {
+    final unlocked = <String>[];
+    final locking = WayfinderProfileResolver(
+      dataDirectory: data,
+      git: (arguments, {workingDirectory, cancel}) async {
+        if (!await WayfinderFileLock.isHeld(mirrorLock())) {
+          unlocked.add(arguments.join(' '));
+        }
+        calls.add(arguments);
+        return runGit(
+          arguments,
+          workingDirectory: workingDirectory,
+          cancel: cancel,
+        );
+      },
+    );
+    await locking.resolve(project.path);
+    expect(calls.map((call) => call.first), containsAll(['clone', 'show']));
+    expect(calls.map((call) => call.first), contains('ls-tree'));
+    expect(unlocked, isEmpty);
+    expect(await WayfinderFileLock.isHeld(mirrorLock()), isFalse);
+  });
+
+  group('a cache an earlier Wayfinder wrote', () {
+    Future<void> dropPackageFiles() async {
+      await resolver.resolve(project.path);
+      await Directory(
+        p.join(data.path, 'profiles', 'packages'),
+      ).delete(recursive: true);
+      calls.clear();
+    }
+
+    test('select reports it without running Git', () async {
+      await dropPackageFiles();
+      final selection = await resolver.select(bundle());
+      expect(
+        selection,
+        isA<UnselectedProfile>().having(
+          (selection) => selection.reasons.single.message,
+          'message',
+          contains('as in a cache an earlier Wayfinder wrote'),
+        ),
+      );
+      expect(calls, isEmpty);
+    });
+
+    test('validation restores it from the mirror without fetching', () async {
+      await dropPackageFiles();
+      final validation = await validateWithProfileSources(
+        bundle(),
+        resolver: resolver,
+      );
+      expect(validation.profileId, _bitwild);
+      expect(calls, [
+        [
+          'show',
+          '${await _lockedCommit(lockFile())}:profiles/bitwild/'
+              'wayfinder-profile.json',
+        ],
+      ]);
+      calls.clear();
+      expect(await resolver.select(bundle()), isA<SelectedProfile>());
+      expect(
+        await validateWithProfileSources(bundle(), resolver: resolver),
+        isA<ProfileValidationResult>().having(
+          (result) => result.profileId,
+          'profileId',
+          _bitwild,
+        ),
+      );
+      expect(calls, isEmpty);
+    });
+
+    test('restoring skips a mirror another process holds', () async {
+      await dropPackageFiles();
+      final held = (await WayfinderFileLock.tryExclusive(mirrorLock()))!;
+      try {
+        expect(await resolver.restoreCachedPackages(bundle()), 0);
+        expect(
+          (await validateWithProfileSources(
+            bundle(),
+            resolver: resolver,
+          )).profileId,
+          isNull,
+        );
+      } finally {
+        await held.release();
+      }
+      expect(calls, isEmpty);
+      expect(await resolver.restoreCachedPackages(bundle()), 1);
+    });
+
+    test('restoring needs a current lock', () async {
+      await dropPackageFiles();
+      final config = File(p.join(project.path, 'wayfinder.json'));
+      final value = jsonDecode(await config.readAsString()) as Map;
+      ((value['profiles'] as Map)['bitwild-profile'] as Map)['tags'] = [
+        {'name': 'billing', 'description': 'Billing topic'},
+      ];
+      await config.writeAsString(jsonEncode(value));
+      expect(await resolver.restoreCachedPackages(bundle()), 0);
+      final selection = await resolver.select(bundle());
+      expect(
+        (selection as UnselectedProfile).reasons.single.message,
+        startsWith('Profile lock is stale'),
+      );
+      expect(calls, isEmpty);
+    });
+  });
+
   group('apply refuses a plan whose inputs changed', () {
     test('wayfinder.json', () async {
       final plan = await resolver.plan(project.path);
@@ -275,4 +385,10 @@ void main() {
     );
     expect(await lockFile().exists(), isFalse);
   });
+}
+
+Future<String> _lockedCommit(File lock) async {
+  final packages =
+      (jsonDecode(await lock.readAsString()) as Map)['packages'] as Map;
+  return (packages['bitwild-profile'] as Map)['resolved_commit'] as String;
 }

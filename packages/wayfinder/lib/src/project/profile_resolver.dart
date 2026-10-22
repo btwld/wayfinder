@@ -290,9 +290,12 @@ final class ProfileResolutionPlan {
 ///
 /// - `profiles/<sha256(location)>/`, a bare mirror of each source, and
 ///   beside it `profiles/<sha256(location)>.lock`, held while a planner
-///   clones or refreshes it, for up to [mirrorLockTimeout];
+///   clones, refreshes or reads it; another planner waits for up to
+///   [mirrorLockTimeout];
 /// - `profiles/packages/<sha256(commit, path)>.json`, the package file of
 ///   each package a plan read, so [select] reads files and never runs Git;
+///   [restoreCachedPackages] fills it from the mirrors for a cache an
+///   earlier Wayfinder wrote;
 /// - `projects/<sha256(root)>.get.lock`, held while [apply] or [resolve]
 ///   changes a project, and recording that project's root.
 final class WayfinderProfileResolver {
@@ -404,7 +407,7 @@ final class WayfinderProfileResolver {
       }
       final packages = <ProfilePackage>[];
       for (final (index, locked) in chain.indexed) {
-        final package = await _readCached(locked);
+        final package = await _readCached(locked, bound.projectRoot);
         if (!_matchesLockedParent(
           package.parent,
           child: locked,
@@ -440,6 +443,74 @@ final class WayfinderProfileResolver {
     } on FileSystemException catch (error) {
       return unselected(unresolved, error.message);
     }
+  }
+
+  /// Copies each package file [select] reads for [bundle] that the cache
+  /// lacks out of its source's mirror, as after upgrading from Wayfinder
+  /// 0.2, whose cache kept only the mirrors. Runs only `git show` on a
+  /// mirror that already exists, under its lock: never fetches, never
+  /// waits for another holder of a mirror, and never writes in the project.
+  /// Does nothing unless the lock is current and holds [bundle]'s chain.
+  /// Returns how many files it wrote; [select] reports what is still
+  /// missing.
+  Future<int> restoreCachedPackages(
+    String bundle, {
+    String? configPath,
+    WayfinderCancellation? cancel,
+  }) async {
+    var restored = 0;
+    try {
+      final bound = await WayfinderProjectConfig.bind(
+        bundle,
+        configPath: configPath,
+      );
+      final lock = await _readLock(
+        File(p.join(bound.projectRoot, 'wayfinder.lock')),
+      );
+      if (lock == null ||
+          lock.configurationSha256 !=
+              canonicalConfigurationSha256(bound.source)) {
+        return 0;
+      }
+      final session = _Session(
+        projectRoot: bound.projectRoot,
+        upgrade: false,
+        previous: lock,
+        cancel: cancel,
+      );
+      for (final locked
+          in lock.chainOf(bound.binding.id) ?? <LockedPackage>[]) {
+        final snapshot = _snapshotFile(locked.commit, locked.path);
+        final mirror = _repositoryCache(
+          _gitLocation(locked.git, bound.projectRoot),
+        );
+        if (await snapshot.exists() || !await mirror.exists()) continue;
+        final held = await WayfinderFileLock.tryExclusive(_mirrorLock(mirror));
+        if (held == null) continue;
+        try {
+          final result = await _git(session, [
+            'show',
+            '${locked.commit}:${locked.path}/wayfinder-profile.json',
+          ], workingDirectory: mirror.path);
+          if (result.exitCode != 0) continue;
+          await _keep(snapshot, result.stdout);
+          restored++;
+        } finally {
+          await held.release();
+        }
+      }
+    } on BundleBindingException {
+      // select reports the binding.
+    } on FileSystemException {
+      // select reports what it cannot read.
+    } on FormatException {
+      // select reports a configuration it cannot parse.
+    } on ProcessException {
+      // Git cannot run; select reports the missing file.
+    } on WayfinderException catch (error) {
+      if (error.code == 'cancelled') rethrow;
+    }
+    return restored;
   }
 
   static String canonicalConfigurationSha256(String raw) =>
@@ -698,24 +769,34 @@ final class WayfinderProfileResolver {
           })
         >[];
     var source = binding.source;
-    var checkout = await _checkout(source, session);
+    // The commit to read [source] at: resolved for each new source, and kept
+    // for a parent at the same revision.
+    String? commit;
     ProfileId? configured = binding.id;
     while (true) {
       throwIfCancelled(session.cancel);
-      final package = await _readPackage(
-        checkout.repository,
-        checkout.commit,
-        source,
-        session,
-        expected: configured == null ? null : (configured, 'the configuration'),
-      );
+      final expected = configured == null
+          ? null
+          : (configured, 'the configuration');
+      final (resolved, package) = await _withMirror(source, session, (
+        location,
+        mirror,
+      ) async {
+        final at =
+            commit ?? await _checkoutLocked(source, location, mirror, session);
+        return (
+          at,
+          await _readPackage(mirror, at, source, session, expected: expected),
+        );
+      });
+      commit = resolved;
       if (members.any((member) => member.package.id == package.id)) {
         throw WayfinderProfileResolutionException(
           'Profile ${package.id} extends itself through '
           '${members.map((member) => member.package.id).join(', ')}.',
         );
       }
-      members.add((source: source, commit: checkout.commit, package: package));
+      members.add((source: source, commit: resolved, package: package));
       configured = null;
       switch (package.parent) {
         case null:
@@ -744,7 +825,7 @@ final class WayfinderProfileResolver {
           );
         case OtherRevision(source: final parent):
           source = parent;
-          checkout = await _checkout(parent, session);
+          commit = null;
       }
     }
   }
@@ -799,14 +880,14 @@ final class WayfinderProfileResolver {
     }
   }
 
-  /// The mirror of [source]'s repository and the commit to read. Keeps a
-  /// commit the previous lock pinned for the same source unless upgrading,
-  /// and fetches only when the mirror is missing or a ref must move. Holds
-  /// the mirror's lock throughout, so two planners never clone or refresh
-  /// one mirror at once.
-  Future<({Directory repository, String commit})> _checkout(
+  /// Runs [action] on the mirror of [source]'s repository while holding the
+  /// mirror's lock, so no other planner clones, refreshes or reads it
+  /// meanwhile. Waits up to [mirrorLockTimeout] for another holder. Callers
+  /// never nest it: one mirror's lock at a time cannot deadlock.
+  Future<T> _withMirror<T>(
     WayfinderProfileSource source,
     _Session session,
+    Future<T> Function(String location, Directory mirror) action,
   ) async {
     final location = _gitLocation(source.git, session.projectRoot);
     final root = _repositoryCache(location);
@@ -814,7 +895,7 @@ final class WayfinderProfileResolver {
     final WayfinderFileLock lock;
     try {
       lock = await WayfinderFileLock.exclusive(
-        File('${root.path}.lock'),
+        _mirrorLock(root),
         timeout: mirrorLockTimeout,
         cancel: session.cancel,
       );
@@ -827,13 +908,19 @@ final class WayfinderProfileResolver {
       );
     }
     try {
-      return await _checkoutLocked(source, location, root, session);
+      return await action(location, root);
     } finally {
       await lock.release();
     }
   }
 
-  Future<({Directory repository, String commit})> _checkoutLocked(
+  static File _mirrorLock(Directory mirror) => File('${mirror.path}.lock');
+
+  /// The commit of [source] to read from its mirror [root], under the
+  /// mirror's lock. Keeps a commit the previous lock pinned for the same
+  /// source unless upgrading, and fetches only when the mirror is missing or
+  /// a ref must move.
+  Future<String> _checkoutLocked(
     WayfinderProfileSource source,
     String location,
     Directory root,
@@ -882,10 +969,7 @@ final class WayfinderProfileResolver {
       _checkGit(result, 'refresh Profile source ${source.git}');
     }
     if (preferred == null) {
-      return (
-        repository: root,
-        commit: await _resolveRefWithFetch(root, source, session),
-      );
+      return _resolveRefWithFetch(root, source, session);
     }
     if (!await _hasCommit(root, preferred, session)) {
       session.fetched = true;
@@ -907,7 +991,7 @@ final class WayfinderProfileResolver {
         );
       }
     }
-    return (repository: root, commit: preferred);
+    return preferred;
   }
 
   Future<GitResult> _git(
@@ -1024,12 +1108,21 @@ final class WayfinderProfileResolver {
           .every((segment) => !const {'', '.', '..'}.contains(segment));
 
   /// [locked]'s package from the file a plan kept, without Git.
-  Future<ProfilePackage> _readCached(LockedPackage locked) async {
+  Future<ProfilePackage> _readCached(
+    LockedPackage locked,
+    String projectRoot,
+  ) async {
     final file = _snapshotFile(locked.commit, locked.path);
     if (!await file.exists()) {
+      final mirror = _repositoryCache(_gitLocation(locked.git, projectRoot));
       throw WayfinderProfileResolutionException(
-        'Profile ${locked.id} at ${locked.git} (${locked.commit}) is not in '
-        'the local cache. Run wayfinder get.',
+        await mirror.exists()
+            ? 'Profile ${locked.id} at ${locked.git} (${locked.commit}) has '
+                  'no package file in the local cache, as in a cache an '
+                  'earlier Wayfinder wrote. Run wayfinder get; it fetches '
+                  'nothing while the cached source holds that commit.'
+            : 'Profile ${locked.id} at ${locked.git} (${locked.commit}) is '
+                  'not in the local cache. Run wayfinder get.',
       );
     }
     final package = _parsePackage(
@@ -1048,18 +1141,27 @@ final class WayfinderProfileResolver {
   }
 
   /// Every file of [locked]'s skill directory [skill] at its locked commit,
-  /// read from the mirror the plan just resolved. Only regular files at
-  /// plain relative paths are installed: a symlink or submodule could point
-  /// outside the skill, and git stores tree entry names such as `..`
-  /// verbatim, so a crafted tree could name a path outside it.
+  /// read from the mirror the plan just resolved, under the mirror's lock.
+  /// Only regular files at plain relative paths are installed: a symlink or
+  /// submodule could point outside the skill, and git stores tree entry
+  /// names such as `..` verbatim, so a crafted tree could name a path
+  /// outside it.
   Future<List<SkillFile>> _skillFiles(
     LockedPackage locked,
     String skill,
     _Session session,
+  ) => _withMirror(
+    locked.source,
+    session,
+    (_, repository) => _readSkillFiles(repository, locked, skill, session),
+  );
+
+  Future<List<SkillFile>> _readSkillFiles(
+    Directory repository,
+    LockedPackage locked,
+    String skill,
+    _Session session,
   ) async {
-    final repository = _repositoryCache(
-      _gitLocation(locked.git, session.projectRoot),
-    );
     final tree = p.posix.join(locked.path, skill);
     final origin =
         'Profile ${locked.id} skill $tree at ${locked.git} (${locked.commit})';
@@ -1296,18 +1398,28 @@ final class _Session {
   final snapshots = <String, String>{};
 }
 
-/// The read-only validation the CLI and MCP server share: [resolver]'s
-/// selection for [bundle], then [ProfileValidator.validate].
+/// The validation the CLI and MCP server share: [resolver]'s selection for
+/// [bundle], then [ProfileValidator.validate]. When no Profile is selected,
+/// it first restores package files the cache lacks out of the existing
+/// Profile mirrors ([WayfinderProfileResolver.restoreCachedPackages]) and
+/// selects again, so a cache Wayfinder 0.2 wrote validates as it did. That
+/// runs `git show` through the resolver's runner and never fetches; with a
+/// complete cache, validation runs no Git. It writes nothing in the project
+/// beyond what [fix] writes in [bundle].
 Future<ProfileValidationResult> validateWithProfileSources(
   String bundle, {
   String? configPath,
   required WayfinderProfileResolver resolver,
   bool fix = false,
-}) async => const ProfileValidator().validate(
-  bundle,
-  await resolver.select(bundle, configPath: configPath),
-  fix: fix,
-);
+}) async {
+  var selection = await resolver.select(bundle, configPath: configPath);
+  if (selection is UnselectedProfile &&
+      await resolver.restoreCachedPackages(bundle, configPath: configPath) >
+          0) {
+    selection = await resolver.select(bundle, configPath: configPath);
+  }
+  return const ProfileValidator().validate(bundle, selection, fix: fix);
+}
 
 ProfileId? _profileIdOrNull(String value) {
   try {

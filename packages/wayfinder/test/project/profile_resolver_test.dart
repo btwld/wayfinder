@@ -1729,8 +1729,10 @@ void main() {
       expect(diagnostic.code, DiagnosticCode.profileUnresolved);
       expect(
         diagnostic.message,
-        'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) is '
-        'not in the local cache. Run wayfinder get.',
+        'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) has '
+        'no package file in the local cache, as in a cache an earlier '
+        'Wayfinder wrote. Run wayfinder get; it fetches nothing while the '
+        'cached source holds that commit.',
       );
     });
 
