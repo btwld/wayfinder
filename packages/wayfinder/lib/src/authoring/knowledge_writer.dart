@@ -302,6 +302,8 @@ final class KnowledgeWriter {
   ///
   /// [cancel] is checked between steps and passed to the resolver and the
   /// assessor; a cancelled prepare throws [WayfinderException.cancelled].
+  /// What the assessor throws, `prepare` throws; an assessment it returns
+  /// without a base throws [WayfinderException] `assessment-failed`.
   ///
   /// Throws [KnowledgeChangeException] for a change that cannot be
   /// described against the bundle, [KnowledgeStaleWriteException] when the
@@ -421,9 +423,10 @@ final class KnowledgeWriter {
     throwIfCancelled(cancel);
     final judgedBase =
         assessment.base ??
-        (throw StateError(
+        (throw const WayfinderException(
+          'assessment-failed',
           'The KnowledgeAssessor returned no base for a write; return what '
-          'KnowledgeAssessmentInput.assess returns.',
+              'KnowledgeAssessmentInput.assess returns.',
         ));
     final (:introduced, :preExisting) = _delta(
       assessment.baseFindings,

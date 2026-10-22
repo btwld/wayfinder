@@ -145,6 +145,7 @@ final class KnowledgeAssessmentInput {
       }
     });
     Timer? deadline;
+    final hook = _CancelHook();
     try {
       final Isolate isolate;
       try {
@@ -181,15 +182,15 @@ final class KnowledgeAssessmentInput {
           ),
         ),
       );
-      unawaited(
-        cancel?.whenCancelled.then(
-          (_) => stop(const WayfinderException.cancelled()),
-        ),
-      );
+      // A cancellation outlives this call, so what it holds is only [hook],
+      // which forgets the isolate and the outcome once the call ends.
+      hook.action = () => stop(const WayfinderException.cancelled());
+      if (cancel != null) unawaited(cancel.whenCancelled.then(hook.fire));
       final result = await outcome.future;
       if (result is KnowledgeAssessment) return result;
       throw result;
     } finally {
+      hook.action = null;
       deadline?.cancel();
       port.close();
     }
@@ -199,6 +200,15 @@ final class KnowledgeAssessmentInput {
       duration.inMilliseconds % 1000 == 0
       ? '${duration.inSeconds} s'
       : '${duration.inMilliseconds} ms';
+}
+
+/// What a cancellation calls back into one
+/// [KnowledgeAssessmentInput.assessWithin]: [action] while that call runs,
+/// nothing once it has ended.
+final class _CancelHook {
+  void Function()? action;
+
+  void fire(void _) => action?.call();
 }
 
 void _assessOnIsolate((SendPort, KnowledgeAssessmentInput) message) {

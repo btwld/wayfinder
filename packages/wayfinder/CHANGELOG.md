@@ -39,7 +39,9 @@
     `assessment-timeout`, `cancelled` or `assessment-failed`. Adoption takes
     the same `KnowledgeAssessor`; its input
     (`KnowledgeAssessmentInput.bundle`) has no `base`, so
-    `KnowledgeAssessment.base` is null for it.
+    `KnowledgeAssessment.base` is null for it. `prepare` throws
+    `assessment-failed` when a host assessor returns no `base` for a
+    write.
   - `prepare` and `commit` take a `WayfinderCancellation`, checked between
     steps and passed to the resolver and the assessor; a cancelled commit
     writes nothing and leaves the plan committable.
