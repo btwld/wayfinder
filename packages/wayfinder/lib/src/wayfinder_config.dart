@@ -196,11 +196,14 @@ final class WayfinderProjectConfig {
   ///
   /// Without [configPath], the search starts in the bundle's parent
   /// directory and climbs towards the filesystem root. [projectRoot] bounds
-  /// it: the search then reads `wayfinder.json` only in the directories from
-  /// the bundle's parent up to [projectRoot] itself, never above it, and
-  /// finds none for a bundle outside [projectRoot]. Both paths are compared
-  /// with their symbolic links resolved. An explicit [configPath] is read
-  /// wherever it is.
+  /// it: the search climbs the same directories but reads `wayfinder.json`
+  /// only in those whose real path is [projectRoot] or inside it, and stops
+  /// at [projectRoot] or at the first directory above it, so it finds none
+  /// for a bundle outside [projectRoot]. Symbolic links are resolved only
+  /// for that comparison: a bundle that is itself a symbolic link binds the
+  /// same `wayfinder.json` with or without the bound, and one that resolves
+  /// outside its project still reports `config-invalid`. An explicit
+  /// [configPath] is read wherever it is.
   static Future<BoundBundle> bind(
     String bundlePath, {
     String? configPath,
@@ -318,30 +321,47 @@ final class WayfinderProjectConfig {
     String? projectRoot,
   }) async {
     final ceiling = projectRoot == null ? null : await _realPath(projectRoot);
-    var directory = p.dirname(
-      ceiling == null
-          ? File(bundlePath).absolute.path
-          : await _realPath(bundlePath),
-    );
-    while (ceiling == null ||
-        p.equals(directory, ceiling) ||
-        p.isWithin(ceiling, directory)) {
-      final file = File(p.join(directory, 'wayfinder.json'));
-      if (await file.exists()) return file;
+    var directory = p.dirname(File(bundlePath).absolute.path);
+    while (true) {
+      var read = true;
+      var last = false;
+      if (ceiling != null) {
+        final real = await _realPath(directory);
+        // Read only inside the project; end at its root or above it.
+        read = p.equals(real, ceiling) || p.isWithin(ceiling, real);
+        last = p.equals(real, ceiling) || p.isWithin(real, ceiling);
+      }
+      if (read) {
+        final file = File(p.join(directory, 'wayfinder.json'));
+        if (await file.exists()) return file;
+      }
       final parent = p.dirname(directory);
-      if (parent == directory) return null;
+      if (last || parent == directory) return null;
       directory = parent;
     }
-    return null;
   }
 
-  /// [path] absolute, with its symbolic links resolved when it exists.
+  /// [path] absolute, with its symbolic links resolved: the segments that
+  /// do not exist, or are links that do not resolve, are appended to the
+  /// real path of their nearest ancestor that does.
   static Future<String> _realPath(String path) async {
-    final directory = Directory(path);
-    try {
-      return await directory.resolveSymbolicLinks();
-    } on FileSystemException {
-      return p.normalize(directory.absolute.path);
+    final absolute = Directory(path).absolute.path;
+    final missing = <String>[];
+    var existing = absolute;
+    while (true) {
+      try {
+        return p.normalize(
+          p.joinAll([
+            await Directory(existing).resolveSymbolicLinks(),
+            ...missing,
+          ]),
+        );
+      } on FileSystemException {
+        final parent = p.dirname(existing);
+        if (parent == existing) return p.normalize(absolute);
+        missing.insert(0, p.basename(existing));
+        existing = parent;
+      }
     }
   }
 

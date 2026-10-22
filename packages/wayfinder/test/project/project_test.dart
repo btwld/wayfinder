@@ -336,16 +336,22 @@ void main() {
       await configure(['knowledge'], at: root);
       final alias = Link(p.join(project.path, 'alias'));
       await alias.create(root.path);
-      for (final (bundlePath, projectRoot) in [
-        (bundle.path, root.path),
-        (p.join(alias.path, 'knowledge'), root.path),
-        (bundle.path, alias.path),
+      // The search climbs the path as given, as it does without the bound,
+      // and compares real paths only to stop at the root.
+      for (final (bundlePath, projectRoot, directory) in [
+        (bundle.path, root.path, root.path),
+        (p.join(alias.path, 'knowledge'), root.path, alias.path),
+        (bundle.path, alias.path, root.path),
       ]) {
         final bound = await WayfinderProjectConfig.bind(
           bundlePath,
           projectRoot: projectRoot,
         );
-        expect(bound.config.file, p.join(root.path, 'wayfinder.json'));
+        expect(bound.config.file, p.join(directory, 'wayfinder.json'));
+        expect(
+          bound.config.file,
+          (await WayfinderProjectConfig.bind(bundlePath)).config.file,
+        );
         expect(bound.binding.id.value, 'bitwild-profile');
       }
     });
@@ -359,6 +365,70 @@ void main() {
         ),
         unbound(DiagnosticCode.configMissing),
       );
+    });
+
+    test('a symbolic-link bundle binds as it does without the bound', () async {
+      // The link's target sits under another wayfinder.json inside the root;
+      // the search still starts beside the link.
+      await configure(['knowledge'], at: root);
+      final data = await Directory(
+        p.join(root.path, 'data', 'kb'),
+      ).create(recursive: true);
+      await configure(['kb'], at: data.parent);
+      await bundle.delete();
+      await Link(bundle.path).create(data.path);
+      for (final projectRoot in [null, root.path]) {
+        final bound = await WayfinderProjectConfig.bind(
+          bundle.path,
+          projectRoot: projectRoot,
+        );
+        expect(bound.config.file, p.join(root.path, 'wayfinder.json'));
+        expect(bound.projectRoot, root.path);
+      }
+    });
+
+    test('a bundle a symbolic link places outside the root is '
+        'config-invalid, as without the bound', () async {
+      await configure(['knowledge', 'linked/kb'], at: root);
+      final outside = await Directory(p.join(project.path, 'outside')).create();
+      final kb = await Directory(p.join(outside.path, 'kb')).create();
+      await bundle.delete();
+      await Link(bundle.path).create(kb.path);
+      await Link(p.join(root.path, 'linked')).create(outside.path);
+      for (final bundlePath in [bundle.path, p.join(root.path, 'linked/kb')]) {
+        for (final projectRoot in [null, root.path]) {
+          await expectLater(
+            WayfinderProjectConfig.bind(bundlePath, projectRoot: projectRoot),
+            unbound(
+              DiagnosticCode.configInvalid,
+              startsWith('Bundle ${bundle.path} resolves outside the project'),
+            ),
+            reason: '$bundlePath with projectRoot $projectRoot',
+          );
+        }
+      }
+    });
+
+    test('a missing bundle under a linked root is bundle-unbound, as '
+        'without the bound', () async {
+      await configure(['knowledge'], at: root);
+      final alias = Link(p.join(project.path, 'alias'));
+      await alias.create(root.path);
+      for (final bundlePath in [
+        p.join(alias.path, 'missing'),
+        p.join(alias.path, 'missing', 'deeper', 'kb'),
+      ]) {
+        for (final projectRoot in [null, root.path, alias.path]) {
+          await expectLater(
+            WayfinderProjectConfig.bind(bundlePath, projectRoot: projectRoot),
+            unbound(
+              DiagnosticCode.bundleUnbound,
+              startsWith('Configured bundle path is not readable'),
+            ),
+            reason: '$bundlePath with projectRoot $projectRoot',
+          );
+        }
+      }
     });
 
     test('an explicit configuration is read wherever it is', () async {
