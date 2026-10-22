@@ -49,9 +49,15 @@ export 'src/authoring/knowledge_change.dart'
         KnowledgeRelationship,
         LinkConcepts,
         RegenerateIndexes,
-        UpdateConcept;
+        UpdateConcept,
+        changesConceptContent;
 export 'src/authoring/knowledge_log.dart'
-    show KnowledgeLog, KnowledgeLogEntries, KnowledgeLogEntry;
+    show
+        KnowledgeContentLog,
+        KnowledgeLog,
+        KnowledgeLogEntries,
+        KnowledgeLogEntry;
+export 'src/authoring/knowledge_project_files.dart' show KnowledgeProjectFiles;
 export 'src/authoring/knowledge_stamp.dart' show KnowledgeStamp;
 export 'src/authoring/knowledge_writer.dart'
     show

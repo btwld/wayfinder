@@ -2,6 +2,10 @@
 
 - Status: accepted
 - Date: 2026-10-22
+- Updated: 2026-10-22 (what a host's write pipeline needed: the
+  content-change rule as a public function and a log that records only
+  content changes, the OKF finding delta, and project files a host captures
+  with its selection, tracked when no Profile is selected too)
 - Scope: the write path for a bundle a Profile governs: how a change becomes a
   candidate, which reserved files it rewrites, how the candidate is judged,
   and when it commits; `validate --fix` under okf's bundle lock, and the
@@ -63,13 +67,19 @@ under one date, exactly as given; okf's lifecycle entry; or none. The
 entries are inserted into the existing log as lines in its own style, so no
 authored byte changes; only a log that cannot take them that way is
 re-emitted in okf's canonical form. A write that changes nothing else records
-no entry. The library names no lead words; a Profile's skill does.
+no entry, and a `KnowledgeContentLog` records its entry only when the write
+changes content, on the rule below, so a host that logs content changes
+only lets the writer decide on the concept it read. The library names no
+lead words; a Profile's skill does.
 
 **The writer stamps provenance.** A `KnowledgeStamp` names the actor. Content
 a write creates or changes (body, `title`, `description` or `type`) records
 `generated: {by, at}`; a link, a deprecation or another field keeps it. A
 verified stamp also appends `{by, at}` to `verified`. A change that supplies
-either key itself is refused.
+either key itself is refused. The rule is public, as
+`changesConceptContent` over two documents and
+`UpdateConcept.changesContent`, and the plan's `changesContent` reports what
+`prepare` decided, so a host never re-implements it.
 
 **The candidate is judged in memory, by a delta.** `validateLoaded` assesses
 the base and okf's prepared candidate with the same selection, never reading
@@ -81,7 +91,9 @@ rule id and path, counted as a multiset, and introduced otherwise. A plan is
 committable when okf accepts the candidate and it introduces no error
 finding and no error diagnostic, so one unrelated broken concept does not
 block every write, while a caller that wants a passing gate checks the
-candidate's.
+candidate's. The plan splits the candidate's OKF findings the same way, by
+finding id and location path, beside okf's whole report, so a host can name
+what a write broke; the OKF gate stays the whole candidate.
 
 When no Profile can be selected (no `wayfinder.json`, an unresolved Profile,
 or a chain that does not compose), the base and the candidate carry the same
@@ -110,9 +122,16 @@ write is `write-failed` (`KnowledgeWriteFailedException`), which says
 whether okf's rollback also failed and left part of the write.
 
 **Stale plans are refused.** `commit` holds okf's exclusive claim, refuses a
-plan whose `wayfinder.json` or `wayfinder.lock` changed since `prepare` when
-its selection names them, and lets okf refuse a changed bundle. Either
-failure is `write-stale`, and nothing is written.
+plan when a project file its selection came from changed since, and lets okf
+refuse a changed bundle. The project files are the `wayfinder.json` the
+bundle was bound through and the `wayfinder.lock` beside it, whether or not
+a Profile was selected, since a lock that appears would select one; when no
+configuration binds the bundle, they are each `wayfinder.json` path binding
+looked at, absent, since one that appears would bind it. A host that selects
+itself passes the files it captured with its selection, digests included,
+so a change between its selection and `prepare` is refused too. Either
+failure is `write-stale`, naming the project files that changed, and nothing
+is written.
 
 **`validate --fix` writes under the same lock.** When a fix has something to
 write, it takes `OkfBundleLock.write`, loads the bundle again and writes; a fix
