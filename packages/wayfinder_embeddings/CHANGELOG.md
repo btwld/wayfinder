@@ -44,10 +44,13 @@
   `WayfinderCancellationController` and `WayfinderDataDirectory`, so a host
   needs no direct `wayfinder` dependency. Adds the `http` dependency.
 - `tool/prepare_model.dart` downloads through `EmbeddingModelCache` instead of
-  llamadart's download manager, and prints download progress. It still stages
+  llamadart's download manager, into the cache's default directory in the
+  Wayfinder data directory, and prints download progress. It still stages
   `models/embedding.gguf` and its manifest, still copies a verified model from
   the llamadart caches earlier releases filled, leaving their files there, and
-  `--offline` still refuses to download.
+  `--offline` still refuses to download. `tool/prepare_benchmark_models.dart`
+  downloads each experimental model straight into its `--output` directory
+  instead of llamadart's shared cache.
 
 # 0.2.0
 
