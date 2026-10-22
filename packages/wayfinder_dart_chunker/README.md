@@ -64,9 +64,14 @@ dart run example/code_example.dart
 `test/sample_golden_test.dart` checks the sample's chunks against
 `test/goldens/sample_chunks.json`. `test/judged_corpus_test.dart` checks that
 the chunker still produces the Dart chunks of the judged retrieval corpus in
-`wayfinder_embeddings`, whose qrels name those chunk ids; it skips outside a
-checkout of this repository. After reviewing an intended chunk change, rewrite
-both goldens from this directory and review every qrels id that moved:
+`wayfinder_embeddings`, whose qrels name those chunk ids. It is the only writer
+of that corpus golden, `wayfinder_embeddings/test/goldens/baseline_chunks.json`,
+which `wayfinder_embeddings` replays and compares but never rewrites. The test
+skips outside a checkout of this repository, and fails instead when `CI=true`.
+`test/support/chunk_manifest.dart` repeats the manifest format of
+`wayfinder_embeddings`' `tool/src/pipeline_workflow.dart`; change both together.
+After reviewing an intended chunk change, rewrite both goldens from this
+directory and review every qrels id that moved:
 
 ```bash
 UPDATE_GOLDENS=1 dart test test/sample_golden_test.dart test/judged_corpus_test.dart

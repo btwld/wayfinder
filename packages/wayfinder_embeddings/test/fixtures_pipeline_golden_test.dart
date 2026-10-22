@@ -18,7 +18,7 @@ void main() {
             : 'fixtures/samples',
       );
       final goldenPath = fixture == 'corpus'
-          ? 'test/goldens/baseline_chunks.json'
+          ? workflow.corpusGoldenPath
           : 'test/goldens/sample_chunks.json';
       expect(fixturesDir.existsSync(), isTrue);
       // The corpus's Dart chunks come from its golden, which

@@ -3,9 +3,11 @@
 
 /// The chunk manifest format of `wayfinder_embeddings`' fixture goldens.
 ///
-/// It matches `buildChunkManifest` in that package's
-/// `tool/src/pipeline_workflow.dart`, so this package can check and rewrite
-/// the judged corpus golden it shares with `wayfinder_embeddings`.
+/// It repeats `collectFixtureFiles`, `stableFixtureChunkId` and
+/// `buildChunkManifest` from that package's `tool/src/pipeline_workflow.dart`,
+/// which this package cannot import, so it can write the judged corpus golden
+/// that package replays. Change both together: that package's corpus golden
+/// test fails whenever the two disagree.
 library;
 
 import 'dart:collection';
