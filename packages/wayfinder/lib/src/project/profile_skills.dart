@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../profile_package.dart';
 import '../validation.dart' show SelectedProfile;
+import 'profile_resolver.dart' show ProfileSkillDirectoriesException;
 
 /// The locked revision a Profile skill comes from, as its marker records it.
 typedef SkillRevision = ({ProfileId id, String release, String commit});
@@ -433,9 +434,11 @@ abstract final class ProfileSkills {
   /// so an agent never reads a half-written skill. It works under the real
   /// path of each skill root, which [escaping] confines to the project.
   ///
-  /// Throws before writing anything when a root escapes the project, when
+  /// Throws before writing anything when a root escapes the project, a
+  /// [ProfileSkillDirectoriesException] naming its directories as
+  /// [ProfileSkillDirectoryState.outside], as `get` refuses it; when
   /// [revision]'s marker would be larger than the 64 KiB a marker is read
-  /// up to, when a file's path would land outside its directory, and when a
+  /// up to; when a file's path would land outside its directory; and when a
   /// directory it would replace holds no marker for its id. It checks each
   /// directory's marker again just before moving it aside, so a directory
   /// that appears without one meanwhile is never replaced either; that
@@ -452,8 +455,18 @@ abstract final class ProfileSkills {
       for (final (:root, :real) in resolved)
         if (real == null) root,
     ];
-    if (skillRootsOutsideMessage(escaped) case final problem?) {
-      throw FileSystemException(problem, projectRoot);
+    if (escaped.isNotEmpty) {
+      // As get's own check refuses it, so a root that a link moved outside
+      // the project after that check fails the same way.
+      throw ProfileSkillDirectoriesException([
+        for (final root in escaped)
+          ProfileSkillDirectory(
+            profile: revision.id,
+            root: root,
+            path: '$root/$id',
+            state: ProfileSkillDirectoryState.outside,
+          ),
+      ]);
     }
     if (!skillMarkerFits(revision)) {
       throw ArgumentError.value(

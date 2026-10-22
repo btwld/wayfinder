@@ -245,7 +245,10 @@ release.
   goes, as it refuses a directory without the Profile's marker, before
   writing anything; it used to write the lock and fail while moving the
   skill into place. `ProfileSkills.unowned` and `ProfileSkills.write` count
-  such an entry as unowned.
+  such an entry as unowned. `ProfileSkills.write` refuses a skill root that
+  resolves outside the project with the `ProfileSkillDirectoriesException`
+  `get` throws, rather than a `FileSystemException`, so a root a link moves
+  outside after `get`'s check fails the same way.
 - `status` reports as data, per binding: `copies`, one `ProfileLocalCopy`
   per chain member saying whether its source's mirror and its package file
   are in the Profile cache, with the source's location, so a consent gate
