@@ -384,9 +384,12 @@ void main() {
         timeout: const Timeout(Duration(minutes: 2)),
       );
     },
-    skip: library.existsSync()
+    skip:
+        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
+            library.existsSync()
         ? false
-        : 'Install ObjectBox to run persistence tests.',
+        : 'Install ObjectBox to run persistence tests. '
+              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
   );
 }
 

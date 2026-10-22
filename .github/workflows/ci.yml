@@ -117,9 +117,16 @@ jobs:
       - run: dart run tool/prepare_model.dart
       - run: dart run melos run objectbox:install
         working-directory: .
-      - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart
+      # Native tests skip when the library or model is absent. Require them
+      # on the test steps below, as WAYFINDER_REQUIRE_JSONSCHEMA does for the
+      # schema leg, so a missing install fails this job instead of exiting 0.
+      - run: dart test test/native_embedding_integration_test.dart test/objectbox_store_test.dart test/objectbox_assets_test.dart
+        env:
+          WAYFINDER_REQUIRE_NATIVE: "1"
       - run: dart test
         working-directory: packages/wayfinder_cli
+        env:
+          WAYFINDER_REQUIRE_NATIVE: "1"
       - run: dart run tool/build_wayfinder.dart --offline
         working-directory: .
       - run: python3 tool/verify_wayfinder.py build/wayfinder/bundle --output="$RUNNER_TEMP/wayfinder-native.json"
