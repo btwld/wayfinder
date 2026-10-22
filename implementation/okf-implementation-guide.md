@@ -65,9 +65,10 @@ one agent-instruction paragraph, in this order:
 2. **Seed the bundle.** Create `index.md` declaring the package's OKF release
    as `okf_version`, and `log.md`. A Profile's skill may carry literal
    templates in its adoption guidance. The adoption skill's `SEEDING.md`
-   carries OKF's own for a Profile without them. When the Profile requires
-   generated indexes, `wayfinder validate --fix` writes them once the bundle
-   holds concepts (§3.1).
+   carries OKF's own for a Profile without them; `KnowledgeSeeds` in
+   `package:wayfinder/adoption.dart` holds the same text. When the Profile
+   requires generated indexes, `wayfinder validate --fix` writes them once
+   the bundle holds concepts (§3.1).
 3. **Write the repository's agent instruction paragraph.** `AGENTS.md` (or the
    equivalent) MUST say that durable documentation lives in the bundle and
    that the reader starts at its root `index.md`. A Profile's adoption
@@ -83,6 +84,14 @@ selector keeps validating on wayfinder 0.1.x until it migrates, as the
 adoption guidance names. Without that guidance it writes only the OKF root
 files. Bitwild's adoption guidance, for example, says to create no subject
 directories.
+
+A host can adopt in process with Wayfinder's `KnowledgeAdoption`. It plans
+steps 1 and 2 without writing in the project, so a person sees every file
+first, then applies them whole or not at all
+([ADR-0020](../docs/adr/0020-programmatic-adoption.md)). It returns step 3's
+paragraph as text, because a repository's agent configuration is its own,
+and adds the bundle's `.okf.lock`, which okf keeps at the bundle root, to
+`.gitignore`.
 
 ### 2.2 What adoption does not include
 
@@ -958,6 +967,17 @@ rule schemas with a 2020-12 evaluator restricted to the subset, and refuse the
 forms above. Every shipped package stays conformant, as the migration's
 parity corpora and a scan of the shipped schemas showed. Format 2 is
 unreleased, so §5.10 needs no `format` bump.
+
+Revised again in place before publication (2026-10-22). §2.1 names the
+library home of the generic seed, `KnowledgeSeeds` in
+`package:wayfinder/adoption.dart`, beside the adoption skill's `SEEDING.md`,
+and describes `KnowledgeAdoption`, which plans before it writes, leaves
+nothing half done, returns the agent paragraph as text and ignores the
+bundle's `.okf.lock` in `.gitignore`. Affected sections: §§2.1 and 9.
+Driver: hosts that set projects up in process could only replay the skill's
+prose, with no preview and no way back from a failed step. Migration for
+implementations: none; what an adopted repository holds is unchanged, and no
+bundle or package reads differently.
 
 **2026.3.** Binds Profile 2026.3. Implements explicit `wayfinder.json`
 release dispatch while preserving the 2026.2 in-bundle path. Affected sections:
