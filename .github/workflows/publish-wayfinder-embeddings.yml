@@ -35,7 +35,7 @@ jobs:
         working-directory: packages/wayfinder_embeddings
       - run: dart test
         working-directory: packages/wayfinder_embeddings
-      # Exact llamadart/ObjectBox pins are reviewed compatibility constraints.
+      # The exact llamadart pin is a reviewed compatibility constraint.
       - run: dart pub publish --dry-run --ignore-warnings
         working-directory: packages/wayfinder_embeddings
 
@@ -64,9 +64,9 @@ jobs:
       # dart-lang/pub-dev#9576, which rejected authenticated metadata reads
       # with HTTP 403 and forced --skip-validation here, is fixed upstream.
       # --force only answers the confirmation a workflow cannot; it publishes
-      # despite the warnings the exact llamadart and ObjectBox pins draw, which
-      # are reviewed compatibility constraints. --ignore-warnings is rejected
-      # outside --dry-run, so it belongs on the dry run above and nowhere else.
+      # despite the warning the exact llamadart pin draws, which is a reviewed
+      # compatibility constraint. --ignore-warnings is rejected outside
+      # --dry-run, so it belongs on the dry run above and nowhere else.
       - if: steps.pub.outputs.published != 'true'
         run: dart pub publish --force
         working-directory: packages/wayfinder_embeddings
