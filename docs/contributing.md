@@ -22,7 +22,7 @@ is a chain.** OKF wins over the engine contract, which wins over each Profile pa
 ## Checks
 
 Run the [core contributor checks](../README.md#contributor-checks) from the
-repository root. `dart run melos run lint` checks all three workspace packages.
+repository root. `dart run melos run lint` checks all four workspace packages.
 
 ## Schemas and Profile packages
 
@@ -104,6 +104,11 @@ package directory. See its [README](../packages/wayfinder_embeddings/README.md)
 for the implementation and evaluation commands. Its optional native
 backend needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
 files with `dart run melos run build` only when entity schemas change.
+`wayfinder_dart_chunker` holds the analyzer-based Dart chunker, so
+`wayfinder_embeddings` does not depend on `analyzer`. Nothing in
+`wayfinder_embeddings` may depend on it, including as a dev dependency. Its
+tests also check the Dart chunks that the judged retrieval corpus replays; see
+its [README](../packages/wayfinder_dart_chunker/README.md#development).
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a

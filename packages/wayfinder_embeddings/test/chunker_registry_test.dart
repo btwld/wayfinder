@@ -6,23 +6,23 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 void main() {
   group('ChunkerRegistry', () {
     test('returns each registered chunker once', () {
-      final dartChunker = DartChunker();
+      final typeScriptChunker = TypeScriptChunker();
       final markdownChunker = MarkdownChunker();
       final registry = ChunkerRegistry()
-        ..registerChunker(dartChunker)
+        ..registerChunker(typeScriptChunker)
         ..registerChunker(markdownChunker);
 
       expect(
         registry.getAllChunkers(),
-        unorderedEquals([dartChunker, markdownChunker]),
+        unorderedEquals([typeScriptChunker, markdownChunker]),
       );
     });
 
     test('returns an immutable chunker snapshot', () {
-      final dartChunker = DartChunker();
+      final typeScriptChunker = TypeScriptChunker();
       final markdownChunker = MarkdownChunker();
       final registry = ChunkerRegistry()
-        ..registerChunker(dartChunker)
+        ..registerChunker(typeScriptChunker)
         ..registerChunker(markdownChunker);
 
       final chunkers = registry.getAllChunkers();

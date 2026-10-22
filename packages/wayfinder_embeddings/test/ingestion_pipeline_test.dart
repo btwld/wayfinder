@@ -24,9 +24,10 @@ void main() {
       'emits skip callback for unsupported files and honors overrides',
       () async {
         final unknownFile = _writeFile(tempDir, 'notes.xyz', 'some content');
-        final dartFile = _writeFile(tempDir, 'main.dart', 'void main() {}');
+        final sourceFile = _writeFile(tempDir, 'main.ts', 'function main() {}');
 
-        final registry = ChunkerRegistry()..registerChunker(DartChunker());
+        final registry = ChunkerRegistry()
+          ..registerChunker(TypeScriptChunker());
         final embedder = _FakeEmbedder();
         final store = MemoryStore();
         final pipeline = IngestionPipeline(
@@ -39,8 +40,8 @@ void main() {
         final processed = <String, int>{};
 
         await pipeline.ingestFiles(
-          [unknownFile, dartFile],
-          contentTypes: {dartFile.path: 'dart'},
+          [unknownFile, sourceFile],
+          contentTypes: {sourceFile.path: 'typescript'},
           onFileProcessed: (file, chunks) =>
               processed[file.path] = chunks.length,
           onFileSkipped: (file, {inferredType, reason}) {
@@ -57,7 +58,7 @@ void main() {
           'unsupported_content_type',
         );
         expect(skipped[unknownFile.path]!['inferredType'], 'unknown');
-        expect(processed[dartFile.path], greaterThan(0));
+        expect(processed[sourceFile.path], greaterThan(0));
 
         await embedder.dispose();
         await store.close();
@@ -66,16 +67,16 @@ void main() {
 
     test('chunkFiles chunks files without an embedder or store', () async {
       final unknownFile = _writeFile(tempDir, 'notes.xyz', 'some content');
-      final dartFile = _writeFile(tempDir, 'main.dart', 'void main() {}');
+      final sourceFile = _writeFile(tempDir, 'main.ts', 'function main() {}');
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final skipped = <String, String?>{};
       final processed = <String, int>{};
 
       final chunked = registry
           .chunkFiles(
-            [unknownFile, dartFile],
-            contentTypes: {dartFile.path: 'dart'},
+            [unknownFile, sourceFile],
+            contentTypes: {sourceFile.path: 'typescript'},
             onFileProcessed: (file, fileChunks) {
               processed[file.path] = fileChunks.length;
             },
@@ -87,19 +88,19 @@ void main() {
 
       final chunks = [for (final entry in chunked) ...entry.chunks];
       expect(chunks, isNotEmpty);
-      expect(chunked.map((entry) => entry.file.path), [dartFile.path]);
-      expect(processed[dartFile.path], chunks.length);
+      expect(chunked.map((entry) => entry.file.path), [sourceFile.path]);
+      expect(processed[sourceFile.path], chunks.length);
       expect(skipped[unknownFile.path], 'unsupported_content_type');
     });
 
     test('persists chunks and embeddings', () async {
-      final dartFile = _writeFile(tempDir, 'main.dart', '''
-void main() {
-  print('hello world');
+      final sourceFile = _writeFile(tempDir, 'main.ts', '''
+function main() {
+  console.log('hello world');
 }
 ''');
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final embedder = _FakeEmbedder();
       final store = MemoryStore();
       final pipeline = IngestionPipeline(
@@ -108,7 +109,7 @@ void main() {
         store: store,
       );
 
-      await pipeline.ingestFiles([dartFile]);
+      await pipeline.ingestFiles([sourceFile]);
       final storedChunks = await store.getAllChunks();
       expect(storedChunks, isNotEmpty);
       expect(await store.getAllEmbeddings(), hasLength(storedChunks.length));
@@ -119,13 +120,13 @@ void main() {
     });
 
     test('ingests one-shot file iterables', () async {
-      final dartFile = _writeFile(tempDir, 'main.dart', '''
-void main() {
-  print('hello world');
+      final sourceFile = _writeFile(tempDir, 'main.ts', '''
+function main() {
+  console.log('hello world');
 }
 ''');
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final embedder = _FakeEmbedder();
       final store = MemoryStore();
       final pipeline = IngestionPipeline(
@@ -134,7 +135,7 @@ void main() {
         store: store,
       );
 
-      await pipeline.ingestFiles(_OneShotFiles([dartFile]));
+      await pipeline.ingestFiles(_OneShotFiles([sourceFile]));
 
       final storedChunks = await store.getAllChunks();
       expect(storedChunks, isNotEmpty);
@@ -145,9 +146,9 @@ void main() {
     });
 
     test('does not duplicate onFileProcessed callbacks', () async {
-      final dartFile = _writeFile(tempDir, 'main.dart', 'void main() {}');
+      final sourceFile = _writeFile(tempDir, 'main.ts', 'function main() {}');
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final embedder = _FakeEmbedder();
       final store = MemoryStore();
       final pipeline = IngestionPipeline(
@@ -158,7 +159,7 @@ void main() {
 
       var processedCalls = 0;
       await pipeline.ingestFiles(
-        [dartFile],
+        [sourceFile],
         onFileProcessed: (_, chunks) {
           if (chunks.isNotEmpty) {
             processedCalls++;
@@ -173,13 +174,13 @@ void main() {
     });
 
     test('dedupe prevents duplicate writes and surfaces callback', () async {
-      final dartFile = _writeFile(
+      final sourceFile = _writeFile(
         tempDir,
-        'main.dart',
-        'void main() { print("hello"); }',
+        'main.ts',
+        'function main() { console.log("hello"); }',
       );
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final embedder = _FakeEmbedder();
       final store = MemoryStore();
       final pipeline = IngestionPipeline(
@@ -188,13 +189,13 @@ void main() {
         store: store,
       );
 
-      await pipeline.ingestFiles([dartFile]);
+      await pipeline.ingestFiles([sourceFile]);
       final initialChunks = await store.getAllChunks();
       final initialChunkIds = initialChunks.map((c) => c.id).toSet();
 
       final dedupedIds = <String>[];
       await pipeline.ingestFiles([
-        dartFile,
+        sourceFile,
       ], onDuplicateChunk: (chunk) => dedupedIds.add(chunk.id));
 
       expect(dedupedIds, isNotEmpty);
@@ -237,13 +238,13 @@ void main() {
     }
 
     test('dedupe stores missing embeddings for a different model', () async {
-      final dartFile = _writeFile(
+      final sourceFile = _writeFile(
         tempDir,
-        'main.dart',
-        'void main() { print("hello"); }',
+        'main.ts',
+        'function main() { console.log("hello"); }',
       );
 
-      final registry = ChunkerRegistry()..registerChunker(DartChunker());
+      final registry = ChunkerRegistry()..registerChunker(TypeScriptChunker());
       final store = MemoryStore();
       final denseEmbedder = _ConstantEmbedder(
         sourceName: 'dense',
@@ -260,13 +261,13 @@ void main() {
         chunkerRegistry: registry,
         embedder: denseEmbedder,
         store: store,
-      ).ingestFiles([dartFile]);
+      ).ingestFiles([sourceFile]);
 
       await IngestionPipeline(
         chunkerRegistry: registry,
         embedder: alternateEmbedder,
         store: store,
-      ).ingestFiles([dartFile]);
+      ).ingestFiles([sourceFile]);
 
       final embeddings = await store.getAllEmbeddings();
 
@@ -341,12 +342,13 @@ void main() {
           for (var index = 0; index < 4; index++)
             _writeFile(
               tempDir,
-              'file_$index.dart',
-              'void main$index() { print("$index"); }',
+              'file_$index.ts',
+              'function main$index() { console.log("$index"); }',
             ),
         ];
 
-        final registry = ChunkerRegistry()..registerChunker(DartChunker());
+        final registry = ChunkerRegistry()
+          ..registerChunker(TypeScriptChunker());
         final embedder = _FakeEmbedder();
         final store = _CountingStore();
         final pipeline = IngestionPipeline(

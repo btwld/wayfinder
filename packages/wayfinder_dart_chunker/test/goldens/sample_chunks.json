@@ -1,0 +1,133 @@
+{
+  "calculator.dart": {
+    "total": 8,
+    "types": {
+      "class": 2,
+      "method": 6
+    },
+    "chunks": [
+      {
+        "id": "20f9d318fe14911f25de310bc96d7768bcdc8ab8",
+        "lineStart": 1,
+        "lineEnd": 2,
+        "type": "class",
+        "content": "/// A simple calculator class.\nclass Calculator",
+        "metadata": {
+          "name": "Calculator",
+          "abstract": false,
+          "summary": true,
+          "truncated": true
+        }
+      },
+      {
+        "id": "272744b6578407bf93a6062b1ae32c10a57b32ae",
+        "lineStart": 3,
+        "lineEnd": 6,
+        "type": "method",
+        "content": "/// Adds two numbers.\n  double add(double a, double b) {\n    return a + b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "add",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "9cf95438627595633278af715b75b09b6e65bbd9",
+        "lineStart": 8,
+        "lineEnd": 11,
+        "type": "method",
+        "content": "/// Subtracts two numbers.\n  double subtract(double a, double b) {\n    return a - b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "subtract",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "d991e5d201c9af14eb996e03b1f47c2c675d48a5",
+        "lineStart": 13,
+        "lineEnd": 16,
+        "type": "method",
+        "content": "/// Multiplies two numbers.\n  double multiply(double a, double b) {\n    return a * b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "multiply",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "2cc0ae0b5df8e8216182b441e373cfe6e67620d8",
+        "lineStart": 18,
+        "lineEnd": 24,
+        "type": "method",
+        "content": "/// Divides two numbers.\n  double divide(double a, double b) {\n    if (b == 0) {\n      throw ArgumentError('Cannot divide by zero');\n    }\n    return a / b;\n  }",
+        "metadata": {
+          "class": "Calculator",
+          "name": "divide",
+          "static": false,
+          "returnType": "double",
+          "params": "(double a, double b)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "cedc416e8526e0139e5502dc1e69a4b48c015320",
+        "lineStart": 27,
+        "lineEnd": 28,
+        "type": "class",
+        "content": "/// A utility class for mathematical operations.\nclass MathUtils",
+        "metadata": {
+          "name": "MathUtils",
+          "abstract": false,
+          "summary": true,
+          "truncated": true
+        }
+      },
+      {
+        "id": "e99eb9dea97d93aa260fdff7b713afbecc854e91",
+        "lineStart": 29,
+        "lineEnd": 32,
+        "type": "method",
+        "content": "/// Calculates the square of a number.\n  static double square(double x) {\n    return x * x;\n  }",
+        "metadata": {
+          "class": "MathUtils",
+          "name": "square",
+          "static": true,
+          "returnType": "double",
+          "params": "(double x)",
+          "external": false,
+          "abstract": false
+        }
+      },
+      {
+        "id": "e95a69b395d5062cc6f682ad2f1cffee8748ef6e",
+        "lineStart": 34,
+        "lineEnd": 37,
+        "type": "method",
+        "content": "/// Calculates the cube of a number.\n  static double cube(double x) {\n    return x * x * x;\n  }",
+        "metadata": {
+          "class": "MathUtils",
+          "name": "cube",
+          "static": true,
+          "returnType": "double",
+          "params": "(double x)",
+          "external": false,
+          "abstract": false
+        }
+      }
+    ]
+  }
+}
