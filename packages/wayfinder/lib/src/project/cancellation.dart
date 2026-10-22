@@ -4,7 +4,7 @@ import 'exception.dart';
 
 /// Asks a long operation to stop. An operation checks [isCancelled] between
 /// steps and stops a running child process when [whenCancelled] completes;
-/// it then throws a `cancelled` [WayfinderException]. Cancelling is not a
+/// it then throws [WayfinderException.cancelled]. Cancelling is not a
 /// rollback: what an operation already finished stays finished.
 abstract interface class WayfinderCancellation {
   bool get isCancelled;
@@ -29,12 +29,8 @@ final class WayfinderCancellationController implements WayfinderCancellation {
   }
 }
 
-/// Throws the `cancelled` [WayfinderException] when [cancel] is cancelled.
+/// Throws [WayfinderException.cancelled] when [cancel] is cancelled, as an
+/// operation, or a host's `GitRunner`, does between steps.
 void throwIfCancelled(WayfinderCancellation? cancel) {
-  if (cancel?.isCancelled ?? false) throw cancelledException;
+  if (cancel?.isCancelled ?? false) throw const WayfinderException.cancelled();
 }
-
-const cancelledException = WayfinderException(
-  'cancelled',
-  'The operation was cancelled.',
-);

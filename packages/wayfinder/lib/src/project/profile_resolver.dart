@@ -856,9 +856,12 @@ final class WayfinderProfileResolver {
       );
       try {
         session.fetched = true;
+        // --progress keeps a long clone writing, so runGit's inactivity
+        // timeout stops only a clone that stalls.
         final result = await _git(session, [
           'clone',
           '--mirror',
+          '--progress',
           '--',
           location,
           temporary.path,

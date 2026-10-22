@@ -13,12 +13,18 @@
 /// - `resolution-stale` when the configuration, lock or Profile cache changed
 ///   after a plan;
 /// - `data-directory-unavailable` when no data directory can be located;
-/// - `git-timeout` when a Git command outlives its timeout;
-/// - `cancelled` when a `WayfinderCancellation` stopped the operation.
+/// - `git-timeout` when a Git command writes nothing for its timeout;
+/// - `cancelled` when a `WayfinderCancellation` stopped the operation; a
+///   host's `GitRunner` throws [WayfinderException.cancelled] for it too.
 ///
 /// Other Wayfinder packages add their own codes.
 class WayfinderException implements Exception {
   const WayfinderException(this.code, this.message);
+
+  /// The `cancelled` failure of an operation a `WayfinderCancellation`
+  /// stopped.
+  const WayfinderException.cancelled()
+    : this('cancelled', 'The operation was cancelled.');
 
   final String code;
   final String message;
