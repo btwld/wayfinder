@@ -475,10 +475,27 @@ void main() {
             }),
           );
 
+        // Run the tool from a kernel snapshot. `dart run` would run the
+        // package's build hooks again, and before Dart 3.12 they rewrite
+        // llamadart's library in .dart_tool/lib in place
+        // (dart-lang/sdk#62361), which corrupts it on Linux for the suites of
+        // this run that have it loaded.
+        final snapshot = '${temp.path}/compare_embeddings.dill';
+        final compiled = await Process.run(Platform.resolvedExecutable, [
+          'compile',
+          'kernel',
+          'tool/compare_embeddings.dart',
+          '--output=$snapshot',
+        ]);
+        expect(
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}${compiled.stderr}',
+        );
+
         // No model is opened: the run stops at the corpus preview.
         final result = await Process.run(Platform.resolvedExecutable, [
-          'run',
-          'tool/compare_embeddings.dart',
+          snapshot,
           '--fixtures=${corpus.path}',
           '--output=${temp.path}/out',
           '--queries=${queries.path}',
