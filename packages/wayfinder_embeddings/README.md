@@ -267,12 +267,16 @@ It collapses repeated contexts to the first child hit.
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 5.3.2, tested with Dart package 5.3.2, verifies the
-  release archive's SHA-256 before extracting it, and writes only to this
-  package's `lib/` directory. It covers every platform upstream publishes for
+  The installer pins native 5.3.2, verifies the release archive's SHA-256
+  before extracting it, and writes only to this package's `lib/` directory.
+  It covers every platform upstream publishes for
   5.3.2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
   x64/x86/arm64 - and refuses anything without a pinned hash rather than
   installing another architecture.
+  The package accepts any Dart `objectbox` 5.x from 5.3.2. The repository's
+  workspace overrides it to 5.3.2, so its tests and native bundles always pair
+  Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
+  when the two differ.
   `test/objectbox_store_test.dart` skips itself when the library is absent.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.

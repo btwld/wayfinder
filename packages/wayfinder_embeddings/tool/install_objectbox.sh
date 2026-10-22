@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Keep the tested Dart 5.3.2 / native 5.3.2 pair reproducible, and verify the
+# Install the native library for the Dart objectbox release the workspace
+# resolves: the root pubspec.yaml overrides objectbox to this version, and
+# test/objectbox_assets_test.dart fails when the two differ. Verify the
 # release archive before any of its bytes reach the package or a Wayfinder
 # bundle. Downloading the pinned artifact directly, instead of running the
 # upstream download.sh, is what makes that checksum possible; it also avoids
