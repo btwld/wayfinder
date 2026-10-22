@@ -4,21 +4,23 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:llamadart/llamadart.dart';
 import 'package:test/test.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder/project.dart';
+import 'package:wayfinder_embeddings/model_cache.dart';
 
 import '../tool/src/model_preparation.dart';
 
 void main() {
   late Directory directory;
+  late Directory cache;
   late HttpServer server;
   late EmbeddingModelSpec model;
-  late DefaultModelDownloadManager downloads;
   var requests = 0;
   var corruptResponse = false;
   final bytes = utf8.encode('test model');
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('model_preparation_test');
+    cache = Directory('${directory.path}/cache');
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     requests = 0;
     corruptResponse = false;
@@ -39,9 +41,6 @@ void main() {
       queryPrefix: 'query: ',
       license: 'fixture',
     );
-    downloads = DefaultModelDownloadManager(
-      defaultCacheDirectory: '${directory.path}/cache',
-    );
   });
   tearDown(() async {
     await server.close(force: true);
@@ -50,33 +49,42 @@ void main() {
 
   test('stages verified bytes and reuses them without a request', () async {
     final output = Directory('${directory.path}/models');
+    final steps = <ModelProvisionProgress>[];
     final file = await prepareEmbeddingModel(
       output: output,
       model: model,
-      downloads: downloads,
+      cacheDirectory: cache,
+      legacyDownloads: const [],
+      onProgress: steps.add,
     );
     expect(await file.readAsBytes(), bytes);
+    expect(file.path, '${output.path}/embedding.gguf');
+    expect(await File('${cache.path}/embedding.gguf').readAsBytes(), bytes);
+    expect(steps.last, isA<ModelProvisioned>());
+    expect(steps.whereType<ModelDownloading>().last.receivedBytes, 10);
     expect(
       jsonDecode(await File('${output.path}/manifest.json').readAsString()),
       model.toMap(),
     );
-    final previousRequests = requests;
+    expect(requests, 1);
     await prepareEmbeddingModel(
       output: output,
       model: model,
-      downloads: downloads,
+      cacheDirectory: cache,
+      legacyDownloads: const [],
       offline: true,
     );
-    expect(requests, previousRequests);
+    expect(requests, 1);
 
     final second = await prepareEmbeddingModel(
       output: Directory('${directory.path}/bundle/models'),
       model: model,
-      downloads: downloads,
+      cacheDirectory: cache,
+      legacyDownloads: const [],
       offline: true,
     );
     expect(await second.readAsBytes(), bytes);
-    expect(requests, previousRequests);
+    expect(requests, 1);
   });
 
   test('a checksum failure preserves the existing staged file', () async {
@@ -86,40 +94,54 @@ void main() {
     ).writeAsString('previous data');
     corruptResponse = true;
     await expectLater(
-      prepareEmbeddingModel(output: output, model: model, downloads: downloads),
-      throwsA(isA<Exception>()),
+      prepareEmbeddingModel(
+        output: output,
+        model: model,
+        cacheDirectory: cache,
+        legacyDownloads: const [],
+      ),
+      throwsA(
+        isA<WayfinderException>().having(
+          (error) => error.code,
+          'code',
+          'model-invalid',
+        ),
+      ),
     );
     expect(await target.readAsString(), 'previous data');
+    expect(cache.listSync(), isEmpty);
   });
 
   test(
-    'an empty new cache reuses verified legacy bytes while offline',
+    'an empty cache reuses verified legacy llamadart bytes offline',
     () async {
-      await downloads.ensureModel(
+      final legacy = DefaultModelDownloadManager(
+        defaultCacheDirectory: '${directory.path}/legacy',
+      );
+      await legacy.ensureModel(
         ModelSource.url(Uri.parse(model.url)),
         options: ModelLoadOptions(sha256: model.sha256),
       );
       final previousRequests = requests;
-      final current = DefaultModelDownloadManager(
-        defaultCacheDirectory: '${directory.path}/new-cache',
-      );
       final file = await prepareEmbeddingModel(
         output: Directory('${directory.path}/new-models'),
         model: model,
-        downloads: current,
-        legacyDownloads: downloads,
+        cacheDirectory: cache,
+        legacyDownloads: [legacy],
         offline: true,
       );
       expect(await file.readAsBytes(), bytes);
       expect(requests, previousRequests);
-      final legacy = await downloads.ensureModel(
+      // The legacy cache keeps its model; nothing is moved into the new one.
+      final kept = await legacy.ensureModel(
         ModelSource.url(Uri.parse(model.url)),
         options: ModelLoadOptions(
           sha256: model.sha256,
           cachePolicy: ModelCachePolicy.cacheOnly,
         ),
       );
-      expect(await File(legacy.filePath).readAsBytes(), bytes);
+      expect(await File(kept.filePath).readAsBytes(), bytes);
+      expect(cache.existsSync(), isFalse);
     },
   );
 
@@ -128,10 +150,15 @@ void main() {
       prepareEmbeddingModel(
         output: Directory('${directory.path}/models'),
         model: model,
-        downloads: downloads,
+        cacheDirectory: cache,
+        legacyDownloads: [
+          DefaultModelDownloadManager(
+            defaultCacheDirectory: '${directory.path}/legacy',
+          ),
+        ],
         offline: true,
       ),
-      throwsA(isA<Exception>()),
+      throwsA(isA<FileSystemException>()),
     );
     expect(requests, 0);
   });
