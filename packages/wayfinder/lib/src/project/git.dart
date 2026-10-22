@@ -322,8 +322,8 @@ bool gitMayReachRemote(List<String> arguments) =>
 /// open. Both must end within ten seconds of the exit, or [timeout] when
 /// that is shorter. A stdout still open then throws `git-output-incomplete`,
 /// since a result never holds part of it; a stderr still being written then
-/// is cut. Either way the helpers are stopped, and [cancel] still stops the
-/// read.
+/// is cut. Either way [GitProcess.kill] is asked to stop those helpers, and
+/// [cancel] still stops the read.
 Future<GitResult> runGit(
   List<String> arguments, {
   String? workingDirectory,
@@ -507,8 +507,7 @@ Future<GitResult> _run(
         WayfinderException(
           'git-output-incomplete',
           'git $command exited, but its output was still open '
-              '${_describe(drainLimit)} later, held by a process it started; '
-              'that process was stopped.',
+              '${_describe(drainLimit)} later, held by a process it started.',
         ),
       );
     }

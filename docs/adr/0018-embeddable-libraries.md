@@ -119,18 +119,19 @@ stderr open. A pause in stdout never ends the read, since a busy isolate or a
 host's process layer can delay its last bytes: both streams must end within
 ten seconds of the exit (or the command's timeout, when shorter), a stdout
 still open then fails with `git-output-incomplete`, a stderr still being
-written is cut, and either way the helpers are stopped. A result therefore
-holds all of stdout or none of it. A host whose process layer must start every
-process, for its search path, sandbox or tree kill, passes a
-`GitProcessStarter` to `runGit` and keeps all of this; the starter receives
-the hardened arguments and the whole environment, and its `GitProcess.kill`
-stops the command's tree. A host that writes its own runner applies the same
-through the public rules: `wayfinderGitOptions`, `wayfinderGitEnvironment`,
-`gitMayReachRemote` (the subcommands of `wayfinderGitRemoteSubcommands`, found
-by `gitSubcommand` past Git's global options), `wayfinderSshCommand` (the SSH
-command Git would choose, in batch mode) and `wayfinderConfiguredSshCommand`
-(the `core.sshCommand` lookup). The remote rule chooses when to look SSH up;
-it is no sandbox, since an alias can reach a remote under any name.
+written is cut, and either way `GitProcess.kill` is asked to stop the helpers.
+A result therefore holds all of stdout or none of it. A host whose process
+layer must start every process, for its search path, sandbox or tree kill,
+passes a `GitProcessStarter` to `runGit` and keeps all of this; the starter
+receives the hardened arguments and the whole environment, and its
+`GitProcess.kill` stops the command's tree. A host that writes its own runner
+applies the same through the public rules: `wayfinderGitOptions`,
+`wayfinderGitEnvironment`, `gitMayReachRemote` (the subcommands of
+`wayfinderGitRemoteSubcommands`, found by `gitSubcommand` past Git's global
+options), `wayfinderSshCommand` (the SSH command Git would choose, in batch
+mode) and `wayfinderConfiguredSshCommand` (the `core.sshCommand` lookup). The
+remote rule chooses when to look SSH up; it is no sandbox, since an alias can
+reach a remote under any name.
 
 **Resolution is plan, then apply.** `plan` resolves and composes every chain
 and may clone or refresh a source in the cache, but writes nothing in the

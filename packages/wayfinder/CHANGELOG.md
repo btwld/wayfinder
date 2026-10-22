@@ -152,8 +152,9 @@ ship in one release.
   connection master, no longer holds the command. Both must end within ten
   seconds of the exit, or the command's `timeout` when shorter: a stdout
   still open then fails with `git-output-incomplete`, never returning part
-  of it, a stderr still being written is cut, and either way the helpers
-  are stopped; `cancel` still stops the read. A stopped command that does
+  of it, a stderr still being written is cut, and either way
+  `GitProcess.kill` is asked to stop the helpers; `cancel` still stops the
+  read. A stopped command that does
   not exit within five seconds still fails.
 - The rules a host's own runner would copy are public: `gitSubcommand`,
   which also skips the values of `--git-dir`, `--work-tree`, `--namespace`,
