@@ -103,11 +103,16 @@ the whole workspace.
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)
 for the implementation and evaluation commands. Its optional native
 backend needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
-files with `dart run melos run build` only when entity schemas change.
+files with `dart run melos run build` only when entity schemas change. The root
+`pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
+natively; change the override, the installer and
+`tool/objectbox_assets/manifest.json` together.
 `wayfinder_dart_chunker` holds the analyzer-based Dart chunker, so
 `wayfinder_embeddings` does not depend on `analyzer`. Nothing in
-`wayfinder_embeddings` may depend on it, including as a dev dependency. Its
-tests also check the Dart chunks that the judged retrieval corpus replays; see
+`wayfinder_embeddings` may depend on it, including as a dev dependency.
+`python3 tool/ci/verify-embeddings-closure.py` checks both rules in CI. The
+chunker's tests also check the Dart chunks that the judged retrieval corpus
+replays, and write that corpus golden; see
 its [README](../packages/wayfinder_dart_chunker/README.md#development).
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
