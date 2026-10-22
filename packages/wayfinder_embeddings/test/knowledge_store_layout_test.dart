@@ -241,15 +241,19 @@ void main() {
       expect(legacy.listSync().map((e) => e.path).toSet(), listing);
     });
 
-    test('indexes where a generation\'s path passes 260 characters', () async {
+    test('indexes where a generation\'s path reaches 248 characters', () async {
       // Windows refuses to create a directory without the long-path prefix
       // once its path reaches 248 characters, as Directory.createTemp did.
-      data = Directory(
-        p.join(temp.path, 'a' * 40, 'b' * 40, 'c' * 40, 'd' * 40, 'data'),
-      );
+      // The generation's path is set just past that limit, under 260, where
+      // Windows still lists the directories above it.
+      data = Directory(p.join(temp.path, 'probe'));
+      final probe = currentGeneration((await store().index(bundle)).index);
+      final below = probe.path.length - data.path.length;
+      final padding = 252 - below - temp.path.length - 1;
+      data = Directory(p.join(temp.path, 'd' * (padding < 1 ? 1 : padding)));
       final result = await store().index(bundle);
       final generation = currentGeneration(result.index);
-      expect(generation.path.length, greaterThan(260));
+      expect(generation.path.length, greaterThanOrEqualTo(248));
       expect(
         p.basename(generation.path),
         matches(RegExp(r'^generation-[0-9a-f]{8}$')),
