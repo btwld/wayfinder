@@ -196,7 +196,8 @@ An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
 
 Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
-invalid explicit setting fails instead of selecting another model.
+invalid explicit setting fails instead of selecting another model: `index`
+checks it even when the saved index is current.
 
 Native builds check the installed and packaged ObjectBox bytes against pinned
 platform hashes and include its license and attribution.
@@ -337,13 +338,23 @@ stderr is not a terminal, or when `CI` or `WAYFINDER_NO_UPDATE_CHECK` is set.
 ## Local storage
 
 Wayfinder stores an ObjectBox database and snapshot under a hash of the canonical
-absolute bundle path. Separate worktrees get separate indexes; symlink aliases
-resolve to the same root. Moving a bundle requires indexing its new location.
+absolute bundle path, then a hash of the index configuration: chunking,
+snapshot and storage format, and the model's identity. Separate worktrees get
+separate indexes; symlink aliases resolve to the same root. Moving a bundle
+requires indexing its new location, and a release that changes the
+configuration builds each index once in a directory of its own.
 
-- macOS: `~/Library/Application Support/Wayfinder/indexes/<bundle-key>/`
-- Linux: `$XDG_DATA_HOME/wayfinder/indexes/<bundle-key>/`, defaulting to
-  `~/.local/share/wayfinder/indexes/<bundle-key>/`
-- Windows: `%LOCALAPPDATA%/Wayfinder/indexes/<bundle-key>/`
+- macOS: `~/Library/Application Support/Wayfinder/indexes/<bundle-key>/<configuration-key>/`
+- Linux: `$XDG_DATA_HOME/wayfinder/indexes/<bundle-key>/<configuration-key>/`,
+  defaulting to `~/.local/share/wayfinder/indexes/<bundle-key>/<configuration-key>/`
+- Windows: `%LOCALAPPDATA%/Wayfinder/indexes/<bundle-key>/<configuration-key>/`
+
+Wayfinder 0.2 kept one index per bundle directly under `indexes/<bundle-key>/`,
+with a different bundle key. This version never reads, changes or deletes those
+directories, so the first `index` after upgrading builds the index again;
+delete a 0.2 directory by hand to reclaim its space. The index lifecycle is the
+`wayfinder_embeddings` knowledge store library
+([its guide](../wayfinder_embeddings/README.md#knowledge-store)).
 
 `WAYFINDER_DATA_DIR` overrides the app-data root for isolated runs. It must be
 outside the knowledge bundle. The model is shared by the installation; query
@@ -362,8 +373,10 @@ refresh or read a source, and others wait up to two minutes;
 `projects/<project>.get.lock` records the project it guards. These locks hold
 across processes and isolates; keep the data directory on a local disk.
 
-An OS lock serializes same-bundle commands. Indexing stages a replacement
-database and snapshot, then publishes their completed generation atomically.
+A lock file beside each index directory serializes the commands on one
+bundle, across processes and isolates; a second one fails with `Index is busy`.
+Indexing stages a replacement database and snapshot, then publishes their
+completed generation atomically.
 Failed indexing preserves the previous generation; searches still reject it
 if source files have changed. Successful indexing removes inactive generations.
 Copying the database temporarily requires space for both generations.

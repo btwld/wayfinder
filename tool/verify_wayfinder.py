@@ -90,21 +90,24 @@ def main():
         updated = json.loads(run("delete-index", "index", corpus, "--output=json").stdout)
         assert updated["removedChunks"] == 1 and updated["embeddedChunks"] == 0
 
-        # A second process cannot open the same index until the OS lock is released.
+        # A second process cannot open the same index until the OS lock is
+        # released. The flock(2) lock file sits beside the index directory.
         if os.name != "nt":
             import fcntl
-            with (index / "command.lock").open("a") as lock:
-                fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_file = index.parent / f"{index.name}.lock"
+            assert json.loads(lock_file.read_text()) == {"root": first["bundle"]}
+            with lock_file.open("a") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 busy = run("cross-process-lock", "index", corpus, expected=2)
                 assert "busy" in busy.stderr
             run("lock-released", "search", corpus, "password", "--output=json")
 
             # Killing the lock owner releases its OS lock automatically.
             holder = subprocess.Popen(
-                ["python3", "-u", "-c",
+                [sys.executable, "-u", "-c",
                  "import fcntl,sys,time; f=open(sys.argv[1],'a'); "
-                 "fcntl.lockf(f,fcntl.LOCK_EX); print('locked',flush=True); time.sleep(60)",
-                 str(index / "command.lock")],
+                 "fcntl.flock(f,fcntl.LOCK_EX); print('locked',flush=True); time.sleep(60)",
+                 str(lock_file)],
                 stdout=subprocess.PIPE, text=True,
             )
             try:
