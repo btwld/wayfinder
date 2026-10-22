@@ -14,7 +14,8 @@ import 'support/store_contract.dart';
 /// Why the ObjectBox tests cannot run, or null when the native library is here.
 ///
 /// ObjectBox needs a platform library that is not committed. Install it with
-/// `melos run objectbox:install`.
+/// `melos run objectbox:install`. `WAYFINDER_REQUIRE_NATIVE=1` runs the tests
+/// anyway, so a missing library fails instead of skipping.
 final String? _missingNativeLibrary = _findMissingNativeLibrary();
 
 String? _findMissingNativeLibrary() {
@@ -31,8 +32,12 @@ String? _findMissingNativeLibrary() {
   if (candidates.any((path) => File(path).existsSync())) {
     return null;
   }
+  if (Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1') {
+    return null;
+  }
   return 'The ObjectBox native library ($name) is not installed. '
-      'Run `melos run objectbox:install`.';
+      'Run `melos run objectbox:install`. '
+      'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.';
 }
 
 void main() {
