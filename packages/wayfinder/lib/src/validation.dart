@@ -39,15 +39,27 @@ sealed class ProfileSelection {
 
 final class SelectedProfile extends ProfileSelection {
   /// Throws when a note is an error, so a selected run derives its gate
-  /// from the assessment alone.
+  /// from the assessment alone, and when [projectRoot] is not the absolute
+  /// directory of [config], so a host can trust it.
   SelectedProfile(
     this.profile, {
     this.config,
+    this.projectRoot,
     this.commits = const {},
     Iterable<EngineDiagnostic> notes = const [],
   }) : notes = List.unmodifiable(notes) {
     if (this.notes.any((d) => d.isError)) {
       throw ArgumentError.value(notes, 'notes', 'cannot hold an error');
+    }
+    if (projectRoot case final root?
+        when config == null ||
+            !p.isAbsolute(root) ||
+            !p.equals(root, p.dirname(config!.file))) {
+      throw ArgumentError.value(
+        root,
+        'projectRoot',
+        'is not the absolute directory of config',
+      );
     }
   }
 
@@ -56,6 +68,13 @@ final class SelectedProfile extends ProfileSelection {
   /// The project file that bound the bundle; null for a selection built by
   /// hand, as in tests and authoring tools. Project-type notes point here.
   final ProjectFileLocation? config;
+
+  /// The absolute directory of [config], symbolic links unresolved: where
+  /// `wayfinder.lock` is and `get` installs Profile skills, whose markers
+  /// [notes] checked. A host passes it to `ProfileSkills.read`. Null for a
+  /// selection built by hand that names none; the constructor refuses one
+  /// that is not that directory.
+  final String? projectRoot;
 
   /// The locked commit of each package in the chain; empty for a selection
   /// built by hand.

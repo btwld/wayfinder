@@ -93,13 +93,38 @@
   Bitwild these are `type`, `title`, `description` and `status`. It
   combines `requiredRootProperties`, which a `SchemaCheck`'s `schema` now
   lists for its own rule.
-- `ProfileSkills.read` returns the `SKILL.md` text `get` installed for a
-  skill revision, from a directory whose marker holds that revision and that
-  no symbolic link places outside the project, or null. It takes no lock and
-  reads the marker again after the text, so a concurrent `get` never makes
-  it return another revision's text.
+- `ProfileSkills.read` returns the `SKILL.md` `get` installed for a skill
+  revision, as a `ProfileSkillText`, from a directory whose marker holds that
+  revision and that no symbolic link places outside the project, or null. It
+  reads the marker and `SKILL.md` through the real paths it confined to the
+  project, so a link retargeted after the check does not move the read,
+  opens each only when it is a regular file just before the open, and
+  returns the text only when its real path still holds no link afterwards
+  and its marker is not a link. A link or named pipe swapped in between that
+  last check and the open stays out of its reach, since Dart cannot open a
+  file without following a link or waiting on a pipe.
+  It takes no lock and reads the marker again after the text, so a
+  concurrent `get` never makes it return another revision's text. With
+  `maxBytes` it reads at most one byte past the limit and cuts a longer file
+  at the last UTF-8 character boundary within it, setting `truncated`; a
+  `SKILL.md` that is not UTF-8 text counts as unreadable.
   `ProfileSkills.revisionsOf` lists the skill revisions of a
   `SelectedProfile`'s chain.
+- `SelectedProfile.projectRoot` is the directory of the `wayfinder.json`
+  that bound the selection, where `get` installed its skills, so a host
+  passes it to `ProfileSkills.read` instead of deriving it from `config`.
+  It is null for a selection built by hand that names none, and the
+  constructor refuses one that is not the absolute directory of `config`.
+- `ProfileSkills.write` and `ProfileSkills.prune` work under the real path
+  of each skill root that `escaping` confined to the project, so a symbolic
+  link changed after that check does not move a write or a delete. `write`
+  refuses to replace a directory without the marker for its id: it checks
+  every root before writing any, and each again just before moving it, where
+  a directory that appeared meanwhile stops it after the roots before it
+  were replaced. A marker that is not a regular file when checked or is
+  larger than 64 KiB marks no revision and is never read whole; `write`
+  refuses, and `get` fails before writing anything for, a revision whose
+  release would make its marker larger.
 - The resolver splits `get` into `plan`, which may fetch into the cache but
   writes nothing in the project, and `apply`, which writes it and throws
   `resolution-stale` when the configuration, lock or cache changed since.

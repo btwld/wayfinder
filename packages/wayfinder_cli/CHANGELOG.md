@@ -17,7 +17,11 @@
   for a Profile skill whose `.wayfinder-profile` marker cannot be read,
   instead of reporting `wayfinder/profile-unresolved`, so the gate no longer
   turns `INCOMPLETE` (exit code 2) over it. `get` reports such a directory as
-  one it did not install, as it does an unmarked one.
+  one it did not install, as it does an unmarked one. A marker that is not a
+  regular file when checked, such as a named pipe, which made the command
+  wait forever, or that is larger than 64 KiB counts the same way, and `get`
+  refuses to install the skill of a Profile whose release is too long for
+  its marker to stay within 64 KiB.
 - `validate --fix` holds okf's exclusive bundle lock while it loads the bundle
   again, writes the generated indexes and validates, so it waits for an okf
   read or write of the bundle in another process instead of interleaving with

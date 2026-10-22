@@ -341,6 +341,7 @@ final class KnowledgeAdoption {
         path: 'wayfinder.json',
         file: p.join(projectRoot, 'wayfinder.json'),
       ),
+      projectRoot: projectRoot,
       commits: {for (final package in chain) package.id: package.commit},
     );
 

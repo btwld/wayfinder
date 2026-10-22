@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -317,11 +318,20 @@ void main() {
     late SkillRevision revision;
     late String text;
 
-    Future<String?> read() => ProfileSkills.read(project.path, revision);
+    Future<String?> read() async =>
+        (await ProfileSkills.read(project.path, revision))?.text;
 
     Future<void> mark(String directory, String commit) => File(
       p.join(project.path, directory, '.wayfinder-profile'),
     ).writeAsString(marker(commit));
+
+    Future<void> writeSkill(String text) async {
+      for (final directory in [_claude, _agents]) {
+        await File(
+          p.join(project.path, directory, 'SKILL.md'),
+        ).writeAsString(text);
+      }
+    }
 
     setUp(() async {
       text = await sourceFile('skill/SKILL.md').readAsString();
@@ -341,13 +351,77 @@ void main() {
       expect(ProfileSkills.revisionsOf(selection as SelectedProfile), [
         revision,
       ]);
-      expect(await read(), text);
+      expect(await ProfileSkills.read(project.path, revision), (
+        text: text,
+        truncated: false,
+      ));
       expect(
         ProfileSkills.revisionsOf(
           SelectedProfile(selection.profile, config: selection.config),
         ),
         isEmpty,
       );
+    });
+
+    test('a selection names the project root of the wayfinder.json that '
+        'bound it', () async {
+      await resolver.resolve(project.path);
+      final bundle = p.join(project.path, 'knowledge');
+      for (final selection in [
+        await resolver.select(bundle),
+        // A host's root above the project only bounds the search.
+        await resolver.select(bundle, projectRoot: temp.path),
+        await resolver.select(
+          bundle,
+          configPath: p.join(project.path, 'wayfinder.json'),
+        ),
+      ]) {
+        selection as SelectedProfile;
+        expect(selection.projectRoot, p.normalize(project.absolute.path));
+        expect(p.dirname(selection.config!.file), selection.projectRoot);
+        expect(
+          await ProfileSkills.read(
+            selection.projectRoot!,
+            ProfileSkills.revisionsOf(selection).single,
+          ),
+          (text: text, truncated: false),
+        );
+      }
+      final byHand = await resolver.select(bundle) as SelectedProfile;
+      expect(
+        SelectedProfile(byHand.profile, config: byHand.config).projectRoot,
+        isNull,
+      );
+      expect(
+        SelectedProfile(
+          byHand.profile,
+          config: byHand.config,
+          projectRoot: p.join(project.path, 'knowledge', '..'),
+        ).projectRoot,
+        p.join(project.path, 'knowledge', '..'),
+        reason: 'the same directory, spelled another way',
+      );
+      for (final (config, root) in [
+        (null, project.path),
+        (byHand.config, temp.path),
+        (byHand.config, p.relative(project.path)),
+      ]) {
+        expect(
+          () => SelectedProfile(
+            byHand.profile,
+            config: config,
+            projectRoot: root,
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.name,
+              'name',
+              'projectRoot',
+            ),
+          ),
+          reason: root,
+        );
+      }
     });
 
     test('skips a directory the staleness check rejects', () async {
@@ -363,6 +437,21 @@ void main() {
       await Directory(p.join(project.path, _claude)).delete(recursive: true);
       await Directory(p.join(project.path, _agents)).delete(recursive: true);
       expect(await read(), isNull);
+    });
+
+    test('skips a SKILL.md that is not UTF-8 text', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _claude, 'SKILL.md'),
+      ).writeAsBytes([0x61, 0xff, 0x62]);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      expect(await read(), 'agents copy');
+      expect(await ProfileSkills.read(project.path, revision, maxBytes: 2), (
+        text: 'agents copy'.substring(0, 2),
+        truncated: true,
+      ));
     });
 
     test(
@@ -386,29 +475,254 @@ void main() {
       skip: Platform.isWindows ? 'needs symbolic links' : false,
     );
 
+    test(
+      'reads the real path it checked, not a link retargeted after the check',
+      () async {
+        await resolver.resolve(project.path);
+        await File(
+          p.join(project.path, _agents, 'SKILL.md'),
+        ).writeAsString('agents copy');
+        // The .claude copy lives elsewhere in the project, behind a link.
+        final claude = Directory(p.join(project.path, _claude));
+        final vendored = await claude.rename(p.join(project.path, 'vendor'));
+        await Link(claude.path).create(vendored.path);
+        expect(await read(), text);
+        // Outside the project, a copy that marks the same revision.
+        final outside = await Directory(p.join(temp.path, 'outside')).create();
+        await File(
+          p.join(outside.path, '.wayfinder-profile'),
+        ).writeAsString(marker(revision.commit));
+        await File(p.join(outside.path, 'SKILL.md')).writeAsString('outside');
+
+        final swap = _OnFirstPath(
+          (path) => p.basename(path) == 'SKILL.md',
+          () => Link(claude.path).updateSync(outside.path),
+        );
+        final result = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.read(project.path, revision),
+          swap,
+        );
+        expect(swap.fired, isTrue);
+        expect(result, (text: text, truncated: false));
+        expect(
+          await Link(claude.path).target(),
+          outside.path,
+          reason: 'the link moved between the check and the read',
+        );
+      },
+      skip: Platform.isWindows ? 'needs symbolic links' : false,
+    );
+
+    test(
+      'never returns a file a symbolic link replaced after the check',
+      () async {
+        await resolver.resolve(project.path);
+        await File(
+          p.join(project.path, _agents, 'SKILL.md'),
+        ).writeAsString('agents copy');
+        final outside = await File(
+          p.join(temp.path, 'outside.md'),
+        ).writeAsString('outside');
+        final checked = p.join(
+          await project.resolveSymbolicLinks(),
+          _claude,
+          'SKILL.md',
+        );
+        final swap = _OnFirstPath((path) => p.equals(path, checked), () {
+          File(checked).deleteSync();
+          Link(checked).createSync(outside.path);
+        });
+        final result = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.read(project.path, revision),
+          swap,
+        );
+        expect(swap.fired, isTrue, reason: 'it reads the real path');
+        expect(result, (text: 'agents copy', truncated: false));
+      },
+      skip: Platform.isWindows ? 'needs symbolic links' : false,
+    );
+
+    test('never returns a text whose marker a symbolic link replaced while it '
+        'read', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      // Outside the project, a marker for the same revision.
+      final outside = await File(
+        p.join(temp.path, 'outside-marker'),
+      ).writeAsString(marker(revision.commit));
+      final real = await project.resolveSymbolicLinks();
+      final checkedMarker = p.join(real, _claude, '.wayfinder-profile');
+      final swap = _OnFirstPath(
+        (path) => p.equals(path, p.join(real, _claude, 'SKILL.md')),
+        () {
+          File(checkedMarker).deleteSync();
+          Link(checkedMarker).createSync(outside.path);
+        },
+      );
+      final result = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision),
+        swap,
+      );
+      expect(swap.fired, isTrue);
+      expect(result, (text: 'agents copy', truncated: false));
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
+
+    test(
+      'checks that SKILL.md is a regular file just before opening it',
+      () async {
+        await resolver.resolve(project.path);
+        await File(
+          p.join(project.path, _agents, 'SKILL.md'),
+        ).writeAsString('agents copy');
+        final real = await project.resolveSymbolicLinks();
+        final skill = p.join(real, _claude, 'SKILL.md');
+        // After SKILL.md was confined, while the marker is read, a named
+        // pipe takes its place; opening it would wait for a writer.
+        final swap = _OnFirstPath(
+          (path) => p.equals(path, p.join(real, _claude, '.wayfinder-profile')),
+          () {
+            File(skill).deleteSync();
+            final made = Process.runSync('mkfifo', [skill]);
+            if (made.exitCode != 0) throw StateError('${made.stderr}');
+          },
+        );
+        final result = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.read(project.path, revision),
+          swap,
+        ).timeout(const Duration(seconds: 10));
+        expect(swap.fired, isTrue);
+        expect(result, (text: 'agents copy', truncated: false));
+      },
+      skip: Platform.isWindows ? 'mkfifo is POSIX' : false,
+    );
+
     test('never returns the text of a revision get puts in place while it '
         'reads', () async {
       await resolver.resolve(project.path);
       await File(
         p.join(project.path, _agents, 'SKILL.md'),
       ).writeAsString('agents copy');
-      final racing = _ReplacedBeforeRead(
-        p.join(project.path, _claude, 'SKILL.md'),
-        () async {
-          // What `get` leaves after renaming a new revision into place.
-          await mark(_claude, 'f' * 40);
-          await File(
-            p.join(project.path, _claude, 'SKILL.md'),
-          ).writeAsString('new revision');
-        },
+      final checked = p.join(
+        await project.resolveSymbolicLinks(),
+        _claude,
+        'SKILL.md',
       );
-      final read = await IOOverrides.runWithIOOverrides(
+      final racing = _OnFirstPath((path) => p.equals(path, checked), () {
+        // What `get` leaves after renaming a new revision into place.
+        File(
+          p.join(project.path, _claude, '.wayfinder-profile'),
+        ).writeAsStringSync(marker('f' * 40));
+        File(checked).writeAsStringSync('new revision');
+      });
+      final result = await IOOverrides.runWithIOOverrides(
         () => ProfileSkills.read(project.path, revision),
         racing,
       );
-      expect(racing.replaced, isTrue);
-      expect(read, 'agents copy');
+      expect(racing.fired, isTrue);
+      expect(result, (text: 'agents copy', truncated: false));
     });
+
+    test('maxBytes cuts a longer file at a character boundary', () async {
+      await resolver.resolve(project.path);
+      // 'a' is one byte, 'é' two, '€' three and '😀' four.
+      await writeSkill('aé€😀');
+      Future<ProfileSkillText?> readUpTo(int maxBytes) =>
+          ProfileSkills.read(project.path, revision, maxBytes: maxBytes);
+      expect(await readUpTo(10), (text: 'aé€😀', truncated: false));
+      expect(await readUpTo(11), (text: 'aé€😀', truncated: false));
+      for (final (maxBytes, start) in [
+        (9, 'aé€'),
+        (7, 'aé€'),
+        (6, 'aé€'),
+        (5, 'aé'),
+        (3, 'aé'),
+        (2, 'a'),
+        (1, 'a'),
+        (0, ''),
+      ]) {
+        expect(await readUpTo(maxBytes), (
+          text: start,
+          truncated: true,
+        ), reason: '$maxBytes');
+      }
+      // The largest int, which a host may pass for no limit.
+      expect(await readUpTo(0x7FFFFFFFFFFFFFFF), (
+        text: 'aé€😀',
+        truncated: false,
+      ));
+      await writeSkill('');
+      expect(await readUpTo(0), (text: '', truncated: false));
+      await expectLater(readUpTo(-1), throwsRangeError);
+    });
+
+    test('maxBytes bounds what is read of a huge file', () async {
+      await resolver.resolve(project.path);
+      final huge = 'a' * (4 << 20);
+      await writeSkill(huge);
+      final counted = _CountingReads((path) => p.basename(path) == 'SKILL.md');
+      final bounded = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision, maxBytes: 1000),
+        counted,
+      );
+      expect(bounded, (text: 'a' * 1000, truncated: true));
+      expect(counted.bytes, lessThanOrEqualTo(1001));
+
+      final unbounded = _CountingReads(
+        (path) => p.basename(path) == 'SKILL.md',
+      );
+      final whole = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision),
+        unbounded,
+      );
+      expect(whole, (text: huge, truncated: false));
+      expect(unbounded.bytes, huge.length);
+    });
+
+    test('a marker larger than 64 KiB marks no revision', () async {
+      await resolver.resolve(project.path);
+      final padded = marker(
+        revision.commit,
+      ).replaceFirst('{', '{${' ' * (64 * 1024)}');
+      await File(
+        p.join(project.path, _claude, '.wayfinder-profile'),
+      ).writeAsString(padded);
+      expect(await ProfileSkills.stale(project.path, revision), [_claude]);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      expect(await read(), 'agents copy');
+      await File(
+        p.join(project.path, _agents, '.wayfinder-profile'),
+      ).writeAsString(padded);
+      expect(await read(), isNull);
+      // Wayfinder's own markers are far smaller.
+      expect(
+        utf8.encode(ProfileSkills.markerText(revision)).length,
+        lessThan(1024),
+      );
+    });
+
+    test(
+      'a marker that is not a regular file marks no revision',
+      () async {
+        await resolver.resolve(project.path);
+        final fifo = p.join(project.path, _claude, '.wayfinder-profile');
+        await File(fifo).delete();
+        await _run('mkfifo', [fifo]);
+        // Opening a FIFO with no writer would wait forever.
+        expect(
+          await ProfileSkills.stale(
+            project.path,
+            revision,
+          ).timeout(const Duration(seconds: 10)),
+          [_claude],
+        );
+        expect(await read().timeout(const Duration(seconds: 10)), text);
+      },
+      skip: Platform.isWindows ? 'mkfifo is POSIX' : false,
+    );
   });
 
   test('a skill directory without SKILL.md fails get', () async {
@@ -631,6 +945,265 @@ void main() {
     }
   });
 
+  group(
+    'a skill root behind a symbolic link inside the project',
+    () {
+      late Directory shared;
+      late Directory other;
+      late Directory foreign;
+      final revision = (
+        id: ProfileId.parse('acme-notes'),
+        release: '1.0',
+        commit: 'a' * 40,
+      );
+      final files = [
+        (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+      ];
+
+      Future<Directory> marked(Directory directory, String id) async {
+        await directory.create(recursive: true);
+        await File(p.join(directory.path, '.wayfinder-profile')).writeAsString(
+          jsonEncode({'id': id, 'release': '1', 'commit': 'b' * 40}),
+        );
+        return directory;
+      }
+
+      setUp(() async {
+        shared = await Directory(
+          p.join(project.path, 'shared', 'agents-skills'),
+        ).create(recursive: true);
+        await Directory(p.join(project.path, '.agents')).create();
+        await Link(p.join(project.path, '.agents/skills')).create(shared.path);
+        other = await Directory(p.join(temp.path, 'other')).create();
+        foreign = await marked(
+          Directory(p.join(other.path, '.agents/skills/old-profile')),
+          'old-profile',
+        );
+      });
+
+      // Points .agents/skills outside the project, as a concurrent change
+      // could after the check.
+      void retarget() => Link(
+        p.join(project.path, '.agents/skills'),
+      ).updateSync(p.join(other.path, '.agents/skills'));
+
+      test('get installs and prunes there', () async {
+        final retired = await marked(
+          Directory(p.join(shared.path, 'retired-profile')),
+          'retired-profile',
+        );
+        final result = await resolver.resolve(project.path);
+        expect(result.removedSkills, ['.agents/skills/retired-profile']);
+        expect(await installed(_agents), await installed(_claude));
+        expect(
+          await File(p.join(shared.path, 'acme-notes', 'SKILL.md')).exists(),
+          isTrue,
+        );
+        expect(await retired.exists(), isFalse);
+        expect(await foreign.exists(), isTrue);
+      });
+
+      test('write keeps to the real root it checked when the link moves '
+          'afterwards', () async {
+        final swap = _OnFirstPath(
+          (path) => p.basename(path).startsWith('.acme-notes.staged-'),
+          retarget,
+          directories: true,
+        );
+        await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.write(project.path, revision, files),
+          swap,
+        );
+        expect(swap.fired, isTrue);
+        expect(
+          await File(
+            p.join(shared.path, 'acme-notes', 'SKILL.md'),
+          ).readAsString(),
+          'x',
+        );
+        expect(
+          await Directory(
+            p.join(other.path, '.agents/skills'),
+          ).list().map((entry) => p.basename(entry.path)).toList(),
+          ['old-profile'],
+        );
+      });
+
+      test('prune keeps to the real root it checked when the link moves '
+          'afterwards', () async {
+        final old = await marked(
+          Directory(p.join(shared.path, 'old-profile')),
+          'old-profile',
+        );
+        final swap = _OnFirstPath(
+          (path) => p.basename(path) == '.wayfinder-profile',
+          retarget,
+        );
+        final removed = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.prune(project.path, {}),
+          swap,
+        );
+        expect(swap.fired, isTrue);
+        expect(removed, ['.agents/skills/old-profile']);
+        expect(await old.exists(), isFalse);
+        expect(await foreign.exists(), isTrue);
+      });
+    },
+    skip: Platform.isWindows ? 'needs symbolic links' : false,
+  );
+
+  test('write refuses to replace a directory without its marker', () async {
+    final revision = (
+      id: ProfileId.parse('acme-notes'),
+      release: '1.0',
+      commit: 'a' * 40,
+    );
+    final mine = await Directory(
+      p.join(project.path, _agents),
+    ).create(recursive: true);
+    await File(p.join(mine.path, 'SKILL.md')).writeAsString('mine');
+    await File(
+      p.join(mine.path, '.wayfinder-profile'),
+    ).writeAsString(marker('a' * 40).replaceFirst('acme-notes', 'other'));
+    await expectLater(
+      ProfileSkills.write(project.path, revision, [
+        (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+      ]),
+      throwsA(
+        isA<FileSystemException>().having(
+          (error) => error.message,
+          'message',
+          '$_agents exists without a .wayfinder-profile marker for '
+              'acme-notes, so wayfinder did not replace it.',
+        ),
+      ),
+    );
+    expect(
+      await Directory(
+        p.join(project.path, '.agents/skills'),
+      ).list().map((entry) => p.basename(entry.path)).toList(),
+      ['acme-notes'],
+      reason: 'nothing staged is left behind',
+    );
+    expect((await installed(_agents))['SKILL.md'], 'mine');
+    expect(
+      await Directory(p.join(project.path, '.claude')).exists(),
+      isFalse,
+      reason: 'it refuses before writing any root',
+    );
+  });
+
+  test('write refuses a directory that appears without its marker after '
+      'the check, leaving the roots it already replaced', () async {
+    final revision = (
+      id: ProfileId.parse('acme-notes'),
+      release: '1.0',
+      commit: 'a' * 40,
+    );
+    // While .agents is being staged, after .claude was replaced, another
+    // tool creates .agents/skills/acme-notes.
+    final appears = _OnFirstPath(
+      (path) =>
+          p.split(path).contains('.agents') && p.basename(path) == 'SKILL.md',
+      () {
+        final mine = Directory(p.join(project.path, _agents))
+          ..createSync(recursive: true);
+        File(p.join(mine.path, 'SKILL.md')).writeAsStringSync('mine');
+      },
+    );
+    await expectLater(
+      IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.write(project.path, revision, [
+          (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+        ]),
+        appears,
+      ),
+      throwsA(
+        isA<FileSystemException>().having(
+          (error) => error.message,
+          'message',
+          '$_agents exists without a .wayfinder-profile marker for '
+              'acme-notes, so wayfinder did not replace it.',
+        ),
+      ),
+    );
+    expect(appears.fired, isTrue);
+    expect(await installed(_agents), {'SKILL.md': 'mine'});
+    expect(
+      await Directory(
+        p.join(project.path, '.agents/skills'),
+      ).list().map((entry) => p.basename(entry.path)).toList(),
+      ['acme-notes'],
+      reason: 'nothing staged is left behind',
+    );
+    expect((await installed(_claude))['SKILL.md'], 'x');
+  });
+
+  group('a release too long for its marker', () {
+    final longRelease = 'a' * (64 * 1024);
+
+    test('write refuses it before writing', () async {
+      await expectLater(
+        ProfileSkills.write(
+          project.path,
+          (
+            id: ProfileId.parse('acme-notes'),
+            release: longRelease,
+            commit: 'a' * 40,
+          ),
+          [(path: 'SKILL.md', bytes: utf8.encode('x'), executable: false)],
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'has a release too long for the .wayfinder-profile marker, which '
+                'is read up to 64 KiB',
+          ),
+        ),
+      );
+      expect(
+        await Directory(p.join(project.path, '.claude')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(p.join(project.path, '.agents')).exists(),
+        isFalse,
+      );
+    });
+
+    test('fails get before writing the lock', () async {
+      final package = sourceFile('wayfinder-profile.json');
+      await package.writeAsString(
+        (await package.readAsString()).replaceFirst(
+          '"release": "1.0"',
+          '"release": "$longRelease"',
+        ),
+      );
+      await commitSource();
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            'Profile acme-notes release is too long for the '
+                '.wayfinder-profile marker, which wayfinder reads up to '
+                '64 KiB, so wayfinder did not install its skill.',
+          ),
+        ),
+      );
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(p.join(project.path, '.claude')).exists(),
+        isFalse,
+      );
+    });
+  });
+
   group('a skill root that resolves outside the project', () {
     late Directory other;
     late Directory foreign;
@@ -753,23 +1326,33 @@ void main() {
   });
 }
 
-/// Runs [replace] outside the overrides just before the first read of
-/// [target], as a concurrent `get` would.
-final class _ReplacedBeforeRead extends IOOverrides {
-  _ReplacedBeforeRead(this.target, this.replace);
+/// Runs [hook] once, outside the overrides, when the code under test first
+/// names a file whose path [matches], or with [directories] a directory:
+/// after any check of that path, just before using it.
+final class _OnFirstPath extends IOOverrides {
+  _OnFirstPath(this.matches, this.hook, {this.directories = false});
 
-  final String target;
-  final Future<void> Function() replace;
-  var replaced = false;
+  final bool Function(String path) matches;
+  final void Function() hook;
+  final bool directories;
+  var fired = false;
+
+  void _named(String path) {
+    if (fired || !matches(path)) return;
+    fired = true;
+    Zone.root.run(hook);
+  }
 
   @override
   File createFile(String path) {
-    final file = super.createFile(path);
-    if (replaced || !p.equals(path, target)) return file;
-    return _BeforeRead(file, () async {
-      replaced = true;
-      await Zone.root.run(replace);
-    });
+    _named(path);
+    return super.createFile(path);
+  }
+
+  @override
+  Directory createDirectory(String path) {
+    if (directories) _named(path);
+    return super.createDirectory(path);
   }
 
   // The inherited type lookup passes the native call a path without its
@@ -780,20 +1363,64 @@ final class _ReplacedBeforeRead extends IOOverrides {
       .run(() => FileSystemEntity.type(path, followLinks: followLinks));
 }
 
-final class _BeforeRead implements File {
-  _BeforeRead(this._file, this._before);
+/// Counts the bytes read from the files whose path [matches].
+final class _CountingReads extends IOOverrides {
+  _CountingReads(this.matches);
+
+  final bool Function(String path) matches;
+  var bytes = 0;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return matches(path) ? _CountingFile(file, this) : file;
+  }
+
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) => Zone
+      .root
+      .run(() => FileSystemEntity.type(path, followLinks: followLinks));
+}
+
+final class _CountingFile implements File {
+  _CountingFile(this._file, this._reads);
 
   final File _file;
-  final Future<void> Function() _before;
+  final _CountingReads _reads;
 
   @override
   String get path => _file.path;
 
   @override
-  Future<String> readAsString({Encoding encoding = utf8}) async {
-    await _before();
-    return _file.readAsString(encoding: encoding);
+  Future<Uint8List> readAsBytes() async {
+    final bytes = await _file.readAsBytes();
+    _reads.bytes += bytes.length;
+    return bytes;
   }
+
+  @override
+  Future<RandomAccessFile> open({FileMode mode = FileMode.read}) async =>
+      _CountingHandle(await _file.open(mode: mode), _reads);
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _CountingHandle implements RandomAccessFile {
+  _CountingHandle(this._handle, this._reads);
+
+  final RandomAccessFile _handle;
+  final _CountingReads _reads;
+
+  @override
+  Future<Uint8List> read(int count) async {
+    final bytes = await _handle.read(count);
+    _reads.bytes += bytes.length;
+    return bytes;
+  }
+
+  @override
+  Future<void> close() => _handle.close();
 
   @override
   Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

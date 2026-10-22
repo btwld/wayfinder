@@ -105,10 +105,38 @@ Future<void> main() async {
   `wayfinder/profile-invalid`; `ProfilePackage.parseWithin` is that bounded
   parse.
 - `ProfileSkills.read(projectRoot, revision)` returns the `SKILL.md` text
-  `get` installed for a Profile revision, or null when no installed copy
-  holds that revision, the check behind `profile-skill-stale`.
-  `ProfileSkills.revisionsOf(selection)` lists the revisions of a selected
-  chain's skills.
+  `get` installed for a Profile revision as a `ProfileSkillText`, or null
+  when no installed copy holds that revision, the check behind
+  `profile-skill-stale`. It reads the real path it confined to the project,
+  so a symbolic link changed after the check does not move the read, drops a
+  file a link replaced meanwhile, and checks that each file is a regular file
+  just before opening it. Dart cannot open a file without following a link
+  or waiting on a named pipe, so a swap in that last moment is out of its
+  reach; a host that must exclude it keeps writers out while it reads.
+  With `maxBytes` it reads no more than one byte past that limit, and a
+  longer file comes back cut at the last UTF-8 character boundary within it,
+  with `truncated` set. `ProfileSkills.revisionsOf(selection)` lists the
+  revisions of a selected chain's skills, and `selection.projectRoot` is the
+  directory of the `wayfinder.json` that bound it, where they are installed.
+  Inside the loop of the example above, with `package:wayfinder/wayfinder.dart`
+  imported for `SelectedProfile`:
+
+  ```dart
+  final selection = await resolver.select(
+    bundle.root,
+    projectRoot: project.root,
+  );
+  if (selection case SelectedProfile(:final projectRoot?)) {
+    for (final revision in ProfileSkills.revisionsOf(selection)) {
+      final skill = await ProfileSkills.read(
+        projectRoot,
+        revision,
+        maxBytes: 16 * 1024,
+      );
+      print('${revision.id}: ${skill?.truncated}');
+    }
+  }
+  ```
 - `projectWayfinderGraph` is the `graph` command's projection, and
   `wayfinderGraphInput` its Ack query input.
 - `WayfinderDataDirectory.resolve`, `GitRunner` and the hardened `runGit`,
