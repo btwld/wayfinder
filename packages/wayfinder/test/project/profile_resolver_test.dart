@@ -1621,12 +1621,22 @@ void main() {
       switch (await reading.select(bundle)) {
         case UnselectedProfile(:final reasons):
           expect(status.diagnostic?.toJson(), reasons.single.toJson());
+          expect(status.diagnostic?.remedy, reasons.single.remedy);
         case SelectedProfile(:final notes):
           expect(status.diagnostic, isNull);
           expect(
             status.notes.map((note) => note.toJson()),
             notes.map((note) => note.toJson()),
           );
+      }
+      // The lock change is data exactly where the lock is why.
+      expect(status.lockChange?.state, switch (state) {
+        ProfileBindingState.lockMissing ||
+        ProfileBindingState.lockStale => state,
+        _ => null,
+      });
+      if (status.lockChange case final change?) {
+        expect(change.reason, status.diagnostic?.message);
       }
       return status;
     }
@@ -1639,6 +1649,14 @@ void main() {
       final status = await agrees(ProfileBindingState.resolved);
       expect(status.chain.map((locked) => locked.commit), [tags['v2026.3']]);
       expect(status.missing, isEmpty);
+      expect(status.lockChange, isNull);
+      Map<String, Object?> current(String root) => {
+        'profile': 'bitwild-profile',
+        'root': root,
+        'path': '$root/bitwild-profile',
+        'state': 'current',
+        'installed': {'release': '2026.3', 'commit': tags['v2026.3']},
+      };
       expect(status.toJson(), {
         'id': 'bitwild-profile',
         'state': 'resolved',
@@ -1652,8 +1670,21 @@ void main() {
           {'id': 'bitwild-profile', ...locked('v2026.3', 'profiles/bitwild')},
         ],
         'missing': <Object?>[],
+        'copies': [
+          {
+            'id': 'bitwild-profile',
+            'location': source.path,
+            'has_mirror': true,
+            'has_package': true,
+          },
+        ],
+        'lock_change': null,
         'diagnostic': null,
         'notes': <Object?>[],
+        'skill_directories': [
+          current('.claude/skills'),
+          current('.agents/skills'),
+        ],
       });
     });
 
@@ -1704,6 +1735,133 @@ void main() {
       );
     });
 
+    test("status names each skill directory and each member's local copy, "
+        'without Git', () async {
+      await bindOnly('client-profile', {
+        'git': source.path,
+        'ref': 'arm-child',
+        'path': 'child',
+      });
+      await resolver.resolve(project.path);
+      calls.clear();
+      final commit = tags['arm-child']!;
+      const claude = '.claude/skills/bitwild-profile';
+      const agents = '.agents/skills/bitwild-profile';
+      List<(ProfileId, String, bool, bool)> copies(
+        ProfileBindingStatus status,
+      ) => [
+        for (final copy in status.copies)
+          (copy.locked.id, copy.location, copy.hasMirror, copy.hasPackage),
+      ];
+      List<(String, ProfileSkillDirectoryState)> directories(
+        ProfileBindingStatus status,
+      ) => [
+        for (final directory in status.skillDirectories)
+          (directory.path, directory.state),
+      ];
+
+      var status = await agrees(ProfileBindingState.resolved, id: _client);
+      expect(status.chain.map((locked) => locked.id), [_bitwild, _client]);
+      expect(copies(status), [
+        (_bitwild, source.path, true, true),
+        (_client, source.path, true, true),
+      ]);
+      // Only the root ships a skill.
+      expect(directories(status), [
+        (claude, ProfileSkillDirectoryState.current),
+        (agents, ProfileSkillDirectoryState.current),
+      ]);
+      expect(status.skillDirectories.first.installed, (
+        id: _bitwild,
+        release: '2026.3',
+        commit: commit,
+      ));
+      expect(status.notes, isEmpty);
+
+      await Directory(p.join(project.path, claude)).delete(recursive: true);
+      await File(
+        p.join(project.path, agents, '.wayfinder-profile'),
+      ).writeAsString(
+        ProfileSkills.markerText((
+          id: _bitwild,
+          release: '2026.2',
+          commit: 'f' * 40,
+        )),
+      );
+      status = await agrees(ProfileBindingState.resolved, id: _client);
+      expect(directories(status), [
+        (claude, ProfileSkillDirectoryState.missing),
+        (agents, ProfileSkillDirectoryState.stale),
+      ]);
+      expect(status.skillDirectories.last.toJson(), {
+        'profile': 'bitwild-profile',
+        'root': '.agents/skills',
+        'path': agents,
+        'state': 'stale',
+        'installed': {'release': '2026.2', 'commit': 'f' * 40},
+      });
+      expect(
+        status.notes.single.message,
+        'Profile bitwild-profile skill in $claude and $agents is not the '
+        'locked commit $commit.',
+      );
+      expect(status.notes.single.remedy, DiagnosticRemedy.resolveProfiles);
+
+      // Something that is not the Profile's own is in the way.
+      await File(p.join(project.path, claude)).writeAsString('mine');
+      status = await agrees(ProfileBindingState.resolved, id: _client);
+      expect(directories(status).first, (
+        claude,
+        ProfileSkillDirectoryState.unmarked,
+      ));
+
+      // Selection reads package files, so it needs no mirror; a download
+      // would contact the source to bring one back.
+      await Directory(
+        p.join(
+          data.path,
+          'profiles',
+          sha256.convert(utf8.encode(source.path)).toString(),
+        ),
+      ).delete(recursive: true);
+      status = await agrees(ProfileBindingState.resolved, id: _client);
+      expect(copies(status), [
+        (_bitwild, source.path, false, true),
+        (_client, source.path, false, true),
+      ]);
+
+      await File(
+        p.join(
+          data.path,
+          'profiles',
+          'packages',
+          '${sha256.convert(utf8.encode('$commit\u0000profiles/bitwild'))}.json',
+        ),
+      ).delete();
+      status = await agrees(ProfileBindingState.cacheMissing, id: _client);
+      expect(copies(status), [
+        (_bitwild, source.path, false, false),
+        (_client, source.path, false, true),
+      ]);
+      expect(status.missing.map((locked) => locked.id), [_bitwild]);
+      expect(status.diagnostic?.remedy, DiagnosticRemedy.resolveProfiles);
+      expect(status.skillDirectories, isEmpty);
+      expect(status.toJson()['copies'], [
+        {
+          'id': 'bitwild-profile',
+          'location': source.path,
+          'has_mirror': false,
+          'has_package': false,
+        },
+        {
+          'id': 'client-profile',
+          'location': source.path,
+          'has_mirror': false,
+          'has_package': true,
+        },
+      ]);
+    });
+
     test('config-missing when the named file does not exist', () async {
       final missing = p.join(project.path, 'missing.json');
       final diagnostic = await reason(configPath: missing);
@@ -1742,12 +1900,18 @@ void main() {
       await File(p.join(project.path, 'wayfinder.lock')).delete();
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.profileUnresolved);
-      expect(
-        diagnostic.message,
-        'Profile lock is missing or unreadable. Run wayfinder get.',
-      );
+      expect(diagnostic.message, 'Profile lock is missing or unreadable.');
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
       expect(diagnostic.location?.path, 'wayfinder.json');
-      expect((await agrees(ProfileBindingState.lockMissing)).chain, isEmpty);
+      final status = await agrees(ProfileBindingState.lockMissing);
+      expect(status.chain, isEmpty);
+      expect(status.copies, isEmpty);
+      expect(status.lockChange?.toJson(), {
+        'kind': 'lock-missing',
+        'reason': 'Profile lock is missing or unreadable.',
+        'profile': null,
+        'packages': <Object?>[],
+      });
     });
 
     test('profile-unresolved when the configuration changed', () async {
@@ -1760,10 +1924,14 @@ void main() {
       expect(diagnostic.code, DiagnosticCode.profileUnresolved);
       expect(
         diagnostic.message,
-        'Profile lock is stale: the configuration changed after wayfinder '
-        'get. Run wayfinder get.',
+        'Profile lock is stale: the configuration changed after the lock was '
+        'written.',
       );
-      await agrees(ProfileBindingState.lockStale);
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
+      expect(
+        (await agrees(ProfileBindingState.lockStale)).lockChange?.kind,
+        ProfileLockChangeKind.configurationChanged,
+      );
     });
 
     test('profile-unresolved when the lock lacks the chain', () async {
@@ -1778,17 +1946,28 @@ void main() {
       expect(diagnostic.code, DiagnosticCode.profileUnresolved);
       expect(
         diagnostic.message,
-        'Profile lock has no complete chain for Profile bitwild-profile. '
-        'Run wayfinder get.',
+        'Profile lock has no complete chain for Profile bitwild-profile.',
       );
-      await agrees(ProfileBindingState.lockStale);
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
+      final change = (await agrees(ProfileBindingState.lockStale)).lockChange!;
+      expect(change.kind, ProfileLockChangeKind.chainMissing);
+      expect(change.profile, _bitwild);
     });
 
     group('profile-unresolved when the lock records another', () {
       String message(String git, String ref, String path) =>
           'Profile lock records bitwild-profile from $git at $ref ($path); '
           'the configuration names ${source.path} at v2026.3 '
-          '(profiles/bitwild). Run wayfinder get.';
+          '(profiles/bitwild).';
+
+      Future<void> agreesSourceChanged() async {
+        final change = (await agrees(
+          ProfileBindingState.lockStale,
+        )).lockChange!;
+        expect(change.kind, ProfileLockChangeKind.sourceChanged);
+        expect(change.profile, _bitwild);
+        expect(change.packages, [_bitwild]);
+      }
 
       test('source', () async {
         final other = p.join(project.path, 'elsewhere');
@@ -1804,7 +1983,7 @@ void main() {
           diagnostic.message,
           message(other, 'v2026.3', 'profiles/bitwild'),
         );
-        await agrees(ProfileBindingState.lockStale);
+        await agreesSourceChanged();
       });
 
       test('ref', () async {
@@ -1817,7 +1996,7 @@ void main() {
           diagnostic.message,
           message(source.path, 'arm-child', 'profiles/bitwild'),
         );
-        await agrees(ProfileBindingState.lockStale);
+        await agreesSourceChanged();
       });
 
       test('path', () async {
@@ -1830,7 +2009,7 @@ void main() {
         final diagnostic = await reason();
         expect(diagnostic.code, DiagnosticCode.profileUnresolved);
         expect(diagnostic.message, message(source.path, 'v2026.3', 'copy'));
-        await agrees(ProfileBindingState.lockStale);
+        await agreesSourceChanged();
       });
     });
 
@@ -1841,11 +2020,20 @@ void main() {
       expect(
         diagnostic.message,
         'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) is '
-        'not in the local cache. Run wayfinder get.',
+        'not in the local cache.',
       );
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
       final status = await agrees(ProfileBindingState.cacheMissing);
       expect(status.missing.map((locked) => locked.commit), [tags['v2026.3']]);
       expect(status.chain, status.missing);
+      expect(status.copies.map((copy) => copy.toJson()), [
+        {
+          'id': 'bitwild-profile',
+          'location': source.path,
+          'has_mirror': false,
+          'has_package': false,
+        },
+      ]);
     });
 
     test('profile-unresolved when only the mirror survives, as a 0.2 cache '
@@ -1859,10 +2047,13 @@ void main() {
         diagnostic.message,
         'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) has '
         'no package file in the local cache, as in a cache an earlier '
-        'Wayfinder wrote. Run wayfinder get; it fetches nothing while the '
-        'cached source holds that commit.',
+        'Wayfinder wrote.',
       );
-      await agrees(ProfileBindingState.cacheMissing);
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfilesFromMirror);
+      final copy = (await agrees(
+        ProfileBindingState.cacheMissing,
+      )).copies.single;
+      expect((copy.hasMirror, copy.hasPackage), (true, false));
     });
 
     test('profile-unresolved when the package release differs', () async {
@@ -1878,9 +2069,17 @@ void main() {
       expect(
         diagnostic.message,
         'Profile bitwild-profile at ${tags['v2026.3']} declares release '
-        '2026.3; the lock records 2026.9. Run wayfinder get.',
+        '2026.3; the lock records 2026.9.',
       );
-      expect((await agrees(ProfileBindingState.lockStale)).chain, hasLength(1));
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
+      final status = await agrees(ProfileBindingState.lockStale);
+      expect(status.chain, hasLength(1));
+      expect(status.lockChange?.toJson(), {
+        'kind': 'package-changed',
+        'reason': diagnostic.message,
+        'profile': 'bitwild-profile',
+        'packages': ['bitwild-profile'],
+      });
     });
 
     test('profile-unresolved when the package parent differs', () async {
@@ -1896,9 +2095,15 @@ void main() {
       expect(
         diagnostic.message,
         'Profile client-profile at ${tags['arm-child']} declares another '
-        'parent than the lock records. Run wayfinder get.',
+        'parent than the lock records.',
       );
-      await agrees(ProfileBindingState.lockStale, id: _client);
+      expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
+      final change = (await agrees(
+        ProfileBindingState.lockStale,
+        id: _client,
+      )).lockChange!;
+      expect(change.kind, ProfileLockChangeKind.packageChanged);
+      expect(change.packages, [_client]);
     });
 
     test('profile-invalid when the package declares another id', () async {

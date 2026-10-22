@@ -68,6 +68,63 @@ void main() {
     expect(message('index-busy', 'Index is busy.'), 'Index is busy.');
   });
 
+  test('Profile resolution failures name the command that fixes them, as '
+      'they did when the library named it', () {
+    expect(
+      commandMessage(
+        const WayfinderException(
+          'resolution-stale',
+          'wayfinder.lock changed after resolution was planned.',
+        ),
+      ),
+      'wayfinder.lock changed after resolution was planned. Run wayfinder '
+      'get again.',
+    );
+    expect(
+      commandMessage(
+        ProfileResolutionBusyException.source(
+          'https://example.test/p.git',
+          const Duration(seconds: 120),
+        ),
+      ),
+      'Another wayfinder process held the Profile source '
+      'https://example.test/p.git for 120 seconds. Retry when it finishes.',
+    );
+    expect(
+      commandMessage(ProfileResolutionBusyException.project('/work/app')),
+      'Another wayfinder get is changing /work/app. Retry when it finishes.',
+    );
+    final both = ProfileSkillDirectoriesException([
+      for (final root in ProfileSkills.roots)
+        ProfileSkillDirectory(
+          profile: ProfileId.parse('acme-notes'),
+          root: root,
+          path: '$root/acme-notes',
+          state: ProfileSkillDirectoryState.outside,
+        ),
+    ]);
+    expect(
+      commandMessage(both),
+      '.claude/skills and .agents/skills resolve outside the project through '
+      'a symbolic link, so wayfinder did not install Profile skills there. '
+      'Point them inside the project and run the command again.',
+    );
+    for (final remedy in DiagnosticRemedy.values) {
+      final diagnostic = EngineDiagnostic(
+        DiagnosticCode.profileUnresolved,
+        'Why.',
+        remedy: remedy,
+      );
+      expect(commandDiagnosticMessage(diagnostic), startsWith('Why. Run '));
+    }
+    expect(
+      commandDiagnosticMessage(
+        const EngineDiagnostic(DiagnosticCode.profileInvalid, 'Why.'),
+      ),
+      'Why.',
+    );
+  });
+
   test('root help exposes application commands and MCP transport', () async {
     expect(await cli.run(['--help']), 0);
     final help = output.join('\n');
@@ -255,10 +312,24 @@ void main() {
       await cli.run(['validate', bundle, '--output=json']),
       expected.exitCode,
     );
-    expect(jsonDecode(output.single), expected.toJson());
+    expect(jsonDecode(output.single), commandValidation(expected).toJson());
     expect(expected.diagnostics.map((d) => d.code), [
       DiagnosticCode.profileUnresolved,
     ]);
+    // The library names no command; the command adds what to run.
+    final [diagnostic] = expected.diagnostics;
+    expect(diagnostic.remedy, isNotNull);
+    expect(diagnostic.message, isNot(contains('wayfinder get')));
+    expect(
+      ((jsonDecode(output.single) as Map)['diagnostics'] as List).single,
+      containsPair(
+        'message',
+        allOf(
+          startsWith('${diagnostic.message} Run wayfinder get'),
+          commandDiagnosticMessage(diagnostic),
+        ),
+      ),
+    );
     expect(expected.toJson(), containsPair('gate', {'state': 'INCOMPLETE'}));
     expect(errors, isEmpty);
   });
@@ -274,11 +345,17 @@ void main() {
       expected.exitCode,
     );
     final sarif = toSarif(
-      expected,
+      commandValidation(expected),
       bundlePath: bundle,
       toolVersion: wayfinderVersion,
     );
     expect(jsonDecode(output.single), jsonDecode(jsonEncode(sarif)));
+    expect(
+      jsonEncode(sarif),
+      contains(
+        jsonEncode(commandDiagnosticMessage(expected.diagnostics.single)),
+      ),
+    );
     expect(errors, isEmpty);
 
     output.clear();

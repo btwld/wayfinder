@@ -340,7 +340,21 @@ void main() {
     final plan = await resolver.plan(project.path);
     final held = (await WayfinderFileLock.tryExclusive(await projectLock()))!;
     try {
-      await expectLater(resolver.apply(plan), failsWith('resolution-busy'));
+      await expectLater(
+        resolver.apply(plan),
+        throwsA(
+          isA<ProfileResolutionBusyException>()
+              .having((error) => error.code, 'code', 'resolution-busy')
+              .having((error) => error.projectRoot, 'projectRoot', project.path)
+              .having((error) => error.source, 'source', isNull)
+              .having(
+                (error) => error.message,
+                'message',
+                'Another Profile resolution is changing ${project.path}. '
+                    'Retry when it finishes.',
+              ),
+        ),
+      );
       await expectLater(
         resolver.resolve(project.path),
         failsWith('resolution-busy'),
@@ -527,7 +541,11 @@ void main() {
     test('runs no Git command and fetches nothing when the lock as written '
         'would change', () async {
       await data.delete(recursive: true);
-      Future<void> refused(ProfileBindingState state, String reason) async {
+      Future<void> refused(
+        ProfileBindingState state,
+        String reason,
+        Map<String, Object?> change,
+      ) async {
         calls.clear();
         await expectLater(
           resolver.plan(project.path, lockedOnly: true),
@@ -540,11 +558,31 @@ void main() {
                   'message',
                   'Resolving would change wayfinder.lock, which a '
                       'locked-only plan never does: $reason',
+                )
+                .having((error) => error.change.toJson(), 'change', {
+                  'reason': reason,
+                  ...change,
+                })
+                .having(
+                  (error) => error.profile?.value,
+                  'profile',
+                  change['profile'],
                 ),
           ),
         );
         expect(calls, isEmpty);
         expect(await data.exists(), isFalse, reason: 'nothing was fetched');
+        // The status says the same offline, and the binding's own status
+        // says it too when the binding is the reason.
+        final status = await resolver.status(project.path);
+        expect(status.lockChange?.toJson(), {'reason': reason, ...change});
+        if (change['kind'] != 'packages-unreached') {
+          expect(status.of(_bitwild)!.state, state);
+          expect(status.of(_bitwild)!.lockChange?.toJson(), {
+            'reason': reason,
+            ...change,
+          });
+        }
       }
 
       Future<void> writeLock(
@@ -563,13 +601,19 @@ void main() {
       await refused(
         ProfileBindingState.lockMissing,
         'Profile lock is missing or unreadable.',
+        {'kind': 'lock-missing', 'profile': null, 'packages': <Object?>[]},
       );
 
       await writeLock((lock) => {...lock, 'configuration_sha256': '0' * 64});
       await refused(
         ProfileBindingState.lockStale,
-        'Profile lock is stale: the configuration changed after wayfinder '
-        'get.',
+        'Profile lock is stale: the configuration changed after the lock was '
+        'written.',
+        {
+          'kind': 'configuration-changed',
+          'profile': null,
+          'packages': <Object?>[],
+        },
       );
 
       await writeLock(
@@ -585,6 +629,11 @@ void main() {
         'Profile lock records bitwild-profile from ${source.path} at main '
         '(profiles/bitwild); the configuration names ${source.path} at '
         'v2026.3 (profiles/bitwild).',
+        {
+          'kind': 'source-changed',
+          'profile': 'bitwild-profile',
+          'packages': ['bitwild-profile'],
+        },
       );
 
       await writeLock(
@@ -600,6 +649,11 @@ void main() {
         ProfileBindingState.lockStale,
         'Profile lock records stray-profile, which no configured chain '
         'reaches.',
+        {
+          'kind': 'packages-unreached',
+          'profile': null,
+          'packages': ['stray-profile'],
+        },
       );
     });
 
@@ -612,11 +666,24 @@ void main() {
       await expectLater(
         resolver.plan(project.path, lockedOnly: true),
         throwsA(
-          isA<ProfileLockChangeRequiredException>().having(
-            (error) => error.state,
-            'state',
-            ProfileBindingState.lockStale,
-          ),
+          isA<ProfileLockChangeRequiredException>()
+              .having(
+                (error) => error.state,
+                'state',
+                ProfileBindingState.lockStale,
+              )
+              .having(
+                (error) => error.change.kind,
+                'kind',
+                ProfileLockChangeKind.packageChanged,
+              )
+              .having((error) => error.change.packages, 'packages', [_bitwild])
+              .having(
+                (error) => error.change.reason,
+                'reason',
+                'Profile bitwild-profile declares another release or parent '
+                    'than the lock records.',
+              ),
         ),
       );
       expect(calls.where(gitMayReachRemote), isEmpty);
@@ -656,6 +723,227 @@ void main() {
         () => resolver.plan(project.path, upgrade: true, lockedOnly: true),
         throwsArgumentError,
       );
+    });
+
+    group('that leaves skills alone', () {
+      Directory skill(String root) =>
+          Directory(p.join(project.path, root, 'skills', 'bitwild-profile'));
+      Map<String, Object?> revision(String commit) => {
+        'release': '2026.3',
+        'commit': commit,
+      };
+      bool readsSkillFiles(List<String> call) =>
+          call.first == 'ls-tree' ||
+          (call.first == 'cat-file' && call.contains('blob'));
+
+      late File stray;
+
+      setUp(() async {
+        // A directory the user owns where the Profile skill goes, one marked
+        // with another commit, and a marked skill of a Profile no longer
+        // locked, which get would prune.
+        await File(
+          p.join(skill('.claude').path, '.wayfinder-profile'),
+        ).delete();
+        await File(
+          p.join(skill('.claude').path, 'NOTES.md'),
+        ).writeAsString('mine\n');
+        await File(
+          p.join(skill('.agents').path, '.wayfinder-profile'),
+        ).writeAsString(
+          ProfileSkills.markerText((
+            id: _bitwild,
+            release: '2026.3',
+            commit: '0' * 40,
+          )),
+        );
+        final retired = await Directory(
+          p.join(project.path, '.claude', 'skills', 'retired-profile'),
+        ).create(recursive: true);
+        stray = File(p.join(retired.path, '.wayfinder-profile'));
+        await stray.writeAsString(
+          ProfileSkills.markerText((
+            id: ProfileId.parse('retired-profile'),
+            release: '1',
+            commit: 'a' * 40,
+          )),
+        );
+        await data.delete(recursive: true);
+      });
+
+      test('fills the cache, writes no skill directory, and reports each '
+          "one's state", () async {
+        final before = await fileSnapshot(project.path);
+        final plan = await resolver.plan(
+          project.path,
+          lockedOnly: true,
+          skills: false,
+        );
+        expect(plan.includesSkills, isFalse);
+        expect(plan.toJson(), containsPair('includes_skills', false));
+        expect(plan.fetches.map((fetch) => fetch.kind), [
+          ProfileFetchKind.clone,
+        ]);
+        expect(plan.skills.single.written, isFalse);
+        expect(plan.removedSkills, isEmpty);
+        expect(plan.toJson()['skill_directories'], [
+          {
+            'profile': 'bitwild-profile',
+            'root': '.claude/skills',
+            'path': '.claude/skills/bitwild-profile',
+            'state': 'unmarked',
+            'installed': null,
+          },
+          {
+            'profile': 'bitwild-profile',
+            'root': '.agents/skills',
+            'path': '.agents/skills/bitwild-profile',
+            'state': 'stale',
+            'installed': revision('0' * 40),
+          },
+        ]);
+        expect(calls.where(readsSkillFiles), isEmpty);
+        expect(await fileSnapshot(project.path), before);
+
+        final result = await resolver.apply(plan);
+        expect(result.skills.single.written, isFalse);
+        expect(result.removedSkills, isEmpty);
+        expect(await fileSnapshot(project.path), before);
+        expect(await stray.exists(), isTrue);
+        expect(calls.where(readsSkillFiles), isEmpty);
+
+        // The cache now holds the locked package, so selection works
+        // offline and the status names the skill directories as data.
+        calls.clear();
+        final status = (await resolver.status(project.path)).of(_bitwild)!;
+        expect(calls, isEmpty);
+        expect(status.state, ProfileBindingState.resolved);
+        expect(status.copies.single.toJson(), {
+          'id': 'bitwild-profile',
+          'location': source.path,
+          'has_mirror': true,
+          'has_package': true,
+        });
+        expect(
+          [
+            for (final directory in status.skillDirectories)
+              (directory.path, directory.state),
+          ],
+          [
+            (
+              '.claude/skills/bitwild-profile',
+              ProfileSkillDirectoryState.unmarked,
+            ),
+            (
+              '.agents/skills/bitwild-profile',
+              ProfileSkillDirectoryState.stale,
+            ),
+          ],
+        );
+        expect(status.notes.single.code, DiagnosticCode.profileSkillStale);
+      });
+
+      test('reports a skill root outside the project that a plan with '
+          'skills refuses', () async {
+        final other = await Directory(
+          p.join(temp.path, 'other', '.agents'),
+        ).create(recursive: true);
+        await Directory(
+          p.join(project.path, '.agents'),
+        ).delete(recursive: true);
+        await Link(p.join(project.path, '.agents')).create(other.path);
+        final before = await fileSnapshot(project.path);
+
+        await expectLater(
+          resolver.plan(project.path, lockedOnly: true),
+          throwsA(
+            isA<ProfileSkillDirectoriesException>()
+                .having((error) => error.outsideRoots, 'outsideRoots', [
+                  '.agents/skills',
+                ])
+                .having(
+                  (error) => [
+                    for (final directory in error.directories)
+                      (directory.path, directory.state),
+                  ],
+                  'directories',
+                  [
+                    (
+                      '.claude/skills/bitwild-profile',
+                      ProfileSkillDirectoryState.unmarked,
+                    ),
+                    (
+                      '.agents/skills/bitwild-profile',
+                      ProfileSkillDirectoryState.outside,
+                    ),
+                  ],
+                ),
+          ),
+        );
+        final plan = await resolver.plan(
+          project.path,
+          lockedOnly: true,
+          skills: false,
+        );
+        expect(
+          [
+            for (final directory in plan.skillDirectories)
+              (directory.path, directory.state),
+          ],
+          [
+            (
+              '.claude/skills/bitwild-profile',
+              ProfileSkillDirectoryState.unmarked,
+            ),
+            (
+              '.agents/skills/bitwild-profile',
+              ProfileSkillDirectoryState.outside,
+            ),
+          ],
+        );
+        await resolver.apply(plan);
+        expect(await fileSnapshot(project.path), before);
+        expect(await other.list().toList(), isEmpty);
+      });
+
+      test('a plan of the cache it filled installs the skills once they are '
+          'free, offline', () async {
+        await resolver.apply(
+          await resolver.plan(project.path, lockedOnly: true, skills: false),
+        );
+        await skill('.claude').delete(recursive: true);
+        calls.clear();
+        final plan = await resolver.plan(
+          project.path,
+          lockedOnly: true,
+          allowFetch: (_) => false,
+        );
+        expect(plan.includesSkills, isTrue);
+        expect(plan.fetched, isFalse);
+        expect(
+          [
+            for (final directory in plan.skillDirectories)
+              (directory.path, directory.state),
+          ],
+          [
+            (
+              '.claude/skills/bitwild-profile',
+              ProfileSkillDirectoryState.missing,
+            ),
+            (
+              '.agents/skills/bitwild-profile',
+              ProfileSkillDirectoryState.stale,
+            ),
+          ],
+        );
+        expect(plan.removedSkills, ['.claude/skills/retired-profile']);
+        await resolver.apply(plan);
+        expect(await stray.exists(), isFalse);
+        expect(
+          (await resolver.status(project.path)).of(_bitwild)!.notes,
+          isEmpty,
+        );
+      });
     });
   });
 

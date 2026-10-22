@@ -628,11 +628,13 @@ class WayfinderCli {
       final json = output == 'json';
       if (name == 'validate') {
         structuredOutput = output == 'text' ? null : output;
-        final result = await validateWithProfileSources(
-          bundle,
-          configPath: command.option('config'),
-          resolver: _profileResolver(),
-          fix: command.flag('fix'),
+        final result = commandValidation(
+          await validateWithProfileSources(
+            bundle,
+            configPath: command.option('config'),
+            resolver: _profileResolver(),
+            fix: command.flag('fix'),
+          ),
         );
         switch (output) {
           case 'json':

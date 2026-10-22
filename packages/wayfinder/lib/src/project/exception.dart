@@ -1,5 +1,8 @@
 /// A failure a host can act on: [code] is a stable kebab-case identifier,
-/// and [message] is the sentence the command line prints.
+/// and [message] a sentence that says what happened and names no command
+/// (ADR-0018). The command line prints it and adds what to run; a host
+/// words its own remedy from the code and, where one is typed, the
+/// exception's data.
 ///
 /// The project library throws these codes:
 ///
@@ -8,9 +11,13 @@
 ///   `config-invalid` while discovering a project's bundles;
 /// - the `DiagnosticCode` value a `WayfinderProfileResolutionException`
 ///   carries, such as `profile-unresolved`, or `profile-timeout` when reading
-///   a Profile package ran past the resolver's bound;
-/// - `resolution-busy` when another `get` holds the project's lock, or the
-///   Profile cache stays locked past its timeout;
+///   a Profile package ran past the resolver's bound; its `remedy` says when
+///   selecting new revisions fixes it, and a
+///   `ProfileSkillDirectoriesException` names the skill directories `get`
+///   may not replace;
+/// - `resolution-busy`, a `ProfileResolutionBusyException`, when another
+///   `get` holds the project's lock, or the Profile cache stays locked past
+///   its timeout;
 /// - `resolution-stale` when the configuration, lock or Profile cache changed
 ///   after a plan;
 /// - `fetch-required`, a `ProfileFetchRequiredException`, when a plan would

@@ -11,6 +11,7 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
+import 'package:wayfinder_cli/src/messages.dart';
 import 'package:test/test.dart';
 
 import 'support.dart';
@@ -219,6 +220,14 @@ void main() {
         final staleCli = jsonDecode(cliOutput.single) as Map<String, dynamic>;
         expect((staleCli['okf'] as Map)['state'], 'PASS');
         expect((staleCli['profile'] as Map)['state'], 'NOT ASSESSED');
+        expect((staleCli['diagnostics'] as List).single, {
+          'id': 'wayfinder/profile-unresolved',
+          'level': 'error',
+          'message':
+              'Profile lock is stale: the configuration changed after the '
+              'lock was written. Run wayfinder get.',
+          'location': {'path': 'wayfinder.json'},
+        });
         final staleMcp = await client.callTool(
           const CallToolRequest(name: 'validate'),
         );
@@ -820,7 +829,7 @@ void main() {
           expect((validation['bundles'] as List)[i], {
             'name': p.basename(paths[i]),
             'path': paths[i],
-            ...expected.toJson(),
+            ...commandValidation(expected).toJson(),
             'exit_code': expected.exitCode,
           });
           expect((graph['bundles'] as List)[i], {

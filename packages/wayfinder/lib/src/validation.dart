@@ -191,6 +191,23 @@ final class ProfileValidationResult {
   /// ran. Why a fix failed or did not run is a diagnostic.
   final List<String>? fixed;
 
+  /// This result with each diagnostic's message replaced by what [message]
+  /// returns for it, and everything else, the gate and exit code included,
+  /// unchanged. The engine's messages name no command; a host words the
+  /// [EngineDiagnostic.remedy] it carries this way before it renders the
+  /// result, as the `wayfinder` command adds `Run wayfinder get.`.
+  ProfileValidationResult withDiagnosticMessages(
+    String Function(EngineDiagnostic diagnostic) message,
+  ) => ProfileValidationResult._(okfValidation, profile, [
+    for (final diagnostic in diagnostics)
+      EngineDiagnostic(
+        diagnostic.code,
+        message(diagnostic),
+        location: diagnostic.location,
+        remedy: diagnostic.remedy,
+      ),
+  ], fixed: fixed);
+
   /// FAIL needs one witness; PASS needs a run that assessed everything.
   GateState get gate {
     if (!okfValidation.isConformant) return GateState.fail;
