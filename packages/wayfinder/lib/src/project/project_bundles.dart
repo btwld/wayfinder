@@ -46,7 +46,8 @@ final class WayfinderProject {
   /// `knowledge/` directory below the Git repository boundary is the
   /// project's one bundle.
   ///
-  /// [bundleName] keeps only the bundle whose folder has that name.
+  /// [bundleName] keeps only the bundle whose folder has that name. A
+  /// [from] that does not exist or cannot be read is `bundles-missing`.
   static Future<WayfinderProject> discover(
     Directory from, {
     String? bundleName,
@@ -58,7 +59,16 @@ final class WayfinderProject {
         '--bundle must be a nonblank bundle name.',
       );
     }
-    final start = Directory(await from.resolveSymbolicLinks());
+    final Directory start;
+    try {
+      start = Directory(await from.resolveSymbolicLinks());
+    } on FileSystemException catch (error) {
+      throw WayfinderException(
+        'bundles-missing',
+        'No project bundles found in ${from.path}: it does not exist or '
+            'cannot be read (${error.osError?.message ?? error.message}).',
+      );
+    }
     final (directory, config, paths) = searchAncestors
         ? await _nearest(start)
         : await _atRoot(start);
