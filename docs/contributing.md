@@ -69,7 +69,8 @@ search JSON for the project and for one bundle. It runs the project in
 the frozen Profile in `test/fixtures/contract-profile/` from a local Git
 source, so a Bitwild release leaves these goldens alone. It normalizes
 temporary paths, the index key, chunk IDs, the Profile commit, the server
-version and timings. The retrieval goldens need ObjectBox
+version and timings; a test beside them checks that the project indexed
+elsewhere gets the same chunk IDs. The retrieval goldens need ObjectBox
 (`melos run objectbox:install`) and are skipped without it, so native CI runs
 them; regenerating fails without it. Regenerate from `packages/wayfinder_cli`
 with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an

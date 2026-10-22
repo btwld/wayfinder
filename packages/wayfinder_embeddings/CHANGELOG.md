@@ -1,6 +1,52 @@
 # 0.3.0 (unreleased)
 
-- Requires `wayfinder` `^0.3.0`.
+- Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
+- New `package:wayfinder_embeddings/knowledge_store.dart`: the index
+  lifecycle `wayfinder index` and `wayfinder search` use, moved out of the
+  CLI. `WayfinderKnowledgeStore` keeps saved indexes of OKF bundles in the
+  data directory a host names, with `status` (missing, current, stale with
+  the changed paths, or incompatible), `index` (progress events, and
+  cancellation that deletes the staged generation), `search` across a
+  project's bundles and `searchBundle` for one, `forget`, `prune` and
+  `dispose`. Results carry typed `KnowledgeCitation`s and the CLI's JSON and
+  Markdown; failures are `WayfinderException`s with stable codes. The host
+  supplies a `WayfinderEncoderProvider`, such as `LocalModelEncoderProvider`
+  over a model file it located, and optionally an ObjectBox loader; the store
+  never locates a model or loads native code itself, and reports
+  `objectbox-unavailable`, keeping ObjectBox's own hint off stdout, when
+  ObjectBox's library does not load. `wayfinderSearchInput`
+  and the new `knowledgeMetadataFilterInput` are the Ack inputs of a host's
+  search tool.
+- Indexes live in `indexes/<bundle key>/<configuration key>/`, so another
+  model, chunker or format never shares a directory. An index Wayfinder 0.2
+  wrote, at `indexes/<sha256 of the root>/`, is never read, changed or
+  deleted; each bundle builds once after upgrading.
+- The store's chunk IDs no longer depend on where a bundle lives:
+  `KnowledgeSnapshot.load` and `KnowledgeSnapshot.fromSources` take an
+  `idNamespace` that replaces the `bundleId` in each chunk ID, and the store
+  passes a constant, so a bundle's copies in two worktrees get the same IDs
+  and rank alike. The default, the `bundleId`, is unchanged.
+- The store's freshness inventory leaves out okf's `.okf.lock` at any depth
+  and never opens it, so a bundle that holds one indexes and searches, and
+  another process's lock on it stays held.
+- New `package:wayfinder_embeddings/testing.dart`: `DeterministicTestEmbedder`
+  and `DeterministicEncoderProvider`, 384-dimension word-hash vectors that test
+  indexing, storage and search without a model. They are no relevance
+  evidence (ADR-0017).
+- `knowledge_store.dart` also exports what a host names beside the store:
+  `BaseEmbedder` for its own encoder provider, `Chunk` and `SearchResult` for
+  a citation's passage, `EmbeddingModelSpec` and `localEmbeddingModel` for
+  another model, and `KnowledgeSearchResponse` and `KnowledgeContextHit` for
+  search results in a fake.
+- `KnowledgeIndex.synchronize` takes `onEmbedded`, which reports the inputs
+  embedded so far, and a `WayfinderCancellation` checked between batches.
+  `LlamaEmbedder.source` and `LlamaEmbedder.modelNameFor` give an embedder's
+  identity without loading a model.
+- **BREAKING:** `defaultEmbeddingModelFile` no longer looks beside the running
+  executable, so neither does `LlamaEmbedder.open()` without a `modelFile`.
+  Pass `installation:`, the root of an installed bundle, to find its
+  `models/`. The `compare_embeddings` and `benchmark_retrieval` native entry
+  points pass their bundled model themselves.
 - **BREAKING:** `DartChunker` moved to the new `wayfinder_dart_chunker`
   package, and this package no longer depends on `analyzer`, so an application
   can choose its own analyzer version. `wayfinder_embeddings.dart` no longer
@@ -22,8 +68,9 @@
   exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
   this package. `lib/objectbox.g.dart` is regenerated with
   `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
-  unchanged, so stores written by 0.2.0 open and keep working without a
-  reindex; a test opens one that 0.2.0 wrote.
+  unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
+  working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
+  store still builds each bundle once in its new layout (see above).
 
 # 0.2.0
 

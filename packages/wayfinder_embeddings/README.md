@@ -60,8 +60,115 @@ round-trips fitted passages and the source inputs needed to reconstruct the OKF
 graph. `KnowledgeIndex.fromSnapshot` opens a committed snapshot without document
 encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
-[Wayfinder CLI](../wayfinder_cli/README.md) owns atomic snapshot/database publication and
-freshness checks for its local CLI.
+Chunk IDs hash the `bundleId` with each chunk's bundle-relative identity;
+`KnowledgeSnapshot.load(idNamespace:)` replaces the `bundleId` there, so a store
+that holds one bundle can give its copies the same IDs. `synchronize` reports
+embedding progress through `onEmbedded` and checks a `WayfinderCancellation`
+between batches. The [knowledge store](#knowledge-store) adds atomic
+snapshot/database publication and freshness checks on top.
+
+## Knowledge store
+
+`package:wayfinder_embeddings/knowledge_store.dart` is what `wayfinder index`
+and `wayfinder search` do, as a library: saved local indexes of OKF bundles
+in Wayfinder's data directory, and dense search over them. A host such as an
+IDE or an agent runtime uses it with the bundles of a
+`package:wayfinder/project.dart` project.
+
+```dart
+final project = await WayfinderProject.discover(Directory.current);
+final store = WayfinderKnowledgeStore(
+  dataDirectory: WayfinderDataDirectory.resolve(),
+  encoder: LocalModelEncoderProvider(modelFile: modelFile),
+  retainEncoder: true, // a long-lived server
+);
+try {
+  for (final bundle in project.bundles) {
+    if (await store.status(bundle) is! KnowledgeIndexCurrent) {
+      await store.index(bundle, onProgress: print, cancel: cancellation);
+    }
+  }
+  final result = await store.search(project.bundles, 'password reset');
+  print(result.toMarkdown()); // or result.toJson(), or result.matches
+} finally {
+  await store.dispose();
+}
+```
+
+- **The host owns its resources.** The store never locates a model,
+  downloads anything or loads a native library itself. Its
+  `WayfinderEncoderProvider` declares the encoder's identity, which names the
+  index without opening a model, and opens encoders on demand;
+  `LocalModelEncoderProvider` loads a GGUF file the host located, after
+  checking its size and SHA-256. `loadObjectBox`, when given, runs before the
+  first database opens; leave it out when the process already provides
+  ObjectBox, as Flutter's `objectbox_flutter_libs` does. Either way the store
+  then checks that ObjectBox's library loads, fails with
+  `objectbox-unavailable` when it does not, and drops the hint ObjectBox
+  prints to stdout when its own search fails. The CLI's own host code is
+  `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
+  names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
+  comes from `knowledge_store.dart`.
+- **Operations.** `status` compares the saved index with the bundle without
+  an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
+  input warnings), `KnowledgeIndexStale` (the changed paths) or
+  `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
+  index, reports `IndexProgress` (`scanning`, `loading` from before ObjectBox
+  and the encoder open, `embedding` with counts, `publishing`) and checks its
+  `WayfinderCancellation` between steps and batches; a cancelled run deletes
+  the generation it staged and leaves the current one. `search` ranks a
+  project's bundles together under one limit; `searchBundle` searches one
+  bundle with its own context policy. `forget` deletes every index of a
+  bundle, such as a removed worktree, by the path it had, symbolic links
+  included; `prune` deletes those of roots that no longer exist and of other
+  configurations unused for 30 days.
+- **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
+  typed `KnowledgeCitation`s (bundle, path, lines, content, concept ID,
+  title, type, status, similarity, why the passage is included), the JSON of
+  `wayfinder search --output=json`, and the Markdown of `wayfinder search`
+  and the MCP `search` tool, with control characters escaped. Retrieved text
+  is source data, not instructions.
+- **Failures** are `WayfinderException`s with a stable `code`:
+  `bundle-missing`, `data-directory-unavailable`, `data-directory-invalid`,
+  `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
+  `bundle-changed`, `model-missing`, `model-invalid`,
+  `objectbox-unavailable`, `cancelled` and `closed`. Messages name no
+  command; the host says how to index.
+- **Tool inputs.** `wayfinderSearchInput` and `knowledgeMetadataFilterInput`
+  are the Ack schemas of a host's search tool and its frontmatter filters;
+  `knowledgeMetadataFilterFromInput` converts a parsed filter.
+- **Layout.** Each index lives in
+  `indexes/<bundle key>/<configuration key>/` under the data directory. The
+  bundle key hashes the canonical root, so worktrees and copies index
+  separately; the configuration key hashes the chunking, snapshot and storage
+  configuration with the encoder identity, so another model, chunker or format
+  never reads or replaces an index. A 0.2 index, at
+  `indexes/<sha256 of the root>/`, is never read, changed or deleted: the first
+  index after an upgrade builds anew. Chunk IDs do not depend on where the
+  bundle lives, so copies of a bundle get the same IDs and rank alike.
+  The inventory that decides freshness leaves out okf's `.okf.lock` at any
+  depth and never opens it.
+- **Concurrency.** One operation at a time holds an index, across isolates
+  and processes, through `<configuration key>.lock` beside it; another fails
+  with `index-busy`, so a search during an index is refused. `forget` and
+  `prune` keep a lock file when they delete its index, so an operation that
+  has just opened it still excludes the next one; `prune` deletes a lock file
+  only once it has gone unused for the prune's period. Without
+  `retainEncoder`, each operation opens and disposes its own encoder; with
+  it, `index` and the searches run one at a time and share one encoder and
+  the parsed snapshots, up to `cacheBytes`, while `status`, `forget` and
+  `prune` do not wait for them. Only a failure in the encoder or ObjectBox,
+  or an unexpected error, discards the shared encoder and snapshots; a
+  stale, busy or cancelled operation keeps them. okf's bundle lock does not
+  exclude isolates, so keep a process's okf bundle I/O, this store's
+  included, on one isolate
+  ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
+
+`package:wayfinder_embeddings/testing.dart` has `DeterministicTestEmbedder` and
+`DeterministicEncoderProvider`: 384-dimension vectors from hashed words, which
+exercise indexing, storage and search in tests without a model. They check
+mechanisms; they are no relevance evidence
+([ADR-0017](../../docs/adr/0017-dense-only-retrieval.md)).
 
 ### Markdown retrieval context
 
@@ -277,7 +384,9 @@ It collapses repeated contexts to the first child hit.
   workspace overrides it to 5.3.2, so its tests and native bundles always pair
   Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
   when the two differ.
-  `test/objectbox_store_test.dart` skips itself when the library is absent.
+  Tests that need the library, `test/objectbox_store_test.dart` and the
+  knowledge store's `test/knowledge_store*_test.dart`, skip themselves when it
+  is absent; native CI installs it and runs the whole package.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
 
@@ -349,9 +458,11 @@ preparation/packaging step because Dart's `data_assets` support is experimental.
 The build creates `build/wayfinder_embeddings/bundle/` with an executable under `bin/`,
 native libraries under `lib/` (ObjectBox's DLL is beside the executable on
 Windows), and weights, manifest, license, and attribution under `models/`.
-Distribute the whole bundle. Runtime model lookup uses the executable location,
-then the development `models/` directory; `WAYFINDER_EMBEDDING_MODEL` or the
-CLI's `--model` can override it. Runtime inference never downloads weights.
+Distribute the whole bundle. Its executable passes the model beside it in
+`models/`; the library's `defaultEmbeddingModelFile` never looks next to the
+running executable, and uses an `installation` its caller names, then the
+development `models/` directory. `WAYFINDER_EMBEDDING_MODEL` or the CLI's
+`--model` overrides it. Runtime inference never downloads weights.
 
 `LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
 call `dispose()` in a `finally` block. A backend that never reports itself

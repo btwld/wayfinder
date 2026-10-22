@@ -83,8 +83,18 @@ class LlamaEmbedder extends BaseEmbedder {
   int get truncatedInputs => _truncatedInputs;
   int _truncatedInputs = 0;
 
+  /// The [sourceName] of every [LlamaEmbedder].
+  static const source = 'llamadart';
+
+  /// The [modelName] an embedder opened with [model] and [longInputPolicy]
+  /// reports, known without loading the model.
+  static String modelNameFor(
+    EmbeddingModelSpec model, {
+    LongInputPolicy longInputPolicy = LongInputPolicy.reject,
+  }) => _modelIdentity(model, longInputPolicy);
+
   @override
-  String get sourceName => 'llamadart';
+  String get sourceName => source;
 
   @override
   late final String modelName = _modelIdentity(model, longInputPolicy);

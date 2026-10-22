@@ -5,12 +5,12 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
 
-import 'knowledge.dart';
-import 'project_search.dart';
-import 'search_input.dart';
-import 'search_output.dart';
+import 'messages.dart';
+import 'native_runtime.dart';
 import 'version.dart';
 
 /// Exposes project-wide tools, or one explicitly selected bundle.
@@ -22,10 +22,10 @@ class WayfinderMcpServer {
   WayfinderMcpServer({
     this.rootPath,
     Directory? workingDirectory,
-    WayfinderKnowledge? knowledge,
+    WayfinderKnowledgeStore? knowledge,
     WayfinderProfileResolver? profileResolver,
   }) : _workingDirectory = workingDirectory ?? Directory.current,
-       _knowledge = knowledge ?? WayfinderKnowledge(keepEncoderAlive: true),
+       _knowledge = knowledge ?? openKnowledgeStore(retainEncoder: true),
        _profileResolver =
            profileResolver ??
            WayfinderProfileResolver(
@@ -34,7 +34,7 @@ class WayfinderMcpServer {
 
   final String? rootPath;
   final Directory _workingDirectory;
-  final WayfinderKnowledge _knowledge;
+  final WayfinderKnowledgeStore _knowledge;
   final WayfinderProfileResolver _profileResolver;
 
   /// Serves JSON-RPC on stdio until EOF, or on an injected transport in tests.
@@ -51,6 +51,15 @@ class WayfinderMcpServer {
     final rootPrefix = root == null
         ? ''
         : await explicitBundlePrefix(_workingDirectory, root);
+    final rootBundle = root == null
+        ? null
+        : ProjectBundle(
+            p.basename(root),
+            rootPrefix.endsWith('/')
+                ? rootPrefix.substring(0, rootPrefix.length - 1)
+                : rootPrefix,
+            root,
+          );
     final project = Directory(canonical);
     final scopeInstructions = root == null
         ? 'Tools operate on all configured project bundles; search ranks them '
@@ -58,9 +67,9 @@ class WayfinderMcpServer {
               'bundles with name and path.'
         : 'Tools operate on the bundle selected at startup.';
     Future<Map<String, Object?>> forBundles(
-      Future<Map<String, Object?>> Function(String) action,
+      Future<Map<String, Object?>> Function(ProjectBundle) action,
     ) async {
-      if (root != null) return action(root);
+      if (rootBundle != null) return action(rootBundle);
       final bundles = (await WayfinderProject.discover(project)).bundles;
       final reports = <Map<String, Object?>>[];
       for (final bundle in bundles) {
@@ -68,7 +77,7 @@ class WayfinderMcpServer {
           reports.add({
             'name': bundle.name,
             'path': bundle.path,
-            ...await action(bundle.root),
+            ...await action(bundle),
           });
         } on WayfinderException catch (error) {
           throw WayfinderException(
@@ -107,12 +116,15 @@ class WayfinderMcpServer {
       return result.whenComplete(() => active.remove(result));
     }
 
-    Future<CallToolResult> callText(Future<String> Function() action) =>
-        track(() => _guardText(action));
+    Future<CallToolResult> callText(
+      Future<String> Function() action, {
+      bool indexing = false,
+    }) => track(() => _guardText(action, indexing: indexing));
 
     Future<CallToolResult> call(
-      Future<Map<String, Object?>> Function() action,
-    ) => callText(() async => jsonEncode(await action()));
+      Future<Map<String, Object?>> Function() action, {
+      bool indexing = false,
+    }) => callText(() async => jsonEncode(await action()), indexing: indexing);
 
     const readOnly = ToolAnnotations(
       readOnlyHint: true,
@@ -133,7 +145,7 @@ class WayfinderMcpServer {
       callback: (arguments, extra) => call(
         () => forBundles((bundle) async {
           final result = await validateWithProfileSources(
-            bundle,
+            bundle.root,
             resolver: _profileResolver,
           );
           return {...result.toJson(), 'exit_code': result.exitCode};
@@ -157,11 +169,12 @@ class WayfinderMcpServer {
         idempotentHint: true,
         openWorldHint: false,
       ),
-      callback: (arguments, extra) => call(
-        () => forBundles(
+      callback: (arguments, extra) => call(() async {
+        await verifyModelOverride();
+        return forBundles(
           (bundle) async => (await _knowledge.index(bundle)).toJson(),
-        ),
-      ),
+        );
+      }, indexing: true),
     );
     server.registerAckTool(
       'search',
@@ -178,23 +191,19 @@ class WayfinderMcpServer {
       callback: (arguments, extra) => callText(() async {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
-        if (root == null) {
+        if (rootBundle == null) {
           final bundles = (await WayfinderProject.discover(project)).bundles;
-          final responses = await _knowledge.searchBundles(
-            bundles.map((bundle) => bundle.root).toList(),
+          return (await _knowledge.search(
+            bundles,
             query,
             limit: limit,
-          );
-          return formatProjectSearchMarkdown(
-            ProjectSearchResult(bundles, responses, limit: limit),
-          );
+          )).toMarkdown();
         }
-        final result = await _knowledge.search(root, query, limit: limit);
-        return formatSearchMarkdown(
-          result,
-          prefix: rootPrefix,
-          bundleRoot: root,
-        );
+        return (await _knowledge.searchBundle(
+          rootBundle,
+          query,
+          limit: limit,
+        )).toMarkdown(prefix: rootPrefix);
       }),
     );
     server.registerAckTool(
@@ -212,7 +221,7 @@ class WayfinderMcpServer {
       callback: (arguments, extra) => call(
         () => forBundles((bundle) async {
           final result = await projectWayfinderGraph(
-            bundle,
+            bundle.root,
             types: (arguments['types'] as List?)?.cast<String>() ?? const [],
             pathPrefixes:
                 (arguments['path_prefixes'] as List?)?.cast<String>() ??
@@ -250,11 +259,14 @@ class WayfinderMcpServer {
     }
   }
 
-  Future<CallToolResult> _guardText(Future<String> Function() action) async {
+  Future<CallToolResult> _guardText(
+    Future<String> Function() action, {
+    required bool indexing,
+  }) async {
     try {
       return CallToolResult(content: [TextContent(text: await action())]);
     } on WayfinderException catch (error) {
-      return _error(error.message);
+      return _error(commandMessage(error, indexing: indexing));
     } on FormatException catch (error) {
       return _error(error.message);
     } on ArgumentError catch (error) {
