@@ -71,7 +71,9 @@ Future<Map<String, Object?>> searchLoop({
         searches++;
         if (result.freshness.refreshing &&
             result.notices.any(
-              (notice) => notice.startsWith('refresh-in-progress: '),
+              (notice) =>
+                  notice.code == KnowledgeNoticeCode.refreshInProgress &&
+                  notice.message.startsWith('refresh-in-progress: '),
             )) {
           if (refreshes++ == 0) onRefresh?.call();
         }

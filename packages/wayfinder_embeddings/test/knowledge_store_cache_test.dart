@@ -295,6 +295,103 @@ void main() {
       expect(next.matches.first.chunk, isNot(same(first.matches.first.chunk)));
     });
 
+    test('releaseEncoder disposes the encoder and keeps the parsed '
+        'snapshots; the next search opens another', () async {
+      final first = await search(retained);
+      final encoder = h.encoders.last;
+      expect(encoder.isDisposed, isFalse);
+      await retained.releaseEncoder();
+      expect(encoder.isDisposed, isTrue);
+      await retained.releaseEncoder();
+      expect(encoder.disposals, 1, reason: 'nothing was retained any more');
+      final next = await search(retained);
+      expect(h.encoders.last, isNot(same(encoder)));
+      expect(h.encoders.last.isDisposed, isFalse);
+      expect(_response(next), _response(first));
+      expect(
+        next.matches.first.chunk,
+        same(first.matches.first.chunk),
+        reason: 'the parsed snapshot outlives the encoder',
+      );
+      await uncached.releaseEncoder();
+    });
+
+    test('releaseEncoder waits for the operation that uses the '
+        'encoder', () async {
+      await search(retained);
+      final encoder = h.encoders.last;
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      h.beforeQuery = (_) async {
+        if (!entered.isCompleted) entered.complete();
+        await release.future;
+      };
+      final searching = search(retained, query: 'weather');
+      await entered.future;
+      var released = false;
+      final releasing = retained.releaseEncoder().then((_) => released = true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(released, isFalse);
+      expect(encoder.isDisposed, isFalse);
+      h.beforeQuery = null;
+      release.complete();
+      expect((await searching).matches, isNotEmpty);
+      await releasing;
+      expect(encoder.disposals, 1);
+    });
+
+    test('an idle encoder is released after encoderIdleTimeout, keeping the '
+        'parsed snapshots, and never while an operation uses it', () async {
+      final idle = h.service(
+        retain: true,
+        encoderIdleTimeout: const Duration(milliseconds: 100),
+      );
+      final first = await search(idle);
+      final encoder = h.encoders.last;
+      // Reads that open no encoder neither need nor hold it.
+      expect(await idle.status(h.bundle), isA<KnowledgeIndexCurrent>());
+      await _until(() => encoder.isDisposed);
+      final next = await search(idle);
+      final reopened = h.encoders.last;
+      expect(reopened, isNot(same(encoder)));
+      expect(next.matches.first.chunk, same(first.matches.first.chunk));
+
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      h.beforeQuery = (_) async {
+        if (!entered.isCompleted) entered.complete();
+        await release.future;
+      };
+      final searching = search(idle, query: 'weather');
+      await entered.future;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(reopened.isDisposed, isFalse, reason: 'a search still uses it');
+      h.beforeQuery = null;
+      release.complete();
+      expect((await searching).matches, isNotEmpty);
+      await _until(() => reopened.isDisposed);
+      expect(reopened.disposals, 1);
+    });
+
+    test('encoderIdleTimeout must be positive and needs retainEncoder', () {
+      WayfinderKnowledgeStore idleFor(Duration timeout, {bool retain = true}) =>
+          WayfinderKnowledgeStore(
+            dataDirectory: h.data,
+            encoder: TestEncoderProvider(h.encoders),
+            retainEncoder: retain,
+            encoderIdleTimeout: timeout,
+          );
+      expect(
+        () => idleFor(const Duration(seconds: 1), retain: false),
+        throwsArgumentError,
+      );
+      expect(() => idleFor(Duration.zero), throwsArgumentError);
+      expect(
+        () => idleFor(const Duration(milliseconds: -1)),
+        throwsArgumentError,
+      );
+    });
+
     test('a store that does not retain its encoder caches nothing', () async {
       final first = await search(uncached);
       final second = await search(uncached);
@@ -373,6 +470,17 @@ Map<String, Object?> _response(KnowledgeBundleSearch result) => {
   ],
 };
 
+/// Waits until [condition] holds, for up to five seconds.
+Future<void> _until(bool Function() condition) async {
+  final watch = Stopwatch()..start();
+  while (!condition()) {
+    if (watch.elapsed > const Duration(seconds: 5)) {
+      fail('The condition never held.');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 Future<String> _failure(Future<Object?> Function() action) async {
   try {
     await action();
@@ -415,11 +523,13 @@ class _Harness {
   WayfinderKnowledgeStore service({
     bool retain = false,
     int cacheBytes = 64 << 20,
+    Duration? encoderIdleTimeout,
   }) {
     final service = WayfinderKnowledgeStore(
       dataDirectory: data,
       retainEncoder: retain,
       cacheBytes: cacheBytes,
+      encoderIdleTimeout: encoderIdleTimeout,
       encoder: TestEncoderProvider(
         encoders,
         model: 'cache-fixture-v1',

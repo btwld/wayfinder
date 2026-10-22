@@ -216,7 +216,7 @@ final class KnowledgeProjectSearch {
     this.context = List.unmodifiable(context);
     notices = List.unmodifiable([
       for (final (i, bundle) in bundles.indexed)
-        for (final notice in responses[i].notices) '${bundle.name}: $notice',
+        for (final notice in responses[i].notices) notice.about(bundle),
     ]);
   }
 
@@ -236,8 +236,10 @@ final class KnowledgeProjectSearch {
   /// order, within the limit.
   late final List<KnowledgeCitation> context;
 
-  /// Each bundle's notices, prefixed with its name.
-  late final List<String> notices;
+  /// Each bundle's notices in bundle order, each naming its
+  /// [KnowledgeNotice.bundle], so its [KnowledgeNotice.text] starts with the
+  /// bundle's name.
+  late final List<KnowledgeNotice> notices;
 
   /// The JSON of `wayfinder search --output=json` in project mode.
   Map<String, Object?> toJson() => {
@@ -264,7 +266,7 @@ final class KnowledgeProjectSearch {
           if (entry.sourceChanged) 'sourceChanged': true,
         },
     ],
-    'notices': notices,
+    'notices': [for (final notice in notices) notice.text],
   };
 
   /// `## Matches` and `## Related Context` with citations of the form
@@ -274,7 +276,7 @@ final class KnowledgeProjectSearch {
   String toMarkdown() => renderSearchMarkdown(
     matches: [for (final match in matches) _passage(match)],
     context: [for (final entry in context) _passage(entry)],
-    notices: notices,
+    notices: [for (final notice in notices) notice.text],
   );
 
   static MarkdownPassage _passage(KnowledgeCitation citation) => (
@@ -325,8 +327,9 @@ final class KnowledgeBundleSearch {
   /// The context policy selected, matches included.
   final List<KnowledgeCitation> context;
 
-  /// Unresolved links and excluded context.
-  List<String> get notices => response.notices;
+  /// Unresolved links and excluded context, and while a refresh runs, the
+  /// freshness of the served index; [KnowledgeNotice.bundle] is null.
+  List<KnowledgeNotice> get notices => response.notices;
 
   /// The JSON of `wayfinder search <bundle> --output=json`.
   Map<String, Object?> toJson() => {
@@ -349,7 +352,7 @@ final class KnowledgeBundleSearch {
           if (match.sourceChanged) 'sourceChanged': true,
         },
     ],
-    'notices': notices,
+    'notices': [for (final notice in notices) notice.text],
   };
 
   /// `## Matches` and `## Related Context` with citations of the form
@@ -370,7 +373,7 @@ final class KnowledgeBundleSearch {
     return renderSearchMarkdown(
       matches: [for (final match in matches) passage(match)],
       context: [for (final entry in context) passage(entry)],
-      notices: notices,
+      notices: [for (final notice in notices) notice.text],
     );
   }
 }

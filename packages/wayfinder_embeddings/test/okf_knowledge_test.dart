@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:okf/okf.dart';
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart'
+    show WayfinderCancellationController, WayfinderException;
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
@@ -13,6 +15,20 @@ String concept(String body, {String fields = ''}) =>
 
 KnowledgeSnapshot snapshot(Map<String, String> sources, {String id = 'test'}) =>
     KnowledgeSnapshot.fromSources(sources, bundleId: id);
+
+/// A [KnowledgeNotice] of one bundle's own response, matched field by field.
+Matcher _notice(
+  KnowledgeNoticeCode code,
+  String message, {
+  List<String> paths = const [],
+  String? target,
+}) => isA<KnowledgeNotice>()
+    .having((notice) => notice.code, 'code', code)
+    .having((notice) => notice.message, 'message', message)
+    .having((notice) => notice.text, 'text', message)
+    .having((notice) => notice.paths, 'paths', paths)
+    .having((notice) => notice.target, 'target', target)
+    .having((notice) => notice.bundle, 'bundle', isNull);
 
 void main() {
   test('metadata filters preserve raw field semantics', () {
@@ -164,8 +180,12 @@ void main() {
       'wanted.md',
     ]);
     expect(
-      result.notices,
-      contains('Governing source excluded or has no passage: governor.md'),
+      result.notices.single,
+      _notice(
+        KnowledgeNoticeCode.governingSourceUnavailable,
+        'Governing source excluded or has no passage: governor.md',
+        paths: ['governor.md'],
+      ),
     );
   });
 
@@ -560,9 +580,97 @@ void main() {
         scoped.context.single.result.chunk.sourcePath,
         'implementation.md',
       );
-      expect(scoped.notices, contains(contains('Governing source excluded')));
+      expect(
+        scoped.notices.single,
+        _notice(
+          KnowledgeNoticeCode.governingSourceUnavailable,
+          'Governing source excluded or has no passage: standard.md',
+          paths: ['standard.md'],
+        ),
+      );
     },
   );
+
+  test('an unresolved target is one notice that names every match linking '
+      'to it', () async {
+    final index = KnowledgeIndex(
+      store: MemoryStore(),
+      embedder: CountingEmbedder(focus: 'Shared'),
+    );
+    await index.synchronize(
+      snapshot({
+        'b/second.md': concept('Shared [gone](/missing.md) [also](/absent.md)'),
+        'a.md': concept('Shared [gone](/missing.md)'),
+        'other.md': concept('Unrelated'),
+      }),
+    );
+    final result = await index.search(
+      'Shared',
+      limit: 2,
+      contextLimit: 5,
+      policy: KnowledgeSearchPolicy(expandRelationships: true),
+    );
+    expect(result.matches.map((hit) => hit.chunk.sourcePath), [
+      'a.md',
+      'b/second.md',
+    ]);
+    expect(result.notices, [
+      _notice(
+        KnowledgeNoticeCode.unresolvedRelationship,
+        'Unresolved relationship: /missing.md',
+        paths: ['a.md', 'b/second.md'],
+        target: '/missing.md',
+      ),
+      _notice(
+        KnowledgeNoticeCode.unresolvedRelationship,
+        'Unresolved relationship: /absent.md',
+        paths: ['b/second.md'],
+        target: '/absent.md',
+      ),
+    ]);
+    expect(
+      KnowledgeNoticeCode.unresolvedRelationship.wireValue,
+      'unresolved-relationship',
+    );
+    expect(
+      KnowledgeNoticeCode.governingSourceUnavailable.wireValue,
+      'governing-source-unavailable',
+    );
+  });
+
+  test('search checks its cancellation before it encodes the query and '
+      'before it scores', () async {
+    final embedder = _QueryHookEmbedder();
+    final index = KnowledgeIndex(store: MemoryStore(), embedder: embedder);
+    await index.synchronize(snapshot({'a.md': concept('Routing')}));
+    final cancelled = isA<WayfinderException>().having(
+      (error) => error.code,
+      'code',
+      'cancelled',
+    );
+    await expectLater(
+      index.search(
+        'Routing',
+        cancel: WayfinderCancellationController()..cancel(),
+      ),
+      throwsA(cancelled),
+    );
+    expect(embedder.queries, isEmpty, reason: 'cancelled before encoding');
+    final during = WayfinderCancellationController();
+    embedder.onQuery = during.cancel;
+    await expectLater(
+      index.search('Routing', cancel: during),
+      throwsA(cancelled),
+      reason: 'cancelled while encoding, so nothing is scored',
+    );
+    expect(embedder.queries, ['Routing']);
+    embedder.onQuery = null;
+    final result = await index.search(
+      'Routing',
+      cancel: WayfinderCancellationController(),
+    );
+    expect(result.matches.single.chunk.sourcePath, 'a.md');
+  });
 
   test(
     'declared link expansion is bounded, deduplicated, and scope-aware',
@@ -596,7 +704,15 @@ void main() {
         OkfGraphResolution.resolvedConcept,
       );
       expect(result.context.last.viaPath, 'guide/start.md');
-      expect(result.notices, contains(contains('Unresolved relationship')));
+      expect(
+        result.notices.single,
+        _notice(
+          KnowledgeNoticeCode.unresolvedRelationship,
+          'Unresolved relationship: ./missing.md',
+          paths: ['guide/start.md'],
+          target: './missing.md',
+        ),
+      );
       final scoped = await index.search(
         'LaunchProcedure',
         policy: KnowledgeSearchPolicy(
@@ -678,7 +794,15 @@ void main() {
     ]);
     expect(result.context.last.reason, 'relationship');
     expect(result.context.last.fieldEdge!.name, 'depends-on');
-    expect(result.notices, ['Unresolved relationship: /missing.md']);
+    expect(
+      result.notices.single,
+      _notice(
+        KnowledgeNoticeCode.unresolvedRelationship,
+        'Unresolved relationship: /missing.md',
+        paths: ['decision.md'],
+        target: '/missing.md',
+      ),
+    );
 
     final reopened = KnowledgeSnapshot.fromMap(
       typed.toMap(),
@@ -848,4 +972,18 @@ void main() {
       expect(reopened.chunks.map((c) => c.id), parsed.chunks.map((c) => c.id));
     },
   );
+}
+
+/// A [CountingEmbedder] that records each query and calls [onQuery] while
+/// it encodes one.
+class _QueryHookEmbedder extends CountingEmbedder {
+  final queries = <String>[];
+  void Function()? onQuery;
+
+  @override
+  Future<List<double>> generateQueryVector(String text) async {
+    queries.add(text);
+    onQuery?.call();
+    return super.generateQueryVector(text);
+  }
 }

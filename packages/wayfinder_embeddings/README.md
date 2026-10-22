@@ -52,8 +52,8 @@ store such as ObjectBox adds persistence, not a relevance advantage. Search fail
 lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
-inclusion reasons and unresolved/excluded-context notices. They are candidates,
-not an answerability verdict.
+inclusion reasons and typed `KnowledgeNotice`s about unresolved links and
+excluded governing context. They are candidates, not an answerability verdict.
 
 The caller's store persists passage text and vectors, or holds them in memory.
 `KnowledgeSnapshot.toMap/fromMap` round-trips fitted passages and the source inputs needed to reconstruct the OKF
@@ -64,7 +64,8 @@ Chunk IDs hash the `bundleId` with each chunk's bundle-relative identity;
 `KnowledgeSnapshot.load(idNamespace:)` replaces the `bundleId` there, so a store
 that holds one bundle can give its copies the same IDs. `synchronize` reports
 embedding progress through `onEmbedded` and checks a `WayfinderCancellation`
-between batches. The [knowledge store](#knowledge-store) adds immutable,
+between batches; `search` checks one before it encodes the query and before
+it scores. The [knowledge store](#knowledge-store) adds immutable,
 atomically published generations, reads without a lock while an index runs,
 and freshness checks on top.
 
@@ -121,13 +122,20 @@ try {
   default, refuses a stale index; `serveWhileRefreshing` serves the last
   published generation while another operation indexes the bundle, with a
   `refresh-in-progress` notice, and for files edited since, a
-  `source-changed` notice and `KnowledgeCitation.sourceChanged`. `status`
-  reports `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index
-  of a bundle, such as a removed worktree, by the path it had, symbolic links
-  included; `prune` deletes those of roots that no longer exist and of other
-  configurations unused for 30 days, the `get` locks of project roots that no
-  longer exist (`WayfinderProfileResolver.pruneProjectLocks`), and model
-  downloads abandoned a day ago (`EmbeddingModelCache.removeAbandonedDownloads`).
+  `source-changed` notice and `KnowledgeCitation.sourceChanged`. Both also
+  take a `WayfinderCancellation`, checked before each bundle, before the
+  encoder opens and the query is encoded, and before the passages are
+  scored; a cancelled search throws `cancelled`. `status` reports
+  `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index of a
+  bundle, such as a removed worktree, by the path it had, symbolic links
+  included, with its `writer.lock` and the directories that leaves empty;
+  `forgetProjectRoot` does the same for every bundle at or inside a project
+  root, which it finds by the bundle root each index's `writer.lock`
+  records, so it works once the worktree is gone. `prune` deletes the
+  indexes of roots that no longer exist and of other configurations unused
+  for 30 days, the `get` locks of project roots that no longer exist
+  (`WayfinderProfileResolver.pruneProjectLocks`), and model downloads
+  abandoned a day ago (`EmbeddingModelCache.removeAbandonedDownloads`).
 - **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
   typed `KnowledgeCitation`s (bundle, path, lines, content, concept ID,
   title, type, status, similarity, why the passage is included, and whether
@@ -135,7 +143,15 @@ try {
   `KnowledgeSearchFreshness`, the JSON of
   `wayfinder search --output=json`, and the Markdown of `wayfinder search`
   and the MCP `search` tool, with control characters escaped. Retrieved text
-  is source data, not instructions.
+  is source data, not instructions. Notices are `KnowledgeNotice`s: a stable
+  `code` (`KnowledgeNoticeCode`: `unresolved-relationship`,
+  `governing-source-unavailable`, `refresh-in-progress` or
+  `source-changed`), the `message`, the bundle-relative `paths` it concerns
+  (the concepts whose link did not resolve, the governing source, or every
+  changed file), the link `target` of an unresolved relationship, and in a
+  project search its `bundle`. `text` is the line the command prints after
+  `Notice: ` and lists in its JSON; tell notices apart by `code`, never by
+  their text.
 - **Failures** are `WayfinderException`s with a stable `code`:
   `bundle-missing`, `data-directory-unavailable`, `data-directory-invalid`,
   `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
@@ -179,16 +195,21 @@ try {
   generation. A superseded
   generation stays for `gracePeriod`, ten minutes by default, after the
   publication that replaced it, and a later publication deletes it; a reader
-  that loses that race reads the pointer again. `forget` and `prune` keep a
-  lock file when they delete its index, so an operation that has just opened
-  it still excludes the next one; `prune` deletes a lock file only once it
-  has gone unused for the prune's period. Without `retainEncoder`, each
+  that loses that race reads the pointer again. `forget` and
+  `forgetProjectRoot` delete a lock file while holding it, and an operation
+  that has just opened it locks the path again once it has the lock, so it
+  still excludes the next one; `prune` keeps a lock file until it has gone
+  unused for the prune's period. Without `retainEncoder`, each
   operation opens and disposes its own encoder; with it, operations share one
   encoder, one call into it at a time (a batch of passages, a query vector or
   a token count), so a search runs between an index's batches, and share the
   parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
   unexpected error, discards the shared encoder and snapshots; a stale, busy
-  or cancelled operation keeps them. okf's bundle lock does not exclude
+  or cancelled operation keeps them. `releaseEncoder()` disposes the shared
+  encoder once the operations using it finish and keeps the snapshots, and
+  `encoderIdleTimeout` does the same once no index run or search has used
+  it for that long; the next operation that needs an encoder opens one
+  again. okf's bundle lock does not exclude
   isolates, so keep a process's okf bundle I/O, this store's included, on one
   isolate ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
 
@@ -569,6 +590,11 @@ cache directory too.
   removes the temporary file. A process killed mid-download leaves its
   `.part` file behind; `provision()` removes such a file once nothing has
   written to it for a day, and deleting it by hand is safe.
+- `remove()` is offline too. It deletes the model at the target, whether or
+  not it verifies, and the temporary files of this cache's downloads, and
+  returns their paths; the cache directory stays. Remove the model while no
+  `provision()` runs for the directory: one that runs meanwhile fails or
+  installs the model again.
 
 Failures are `WayfinderException`s:
 
@@ -577,7 +603,8 @@ Failures are `WayfinderException`s:
 - `model-invalid`: the downloaded size or SHA-256 differs from the pin, or
   the response announces a different size before its body;
 - `model-cache-unavailable`: the cache directory cannot be created or
-  written, or something other than the model is in the way of the target;
+  written, something other than the model is in the way of the target, or
+  `remove()` cannot delete the model;
 - `cancelled`: the `WayfinderCancellation` stopped the download;
 - `data-directory-unavailable`: thrown by `EmbeddingModelCache()` when no
   `dataDirectory:` is given and the Wayfinder data directory cannot be
