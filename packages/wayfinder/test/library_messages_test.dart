@@ -16,15 +16,6 @@ import 'package:test/test.dart';
 void main() {
   const content = {'src/adoption/seeds.dart', 'src/generated'};
 
-  final commands = RegExp(
-    r'\bwayfinder (get|upgrade|validate|index|search|graph|mcp|skills|setup'
-    r'|update|session-context)\b'
-    r'|\brun wayfinder\b'
-    r'|\b(run|rerun) the command\b'
-    r'|\bmelos run\b',
-    caseSensitive: false,
-  );
-
   test('no library message names a command', () {
     final offending = <String>[];
     for (final file in Directory(
@@ -40,6 +31,33 @@ void main() {
       }
     }
     expect(offending, isEmpty);
+  });
+
+  test('the pattern finds a command however a message names it', () {
+    for (final message in [
+      'Profile lock is stale. Run wayfinder get.',
+      'the configuration changed after wayfinder get.',
+      'Check it with wayfinder status first.',
+      'Repair it with `okf validate …` and plan again.',
+      'Repair it with okf index docs/knowledge.',
+      'Run `dart run tool/build_wayfinder.dart`.',
+      'Rerun the command.',
+      'for source development run melos run wayfinder_embeddings:prepare.',
+    ]) {
+      expect(commands.hasMatch(message), isTrue, reason: message);
+    }
+    for (final message in [
+      'Profile lock is stale: the configuration changed after the lock was '
+          'written.',
+      '… resolves outside the project through a symbolic link, so wayfinder '
+          'did not install Profile skills there.',
+      'Another wayfinder process held the Profile source … for … seconds. '
+          'Retry when it finishes.',
+      '… fails OKF, so adoption does not bind it. Repair what OKF validation '
+          'reports and plan again.',
+    ]) {
+      expect(commands.hasMatch(message), isFalse, reason: message);
+    }
   });
 
   test('the scan sees joined, interpolated and nested literals', () {
@@ -64,6 +82,20 @@ void main() {
     );
   });
 }
+
+/// A message that tells someone to run a command: a `wayfinder` or `okf`
+/// subcommand, `melos run`, a command in backticks, or advice to run the
+/// command again.
+final commands = RegExp(
+  r'\bwayfinder (get|upgrade|validate|index|search|graph|mcp|skills|setup'
+  r'|update|status|session-context)\b'
+  r'|\bokf (validate|format|index|graph|mcp)\b'
+  r'|`(wayfinder|okf|melos|dart|flutter|fvm|git) [a-z]'
+  r'|\brun wayfinder\b'
+  r'|\b(run|rerun) the command\b'
+  r'|\bmelos run\b',
+  caseSensitive: false,
+);
 
 /// Every string literal in [source], outside comments, with adjacent
 /// literals joined and each interpolation as `…`. A literal inside an
