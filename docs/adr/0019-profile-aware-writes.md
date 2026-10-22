@@ -88,7 +88,9 @@ failure is `write-stale`, and nothing is written.
 
 **`validate --fix` writes under the same lock.** When a fix has something to
 write, it takes `OkfBundleLock.write`, loads the bundle again and writes; a fix
-with nothing to write takes no lock and creates no `.okf.lock`.
+with nothing to write takes no lock and creates no `.okf.lock`. A lock it
+cannot take, such as in a bundle it may not write, is a failed write: the
+`wayfinder/fix-failed` diagnostic with nothing written, as before the lock.
 
 ## Consequences
 

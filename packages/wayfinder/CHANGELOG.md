@@ -35,7 +35,11 @@
     `fix-not-applied` for a `RegenerateIndexes` with no fixable rule.
 - `ProfileValidator.validate` with `fix` holds `OkfBundleLock.write` while it
   loads the bundle again, writes and validates, whenever it has something to
-  write; a fix with nothing to write takes no lock. Results are unchanged.
+  write; a fix with nothing to write takes no lock. A lock it cannot take, such
+  as in a bundle the process may not write, is reported like any failed write,
+  as `wayfinder/fix-failed` with nothing written, so results are unchanged. A
+  fix that writes leaves `.okf.lock` at the bundle root, which okf's loader
+  ignores.
 - `path-targets-exist` looks a path target up in the loaded bundle before the
   disk, so `validateLoaded` on a candidate sees the files the candidate adds.
   Verdicts for a bundle read from disk are unchanged.
