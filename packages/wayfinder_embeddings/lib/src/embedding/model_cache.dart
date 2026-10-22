@@ -85,14 +85,15 @@ final class ModelProvisioned extends ModelProvisionProgress {
 /// - `model-download-failed` for a network error, a response other than
 ///   200, or a download that receives nothing for [stallTimeout];
 /// - `model-invalid` when the downloaded size or SHA-256 differs from the
-///   pin;
+///   pin, or the response announces a size other than the pinned one;
+/// - `model-cache-unavailable` when the cache directory cannot be created or
+///   written, or something other than the model is in the way of the
+///   target;
 /// - `cancelled` when the `WayfinderCancellation` passed to [provision]
 ///   stops it;
 /// - `data-directory-unavailable` from the default constructor, when no
 ///   `dataDirectory` is given and the Wayfinder data directory cannot be
 ///   located.
-///
-/// A cache directory that cannot be written throws a [FileSystemException].
 final class EmbeddingModelCache {
   /// A cache of [spec] in `models/<id>` of `dataDirectory`, by default the
   /// Wayfinder data directory ([WayfinderDataDirectory.resolve]), beside its
@@ -167,6 +168,10 @@ final class EmbeddingModelCache {
   /// removed before the stream ends or the cancellation completes, and
   /// [cancel] ends the stream with a `cancelled` error. A failed or
   /// cancelled download leaves any existing file at the target untouched.
+  ///
+  /// It also removes the temporary files of downloads that stopped at least
+  /// a day ago without removing them, such as one whose process was killed.
+  /// A download in progress writes far more often, so its file is kept.
   Stream<ModelProvisionProgress> provision({WayfinderCancellation? cancel}) {
     final stop = Completer<void>();
     void halt() {
@@ -207,14 +212,20 @@ final class EmbeddingModelCache {
     }
 
     checkStopped();
+    await _removeAbandonedPartials();
     final found = await locate();
     if (found != null) {
       emit(ModelProvisioned._(found, downloaded: false));
       return;
     }
     checkStopped();
-    await directory.create(recursive: true);
-    final partial = await _createPartial();
+    final File partial;
+    try {
+      await directory.create(recursive: true);
+      partial = await _createPartial();
+    } on FileSystemException catch (error) {
+      throw _cacheUnavailable(error);
+    }
     final abort = Completer<void>();
     unawaited(stop.then((_) => _complete(abort)));
     final client = _client ?? http.Client();
@@ -226,6 +237,22 @@ final class EmbeddingModelCache {
           'model-download-failed',
           'Downloading the embedding model from ${target.source} failed: '
               'HTTP ${response.statusCode}.',
+        );
+      }
+      // A client that decodes a compressed body still reports the encoded
+      // length, so only an unencoded length can be held to the pin.
+      final announced = response.contentLength;
+      final encoding = response.headers['content-encoding']?.trim();
+      if (announced != null &&
+          announced != spec.bytes &&
+          (encoding == null ||
+              encoding.isEmpty ||
+              encoding.toLowerCase() == 'identity')) {
+        await response.stream.listen(null).cancel();
+        throw WayfinderException(
+          'model-invalid',
+          'The server announces $announced bytes for the embedding model; '
+              'expected ${spec.bytes}.',
         );
       }
       final sink = partial.openWrite();
@@ -277,8 +304,8 @@ final class EmbeddingModelCache {
     } on Object catch (error) {
       // An aborted request reports its own error; the caller asked to stop.
       if (stopped) throw const WayfinderException.cancelled();
-      if (error is http.ClientException ||
-          (error is IOException && error is! FileSystemException)) {
+      if (error is FileSystemException) throw _cacheUnavailable(error);
+      if (error is http.ClientException || error is IOException) {
         throw WayfinderException(
           'model-download-failed',
           'Downloading the embedding model from ${target.source} failed: '
@@ -292,7 +319,8 @@ final class EmbeddingModelCache {
       try {
         if (await partial.exists()) await partial.delete();
       } on FileSystemException {
-        // A file Windows still holds open is replaced by the next download.
+        // A later provision removes a file Windows still held open here,
+        // once it is a day old.
       }
     }
   }
@@ -306,9 +334,7 @@ final class EmbeddingModelCache {
         for (var i = 0; i < 8; i++)
           random.nextInt(256).toRadixString(16).padLeft(2, '0'),
       ].join();
-      final file = File(
-        p.join(directory.path, '.${spec.fileName}.$suffix.part'),
-      );
+      final file = File(p.join(directory.path, _partialName(suffix)));
       try {
         return await file.create(exclusive: true);
       } on FileSystemException {
@@ -316,6 +342,35 @@ final class EmbeddingModelCache {
       }
     }
   }
+
+  String _partialName(String suffix) => '.${spec.fileName}.$suffix.part';
+
+  /// Deletes the temporary files in [directory] that no download has written
+  /// to for [_abandonedAfter]. A download in progress, in this process or
+  /// another, fails unless bytes arrive within its stall timeout, a minute
+  /// by default, so its file is never that old.
+  Future<void> _removeAbandonedPartials() async {
+    final name = RegExp(
+      '^${RegExp.escape('.${spec.fileName}.')}[0-9a-f]{16}\\.part\$',
+    );
+    final cutoff = DateTime.now().subtract(_abandonedAfter);
+    try {
+      await for (final entry in directory.list(followLinks: false)) {
+        if (entry is! File || !name.hasMatch(p.basename(entry.path))) continue;
+        try {
+          if ((await entry.lastModified()).isBefore(cutoff)) {
+            await entry.delete();
+          }
+        } on FileSystemException {
+          // Another provision removed it first, or Windows holds it open.
+        }
+      }
+    } on FileSystemException {
+      // A missing or unreadable directory has nothing to remove.
+    }
+  }
+
+  static const _abandonedAfter = Duration(days: 1);
 
   /// The response to a request for the model, abandoned when [stop]
   /// completes or no response arrives within [stallTimeout], even if the
@@ -410,6 +465,16 @@ final class EmbeddingModelCache {
     'Downloading the embedding model from ${target.source} stalled: nothing '
         'arrived for ${stallTimeout.inSeconds} s.',
   );
+
+  WayfinderException _cacheUnavailable(FileSystemException error) {
+    final path = error.path == null ? '' : ' (${error.path})';
+    final os = error.osError?.message ?? '';
+    return WayfinderException(
+      'model-cache-unavailable',
+      'The embedding model cache ${directory.path} cannot be written: '
+          '${error.message}$path${os.isEmpty ? '' : ': $os'}.',
+    );
+  }
 
   WayfinderException _sizeMismatch(int bytes, {bool more = false}) =>
       WayfinderException(

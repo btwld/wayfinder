@@ -78,11 +78,18 @@
   network; `provision` downloads it through an injectable `http.Client` into a
   temporary file in the cache directory, reports progress, verifies the size
   and SHA-256 before an atomic rename, and is cancellable, removing the
-  temporary file. The cache directory is `models/<id>` in the `dataDirectory`
-  given, by default the Wayfinder data directory, or any directory through
-  `EmbeddingModelCache.inDirectory`. Failures are `WayfinderException`s
-  (`model-download-failed`, `model-invalid`, `cancelled`). Adds the `http`
-  dependency.
+  temporary file. A response that announces a size other than the pinned one
+  is refused before its body, and temporary files an interrupted download
+  left are removed once nothing has written to them for a day. The cache
+  directory is `models/<id>` in the `dataDirectory` given, by default the
+  Wayfinder data directory, or any directory through
+  `EmbeddingModelCache.inDirectory`. Failures are `WayfinderException`s:
+  `model-download-failed`, `model-invalid`, `model-cache-unavailable` (the
+  cache directory cannot be written), `cancelled`, and
+  `data-directory-unavailable` from the default constructor. The entry also
+  exports `WayfinderException`, `WayfinderCancellation`,
+  `WayfinderCancellationController` and `WayfinderDataDirectory`, so a host
+  needs no direct `wayfinder` dependency. Adds the `http` dependency.
 - `tool/prepare_model.dart` downloads through `EmbeddingModelCache` instead of
   llamadart's download manager, and prints download progress. It still stages
   `models/embedding.gguf` and its manifest, still copies a verified model from
