@@ -56,8 +56,9 @@ The server retains one lazily opened encoder and a bounded verified snapshot
 cache across retrieval calls, evicting the encoder on failure and disposing it
 on disconnect. Calls share the encoder one call into the model at a time, a
 batch of passages or a query, so a search runs between an index's batches
-rather than after the whole index. Searches take no lock: during an index, the
-server's own or another process's, they read the last published generation.
+rather than after the whole index. Searches hold no lock, and only probe the
+writer's: during an index, the server's own or another process's, they read
+the last published generation.
 A second index of a bundle while one runs fails as busy. Disconnect drains
 active operations, but cancellation does not roll back a generation already
 being built. Indexing is atomic per bundle, not across bundles: a later

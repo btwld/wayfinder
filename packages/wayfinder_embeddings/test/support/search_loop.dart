@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
 /// The model every encoder of the concurrency test reports.
@@ -56,7 +57,7 @@ Future<Map<String, Object?>> searchLoop({
   var pins = 0;
   final failures = <String>[];
   final mismatches = <String>[];
-  store.onGenerationPinned = (_) async => pins++;
+  generationPinned[store] = (_) async => pins++;
   try {
     while (!stopped) {
       try {

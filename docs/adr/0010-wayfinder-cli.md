@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take, serving the last generation during a refresh)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -57,9 +57,13 @@ rankings do not change, and no native database library is needed.
 
 Only writers lock ([ADR-0018](0018-embeddable-libraries.md)). An index, or
 `forget`, holds the bundle's `writer.lock` for its whole run; a second
-writer fails as busy instead of waiting. `status` and search take no lock:
+writer fails as busy instead of waiting. `status` and search hold no lock:
 they read the pointer and the generation it names, which nothing changes, so
-a search keeps working while an index runs (#110). A superseded generation
+a search keeps working while an index runs (#110). They tell whether a writer
+runs by probing its lock with a shared lock for an instant, which a starting
+writer waits out rather than report as busy; on Windows, where a file another
+handle has open cannot be replaced, a publication waits up to two seconds for
+readers to close the pointer, then fails as busy. A superseded generation
 is deleted only by a later publication, and only ten minutes after it was
 superseded, so a reader that read the pointer just before still finds it;
 a reader that loses that race anyway reads the pointer again rather than
