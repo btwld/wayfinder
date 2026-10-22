@@ -1,2 +1,2 @@
 /// Wayfinder application version advertised by command-line and protocol clients.
-const wayfinderVersion = '0.2.0';
+const wayfinderVersion = '0.3.0';
