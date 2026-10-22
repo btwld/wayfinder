@@ -331,8 +331,8 @@ release.
   `profile-skill-stale` notes; and `lockChange`, a `ProfileLockChange` for a
   lock that is missing or stale. `ProfileResolutionStatus.lockChange` is what
   a locked-only plan would refuse before running Git, including a lock entry
-  no chain reaches. The JSON adds `copies`, `lock_change` and
-  `skill_directories`.
+  no chain reaches, all from one read of the lock. The JSON adds `copies`,
+  `lock_change` and `skill_directories`.
 - `ProfileLockChangeRequiredException` carries a `ProfileLockChange`
   (`change`): its `ProfileLockChangeKind` (`lock-missing`,
   `configuration-changed`, `chain-missing`, `source-changed`,
