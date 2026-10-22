@@ -60,7 +60,8 @@ the root's own `wayfinder.json` applies to, or its `knowledge/` directory.
 Binding takes the same bound: with `projectRoot`, the search for a bundle's
 `wayfinder.json` climbs the same directories as without it but reads only
 those whose real path is that root or inside it, and stops there, so a
-bundle with none there reports `config-missing`. The command still finds the
+bundle with none there reports `config-missing`. Adoption's closing
+validation binds within the root it adopted. The command still finds the
 project from any directory inside it by asking for its search of ancestors
 (`searchAncestors: true`) and binding without a bound, so its results and
 exit codes are unchanged. `projectRoot` is a host input like `configPath`:
