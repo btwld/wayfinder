@@ -1,5 +1,44 @@
 # 0.3.0 (unreleased)
 
+- New `package:wayfinder/authoring.dart`, the write path for a bundle a
+  Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one
+  `KnowledgeChange` (`CreateConcept`, `UpdateConcept`, `LinkConcepts`, which
+  appends to the concept's `relationships`, `DeprecateConcept`, or the
+  `RegenerateIndexes` repair) onto okf's change set through okf 0.5.1's
+  reserved-file projection, and returns a `KnowledgeWritePlan` without
+  writing. `KnowledgeWriter.commit` writes exactly that plan under okf's
+  exclusive bundle lock.
+  - Only the indexes whose text the selected Profile generates differently
+    for the bundle and the candidate are rewritten, with exactly the generated
+    text; other indexes keep their bytes, stale or not. `RegenerateIndexes`
+    writes exactly what `validate --fix` writes.
+  - The root log records a caller's `KnowledgeLogEntry` exactly as given,
+    okf's lifecycle entry (`KnowledgeLog.lifecycle`, the default) or nothing
+    (`KnowledgeLog.none`). Entries are inserted into the log as lines in its
+    own style, so existing entries keep their bytes.
+  - `KnowledgeStamp.generated` and `KnowledgeStamp.verified` record
+    `generated: {by, at}` when the write creates or changes content (the body,
+    `title`, `description` or `type`), and the verified stamp appends
+    `{by, at}` to `verified`. A change that sets either key is refused.
+  - The plan holds the `base` and `candidate` validations, judged in memory
+    with `validateLoaded`, the `diff` of each file it writes, and the
+    candidate's Profile findings split into `introduced` and `preExisting` by
+    rule id and path. It is `committable` when okf accepts the candidate and it
+    introduces no error finding or error diagnostic.
+  - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
+    plan that is not committable, and `KnowledgeStaleWriteException`
+    (`write-stale`) when the bundle, or the `wayfinder.json` or
+    `wayfinder.lock` its selection came from, changed since `prepare`.
+    `KnowledgeChangeException` reports a change that cannot be described
+    against the bundle: `bundle-missing`, `concept-exists`,
+    `concept-not-found`, `change-invalid`, `log-unwritable`, or
+    `fix-not-applied` for a `RegenerateIndexes` with no fixable rule.
+- `ProfileValidator.validate` with `fix` holds `OkfBundleLock.write` while it
+  loads the bundle again, writes and validates, whenever it has something to
+  write; a fix with nothing to write takes no lock. Results are unchanged.
+- `path-targets-exist` looks a path target up in the loaded bundle before the
+  disk, so `validateLoaded` on a candidate sees the files the candidate adds.
+  Verdicts for a bundle read from disk are unchanged.
 - New `package:wayfinder/project.dart`, moved from `wayfinder_cli`'s private
   sources so a host can embed what the command does (ADR-0018):
   `WayfinderProject.discover` and `ProjectBundle`;

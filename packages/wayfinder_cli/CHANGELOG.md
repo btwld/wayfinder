@@ -45,6 +45,12 @@
   wait forever, or that is larger than 64 KiB counts the same way, and `get`
   refuses to install the skill of a Profile whose release is too long for
   its marker to stay within 64 KiB.
+- `validate --fix` holds okf's exclusive bundle lock while it loads the bundle
+  again, writes the generated indexes and validates, so it waits for an okf
+  read or write of the bundle in another process instead of interleaving with
+  it. Like okf's own writes, a fix that writes creates `.okf.lock` at the
+  bundle root; one with nothing to write takes no lock. Output and exit codes
+  are unchanged.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command

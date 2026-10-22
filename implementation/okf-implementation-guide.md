@@ -158,6 +158,10 @@ and reports as usual. It MUST:
 - **Report a failed write.** When a write fails it stops, reports the files
   already written, and reports the failure as the `wayfinder/fix-failed` error
   diagnostic. A partly written bundle cannot pass the gate (§4.1).
+- **Hold okf's exclusive bundle lock** (`.okf.lock`) while it loads the
+  bundle again, writes, and validates, whenever it has something to write, so
+  it never interleaves with an okf write or read. A fix with nothing to write
+  takes no lock.
 
 When a fix ran, its JSON report adds `fix.written`, the bundle-relative paths
 it wrote in path order, between `diagnostics` and `gate` (§4.1). Without
@@ -179,6 +183,31 @@ completeness mechanically.
 A validator checks the result a generator maintains. A repository
 MAY write indexes by any means and rely on validation to catch drift. The
 generator is an implementation convenience, not a required bundle artifact.
+
+### 3.4 Writes a Profile governs
+
+A tool that changes a bundle on its author's behalf, such as `KnowledgeWriter`
+in `package:wayfinder/authoring.dart`, applies the change through okf's write
+path and judges the result before it writes ([ADR-0019](../docs/adr/0019-profile-aware-writes.md)).
+It MUST:
+
+- **Rewrite only the generated files the change affects.** When a rule in the
+  selected chain uses `matches-generated`, write the generator's text (§3.1)
+  for exactly the indexes whose generated text differs between the bundle and
+  the candidate. Every other index keeps its bytes, even when it is stale;
+  rewriting every stale index is the `--fix` repair, and a tool that offers it
+  writes exactly what `--fix` writes.
+- **Leave history to the author** (§3.2). Record only a log entry the author
+  supplies, or okf's own entry for the change, and keep every entry already
+  there.
+- **Judge the candidate as validation would after the commit,** in memory and
+  with the same selection: OKF over the whole candidate, and the Profile's
+  findings compared with the bundle's by rule id and path. Refuse a candidate
+  OKF rejects, or one that adds a Profile error or an error diagnostic, and
+  write nothing.
+- **Write exactly the bytes it judged** under okf's exclusive bundle lock, and
+  refuse when the bundle, or the configuration or lock its selection came
+  from, changed since it judged them.
 
 ---
 
@@ -846,6 +875,20 @@ stops on an error as `profile-invalid`. Migration for
 packages: none. Bitwild, the largest shipped package, parses with its tests
 in about five milliseconds, so no package reads differently, and a package
 that would take ten seconds was already unusable.
+
+**Profile-aware writes, next wayfinder release.** Binds no Profile and keeps
+package format 2. The new §3.4, which reuses the number of the 2026.2
+projection removed below, binds a tool that writes a bundle on its author's
+behalf, and §3.1 adds that `--fix` holds okf's exclusive bundle lock while it
+writes. Affected sections: §§3.1, 3.4, and 9. Driver: agents and hosts wrote
+Profile bundles with raw file edits, because okf's own writes regenerate
+indexes and the log without the Profile and judge only OKF (#45), and `--fix`
+could interleave with an okf write. Migration for implementations: a writer
+regenerates only the indexes whose generated text the change alters, records
+only author-supplied or okf lifecycle log entries, judges the candidate in
+memory with a delta Profile gate keyed by rule id and path, and commits under
+okf's lock; `--fix` takes that lock when it writes. Migration for packages:
+none. No verdict changes, and a bundle needs no edit.
 
 **okf generator revision, next wayfinder release.** Binds no Profile and
 keeps package format 2. These entries change the engine contract that the
