@@ -102,22 +102,26 @@ try {
   `LocalModelEncoderProvider` loads a GGUF file the host located, after
   checking its size and SHA-256. `loadObjectBox`, when given, runs before the
   first database opens; leave it out when the process already provides
-  ObjectBox, as Flutter's `objectbox_flutter_libs` does. The CLI's own host
-  code is `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a
-  host names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse`
-  included, comes from `knowledge_store.dart`.
+  ObjectBox, as Flutter's `objectbox_flutter_libs` does. Either way the store
+  then checks that ObjectBox's library loads, fails with
+  `objectbox-unavailable` when it does not, and drops the hint ObjectBox
+  prints to stdout when its own search fails. The CLI's own host code is
+  `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
+  names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
+  comes from `knowledge_store.dart`.
 - **Operations.** `status` compares the saved index with the bundle without
   an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
   input warnings), `KnowledgeIndexStale` (the changed paths) or
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
-  index, reports `IndexProgress` (`scanning`, `loading`, `embedding` with
-  counts, `publishing`) and checks its `WayfinderCancellation` between steps
-  and batches; a cancelled run deletes the generation it staged and leaves
-  the current one. `search` ranks a project's bundles together under one
-  limit; `searchBundle` searches one bundle with its own context policy.
-  `forget` deletes every index of a bundle, such as a removed worktree, and
-  `prune` those of roots that no longer exist and of other configurations
-  unused for 30 days.
+  index, reports `IndexProgress` (`scanning`, `loading` from before ObjectBox
+  and the encoder open, `embedding` with counts, `publishing`) and checks its
+  `WayfinderCancellation` between steps and batches; a cancelled run deletes
+  the generation it staged and leaves the current one. `search` ranks a
+  project's bundles together under one limit; `searchBundle` searches one
+  bundle with its own context policy. `forget` deletes every index of a
+  bundle, such as a removed worktree, by the path it had, symbolic links
+  included; `prune` deletes those of roots that no longer exist and of other
+  configurations unused for 30 days.
 - **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
   typed `KnowledgeCitation`s (bundle, path, lines, content, concept ID,
   title, type, status, similarity, why the passage is included), the JSON of
@@ -146,11 +150,18 @@ try {
   depth and never opens it.
 - **Concurrency.** One operation at a time holds an index, across isolates
   and processes, through `<configuration key>.lock` beside it; another fails
-  with `index-busy`, so a search during an index is refused. Without
+  with `index-busy`, so a search during an index is refused. `forget` and
+  `prune` keep a lock file when they delete its index, so an operation that
+  has just opened it still excludes the next one; `prune` deletes a lock file
+  only once it has gone unused for the prune's period. Without
   `retainEncoder`, each operation opens and disposes its own encoder; with
-  it, operations run one at a time and share one encoder and the parsed
-  snapshots, up to `cacheBytes`. okf's bundle lock does not exclude isolates,
-  so keep a process's okf bundle I/O, this store's included, on one isolate
+  it, `index` and the searches run one at a time and share one encoder and
+  the parsed snapshots, up to `cacheBytes`, while `status`, `forget` and
+  `prune` do not wait for them. Only a failure in the encoder or ObjectBox,
+  or an unexpected error, discards the shared encoder and snapshots; a
+  stale, busy or cancelled operation keeps them. okf's bundle lock does not
+  exclude isolates, so keep a process's okf bundle I/O, this store's
+  included, on one isolate
   ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
 
 `package:wayfinder_embeddings/testing.dart` has `DeterministicTestEmbedder` and

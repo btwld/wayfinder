@@ -142,7 +142,10 @@ included, so a search during an index is still refused until reads stop
 needing it ([ADR-0010](0010-wayfinder-cli.md)). The index lock records the
 bundle root, and its modification time is the index's last use; it sits
 beside the index directory, so `forget` and `prune` delete that directory
-while holding it, then the lock file.
+while holding it and keep the lock file. Only `prune` deletes a lock file,
+and only once it has gone unused for the prune's period: deleting one that
+another operation has just opened would let that operation and the next hold
+different files.
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
 exclude isolates, so a process runs all okf bundle I/O on one isolate:
@@ -169,12 +172,15 @@ or `GIT_ASKPASS`, no longer reach resolution; put them in Git's configuration
 (`http.sslCAInfo`, a credential helper). A user's own SSH command still runs.
 
 Lock files and package files accumulate in the data directory, which stays
-derived and removable; `prune` removes the indexes, and their locks, of
-bundles that no longer exist. Deleting a lock file is safe only against an
-operation that has not opened it yet: a holder checks that its lock file
-still exists, which leaves a narrow race between three processes around a
-`forget` or `prune` that can at worst cost a rebuild. `flock` is only as
-strong as the filesystem: keep the data directory on a local disk.
+derived and removable; `prune` removes the indexes of bundles that no longer
+exist at once, and their lock files once those go unused for its period, by
+default 30 days. A holder also checks that its lock file still exists, so
+the only remaining race needs an operation to open a lock file unused for
+that long in the moment `prune` deletes it, and another to start on that
+index meanwhile; it costs at worst a rebuild, and the publishing operation
+that loses reports `index-busy`. A `prune` with a short period widens that
+window. `flock` is only as strong as the filesystem: keep the data directory
+on a local disk.
 
 ## Reconsider when
 
