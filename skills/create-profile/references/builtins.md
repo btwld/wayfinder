@@ -109,12 +109,14 @@ package's `implements.release` in the indexes it writes.
 generator revision the package's verdicts assume: the okf release that last
 changed what the generator writes, which okf exports as
 `okfIndexGeneratorRevision`. It is not the okf release a `wayfinder validate
---output json` run reports as `engine.okf`; okf 0.5.1 still writes revision
-0.5.0. okf changes the generator's output only in a minor release, and a
-wayfinder that moves to a new revision says so in its changelog. A package
-that sets `version` loads only on a wayfinder whose okf has that revision,
-and so reports INCOMPLETE rather than new index findings after a generator
-change. Omit it to accept whatever generator the engine ships.
+--output json` run reports as `engine.okf`. okf changes the generator's
+output only in a minor release, so one okf minor series has one revision:
+every okf 0.5 release, whether `engine.okf` reads 0.5.0, 0.5.1 or later,
+writes revision 0.5.0, and that is the value to pin. A wayfinder that moves
+to a new revision says so in its changelog. A package that sets `version`
+loads only on a wayfinder whose okf has that revision, and so reports
+INCOMPLETE rather than new index findings after a generator change. Omit it
+to accept whatever generator the engine ships.
 
 ```json
 {
