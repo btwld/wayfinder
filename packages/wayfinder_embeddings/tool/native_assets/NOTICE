@@ -7,6 +7,23 @@ That native release pins llama.cpp at
 620d2225cc436ab0b001e3200e590e3b286ef9ab
 (https://github.com/ggml-org/llama.cpp).
 Copyright (c) 2023-2026 The ggml authors. See llama-cpp-LICENSE.
+ggml's YaRN RoPE code also states: "MIT licensed. Copyright (c) 2023 Jeffrey
+Quesnelle and Bowen Peng."
+
+The llama.cpp library also contains code that llama.cpp vendors:
+
+- cpp-httplib 0.61.0 (https://github.com/yhirose/cpp-httplib).
+  Copyright (c) 2017 yhirose. MIT License; see cpp-httplib-LICENSE.
+- JSON for Modern C++ 3.12.0 (https://github.com/nlohmann/json).
+  Copyright (c) 2013-2025 Niels Lohmann. MIT License; see
+  nlohmann-json-LICENSE.
+- stb_image (https://github.com/nothings/stb) by Sean Barrett, and miniaudio
+  (https://github.com/mackron/miniaudio) by David Reid. Each is offered
+  under a public domain dedication or an MIT-style license, at the
+  recipient's choice; Wayfinder redistributes them under the public domain
+  dedication.
+- subprocess.h (https://github.com/sheredom/subprocess.h), released into the
+  public domain under the Unlicense.
 
 Windows bundles also include any unmodified Microsoft OpenMP runtime,
 vcomp140.dll, that the upstream native release supplies. It is Microsoft
