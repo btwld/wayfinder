@@ -246,6 +246,80 @@ void main() {
     expect((await validate()).diagnostics, isEmpty);
   });
 
+  group('read', () {
+    late SkillRevision revision;
+    late String text;
+
+    Future<String?> read() => ProfileSkills.read(project.path, revision);
+
+    Future<void> mark(String directory, String commit) => File(
+      p.join(project.path, directory, '.wayfinder-profile'),
+    ).writeAsString(marker(commit));
+
+    setUp(() async {
+      text = await sourceFile('skill/SKILL.md').readAsString();
+      revision = (
+        id: ProfileId.parse('acme-notes'),
+        release: '1.0',
+        commit: await commit(),
+      );
+    });
+
+    test('returns the installed SKILL.md of the selected revision', () async {
+      expect(await read(), isNull);
+      await resolver.resolve(project.path);
+      final selection = await resolver.select(
+        p.join(project.path, 'knowledge'),
+      );
+      expect(ProfileSkills.revisionsOf(selection as SelectedProfile), [
+        revision,
+      ]);
+      expect(await read(), text);
+      expect(
+        ProfileSkills.revisionsOf(
+          SelectedProfile(selection.profile, config: selection.config),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('skips a directory the staleness check rejects', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      await mark(_claude, 'f' * 40);
+      expect(await ProfileSkills.stale(project.path, revision), [_claude]);
+      expect(await read(), 'agents copy');
+      await mark(_agents, 'f' * 40);
+      expect(await read(), isNull);
+      await Directory(p.join(project.path, _claude)).delete(recursive: true);
+      await Directory(p.join(project.path, _agents)).delete(recursive: true);
+      expect(await read(), isNull);
+    });
+
+    test(
+      'reads nothing a symbolic link places outside the project',
+      () async {
+        await resolver.resolve(project.path);
+        final outside = await File(
+          p.join(temp.path, 'outside.md'),
+        ).writeAsString('outside');
+        final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
+        await claudeSkill.delete();
+        await Link(claudeSkill.path).create(outside.path);
+        expect(await read(), text, reason: 'the .agents copy still holds it');
+
+        final agents = Directory(p.join(project.path, _agents));
+        final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
+        await Link(agents.path).create(elsewhere.path);
+        expect(await ProfileSkills.stale(project.path, revision), isEmpty);
+        expect(await read(), isNull);
+      },
+      skip: Platform.isWindows ? 'needs symbolic links' : false,
+    );
+  });
+
   test('a skill directory without SKILL.md fails get', () async {
     await sourceFile('skill/SKILL.md').delete();
     await writeSource('skill/notes.md', 'notes');

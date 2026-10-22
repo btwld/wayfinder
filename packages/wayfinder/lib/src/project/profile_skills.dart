@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../profile_package.dart';
+import '../validation.dart' show SelectedProfile;
 
 /// The locked revision a Profile skill comes from, as its marker records it.
 typedef SkillRevision = ({ProfileId id, String release, String commit});
@@ -62,6 +63,57 @@ abstract final class ProfileSkills {
       if (await _markedRevision(Directory(p.join(projectRoot, directory))) !=
           revision)
         directory,
+  ];
+
+  /// The installed `SKILL.md` text of [revision]: from the first directory
+  /// in [directories] order that holds [revision], the check [stale] and
+  /// validation's `profile-skill-stale` note make. Null when none does, as
+  /// before `get` or after the lock moved on, and when that directory has
+  /// no readable `SKILL.md`. Reads nothing that a symbolic link places
+  /// outside [projectRoot], and never writes.
+  static Future<String?> read(
+    String projectRoot,
+    SkillRevision revision,
+  ) async {
+    final String real;
+    try {
+      real = await Directory(projectRoot).resolveSymbolicLinks();
+    } on FileSystemException {
+      return null;
+    }
+    Future<bool> inside(String file) async {
+      if (await FileSystemEntity.type(file) != FileSystemEntityType.file) {
+        return false;
+      }
+      final resolved = await _realPath(file);
+      return resolved != null && p.isWithin(real, resolved);
+    }
+
+    for (final directory in directories(revision.id)) {
+      final path = p.join(projectRoot, directory);
+      final skill = p.join(path, 'SKILL.md');
+      try {
+        if (await inside(p.join(path, marker)) &&
+            await inside(skill) &&
+            await _markedRevision(Directory(path)) == revision) {
+          return await File(skill).readAsString();
+        }
+      } on FileSystemException {
+        // Unreadable: the next directory may still hold the revision.
+      }
+    }
+    return null;
+  }
+
+  /// The skill revision of each package in [selection]'s chain that ships a
+  /// skill and has a locked commit, root ancestor first: what [read] and
+  /// [stale] take. Empty for a selection built by hand, which records no
+  /// commits.
+  static List<SkillRevision> revisionsOf(SelectedProfile selection) => [
+    for (final package in selection.profile.chain)
+      if (package.skill != null)
+        if (selection.commits[package.id] case final commit?)
+          (id: package.id, release: package.release, commit: commit),
   ];
 
   /// The roots that a symbolic link at the root or an ancestor places
