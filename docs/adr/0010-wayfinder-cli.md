@@ -25,9 +25,10 @@ retired lexical and hybrid mode choices are rejected. Runtime commands
 never download or train a model. Build tooling acquires it, and the native
 distribution includes the verified artifact. A host that embeds the retrieval
 library acquires it only by calling `EmbeddingModelCache.provision`, after its
-user agrees. Both download the pinned artifact into a model cache in per-user
-application data and verify its size and SHA-256 before an atomic rename, so a
-failed download never replaces a model. Locating the model reads files only.
+user agrees. Both download the pinned artifact into a model cache, by default
+in per-user application data, and verify its size and SHA-256 before an
+atomic rename, so a failed download never replaces a model. Locating the model
+reads files only.
 
 Persist one derived ObjectBox index per canonical bundle path and
 configuration in per-user application data, outside the repository, under
