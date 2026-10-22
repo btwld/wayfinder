@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
-import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
@@ -19,6 +18,7 @@ import '../validation.dart';
 import '../wayfinder_config.dart';
 import 'knowledge_change.dart';
 import 'knowledge_log.dart';
+import 'knowledge_project_files.dart';
 import 'knowledge_stamp.dart';
 
 /// A change that cannot be described against the bundle, so there is no
@@ -29,11 +29,18 @@ final class KnowledgeChangeException extends WayfinderException {
   const KnowledgeChangeException(super.code, super.message);
 }
 
-/// `write-stale`: the bundle, or the `wayfinder.json` or `wayfinder.lock`
-/// its selection came from, changed after `prepare`. Prepare again.
+/// `write-stale`: the bundle, or a project file its selection came from
+/// (`KnowledgeWritePlan.projectFiles`), changed after `prepare`. Prepare
+/// again.
 final class KnowledgeStaleWriteException extends WayfinderException {
-  const KnowledgeStaleWriteException(String message)
-    : super('write-stale', message);
+  const KnowledgeStaleWriteException(
+    String message, {
+    this.projectFiles = const [],
+  }) : super('write-stale', message);
+
+  /// The absolute paths of the project files that changed, such as
+  /// `wayfinder.json`; empty when the bundle itself changed.
+  final List<String> projectFiles;
 }
 
 /// `write-refused`: `commit` was given a plan that is not
@@ -226,14 +233,18 @@ final class KnowledgeWritePlan {
     required Iterable<ProfileFinding> introduced,
     required Iterable<ProfileFinding> preExisting,
     required Iterable<EngineDiagnostic> introducedDiagnostics,
+    required Iterable<OkfFinding> introducedOkf,
+    required Iterable<OkfFinding> preExistingOkf,
+    required this.changesContent,
+    required this.projectFiles,
     required OkfPreparedChange? prepared,
-    required _ProjectFiles projectFiles,
   }) : diff = List.unmodifiable(diff),
        introduced = List.unmodifiable(introduced),
        preExisting = List.unmodifiable(preExisting),
        introducedDiagnostics = List.unmodifiable(introducedDiagnostics),
-       _prepared = prepared,
-       _projectFiles = projectFiles;
+       introducedOkf = List.unmodifiable(introducedOkf),
+       preExistingOkf = List.unmodifiable(preExistingOkf),
+       _prepared = prepared;
 
   /// The bundle root, absolute and normalized.
   final String bundle;
@@ -262,12 +273,36 @@ final class KnowledgeWritePlan {
   /// Candidate diagnostics the base does not report, by id and location.
   final List<EngineDiagnostic> introducedDiagnostics;
 
+  /// The OKF findings of the candidate ([okf]) the base does not report,
+  /// keyed as the Profile delta is: a candidate finding is pre-existing
+  /// when the base reports one with the same id and location path, counted
+  /// as a multiset, and introduced otherwise. They inform a host, such as
+  /// one that names what a write broke; the OKF gate stays the whole
+  /// candidate, so a plan okf refuses for a finding the base already had is
+  /// still not [committable].
+  final List<OkfFinding> introducedOkf;
+
+  /// The OKF findings of the candidate the base already reports.
+  final List<OkfFinding> preExistingOkf;
+
+  /// Whether the write creates a concept or changes its content, its body,
+  /// `title`, `description` or `type` (`changesConceptContent`), judged on
+  /// the concept as `prepare` read it: then the write records `generated`,
+  /// and a `KnowledgeContentLog` records its entry.
+  final bool changesContent;
+
+  /// The project files the plan's selection came from, which
+  /// [KnowledgeWriter.commit] checks are unchanged: `wayfinder.json` and
+  /// `wayfinder.lock`, or the absent `wayfinder.json` paths binding looked
+  /// at when none binds the bundle.
+  final KnowledgeProjectFiles projectFiles;
+
   final OkfPreparedChange? _prepared;
-  final _ProjectFiles _projectFiles;
 
   List<String> get changedPaths => [for (final file in diff) file.path];
 
-  /// okf's Spec judgment of the candidate.
+  /// The whole of okf's Spec judgment of the candidate; the base's is
+  /// [base]'s `okfValidation`, and [introducedOkf] is their delta.
   OkfSpecValidation get okf => candidate.okfValidation;
 
   /// Whether a Profile's rules judged the candidate. False when none could
@@ -329,17 +364,28 @@ final class KnowledgeWriter {
   /// returns the plan [commit] writes. Writes nothing.
   ///
   /// The Profile is [selection], or [resolver]'s selection for the bundle
-  /// as `validate` makes it. When the selection names its project file,
-  /// [commit] also refuses the plan if that `wayfinder.json` or the
-  /// `wayfinder.lock` beside it changed since.
+  /// as `validate` makes it. [commit] also refuses the plan when a project
+  /// file that selection came from changed since ([projectFiles]):
+  /// `wayfinder.json` and the `wayfinder.lock` beside it, or, when no
+  /// configuration binds the bundle, each `wayfinder.json` path binding
+  /// looked at, absent.
+  ///
+  /// A host that selects itself captures [projectFiles] with its selection,
+  /// before selecting ([KnowledgeProjectFiles.forBundle] or
+  /// [KnowledgeProjectFiles.read]) or from the bytes it read, so a change
+  /// between its selection and [prepare] is refused too. Without them, the
+  /// writer reads them now: with a [selection], the configuration it names
+  /// (a [SelectedProfile]'s `config`, or the file an [UnselectedProfile]'s
+  /// reason is located at), else the files binding the bundle reads; without
+  /// one, the files binding the bundle reads, before it selects.
   ///
   /// Without [selection], the bundle binds through the nearest
   /// `wayfinder.json` above it. By default that search climbs towards the
   /// filesystem root, as the `wayfinder` command's does. A host that knows
   /// the project root passes it as [projectRoot], and the search then reads
   /// no `wayfinder.json` above it ([WayfinderProjectConfig.bind]), so a
-  /// bundle with none within it is judged by OKF alone. [projectRoot] is
-  /// unused with a [selection].
+  /// bundle with none within it is judged by OKF alone. With a [selection],
+  /// [projectRoot] bounds only the search for the project files to track.
   ///
   /// [cancel] is checked between steps and passed to the resolver and the
   /// assessor; a cancelled prepare throws [WayfinderException.cancelled].
@@ -355,6 +401,7 @@ final class KnowledgeWriter {
     required KnowledgeStamp stamp,
     KnowledgeLog logEntry = KnowledgeLog.lifecycle,
     ProfileSelection? selection,
+    KnowledgeProjectFiles? projectFiles,
     String? projectRoot,
     WayfinderCancellation? cancel,
   }) async {
@@ -367,6 +414,7 @@ final class KnowledgeWriter {
         stamp: stamp,
         log: logEntry,
         selection: selection,
+        projectFiles: projectFiles,
         projectRoot: projectRoot,
         cancel: cancel,
       );
@@ -381,6 +429,7 @@ final class KnowledgeWriter {
     required KnowledgeStamp stamp,
     required KnowledgeLog log,
     required ProfileSelection? selection,
+    required KnowledgeProjectFiles? projectFiles,
     required String? projectRoot,
     required WayfinderCancellation? cancel,
   }) async {
@@ -390,18 +439,21 @@ final class KnowledgeWriter {
         'Bundle $bundle is not a directory.',
       );
     }
-    final _ProjectFiles projectFiles;
+    final KnowledgeProjectFiles files;
     final ProfileSelection chosen;
     if (selection != null) {
       chosen = selection;
-      projectFiles = await _ProjectFiles.read(_configFile(selection));
+      files = projectFiles ?? await _filesOf(bundle, selection, projectRoot);
     } else {
       // Read the project files before selecting, so a change between the
       // two makes the plan stale rather than pairing a new lock with an
       // old selection.
-      projectFiles = await _ProjectFiles.read(
-        await _boundConfigFile(bundle, projectRoot),
-      );
+      files =
+          projectFiles ??
+          await KnowledgeProjectFiles.forBundle(
+            bundle,
+            projectRoot: projectRoot,
+          );
       chosen = await _select(bundle, projectRoot, cancel);
     }
     throwIfCancelled(cancel);
@@ -454,9 +506,15 @@ final class KnowledgeWriter {
       cancel,
     );
     throwIfCancelled(cancel);
-    final (:introduced, :preExisting) = _split(
+    final (:introduced, :preExisting) = _delta(
       assessment.baseFindings,
       assessment.candidate.findings,
+      (finding) => (finding.id, finding.path),
+    );
+    final (introduced: introducedOkf, preExisting: preExistingOkf) = _delta(
+      assessment.base.okfReport.findings,
+      assessment.candidate.okfReport.findings,
+      (finding) => (finding.id.value, finding.location?.path),
     );
     return KnowledgeWritePlan._(
       bundle: base.rootPath,
@@ -471,11 +529,14 @@ final class KnowledgeWriter {
         assessment.base.diagnostics,
         assessment.candidate.diagnostics,
       ),
+      introducedOkf: introducedOkf,
+      preExistingOkf: preExistingOkf,
+      changesContent: preparation.changesContent,
+      projectFiles: files,
       prepared: switch (prepared) {
         OkfPreparationReady(:final prepared) => prepared,
         OkfPreparationRefused() => null,
       },
-      projectFiles: projectFiles,
     );
   }
 
@@ -490,11 +551,12 @@ final class KnowledgeWriter {
   /// holds the bundle.
   ///
   /// Throws [KnowledgeWriteRefusedException] for a plan that is not
-  /// committable, [KnowledgeStaleWriteException] when the bundle, or the
-  /// project file or lock the plan's selection came from, changed since
-  /// [prepare], and [KnowledgeWriteFailedException] when the bundle cannot
-  /// be locked or written. A plan commits once; committing it again throws
-  /// a [StateError].
+  /// committable, [KnowledgeStaleWriteException] when the bundle, or a
+  /// project file the plan's selection came from
+  /// ([KnowledgeWritePlan.projectFiles]), changed since [prepare], and
+  /// [KnowledgeWriteFailedException] when the bundle cannot be locked or
+  /// written. A plan commits once; committing it again throws a
+  /// [StateError].
   Future<KnowledgeCommitResult> commit(
     KnowledgeWritePlan plan, {
     WayfinderCancellation? cancel,
@@ -508,10 +570,12 @@ final class KnowledgeWriter {
     try {
       return await OkfBundleLock.write(plan.bundle, () async {
         throwIfCancelled(cancel);
-        if (!await plan._projectFiles.isCurrent()) {
-          throw const KnowledgeStaleWriteException(
-            'wayfinder.json or wayfinder.lock changed after the write was '
-            'prepared. Prepare it again.',
+        final changed = await plan.projectFiles.changed();
+        if (changed.isNotEmpty) {
+          throw KnowledgeStaleWriteException(
+            '${changed.map(p.basename).toSet().join(' and ')} changed after '
+            'the write was prepared (${changed.join(', ')}). Prepare it again.',
+            projectFiles: List.unmodifiable(changed),
           );
         }
         try {
@@ -559,24 +623,25 @@ final class KnowledgeWriter {
     return selection;
   }
 
-  static String? _configFile(ProfileSelection selection) => switch (selection) {
-    SelectedProfile(:final config?) => config.file,
-    _ => null,
-  };
-
-  static Future<String?> _boundConfigFile(
+  /// The project files [selection] of [bundle] came from, as they are now:
+  /// the configuration a [SelectedProfile] names, none for one built
+  /// without it, the configuration an [UnselectedProfile]'s reason is
+  /// located at, or else what binding [bundle] within [projectRoot] reads.
+  static Future<KnowledgeProjectFiles> _filesOf(
     String bundle,
+    ProfileSelection selection,
     String? projectRoot,
-  ) async {
-    try {
-      return (await WayfinderProjectConfig.bind(
-        bundle,
-        projectRoot: projectRoot,
-      )).config.file;
-    } on BundleBindingException {
-      return null;
-    }
-  }
+  ) async => switch (selection) {
+    SelectedProfile(:final config?) => KnowledgeProjectFiles.read(config.file),
+    SelectedProfile() => KnowledgeProjectFiles.none,
+    UnselectedProfile(:final reasons) => switch ([
+      for (final reason in reasons)
+        if (reason.location case ProjectFileLocation(:final file)) file,
+    ]) {
+      [final file, ...] => KnowledgeProjectFiles.read(file),
+      _ => KnowledgeProjectFiles.forBundle(bundle, projectRoot: projectRoot),
+    },
+  };
 
   /// The okf change set for [preparation]'s change, reading the concept it
   /// changes.
@@ -595,6 +660,7 @@ final class KnowledgeWriter {
     };
     switch (preparation.change) {
       case CreateConcept(:final id, :final frontmatter, :final body):
+        preparation.changesContent = true;
         if (await File(p.join(root, id.documentPath)).exists()) {
           throw KnowledgeChangeException(
             'concept-exists',
@@ -614,15 +680,16 @@ final class KnowledgeWriter {
             ),
           ),
         ]);
-      case UpdateConcept(:final id, :final frontmatter, :final body):
+      case UpdateConcept(:final id, :final frontmatter, :final body) &&
+          final update:
         final current = await preparation.read(root, id);
+        preparation.changesContent = update.changesContent(current);
         return OkfBundleChangeSet([
           OkfUpdateConceptChange(
             id: id,
             frontmatterChanges: {
               ...frontmatter,
-              if (_changesContent(current, frontmatter, body))
-                _generated: event,
+              if (preparation.changesContent) _generated: event,
               ...verification(current, id),
             },
             body: body,
@@ -714,7 +781,11 @@ final class KnowledgeWriter {
         }
       }
     }
-    switch (suppliedLogEntries(preparation.log)) {
+    final log = effectiveLog(
+      preparation.log,
+      changesContent: preparation.changesContent,
+    );
+    switch (suppliedLogEntries(log)) {
       case final entries?:
         final writes = _written(
           base,
@@ -731,7 +802,7 @@ final class KnowledgeWriter {
                   ),
               ])
             : null;
-      case null when identical(preparation.log, KnowledgeLog.none):
+      case null when identical(log, KnowledgeLog.none):
         projection[_log] = null;
       case null:
         // okf rewrites the whole log in its canonical form; keep its new
@@ -817,6 +888,9 @@ final class _Preparation {
   final ProfileSelection selection;
   final KnowledgeLog log;
 
+  /// Whether the change creates a concept or changes its content.
+  var changesContent = false;
+
   /// The concept the change edits, as read before okf loaded the bundle.
   ({OkfConceptId id, OkfDocument document, String text})? target;
 
@@ -875,35 +949,6 @@ final class _Preparation {
   }
 }
 
-/// The `wayfinder.json` a selection came from and the `wayfinder.lock`
-/// beside it, by digest; empty for a selection built by hand.
-final class _ProjectFiles {
-  const _ProjectFiles(this._digests);
-
-  static Future<_ProjectFiles> read(String? config) async {
-    if (config == null) return const _ProjectFiles({});
-    final paths = [config, p.join(p.dirname(config), 'wayfinder.lock')];
-    return _ProjectFiles({for (final path in paths) path: await _digest(path)});
-  }
-
-  final Map<String, String?> _digests;
-
-  Future<bool> isCurrent() async {
-    for (final MapEntry(key: path, value: digest) in _digests.entries) {
-      if (await _digest(path) != digest) return false;
-    }
-    return true;
-  }
-
-  static Future<String?> _digest(String path) async {
-    try {
-      return sha256.convert(await File(path).readAsBytes()).toString();
-    } on FileSystemException {
-      return null;
-    }
-  }
-}
-
 const _index = 'index.md';
 const _log = 'log.md';
 const _generated = 'generated';
@@ -926,27 +971,6 @@ Map<String, String> _written(
     }
   }
   return files;
-}
-
-/// Whether the update changes what `generated` dates: the body, `title`,
-/// `description` or `type`.
-bool _changesContent(
-  OkfDocument current,
-  Map<String, Object?> fields,
-  String? body,
-) {
-  for (final key in const ['type', 'title', 'description']) {
-    if (fields.containsKey(key) &&
-        !const DeepCollectionEquality().equals(
-          fields[key],
-          current.frontmatter[key],
-        )) {
-      return true;
-    }
-  }
-  String canonical(String text) =>
-      OkfDocument(body: text, hasFrontmatter: false).serialize();
-  return body != null && canonical(body) != canonical(current.body);
 }
 
 /// The `relationships` field with [additions] appended, or nothing when
@@ -1114,27 +1138,27 @@ const _unwritableLog = KnowledgeChangeException(
       'then write again.',
 );
 
-({List<ProfileFinding> introduced, List<ProfileFinding> preExisting}) _split(
-  Iterable<ProfileFinding> base,
-  Iterable<ProfileFinding> candidate,
+/// [candidate] split by [key] against [base], counted as a multiset: an
+/// item is pre-existing while the base has an unmatched one with its key,
+/// and introduced otherwise.
+({List<T> introduced, List<T> preExisting}) _delta<T>(
+  Iterable<T> base,
+  Iterable<T> candidate,
+  (String, String?) Function(T item) key,
 ) {
-  final remaining = <(String, String), int>{};
-  for (final finding in base) {
-    remaining.update(
-      (finding.id, finding.path),
-      (count) => count + 1,
-      ifAbsent: () => 1,
-    );
+  final remaining = <(String, String?), int>{};
+  for (final item in base) {
+    remaining.update(key(item), (count) => count + 1, ifAbsent: () => 1);
   }
-  final introduced = <ProfileFinding>[];
-  final preExisting = <ProfileFinding>[];
-  for (final finding in candidate) {
-    final key = (finding.id, finding.path);
-    if ((remaining[key] ?? 0) > 0) {
-      remaining[key] = remaining[key]! - 1;
-      preExisting.add(finding);
+  final introduced = <T>[];
+  final preExisting = <T>[];
+  for (final item in candidate) {
+    final itemKey = key(item);
+    if ((remaining[itemKey] ?? 0) > 0) {
+      remaining[itemKey] = remaining[itemKey]! - 1;
+      preExisting.add(item);
     } else {
-      introduced.add(finding);
+      introduced.add(item);
     }
   }
   return (introduced: introduced, preExisting: preExisting);

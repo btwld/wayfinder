@@ -362,6 +362,52 @@
   words the cause itself, as the command keeps `the configuration changed
   after wayfinder get`. Adoption's `bundle-okf-invalid` and `skill-foreign`
   conflicts no longer name `okf validate` or `wayfinder get`.
+<!--
+Release bookkeeping: the bullets below amend the authoring and
+`WayfinderConfigEditor` bullets above; fold them in if both ship in one
+release.
+-->
+- `WayfinderProfileResolver.relock(project, edit:)` applies an edit of
+  `wayfinder.json`, such as registering an actor, and writes
+  `wayfinder.lock` for the result under one hold of the project's `get` lock
+  (ADR-0018). It keeps exactly the commits the lock pins, runs no Git and
+  writes no skill. Before writing anything it throws `lock-change-required`
+  (`ProfileLockChangeRequiredException.relock`, with its
+  `ProfileLockChange`) when, after the edit, the lock does not pin exactly
+  each binding's chain at its source, and the resolution failure selection
+  would report, such as a package missing from the cache or a chain that no
+  longer composes. It writes the lock only when its configuration hash
+  changes, and gives a file it wrote its bytes back when a later write
+  fails; `ProfileRelockResult` says what it wrote. A `get`, an apply, an
+  adoption and another relock exclude it (`resolution-busy`).
+- `WayfinderConfigEditor.encode(minimal: true)` keeps the text the editor
+  parsed and rewrites only the members the edits changed, so registering an
+  actor changes only those bytes, at the file's own indentation and line
+  endings. It writes an object or list whole where an edit cannot be
+  spliced, and the whole file with the full encoder when the spliced text
+  does not parse back to the edited document. `encode()` is unchanged.
+- `changesConceptContent(before, after)` is the rule that decides whether a
+  write records `generated`: the body, `title`, `description` or `type`
+  changes. `UpdateConcept.changesContent(current)` applies it to one update,
+  and `KnowledgeWritePlan.changesContent` reports what `prepare` decided.
+  `KnowledgeContentLog` records the log it holds only for a write that
+  changes content.
+- `KnowledgeWritePlan.introducedOkf` and `preExistingOkf` split the
+  candidate's OKF findings against the base's by finding id and location
+  path, as `introduced` and `preExisting` split Profile findings; `okf`
+  stays the candidate's whole OKF result, and the OKF gate is still the
+  whole candidate.
+- `KnowledgeWritePlan.projectFiles`, a `KnowledgeProjectFiles`, are the
+  project files the plan's selection came from, with the SHA-256 of their
+  bytes, which `commit` checks under okf's exclusive lock: `wayfinder.json`
+  and `wayfinder.lock` also when no Profile was selected, and when no
+  configuration binds the bundle, each `wayfinder.json` path binding looked
+  at, absent. `prepare` takes the `projectFiles` a host captured with its
+  own selection (`KnowledgeProjectFiles.forBundle`, `read`, or digests it
+  computed), and `KnowledgeStaleWriteException.projectFiles` names the files
+  that changed. A plan judged without a Profile is now refused as
+  `write-stale` when its configuration or lock changes, or a configuration
+  appears, before it commits.
 
 # 0.2.0
 

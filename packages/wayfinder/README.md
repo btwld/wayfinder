@@ -112,6 +112,20 @@ Future<void> main() async {
   `lock-change-required` before any Git command, and the
   `ProfileLockChangeRequiredException` carries that `ProfileLockChange`.
   Apply the plan to reinstall the locked Profile skills.
+- `relock(root, edit:)` changes `wayfinder.json` and writes the lock for
+  it offline, under one hold of the project's `get` lock, as a host does to
+  register an actor: the lock's hash covers the whole configuration, so the
+  edit alone would leave it stale. `edit` receives the configuration's text
+  and returns the new text. Relocking keeps exactly the commits the lock
+  pins, runs no Git, and leaves Profile skills alone, as `skills: false`
+  does. Before writing anything it refuses an edit that changes a Profile,
+  source or binding the lock does not pin as it stands, and a missing lock,
+  with `lock-change-required` and its `ProfileLockChange`, and what
+  selection would report, such as a package missing from the cache or a
+  chain that no longer composes. A failed write gives both files their
+  bytes back. A `get`, an apply, an adoption and another relock exclude it
+  and are excluded (`resolution-busy`), and a plan made before it no longer
+  applies.
 - `plan(root, skills: false)` leaves Profile skills alone, as a host does to
   fill the Profile cache without touching `.claude/skills` or
   `.agents/skills`: it reads no skill file, refuses no skill directory, and
@@ -240,7 +254,27 @@ records these decisions.
 `WayfinderConfigEditor` write `wayfinder.json` in its documented layout. The
 editor changes a Profile's source and bundles, the project's vocabulary and
 its actors, and keeps every field it does not model and every value as
-written.
+written. `encode(minimal: true)` also keeps the file's own bytes: it
+rewrites only the members the edits changed, so registering an actor adds
+exactly that actor, at the indentation and with the line endings the file
+uses. It writes an object or list whole where an edit cannot be spliced,
+such as a list that both gains and loses items, and writes the whole file
+with the full encoder when the spliced text does not parse back to the
+edited document. Registering an actor with `relock`, with
+`package:wayfinder/wayfinder.dart` imported for the editor:
+
+```dart
+await resolver.relock(
+  project.root,
+  edit: (text) =>
+      (WayfinderConfigEditor.parse(text)..putActor(
+            ProfileId.parse('bitwild-profile'),
+            'mcp:claude-code',
+            const WayfinderActorMetadata(name: 'Claude Code', side: 'tool'),
+          ))
+          .encode(minimal: true),
+);
+```
 
 ## Authoring
 
@@ -302,18 +336,34 @@ Future<void> main() async {
 - A `KnowledgeStamp` records `generated: {by, at}` when the write creates or
   changes content (the body, `title`, `description` or `type`); a verified
   stamp also appends `{by, at}` to `verified`. A change may not set either
-  key itself.
+  key itself. `changesConceptContent(before, after)` is that rule over two
+  documents, `UpdateConcept.changesContent(current)` applies it to one
+  update, and the plan's `changesContent` says what `prepare` decided on the
+  concept as it read it. A `KnowledgeContentLog` records the entry it holds
+  only for such a write, so a host that logs content changes only, such as
+  with an `Update` entry, passes it instead of applying the rule itself.
 - The plan holds the `base` and `candidate` validations, the `diff` of every
   file it writes, and the candidate's Profile findings split into
-  `introduced` and `preExisting` by rule id and path. It is `committable` when
-  okf accepts the candidate and it introduces no error. Check
-  `plan.candidate.gate` to require a passing bundle, and `plan.assessed` to
-  require that a Profile judged the write: when none can be selected, the
-  plan is judged by OKF alone.
+  `introduced` and `preExisting` by rule id and path. `okf` is the
+  candidate's whole OKF result, and `introducedOkf` and `preExistingOkf`
+  split its findings the same way, by finding id and location path. It is
+  `committable` when okf accepts the whole candidate and it introduces no
+  Profile error. Check `plan.candidate.gate` to require a passing bundle,
+  and `plan.assessed` to require that a Profile judged the write: when none
+  can be selected, the plan is judged by OKF alone.
 - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
   plan that is not committable and `KnowledgeStaleWriteException`
-  (`write-stale`) when the bundle, or the `wayfinder.json` or `wayfinder.lock`
-  its selection came from, changed since `prepare`. Neither writes anything.
+  (`write-stale`) when the bundle, or a project file its selection came
+  from, changed since `prepare`; the exception's `projectFiles` names the
+  files that changed. Neither writes anything. The plan's `projectFiles`
+  are those files, with the digest of their bytes: the `wayfinder.json` and
+  `wayfinder.lock` the selection came from, whether or not it selected a
+  Profile, or, when no configuration binds the bundle, each `wayfinder.json`
+  path binding looked at, absent, so one that appears makes the plan stale.
+  A host that selects itself captures them with its selection and passes
+  them as `projectFiles`, so a change between its selection and `prepare`
+  is refused too: `KnowledgeProjectFiles.forBundle` or `read` before it
+  selects, or the digests of the bytes it read itself.
   `KnowledgeWriteFailedException` (`write-failed`) reports a bundle that
   cannot be locked, read or written; its `partial` is true only when okf's
   rollback failed too. A plan commits once.
