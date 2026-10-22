@@ -82,6 +82,10 @@ final class AdoptionConflict {
   /// - `gitignore-not-file`: `.gitignore` is not a regular file;
   /// - `skill-unowned`: a Profile skill directory exists without the marker
   ///   Wayfinder writes, so it belongs to someone else;
+  /// - `skill-foreign`: a skill directory Wayfinder installed that this
+  ///   adoption does not install, because its Profile is not in the chain or
+  ///   ships no skill there; the next `wayfinder get` would delete it, and
+  ///   adoption deletes nothing;
   /// - `skill-root-escapes`: `.claude/skills` or `.agents/skills` resolves
   ///   outside the project.
   final String code;
@@ -172,6 +176,10 @@ enum AdoptionStep {
   /// Adds the `.okf.lock` line to `.gitignore`.
   gitignore('gitignore'),
 
+  /// Runs the host's own writes, such as its `AGENTS.md` block, when
+  /// `apply` was given them; skipped otherwise.
+  host('host'),
+
   /// Validates the adopted bundle. Its outcome never undoes the steps
   /// before it: a gate other than `PASS` leaves adoption incomplete.
   validate('validate');
@@ -192,7 +200,11 @@ enum AdoptionStepOutcome {
   failed('failed'),
 
   /// The step had finished, and a later failure undid it.
-  undone('undone');
+  undone('undone'),
+
+  /// The step had finished, and undoing it after a later failure failed
+  /// too, so the project may still hold some of what it wrote.
+  undoFailed('undo-failed');
 
   const AdoptionStepOutcome(this.wireValue);
   final String wireValue;
@@ -221,11 +233,13 @@ final class AdoptionStepReport {
 }
 
 /// Applying failed at a step and undid the steps before it, so the project
-/// holds no partial bundle. [code] is the cause's when it was a
-/// [WayfinderException]: `adoption-conflict` for a plan with conflicts,
-/// `adoption-stale` or `resolution-stale` for one whose inputs changed,
-/// `adoption-busy` or `resolution-busy` while another writer holds the
-/// project, and `adoption-failed` for any other error.
+/// holds no partial bundle unless [steps] reports one `undo-failed`. [code]
+/// is the cause's when it was a [WayfinderException]: `adoption-conflict`
+/// for a plan with conflicts, `adoption-invalid` for one another
+/// adoption's Profile cache planned, `adoption-stale` or `resolution-stale`
+/// for one whose inputs changed, `resolution-busy` while a `get` or another
+/// adoption holds the project, `cancelled`, and `adoption-failed` for any
+/// other error.
 final class KnowledgeAdoptionException extends WayfinderException {
   KnowledgeAdoptionException(
     super.code,

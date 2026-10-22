@@ -10,7 +10,6 @@ import 'package:path/path.dart' as p;
 import '../diagnostics.dart';
 import '../project/cancellation.dart';
 import '../project/exception.dart';
-import '../project/file_lock.dart';
 import '../project/profile_resolver.dart';
 import '../project/profile_skills.dart';
 import '../validation.dart';
@@ -34,16 +33,17 @@ final class KnowledgeAdoptionPlan {
     required this.fetches,
     required this.files,
     required this.skills,
-    required this.removedSkills,
     required this.conflicts,
     required this.agentInstructions,
     required this.validation,
+    required String dataDirectory,
     required AdoptionInputs inputs,
     required CandidateResolution resolution,
     required List<int> configuration,
     required Map<String, List<int>> bundleFiles,
     required List<int>? gitignoreAppend,
-  }) : _inputs = inputs,
+  }) : _dataDirectory = dataDirectory,
+       _inputs = inputs,
        _resolution = resolution,
        _configuration = configuration,
        _bundleFiles = bundleFiles,
@@ -63,8 +63,9 @@ final class KnowledgeAdoptionPlan {
   /// The Profile `wayfinder.json` binds, and the chain the lock pins.
   final AdoptionProfile profile;
 
-  /// Every Git fetch adoption makes, in order. Planning made them, into the
-  /// Profile cache only; applying fetches nothing.
+  /// Every Git fetch adoption made, in order: planning made them, into the
+  /// Profile cache only, each as [AdoptionRequest.allowFetch] allowed;
+  /// applying fetches nothing.
   final List<ProfileFetch> fetches;
 
   /// Every file applying writes, in the order it writes them. Never
@@ -75,10 +76,6 @@ final class KnowledgeAdoptionPlan {
   /// that hold it (`.claude/skills/<id>` and `.agents/skills/<id>`);
   /// `written` is false for one already installed at the locked commit.
   final List<MaterializedSkill> skills;
-
-  /// Marked Profile skill directories of Profiles this project no longer
-  /// locks, which applying deletes as `wayfinder get` would.
-  final List<String> removedSkills;
 
   /// What stops applying. [KnowledgeAdoption.apply] refuses a plan with any,
   /// before writing anything.
@@ -92,6 +89,8 @@ final class KnowledgeAdoptionPlan {
   /// the planned Profile. `PASS` is what completes adoption.
   final ProfileValidationResult validation;
 
+  /// The Profile cache the plan resolved into, which applying reads.
+  final String _dataDirectory;
   final AdoptionInputs _inputs;
   final CandidateResolution _resolution;
   final List<int> _configuration;
@@ -110,7 +109,6 @@ final class KnowledgeAdoptionPlan {
     'fetches': [for (final fetch in fetches) fetch.toJson()],
     'files': [for (final file in files) file.toJson()],
     'skills': [for (final skill in skills) skill.toJson()],
-    'removed_skills': removedSkills,
     'conflicts': [for (final conflict in conflicts) conflict.toJson()],
     'applicable': applicable,
     'gate': validation.gate.wireValue,
@@ -125,7 +123,6 @@ final class KnowledgeAdoptionResult {
     required this.bundle,
     required this.steps,
     required this.written,
-    required this.removedSkills,
     required this.validation,
     required this.agentInstructions,
   });
@@ -138,9 +135,6 @@ final class KnowledgeAdoptionResult {
 
   /// The project-relative files written, as the plan listed them.
   final List<String> written;
-
-  /// The marked skill directories deleted.
-  final List<String> removedSkills;
 
   /// The adopted bundle's validation; null when validating failed to run,
   /// which the `validate` step reports.
@@ -158,7 +152,6 @@ final class KnowledgeAdoptionResult {
     'bundle': bundle,
     'steps': [for (final step in steps) step.toJson()],
     'written': written,
-    'removed_skills': removedSkills,
     'gate': validation?.gate.wireValue,
     'complete': complete,
     'agent_instructions': agentInstructions,
@@ -180,22 +173,50 @@ final class KnowledgeAdoption {
     DateTime Function() clock = DateTime.now,
   }) : _clock = clock;
 
-  /// Resolves the Profile and writes the lock and skills; its data
-  /// directory also holds adoption's own lock.
+  /// Resolves the Profile and writes the lock and skills. Applying holds
+  /// its `get` lock of the project, so no `get` changes the project
+  /// meanwhile.
   final WayfinderProfileResolver resolver;
   final DateTime Function() _clock;
 
   /// Reads the project, resolves the requested Profile, and returns what
   /// [apply] would write. Writes nothing in the project. Resolving may
-  /// clone or refresh the Profile source in the Profile cache, unless the
-  /// request is offline, which throws `fetch-required` instead. Throws
-  /// `adoption-invalid` for a request that cannot describe an adoption,
-  /// such as a malformed bundle path, source or seed concept; what the
-  /// project holds is reported as [KnowledgeAdoptionPlan.conflicts].
+  /// clone or refresh Profile sources in the Profile cache, each as
+  /// [AdoptionRequest.allowFetch] allows; an offline request reads the
+  /// cache as it is. A fetch it may not make throws
+  /// `ProfileFetchRequiredException` (`fetch-required`) naming it.
+  ///
+  /// Throws `adoption-invalid` for a request that cannot describe an
+  /// adoption, such as a malformed bundle path, source or seed concept;
+  /// `adoption-failed` when the project or Git cannot be read; and the
+  /// resolver's codes, such as `profile-unresolved`, when the Profile does
+  /// not resolve. What the project holds is reported as
+  /// [KnowledgeAdoptionPlan.conflicts].
   Future<KnowledgeAdoptionPlan> plan(
     AdoptionRequest request, {
     WayfinderCancellation? cancel,
   }) async {
+    try {
+      return await _plan(request, cancel);
+    } on FileSystemException catch (error) {
+      throw WayfinderException(
+        'adoption-failed',
+        'Adoption could not be planned: ${error.message}'
+            '${error.path == null ? '' : ' (${error.path})'}.',
+      );
+    } on ProcessException catch (error) {
+      throw WayfinderException(
+        'adoption-failed',
+        'Adoption could not be planned: ${error.executable} could not run: '
+            '${error.message}.',
+      );
+    }
+  }
+
+  Future<KnowledgeAdoptionPlan> _plan(
+    AdoptionRequest request,
+    WayfinderCancellation? cancel,
+  ) async {
     throwIfCancelled(cancel);
     final projectRoot = p.normalize(
       Directory(request.projectRoot).absolute.path,
@@ -238,6 +259,7 @@ final class KnowledgeAdoption {
         projectRoot: projectRoot,
         git: git,
         offline: request.offline,
+        allowFetch: request.allowFetch,
         cancel: cancel,
       );
       ref = resolved.commit;
@@ -267,6 +289,7 @@ final class KnowledgeAdoption {
       projectRoot: projectRoot,
       configuration: configurationBytes,
       offline: request.offline,
+      allowFetch: request.allowFetch,
       cancel: cancel,
     );
     fetches.addAll(resolution.plan.fetches);
@@ -283,6 +306,17 @@ final class KnowledgeAdoption {
           '$directory already exists without a ${ProfileSkills.marker} '
               'marker, so adoption would not install the Profile skill there. '
               'Move it aside and plan again.',
+        ),
+      );
+    }
+    for (final directory in resolution.plan.removedSkills) {
+      conflicts.add(
+        AdoptionConflict(
+          'skill-foreign',
+          directory,
+          '$directory holds a Profile skill Wayfinder installed that this '
+              'adoption does not install, so the next wayfinder get would '
+              'delete it. Move it aside or remove it, and plan again.',
         ),
       );
     }
@@ -395,13 +429,13 @@ final class KnowledgeAdoption {
       fetches: List.unmodifiable(fetches),
       files: List.unmodifiable(files),
       skills: resolution.plan.skills,
-      removedSkills: resolution.plan.removedSkills,
       conflicts: List.unmodifiable(conflicts),
       agentInstructions: KnowledgeSeeds.knowledgeBundleInstructions(
         bundle: bundle,
         lines: request.instructionLines,
       ),
       validation: validation,
+      dataDirectory: _dataDirectoryOf(resolver),
       inputs: inputs,
       resolution: resolution,
       configuration: configurationBytes,
@@ -411,26 +445,39 @@ final class KnowledgeAdoption {
   }
 
   /// Writes [plan], one [AdoptionStep] at a time, then validates the
-  /// bundle. Refuses a plan with conflicts (`adoption-conflict`), and one
+  /// bundle.
+  ///
+  /// The check step refuses a plan with conflicts (`adoption-conflict`), one
+  /// another adoption's Profile cache planned (`adoption-invalid`), and one
   /// whose project files, bundle, skill directories or Profile cache changed
   /// since planning (`adoption-stale`, `resolution-stale`), before writing
-  /// anything. Holds an adoption lock for the project in the resolver's data
-  /// directory (`adoption-busy`), and the resolver's own project lock while
-  /// it writes the lock and skills (`resolution-busy`).
+  /// anything. It takes the resolver's `get` lock of the project and holds
+  /// it until every step has finished or been undone, so no `get` or other
+  /// adoption changes the project meanwhile; while another holder has it,
+  /// the check fails with `resolution-busy`. [cancel] is checked before each
+  /// step (`cancelled`).
+  ///
+  /// [hostStep] runs the host's own writes, such as placing
+  /// [KnowledgeAdoptionPlan.agentInstructions] in `AGENTS.md`, as the
+  /// [AdoptionStep.host] step after Wayfinder's files are in place. When it
+  /// throws, every earlier step is undone like any other failure; it undoes
+  /// its own partial writes before throwing.
   ///
   /// When a step fails, the steps before it are undone in reverse order and
   /// [KnowledgeAdoptionException] reports each step, so the project holds no
-  /// partial bundle. Validation runs last and undoes nothing: a gate other
-  /// than `PASS` returns a result that is not [KnowledgeAdoptionResult.complete].
-  Future<KnowledgeAdoptionResult> apply(KnowledgeAdoptionPlan plan) async {
-    final reports = <_StepRecord>[];
-    final undo = <Future<void> Function()>[];
-    final backups = <({Directory original, Directory backup})>[];
-    var step = AdoptionStep.check;
+  /// partial bundle unless a step reports `undo-failed`. Validation runs
+  /// last, after the lock is released, and undoes nothing: a gate other
+  /// than `PASS` returns a result that is not
+  /// [KnowledgeAdoptionResult.complete].
+  Future<KnowledgeAdoptionResult> apply(
+    KnowledgeAdoptionPlan plan, {
+    WayfinderCancellation? cancel,
+    Future<void> Function()? hostStep,
+  }) async {
+    final run = _Run();
     final root = plan.projectRoot;
-    var removedSkills = const <String>[];
-    WayfinderFileLock? held;
     try {
+      throwIfCancelled(cancel);
       if (plan.conflicts case [final first, ...final rest]) {
         throw WayfinderException(
           'adoption-conflict',
@@ -439,13 +486,66 @@ final class KnowledgeAdoption {
                         'conflict${rest.length == 1 ? '' : 's'}.'}',
         );
       }
-      held = await WayfinderFileLock.tryExclusive(await _adoptionLock(root));
-      if (held == null) {
-        throw WayfinderException(
-          'adoption-busy',
-          'Another adoption is writing $root. Plan again when it finishes.',
+      if (plan._dataDirectory != _dataDirectoryOf(resolver)) {
+        throw _invalid(
+          'The plan resolved the Profile into ${plan._dataDirectory}, and '
+          "this adoption's resolver uses ${_dataDirectoryOf(resolver)}. Plan "
+          'again with this adoption.',
         );
       }
+      await withProjectLock(
+        resolver,
+        root,
+        () => _write(plan, run, cancel, hostStep),
+      );
+    } on Object catch (error) {
+      // _write undoes its steps while it still holds the project.
+      await run.undo();
+      throw run.failure(error);
+    }
+
+    run.step = AdoptionStep.validate;
+    ProfileValidationResult? validation;
+    try {
+      validation = await validateWithProfileSources(
+        p.joinAll([root, ...p.posix.split(plan.bundle)]),
+        resolver: resolver,
+      );
+      run.done(const [], 'Gate ${validation.gate.wireValue}.');
+    } on Object catch (error) {
+      run.records.add(
+        _StepRecord(
+          run.step,
+          AdoptionStepOutcome.failed,
+          const [],
+          error is WayfinderException ? error.message : '$error',
+        ),
+      );
+    }
+    return KnowledgeAdoptionResult(
+      projectRoot: root,
+      bundle: plan.bundle,
+      steps: List.unmodifiable([
+        for (final record in run.records) record.report,
+      ]),
+      written: List.unmodifiable([for (final file in plan.files) file.path]),
+      validation: validation,
+      agentInstructions: plan.agentInstructions,
+    );
+  }
+
+  /// The steps from the check on, under the project's `get` lock. Undoes
+  /// what they wrote before rethrowing a failure, so no `get` can start in
+  /// between.
+  Future<void> _write(
+    KnowledgeAdoptionPlan plan,
+    _Run run,
+    WayfinderCancellation? cancel,
+    Future<void> Function()? hostStep,
+  ) async {
+    final root = plan.projectRoot;
+    final backups = <Directory>[];
+    try {
       final changed = (await AdoptionInputs.read(
         root,
         plan.bundle,
@@ -458,226 +558,157 @@ final class KnowledgeAdoption {
         );
       }
       await plan._resolution.checkCache();
-      reports.add(_StepRecord(step, AdoptionStepOutcome.done));
+      run.done();
 
-      step = AdoptionStep.bundle;
+      run.step = AdoptionStep.bundle;
+      throwIfCancelled(cancel);
       if (plan.mode == AdoptionBundleMode.seed) {
-        await _writeBundle(plan, undo);
-        reports.add(
-          _StepRecord(step, AdoptionStepOutcome.done, [
-            for (final path in plan._bundleFiles.keys) '${plan.bundle}/$path',
-          ]),
-        );
+        await _writeBundle(plan, run.onUndo);
+        run.done([
+          for (final path in plan._bundleFiles.keys) '${plan.bundle}/$path',
+        ]);
       } else {
-        reports.add(
-          _StepRecord(
-            step,
-            AdoptionStepOutcome.skipped,
-            const [],
-            'Bound the existing bundle without writing in it.',
-          ),
-        );
+        run.skipped('Bound the existing bundle without writing in it.');
       }
 
-      step = AdoptionStep.configuration;
+      run.step = AdoptionStep.configuration;
+      throwIfCancelled(cancel);
       final configuration = File(p.join(root, 'wayfinder.json'));
       await _writeAtomically(configuration, plan._configuration);
-      undo.add(() => _deleteIfHolds(configuration, plan._configuration));
-      reports.add(
-        _StepRecord(step, AdoptionStepOutcome.done, const ['wayfinder.json']),
-      );
+      run.onUndo(() => _deleteIfHolds(configuration, plan._configuration));
+      run.done(const ['wayfinder.json']);
 
-      step = AdoptionStep.profile;
-      final resolution = plan._resolution;
-      final written = [
-        for (final id in resolution.skillFiles.keys)
-          ...ProfileSkills.directories(id),
-      ];
-      final createdRoots = [
-        for (final directory in const [
-          '.claude',
-          '.claude/skills',
-          '.agents',
-          '.agents/skills',
-        ])
-          if (await FileSystemEntity.type(
-                _native(root, directory),
-                followLinks: false,
-              ) ==
-              FileSystemEntityType.notFound)
-            directory,
-      ];
-      final present = {
-        for (final directory in [...written, ...plan.removedSkills])
-          if (await FileSystemEntity.type(
-                _native(root, directory),
-                followLinks: false,
-              ) ==
-              FileSystemEntityType.directory)
-            directory,
-      };
-      final lock = File(p.join(root, 'wayfinder.lock'));
-      undo.add(() async {
-        await _deleteIfHolds(lock, utf8.encode(resolution.lockText));
-        final saved = {
-          for (final (:original, backup: _) in backups) original.path,
-        };
-        for (final directory in written) {
-          final installed = Directory(_native(root, directory));
-          // A directory that was there and is not saved aside is the
-          // original: the step failed before moving it.
-          if ((!present.contains(directory) ||
-                  saved.contains(installed.path)) &&
-              await installed.exists()) {
-            await installed.delete(recursive: true);
-          }
-        }
-        for (final (:original, :backup) in backups.reversed) {
-          if (await backup.exists()) await backup.rename(original.path);
-        }
-        for (final directory in createdRoots.reversed) {
-          await _deleteIfEmpty(Directory(_native(root, directory)));
-        }
-      });
-      for (final directory in present) {
-        final original = Directory(_native(root, directory));
-        final backup = Directory(
-          p.join(
-            original.parent.path,
-            '.${p.basename(original.path)}.adoption-${_stamp()}',
-          ),
-        );
-        await original.rename(backup.path);
-        backups.add((original: original, backup: backup));
-      }
-      await resolver.apply(resolution.plan);
-      removedSkills = plan.removedSkills;
-      reports.add(
-        _StepRecord(step, AdoptionStepOutcome.done, [
-          'wayfinder.lock',
-          ...written,
-          ...removedSkills,
-        ]),
-      );
+      run.step = AdoptionStep.profile;
+      throwIfCancelled(cancel);
+      await _installProfile(plan, run, backups);
 
-      step = AdoptionStep.gitignore;
+      run.step = AdoptionStep.gitignore;
+      throwIfCancelled(cancel);
       if (plan._gitignoreAppend case final append?) {
         final gitignore = File(p.join(root, '.gitignore'));
         final original = await _readBytes(gitignore);
         await _writeAtomically(gitignore, [...?original, ...append]);
-        undo.add(() async {
+        run.onUndo(() async {
           if (original == null) {
             if (await gitignore.exists()) await gitignore.delete();
           } else {
             await _writeAtomically(gitignore, original);
           }
         });
-        reports.add(
-          _StepRecord(step, AdoptionStepOutcome.done, const ['.gitignore']),
-        );
+        run.done(const ['.gitignore']);
       } else {
-        reports.add(
-          _StepRecord(
-            step,
-            AdoptionStepOutcome.skipped,
-            const [],
-            plan.request.ignoreOkfLock
-                ? '.gitignore already ignores the okf lock file.'
-                : 'The request leaves .gitignore unchanged.',
-          ),
+        run.skipped(
+          plan.request.ignoreOkfLock
+              ? '.gitignore already lists the okf lock file.'
+              : 'The request leaves .gitignore unchanged.',
         );
       }
-    } on Object catch (error) {
-      final undoFailures = <String>[];
-      for (final action in undo.reversed) {
-        try {
-          await action();
-        } on Object catch (failure) {
-          undoFailures.add('$failure');
-        }
+
+      run.step = AdoptionStep.host;
+      throwIfCancelled(cancel);
+      if (hostStep != null) {
+        await hostStep();
+        run.done();
+      } else {
+        run.skipped('The host gave no step.');
       }
-      final message = error is WayfinderException ? error.message : '$error';
-      final steps = [
-        for (final record in reports)
-          record.outcome == AdoptionStepOutcome.done &&
-                  record.step != AdoptionStep.check
-              ? AdoptionStepReport(
-                  record.step,
-                  AdoptionStepOutcome.undone,
-                  paths: record.paths,
-                )
-              : record.report,
-        AdoptionStepReport(step, AdoptionStepOutcome.failed, message: message),
-      ];
-      throw KnowledgeAdoptionException(
-        error is WayfinderException ? error.code : 'adoption-failed',
-        undoFailures.isEmpty
-            ? message
-            : '$message Undoing the earlier steps also failed, so the '
-                  'project may hold part of the adoption: '
-                  '${undoFailures.join('; ')}',
-        steps: List.unmodifiable(steps),
-        cause: error,
-      );
-    } finally {
-      await held?.release();
+    } on Object {
+      await run.undo();
+      rethrow;
     }
-    for (final (original: _, :backup) in backups) {
+    for (final backup in backups) {
       try {
         await backup.delete(recursive: true);
       } on FileSystemException {
-        // A hidden copy left behind is harmless; the next get ignores it.
+        // Named as an interrupted write's copy, so the next get prunes it.
       }
     }
+  }
 
-    ProfileValidationResult? validation;
-    try {
-      validation = await validateWithProfileSources(
-        p.joinAll([root, ...p.posix.split(plan.bundle)]),
-        resolver: resolver,
-      );
-      reports.add(
-        _StepRecord(
-          AdoptionStep.validate,
-          AdoptionStepOutcome.done,
-          const [],
-          'Gate ${validation.gate.wireValue}.',
+  /// The profile step: moves each skill directory applying replaces aside
+  /// into [backups], then writes the lock and skills through the resolver.
+  /// Its undo deletes what it wrote and moves the replaced directories
+  /// back, each part on its own, so one that fails does not stop the rest.
+  Future<void> _installProfile(
+    KnowledgeAdoptionPlan plan,
+    _Run run,
+    List<Directory> backups,
+  ) async {
+    final root = plan.projectRoot;
+    final resolution = plan._resolution;
+    final written = [
+      for (final id in resolution.skillFiles.keys)
+        ...ProfileSkills.directories(id),
+    ];
+    final createdRoots = [
+      for (final directory in const [
+        '.claude',
+        '.claude/skills',
+        '.agents',
+        '.agents/skills',
+      ])
+        if (await FileSystemEntity.type(
+              _native(root, directory),
+              followLinks: false,
+            ) ==
+            FileSystemEntityType.notFound)
+          directory,
+    ];
+    run.onUndo(() async {
+      for (final directory in createdRoots.reversed) {
+        await _deleteIfEmpty(Directory(_native(root, directory)));
+      }
+    });
+    final present = [
+      for (final directory in written)
+        if (await FileSystemEntity.type(
+              _native(root, directory),
+              followLinks: false,
+            ) ==
+            FileSystemEntityType.directory)
+          directory,
+    ];
+    final saved = <String>{};
+    for (final directory in present) {
+      final original = Directory(_native(root, directory));
+      // Named as ProfileSkills names a replaced copy, so a get after a
+      // crash prunes it; the resolver here prunes nothing.
+      final backup = Directory(
+        p.join(
+          original.parent.path,
+          '.${p.basename(original.path)}.old-${_stamp()}',
         ),
       );
-    } on Object catch (error) {
-      reports.add(
-        _StepRecord(
-          AdoptionStep.validate,
-          AdoptionStepOutcome.failed,
-          const [],
-          error is WayfinderException ? error.message : '$error',
-        ),
-      );
+      await original.rename(backup.path);
+      backups.add(backup);
+      saved.add(directory);
+      run.onUndo(() async {
+        if (await backup.exists()) await backup.rename(original.path);
+        backups.remove(backup);
+      });
     }
-    return KnowledgeAdoptionResult(
-      projectRoot: root,
-      bundle: plan.bundle,
-      steps: List.unmodifiable([for (final record in reports) record.report]),
-      written: List.unmodifiable([for (final file in plan.files) file.path]),
-      removedSkills: removedSkills,
-      validation: validation,
-      agentInstructions: plan.agentInstructions,
-    );
+    run.onUndo(() async {
+      for (final directory in written) {
+        final installed = Directory(_native(root, directory));
+        // A directory that was there and is not saved aside is the
+        // original: the step failed before moving it.
+        if ((!present.contains(directory) || saved.contains(directory)) &&
+            await installed.exists()) {
+          await installed.delete(recursive: true);
+        }
+      }
+    });
+    final lock = File(p.join(root, 'wayfinder.lock'));
+    run.onUndo(() => _deleteIfHolds(lock, utf8.encode(resolution.lockText)));
+    await applyCandidateResolution(resolver, resolution);
+    run.done(['wayfinder.lock', ...written]);
   }
 
   /// Files a host may want adoption to write that it never does.
   static const _neverWritten = {'AGENTS.md', 'CLAUDE.md', '.mcp.json'};
 
-  Future<File> _adoptionLock(String projectRoot) async {
-    final root = await Directory(projectRoot).resolveSymbolicLinks();
-    return File(
-      p.join(
-        resolver.dataDirectory.path,
-        'projects',
-        '${sha256.convert(utf8.encode(root))}.adopt.lock',
-      ),
-    );
-  }
+  static String _dataDirectoryOf(WayfinderProfileResolver resolver) =>
+      p.normalize(resolver.dataDirectory.absolute.path);
 
   /// The bundle's mode, adding a conflict for what stops either.
   static Future<AdoptionBundleMode> _bundleMode(
@@ -695,7 +726,14 @@ final class KnowledgeAdoption {
           return AdoptionBundleMode.seed;
         case FileSystemEntityType.directory:
           if (index < segments.length) continue;
-          if (await Directory(native).list().isEmpty) {
+          // okf keeps only its lock file in a bundle it has emptied.
+          if (await Directory(native)
+              .list(followLinks: false)
+              .every(
+                (entity) =>
+                    entity is File &&
+                    p.basename(entity.path) == okfBundleLockFileName,
+              )) {
             return AdoptionBundleMode.seed;
           }
           if (request.bindExisting) return AdoptionBundleMode.bind;
@@ -848,19 +886,31 @@ final class KnowledgeAdoption {
     }
   }
 
-  /// Whether a `.gitignore` pattern of [text] names the okf lock [line]
-  /// already: the line itself, anchored, or `.okf.lock` at any depth.
-  static bool _ignoresOkfLock(String text, String line) => const LineSplitter()
-      .convert(text)
-      .map((pattern) => pattern.trim())
-      .any(
-        (pattern) => {
-          line,
-          '/$line',
-          okfBundleLockFileName,
-          '**/$okfBundleLockFileName',
-        }.contains(pattern),
-      );
+  /// Whether [text] lists the okf lock [line] already: as the line itself,
+  /// anchored, or as `.okf.lock` at any depth, with no later `!` line that
+  /// re-includes one of those. Other patterns are not matched, so a
+  /// `.gitignore` that ignores the file through one gains a redundant line,
+  /// never a missing one.
+  static bool _ignoresOkfLock(String text, String line) {
+    final names = {
+      line,
+      '/$line',
+      okfBundleLockFileName,
+      '**/$okfBundleLockFileName',
+    };
+    var listed = false;
+    for (final raw in const LineSplitter().convert(text)) {
+      // Git ignores a pattern's trailing spaces, not its leading ones.
+      final pattern = raw.trimRight();
+      if (names.contains(pattern)) {
+        listed = true;
+      } else if (pattern.startsWith('!') &&
+          names.contains(pattern.substring(1))) {
+        listed = false;
+      }
+    }
+    return listed;
+  }
 
   /// The planned files of one skill, in each of its directories: the marker
   /// with its text, then every file by digest.
@@ -907,11 +957,12 @@ final class KnowledgeAdoption {
   );
 
   /// Stages the seeded bundle as a hidden sibling and renames it into
-  /// place, creating missing parent directories; [undo] gains what removes
-  /// each again.
+  /// place, creating missing parent directories; [onUndo] gains what removes
+  /// each again. A bundle directory that exists is empty or holds only
+  /// okf's lock file, which moves into the new bundle and back on undo.
   static Future<void> _writeBundle(
     KnowledgeAdoptionPlan plan,
-    List<Future<void> Function()> undo,
+    void Function(Future<void> Function() action) onUndo,
   ) async {
     final root = plan.projectRoot;
     final segments = p.posix.split(plan.bundle);
@@ -921,7 +972,7 @@ final class KnowledgeAdoption {
       );
       if (await parent.exists()) continue;
       await parent.create();
-      undo.add(() => _deleteIfEmpty(parent));
+      onUndo(() => _deleteIfEmpty(parent));
     }
     final target = Directory(_native(root, plan.bundle));
     final staged = Directory(
@@ -930,6 +981,10 @@ final class KnowledgeAdoption {
         '.${p.basename(target.path)}.adoption-${_stamp()}',
       ),
     );
+    final existed = await target.exists();
+    final lock = File(p.join(target.path, okfBundleLockFileName));
+    final keepsLock = existed && await lock.exists();
+    final stagedLock = File(p.join(staged.path, okfBundleLockFileName));
     await staged.create();
     try {
       for (final MapEntry(key: path, value: bytes)
@@ -938,18 +993,30 @@ final class KnowledgeAdoption {
         await file.parent.create(recursive: true);
         await file.writeAsBytes(bytes, flush: true);
       }
-      // An empty bundle directory is replaced; delete refuses a full one.
-      final empty = await target.exists();
-      if (empty) await target.delete();
       try {
+        if (keepsLock) await lock.rename(stagedLock.path);
+        // delete refuses a directory that is not empty.
+        if (existed) await target.delete();
         await staged.rename(target.path);
       } on Object {
-        if (empty) await target.create();
+        if (existed) {
+          await target.create();
+          if (await stagedLock.exists()) await stagedLock.rename(lock.path);
+        }
         rethrow;
       }
-      undo.add(() async {
-        if (await target.exists()) await target.delete(recursive: true);
-        if (empty) await target.create();
+      onUndo(() async {
+        if (!existed) {
+          if (await target.exists()) await target.delete(recursive: true);
+          return;
+        }
+        await target.create();
+        await for (final entity in target.list(followLinks: false)) {
+          if (keepsLock && p.basename(entity.path) == okfBundleLockFileName) {
+            continue;
+          }
+          await entity.delete(recursive: true);
+        }
       });
     } on Object {
       if (await staged.exists()) await staged.delete(recursive: true);
@@ -1039,6 +1106,70 @@ final class KnowledgeAdoption {
     } on PathNotFoundException {
       return null;
     }
+  }
+}
+
+/// The steps of one [KnowledgeAdoption.apply]: what each reported, and
+/// what undoes each.
+final class _Run {
+  /// The step running, or the last that ran.
+  AdoptionStep step = AdoptionStep.check;
+  final records = <_StepRecord>[];
+  final _undo = <({AdoptionStep step, Future<void> Function() action})>[];
+  final _undoFailures = <({AdoptionStep step, String failure})>[];
+
+  void done([List<String> paths = const [], String? message]) =>
+      records.add(_StepRecord(step, AdoptionStepOutcome.done, paths, message));
+
+  void skipped(String message) => records.add(
+    _StepRecord(step, AdoptionStepOutcome.skipped, const [], message),
+  );
+
+  /// Registers what undoes part of the running step.
+  void onUndo(Future<void> Function() action) =>
+      _undo.add((step: step, action: action));
+
+  /// Runs every registered undo once, last first, recording each failure
+  /// and going on with the rest.
+  Future<void> undo() async {
+    while (_undo.isNotEmpty) {
+      final (:step, :action) = _undo.removeLast();
+      try {
+        await action();
+      } on Object catch (failure) {
+        _undoFailures.add((step: step, failure: '$failure'));
+      }
+    }
+  }
+
+  /// [error] as the failure of [step], with each step before it reported
+  /// undone, or `undo-failed` when undoing it failed.
+  KnowledgeAdoptionException failure(Object error) {
+    final message = error is WayfinderException ? error.message : '$error';
+    final failedUndo = {for (final (:step, failure: _) in _undoFailures) step};
+    return KnowledgeAdoptionException(
+      error is WayfinderException ? error.code : 'adoption-failed',
+      _undoFailures.isEmpty
+          ? message
+          : '$message Undoing the earlier steps also failed, so the '
+                'project may hold part of the adoption: '
+                '${[for (final (step: _, :failure) in _undoFailures) failure].join('; ')}',
+      steps: List.unmodifiable([
+        for (final record in records)
+          record.outcome == AdoptionStepOutcome.done &&
+                  record.step != AdoptionStep.check
+              ? AdoptionStepReport(
+                  record.step,
+                  failedUndo.contains(record.step)
+                      ? AdoptionStepOutcome.undoFailed
+                      : AdoptionStepOutcome.undone,
+                  paths: record.paths,
+                )
+              : record.report,
+        AdoptionStepReport(step, AdoptionStepOutcome.failed, message: message),
+      ]),
+      cause: error,
+    );
   }
 }
 

@@ -140,6 +140,47 @@ void main() {
     expect(await lockFile().readAsBytes(), lock);
   });
 
+  test('a fetch policy decides each fetch before it runs', () async {
+    final asked = <ProfileFetch>[];
+    await expectLater(
+      resolver.plan(
+        project.path,
+        allowFetch: (fetch) {
+          asked.add(fetch);
+          return false;
+        },
+      ),
+      throwsA(
+        isA<ProfileFetchRequiredException>()
+            .having((error) => error.code, 'code', 'fetch-required')
+            .having(
+              (error) =>
+                  (error.fetch.kind, error.fetch.location, error.fetch.ref),
+              'fetch',
+              (ProfileFetchKind.clone, source.path, 'v2026.3'),
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              contains('that fetch was not allowed'),
+            ),
+      ),
+    );
+    expect(asked.map((fetch) => fetch.location), [source.path]);
+    expect(calls.map((call) => call.first), isNot(contains('clone')));
+    await expectLater(
+      resolver.resolve(project.path, allowFetch: (_) => false),
+      failsWith('fetch-required'),
+    );
+    expect(await lockFile().exists(), isFalse);
+
+    final plan = await resolver.plan(
+      project.path,
+      allowFetch: (fetch) => fetch.location == source.path,
+    );
+    expect(plan.fetches.map((fetch) => fetch.kind), [ProfileFetchKind.clone]);
+  });
+
   test('select runs no Git command at all', () async {
     await resolver.resolve(project.path);
     final selecting = WayfinderProfileResolver(

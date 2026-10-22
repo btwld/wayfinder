@@ -56,6 +56,8 @@ export 'src/project/profile_resolver.dart'
         LockedPackage,
         ProfileFetch,
         ProfileFetchKind,
+        ProfileFetchPolicy,
+        ProfileFetchRequiredException,
         ProfileLock,
         ProfileResolutionPlan,
         ProfileResolutionResult,

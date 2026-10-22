@@ -1,4 +1,5 @@
 import '../profile_package.dart';
+import '../project/profile_resolver.dart';
 import '../rules/profile.dart';
 import 'seeds.dart';
 
@@ -50,6 +51,7 @@ final class AdoptionRequest {
     this.instructionLines = const [],
     this.date,
     this.offline = false,
+    this.allowFetch,
   });
 
   /// The directory that will hold `wayfinder.json`.
@@ -69,7 +71,8 @@ final class AdoptionRequest {
 
   /// Bind a [bundle] directory that already holds files instead of
   /// reporting it as a conflict. A bound bundle must pass OKF, and nothing
-  /// is written in it. An absent or empty directory is seeded either way.
+  /// is written in it. An absent directory, or one that holds nothing but
+  /// okf's `.okf.lock`, is seeded either way.
   final bool bindExisting;
 
   /// Concepts to seed beside the root files. With any, every index is the
@@ -93,7 +96,18 @@ final class AdoptionRequest {
   /// The first log entry's day; the adoption's clock when null.
   final DateTime? date;
 
-  /// Never reach the network: planning reads the Profile cache as it is and
-  /// throws `fetch-required`, naming the source, when it would fetch.
+  /// Never reach the network: planning reads the Profile cache as it is,
+  /// without refreshing a branch, and throws
+  /// `ProfileFetchRequiredException` (`fetch-required`), naming the fetch,
+  /// when it still needs one.
   final bool offline;
+
+  /// Decides each clone or refresh planning would make, when not [offline]:
+  /// the named source, its default branch, and every parent the chain
+  /// reaches, including one in another repository. A refused fetch throws
+  /// `ProfileFetchRequiredException` naming it, before it runs; the fetches
+  /// allowed before it stay in the Profile cache. Null allows every fetch.
+  /// A host asks the person about the named source before planning, then
+  /// about each fetch a refusal names, and plans again with it allowed.
+  final ProfileFetchPolicy? allowFetch;
 }

@@ -4,13 +4,14 @@
 ///
 /// [KnowledgeAdoption.plan] reads the project and resolves the Profile, and
 /// writes nothing in the project; the plan lists every file, Git fetch and
-/// conflict. [KnowledgeAdoption.apply] writes `wayfinder.json`,
-/// `wayfinder.lock`, the seeded bundle, the Profile skills and a
-/// `.gitignore` line, or nothing, then validates. It never writes
-/// `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks: the plan returns the
-/// agent-instruction block as text. Like the rest of
-/// `package:wayfinder/project.dart`, run it on the isolate that does the
-/// process's okf bundle I/O (ADR-0018).
+/// conflict, and fetches only what [AdoptionRequest.allowFetch] allows.
+/// [KnowledgeAdoption.apply] writes `wayfinder.json`, `wayfinder.lock`, the
+/// seeded bundle, the Profile skills and a `.gitignore` line, then the
+/// host's own step, or nothing, while it holds the project's `get` lock,
+/// then validates. It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or
+/// hooks: the plan returns the agent-instruction block as text. Like the
+/// rest of `package:wayfinder/project.dart`, run it on the isolate that
+/// does the process's okf bundle I/O (ADR-0018).
 ///
 /// ```dart
 /// import 'dart:io';

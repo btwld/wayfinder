@@ -24,8 +24,8 @@ void main() {
     ];
   });
 
-  test('SEEDING.md shows the four seed blocks', () {
-    expect(blocks, hasLength(4));
+  test('SEEDING.md shows the five seed blocks', () {
+    expect(blocks, hasLength(5));
   });
 
   test('wayfinder.json', () {
@@ -50,9 +50,13 @@ void main() {
     expect(blocks[2], KnowledgeSeeds.log(date: '<YYYY-MM-DD>'));
   });
 
+  test('the .gitignore line', () {
+    expect(blocks[3], '${KnowledgeSeeds.okfLockIgnore()}\n');
+  });
+
   test('the agent instructions', () {
     expect(
-      blocks[3],
+      blocks[4],
       '${KnowledgeSeeds.knowledgeBundleInstructions()}\n'
       '${KnowledgeSeeds.wayfinderInstructions()}',
     );
