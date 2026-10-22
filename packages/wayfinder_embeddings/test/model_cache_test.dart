@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/model_cache.dart';
 
 void main() {
@@ -253,10 +252,148 @@ void main() {
     ).createSync(recursive: true);
     await expectLater(
       cache.provision().toList(),
-      throwsA(isA<FileSystemException>()),
+      failsWith('model-cache-unavailable', contains(directory.path)),
     );
     expect(entries(), ['embedding.gguf']);
     expect(FileSystemEntity.isDirectorySync(cache.target.file.path), isTrue);
+  });
+
+  test('a cache directory that cannot be created fails before a '
+      'request', () async {
+    final blocker = File(p.join(root.path, 'blocker'))..writeAsStringSync('');
+    await expectLater(
+      EmbeddingModelCache.inDirectory(
+        Directory(p.join(blocker.path, 'cache')),
+        spec: model,
+        client: servingChunks([bytes]),
+      ).provision().toList(),
+      failsWith('model-cache-unavailable', contains(blocker.path)),
+    );
+    expect(requests, isEmpty);
+  });
+
+  test('a target another process installed and holds open counts as '
+      'provisioned', () async {
+    final cache = cacheWith(servingChunks([bytes]));
+    final installed = cache.target.file;
+    final steps = await IOOverrides.runWithIOOverrides(
+      () => cache.provision().toList(),
+      _ReplaceRefused(() => installed.writeAsBytes(bytes)),
+    );
+    expect(
+      steps.last,
+      isA<ModelProvisioned>()
+          .having((step) => step.downloaded, 'downloaded', isFalse)
+          .having((step) => step.file.path, 'file', installed.path),
+    );
+    expect(steps.whereType<ModelVerifying>(), hasLength(1));
+    expect(await installed.readAsBytes(), bytes);
+    expect(entries(), ['embedding.gguf']);
+  });
+
+  test('a response announcing another size is refused before its '
+      'body', () async {
+    // The whole model follows, so only the announced size can refuse it.
+    var bodyCancelled = false;
+    final body = StreamController<List<int>>(
+      onCancel: () => bodyCancelled = true,
+    )..add(bytes);
+    unawaited(body.close());
+    final cache = cacheWith(
+      MockClient.streaming((request, _) async {
+        requests.add(request);
+        return http.StreamedResponse(
+          body.stream,
+          200,
+          contentLength: bytes.length + 1,
+        );
+      }),
+    );
+    final steps = <ModelProvisionProgress>[];
+    await expectLater(
+      cache.provision().forEach(steps.add),
+      failsWith('model-invalid', contains('announces ${bytes.length + 1}')),
+    );
+    expect(steps, isEmpty);
+    expect(bodyCancelled, isTrue);
+    expect(entries(), isEmpty);
+  });
+
+  test('an encoded response is checked by its decoded bytes', () async {
+    final cache = cacheWith(
+      MockClient.streaming((request, _) async {
+        requests.add(request);
+        // A decoding client reports the compressed length of the body.
+        return http.StreamedResponse(
+          Stream.value(bytes),
+          200,
+          contentLength: bytes.length ~/ 2,
+          headers: {'content-encoding': 'gzip'},
+        );
+      }),
+    );
+    final steps = await cache.provision().toList();
+    expect(
+      steps.last,
+      isA<ModelProvisioned>().having(
+        (step) => step.downloaded,
+        'downloaded',
+        isTrue,
+      ),
+    );
+    expect(await cache.target.file.readAsBytes(), bytes);
+  });
+
+  test('provision removes temporary files abandoned a day ago', () async {
+    directory.createSync();
+    final old = DateTime.now().subtract(const Duration(days: 2));
+    File write(String name, {bool abandoned = true}) {
+      final file = File(p.join(directory.path, name))
+        ..writeAsStringSync('partial');
+      if (abandoned) file.setLastModifiedSync(old);
+      return file;
+    }
+
+    write('.embedding.gguf.0123456789abcdef.part');
+    write('.embedding.gguf.fedcba9876543210.part', abandoned: false);
+    write('.embedding.gguf.not-a-random-name.part');
+    write('notes.txt');
+    final cache = cacheWith(servingChunks([bytes]));
+    expect((await cache.provision().toList()).last, isA<ModelProvisioned>());
+    expect(entries()..sort(), [
+      '.embedding.gguf.fedcba9876543210.part',
+      '.embedding.gguf.not-a-random-name.part',
+      'embedding.gguf',
+      'notes.txt',
+    ]);
+
+    // A model already in place is no reason to keep them.
+    write('.embedding.gguf.00000000000000ff.part');
+    final steps = await cache.provision().toList();
+    expect(steps.single, isA<ModelProvisioned>());
+    expect(entries(), isNot(contains('.embedding.gguf.00000000000000ff.part')));
+    expect(requests, hasLength(1));
+  });
+
+  test('an injected client stays open', () async {
+    final succeeding = _TrackingClient(servingChunks([bytes]));
+    final failing = _TrackingClient(serving(const Stream.empty(), status: 503));
+    addTearDown(succeeding.close);
+    addTearDown(failing.close);
+    expect(
+      (await cacheWith(succeeding).provision().toList()).last,
+      isA<ModelProvisioned>(),
+    );
+    await expectLater(
+      EmbeddingModelCache.inDirectory(
+        Directory(p.join(root.path, 'other')),
+        spec: model,
+        client: failing,
+      ).provision().toList(),
+      failsWith('model-download-failed'),
+    );
+    expect(succeeding.closed, isFalse);
+    expect(failing.closed, isFalse);
   });
 
   test('cancellation stops the download and removes the temporary '
@@ -434,4 +571,92 @@ void main() {
     expect(await cache.target.file.readAsBytes(), bytes);
     expect(entries(), ['embedding.gguf']);
   });
+}
+
+/// Refuses to rename a download over its target, as Windows does when
+/// another process holds the target open, after [install] has put the
+/// verified model there the way a concurrent provision would.
+final class _ReplaceRefused extends IOOverrides {
+  _ReplaceRefused(this.install);
+
+  final Future<void> Function() install;
+
+  @override
+  File createFile(String path) => _HeldOpen(super.createFile(path), install);
+}
+
+final class _HeldOpen implements File {
+  _HeldOpen(this._file, this._install);
+
+  final File _file;
+  final Future<void> Function() _install;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<File> rename(String newPath) async {
+    await _install();
+    throw FileSystemException(
+      'The process cannot access the file because another process is '
+      'using it',
+      newPath,
+    );
+  }
+
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) async {
+    await _file.create(recursive: recursive, exclusive: exclusive);
+    return this;
+  }
+
+  @override
+  IOSink openWrite({
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+  }) => _file.openWrite(mode: mode, encoding: encoding);
+
+  @override
+  Stream<List<int>> openRead([int? start, int? end]) =>
+      _file.openRead(start, end);
+
+  // A real file's streams open their file through `File(path)` as well.
+  @override
+  Future<RandomAccessFile> open({FileMode mode = FileMode.read}) =>
+      _file.open(mode: mode);
+
+  @override
+  Future<int> length() => _file.length();
+
+  @override
+  Future<bool> exists() => _file.exists();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      _file.delete(recursive: recursive);
+
+  @override
+  Future<DateTime> lastModified() => _file.lastModified();
+
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Records whether [close] was called.
+final class _TrackingClient extends http.BaseClient {
+  _TrackingClient(this._inner);
+
+  final http.Client _inner;
+  var closed = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      _inner.send(request);
+
+  @override
+  void close() {
+    closed = true;
+    _inner.close();
+  }
 }
