@@ -53,7 +53,9 @@ core depends on none of `wayfinder_embeddings`, ObjectBox, llamadart or
 analyzer.
 
 **The host owns its resources.** Neither library downloads, prompts, loads
-a native library from disk or resolves files next to the executable. A host
+a native library from disk or resolves files next to the executable, except
+the embedding model, which the retrieval library downloads only when a host
+calls `EmbeddingModelCache.provision` ([ADR-0010](0010-wayfinder-cli.md)). A host
 injects the data directory (`WayfinderDataDirectory.resolve()` by default),
 a `GitRunner` (`runGit` by default), a `WayfinderCancellation`, and the
 validator's okf loader and graph builder. The knowledge store also takes a
