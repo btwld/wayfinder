@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:okf/okf.dart';
 
 import '../field_edges.dart';
@@ -41,7 +42,61 @@ final class UpdateConcept extends KnowledgeChange {
   final OkfConceptId id;
   final Map<String, Object?> frontmatter;
   final String? body;
+
+  /// Whether this update changes the content of the concept as it stands
+  /// ([current]): [changesConceptContent] of [current] and of [current]
+  /// with this update's fields and body applied. `KnowledgeWriter.prepare`
+  /// decides with this whether the write records `generated`, on the
+  /// concept as it reads it.
+  bool changesContent(OkfDocument current) {
+    final fields = Map.of(current.frontmatter);
+    for (final MapEntry(:key, :value) in frontmatter.entries) {
+      if (value == null) {
+        fields.remove(key);
+      } else {
+        fields[key] = value;
+      }
+    }
+    return changesConceptContent(
+      current,
+      current.copyWith(frontmatter: fields, body: body),
+    );
+  }
 }
+
+/// Whether [after] changes the content of the concept [before]: its body,
+/// `title`, `description` or `type`, the content a `generated` stamp dates
+/// (OKF 0.2 §5.2). [before] is null for a concept a write creates, whose
+/// content is always new.
+///
+/// A field changes when its value differs by deep equality, including one
+/// that appears or is removed. Bodies compare as okf writes them, so a
+/// difference okf's serialization removes, such as line endings or a
+/// missing final newline, changes nothing. No other field, such as
+/// `status`, `tags`, `relationships`, `generated` or `verified`, is
+/// content.
+///
+/// `KnowledgeWriter.prepare` records `generated` exactly when the write
+/// creates a concept or this holds for the one it updates, and
+/// `KnowledgeContentLog` records its entry on the same rule; a link, a
+/// deprecation and `RegenerateIndexes` change no content.
+bool changesConceptContent(OkfDocument? before, OkfDocument after) {
+  if (before == null) return true;
+  for (final key in _contentFields) {
+    if (!const DeepCollectionEquality().equals(
+      before.frontmatter[key],
+      after.frontmatter[key],
+    )) {
+      return true;
+    }
+  }
+  String canonical(String text) =>
+      OkfDocument(body: text, hasFrontmatter: false).serialize();
+  return canonical(before.body) != canonical(after.body);
+}
+
+/// The frontmatter fields that are a concept's content, beside its body.
+const _contentFields = ['type', 'title', 'description'];
 
 /// Appends [relationship] to the `relationships` field of [source] (guide
 /// §5.5), unless an entry with the same name and resource is there already.

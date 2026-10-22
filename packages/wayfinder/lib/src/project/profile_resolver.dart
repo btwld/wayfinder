@@ -293,6 +293,44 @@ final class ProfileResolutionResult {
   };
 }
 
+/// What [WayfinderProfileResolver.relock] wrote: the edited
+/// `wayfinder.json` and the lock for it, which pins the same [packages].
+final class ProfileRelockResult {
+  const ProfileRelockResult({
+    required this.projectRoot,
+    required this.configPath,
+    required this.lockPath,
+    required this.configChanged,
+    required this.lockChanged,
+    required this.packages,
+  });
+
+  final String projectRoot;
+  final String configPath;
+  final String lockPath;
+
+  /// Whether `wayfinder.json` was rewritten: the edit changed its bytes.
+  final bool configChanged;
+
+  /// Whether `wayfinder.lock` was rewritten with the edited configuration's
+  /// hash.
+  final bool lockChanged;
+
+  /// One revision per Profile id, exactly as the lock pinned them before.
+  final Map<ProfileId, LockedPackage> packages;
+
+  Map<String, Object?> toJson() => {
+    'project': projectRoot,
+    'configuration': configPath,
+    'lock': lockPath,
+    'configuration_changed': configChanged,
+    'lock_changed': lockChanged,
+    'packages': {
+      for (final package in packages.values) package.id.value: package.toJson(),
+    },
+  };
+}
+
 /// What `get` would write, from [WayfinderProfileResolver.plan]. Planning
 /// fetches into the Profile cache when a ref must move but writes nothing
 /// in the project; [WayfinderProfileResolver.apply] writes it, and refuses
@@ -524,6 +562,195 @@ final class WayfinderProfileResolver {
           cancel: cancel,
         ),
       ),
+    );
+  }
+
+  /// Applies [edit] to the project's `wayfinder.json` and writes
+  /// `wayfinder.lock` for the edited configuration, keeping exactly the
+  /// commits the lock pins, under one hold of the project's `get` lock.
+  ///
+  /// The lock's hash covers the whole configuration, actors and project
+  /// vocabulary included, so registering an actor makes the lock stale
+  /// although its Profiles stay the same. Relocking makes that edit and
+  /// writes the lock `get` would write for it, offline: [edit] receives the
+  /// configuration's text, read while the lock is held, and returns the new
+  /// text, such as one [WayfinderConfigEditor] made with
+  /// `encode(minimal: true)`. Relocking then, before writing anything:
+  ///
+  /// - refuses new text that is not a valid configuration
+  ///   (`config-invalid`);
+  /// - throws [ProfileLockChangeRequiredException] (`lock-change-required`),
+  ///   whose `change` says why, unless the lock pins, for the edited
+  ///   configuration, exactly each binding's chain at the source it names
+  ///   and nothing more. A missing or unreadable lock, a new or removed
+  ///   binding or Profile, another source, ref or path, and a lock entry no
+  ///   binding reaches need a resolution, which may fetch;
+  /// - checks the configured bundles as `get` does, and selects each
+  ///   binding's chain from the Profile cache as [select] does, composed
+  ///   with the edited project vocabulary. It throws what selection would
+  ///   report as a [WayfinderProfileResolutionException], such as a package
+  ///   missing from the cache (`profile-unresolved`, whose `remedy` says
+  ///   what fills it) or a chain that no longer composes
+  ///   (`profile-composition`).
+  ///
+  /// It then writes the edited text, when its bytes change, and the lock
+  /// with the edited configuration's hash and the same packages, when its
+  /// hash changes: a lock whose hash already matches keeps its bytes, while
+  /// one an earlier edit left stale is written as well. Each file is
+  /// replaced through a temporary file beside it; when a write fails, a
+  /// file already written gets its original bytes back and the error is
+  /// rethrown.
+  ///
+  /// It runs no Git command, so it never fetches or resolves a ref, and
+  /// leaves Profile skills alone, as a plan with `skills: false` does: it
+  /// writes and deletes no skill directory. It holds the project's `get`
+  /// lock throughout, so it throws [ProfileResolutionBusyException]
+  /// (`resolution-busy`) while a `get`, an apply, an adoption or another
+  /// relock holds it, and they are refused while it runs; a plan made before
+  /// it no longer applies (`resolution-stale`). It throws
+  /// `resolution-stale` itself when `wayfinder.json` or `wayfinder.lock`
+  /// changed after it read them, by a writer that holds no lock, such as an
+  /// editor. [cancel] is checked between steps, until writing starts.
+  Future<ProfileRelockResult> relock(
+    String project, {
+    required FutureOr<String> Function(String configuration) edit,
+    WayfinderCancellation? cancel,
+  }) async {
+    throwIfCancelled(cancel);
+    final (:projectRoot, :configFile) = await _locate(project);
+    return _withProjectLock(
+      projectRoot,
+      () => _relock(projectRoot, configFile, edit, cancel),
+    );
+  }
+
+  Future<ProfileRelockResult> _relock(
+    String projectRoot,
+    File configFile,
+    FutureOr<String> Function(String configuration) edit,
+    WayfinderCancellation? cancel,
+  ) async {
+    throwIfCancelled(cancel);
+    final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
+    final configBytes = await configFile.readAsBytes();
+    final String current;
+    try {
+      current = utf8.decode(configBytes);
+    } on FormatException {
+      throw WayfinderException(
+        'config-invalid',
+        '${configFile.path} is not UTF-8 text.',
+      );
+    }
+    final List<int>? lockBytes;
+    try {
+      lockBytes = await _readBytes(lockFile);
+    } on FileSystemException catch (error) {
+      throw ProfileLockChangeRequiredException.relock(
+        ProfileLockChange(ProfileLockChangeKind.lockMissing, error.message),
+      );
+    }
+    final edited = await edit(current);
+    throwIfCancelled(cancel);
+    final WayfinderProjectConfig config;
+    try {
+      config = WayfinderProjectConfig.parse(edited);
+    } on WayfinderConfigException catch (error) {
+      throw WayfinderException('config-invalid', error.message);
+    }
+    final lock = _parseLock(lockBytes);
+    if (lock == null) {
+      throw ProfileLockChangeRequiredException.relock(
+        const ProfileLockChange(
+          ProfileLockChangeKind.lockMissing,
+          'Profile lock is missing or unreadable.',
+        ),
+      );
+    }
+    final relocked = ProfileLock(
+      configurationSha256: canonicalConfigurationSha256(edited),
+      packages: lock.packages,
+    );
+    try {
+      _checkLockedOnly(edited, relocked);
+    } on ProfileLockChangeRequiredException catch (error) {
+      throw ProfileLockChangeRequiredException.relock(error.change);
+    }
+    await _checkBundlePaths(config, projectRoot);
+    final location = ProjectFileLocation(
+      path: p.basename(configFile.path),
+      file: configFile.path,
+    );
+    final ids = config.profiles.keys.toList()
+      ..sort((left, right) => left.value.compareTo(right.value));
+    for (final id in ids) {
+      throwIfCancelled(cancel);
+      final (:status, :selection) = await _assess(
+        projectRoot: projectRoot,
+        raw: edited,
+        lock: (lock: relocked, error: null),
+        binding: config.profiles[id]!,
+        config: location,
+      );
+      if (selection != null) continue;
+      if (status.lockChange case final change?) {
+        throw ProfileLockChangeRequiredException.relock(change);
+      }
+      final diagnostic = status.diagnostic!;
+      throw WayfinderProfileResolutionException(
+        diagnostic.message,
+        diagnostic: diagnostic.code,
+        remedy: diagnostic.remedy,
+      );
+    }
+    final editedBytes = utf8.encode(edited);
+    final configChanged = !_sameBytes(configBytes, editedBytes);
+    final lockChanged =
+        lock.configurationSha256 != relocked.configurationSha256;
+    throwIfCancelled(cancel);
+    // Only a writer that holds no lock, such as an editor, can have changed
+    // either file since it was read.
+    final configNow = await _readBytes(configFile);
+    if (configNow == null || !_sameBytes(configNow, configBytes)) {
+      throw _stale('wayfinder.json');
+    }
+    final lockNow = await _readBytes(lockFile);
+    if (lockNow == null || !_sameBytes(lockNow, lockBytes!)) {
+      throw _stale('wayfinder.lock');
+    }
+    final written = <File, List<int>>{};
+    try {
+      if (configChanged) {
+        await _replace(configFile, editedBytes);
+        written[configFile] = configBytes;
+      }
+      if (lockChanged) {
+        await _replace(
+          lockFile,
+          utf8.encode(
+            '${const JsonEncoder.withIndent('  ').convert(relocked.toJson())}'
+            '\n',
+          ),
+        );
+        written[lockFile] = lockBytes;
+      }
+    } on Object {
+      for (final MapEntry(key: file, value: bytes) in written.entries) {
+        try {
+          await _replace(file, bytes);
+        } on FileSystemException {
+          // The error that stopped the write is the one to report.
+        }
+      }
+      rethrow;
+    }
+    return ProfileRelockResult(
+      projectRoot: projectRoot,
+      configPath: configFile.path,
+      lockPath: lockFile.path,
+      configChanged: configChanged,
+      lockChanged: lockChanged,
+      packages: relocked.packages,
     );
   }
 
@@ -2019,6 +2246,21 @@ final class WayfinderProfileResolver {
     );
     try {
       await temp.writeAsString(text, flush: true);
+      await temp.rename(file.path);
+    } on Object {
+      if (await temp.exists()) await temp.delete();
+      rethrow;
+    }
+  }
+
+  /// Replaces [file] with [bytes] through a temporary file beside it, so a
+  /// failed write leaves it as it was.
+  static Future<void> _replace(File file, List<int> bytes) async {
+    final temp = File(
+      '${file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      await temp.writeAsBytes(bytes, flush: true);
       await temp.rename(file.path);
     } on Object {
       if (await temp.exists()) await temp.delete();

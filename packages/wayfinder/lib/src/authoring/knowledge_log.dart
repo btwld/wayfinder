@@ -3,7 +3,8 @@
 /// The log is authored history (guide §3.2): the writer never derives an
 /// entry of its own. It writes the caller's [KnowledgeLogEntry] or
 /// [KnowledgeLogEntries], okf's lifecycle entries ([lifecycle]), or nothing
-/// ([none]).
+/// ([none]); a [KnowledgeContentLog] writes one of those only when the
+/// write changes a concept's content.
 sealed class KnowledgeLog {
   const KnowledgeLog();
 
@@ -52,16 +53,57 @@ final class KnowledgeLogEntries extends KnowledgeLog {
   final List<KnowledgeLogEntry> entries;
 }
 
+/// Records [log] only when the write creates a concept or changes its
+/// content, its body, `title`, `description` or `type`
+/// (`changesConceptContent`), exactly when the write records `generated`,
+/// and nothing otherwise: a link, a deprecation, an update of other fields
+/// such as `status`, a verification alone, and `RegenerateIndexes` record
+/// no entry.
+///
+/// The writer decides on the concept as it reads it while it prepares the
+/// write, so a host that logs content changes only, such as with a Profile's
+/// `Update` entry, need not read the concept and apply the rule itself.
+/// [log] is a [KnowledgeLogEntry], [KnowledgeLogEntries] or
+/// [KnowledgeLog.lifecycle].
+final class KnowledgeContentLog extends KnowledgeLog {
+  const KnowledgeContentLog(this.log);
+
+  /// What the write records when it changes content.
+  final KnowledgeLog log;
+}
+
+/// What [log] records for a write that does, or does not, change a
+/// concept's content: [KnowledgeContentLog]'s own log or nothing, and any
+/// other log as it is.
+KnowledgeLog effectiveLog(KnowledgeLog log, {required bool changesContent}) =>
+    switch (log) {
+      KnowledgeContentLog(:final log) =>
+        changesContent ? log : KnowledgeLog.none,
+      _ => log,
+    };
+
 /// The entries [log] supplies, in order; null for [KnowledgeLog.lifecycle]
-/// and [KnowledgeLog.none].
+/// and [KnowledgeLog.none]. A [KnowledgeContentLog] is resolved with
+/// [effectiveLog] first.
 List<KnowledgeLogEntry>? suppliedLogEntries(KnowledgeLog log) => switch (log) {
   final KnowledgeLogEntry entry => [entry],
   KnowledgeLogEntries(:final entries) => entries,
+  KnowledgeContentLog() => throw StateError('Resolve the content log first.'),
   _LifecycleLog() || _NoLog() => null,
 };
 
 /// Whether the writer can record each entry of [log] exactly as given.
 void checkLog(KnowledgeLog log) {
+  if (log case KnowledgeContentLog(:final log)) {
+    if (log is KnowledgeContentLog || identical(log, KnowledgeLog.none)) {
+      throw ArgumentError.value(
+        log,
+        'logEntry',
+        'a content log holds an entry, entries or the lifecycle log',
+      );
+    }
+    return checkLog(log);
+  }
   if (log case KnowledgeLogEntries(:final entries) when entries.isEmpty) {
     throw ArgumentError.value(
       entries,
