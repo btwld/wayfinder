@@ -134,9 +134,17 @@ void main() {
     expect(params.device, ComputeDevice.cpu);
     expect(params.preferredBackend, GpuBackend.cpu);
     expect(params.gpuLayers, 0);
-    expect(params.numberOfThreads, 4);
-    expect(params.numberOfThreadsBatch, 4);
+    final threads = LlamaEmbedder.threadsFor(Platform.numberOfProcessors);
+    expect(params.numberOfThreads, threads);
+    expect(params.numberOfThreadsBatch, threads);
     expect(params.validate, returnsNormally);
+  });
+
+  test('computes with up to four threads and leaves a processor free', () {
+    expect(
+      [for (var n = 0; n <= 8; n++) LlamaEmbedder.threadsFor(n)],
+      [1, 1, 1, 2, 3, 4, 4, 4, 4],
+    );
   });
 
   test('reports a failed load once, without a retry', () async {

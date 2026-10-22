@@ -106,6 +106,11 @@
   normalized vectors are unchanged. The one retry of a cold backend start
   recognises the startup timeout as llamadart 0.15 reports it, inside the
   `LlamaModelException` of the failed load.
+- `LlamaEmbedder.open` computes with up to four threads, one fewer than the
+  machine's processors (`LlamaEmbedder.threadsFor`), instead of always four.
+  llama.cpp's threads spin while they wait for each other, so on a machine
+  with four processors or fewer, four threads made indexing many times slower.
+  The vectors do not depend on the thread count.
 - The knowledge store's configuration moves to version 5 and names the
   llama.cpp release Wayfinder reviewed, the new `wayfinderLlamaCppRuntime`
   (v0.7.0-2), so moving it builds every index anew. The new runtime's vectors
