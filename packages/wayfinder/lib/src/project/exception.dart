@@ -17,7 +17,9 @@
 /// - `cancelled` when a `WayfinderCancellation` stopped the operation; a
 ///   host's `GitRunner` throws [WayfinderException.cancelled] for it too.
 ///
-/// Other Wayfinder packages add their own codes.
+/// `package:wayfinder/authoring.dart` adds `write-refused`, `write-stale`
+/// and the codes of its `KnowledgeChangeException`. Other Wayfinder packages
+/// add their own codes.
 class WayfinderException implements Exception {
   const WayfinderException(this.code, this.message);
 

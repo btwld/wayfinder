@@ -13,8 +13,9 @@ import 'package:wayfinder/wayfinder.dart';
 
 `ProfileValidator.validateLoaded` validates a bundle okf has already loaded,
 such as a candidate built in memory, without reading its files again; only the
-`path-targets-exist` builtin checks, on disk relative to the bundle root, a
-link target okf's graph cannot resolve inside the bundle.
+`path-targets-exist` builtin looks further, for a path target okf's graph
+cannot resolve: first in the loaded bundle, so a candidate sees the files it
+adds, then on disk relative to the bundle root.
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them.
 
@@ -67,6 +68,80 @@ Future<void> main() async {
 Run all okf bundle I/O of a process on one isolate: okf's bundle lock does
 not exclude isolates. [ADR-0018](../../docs/adr/0018-embeddable-libraries.md)
 records these decisions.
+
+## Authoring
+
+`package:wayfinder/authoring.dart` is the write path for a bundle a Profile
+governs. `KnowledgeWriter.prepare` builds the candidate one change describes
+and judges it in memory; it writes nothing. `KnowledgeWriter.commit` writes
+exactly what was judged, under okf's bundle lock:
+
+```dart
+import 'package:okf/okf.dart';
+import 'package:wayfinder/authoring.dart';
+import 'package:wayfinder/project.dart';
+
+Future<void> main() async {
+  final writer = KnowledgeWriter(
+    resolver: WayfinderProfileResolver(
+      dataDirectory: WayfinderDataDirectory.resolve(),
+    ),
+  );
+  final plan = await writer.prepare(
+    'knowledge',
+    CreateConcept(
+      id: OkfConceptId('reporting/pagination-contract'),
+      frontmatter: {
+        'type': 'Specification',
+        'title': 'Pagination contract',
+        'description': 'How the renderer splits an export into pages.',
+        'status': 'draft',
+      },
+      body: '# Specification\n\nPages break at section bounds.\n',
+    ),
+    stamp: const KnowledgeStamp.generated(by: 'claude-code/opus-5'),
+    logEntry: const KnowledgeLogEntry(
+      action: 'Creation',
+      description:
+          'Recorded [Pagination contract](/reporting/pagination-contract.md).',
+    ),
+  );
+  for (final finding in plan.introduced) {
+    print(finding.toText());
+  }
+  if (plan.committable) await writer.commit(plan);
+}
+```
+
+- A `KnowledgeChange` is `CreateConcept`, `UpdateConcept` (a null field
+  removes it), `LinkConcepts`, which appends to the concept's `relationships`,
+  `DeprecateConcept`, or the `RegenerateIndexes` repair, which writes exactly
+  what `validate --fix` writes.
+- When the selected Profile generates indexes, a write rewrites only those
+  whose generated text it changes; any other index keeps its bytes, stale or
+  not. Without such a rule, okf regenerates the changed concept's ancestor
+  indexes.
+- The root log records the caller's `KnowledgeLogEntry` exactly as given,
+  okf's lifecycle entry (`KnowledgeLog.lifecycle`, the default), or nothing
+  (`KnowledgeLog.none`). New entries are inserted as lines in the log's own
+  style, so the existing entries keep their bytes.
+- A `KnowledgeStamp` records `generated: {by, at}` when the write creates or
+  changes content (the body, `title`, `description` or `type`); a verified
+  stamp also appends `{by, at}` to `verified`. A change may not set either
+  key itself.
+- The plan holds the `base` and `candidate` validations, the `diff` of every
+  file it writes, and the candidate's Profile findings split into
+  `introduced` and `preExisting` by rule id and path. It is `committable` when
+  okf accepts the candidate and it introduces no error. Check
+  `plan.candidate.gate` to require a passing bundle.
+- `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
+  plan that is not committable and `KnowledgeStaleWriteException`
+  (`write-stale`) when the bundle, or the `wayfinder.json` or `wayfinder.lock`
+  its selection came from, changed since `prepare`. Neither writes anything.
+
+Run every write on the isolate that does the process's other okf bundle I/O.
+[ADR-0019](../../docs/adr/0019-profile-aware-writes.md) records these
+decisions.
 
 For the command and MCP server, install **wayfinder_cli**:
 

@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
+import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/validation.dart' show writeGeneratedFiles;
@@ -39,6 +43,31 @@ void main() {
       contains('Fix: every generated file is current.'),
     );
     expect(await _snapshot(project), after);
+  });
+
+  test('--fix writes under okf\'s exclusive bundle lock, and one with '
+      'nothing to write takes no lock', () async {
+    final lock = File(p.join(bundle, okfBundleLockFileName));
+    final current = await validateFixture(project.path, fix: true);
+    expect(current.fixed, isEmpty);
+    expect(lock.existsSync(), isFalse);
+
+    // Another process holds a shared claim, as an okf read does. The fix
+    // reads beside it, then waits to write until the claim is released.
+    final zone = await Directory(p.join(bundle, 'zone')).create();
+    await File(p.join(bundle, 'sample.md')).copy(p.join(zone.path, 'zone.md'));
+    await lock.create();
+    final reader = await _holdSharedClaim(bundle);
+    final fixing = validateFixture(project.path, fix: true);
+    var done = false;
+    unawaited(fixing.whenComplete(() => done = true));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    expect(done, isFalse);
+    expect(File(p.join(zone.path, 'index.md')).existsSync(), isFalse);
+
+    await reader.stdin.close();
+    expect(await reader.exitCode, 0);
+    expect((await fixing).fixed, ['index.md', 'zone/index.md']);
   });
 
   test('an index with CRLF line endings, as a Windows checkout writes it, '
@@ -114,6 +143,39 @@ void main() {
       target.path,
     ]);
   });
+}
+
+/// A Dart process that holds okf's shared claim on [bundle] until its
+/// stdin closes.
+Future<Process> _holdSharedClaim(String bundle) async {
+  final script = File(
+    p.join(
+      (await Directory.systemTemp.createTemp('wayfinder-reader-')).path,
+      'hold.dart',
+    ),
+  );
+  await script.writeAsString('''
+import 'dart:io';
+
+import 'package:okf/okf_io.dart';
+
+Future<void> main(List<String> arguments) =>
+    OkfBundleLock.read(arguments.single, () async {
+      stdout.writeln('held');
+      await stdin.drain<void>();
+    });
+''');
+  final packages = (await Isolate.packageConfig)!.toFilePath();
+  final process = await Process.start(Platform.resolvedExecutable, [
+    '--packages=$packages',
+    script.path,
+    bundle,
+  ]);
+  await process.stdout
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .firstWhere((line) => line == 'held');
+  return process;
 }
 
 Future<Map<String, List<int>>> _snapshot(Directory root) async => {
