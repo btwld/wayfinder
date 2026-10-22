@@ -14,20 +14,26 @@
   `knowledge/` directory. `searchAncestors: true` is the command's search
   instead, the nearest `wayfinder.json` at or above the directory or the
   nearest `knowledge/` directory below the Git boundary; the CLI and MCP
-  server pass it, so their output is unchanged.
+  server pass it, so their output is unchanged. A directory that does not
+  exist or cannot be read is `bundles-missing`, not a `FileSystemException`.
 - `WayfinderProjectConfig.bind`, the resolver's `select` and
   `restoreCachedPackages`, and `validateWithProfileSources` take
   `projectRoot`, which stops their search for a bundle's `wayfinder.json` at
-  that directory: a bundle with none between itself and `projectRoot`
-  reports `config-missing`. Without it they search towards the filesystem
-  root as before.
+  that directory: the search climbs from the bundle's parent as before but
+  reads only directories whose real path is `projectRoot` or inside it, so a
+  bundle with none there reports `config-missing`. Without it they search
+  towards the filesystem root as before.
 - `EffectiveProfile.requiredConceptFields` lists the frontmatter keys every
   concept must carry for the gate to pass: those an error rule's
   `frontmatter` schema check requires unconditionally, in rule order. For
-  Bitwild these are `type`, `title`, `description` and `status`.
+  Bitwild these are `type`, `title`, `description` and `status`. It
+  combines `requiredRootProperties`, which a `SchemaCheck`'s `schema` now
+  lists for its own rule.
 - `ProfileSkills.read` returns the `SKILL.md` text `get` installed for a
   skill revision, from a directory whose marker holds that revision and that
-  no symbolic link places outside the project, or null.
+  no symbolic link places outside the project, or null. It takes no lock and
+  reads the marker again after the text, so a concurrent `get` never makes
+  it return another revision's text.
   `ProfileSkills.revisionsOf` lists the skill revisions of a
   `SelectedProfile`'s chain.
 - The resolver splits `get` into `plan`, which may fetch into the cache but

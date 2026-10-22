@@ -102,7 +102,10 @@ final class RuleSchema {
   /// those a `required` names at the root, in an `allOf` member, or in a
   /// def a root `$ref` reaches, all of which apply to the same instance
   /// unconditionally. A name required only under `if`, `then`, `else`,
-  /// `anyOf`, `oneOf` or `not`, or below a property, is not listed.
+  /// `anyOf`, `oneOf` or `not`, or below a property, is not listed. A host
+  /// asking what a concept must carry reads
+  /// `EffectiveProfile.requiredConceptFields`, which combines these over a
+  /// Profile's error rules.
   final List<String> requiredRootProperties;
 
   final BoundSchema? _slotFree;
