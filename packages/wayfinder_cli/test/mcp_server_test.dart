@@ -7,13 +7,12 @@ import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
-import 'package:wayfinder_cli/src/graph.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
 import 'package:wayfinder_cli/src/search_output.dart';
 import 'package:test/test.dart';
 
@@ -284,7 +283,10 @@ void main() {
 
       test('validation preserves findings, diagnostics and the gate without '
           'inference', () async {
-        final expected = await validateWithProfileSources(root);
+        final expected = await validateWithProfileSources(
+          root,
+          resolver: _defaultResolver(),
+        );
         final result = await client.callTool(
           const CallToolRequest(name: 'validate'),
         );
@@ -679,7 +681,10 @@ void main() {
           final root = await Directory(
             p.join(project.path, paths[i]),
           ).resolveSymbolicLinks();
-          final expected = await validateWithProfileSources(root);
+          final expected = await validateWithProfileSources(
+            root,
+            resolver: _defaultResolver(),
+          );
           expect((validation['bundles'] as List)[i], {
             'name': p.basename(paths[i]),
             'path': paths[i],
@@ -697,6 +702,51 @@ void main() {
           await File(p.join(project.path, 'wayfinder.lock')).exists(),
           isFalse,
         );
+      });
+
+      test('a server started in a subdirectory finds the project', () async {
+        final child = await Directory(
+          p.join(project.path, 'lib', 'ui'),
+        ).create(recursive: true);
+        final incoming = StreamController<List<int>>();
+        final outgoing = StreamController<List<int>>();
+        final transport = IOStreamTransport(
+          stream: incoming.stream,
+          sink: outgoing.sink,
+        );
+        final nested = WayfinderMcpServer(
+          workingDirectory: child,
+          knowledge: knowledge,
+        ).serve(transport: transport);
+        final nestedClient = McpClient(
+          const Implementation(name: 'nested-test', version: '1.0.0'),
+          options: McpClientOptions(protocol: protocol),
+        );
+        try {
+          await nestedClient.connect(
+            IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+          );
+          final search = await nestedClient.callTool(
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching'},
+            ),
+          );
+          expect(search.isError, isNot(true));
+          expect(knowledge.calls.single, contains('shared-kit'));
+          expect(knowledge.calls.single, contains('knowledge'));
+          final graph = _payload(
+            await nestedClient.callTool(const CallToolRequest(name: 'graph')),
+          );
+          expect([
+            for (final bundle in graph['bundles']! as List<Object?>)
+              (bundle! as Map<String, Object?>)['path'],
+          ], paths);
+        } finally {
+          await nestedClient.close();
+          await transport.close();
+          await nested;
+        }
       });
 
       test(
@@ -1192,7 +1242,10 @@ class _Knowledge extends WayfinderKnowledge {
   }) async {
     calls.add('searchBundles:${bundles.join(',')}:$query:$limit');
     if (failSearch) {
-      throw const WayfinderException('Index is stale. Run wayfinder index.');
+      throw const WayfinderException(
+        'index-stale',
+        'Index is stale. Run wayfinder index.',
+      );
     }
     return [
       for (final bundle in bundles)
@@ -1246,6 +1299,7 @@ class _Knowledge extends WayfinderKnowledge {
     calls.add('search:$bundle:$query:$limit');
     if (failSearch) {
       throw const WayfinderException(
+        'index-stale',
         'Index is stale. Run wayfinder index <bundle>.',
       );
     }
@@ -1283,3 +1337,7 @@ class _HitKnowledge extends _Knowledge {
     );
   }
 }
+
+/// The resolver the server uses by default.
+WayfinderProfileResolver _defaultResolver() =>
+    WayfinderProfileResolver(dataDirectory: WayfinderDataDirectory.resolve());

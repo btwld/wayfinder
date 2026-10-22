@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/wayfinder.dart';
+
+import '../profile_package.dart';
+import '../validation.dart' show SelectedProfile;
 
 /// The locked revision a Profile skill comes from, as its marker records it.
 typedef SkillRevision = ({ProfileId id, String release, String commit});
@@ -61,6 +63,63 @@ abstract final class ProfileSkills {
       if (await _markedRevision(Directory(p.join(projectRoot, directory))) !=
           revision)
         directory,
+  ];
+
+  /// The installed `SKILL.md` text of [revision]: from the first directory
+  /// in [directories] order that holds [revision], the check [stale] and
+  /// validation's `profile-skill-stale` note make. Null when none does, as
+  /// before `get` or after the lock moved on, and when that directory has
+  /// no readable `SKILL.md`. Reads nothing that a symbolic link places
+  /// outside [projectRoot], and never writes.
+  ///
+  /// It takes no lock. The marker is read again after `SKILL.md`, and the
+  /// text is returned only when it still names [revision], so a `get` that
+  /// replaces the directory meanwhile yields the next directory or null,
+  /// never another revision's text.
+  static Future<String?> read(
+    String projectRoot,
+    SkillRevision revision,
+  ) async {
+    final String real;
+    try {
+      real = await Directory(projectRoot).resolveSymbolicLinks();
+    } on FileSystemException {
+      return null;
+    }
+    Future<bool> inside(String file) async {
+      if (await FileSystemEntity.type(file) != FileSystemEntityType.file) {
+        return false;
+      }
+      final resolved = await _realPath(file);
+      return resolved != null && p.isWithin(real, resolved);
+    }
+
+    for (final directory in directories(revision.id)) {
+      final path = p.join(projectRoot, directory);
+      final skill = p.join(path, 'SKILL.md');
+      try {
+        if (await inside(p.join(path, marker)) &&
+            await inside(skill) &&
+            await _markedRevision(Directory(path)) == revision) {
+          final text = await File(skill).readAsString();
+          if (await _markedRevision(Directory(path)) == revision) return text;
+        }
+      } on FileSystemException {
+        // Unreadable: the next directory may still hold the revision.
+      }
+    }
+    return null;
+  }
+
+  /// The skill revision of each package in [selection]'s chain that ships a
+  /// skill and has a locked commit, root ancestor first: what [read] and
+  /// [stale] take. Empty for a selection built by hand, which records no
+  /// commits.
+  static List<SkillRevision> revisionsOf(SelectedProfile selection) => [
+    for (final package in selection.profile.chain)
+      if (package.skill != null)
+        if (selection.commits[package.id] case final commit?)
+          (id: package.id, release: package.release, commit: commit),
   ];
 
   /// The roots that a symbolic link at the root or an ancestor places
@@ -206,8 +265,29 @@ abstract final class ProfileSkills {
     String projectRoot,
     Set<ProfileId> keep,
   ) async {
-    final outside = await escaping(projectRoot);
     final removed = <String>[];
+    for (final (:entry, :reported) in await _prunable(projectRoot, keep)) {
+      await entry.delete(recursive: true);
+      if (reported case final path?) removed.add(path);
+    }
+    return removed;
+  }
+
+  /// What [prune] would delete and report, without deleting anything.
+  static Future<List<String>> prunable(
+    String projectRoot,
+    Set<ProfileId> keep,
+  ) async => [
+    for (final (entry: _, :reported) in await _prunable(projectRoot, keep))
+      ?reported,
+  ];
+
+  static Future<List<({Directory entry, String? reported})>> _prunable(
+    String projectRoot,
+    Set<ProfileId> keep,
+  ) async {
+    final outside = await escaping(projectRoot);
+    final found = <({Directory entry, String? reported})>[];
     for (final root in roots) {
       if (outside.contains(root)) continue;
       final parent = Directory(p.join(projectRoot, root));
@@ -224,30 +304,37 @@ abstract final class ProfileSkills {
             !await _owned(entry, id)) {
           continue;
         }
-        await entry.delete(recursive: true);
-        if (interrupted == null) removed.add('$root/$name');
+        found.add((
+          entry: entry,
+          reported: interrupted == null ? '$root/$name' : null,
+        ));
       }
     }
-    return removed;
+    return found;
   }
 
   static final _stagingNamePattern = RegExp(
     r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$',
   );
 
-  static Future<void> _createMarked(
-    Directory directory,
-    SkillRevision revision,
-  ) async {
-    await directory.create(recursive: true);
+  /// The [marker] file's text for [revision].
+  static String markerText(SkillRevision revision) {
     final text = const JsonEncoder.withIndent('  ').convert({
       'id': revision.id.value,
       'release': revision.release,
       'commit': revision.commit,
     });
+    return '$text\n';
+  }
+
+  static Future<void> _createMarked(
+    Directory directory,
+    SkillRevision revision,
+  ) async {
+    await directory.create(recursive: true);
     await File(
       p.join(directory.path, marker),
-    ).writeAsString('$text\n', flush: true);
+    ).writeAsString(markerText(revision), flush: true);
   }
 
   static Future<bool> _owned(Directory directory, String id) async =>

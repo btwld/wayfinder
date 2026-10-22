@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/search_output.dart';
 import 'package:wayfinder_cli/src/cli.dart';
@@ -114,6 +115,7 @@ void main() {
         final unavailable = WayfinderKnowledge(
           dataDirectory: data,
           openEncoder: () async => throw const WayfinderException(
+            'model-missing',
             'Embedding model unavailable (/missing/model.gguf). Reinstall the runtime.',
           ),
         );

@@ -546,6 +546,103 @@ void main() {
       },
     );
 
+    test('required root properties are only those every accepted instance '
+        'has', () {
+      final schema = RuleSchema.parse(
+        {
+          'required': ['root', 'shared'],
+          'allOf': [
+            {
+              'required': ['inAllOf'],
+            },
+            {r'$ref': r'#/$defs/same'},
+            {r'$ref': r'#/$defs/same'},
+          ],
+          'if': {
+            'required': ['inIf'],
+          },
+          'then': {
+            'required': ['inThen'],
+          },
+          'else': {
+            'required': ['inElse'],
+          },
+          'anyOf': [
+            {
+              'required': ['inAnyOf'],
+            },
+          ],
+          'oneOf': [
+            {
+              'required': ['inOneOf'],
+            },
+          ],
+          'not': {
+            'required': ['negated'],
+          },
+          'properties': {
+            'child': {
+              'required': ['nested'],
+            },
+          },
+        },
+        defs: {
+          'same': {
+            'required': ['viaRef', 'shared'],
+            'allOf': [
+              {r'$ref': r'#/$defs/a~1b'},
+            ],
+          },
+          'a/b': {
+            'required': ['escaped'],
+          },
+          'unused': {
+            'required': ['unreferenced'],
+          },
+        },
+      );
+      expect(schema.requiredRootProperties, [
+        'root',
+        'shared',
+        'inAllOf',
+        'viaRef',
+        'escaped',
+      ]);
+      final bound = schema.bind(const {});
+      expect(
+        bound.accepts({
+          for (final name in schema.requiredRootProperties) name: 1,
+          'inIf': 1,
+          'inThen': 1,
+          'inAnyOf': 1,
+          'inOneOf': 1,
+        }),
+        isTrue,
+      );
+      for (final name in schema.requiredRootProperties) {
+        expect(
+          bound.accepts({
+            for (final other in schema.requiredRootProperties)
+              if (other != name) other: 1,
+            'inIf': 1,
+            'inThen': 1,
+            'inAnyOf': 1,
+            'inOneOf': 1,
+          }),
+          isFalse,
+          reason: name,
+        );
+      }
+      expect(
+        RuleSchema.parse({
+          'properties': {
+            'a': {'type': 'string'},
+          },
+        }).requiredRootProperties,
+        isEmpty,
+      );
+    });
+
     test('a keyword that reads every property is seen through a ref', () {
       final schema = RuleSchema.parse(
         {r'$ref': r'#/$defs/closed'},

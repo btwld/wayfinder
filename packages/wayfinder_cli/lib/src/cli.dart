@@ -5,17 +5,15 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart'
     show internalErrorJson, internalErrorSarif, toSarif;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 import 'agent_setup.dart';
-import 'graph.dart';
 import 'index_result.dart';
 import 'knowledge.dart';
 import 'mcp_server.dart';
-import 'profile_resolver.dart';
-import 'project_bundles.dart';
 import 'project_search.dart';
 import 'search_input.dart';
 import 'search_output.dart';
@@ -83,7 +81,8 @@ class WayfinderCli {
       _knowledgeOverride?.call() ?? WayfinderKnowledge();
 
   WayfinderProfileResolver _profileResolver() =>
-      _profileResolverFactory?.call() ?? WayfinderProfileResolver();
+      _profileResolverFactory?.call() ??
+      WayfinderProfileResolver(dataDirectory: WayfinderDataDirectory.resolve());
 
   /// Relaunches this command outside the caller's process group. A compiled
   /// executable reruns itself; `dart run` also needs its script.
@@ -136,7 +135,7 @@ class WayfinderCli {
   }
 
   static ReleaseChecker _noticeReleases() => ReleaseChecker(
-    dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
+    dataDirectory: WayfinderDataDirectory.resolve(),
     timeout: const Duration(seconds: 2),
   );
 
@@ -396,8 +395,9 @@ class WayfinderCli {
       final command = options.command;
       if (command == null || options.rest.isNotEmpty) {
         throw const WayfinderException(
+          'usage',
           'Choose validate, index, search, graph, get, upgrade, mcp, skills, setup or '
-          'update. Run wayfinder --help.',
+              'update. Run wayfinder --help.',
         );
       }
       final name = command.name!;
@@ -408,6 +408,7 @@ class WayfinderCli {
         }
         if (command.rest.isNotEmpty) {
           throw const WayfinderException(
+            'usage',
             'session-context accepts no arguments.',
           );
         }
@@ -428,7 +429,10 @@ class WayfinderCli {
           return 0;
         }
         if (command.rest.length > 1) {
-          throw WayfinderException('$name accepts at most one project.');
+          throw WayfinderException(
+            'usage',
+            '$name accepts at most one project.',
+          );
         }
         final result = await _profileResolver().resolve(
           command.rest.firstOrNull ?? '.',
@@ -469,6 +473,7 @@ class WayfinderCli {
             command.rest.isNotEmpty ||
             action.rest.isNotEmpty) {
           throw const WayfinderException(
+            'usage',
             'Choose skills install, status or remove.',
           );
         }
@@ -491,14 +496,17 @@ class WayfinderCli {
           return 0;
         }
         if (command.rest.isNotEmpty) {
-          throw const WayfinderException('update accepts no arguments.');
+          throw const WayfinderException(
+            'usage',
+            'update accepts no arguments.',
+          );
         }
         final updater =
             _updaterFactory?.call(_out) ??
             Updater(
               out: _out,
               checker: ReleaseChecker(
-                dataDirectory: WayfinderKnowledge.defaultDataDirectory(),
+                dataDirectory: WayfinderDataDirectory.resolve(),
               ),
               setup: _agentSetup(_out),
             );
@@ -518,7 +526,10 @@ class WayfinderCli {
           return 0;
         }
         if (command.rest.length > 1) {
-          throw const WayfinderException('setup accepts at most one project.');
+          throw const WayfinderException(
+            'usage',
+            'setup accepts at most one project.',
+          );
         }
         await _agentSetup(_out).configureProject(
           command.rest.firstOrNull ?? '.',
@@ -542,6 +553,7 @@ class WayfinderCli {
         if (command.rest.length > 1 ||
             (command.rest.isNotEmpty && command.rest.first.trim().isEmpty)) {
           throw const WayfinderException(
+            'usage',
             'mcp accepts at most one bundle path.',
           );
         }
@@ -567,13 +579,15 @@ class WayfinderCli {
       if (name == 'index' && command.rest.isEmpty) {
         if (command.flag('background') || command.flag('detach')) {
           throw const WayfinderException(
+            'usage',
             'Background indexing requires an explicit bundle path.',
           );
         }
-        final bundles = await discoverProjectBundles(
+        final bundles = (await WayfinderProject.discover(
           _workingDirectory,
-          name: command.option('bundle'),
-        );
+          bundleName: command.option('bundle'),
+          searchAncestors: true,
+        )).bundles;
         final results = <Map<String, Object?>>[];
         final knowledge = _knowledge();
         for (final bundle in bundles) {
@@ -595,11 +609,12 @@ class WayfinderCli {
       }
       if (name == 'index' && command.option('bundle') != null) {
         throw const WayfinderException(
+          'usage',
           'Use either an explicit bundle path or --bundle, not both.',
         );
       }
       if (command.rest.length != 1 || command.rest.first.trim().isEmpty) {
-        throw WayfinderException('$name requires an explicit bundle.');
+        throw WayfinderException('usage', '$name requires an explicit bundle.');
       }
       final bundle = command.rest.first;
       if (name == 'graph') {
@@ -655,7 +670,7 @@ class WayfinderCli {
                 ? 'current'
                 : 'started';
           } on WayfinderException catch (error) {
-            if (!error.message.startsWith('Index is busy')) rethrow;
+            if (error.code != 'index-busy') rethrow;
             state = 'running';
           }
           if (state == 'started') {
@@ -693,7 +708,7 @@ class WayfinderCli {
         }
         return 0;
       }
-      throw const WayfinderException('Unknown command.');
+      throw const WayfinderException('usage', 'Unknown command.');
     } on ArgParserException catch (error) {
       message =
           arguments.any(
@@ -729,12 +744,14 @@ class WayfinderCli {
         command.rest.length > 2 ||
         command.rest.first.trim().isEmpty) {
       throw const WayfinderException(
+        'usage',
         'search requires one quoted query, with an optional explicit bundle path.',
       );
     }
     final explicit = command.rest.length == 2;
     if (explicit && command.option('bundle') != null) {
       throw const WayfinderException(
+        'usage',
         'Use either an explicit bundle path or --bundle, not both.',
       );
     }
@@ -750,12 +767,13 @@ class WayfinderCli {
         descriptionContains: command.option('description-contains'),
       );
     } on ArgumentError catch (error) {
-      throw WayfinderException(error.message.toString());
+      throw WayfinderException('usage', error.message.toString());
     }
     final rawLimit = command.option('limit');
     final convertedLimit = rawLimit == null ? null : int.tryParse(rawLimit);
     if (rawLimit != null && convertedLimit == null) {
       throw const WayfinderException(
+        'usage',
         '--limit must be an integer from 1 to 100.',
       );
     }
@@ -765,17 +783,21 @@ class WayfinderCli {
     });
     if (parsed case Fail(:final error)) {
       final errors = error is SchemaNestedError ? error.errors : [error];
-      throw WayfinderException(errors.map((e) => e.toErrorString()).join('; '));
+      throw WayfinderException(
+        'usage',
+        errors.map((e) => e.toErrorString()).join('; '),
+      );
     }
     final input = parsed.getOrThrow()!;
     final query = input['query']! as String;
     final limit = input['limit']! as int;
     final json = command.option('output') == 'json';
     if (!explicit) {
-      final bundles = await discoverProjectBundles(
+      final bundles = (await WayfinderProject.discover(
         _workingDirectory,
-        name: command.option('bundle'),
-      );
+        bundleName: command.option('bundle'),
+        searchAncestors: true,
+      )).bundles;
       final responses = await _knowledge().searchBundles(
         bundles.map((bundle) => bundle.root).toList(),
         query,

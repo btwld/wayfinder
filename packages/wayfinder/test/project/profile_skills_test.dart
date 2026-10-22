@@ -1,12 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
-import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
-import 'package:wayfinder_cli/src/profile_skills.dart';
 
 const _claude = '.claude/skills/acme-notes';
 const _agents = '.agents/skills/acme-notes';
@@ -246,6 +245,100 @@ void main() {
     expect(repaired.skills.single.written, isTrue);
     expect(repaired.reused, isFalse);
     expect((await validate()).diagnostics, isEmpty);
+  });
+
+  group('read', () {
+    late SkillRevision revision;
+    late String text;
+
+    Future<String?> read() => ProfileSkills.read(project.path, revision);
+
+    Future<void> mark(String directory, String commit) => File(
+      p.join(project.path, directory, '.wayfinder-profile'),
+    ).writeAsString(marker(commit));
+
+    setUp(() async {
+      text = await sourceFile('skill/SKILL.md').readAsString();
+      revision = (
+        id: ProfileId.parse('acme-notes'),
+        release: '1.0',
+        commit: await commit(),
+      );
+    });
+
+    test('returns the installed SKILL.md of the selected revision', () async {
+      expect(await read(), isNull);
+      await resolver.resolve(project.path);
+      final selection = await resolver.select(
+        p.join(project.path, 'knowledge'),
+      );
+      expect(ProfileSkills.revisionsOf(selection as SelectedProfile), [
+        revision,
+      ]);
+      expect(await read(), text);
+      expect(
+        ProfileSkills.revisionsOf(
+          SelectedProfile(selection.profile, config: selection.config),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('skips a directory the staleness check rejects', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      await mark(_claude, 'f' * 40);
+      expect(await ProfileSkills.stale(project.path, revision), [_claude]);
+      expect(await read(), 'agents copy');
+      await mark(_agents, 'f' * 40);
+      expect(await read(), isNull);
+      await Directory(p.join(project.path, _claude)).delete(recursive: true);
+      await Directory(p.join(project.path, _agents)).delete(recursive: true);
+      expect(await read(), isNull);
+    });
+
+    test('reads nothing a symbolic link places outside the project', () async {
+      await resolver.resolve(project.path);
+      final outside = await File(
+        p.join(temp.path, 'outside.md'),
+      ).writeAsString('outside');
+      final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
+      await claudeSkill.delete();
+      await Link(claudeSkill.path).create(outside.path);
+      expect(await read(), text, reason: 'the .agents copy still holds it');
+
+      final agents = Directory(p.join(project.path, _agents));
+      final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
+      await Link(agents.path).create(elsewhere.path);
+      expect(await ProfileSkills.stale(project.path, revision), isEmpty);
+      expect(await read(), isNull);
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
+
+    test('never returns the text of a revision get puts in place while it '
+        'reads', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      final racing = _ReplacedBeforeRead(
+        p.join(project.path, _claude, 'SKILL.md'),
+        () async {
+          // What `get` leaves after renaming a new revision into place.
+          await mark(_claude, 'f' * 40);
+          await File(
+            p.join(project.path, _claude, 'SKILL.md'),
+          ).writeAsString('new revision');
+        },
+      );
+      final read = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision),
+        racing,
+      );
+      expect(racing.replaced, isTrue);
+      expect(read, 'agents copy');
+    });
   });
 
   test('a skill directory without SKILL.md fails get', () async {
@@ -588,21 +681,52 @@ void main() {
       );
     });
   });
+}
 
-  test('get lists the installed skills', () async {
-    final output = <String>[];
-    final cli = WayfinderCli(
-      out: output.add,
-      err: (_) {},
-      notices: false,
-      profileResolver: () => resolver,
-    );
-    expect(await cli.run(['get', project.path]), 0);
-    expect(output.last, 'Installed skill acme-notes → $_claude, $_agents');
-    output.clear();
-    expect(await cli.run(['get', project.path]), 0);
-    expect(output.last, 'Current skill acme-notes → $_claude, $_agents');
-  });
+/// Runs [replace] outside the overrides just before the first read of
+/// [target], as a concurrent `get` would.
+final class _ReplacedBeforeRead extends IOOverrides {
+  _ReplacedBeforeRead(this.target, this.replace);
+
+  final String target;
+  final Future<void> Function() replace;
+  var replaced = false;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (replaced || !p.equals(path, target)) return file;
+    return _BeforeRead(file, () async {
+      replaced = true;
+      await Zone.root.run(replace);
+    });
+  }
+
+  // The inherited type lookup passes the native call a path without its
+  // terminating NUL, so the real lookup runs outside the overrides instead.
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) => Zone
+      .root
+      .run(() => FileSystemEntity.type(path, followLinks: followLinks));
+}
+
+final class _BeforeRead implements File {
+  _BeforeRead(this._file, this._before);
+
+  final File _file;
+  final Future<void> Function() _before;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<String> readAsString({Encoding encoding = utf8}) async {
+    await _before();
+    return _file.readAsString(encoding: encoding);
+  }
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<Map<String, (String?, DateTime)>> _stat(String root) async => {
