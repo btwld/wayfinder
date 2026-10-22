@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:llamadart/llamadart.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/model_cache.dart';
@@ -20,7 +21,7 @@ void main() {
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('model_preparation_test');
-    cache = Directory('${directory.path}/cache');
+    cache = Directory(p.join(directory.path, 'cache'));
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     requests = 0;
     corruptResponse = false;
@@ -48,7 +49,7 @@ void main() {
   });
 
   test('stages verified bytes and reuses them without a request', () async {
-    final output = Directory('${directory.path}/models');
+    final output = Directory(p.join(directory.path, 'models'));
     final steps = <ModelProvisionProgress>[];
     final file = await prepareEmbeddingModel(
       output: output,
@@ -58,12 +59,17 @@ void main() {
       onProgress: steps.add,
     );
     expect(await file.readAsBytes(), bytes);
-    expect(file.path, '${output.path}/embedding.gguf');
-    expect(await File('${cache.path}/embedding.gguf').readAsBytes(), bytes);
+    expect(file.path, p.join(output.path, 'embedding.gguf'));
+    expect(
+      await File(p.join(cache.path, 'embedding.gguf')).readAsBytes(),
+      bytes,
+    );
     expect(steps.last, isA<ModelProvisioned>());
     expect(steps.whereType<ModelDownloading>().last.receivedBytes, 10);
     expect(
-      jsonDecode(await File('${output.path}/manifest.json').readAsString()),
+      jsonDecode(
+        await File(p.join(output.path, 'manifest.json')).readAsString(),
+      ),
       model.toMap(),
     );
     expect(requests, 1);
@@ -77,7 +83,7 @@ void main() {
     expect(requests, 1);
 
     final second = await prepareEmbeddingModel(
-      output: Directory('${directory.path}/bundle/models'),
+      output: Directory(p.join(directory.path, 'bundle', 'models')),
       model: model,
       cacheDirectory: cache,
       legacyDownloads: const [],
@@ -88,9 +94,9 @@ void main() {
   });
 
   test('a checksum failure preserves the existing staged file', () async {
-    final output = await Directory('${directory.path}/models').create();
+    final output = await Directory(p.join(directory.path, 'models')).create();
     final target = await File(
-      '${output.path}/embedding.gguf',
+      p.join(output.path, 'embedding.gguf'),
     ).writeAsString('previous data');
     corruptResponse = true;
     await expectLater(
@@ -116,7 +122,7 @@ void main() {
     'an empty cache reuses verified legacy llamadart bytes offline',
     () async {
       final legacy = DefaultModelDownloadManager(
-        defaultCacheDirectory: '${directory.path}/legacy',
+        defaultCacheDirectory: p.join(directory.path, 'legacy'),
       );
       await legacy.ensureModel(
         ModelSource.url(Uri.parse(model.url)),
@@ -124,7 +130,7 @@ void main() {
       );
       final previousRequests = requests;
       final file = await prepareEmbeddingModel(
-        output: Directory('${directory.path}/new-models'),
+        output: Directory(p.join(directory.path, 'new-models')),
         model: model,
         cacheDirectory: cache,
         legacyDownloads: [legacy],
@@ -148,12 +154,12 @@ void main() {
   test('offline cache misses make no network requests', () async {
     await expectLater(
       prepareEmbeddingModel(
-        output: Directory('${directory.path}/models'),
+        output: Directory(p.join(directory.path, 'models')),
         model: model,
         cacheDirectory: cache,
         legacyDownloads: [
           DefaultModelDownloadManager(
-            defaultCacheDirectory: '${directory.path}/legacy',
+            defaultCacheDirectory: p.join(directory.path, 'legacy'),
           ),
         ],
         offline: true,
