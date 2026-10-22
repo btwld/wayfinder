@@ -1,0 +1,342 @@
+{
+  "bundles": [
+    {
+      "name": "shared-kit",
+      "path": "kits/shared-kit"
+    },
+    {
+      "name": "knowledge",
+      "path": "knowledge"
+    }
+  ],
+  "matches": [
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-1>",
+        "sourcePath": "recovery.md",
+        "lineStart": 17,
+        "lineEnd": 17,
+        "content": "Reset a forgotten password with the recovery link sent to your email.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Account recovery"
+          ],
+          "parentHeadingId": "cb758e5e3a3d88c607210f4921faa2b0f8585c26",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Account recovery",
+              "description": "How to regain access to an account.",
+              "status": "stable",
+              "tags": [
+                "accounts"
+              ],
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              },
+              "sources": [
+                {
+                  "id": "s1",
+                  "resource": "https://example.test/support/recovery"
+                },
+                {
+                  "id": "s2",
+                  "resource": "guides/email-delivery.md"
+                }
+              ],
+              "relationships": [
+                {
+                  "relationship": "depends-on",
+                  "resource": "/guides/email-delivery.md"
+                }
+              ]
+            },
+            "headingPath": [
+              "Account recovery"
+            ]
+          }
+        }
+      },
+      "similarity": 1.0
+    },
+    {
+      "bundle": "shared-kit",
+      "bundlePath": "kits/shared-kit",
+      "chunk": {
+        "id": "<chunk-2>",
+        "sourcePath": "password-reset.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Use the shared kit to reset a password from any app, whatever the weather.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Password reset"
+          ],
+          "parentHeadingId": "0389170d2d43de483df347cccbd86735fa39536a",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/kits/shared-kit",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Password reset",
+              "description": "Resetting a password from the shared kit.",
+              "status": "draft",
+              "owner": "platform-team"
+            },
+            "headingPath": [
+              "Password reset"
+            ]
+          }
+        }
+      },
+      "similarity": 0.7071244577505046
+    },
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-3>",
+        "sourcePath": "guides/email-delivery.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Account emails arrive within five minutes. Check the spam folder first.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Email delivery"
+          ],
+          "parentHeadingId": "cf12f431d4b0611d703516c06fcc06417e9e8d80",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Email delivery",
+              "description": "When account emails arrive.",
+              "status": "stable",
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              }
+            },
+            "headingPath": [
+              "Email delivery"
+            ]
+          }
+        }
+      },
+      "similarity": 0.009999500037496877
+    },
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-4>",
+        "sourcePath": "weather.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Rain is forecast this weekend.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Weather"
+          ],
+          "parentHeadingId": "22182da8b83ea70dc4c5cc52918f1ecf3f49164f",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Weather forecast",
+              "description": "An unrelated weekend forecast for the coast and the river valley, kept so that a deprecated concept still ranks, cites and renders beside the current guides.",
+              "status": "deprecated",
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              }
+            },
+            "headingPath": [
+              "Weather"
+            ]
+          }
+        }
+      },
+      "similarity": 0.00009998999876517283
+    }
+  ],
+  "context": [
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-1>",
+        "sourcePath": "recovery.md",
+        "lineStart": 17,
+        "lineEnd": 17,
+        "content": "Reset a forgotten password with the recovery link sent to your email.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Account recovery"
+          ],
+          "parentHeadingId": "cb758e5e3a3d88c607210f4921faa2b0f8585c26",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Account recovery",
+              "description": "How to regain access to an account.",
+              "status": "stable",
+              "tags": [
+                "accounts"
+              ],
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              },
+              "sources": [
+                {
+                  "id": "s1",
+                  "resource": "https://example.test/support/recovery"
+                },
+                {
+                  "id": "s2",
+                  "resource": "guides/email-delivery.md"
+                }
+              ],
+              "relationships": [
+                {
+                  "relationship": "depends-on",
+                  "resource": "/guides/email-delivery.md"
+                }
+              ]
+            },
+            "headingPath": [
+              "Account recovery"
+            ]
+          }
+        }
+      },
+      "similarity": 1.0,
+      "reason": "match"
+    },
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-3>",
+        "sourcePath": "guides/email-delivery.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Account emails arrive within five minutes. Check the spam folder first.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Email delivery"
+          ],
+          "parentHeadingId": "cf12f431d4b0611d703516c06fcc06417e9e8d80",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Email delivery",
+              "description": "When account emails arrive.",
+              "status": "stable",
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              }
+            },
+            "headingPath": [
+              "Email delivery"
+            ]
+          }
+        }
+      },
+      "similarity": 0.009999500037496877,
+      "reason": "relationship",
+      "viaPath": "recovery.md"
+    },
+    {
+      "bundle": "shared-kit",
+      "bundlePath": "kits/shared-kit",
+      "chunk": {
+        "id": "<chunk-2>",
+        "sourcePath": "password-reset.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Use the shared kit to reset a password from any app, whatever the weather.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Password reset"
+          ],
+          "parentHeadingId": "0389170d2d43de483df347cccbd86735fa39536a",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/kits/shared-kit",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Password reset",
+              "description": "Resetting a password from the shared kit.",
+              "status": "draft",
+              "owner": "platform-team"
+            },
+            "headingPath": [
+              "Password reset"
+            ]
+          }
+        }
+      },
+      "similarity": 0.7071244577505046,
+      "reason": "match"
+    },
+    {
+      "bundle": "knowledge",
+      "bundlePath": "knowledge",
+      "chunk": {
+        "id": "<chunk-4>",
+        "sourcePath": "weather.md",
+        "lineStart": 11,
+        "lineEnd": 11,
+        "content": "Rain is forecast this weekend.",
+        "type": "paragraph",
+        "metadata": {
+          "headingPath": [
+            "Weather"
+          ],
+          "parentHeadingId": "22182da8b83ea70dc4c5cc52918f1ecf3f49164f",
+          "parentHeadingLevel": 1,
+          "okf": {
+            "bundleId": "<tmp>/project/knowledge",
+            "frontmatter": {
+              "type": "Guide",
+              "title": "Weather forecast",
+              "description": "An unrelated weekend forecast for the coast and the river valley, kept so that a deprecated concept still ranks, cites and renders beside the current guides.",
+              "status": "deprecated",
+              "generated": {
+                "by": "process:fixture",
+                "at": "2026-10-01T00:00:00Z"
+              }
+            },
+            "headingPath": [
+              "Weather"
+            ]
+          }
+        }
+      },
+      "similarity": 0.00009998999876517283,
+      "reason": "match"
+    }
+  ],
+  "notices": []
+}
