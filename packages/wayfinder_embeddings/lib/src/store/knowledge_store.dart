@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:meta/meta.dart';
 import 'package:okf/okf_io.dart' show okfBundleLockFileName;
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
@@ -17,6 +16,7 @@ import '../okf/knowledge_snapshot.dart';
 import '../storage/memory_store.dart';
 import 'encoder.dart';
 import 'generation.dart';
+import 'generation_pin_hook.dart';
 import 'index_result.dart';
 import 'project_search.dart';
 import 'shared_encoder.dart';
@@ -99,9 +99,12 @@ final class _GenerationUnreadable implements Exception {
 /// Only writers lock. [index] and [forget] hold the bundle's
 /// `writer.lock` (`WayfinderFileLock`), across isolates and processes;
 /// another writer meanwhile fails with `index-busy` instead of waiting.
-/// [status], [search] and [searchBundle] take no lock, so they keep working
+/// [status], [search] and [searchBundle] hold no lock, so they keep working
 /// while an index runs: they read the last published generation, which
-/// nothing changes. A superseded generation stays for [gracePeriod] after
+/// nothing changes. To tell whether a writer runs, they probe the writer
+/// lock with `WayfinderFileLock.isHeld`, a shared lock taken for an instant,
+/// which a writer's `WayfinderFileLock.tryExclusive` waits out rather than
+/// report as busy. A superseded generation stays for [gracePeriod] after
 /// the publication that replaced it, so a reader that read the pointer just
 /// before still finds it; garbage collection runs after a later
 /// publication, and a reader that loses the race anyway reads the pointer
@@ -124,7 +127,9 @@ final class _GenerationUnreadable implements Exception {
 /// - `index-busy` when another operation is indexing or forgetting the
 ///   bundle's index, for [index] and [forget], and for a search with
 ///   [StaleIndexPolicy.serveWhileRefreshing] while the first index of a
-///   bundle is being built or an unusable one replaced;
+///   bundle is being built or an unusable one replaced; on Windows also
+///   when readers keep the `current` pointer open for seconds while [index]
+///   publishes or [forget] deletes it;
 /// - `index-missing`, `index-stale` or `index-incompatible` when [search]
 ///   finds no usable index; [status] reports the same as a value;
 /// - `bundle-changed` when the bundle changed while an operation read it;
@@ -178,12 +183,6 @@ class WayfinderKnowledgeStore {
   final int cacheBytes;
   final Duration gracePeriod;
 
-  /// Runs after a reader reads the `current` pointer and before it opens the
-  /// generation the pointer names, with that generation's name. Tests use it
-  /// to race garbage collection against a read.
-  @visibleForTesting
-  Future<void> Function(String generation)? onGenerationPinned;
-
   // Increment when chunking, snapshot or application input semantics change.
   // `store` names the generation format. The encoder's identity is part of
   // the configuration key beside it.
@@ -215,6 +214,14 @@ class WayfinderKnowledgeStore {
   /// disappears.
   static const _readAttempts = 3;
 
+  /// How long a reader waits before each new read of a pointer it could
+  /// not read, such as on Windows while a writer replaces it.
+  static const _pointerRetryDelays = [
+    Duration(milliseconds: 5),
+    Duration(milliseconds: 25),
+    Duration(milliseconds: 100),
+  ];
+
   String get _space => '${encoder.identity.model}:okf-context-v2';
 
   late final String _configurationKey = sha256
@@ -243,7 +250,7 @@ class WayfinderKnowledgeStore {
 
   /// The saved index of [bundle] compared with the bundle as it is now:
   /// [KnowledgeIndexRefreshing] while another operation indexes or forgets
-  /// it. Takes no lock and opens no encoder.
+  /// it. Holds no lock, probing the writer's, and opens no encoder.
   Future<KnowledgeIndexStatus> status(ProjectBundle bundle) => _admit(() async {
     final index = await _namespace(bundle);
     final files = await _inventory(index.root);
@@ -566,9 +573,9 @@ class WayfinderKnowledgeStore {
   /// `indexes/` are never touched.
   ///
   /// A lock file is deleted only once no operation used it for [unusedFor],
-  /// as well: deleting a lock file that another operation has just opened
-  /// would let two operations hold the same index, and a long-unused one is
-  /// not being opened.
+  /// as well, so no operation is opening it; one that opened it just before
+  /// it went locks the file at its path instead, which `WayfinderFileLock`
+  /// checks, so two operations never hold the same index.
   ///
   /// It also deletes the `get` lock files of project roots that no longer
   /// exist, once unused for [unusedFor]
@@ -911,10 +918,10 @@ class WayfinderKnowledgeStore {
         if (attempt == 2) throw _busy;
       }
     }
+    // tryExclusive locks only the file the path names, so a prune that
+    // deleted the lock file meanwhile cannot leave two writers on two files.
     if (lock == null) throw _busy;
     try {
-      // prune deleted the lock file while this descriptor waited.
-      if (!await index.writer.exists()) throw _busy;
       // The note names the root for prune; writing it records the use.
       await lock.writeNote('${jsonEncode({'root': index.root})}\n');
       return lock;
@@ -957,7 +964,33 @@ class WayfinderKnowledgeStore {
     }
     final pending = File(p.join(directory, _pendingName));
     await pending.writeAsString(generation, flush: true);
-    await pending.rename(pointer.path);
+    await _whileReadersClose(() => pending.rename(pointer.path));
+  }
+
+  /// Runs [replace], a rename over or deletion of the `current` pointer.
+  /// Windows refuses either while a reader has the pointer open, which a
+  /// reader does only while it reads it, so on Windows a refusal is retried
+  /// for about two seconds and then reported as `index-busy`. Other
+  /// platforms never refuse for a reader.
+  static Future<void> _whileReadersClose(
+    Future<void> Function() replace,
+  ) async {
+    var delay = const Duration(milliseconds: 10);
+    var waited = Duration.zero;
+    while (true) {
+      try {
+        await replace();
+        return;
+      } on PathNotFoundException {
+        rethrow;
+      } on FileSystemException {
+        if (!Platform.isWindows) rethrow;
+        if (waited >= const Duration(seconds: 2)) throw _busy;
+      }
+      await Future<void>.delayed(delay);
+      waited += delay;
+      if (delay < const Duration(milliseconds: 320)) delay *= 2;
+    }
   }
 
   /// Deletes [index]'s generations that are not current and not [keep]:
@@ -1000,17 +1033,20 @@ class WayfinderKnowledgeStore {
   ///
   /// The pointer goes first, so a reader then sees no index rather than a
   /// broken one; when it cannot be deleted, such as while a reader on
-  /// Windows has it open, this throws `index-busy`. A generation a reader
-  /// still has open on Windows stays for a later [prune].
+  /// Windows keeps it open for seconds, this throws `index-busy`. A
+  /// generation a reader still has open on Windows stays for a later
+  /// [prune].
   static Future<bool> _clear(Directory directory) async {
     var cleared = false;
     if (!await directory.exists()) return false;
     final pointer = File(p.join(directory.path, _currentName));
     try {
       if (await pointer.exists()) {
-        await pointer.delete();
+        await _whileReadersClose(pointer.delete);
         cleared = true;
       }
+    } on PathNotFoundException {
+      // Gone already.
     } on FileSystemException {
       throw _busy;
     }
@@ -1213,7 +1249,7 @@ class WayfinderKnowledgeStore {
   }
 
   /// A [MemoryStore] holding [pinned]'s vectors and, with [chunks], its
-  /// passages with the embedding input each vector encodes, which
+  /// passages with a hash of the embedding input each vector encodes, which
   /// `KnowledgeIndex.synchronize` compares to reuse it.
   Future<MemoryStore> _memoryOf(_Pinned pinned, {bool chunks = true}) async {
     final (:saved, :vectors) = pinned;
@@ -1288,7 +1324,9 @@ class WayfinderKnowledgeStore {
   /// change once published, and when the one the pointer named disappears,
   /// as garbage collection removes a generation superseded long enough
   /// ago, this reads the pointer again, up to [_readAttempts] times. A
-  /// generation that cannot be read while the pointer still names it is
+  /// pointer that cannot be read, as on Windows while a writer replaces it,
+  /// is read again after each of [_pointerRetryDelays]. A generation that
+  /// cannot be read while the pointer still names it is
   /// `index-incompatible`.
   Future<_Pinned?> _pin(_Namespace index) async {
     final directory = index.directory;
@@ -1297,7 +1335,9 @@ class WayfinderKnowledgeStore {
         : null;
     final pointer = File(p.join(directory.path, _currentName));
     String? unreadable;
-    for (var attempt = 0; attempt < _readAttempts; attempt++) {
+    var attempts = 0;
+    var refused = 0;
+    while (attempts < _readAttempts) {
       final String generation;
       try {
         generation = await pointer.readAsString();
@@ -1305,13 +1345,15 @@ class WayfinderKnowledgeStore {
         _cachedSavedIndexes.remove(cacheKey);
         return null;
       } on FileSystemException {
-        // Windows may refuse a file being replaced; read it again.
+        if (refused == _pointerRetryDelays.length) break;
+        await Future<void>.delayed(_pointerRetryDelays[refused++]);
         continue;
       }
+      attempts++;
       if (!_generationName.hasMatch(generation) || generation == unreadable) {
         break;
       }
-      await onGenerationPinned?.call(generation);
+      await generationPinned[this]?.call(generation);
       try {
         return await _readGeneration(directory, generation, cacheKey);
       } on _GenerationUnreadable {

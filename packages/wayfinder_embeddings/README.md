@@ -155,8 +155,8 @@ try {
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
   snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and the input each row embeds, and a reader checks them
-  before it scores. A 0.2 index, at `indexes/<sha256 of the root>/`, and an
+  count, SHA-256 and a hash of the input each row embeds, and a reader checks
+  them before it scores. A 0.2 index, at `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
   `indexes/<bundle key>/<configuration key>/`, are never read, changed or
   deleted: the first index after an upgrade builds anew. Chunk IDs do not
@@ -165,9 +165,14 @@ try {
   `.okf.lock` at any depth and never opens it.
 - **Concurrency.** Only writers lock. `index` and `forget` hold the index's
   `writer.lock` across isolates and processes; another writer fails with
-  `index-busy`. `status`, `search` and `searchBundle` take no lock: they read
+  `index-busy`. `status`, `search` and `searchBundle` hold no lock: they read
   the generation `current` names, which never changes, so they keep working
-  while an index runs and never see a partial generation. A superseded
+  while an index runs and never see a partial generation. They probe
+  `writer.lock` for an instant to tell whether a writer runs, which a writer
+  waits out rather than report as busy. On Windows, which replaces no file
+  another handle has open, a publication waits up to two seconds for readers
+  of `current`, then fails with `index-busy` and keeps the published
+  generation. A superseded
   generation stays for `gracePeriod`, ten minutes by default, after the
   publication that replaced it, and a later publication deletes it; a reader
   that loses that race reads the pointer again. `forget` and `prune` keep a

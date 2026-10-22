@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support/search_loop.dart';
 import 'support/store_support.dart';
@@ -179,6 +181,115 @@ void main() {
     timeout: const Timeout(Duration(minutes: 4)),
   );
 
+  test(
+    'searches that probe the writer lock never make a lone writer busy',
+    () async {
+      final store = writer();
+      final lock = writerLock((await store.index(bundle)).index);
+      final reference = searchFingerprint(
+        await store.searchBundle(bundle, concurrencyQuery),
+      );
+      final readers = <(SendPort, Future<Map<String, Object?>>, ReceivePort)>[];
+      for (var i = 0; i < 2; i++) {
+        final port = ReceivePort();
+        final messages = StreamIterator(port);
+        await Isolate.spawn(_searchingIsolate, (
+          port.sendPort,
+          data.path,
+          bundle.root,
+          reference,
+        ));
+        expect(await messages.moveNext(), isTrue);
+        final stop = messages.current as SendPort;
+        final summary = () async {
+          while (await messages.moveNext()) {
+            if (messages.current case final Map<Object?, Object?> summary) {
+              return Map<String, Object?>.from(summary);
+            }
+          }
+          throw StateError('The reader stopped without a summary.');
+        }();
+        readers.add((stop, summary, port));
+      }
+      // And a crowd of readers: probes of the lock, one after another.
+      final probes = ReceivePort();
+      final probeMessages = StreamIterator(probes);
+      await Isolate.spawn(_probingIsolate, (probes.sendPort, lock.path));
+      expect(await probeMessages.moveNext(), isTrue);
+      final stopProbes = probeMessages.current as SendPort;
+      // Every search probes writer.lock (serveWhileRefreshing), as does every
+      // status; a writer's attempt that lands on a probe must not read it as
+      // another writer.
+      var attempts = 0;
+      final busy = <String>[];
+      final watch = Stopwatch()..start();
+      try {
+        while (watch.elapsed < const Duration(seconds: 3)) {
+          attempts++;
+          try {
+            await store.index(bundle);
+          } on WayfinderException catch (error) {
+            if (error.code != 'index-busy') rethrow;
+            busy.add('attempt $attempts: ${error.message}');
+          }
+          // Leaves the lock free between runs, as an editor's saves do.
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+        }
+      } finally {
+        for (final (stop, _, _) in readers) {
+          stop.send('stop');
+        }
+        stopProbes.send('stop');
+      }
+      expect(await probeMessages.moveNext(), isTrue);
+      printOnFailure('${probeMessages.current} probes');
+      expect(probeMessages.current, greaterThan(0));
+      probes.close();
+      for (final (_, summary, port) in readers) {
+        final result = await summary.timeout(const Duration(minutes: 1));
+        port.close();
+        printOnFailure('reader: $result');
+        expect(result['failures'], isEmpty);
+        expect(result['searches'], greaterThan(0));
+      }
+      printOnFailure('$attempts writer attempts');
+      expect(attempts, greaterThan(1));
+      expect(busy, isEmpty, reason: 'no other writer exists');
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test('a reader in another isolate that loses a race with garbage '
+      'collection reads the pointer again', () async {
+    final first = await writer().index(bundle);
+    final fromIsolate = ReceivePort();
+    final messages = StreamIterator(fromIsolate);
+    await Isolate.spawn(_pausedReader, (
+      fromIsolate.sendPort,
+      data.path,
+      bundle.root,
+    ));
+    expect(await messages.moveNext(), isTrue);
+    final resume = messages.current as SendPort;
+    expect(await messages.moveNext(), isTrue);
+    final pinned = messages.current as String;
+    expect(pinned, p.basename(currentGeneration(first.index).path));
+    // Publishes a new generation and, with no grace period, collects the
+    // one the reader pinned before the reader opens it.
+    await writer().index(bundle, force: true);
+    expect(Directory(p.join(first.index, pinned)).existsSync(), isFalse);
+    resume.send('resume');
+    expect(await messages.moveNext(), isTrue);
+    final result = Map<String, Object?>.from(messages.current as Map);
+    fromIsolate.close();
+    expect(result['error'], isNull);
+    expect(result['pinned'], [
+      pinned,
+      p.basename(currentGeneration(first.index).path),
+    ], reason: 'the reader retried once, on the new generation');
+    expect(result['source'], 'recovery.md');
+  });
+
   test('two writers exclude each other across isolates', () async {
     await writer().index(bundle);
     final fromIsolate = ReceivePort();
@@ -249,6 +360,62 @@ Future<void> _searchingIsolate(
   );
   commands.close();
   reply.send(summary);
+}
+
+/// Probes the lock file at `path` with `WayfinderFileLock.isHeld`, one probe
+/// after another as a crowd of searches would, until the main isolate sends
+/// `stop`; then sends the number of probes.
+Future<void> _probingIsolate((SendPort, String) message) async {
+  final (reply, path) = message;
+  final commands = ReceivePort();
+  reply.send(commands.sendPort);
+  var stopped = false;
+  commands.listen((_) => stopped = true);
+  var probes = 0;
+  while (!stopped) {
+    await WayfinderFileLock.isHeld(File(path));
+    probes++;
+    await Future<void>.delayed(Duration.zero);
+  }
+  commands.close();
+  reply.send(probes);
+}
+
+/// Searches once, pausing after it reads the pointer the first time until
+/// the main isolate sends `resume`; sends the pinned generation, then the
+/// generations it pinned and the top match, or the error.
+Future<void> _pausedReader((SendPort, String, String) message) async {
+  final (reply, data, root) = message;
+  final commands = ReceivePort();
+  reply.send(commands.sendPort);
+  final resumed = commands.first;
+  final store = WayfinderKnowledgeStore(
+    dataDirectory: Directory(data),
+    encoder: DeterministicEncoderProvider(model: concurrencyModel),
+  );
+  final pinned = <String>[];
+  generationPinned[store] = (generation) async {
+    pinned.add(generation);
+    if (pinned.length == 1) {
+      reply.send(generation);
+      await resumed;
+    }
+  };
+  try {
+    final result = await store.searchBundle(
+      ProjectBundle('knowledge', 'knowledge', root),
+      concurrencyQuery,
+    );
+    reply.send({
+      'pinned': pinned,
+      'source': result.matches.first.sourcePath,
+      'error': null,
+    });
+  } on Object catch (error) {
+    reply.send({'pinned': pinned, 'error': '$error'});
+  } finally {
+    await store.dispose();
+  }
 }
 
 /// Forces an index whose encoder does not open until the main isolate

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
 
 import 'support/store_support.dart';
 
@@ -1122,7 +1123,7 @@ void main() {
       final paused = Completer<void>();
       final resume = Completer<void>();
       final reader = store();
-      reader.onGenerationPinned = (generation) async {
+      generationPinned[reader] = (generation) async {
         pinned.add(generation);
         if (pinned.length == 1) {
           paused.complete();
@@ -1157,7 +1158,7 @@ void main() {
       final paused = Completer<void>();
       final resume = Completer<void>();
       final reader = store();
-      reader.onGenerationPinned = (generation) async {
+      generationPinned[reader] = (generation) async {
         pinned.add(generation);
         if (pinned.length == 1) {
           paused.complete();
@@ -1180,6 +1181,60 @@ void main() {
         p.basename(currentGeneration(first.index).path),
       ]);
     });
+
+    test('a publication waits for a reader that has the pointer open, which '
+        'Windows requires', () async {
+      final first = await knowledge.index(bundle);
+      final before = p.basename(currentGeneration(first.index).path);
+      // Windows renames nothing over a file another handle has open.
+      final reader = await File(p.join(first.index, 'current')).open();
+      final closed = Future<void>.delayed(
+        const Duration(milliseconds: 150),
+        reader.close,
+      );
+      final forced = await knowledge.index(bundle, force: true);
+      await closed;
+      expect(forced.current, isFalse);
+      expect(p.basename(currentGeneration(first.index).path), isNot(before));
+      final result = await knowledge.searchBundle(bundle, 'password recovery');
+      expect(result.matches.first.sourcePath, 'recovery.md');
+    });
+
+    test(
+      'a publication a reader blocks for seconds fails as busy and keeps '
+      'the published generation',
+      () async {
+        final first = await knowledge.index(bundle);
+        final before = p.basename(currentGeneration(first.index).path);
+        final reader = await File(p.join(first.index, 'current')).open();
+        try {
+          await expectLater(
+            knowledge.index(bundle, force: true),
+            throwsA(
+              isA<WayfinderException>().having(
+                (e) => e.code,
+                'code',
+                'index-busy',
+              ),
+            ),
+          );
+        } finally {
+          await reader.close();
+        }
+        expect(p.basename(currentGeneration(first.index).path), before);
+        expect(
+          Directory(first.index).listSync().whereType<Directory>().map(
+            (directory) => p.basename(directory.path),
+          ),
+          [before],
+          reason: 'the staged generation is deleted',
+        );
+        expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+      },
+      skip: Platform.isWindows
+          ? false
+          : 'Only Windows refuses to rename over an open file',
+    );
 
     test('a vectors file that is not what its record says is refused, never '
         'scored, and indexing replaces it', () async {
