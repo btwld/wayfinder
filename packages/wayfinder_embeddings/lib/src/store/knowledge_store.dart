@@ -165,9 +165,9 @@ class WayfinderKnowledgeStore {
   /// encoder once no operation has used it for that long, as
   /// [releaseEncoder] does: the parsed snapshots stay, and the next
   /// operation that needs an encoder opens one again. Only an [index] run
-  /// that embeds and a search use the encoder; [status], [forget], [prune]
-  /// and an [index] that finds its index current do not, so they never keep
-  /// it open. Until it runs, the pending release keeps the isolate alive;
+  /// that embeds and a search use the encoder; [status], [forget],
+  /// [forgetProjectRoot], [prune] and an [index] that finds its index
+  /// current do not, so they never keep it open. Until it runs, the pending release keeps the isolate alive;
   /// [dispose] cancels it. It must be positive, and needs [retainEncoder].
   ///
   /// A superseded generation stays readable for [gracePeriod] after a newer
@@ -1205,7 +1205,13 @@ class WayfinderKnowledgeStore {
   /// refuses, and another configuration's note may answer instead.
   static Future<String?> _recordedRoot(Directory directory) async {
     final key = p.basename(directory.path);
-    await for (final entry in directory.list(followLinks: false)) {
+    final List<FileSystemEntity> namespaces;
+    try {
+      namespaces = await directory.list(followLinks: false).toList();
+    } on FileSystemException {
+      return null; // Another forget or prune deleted it meanwhile.
+    }
+    for (final entry in namespaces) {
       if (entry is! Directory || !_key.hasMatch(p.basename(entry.path))) {
         continue;
       }
