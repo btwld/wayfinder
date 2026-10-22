@@ -32,7 +32,7 @@ relevant guide; an ADR records the durable choice and links there.
 | [0016](0016-independent-profile-packages.md) | Every Profile is an independent package the validator enforces |
 | [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; preserve model, storage, context, and generic reranking |
 | [0018](0018-embeddable-libraries.md) | Public project and retrieval libraries; the host injects resources and its root bounds the project; `flock` lock files; one isolate for okf bundle I/O; knowledge store amended by ADR-0022; host seams amended by ADR-0023 |
-| [0019](0019-profile-aware-writes.md) | One write path through okf's projection seam: rewrite only indexes whose generated text changes, caller-authored log entries, an in-memory delta gate |
+| [0019](0019-profile-aware-writes.md) | One write path through okf's projection seam: rewrite only indexes whose generated text changes, caller-authored log entries, an in-memory delta gate a host may run on another isolate |
 | [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing |
 | [0021](0021-graph-projection-in-project-library.md) | The graph projection and `wayfinderLinkFields` live in the project library; graph output is unchanged |
 | [0022](0022-plain-file-index-generations.md) | Plain-file index generations that search reads while an index runs; the knowledge store is the public lifecycle |

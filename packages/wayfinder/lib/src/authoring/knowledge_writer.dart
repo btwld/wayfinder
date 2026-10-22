@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -8,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../diagnostics.dart';
 import '../field_edges.dart';
 import '../profile_finding.dart';
+import '../project/cancellation.dart';
 import '../project/exception.dart';
 import '../project/profile_resolver.dart';
 import '../rules/evaluate.dart';
@@ -63,6 +65,35 @@ final class KnowledgeWriteRefusedException extends WayfinderException {
   }
 }
 
+/// `write-failed`: the file system refused the write, such as a bundle the
+/// process may not write, a `.okf.lock` that is not a regular file, or a
+/// file that cannot be read or replaced. The message names the path and the
+/// operating system's reason.
+///
+/// [partial] is false when nothing was written: `prepare` writes nothing,
+/// and okf rolls a failed commit back. It is true only when that rollback
+/// failed too, so the bundle may hold part of the write; review it with
+/// Git, and repair generated indexes with `RegenerateIndexes`.
+final class KnowledgeWriteFailedException extends WayfinderException {
+  const KnowledgeWriteFailedException(String message, {this.partial = false})
+    : super('write-failed', message);
+
+  final bool partial;
+
+  static KnowledgeWriteFailedException _of(FileSystemException error) {
+    final reason = error.osError?.message;
+    final path = error.path;
+    return KnowledgeWriteFailedException(
+      [
+        error.message,
+        if (reason != null && reason.isNotEmpty) ': $reason',
+        if (path != null && path.isNotEmpty) ' ($path)',
+        '.',
+      ].join(),
+    );
+  }
+}
+
 /// One file a commit writes: its bundle-relative [path], the text the
 /// bundle holds ([before], null for a new file), and the text it writes.
 final class KnowledgeFileDiff {
@@ -85,6 +116,93 @@ final class KnowledgeCommitResult {
   final List<String> changedPaths;
 }
 
+/// What a write's Profile assessment judges, all in memory: the bundle
+/// ([base]) and okf's prepared candidate ([candidate]) as okf loaded them,
+/// and the [selection] both are judged with.
+///
+/// It holds no file handle, lock or callback into the writer, so a host may
+/// send it to another isolate and run [assess] there.
+final class KnowledgeAssessmentInput {
+  const KnowledgeAssessmentInput({
+    required this.base,
+    required this.candidate,
+    required this.selection,
+    this.validator = const ProfileValidator(),
+  });
+
+  final OkfBundleLoadResult base;
+  final OkfBundleLoadResult candidate;
+  final ProfileSelection selection;
+  final ProfileValidator validator;
+
+  /// Judges [base] and [candidate] with `ProfileValidator.validateLoaded`,
+  /// and runs the base's rules even when OKF blocks it, so a write that
+  /// repairs OKF is charged only with the findings it adds.
+  ///
+  /// Synchronous, and reads no bundle file and takes no lock; only the
+  /// `path-targets-exist` builtin checks the disk, for a path target the
+  /// loaded bundle does not hold. A Profile rule can be slow, so a host
+  /// that needs a deadline runs this on an isolate it can kill.
+  KnowledgeAssessment assess() {
+    final baseResult = validator.validateLoaded(base, selection);
+    return KnowledgeAssessment(
+      base: baseResult,
+      candidate: validator.validateLoaded(candidate, selection),
+      baseFindings: switch ((baseResult.profile, selection)) {
+        (Assessed(:final findings), _) => findings,
+        (BlockedByOkf(), SelectedProfile(:final profile)) => evaluate(
+          profile,
+          BundleFacts.project(
+            base,
+            profile: profile,
+            buildGraph: validator.buildGraph,
+          ),
+        ).findings,
+        _ => const [],
+      },
+    );
+  }
+}
+
+/// The verdicts [KnowledgeAssessmentInput.assess] reaches.
+final class KnowledgeAssessment {
+  KnowledgeAssessment({
+    required this.base,
+    required this.candidate,
+    required Iterable<ProfileFinding> baseFindings,
+  }) : baseFindings = List.unmodifiable(baseFindings);
+
+  /// The bundle as `validate` reports it.
+  final ProfileValidationResult base;
+
+  /// The candidate as `validate` would report it after the commit.
+  final ProfileValidationResult candidate;
+
+  /// The Profile findings of the base's rules, even when OKF blocks the
+  /// base; the candidate's findings are compared with these.
+  final List<ProfileFinding> baseFindings;
+}
+
+/// Runs a write's Profile assessment for [KnowledgeWriter.prepare], which
+/// calls it once per plan, after okf's shared claim on the bundle is
+/// released, with what okf loaded and prepared in memory.
+///
+/// It returns what [KnowledgeAssessmentInput.assess] returns for [input].
+/// The default runs that on the calling isolate. A host that must bound a
+/// Profile's rules runs it on an isolate it kills at a deadline, or when
+/// [cancel], the cancellation `prepare` was given, is cancelled; whatever
+/// it throws, such as [WayfinderException.cancelled], `prepare` throws.
+typedef KnowledgeAssessor =
+    Future<KnowledgeAssessment> Function(
+      KnowledgeAssessmentInput input,
+      WayfinderCancellation? cancel,
+    );
+
+Future<KnowledgeAssessment> _assessHere(
+  KnowledgeAssessmentInput input,
+  WayfinderCancellation? cancel,
+) async => input.assess();
+
 /// A prepared write: the bundle as it stands, the candidate it would become,
 /// and the verdict that decides whether [KnowledgeWriter.commit] writes it.
 ///
@@ -95,7 +213,8 @@ final class KnowledgeCommitResult {
 /// counted as a multiset, and [introduced] otherwise; the plan is not
 /// committable when an introduced finding, or an error diagnostic the base
 /// does not report, is an error. A caller that also requires a passing
-/// gate checks [candidate]'s `gate`.
+/// gate checks [candidate]'s `gate`; one that requires a Profile to have
+/// judged the write checks [assessed].
 final class KnowledgeWritePlan {
   KnowledgeWritePlan._({
     required this.bundle,
@@ -151,6 +270,14 @@ final class KnowledgeWritePlan {
   /// okf's Spec judgment of the candidate.
   OkfSpecValidation get okf => candidate.okfValidation;
 
+  /// Whether a Profile's rules judged the candidate. False when none could
+  /// be selected, such as for a bundle with no `wayfinder.json`, or one
+  /// whose Profile is unresolved or does not compose: the base and the
+  /// candidate then carry the same diagnostics, so the plan is judged by
+  /// OKF alone, and `validate` reports the committed bundle `NOT_ASSESSED`
+  /// rather than `PASS`. Also false when okf refuses the candidate.
+  bool get assessed => candidate.profile is Assessed;
+
   bool get committable =>
       _prepared != null &&
       !introduced.any(
@@ -171,25 +298,31 @@ final class KnowledgeWritePlan {
 /// change does not affect keeps its text even when it is stale. Without a
 /// fixable rule, okf's own regeneration of the changed concept's ancestor
 /// indexes stands. For the root log, it writes what [KnowledgeLog] names.
-/// The candidate is then validated in memory with
+/// The candidate is then judged in memory by the [KnowledgeAssessor], with
 /// `ProfileValidator.validateLoaded`, never read back from disk.
 ///
-/// okf's bundle lock covers both steps: [prepare] holds a shared claim and
-/// writes nothing, and [commit] holds the exclusive claim. Run every write
-/// of a process on the isolate that does its other okf bundle I/O
-/// (ADR-0018).
+/// okf's bundle lock covers the file access: [prepare] holds a shared claim
+/// while it reads the bundle and okf prepares the candidate, releases it
+/// before the Profile assessment, and writes nothing; [commit] holds the
+/// exclusive claim, and okf refuses a bundle that changed since [prepare].
+/// Run every write of a process on the isolate that does its other okf
+/// bundle I/O (ADR-0018); only the assessment may run elsewhere.
 final class KnowledgeWriter {
   /// [resolver] selects the bundle's Profile when [prepare] is given no
-  /// selection; [validator] judges the base and the candidate; [clock]
-  /// dates stamps and log entries.
+  /// selection; [validator] generates the Profile's indexes and judges the
+  /// base and the candidate; [assess] runs that judgment, by default on the
+  /// calling isolate; [clock] dates stamps and log entries.
   KnowledgeWriter({
     this.resolver,
     this.validator = const ProfileValidator(),
+    KnowledgeAssessor assess = _assessHere,
     DateTime Function() clock = DateTime.now,
-  }) : _clock = clock;
+  }) : _assess = assess,
+       _clock = clock;
 
   final WayfinderProfileResolver? resolver;
   final ProfileValidator validator;
+  final KnowledgeAssessor _assess;
   final DateTime Function() _clock;
 
   /// Prepares [change] to the bundle at [bundle], stamped with [stamp], and
@@ -200,9 +333,13 @@ final class KnowledgeWriter {
   /// [commit] also refuses the plan if that `wayfinder.json` or the
   /// `wayfinder.lock` beside it changed since.
   ///
+  /// [cancel] is checked between steps and passed to the resolver and the
+  /// assessor; a cancelled prepare throws [WayfinderException.cancelled].
+  ///
   /// Throws [KnowledgeChangeException] for a change that cannot be
   /// described against the bundle, [KnowledgeStaleWriteException] when the
-  /// bundle changed while it was read, and [ArgumentError] for a change,
+  /// bundle changed while it was read, [KnowledgeWriteFailedException] when
+  /// the bundle cannot be locked or read, and [ArgumentError] for a change,
   /// stamp or log entry the writer cannot record as given.
   Future<KnowledgeWritePlan> prepare(
     String bundle,
@@ -210,8 +347,32 @@ final class KnowledgeWriter {
     required KnowledgeStamp stamp,
     KnowledgeLog logEntry = KnowledgeLog.lifecycle,
     ProfileSelection? selection,
+    WayfinderCancellation? cancel,
   }) async {
     _check(change, stamp, logEntry);
+    throwIfCancelled(cancel);
+    try {
+      return await _prepare(
+        bundle,
+        change,
+        stamp: stamp,
+        log: logEntry,
+        selection: selection,
+        cancel: cancel,
+      );
+    } on FileSystemException catch (error) {
+      throw KnowledgeWriteFailedException._of(error);
+    }
+  }
+
+  Future<KnowledgeWritePlan> _prepare(
+    String bundle,
+    KnowledgeChange change, {
+    required KnowledgeStamp stamp,
+    required KnowledgeLog log,
+    required ProfileSelection? selection,
+    required WayfinderCancellation? cancel,
+  }) async {
     if (await FileSystemEntity.type(bundle) != FileSystemEntityType.directory) {
       throw KnowledgeChangeException(
         'bundle-missing',
@@ -228,63 +389,144 @@ final class KnowledgeWriter {
       // two makes the plan stale rather than pairing a new lock with an
       // old selection.
       projectFiles = await _ProjectFiles.read(await _boundConfigFile(bundle));
-      chosen = await _select(bundle);
+      chosen = await _select(bundle, cancel);
     }
+    throwIfCancelled(cancel);
     final now = _clock();
     final applier = OkfBundleChangeApplier(clock: () => now);
-    return OkfBundleLock.read(bundle, () async {
-      final preparation = _Preparation(change, chosen, logEntry);
-      final changes = await _changeSet(bundle, preparation, stamp, now);
-      final OkfBundlePreparation prepared;
-      try {
-        prepared = await applier.prepare(
-          bundle,
-          changes,
-          project: (input) => _project(input, preparation),
+    // okf may run a read action twice, so this one only reads and prepares;
+    // the Profile assessment runs once, after the claim is released.
+    final (:preparation, :prepared, :diff) = await OkfBundleLock.read(
+      bundle,
+      () async {
+        throwIfCancelled(cancel);
+        final preparation = _Preparation(change, chosen, log);
+        final changes = await _changeSet(bundle, preparation, stamp, now);
+        final OkfBundlePreparation prepared;
+        try {
+          prepared = await applier.prepare(
+            bundle,
+            changes,
+            project: (input) => _project(input, preparation),
+          );
+        } on OkfBundleChangeException catch (error) {
+          throw KnowledgeChangeException('change-invalid', error.message);
+        } on OkfStalePreparedChangeException {
+          throw const KnowledgeStaleWriteException(
+            'The bundle changed while the write was prepared. Prepare it '
+            'again.',
+          );
+        }
+        return (
+          preparation: preparation,
+          prepared: prepared,
+          diff: await _diff(preparation),
         );
-      } on OkfBundleChangeException catch (error) {
-        throw KnowledgeChangeException('change-invalid', error.message);
-      } on OkfStalePreparedChangeException {
-        throw const KnowledgeStaleWriteException(
-          'The bundle changed while the write was prepared. Prepare it again.',
-        );
-      }
-      return _plan(preparation, prepared, projectFiles);
-    });
+      },
+    );
+    throwIfCancelled(cancel);
+    final candidate = switch (prepared) {
+      OkfPreparationReady(:final prepared) => prepared.candidate,
+      OkfPreparationRefused(:final candidate) =>
+        candidate ?? (throw StateError('okf refused without a candidate')),
+    };
+    final base = preparation.base!;
+    final assessment = await _assess(
+      KnowledgeAssessmentInput(
+        base: base,
+        candidate: candidate.toLoadResult(),
+        selection: chosen,
+        validator: validator,
+      ),
+      cancel,
+    );
+    throwIfCancelled(cancel);
+    final (:introduced, :preExisting) = _split(
+      assessment.baseFindings,
+      assessment.candidate.findings,
+    );
+    return KnowledgeWritePlan._(
+      bundle: base.rootPath,
+      change: change,
+      selection: chosen,
+      base: assessment.base,
+      candidate: assessment.candidate,
+      diff: diff,
+      introduced: introduced,
+      preExisting: preExisting,
+      introducedDiagnostics: _newDiagnostics(
+        assessment.base.diagnostics,
+        assessment.candidate.diagnostics,
+      ),
+      prepared: switch (prepared) {
+        OkfPreparationReady(:final prepared) => prepared,
+        OkfPreparationRefused() => null,
+      },
+      projectFiles: projectFiles,
+    );
   }
 
   /// Writes [plan] under okf's exclusive bundle lock: exactly the bytes
   /// [prepare] judged, or nothing.
   ///
+  /// [cancel] is checked before the lock is taken and again once it is
+  /// held; a cancelled commit writes nothing, throws
+  /// [WayfinderException.cancelled], and leaves the plan committable. Once
+  /// okf starts writing, the commit runs to its end. Waiting for the lock
+  /// itself cannot be cancelled: okf's lock blocks while another process
+  /// holds the bundle.
+  ///
   /// Throws [KnowledgeWriteRefusedException] for a plan that is not
-  /// committable, and [KnowledgeStaleWriteException] when the bundle, or
-  /// the project file or lock the plan's selection came from, changed since
-  /// [prepare]. A plan commits once.
-  Future<KnowledgeCommitResult> commit(KnowledgeWritePlan plan) async {
+  /// committable, [KnowledgeStaleWriteException] when the bundle, or the
+  /// project file or lock the plan's selection came from, changed since
+  /// [prepare], and [KnowledgeWriteFailedException] when the bundle cannot
+  /// be locked or written. A plan commits once; committing it again throws
+  /// a [StateError].
+  Future<KnowledgeCommitResult> commit(
+    KnowledgeWritePlan plan, {
+    WayfinderCancellation? cancel,
+  }) async {
     final prepared = plan._prepared;
     if (prepared == null || !plan.committable) {
       throw KnowledgeWriteRefusedException(plan);
     }
+    throwIfCancelled(cancel);
     if (plan.diff.isEmpty) return KnowledgeCommitResult(changedPaths: []);
-    return OkfBundleLock.write(plan.bundle, () async {
-      if (!await plan._projectFiles.isCurrent()) {
-        throw const KnowledgeStaleWriteException(
-          'wayfinder.json or wayfinder.lock changed after the write was '
-          'prepared. Prepare it again.',
-        );
-      }
-      try {
-        final result = await const OkfBundleChangeApplier().commit(prepared);
-        return KnowledgeCommitResult(changedPaths: result.changedPaths);
-      } on OkfStalePreparedChangeException {
-        throw const KnowledgeStaleWriteException(
-          'The bundle changed after the write was prepared. Prepare it again.',
-        );
-      }
-    });
+    try {
+      return await OkfBundleLock.write(plan.bundle, () async {
+        throwIfCancelled(cancel);
+        if (!await plan._projectFiles.isCurrent()) {
+          throw const KnowledgeStaleWriteException(
+            'wayfinder.json or wayfinder.lock changed after the write was '
+            'prepared. Prepare it again.',
+          );
+        }
+        try {
+          final result = await const OkfBundleChangeApplier().commit(prepared);
+          return KnowledgeCommitResult(changedPaths: result.changedPaths);
+        } on OkfStalePreparedChangeException {
+          throw const KnowledgeStaleWriteException(
+            'The bundle changed after the write was prepared. Prepare it '
+            'again.',
+          );
+        }
+      });
+    } on FileSystemException catch (error) {
+      throw KnowledgeWriteFailedException._of(error);
+    } on OkfWriteRollbackException catch (error) {
+      throw KnowledgeWriteFailedException(
+        'The write failed (${error.writeError}) and so did its rollback '
+        '(${error.rollbackErrors.join('; ')}); the bundle may hold part of '
+        'it.',
+        partial: true,
+      );
+    }
   }
 
-  Future<ProfileSelection> _select(String bundle) async {
+  Future<ProfileSelection> _select(
+    String bundle,
+    WayfinderCancellation? cancel,
+  ) async {
     final resolver =
         this.resolver ??
         (throw ArgumentError(
@@ -292,7 +534,7 @@ final class KnowledgeWriter {
         ));
     final selection = await resolver.select(bundle);
     if (selection is UnselectedProfile &&
-        await resolver.restoreCachedPackages(bundle) > 0) {
+        await resolver.restoreCachedPackages(bundle, cancel: cancel) > 0) {
       return resolver.select(bundle);
     }
     return selection;
@@ -447,8 +689,8 @@ final class KnowledgeWriter {
         }
       }
     }
-    switch (preparation.log) {
-      case final KnowledgeLogEntry entry:
+    switch (suppliedLogEntries(preparation.log)) {
+      case final entries?:
         final writes = _written(
           base,
           input.changedFiles,
@@ -456,16 +698,17 @@ final class KnowledgeWriter {
         ).keys.any((path) => path != _log);
         projection[_log] = writes
             ? _withEntries(base.logs[_log], [
-                OkfLogEntry(
-                  date: _isoDate(input.date),
-                  action: entry.action,
-                  description: entry.description,
-                ),
+                for (final entry in entries)
+                  OkfLogEntry(
+                    date: _isoDate(input.date),
+                    action: entry.action,
+                    description: entry.description,
+                  ),
               ])
             : null;
-      case _ when identical(preparation.log, KnowledgeLog.none):
+      case null when identical(preparation.log, KnowledgeLog.none):
         projection[_log] = null;
-      case _:
+      case null:
         // okf rewrites the whole log in its canonical form; keep its new
         // entries and the authored text around them.
         if (input.changedFiles[_log] case final rewritten?) {
@@ -479,19 +722,16 @@ final class KnowledgeWriter {
     return projection;
   }
 
-  Future<KnowledgeWritePlan> _plan(
-    _Preparation preparation,
-    OkfBundlePreparation prepared,
-    _ProjectFiles projectFiles,
-  ) async {
+  /// Each file the commit writes, with the text the bundle holds, read
+  /// under the shared claim.
+  static Future<List<KnowledgeFileDiff>> _diff(_Preparation preparation) async {
     final base = preparation.base!;
-    final selection = preparation.selection;
     final files = _written(
       base,
       preparation.changedFiles,
       preparation.projection,
     );
-    final diff = [
+    return [
       for (final path in files.keys.toList()..sort())
         KnowledgeFileDiff(
           path: path,
@@ -499,60 +739,7 @@ final class KnowledgeWriter {
           after: files[path]!,
         ),
     ];
-    final candidate = switch (prepared) {
-      OkfPreparationReady(:final prepared) => prepared.candidate,
-      OkfPreparationRefused(:final candidate) =>
-        candidate ?? (throw StateError('okf refused without a candidate')),
-    };
-    final baseResult = validator.validateLoaded(base, selection);
-    final candidateResult = validator.validateLoaded(
-      candidate.toLoadResult(),
-      selection,
-    );
-    final (:introduced, :preExisting) = _split(
-      _baseFindings(base, baseResult, selection),
-      candidateResult.findings,
-    );
-    return KnowledgeWritePlan._(
-      bundle: base.rootPath,
-      change: preparation.change,
-      selection: selection,
-      base: baseResult,
-      candidate: candidateResult,
-      diff: diff,
-      introduced: introduced,
-      preExisting: preExisting,
-      introducedDiagnostics: _newDiagnostics(
-        baseResult.diagnostics,
-        candidateResult.diagnostics,
-      ),
-      prepared: switch (prepared) {
-        OkfPreparationReady(:final prepared) => prepared,
-        OkfPreparationRefused() => null,
-      },
-      projectFiles: projectFiles,
-    );
   }
-
-  /// The base's Profile findings. When OKF blocks the base, its rules still
-  /// run here, so a change that repairs OKF is charged only with the
-  /// findings it adds.
-  List<ProfileFinding> _baseFindings(
-    OkfBundleLoadResult base,
-    ProfileValidationResult result,
-    ProfileSelection selection,
-  ) => switch ((result.profile, selection)) {
-    (Assessed(:final findings), _) => findings,
-    (BlockedByOkf(), SelectedProfile(:final profile)) => evaluate(
-      profile,
-      BundleFacts.project(
-        base,
-        profile: profile,
-        buildGraph: validator.buildGraph,
-      ),
-    ).findings,
-    _ => const [],
-  };
 
   static void _check(
     KnowledgeChange change,
@@ -562,7 +749,7 @@ final class KnowledgeWriter {
     if (stamp.by.trim().isEmpty) {
       throw ArgumentError.value(stamp.by, 'stamp.by', 'must not be blank');
     }
-    if (log is KnowledgeLogEntry) checkLogEntry(log);
+    checkLog(log);
     final Map<String, Object?> fields = switch (change) {
       CreateConcept(:final frontmatter) ||
       UpdateConcept(:final frontmatter) => frontmatter,
@@ -612,15 +799,21 @@ final class _Preparation {
   Map<String, String> changedFiles = const {};
   Map<String, String?> projection = const {};
 
+  /// Throws `concept-not-found` when [id] names no file, and lets any other
+  /// read failure through for `prepare` to report as `write-failed`.
   Future<OkfDocument> read(String root, OkfConceptId id) async {
-    final String text;
-    try {
-      text = await File(p.join(root, id.documentPath)).readAsString();
-    } on FileSystemException {
+    final file = File(p.join(root, id.documentPath));
+    if (!await file.exists()) {
       throw KnowledgeChangeException(
         'concept-not-found',
         'Concept ${id.value} does not exist.',
       );
+    }
+    final String text;
+    try {
+      // `readAsString` reports a decoding failure as a FileSystemException,
+      // so decode the bytes here.
+      text = utf8.decode(await file.readAsBytes());
     } on FormatException {
       throw KnowledgeChangeException(
         'change-invalid',

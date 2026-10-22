@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
@@ -72,6 +73,7 @@ void main() {
       logEntry: log,
     );
     expect(plan.introduced, isEmpty);
+    expect(plan.assessed, isTrue);
     expect(plan.committable, isTrue);
     final result = await writer.commit(plan);
     expect(result.changedPaths, plan.changedPaths);
@@ -639,6 +641,236 @@ void main() {
     );
     expect(await _status(project), isEmpty);
   });
+
+  test('several supplied log entries are written in the order given under '
+      'one date', () async {
+    final before = read('log.md');
+    final billing = OkfConceptId('billing/invoice-numbering');
+    await write(
+      CreateConcept(
+        id: billing,
+        frontmatter: {
+          'type': 'Specification',
+          'title': 'Invoice numbering',
+          'description': 'How invoices are numbered.',
+          'status': 'draft',
+        },
+        body: '# Specification\n\nNumbers never repeat.\n',
+      ),
+      log: KnowledgeLogEntries(const [
+        KnowledgeLogEntry(
+          action: 'Area created',
+          description: 'Established `billing/` for invoicing.',
+        ),
+        KnowledgeLogEntry(
+          action: 'Creation',
+          description:
+              'Recorded [Invoice numbering](/billing/invoice-numbering.md).',
+        ),
+      ]),
+    );
+    expect(
+      read('log.md'),
+      before.replaceFirst(
+        '## 2026-10-02',
+        '## 2026-10-22\n'
+            '* **Area created**: Established `billing/` for invoicing.\n'
+            '* **Creation**: Recorded [Invoice numbering]'
+            '(/billing/invoice-numbering.md).\n\n'
+            '## 2026-10-02',
+      ),
+    );
+    await expectLater(
+      writer.prepare(
+        bundle,
+        _createContract(),
+        stamp: _agent,
+        logEntry: KnowledgeLogEntries(const []),
+      ),
+      throwsArgumentError,
+    );
+    await expectLater(
+      writer.prepare(
+        bundle,
+        _createContract(),
+        stamp: _agent,
+        logEntry: KnowledgeLogEntries(const [
+          _creation,
+          KnowledgeLogEntry(action: 'Update', description: 'Two\nlines'),
+        ]),
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('the Profile assessment runs once, outside okf\'s claim on the '
+      'bundle, and can run on another isolate', () async {
+    final inputs = <KnowledgeAssessmentInput>[];
+    final elsewhere = KnowledgeWriter(
+      resolver: resolver,
+      clock: () => _now,
+      assess: (input, cancel) async {
+        inputs.add(input);
+        // Inside okf's shared claim this would throw: a shared claim
+        // cannot be upgraded.
+        await OkfBundleLock.write(bundle, () async {});
+        return Isolate.run(input.assess);
+      },
+    );
+    final plan = await elsewhere.prepare(
+      bundle,
+      _createContract(),
+      stamp: _agent,
+      logEntry: _creation,
+    );
+    expect(inputs, hasLength(1));
+    expect(inputs.single.base.rootPath, plan.bundle);
+    expect(
+      inputs.single.candidate.indexes.keys,
+      contains('reporting/index.md'),
+    );
+    final here = await writer.prepare(
+      bundle,
+      _createContract(),
+      stamp: _agent,
+      logEntry: _creation,
+    );
+    expect(plan.candidate.toJson(), here.candidate.toJson());
+    expect(plan.base.toJson(), here.base.toJson());
+    expect(plan.committable, isTrue);
+    expect(plan.assessed, isTrue);
+    expect((await elsewhere.commit(plan)).changedPaths, here.changedPaths);
+  });
+
+  test('a cancelled prepare or commit writes nothing, and a plan whose '
+      'commit was cancelled still commits', () async {
+    final cancelled = WayfinderCancellationController()..cancel();
+    Matcher isCancelled() => throwsA(
+      isA<WayfinderException>().having(
+        (error) => error.code,
+        'code',
+        'cancelled',
+      ),
+    );
+    await expectLater(
+      writer.prepare(
+        bundle,
+        _createContract(),
+        stamp: _agent,
+        cancel: cancelled,
+      ),
+      isCancelled(),
+    );
+
+    final during = WayfinderCancellationController();
+    await expectLater(
+      KnowledgeWriter(
+        resolver: resolver,
+        clock: () => _now,
+        assess: (input, cancel) async {
+          expect(cancel, same(during));
+          during.cancel();
+          return input.assess();
+        },
+      ).prepare(bundle, _createContract(), stamp: _agent, cancel: during),
+      isCancelled(),
+    );
+
+    final plan = await writer.prepare(bundle, _createContract(), stamp: _agent);
+    await expectLater(writer.commit(plan, cancel: cancelled), isCancelled());
+    expect(await _status(project), isEmpty);
+    expect(plan.committable, isTrue);
+    await writer.commit(plan);
+    expect(File(p.join(bundle, _contract.documentPath)).existsSync(), isTrue);
+  });
+
+  test('a bundle that cannot be locked or written fails as write-failed, '
+      'and nothing is written', () async {
+    final plan = await writer.prepare(bundle, _createContract(), stamp: _agent);
+    final before = await _files(bundle);
+    await _chmod('a-w', bundle);
+    addTearDown(() => _chmod('u+w', bundle));
+    await expectLater(
+      writer.commit(plan),
+      throwsA(
+        isA<KnowledgeWriteFailedException>()
+            .having((error) => error.code, 'code', 'write-failed')
+            .having((error) => error.partial, 'partial', isFalse)
+            .having(
+              (error) => error.message,
+              'message',
+              allOf(contains('Permission denied'), contains(plan.bundle)),
+            ),
+      ),
+    );
+    expect(await _files(bundle), before);
+    expect(File(p.join(bundle, okfBundleLockFileName)).existsSync(), isFalse);
+  }, skip: _cannotDenyWrites());
+
+  test('okf\'s lock file that is not a regular file fails prepare as '
+      'write-failed', () async {
+    await Directory(p.join(bundle, okfBundleLockFileName)).create();
+    await expectLater(
+      writer.prepare(bundle, _createContract(), stamp: _agent),
+      throwsA(
+        isA<KnowledgeWriteFailedException>().having(
+          (error) => error.message,
+          'message',
+          contains('must be a regular file'),
+        ),
+      ),
+    );
+  });
+
+  test('a concept that is not UTF-8 text is change-invalid', () async {
+    await File(
+      p.join(bundle, _request.documentPath),
+    ).writeAsBytes([0x2d, 0x2d, 0x2d, 0x0a, 0xff, 0xfe, 0x0a]);
+    await expectLater(
+      writer.prepare(bundle, UpdateConcept(id: _request), stamp: _agent),
+      throwsA(
+        isA<KnowledgeChangeException>().having(
+          (error) => error.code,
+          'code',
+          'change-invalid',
+        ),
+      ),
+    );
+  });
+
+  test('a bundle whose Profile cannot be selected is judged by OKF alone '
+      'and reports it was not assessed', () async {
+    await File(p.join(project, 'wayfinder.lock')).delete();
+    final plan = await writer.prepare(
+      bundle,
+      _createContract(),
+      stamp: _agent,
+      logEntry: _creation,
+    );
+    expect(plan.selection, isA<UnselectedProfile>());
+    expect(plan.introducedDiagnostics, isEmpty);
+    expect(plan.committable, isTrue);
+    expect(plan.assessed, isFalse);
+    expect(plan.candidate.gate, GateState.incomplete);
+  });
+}
+
+/// Why a test cannot take write permission away, or null when it can: on
+/// Windows, and as root, which writes anyway.
+String? _cannotDenyWrites() {
+  if (Platform.isWindows) return 'POSIX file modes only';
+  final id = Process.runSync('id', ['-u']);
+  if (id.exitCode == 0 && (id.stdout as String).trim() == '0') {
+    return 'root writes to a read-only directory';
+  }
+  return null;
+}
+
+Future<void> _chmod(String mode, String directory) async {
+  final result = await Process.run('chmod', ['-R', mode, directory]);
+  if (result.exitCode != 0) {
+    throw StateError('chmod $mode failed: ${result.stderr}');
+  }
 }
 
 /// `git status --porcelain` lines, so an untracked `.okf.lock` shows.

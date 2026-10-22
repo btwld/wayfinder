@@ -291,7 +291,8 @@ Future<void> main() async {
   not. Without such a rule, okf regenerates the changed concept's ancestor
   indexes.
 - The root log records the caller's `KnowledgeLogEntry` exactly as given,
-  okf's lifecycle entry (`KnowledgeLog.lifecycle`, the default), or nothing
+  several as `KnowledgeLogEntries` in the order given under one date, okf's
+  lifecycle entry (`KnowledgeLog.lifecycle`, the default), or nothing
   (`KnowledgeLog.none`). New entries are inserted as lines in the log's own
   style, so the existing entries keep their bytes.
 - A `KnowledgeStamp` records `generated: {by, at}` when the write creates or
@@ -302,13 +303,35 @@ Future<void> main() async {
   file it writes, and the candidate's Profile findings split into
   `introduced` and `preExisting` by rule id and path. It is `committable` when
   okf accepts the candidate and it introduces no error. Check
-  `plan.candidate.gate` to require a passing bundle.
+  `plan.candidate.gate` to require a passing bundle, and `plan.assessed` to
+  require that a Profile judged the write: when none can be selected, the
+  plan is judged by OKF alone.
 - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
   plan that is not committable and `KnowledgeStaleWriteException`
   (`write-stale`) when the bundle, or the `wayfinder.json` or `wayfinder.lock`
   its selection came from, changed since `prepare`. Neither writes anything.
+  `KnowledgeWriteFailedException` (`write-failed`) reports a bundle that
+  cannot be locked, read or written; its `partial` is true only when okf's
+  rollback failed too. A plan commits once.
+- `prepare` and `commit` take a `WayfinderCancellation`, checked between
+  steps; a cancelled commit writes nothing and leaves the plan committable.
 
-Run every write on the isolate that does the process's other okf bundle I/O.
+`prepare` reads the bundle under okf's shared claim, releases it, and then
+runs the Profile assessment once through a `KnowledgeAssessor`, with plain
+data and no lock. The default runs it on the calling isolate; another
+isolate works too:
+
+```dart
+final writer = KnowledgeWriter(
+  resolver: resolver,
+  assess: (input, cancel) => Isolate.run(input.assess),
+);
+```
+
+A Profile's rules can be slow, so a host that needs a deadline spawns an
+isolate it kills when the deadline passes or `cancel` fires. Run every other
+step on the isolate that does the process's other okf bundle I/O. A commit leaves okf's
+`.okf.lock` in the bundle, as `validate --fix` does; ignore it in Git.
 [ADR-0019](../../docs/adr/0019-profile-aware-writes.md) records these
 decisions.
 

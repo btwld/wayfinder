@@ -13,6 +13,7 @@
     text; other indexes keep their bytes, stale or not. `RegenerateIndexes`
     writes exactly what `validate --fix` writes.
   - The root log records a caller's `KnowledgeLogEntry` exactly as given,
+    several as `KnowledgeLogEntries` in the order given under one date,
     okf's lifecycle entry (`KnowledgeLog.lifecycle`, the default) or nothing
     (`KnowledgeLog.none`). Entries are inserted into the log as lines in its
     own style, so existing entries keep their bytes.
@@ -24,15 +25,31 @@
     with `validateLoaded`, the `diff` of each file it writes, and the
     candidate's Profile findings split into `introduced` and `preExisting` by
     rule id and path. It is `committable` when okf accepts the candidate and it
-    introduces no error finding or error diagnostic.
+    introduces no error finding or error diagnostic. `assessed` is false when
+    no Profile could be selected, so OKF alone judged the write.
+  - `prepare` reads the bundle under okf's shared claim and runs the Profile
+    assessment after releasing it, once, through a `KnowledgeAssessor`
+    (`KnowledgeWriter(assess:)`). It receives a `KnowledgeAssessmentInput`, the
+    base and candidate load results and the selection, which a host may send
+    to an isolate it can kill; the default runs
+    `KnowledgeAssessmentInput.assess` on the calling isolate.
+  - `prepare` and `commit` take a `WayfinderCancellation`, checked between
+    steps and passed to the resolver and the assessor; a cancelled commit
+    writes nothing and leaves the plan committable.
   - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
     plan that is not committable, and `KnowledgeStaleWriteException`
     (`write-stale`) when the bundle, or the `wayfinder.json` or
     `wayfinder.lock` its selection came from, changed since `prepare`.
     `KnowledgeChangeException` reports a change that cannot be described
     against the bundle: `bundle-missing`, `concept-exists`,
-    `concept-not-found`, `change-invalid`, `log-unwritable`, or
-    `fix-not-applied` for a `RegenerateIndexes` with no fixable rule.
+    `concept-not-found`, `change-invalid` (including a concept that is not
+    UTF-8 text), `log-unwritable`, or `fix-not-applied` for a
+    `RegenerateIndexes` with no fixable rule.
+    `KnowledgeWriteFailedException` (`write-failed`) reports a bundle that
+    cannot be locked, read or written, with `partial` set only when okf's
+    rollback failed too. A second commit of one plan throws `StateError`.
+  - A commit leaves okf's `.okf.lock` at the bundle root, as okf's own writes
+    do; ignore it in Git.
 - `ProfileValidator.validate` with `fix` holds `OkfBundleLock.write` while it
   loads the bundle again, writes and validates, whenever it has something to
   write; a fix with nothing to write takes no lock. A lock it cannot take, such
