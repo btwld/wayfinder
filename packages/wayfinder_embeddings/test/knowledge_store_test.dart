@@ -545,11 +545,10 @@ void main() {
           isTrue,
         );
       }
-      expect(
-        result.matches.map((match) => match.bundle.name),
-        ['flutter-dev-kit', 'knowledge'],
-        reason: 'equal scores rank by bundle path',
-      );
+      expect(result.matches.map((match) => match.bundle.name), [
+        'flutter-dev-kit',
+        'knowledge',
+      ], reason: 'equal scores rank by bundle path');
       expect(
         result.matches.first.chunk.id,
         result.matches.last.chunk.id,
@@ -670,9 +669,10 @@ void main() {
           reason: 'failed runs leave no staged generation',
         );
         expect(
-          Directory(
-            first.index,
-          ).listSync().whereType<File>().map((file) => p.basename(file.path)),
+          Directory(first.index)
+              .listSync()
+              .whereType<File>()
+              .map((file) => p.basename(file.path)),
           unorderedEquals(['current', 'writer.lock']),
           reason: 'failed runs supersede nothing',
         );
@@ -772,9 +772,8 @@ void main() {
       final current = await pointer();
       final before = await current.readAsString();
       final original = await file('recovery.md').readAsString();
-      await file(
-        'recovery.md',
-      ).writeAsString('$original\nNew recovery instructions.\n');
+      await file('recovery.md')
+          .writeAsString('$original\nNew recovery instructions.\n');
       provider.failDocuments = true;
       await expectLater(knowledge.index(bundle), throwsStateError);
       expect(await current.readAsString(), before);
@@ -867,9 +866,9 @@ void main() {
           final recordFile = File(
             p.join(result.index, await current.readAsString(), 'snapshot.json'),
           );
-          final record =
-              jsonDecode(await recordFile.readAsString())
-                  as Map<String, dynamic>;
+          final record = jsonDecode(
+            await recordFile.readAsString(),
+          ) as Map<String, dynamic>;
           if (corruption == 'snapshot-version') {
             (record['snapshot'] as Map)['version'] = -1;
           } else {
@@ -1276,9 +1275,10 @@ void main() {
       );
       await eager.index(bundle, force: true);
       expect(
-        Directory(
-          first.index,
-        ).listSync().map((entry) => p.basename(entry.path)).toSet(),
+        Directory(first.index)
+            .listSync()
+            .map((entry) => p.basename(entry.path))
+            .toSet(),
         {
           'current',
           'writer.lock',
@@ -1403,9 +1403,10 @@ void main() {
         }
         expect(p.basename(currentGeneration(first.index).path), before);
         expect(
-          Directory(first.index).listSync().whereType<Directory>().map(
-            (directory) => p.basename(directory.path),
-          ),
+          Directory(first.index)
+              .listSync()
+              .whereType<Directory>()
+              .map((directory) => p.basename(directory.path)),
           [before],
           reason: 'the staged generation is deleted',
         );
