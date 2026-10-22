@@ -480,7 +480,8 @@ The package depends on `llamadart` `>=0.15.6 <0.16.0` and pins Arctic Embed XS
 Q8_0: a 25,279,840-byte GGUF producing 384-dimensional vectors. llamadart
 0.15.6 runs llama.cpp from `leehack/llamadart-native` v0.7.0-2. The embedder
 loads the model with `LlamaEngine.load` on the CPU only, with a 512-token
-context, batch and micro-batch and four threads. Development and CLI builds
+context, batch and micro-batch, and up to four threads, one fewer than the
+machine's processors. Development and CLI builds
 need Dart 3.11.0+, the minimum every package in the workspace declares.
 llamadart 0.15 requires only 3.10.7, so the declared floor sits above it.
 Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart

@@ -41,8 +41,9 @@ class LlamaEmbedder extends BaseEmbedder {
   ///
   /// The file is checked against [model]'s size and SHA-256 before anything
   /// loads. The model loads with `LlamaEngine.load` on the CPU, with a
-  /// context, batch and micro-batch of [EmbeddingModelSpec.maxTokens] and four
-  /// threads; a load that fails leaves no engine behind. [loadEngine] replaces
+  /// context, batch and micro-batch of [EmbeddingModelSpec.maxTokens] and the
+  /// threads [threadsFor] gives the machine's processor count; a load that
+  /// fails leaves no engine behind. [loadEngine] replaces
   /// that load and must keep its contract: return an engine that holds the
   /// model, or throw having disposed what it created.
   ///
@@ -64,6 +65,7 @@ class LlamaEmbedder extends BaseEmbedder {
     final file = modelFile ?? defaultEmbeddingModelFile();
     await model.verify(file);
     final source = LlamaModel(ModelSource.path(file.absolute.path));
+    final threads = threadsFor(Platform.numberOfProcessors);
     final params = ModelParams(
       contextSize: model.maxTokens,
       batchSize: model.maxTokens,
@@ -71,8 +73,8 @@ class LlamaEmbedder extends BaseEmbedder {
       device: ComputeDevice.cpu,
       preferredBackend: GpuBackend.cpu,
       gpuLayers: 0,
-      numberOfThreads: 4,
-      numberOfThreadsBatch: 4,
+      numberOfThreads: threads,
+      numberOfThreadsBatch: threads,
     );
     for (var attempt = 1; ; attempt++) {
       try {
@@ -85,6 +87,14 @@ class LlamaEmbedder extends BaseEmbedder {
       }
     }
   }
+
+  /// The threads an embedder computes with on a machine with [processors]
+  /// processors: up to four, leaving one processor to the rest of the process.
+  ///
+  /// llama.cpp's compute threads wait for each other by spinning, so more
+  /// threads than free processors makes inference many times slower instead
+  /// of faster.
+  static int threadsFor(int processors) => (processors - 1).clamp(1, 4);
 
   final LlamaEngine _engine;
   final EmbeddingModelSpec model;
