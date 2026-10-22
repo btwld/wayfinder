@@ -678,15 +678,32 @@ Future<void> main(List<String> arguments) async {
           },
         ),
       ).index(bundle, force: true);
+      // A failure below must not leave the index held, or the temporary
+      // directory cannot be deleted on Windows.
+      addTearDown(() async {
+        if (!release.isCompleted) release.complete();
+        await holding.then((_) {}, onError: (_) {});
+      });
       await entered.future;
-      final before = await treeBytes(Directory(p.dirname(result.index)));
+      // The held writer.lock refuses reads on Windows, so it counts as
+      // present without its bytes.
+      final before = await treeBytes(
+        Directory(p.dirname(result.index)),
+        lockContents: false,
+      );
       await expectLater(
         store().forget(bundle),
         throwsA(
           isA<WayfinderException>().having((e) => e.code, 'code', 'index-busy'),
         ),
       );
-      expect(await treeBytes(Directory(p.dirname(result.index))), before);
+      expect(
+        await treeBytes(
+          Directory(p.dirname(result.index)),
+          lockContents: false,
+        ),
+        before,
+      );
       release.complete();
       await holding;
       await store().forget(bundle);

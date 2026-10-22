@@ -118,12 +118,20 @@ Directory currentGeneration(String index) =>
 
 /// Every file under [directory] by relative path, with its bytes, and every
 /// directory with an empty list: a byte-level picture of a tree.
-Future<Map<String, List<int>>> treeBytes(Directory directory) async => {
+///
+/// With [lockContents] false, each `writer.lock` is recorded as present with
+/// an empty list instead of read: on Windows a held lock refuses reads.
+Future<Map<String, List<int>>> treeBytes(
+  Directory directory, {
+  bool lockContents = true,
+}) async => {
   await for (final entity in directory.list(
     recursive: true,
     followLinks: false,
   ))
     p.relative(entity.path, from: directory.path): entity is File
-        ? await entity.readAsBytes()
+        ? (!lockContents && p.basename(entity.path) == 'writer.lock'
+              ? const <int>[]
+              : await entity.readAsBytes())
         : const <int>[],
 };
