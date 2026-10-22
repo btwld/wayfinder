@@ -112,7 +112,8 @@ Future<void> main() async {
   `WayfinderCancellation`, and `WayfinderFileLock`, a `flock` lock that holds
   across processes and isolates and whose momentary `isHeld` probe never makes
   a `tryExclusive` fail, are the injection points and building blocks.
-  `runGit` keeps stdout as bytes up to `maxOutputBytes` (64 MiB) and starts
+  `runGit` returns all of a command's stdout as bytes, up to
+  `maxOutputBytes` (64 MiB), or fails; it never returns part of it. It starts
   Git through `start`, a `GitProcessStarter`: a host whose process layer must
   start every process passes its own and keeps the rest of the hardening. A
   host's own `GitRunner` applies `wayfinderGitOptions`,

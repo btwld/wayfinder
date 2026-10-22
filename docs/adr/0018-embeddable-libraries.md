@@ -107,20 +107,25 @@ reports progress, so a long clone keeps running. Git output is bytes
 (`GitResult`), because skill files are blobs, and bounded: a command that
 writes more than `maxOutputBytes` of stdout (64 MiB by default) is stopped
 with `git-output-too-large` rather than return a cut blob, and only the last
-64 KiB of stderr are kept. Once a command exits, `runGit` reads its output
-until the streams close or a second passes without any, because a helper it
-left running, such as an SSH connection master, can hold them open. A host
-whose process layer must start every process, for its search path, sandbox
-or tree kill, passes a `GitProcessStarter` to `runGit` and keeps all of this;
-the starter receives the hardened arguments and the whole environment, and
-its `GitProcess.kill` stops the command's tree. A host that writes its own
-runner applies the same through the public rules: `wayfinderGitOptions`,
-`wayfinderGitEnvironment`, `gitMayReachRemote` (the subcommands of
-`wayfinderGitRemoteSubcommands`, found by `gitSubcommand` past Git's global
-options), `wayfinderSshCommand` (the SSH command Git would choose, in batch
-mode) and `wayfinderConfiguredSshCommand` (the `core.sshCommand` lookup).
-The remote rule chooses when to look SSH up; it is no sandbox, since an
-alias can reach a remote under any name.
+64 KiB of stderr are kept. Once a command exits, `runGit` reads its stdout to
+its end, and its stderr until it closes or a second passes without any,
+because a helper it left running, such as an SSH connection master, can hold
+stderr open. A pause in stdout never ends the read, since a busy isolate or a
+host's process layer can delay its last bytes: both streams must end within
+ten seconds of the exit (or the command's timeout, when shorter), a stdout
+still open then fails with `git-output-incomplete`, a stderr still being
+written is cut, and either way the helpers are stopped. A result therefore
+holds all of stdout or none of it. A host whose process layer must start every
+process, for its search path, sandbox or tree kill, passes a
+`GitProcessStarter` to `runGit` and keeps all of this; the starter receives
+the hardened arguments and the whole environment, and its `GitProcess.kill`
+stops the command's tree. A host that writes its own runner applies the same
+through the public rules: `wayfinderGitOptions`, `wayfinderGitEnvironment`,
+`gitMayReachRemote` (the subcommands of `wayfinderGitRemoteSubcommands`, found
+by `gitSubcommand` past Git's global options), `wayfinderSshCommand` (the SSH
+command Git would choose, in batch mode) and `wayfinderConfiguredSshCommand`
+(the `core.sshCommand` lookup). The remote rule chooses when to look SSH up;
+it is no sandbox, since an alias can reach a remote under any name.
 
 **Resolution is plan, then apply.** `plan` resolves and composes every chain
 and may clone or refresh a source in the cache, but writes nothing in the

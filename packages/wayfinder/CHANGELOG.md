@@ -218,10 +218,14 @@ bullet above; fold them into it if both ship in one release.
   `maxOutputBytes` (`wayfinderGitMaxOutputBytes`, 64 MiB) bounds stdout: a
   command that writes more is stopped with `git-output-too-large` instead of
   returning a cut blob. Stderr keeps its last 64 KiB. Once a command exits,
-  its output is read until the streams close or a second passes without
-  any, so a helper that holds them open, such as an SSH connection master,
-  no longer holds the command; a stopped command that does not exit within
-  five seconds still fails.
+  its stdout is read to its end and its stderr until it closes or a second
+  passes without any, so a helper that holds stderr open, such as an SSH
+  connection master, no longer holds the command. Both must end within ten
+  seconds of the exit, or the command's `timeout` when shorter: a stdout
+  still open then fails with `git-output-incomplete`, never returning part
+  of it, a stderr still being written is cut, and either way the helpers
+  are stopped; `cancel` still stops the read. A stopped command that does
+  not exit within five seconds still fails.
 - The rules a host's own runner would copy are public: `gitSubcommand`,
   which also skips the values of `--git-dir`, `--work-tree`, `--namespace`,
   `--config-env`, `--attr-source` and `--super-prefix`; `gitMayReachRemote`
