@@ -382,7 +382,10 @@ final class ProfileValidator {
 
   /// Validates a bundle okf already loaded, such as a candidate an authoring
   /// tool built in memory, against [selection]. Never throws for bundle
-  /// content, and reads nothing from disk.
+  /// content, and reads no bundle file from disk. Only the
+  /// `path-targets-exist` builtin looks at the disk: it checks a link target
+  /// okf's graph cannot resolve inside the bundle, such as one that leaves
+  /// it, relative to the loaded `rootPath`.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,

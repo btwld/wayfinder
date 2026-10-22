@@ -12,8 +12,11 @@ import 'package:wayfinder/wayfinder.dart';
 ```
 
 `ProfileValidator.validateLoaded` validates a bundle okf has already loaded,
-such as a candidate built in memory, and `ProfileProjection.generatedFiles`
-returns the files `validate --fix` would write, without writing them.
+such as a candidate built in memory, without reading its files again; only the
+`path-targets-exist` builtin checks, on disk relative to the bundle root, a
+link target okf's graph cannot resolve inside the bundle.
+`ProfileProjection.generatedFiles` returns the files `validate --fix` would
+write, without writing them.
 
 ## Projects
 
@@ -24,7 +27,6 @@ project on disk, for a host that embeds it:
 import 'dart:io';
 
 import 'package:wayfinder/project.dart';
-import 'package:wayfinder/wayfinder.dart';
 
 Future<void> main() async {
   final project = await WayfinderProject.discover(Directory.current);
@@ -48,12 +50,18 @@ Future<void> main() async {
   into the cache but writes nothing in the project; `apply` writes the lock and
   Profile skills, and refuses a plan whose configuration, lock or cache changed
   since; `resolve` is both. `select` reads the lock and the cache for
-  validation and never runs Git.
+  validation and never runs Git. `validateWithProfileSources` selects and
+  validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
+  package files out of the cached mirrors with `restoreCachedPackages`,
+  without fetching.
 - `projectWayfinderGraph` is the `graph` command's projection, and
   `wayfinderGraphInput` its Ack query input.
 - `WayfinderDataDirectory.resolve`, `GitRunner` and the hardened `runGit`,
   `WayfinderCancellation`, and `WayfinderFileLock`, a `flock` lock that holds
   across processes and isolates, are the injection points and building blocks.
+  A host's `GitRunner` applies `wayfinderGitOptions` and
+  `wayfinderGitEnvironment`, and on cancellation throws
+  `WayfinderException.cancelled()`; `throwIfCancelled` checks between steps.
 - Failures are `WayfinderException`s with a stable `code`.
 
 Run all okf bundle I/O of a process on one isolate: okf's bundle lock does

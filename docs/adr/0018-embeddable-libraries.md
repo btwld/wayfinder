@@ -24,7 +24,10 @@ that a multi-isolate application must serialize its own bundle access.
 
 **Public entries.** `package:wayfinder/wayfinder.dart` keeps validation and
 adds `ProfileValidator.validateLoaded`, which validates a bundle okf already
-loaded, and `ProfileProjection.generatedFiles`, the files `--fix` would write.
+loaded and reads no bundle file (only `path-targets-exist` still checks, on
+disk relative to the bundle root, a link target okf's graph cannot resolve
+inside the bundle), and `ProfileProjection.generatedFiles`, the files `--fix`
+would write.
 `package:wayfinder/project.dart` holds project discovery, the data directory,
 Profile resolution and selection, validation from that selection, the graph
 projection with its Ack input, cancellation, the Git runner and the file lock.
@@ -41,13 +44,23 @@ data directory (`WayfinderDataDirectory.resolve()` by default), a `GitRunner`
 loader and graph builder. Failures are `WayfinderException`s with a stable
 `code` beside the message the CLI prints.
 
-**Git runs hardened and bounded.** `runGit` drops every `GIT_*` variable a
-hook or linked worktree exports, never prompts (no terminal or credential
-manager prompt, SSH in batch mode), skips Git LFS downloads, disables hooks,
-the filesystem monitor and the `ext::` transport, closes stdin, and kills the
-command with its children after a timeout or on cancellation. Git output is
-bytes (`GitResult`), because skill files are blobs. A host's own runner
-applies the same options and environment.
+**Git runs hardened and bounded.** `runGit` drops the `GIT_*` variables a
+hook or linked worktree exports, such as `GIT_DIR`. It keeps only those that
+choose Git's configuration files (`GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`,
+`GIT_CONFIG_NOSYSTEM`) or its SSH command (`GIT_SSH_COMMAND`, `GIT_SSH`,
+`GIT_SSH_VARIANT`). It never prompts: it tells Git and a credential manager
+not to (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`), and runs SSH in
+batch mode. SSH is the command Git would choose
+(`GIT_SSH_COMMAND`, then `core.sshCommand`, then `GIT_SSH`, then `ssh`), with
+`-o BatchMode=yes` added when it is OpenSSH; another client, such as `plink`,
+runs unchanged. Before a command that may reach a remote, one more hardened
+`git config` call reads `core.sshCommand` as that command sees it. `runGit`
+also skips Git LFS downloads, disables hooks, the filesystem monitor and the
+`ext::` transport, and closes stdin. It kills a command with its children on
+cancellation, or once the command writes nothing for its timeout; a clone
+reports progress, so a long clone keeps running. Git output is bytes
+(`GitResult`), because skill files are blobs. A host's own runner applies the
+same options and environment.
 
 **Resolution is plan, then apply.** `plan` resolves and composes every chain
 and may clone or refresh a source in the cache, but writes nothing in the
@@ -55,7 +68,11 @@ project. `apply` writes the lock and skills and refuses a plan whose
 configuration, lock or cached package files changed since (`resolution-stale`).
 `resolve` is both under one hold of the project's lock. A plan keeps the
 package file of each package it reads, so `select`, the selection validation
-uses, reads files only and never runs Git.
+uses, reads files only and never runs Git. A cache Wayfinder 0.2 wrote has the
+mirrors but no package files: when `select` finds no Profile,
+`validateWithProfileSources` copies the missing files out of the existing
+mirrors with `git show` (`restoreCachedPackages`), never fetching, and
+selects again.
 
 **Wayfinder's lock files use `WayfinderFileLock`.** It is `flock(2)` on a
 descriptor of its own through `dart:ffi` on POSIX, and `RandomAccessFile.lock`
@@ -65,13 +82,16 @@ descriptor never releases them. A lock file stays in place on release.
 
 | Resource | Lock file under the data directory | Mode | On contention |
 | --- | --- | --- | --- |
-| A Profile source's mirror | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s | waits, then `resolution-busy` |
+| A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get` | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
 
-The project lock records the project root it protects, so a later cleanup can
-tell which lock belongs to a root that no longer exists. No lock file is kept
-for compatibility with an earlier release: `flock` and `fcntl` locks do not
-exclude each other. The index lifecycle keeps its own lock until its storage
+A plan holds one mirror's lock at a time, so two plans never deadlock. The
+project lock records the project root it protects, so a later cleanup can
+tell which lock belongs to a root that no longer exists. Read that note only
+while the lock is free (`isHeld` is false): on Windows the lock is a mandatory
+byte-range lock, so no other handle reads a held lock file. No lock file is
+kept for compatibility with an earlier release: `flock` and `fcntl` locks do
+not exclude each other. The index lifecycle keeps its own lock until its storage
 changes ([ADR-0010](0010-wayfinder-cli.md)).
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
@@ -87,14 +107,15 @@ It holds no logic a host would have to copy.
 ## Consequences
 
 Hosts embed discovery, resolution, selection, validation and the graph
-without the CLI, and validation spawns no process. The CLI's output and exit
-codes are unchanged.
+without the CLI. With a complete cache, validation spawns no process; it runs
+`git show` only to restore a package file a 0.2 cache lacks. The CLI's output
+and exit codes are unchanged, including on a 0.2 cache. A host that calls
+`select` itself sees such a cache as `wayfinder/profile-unresolved` until it
+calls `restoreCachedPackages` or `resolve`.
 
-A 0.2 cache holds mirrors but no package files, so `validate` reports
-`wayfinder/profile-unresolved` until `wayfinder get` runs once; with the
-locked commits in the mirrors, that `get` fetches nothing. Git settings made
-through `GIT_*` variables, such as `GIT_SSH_COMMAND` or `GIT_SSL_CAINFO`, no
-longer reach resolution; put them in Git's configuration or `~/.ssh/config`.
+Git settings made through other `GIT_*` variables, such as `GIT_SSL_CAINFO`
+or `GIT_ASKPASS`, no longer reach resolution; put them in Git's configuration
+(`http.sslCAInfo`, a credential helper). A user's own SSH command still runs.
 
 Lock files and package files accumulate in the data directory, which stays
 derived and removable. `flock` is only as strong as the filesystem: keep the

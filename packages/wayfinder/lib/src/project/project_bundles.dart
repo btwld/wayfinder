@@ -22,8 +22,8 @@ final class ProjectBundle {
 final class WayfinderProject {
   const WayfinderProject._(this.root, this.config, this.bundles);
 
-  /// The canonical directory holding `wayfinder.json`, or the conventional
-  /// `knowledge/` directory when there is none.
+  /// The canonical directory holding `wayfinder.json`, or, when there is
+  /// none, the one holding the conventional `knowledge/` directory.
   final String root;
 
   /// The project's `wayfinder.json`; null for a conventional project.
