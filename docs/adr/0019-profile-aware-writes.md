@@ -58,7 +58,8 @@ unchanged is dropped. Rewriting every stale index is the explicit
 writes. Without a fixable rule, okf's ancestor regeneration stands.
 
 **The caller authors the log.** A write records the caller's
-`KnowledgeLogEntry` exactly as given, okf's lifecycle entry, or none. The
+`KnowledgeLogEntry`, or several as `KnowledgeLogEntries` in the order given
+under one date, exactly as given; okf's lifecycle entry; or none. The
 entries are inserted into the existing log as lines in its own style, so no
 authored byte changes; only a log that cannot take them that way is
 re-emitted in okf's canonical form. A write that changes nothing else records
@@ -82,6 +83,32 @@ finding and no error diagnostic, so one unrelated broken concept does not
 block every write, while a caller that wants a passing gate checks the
 candidate's.
 
+When no Profile can be selected (no `wayfinder.json`, an unresolved Profile,
+or a chain that does not compose), the base and the candidate carry the same
+diagnostics, so the delta is empty and the plan is judged by OKF alone; the
+committed bundle then validates `NOT_ASSESSED`, not `PASS`. The plan says so
+through `assessed`, and whether to write an unassessed bundle is the host's
+policy, not the library's: a host may let a person write while refusing an
+agent.
+
+**The assessment is a seam the host may move.** A Profile's rules are the
+one unbounded step: a pattern can be slow. `prepare` therefore reads the
+bundle and lets okf prepare the candidate under okf's shared claim, releases
+it, and only then calls a `KnowledgeAssessor` once with a
+`KnowledgeAssessmentInput`: the base and candidate load results and the
+selection, plain data with no file handle or lock. The default runs
+`KnowledgeAssessmentInput.assess` on the calling isolate; a host that must
+bound it runs it on an isolate it kills at a deadline. Judging outside the
+claim is safe because the commit rechecks okf's snapshot, and it keeps a
+slow rule from blocking writers in other processes. `prepare` and `commit`
+take a `WayfinderCancellation`: checked between steps, passed to the
+resolver and the assessor, and never during okf's write transaction.
+
+**Failures are typed.** Besides `write-refused`, `write-stale` and the
+change codes, a bundle the file system will not let the writer lock, read or
+write is `write-failed` (`KnowledgeWriteFailedException`), which says
+whether okf's rollback also failed and left part of the write.
+
 **Stale plans are refused.** `commit` holds okf's exclusive claim, refuses a
 plan whose `wayfinder.json` or `wayfinder.lock` changed since `prepare` when
 its selection names them, and lets okf refuse a changed bundle. Either
@@ -98,7 +125,9 @@ cannot take, such as in a bundle it may not write, is a failed write: the
 A host writes a Profile bundle with the same verdict `validate` reaches after
 the commit, refusals that name the finding or path, and diffs limited to the
 files the change affects. The writer obeys the one-isolate rule of ADR-0018:
-`prepare` holds okf's shared claim and `commit` its exclusive one.
+`prepare` holds okf's shared claim while it reads and `commit` its exclusive
+one; only the assessment, which touches no bundle file, may run on another
+isolate.
 
 A write re-serializes the concept it changes in okf's canonical form, so its
 frontmatter layout may change; the other files keep their bytes. okf takes

@@ -9,8 +9,9 @@
 /// `KnowledgeWriter.commit` writes the plan under okf's bundle lock, or
 /// refuses one that okf rejects, that adds a Profile error, or whose bundle,
 /// configuration or lock changed since. It needs `dart:io`; a host runs it
-/// on the isolate that does its other okf bundle I/O (ADR-0018). ADR-0019
-/// records these decisions.
+/// on the isolate that does its other okf bundle I/O (ADR-0018), and may
+/// run the Profile assessment elsewhere through a `KnowledgeAssessor`.
+/// ADR-0019 records these decisions.
 ///
 /// ```dart
 /// import 'package:okf/okf.dart';
@@ -49,14 +50,19 @@ export 'src/authoring/knowledge_change.dart'
         LinkConcepts,
         RegenerateIndexes,
         UpdateConcept;
-export 'src/authoring/knowledge_log.dart' show KnowledgeLog, KnowledgeLogEntry;
+export 'src/authoring/knowledge_log.dart'
+    show KnowledgeLog, KnowledgeLogEntries, KnowledgeLogEntry;
 export 'src/authoring/knowledge_stamp.dart' show KnowledgeStamp;
 export 'src/authoring/knowledge_writer.dart'
     show
+        KnowledgeAssessment,
+        KnowledgeAssessmentInput,
+        KnowledgeAssessor,
         KnowledgeChangeException,
         KnowledgeCommitResult,
         KnowledgeFileDiff,
         KnowledgeStaleWriteException,
+        KnowledgeWriteFailedException,
         KnowledgeWritePlan,
         KnowledgeWriteRefusedException,
         KnowledgeWriter;
