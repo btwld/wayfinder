@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
+- Updated: 2026-10-22 (the knowledge store entry and its index lock)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -9,10 +10,11 @@
 
 A host such as an IDE or an agent runtime needs what the `wayfinder` command
 does, in process: find a project's bundles, resolve and select its Profiles,
-validate, project the graph, and later index and search. In 0.2 that code
-lived in `wayfinder_cli/lib/src`, which no dependent may import, and it
-assumed one short-lived CLI process. It inherited the caller's Git
-environment, reached a fixed data directory, and could not be cancelled.
+validate, project the graph, index and search. In 0.2 that code lived in
+`wayfinder_cli/lib/src`, which no dependent may import, and it assumed one
+short-lived CLI process. It inherited the caller's Git environment, reached
+a fixed data directory, found the model and ObjectBox's native library next
+to its own executable, and could not be cancelled.
 
 Dart's `RandomAccessFile.lock` is a `fcntl` record lock on POSIX. It belongs
 to the process, so two isolates of one process do not exclude each other, and
@@ -31,18 +33,32 @@ would write.
 `package:wayfinder/project.dart` holds project discovery, the data directory,
 Profile resolution and selection, validation from that selection, the graph
 projection with its Ack input, cancellation, the Git runner and the file lock.
-The index lifecycle follows the same pattern as a `wayfinder_embeddings`
-entry. The core depends on none of `wayfinder_embeddings`, ObjectBox,
-llamadart or analyzer.
+`package:wayfinder_embeddings/knowledge_store.dart` holds the index
+lifecycle: `WayfinderKnowledgeStore` reports a bundle's index `status`,
+indexes it with progress events and cancellation, searches one bundle or a
+project's bundles ranked together, and `forget`s and `prune`s indexes. Its
+results are typed citations with the CLI's JSON and Markdown renderings, and
+it exports the Ack inputs of host search tools, `wayfinderSearchInput` and
+`knowledgeMetadataFilterInput`. `package:wayfinder_embeddings/testing.dart`
+has `DeterministicTestEmbedder`, whose word-hash vectors test mechanisms
+without a model, as [ADR-0017](0017-dense-only-retrieval.md) allows. The
+core depends on none of `wayfinder_embeddings`, ObjectBox, llamadart or
+analyzer.
 
-**The host owns its resources.** The project library never downloads,
-prompts, loads a native library from disk or resolves files next to the
-executable; the retrieval library takes the same rule when its index
-lifecycle leaves the CLI. A host injects the
-data directory (`WayfinderDataDirectory.resolve()` by default), a `GitRunner`
-(`runGit` by default), a `WayfinderCancellation`, and the validator's okf
-loader and graph builder. Failures are `WayfinderException`s with a stable
-`code` beside the message the CLI prints.
+**The host owns its resources.** Neither library downloads, prompts, loads
+a native library from disk or resolves files next to the executable. A host
+injects the data directory (`WayfinderDataDirectory.resolve()` by default),
+a `GitRunner` (`runGit` by default), a `WayfinderCancellation`, and the
+validator's okf loader and graph builder. The knowledge store also takes a
+`WayfinderEncoderProvider`, whose identity names the index without opening a
+model, such as `LocalModelEncoderProvider` over a model file the host
+located and the store verifies before loading, and optionally a loader that
+makes ObjectBox's library available before the first database opens. The
+CLI's `native_runtime.dart` is that host: it finds the model and ObjectBox
+in its bundle or in the package during development, and skips loading when
+the process already provides ObjectBox's symbols. Failures are
+`WayfinderException`s with a stable `code` and a sentence that names no
+command; the CLI adds what to run, such as `Run wayfinder index <bundle>.`
 
 **Git runs hardened and bounded.** `runGit` drops the `GIT_*` variables a
 hook or linked worktree exports, such as `GIT_DIR`. It keeps only those that
@@ -84,6 +100,7 @@ descriptor never releases them. A lock file stays in place on release.
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get` | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
+| A bundle's index for one configuration, during any store operation | `indexes/<bundle key>/<configuration key>.lock` | exclusive, never waits | `index-busy` |
 
 A plan holds one mirror's lock at a time, so two plans never deadlock. The
 project lock records the project root it protects, so a later cleanup can
@@ -91,8 +108,12 @@ tell which lock belongs to a root that no longer exists. Read that note only
 while the lock is free (`isHeld` is false): on Windows the lock is a mandatory
 byte-range lock, so no other handle reads a held lock file. No lock file is
 kept for compatibility with an earlier release: `flock` and `fcntl` locks do
-not exclude each other. The index lifecycle keeps its own lock until its storage
-changes ([ADR-0010](0010-wayfinder-cli.md)).
+not exclude each other. Every store operation holds its index's lock, reads
+included, so a search during an index is still refused until reads stop
+needing it ([ADR-0010](0010-wayfinder-cli.md)). The index lock records the
+bundle root, and its modification time is the index's last use; it sits
+beside the index directory, so `forget` and `prune` delete that directory
+while holding it, then the lock file.
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
 exclude isolates, so a process runs all okf bundle I/O on one isolate:
@@ -106,8 +127,9 @@ It holds no logic a host would have to copy.
 
 ## Consequences
 
-Hosts embed discovery, resolution, selection, validation and the graph
-without the CLI. With a complete cache, validation spawns no process; it runs
+Hosts embed discovery, resolution, selection, validation, the graph,
+indexing and search without the CLI, and test against the store with the
+deterministic encoder. With a complete cache, validation spawns no process; it runs
 `git show` only to restore a package file a 0.2 cache lacks. The CLI's output
 and exit codes are unchanged, including on a 0.2 cache. A host that calls
 `select` itself sees such a cache as `wayfinder/profile-unresolved` until it
@@ -118,8 +140,12 @@ or `GIT_ASKPASS`, no longer reach resolution; put them in Git's configuration
 (`http.sslCAInfo`, a credential helper). A user's own SSH command still runs.
 
 Lock files and package files accumulate in the data directory, which stays
-derived and removable. `flock` is only as strong as the filesystem: keep the
-data directory on a local disk.
+derived and removable; `prune` removes the indexes, and their locks, of
+bundles that no longer exist. Deleting a lock file is safe only against an
+operation that has not opened it yet: a holder checks that its lock file
+still exists, which leaves a narrow race between three processes around a
+`forget` or `prune` that can at worst cost a rebuild. `flock` is only as
+strong as the filesystem: keep the data directory on a local disk.
 
 ## Reconsider when
 

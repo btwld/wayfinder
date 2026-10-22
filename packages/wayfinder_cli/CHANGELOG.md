@@ -22,7 +22,32 @@
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
 - Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
-  Indexes that 0.2.0 wrote open unchanged and need no rebuild.
+- `index` and `search` come from the `wayfinder_embeddings` knowledge store,
+  and the MCP server's tools with them; the CLI loads ObjectBox and finds the
+  model in its bundle and passes them in. Output and exit codes are
+  unchanged except as listed below.
+- **BREAKING:** indexes move to
+  `indexes/<bundle-key>/<configuration-key>/` in the data directory, and the
+  `index` field of `index --output=json` names that directory. An index 0.2
+  wrote is never read, changed or deleted, so the first `index` after
+  upgrading builds each bundle again, and `search` reports `Index is missing`
+  until then. Delete the 0.2 directories by hand to reclaim their space.
+- Errors for an unusable index name what is wrong: `Index is missing`,
+  `Index is stale`, `Saved index is incomplete or incompatible`,
+  `The saved index has another configuration`, `Index belongs to another
+  bundle` or `Embedding configuration changed`, each followed by
+  `Run wayfinder index <bundle>.`; `Index is missing, stale or incompatible`
+  is gone.
+- A bundle that holds okf's `.okf.lock` indexes and searches; before, `index`
+  failed with `Knowledge changed while loading`.
+- Chunk IDs no longer depend on the bundle's absolute path, so equal scores
+  rank the same in every worktree.
+- With `WAYFINDER_EMBEDDING_MODEL` set, `index` checks the file before it
+  reports a current index, and so can report one; before, it reloaded the
+  model on every run.
+- Commands on one index exclude each other with a `flock` lock file beside
+  it, across processes and isolates; a second one still fails with
+  `Index is busy`.
 - Native bundles no longer include the `analyzer` packages or their license
   files. Search and indexing are unchanged; the CLI never chunked Dart source.
 

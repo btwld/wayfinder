@@ -91,10 +91,19 @@ const localEmbeddingModel = EmbeddingModelSpec(
   license: 'Apache-2.0',
 );
 
-/// Uses the packaged model next to an executable, or `models/` during development.
-/// Explicit overrides take precedence over discovery, including invalid paths.
-/// The legacy environment variable remains supported for existing installations.
-File defaultEmbeddingModelFile({Map<String, String>? environment}) {
+/// The model file an override in [environment] names, else the packaged one
+/// in an [installation]'s `models/`, else `models/` under the current
+/// directory during development.
+///
+/// `WAYFINDER_EMBEDDING_MODEL` takes precedence over discovery, including an
+/// invalid path; the legacy `KNOWLEDGE_EMBEDDING_MODEL` remains supported.
+/// [installation] is the root of an installed bundle, the parent of its
+/// `bin/`. This library never derives it from the running executable: a
+/// native entry point that ships the model beside itself passes it.
+File defaultEmbeddingModelFile({
+  Map<String, String>? environment,
+  Directory? installation,
+}) {
   final env = environment ?? Platform.environment;
   final override =
       env['WAYFINDER_EMBEDDING_MODEL'] ?? env['KNOWLEDGE_EMBEDDING_MODEL'];
@@ -104,14 +113,11 @@ File defaultEmbeddingModelFile({Map<String, String>? environment}) {
     }
     return File(override);
   }
-  final bundled = File(
-    p.join(
-      File(Platform.resolvedExecutable).parent.parent.path,
-      'models',
-      localEmbeddingModel.fileName,
-    ),
-  );
-  return bundled.existsSync()
-      ? bundled
-      : File(p.join('models', localEmbeddingModel.fileName));
+  if (installation != null) {
+    final bundled = File(
+      p.join(installation.path, 'models', localEmbeddingModel.fileName),
+    );
+    if (bundled.existsSync()) return bundled;
+  }
+  return File(p.join('models', localEmbeddingModel.fileName));
 }

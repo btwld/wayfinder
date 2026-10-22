@@ -55,9 +55,11 @@ class KnowledgeSnapshot {
 
   /// Loads a complete inventory using OKF's symlink and parse protections.
   /// No store mutation occurs until the entire snapshot has been read.
+  /// [idNamespace] is passed to [KnowledgeSnapshot.fromSources].
   static Future<KnowledgeSnapshot> load(
     String root, {
     required String bundleId,
+    String? idNamespace,
     int maxChunkLength = 1000,
     Iterable<OkfLinkField> linkFields = const [],
   }) async {
@@ -75,6 +77,7 @@ class KnowledgeSnapshot {
     return KnowledgeSnapshot.fromSources(
       sources,
       bundleId: bundleId,
+      idNamespace: idNamespace,
       assets: loaded.assets,
       maxChunkLength: maxChunkLength,
       linkFields: linkFields,
@@ -135,9 +138,15 @@ class KnowledgeSnapshot {
 
   /// Parses source text through OKF; producer-defined metadata is retained.
   /// [bundleId] must be stable across updates and unique within a shared store.
+  ///
+  /// Chunk ids hash [idNamespace], by default [bundleId], with each chunk's
+  /// bundle-relative identity. A store that holds a single bundle can pass a
+  /// constant, so that copies of one bundle in different places get the same
+  /// ids; bundles that share a store need namespaces of their own.
   factory KnowledgeSnapshot.fromSources(
     Map<String, String> sources, {
     required String bundleId,
+    String? idNamespace,
     Iterable<String> assets = const [],
     int maxChunkLength = 1000,
     Iterable<OkfLinkField> linkFields = const [],
@@ -145,6 +154,7 @@ class KnowledgeSnapshot {
     if (bundleId.trim().isEmpty) {
       throw ArgumentError.value(bundleId, 'bundleId');
     }
+    final namespace = idNamespace ?? bundleId;
     final parsed = _parseBundle(sources, assets);
     final bundle = parsed.bundle;
     final metadata = parsed.metadata;
@@ -187,7 +197,7 @@ class KnowledgeSnapshot {
         // Identity uses body-relative ranges so adding frontmatter does not
         // invalidate unchanged body embeddings. Citation ranges remain absolute.
         final id = sha256
-            .convert(utf8.encode(jsonEncode([bundleId, raw.id])))
+            .convert(utf8.encode(jsonEncode([namespace, raw.id])))
             .toString();
         final chunk = raw.copyWith(
           id: id,
