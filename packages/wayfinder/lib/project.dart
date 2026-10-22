@@ -9,8 +9,9 @@
 /// isolate, because okf's bundle lock does not exclude isolates (ADR-0018).
 ///
 /// ```dart
+/// import 'dart:io';
+///
 /// import 'package:wayfinder/project.dart';
-/// import 'package:wayfinder/wayfinder.dart';
 ///
 /// final project = await WayfinderProject.discover(Directory.current);
 /// final resolver = WayfinderProfileResolver(
@@ -27,7 +28,10 @@
 library;
 
 export 'src/project/cancellation.dart'
-    show WayfinderCancellation, WayfinderCancellationController;
+    show
+        WayfinderCancellation,
+        WayfinderCancellationController,
+        throwIfCancelled;
 export 'src/project/data_directory.dart' show WayfinderDataDirectory;
 export 'src/project/exception.dart' show WayfinderException;
 export 'src/project/file_lock.dart' show WayfinderFileLock;

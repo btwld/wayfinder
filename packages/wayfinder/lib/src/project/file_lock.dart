@@ -14,7 +14,8 @@ import 'cancellation.dart';
 /// description, so another isolate's descriptor conflicts with it and closing
 /// any other descriptor of the file leaves it held. On Windows it is
 /// [RandomAccessFile.lock], whose `LockFileEx` lock belongs to its handle
-/// and has the same properties.
+/// and has the same properties; it is also mandatory, so while it is held no
+/// other handle reads the file's [writeNote].
 ///
 /// Dart's own [RandomAccessFile.lock] is a `fcntl` record lock on POSIX: it
 /// belongs to the whole process, so isolates do not exclude each other, and
@@ -53,7 +54,7 @@ final class WayfinderFileLock {
   }
 
   /// Takes the lock, polling until it is free. Throws a [TimeoutException]
-  /// after [timeout], and the `cancelled` `WayfinderException` when [cancel]
+  /// after [timeout], and `WayfinderException.cancelled()` when [cancel]
   /// fires first.
   static Future<WayfinderFileLock> exclusive(
     File file, {
@@ -61,6 +62,12 @@ final class WayfinderFileLock {
     WayfinderCancellation? cancel,
   }) async {
     final handle = await _open(file);
+    // One listener per wait, removed after it, so a long-lived cancellation
+    // does not collect one per poll.
+    final cancelled = Completer<void>();
+    final listening = cancel?.whenCancelled.asStream().listen((_) {
+      if (!cancelled.isCompleted) cancelled.complete();
+    });
     try {
       final watch = Stopwatch()..start();
       var delay = const Duration(milliseconds: 5);
@@ -77,15 +84,14 @@ final class WayfinderFileLock {
           );
         }
         final wait = delay < left ? delay : left;
-        await Future.any([
-          Future<void>.delayed(wait),
-          if (cancel != null) cancel.whenCancelled,
-        ]);
+        await Future.any([Future<void>.delayed(wait), cancelled.future]);
         if (delay < const Duration(milliseconds: 200)) delay *= 2;
       }
     } on Object {
       await handle.close();
       rethrow;
+    } finally {
+      await listening?.cancel();
     }
   }
 
@@ -108,7 +114,9 @@ final class WayfinderFileLock {
 
   /// Replaces the lock file's contents with [text], such as the path the
   /// lock protects, so a later cleanup can tell what it belonged to. Only
-  /// the holder writes.
+  /// the holder writes. Read the note only once [isHeld] is false: on
+  /// Windows the lock is a mandatory byte-range lock, so no other handle
+  /// can read the file while it is held.
   Future<void> writeNote(String text) async {
     final handle = _handle ?? (throw StateError('The lock was released.'));
     await handle.write(text);

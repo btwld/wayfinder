@@ -21,7 +21,7 @@ void main() {
   Future<Map<String, Object?>> probeFromSubprocess() async {
     final result = await Process.run(Platform.resolvedExecutable, [
       'run',
-      p.join('test', 'project', 'probes', 'lock_probe.dart'),
+      p.join('test', 'project', 'fixtures', 'lock_child.dart'),
       file.path,
     ]);
     expect(result.exitCode, 0, reason: '${result.stderr}');

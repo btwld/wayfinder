@@ -61,9 +61,10 @@ location. Drive-relative paths such as `C:profile` are not supported.
 Passwordless SSH URLs such as `ssh://git@github.com/org/repo.git` and Git's
 SCP-style `git@github.com:org/repo.git` are supported. Do not put credentials
 in the source URL. Wayfinder runs Git without prompts or hooks, ignores
-inherited `GIT_*` variables, and runs SSH in batch mode, so keys and
-credentials come from an SSH agent, `~/.ssh/config`, or a Git credential
-helper.
+inherited `GIT_*` variables other than those that choose Git's configuration
+files or SSH command, and runs that SSH command in batch mode, so keys and
+credentials come from an SSH agent, `~/.ssh/config`, `core.sshCommand`, or a
+Git credential helper.
 
 `applies_to` contains bundle directories relative to `wayfinder.json`. Use the
 explicit `./knowledge` form. A path must stay inside the project and identify
