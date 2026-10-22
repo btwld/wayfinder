@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 
 import '../embedding/base_embedder.dart';
+import '../embedding/llama_embedder.dart' show wayfinderLlamaCppRuntime;
 import '../okf/knowledge_index.dart';
 import '../okf/knowledge_snapshot.dart';
 import '../storage/embedding_entities.dart' show objectBoxEmbeddingDimension;
@@ -149,13 +150,15 @@ class WayfinderKnowledgeStore {
   final int cacheBytes;
   final FutureOr<void> Function()? loadObjectBox;
 
-  // Increment when chunking, snapshot or application input semantics change,
-  // or when the inference runtime does: another llama.cpp build can change
-  // vectors from the same model. Version 5 is llamadart 0.15 with
-  // llamadart-native v0.7.0-2 (tool/src/native_cli_assets.dart). The
-  // encoder's identity is part of the configuration key beside it.
+  // Increment when chunking, snapshot or application input semantics change.
+  // The encoder's identity is part of the configuration key beside it. The
+  // configuration names the llama.cpp release Wayfinder reviewed, because
+  // another llama.cpp build can give the same model other vectors; moving
+  // wayfinderLlamaCppRuntime builds every index anew. Version 5 is the first
+  // to name it.
   static final _configuration = jsonEncode({
     'version': 5,
+    'runtime': wayfinderLlamaCppRuntime,
     'context': 'okf-context-v2',
     'chunkCharacters': 1000,
     'longInput': 'reject',

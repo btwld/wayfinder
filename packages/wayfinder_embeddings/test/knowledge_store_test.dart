@@ -591,8 +591,11 @@ void main() {
       final configuration =
           jsonDecode(record['configuration'] as String) as Map;
       expect(configuration['version'], 5);
+      expect(configuration['runtime'], wayfinderLlamaCppRuntime);
       expect(configuration['chunkIds'], 'bundle-relative');
+      // What a version 4 index, from before the runtime was named, records.
       configuration['version'] = 4;
+      configuration.remove('runtime');
       record['configuration'] = jsonEncode(configuration);
       await recordFile.writeAsString(jsonEncode(record));
       expect(await knowledge.status(bundle), isA<KnowledgeIndexIncompatible>());

@@ -156,10 +156,10 @@ can change retrieval results. Failed rebuilds preserve the previous generation,
 but search still rejects stale or configuration-incompatible indexes; there is
 no automatic fallback to old vectors.
 
-Index configuration version 5 marks the move to llamadart 0.15, which runs
-llama.cpp from `llamadart-native` v0.7.0-2. Its vectors differ slightly from
-earlier runtimes', so an index from an earlier configuration is not read, and
-`wayfinder index <bundle>` builds it once.
+Index configuration version 5 names the llama.cpp runtime it was built
+with, `llamadart-native` v0.7.0-2 through llamadart 0.15. Its vectors differ
+slightly from earlier runtimes', so an index from an earlier configuration is
+not read, and `wayfinder index <bundle>` builds it once.
 
 Native first-use initialization remains variable. Reusing document vectors
 does not remove model startup or the first query's inference cost; later

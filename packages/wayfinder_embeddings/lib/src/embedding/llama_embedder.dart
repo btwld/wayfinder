@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:llamadart/llamadart.dart';
+import 'package:meta/meta.dart';
 
 import '../util/checks.dart';
 import 'base_embedder.dart';
@@ -10,6 +11,18 @@ import 'embedding_model_spec.dart';
 
 /// How to handle text longer than the model's tokenizer context.
 enum LongInputPolicy { reject, truncate }
+
+/// The `leehack/llamadart-native` release whose llama.cpp build Wayfinder
+/// reviewed and measured its vectors with: what its notices attribute and what
+/// the knowledge store's configuration names.
+///
+/// llamadart's build hook downloads the release its own version pins, so this
+/// says what Wayfinder reviewed, not what a host's build bundles. Wayfinder's
+/// own builds fail when the resolved llamadart pins another release. A host
+/// that shares indexes with them, or with other hosts, must resolve a
+/// llamadart that pins this release, because another llama.cpp build can give
+/// the same model other vectors under the same configuration.
+const wayfinderLlamaCppRuntime = 'v0.7.0-2';
 
 /// In-process embeddings from a verified local GGUF. Never downloads at runtime.
 ///
@@ -216,14 +229,16 @@ bool _isBackendStartFailure(Object error) => switch (error) {
   LlamaBackendInitializationException() => true,
   LlamaException(details: LlamaBackendInitializationException()) => true,
   LlamaModelException(details: final String cause) => cause.contains(
-    _workerStartTimeout,
+    llamaCppWorkerStartTimeout,
   ),
   _ => false,
 };
 
 /// What llamadart's native backend says when its worker misses the startup
-/// timeout.
-const _workerStartTimeout = 'waiting for the llama.cpp worker to initialize';
+/// timeout. A test checks that the resolved llamadart still says it.
+@visibleForTesting
+const llamaCppWorkerStartTimeout =
+    'waiting for the llama.cpp worker to initialize';
 
 String _modelIdentity(EmbeddingModelSpec model, LongInputPolicy policy) {
   final configuration = jsonEncode({
