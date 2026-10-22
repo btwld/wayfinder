@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart' show okfBundleLockFileName;
@@ -32,7 +33,7 @@ void main() {
         encoder: encoder ?? DeterministicEncoderProvider(),
       );
 
-  Directory indexes() => Directory(p.join(data.path, 'indexes'));
+  Directory indexes() => Directory(p.join(data.path, 'indexes', 'bundles'));
 
   /// Every namespace directory under the data directory.
   List<Directory> namespaces() => [
@@ -41,14 +42,36 @@ void main() {
         ...root.listSync().whereType<Directory>(),
   ];
 
+  /// A configuration key the way an ObjectBox-backed store (Wayfinder 0.3
+  /// before read-while-index) derived it, for [model].
+  String objectBoxConfigurationKey(String model) => sha256
+      .convert(
+        utf8.encode(
+          jsonEncode({
+            'configuration': jsonEncode({
+              'version': 4,
+              'context': 'okf-context-v2',
+              'chunkCharacters': 1000,
+              'longInput': 'reject',
+              'snapshot': 1,
+              'store': '384-v1',
+              'chunkIds': 'bundle-relative',
+            }),
+            'model': '$model:okf-context-v2',
+            'source': DeterministicTestEmbedder.source,
+          }),
+        ),
+      )
+      .toString();
+
   List<String> generations(Directory namespace) => [
     for (final entry in namespace.listSync().whereType<Directory>())
       p.basename(entry.path),
   ]..sort();
 
   group('layout', () {
-    test('an index lives under its bundle key and configuration key, with its '
-        'lock beside it', () async {
+    test('an index lives under its bundle key and configuration key, with '
+        'its writer lock, pointer and immutable generations in it', () async {
       final provider = DeterministicEncoderProvider();
       final result = await store(provider).index(bundle);
       final namespace = Directory(result.index);
@@ -65,17 +88,54 @@ void main() {
         isNot(sha256.convert(utf8.encode(bundle.root)).toString()),
         reason: 'never the key of a 0.2 index directory',
       );
-      final lock = File(
-        p.join(namespace.parent.path, '$configurationKey.lock'),
+      expect(
+        configurationKey,
+        isNot(objectBoxConfigurationKey(provider.model)),
+        reason: 'never the key of an ObjectBox-backed index',
       );
-      expect(jsonDecode(await lock.readAsString()), {'root': bundle.root});
+      expect(jsonDecode(await writerLock(result.index).readAsString()), {
+        'root': bundle.root,
+      });
+      final generation = currentGeneration(result.index);
       expect(
         namespace.listSync().map((entry) => p.basename(entry.path)).toSet(),
-        {
-          'current',
-          await File(p.join(namespace.path, 'current')).readAsString(),
-        },
+        {'current', 'writer.lock', p.basename(generation.path)},
       );
+      expect(
+        generation.listSync().map((entry) => p.basename(entry.path)).toSet(),
+        {'snapshot.json', 'vectors.f32'},
+      );
+      final record =
+          jsonDecode(
+                await File(
+                  p.join(generation.path, 'snapshot.json'),
+                ).readAsString(),
+              )
+              as Map;
+      expect(
+        (jsonDecode(record['configuration'] as String) as Map)['store'],
+        'f32-v1',
+      );
+      final chunks = ((record['snapshot'] as Map)['chunks'] as List).length;
+      final vectors = record['vectors'] as Map;
+      expect(vectors, {
+        'file': 'vectors.f32',
+        'format': 'f32-v1',
+        'dimension': 384,
+        'count': chunks,
+        'sha256': isA<String>(),
+        'inputs': hasLength(chunks),
+      });
+      final bytes = await File(
+        p.join(generation.path, 'vectors.f32'),
+      ).readAsBytes();
+      expect(sha256.convert(bytes).toString(), vectors['sha256']);
+      expect(bytes.length, 16 + chunks * 384 * 4);
+      expect(ascii.decode(bytes.sublist(0, 6)), 'WFVF32');
+      expect(bytes.sublist(6, 8), [0, 1]);
+      final header = ByteData.sublistView(bytes);
+      expect(header.getUint32(8, Endian.little), 384);
+      expect(header.getUint32(12, Endian.little), chunks);
 
       final other = await store(
         DeterministicEncoderProvider(model: 'another-model'),
@@ -95,70 +155,141 @@ void main() {
         await store(provider).status(bundle),
         isA<KnowledgeIndexCurrent>(),
       );
-    }, skip: skipWithoutObjectBox);
+    });
+
+    test('a 0.2.0-layout index is never read, changed or deleted', () async {
+      // Build a complete index, then lay it out the way 0.2.0 did:
+      // indexes/<sha256(root)>/{command.lock,current,generation-*}.
+      final built = await store().index(bundle);
+      final generation = p.basename(currentGeneration(built.index).path);
+      final legacy = Directory(
+        p.join(
+          temp.path,
+          'legacy-data',
+          'indexes',
+          sha256.convert(utf8.encode(bundle.root)).toString(),
+        ),
+      );
+      await Directory(p.join(legacy.path, generation)).create(recursive: true);
+      for (final file in currentGeneration(
+        built.index,
+      ).listSync().whereType<File>()) {
+        await file.copy(p.join(legacy.path, generation, p.basename(file.path)));
+      }
+      await File(p.join(legacy.path, 'current')).writeAsString(generation);
+      await File(p.join(legacy.path, 'command.lock')).writeAsString('');
+      final before = await treeBytes(legacy);
+      final listing = legacy.listSync().map((e) => e.path).toSet();
+
+      data = Directory(p.join(temp.path, 'legacy-data'));
+      final upgraded = store();
+      expect(await upgraded.status(bundle), isA<KnowledgeIndexMissing>());
+      await expectLater(
+        upgraded.searchBundle(bundle, 'password'),
+        throwsA(
+          isA<WayfinderException>().having(
+            (e) => e.code,
+            'code',
+            'index-missing',
+          ),
+        ),
+      );
+      final rebuilt = await upgraded.index(bundle);
+      expect(rebuilt.current, isFalse);
+      expect(rebuilt.embeddedChunks, built.embeddedChunks);
+      expect(p.isWithin(legacy.path, rebuilt.index), isFalse);
+      expect(
+        (await upgraded.searchBundle(bundle, 'password')).matches,
+        isNotEmpty,
+      );
+      await upgraded.forget(bundle);
+      await upgraded.prune(unusedFor: Duration.zero);
+      await Directory(bundle.root).rename('${bundle.root}-moved');
+      await upgraded.prune(unusedFor: Duration.zero);
+      expect(await treeBytes(legacy), before);
+      expect(legacy.listSync().map((e) => e.path).toSet(), listing);
+    });
 
     test(
-      'a 0.2.0-layout index is never read, changed or deleted',
+      'an ObjectBox-backed index is never read, changed or deleted',
       () async {
-        // Build a complete index, then lay it out the way 0.2.0 did:
-        // indexes/<sha256(root)>/{command.lock,current,generation-*}. Read,
-        // it would be current for this bundle and configuration.
+        // The layout an ObjectBox-backed store wrote:
+        // indexes/<bundle key>/<configuration key>.lock beside
+        // <configuration key>/{current,generation-*/{data.mdb,schema
+        // markers,snapshot.json}}, with a record that, read, would be current
+        // for this bundle and encoder.
         final built = await store().index(bundle);
-        final generation = await File(
-          p.join(built.index, 'current'),
-        ).readAsString();
-        final legacy = Directory(
+        final record = Map<String, Object?>.from(
+          jsonDecode(
+                await File(
+                  p.join(currentGeneration(built.index).path, 'snapshot.json'),
+                ).readAsString(),
+              )
+              as Map,
+        );
+        final configuration = Map<String, Object?>.from(
+          jsonDecode(record['configuration']! as String) as Map,
+        );
+        configuration['store'] = '384-v1';
+        record
+          ..['configuration'] = jsonEncode(configuration)
+          ..remove('vectors');
+        final key = objectBoxConfigurationKey(
+          DeterministicTestEmbedder.defaultModelName,
+        );
+        final old = Directory(
           p.join(
             temp.path,
-            'legacy-data',
+            'wave1-data',
             'indexes',
-            sha256.convert(utf8.encode(bundle.root)).toString(),
+            sha256
+                .convert(utf8.encode(jsonEncode({'root': bundle.root})))
+                .toString(),
           ),
         );
-        await Directory(
-          p.join(legacy.path, generation),
+        final generation = await Directory(
+          p.join(old.path, key, 'generation-objectbox'),
         ).create(recursive: true);
         for (final file in Directory(
-          p.join(built.index, generation),
+          p.join('test', 'fixtures', 'objectbox-0.2.0'),
         ).listSync().whereType<File>()) {
-          await file.copy(
-            p.join(legacy.path, generation, p.basename(file.path)),
-          );
+          if (p.extension(file.path) == '.md') continue;
+          await file.copy(p.join(generation.path, p.basename(file.path)));
         }
-        await File(p.join(legacy.path, 'current')).writeAsString(generation);
-        await File(p.join(legacy.path, 'command.lock')).writeAsString('');
-        final before = await treeBytes(legacy);
-        final listing = legacy.listSync().map((e) => e.path).toSet();
+        await File(
+          p.join(generation.path, 'snapshot.json'),
+        ).writeAsString(jsonEncode(record));
+        await File(
+          p.join(old.path, key, 'current'),
+        ).writeAsString('generation-objectbox');
+        final lock = File(p.join(old.path, '$key.lock'));
+        await lock.writeAsString('${jsonEncode({'root': bundle.root})}\n');
+        // Unused for long, so a prune that reached it would delete it.
+        await lock.setLastModified(
+          DateTime.now().subtract(const Duration(days: 400)),
+        );
+        final before = await treeBytes(old);
+        final modified = (await lock.stat()).modified;
 
-        data = Directory(p.join(temp.path, 'legacy-data'));
+        data = Directory(p.join(temp.path, 'wave1-data'));
         final upgraded = store();
         expect(await upgraded.status(bundle), isA<KnowledgeIndexMissing>());
-        await expectLater(
-          upgraded.searchBundle(bundle, 'password'),
-          throwsA(
-            isA<WayfinderException>().having(
-              (e) => e.code,
-              'code',
-              'index-missing',
-            ),
-          ),
-        );
         final rebuilt = await upgraded.index(bundle);
         expect(rebuilt.current, isFalse);
         expect(rebuilt.embeddedChunks, built.embeddedChunks);
-        expect(p.isWithin(legacy.path, rebuilt.index), isFalse);
+        expect(p.isWithin(old.path, rebuilt.index), isFalse);
         expect(
           (await upgraded.searchBundle(bundle, 'password')).matches,
           isNotEmpty,
         );
+        await upgraded.index(bundle, force: true);
         await upgraded.forget(bundle);
         await upgraded.prune(unusedFor: Duration.zero);
         await Directory(bundle.root).rename('${bundle.root}-moved');
         await upgraded.prune(unusedFor: Duration.zero);
-        expect(await treeBytes(legacy), before);
-        expect(legacy.listSync().map((e) => e.path).toSet(), listing);
+        expect(await treeBytes(old), before);
+        expect((await lock.stat()).modified, modified);
       },
-      skip: skipWithoutObjectBox,
     );
   });
 
@@ -204,55 +335,45 @@ Future<void> main(List<String> arguments) async {
       return result.stdout as String;
     }
 
-    test(
-      'a bundle whose .okf.lock another process holds indexes and searches, '
-      'and the lock stays held',
-      () async {
-        final lock = File(p.join(bundle.root, okfBundleLockFileName));
-        await lock.writeAsString('');
-        final nested = File(
-          p.join(bundle.root, 'guides', okfBundleLockFileName),
-        );
-        await nested.create(recursive: true);
-        final holder = await Process.start(Platform.resolvedExecutable, [
-          p.join(scripts.path, 'hold.dart'),
-          lock.path,
-        ]);
-        try {
-          final locked = holder.stdout
-              .transform(utf8.decoder)
-              .transform(const LineSplitter())
-              .first;
-          expect(await locked, 'locked');
-          expect(await probe(lock), 'held');
+    test('a bundle whose .okf.lock another process holds indexes and searches, '
+        'and the lock stays held', () async {
+      final lock = File(p.join(bundle.root, okfBundleLockFileName));
+      await lock.writeAsString('');
+      final nested = File(p.join(bundle.root, 'guides', okfBundleLockFileName));
+      await nested.create(recursive: true);
+      final holder = await Process.start(Platform.resolvedExecutable, [
+        p.join(scripts.path, 'hold.dart'),
+        lock.path,
+      ]);
+      try {
+        final locked = holder.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .first;
+        expect(await locked, 'locked');
+        expect(await probe(lock), 'held');
 
-          final knowledge = store();
-          final result = await knowledge.index(bundle);
-          expect(result.current, isFalse);
-          expect(result.embeddedChunks, greaterThan(0));
-          expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
-          final found = await knowledge.searchBundle(
-            bundle,
-            'password recovery',
-          );
-          expect(found.matches.first.sourcePath, 'recovery.md');
-          final project = await knowledge.search([bundle], 'password');
-          expect(project.matches, isNotEmpty);
-          // Neither lock file is an input: writing one changes nothing.
-          await nested.writeAsString('touched');
-          expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
-          expect((await knowledge.index(bundle)).current, isTrue);
+        final knowledge = store();
+        final result = await knowledge.index(bundle);
+        expect(result.current, isFalse);
+        expect(result.embeddedChunks, greaterThan(0));
+        expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+        final found = await knowledge.searchBundle(bundle, 'password recovery');
+        expect(found.matches.first.sourcePath, 'recovery.md');
+        final project = await knowledge.search([bundle], 'password');
+        expect(project.matches, isNotEmpty);
+        // Neither lock file is an input: writing one changes nothing.
+        await nested.writeAsString('touched');
+        expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+        expect((await knowledge.index(bundle)).current, isTrue);
 
-          expect(await probe(lock), 'held', reason: 'the holder kept its lock');
-        } finally {
-          await holder.stdin.close();
-          expect(await holder.exitCode, 0);
-        }
-        expect(await probe(lock), 'free');
-      },
-      skip: skipWithoutObjectBox,
-      timeout: const Timeout(Duration(minutes: 2)),
-    );
+        expect(await probe(lock), 'held', reason: 'the holder kept its lock');
+      } finally {
+        await holder.stdin.close();
+        expect(await holder.exitCode, 0);
+      }
+      expect(await probe(lock), 'free');
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
   group('progress and cancellation', () {
@@ -293,53 +414,49 @@ Future<void> main(List<String> arguments) async {
         isTrue,
       );
       expect(events.map((e) => e.phase), [IndexPhase.scanning]);
-    }, skip: skipWithoutObjectBox);
+    });
 
-    test(
-      'a cancelled first index deletes its staged generation',
-      () async {
-        final opened = <TestEmbedder>[];
-        final knowledge = store(TestEncoderProvider(opened));
-        final cancel = WayfinderCancellationController();
-        List<String>? staged;
-        await expectLater(
-          knowledge.index(
-            bundle,
-            cancel: cancel,
-            onProgress: (event) {
-              if (event.phase == IndexPhase.embedding) {
-                staged = generations(namespaces().single);
-                cancel.cancel();
-              }
-            },
-          ),
-          throwsA(
-            isA<WayfinderException>().having(
-              (e) => e.code,
-              'code',
-              'cancelled',
-            ),
-          ),
-        );
-        expect(staged, hasLength(1), reason: 'a generation was staged');
-        expect(generations(namespaces().single), isEmpty);
-        expect(
-          File(p.join(namespaces().single.path, 'current')).existsSync(),
-          isFalse,
-        );
-        expect(opened.single.isDisposed, isTrue);
-        expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
-        expect(
-          (await knowledge.index(bundle)).current,
-          isFalse,
-          reason: 'the lock was released',
-        );
-      },
-      skip: skipWithoutObjectBox,
-    );
+    test('a cancelled first index writes no generation', () async {
+      final opened = <TestEmbedder>[];
+      final knowledge = store(TestEncoderProvider(opened));
+      final cancel = WayfinderCancellationController();
+      List<String>? staged;
+      await expectLater(
+        knowledge.index(
+          bundle,
+          cancel: cancel,
+          onProgress: (event) {
+            if (event.phase == IndexPhase.embedding) {
+              staged = generations(namespaces().single);
+              cancel.cancel();
+            }
+          },
+        ),
+        throwsA(
+          isA<WayfinderException>().having((e) => e.code, 'code', 'cancelled'),
+        ),
+      );
+      expect(
+        staged,
+        isEmpty,
+        reason: 'embedding happens in memory; nothing is staged yet',
+      );
+      expect(generations(namespaces().single), isEmpty);
+      expect(
+        File(p.join(namespaces().single.path, 'current')).existsSync(),
+        isFalse,
+      );
+      expect(opened.single.isDisposed, isTrue);
+      expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
+      expect(
+        (await knowledge.index(bundle)).current,
+        isFalse,
+        reason: 'the lock was released',
+      );
+    });
 
-    test('a cancelled refresh keeps the current generation and deletes the '
-        'staged one', () async {
+    test('a cancelled refresh keeps the current generation and writes '
+        'nothing', () async {
       final opened = <TestEmbedder>[];
       final knowledge = store(TestEncoderProvider(opened));
       final first = await knowledge.index(bundle);
@@ -395,49 +512,45 @@ Future<void> main(List<String> arguments) async {
       );
       expect((await knowledge.index(bundle)).current, isFalse);
       expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
-    }, skip: skipWithoutObjectBox);
+    });
   });
 
   group('status', () {
-    test(
-      'reports missing, current, stale paths and incompatible',
-      () async {
-        final knowledge = store();
-        expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
-        final result = await knowledge.index(bundle);
-        expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
-        await File(p.join(bundle.root, 'weather.md')).delete();
-        await File(p.join(bundle.root, 'recovery.md')).writeAsString(
-          '${await File(p.join(bundle.root, 'recovery.md')).readAsString()}\n'
-          'More.\n',
-        );
-        await File(
-          p.join(bundle.root, 'notes', 'new.md'),
-        ).create(recursive: true);
-        await File(p.join(bundle.root, 'diagram.png')).writeAsString('png');
-        expect(
-          await knowledge.status(bundle),
-          isA<KnowledgeIndexStale>().having(
-            (status) => status.changedPaths,
-            'changedPaths',
-            ['diagram.png', 'notes/new.md', 'recovery.md', 'weather.md'],
-          ),
-        );
-        final current = File(p.join(result.index, 'current'));
-        await File(
-          p.join(result.index, await current.readAsString(), 'snapshot.json'),
-        ).writeAsString('{}');
-        expect(
-          await knowledge.status(bundle),
-          isA<KnowledgeIndexIncompatible>().having(
-            (status) => status.reason,
-            'reason',
-            'Saved index is incomplete or incompatible.',
-          ),
-        );
-      },
-      skip: skipWithoutObjectBox,
-    );
+    test('reports missing, current, stale paths and incompatible', () async {
+      final knowledge = store();
+      expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
+      final result = await knowledge.index(bundle);
+      expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+      await File(p.join(bundle.root, 'weather.md')).delete();
+      await File(p.join(bundle.root, 'recovery.md')).writeAsString(
+        '${await File(p.join(bundle.root, 'recovery.md')).readAsString()}\n'
+        'More.\n',
+      );
+      await File(
+        p.join(bundle.root, 'notes', 'new.md'),
+      ).create(recursive: true);
+      await File(p.join(bundle.root, 'diagram.png')).writeAsString('png');
+      expect(
+        await knowledge.status(bundle),
+        isA<KnowledgeIndexStale>().having(
+          (status) => status.changedPaths,
+          'changedPaths',
+          ['diagram.png', 'notes/new.md', 'recovery.md', 'weather.md'],
+        ),
+      );
+      final current = File(p.join(result.index, 'current'));
+      await File(
+        p.join(result.index, await current.readAsString(), 'snapshot.json'),
+      ).writeAsString('{}');
+      expect(
+        await knowledge.status(bundle),
+        isA<KnowledgeIndexIncompatible>().having(
+          (status) => status.reason,
+          'reason',
+          'Saved index is incomplete or incompatible.',
+        ),
+      );
+    });
   });
 
   group('forget and prune', () {
@@ -450,18 +563,20 @@ Future<void> main(List<String> arguments) async {
       ).index(bundle);
       final kept = await store().index(other);
       final bundleDirectory = Directory(p.dirname(first.index));
-      expect(bundleDirectory.listSync(), hasLength(4));
+      expect(bundleDirectory.listSync(), hasLength(2));
       await Directory(bundle.root).delete(recursive: true);
       await store().forget(bundle);
-      expect(
-        bundleDirectory.listSync().map((e) => p.basename(e.path)).toSet(),
-        {'${p.basename(first.index)}.lock', '${p.basename(second.index)}.lock'},
-        reason: 'an operation that opened a lock file still excludes others',
-      );
-      expect(bundleDirectory.listSync().whereType<Directory>(), isEmpty);
-      expect(await Directory(kept.index).exists(), isTrue);
+      for (final index in [first.index, second.index]) {
+        expect(
+          Directory(index).listSync().map((e) => p.basename(e.path)),
+          ['writer.lock'],
+          reason: 'an operation that opened a lock file still excludes others',
+        );
+      }
+      expect(currentGeneration(kept.index).existsSync(), isTrue);
+      expect(await store().status(other), isA<KnowledgeIndexCurrent>());
       await store().forget(bundle);
-    }, skip: skipWithoutObjectBox);
+    });
 
     test(
       'forget finds a removed bundle by a path through a symbolic link',
@@ -479,49 +594,44 @@ Future<void> main(List<String> arguments) async {
         expect(result.bundle, resolved.root);
         await Directory(resolved.root).delete(recursive: true);
         await store().forget(linked);
-        expect(await Directory(result.index).exists(), isFalse);
+        expect(
+          Directory(result.index).listSync().map((e) => p.basename(e.path)),
+          ['writer.lock'],
+        );
       },
       testOn: '!windows',
-      skip: skipWithoutObjectBox,
     );
 
-    test(
-      'forget is refused while an operation holds an index',
-      () async {
-        final result = await store().index(bundle);
-        final entered = Completer<void>();
-        final release = Completer<void>();
-        final opened = <TestEmbedder>[];
-        final holding = store(
-          TestEncoderProvider(
-            opened,
-            model: DeterministicTestEmbedder.defaultModelName,
-            beforeOpen: () async {
-              entered.complete();
-              await release.future;
-            },
-          ),
-        ).index(bundle, force: true);
-        await entered.future;
-        final before = await treeBytes(Directory(p.dirname(result.index)));
-        await expectLater(
-          store().forget(bundle),
-          throwsA(
-            isA<WayfinderException>().having(
-              (e) => e.code,
-              'code',
-              'index-busy',
-            ),
-          ),
-        );
-        expect(await treeBytes(Directory(p.dirname(result.index))), before);
-        release.complete();
-        await holding;
-        await store().forget(bundle);
-        expect(await Directory(result.index).exists(), isFalse);
-      },
-      skip: skipWithoutObjectBox,
-    );
+    test('forget is refused while an operation holds an index', () async {
+      final result = await store().index(bundle);
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      final opened = <TestEmbedder>[];
+      final holding = store(
+        TestEncoderProvider(
+          opened,
+          model: DeterministicTestEmbedder.defaultModelName,
+          beforeOpen: () async {
+            entered.complete();
+            await release.future;
+          },
+        ),
+      ).index(bundle, force: true);
+      await entered.future;
+      final before = await treeBytes(Directory(p.dirname(result.index)));
+      await expectLater(
+        store().forget(bundle),
+        throwsA(
+          isA<WayfinderException>().having((e) => e.code, 'code', 'index-busy'),
+        ),
+      );
+      expect(await treeBytes(Directory(p.dirname(result.index))), before);
+      release.complete();
+      await holding;
+      await store().forget(bundle);
+      expect(File(p.join(result.index, 'current')).existsSync(), isFalse);
+      expect(await store().status(bundle), isA<KnowledgeIndexMissing>());
+    });
 
     test('prune deletes indexes of missing roots and unused other '
         'configurations, and keeps the rest', () async {
@@ -534,11 +644,11 @@ Future<void> main(List<String> arguments) async {
       final unused = await store(
         DeterministicEncoderProvider(model: 'unused'),
       ).index(bundle);
-      await File(
-        '${unused.index}.lock',
+      await writerLock(
+        unused.index,
       ).setLastModified(DateTime.now().subtract(const Duration(days: 40)));
-      await File(
-        '${own.index}.lock',
+      await writerLock(
+        own.index,
       ).setLastModified(DateTime.now().subtract(const Duration(days: 400)));
       await Directory(gone.root).delete(recursive: true);
 
@@ -554,51 +664,136 @@ Future<void> main(List<String> arguments) async {
         },
       );
       expect(result.busy, isEmpty);
-      expect(await Directory(goneIndex.index).exists(), isFalse);
       expect(
-        await File('${goneIndex.index}.lock').exists(),
-        isTrue,
+        Directory(goneIndex.index).listSync().map((e) => p.basename(e.path)),
+        ['writer.lock'],
         reason: 'a lock file goes only once unused for the period',
       );
       expect(await Directory(unused.index).exists(), isFalse);
-      expect(await File('${unused.index}.lock').exists(), isFalse);
       for (final kept in [own, recent]) {
-        expect(await Directory(kept.index).exists(), isTrue);
-        expect(await File('${kept.index}.lock').exists(), isTrue);
+        expect(currentGeneration(kept.index).existsSync(), isTrue);
+        expect(await writerLock(kept.index).exists(), isTrue);
       }
       expect(await store().status(bundle), isA<KnowledgeIndexCurrent>());
       expect((await store().prune()).removed, isEmpty);
-      expect(await File('${goneIndex.index}.lock').exists(), isTrue);
+      expect(await writerLock(goneIndex.index).exists(), isTrue);
 
-      await File(
-        '${goneIndex.index}.lock',
+      await writerLock(
+        goneIndex.index,
       ).setLastModified(DateTime.now().subtract(const Duration(days: 40)));
       final later = await store().prune();
       expect(later.removed, isEmpty, reason: 'no index was left to remove');
       expect(await Directory(p.dirname(goneIndex.index)).exists(), isFalse);
-    }, skip: skipWithoutObjectBox);
+    });
 
-    test(
-      'prune leaves an index an operation holds for later',
-      () async {
-        final gone = await copyStoreBundle(temp, 'gone');
-        final result = await store().index(gone);
-        final held = await WayfinderFileLock.tryExclusive(
-          File('${result.index}.lock'),
+    test('prune leaves an index an operation holds for later', () async {
+      final gone = await copyStoreBundle(temp, 'gone');
+      final result = await store().index(gone);
+      final held = await WayfinderFileLock.tryExclusive(
+        writerLock(result.index),
+      );
+      try {
+        await Directory(gone.root).delete(recursive: true);
+        final pruned = await store().prune();
+        expect(pruned.removed, isEmpty);
+        expect(pruned.busy, [result.index]);
+        expect(currentGeneration(result.index).existsSync(), isTrue);
+      } finally {
+        await held!.release();
+      }
+      expect((await store().prune()).removed.single.reason, 'missing-root');
+    });
+
+    test('prune removes the index of a deleted root that searches used, '
+        'and leaves the others searchable', () async {
+      final gone = await copyStoreBundle(temp, 'worktree');
+      final knowledge = store();
+      final removed = await knowledge.index(gone);
+      await knowledge.index(bundle);
+      expect(
+        (await knowledge.searchBundle(gone, 'password')).matches,
+        isNotEmpty,
+      );
+      await Directory(gone.root).delete(recursive: true);
+      final result = await knowledge.prune(unusedFor: Duration.zero);
+      expect(result.removed.single.directory, removed.index);
+      expect(result.removed.single.reason, 'missing-root');
+      expect(await Directory(p.dirname(removed.index)).exists(), isFalse);
+      expect(
+        (await knowledge.searchBundle(bundle, 'password')).matches,
+        isNotEmpty,
+      );
+    });
+
+    test('prune deletes the get locks of deleted project roots once unused, '
+        'and reads a note only while its lock is free', () async {
+      Future<File> getLock(String root, {bool note = true}) async {
+        final lock = (await WayfinderFileLock.tryExclusive(
+          File(
+            p.join(
+              data.path,
+              'projects',
+              '${sha256.convert(utf8.encode(root))}.get.lock',
+            ),
+          ),
+        ))!;
+        if (note) await lock.writeNote('${jsonEncode({'root': root})}\n');
+        await lock.release();
+        await lock.file.setLastModified(
+          DateTime.now().subtract(const Duration(days: 40)),
         );
-        try {
-          await Directory(gone.root).delete(recursive: true);
-          final pruned = await store().prune();
-          expect(pruned.removed, isEmpty);
-          expect(pruned.busy, [result.index]);
-          expect(await Directory(result.index).exists(), isTrue);
-        } finally {
-          await held!.release();
+        return lock.file;
+      }
+
+      final project = await Directory(p.join(temp.path, 'project')).create();
+      final kept = await getLock(project.resolveSymbolicLinksSync());
+      final deleted = await getLock(p.join(temp.path, 'removed-project'));
+      final held = await getLock(p.join(temp.path, 'held-project'));
+      final unnoted = await getLock(p.join(temp.path, 'unnoted'), note: false);
+      final recent = await getLock(p.join(temp.path, 'recent'));
+      await recent.setLastModified(DateTime.now());
+      final deletedPath = deleted.resolvedPath;
+      final heldPath = held.resolvedPath;
+      final holder = await WayfinderFileLock.tryExclusive(held);
+      try {
+        final result = await store().prune();
+        expect(result.projectLocks, [deletedPath]);
+        expect(await deleted.exists(), isFalse);
+        for (final file in [kept, held, unnoted, recent]) {
+          expect(await file.exists(), isTrue, reason: file.path);
         }
-        expect((await store().prune()).removed.single.reason, 'missing-root');
-      },
-      skip: skipWithoutObjectBox,
-    );
+      } finally {
+        await holder!.release();
+      }
+      expect((await store().prune()).projectLocks, [heldPath]);
+    });
+
+    test('prune deletes model downloads abandoned for a day', () async {
+      final models = await Directory(
+        p.join(data.path, 'models', 'some-model'),
+      ).create(recursive: true);
+      final abandoned = File(
+        p.join(models.path, '.embedding.gguf.0123456789abcdef.part'),
+      );
+      final active = File(
+        p.join(models.path, '.embedding.gguf.fedcba9876543210.part'),
+      );
+      final model = File(p.join(models.path, 'embedding.gguf'));
+      for (final file in [abandoned, active, model]) {
+        await file.writeAsString('bytes');
+      }
+      for (final file in [abandoned, model]) {
+        await file.setLastModified(
+          DateTime.now().subtract(const Duration(days: 2)),
+        );
+      }
+      final path = abandoned.resolvedPath;
+      final result = await store().prune();
+      expect(result.downloads, [path]);
+      expect(await abandoned.exists(), isFalse);
+      expect(await active.exists(), isTrue);
+      expect(await model.exists(), isTrue);
+    });
   });
 
   group('store contract', () {
@@ -623,99 +818,23 @@ Future<void> main(List<String> arguments) async {
           isTrue,
         );
       },
-      skip: skipWithoutObjectBox,
     );
 
-    test(
-      'chunk IDs do not depend on where a bundle lives',
-      () async {
-        final copy = await copyStoreBundle(temp, 'elsewhere');
-        final knowledge = store();
-        await knowledge.index(bundle);
-        await knowledge.index(copy);
-        Future<List<String>> ids(ProjectBundle target) async => [
-          for (final hit in (await knowledge.searchBundle(
-            target,
-            'weather',
-          )).context)
-            hit.chunk.id,
-        ];
-        expect(await ids(copy), await ids(bundle));
-        expect(await ids(bundle), isNotEmpty);
-      },
-      skip: skipWithoutObjectBox,
-    );
-
-    test('the ObjectBox loader runs once, only before a database opens, and '
-        'again after it fails', () async {
-      var calls = 0;
-      var fail = true;
-      final provider = DeterministicEncoderProvider();
-      final knowledge = WayfinderKnowledgeStore(
-        dataDirectory: data,
-        encoder: provider,
-        loadObjectBox: () async {
-          calls++;
-          if (fail) {
-            throw const WayfinderException(
-              'objectbox-unavailable',
-              'No ObjectBox here.',
-            );
-          }
-        },
-      );
-      expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
-      expect(calls, 0);
-      await expectLater(
-        knowledge.index(bundle),
-        throwsA(
-          isA<WayfinderException>().having(
-            (e) => e.code,
-            'code',
-            'objectbox-unavailable',
-          ),
-        ),
-      );
-      expect(namespaces().expand(generations), isEmpty);
-      expect(provider.opened, isEmpty, reason: 'no model before ObjectBox');
-      fail = false;
+    test('chunk IDs do not depend on where a bundle lives', () async {
+      final copy = await copyStoreBundle(temp, 'elsewhere');
+      final knowledge = store();
       await knowledge.index(bundle);
-      await knowledge.searchBundle(bundle, 'password');
-      expect((await knowledge.index(bundle)).current, isTrue);
-      expect(calls, 2);
-    }, skip: skipWithoutObjectBox);
-
-    test(
-      'without ObjectBox or a loader, index reports objectbox-unavailable '
-      'and prints nothing',
-      () async {
-        final printed = <String>[];
-        final provider = DeterministicEncoderProvider();
-        final knowledge = store(provider);
-        await runZoned(
-          () => expectLater(
-            knowledge.index(bundle),
-            throwsA(
-              isA<WayfinderException>().having(
-                (e) => e.code,
-                'code',
-                'objectbox-unavailable',
-              ),
-            ),
-          ),
-          zoneSpecification: ZoneSpecification(
-            print: (_, _, _, line) => printed.add(line),
-          ),
-        );
-        expect(printed, isEmpty, reason: 'stdout belongs to the host');
-        expect(provider.opened, isEmpty, reason: 'no model before ObjectBox');
-        expect(namespaces().expand(generations), isEmpty);
-        expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
-      },
-      skip: objectBoxLibrary.existsSync()
-          ? 'Runs where ObjectBox is not installed.'
-          : false,
-    );
+      await knowledge.index(copy);
+      Future<List<String>> ids(ProjectBundle target) async => [
+        for (final hit in (await knowledge.searchBundle(
+          target,
+          'weather',
+        )).context)
+          hit.chunk.id,
+      ];
+      expect(await ids(copy), await ids(bundle));
+      expect(await ids(bundle), isNotEmpty);
+    });
 
     test('a closed store refuses every operation', () async {
       final knowledge = store();
@@ -810,4 +929,9 @@ Future<void> main(List<String> arguments) async {
       }
     });
   });
+}
+
+extension on File {
+  /// The path with symbolic links resolved, as the store reports it.
+  String get resolvedPath => resolveSymbolicLinksSync();
 }

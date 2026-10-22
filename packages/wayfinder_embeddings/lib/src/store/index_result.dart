@@ -1,4 +1,5 @@
 import '../okf/knowledge_input_diagnostic.dart';
+import 'project_search.dart' show KnowledgeCitation;
 
 /// Counts and location of a completed local indexing operation.
 class WayfinderIndexResult {
@@ -78,19 +79,47 @@ final class KnowledgeIndexIncompatible extends KnowledgeIndexStatus {
   final String reason;
 }
 
+/// An operation is indexing the bundle, or forgetting its index, right now.
+/// Searches still read the last published generation, which [previous]
+/// describes; with [StaleIndexPolicy.serveWhileRefreshing] they serve it
+/// even when it is stale.
+final class KnowledgeIndexRefreshing extends KnowledgeIndexStatus {
+  const KnowledgeIndexRefreshing(this.previous);
+
+  /// The last published generation against the bundle as it is now:
+  /// never another [KnowledgeIndexRefreshing].
+  final KnowledgeIndexStatus previous;
+}
+
+/// What a search does with a saved index that no longer matches its
+/// bundle.
+enum StaleIndexPolicy {
+  /// Refuse it with `index-stale`, whatever else is running. A search with
+  /// this policy never checks for a refresh.
+  refuse,
+
+  /// While another operation refreshes the bundle's index, serve the last
+  /// published generation: the result adds a `refresh-in-progress` notice,
+  /// and a `source-changed` notice and [KnowledgeCitation.sourceChanged] for
+  /// files edited since that generation was built. With no refresh running,
+  /// refuse a stale index as [refuse] does.
+  serveWhileRefreshing,
+}
+
 /// A step of `WayfinderKnowledgeStore.index`.
 enum IndexPhase {
   /// Hashing the bundle's files to compare them with the saved index.
   scanning,
 
-  /// Opening ObjectBox and the encoder, which may load a model, then
-  /// loading the bundle and fitting its passages to the encoder.
+  /// Opening the encoder, which may load a model, then loading the bundle
+  /// and fitting its passages to the encoder.
   loading,
 
   /// Embedding passages; [IndexProgress.completed] of [IndexProgress.total].
   embedding,
 
-  /// Writing the completed generation and making it current.
+  /// Writing the completed generation, making it current, and deleting
+  /// generations superseded long enough ago.
   publishing,
 }
 
@@ -135,10 +164,22 @@ final class KnowledgePrunedIndex {
 
 /// What `WayfinderKnowledgeStore.prune` removed and what it left in use.
 final class KnowledgePruneResult {
-  const KnowledgePruneResult({this.removed = const [], this.busy = const []});
+  const KnowledgePruneResult({
+    this.removed = const [],
+    this.busy = const [],
+    this.projectLocks = const [],
+    this.downloads = const [],
+  });
 
   final List<KnowledgePrunedIndex> removed;
 
   /// Index directories a running command held, left for a later prune.
   final List<String> busy;
+
+  /// The `get` lock files of project roots that no longer exist, deleted.
+  final List<String> projectLocks;
+
+  /// Temporary files of model downloads abandoned at least a day ago,
+  /// deleted.
+  final List<String> downloads;
 }

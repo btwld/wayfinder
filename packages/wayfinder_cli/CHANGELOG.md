@@ -52,6 +52,27 @@
   `Index is busy`.
 - Native bundles no longer include the `analyzer` packages or their license
   files. Search and indexing are unchanged; the CLI never chunked Dart source.
+- `search`, and the MCP server's `search` tool, keep working while another
+  command indexes the bundle (#110): they serve the last completed index with
+  a `refresh-in-progress` notice. Passages of files edited since are marked
+  `source changed` (`"sourceChanged": true` in JSON) and listed in a
+  `source-changed` notice. Without an index running, a stale index still
+  fails. Only `index` takes a bundle's lock: a second `index` of the bundle
+  still fails with `Index is busy`, and `index --detach` reports `running`.
+  The MCP server's calls share its encoder one model call at a time, so a
+  search no longer waits for a whole index.
+- **BREAKING:** indexes are plain files in
+  `indexes/bundles/<bundle-key>/<configuration-key>/`, and the `index` field of
+  `index --output=json` names that directory. An index an earlier build wrote,
+  in `indexes/<bundle-key>/`, is never read, changed or deleted, so the first
+  `index` after upgrading builds each bundle again; delete those directories
+  by hand to reclaim their space.
+- The CLI no longer loads ObjectBox, and native bundles no longer ship its
+  library or its license notice.
+- The background-index slot, `background-index.lock`, is a `flock` lock
+  (`WayfinderFileLock`) like Wayfinder's other lock files, so it excludes
+  other isolates as well as other processes. It does not exclude a background
+  index of an earlier release.
 
 # 0.2.0
 

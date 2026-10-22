@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md))
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; #110)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -54,11 +54,11 @@ a `GitRunner` (`runGit` by default), a `WayfinderCancellation`, and the
 validator's okf loader and graph builder. The knowledge store also takes a
 `WayfinderEncoderProvider`, whose identity names the index without opening a
 model, such as `LocalModelEncoderProvider` over a model file the host
-located and the store verifies before loading, and optionally a loader that
-makes ObjectBox's library available before the first database opens. The
-CLI's `native_runtime.dart` is that host: it finds the model and ObjectBox
-in its bundle or in the package during development, and skips loading when
-the process already provides ObjectBox's symbols. Failures are
+located and the store verifies before loading. The store keeps indexes as
+plain files and needs no database library
+([ADR-0010](0010-wayfinder-cli.md)). The CLI's `native_runtime.dart` is that
+host: it finds the model in its bundle or in the package during
+development. Failures are
 `WayfinderException`s with a stable `code` and a sentence that names no
 command; the CLI adds what to run, such as `Run wayfinder index <bundle>.`
 
@@ -106,7 +106,8 @@ descriptor never releases them. A lock file stays in place on release.
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get`, or its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
-| A bundle's index for one configuration, during any store operation | `indexes/<bundle key>/<configuration key>.lock` | exclusive, never waits | `index-busy` |
+| A bundle's index for one configuration, while `index` or `forget` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never take it, and probe it with `isHeld` to report a refresh | `index-busy` |
+| The machine's one background index (`wayfinder index --detach`) | `background-index.lock` | exclusive, never waits | the CLI reports `running` and starts nothing |
 
 A plan holds one mirror's lock at a time, so two plans never deadlock. The
 project lock records the project root it protects, so a later cleanup can
@@ -114,15 +115,17 @@ tell which lock belongs to a root that no longer exists. Read that note only
 while the lock is free (`isHeld` is false): on Windows the lock is a mandatory
 byte-range lock, so no other handle reads a held lock file. No lock file is
 kept for compatibility with an earlier release: `flock` and `fcntl` locks do
-not exclude each other. Every store operation holds its index's lock, reads
-included, so a search during an index is still refused until reads stop
-needing it ([ADR-0010](0010-wayfinder-cli.md)). The index lock records the
-bundle root, and its modification time is the index's last use; it sits
-beside the index directory, so `forget` and `prune` delete that directory
-while holding it and keep the lock file. Only `prune` deletes a lock file,
-and only once it has gone unused for the prune's period: deleting one that
-another operation has just opened would let that operation and the next hold
-different files.
+not exclude each other, so a background index of an earlier release does not
+exclude one of this release. Only writers hold an index's lock: searches read
+immutable generations without it, so a search during an index keeps working
+([ADR-0010](0010-wayfinder-cli.md)). The writer lock records the bundle root,
+and its modification time is the index's last use: a writer writes the note,
+and a search or `status` sets the time. `forget` and `prune` delete the
+index's pointer and generations while holding it and keep the lock file.
+Only `prune` deletes a lock file, an index's or a removed project's `get`
+lock, and only once it has gone unused for the prune's period: deleting one
+that another operation has just opened would let that operation and the next
+hold different files.
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
 exclude isolates, so a process runs all okf bundle I/O on one isolate:
@@ -150,8 +153,8 @@ or `GIT_ASKPASS`, no longer reach resolution; put them in Git's configuration
 
 Lock files and package files accumulate in the data directory, which stays
 derived and removable; `prune` removes the indexes of bundles that no longer
-exist at once, and their lock files once those go unused for its period, by
-default 30 days. A holder also checks that its lock file still exists, so
+exist at once, and their lock files, like the `get` locks of projects that no
+longer exist, once those go unused for its period, by default 30 days. A holder also checks that its lock file still exists, so
 the only remaining race needs an operation to open a lock file unused for
 that long in the moment `prune` deletes it, and another to start on that
 index meanwhile; it costs at worst a rebuild, and the publishing operation

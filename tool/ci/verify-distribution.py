@@ -31,7 +31,7 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
         executable = '.exe' if platform.startswith('windows') else ''
         required = ['SHA256SUMS', f'bin/wayfinder{executable}',
                     'models/embedding.gguf', 'models/manifest.json',
-                    'licenses/objectbox/NOTICE', 'licenses/embedding_runtime/NOTICE',
+                    'licenses/embedding_runtime/NOTICE',
                     'licenses/wayfinder/LICENSE', 'licenses/dart/packages.json',
                     'licenses/dart-sdk/LICENSE', 'LICENSE',
                     *[f'skills/{name}/SKILL.md' for name in [
@@ -40,6 +40,10 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
                         'use-wayfinder']]]
         if any(name not in files for name in required):
             raise SystemExit(f'Incomplete native bundle: {platform}')
+        # The command keeps its indexes as plain files and needs no ObjectBox.
+        if any('objectbox' in Path(name).name.lower() or
+               name.startswith('licenses/objectbox/') for name in files):
+            raise SystemExit(f'Unexpected ObjectBox asset: {platform}')
         manifest = bundle.extractfile(files['SHA256SUMS']).read().decode('utf-8')
         checked = set()
         for line in manifest.splitlines():

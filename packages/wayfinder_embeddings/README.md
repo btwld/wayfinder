@@ -47,16 +47,16 @@ historical status instead. Draft and unverified concepts remain eligible.
 The adapter requires `embedder:` and applies no implicit knowledge policy.
 Enable `includeContext` for title/heading inputs and supply
 `countTokens`/`maxTokens` from the encoder.
-Dense retrieval scores the entire eligible vector set exactly; ObjectBox adds
-persistence, not a relevance advantage. Search fails if an eligible passage
+Dense retrieval scores the entire eligible vector set exactly; a persistent
+store such as ObjectBox adds persistence, not a relevance advantage. Search fails if an eligible passage
 lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
 inclusion reasons and unresolved/excluded-context notices. They are candidates,
 not an answerability verdict.
 
-ObjectBox persists passage text and vectors. `KnowledgeSnapshot.toMap/fromMap`
-round-trips fitted passages and the source inputs needed to reconstruct the OKF
+The caller's store persists passage text and vectors, or holds them in memory.
+`KnowledgeSnapshot.toMap/fromMap` round-trips fitted passages and the source inputs needed to reconstruct the OKF
 graph. `KnowledgeIndex.fromSnapshot` opens a committed snapshot without document
 encoding or token fitting; the caller must provide its matching store and
 embedding configuration. Query-vector caching lasts only for that instance.
@@ -64,8 +64,9 @@ Chunk IDs hash the `bundleId` with each chunk's bundle-relative identity;
 `KnowledgeSnapshot.load(idNamespace:)` replaces the `bundleId` there, so a store
 that holds one bundle can give its copies the same IDs. `synchronize` reports
 embedding progress through `onEmbedded` and checks a `WayfinderCancellation`
-between batches. The [knowledge store](#knowledge-store) adds atomic
-snapshot/database publication and freshness checks on top.
+between batches. The [knowledge store](#knowledge-store) adds immutable,
+atomically published generations, reads without a lock while an index runs,
+and freshness checks on top.
 
 ## Knowledge store
 
@@ -100,12 +101,8 @@ try {
   `WayfinderEncoderProvider` declares the encoder's identity, which names the
   index without opening a model, and opens encoders on demand;
   `LocalModelEncoderProvider` loads a GGUF file the host located, after
-  checking its size and SHA-256. `loadObjectBox`, when given, runs before the
-  first database opens; leave it out when the process already provides
-  ObjectBox, as Flutter's `objectbox_flutter_libs` does. Either way the store
-  then checks that ObjectBox's library loads, fails with
-  `objectbox-unavailable` when it does not, and drops the hint ObjectBox
-  prints to stdout when its own search fails. The CLI's own host code is
+  checking its size and SHA-256. The store keeps indexes as plain files and
+  needs no database library. The CLI's own host code is
   `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
   names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
   comes from `knowledge_store.dart`.
@@ -113,56 +110,78 @@ try {
   an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
   input warnings), `KnowledgeIndexStale` (the changed paths) or
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
-  index, reports `IndexProgress` (`scanning`, `loading` from before ObjectBox
-  and the encoder open, `embedding` with counts, `publishing`) and checks its
-  `WayfinderCancellation` between steps and batches; a cancelled run deletes
-  the generation it staged and leaves the current one. `search` ranks a
-  project's bundles together under one limit; `searchBundle` searches one
-  bundle with its own context policy. `forget` deletes every index of a
-  bundle, such as a removed worktree, by the path it had, symbolic links
+  index, reports `IndexProgress` (`scanning`, `loading` from before the
+  encoder opens, `embedding` with counts, `publishing`) and checks its
+  `WayfinderCancellation` between steps and batches; a cancelled run writes
+  nothing and leaves the current generation. `search` ranks a project's
+  bundles together under one limit; `searchBundle` searches one bundle with
+  its own context policy. Both take a `StaleIndexPolicy`: `refuse`, the
+  default, refuses a stale index; `serveWhileRefreshing` serves the last
+  published generation while another operation indexes the bundle, with a
+  `refresh-in-progress` notice, and for files edited since, a
+  `source-changed` notice and `KnowledgeCitation.sourceChanged`. `status`
+  reports `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index
+  of a bundle, such as a removed worktree, by the path it had, symbolic links
   included; `prune` deletes those of roots that no longer exist and of other
-  configurations unused for 30 days.
+  configurations unused for 30 days, the `get` locks of project roots that no
+  longer exist (`WayfinderProfileResolver.pruneProjectLocks`), and model
+  downloads abandoned a day ago (`EmbeddingModelCache.removeAbandonedDownloads`).
 - **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
   typed `KnowledgeCitation`s (bundle, path, lines, content, concept ID,
-  title, type, status, similarity, why the passage is included), the JSON of
+  title, type, status, similarity, why the passage is included, and whether
+  its file changed after the served generation was built), and each bundle's
+  `KnowledgeSearchFreshness`, the JSON of
   `wayfinder search --output=json`, and the Markdown of `wayfinder search`
   and the MCP `search` tool, with control characters escaped. Retrieved text
   is source data, not instructions.
 - **Failures** are `WayfinderException`s with a stable `code`:
   `bundle-missing`, `data-directory-unavailable`, `data-directory-invalid`,
   `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
-  `bundle-changed`, `model-missing`, `model-invalid`,
-  `objectbox-unavailable`, `cancelled` and `closed`. Messages name no
-  command; the host says how to index.
+  `bundle-changed`, `model-missing`, `model-invalid`, `cancelled` and
+  `closed`. `index-busy` comes from a second writer, and from a
+  `serveWhileRefreshing` search while a bundle's first index is being built.
+  Messages name no command; the host says how to index.
 - **Tool inputs.** `wayfinderSearchInput` and `knowledgeMetadataFilterInput`
   are the Ack schemas of a host's search tool and its frontmatter filters;
   `knowledgeMetadataFilterFromInput` converts a parsed filter.
 - **Layout.** Each index lives in
-  `indexes/<bundle key>/<configuration key>/` under the data directory. The
-  bundle key hashes the canonical root, so worktrees and copies index
-  separately; the configuration key hashes the chunking, snapshot and storage
-  configuration with the encoder identity, so another model, chunker or format
-  never reads or replaces an index. A 0.2 index, at
-  `indexes/<sha256 of the root>/`, is never read, changed or deleted: the first
-  index after an upgrade builds anew. Chunk IDs do not depend on where the
-  bundle lives, so copies of a bundle get the same IDs and rank alike.
-  The inventory that decides freshness leaves out okf's `.okf.lock` at any
-  depth and never opens it.
-- **Concurrency.** One operation at a time holds an index, across isolates
-  and processes, through `<configuration key>.lock` beside it; another fails
-  with `index-busy`, so a search during an index is refused. `forget` and
-  `prune` keep a lock file when they delete its index, so an operation that
-  has just opened it still excludes the next one; `prune` deletes a lock file
-  only once it has gone unused for the prune's period. Without
-  `retainEncoder`, each operation opens and disposes its own encoder; with
-  it, `index` and the searches run one at a time and share one encoder and
-  the parsed snapshots, up to `cacheBytes`, while `status`, `forget` and
-  `prune` do not wait for them. Only a failure in the encoder or ObjectBox,
-  or an unexpected error, discards the shared encoder and snapshots; a
-  stale, busy or cancelled operation keeps them. okf's bundle lock does not
-  exclude isolates, so keep a process's okf bundle I/O, this store's
-  included, on one isolate
-  ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
+  `indexes/bundles/<bundle key>/<configuration key>/` under the data
+  directory. The bundle key hashes the canonical root, so worktrees and copies
+  index separately; the configuration key hashes the chunking, snapshot and
+  storage configuration with the encoder identity, so another model, chunker
+  or format never reads or replaces an index. The directory holds
+  `writer.lock`, a `current` pointer, and immutable generations,
+  `generation-<id>/{snapshot.json, vectors.f32}`: the record, and a header
+  (the magic `WFVF32\0\x01`, then the dimension and row count as
+  little-endian 32-bit integers) followed by one little-endian float32 row per
+  snapshot chunk, in chunk order. The record names the vectors' dimension, row
+  count, SHA-256 and the input each row embeds, and a reader checks them
+  before it scores. A 0.2 index, at `indexes/<sha256 of the root>/`, and an
+  ObjectBox-backed one from an earlier 0.3 build, at
+  `indexes/<bundle key>/<configuration key>/`, are never read, changed or
+  deleted: the first index after an upgrade builds anew. Chunk IDs do not
+  depend on where the bundle lives, so copies of a bundle get the same IDs and
+  rank alike. The inventory that decides freshness leaves out okf's
+  `.okf.lock` at any depth and never opens it.
+- **Concurrency.** Only writers lock. `index` and `forget` hold the index's
+  `writer.lock` across isolates and processes; another writer fails with
+  `index-busy`. `status`, `search` and `searchBundle` take no lock: they read
+  the generation `current` names, which never changes, so they keep working
+  while an index runs and never see a partial generation. A superseded
+  generation stays for `gracePeriod`, ten minutes by default, after the
+  publication that replaced it, and a later publication deletes it; a reader
+  that loses that race reads the pointer again. `forget` and `prune` keep a
+  lock file when they delete its index, so an operation that has just opened
+  it still excludes the next one; `prune` deletes a lock file only once it
+  has gone unused for the prune's period. Without `retainEncoder`, each
+  operation opens and disposes its own encoder; with it, operations share one
+  encoder, one call into it at a time (a batch of passages, a query vector or
+  a token count), so a search runs between an index's batches, and share the
+  parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
+  unexpected error, discards the shared encoder and snapshots; a stale, busy
+  or cancelled operation keeps them. okf's bundle lock does not exclude
+  isolates, so keep a process's okf bundle I/O, this store's included, on one
+  isolate ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
 
 `package:wayfinder_embeddings/testing.dart` has `DeterministicTestEmbedder` and
 `DeterministicEncoderProvider`: 384-dimension vectors from hashed words, which
@@ -386,9 +405,9 @@ It collapses repeated contexts to the first child hit.
   workspace overrides it to 5.3.2, so its tests and native bundles always pair
   Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
   when the two differ.
-  Tests that need the library, `test/objectbox_store_test.dart` and the
-  knowledge store's `test/knowledge_store*_test.dart`, skip themselves when it
-  is absent; native CI installs it and runs the whole package.
+  Tests that need the library, such as `test/objectbox_store_test.dart`, skip
+  themselves when it is absent; native CI installs it and runs the whole
+  package. The knowledge store does not use it.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
 

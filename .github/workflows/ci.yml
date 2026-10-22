@@ -122,10 +122,12 @@ jobs:
           path: packages/wayfinder_embeddings/models
           key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
       - run: dart run tool/prepare_model.dart
+      # ObjectBoxStore's tests and the retrieval bundle's compare_embeddings
+      # need it; the knowledge store and the wayfinder bundle do not.
       - run: dart run melos run objectbox:install
         working-directory: .
       # The whole package: the test job skips every test that needs
-      # ObjectBox or the model, including the knowledge store's.
+      # ObjectBox or the model.
       - run: dart test
       - run: dart test
         working-directory: packages/wayfinder_cli

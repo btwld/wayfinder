@@ -70,9 +70,8 @@ the frozen Profile in `test/fixtures/contract-profile/` from a local Git
 source, so a Bitwild release leaves these goldens alone. It normalizes
 temporary paths, the index key, chunk IDs, the Profile commit, the server
 version and timings; a test beside them checks that the project indexed
-elsewhere gets the same chunk IDs. The retrieval goldens need ObjectBox
-(`melos run objectbox:install`) and are skipped without it, so native CI runs
-them; regenerating fails without it. Regenerate from `packages/wayfinder_cli`
+elsewhere gets the same chunk IDs. The goldens need no native library, so
+every CI job runs them. Regenerate from `packages/wayfinder_cli`
 with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
 intended contract change, and review the diff with it. `mcp_dart` and `ack`
 serialize the MCP results and input schemas, so upgrading either can move
@@ -103,7 +102,8 @@ the whole workspace.
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)
 for the implementation and evaluation commands. Its optional native
-backend needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
+`ObjectBoxStore` backend, which the knowledge store and the `wayfinder` command
+do not use, needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
 files with `dart run melos run build` only when entity schemas change. The root
 `pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
 natively; change the override, the installer and

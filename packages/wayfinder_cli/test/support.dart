@@ -28,21 +28,3 @@ List<double> keywordVector(String text) => [
   0.01,
   ...List.filled(381, 0.0),
 ];
-
-/// Skips tests that index or search for real when the ObjectBox library
-/// `melos run objectbox:install` puts in `wayfinder_embeddings/lib` is absent.
-Object? get skipWithoutObjectBox =>
-    File(
-      p.join(
-        '..',
-        'wayfinder_embeddings',
-        'lib',
-        Platform.isMacOS
-            ? 'libobjectbox.dylib'
-            : Platform.isWindows
-            ? 'objectbox.dll'
-            : 'libobjectbox.so',
-      ),
-    ).existsSync()
-    ? false
-    : 'Install ObjectBox to run persistence tests.';

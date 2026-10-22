@@ -7,7 +7,6 @@ import 'package:mcp_dart/mcp_dart.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/messages.dart';
-import 'package:wayfinder_cli/src/native_runtime.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
@@ -456,6 +455,7 @@ void main() {
         0,
       );
       expect(search.limits, [5]);
+      expect(search.policies, [StaleIndexPolicy.serveWhileRefreshing]);
       expect(errors, isEmpty);
     },
   );
@@ -646,7 +646,6 @@ void main() {
         WayfinderKnowledgeStore store() => WayfinderKnowledgeStore(
           dataDirectory: Directory(p.join(temp.path, 'data')),
           encoder: provider,
-          loadObjectBox: loadObjectBox,
         );
         Future<int>? worker;
         final cli = WayfinderCli(
@@ -684,7 +683,6 @@ void main() {
         expect(provider.opened.length, opened, reason: 'no model was opened');
         expect(errors, isEmpty);
       },
-      skip: skipWithoutObjectBox,
     );
 
     test(
@@ -705,7 +703,6 @@ void main() {
         final store = WayfinderKnowledgeStore(
           dataDirectory: data,
           encoder: _InstalledIdentityProvider(),
-          loadObjectBox: loadObjectBox,
         );
         final target = ProjectBundle(
           'knowledge',
@@ -733,7 +730,6 @@ void main() {
         expect(result.stderr, contains('missing.gguf'));
         expect(result.stdout, isNot(contains('current')));
       },
-      skip: skipWithoutObjectBox,
       timeout: const Timeout(Duration(minutes: 3)),
     );
 
@@ -748,6 +744,90 @@ void main() {
         run,
         throwsA(isA<_Terminated>().having((t) => t.code, 'code', 2)),
       );
+    });
+  });
+
+  group('read while indexing', () {
+    test('search serves the published index with notices while another '
+        'command indexes; a second index is busy', () async {
+      final temp = await Directory.systemTemp.createTemp('wayfinder-refresh-');
+      addTearDown(() => temp.delete(recursive: true));
+      final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+      for (final file in Directory(
+        'test/fixtures/knowledge',
+      ).listSync().whereType<File>()) {
+        await file.copy(p.join(bundle.path, p.basename(file.path)));
+      }
+      WayfinderKnowledgeStore store() => WayfinderKnowledgeStore(
+        dataDirectory: Directory(p.join(temp.path, 'data')),
+        encoder: DeterministicEncoderProvider(
+          create: () => DeterministicTestEmbedder(vectorOf: keywordVector),
+        ),
+      );
+      final command = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        notices: false,
+        knowledge: store,
+        spawnDetached: (arguments) async => fail('Nothing may start.'),
+      );
+      expect(await command.run(['index', bundle.path, '--output=json']), 0);
+      final index = (jsonDecode(output.single) as Map)['index'] as String;
+      output.clear();
+      final recovery = File(p.join(bundle.path, 'recovery.md'));
+      await recovery.writeAsString(
+        '${await recovery.readAsString()}\nUse a backup code.\n',
+      );
+      // What another process's index holds while it runs.
+      final writer = await WayfinderFileLock.tryExclusive(
+        File(p.join(index, 'writer.lock')),
+      );
+      try {
+        expect(await command.run(['index', bundle.path]), 2);
+        expect(errors.single, contains('Index is busy'));
+        errors.clear();
+        expect(
+          await command.run([
+            'search',
+            bundle.path,
+            'password',
+            '--output=json',
+          ]),
+          0,
+        );
+        final result = jsonDecode(output.single) as Map;
+        expect(result['notices'], [
+          startsWith('refresh-in-progress: '),
+          startsWith('source-changed: recovery.md '),
+        ]);
+        final match = (result['matches'] as List).first as Map;
+        expect(match['chunk']['sourcePath'], 'recovery.md');
+        expect(match['sourceChanged'], isTrue);
+        output.clear();
+        expect(await command.run(['search', bundle.path, 'password']), 0);
+        expect(output.single, contains('match; source changed]'));
+        expect(output.single, contains('Notice: refresh-in-progress: '));
+        output.clear();
+        expect(
+          await command.run([
+            'index',
+            bundle.path,
+            '--detach',
+            '--output=json',
+          ]),
+          0,
+        );
+        expect(jsonDecode(output.single), {
+          'bundle': bundle.path,
+          'detached': 'running',
+        });
+        expect(errors, isEmpty);
+      } finally {
+        await writer!.release();
+      }
+      output.clear();
+      expect(await command.run(['search', bundle.path, 'password']), 2);
+      expect(errors.single, contains('Index is stale'));
     });
   });
 
@@ -976,10 +1056,7 @@ class _IndexKnowledge extends WayfinderKnowledgeStore {
   @override
   Future<KnowledgeIndexStatus> status(ProjectBundle bundle) async {
     if (state == 'busy') {
-      throw const WayfinderException(
-        'index-busy',
-        'Index is busy. Retry when the current command finishes.',
-      );
+      return const KnowledgeIndexRefreshing(KnowledgeIndexCurrent());
     }
     return state == 'current'
         ? const KnowledgeIndexCurrent()
@@ -1015,6 +1092,7 @@ class _SearchKnowledge extends WayfinderKnowledgeStore {
         encoder: DeterministicEncoderProvider(),
       );
   final limits = <int>[];
+  final policies = <StaleIndexPolicy>[];
 
   @override
   Future<KnowledgeBundleSearch> searchBundle(
@@ -1022,8 +1100,10 @@ class _SearchKnowledge extends WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
   }) async {
     limits.add(limit);
+    policies.add(stale);
     return KnowledgeBundleSearch(
       bundle,
       KnowledgeSearchResponse(matches: [], context: [], notices: []),

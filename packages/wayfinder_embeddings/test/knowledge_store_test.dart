@@ -114,35 +114,41 @@ void main() {
       await unavailable.dispose();
     });
 
-    test('a retained encoder serializes queries and disposes once', () async {
-      await knowledge.index(bundle);
-      final shared = store(retainEncoder: true);
-      final opened = encoders.length;
-      try {
-        final results = await Future.wait([
-          shared.searchBundle(bundle, 'password recovery'),
+    test(
+      'a retained encoder serves concurrent queries and disposes once',
+      () async {
+        await knowledge.index(bundle);
+        final shared = store(retainEncoder: true);
+        final opened = encoders.length;
+        try {
+          final results = await Future.wait([
+            shared.searchBundle(bundle, 'password recovery'),
+            shared.searchBundle(bundle, 'weather'),
+          ]);
+          expect(results.first.matches.first.sourcePath, 'recovery.md');
+          expect(
+            results.last.matches.any((hit) => hit.sourcePath == 'weather.md'),
+            isTrue,
+          );
+          expect(
+            encoders.last.queryTexts,
+            unorderedEquals(['password recovery', 'weather']),
+          );
+          expect(encoders.length, opened + 1);
+          expect(encoders.last.isDisposed, isFalse);
+        } finally {
+          await shared.dispose();
+          await shared.dispose();
+        }
+        expect(encoders.last.disposals, 1);
+        await expectLater(
           shared.searchBundle(bundle, 'weather'),
-        ]);
-        expect(results.first.matches.first.sourcePath, 'recovery.md');
-        expect(
-          results.last.matches.any((hit) => hit.sourcePath == 'weather.md'),
-          isTrue,
+          throwsA(
+            isA<WayfinderException>().having((e) => e.code, 'code', 'closed'),
+          ),
         );
-        expect(encoders.last.queryTexts, ['password recovery', 'weather']);
-        expect(encoders.length, opened + 1);
-        expect(encoders.last.isDisposed, isFalse);
-      } finally {
-        await shared.dispose();
-        await shared.dispose();
-      }
-      expect(encoders.last.disposals, 1);
-      await expectLater(
-        shared.searchBundle(bundle, 'weather'),
-        throwsA(
-          isA<WayfinderException>().having((e) => e.code, 'code', 'closed'),
-        ),
-      );
-    });
+      },
+    );
 
     test('a retained encoder does not bypass source freshness, and survives '
         'the refusal', () async {
@@ -180,8 +186,8 @@ void main() {
     });
 
     test('a retained encoder survives busy, cancelled and limit refusals, '
-        'and status does not wait for an index', () async {
-      await knowledge.index(bundle);
+        'and reads never wait for a search', () async {
+      final indexed = await knowledge.index(bundle);
       final entered = Completer<void>();
       final release = Completer<void>();
       final shared = store(retainEncoder: true);
@@ -203,15 +209,11 @@ void main() {
             ),
           ),
         );
-        encoder.beforeQuery = (_) async {
-          entered.complete();
-          await release.future;
-        };
-        final searching = shared.searchBundle(bundle, 'weather');
-        await entered.future;
-        // The search holds the index; status runs beside it and is refused.
+        final writer = await WayfinderFileLock.tryExclusive(
+          writerLock(indexed.index),
+        );
         await expectLater(
-          shared.status(bundle),
+          shared.index(bundle, force: true),
           throwsA(
             isA<WayfinderException>().having(
               (e) => e.code,
@@ -220,15 +222,19 @@ void main() {
             ),
           ),
         );
-        await expectLater(
-          knowledge.searchBundle(bundle, 'weather'),
-          throwsA(
-            isA<WayfinderException>().having(
-              (e) => e.code,
-              'code',
-              'index-busy',
-            ),
-          ),
+        await writer!.release();
+        encoder.beforeQuery = (_) async {
+          entered.complete();
+          await release.future;
+        };
+        final searching = shared.searchBundle(bundle, 'weather');
+        await entered.future;
+        // Readers take no lock: status and another store's search run
+        // beside the search that waits in its encoder.
+        expect(await shared.status(bundle), isA<KnowledgeIndexCurrent>());
+        expect(
+          (await knowledge.searchBundle(bundle, 'weather')).matches,
+          isNotEmpty,
         );
         release.complete();
         expect((await searching).matches, isNotEmpty);
@@ -238,7 +244,11 @@ void main() {
           (await shared.searchBundle(bundle, 'password')).matches,
           isNotEmpty,
         );
-        expect(encoders.last, same(encoder));
+        expect(
+          encoders.where((opened) => !opened.isDisposed).single,
+          same(encoder),
+          reason: 'the other store disposed its own encoder',
+        );
       } finally {
         await shared.dispose();
       }
@@ -552,7 +562,7 @@ void main() {
         expect(await file('recovery.md').readAsBytes(), before);
         final current = File(p.join(first.index, 'current'));
         final generation = await current.readAsString();
-        final database = File(p.join(first.index, generation, 'data.mdb'));
+        final database = File(p.join(first.index, generation, 'vectors.f32'));
         final bytes = await database.readAsBytes();
         reject = true;
         await expectLater(fitting.index(bundle, force: true), throwsStateError);
@@ -576,6 +586,13 @@ void main() {
           Directory(first.index).listSync().whereType<Directory>(),
           hasLength(1),
           reason: 'failed runs leave no staged generation',
+        );
+        expect(
+          Directory(
+            first.index,
+          ).listSync().whereType<File>().map((file) => p.basename(file.path)),
+          unorderedEquals(['current', 'writer.lock']),
+          reason: 'failed runs supersede nothing',
         );
       },
     );
@@ -836,7 +853,8 @@ void main() {
       },
     );
 
-    test('a second operation on an index is refused as busy', () async {
+    test('a second writer is refused as busy; readers report the first '
+        'index as being built', () async {
       final entered = Completer<void>();
       final release = Completer<void>();
       final held = store(
@@ -851,8 +869,12 @@ void main() {
       await entered.future;
       for (final operation in [
         () => knowledge.index(bundle),
-        () => knowledge.status(bundle),
-        () => knowledge.searchBundle(bundle, 'password'),
+        () => knowledge.forget(bundle),
+        () => knowledge.searchBundle(
+          bundle,
+          'password',
+          stale: StaleIndexPolicy.serveWhileRefreshing,
+        ),
       ]) {
         await expectLater(
           operation(),
@@ -865,9 +887,395 @@ void main() {
           ),
         );
       }
+      expect(
+        await knowledge.status(bundle),
+        isA<KnowledgeIndexRefreshing>().having(
+          (status) => status.previous,
+          'previous',
+          isA<KnowledgeIndexMissing>(),
+        ),
+      );
+      await expectLater(
+        knowledge.searchBundle(bundle, 'password'),
+        throwsA(
+          isA<WayfinderException>().having(
+            (e) => e.code,
+            'code',
+            'index-missing',
+          ),
+        ),
+        reason: 'refuse never looks for a refresh',
+      );
       release.complete();
       await indexing;
       expect((await knowledge.index(bundle)).embeddedChunks, 0);
+      expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+    });
+
+    test('search serves the published generation while an index runs, with '
+        'notices and source-changed citations', () async {
+      final first = await knowledge.index(bundle);
+      final servedGeneration = p.basename(currentGeneration(first.index).path);
+      final recovery = file('recovery.md');
+      final original = await recovery.readAsString();
+      await recovery.writeAsString('$original\nLinks expire after an hour.\n');
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      final refreshing = store(
+        encoder: newProvider(
+          beforeOpen: () async {
+            entered.complete();
+            await release.future;
+          },
+        ),
+      ).index(bundle);
+      await entered.future;
+      try {
+        expect(
+          await knowledge.status(bundle),
+          isA<KnowledgeIndexRefreshing>().having(
+            (status) => status.previous,
+            'previous',
+            isA<KnowledgeIndexStale>().having(
+              (stale) => stale.changedPaths,
+              'changedPaths',
+              ['recovery.md'],
+            ),
+          ),
+        );
+        await expectLater(
+          knowledge.searchBundle(bundle, 'password recovery'),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'index-stale',
+            ),
+          ),
+          reason: 'the default policy refuses a stale index',
+        );
+        final served = await knowledge.searchBundle(
+          bundle,
+          'password recovery',
+          stale: StaleIndexPolicy.serveWhileRefreshing,
+        );
+        expect(served.freshness.refreshing, isTrue);
+        expect(served.freshness.changedPaths, {'recovery.md'});
+        final match = served.matches.first;
+        expect(match.sourcePath, 'recovery.md');
+        expect(match.sourceChanged, isTrue);
+        expect(
+          served.context
+              .where((hit) => hit.sourcePath != 'recovery.md')
+              .every((hit) => !hit.sourceChanged),
+          isTrue,
+        );
+        expect(served.notices, [
+          ...served.response.notices.where(
+            (notice) =>
+                !notice.startsWith('refresh-in-progress:') &&
+                !notice.startsWith('source-changed:'),
+          ),
+          startsWith('refresh-in-progress: '),
+          allOf(
+            startsWith('source-changed: recovery.md '),
+            contains('changed'),
+          ),
+        ]);
+        final json = served.toJson();
+        expect(
+          ((json['matches']! as List).first as Map)['sourceChanged'],
+          isTrue,
+        );
+        final markdown = served.toMarkdown();
+        expect(
+          markdown,
+          contains(
+            '### recovery.md:${match.lineStart}-${match.lineEnd} '
+            '[stable; match; source changed]',
+          ),
+        );
+        expect(markdown, contains('Notice: refresh-in-progress: '));
+        final project = await knowledge.search(
+          [bundle],
+          'password recovery',
+          stale: StaleIndexPolicy.serveWhileRefreshing,
+        );
+        expect(project.freshness.single.refreshing, isTrue);
+        expect(project.matches.first.sourceChanged, isTrue);
+        expect(
+          project.notices,
+          contains(startsWith('knowledge: refresh-in-progress: ')),
+        );
+        expect(
+          ((project.toJson()['matches']! as List).first
+              as Map)['sourceChanged'],
+          isTrue,
+        );
+      } finally {
+        release.complete();
+        await refreshing;
+      }
+      // Published, the new generation is current: no notice, no flag.
+      final after = await knowledge.searchBundle(
+        bundle,
+        'password recovery',
+        stale: StaleIndexPolicy.serveWhileRefreshing,
+      );
+      expect(after.freshness.refreshing, isFalse);
+      expect(after.matches.every((hit) => !hit.sourceChanged), isTrue);
+      expect(
+        after.notices.where((notice) => notice.startsWith('refresh-')),
+        isEmpty,
+      );
+      expect(after.toJson().toString(), isNot(contains('sourceChanged')));
+      expect(
+        p.basename(currentGeneration(first.index).path),
+        isNot(servedGeneration),
+        reason: 'the refresh published a new generation',
+      );
+    });
+
+    test('a current index during a refresh is served with a refresh notice '
+        'only', () async {
+      await knowledge.index(bundle);
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      final refreshing = store(
+        encoder: newProvider(
+          beforeOpen: () async {
+            entered.complete();
+            await release.future;
+          },
+        ),
+      ).index(bundle, force: true);
+      await entered.future;
+      try {
+        final plain = await knowledge.searchBundle(bundle, 'password recovery');
+        final served = await knowledge.searchBundle(
+          bundle,
+          'password recovery',
+          stale: StaleIndexPolicy.serveWhileRefreshing,
+        );
+        expect(served.freshness.refreshing, isTrue);
+        expect(served.freshness.changedPaths, isEmpty);
+        expect(
+          served.toJson()['matches'],
+          plain.toJson()['matches'],
+          reason: 'the same generation, scored the same',
+        );
+        expect(served.notices, [...plain.notices, startsWith('refresh-')]);
+        expect(plain.freshness.refreshing, isFalse);
+      } finally {
+        release.complete();
+        await refreshing;
+      }
+    });
+
+    test('a superseded generation stays for the grace period after the '
+        'publication that replaced it', () async {
+      final first = await knowledge.index(bundle);
+      final oldest = p.basename(currentGeneration(first.index).path);
+      await knowledge.index(bundle, force: true);
+      final kept = p.basename(currentGeneration(first.index).path);
+      expect(kept, isNot(oldest));
+      expect(
+        Directory(p.join(first.index, oldest)).existsSync(),
+        isTrue,
+        reason: 'superseded less than ten minutes ago',
+      );
+      expect(
+        File(p.join(first.index, '$oldest.superseded')).existsSync(),
+        isTrue,
+      );
+      final eager = WayfinderKnowledgeStore(
+        dataDirectory: data,
+        encoder: newProvider(),
+        gracePeriod: Duration.zero,
+      );
+      await eager.index(bundle, force: true);
+      expect(
+        Directory(
+          first.index,
+        ).listSync().map((entry) => p.basename(entry.path)).toSet(),
+        {
+          'current',
+          'writer.lock',
+          p.basename(currentGeneration(first.index).path),
+        },
+        reason: 'with no grace, every superseded generation goes at once',
+      );
+      expect(
+        () => WayfinderKnowledgeStore(
+          dataDirectory: data,
+          encoder: newProvider(),
+          gracePeriod: const Duration(seconds: -1),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('a reader that loses a race with garbage collection reads the '
+        'pointer again', () async {
+      final first = await knowledge.index(bundle);
+      final pinned = <String>[];
+      final paused = Completer<void>();
+      final resume = Completer<void>();
+      final reader = store();
+      reader.onGenerationPinned = (generation) async {
+        pinned.add(generation);
+        if (pinned.length == 1) {
+          paused.complete();
+          await resume.future;
+        }
+      };
+      final searching = reader.searchBundle(bundle, 'password recovery');
+      await paused.future;
+      final eager = WayfinderKnowledgeStore(
+        dataDirectory: data,
+        encoder: newProvider(),
+        gracePeriod: Duration.zero,
+      );
+      // Publishes a new generation, which supersedes the pinned one, and
+      // collects it at once.
+      await eager.index(bundle, force: true);
+      expect(
+        Directory(p.join(first.index, pinned.single)).existsSync(),
+        isFalse,
+      );
+      resume.complete();
+      final result = await searching;
+      expect(result.matches.first.sourcePath, 'recovery.md');
+      expect(pinned, hasLength(2), reason: 'the reader retried once');
+      expect(pinned.last, p.basename(currentGeneration(first.index).path));
+    });
+
+    test('a search that read the pointer just before a publication reads '
+        'the new generation instead of failing as stale', () async {
+      final first = await knowledge.index(bundle);
+      final pinned = <String>[];
+      final paused = Completer<void>();
+      final resume = Completer<void>();
+      final reader = store();
+      reader.onGenerationPinned = (generation) async {
+        pinned.add(generation);
+        if (pinned.length == 1) {
+          paused.complete();
+          await resume.future;
+        }
+      };
+      final searching = reader.searchBundle(bundle, 'password recovery');
+      await paused.future;
+      final recovery = file('recovery.md');
+      await recovery.writeAsString(
+        '${await recovery.readAsString()}\nLinks expire after an hour.\n',
+      );
+      await knowledge.index(bundle);
+      resume.complete();
+      final result = await searching;
+      expect(result.matches.first.sourcePath, 'recovery.md');
+      expect(result.freshness.refreshing, isFalse);
+      expect(pinned, [
+        isNot(p.basename(currentGeneration(first.index).path)),
+        p.basename(currentGeneration(first.index).path),
+      ]);
+    });
+
+    test('a vectors file that is not what its record says is refused, never '
+        'scored, and indexing replaces it', () async {
+      final first = await knowledge.index(bundle);
+      final vectors = File(
+        p.join(currentGeneration(first.index).path, 'vectors.f32'),
+      );
+      final original = await vectors.readAsBytes();
+      for (final corrupt in [
+        original.sublist(0, original.length - 4),
+        [...original.sublist(0, original.length - 1), original.last ^ 1],
+        [...original, 0, 0, 0, 0],
+        <int>[],
+      ]) {
+        await vectors.writeAsBytes(corrupt);
+        final opened = encoders.length;
+        await expectLater(
+          knowledge.searchBundle(bundle, 'password'),
+          throwsA(
+            isA<WayfinderException>()
+                .having((e) => e.code, 'code', 'index-incompatible')
+                .having(
+                  (e) => e.message,
+                  'message',
+                  'Saved index is incomplete or incompatible.',
+                ),
+          ),
+        );
+        expect(encoders.length, opened, reason: 'refused before inference');
+        expect(
+          await knowledge.status(bundle),
+          isA<KnowledgeIndexIncompatible>(),
+        );
+      }
+      final repaired = await knowledge.index(bundle);
+      expect(repaired.current, isFalse);
+      expect(repaired.embeddedChunks, first.embeddedChunks);
+      expect(
+        (await knowledge.searchBundle(bundle, 'password')).matches,
+        isNotEmpty,
+      );
+    });
+
+    test('a retained encoder runs one call at a time while an index and '
+        'searches share it', () async {
+      final first = await knowledge.index(bundle);
+      expect(first.embeddedChunks, greaterThan(0));
+      var active = 0;
+      var most = 0;
+      final events = <String>[];
+      Future<void> enter(String what) async {
+        active++;
+        most = most > active ? most : active;
+        events.add(what);
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        active--;
+      }
+
+      final shared = WayfinderKnowledgeStore(
+        dataDirectory: data,
+        retainEncoder: true,
+        encoder: TestEncoderProvider(
+          encoders,
+          model: model,
+          countTokens: (text) async {
+            await enter('count');
+            return text.split(' ').length;
+          },
+          onOpen: (embedder) {
+            embedder.beforeQuery = (_) => enter('query');
+            embedder.beforeDocument = (_) => enter('document');
+          },
+        ),
+      );
+      try {
+        final indexing = shared.index(bundle, force: true);
+        final searches = [
+          for (var i = 0; i < 4; i++)
+            shared.searchBundle(bundle, 'password recovery'),
+        ];
+        final results = await Future.wait(searches);
+        final indexed = await indexing;
+        expect(indexed.embeddedChunks, first.embeddedChunks);
+        expect(results.every((r) => r.matches.isNotEmpty), isTrue);
+        expect(most, 1, reason: 'never two calls in the encoder at once');
+        expect(events, contains('document'));
+        expect(events.where((e) => e == 'query'), hasLength(4));
+        expect(
+          events.indexOf('query'),
+          lessThan(events.lastIndexWhere((e) => e != 'query')),
+          reason: 'a search ran while the index was still using the encoder',
+        );
+        expect(encoders.where((e) => !e.isDisposed), hasLength(1));
+      } finally {
+        await shared.dispose();
+      }
     });
 
     test(
@@ -882,7 +1290,7 @@ void main() {
         expect(await abandoned.exists(), isFalse);
       },
     );
-  }, skip: skipWithoutObjectBox);
+  });
 }
 
 /// Declares an identity its encoders do not report.

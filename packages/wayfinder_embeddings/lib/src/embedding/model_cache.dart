@@ -349,10 +349,41 @@ final class EmbeddingModelCache {
   /// to for [_abandonedAfter]. A download in progress, in this process or
   /// another, fails unless bytes arrive within its stall timeout, a minute
   /// by default, so its file is never that old.
-  Future<void> _removeAbandonedPartials() async {
-    final name = RegExp(
-      '^${RegExp.escape('.${spec.fileName}.')}[0-9a-f]{16}\\.part\$',
-    );
+  Future<void> _removeAbandonedPartials() => _removeAbandoned(
+    directory,
+    RegExp('^${RegExp.escape('.${spec.fileName}.')}[0-9a-f]{16}\\.part\$'),
+  );
+
+  /// Deletes the temporary files of downloads into the default cache
+  /// directories, `models/<id>/` under [dataDirectory], that stopped at
+  /// least a day ago without removing them, such as one whose process was
+  /// killed, whatever model they were for, and returns their paths.
+  /// [provision] does the same for its own model; this serves a host that
+  /// cleans its data directory without provisioning again. A download in
+  /// progress writes far more often, so its file is kept.
+  static Future<List<String>> removeAbandonedDownloads(
+    Directory dataDirectory,
+  ) async {
+    final removed = <String>[];
+    final models = Directory(p.join(dataDirectory.path, 'models'));
+    try {
+      await for (final entry in models.list(followLinks: false)) {
+        if (entry is! Directory) continue;
+        removed.addAll(await _removeAbandoned(entry, _anyPartial));
+      }
+    } on FileSystemException {
+      // No model cache yet.
+    }
+    return removed;
+  }
+
+  static final _anyPartial = RegExp(r'^\..+\.[0-9a-f]{16}\.part$');
+
+  static Future<List<String>> _removeAbandoned(
+    Directory directory,
+    RegExp name,
+  ) async {
+    final removed = <String>[];
     final cutoff = DateTime.now().subtract(_abandonedAfter);
     try {
       await for (final entry in directory.list(followLinks: false)) {
@@ -360,6 +391,7 @@ final class EmbeddingModelCache {
         try {
           if ((await entry.lastModified()).isBefore(cutoff)) {
             await entry.delete();
+            removed.add(entry.path);
           }
         } on FileSystemException {
           // Another provision removed it first, or Windows holds it open.
@@ -368,6 +400,7 @@ final class EmbeddingModelCache {
     } on FileSystemException {
       // A missing or unreadable directory has nothing to remove.
     }
+    return removed;
   }
 
   static const _abandonedAfter = Duration(days: 1);
