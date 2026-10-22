@@ -287,9 +287,13 @@ release.
   `ProfileSkills.escapingProblem`. A stale lock's reason reads `the
   configuration changed after the lock was written`, a busy project
   `Another Profile resolution is changing <root>`, and a lock change found
-  once a package is read names that package. Adoption's `bundle-okf-invalid`
-  and `skill-foreign` conflicts no longer name `okf validate` or
-  `wayfinder get`.
+  once a package is read names that package. A diagnostic for a missing or
+  stale lock carries its `ProfileLockChangeKind`
+  (`EngineDiagnostic.lockChange`), which `package:wayfinder/wayfinder.dart`
+  now declares and `package:wayfinder/project.dart` still exports, so a host
+  words the cause itself, as the command keeps `the configuration changed
+  after wayfinder get`. Adoption's `bundle-okf-invalid` and `skill-foreign`
+  conflicts no longer name `okf validate` or `wayfinder get`.
 
 # 0.2.0
 

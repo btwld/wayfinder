@@ -35,12 +35,20 @@ String commandMessage(WayfinderException error, {bool indexing = false}) =>
     };
 
 /// The message the command and the MCP server report for [diagnostic]: the
-/// engine's sentence, plus what to run for its remedy.
-String commandDiagnosticMessage(EngineDiagnostic diagnostic) =>
-    switch (diagnostic.remedy) {
-      final remedy? => '${diagnostic.message} ${_run(remedy)}',
-      null => diagnostic.message,
-    };
+/// engine's sentence, plus what to run for its remedy. A lock that an edit
+/// of `wayfinder.json` made stale keeps the command's own wording, which
+/// names the command that wrote the lock.
+String commandDiagnosticMessage(EngineDiagnostic diagnostic) {
+  final message = switch (diagnostic.lockChange) {
+    ProfileLockChangeKind.configurationChanged =>
+      'Profile lock is stale: the configuration changed after wayfinder get.',
+    _ => diagnostic.message,
+  };
+  return switch (diagnostic.remedy) {
+    final remedy? => '$message ${_run(remedy)}',
+    null => message,
+  };
+}
 
 /// [result] as the command and the MCP server report it, with each
 /// diagnostic's remedy worded as what to run.

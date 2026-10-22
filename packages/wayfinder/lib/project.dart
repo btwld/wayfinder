@@ -34,6 +34,9 @@
 /// ```
 library;
 
+// The kind of a ProfileLockChange, shared with the diagnostics that report
+// one (EngineDiagnostic.lockChange).
+export 'src/diagnostics.dart' show ProfileLockChangeKind;
 export 'src/project/cancellation.dart'
     show
         WayfinderCancellation,
@@ -97,7 +100,6 @@ export 'src/project/profile_status.dart'
         ProfileBindingStatus,
         ProfileLocalCopy,
         ProfileLockChange,
-        ProfileLockChangeKind,
         ProfileLockChangeRequiredException,
         ProfileResolutionStatus;
 export 'src/project/project_bundles.dart'

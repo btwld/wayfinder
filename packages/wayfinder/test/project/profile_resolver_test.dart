@@ -1660,6 +1660,7 @@ void main() {
         case UnselectedProfile(:final reasons):
           expect(status.diagnostic?.toJson(), reasons.single.toJson());
           expect(status.diagnostic?.remedy, reasons.single.remedy);
+          expect(status.diagnostic?.lockChange, reasons.single.lockChange);
         case SelectedProfile(:final notes):
           expect(status.diagnostic, isNull);
           expect(
@@ -1676,6 +1677,8 @@ void main() {
       if (status.lockChange case final change?) {
         expect(change.reason, status.diagnostic?.message);
       }
+      // ...and its diagnostic carries the kind, for a host to word.
+      expect(status.diagnostic?.lockChange, status.lockChange?.kind);
       return status;
     }
 
@@ -1966,6 +1969,9 @@ void main() {
         'written.',
       );
       expect(diagnostic.remedy, DiagnosticRemedy.resolveProfiles);
+      // The cause, as data a host words: the command says `after wayfinder
+      // get`, as it did when the library named the command.
+      expect(diagnostic.lockChange, ProfileLockChangeKind.configurationChanged);
       expect(
         (await agrees(ProfileBindingState.lockStale)).lockChange?.kind,
         ProfileLockChangeKind.configurationChanged,
