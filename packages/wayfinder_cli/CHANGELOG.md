@@ -1,4 +1,4 @@
-# Unreleased
+# 0.3.0 (unreleased)
 
 - `get` and `upgrade` refuse a file or symbolic link where a Profile skill
   directory goes, as they refuse a directory without Wayfinder's marker,
