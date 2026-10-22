@@ -76,7 +76,7 @@ class PreviewResult {
       files,
       onFileProcessed: onFileProcessed,
       onFileSkipped: (file, {inferredType, reason}) {
-        skipped[p.relative(file.path, from: fixturesDir.path)] = {
+        skipped[_fixtureRelativePath(file.path, fixturesDir)] = {
           'inferredType': inferredType,
           'reason': reason,
         };
@@ -932,11 +932,11 @@ Future<_PersistedCorpus> _persistCorpus({
       .chunkFiles(
         files,
         onFileProcessed: (file, chunkList) {
-          final relative = p.relative(file.path, from: fixturesDir.path);
+          final relative = _fixtureRelativePath(file.path, fixturesDir);
           processedCounts[relative] = chunkList.length;
         },
         onFileSkipped: (file, {inferredType, reason}) {
-          skippedIngest[p.relative(file.path, from: fixturesDir.path)] = {
+          skippedIngest[_fixtureRelativePath(file.path, fixturesDir)] = {
             'inferredType': inferredType,
             'reason': reason,
           };
