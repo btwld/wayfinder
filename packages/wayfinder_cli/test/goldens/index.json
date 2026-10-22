@@ -1,0 +1,36 @@
+{
+  "bundles": [
+    {
+      "name": "shared-kit",
+      "path": "kits/shared-kit",
+      "bundle": "<tmp>/project/kits/shared-kit",
+      "index": "<tmp>/data/indexes/<bundle-key>",
+      "embeddedChunks": 1,
+      "removedChunks": 0,
+      "writtenChunks": 1,
+      "elapsedMs": 0,
+      "current": false,
+      "warnings": []
+    },
+    {
+      "name": "knowledge",
+      "path": "knowledge",
+      "bundle": "<tmp>/project/knowledge",
+      "index": "<tmp>/data/indexes/<bundle-key>",
+      "embeddedChunks": 4,
+      "removedChunks": 0,
+      "writtenChunks": 4,
+      "elapsedMs": 0,
+      "current": false,
+      "warnings": [
+        {
+          "code": "embedding_context_omitted",
+          "sourcePath": "weather.md",
+          "lineStart": 11,
+          "lineEnd": 11,
+          "affectedChunks": 1
+        }
+      ]
+    }
+  ]
+}

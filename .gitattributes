@@ -19,3 +19,5 @@ packages/wayfinder/lib/src/generated/** text eol=lf
 # The CLI tests copy and edit these files as LF text, as the other fixture
 # directories above are pinned.
 packages/wayfinder_cli/test/fixtures/** text eol=lf
+# The CLI contract goldens are compared byte for byte, like the core goldens.
+packages/wayfinder_cli/test/goldens/** text eol=lf

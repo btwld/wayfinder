@@ -59,6 +59,19 @@ package and the `two-rule-child` package, so editing a Profile or an example
 leaves the golden alone. Regenerate it with the same `UPDATE_GOLDENS=1` only
 after an intended wording change.
 
+`packages/wayfinder_cli/test/golden_contract_test.dart` pins the CLI and MCP
+output contracts in `packages/wayfinder_cli/test/goldens/`: the MCP
+`initialize` result and `tools/list`, project `index` and `validate` JSON, the
+MCP search Markdown, and CLI search JSON for the project and for one bundle.
+It runs the project in `test/fixtures/contract-project/` with Bitwild from a
+local Git source and a deterministic test encoder, and it normalizes temporary
+paths, chunk IDs, the Profile commit, the server version and timings. The
+retrieval goldens need ObjectBox (`melos run objectbox:install`) and are
+skipped without it, so native CI runs them. Regenerate from
+`packages/wayfinder_cli` with
+`UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
+intended contract change, and review the diff with it.
+
 ## Formatting and documentation
 
 **Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
