@@ -84,6 +84,13 @@ void main() {
       }).isOk;
       expect(accepts(okfIndexGeneratorRevision), isTrue);
       expect(
+        accepts('0.5.0'),
+        isTrue,
+        reason:
+            'Bitwild 2026.3 pins version 0.5.0, so every okf 0.5 release must '
+            'keep generator revision 0.5.0',
+      );
+      expect(
         accepts(okfVersion),
         okfVersion == okfIndexGeneratorRevision,
         reason:
