@@ -61,15 +61,9 @@
   runs, and `get`s that share a Profile source wait for each other.
 - Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
 - `index` and `search` come from the `wayfinder_embeddings` knowledge store,
-  and the MCP server's tools with them; the CLI loads ObjectBox and finds the
-  model in its bundle and passes them in. Output and exit codes are
-  unchanged except as listed below.
-- **BREAKING:** indexes move to
-  `indexes/<bundle-key>/<configuration-key>/` in the data directory, and the
-  `index` field of `index --output=json` names that directory. An index 0.2
-  wrote is never read, changed or deleted, so the first `index` after
-  upgrading builds each bundle again, and `search` reports `Index is missing`
-  until then. Delete the 0.2 directories by hand to reclaim their space.
+  and the MCP server's tools with them. The CLI finds the model in its
+  bundle and passes it in. It does not load ObjectBox. Output and exit codes
+  are unchanged except as listed below.
 - Errors for an unusable index name what is wrong: `Index is missing`,
   `Index is stale`, `Saved index is incomplete or incompatible`,
   `The saved index has another configuration`, `Index belongs to another
@@ -85,9 +79,6 @@
   model on every run. `index <bundle> --detach` checks it first too, and an
   invalid setting fails with the foreground's error and exit code 2; before,
   `--detach` reported `started` and the background run failed.
-- Commands on one index exclude each other with a `flock` lock file beside
-  it, across processes and isolates; a second one still fails with
-  `Index is busy`.
 - Native bundles no longer include the `analyzer` packages or their license
   files. Search and indexing are unchanged; the CLI never chunked Dart source.
 - Requires `okf` `^0.5.1`. `validate --output json` reports the okf release
@@ -105,15 +96,6 @@
   slightly, so an index an earlier build wrote is not read and `index`
   builds each bundle once. Search results on the judged corpus and the OKF
   evaluation are unchanged.
-<!--
-Release bookkeeping: the bullets from "`search`, and the MCP server's `search`
-tool, keep working" to the end of this section supersede what the bullets
-above say about the CLI loading ObjectBox, the
-`indexes/<bundle-key>/<configuration-key>/` layout and commands on one index
-excluding each other. If both ship in one release, fold these into those
-bullets and drop the superseded text; if the bullets above ship first, move
-these under the next release.
--->
 - `search`, and the MCP server's `search` tool, keep working while another
   command indexes the bundle (#110): they serve the last completed index with
   a `refresh-in-progress` notice. Passages of files edited since are marked
@@ -125,13 +107,13 @@ these under the next release.
   The MCP server's calls share its encoder one model call at a time, so a
   search no longer waits for a whole index.
 - **BREAKING:** indexes are plain files in
-  `indexes/bundles/<bundle-key>/<configuration-key>/`, and the `index` field of
-  `index --output=json` names that directory. An index in an earlier layout,
-  Wayfinder 0.2's or an ObjectBox database in `indexes/<bundle-key>/`, is
-  never read, changed or deleted, so the first `index` after upgrading builds
-  each bundle again; delete those directories by hand to reclaim their space.
-- The CLI no longer loads ObjectBox, and native bundles no longer ship its
-  library or its license notice.
+  `indexes/bundles/<bundle key>/<configuration key>/generation-*`, and the
+  `index` field of `index --output=json` names that directory. The CLI store
+  does not use ObjectBox. An index in an earlier layout, Wayfinder 0.2's or
+  an ObjectBox database in `indexes/<bundle-key>/`, is never read, changed
+  or deleted, so the first `index` after upgrading builds each bundle again;
+  delete those directories by hand to reclaim their space. Native bundles
+  no longer ship ObjectBox or its license notice.
 - The background-index slot, `background-index.lock`, is a `flock` lock
   (`WayfinderFileLock`) like Wayfinder's other lock files, so it excludes
   other isolates as well as other processes. It does not exclude a background
