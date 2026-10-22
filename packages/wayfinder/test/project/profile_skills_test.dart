@@ -299,26 +299,22 @@ void main() {
       expect(await read(), isNull);
     });
 
-    test(
-      'reads nothing a symbolic link places outside the project',
-      () async {
-        await resolver.resolve(project.path);
-        final outside = await File(
-          p.join(temp.path, 'outside.md'),
-        ).writeAsString('outside');
-        final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
-        await claudeSkill.delete();
-        await Link(claudeSkill.path).create(outside.path);
-        expect(await read(), text, reason: 'the .agents copy still holds it');
+    test('reads nothing a symbolic link places outside the project', () async {
+      await resolver.resolve(project.path);
+      final outside = await File(
+        p.join(temp.path, 'outside.md'),
+      ).writeAsString('outside');
+      final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
+      await claudeSkill.delete();
+      await Link(claudeSkill.path).create(outside.path);
+      expect(await read(), text, reason: 'the .agents copy still holds it');
 
-        final agents = Directory(p.join(project.path, _agents));
-        final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
-        await Link(agents.path).create(elsewhere.path);
-        expect(await ProfileSkills.stale(project.path, revision), isEmpty);
-        expect(await read(), isNull);
-      },
-      skip: Platform.isWindows ? 'needs symbolic links' : false,
-    );
+      final agents = Directory(p.join(project.path, _agents));
+      final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
+      await Link(agents.path).create(elsewhere.path);
+      expect(await ProfileSkills.stale(project.path, revision), isEmpty);
+      expect(await read(), isNull);
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
 
     test('never returns the text of a revision get puts in place while it '
         'reads', () async {
