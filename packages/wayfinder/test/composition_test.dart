@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/wayfinder.dart';
@@ -353,7 +354,7 @@ void main() {
       'level': 'none',
     });
     expect(tool['extensions'], [
-      {'name': 'okf', 'version': okfPackageVersion},
+      {'name': 'okf', 'version': okfVersion},
     ]);
   });
 

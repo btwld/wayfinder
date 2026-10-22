@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
@@ -1062,7 +1063,7 @@ void main() {
           'help_uri': 'https://client.example/profile/README.md#type-allowed',
         },
       ]);
-      expect(report['engine'], {'okf': okfPackageVersion});
+      expect(report['engine'], {'okf': okfVersion});
     });
 
     test(

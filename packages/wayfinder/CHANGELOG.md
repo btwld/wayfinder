@@ -47,6 +47,19 @@
   the files `validate --fix` writes. `validate` delegates to both; its results
   are unchanged.
 - `wayfinder` depends on `crypto` and `ffi`.
+- **BREAKING:** Remove the `okfPackageVersion` export; import `okfVersion` or
+  `okfIndexGeneratorRevision` from `package:okf/okf.dart`.
+- Depend on `okf` `^0.5.1` instead of exactly 0.5.0. The `matches-generated`
+  `version` param names okf's index generator revision,
+  `okfIndexGeneratorRevision`, instead of the okf release; every okf 0.5
+  release keeps revision 0.5.0. `engine.okf` and the SARIF `okf` tool
+  extension report okf's own `okfVersion`, 0.5.1 or a later okf 0.5 release,
+  so `engine.okf` is no longer the value a package pins as `version`. okf
+  0.5.1 writes the same indexes as 0.5.0: a package that sets `version` to
+  `0.5.0`, Bitwild 2026.3 included, loads and yields the same findings, every
+  verdict is unchanged, and package format stays 2.
+- A `matches-generated` `version` that names another generator revision fails
+  to load with a message that names the revision this wayfinder runs.
 
 # 0.2.0
 

@@ -5,7 +5,6 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
-import 'generated/published_schemas.g.dart';
 import 'profile_finding.dart';
 import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
@@ -250,7 +249,7 @@ final class ProfileValidationResult {
     'diagnostics': diagnostics.map((d) => d.toJson()).toList(),
     if (fixed case final fixed?) 'fix': <String, Object?>{'written': fixed},
     'gate': <String, Object>{'state': gate.wireValue},
-    'engine': <String, Object>{'okf': okfPackageVersion},
+    'engine': <String, Object>{'okf': okfVersion},
   };
 
   Iterable<String> toTextLines() sync* {

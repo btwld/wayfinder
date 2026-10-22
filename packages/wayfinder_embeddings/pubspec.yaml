@@ -20,7 +20,7 @@ dependencies:
   llamadart: 0.8.23
   meta: ^1.16.0
   objectbox: ^5.3.2
-  okf: '>=0.5.0 <0.5.1'
+  okf: ^0.5.1
   path: ^1.8.0
   wayfinder: ^0.3.0
 

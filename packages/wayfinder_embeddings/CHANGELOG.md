@@ -24,6 +24,7 @@
   `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
   unchanged, so stores written by 0.2.0 open and keep working without a
   reindex; a test opens one that 0.2.0 wrote.
+- Requires `okf` `^0.5.1`.
 
 # 0.2.0
 

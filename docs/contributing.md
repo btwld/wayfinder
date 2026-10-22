@@ -27,15 +27,14 @@ repository root. `dart run melos run lint` checks all four workspace packages.
 ## Schemas and Profile packages
 
 The engine embeds no Profile. It embeds only the two published schemas,
-`docs/schemas/wayfinder.schema.json` and `docs/schemas/wayfinder-profile.schema.json`, and the
-okf package version, through the generated
-`packages/wayfinder/lib/src/generated/published_schemas.g.dart`. The version comes from the
-`okf:` constraint in `packages/wayfinder/pubspec.yaml`, which allows exactly one patch release
-(`'>=0.5.0 <0.5.1'`; every package uses the same constraint), so the embedded value and the
-resolved dependency cannot drift. pub rejects a bare version for a published
-package. After editing either schema or changing the okf pin, run
-`dart run tool/generate_published_schemas.dart` and commit the result;
-`--check` is the CI gate for a stale file.
+`docs/schemas/wayfinder.schema.json` and `docs/schemas/wayfinder-profile.schema.json`, through
+the generated `packages/wayfinder/lib/src/generated/published_schemas.g.dart`. After editing
+either schema, run `dart run tool/generate_published_schemas.dart` and commit the result;
+`--check` is the CI gate for a stale file. The okf release and its index generator revision
+come from okf itself (`okfVersion` and `okfIndexGeneratorRevision`), so the `okf:` constraint,
+the same `^0.5.1` in every package, is an ordinary range. Moving it to a new minor release
+can move the generator revision, which is a breaking engine change
+([guide §5.6](../implementation/okf-implementation-guide.md#56-rules-and-builtins)).
 
 Profiles are fetched through `wayfinder get`, not embedded in the engine, so
 editing a package needs no regeneration. This repository keeps Bitwild under
@@ -69,7 +68,8 @@ search JSON for the project and for one bundle. It runs the project in
 the frozen Profile in `test/fixtures/contract-profile/` from a local Git
 source, so a Bitwild release leaves these goldens alone. It normalizes
 temporary paths, the index key, chunk IDs, the Profile commit, the server
-version and timings. The retrieval goldens need ObjectBox
+version, the okf release in `engine.okf` (checked against `okfVersion`) and
+timings. The retrieval goldens need ObjectBox
 (`melos run objectbox:install`) and are skipped without it, so native CI runs
 them; regenerating fails without it. Regenerate from `packages/wayfinder_cli`
 with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an

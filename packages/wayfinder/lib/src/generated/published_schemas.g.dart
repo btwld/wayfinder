@@ -574,6 +574,3 @@ const String wayfinderProfileSchema = r'''
   }
 }
 ''';
-
-/// The okf package this engine generates indexes with.
-const String okfPackageVersion = '0.5.0';
