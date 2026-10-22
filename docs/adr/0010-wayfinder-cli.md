@@ -47,8 +47,10 @@ the caller to `wayfinder index`. Search
 includes every lifecycle state and bounded relationship context, following
 typed `relationships` entries before untyped body links, and never derives
 authority from type, verification, or similarity. MCP retains one lazily opened
-encoder across serialized retrieval calls, evicting it on failure and disposing
-it on disconnect, while one-shot CLI commands open and close their own encoder.
+encoder across serialized retrieval calls, evicting it when the encoder or
+ObjectBox fails, but not on an expected refusal such as a stale or busy index,
+and disposing it on disconnect, while one-shot CLI commands open and close
+their own encoder.
 
 The lifecycle is a library, `wayfinder_embeddings/knowledge_store.dart`
 ([ADR-0018](0018-embeddable-libraries.md)); the CLI and MCP server are its

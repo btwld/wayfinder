@@ -178,10 +178,8 @@ void main() {
       await source.writeAsString(original);
       final recovered = await search(retained);
       expect(_response(recovered), _response(first));
-      expect(
-        recovered.matches.first.chunk,
-        isNot(same(first.matches.first.chunk)),
-      );
+      // The refusal was expected, so the unchanged snapshot stays cached.
+      expect(recovered.matches.first.chunk, same(first.matches.first.chunk));
     });
 
     test('a source change during query inference is detected', () async {
@@ -204,10 +202,17 @@ void main() {
       await source.writeAsString(original);
       final recovered = await search(retained);
       expect(_response(recovered), _response(first));
-      expect(
-        recovered.matches.first.chunk,
-        isNot(same(first.matches.first.chunk)),
-      );
+      expect(recovered.matches.first.chunk, same(first.matches.first.chunk));
+    });
+
+    test('an encoder failure discards the cache with the encoder', () async {
+      final first = await search(retained);
+      h.beforeQuery = (_) async => throw StateError('Query inference failed');
+      await expectLater(search(retained, query: 'weather'), throwsStateError);
+      h.beforeQuery = null;
+      final next = await search(retained);
+      expect(_response(next), _response(first));
+      expect(next.matches.first.chunk, isNot(same(first.matches.first.chunk)));
     });
 
     test('two bundles keep separate cache entries without aliasing', () async {

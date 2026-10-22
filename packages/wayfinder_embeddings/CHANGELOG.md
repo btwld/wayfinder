@@ -12,7 +12,9 @@
   Markdown; failures are `WayfinderException`s with stable codes. The host
   supplies a `WayfinderEncoderProvider`, such as `LocalModelEncoderProvider`
   over a model file it located, and optionally an ObjectBox loader; the store
-  never locates a model or loads native code itself. `wayfinderSearchInput`
+  never locates a model or loads native code itself, and reports
+  `objectbox-unavailable`, keeping ObjectBox's own hint off stdout, when
+  ObjectBox's library does not load. `wayfinderSearchInput`
   and the new `knowledgeMetadataFilterInput` are the Ack inputs of a host's
   search tool.
 - Indexes live in `indexes/<bundle key>/<configuration key>/`, so another
@@ -66,8 +68,9 @@
   exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
   this package. `lib/objectbox.g.dart` is regenerated with
   `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
-  unchanged, so stores written by 0.2.0 open and keep working without a
-  reindex; a test opens one that 0.2.0 wrote.
+  unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
+  working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
+  store still builds each bundle once in its new layout (see above).
 
 # 0.2.0
 
