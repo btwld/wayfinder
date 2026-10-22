@@ -31,7 +31,7 @@ relevant guide; an ADR records the durable choice and links there.
 | [0015](0015-profile-rule-catalogs.md) | Profile rules are data: schemas over parsed facts, or named builtins |
 | [0016](0016-independent-profile-packages.md) | Every Profile is an independent package the validator enforces |
 | [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; preserve model, storage, context, and generic reranking |
-| [0018](0018-embeddable-libraries.md) | Public project and knowledge store libraries; the host injects resources, model, native libraries and its process layer, and its root bounds the project; bounded package reads; `flock` lock files; one isolate for okf bundle I/O |
+| [0018](0018-embeddable-libraries.md) | Public project and knowledge store libraries; the host injects resources, model, native libraries and its process layer, and its root bounds the project; bounded package reads; skill reads bounded in bytes and kept to the paths they checked; `flock` lock files; one isolate for okf bundle I/O |
 | [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing |
 | [0021](0021-graph-projection-in-project-library.md) | The graph projection and `wayfinderLinkFields` live in the project library; graph output is unchanged |
 | [0022](0022-plain-file-index-generations.md) | Plain-file index generations that search reads while an index runs; the knowledge store is the public lifecycle |
