@@ -353,6 +353,59 @@ Distribute the whole bundle. Runtime model lookup uses the executable location,
 then the development `models/` directory; `WAYFINDER_EMBEDDING_MODEL` or the
 CLI's `--model` can override it. Runtime inference never downloads weights.
 
+### Provision the model from an application
+
+An application that embeds this package, rather than shipping a Wayfinder
+bundle, obtains the model through `package:wayfinder_embeddings/model_cache.dart`.
+`EmbeddingModelCache` keeps the pinned model in one directory:
+`models/arctic-embed-xs-q8_0/` in the data directory you pass as
+`dataDirectory:`, by default the Wayfinder data directory
+(`WayfinderDataDirectory.resolve()`, so `WAYFINDER_DATA_DIR` moves it, beside
+the CLI's indexes and Profiles). `EmbeddingModelCache.inDirectory` uses a
+directory of your choice instead. The file inside is `embedding.gguf`, the
+name a staged `models/` directory uses, so a bundle's `models/` directory is a
+cache directory too.
+
+- `target` describes the download to show before asking: the source URL, the
+  25,279,840 bytes, the SHA-256 and the destination file.
+- `locate()` is offline. It reads files only and returns the verified cached
+  model, or the first verified file in `alsoCheck` (for example the
+  `models/embedding.gguf` of an installed Wayfinder bundle), or null.
+- `provision()` is the only call that downloads. It returns a stream:
+  `ModelDownloading` events as bytes arrive (about once per percent), then
+  `ModelVerifying`, then `ModelProvisioned` with the file. A model already in
+  place yields only `ModelProvisioned`, without a request. The download goes
+  to a temporary `.embedding.gguf.<random>.part` file in the cache directory,
+  and only a file whose size and SHA-256 match the pin is renamed into place,
+  so a failed download never replaces or removes the model already there. A
+  `WayfinderCancellation`, or cancelling the subscription, stops it and
+  removes the temporary file. A process killed mid-download can leave a
+  `.part` file behind; it is safe to delete.
+
+Failures are `WayfinderException`s: `model-download-failed` (a network error,
+a response other than 200, or nothing received for `stallTimeout`, one minute
+by default), `model-invalid` (the size or SHA-256 differs) and `cancelled`.
+Pass `client:` to supply the `http.Client`, for example one configured for a
+proxy, or a fake in tests.
+
+```dart
+import 'package:wayfinder_embeddings/model_cache.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+
+Future<LlamaEmbedder> openEmbedder() async {
+  final cache = EmbeddingModelCache();
+  var model = await cache.locate();
+  if (model == null) {
+    // Ask first: this downloads cache.target.bytes from cache.target.source.
+    await for (final step in cache.provision()) {
+      if (step is ModelDownloading) print('${(step.fraction * 100).round()}%');
+      if (step is ModelProvisioned) model = step.file;
+    }
+  }
+  return LlamaEmbedder.open(modelFile: model);
+}
+```
+
 `LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
 call `dispose()` in a `finally` block. A backend that never reports itself
 started is retried once on a fresh engine, because the first load from a

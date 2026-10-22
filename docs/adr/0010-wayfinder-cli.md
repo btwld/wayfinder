@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (a host may provision the model)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -21,9 +21,13 @@ Validation runs the engine contract and needs no model.
 The application indexes with verified local Arctic XS embeddings and searches
 saved document vectors with an encoded query. Both the application and the
 reusable library use dense-only retrieval ([ADR-0017](0017-dense-only-retrieval.md));
-retired lexical and hybrid mode choices are rejected. Build tooling
-owns model acquisition, and the native distribution includes the verified
-artifact. Runtime commands never download or train a model.
+retired lexical and hybrid mode choices are rejected. Runtime commands
+never download or train a model. Build tooling acquires it, and the native
+distribution includes the verified artifact. A host that embeds the retrieval
+library acquires it only by calling `EmbeddingModelCache.provision`, after its
+user agrees. Both download the pinned artifact into a model cache in per-user
+application data and verify its size and SHA-256 before an atomic rename, so a
+failed download never replaces a model. Locating the model reads files only.
 
 Persist one derived ObjectBox index per canonical bundle path in per-user
 application data, outside the repository. Store original inputs, passages,
@@ -44,9 +48,9 @@ it on disconnect, while one-shot CLI commands open and close their own encoder.
 ## Consequences
 
 Indexes duplicate bundle text in local app data and can be removed and
-rebuilt. Staging may briefly need room for two databases. Hash checks are not
-an adversarial filesystem transaction, and atomic publication is not a
-power-loss guarantee.
+rebuilt; so can the model cache, at the cost of one download. Staging may
+briefly need room for two databases. Hash checks are not an adversarial
+filesystem transaction, and atomic publication is not a power-loss guarantee.
 
 The application has no watcher, answer generator, or automatic bundle fix
 beyond `validate --fix`. Reindex after edits. Current commands and storage

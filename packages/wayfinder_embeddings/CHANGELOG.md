@@ -24,6 +24,18 @@
   `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
   unchanged, so stores written by 0.2.0 open and keep working without a
   reindex; a test opens one that 0.2.0 wrote.
+- New `package:wayfinder_embeddings/model_cache.dart` entry with
+  `EmbeddingModelCache`, so an application can obtain the pinned Arctic Embed
+  XS Q8_0 model itself. `target` describes the download (source URL, size,
+  SHA-256, destination); `locate` finds a verified copy without touching the
+  network; `provision` downloads it through an injectable `http.Client` into a
+  temporary file in the cache directory, reports progress, verifies the size
+  and SHA-256 before an atomic rename, and is cancellable, removing the
+  temporary file. The cache directory is `models/<id>` in the `dataDirectory`
+  given, by default the Wayfinder data directory, or any directory through
+  `EmbeddingModelCache.inDirectory`. Failures are `WayfinderException`s
+  (`model-download-failed`, `model-invalid`, `cancelled`). Adds the `http`
+  dependency.
 
 # 0.2.0
 

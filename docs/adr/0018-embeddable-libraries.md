@@ -38,7 +38,9 @@ llamadart or analyzer.
 **The host owns its resources.** The project library never downloads,
 prompts, loads a native library from disk or resolves files next to the
 executable; the retrieval library takes the same rule when its index
-lifecycle leaves the CLI. A host injects the
+lifecycle leaves the CLI. Its one download is the embedding model, made only
+when a host calls `EmbeddingModelCache.provision`
+([ADR-0010](0010-wayfinder-cli.md)). A host injects the
 data directory (`WayfinderDataDirectory.resolve()` by default), a `GitRunner`
 (`runGit` by default), a `WayfinderCancellation`, and the validator's okf
 loader and graph builder. Failures are `WayfinderException`s with a stable
