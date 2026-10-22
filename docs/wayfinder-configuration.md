@@ -447,8 +447,11 @@ its own.
 `validate` checks each chain member's installed skill against the lock and
 never writes it. A missing directory, or a marker that names another
 revision, reports the `wayfinder/profile-skill-stale` warning with the
-directories to refresh. It does not change the gate or the exit status,
-because the rules still ran. Run `get` to reinstall the locked revision.
+directories to refresh. A marker that cannot be read, is not a regular file,
+or is larger than 64 KiB counts as no marker: the warning names its
+directory, and `get` refuses to replace that directory until you move it
+aside. The warning does not change the gate or the exit status, because the
+rules still ran. Run `get` to reinstall the locked revision.
 
 ## Tags and directories beside a bundle
 
