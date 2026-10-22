@@ -224,8 +224,8 @@ void main() {
           'id': 'wayfinder/profile-unresolved',
           'level': 'error',
           'message':
-              'Profile lock is stale: the configuration changed after the '
-              'lock was written. Run wayfinder get.',
+              'Profile lock is stale: the configuration changed after '
+              'wayfinder get. Run wayfinder get.',
           'location': {'path': 'wayfinder.json'},
         });
         final staleMcp = await client.callTool(

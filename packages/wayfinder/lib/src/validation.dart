@@ -205,6 +205,7 @@ final class ProfileValidationResult {
         message(diagnostic),
         location: diagnostic.location,
         remedy: diagnostic.remedy,
+        lockChange: diagnostic.lockChange,
       ),
   ], fixed: fixed);
 

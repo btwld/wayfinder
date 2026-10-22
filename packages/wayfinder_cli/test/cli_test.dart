@@ -123,6 +123,36 @@ void main() {
       ),
       'Why.',
     );
+    // A lock an edit of wayfinder.json made stale reads as it did when the
+    // library named the command.
+    expect(
+      commandDiagnosticMessage(
+        const EngineDiagnostic(
+          DiagnosticCode.profileUnresolved,
+          'Profile lock is stale: the configuration changed after the lock '
+          'was written.',
+          remedy: DiagnosticRemedy.resolveProfiles,
+          lockChange: ProfileLockChangeKind.configurationChanged,
+        ),
+      ),
+      'Profile lock is stale: the configuration changed after wayfinder get. '
+      'Run wayfinder get.',
+    );
+    // Every other lock change keeps the library's reason.
+    for (final kind in ProfileLockChangeKind.values) {
+      if (kind == ProfileLockChangeKind.configurationChanged) continue;
+      expect(
+        commandDiagnosticMessage(
+          EngineDiagnostic(
+            DiagnosticCode.profileUnresolved,
+            'Why.',
+            remedy: DiagnosticRemedy.resolveProfiles,
+            lockChange: kind,
+          ),
+        ),
+        'Why. Run wayfinder get.',
+      );
+    }
   });
 
   test('root help exposes application commands and MCP transport', () async {

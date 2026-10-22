@@ -183,7 +183,8 @@ Future<void> main() async {
   what to run. A selection's or status's diagnostic carries a
   `DiagnosticRemedy` (`remedy`) when resolving the Profiles again fixes it,
   as `WayfinderProfileResolutionException.remedy` does when selecting new
-  revisions would, and `ProfileValidationResult.withDiagnosticMessages`
+  revisions would, and the `ProfileLockChangeKind` (`lockChange`) of a lock
+  that is missing or stale; `ProfileValidationResult.withDiagnosticMessages`
   words remedies into a result before a host renders it. Typed failures
   carry their data: `ProfileSkillDirectoriesException` the skill
   directories `get` may not replace, `ProfileResolutionBusyException` the
