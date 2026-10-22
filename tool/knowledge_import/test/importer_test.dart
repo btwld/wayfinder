@@ -79,7 +79,12 @@ void main() {
     final importer = KnowledgeImporter();
     final changeSet = File(p.join(sandbox.path, 'changes.json'));
     final absolute = p.join(sandbox.path, 'absolute.md');
-    for (final path in ['../x.md', 'nested/../../x.md', absolute]) {
+    const safe = 'Change paths must be safe project-relative paths.';
+    for (final (path, message) in [
+      ('../x.md', safe),
+      ('nested/../../x.md', safe),
+      (absolute, safe),
+    ]) {
       changeSet.writeAsStringSync(
         jsonEncode({
           'version': 1,
@@ -90,7 +95,13 @@ void main() {
       );
       await expectLater(
         importer.apply(root, changeSet),
-        throwsFormatException,
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            message,
+          ),
+        ),
         reason: path,
       );
       expect(
