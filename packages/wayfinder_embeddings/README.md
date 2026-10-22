@@ -74,10 +74,12 @@ and freshness checks on top.
 and `wayfinder search` do, as a library: saved local indexes of OKF bundles
 in Wayfinder's data directory, and dense search over them. A host such as an
 IDE or an agent runtime uses it with the bundles of a
-`package:wayfinder/project.dart` project.
+`package:wayfinder/project.dart` project, discovered from the project root
+the host opens, so nothing above that root is read.
 
 ```dart
-final project = await WayfinderProject.discover(Directory.current);
+// The root of the workspace the host opens; discovery reads nothing above it.
+final project = await WayfinderProject.discover(Directory('/work/app'));
 final store = WayfinderKnowledgeStore(
   dataDirectory: WayfinderDataDirectory.resolve(),
   encoder: LocalModelEncoderProvider(modelFile: modelFile),
