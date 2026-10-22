@@ -485,7 +485,9 @@ void main() {
       for (final (config, root) in [
         (null, project.path),
         (byHand.config, temp.path),
-        (byHand.config, p.relative(project.path)),
+        // Spelled relative on every platform: p.relative returns an absolute
+        // path when the working directory is on another Windows drive.
+        (byHand.config, p.basename(project.path)),
       ]) {
         expect(
           () => SelectedProfile(
