@@ -28,7 +28,8 @@ final class GitResult {
 /// [GitProcessStarter] to [runGit], which keeps every other part of its
 /// hardening. A runner of its own applies the same: [wayfinderGitOptions],
 /// [wayfinderGitEnvironment] with [wayfinderConfiguredSshCommand], a bound on
-/// stdout, and a kill of the command's process tree.
+/// stdout that never returns part of it, and a kill of the command's
+/// process tree.
 typedef GitRunner =
     Future<GitResult> Function(
       List<String> arguments, {
@@ -47,7 +48,10 @@ abstract interface class GitProcess {
 
   /// Stops the process and every process it started, such as `ssh` or a
   /// remote helper, so none outlives the command. [runGit] calls it when it
-  /// stops a command, then waits a few seconds for [exitCode].
+  /// stops a command, then waits a few seconds for [exitCode]. It also calls
+  /// it after the exit, when a process the command started still holds its
+  /// output past the read's limit or the read is cancelled; a starter that
+  /// can no longer reach those processes does nothing then.
   void kill();
 }
 
@@ -310,10 +314,16 @@ bool gitMayReachRemote(List<String> arguments) =>
 /// A command that writes no output for [timeout] is stopped and throws
 /// `git-timeout`; [cancel] stops it the same way and throws
 /// `WayfinderException.cancelled()`. Stopping kills the command with the
-/// processes it started ([GitProcess.kill]). Once a command exits, its
-/// output is read until both streams close, or until neither has written
-/// for a second, because a helper it left running, such as an SSH
-/// connection master, can hold them open.
+/// processes it started ([GitProcess.kill]).
+///
+/// Once a command exits, its stdout is read to its end, and its stderr
+/// until it closes or a second passes without any, because a helper the
+/// command left running, such as an SSH connection master, can hold stderr
+/// open. Both must end within ten seconds of the exit, or [timeout] when
+/// that is shorter. A stdout still open then throws `git-output-incomplete`,
+/// since a result never holds part of it; a stderr still being written then
+/// is cut. Either way the helpers are stopped, and [cancel] still stops the
+/// read.
 Future<GitResult> runGit(
   List<String> arguments, {
   String? workingDirectory,
@@ -356,9 +366,13 @@ const _maxErrorBytes = 64 * 1024;
 /// How long [runGit] waits for a stopped command to exit.
 const _killGrace = Duration(seconds: 5);
 
-/// How long [runGit] keeps reading the output of an exited command after
-/// the last bytes arrived.
+/// How long [runGit] keeps reading an exited command's stderr, once its
+/// stdout closed, after the last bytes arrived.
 const _drainQuiet = Duration(seconds: 1);
+
+/// How long after a command exits [runGit] waits for its output to end,
+/// unless the command's `timeout` is shorter.
+const _drainLimit = Duration(seconds: 10);
 
 Future<GitResult> _run(
   List<String> arguments, {
@@ -383,10 +397,13 @@ Future<GitResult> _run(
     exited = true;
     return code;
   });
+  // Why the command, or the read of its output once it exited, ended
+  // early. Stopping kills the tree: a running command with its helpers, and
+  // after the exit the helpers that still hold its output.
   WayfinderException? stopped;
   final stop = Completer<void>();
   void stopFor(WayfinderException reason) {
-    if (exited || stopped != null) return;
+    if (stopped != null) return;
     stopped = reason;
     process.kill();
     stop.complete();
@@ -394,22 +411,20 @@ Future<GitResult> _run(
 
   Timer? silence;
   void heard() {
+    if (exited) return;
     silence?.cancel();
-    silence = Timer(
-      timeout,
-      () => stopFor(
+    silence = Timer(timeout, () {
+      if (exited) return;
+      stopFor(
         WayfinderException(
           'git-timeout',
           'git $command wrote nothing for ${timeout.inSeconds} seconds and '
               'was stopped.',
         ),
-      ),
-    );
+      );
+    });
   }
 
-  // Output past the limit fails the command even when it arrives while the
-  // output drains after the command exited.
-  WayfinderException? overflow;
   final stdout = BytesBuilder(copy: false);
   final stderr = _Tail(_maxErrorBytes);
   final stdoutDone = Completer<void>();
@@ -418,14 +433,15 @@ Future<GitResult> _run(
     if (!completer.isCompleted) completer.complete();
   }
 
-  // Once the command exits, the output that is still arriving keeps the
-  // drain going; a second without any ends it.
-  final quiet = Completer<void>();
-  Timer? drain;
-  void drained() {
-    if (!exited) return;
-    drain?.cancel();
-    drain = Timer(_drainQuiet, () => done(quiet));
+  // Set once stdout closed after the exit: a second without stderr ends
+  // the read, and each chunk of stderr starts that second again.
+  Completer<void>? quiet;
+  Timer? hush;
+  void restartQuiet() {
+    final waiting = quiet;
+    if (waiting == null) return;
+    hush?.cancel();
+    hush = Timer(_drainQuiet, () => done(waiting));
   }
 
   heard();
@@ -433,26 +449,31 @@ Future<GitResult> _run(
     process.stdout.listen(
       (bytes) {
         heard();
-        drained();
-        if (overflow != null) return;
+        if (stopped != null) return;
         if (stdout.length + bytes.length > maxOutputBytes) {
-          overflow = WayfinderException(
-            'git-output-too-large',
-            'git $command wrote more than $maxOutputBytes bytes and was '
-                'stopped.',
+          stopFor(
+            WayfinderException(
+              'git-output-too-large',
+              'git $command wrote more than $maxOutputBytes bytes and was '
+                  'stopped.',
+            ),
           );
-          stopFor(overflow!);
           return;
         }
         stdout.add(bytes);
       },
       onDone: () => done(stdoutDone),
-      onError: (Object error, StackTrace trace) => done(stdoutDone),
+      onError: (Object error, StackTrace trace) => stopFor(
+        WayfinderException(
+          'git-output-incomplete',
+          'Reading the output of git $command failed: $error',
+        ),
+      ),
     ),
     process.stderr.listen(
       (bytes) {
         heard();
-        drained();
+        restartQuiet();
         stderr.add(bytes);
       },
       onDone: () => done(stderrDone),
@@ -463,30 +484,61 @@ Future<GitResult> _run(
         (_) => stopFor(const WayfinderException.cancelled()),
       ),
   ];
+  Timer? limit;
   try {
     final exitCode = await Future.any<int?>([
       exit,
       stop.future.then((_) => null),
     ]);
     if (stopped case final reason?) {
-      await exit.timeout(_killGrace, onTimeout: () => -1);
+      if (!exited) await exit.timeout(_killGrace, onTimeout: () => -1);
       throw reason;
     }
-    drained();
+    silence?.cancel();
+    final drainLimit = timeout < _drainLimit ? timeout : _drainLimit;
+    final limited = Completer<void>();
+    limit = Timer(drainLimit, () => done(limited));
+    // A result holds all of stdout, so only its end, a stop or the limit
+    // ends this wait; never a pause, which a busy isolate or a host's
+    // process layer can make long.
+    await Future.any([stdoutDone.future, stop.future, limited.future]);
+    if (stopped == null && !stdoutDone.isCompleted) {
+      stopFor(
+        WayfinderException(
+          'git-output-incomplete',
+          'git $command exited, but its output was still open '
+              '${_describe(drainLimit)} later, held by a process it started; '
+              'that process was stopped.',
+        ),
+      );
+    }
+    if (stopped case final reason?) throw reason;
+    final waiting = quiet = Completer<void>();
+    restartQuiet();
     await Future.any([
-      Future.wait([stdoutDone.future, stderrDone.future]),
-      quiet.future,
+      stderrDone.future,
+      waiting.future,
+      stop.future,
+      limited.future,
     ]);
-    if (overflow case final reason?) throw reason;
+    if (stopped case final reason?) throw reason;
+    // Stderr still being written at the limit is cut, and its writer
+    // stopped.
+    if (!stderrDone.isCompleted && !waiting.isCompleted) process.kill();
     return GitResult(exitCode!, stdout.takeBytes(), stderr.text);
   } finally {
     silence?.cancel();
-    drain?.cancel();
+    hush?.cancel();
+    limit?.cancel();
     for (final subscription in subscriptions) {
       unawaited(subscription.cancel());
     }
   }
 }
+
+String _describe(Duration duration) => duration.inMilliseconds % 1000 == 0
+    ? '${duration.inSeconds} second${duration.inSeconds == 1 ? '' : 's'}'
+    : '${duration.inMilliseconds} milliseconds';
 
 /// The last [limit] bytes written to it.
 final class _Tail {
@@ -514,9 +566,12 @@ final class _Tail {
 }
 
 final class _LocalGitProcess implements GitProcess {
-  _LocalGitProcess(this._process);
+  _LocalGitProcess(this._process) {
+    unawaited(_process.exitCode.then((_) => _exited = true));
+  }
 
   final Process _process;
+  var _exited = false;
 
   @override
   IOSink get stdin => _process.stdin;
@@ -530,8 +585,13 @@ final class _LocalGitProcess implements GitProcess {
   @override
   Future<int> get exitCode => _process.exitCode;
 
+  // Once the process exited, the processes it started have another parent
+  // and its ID may name another process, so there is no tree left to kill;
+  // runGit closes its end of the pipes instead.
   @override
-  void kill() => unawaited(_killTree(_process));
+  void kill() {
+    if (!_exited) unawaited(_killTree(_process));
+  }
 }
 
 /// Kills [process] and the helpers Git started, such as `ssh` or a remote

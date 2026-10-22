@@ -26,7 +26,9 @@
   unless OKF failed it, instead of running forever.
 - `get` and `upgrade` stop a Git command that writes more than 64 MiB, and no
   longer wait for a helper, such as an SSH connection master, that holds
-  Git's output open after the command exits.
+  Git's stderr open after the command exits. A helper that holds Git's
+  stdout open fails the command ten seconds after it exits, rather than
+  holding it forever or reading part of its output.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
