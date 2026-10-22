@@ -615,10 +615,17 @@ class WayfinderKnowledgeStore {
   /// project, which may be gone. [root] is canonicalized as [forget]
   /// canonicalizes a bundle's root: symbolic links in the part of it that
   /// still exists are resolved. Throws `index-busy`, and deletes nothing,
-  /// while an operation indexes any of those bundles. An index whose
-  /// `writer.lock` records no root, or cannot be read, as on Windows while a
-  /// writer holds every configuration of it, is left for [prune]. A blank
-  /// [root], which would name the working directory, is an [ArgumentError].
+  /// while another operation indexes or forgets any of those bundles, and
+  /// also while one holds the index of a bundle whose recorded root cannot
+  /// be read, since it may be one of them: Windows refuses to read a held
+  /// `writer.lock`, so there a bundle being indexed with no other
+  /// configuration's lock to read makes the call busy, whichever project it
+  /// belongs to. An index whose `writer.lock` records no root and is not
+  /// held, as a writer interrupted while writing it can leave, cannot be
+  /// told apart from another project's: neither this call nor [prune]
+  /// deletes it while its configuration is the store's, and [forget] of its
+  /// bundle does. A blank [root], which would name the working directory, is
+  /// an [ArgumentError].
   Future<List<String>> forgetProjectRoot(String root) => _admit(() async {
     if (root.trim().isEmpty) {
       throw ArgumentError.value(root, 'root', 'must not be blank');
@@ -1203,6 +1210,10 @@ class WayfinderKnowledgeStore {
   /// readable note answers; a note whose root has another key is ignored.
   /// Reads a note held by a writer where the platform allows it; Windows
   /// refuses, and another configuration's note may answer instead.
+  ///
+  /// Throws `index-busy` when no note says and a writer holds one of the
+  /// locks: Windows reads no held note, and elsewhere a held note that does
+  /// not parse is being written, so the indexes may belong to any root.
   static Future<String?> _recordedRoot(Directory directory) async {
     final key = p.basename(directory.path);
     final List<FileSystemEntity> namespaces;
@@ -1211,15 +1222,16 @@ class WayfinderKnowledgeStore {
     } on FileSystemException {
       return null; // Another forget or prune deleted it meanwhile.
     }
+    final unread = <File>[];
     for (final entry in namespaces) {
       if (entry is! Directory || !_key.hasMatch(p.basename(entry.path))) {
         continue;
       }
+      final lock = File(p.join(entry.path, _writerName));
       try {
-        if (jsonDecode(
-              await File(p.join(entry.path, _writerName)).readAsString(),
-            )
-            case {'root': final String root} when _rootKey(root) == key) {
+        if (jsonDecode(await lock.readAsString()) case {
+          'root': final String root,
+        } when _rootKey(root) == key) {
           return root;
         }
       } on FileSystemException {
@@ -1227,6 +1239,10 @@ class WayfinderKnowledgeStore {
       } on FormatException {
         // No note yet, or one a writer is replacing.
       }
+      unread.add(lock);
+    }
+    for (final lock in unread) {
+      if (await WayfinderFileLock.isHeld(lock)) throw _busy;
     }
     return null;
   }
