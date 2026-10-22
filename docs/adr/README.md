@@ -25,7 +25,7 @@ relevant guide; an ADR records the durable choice and links there.
 | --- | --- |
 | [0008](0008-okfp-adopts-okf-finding-contract.md) | Publish okf's finding report unchanged and speak its grammar for Profile findings |
 | [0009](0009-local-knowledge-retrieval.md) | Arctic Embed XS for local embeddings; retrieval defaults superseded by ADR-0017 |
-| [0010](0010-wayfinder-cli.md) | One CLI validates, indexes, and searches local knowledge |
+| [0010](0010-wayfinder-cli.md) | One CLI validates, indexes, and searches local knowledge; indexes are immutable plain-file generations that searches read while an index runs |
 | [0011](0011-wayfinder-mcp.md) | Serve Wayfinder tools over local MCP stdio, across the project's bundles |
 | [0012](0012-wayfinder-graph-projection.md) | Project the ordinary OKF graph, with typed relationship edges beside it; field list and library home amended by ADR-0021 |
 | [0015](0015-profile-rule-catalogs.md) | Profile rules are data: schemas over parsed facts, or named builtins |

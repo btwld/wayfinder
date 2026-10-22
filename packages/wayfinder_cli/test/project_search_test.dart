@@ -126,6 +126,7 @@ void main() {
       expect(result['context'], hasLength(2));
       expect((result['bundles'] as List), hasLength(2));
       expect(knowledge.queries, ['caching']);
+      expect(knowledge.policies, [StaleIndexPolicy.serveWhileRefreshing]);
       expect(errors, isEmpty);
     },
   );
@@ -238,7 +239,7 @@ void main() {
   test(
     'stale bundle fails the full search with no partial output or implicit indexing',
     () async {
-      knowledge.stale = true;
+      knowledge.staleIndex = true;
       expect(await cli.run(['search', 'caching']), 2);
       expect(output, isEmpty);
       expect(knowledge.indexed, isEmpty);
@@ -282,7 +283,8 @@ class _ProjectKnowledge extends WayfinderKnowledgeStore {
   final indexed = <String>[];
   final forced = <bool>[];
   KnowledgeMetadataFilter? receivedFilters;
-  bool stale = false;
+  bool staleIndex = false;
+  final policies = <StaleIndexPolicy>[];
   bool related = false;
 
   @override
@@ -291,11 +293,13 @@ class _ProjectKnowledge extends WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
   }) async {
     receivedFilters = filters;
     searched.addAll(bundles.map((bundle) => bundle.root));
     queries.add(query);
-    if (stale) {
+    policies.add(stale);
+    if (staleIndex) {
       throw const WayfinderException('index-stale', 'Index is stale.');
     }
     return KnowledgeProjectSearch(bundles, [

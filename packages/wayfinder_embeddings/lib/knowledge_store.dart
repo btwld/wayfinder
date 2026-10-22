@@ -3,12 +3,13 @@
 ///
 /// A `WayfinderKnowledgeStore` indexes and searches the bundles of a
 /// `package:wayfinder/project.dart` project. The host owns the resources: it
-/// supplies the data directory, a `WayfinderEncoderProvider` (such as a
-/// `LocalModelEncoderProvider` over a model file it located) and, when it
-/// has not loaded ObjectBox's native library itself, a loader for it. The
-/// store never downloads, prompts, or loads native code or a model on its
-/// own (ADR-0018). Keep all okf bundle I/O of a process, this store's
-/// included, on one isolate.
+/// supplies the data directory and a `WayfinderEncoderProvider`, such as a
+/// `LocalModelEncoderProvider` over a model file it located. The store never
+/// downloads, prompts, or loads native code or a model on its own
+/// (ADR-0018), and needs no database library: each index is a sequence of
+/// immutable generation files that searches read without a lock while an
+/// index runs. Keep all okf bundle I/O of a process, this store's included,
+/// on one isolate.
 ///
 /// ```dart
 /// import 'dart:io';

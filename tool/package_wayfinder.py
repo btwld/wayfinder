@@ -24,10 +24,15 @@ skills = [f'skills/{name}/SKILL.md' for name in [
     'adopt-knowledge-bundle', 'assess-knowledge-bundle',
     'author-knowledge-bundle', 'create-profile', 'use-wayfinder']]
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
-             'licenses/objectbox/NOTICE', 'licenses/wayfinder/LICENSE',
+             'licenses/wayfinder/LICENSE',
              'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:
     if not (bundle / name).is_file():
         parser.error(f'Incomplete bundle: {name}')
+# The command keeps its indexes as plain files and needs no ObjectBox.
+for name in ['lib/libobjectbox.so', 'lib/libobjectbox.dylib',
+             'bin/objectbox.dll', 'licenses/objectbox']:
+    if (bundle / name).exists():
+        parser.error(f'Unexpected ObjectBox asset: {name}')
 for command in ['wayfinder']:
     if not any((bundle / 'bin' / (command + suffix)).is_file()
                for suffix in ['', '.exe']):
