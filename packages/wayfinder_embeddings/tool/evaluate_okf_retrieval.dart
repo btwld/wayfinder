@@ -214,7 +214,7 @@ Future<void> main(List<String> args) async {
                       .map((hit) => hit.chunk.sourcePath)
                       .toList(),
                   'notices': [
-                    for (final notice in response.notices) notice.message,
+                    for (final notice in response.notices) notice.text,
                   ],
                 });
               }
