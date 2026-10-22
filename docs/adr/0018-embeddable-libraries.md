@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; #110)
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -106,10 +106,15 @@ descriptor never releases them. A lock file stays in place on release.
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get`, or its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
-| A bundle's index for one configuration, while `index` or `forget` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never take it, and probe it with `isHeld` to report a refresh | `index-busy` |
+| A bundle's index for one configuration, while `index` or `forget` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never hold it, and probe it with `isHeld` to report a refresh | `index-busy` |
 | The machine's one background index (`wayfinder index --detach`) | `background-index.lock` | exclusive, never waits | the CLI reports `running` and starts nothing |
 
-A plan holds one mirror's lock at a time, so two plans never deadlock. The
+"Never waits" means never waiting for a holder. `isHeld` takes a shared lock
+on a descriptor of its own and releases it at once, so a probe holds the file
+for an instant while a holder keeps it for its whole operation: `tryExclusive`
+tries a refused lock again for up to 100 ms before it reports the holder, so a
+search's or a prune's probe never makes a writer busy. A plan holds one
+mirror's lock at a time, so two plans never deadlock. The
 project lock records the project root it protects, so a later cleanup can
 tell which lock belongs to a root that no longer exists. Read that note only
 while the lock is free (`isHeld` is false): on Windows the lock is a mandatory
@@ -123,9 +128,12 @@ and its modification time is the index's last use: a writer writes the note,
 and a search or `status` sets the time. `forget` and `prune` delete the
 index's pointer and generations while holding it and keep the lock file.
 Only `prune` deletes a lock file, an index's or a removed project's `get`
-lock, and only once it has gone unused for the prune's period: deleting one
-that another operation has just opened would let that operation and the next
-hold different files.
+lock, while holding it, and only once it has gone unused for the prune's
+period, so no operation is opening it. An operation that opened it just before
+it went still never holds a deleted file: once `WayfinderFileLock` has the
+lock, it checks that the path still names the file it locked (the same device
+and inode on POSIX; Windows deletes no open file) and otherwise opens the path
+again, so two operations never hold different files.
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
 exclude isolates, so a process runs all okf bundle I/O on one isolate:
