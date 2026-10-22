@@ -20,6 +20,78 @@ typedef SkillFile = ({String path, List<int> bytes, bool executable});
 /// only its start, cut at a character boundary.
 typedef ProfileSkillText = ({String text, bool truncated});
 
+/// Where one directory of a Profile skill stands, as
+/// [ProfileSkills.inspect] reads it from the marker: what `get` would do
+/// with it when it installs the locked revision.
+enum ProfileSkillDirectoryState {
+  /// The marker records the locked revision; `get` leaves it.
+  current('current'),
+
+  /// Nothing is there; `get` creates it.
+  missing('missing'),
+
+  /// The marker is the Profile's own and records another release or commit;
+  /// `get` replaces it.
+  stale('stale'),
+
+  /// Something is there without a marker for the Profile's id: a directory
+  /// the user or another tool owns, one whose marker cannot be read, or a
+  /// file or link. `get` refuses to replace it.
+  unmarked('unmarked'),
+
+  /// Its skill root resolves outside the project through a symbolic link,
+  /// where a write would change another project's skills; `get` refuses to
+  /// install there.
+  outside('outside');
+
+  const ProfileSkillDirectoryState(this.wireValue);
+
+  /// The stable value [ProfileSkillDirectory.toJson] reports.
+  final String wireValue;
+}
+
+/// One project directory that a Profile's skill installs into, under one of
+/// [ProfileSkills.roots], and its [state].
+final class ProfileSkillDirectory {
+  const ProfileSkillDirectory({
+    required this.profile,
+    required this.root,
+    required this.path,
+    required this.state,
+    this.installed,
+  });
+
+  /// The Profile whose skill the directory holds.
+  final ProfileId profile;
+
+  /// The skill root, as `.claude/skills`.
+  final String root;
+
+  /// Project-relative, as `.claude/skills/<id>`.
+  final String path;
+
+  final ProfileSkillDirectoryState state;
+
+  /// The revision the directory's marker records when the marker is
+  /// [profile]'s own, read through any symbolic link; null without one.
+  /// The locked revision when [state] is current, another when it is stale.
+  final SkillRevision? installed;
+
+  Map<String, Object?> toJson() => {
+    'profile': profile.value,
+    'root': root,
+    'path': path,
+    'state': state.wireValue,
+    'installed': switch (installed) {
+      final revision? => {
+        'release': revision.release,
+        'commit': revision.commit,
+      },
+      null => null,
+    },
+  };
+}
+
 /// A Profile skill as `get` left it in the project.
 final class MaterializedSkill {
   const MaterializedSkill({
@@ -60,16 +132,89 @@ abstract final class ProfileSkills {
   ];
 
   /// The directories of [revision]'s skill that do not hold it: missing,
-  /// unmarked, or marked with another revision.
+  /// unmarked, or marked with another revision. A directory under a root
+  /// that resolves outside the project counts by the marker its link
+  /// reaches. The paths behind `profile-skill-stale`.
   static Future<List<String>> stale(
     String projectRoot,
     SkillRevision revision,
   ) async => [
-    for (final directory in directories(revision.id))
-      if (await _markedRevision(Directory(p.join(projectRoot, directory))) !=
-          revision)
-        directory,
+    for (final directory in await inspect(projectRoot, revision))
+      if (directory.installed != revision) directory.path,
   ];
+
+  /// Each directory of [revision]'s skill, one per root in [roots] order,
+  /// with its [ProfileSkillDirectoryState]: what `get` would do with it to
+  /// install [revision], and why it would refuse. Reads only the markers and
+  /// whether something is there; never writes and never runs Git.
+  ///
+  /// A directory is [ProfileSkillDirectoryState.outside] whenever its root
+  /// resolves outside the project ([escaping]), whatever it holds;
+  /// otherwise it is missing when nothing is at its path (a symbolic link
+  /// counts as something), current or stale when its marker is the
+  /// Profile's own, and unmarked otherwise.
+  static Future<List<ProfileSkillDirectory>> inspect(
+    String projectRoot,
+    SkillRevision revision,
+  ) async {
+    final Set<String> outside;
+    try {
+      outside = (await escaping(projectRoot)).toSet();
+    } on FileSystemException {
+      // No project to resolve, so nothing is installed in it either.
+      return [
+        for (final root in roots)
+          ProfileSkillDirectory(
+            profile: revision.id,
+            root: root,
+            path: '$root/${revision.id.value}',
+            state: ProfileSkillDirectoryState.missing,
+          ),
+      ];
+    }
+    return [
+      for (final root in roots)
+        await _inspect(
+          projectRoot,
+          root,
+          revision,
+          outside: outside.contains(root),
+        ),
+    ];
+  }
+
+  static Future<ProfileSkillDirectory> _inspect(
+    String projectRoot,
+    String root,
+    SkillRevision revision, {
+    required bool outside,
+  }) async {
+    final path = '$root/${revision.id.value}';
+    final directory = Directory(p.join(projectRoot, path));
+    final marked = await _markedRevision(directory);
+    final installed = marked?.id == revision.id ? marked : null;
+    return ProfileSkillDirectory(
+      profile: revision.id,
+      root: root,
+      path: path,
+      installed: installed,
+      state: outside
+          ? ProfileSkillDirectoryState.outside
+          : !await _occupied(directory)
+          ? ProfileSkillDirectoryState.missing
+          : installed == null
+          ? ProfileSkillDirectoryState.unmarked
+          : installed == revision
+          ? ProfileSkillDirectoryState.current
+          : ProfileSkillDirectoryState.stale,
+    );
+  }
+
+  /// Whether anything is at [directory]'s path, a symbolic link included,
+  /// so `get` would have to replace it.
+  static Future<bool> _occupied(Directory directory) async =>
+      await FileSystemEntity.type(directory.path, followLinks: false) !=
+      FileSystemEntityType.notFound;
 
   /// The installed `SKILL.md` of [revision]: from the first directory in
   /// [directories] order that holds [revision], the check [stale] and
@@ -262,29 +407,23 @@ abstract final class ProfileSkills {
   }
 
   /// Why `get` may not install Profile skills under [projectRoot], or null
-  /// when every root resolves inside the project.
+  /// when every root resolves inside the project. It names the roots and
+  /// no remedy: pointing them inside the project is the host's to say.
   static Future<String?> escapingProblem(String projectRoot) async =>
-      _escapingProblem(await escaping(projectRoot));
+      skillRootsOutsideMessage(await escaping(projectRoot));
 
-  static String? _escapingProblem(List<String> escaped) {
-    if (escaped.isEmpty) return null;
-    final (verb, pronoun) = escaped.length == 1
-        ? ('resolves', 'it')
-        : ('resolve', 'them');
-    return '${escaped.join(' and ')} $verb outside the project through a '
-        'symbolic link, so wayfinder did not install Profile skills there. '
-        'Point $pronoun inside the project and run the command again.';
-  }
-
-  /// The directories of [ids] that exist without a marker for their id, so
-  /// the user or another tool owns them and `get` must not replace them.
+  /// The directories of [ids] that something occupies without a marker for
+  /// their id, so the user or another tool owns them and `get` must not
+  /// replace them: a directory without the marker or with one it cannot
+  /// read, or a file or symbolic link in its place, as
+  /// [ProfileSkillDirectoryState.unmarked] reports.
   static Future<List<String>> unowned(
     String projectRoot,
     Iterable<ProfileId> ids,
   ) async => [
     for (final id in ids)
       for (final directory in directories(id))
-        if (await Directory(p.join(projectRoot, directory)).exists() &&
+        if (await _occupied(Directory(p.join(projectRoot, directory))) &&
             !await _owned(Directory(p.join(projectRoot, directory)), id.value))
           directory,
   ];
@@ -313,7 +452,7 @@ abstract final class ProfileSkills {
       for (final (:root, :real) in resolved)
         if (real == null) root,
     ];
-    if (_escapingProblem(escaped) case final problem?) {
+    if (skillRootsOutsideMessage(escaped) case final problem?) {
       throw FileSystemException(problem, projectRoot);
     }
     if (!skillMarkerFits(revision)) {
@@ -345,7 +484,7 @@ abstract final class ProfileSkills {
       write.target.path,
     );
     for (final write in writes) {
-      if (await write.target.exists() && !await _owned(write.target, id)) {
+      if (await _occupied(write.target) && !await _owned(write.target, id)) {
         throw unowned(write);
       }
     }
@@ -373,7 +512,7 @@ abstract final class ProfileSkills {
           }
         }
         Directory? previous;
-        if (await target.exists()) {
+        if (await _occupied(target)) {
           if (!await _owned(target, id)) throw unowned(write);
           previous = await target.rename(old);
         }
@@ -520,6 +659,15 @@ abstract final class ProfileSkills {
   }) async =>
       await FileSystemEntity.type(path, followLinks: followLinks) ==
       FileSystemEntityType.file;
+}
+
+/// The sentence for skill [roots] that resolve outside the project, naming
+/// them and no remedy, or null when there are none.
+String? skillRootsOutsideMessage(List<String> roots) {
+  if (roots.isEmpty) return null;
+  final verb = roots.length == 1 ? 'resolves' : 'resolve';
+  return '${roots.join(' and ')} $verb outside the project through a '
+      'symbolic link, so wayfinder did not install Profile skills there.';
 }
 
 /// Whether [revision]'s marker is no larger than the 64 KiB a marker is

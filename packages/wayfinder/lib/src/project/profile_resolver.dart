@@ -260,7 +260,8 @@ final class ProfileResolutionResult {
   final String lockPath;
 
   /// The lock and every skill were already current, and every package came
-  /// from the cache without fetching.
+  /// from the cache without fetching. After a plan that left skills alone,
+  /// it says nothing of the skills.
   final bool reused;
   final bool upgraded;
 
@@ -299,12 +300,14 @@ final class ProfileResolutionPlan {
     required this.lockPath,
     required this.upgrade,
     required this.lockedOnly,
+    required this.includesSkills,
     required this.fetched,
     required this.fetches,
     required this.packages,
     required this.lockChanged,
     required this.skills,
     required this.removedSkills,
+    required this.skillDirectories,
     required String lockText,
     required String configurationSha256,
     required String? lockSha256,
@@ -325,6 +328,11 @@ final class ProfileResolutionPlan {
   /// the lock as it is.
   final bool lockedOnly;
 
+  /// Whether applying installs and prunes Profile skills. False for a plan
+  /// made with `skills: false`, which read no skill file, refused no skill
+  /// directory, and whose apply leaves every skill directory as it is.
+  final bool includesSkills;
+
   /// Planning cloned or refreshed a Profile source.
   final bool fetched;
 
@@ -338,11 +346,23 @@ final class ProfileResolutionPlan {
   final bool lockChanged;
 
   /// One per locked package that ships a skill, in id order; `written` is
-  /// whether applying replaces its directories.
+  /// whether applying replaces its directories, never when the plan leaves
+  /// skills alone ([includesSkills] is false).
   final List<MaterializedSkill> skills;
 
-  /// Project-relative skill directories applying would delete.
+  /// Project-relative skill directories applying would delete; none when
+  /// the plan leaves skills alone.
   final List<String> removedSkills;
+
+  /// Every directory a locked package's skill installs into, with its
+  /// state, in [skills] order and then in `ProfileSkills.roots` order: the
+  /// protected paths applying writes, or would refuse. A plan that installs
+  /// skills throws [ProfileSkillDirectoriesException] for an
+  /// [ProfileSkillDirectoryState.unmarked] or
+  /// [ProfileSkillDirectoryState.outside] directory, so it lists those only
+  /// when it leaves skills alone, where they are reported rather than
+  /// refused.
+  final List<ProfileSkillDirectory> skillDirectories;
 
   final String _lockText;
   final String _configurationSha256;
@@ -359,6 +379,7 @@ final class ProfileResolutionPlan {
     'lock': lockPath,
     'upgrade': upgrade,
     'locked_only': lockedOnly,
+    'includes_skills': includesSkills,
     'fetched': fetched,
     'fetches': [for (final fetch in fetches) fetch.toJson()],
     'lock_changed': lockChanged,
@@ -367,6 +388,9 @@ final class ProfileResolutionPlan {
     },
     'skills': [for (final skill in skills) skill.toJson()],
     'removed_skills': removedSkills,
+    'skill_directories': [
+      for (final directory in skillDirectories) directory.toJson(),
+    ],
   };
 }
 
@@ -428,11 +452,21 @@ final class WayfinderProfileResolver {
   /// for it, or it holds a package no chain reaches. A package whose own
   /// file disagrees with the lock it was locked from, as only an edited lock
   /// has, is refused the same way once it is read. [upgrade] cannot be set
-  /// with it.
+  /// with it. [ProfileLockChangeRequiredException.change] says what would
+  /// change.
+  ///
+  /// With [skills] false, the plan leaves Profile skills alone, as a host
+  /// does to fill the Profile cache without touching `.claude/skills` or
+  /// `.agents/skills`: it reads no skill file from a mirror, refuses no
+  /// skill directory, and its apply writes and deletes none.
+  /// [ProfileResolutionPlan.skillDirectories] still reports each skill
+  /// directory's state, unmarked and outside ones included, rather than
+  /// throwing [ProfileSkillDirectoriesException] for them.
   Future<ProfileResolutionPlan> plan(
     String project, {
     bool upgrade = false,
     bool lockedOnly = false,
+    bool skills = true,
     ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
@@ -445,16 +479,20 @@ final class WayfinderProfileResolver {
       configFile,
       upgrade: upgrade,
       lockedOnly: lockedOnly,
+      skills: skills,
       allowFetch: allowFetch,
       cancel: cancel,
     );
   }
 
-  /// Writes [plan]: the lock, the skills it lists, and the removals. Holds
-  /// the project's `get` lock and throws `resolution-busy` while another
-  /// holder has it. Throws `resolution-stale` when `wayfinder.json`,
-  /// `wayfinder.lock` or a package file the plan read in the cache has
-  /// changed since [plan].
+  /// Writes [plan]: the lock, the skills it lists, and the removals, or
+  /// only the lock for a plan that leaves skills alone. Holds the project's
+  /// `get` lock and throws [ProfileResolutionBusyException]
+  /// (`resolution-busy`) while another holder has it. Throws
+  /// `resolution-stale` when `wayfinder.json`, `wayfinder.lock` or a
+  /// package file the plan read in the cache has changed since [plan], and
+  /// [ProfileSkillDirectoriesException] when a skill directory it would
+  /// replace is no longer Wayfinder's.
   Future<ProfileResolutionResult> apply(ProfileResolutionPlan plan) =>
       _withProjectLock(plan.projectRoot, () => _apply(plan));
 
@@ -525,6 +563,13 @@ final class WayfinderProfileResolver {
   /// [select] does, bounded by [packageTimeout]. It checks no bundle
   /// directory. Throws `config-invalid` when `wayfinder.json` cannot be read
   /// or parsed, and `profile-unresolved` when [project] holds none.
+  ///
+  /// Beside the state and diagnostic, each binding reports as data what a
+  /// consent gate names: why the lock would change
+  /// ([ProfileBindingStatus.lockChange]), whether each chain member's
+  /// mirror and package file are in the cache
+  /// ([ProfileBindingStatus.copies]), and each skill directory with its
+  /// state ([ProfileBindingStatus.skillDirectories]).
   Future<ProfileResolutionStatus> status(String project) async {
     final (:projectRoot, :configFile) = await _locate(project);
     final String raw;
@@ -546,10 +591,23 @@ final class WayfinderProfileResolver {
     );
     final ids = config.profiles.keys.toList()
       ..sort((left, right) => left.value.compareTo(right.value));
+    final lockPath = p.join(projectRoot, 'wayfinder.lock');
+    ProfileLockChange? lockChange;
+    try {
+      _checkLockedOnly(raw, await _readLock(File(lockPath)));
+    } on ProfileLockChangeRequiredException catch (error) {
+      lockChange = error.change;
+    } on FileSystemException catch (error) {
+      lockChange = ProfileLockChange(
+        ProfileLockChangeKind.lockMissing,
+        error.message,
+      );
+    }
     return ProfileResolutionStatus(
       projectRoot: projectRoot,
       configPath: configFile.path,
-      lockPath: p.join(projectRoot, 'wayfinder.lock'),
+      lockPath: lockPath,
+      lockChange: lockChange,
       bindings: List.unmodifiable([
         for (final id in ids)
           (await _assess(
@@ -574,10 +632,13 @@ final class WayfinderProfileResolver {
   }) async {
     var chain = const <LockedPackage>[];
     var missing = const <LockedPackage>[];
+    var copies = const <ProfileLocalCopy>[];
     ({ProfileBindingStatus status, SelectedProfile? selection}) failed(
       ProfileBindingState state,
       String message, {
       DiagnosticCode code = DiagnosticCode.profileUnresolved,
+      DiagnosticRemedy? remedy,
+      ProfileLockChange? lockChange,
     }) => (
       status: ProfileBindingStatus(
         id: binding.id,
@@ -586,43 +647,93 @@ final class WayfinderProfileResolver {
         state: state,
         chain: chain,
         missing: missing,
-        diagnostic: EngineDiagnostic(code, message, location: config),
+        copies: copies,
+        lockChange: lockChange,
+        diagnostic: EngineDiagnostic(
+          code,
+          message,
+          location: config,
+          remedy: remedy,
+        ),
       ),
       selection: null,
     );
-    const remedy = 'Run wayfinder get.';
+    ({ProfileBindingStatus status, SelectedProfile? selection}) lockChanges(
+      ProfileLockChange change,
+    ) => failed(
+      change.state,
+      change.reason,
+      remedy: DiagnosticRemedy.resolveProfiles,
+      lockChange: change,
+    );
 
     final ProfileLock? lock;
     try {
       lock = await _readLock(File(p.join(projectRoot, 'wayfinder.lock')));
     } on FileSystemException catch (error) {
-      return failed(ProfileBindingState.lockMissing, error.message);
+      // A lock that exists but cannot be read: the error is the reason, and
+      // what fixes it is the host's to find.
+      return failed(
+        ProfileBindingState.lockMissing,
+        error.message,
+        lockChange: ProfileLockChange(
+          ProfileLockChangeKind.lockMissing,
+          error.message,
+        ),
+      );
     }
     switch (_lockedChain(lock, raw, binding)) {
-      case _LockProblem(:final state, :final reason):
-        return failed(state, '$reason $remedy');
+      case final ProfileLockChange change:
+        return lockChanges(change);
       case final List<LockedPackage> locked:
         chain = List.unmodifiable(locked);
     }
     try {
-      missing = List.unmodifiable([
+      copies = List.unmodifiable([
         for (final locked in chain)
-          if (!await _snapshotFile(locked.commit, locked.path).exists()) locked,
+          ProfileLocalCopy(
+            locked: locked,
+            location: _gitLocation(locked.git, projectRoot),
+            hasMirror: await _repositoryCache(
+              _gitLocation(locked.git, projectRoot),
+            ).exists(),
+            hasPackage: await _snapshotFile(
+              locked.commit,
+              locked.path,
+            ).exists(),
+          ),
+      ]);
+      missing = List.unmodifiable([
+        for (final copy in copies)
+          if (!copy.hasPackage) copy.locked,
       ]);
       final packages = <ProfilePackage>[];
       for (final (index, locked) in chain.indexed) {
         if (missing.contains(locked)) {
+          final hasMirror = copies[index].hasMirror;
           return failed(
             ProfileBindingState.cacheMissing,
-            await _notCachedMessage(locked, projectRoot),
+            hasMirror
+                ? 'Profile ${locked.id} at ${locked.git} (${locked.commit}) '
+                      'has no package file in the local cache, as in a cache '
+                      'an earlier Wayfinder wrote.'
+                : 'Profile ${locked.id} at ${locked.git} (${locked.commit}) '
+                      'is not in the local cache.',
+            remedy: hasMirror
+                ? DiagnosticRemedy.resolveProfilesFromMirror
+                : DiagnosticRemedy.resolveProfiles,
           );
         }
         final package = await _readCached(locked);
         if (package.release != locked.release) {
-          return failed(
-            ProfileBindingState.lockStale,
-            'Profile ${locked.id} at ${locked.commit} declares release '
-            '${package.release}; the lock records ${locked.release}. $remedy',
+          return lockChanges(
+            ProfileLockChange(
+              ProfileLockChangeKind.packageChanged,
+              'Profile ${locked.id} at ${locked.commit} declares release '
+              '${package.release}; the lock records ${locked.release}.',
+              profile: binding.id,
+              packages: [locked.id],
+            ),
           );
         }
         if (!_matchesLockedParent(
@@ -630,27 +741,43 @@ final class WayfinderProfileResolver {
           child: locked,
           lockedParent: index == 0 ? null : chain[index - 1],
         )) {
-          return failed(
-            ProfileBindingState.lockStale,
-            'Profile ${locked.id} at ${locked.commit} declares another parent '
-            'than the lock records. $remedy',
+          return lockChanges(
+            ProfileLockChange(
+              ProfileLockChangeKind.packageChanged,
+              'Profile ${locked.id} at ${locked.commit} declares another '
+              'parent than the lock records.',
+              profile: binding.id,
+              packages: [locked.id],
+            ),
           );
         }
         packages.add(package);
       }
       final profile = _compose(binding.id, packages, binding.project);
-      final notes = List<EngineDiagnostic>.unmodifiable([
-        for (final (index, locked) in chain.indexed)
-          if (packages[index].skill != null)
-            if (await ProfileSkills.stale(projectRoot, locked.revision)
-                case final stale when stale.isNotEmpty)
-              EngineDiagnostic(
-                DiagnosticCode.profileSkillStale,
-                'Profile ${locked.id} skill in ${stale.join(' and ')} is '
-                'not the locked commit ${locked.commit}. $remedy',
-                location: config,
-              ),
-      ]);
+      final skillDirectories = <ProfileSkillDirectory>[];
+      final notes = <EngineDiagnostic>[];
+      for (final (index, locked) in chain.indexed) {
+        if (packages[index].skill == null) continue;
+        final directories = await ProfileSkills.inspect(
+          projectRoot,
+          locked.revision,
+        );
+        skillDirectories.addAll(directories);
+        final stale = [
+          for (final directory in directories)
+            if (directory.installed != locked.revision) directory.path,
+        ];
+        if (stale.isEmpty) continue;
+        notes.add(
+          EngineDiagnostic(
+            DiagnosticCode.profileSkillStale,
+            'Profile ${locked.id} skill in ${stale.join(' and ')} is not the '
+            'locked commit ${locked.commit}.',
+            location: config,
+            remedy: DiagnosticRemedy.resolveProfiles,
+          ),
+        );
+      }
       return (
         status: ProfileBindingStatus(
           id: binding.id,
@@ -658,7 +785,9 @@ final class WayfinderProfileResolver {
           appliesTo: binding.appliesTo,
           state: ProfileBindingState.resolved,
           chain: chain,
-          notes: notes,
+          copies: copies,
+          notes: List.unmodifiable(notes),
+          skillDirectories: List.unmodifiable(skillDirectories),
         ),
         selection: SelectedProfile(
           profile,
@@ -681,6 +810,7 @@ final class WayfinderProfileResolver {
         },
         error.message,
         code: error.diagnostic,
+        remedy: error.remedy,
       );
     } on FileSystemException catch (error) {
       return failed(ProfileBindingState.cacheMissing, error.message);
@@ -778,6 +908,7 @@ final class WayfinderProfileResolver {
     File configFile, {
     required bool upgrade,
     bool lockedOnly = false,
+    bool skills = true,
     ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
@@ -793,6 +924,7 @@ final class WayfinderProfileResolver {
       configPath: configFile.path,
       configBytes: configBytes,
       lockBytes: lockBytes,
+      skills: skills,
       session: _Session(
         projectRoot: projectRoot,
         upgrade: upgrade,
@@ -812,31 +944,31 @@ final class WayfinderProfileResolver {
     final reached = <ProfileId>{};
     for (final binding in config.profiles.values) {
       switch (_lockedChain(lock, raw, binding)) {
-        case _LockProblem(:final state, :final reason):
-          throw ProfileLockChangeRequiredException(
-            state,
-            reason,
-            profile: binding.id,
-          );
+        case final ProfileLockChange change:
+          throw ProfileLockChangeRequiredException(change);
         case final List<LockedPackage> chain:
           reached.addAll([for (final locked in chain) locked.id]);
       }
     }
     final unreached = [
       for (final id in lock!.packages.keys)
-        if (!reached.contains(id)) id.value,
-    ]..sort();
+        if (!reached.contains(id)) id,
+    ]..sort((left, right) => left.value.compareTo(right.value));
     if (unreached.isNotEmpty) {
       throw ProfileLockChangeRequiredException(
-        ProfileBindingState.lockStale,
-        'Profile lock records ${unreached.join(', ')}, which no configured '
-        'chain reaches.',
+        ProfileLockChange(
+          ProfileLockChangeKind.packagesUnreached,
+          'Profile lock records ${unreached.join(', ')}, which no configured '
+          'chain reaches.',
+          packages: List.unmodifiable(unreached),
+        ),
       );
     }
   }
 
   /// The chain [lock] records for [binding] of the configuration [raw],
-  /// root first, or why it records none as resolving needs it.
+  /// root first, or the [ProfileLockChange] that says why it records none
+  /// as resolving needs it.
   static Object _lockedChain(
     ProfileLock? lock,
     String raw,
@@ -844,23 +976,24 @@ final class WayfinderProfileResolver {
   ) {
     final id = binding.id;
     if (lock == null) {
-      return const _LockProblem(
-        ProfileBindingState.lockMissing,
+      return const ProfileLockChange(
+        ProfileLockChangeKind.lockMissing,
         'Profile lock is missing or unreadable.',
       );
     }
     if (lock.configurationSha256 != canonicalConfigurationSha256(raw)) {
-      return const _LockProblem(
-        ProfileBindingState.lockStale,
-        'Profile lock is stale: the configuration changed after wayfinder '
-        'get.',
+      return const ProfileLockChange(
+        ProfileLockChangeKind.configurationChanged,
+        'Profile lock is stale: the configuration changed after the lock was '
+        'written.',
       );
     }
     final chain = lock.chainOf(id);
     if (chain == null) {
-      return _LockProblem(
-        ProfileBindingState.lockStale,
+      return ProfileLockChange(
+        ProfileLockChangeKind.chainMissing,
         'Profile lock has no complete chain for Profile $id.',
+        profile: id,
       );
     }
     final leaf = chain.last;
@@ -868,11 +1001,13 @@ final class WayfinderProfileResolver {
     if (leaf.git != source.git ||
         leaf.requestedRef != source.ref ||
         leaf.path != source.path) {
-      return _LockProblem(
-        ProfileBindingState.lockStale,
+      return ProfileLockChange(
+        ProfileLockChangeKind.sourceChanged,
         'Profile lock records $id from ${leaf.git} at ${leaf.requestedRef} '
         '(${leaf.path}); the configuration names ${source.git} at '
         '${source.ref} (${source.path}).',
+        profile: id,
+        packages: [id],
       );
     }
     return chain;
@@ -882,13 +1017,16 @@ final class WayfinderProfileResolver {
   /// the lock [apply] expects to find. With [candidate], the configured
   /// bundles are not checked, because the caller creates and checks them;
   /// skill directories `get` could not install are recorded there instead
-  /// of thrown; and each binding's composed Profile is kept.
+  /// of thrown; and each binding's composed Profile is kept. Without
+  /// [skills], no skill file is read, no skill directory is refused, and
+  /// the plan writes and prunes no skill.
   Future<ProfileResolutionPlan> _plan(
     String projectRoot, {
     required String configPath,
     required List<int> configBytes,
     required List<int>? lockBytes,
     required _Session session,
+    bool skills = true,
     _CandidateSink? candidate,
   }) async {
     final cancel = session.cancel;
@@ -897,7 +1035,7 @@ final class WayfinderProfileResolver {
     if (candidate == null) await _checkBundlePaths(config, projectRoot);
 
     final packages = <ProfileId, LockedPackage>{};
-    final skills = <ProfileId, String>{};
+    final shipped = <ProfileId, String>{};
     for (final binding in config.profiles.values) {
       final chain = await _resolveChain(binding, session);
       final composed = _compose(binding.id, [
@@ -907,27 +1045,34 @@ final class WayfinderProfileResolver {
       for (final member in chain) {
         _insert(packages, member.locked);
         if (member.package.skill case final skill?) {
-          skills[member.locked.id] = skill;
+          shipped[member.locked.id] = skill;
         }
       }
     }
-    if (candidate == null) {
-      await _checkSkillDirectories(projectRoot, skills.keys);
-    } else {
-      candidate.skillProblems = await _skillDirectoryProblems(
-        projectRoot,
-        skills.keys,
-      );
-    }
-    final ids = skills.keys.toList()
+    final ids = shipped.keys.toList()
       ..sort((left, right) => left.value.compareTo(right.value));
+    final directories = {
+      for (final id in ids)
+        id: await ProfileSkills.inspect(projectRoot, packages[id]!.revision),
+    };
+    // Refused in the order get has always named them: by binding, then by
+    // chain, as the Profiles were reached.
+    final refused = [
+      for (final id in shipped.keys)
+        for (final directory in directories[id]!)
+          if (_refuses(directory)) directory,
+    ];
+    if (candidate != null) {
+      candidate.skillProblems = List.unmodifiable(refused);
+    } else if (skills && refused.isNotEmpty) {
+      throw ProfileSkillDirectoriesException(refused);
+    }
     final pending = <ProfileId, List<SkillFile>>{};
-    for (final id in ids) {
+    for (final id in skills ? ids : const <ProfileId>[]) {
       final locked = packages[id]!;
-      if ((await ProfileSkills.stale(
-        projectRoot,
-        locked.revision,
-      )).isNotEmpty) {
+      if (directories[id]!.any(
+        (directory) => directory.installed != locked.revision,
+      )) {
         throwIfCancelled(cancel);
         if (!skillMarkerFits(locked.revision)) {
           // Its marker would read back as no revision, so the skill would
@@ -938,7 +1083,7 @@ final class WayfinderProfileResolver {
             '64 KiB, so wayfinder did not install its skill.',
           );
         }
-        pending[id] = await _skillFiles(locked, skills[id]!, session);
+        pending[id] = await _skillFiles(locked, shipped[id]!, session);
       }
     }
     final lock = ProfileLock(
@@ -953,11 +1098,22 @@ final class WayfinderProfileResolver {
       // The lock was checked before any fetch, so only a package that
       // disagrees with the lock it was locked from changes it now. A lock
       // that reads the same in other bytes is kept as written.
-      if (jsonEncode(session.previous?.toJson()) != jsonEncode(lock.toJson())) {
-        throw const ProfileLockChangeRequiredException(
-          ProfileBindingState.lockStale,
-          'a locked package declares another release or parent than the lock '
-          'records.',
+      final previous = session.previous!.packages;
+      final changed = [
+        for (final id in {...previous.keys, ...lock.packages.keys})
+          if (jsonEncode(previous[id]?.toJson()) !=
+              jsonEncode(lock.packages[id]?.toJson()))
+            id,
+      ]..sort((left, right) => left.value.compareTo(right.value));
+      if (changed.isNotEmpty) {
+        throw ProfileLockChangeRequiredException(
+          ProfileLockChange(
+            ProfileLockChangeKind.packageChanged,
+            'Profile ${changed.join(', ')} '
+            '${changed.length == 1 ? 'declares' : 'declare'} another release '
+            'or parent than the lock records.',
+            packages: List.unmodifiable(changed),
+          ),
         );
       }
       lockChanged = false;
@@ -968,6 +1124,7 @@ final class WayfinderProfileResolver {
       lockPath: p.join(projectRoot, 'wayfinder.lock'),
       upgrade: session.upgrade,
       lockedOnly: session.lockedOnly,
+      includesSkills: skills,
       fetched: session.fetched,
       fetches: List.unmodifiable(session.fetches),
       packages: lock.packages,
@@ -980,9 +1137,14 @@ final class WayfinderProfileResolver {
             written: pending.containsKey(id),
           ),
       ]),
-      removedSkills: List.unmodifiable(
-        await ProfileSkills.prunable(projectRoot, skills.keys.toSet()),
-      ),
+      removedSkills: skills
+          ? List.unmodifiable(
+              await ProfileSkills.prunable(projectRoot, shipped.keys.toSet()),
+            )
+          : const [],
+      skillDirectories: List.unmodifiable([
+        for (final id in ids) ...directories[id]!,
+      ]),
       lockText: text,
       configurationSha256: sha256.convert(configBytes).toString(),
       lockSha256: lockBytes == null
@@ -999,7 +1161,7 @@ final class WayfinderProfileResolver {
 
   /// Writes [plan] once its inputs are unchanged. Without [prune], marked
   /// skill directories of other Profiles and interrupted copies stay for
-  /// the next `get`.
+  /// the next `get`. A plan that leaves skills alone writes only the lock.
   Future<ProfileResolutionResult> _apply(
     ProfileResolutionPlan plan, {
     bool prune = true,
@@ -1019,7 +1181,11 @@ final class WayfinderProfileResolver {
     await _checkSnapshots(plan);
     final projectRoot = plan.projectRoot;
     final shipped = {for (final skill in plan.skills) skill.id};
-    await _checkSkillDirectories(projectRoot, shipped);
+    if (plan.includesSkills) {
+      await _checkSkillDirectories(projectRoot, [
+        for (final id in shipped) plan.packages[id]!.revision,
+      ]);
+    }
     if (plan.lockChanged) await _writeLock(lockFile, plan._lockText);
     for (final MapEntry(key: id, value: files) in plan._pending.entries) {
       await ProfileSkills.write(
@@ -1028,7 +1194,7 @@ final class WayfinderProfileResolver {
         files,
       );
     }
-    final removed = prune
+    final removed = prune && plan.includesSkills
         ? await ProfileSkills.prune(projectRoot, shipped)
         : const <String>[];
     return ProfileResolutionResult(
@@ -1061,7 +1227,7 @@ final class WayfinderProfileResolver {
 
   static WayfinderException _stale(String what) => WayfinderException(
     'resolution-stale',
-    '$what changed after resolution was planned. Run wayfinder get again.',
+    '$what changed after resolution was planned.',
   );
 
   /// Deletes the `get` lock file of each project whose root no longer
@@ -1143,13 +1309,7 @@ final class WayfinderProfileResolver {
         ),
       ),
     );
-    if (lock == null) {
-      throw WayfinderException(
-        'resolution-busy',
-        'Another wayfinder get is changing $projectRoot. Retry when it '
-            'finishes.',
-      );
-    }
+    if (lock == null) throw ProfileResolutionBusyException.project(projectRoot);
     try {
       await lock.writeNote('${jsonEncode({'root': root})}\n');
       return await action();
@@ -1158,39 +1318,34 @@ final class WayfinderProfileResolver {
     }
   }
 
-  /// Throws when a Profile skill could not be installed safely: a skill root
-  /// resolves outside the project, or a skill directory exists without the
-  /// marker for its id.
-  Future<void> _checkSkillDirectories(
+  /// Throws [ProfileSkillDirectoriesException] when a skill of [revisions]
+  /// could not be installed safely: a skill root resolves outside the
+  /// project, or something occupies a skill directory without the marker
+  /// for its id.
+  static Future<void> _checkSkillDirectories(
     String projectRoot,
-    Iterable<ProfileId> ids,
+    Iterable<SkillRevision> revisions,
   ) async {
-    final problems = await _skillDirectoryProblems(projectRoot, ids);
-    if (problems.escaping case final problem?) {
-      throw WayfinderProfileResolutionException(problem);
-    }
-    if (problems.unowned case final unowned when unowned.isNotEmpty) {
-      throw WayfinderProfileResolutionException(
-        '${unowned.join(', ')} already exists without a '
-        '${ProfileSkills.marker} marker, so wayfinder did not install it. '
-        'Move it aside and run the command again to install the Profile '
-        'skill there.',
-      );
-    }
+    final refused = [
+      for (final revision in revisions)
+        for (final directory in await ProfileSkills.inspect(
+          projectRoot,
+          revision,
+        ))
+          if (_refuses(directory)) directory,
+    ];
+    if (refused.isNotEmpty) throw ProfileSkillDirectoriesException(refused);
   }
 
-  /// Why the skills of [ids] could not be installed: the message for skill
-  /// roots that resolve outside the project, and the existing unmarked
-  /// directories.
-  static Future<SkillDirectoryProblems> _skillDirectoryProblems(
-    String projectRoot,
-    Iterable<ProfileId> ids,
-  ) async => (
-    escaping: ids.isEmpty
-        ? null
-        : await ProfileSkills.escapingProblem(projectRoot),
-    unowned: await ProfileSkills.unowned(projectRoot, ids),
-  );
+  /// Whether `get` refuses to install a skill into [directory].
+  static bool _refuses(ProfileSkillDirectory directory) =>
+      switch (directory.state) {
+        ProfileSkillDirectoryState.unmarked ||
+        ProfileSkillDirectoryState.outside => true,
+        ProfileSkillDirectoryState.current ||
+        ProfileSkillDirectoryState.missing ||
+        ProfileSkillDirectoryState.stale => false,
+      };
 
   Future<void> _checkBundlePaths(
     WayfinderProjectConfig config,
@@ -1245,12 +1400,20 @@ final class WayfinderProfileResolver {
       final expected = configured == null
           ? null
           : (configured, 'the configuration');
+      final child = members.lastOrNull?.package.id;
       final (resolved, package) = await _withMirror(source, session, (
         location,
         mirror,
       ) async {
         final at =
-            commit ?? await _checkoutLocked(source, location, mirror, session);
+            commit ??
+            await _checkoutLocked(
+              source,
+              location,
+              mirror,
+              session,
+              child: child,
+            );
         return (
           at,
           await _readPackage(mirror, at, source, session, expected: expected),
@@ -1367,11 +1530,9 @@ final class WayfinderProfileResolver {
         cancel: session.cancel,
       );
     } on TimeoutException {
-      throw WayfinderException(
-        'resolution-busy',
-        'Another wayfinder process held the Profile source ${source.git} '
-            'for ${mirrorLockTimeout.inSeconds} seconds. Retry when it '
-            'finishes.',
+      throw ProfileResolutionBusyException.source(
+        source.git,
+        mirrorLockTimeout,
       );
     }
     try {
@@ -1386,13 +1547,15 @@ final class WayfinderProfileResolver {
   /// The commit of [source] to read from its mirror [root], under the
   /// mirror's lock. Keeps a commit the previous lock pinned for the same
   /// source unless upgrading, and fetches only when the mirror is missing or
-  /// a ref must move.
+  /// a ref must move. [child] is the package that names [source] as its
+  /// parent; null for a configured source.
   Future<String> _checkoutLocked(
     WayfinderProfileSource source,
     String location,
     Directory root,
-    _Session session,
-  ) async {
+    _Session session, {
+    ProfileId? child,
+  }) async {
     final preferred = session.upgrade
         ? null
         : session.previous?.packages.values
@@ -1406,9 +1569,14 @@ final class WayfinderProfileResolver {
               ?.commit;
     if (preferred == null && session.lockedOnly) {
       throw ProfileLockChangeRequiredException(
-        ProfileBindingState.lockStale,
-        'Profile lock pins no commit of ${source.git} at ${source.ref} '
-        '(${source.path}), which a locked package names as its parent.',
+        ProfileLockChange(
+          ProfileLockChangeKind.packageChanged,
+          'Profile lock pins no commit of ${source.git} at ${source.ref} '
+          '(${source.path}), which '
+          '${child == null ? 'a locked package' : 'Profile $child'} names as '
+          'its parent.',
+          packages: [?child],
+        ),
       );
     }
     if (!await root.exists()) {
@@ -1442,8 +1610,8 @@ final class WayfinderProfileResolver {
       if (!await _hasCommit(root, preferred, session)) {
         throw WayfinderProfileResolutionException(
           'Locked commit $preferred of ${source.git} is unavailable even '
-          'after refreshing the source. Run wayfinder upgrade to select a '
-          'new revision.',
+          'after refreshing the source.',
+          remedy: DiagnosticRemedy.upgradeProfiles,
         );
       }
     }
@@ -1596,19 +1764,6 @@ final class WayfinderProfileResolver {
       path
           .split('/')
           .every((segment) => !const {'', '.', '..'}.contains(segment));
-
-  /// Why [select] finds [locked] missing from the Profile cache.
-  Future<String> _notCachedMessage(
-    LockedPackage locked,
-    String projectRoot,
-  ) async =>
-      await _repositoryCache(_gitLocation(locked.git, projectRoot)).exists()
-      ? 'Profile ${locked.id} at ${locked.git} (${locked.commit}) has no '
-            'package file in the local cache, as in a cache an earlier '
-            'Wayfinder wrote. Run wayfinder get; it fetches nothing while the '
-            'cached source holds that commit.'
-      : 'Profile ${locked.id} at ${locked.git} (${locked.commit}) is not in '
-            'the local cache. Run wayfinder get.';
 
   /// [locked]'s package from the file a plan kept, without Git.
   Future<ProfilePackage> _readCached(LockedPackage locked) async =>
@@ -1853,24 +2008,9 @@ final class WayfinderProfileResolver {
   }
 }
 
-/// Why `get` could not install a chain's skills: the message for skill
-/// roots that resolve outside the project, and the existing directories
-/// that hold no marker for their id.
-typedef SkillDirectoryProblems = ({String? escaping, List<String> unowned});
-
-/// Why a lock does not hold a binding's chain as resolving needs it: the
-/// state [WayfinderProfileResolver.status] reports, and the reason without a
-/// remedy.
-final class _LockProblem {
-  const _LockProblem(this.state, this.reason);
-
-  final ProfileBindingState state;
-  final String reason;
-}
-
 final class _CandidateSink {
   final profiles = <ProfileId, EffectiveProfile>{};
-  SkillDirectoryProblems skillProblems = (escaping: null, unowned: const []);
+  List<ProfileSkillDirectory> skillProblems = const [];
 }
 
 /// A plan of `get` for a configuration that is not in the project yet, from
@@ -1886,8 +2026,10 @@ final class CandidateResolution {
   /// Each binding's composed chain, by its Profile id.
   final Map<ProfileId, EffectiveProfile> profiles;
 
-  /// What stops [plan]'s skills from being installed; apply throws for it.
-  final SkillDirectoryProblems skillProblems;
+  /// The skill directories that stop [plan]'s skills from being installed,
+  /// [ProfileSkillDirectoryState.unmarked] or
+  /// [ProfileSkillDirectoryState.outside]; apply throws for them.
+  final List<ProfileSkillDirectory> skillProblems;
 
   /// The files of each skill apply installs, by Profile id. Each lands in
   /// every directory of `ProfileSkills.directories`, beside the marker.
@@ -1904,7 +2046,7 @@ final class CandidateResolution {
 /// Plans `get` for [configuration], the `wayfinder.json` bytes adoption will
 /// write, before the file exists. Ignores any lock in the project, so the
 /// plan expects none, and checks no configured bundle: the caller creates
-/// and checks them. Unmarked or escaping skill directories are reported in
+/// and checks them. Unmarked or outside skill directories are reported in
 /// [CandidateResolution.skillProblems] instead of thrown. With [offline],
 /// refs resolve in the cached mirrors as they are, and a fetch the plan
 /// still needs throws [ProfileFetchRequiredException]; otherwise
@@ -2034,9 +2176,90 @@ final class WayfinderProfileResolutionException extends WayfinderException {
   WayfinderProfileResolutionException(
     String message, {
     this.diagnostic = DiagnosticCode.profileUnresolved,
+    this.remedy,
   }) : super(diagnostic.slug, message);
 
   final DiagnosticCode diagnostic;
+
+  /// What fixes it, when the resolver knows, for a host to word: the
+  /// message names no command.
+  final DiagnosticRemedy? remedy;
+}
+
+/// `profile-unresolved`: installing the locked Profile skills would replace
+/// what Wayfinder may not, so nothing was written. [directories] lists each
+/// refused directory: [ProfileSkillDirectoryState.outside] when its skill
+/// root resolves outside the project through a symbolic link, and
+/// [ProfileSkillDirectoryState.unmarked] when something is there without the
+/// Profile's marker. The message names the roots outside the project, or
+/// else the unmarked directories, and no remedy: moving them aside or
+/// pointing the roots inside the project is the host's to say. A plan with
+/// `skills: false` reports the same directories in
+/// [ProfileResolutionPlan.skillDirectories] instead.
+final class ProfileSkillDirectoriesException
+    extends WayfinderProfileResolutionException {
+  ProfileSkillDirectoriesException(List<ProfileSkillDirectory> directories)
+    : directories = List.unmodifiable(directories),
+      super(_message(directories));
+
+  final List<ProfileSkillDirectory> directories;
+
+  /// The skill roots that resolve outside the project, in
+  /// `ProfileSkills.roots` order; empty when only unmarked directories are
+  /// in the way.
+  List<String> get outsideRoots => _outsideRoots(directories);
+
+  static List<String> _outsideRoots(List<ProfileSkillDirectory> directories) =>
+      [
+        for (final root in ProfileSkills.roots)
+          if (directories.any(
+            (directory) =>
+                directory.root == root &&
+                directory.state == ProfileSkillDirectoryState.outside,
+          ))
+            root,
+      ];
+
+  static String _message(List<ProfileSkillDirectory> directories) {
+    final outside = _outsideRoots(directories);
+    if (skillRootsOutsideMessage(outside) case final message?) return message;
+    final unmarked = [
+      for (final directory in directories)
+        if (directory.state == ProfileSkillDirectoryState.unmarked)
+          directory.path,
+    ];
+    return '${unmarked.join(', ')} already exists without a '
+        '${ProfileSkills.marker} marker, so wayfinder did not install it.';
+  }
+}
+
+/// `resolution-busy`: another holder kept a lock that resolving needs.
+/// [projectRoot] names the project whose `get` lock another `apply`,
+/// `resolve` or adoption holds; [source] names the Profile source whose
+/// mirror another planner held for longer than the resolver waits
+/// ([WayfinderProfileResolver.mirrorLockTimeout]). Exactly one is set.
+/// Retrying once the holder finishes is the remedy.
+final class ProfileResolutionBusyException extends WayfinderException {
+  ProfileResolutionBusyException.project(String this.projectRoot)
+    : source = null,
+      super(
+        'resolution-busy',
+        'Another Profile resolution is changing $projectRoot. Retry when it '
+            'finishes.',
+      );
+
+  ProfileResolutionBusyException.source(String this.source, Duration waited)
+    : projectRoot = null,
+      super(
+        'resolution-busy',
+        'Another wayfinder process held the Profile source $source for '
+            '${waited.inSeconds} seconds. Retry when it finishes.',
+      );
+
+  final String? projectRoot;
+
+  /// The source as the configuration or a package spells its `git`.
+  final String? source;
 }
 
 final class _Session {

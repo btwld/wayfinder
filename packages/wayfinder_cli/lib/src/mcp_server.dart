@@ -151,9 +151,11 @@ class WayfinderMcpServer {
       annotations: readOnly,
       callback: (arguments, extra) => call(
         () => forBundles((bundle) async {
-          final result = await validateWithProfileSources(
-            bundle.root,
-            resolver: _profileResolver,
+          final result = commandValidation(
+            await validateWithProfileSources(
+              bundle.root,
+              resolver: _profileResolver,
+            ),
           );
           return {...result.toJson(), 'exit_code': result.exitCode};
         }),
