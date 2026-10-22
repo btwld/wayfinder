@@ -8,8 +8,12 @@ import 'package:test/test.dart';
 /// `Run wayfinder get.`. This reads every string literal under the `lib/`
 /// of `wayfinder` and of `wayfinder_embeddings`, adjacent literals joined as
 /// Dart joins them, and refuses one that tells someone to run a command.
+///
 /// `wayfinder_embeddings` is read from this repository's checkout, beside
-/// this package.
+/// this package, so this test owns that package's check too: a message
+/// added there fails `wayfinder`'s tests, which CI runs in the same job as
+/// the embeddings tests. Outside a checkout, as in the published package,
+/// that case is skipped. One scanner keeps the two packages on one rule.
 ///
 /// Two files of `wayfinder` hold text a host writes into a project or
 /// publishes rather than messages, and may name commands: the adoption
