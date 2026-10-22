@@ -150,6 +150,7 @@ repository into the bundle.
 | MCP | Agent access to `validate`, `index`, `search`, and `graph` for one bundle over stdio. | [`wayfinder mcp <bundle>`](packages/wayfinder_cli/README.md#mcp-server) |
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
 | Dart projects | Embed what the CLI does with a project: discover its bundles, resolve and select Profiles, validate, and project the graph. | [`WayfinderProject` and `WayfinderProfileResolver`](packages/wayfinder/README.md#projects) from `package:wayfinder/project.dart` |
+| Dart knowledge store | Embed what `wayfinder index` and `search` do: saved indexes of a project's bundles, status, progress, cancellation, and ranked, cited search. | [`WayfinderKnowledgeStore`](packages/wayfinder_embeddings/README.md#knowledge-store) from `package:wayfinder_embeddings/knowledge_store.dart`, with a test encoder in `testing.dart` |
 | Dart adoption | Plan and apply a project's adoption of a Profile: binding, lock, Profile skills, and the seeded bundle. | [`KnowledgeAdoption`](packages/wayfinder/README.md#adoption) from `package:wayfinder/adoption.dart` |
 | Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart`; Dart source chunking in [`wayfinder_dart_chunker`](packages/wayfinder_dart_chunker/README.md) |
 

@@ -8,15 +8,12 @@ import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart'
     show internalErrorJson, internalErrorSarif, toSarif;
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
 
 import 'agent_setup.dart';
-import 'index_result.dart';
-import 'knowledge.dart';
 import 'mcp_server.dart';
-import 'project_search.dart';
-import 'search_input.dart';
-import 'search_output.dart';
+import 'messages.dart';
+import 'native_runtime.dart';
 import 'update.dart';
 import 'version.dart';
 
@@ -24,7 +21,7 @@ typedef WayfinderMcpServerFactory =
     WayfinderMcpServer Function({
       String? rootPath,
       Directory? workingDirectory,
-      WayfinderKnowledge? knowledge,
+      WayfinderKnowledgeStore? knowledge,
       WayfinderProfileResolver? profileResolver,
     });
 
@@ -33,7 +30,7 @@ class WayfinderCli {
   WayfinderCli({
     void Function(String)? out,
     void Function(String)? err,
-    WayfinderKnowledge Function()? knowledge,
+    WayfinderKnowledgeStore Function()? knowledge,
     WayfinderMcpServerFactory? mcpServer,
     AgentSetup Function(void Function(String) out)? agentSetup,
     Updater Function(void Function(String) out)? updater,
@@ -62,7 +59,7 @@ class WayfinderCli {
 
   final void Function(String) _out;
   final void Function(String) _err;
-  final WayfinderKnowledge Function()? _knowledgeOverride;
+  final WayfinderKnowledgeStore Function()? _knowledgeOverride;
   final WayfinderMcpServerFactory _mcpServer;
   final AgentSetup Function(void Function(String) out) _agentSetup;
   final Updater Function(void Function(String) out)? _updaterFactory;
@@ -77,8 +74,8 @@ class WayfinderCli {
 
   static const _defaultBackgroundLimit = Duration(minutes: 30);
 
-  WayfinderKnowledge _knowledge() =>
-      _knowledgeOverride?.call() ?? WayfinderKnowledge();
+  WayfinderKnowledgeStore _knowledge() =>
+      _knowledgeOverride?.call() ?? openKnowledgeStore();
 
   WayfinderProfileResolver _profileResolver() =>
       _profileResolverFactory?.call() ??
@@ -114,7 +111,7 @@ class WayfinderCli {
     });
     try {
       final code = await Future.any([
-        knowledge.index(bundle, force: force).then((_) => 0),
+        knowledge.index(_explicitBundle(bundle), force: force).then((_) => 0),
         stop.future,
       ]);
       if (code != 0) _terminate(code);
@@ -367,6 +364,7 @@ class WayfinderCli {
     );
     String? structuredOutput;
     String message;
+    var indexing = false;
     try {
       final options = parser.parse(arguments);
       if (options.flag('version')) {
@@ -401,6 +399,7 @@ class WayfinderCli {
         );
       }
       final name = command.name!;
+      indexing = name == 'index';
       if (name == 'session-context') {
         if (command.flag('help')) {
           _out('Usage: wayfinder session-context\n\nAgent startup context.');
@@ -558,22 +557,15 @@ class WayfinderCli {
           );
         }
         final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
-        final knowledge = _knowledgeOverride?.call();
-        // An explicit override keeps caller ownership and its encoder session.
-        // Otherwise the server chooses its persistent retrieval service.
-        final server = _mcpServer(
+        // Without an injected store, the server retains its encoder.
+        await _mcpServer(
           rootPath:
               command.rest.firstOrNull ??
               (override == null || override.trim().isEmpty ? null : override),
           workingDirectory: _workingDirectory,
-          knowledge: knowledge,
+          knowledge: _knowledgeOverride?.call(),
           profileResolver: _profileResolver(),
-        );
-        if (knowledge == null) {
-          await server.serve();
-        } else {
-          await knowledge.withEncoderSession(server.serve);
-        }
+        ).serve();
         return 0;
       }
       if (name == 'index' && command.rest.isEmpty) {
@@ -590,9 +582,10 @@ class WayfinderCli {
         )).bundles;
         final results = <Map<String, Object?>>[];
         final knowledge = _knowledge();
+        await verifyModelOverride();
         for (final bundle in bundles) {
           final result = await knowledge.index(
-            bundle.root,
+            bundle,
             force: command.flag('force'),
           );
           results.add({
@@ -666,7 +659,10 @@ class WayfinderCli {
           final knowledge = _knowledge();
           String state;
           try {
-            state = !force && await knowledge.isCurrent(bundle)
+            state =
+                !force &&
+                    await knowledge.status(_explicitBundle(bundle))
+                        is KnowledgeIndexCurrent
                 ? 'current'
                 : 'started';
           } on WayfinderException catch (error) {
@@ -700,7 +696,12 @@ class WayfinderCli {
           }
           return 0;
         }
-        final result = await _knowledge().index(bundle, force: force);
+        final knowledge = _knowledge();
+        await verifyModelOverride();
+        final result = await knowledge.index(
+          _explicitBundle(bundle),
+          force: force,
+        );
         if (json) {
           _json(result.toJson());
         } else {
@@ -717,7 +718,7 @@ class WayfinderCli {
           ? 'Search uses dense retrieval only. Remove the retired --mode option.'
           : error.message;
     } on WayfinderException catch (error) {
-      message = error.message;
+      message = commandMessage(error, indexing: indexing);
     } on FileSystemException catch (error) {
       message = '${error.message} (${error.path ?? ''})';
     } on FormatException catch (error) {
@@ -798,42 +799,41 @@ class WayfinderCli {
         bundleName: command.option('bundle'),
         searchAncestors: true,
       )).bundles;
-      final responses = await _knowledge().searchBundles(
-        bundles.map((bundle) => bundle.root).toList(),
+      final result = await _knowledge().search(
+        bundles,
         query,
         limit: limit,
         filters: filters,
       );
-      final result = ProjectSearchResult(bundles, responses, limit: limit);
       if (json) {
         _json(result.toJson());
       } else {
-        _out(formatProjectSearchMarkdown(result, escape: _safe));
+        _out(result.toMarkdown());
       }
       return 0;
     }
     final bundle = command.rest.first;
-    final result = await _knowledge().search(
-      bundle,
+    final result = await _knowledge().searchBundle(
+      _explicitBundle(bundle),
       query,
       limit: limit,
       filters: filters,
     );
     if (json) {
-      _json(searchOutput(result));
+      _json(result.toJson());
     } else {
-      final prefix = await explicitBundlePrefix(_workingDirectory, bundle);
       _out(
-        formatSearchMarkdown(
-          result,
-          prefix: prefix,
-          bundleRoot: bundle,
-          escape: _safe,
+        result.toMarkdown(
+          prefix: await explicitBundlePrefix(_workingDirectory, bundle),
         ),
       );
     }
     return 0;
   }
+
+  /// A bundle named by its path on the command line.
+  static ProjectBundle _explicitBundle(String path) =>
+      ProjectBundle(p.basename(p.normalize(path)), path, path);
 
   void _printIndex(WayfinderIndexResult result) {
     if (result.current) {

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
+import 'package:wayfinder/project.dart'
+    show WayfinderCancellation, throwIfCancelled;
 import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
 
 import '../embedding/base_embedder.dart';
@@ -222,8 +224,17 @@ class KnowledgeIndex {
 
   /// Embeds missing/changed inputs before one atomic replacement. Failed loads
   /// or inference leave the prior store/index usable. Other bundles are retained.
+  ///
+  /// [onEmbedded] reports the inputs embedded so far and the total, before
+  /// the first batch of 32 and after each one. [cancel] is checked before
+  /// each batch and before the store is written; a cancelled call throws
+  /// `WayfinderException.cancelled()` and leaves the store as it was.
   Future<({int embeddedChunks, int removedChunks, int writtenChunks})>
-  synchronize(KnowledgeSnapshot input) async {
+  synchronize(
+    KnowledgeSnapshot input, {
+    void Function(int embedded, int total)? onEmbedded,
+    WayfinderCancellation? cancel,
+  }) async {
     if (_synchronizing || _searches > 0) {
       throw StateError(
         'Await active searches/synchronization before updating.',
@@ -279,7 +290,9 @@ class KnowledgeIndex {
         if (previous[chunk.id] != updated) writes.add(updated);
       }
       final vectors = <Embedding>[];
+      onEmbedded?.call(0, pending.length);
       for (var offset = 0; offset < pending.length; offset += 32) {
+        throwIfCancelled(cancel);
         final batch = pending.skip(offset).take(32).toList();
         final encoded = await embedder.generateEmbeddings(
           batch.map((item) => item.text).toList(),
@@ -298,7 +311,9 @@ class KnowledgeIndex {
             ),
           );
         }
+        onEmbedded?.call(offset + batch.length, pending.length);
       }
+      throwIfCancelled(cancel);
       if (writes.isNotEmpty || vectors.isNotEmpty || removed.isNotEmpty) {
         await store.replaceChunks(
           chunks: writes,

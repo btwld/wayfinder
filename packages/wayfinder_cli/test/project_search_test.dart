@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/index_result.dart';
-import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 void main() {
@@ -273,7 +273,12 @@ void main() {
   });
 }
 
-class _ProjectKnowledge extends WayfinderKnowledge {
+class _ProjectKnowledge extends WayfinderKnowledgeStore {
+  _ProjectKnowledge()
+    : super(
+        dataDirectory: Directory.systemTemp,
+        encoder: DeterministicEncoderProvider(),
+      );
   final searched = <String>[];
   final queries = <String>[];
   final indexed = <String>[];
@@ -283,22 +288,21 @@ class _ProjectKnowledge extends WayfinderKnowledge {
   bool related = false;
 
   @override
-  Future<List<KnowledgeSearchResponse>> searchBundles(
-    List<String> bundles,
+  Future<KnowledgeProjectSearch> search(
+    List<ProjectBundle> bundles,
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
   }) async {
     receivedFilters = filters;
-    searched.addAll(bundles);
+    searched.addAll(bundles.map((bundle) => bundle.root));
     queries.add(query);
     if (stale) {
-      throw const WayfinderException(
-        'index-stale',
-        'Index is stale. Run wayfinder index.',
-      );
+      throw const WayfinderException('index-stale', 'Index is stale.');
     }
-    return [for (final bundle in bundles) _response(bundle)];
+    return KnowledgeProjectSearch(bundles, [
+      for (final bundle in bundles) _response(bundle.root),
+    ], limit: limit);
   }
 
   KnowledgeSearchResponse _response(String bundle) {
@@ -345,13 +349,15 @@ class _ProjectKnowledge extends WayfinderKnowledge {
 
   @override
   Future<WayfinderIndexResult> index(
-    String bundle, {
+    ProjectBundle bundle, {
     bool force = false,
+    void Function(IndexProgress progress)? onProgress,
+    WayfinderCancellation? cancel,
   }) async {
-    indexed.add(bundle);
+    indexed.add(bundle.root);
     forced.add(force);
     return WayfinderIndexResult(
-      bundle: bundle,
+      bundle: bundle.root,
       index: 'saved',
       embeddedChunks: 0,
       removedChunks: 0,

@@ -95,7 +95,7 @@ is a separate review. Route by task:
 | Wayfinder reports a newer release | `wayfinder update` upgrades the runtime and refreshes these skills. |
 | Tools search only one bundle | Unset `WAYFINDER_KNOWLEDGE_DIR` and launch `wayfinder mcp` from the project. For an existing `.mcp.json`, run `wayfinder setup --force` and restart the host. Explicit bundle launches intentionally search only that bundle. |
 | No project bundles found | Start the host from the consuming project and check `wayfinder.json`'s `applies_to` paths, or the conventional `knowledge/` directory. Discovery never fetches bundles. |
-| `Index is missing, stale or incompatible` / `Index belongs to another bundle` / `Embedding configuration changed` | Run `index` on the same bundle, then search again. |
+| `Index is missing` / `Index is stale` / `Saved index is incomplete or incompatible` / `The saved index has another configuration` / `Index belongs to another bundle` / `Embedding configuration changed` (each ends `Run wayfinder index <bundle>.`) | Run `index` on the same bundle, then search again. The first `index` after upgrading from Wayfinder 0.2 rebuilds every bundle. |
 | `Knowledge changed while indexing` / `during search` | Files changed mid-command. Let edits finish and rerun. |
 | `Index is busy` | Another Wayfinder command holds this bundle. Retry after it finishes. |
 | `Another wayfinder get is changing <project>` | A second `get` or `upgrade` ran while one was resolving the project. Retry after it finishes. |
