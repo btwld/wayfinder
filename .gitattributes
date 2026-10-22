@@ -2,6 +2,10 @@
 packages/wayfinder_embeddings/fixtures/** text eol=lf
 packages/wayfinder_dart_chunker/fixtures/** text eol=lf
 
+# The knowledge store tests edit the store bundle as LF text, and its chunk
+# ids hash the files' bytes.
+packages/wayfinder_embeddings/test/fixtures/store-bundle/** text eol=lf
+
 # Compressed benchmark artifacts must not undergo line-ending conversion.
 packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
 
