@@ -371,7 +371,9 @@ It collapses repeated contexts to the first child hit.
   workspace overrides it to 5.3.2, so its tests and native bundles always pair
   Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
   when the two differ.
-  `test/objectbox_store_test.dart` skips itself when the library is absent.
+  Tests that need the library, `test/objectbox_store_test.dart` and the
+  knowledge store's `test/knowledge_store*_test.dart`, skip themselves when it
+  is absent; native CI installs it and runs the whole package.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
 
