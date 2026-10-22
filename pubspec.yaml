@@ -18,6 +18,15 @@ dev_dependencies:
 
   args: ^2.7.0
   path: ^1.9.1
+
+# Workspace builds and tests use the Dart objectbox release that matches the
+# native library packages/wayfinder_embeddings/tool/install_objectbox.sh pins;
+# its objectbox_assets_test checks that the two agree. Published packages keep
+# their ranges, and overrides never reach their consumers. Move this, the
+# installer and its manifest together.
+dependency_overrides:
+  objectbox: 5.3.2
+
 hooks:
   user_defines:
     llamadart:
