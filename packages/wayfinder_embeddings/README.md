@@ -148,8 +148,9 @@ try {
   `indexes/bundles/<bundle key>/<configuration key>/` under the data
   directory. The bundle key hashes the canonical root, so worktrees and copies
   index separately; the configuration key hashes the chunking, snapshot and
-  storage configuration with the encoder identity, so another model, chunker
-  or format never reads or replaces an index. The directory holds
+  storage configuration, whose version also moves with the inference runtime,
+  with the encoder identity, so another model, chunker, format or runtime
+  never reads or replaces an index. The directory holds
   `writer.lock`, a `current` pointer, and immutable generations,
   `generation-<id>/{snapshot.json, vectors.f32}`: the record, and a header
   (the magic `WFVF32\0\x01`, then the dimension and row count as
@@ -442,10 +443,17 @@ retrieval benchmark retains its recorded queries and metrics.
 
 ## Local model and builds
 
-The package pins `llamadart` 0.8.23 and Arctic Embed XS Q8_0: a 25,279,840-byte
-GGUF producing 384-dimensional vectors. Development and CLI builds need Dart
-3.11.0+, the minimum every package in the workspace declares. The pinned
-llamadart release requires only 3.10.7, so the declared floor sits above it.
+The package depends on `llamadart` `>=0.15.6 <0.16.0` and pins Arctic Embed XS
+Q8_0: a 25,279,840-byte GGUF producing 384-dimensional vectors. llamadart 0.15.6
+runs llama.cpp from `leehack/llamadart-native` v0.7.0-2. The embedder loads the
+model with `LlamaEngine.load` on the CPU only, with a 512-token context, batch
+and micro-batch and four threads. Another native release can change vectors
+slightly, so the knowledge store's configuration version moves with the
+runtime (version 5 is this one), and building a bundle fails when the resolved
+llamadart pins a release that `tool/native_assets/NOTICE` does not attribute.
+Development and CLI
+builds need Dart 3.11.0+, the minimum every package in the workspace declares.
+llamadart 0.15 requires only 3.10.7, so the declared floor sits above it.
 Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart
 3.11 CLI still labels its bundle command as preview.
 
@@ -478,12 +486,28 @@ hooks:
   user_defines:
     llamadart:
       llamadart_native_runtimes: [llama_cpp]
-      llamadart_native_backends: [cpu]
+      llamadart_native_backends:
+        platforms:
+          linux: [cpu]
+          windows: [cpu]
 ```
 
-Dart reads these settings from the consuming root, not from dependencies.
-The native libraries use llamadart's hook; GGUF weights use the explicit
-preparation/packaging step because Dart's `data_assets` support is experimental.
+Dart reads these settings from the consuming root, not from dependencies, and
+runs llamadart's build hook for every build, run or test that reaches it.
+Naming only `llama_cpp` leaves out the LiteRT-LM runtime the hook otherwise
+bundles. Backends are chosen per platform: the hook ignores a bare list such as
+`[cpu]`, and Linux and Windows then bundle Vulkan as well. Apple platforms ship
+one library with no backend to choose.
+
+The native libraries come from llamadart's hook. The first build for a target
+downloads that target's `llamadart-native` archive from GitHub into the
+llamadart package's directory in the pub cache, and the hook checks it against
+the SHA-256 llamadart pins for the release before extracting it; a mismatch
+deletes the archive and fails the build. Later builds reuse the extracted
+libraries without network access, so cache that directory in CI. On Windows x64
+the archive holds every backend, about 700 MiB with CUDA, although only the CPU
+modules are bundled. GGUF weights use the explicit preparation/packaging step
+because Dart's `data_assets` support is experimental.
 
 The build creates `build/wayfinder_embeddings/bundle/` with an executable under `bin/`,
 native libraries under `lib/` (ObjectBox's DLL is beside the executable on
