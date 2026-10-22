@@ -340,6 +340,32 @@ void main() {
       expect(encoder.disposals, 1);
     });
 
+    test('releaseEncoder completes when the last operation using the '
+        'encoder disposes it and its embedder throws synchronously', () async {
+      await search(retained);
+      final encoder = h.encoders.last..disposeThrowsSynchronously = true;
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      h.beforeQuery = (_) async {
+        if (!entered.isCompleted) entered.complete();
+        await release.future;
+      };
+      final searching = search(retained, query: 'weather');
+      await entered.future;
+      final releasing = retained.releaseEncoder();
+      h.beforeQuery = null;
+      release.complete();
+      // The search disposes the encoder as it finishes, and reports the
+      // failure of that disposal.
+      await searching.then<void>((_) {}, onError: (Object _) {});
+      await expectLater(
+        releasing.timeout(const Duration(seconds: 5)),
+        throwsA(isA<StateError>()),
+      );
+      encoder.disposeThrowsSynchronously = false;
+      await encoder.dispose();
+    });
+
     test('an idle encoder is released after encoderIdleTimeout, keeping the '
         'parsed snapshots, and never while an operation uses it', () async {
       final idle = h.service(

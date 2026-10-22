@@ -56,8 +56,17 @@ class TestEmbedder extends DeterministicTestEmbedder {
     return super.generateQueryVector(text);
   }
 
+  /// Whether [dispose] throws instead of returning a future, as a host's
+  /// embedder may.
+  bool disposeThrowsSynchronously = false;
+
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() {
+    if (disposeThrowsSynchronously) throw StateError('Disposal failed');
+    return _dispose();
+  }
+
+  Future<void> _dispose() async {
     await beforeDispose?.call();
     await super.dispose();
   }

@@ -51,9 +51,11 @@ final class SharedEncoder {
   Future<void> get disposed =>
       _disposing.future.then((started) => started.disposal);
 
-  /// Disposes the embedder once, however often it is called.
+  /// Disposes the embedder once, however often it is called. An embedder
+  /// that throws instead of returning a future fails the future, so
+  /// [disposed] still completes.
   Future<void> dispose() => _disposal ??= () {
-    final disposal = opened.embedder.dispose();
+    final disposal = Future.sync(opened.embedder.dispose);
     _disposing.complete((disposal: disposal));
     return disposal;
   }();
