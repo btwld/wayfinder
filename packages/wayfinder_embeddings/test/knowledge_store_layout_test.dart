@@ -259,9 +259,21 @@ Future<void> main(List<String> arguments) async {
     test('index reports each phase and the embedding count; a current index '
         'only scans', () async {
       final events = <IndexProgress>[];
-      final knowledge = store();
+      List<IndexPhase>? beforeEncoder;
+      final opened = <TestEmbedder>[];
+      final knowledge = store(
+        TestEncoderProvider(
+          opened,
+          beforeOpen: () async =>
+              beforeEncoder = [for (final event in events) event.phase],
+        ),
+      );
       final result = await knowledge.index(bundle, onProgress: events.add);
       final total = result.embeddedChunks;
+      expect(beforeEncoder, [
+        IndexPhase.scanning,
+        IndexPhase.loading,
+      ], reason: 'opening the encoder is part of loading');
       expect(events.map((e) => e.phase), [
         IndexPhase.scanning,
         IndexPhase.loading,
@@ -429,23 +441,47 @@ Future<void> main(List<String> arguments) async {
   });
 
   group('forget and prune', () {
+    test('forget deletes every configuration of a bundle, even a removed one, '
+        'and keeps their lock files', () async {
+      final other = await copyStoreBundle(temp, 'other');
+      final first = await store().index(bundle);
+      final second = await store(
+        DeterministicEncoderProvider(model: 'another'),
+      ).index(bundle);
+      final kept = await store().index(other);
+      final bundleDirectory = Directory(p.dirname(first.index));
+      expect(bundleDirectory.listSync(), hasLength(4));
+      await Directory(bundle.root).delete(recursive: true);
+      await store().forget(bundle);
+      expect(
+        bundleDirectory.listSync().map((e) => p.basename(e.path)).toSet(),
+        {'${p.basename(first.index)}.lock', '${p.basename(second.index)}.lock'},
+        reason: 'an operation that opened a lock file still excludes others',
+      );
+      expect(bundleDirectory.listSync().whereType<Directory>(), isEmpty);
+      expect(await Directory(kept.index).exists(), isTrue);
+      await store().forget(bundle);
+    }, skip: skipWithoutObjectBox);
+
     test(
-      'forget deletes every configuration of a bundle, even a removed one',
+      'forget finds a removed bundle by a path through a symbolic link',
       () async {
-        final other = await copyStoreBundle(temp, 'other');
-        final first = await store().index(bundle);
-        await store(
-          DeterministicEncoderProvider(model: 'another'),
-        ).index(bundle);
-        final kept = await store().index(other);
-        final bundleDirectory = Directory(p.dirname(first.index));
-        expect(bundleDirectory.listSync(), hasLength(4));
-        await Directory(bundle.root).delete(recursive: true);
-        await store().forget(bundle);
-        expect(await bundleDirectory.exists(), isFalse);
-        expect(await Directory(kept.index).exists(), isTrue);
-        await store().forget(bundle);
+        final real = await Directory(p.join(temp.path, 'real')).create();
+        final link = Link(p.join(temp.path, 'linked'));
+        await link.create(real.path);
+        final resolved = await copyStoreBundle(real, 'worktree');
+        final linked = ProjectBundle(
+          resolved.name,
+          resolved.path,
+          p.join(link.path, 'worktree'),
+        );
+        final result = await store().index(linked);
+        expect(result.bundle, resolved.root);
+        await Directory(resolved.root).delete(recursive: true);
+        await store().forget(linked);
+        expect(await Directory(result.index).exists(), isFalse);
       },
+      testOn: '!windows',
       skip: skipWithoutObjectBox,
     );
 
@@ -518,7 +554,13 @@ Future<void> main(List<String> arguments) async {
         },
       );
       expect(result.busy, isEmpty);
-      expect(await Directory(p.dirname(goneIndex.index)).exists(), isFalse);
+      expect(await Directory(goneIndex.index).exists(), isFalse);
+      expect(
+        await File('${goneIndex.index}.lock').exists(),
+        isTrue,
+        reason: 'a lock file goes only once unused for the period',
+      );
+      expect(await Directory(unused.index).exists(), isFalse);
       expect(await File('${unused.index}.lock').exists(), isFalse);
       for (final kept in [own, recent]) {
         expect(await Directory(kept.index).exists(), isTrue);
@@ -526,6 +568,14 @@ Future<void> main(List<String> arguments) async {
       }
       expect(await store().status(bundle), isA<KnowledgeIndexCurrent>());
       expect((await store().prune()).removed, isEmpty);
+      expect(await File('${goneIndex.index}.lock').exists(), isTrue);
+
+      await File(
+        '${goneIndex.index}.lock',
+      ).setLastModified(DateTime.now().subtract(const Duration(days: 40)));
+      final later = await store().prune();
+      expect(later.removed, isEmpty, reason: 'no index was left to remove');
+      expect(await Directory(p.dirname(goneIndex.index)).exists(), isFalse);
     }, skip: skipWithoutObjectBox);
 
     test(
@@ -634,6 +684,38 @@ Future<void> main(List<String> arguments) async {
       expect((await knowledge.index(bundle)).current, isTrue);
       expect(calls, 2);
     }, skip: skipWithoutObjectBox);
+
+    test(
+      'without ObjectBox or a loader, index reports objectbox-unavailable '
+      'and prints nothing',
+      () async {
+        final printed = <String>[];
+        final provider = DeterministicEncoderProvider();
+        final knowledge = store(provider);
+        await runZoned(
+          () => expectLater(
+            knowledge.index(bundle),
+            throwsA(
+              isA<WayfinderException>().having(
+                (e) => e.code,
+                'code',
+                'objectbox-unavailable',
+              ),
+            ),
+          ),
+          zoneSpecification: ZoneSpecification(
+            print: (_, _, _, line) => printed.add(line),
+          ),
+        );
+        expect(printed, isEmpty, reason: 'stdout belongs to the host');
+        expect(provider.opened, isEmpty, reason: 'no model before ObjectBox');
+        expect(namespaces().expand(generations), isEmpty);
+        expect(await knowledge.status(bundle), isA<KnowledgeIndexMissing>());
+      },
+      skip: objectBoxLibrary.existsSync()
+          ? 'Runs where ObjectBox is not installed.'
+          : false,
+    );
 
     test('a closed store refuses every operation', () async {
       final knowledge = store();

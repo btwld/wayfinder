@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:objectbox/objectbox.dart' show Store;
 import 'package:okf/okf_io.dart' show okfBundleLockFileName;
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
@@ -74,7 +75,9 @@ class _SharedQueryEmbedder extends BaseEmbedder {
 /// processes, through the `<configuration key>.lock` file beside it
 /// (`WayfinderFileLock`); another operation on it meanwhile fails with
 /// `index-busy` instead of waiting. A search while an index runs is
-/// therefore refused.
+/// therefore refused. [forget] and [prune] delete index directories and
+/// keep their lock files; only [prune] deletes a lock file, once it has gone
+/// unused for its period.
 ///
 /// The store never locates a model, downloads anything or loads a native
 /// library from disk itself: [encoder] supplies encoders, and
@@ -95,7 +98,8 @@ class _SharedQueryEmbedder extends BaseEmbedder {
 /// - `model-missing` or `model-invalid` from the [encoder], and
 ///   `model-invalid` when an opened encoder reports another identity or
 ///   dimension;
-/// - `objectbox-unavailable` from [loadObjectBox];
+/// - `objectbox-unavailable` from [loadObjectBox], or when ObjectBox's
+///   native library cannot load;
 /// - `cancelled` when an [index] run was cancelled;
 /// - `closed` after [dispose].
 ///
@@ -110,16 +114,23 @@ class WayfinderKnowledgeStore {
   ///
   /// With [retainEncoder], the store opens one encoder on first use and
   /// keeps it, with each bundle's parsed snapshot up to [cacheBytes] of
-  /// snapshot text, for the operations that follow, which then run one at a
-  /// time; a failed operation discards both. This suits a long-lived server.
-  /// Without it, each operation opens and disposes its own encoder and
-  /// operations run concurrently. [dispose] waits for accepted operations
-  /// and releases the encoder.
+  /// snapshot text, for the operations that follow. [index], [search] and
+  /// [searchBundle] then run one at a time; [status], [forget] and [prune],
+  /// which need no encoder, do not wait for them. An operation that fails
+  /// in the encoder or ObjectBox, or with an error that is not a
+  /// [WayfinderException], discards both; an expected failure, such as
+  /// `index-stale`, `index-busy` or `cancelled`, keeps them. This suits a
+  /// long-lived server. Without it, each operation opens and disposes its
+  /// own encoder and operations run concurrently. [dispose] waits for
+  /// accepted operations and releases the encoder.
   ///
   /// [loadObjectBox] runs before the store first opens an ObjectBox
   /// database, and again after it fails. Leave it null when the host loaded
   /// ObjectBox already or ships it where ObjectBox finds it, such as
-  /// Flutter's `objectbox_flutter_libs`.
+  /// Flutter's `objectbox_flutter_libs`. Either way the store then checks
+  /// that the library loads, and reports `objectbox-unavailable` when it does
+  /// not; what ObjectBox prints while it looks for the library is dropped,
+  /// so it never reaches a host's stdout.
   WayfinderKnowledgeStore({
     required this.dataDirectory,
     required this.encoder,
@@ -198,13 +209,16 @@ class WayfinderKnowledgeStore {
       }
       return _assess(index, files, saved);
     }),
+    encoder: false,
   );
 
   /// Creates or refreshes [bundle]'s index. A current index returns without
   /// opening an encoder; [force] discards it and re-embeds every passage.
   ///
   /// [onProgress] receives each [IndexPhase] as the run reaches it, and the
-  /// embedding count before the first batch and after every batch. [cancel]
+  /// embedding count before the first batch and after every batch. A run
+  /// reports [IndexPhase.loading] before it opens ObjectBox and the encoder,
+  /// so loading a model is reported as loading. [cancel]
   /// is checked between steps and batches, last right after the
   /// [IndexPhase.publishing] event: a cancelled run deletes the generation it
   /// staged, leaves the current one, and throws `cancelled`.
@@ -243,11 +257,12 @@ class WayfinderKnowledgeStore {
           warnings: warnings,
         );
       }
+      onProgress?.call(const IndexProgress(IndexPhase.loading));
       throwIfCancelled(cancel);
       await _ensureObjectBox();
       final opened = await _acquireEncoder();
       try {
-        onProgress?.call(const IndexProgress(IndexPhase.loading));
+        throwIfCancelled(cancel);
         final compatible =
             previous?.configuration == _configuration &&
             previous?.model == _space &&
@@ -341,7 +356,13 @@ class WayfinderKnowledgeStore {
           ).writeAsString(jsonEncode(record), flush: true);
           final pointer = File(p.join(directory.path, 'current.pending'));
           await pointer.writeAsString(p.basename(staged.path), flush: true);
-          await pointer.rename(p.join(directory.path, 'current'));
+          try {
+            await pointer.rename(p.join(directory.path, 'current'));
+          } on PathNotFoundException {
+            // Only another holder of this namespace removes the pending
+            // pointer; this run publishes nothing.
+            throw _busy;
+          }
           published = true;
           // Only this namespace's inactive generations, after publication.
           await for (final entry in directory.list(followLinks: false)) {
@@ -386,8 +407,7 @@ class WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
-  }) => _admit(() async {
-    _checkLimit(limit);
+  }) => _admit(limit: limit, () async {
     WayfinderEncoder? opened;
     BaseEmbedder? queryEmbedder;
     try {
@@ -435,8 +455,7 @@ class WayfinderKnowledgeStore {
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
-  }) => _admit(() async {
-    _checkLimit(limit);
+  }) => _admit(limit: limit, () async {
     WayfinderEncoder? opened;
     try {
       return KnowledgeBundleSearch(
@@ -459,12 +478,12 @@ class WayfinderKnowledgeStore {
 
   /// Deletes every configuration's index of [bundle], whose root may no
   /// longer exist, such as a removed worktree. Throws `index-busy`, and
-  /// deletes nothing, while an operation holds any of them.
-  Future<void> forget(ProjectBundle bundle) => _admit(() async {
-    final directory = Directory(bundle.root);
-    final root = await directory.exists()
-        ? await directory.resolveSymbolicLinks()
-        : p.normalize(directory.absolute.path);
+  /// deletes nothing, while an operation holds any of them. The lock files
+  /// stay, so an operation that opened one meanwhile still excludes the
+  /// next; [prune] deletes them once they go unused.
+  Future<void> forget(ProjectBundle bundle) => _admit(encoder: false, () async {
+    final root = await _canonicalPath(bundle.root);
+    if (root == null) return;
     final indexes = Directory(
       p.join(await _resolvedDataDirectory(), 'indexes', _rootKey(root)),
     );
@@ -487,24 +506,29 @@ class WayfinderKnowledgeStore {
         if (lock == null) throw _busy;
         held.add((key, lock));
       }
-      for (final (key, lock) in held) {
-        await _deleteNamespace(indexes, key, lock);
+      for (final (key, _) in held) {
+        final namespace = Directory(p.join(indexes.path, key));
+        if (await namespace.exists()) await namespace.delete(recursive: true);
       }
     } finally {
       for (final (_, lock) in held) {
         await lock.release();
       }
     }
-    await _deleteIfEmpty(indexes);
   });
 
   /// Deletes indexes no bundle will use again: every index of a root that
   /// no longer exists, and indexes of other configurations or encoders
   /// that no operation used for [unusedFor]. Indexes an operation holds are
   /// left for a later prune; 0.2 index directories are never touched.
+  ///
+  /// A lock file is deleted only once no operation used it for [unusedFor],
+  /// as well: deleting a lock file that another operation has just opened
+  /// would let two operations hold the same index, and a long-unused one is
+  /// not being opened.
   Future<KnowledgePruneResult> prune({
     Duration unusedFor = const Duration(days: 30),
-  }) => _admit(() async {
+  }) => _admit(encoder: false, () async {
     final indexes = Directory(
       p.join(await _resolvedDataDirectory(), 'indexes'),
     );
@@ -527,7 +551,7 @@ class WayfinderKnowledgeStore {
       var changed = false;
       for (final file in locks) {
         final key = _lockName.firstMatch(p.basename(file.path))![1]!;
-        final namespace = p.join(bundleDirectory.path, key);
+        final namespace = Directory(p.join(bundleDirectory.path, key));
         String? root;
         try {
           if (jsonDecode(await file.readAsString()) case {
@@ -537,47 +561,51 @@ class WayfinderKnowledgeStore {
           }
         } on FileSystemException {
           // Windows refuses to read a lock file another handle holds.
-          busy.add(namespace);
+          busy.add(namespace.path);
           continue;
         } on FormatException {
           // No note yet: the root is unknown.
         }
+        Future<bool> unused() async {
+          final FileStat stat;
+          try {
+            stat = await file.stat();
+          } on FileSystemException {
+            return false;
+          }
+          return stat.type == FileSystemEntityType.file &&
+              now.difference(stat.modified) >= unusedFor;
+        }
+
         Future<String?> reason() async {
           if (root != null && !await Directory(root).exists()) {
             return 'missing-root';
           }
           if (key == _configurationKey) return null;
-          final FileStat stat;
-          try {
-            stat = await file.stat();
-          } on FileSystemException {
-            return null;
-          }
-          return stat.type == FileSystemEntityType.file &&
-                  now.difference(stat.modified) >= unusedFor
-              ? 'other-configuration'
-              : null;
+          return await unused() ? 'other-configuration' : null;
         }
 
         if (await reason() == null) continue;
         final lock = await WayfinderFileLock.tryExclusive(file);
         if (lock == null) {
-          busy.add(namespace);
+          busy.add(namespace.path);
           continue;
         }
         try {
           // A holder may have used it between the check and the lock.
-          if (await reason() case final why?) {
-            await _deleteNamespace(bundleDirectory, key, lock);
-            changed = true;
+          final why = await reason();
+          if (why == null) continue;
+          if (await namespace.exists()) {
+            await namespace.delete(recursive: true);
             removed.add(
               KnowledgePrunedIndex(
-                directory: namespace,
+                directory: namespace.path,
                 root: root,
                 reason: why,
               ),
             );
           }
+          if (await unused()) changed = await _deleteLockFile(lock) || changed;
         } finally {
           await lock.release();
         }
@@ -600,19 +628,26 @@ class WayfinderKnowledgeStore {
     'Index is busy. Retry when the current operation finishes.',
   );
 
-  static void _checkLimit(int limit) {
-    if (limit < 1 || limit > 100) {
-      throw ArgumentError.value(limit, 'limit', 'must be from 1 to 100');
-    }
-  }
-
-  Future<T> _admit<T>(Future<T> Function() action) {
+  /// Runs [action] unless the store is closed or [limit], when given, is not
+  /// from 1 to 100. With a retained encoder, actions that need the
+  /// [encoder] run one at a time, and only a failure that may have come from
+  /// the encoder or ObjectBox discards it and the snapshot cache.
+  Future<T> _admit<T>(
+    Future<T> Function() action, {
+    bool encoder = true,
+    int? limit,
+  }) {
     if (_closing != null) {
       return Future.error(
         const WayfinderException('closed', 'The knowledge store is closed.'),
       );
     }
-    if (!retainEncoder) {
+    if (limit != null && (limit < 1 || limit > 100)) {
+      return Future.error(
+        ArgumentError.value(limit, 'limit', 'must be from 1 to 100'),
+      );
+    }
+    if (!retainEncoder || !encoder) {
       // Concurrent, but dispose still waits for every accepted operation.
       final result = Future<T>.sync(action);
       final settled = result.then<void>(
@@ -625,16 +660,30 @@ class WayfinderKnowledgeStore {
     final result = _pending.then((_) async {
       try {
         return await action();
-      } catch (_) {
-        _cachedSavedIndexes.clear();
-        // Never reuse an encoder that may have failed.
-        await _disposeRetainedEncoder();
+      } catch (error) {
+        if (_mayHaveFailedEncoder(error)) {
+          _cachedSavedIndexes.clear();
+          // Never reuse an encoder that may have failed.
+          await _disposeRetainedEncoder();
+        }
         rethrow;
       }
     });
     _pending = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return result;
   }
+
+  /// Whether [error] may have come from the encoder or ObjectBox. Every
+  /// other [WayfinderException] is an expected outcome the store raised
+  /// itself, such as a stale index, a busy lock or a cancellation.
+  static bool _mayHaveFailedEncoder(Object error) => switch (error) {
+    WayfinderException(:final code) => const {
+      'model-missing',
+      'model-invalid',
+      'objectbox-unavailable',
+    }.contains(code),
+    _ => true,
+  };
 
   Future<WayfinderEncoder> _acquireEncoder() async {
     if (!retainEncoder) return _openEncoder();
@@ -687,29 +736,54 @@ class WayfinderKnowledgeStore {
     return _disposingEncoder = current;
   }
 
-  Future<void> _ensureObjectBox() {
-    final load = loadObjectBox;
-    if (load == null) return Future.value();
-    return _objectBoxReady ??= Future.sync(load).then<void>(
-      (_) {},
-      onError: (Object error, StackTrace stackTrace) {
-        _objectBoxReady = null;
-        Error.throwWithStackTrace(error, stackTrace);
-      },
-    );
+  Future<void> _ensureObjectBox() => _objectBoxReady ??=
+      Future.sync(() async {
+        await loadObjectBox?.call();
+        _checkObjectBox();
+      }).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stackTrace) {
+          _objectBoxReady = null;
+          Error.throwWithStackTrace(error, stackTrace);
+        },
+      );
+
+  /// Makes ObjectBox load its native library now, if the process has not
+  /// loaded it yet, and reports `objectbox-unavailable` when it cannot.
+  /// ObjectBox prints a hint to stdout when its search fails, which would
+  /// corrupt a host's stdio transport; this drops it.
+  static void _checkObjectBox() {
+    try {
+      runZoned(
+        Store.databaseVersion,
+        zoneSpecification: ZoneSpecification(print: (_, _, _, _) {}),
+      );
+    } on Object catch (error) {
+      throw WayfinderException(
+        'objectbox-unavailable',
+        'The ObjectBox native library cannot load ($error).',
+      );
+    }
   }
 
   /// The data directory with symbolic links resolved, as far as it exists.
-  Future<String> _resolvedDataDirectory() async {
-    final requested = p.normalize(dataDirectory.absolute.path);
+  Future<String> _resolvedDataDirectory() async =>
+      await _canonicalPath(dataDirectory.path) ??
+      (throw const WayfinderException(
+        'data-directory-unavailable',
+        'Cannot resolve the Wayfinder data directory.',
+      ));
+
+  /// [path], absolute and with symbolic links resolved as far as it exists,
+  /// so a path that no longer exists, such as a removed worktree, names what
+  /// it named while it existed. Null when no ancestor of it exists.
+  static Future<String?> _canonicalPath(String path) async {
+    final directory = Directory(path);
+    if (await directory.exists()) return directory.resolveSymbolicLinks();
+    final requested = p.normalize(directory.absolute.path);
     var ancestor = Directory(requested);
     while (!await ancestor.exists()) {
-      if (ancestor.parent.path == ancestor.path) {
-        throw const WayfinderException(
-          'data-directory-unavailable',
-          'Cannot resolve the Wayfinder data directory.',
-        );
-      }
+      if (ancestor.parent.path == ancestor.path) return null;
       ancestor = ancestor.parent;
     }
     return p.normalize(
@@ -746,10 +820,20 @@ class WayfinderKnowledgeStore {
       directory: Directory(p.join(indexes, _configurationKey)),
       lock: File(p.join(indexes, '$_configurationKey.lock')),
     );
-    final lock = await WayfinderFileLock.tryExclusive(index.lock);
+    WayfinderFileLock? lock;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        lock = await WayfinderFileLock.tryExclusive(index.lock);
+        break;
+      } on PathNotFoundException {
+        // prune deleted the empty bundle directory between creating it and
+        // creating the lock file in it; tryExclusive creates it again.
+        if (attempt == 2) throw _busy;
+      }
+    }
     if (lock == null) throw _busy;
     try {
-      // forget or prune deleted the lock file while this descriptor waited.
+      // prune deleted the lock file while this descriptor waited.
       if (!await index.lock.exists()) throw _busy;
       // The note names the root for prune; writing it records the use.
       await lock.writeNote('${jsonEncode({'root': root})}\n');
@@ -759,29 +843,28 @@ class WayfinderKnowledgeStore {
     }
   }
 
-  /// Deletes namespace [key] of [indexes] and its lock file, which [lock]
-  /// holds and releases.
-  static Future<void> _deleteNamespace(
-    Directory indexes,
-    String key,
-    WayfinderFileLock lock,
-  ) async {
-    final namespace = Directory(p.join(indexes.path, key));
-    if (await namespace.exists()) await namespace.delete(recursive: true);
-    Future<void> deleteLock() async {
+  /// Deletes the lock file [lock] holds, and releases it. False when the
+  /// file stays: Windows keeps a file another handle has open, and a later
+  /// prune deletes it.
+  static Future<bool> _deleteLockFile(WayfinderFileLock lock) async {
+    Future<bool> delete() async {
       try {
         await lock.file.delete();
+        return true;
       } on FileSystemException {
-        // Windows keeps a file another handle has open; a later prune
-        // removes it.
+        return false;
       }
     }
 
     // POSIX deletes an open file, so delete it while holding the lock;
     // Windows needs the handle closed first.
-    if (!Platform.isWindows) await deleteLock();
+    if (Platform.isWindows) {
+      await lock.release();
+      return delete();
+    }
+    final deleted = await delete();
     await lock.release();
-    if (Platform.isWindows) await deleteLock();
+    return deleted;
   }
 
   static Future<void> _deleteIfEmpty(Directory directory) async {

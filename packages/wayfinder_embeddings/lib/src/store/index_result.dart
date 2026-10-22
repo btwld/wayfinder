@@ -83,7 +83,8 @@ enum IndexPhase {
   /// Hashing the bundle's files to compare them with the saved index.
   scanning,
 
-  /// Loading the bundle and fitting its passages to the encoder.
+  /// Opening ObjectBox and the encoder, which may load a model, then
+  /// loading the bundle and fitting its passages to the encoder.
   loading,
 
   /// Embedding passages; [IndexProgress.completed] of [IndexProgress.total].

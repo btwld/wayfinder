@@ -144,25 +144,101 @@ void main() {
       );
     });
 
-    test('a retained encoder does not bypass source freshness', () async {
+    test('a retained encoder does not bypass source freshness, and survives '
+        'the refusal', () async {
       await knowledge.index(bundle);
       final shared = store(retainEncoder: true);
       final original = await file('recovery.md').readAsString();
       try {
         await shared.searchBundle(bundle, 'password');
         final encoder = encoders.last;
+        final opened = encoders.length;
         await file('recovery.md').writeAsString('$original\nNew guidance.\n');
         await expectLater(
           shared.searchBundle(bundle, 'password'),
-          throwsA(isA<WayfinderException>()),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'index-stale',
+            ),
+          ),
         );
-        expect(encoder.isDisposed, isTrue);
+        // A stale index is an expected refusal, not an encoder failure.
+        expect(encoder.isDisposed, isFalse);
         await shared.index(bundle);
         expect(
           (await shared.searchBundle(bundle, 'password')).matches,
           isNotEmpty,
         );
-        expect(encoders.last, isNot(same(encoder)));
+        expect(encoders.length, opened);
+        expect(encoders.last, same(encoder));
+      } finally {
+        await shared.dispose();
+      }
+      expect(encoders.last.disposals, 1);
+    });
+
+    test('a retained encoder survives busy, cancelled and limit refusals, '
+        'and status does not wait for an index', () async {
+      await knowledge.index(bundle);
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      final shared = store(retainEncoder: true);
+      try {
+        await shared.searchBundle(bundle, 'password');
+        final encoder = encoders.last;
+        await expectLater(
+          shared.searchBundle(bundle, 'password', limit: 0),
+          throwsArgumentError,
+        );
+        final cancelled = WayfinderCancellationController()..cancel();
+        await expectLater(
+          shared.index(bundle, force: true, cancel: cancelled),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'cancelled',
+            ),
+          ),
+        );
+        encoder.beforeQuery = (_) async {
+          entered.complete();
+          await release.future;
+        };
+        final searching = shared.searchBundle(bundle, 'weather');
+        await entered.future;
+        // The search holds the index; status runs beside it and is refused.
+        await expectLater(
+          shared.status(bundle),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'index-busy',
+            ),
+          ),
+        );
+        await expectLater(
+          knowledge.searchBundle(bundle, 'weather'),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'index-busy',
+            ),
+          ),
+        );
+        release.complete();
+        expect((await searching).matches, isNotEmpty);
+        encoder.beforeQuery = null;
+        expect(encoder.isDisposed, isFalse);
+        expect(
+          (await shared.searchBundle(bundle, 'password')).matches,
+          isNotEmpty,
+        );
+        expect(encoders.last, same(encoder));
       } finally {
         await shared.dispose();
       }
