@@ -256,7 +256,9 @@
   (`provide-model`) for a host to word. `knowledge_store.dart` and
   `model_cache.dart` export the three. The `wayfinder` command's output is
   unchanged: it reports the provider's `model-missing` and `model-invalid`
-  with its own advice, as before.
+  with its own advice, as before. `LocalModelEncoderProvider`, which a
+  knowledge store opens its model through, still reports the two by code
+  alone, and the README says their remedy is always `provideModel`.
 
 # 0.2.0
 
