@@ -617,8 +617,12 @@ class WayfinderKnowledgeStore {
   /// still exists are resolved. Throws `index-busy`, and deletes nothing,
   /// while an operation indexes any of those bundles. An index whose
   /// `writer.lock` records no root, or cannot be read, as on Windows while a
-  /// writer holds every configuration of it, is left for [prune].
+  /// writer holds every configuration of it, is left for [prune]. A blank
+  /// [root], which would name the working directory, is an [ArgumentError].
   Future<List<String>> forgetProjectRoot(String root) => _admit(() async {
+    if (root.trim().isEmpty) {
+      throw ArgumentError.value(root, 'root', 'must not be blank');
+    }
     final project = await _canonicalPath(root);
     if (project == null) return const <String>[];
     final indexes = Directory(await _bundlesDirectory());

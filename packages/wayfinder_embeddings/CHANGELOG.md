@@ -247,7 +247,8 @@ bullets above ship first, move these under the next release.
   at or inside a project root, found by the bundle root each index's
   `writer.lock` records, so a host can remove a deleted worktree's indexes
   without its bundle list. It returns the bundle roots it forgot, and throws
-  `index-busy`, deleting nothing, while an operation indexes one of them.
+  `index-busy`, deleting nothing, while an operation indexes one of them. A
+  blank root, which would name the working directory, is refused.
 
 # 0.2.0
 
