@@ -143,6 +143,16 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
+- **BREAKING:** Depend on `okf` `^0.5.1` instead of exactly 0.5.0. The
+  `matches-generated` `version` param names okf's index generator revision,
+  `okfIndexGeneratorRevision`, instead of the okf release, and `engine.okf`
+  and the SARIF `okf` tool extension report okf's own `okfVersion`. okf 0.5.1
+  writes the same indexes as 0.5.0 (revision 0.5.0), so this is not a breaking
+  change for any Profile that uses `matches-generated`: a package that sets
+  `version` to `0.5.0`, Bitwild 2026.3 included, loads and yields the same
+  findings, and package format stays 2. The `okfPackageVersion` export is
+  removed; import `okfVersion` or `okfIndexGeneratorRevision` from
+  `package:okf/okf.dart`.
 <!--
 Release bookkeeping: the `pruneProjectLocks` and `tryExclusive` bullets below
 (#110) amend the `WayfinderFileLock` bullet above; fold them into it if both

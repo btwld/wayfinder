@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-01
-- Updated: 2026-10-07 (Ack evaluates rule schemas); 2026-10-22 (reading a package, its tests included, is bounded)
+- Updated: 2026-10-07 (Ack evaluates rule schemas); 2026-10-22 (`matches-generated` pins okf's generator revision); 2026-10-22 (reading a package, its tests included, is bounded)
 - Scope: how a Profile's rules are represented and evaluated
 - Driver: a second knowledge base, over the same okf release, that keeps its frontmatter rules in JSON Schema
 
@@ -50,6 +50,18 @@ engine that reached it. A rule's severity is `error`, `advisory`, or `note`; a n
 summary entries, never findings. A package that names a subject, builtin, or
 keyword the engine lacks is reported unsupported and never partially applied.
 
+A builtin whose verdicts depend on code the engine does not own pins that
+code by what it produces, not by its release. `matches-generated` compares a
+bundle with okf's index generator, and its optional `version` param names
+okf's generator revision, `okfIndexGeneratorRevision`: the okf release that
+last changed the generator's output. okf changes that output only in a minor
+release, so the engine depends on a range of okf releases within one
+revision and reports the release it runs as `engine.okf`. A package that sets
+`version` loads only on an engine whose generator writes the bytes its
+verdicts assume, and the engine can take an okf release that leaves those
+bytes alone without any Profile changing its release
+([guide §§3.1 and 5.6](../../implementation/okf-implementation-guide.md#56-rules-and-builtins)).
+
 ## Options considered
 
 - **One annotated schema per Profile.** Rejected because finding identity
@@ -65,6 +77,11 @@ keyword the engine lacks is reported unsupported and never partially applied.
 - **Consumer overrides in the style of ESLint or Spectral.** Rejected because
   a Profile is a conformance contract; authors control rules by declaring
   them.
+- **`version` as the okf release, with okf pinned to one patch release.**
+  Replaced, because any okf release, even one that leaves the generator's
+  output alone, then changed the pin and stopped every package that sets
+  `version` from loading. A host that embeds the engine could not take an okf
+  fix without a wayfinder release.
 
 ## Consequences
 
@@ -72,6 +89,16 @@ Profile authors change rules by editing their package and its examples.
 Adding a fact, builtin, or schema keyword is an engine release. Golden reports
 for every fixture are the regression oracle for engine changes, so a wording
 change is a reviewed golden diff.
+
+Pinning the generator revision keeps package format 2. Format names what the
+engine must understand to read a package, and no package reads differently:
+`version` keeps its syntax and still names the generator output a package's
+verdicts assume. Every released engine that reads format 2 runs okf 0.5.0,
+whose generator revision is 0.5.0, so a package that sets `version` to
+`0.5.0`, Bitwild 2026.3 included, loads and yields the same findings as
+before, and no other value could load on a released engine. Only the
+`engine.okf` value moves with the okf release, which guide §5.6 already
+treats as an engine change rather than a Profile change.
 
 A package is data, so it cannot run code or change another package's
 findings. Its `pattern` keywords run on Dart's backtracking regular-expression

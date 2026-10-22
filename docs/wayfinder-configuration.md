@@ -284,13 +284,14 @@ serves many rules:
 | --- | --- | --- |
 | `files-present` | `paths`, a non-empty list of unique bundle-relative paths | one finding listing every missing path as `{failing}` |
 | `path-targets-exist` | `fields`, a non-empty unique subset of `resource`, `sources.resource`, `computation`, `executor.resource`, `attester.resource` | one finding per document and target whose path exists neither in the bundle nor on disk, as `{target}` |
-| `matches-generated` | `generator`, only `okf-index` today. `version`, the okf release the package's verdicts assume; a wayfinder built on another okf cannot load the package. Default none. `keep`, paths never reported as extra, default none. `extra`, `report` or `ignore`, default `report`. CRLF line endings on disk are read as LF, as the fix writes them. | a `stale` or `extra` message per `{path}`. `--fix` writes the generator's output. |
+| `matches-generated` | `generator`, only `okf-index` today. `version`, the okf generator revision the package's verdicts assume (okf's `okfIndexGeneratorRevision`, 0.5.0 for every okf 0.5 release); a wayfinder whose okf has another revision cannot load the package. Default none. `keep`, paths never reported as extra, default none. `extra`, `report` or `ignore`, default `report`. CRLF line endings on disk are read as LF, as the fix writes them. | a `stale` or `extra` message per `{path}`. `--fix` writes the generator's output. |
 
 The `okf-index` generator declares the package's `implements.release` in the
-indexes it writes. The JSON report names the okf version the engine generated
+indexes it writes. The JSON report names the okf release the engine generated
 with as `engine.okf`, and SARIF names it as a `tool.extensions` entry. A byte
 change in generated output therefore reads as an engine upgrade, not as a
-Profile change.
+Profile change. An okf release that keeps the generator revision changes
+`engine.okf` and no verdict.
 
 The engine reads every package through one parser, Bitwild's included, and
 never applies a package it cannot evaluate in part. A package that cannot be

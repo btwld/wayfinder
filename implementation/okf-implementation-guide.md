@@ -122,13 +122,17 @@ does. This section binds the tools that write and check that output.
 The `okf-index` generator is `OkfIndexGenerator` from the `okf` release the
 engine depends on, run over the loaded bundle with the root index declaring
 the package's `implements.release` as `okf_version`. A tool that writes or
-checks those indexes MUST produce exactly that generator's text. Wayfinder
-pins `okf` to the 0.5.0 release (`>=0.5.0 <0.5.1`, the narrowest constraint
-pub accepts for a published package) and reports the version it used as JSON
-`engine.okf` and a SARIF `tool.extensions` entry (§4.1). Golden reports over
-fixtures with generated indexes fail when a resolved `okf` release changes
-the generator's output. The generated text is engine contract, so §5.6 says
-what an engine release that changes it owes its users.
+checks those indexes MUST produce exactly that generator's text. okf names
+the bytes its generator writes with a generator revision,
+`okfIndexGeneratorRevision`: the okf release that last changed that output
+for any bundle. okf changes the output only in a minor release, so every
+release in one minor series writes the same bytes. Wayfinder depends on a
+range of okf releases within one revision (`^0.5.1`, revision 0.5.0) and
+reports the release it runs, okf's `okfVersion`, as JSON `engine.okf` and a
+SARIF `tool.extensions` entry (§4.1). Golden reports over fixtures with
+generated indexes fail when a resolved `okf` release changes the generator's
+output. The generated text is engine contract, so §5.6 says what an engine
+release that changes it owes its users.
 
 A validator MUST report every path the generator writes whose file is missing
 or whose text differs from the generated text. The comparison is exact apart
@@ -684,14 +688,17 @@ each builtin with its params.
 
 Generated text is engine contract. `matches-generated` compares a bundle with
 the output of the generator in the engine's `okf` release (§3.1), so the
-bytes a Profile accepts depend on that release as well as on the package. The
-engine reports the version as `engine.okf`. A wayfinder release that changes
-the generator's output MUST say so in its changelog as a breaking change for
-every Profile that uses `matches-generated`, and its users regenerate with
-`--fix`. A Profile that omits the `version` param never has to change its own
-release for it. One that sets `version` fails to load on an engine with any
-other `okf` release, so its verdicts change only when the Profile moves the
-pin.
+bytes a Profile accepts depend on that release's generator revision as well
+as on the package. The engine reports the okf release as `engine.okf`. A
+wayfinder release that moves to an okf generator revision with different
+output MUST say so in its changelog as a breaking change for every Profile
+that uses `matches-generated`, and its users regenerate with `--fix`. A
+wayfinder release that moves to another okf release with the same revision
+changes `engine.okf` and no verdict. A Profile that omits the `version` param
+never has to change its own release for either. One that sets `version`
+names a generator revision and fails to load on an engine whose generator
+has any other revision, so its verdicts change only when the Profile moves
+the pin.
 
 ### 5.7 Composition
 
@@ -839,6 +846,28 @@ stops on an error as `profile-invalid`. Migration for
 packages: none. Bitwild, the largest shipped package, parses with its tests
 in about five milliseconds, so no package reads differently, and a package
 that would take ten seconds was already unusable.
+
+**okf generator revision, next wayfinder release.** Binds no Profile and
+keeps package format 2. These entries change the engine contract that the
+release after wayfinder 0.2.x implements.
+
+`matches-generated` compares its `version` param with okf's index generator
+revision, `okfIndexGeneratorRevision`, instead of with the okf release the
+engine runs. The engine depends on `okf` `^0.5.1`, a range within generator
+revision 0.5.0, instead of exactly 0.5.0, and `engine.okf` and the SARIF
+`tool.extensions` entry report okf's own `okfVersion`. The core library no
+longer exports `okfPackageVersion`. Affected sections: §§3.1, 5.6, and 9.
+Driver: Profile-aware writes need okf 0.5.1's reserved-file projection, and
+a host that embeds the engine resolves okf and wayfinder together. Under
+the exact pin, an engine on any later okf, even one whose generator writes
+the same bytes, would have stopped every package that sets `version`,
+Bitwild 2026.3 included, from loading. Migration for implementations: compare
+`version` with the generator revision of the okf the engine runs, and report
+that okf's release in `engine.okf`. Migration for packages: none. Revision
+0.5.0 names the bytes okf 0.5.0 wrote, which is what a `version` of `0.5.0`
+named before, so such a package loads and reads exactly as it did and keeps
+format 2 (ADR-0015). A bundle's verdicts are unchanged, and `engine.okf`
+reads `0.5.1` or a later okf 0.5 release.
 
 **Package format 2, next wayfinder release.** Binds no Profile. These
 entries change the engine contract that the release after wayfinder 0.1.x

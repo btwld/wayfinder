@@ -2,7 +2,6 @@ import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
-import 'generated/published_schemas.g.dart';
 import 'profile_finding.dart';
 import 'profile_rule_descriptors.dart';
 import 'validation.dart';
@@ -33,9 +32,9 @@ const _schema =
 /// Bundle locations join [bundlePath] as given. Every package in the
 /// assessed chain supplies one rule descriptor per rule, fired or not,
 /// naming the package's release and help link; OKF descriptors appear only
-/// for the findings present. The okf package the engine generates indexes
-/// with is a tool extension, so a change in generated output reads as an
-/// engine upgrade rather than a Profile change.
+/// for the findings present. The okf package version the engine runs is a
+/// tool extension, so a change in generated output reads as an engine
+/// upgrade rather than a Profile change.
 Map<String, Object?> toSarif(
   ProfileValidationResult result, {
   required String bundlePath,
@@ -188,7 +187,7 @@ Map<String, Object?> _log({
               ],
           },
           'extensions': [
-            {'name': 'okf', 'version': okfPackageVersion},
+            {'name': 'okf', 'version': okfVersion},
           ],
         },
         'invocations': [

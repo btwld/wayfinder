@@ -77,6 +77,21 @@ void main() {
       }
     });
 
+    test('version pins the generator revision, not the okf release', () {
+      bool accepts(String version) => matchesGeneratedParams.safeParse({
+        'generator': 'okf-index',
+        'version': version,
+      }).isOk;
+      expect(accepts(okfIndexGeneratorRevision), isTrue);
+      expect(
+        accepts(okfVersion),
+        okfVersion == okfIndexGeneratorRevision,
+        reason:
+            'okf $okfVersion generates revision $okfIndexGeneratorRevision '
+            'indexes',
+      );
+    });
+
     test('reports a missing or differing generated index as stale', () async {
       await write('notes/index.md', '# Edited\n');
       await File(p.join(bundle.path, 'index.md')).delete();
