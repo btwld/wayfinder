@@ -280,7 +280,8 @@ void main() {
     );
 
     test('a cancelled search stops before it encodes or scores and at the '
-        'next bundle, names no bundle, and keeps a retained encoder', () async {
+        'next bundle, names no bundle, and keeps a retained encoder and its '
+        'parsed snapshots', () async {
       final other = await copyStoreBundle(temp, 'other');
       await knowledge.index(bundle);
       await knowledge.index(other);
@@ -314,7 +315,7 @@ void main() {
         );
         expect(encoders, hasLength(opened), reason: 'no encoder was opened');
 
-        await shared.searchBundle(bundle, 'warm');
+        final warm = await shared.searchBundle(bundle, 'password');
         final encoder = encoders.last;
         final during = WayfinderCancellationController();
         encoder.beforeQuery = (_) async => during.cancel();
@@ -349,6 +350,11 @@ void main() {
         );
         expect(found.matches, isNotEmpty);
         expect(encoders.last, same(encoder));
+        expect(
+          (await shared.searchBundle(bundle, 'password')).matches.first.chunk,
+          same(warm.matches.first.chunk),
+          reason: 'the parsed snapshot outlives the cancelled searches',
+        );
       } finally {
         await shared.dispose();
       }
