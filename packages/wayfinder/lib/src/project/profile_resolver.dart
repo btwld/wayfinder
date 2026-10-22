@@ -419,7 +419,9 @@ final class WayfinderProfileResolver {
   /// `wayfinder.lock` pins and leaves the lock as it is, as a host does to
   /// bring a project's locked Profiles onto a machine. It fetches a source
   /// only when its mirror is missing or lacks the locked commit, and never
-  /// moves a ref. Before any Git command it throws
+  /// re-resolves a ref, so the lock's commits stay as written; the refresh
+  /// that fetches a missing commit still updates the mirror's own refs.
+  /// Before any Git command it throws
   /// [ProfileLockChangeRequiredException] (`lock-change-required`) when the
   /// lock as written would change: when it is missing, its configuration
   /// hash is stale, it lacks a binding's chain or records another source

@@ -120,6 +120,14 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
+<<<<<<< HEAD
+=======
+<!--
+Release bookkeeping: the `pruneProjectLocks` and `tryExclusive` bullets below
+(#110) amend the `WayfinderFileLock` bullet above; fold them into it if both
+ship in one release.
+-->
+>>>>>>> 9173ce0 (docs(core): keep the Projects bullets in place and word locked-only plans)
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
   each project whose root no longer exists, such as a removed worktree, once
   no `get` used it for a period (30 days by default), and returns the deleted
@@ -179,7 +187,8 @@
   `profile-skill-stale` notes. `select`'s diagnostics are unchanged.
 - `plan(lockedOnly: true)` resolves exactly the commits `wayfinder.lock`
   pins: it fetches a source only when its mirror is missing or lacks the
-  locked commit, never moves a ref, and keeps the lock's bytes. It throws
+  locked commit, never re-resolves a ref (the lock's commits stay as
+  written), and keeps the lock's bytes. It throws
   `ProfileLockChangeRequiredException` (`lock-change-required`) before any
   Git command when the lock as written would change, and once read for a
   package that disagrees with the lock. `ProfileResolutionPlan.lockedOnly`
