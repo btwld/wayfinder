@@ -1,5 +1,7 @@
 # Unreleased
 
+- Quote the bundle path in generated git hooks, and reject control characters
+  and a leading `-` in `--bundle`, so the path cannot become shell source.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval
   service instead of the one-shot CLI default. Preserve explicit Dart knowledge
   factory overrides and ordinary one-shot command behavior.
