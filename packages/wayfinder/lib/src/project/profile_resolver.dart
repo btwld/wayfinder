@@ -929,6 +929,15 @@ final class WayfinderProfileResolver {
         locked.revision,
       )).isNotEmpty) {
         throwIfCancelled(cancel);
+        if (!skillMarkerFits(locked.revision)) {
+          // Its marker would read back as no revision, so the skill would
+          // stay stale and the next get would refuse it as unowned.
+          throw WayfinderProfileResolutionException(
+            'Profile ${locked.id} release is too long for the '
+            '${ProfileSkills.marker} marker, which wayfinder reads up to '
+            '64 KiB, so wayfinder did not install its skill.',
+          );
+        }
         pending[id] = await _skillFiles(locked, skills[id]!, session);
       }
     }
