@@ -75,14 +75,18 @@ export 'src/project/profile_resolver.dart'
         ProfileFetchPolicy,
         ProfileFetchRequiredException,
         ProfileLock,
+        ProfileResolutionBusyException,
         ProfileResolutionPlan,
         ProfileResolutionResult,
+        ProfileSkillDirectoriesException,
         WayfinderProfileResolutionException,
         WayfinderProfileResolver,
         validateWithProfileSources;
 export 'src/project/profile_skills.dart'
     show
         MaterializedSkill,
+        ProfileSkillDirectory,
+        ProfileSkillDirectoryState,
         ProfileSkillText,
         ProfileSkills,
         SkillFile,
@@ -91,6 +95,9 @@ export 'src/project/profile_status.dart'
     show
         ProfileBindingState,
         ProfileBindingStatus,
+        ProfileLocalCopy,
+        ProfileLockChange,
+        ProfileLockChangeKind,
         ProfileLockChangeRequiredException,
         ProfileResolutionStatus;
 export 'src/project/project_bundles.dart'

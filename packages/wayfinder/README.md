@@ -79,14 +79,40 @@ Future<void> main() async {
   `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
   `package-unsupported`, `package-timeout` or `composition-failed`), the
   locked chain, the members missing from the cache, and the diagnostic
-  `select` reports.
+  `select` reports. Beside them it reports as data what a consent gate
+  names:
+  - `copies`, one `ProfileLocalCopy` per chain member: its source's
+    `location` and whether its mirror (`hasMirror`) and package file
+    (`hasPackage`) are in the Profile cache. A locked-only plan contacts a
+    source only to clone a missing mirror, or to refresh one that lacks the
+    locked commit;
+  - `skillDirectories`, each `.claude/skills/<id>` and `.agents/skills/<id>`
+    a resolved chain's skills install into, with a
+    `ProfileSkillDirectoryState`: `current`, `missing`, `stale` (Wayfinder's
+    marker at another revision), `unmarked` (something without the Profile's
+    marker, which `get` refuses to replace) or `outside` (a skill root a
+    symbolic link places outside the project). `ProfileSkills.inspect`
+    reads the same for one revision;
+  - `lockChange`, a `ProfileLockChange` for a lock that is missing or
+    stale: its `kind` (`lock-missing`, `configuration-changed`,
+    `chain-missing`, `source-changed`, `package-changed` or
+    `packages-unreached`), the binding and lock entries it concerns, and the
+    reason. The status's own `lockChange` is what a locked-only plan would
+    refuse before running Git, a lock entry no chain reaches included.
 - `plan(root, lockedOnly: true)` resolves exactly the commits
   `wayfinder.lock` pins and leaves the lock as written: it fetches a source
   only when its mirror lacks the locked commit and never re-resolves a ref,
   so the lock's commits stay as written. A lock that would change, because
   it is missing or stale or does not hold each binding's chain, fails with
-  `lock-change-required` before any Git command. Apply the plan to reinstall
-  the locked Profile skills.
+  `lock-change-required` before any Git command, and the
+  `ProfileLockChangeRequiredException` carries that `ProfileLockChange`.
+  Apply the plan to reinstall the locked Profile skills.
+- `plan(root, skills: false)` leaves Profile skills alone, as a host does to
+  fill the Profile cache without touching `.claude/skills` or
+  `.agents/skills`: it reads no skill file, refuses no skill directory, and
+  its apply writes and deletes none. The plan's `skillDirectories` reports
+  every skill directory's state, unmarked and outside ones included, which a
+  plan with skills refuses with `ProfileSkillDirectoriesException`.
 - `allowFetch`, a `ProfileFetchPolicy`, decides each clone or refresh just
   before it runs, and every Git command that can reach the network follows
   its yes for that `ProfileFetch.location`, so it is all a consent gate
@@ -147,32 +173,57 @@ Future<void> main() async {
   `gitMayReachRemote` and `wayfinderSshCommand` for the rules they follow,
   and on cancellation throws `WayfinderException.cancelled()`;
   `throwIfCancelled` checks between steps.
-- Failures are `WayfinderException`s with a stable `code`.
+- Failures are `WayfinderException`s with a stable `code` and a message
+  that says what happened and names no command; the `wayfinder` command adds
+  what to run. A selection's or status's diagnostic carries a
+  `DiagnosticRemedy` (`remedy`) when resolving the Profiles again fixes it,
+  as `WayfinderProfileResolutionException.remedy` does when selecting new
+  revisions would, and `ProfileValidationResult.withDiagnosticMessages`
+  words remedies into a result before a host renders it. Typed failures
+  carry their data: `ProfileSkillDirectoriesException` the skill
+  directories `get` may not replace, `ProfileResolutionBusyException` the
+  project or source that is busy, `ProfileLockChangeRequiredException` its
+  `ProfileLockChange`, and `ProfileFetchRequiredException` its fetch.
 
 A host that brings a project's locked Profiles onto a machine with a
-person's consent reads the status, then plans from the lock alone:
+person's consent reads the status, asks about the sources a download
+contacts, fills the Profile cache from the lock alone, and only then asks
+about the skill directories it would write:
 
 ```dart
 final status = await resolver.status(project.root);
-if (status.bindings.any(
-  (binding) => binding.state == ProfileBindingState.cacheMissing,
-)) {
-  final approved = {
-    for (final git in sourcesThePersonApproved)
-      WayfinderProfileSource.locationOf(git, projectRoot: project.root),
+if (status.lockChange == null &&
+    status.bindings.any(
+      (binding) => binding.state == ProfileBindingState.cacheMissing,
+    )) {
+  // Name the sources whose mirror the cache lacks: the ones a clone contacts.
+  final toFetch = {
+    for (final binding in status.bindings)
+      for (final copy in binding.copies)
+        if (!copy.hasMirror) copy.location,
   };
+  final approved = await askThePerson(toFetch);
   final plan = await resolver.plan(
     project.root,
     lockedOnly: true,
+    skills: false,
     allowFetch: (fetch) => approved.contains(fetch.location),
   );
-  // Writes the locked skills it lists and prunes plan.removedSkills.
-  await resolver.apply(plan);
+  await resolver.apply(plan); // Writes nothing in the project.
 }
+// The protected paths a get would write, or refuses to.
+final skills = [
+  for (final binding in (await resolver.status(project.root)).bindings)
+    for (final directory in binding.skillDirectories)
+      if (directory.state != ProfileSkillDirectoryState.current) directory,
+];
 ```
 
 A refused fetch throws `ProfileFetchRequiredException` (`fetch-required`),
-which names the source to ask about before planning again.
+which names the source to ask about before planning again, as for a mirror
+that lacks the locked commit. With the person's agreement to those skill
+directories, a locked-only plan with skills, which now fetches nothing,
+installs them.
 
 Run all okf bundle I/O of a process on one isolate: okf's bundle lock does
 not exclude isolates. [ADR-0018](../../docs/adr/0018-embeddable-libraries.md)

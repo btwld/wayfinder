@@ -125,13 +125,23 @@ void main() {
     await expectLater(
       resolver.resolve(project.path),
       throwsA(
-        isA<WayfinderProfileResolutionException>().having(
-          (error) => error.message,
-          'message',
-          '$_agents already exists without a .wayfinder-profile marker, so '
-              'wayfinder did not install it. Move it aside and run the '
-              'command again to install the Profile skill there.',
-        ),
+        isA<ProfileSkillDirectoriesException>()
+            .having((error) => error.code, 'code', 'profile-unresolved')
+            .having(
+              (error) => error.message,
+              'message',
+              '$_agents already exists without a .wayfinder-profile marker, '
+                  'so wayfinder did not install it.',
+            )
+            .having(
+              (error) => [
+                for (final directory in error.directories)
+                  (directory.path, directory.state),
+              ],
+              'directories',
+              [(_agents, ProfileSkillDirectoryState.unmarked)],
+            )
+            .having((error) => error.outsideRoots, 'outsideRoots', isEmpty),
       ),
     );
     expect(await installed(_agents), {'SKILL.md': 'mine'});
@@ -141,6 +151,76 @@ void main() {
       isFalse,
     );
   });
+
+  for (final (name, occupy) in [
+    (
+      'a file',
+      (String path) async {
+        await File(path).parent.create(recursive: true);
+        await File(path).writeAsString('mine');
+      },
+    ),
+    (
+      'a link to nothing',
+      (String path) async {
+        await Directory(p.dirname(path)).create(recursive: true);
+        await Link(path).create(p.join(temp.path, 'nowhere'));
+      },
+    ),
+  ]) {
+    test('$name where a skill goes belongs to the user, so get writes '
+        'nothing', () async {
+      final path = p.join(project.path, _agents);
+      await occupy(path);
+      final type = await FileSystemEntity.type(path, followLinks: false);
+      final revision = (
+        id: ProfileId.parse('acme-notes'),
+        release: '1.0',
+        commit: await commit(),
+      );
+      expect(
+        [
+          for (final directory in await ProfileSkills.inspect(
+            project.path,
+            revision,
+          ))
+            (directory.path, directory.state),
+        ],
+        [
+          (_claude, ProfileSkillDirectoryState.missing),
+          (_agents, ProfileSkillDirectoryState.unmarked),
+        ],
+      );
+      expect(await ProfileSkills.unowned(project.path, [revision.id]), [
+        _agents,
+      ]);
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<ProfileSkillDirectoriesException>().having(
+            (error) => [
+              for (final directory in error.directories)
+                (directory.path, directory.state),
+            ],
+            'directories',
+            [(_agents, ProfileSkillDirectoryState.unmarked)],
+          ),
+        ),
+      );
+      await expectLater(
+        ProfileSkills.write(project.path, revision, [
+          (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+        ]),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(await FileSystemEntity.type(path, followLinks: false), type);
+      expect(await Directory(p.join(project.path, _claude)).exists(), isFalse);
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).exists(),
+        isFalse,
+      );
+    });
+  }
 
   test('upgrade replaces the skill with the new commit', () async {
     await writeSource('skill/references/old.md', 'old');
@@ -230,16 +310,17 @@ void main() {
         'level': 'warning',
         'message':
             'Profile acme-notes skill in $_claude is not the locked commit '
-            '$locked. Run wayfinder get.',
+            '$locked.',
         'location': {'path': 'wayfinder.json'},
       },
     ]);
+    expect(stale.diagnostics.single.remedy, DiagnosticRemedy.resolveProfiles);
 
     await Directory(p.join(project.path, _agents)).delete(recursive: true);
     expect(
       (await validate()).diagnostics.single.message,
       'Profile acme-notes skill in $_claude and $_agents is not the locked '
-      'commit $locked. Run wayfinder get.',
+      'commit $locked.',
     );
 
     final repaired = await resolver.resolve(project.path);
@@ -270,7 +351,7 @@ void main() {
         'level': 'warning',
         'message':
             'Profile acme-notes skill in $_claude is not the locked commit '
-            '$locked. Run wayfinder get.',
+            '$locked.',
         'location': {'path': 'wayfinder.json'},
       },
     ];
@@ -1215,8 +1296,7 @@ void main() {
 
     const message =
         '.agents/skills resolves outside the project through a symbolic '
-        'link, so wayfinder did not install Profile skills there. Point it '
-        'inside the project and run the command again.';
+        'link, so wayfinder did not install Profile skills there.';
 
     for (final (name, link, target) in [
       ('at the root', '.agents/skills', '.agents/skills'),
@@ -1229,11 +1309,19 @@ void main() {
         await expectLater(
           resolver.resolve(project.path),
           throwsA(
-            isA<WayfinderProfileResolutionException>().having(
-              (error) => error.message,
-              'message',
-              message,
-            ),
+            isA<ProfileSkillDirectoriesException>()
+                .having((error) => error.message, 'message', message)
+                .having((error) => error.outsideRoots, 'outsideRoots', [
+                  '.agents/skills',
+                ])
+                .having(
+                  (error) => [
+                    for (final directory in error.directories)
+                      (directory.path, directory.state),
+                  ],
+                  'directories',
+                  [(_agents, ProfileSkillDirectoryState.outside)],
+                ),
           ),
         );
         expect(await foreign.exists(), isTrue);
@@ -1253,14 +1341,18 @@ void main() {
       await expectLater(
         resolver.resolve(project.path),
         throwsA(
-          isA<WayfinderProfileResolutionException>().having(
-            (error) => error.message,
-            'message',
-            '.claude/skills and .agents/skills resolve outside the project '
-                'through a symbolic link, so wayfinder did not install '
-                'Profile skills there. Point them inside the project and run '
-                'the command again.',
-          ),
+          isA<ProfileSkillDirectoriesException>()
+              .having(
+                (error) => error.message,
+                'message',
+                '.claude/skills and .agents/skills resolve outside the '
+                    'project through a symbolic link, so wayfinder did not '
+                    'install Profile skills there.',
+              )
+              .having((error) => error.outsideRoots, 'outsideRoots', [
+                '.claude/skills',
+                '.agents/skills',
+              ]),
         ),
       );
       expect(await foreign.exists(), isTrue);

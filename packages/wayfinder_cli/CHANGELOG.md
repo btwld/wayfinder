@@ -19,6 +19,15 @@
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
+- `get` and `upgrade` refuse a file or symbolic link where a Profile skill
+  directory goes, as they refuse a directory without Wayfinder's marker,
+  before writing anything; they used to write `wayfinder.lock` and then fail
+  while moving the skill into place.
+- `validate` and the MCP `validate` tool report a lock made stale by an edit
+  of `wayfinder.json` as `Profile lock is stale: the configuration changed
+  after the lock was written. Run wayfinder get.`. The core library's
+  messages no longer name a command, and the command adds what to run
+  itself, so every other message, result and exit code is unchanged.
 - `get`, `upgrade` and `validate` stop reading a Profile package whose rule
   tests run past ten seconds, as a `pattern` that backtracks without end can
   make them: `get` fails naming the rule, and `validate` reports

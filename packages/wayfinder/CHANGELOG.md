@@ -228,6 +228,66 @@ ship in one release.
   `profile-unresolved`, `status` reports the binding `resolved` with that
   warning rather than `cache-missing`, and `get` leaves such a directory
   alone as it does any unmarked one.
+<!--
+Release bookkeeping: the bullets below amend the `status` and
+`plan(lockedOnly: true)` bullets above; fold them in if both ship in one
+release.
+-->
+- `plan(skills: false)` leaves Profile skills alone, so a host can fill the
+  Profile cache without touching `.claude/skills` or `.agents/skills`: the
+  plan reads no skill file from a mirror and refuses no skill directory, and
+  its apply writes and deletes none. `ProfileResolutionPlan.includesSkills`
+  reports it, and `ProfileResolutionPlan.skillDirectories` lists every
+  directory a locked package's skill installs into with its state, including
+  the unmarked and outside ones a plan with skills refuses. The plan's JSON
+  adds `includes_skills` and `skill_directories`.
+- `ProfileSkills.inspect` reports, for one skill revision and without
+  writing, each skill directory as a `ProfileSkillDirectory`: its root, path,
+  the revision its marker records and a `ProfileSkillDirectoryState`
+  (`current`, `missing`, `stale`, `unmarked` or `outside`). `stale` is
+  derived from it and reports the same paths.
+- `get` refuses a file or symbolic link where a Profile skill directory
+  goes, as it refuses a directory without the Profile's marker, before
+  writing anything; it used to write the lock and fail while moving the
+  skill into place. `ProfileSkills.unowned` and `ProfileSkills.write` count
+  such an entry as unowned.
+- `status` reports as data, per binding: `copies`, one `ProfileLocalCopy`
+  per chain member saying whether its source's mirror and its package file
+  are in the Profile cache, with the source's location, so a consent gate
+  names only the sources a locked-only plan contacts; `skillDirectories`, the
+  states of a resolved chain's skill directories behind the
+  `profile-skill-stale` notes; and `lockChange`, a `ProfileLockChange` for a
+  lock that is missing or stale. `ProfileResolutionStatus.lockChange` is what
+  a locked-only plan would refuse before running Git, including a lock entry
+  no chain reaches. The JSON adds `copies`, `lock_change` and
+  `skill_directories`.
+- `ProfileLockChangeRequiredException` carries a `ProfileLockChange`
+  (`change`): its `ProfileLockChangeKind` (`lock-missing`,
+  `configuration-changed`, `chain-missing`, `source-changed`,
+  `package-changed` or `packages-unreached`), the binding it concerns, the
+  lock entries that would change and the reason its message ends with. The
+  constructor takes the change; `state` and `profile` derive from it, and
+  `profile` is null for a missing lock or a changed configuration, which
+  concern every binding.
+- The project library's messages name no command (ADR-0018), and the
+  `wayfinder` command keeps printing what to run. A diagnostic's
+  `EngineDiagnostic.remedy`, a `DiagnosticRemedy`, says when resolving the
+  Profiles again fixes it (`resolve-profiles`, or
+  `resolve-profiles-from-mirror` when the cached mirror needs no fetch), and
+  `WayfinderProfileResolutionException.remedy` when selecting new revisions
+  does (`upgrade-profiles`). Results, text and SARIF do not report the
+  remedy; `ProfileValidationResult.withDiagnosticMessages` rewords a
+  result's diagnostics for a host to render. `get`'s refusal of a skill
+  directory is a `ProfileSkillDirectoriesException`, with the refused
+  `directories` and their `outsideRoots`, and `resolution-busy` a
+  `ProfileResolutionBusyException`, naming the busy `projectRoot` or
+  `source`. These messages lose their closing advice to run a command:
+  `profile-unresolved` and `profile-skill-stale` diagnostics,
+  `resolution-stale`, a locked commit no refresh finds, and
+  `ProfileSkills.escapingProblem`. A stale lock's reason reads `the
+  configuration changed after the lock was written`, a busy project
+  `Another Profile resolution is changing <root>`, and a lock change found
+  once a package is read names that package.
 
 # 0.2.0
 

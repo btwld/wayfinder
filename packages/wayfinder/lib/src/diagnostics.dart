@@ -111,6 +111,32 @@ enum DiagnosticCode {
   String get id => 'wayfinder/$slug';
 }
 
+/// What fixes a failure, as data for a host to word in its own terms. The
+/// engine's messages name no command (ADR-0018): the `wayfinder` command
+/// adds what to run, and another host says what it offers instead.
+enum DiagnosticRemedy {
+  /// Resolve the project's Profiles again: write `wayfinder.lock` from
+  /// `wayfinder.json` and install the locked Profile skills, fetching what
+  /// the Profile cache lacks. On the command line, `wayfinder get`.
+  resolveProfiles('resolve-profiles'),
+
+  /// Resolve the project's Profiles again, which reads the locked commit
+  /// from the source's mirror already in the Profile cache, so it fetches
+  /// nothing while that mirror holds the commit. On the command line,
+  /// `wayfinder get`.
+  resolveProfilesFromMirror('resolve-profiles-from-mirror'),
+
+  /// Select new revisions deliberately: move each configured ref to the
+  /// commit it names now and lock that. On the command line,
+  /// `wayfinder upgrade`.
+  upgradeProfiles('upgrade-profiles');
+
+  const DiagnosticRemedy(this.wireValue);
+
+  /// A stable value for a host that records the remedy.
+  final String wireValue;
+}
+
 sealed class DiagnosticLocation {
   const DiagnosticLocation();
 
@@ -138,11 +164,20 @@ final class BundleLocation extends DiagnosticLocation {
 }
 
 final class EngineDiagnostic {
-  const EngineDiagnostic(this.code, this.message, {this.location});
+  const EngineDiagnostic(this.code, this.message, {this.location, this.remedy});
 
   final DiagnosticCode code;
+
+  /// What happened, naming no command.
   final String message;
   final DiagnosticLocation? location;
+
+  /// What fixes it, when the engine knows: a host words it, as the
+  /// `wayfinder` command adds `Run wayfinder get.` for
+  /// [DiagnosticRemedy.resolveProfiles]. Not part of the result's JSON, text
+  /// or SARIF, whose `message` is the host's to word
+  /// (`ProfileValidationResult.withDiagnosticMessages`).
+  final DiagnosticRemedy? remedy;
 
   String get id => code.id;
   DiagnosticLevel get level => code.level;
