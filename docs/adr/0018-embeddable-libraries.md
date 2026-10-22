@@ -180,13 +180,15 @@ reads every package, in a plan or a selection, with
 is killed once it runs past the resolver's `packageTimeout` (ten seconds),
 and the package is refused as `wayfinder/profile-timeout`, naming the rule
 whose tests were running (guide §5.6, [ADR-0015](0015-profile-rule-catalogs.md)).
-The isolate holds no lock, so killing it leaves the mirror free. A package
-that passed is read again on the calling isolate without its tests. Every
-read runs the tests: no verdict is cached by the package's digest, because a
-cached verdict could outlive the engine that reached it. Validating a
-bundle's content runs the same patterns and is not bounded by the engine; a
-host that validates content it does not control runs that where it can stop
-it.
+A parse that stops on another error, such as a stack overflow in a rule's
+tests, is refused as `profile-invalid` naming that error; it never runs again
+unbounded on the caller, which only parses when no isolate can be started. The
+isolate holds no lock, so killing it leaves the mirror free. A package that
+passed is read again on the calling isolate without its tests. Every read runs
+the tests: no verdict is cached by the package's digest, because a cached
+verdict could outlive the engine that reached it. Validating a bundle's
+content runs the same patterns and is not bounded by the engine; a host that
+validates content it does not control runs that where it can stop it.
 
 **Wayfinder's lock files use `WayfinderFileLock`.** It is `flock(2)` on a
 descriptor of its own through `dart:ffi` on POSIX, and `RandomAccessFile.lock`

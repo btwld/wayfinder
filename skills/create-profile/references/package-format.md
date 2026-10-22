@@ -125,7 +125,9 @@ get` fails on the first example that disagrees with its check. Reading a
 package, its tests included, must finish within ten seconds, or `get` fails
 and `validate` reports `wayfinder/profile-timeout`. Keep `pattern` free of
 nested quantifiers such as `(a+)+`, which backtrack without end on a near
-miss; a package's tests take milliseconds.
+miss; a package's tests take milliseconds. Keep examples small, too: one
+deep or long enough to overflow the engine's stack fails the package as
+`wayfinder/profile-invalid`.
 
 Write an invalid example for each way the rule should fire, and a valid one
 for each nearby case it must not catch.

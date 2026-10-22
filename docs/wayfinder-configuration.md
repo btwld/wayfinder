@@ -299,8 +299,9 @@ read makes `get` fail with the reason. A package already locked makes
 with one of these diagnostics:
 
 - `wayfinder/profile-invalid` when a package is malformed. A schema
-  violation, a bad id, a repeated name, an OKF frontmatter key, or examples
-  that disagree with their check are all malformed.
+  violation, a bad id, a repeated name, an OKF frontmatter key, examples
+  that disagree with their check, or tests that stop the parse with an
+  error, such as a stack overflow, are all malformed.
 - `wayfinder/profile-unsupported` when a package is well-formed for another
   engine. It may declare another `format`, an OKF release this okf cannot
   read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
