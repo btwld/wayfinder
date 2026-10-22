@@ -355,6 +355,8 @@ final class ProfileValidator {
   /// again from disk. A fix that has something to write holds okf's
   /// exclusive bundle lock (`OkfBundleLock.write`) while it loads the bundle
   /// again, writes and validates; one with nothing to write takes no lock.
+  /// A lock it cannot take, such as in a bundle it may not write, is a failed
+  /// write: the `wayfinder/fix-failed` diagnostic, with nothing written.
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
@@ -376,11 +378,31 @@ final class ProfileValidator {
     )) {
       return _assess(loaded.validate(), loaded, selected, fixed: const []);
     }
-    return OkfBundleLock.write(loaded.rootPath, () async {
-      final current = await loader.inspect(loaded.rootPath);
-      return _fixNotApplied(current, selection) ??
-          _fixThenAssess(current.validate(), current, selected);
-    });
+    var locked = false;
+    try {
+      return await OkfBundleLock.write(loaded.rootPath, () async {
+        locked = true;
+        final current = await loader.inspect(loaded.rootPath);
+        return _fixNotApplied(current, selection) ??
+            _fixThenAssess(current.validate(), current, selected);
+      });
+    } on FileSystemException catch (error) {
+      if (locked) rethrow;
+      final cause = error.osError?.message ?? error.message;
+      return _assess(
+        loaded.validate(),
+        loaded,
+        selected,
+        fixed: const [],
+        diagnostics: [
+          EngineDiagnostic(
+            DiagnosticCode.fixFailed,
+            'Could not lock the bundle for writing: $cause.',
+            location: const BundleLocation(okfBundleLockFileName),
+          ),
+        ],
+      );
+    }
   }
 
   /// The result of a fix that cannot run on [loaded], or null when it can.
