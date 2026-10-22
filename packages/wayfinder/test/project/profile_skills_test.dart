@@ -1385,11 +1385,19 @@ void main() {
           [(path: 'SKILL.md', bytes: utf8.encode('x'), executable: false)],
         ),
         throwsA(
-          isA<FileSystemException>().having(
-            (error) => error.message,
-            'message',
-            message,
-          ),
+          isA<ProfileSkillDirectoriesException>()
+              .having((error) => error.message, 'message', message)
+              .having((error) => error.outsideRoots, 'outsideRoots', [
+                '.agents/skills',
+              ])
+              .having(
+                (error) => [
+                  for (final directory in error.directories)
+                    (directory.path, directory.state),
+                ],
+                'directories',
+                [(_agents, ProfileSkillDirectoryState.outside)],
+              ),
         ),
       );
       expect(await foreign.exists(), isTrue);
