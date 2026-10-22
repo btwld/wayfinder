@@ -1,5 +1,5 @@
 """Measure clean and cached native builds in disposable package copies."""
-import pathlib, tempfile, shutil, subprocess, time, json, urllib.parse
+import pathlib, tempfile, shutil, subprocess, time, json, urllib.parse, urllib.request
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', required=True)
@@ -18,7 +18,8 @@ try:
     # The llamadart the workspace resolved; run `dart pub get` first.
     config=json.loads((root/'.dart_tool/package_config.json').read_text())
     resolved=next(entry['rootUri'] for entry in config['packages'] if entry['name']=='llamadart')
-    resolved=pathlib.Path(urllib.parse.unquote(urllib.parse.urlparse(resolved).path)) if resolved.startswith('file:') else (root/'.dart_tool'/resolved).resolve()
+    # url2pathname turns file:///C:/... into C:\... on Windows and unquotes.
+    resolved=pathlib.Path(urllib.request.url2pathname(urllib.parse.urlparse(resolved).path)) if resolved.startswith('file:') else (root/'.dart_tool'/urllib.parse.unquote(resolved)).resolve()
     shutil.copytree(resolved,llama,ignore=shutil.ignore_patterns('.dart_tool','build'))
     if (root/'pubspec.lock').exists(): shutil.copy2(root/'pubspec.lock',target/'pubspec.lock')
     manifest=target/'pubspec.yaml'
