@@ -243,9 +243,12 @@ bullet above; fold them into it if both ship in one release.
   it as the new `wayfinder/profile-timeout` diagnostic
   (`DiagnosticCode.profileTimeout`), so a package whose tests run a pattern
   that backtracks without end fails `get` and selection instead of holding
-  them. Every read runs the tests; no verdict is cached. Bitwild parses in
-  about five milliseconds, so no package reads differently and package
-  format stays 2.
+  them. A parse that stops on another error, such as a stack overflow in a
+  rule's tests, throws a `ProfilePackageException` naming it, reported as
+  `profile-invalid`, rather than parsing again unbounded on the caller.
+  Every read runs the tests; no verdict is cached. Bitwild parses in about
+  five milliseconds, so no package reads differently and package format
+  stays 2.
 - `WayfinderProfileResolver.status` reports, offline and without Git, a
   `ProfileResolutionStatus` with one `ProfileBindingStatus` per binding: a
   stable `ProfileBindingState` (`resolved`, `lock-missing`, `lock-stale`,

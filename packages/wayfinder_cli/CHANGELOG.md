@@ -4,7 +4,10 @@
   tests run past ten seconds, as a `pattern` that backtracks without end can
   make them: `get` fails naming the rule, and `validate` reports
   `wayfinder/profile-timeout`, so the gate is `INCOMPLETE` (exit code 2)
-  unless OKF failed it, instead of running forever.
+  unless OKF failed it, instead of running forever. A package whose parse
+  stops on an error, such as a stack overflow in a rule's tests, is reported
+  the same way as `wayfinder/profile-invalid` instead of stopping the
+  command.
 - `get` and `upgrade` stop a Git command that writes more than 64 MiB, and no
   longer wait for a helper, such as an SSH connection master, that holds
   Git's stderr open after the command exits. A helper that holds Git's

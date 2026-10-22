@@ -703,8 +703,9 @@ examples disagree with its check as `wayfinder/profile-invalid`. A rule's
 can take far longer than any rule needs, so the engine bounds reading a
 package: one whose parse, its tests included, does not finish within the
 engine's bound, ten seconds in this engine, is refused whole and reported as
-`wayfinder/profile-timeout`. A package's tests should finish in
-milliseconds.
+`wayfinder/profile-timeout`, and one whose parse stops on an error, such as a
+stack overflow, as `wayfinder/profile-invalid`. A package's tests should
+finish in milliseconds.
 
 A builtin is a check the engine implements and versions with its release. Any
 package may call one by name with `params`. The rule's id, severity, message,
@@ -873,7 +874,8 @@ that backtracks without end, such as `^(a+)+$` on a near miss, held `get`,
 `validate` and every selection forever, and nothing on the parsing isolate
 could stop it. Migration for implementations: read a package where its
 parse can be stopped, refuse it whole once it runs past a bound well above
-what real packages take, and report `profile-timeout`. Migration for
+what real packages take, and report `profile-timeout`; report a parse that
+stops on an error as `profile-invalid`. Migration for
 packages: none. Bitwild, the largest shipped package, parses with its tests
 in about five milliseconds, so no package reads differently, and a package
 that would take ten seconds was already unusable.

@@ -156,10 +156,12 @@ final class ProfilePackage {
   /// and a parse stopped at [timeout] throws a [ProfilePackageException]
   /// with [ProfilePackageException.timedOut] set, naming the rule whose
   /// `tests` were running. A package whose parse passed is then read on the
-  /// calling isolate without running its tests again. When no isolate can be
-  /// started, or the parse stops on an error that is not a
-  /// [ProfilePackageException], it parses on the calling isolate as [parse]
-  /// does.
+  /// calling isolate without running its tests again. A parse that stops on
+  /// another error, such as a stack overflow while a rule's `tests` run,
+  /// throws a [ProfilePackageException] that names the error and where the
+  /// parse was, so the package reads as invalid instead of failing its
+  /// reader. Only when no isolate can be started does it parse on the
+  /// calling isolate, unbounded, as [parse] does.
   ///
   /// Every call runs the tests: an earlier verdict is never reused, because
   /// it could outlive the engine that reached it.
@@ -168,10 +170,9 @@ final class ProfilePackage {
     Duration timeout = parseTimeout,
   }) async {
     final port = ReceivePort();
-    // Null once the parse passed, its [ProfilePackageException], or
-    // [_notBounded] when it must run on this isolate instead.
-    final outcome = Completer<Object?>();
-    void finish(Object? result) {
+    // Null once the parse passed, and otherwise why it failed.
+    final outcome = Completer<ProfilePackageException?>();
+    void finish(ProfilePackageException? result) {
       if (!outcome.isCompleted) outcome.complete(result);
     }
 
@@ -189,12 +190,14 @@ final class ProfilePackage {
           finish(
             ProfilePackageException(where, text, unsupported: unsupported),
           );
+        case [final error, _]:
+          finish(ProfilePackageException(running, 'failed: $error'));
         default:
-          finish(_notBounded);
+          finish(ProfilePackageException(running, 'stopped without a result'));
       }
     });
     Timer? deadline;
-    final Object? result;
+    final ProfilePackageException? result;
     try {
       final Isolate isolate;
       try {
@@ -224,11 +227,8 @@ final class ProfilePackage {
       deadline?.cancel();
       port.close();
     }
-    return switch (result) {
-      null => _parse(json, runTests: false),
-      final ProfilePackageException failure => throw failure,
-      _ => _parse(json),
-    };
+    if (result != null) throw result;
+    return _parse(json, runTests: false);
   }
 
   static String _describe(Duration duration) =>
@@ -391,10 +391,6 @@ final class ProfilePackage {
   /// package.
   final List<CatalogRule> rules;
 }
-
-/// [ProfilePackage.parseWithin]'s isolate stopped on an error of its own, so
-/// the parse runs on the calling isolate instead.
-const _notBounded = Object();
 
 /// The whole work of [ProfilePackage.parseWithin]'s isolate: the parse,
 /// reported on the port.
