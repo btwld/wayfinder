@@ -64,7 +64,7 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  _reportSkips('Preview', preview.skipped);
+  workflow.reportSkippedFiles('Preview', preview.skipped, stdout);
   stdout.writeln('Preview produced ${preview.chunks.length} total chunks.');
 
   stdout.writeln('\n2. Comparing manifest against golden snapshot...');
@@ -104,18 +104,4 @@ String? _resolveArg(List<String> args, String key) {
   }
   final envKey = key.replaceAll('--', '').toUpperCase();
   return Platform.environment[envKey] ?? Platform.environment['${envKey}_ROOT'];
-}
-
-void _reportSkips(String label, Map<String, Map<String, String?>> skipped) {
-  if (skipped.isEmpty) {
-    stdout.writeln('$label: no files were skipped.');
-    return;
-  }
-
-  stdout.writeln('$label skipped files:');
-  skipped.forEach((path, info) {
-    final reason = info['reason'] ?? 'unspecified';
-    final inferred = info['inferredType'] ?? 'unknown';
-    stdout.writeln('  - $path ($reason - inferred $inferred)');
-  });
 }

@@ -413,11 +413,16 @@ Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
 The judged corpus is mostly Dart, and this package has no Dart chunker.
 `--reference-chunks` replays the corpus golden's chunks for every file no
 built-in chunker handles, so the gate keeps the chunk ids the qrels name;
-TypeScript and Markdown files still go through their chunkers. The golden tests
-and `tool/validation.dart` replay the same golden. `wayfinder_dart_chunker`'s
-`test/judged_corpus_test.dart` checks that its chunker still produces those
-Dart chunks, and rewrites them with `UPDATE_GOLDENS=1`. Budget experiments
-apply to the built-in chunkers only.
+TypeScript and Markdown files still go through their chunkers. With `--qrels`,
+`compare_embeddings` exits with an error instead of scoring when a fixture file
+has no chunker or, with stable-id matching, when a judged chunk id is missing
+from the corpus, so a run without `--reference-chunks` cannot report collapsed
+recall. The golden tests and `tool/validation.dart` replay the same golden.
+`wayfinder_dart_chunker`'s `test/judged_corpus_test.dart` is the corpus
+golden's only writer: it checks that its chunker still produces those Dart
+chunks and rewrites the whole golden with `UPDATE_GOLDENS=1`, while this
+package only compares against it. Budget experiments apply to the built-in
+chunkers only; score them with `--qrels-match=span-overlap`.
 
 ## License
 

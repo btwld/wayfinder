@@ -568,6 +568,81 @@ void main() {
         throwsFormatException,
       );
     });
+
+    group('qrels scoring', () {
+      late RelevanceJudgments judgments;
+
+      setUp(() {
+        judgments = RelevanceJudgments(
+          relevanceByQuery: {
+            'q1': {workflow.stableFixtureChunkId(committed[1], fixturesDir): 2},
+          },
+        );
+      });
+
+      String? reason(ChunkerRegistry registry, {bool stableIds = true}) =>
+          workflow.unscorableJudgmentsReason(
+            judgments: judgments,
+            preview: workflow.PreviewResult.fromFiles(
+              registry: registry,
+              files: workflow.collectFixtureFiles(fixturesDir),
+              fixturesDir: fixturesDir,
+            ),
+            fixturesDir: fixturesDir,
+            stableIds: stableIds,
+          );
+
+      test('refuses qrels when a fixture file has no chunker', () {
+        for (final stableIds in [true, false]) {
+          expect(
+            reason(workflow.buildDefaultRegistry(), stableIds: stableIds),
+            allOf(
+              contains(
+                'no chunker handles 1 fixture file(s): lib/greeter.dart',
+              ),
+              contains('--reference-chunks=test/goldens/baseline_chunks.json'),
+            ),
+          );
+        }
+      });
+
+      test('refuses stable-id qrels the preview cannot retrieve', () {
+        // Every file has a chunker, but one judged id names no chunk.
+        judgments = RelevanceJudgments(
+          relevanceByQuery: {
+            ...judgments.relevanceByQuery,
+            'q2': {'stale-id': 1},
+          },
+        );
+        final registry = workflow.buildDefaultRegistry(
+          reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+        );
+
+        expect(
+          reason(registry),
+          allOf(
+            contains(
+              '1 judgment(s) name a chunk id this preview lacks: q2:stale-id.',
+            ),
+            contains('--reference-chunks=test/goldens/baseline_chunks.json'),
+            contains('--qrels-match=span-overlap'),
+          ),
+        );
+        // Span-overlap qrels resolve against their own reference chunking.
+        expect(reason(registry, stableIds: false), isNull);
+      });
+
+      test('accepts qrels the preview covers', () {
+        expect(
+          reason(
+            workflow.buildDefaultRegistry(
+              reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+            ),
+          ),
+          isNull,
+        );
+      });
+    });
   });
 
   group('pipeline workflow dense search', () {

@@ -92,6 +92,72 @@ class PreviewResult {
   final Map<String, Map<String, String?>> skipped;
 }
 
+/// Writes the files [label]'s pass skipped, with their reasons, to [out].
+void reportSkippedFiles(
+  String label,
+  Map<String, Map<String, String?>> skipped,
+  StringSink out,
+) {
+  if (skipped.isEmpty) {
+    out.writeln('$label: no files were skipped.');
+    return;
+  }
+  out.writeln('$label skipped files:');
+  skipped.forEach((path, info) {
+    final reason = info['reason'] ?? 'unspecified';
+    final inferred = info['inferredType'] ?? 'unknown';
+    out.writeln('  - $path ($reason - inferred $inferred)');
+  });
+}
+
+/// Why [judgments] cannot be scored against [preview], or null if they can.
+///
+/// Qrels name the chunks they were judged against. A file no chunker handled
+/// contributes no chunks, and with [stableIds] a judged id the preview lacks
+/// can never be retrieved. Either way recall and nDCG would drop for a reason
+/// that has nothing to do with the embedder, so a run must not report them.
+String? unscorableJudgmentsReason({
+  required RelevanceJudgments judgments,
+  required PreviewResult preview,
+  required Directory fixturesDir,
+  required bool stableIds,
+}) {
+  const replay =
+      'For the judged corpus, pass --reference-chunks=$corpusGoldenPath to '
+      'replay its Dart chunks.';
+  if (preview.skipped.isNotEmpty) {
+    final paths = preview.skipped.keys.toList()..sort();
+    return 'Cannot score qrels: no chunker handles ${paths.length} fixture '
+        'file(s): ${_sample(paths)}. $replay';
+  }
+  if (!stableIds) {
+    // Span-overlap qrels resolve against their own reference chunking, which
+    // fails on its own when it lacks a judged id.
+    return null;
+  }
+  final previewIds = {
+    for (final chunk in preview.chunks)
+      stableFixtureChunkId(chunk, fixturesDir),
+  };
+  final missing = [
+    for (final MapEntry(key: query, value: grades)
+        in judgments.relevanceByQuery.entries)
+      for (final id in grades.keys)
+        if (!previewIds.contains(id)) '$query:$id',
+  ];
+  if (missing.isEmpty) {
+    return null;
+  }
+  return 'Cannot score qrels: ${missing.length} judgment(s) name a chunk id '
+      'this preview lacks: ${_sample(missing)}. Stable-id qrels match only the '
+      'chunks they were judged against. $replay With chunk budget overrides, '
+      'use --qrels-match=span-overlap.';
+}
+
+String _sample(List<String> values) => values.length <= 5
+    ? values.join(', ')
+    : '${values.take(5).join(', ')}, and ${values.length - 5} more';
+
 /// Captures the result of a persistence/search pass.
 @immutable
 class IngestionResult {

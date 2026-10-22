@@ -185,7 +185,20 @@ Future<void> main(List<String> args) async {
     stderr.writeln(error.message);
     exit(1);
   }
+  workflow.reportSkippedFiles('Preview', preview.skipped, stdout);
   stdout.writeln('Preview produced ${preview.chunks.length} total chunks.');
+  if (judgments != null) {
+    final reason = workflow.unscorableJudgmentsReason(
+      judgments: judgments,
+      preview: preview,
+      fixturesDir: config.fixturesRoot,
+      stableIds: qrelsMatchMode == QrelsMatchMode.stableId,
+    );
+    if (reason != null) {
+      stderr.writeln(reason);
+      exit(1);
+    }
+  }
 
   workflow.FixtureSpanRelevance? spanRelevance;
   if (judgments != null && qrelsMatchMode == QrelsMatchMode.spanOverlap) {
