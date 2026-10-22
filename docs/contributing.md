@@ -61,16 +61,21 @@ after an intended wording change.
 
 `packages/wayfinder_cli/test/golden_contract_test.dart` pins the CLI and MCP
 output contracts in `packages/wayfinder_cli/test/goldens/`: the MCP
-`initialize` result and `tools/list`, project `index` and `validate` JSON, the
-MCP search Markdown, and CLI search JSON for the project and for one bundle.
-It runs the project in `test/fixtures/contract-project/` with Bitwild from a
-local Git source and a deterministic test encoder, and it normalizes temporary
-paths, chunk IDs, the Profile commit, the server version and timings. The
-retrieval goldens need ObjectBox (`melos run objectbox:install`) and are
-skipped without it, so native CI runs them. Regenerate from
-`packages/wayfinder_cli` with
-`UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
-intended contract change, and review the diff with it.
+`initialize` result and `tools/list`, and the same pair under MCP 2026-07-28
+(`server/discover`); project `index` JSON; MCP project `validate`, checked
+against each bundle's CLI JSON; the MCP project search Markdown; and CLI
+search JSON for the project and for one bundle. It runs the project in
+`test/fixtures/contract-project/` with a deterministic test encoder and binds
+the frozen Profile in `test/fixtures/contract-profile/` from a local Git
+source, so a Bitwild release leaves these goldens alone. It normalizes
+temporary paths, the index key, chunk IDs, the Profile commit, the server
+version and timings. The retrieval goldens need ObjectBox
+(`melos run objectbox:install`) and are skipped without it, so native CI runs
+them; regenerating fails without it. Regenerate from `packages/wayfinder_cli`
+with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
+intended contract change, and review the diff with it. `mcp_dart` and `ack`
+serialize the MCP results and input schemas, so upgrading either can move
+`tools_list.json` too; that upgrade needs the same reviewed regeneration.
 
 ## Formatting and documentation
 

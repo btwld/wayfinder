@@ -18,17 +18,19 @@ import 'support.dart';
 /// Pins today's CLI and MCP output contracts, so a library move or refactor
 /// shows every change to them as a reviewed golden diff.
 ///
-/// The project in `test/fixtures/contract-project` binds Bitwild from a local
-/// Git source, so nothing is fetched, and indexes with a deterministic encoder
-/// instead of the local model. Its passages are written so that no two chunks
-/// of one concept tie, because ties fall back to chunk IDs, which hash the
-/// absolute bundle root. Temporary paths, the index key, chunk IDs, the
-/// Profile commit, the server version and timings are normalized; every other
-/// byte is compared. Retrieval needs ObjectBox
+/// The project in `test/fixtures/contract-project` binds the frozen Profile in
+/// `test/fixtures/contract-profile` from a local Git source, so nothing is
+/// fetched and a Bitwild release leaves these goldens alone. It indexes with a
+/// deterministic encoder instead of the local model. Its passages are written
+/// so that no two chunks of one concept tie, because ties fall back to chunk
+/// IDs, which hash the absolute bundle root. Temporary paths, the index key,
+/// chunk IDs, the Profile commit, the server version and timings are
+/// normalized; every other byte is compared. Retrieval needs ObjectBox
 /// (`melos run objectbox:install`).
 ///
 /// Regenerate with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart`
-/// only for an intended contract change, then review the diff.
+/// only for an intended contract change, then review the diff. Regenerating
+/// fails without ObjectBox rather than leave the retrieval goldens stale.
 void main() {
   final update = Platform.environment['UPDATE_GOLDENS'] == '1';
   final objectBox = File(
@@ -39,6 +41,12 @@ void main() {
         : 'libobjectbox.so'}',
   );
   late _ContractProject fixture;
+  final retrieval = [
+    'index.json',
+    'search.md',
+    'search_project.json',
+    'search_bundle.json',
+  ];
 
   Future<void> expectGolden(String name, String actual) async {
     final golden = File(p.join(_goldens, name));
@@ -58,43 +66,61 @@ void main() {
     fail(
       '${golden.path} differs from the current output '
       '(- golden, + current):\n${_lineDiff(expected, actual)}\n'
+      '${_resolvedSerializers()}'
       'Regenerate with UPDATE_GOLDENS=1 dart test '
       'test/golden_contract_test.dart only for a reviewed contract change.',
     );
   }
 
-  setUpAll(() async => fixture = await _ContractProject.create());
-  tearDownAll(() => fixture.dispose());
+  // create() removes its own temporary directory when it fails, so the
+  // teardown is registered only for a fixture that exists.
+  setUpAll(() async {
+    fixture = await _ContractProject.create();
+    addTearDown(fixture.dispose);
+  });
 
-  test('MCP initialize and tools/list match tools_list.json', () async {
+  test('MCP handshakes and tools/list match tools_list.json', () async {
     final project = await fixture.mcpWire();
     final bundle = await fixture.mcpWire(
       rootPath: p.join(fixture.project.path, 'knowledge'),
     );
-    final initialize = Map<String, Object?>.from(project.initialize)
-      ..remove('protocolVersion');
-    expect(
-      (initialize['serverInfo'] as Map)['version'],
-      wayfinderVersion,
-      reason: 'the server advertises the CLI version',
-    );
-    // The CLI version moves only in release preparation; keep it out of the
-    // contract so that bump does not rewrite this golden.
-    initialize['serverInfo'] = {
-      ...initialize['serverInfo'] as Map,
-      'version': '<wayfinder-version>',
-    };
+    final stateless = await fixture.mcpWire(protocol: McpProtocol.require2026);
     expect(
       bundle.tools,
       project.tools,
       reason: 'both scopes register the same tools',
     );
+    // The CLI version moves only in release preparation, and the protocol
+    // versions are mcp_dart's; keep both out of the contract so neither
+    // rewrites this golden.
+    Map<String, Object?> serverInfo(Object? info) {
+      final map = Map<String, Object?>.from(info! as Map);
+      expect(
+        map['version'],
+        wayfinderVersion,
+        reason: 'the server advertises the CLI version',
+      );
+      return {...map, 'version': '<wayfinder-version>'};
+    }
+
+    final initialize = {...project.handshake}..remove('protocolVersion');
+    initialize['serverInfo'] = serverInfo(initialize['serverInfo']);
+    final discover = {...stateless.handshake}..remove('supportedVersions');
+    final meta = Map<String, Object?>.from(discover['_meta']! as Map);
+    meta[_serverInfoMeta] = serverInfo(meta[_serverInfoMeta]);
+    discover['_meta'] = meta;
     await expectGolden(
       'tools_list.json',
       fixture.json({
         'initialize': initialize,
-        'bundleInstructions': bundle.initialize['instructions'],
+        'bundleInstructions': bundle.handshake['instructions'],
         'tools/list': project.tools,
+        // MCP 2026-07-28: server/discover replaces initialize, and mcp_dart
+        // lists the same tools in name order without execution.
+        'require2026': {
+          'server/discover': discover,
+          'tools/list': stateless.tools,
+        },
       }),
     );
   });
@@ -130,6 +156,12 @@ void main() {
     () {
       late String index;
       setUpAll(() async {
+        if (!objectBox.existsSync()) {
+          fail(
+            'UPDATE_GOLDENS=1 cannot regenerate ${retrieval.join(', ')} '
+            'without ObjectBox; run melos run objectbox:install first.',
+          );
+        }
         final (code, out) = await fixture.cli(['index', '--output=json']);
         expect(code, 0);
         index = fixture.json(jsonDecode(out));
@@ -173,7 +205,9 @@ void main() {
         await expectGolden('search_bundle.json', fixture.json(jsonDecode(out)));
       });
     },
-    skip: objectBox.existsSync()
+    // An update must not skip them: it would report green with these four
+    // goldens left as they were.
+    skip: objectBox.existsSync() || update
         ? false
         : 'Install ObjectBox to run the retrieval goldens.',
   );
@@ -182,14 +216,7 @@ void main() {
     final names = Directory(
       _goldens,
     ).listSync().map((entity) => p.basename(entity.path)).toList()..sort();
-    expect(names, [
-      'index.json',
-      'search.md',
-      'search_bundle.json',
-      'search_project.json',
-      'tools_list.json',
-      'validate.json',
-    ]);
+    expect(names, [...retrieval, 'tools_list.json', 'validate.json']..sort());
   }, skip: update);
 }
 
@@ -198,10 +225,13 @@ final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 const _query = 'password recovery';
 const _model = 'contract-fixture-v1';
 
-typedef _McpWire = ({Map<String, Object?> initialize, List<Object?> tools});
+const _serverInfoMeta = 'io.modelcontextprotocol/serverInfo';
 
-/// A temporary project with two configured bundles, Bitwild locked from a
-/// local Git repository, and a private Wayfinder data directory.
+typedef _McpWire = ({Map<String, Object?> handshake, List<Object?> tools});
+
+/// A temporary project with two configured bundles, the frozen contract
+/// Profile locked from a local Git repository, and a private Wayfinder data
+/// directory.
 final class _ContractProject {
   _ContractProject._(
     this._temp,
@@ -221,9 +251,27 @@ final class _ContractProject {
 
   static Future<_ContractProject> create() async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-golden-');
+    try {
+      return await _create(temp);
+    } catch (_) {
+      await temp.delete(recursive: true);
+      rethrow;
+    }
+  }
+
+  static Future<_ContractProject> _create(Directory temp) async {
     final canonical = await temp.resolveSymbolicLinks();
     final source = await Directory(p.join(temp.path, 'source')).create();
-    await copyBitwildPackage(source.path);
+    final profile = File(
+      p.join('test', 'fixtures', 'contract-profile', 'wayfinder-profile.json'),
+    );
+    final package = File(
+      p.join(source.path, 'profiles', 'contract', 'wayfinder-profile.json'),
+    );
+    await package.parent.create(recursive: true);
+    await profile.copy(package.path);
+    final release =
+        (jsonDecode(await profile.readAsString()) as Map)['release']! as String;
     final environment = {
       ...Platform.environment,
       'GIT_AUTHOR_NAME': 'Wayfinder Test',
@@ -254,7 +302,7 @@ final class _ContractProject {
     await git(['init', '-q']);
     await git(['add', '.']);
     await git(['commit', '-q', '-m', 'Profile']);
-    await git(['tag', 'v2026.3']);
+    await git(['tag', 'v$release']);
     final commit = await git(['rev-parse', 'HEAD']);
 
     final project = await Directory(p.join(temp.path, 'project')).create();
@@ -271,8 +319,8 @@ final class _ContractProject {
       '${const JsonEncoder.withIndent('  ').convert({
         'version': 1,
         'profiles': {
-          'bitwild-profile': {
-            'source': {'git': source.path, 'ref': 'v2026.3', 'path': 'profiles/bitwild'},
+          'contract-profile': {
+            'source': {'git': source.path, 'ref': 'v$release', 'path': 'profiles/contract'},
             'applies_to': ['knowledge', 'kits/shared-kit'],
             'actors': {
               'process:fixture': {'name': 'Fixture process'},
@@ -332,6 +380,7 @@ final class _ContractProject {
   Future<(T, List<Map<String, Object?>>)> _session<T>(
     Future<T> Function(McpClient client) body, {
     String? rootPath,
+    McpProtocol protocol = McpProtocol.legacy,
   }) async {
     final toServer = StreamController<List<int>>();
     final fromServer = StreamController<List<int>>();
@@ -365,7 +414,7 @@ final class _ContractProject {
     ).serve(transport: transport);
     final client = McpClient(
       const Implementation(name: 'wayfinder-golden', version: '1.0.0'),
-      options: const McpClientOptions(protocol: McpProtocol.legacy),
+      options: McpClientOptions(protocol: protocol),
     );
     T result;
     try {
@@ -382,11 +431,16 @@ final class _ContractProject {
     return (result, await wire);
   }
 
-  /// The raw `initialize` and `tools/list` results.
-  Future<_McpWire> mcpWire({String? rootPath}) async {
+  /// The raw handshake result (`initialize`, or `server/discover` under
+  /// [McpProtocol.require2026]) and `tools/list` result.
+  Future<_McpWire> mcpWire({
+    String? rootPath,
+    McpProtocol protocol = McpProtocol.legacy,
+  }) async {
     final (_, wire) = await _session(
       (client) => client.listTools(),
       rootPath: rootPath,
+      protocol: protocol,
     );
     Map<String, Object?> resultWith(String key) => Map<String, Object?>.from(
       wire
@@ -396,7 +450,7 @@ final class _ContractProject {
           as Map,
     );
     return (
-      initialize: resultWith('serverInfo'),
+      handshake: resultWith('capabilities'),
       tools: resultWith('tools')['tools']! as List<Object?>,
     );
   }
@@ -466,8 +520,8 @@ final class _ContractProject {
   }
 }
 
-/// Deterministic vectors, as in `knowledge_test.dart`: they exercise storage,
-/// ranking and output, and are not retrieval-quality evidence.
+/// The [keywordVector] encoder of `knowledge_test.dart`, without its
+/// counters.
 final class _ContractEncoder extends BaseEmbedder {
   static const source = 'wayfinder-fixture';
 
@@ -478,19 +532,35 @@ final class _ContractEncoder extends BaseEmbedder {
   @override
   int get dimension => 384;
 
-  List<double> _vector(String text) => [
-    text.toLowerCase().contains('password') ? 1 : 0,
-    text.toLowerCase().contains('weather') || text.contains('Rain') ? 1 : 0,
-    0.01,
-    ...List.filled(381, 0.0),
-  ];
-
   @override
-  Future<List<double>> generateEmbedding(String text) async => _vector(text);
+  Future<List<double>> generateEmbedding(String text) async =>
+      keywordVector(text);
   @override
-  Future<List<double>> generateQueryVector(String text) async => _vector(text);
+  Future<List<double>> generateQueryVector(String text) async =>
+      keywordVector(text);
   @override
   Future<void> dispose() async {}
+}
+
+/// The resolved versions of the packages that serialize the MCP wire bytes,
+/// so a mismatch after a dependency upgrade names its likely cause.
+String _resolvedSerializers() {
+  final lock = File(p.join('..', '..', 'pubspec.lock'));
+  if (!lock.existsSync()) return '';
+  final text = lock.readAsStringSync();
+  final versions = [
+    for (final name in ['mcp_dart', 'ack', 'ack_mcp_dart'])
+      if (RegExp(
+            '^  $name:\n(?:    .*\n)*?    version: "([^"]+)"',
+            multiLine: true,
+          ).firstMatch(text)
+          case final match?)
+        '$name ${match[1]}',
+  ];
+  return versions.isEmpty
+      ? ''
+      : 'Resolved ${versions.join(', ')}; a dependency upgrade can move the '
+            'MCP bytes too.\n';
 }
 
 /// A line diff with two lines of context around each change.

@@ -10,36 +10,36 @@
         }
       },
       "profile": {
-        "id": "bitwild-profile",
-        "release": "2026.3",
+        "id": "contract-profile",
+        "release": "1.0",
         "chain": [
           {
-            "id": "bitwild-profile",
-            "release": "2026.3",
+            "id": "contract-profile",
+            "release": "1.0",
             "commit": "<profile-commit>"
           }
         ],
         "state": "FAIL",
         "findings": [
           {
-            "id": "bitwild-profile/frontmatter-fields-declared",
+            "id": "contract-profile/frontmatter-key-declared",
             "severity": "error",
-            "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found owner.",
+            "message": "Frontmatter key owner is not declared.",
             "location": {
               "path": "password-reset.md"
             },
-            "profile_release": "2026.3",
-            "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#frontmatter-fields-declared"
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#frontmatter-key-declared"
           },
           {
-            "id": "bitwild-profile/generation-provenance-recommended",
+            "id": "contract-profile/generation-provenance-recommended",
             "severity": "advisory",
             "message": "Generation provenance is recommended when it is known.",
             "location": {
               "path": "password-reset.md"
             },
-            "profile_release": "2026.3",
-            "help_uri": "https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md#generation-provenance-recommended"
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#generation-provenance-recommended"
           }
         ],
         "summary": []
@@ -63,18 +63,28 @@
         }
       },
       "profile": {
-        "id": "bitwild-profile",
-        "release": "2026.3",
+        "id": "contract-profile",
+        "release": "1.0",
         "chain": [
           {
-            "id": "bitwild-profile",
-            "release": "2026.3",
+            "id": "contract-profile",
+            "release": "1.0",
             "commit": "<profile-commit>"
           }
         ],
         "state": "PASS",
         "findings": [],
-        "summary": []
+        "summary": [
+          {
+            "id": "contract-profile/deprecated-concept",
+            "message": "This concept is deprecated and stays searchable.",
+            "location": {
+              "path": "weather.md"
+            },
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#deprecated-concept"
+          }
+        ]
       },
       "diagnostics": [],
       "gate": {
