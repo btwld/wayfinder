@@ -286,7 +286,7 @@ void main() {
         for (final name in ['post-merge', 'post-checkout', 'post-rewrite']) {
           expect(
             File(p.join(project, '.githooks', name)).readAsStringSync(),
-            contains('wayfinder index knowledge --detach'),
+            contains("wayfinder index 'knowledge' --detach"),
           );
         }
         expect(
@@ -486,12 +486,105 @@ void main() {
       expect(indexed(), hasLength(2));
     }, testOn: '!windows');
 
+    test(
+      'quotes a bundle path in git hooks so metacharacters stay data',
+      () async {
+        const bundle = "docs/o'brien;touch injected";
+        const quoted = r"'docs/o'\''brien;touch injected'";
+        final log = File(p.join(root.path, 'wayfinder-args'));
+        final bin = await Directory(p.join(root.path, 'quote-bin')).create();
+        final fake = File(p.join(bin.path, 'wayfinder'))
+          ..writeAsStringSync(
+            '#!/bin/sh\nprintf \'%s\\n\' "\$@" >> "\$WAYFINDER_TEST_LOG"\n',
+          );
+        await Process.run('chmod', ['+x', fake.path]);
+        final environment = {
+          'PATH': '${bin.path}:${Platform.environment['PATH']}',
+          'WAYFINDER_TEST_LOG': log.path,
+          'GIT_CONFIG_GLOBAL': p.join(root.path, 'gitconfig'),
+          'GIT_CONFIG_NOSYSTEM': '1',
+        };
+        Future<void> git(List<String> arguments) async {
+          final result = await Process.run(
+            'git',
+            [
+              '-c',
+              'user.name=Wayfinder',
+              '-c',
+              'user.email=wayfinder@example.com',
+              ...arguments,
+            ],
+            workingDirectory: project,
+            environment: environment,
+          );
+          expect(result.exitCode, 0, reason: '${result.stderr}');
+        }
+
+        await setup(
+          run: (executable, arguments) async => executable == 'chmod'
+              ? Process.run(executable, arguments)
+              : ProcessResult(0, arguments.contains('--get') ? 1 : 0, '', ''),
+        ).configureProject(project, bundle: bundle, hooks: true);
+
+        for (final name in ['post-merge', 'post-checkout', 'post-rewrite']) {
+          final hook = File(p.join(project, '.githooks', name));
+          final text = hook.readAsStringSync();
+          expect(text, contains('-- $quoted'));
+          expect(text, contains('wayfinder index $quoted --detach'));
+          expect(text, isNot(contains(bundle)));
+          final syntax = await Process.run('sh', ['-n', hook.path]);
+          expect(syntax.exitCode, 0, reason: '${syntax.stderr}');
+        }
+
+        final concept = File(p.join(project, bundle));
+        await concept.parent.create(recursive: true);
+        await concept.writeAsString('v1\n');
+        await git(['init', '-q', '-b', 'main']);
+        await git(['add', '--', bundle]);
+        await git(['commit', '-qm', 'start']);
+        await concept.writeAsString('v2\n');
+        await git(['add', '--', bundle]);
+        await git(['commit', '-qm', 'edit']);
+        await git(['update-ref', 'ORIG_HEAD', 'HEAD~1']);
+
+        final merge = File(
+          p.join(project, '.githooks', 'post-merge'),
+        ).readAsStringSync();
+        final diffLine = merge
+            .split('\n')
+            .firstWhere((line) => line.startsWith('git diff'));
+        final diff = await Process.run(
+          'sh',
+          ['-c', diffLine],
+          workingDirectory: project,
+          environment: environment,
+        );
+        expect(diff.exitCode, 1, reason: '${diff.stdout}${diff.stderr}');
+        expect(File(p.join(project, 'injected')).existsSync(), isFalse);
+
+        final indexLine = merge
+            .split('\n')
+            .firstWhere((line) => line.startsWith('wayfinder '));
+        final index = await Process.run(
+          'sh',
+          ['-c', indexLine],
+          workingDirectory: project,
+          environment: environment,
+        );
+        expect(index.exitCode, 0, reason: '${index.stdout}${index.stderr}');
+        expect(log.readAsLinesSync(), ['index', bundle, '--detach']);
+        expect(File(p.join(project, 'injected')).existsSync(), isFalse);
+      },
+      testOn: '!windows',
+    );
+
     for (final (contents, bundle, message) in [
       ('[]', 'knowledge', 'JSON object'),
       ('{', 'knowledge', 'not valid JSON'),
       ('{"mcpServers": []}', 'knowledge', 'must be an object'),
       (null, '../outside', 'inside the project'),
       (null, '/absolute', 'inside the project'),
+      (null, 'has\nnewline', 'inside the project'),
     ]) {
       test('rejects $message', () async {
         if (contents != null) {

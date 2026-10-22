@@ -145,7 +145,8 @@ class AgentSetup {
         (bundle.trim().isEmpty ||
             p.isAbsolute(bundle) ||
             relative == '..' ||
-            relative.startsWith('../'))) {
+            relative.startsWith('../') ||
+            bundle.runes.any((rune) => rune < 0x20 || rune == 0x7F))) {
       throw const WayfinderException(
         'setup-failed',
         '--bundle must be a path inside the project.',
@@ -345,8 +346,10 @@ class AgentSetup {
     // Git runs these hooks from the top of the working tree. Each exits unless
     // the change touched the bundle: a new clone or worktree has no index to
     // refresh, and indexing it would re-embed the whole bundle.
+    String quote(String value) => "'${value.replaceAll("'", r"'\''")}'";
+    final quoted = quote(bundle);
     final unchangedSinceOrigHead =
-        'git diff --quiet ORIG_HEAD HEAD -- $bundle 2>/dev/null && exit 0\n';
+        'git diff --quiet ORIG_HEAD HEAD -- $quoted 2>/dev/null && exit 0\n';
     for (final (name, change, guard) in [
       ('post-merge', 'a pull or merge', unchangedSinceOrigHead),
       (
@@ -354,7 +357,7 @@ class AgentSetup {
         'a checkout',
         '[ "\$3" = 1 ] || exit 0\n'
             'case "\$1" in *[!0]*) ;; *) exit 0 ;; esac\n'
-            'git diff --quiet "\$1" "\$2" -- $bundle && exit 0\n',
+            'git diff --quiet "\$1" "\$2" -- $quoted && exit 0\n',
       ),
       ('post-rewrite', 'a rebase or amend', unchangedSinceOrigHead),
     ]) {
@@ -365,7 +368,7 @@ class AgentSetup {
         '# Refresh the Wayfinder index when $change changed the bundle.\n'
         'command -v wayfinder >/dev/null 2>&1 || exit 0\n'
         '$guard'
-        'wayfinder index $bundle --detach >/dev/null 2>&1 || true\n',
+        'wayfinder index $quoted --detach >/dev/null 2>&1 || true\n',
       );
       if (!Platform.isWindows) await _run('chmod', ['+x', hook.path]);
     }
