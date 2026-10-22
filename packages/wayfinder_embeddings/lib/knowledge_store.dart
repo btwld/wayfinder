@@ -2,14 +2,15 @@
 /// that embeds what `wayfinder index` and `wayfinder search` do.
 ///
 /// A `WayfinderKnowledgeStore` indexes and searches the bundles of a
-/// `package:wayfinder/project.dart` project. The host owns the resources: it
-/// supplies the data directory and a `WayfinderEncoderProvider`, such as a
-/// `LocalModelEncoderProvider` over a model file it located. The store never
-/// downloads, prompts, or loads native code or a model on its own
-/// (ADR-0018), and needs no database library: each index is a sequence of
-/// immutable generation files that searches read without a lock while an
-/// index runs. Keep all okf bundle I/O of a process, this store's included,
-/// on one isolate.
+/// `package:wayfinder/project.dart` project, which the host discovers from
+/// the project root it opens, so nothing above that root is read. The host
+/// owns the resources: it supplies the data directory and a
+/// `WayfinderEncoderProvider`, such as a `LocalModelEncoderProvider` over a
+/// model file it located. The store never downloads, prompts, or loads
+/// native code or a model on its own (ADR-0018), and needs no database
+/// library: each index is a sequence of immutable generation files that
+/// searches read without a lock while an index runs. Keep all okf bundle
+/// I/O of a process, this store's included, on one isolate.
 ///
 /// ```dart
 /// import 'dart:io';
@@ -17,7 +18,9 @@
 /// import 'package:wayfinder/project.dart';
 /// import 'package:wayfinder_embeddings/knowledge_store.dart';
 ///
-/// final project = await WayfinderProject.discover(Directory.current);
+/// // The root of the workspace the host opens; discovery reads nothing
+/// // above it.
+/// final project = await WayfinderProject.discover(Directory('/work/app'));
 /// final store = WayfinderKnowledgeStore(
 ///   dataDirectory: WayfinderDataDirectory.resolve(),
 ///   encoder: LocalModelEncoderProvider(modelFile: File('embedding.gguf')),
