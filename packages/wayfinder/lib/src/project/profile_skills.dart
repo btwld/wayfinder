@@ -71,6 +71,11 @@ abstract final class ProfileSkills {
   /// before `get` or after the lock moved on, and when that directory has
   /// no readable `SKILL.md`. Reads nothing that a symbolic link places
   /// outside [projectRoot], and never writes.
+  ///
+  /// It takes no lock. The marker is read again after `SKILL.md`, and the
+  /// text is returned only when it still names [revision], so a `get` that
+  /// replaces the directory meanwhile yields the next directory or null,
+  /// never another revision's text.
   static Future<String?> read(
     String projectRoot,
     SkillRevision revision,
@@ -96,7 +101,8 @@ abstract final class ProfileSkills {
         if (await inside(p.join(path, marker)) &&
             await inside(skill) &&
             await _markedRevision(Directory(path)) == revision) {
-          return await File(skill).readAsString();
+          final text = await File(skill).readAsString();
+          if (await _markedRevision(Directory(path)) == revision) return text;
         }
       } on FileSystemException {
         // Unreadable: the next directory may still hold the revision.
