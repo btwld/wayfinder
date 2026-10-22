@@ -161,7 +161,10 @@ and reports as usual. It MUST:
 - **Hold okf's exclusive bundle lock** (`.okf.lock`) while it loads the
   bundle again, writes, and validates, whenever it has something to write, so
   it never interleaves with an okf write or read. A fix with nothing to write
-  takes no lock.
+  takes no lock. A lock it cannot take is a failed write: it writes nothing
+  and reports `wayfinder/fix-failed`. Taking the lock leaves `.okf.lock` in
+  the bundle, which okf's loader, and any inventory that stands for what okf
+  loads, ignores at any depth.
 
 When a fix ran, its JSON report adds `fix.written`, the bundle-relative paths
 it wrote in path order, between `diagnostics` and `gate` (§4.1). Without
