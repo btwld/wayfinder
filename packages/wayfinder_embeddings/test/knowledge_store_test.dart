@@ -590,9 +590,9 @@ void main() {
       final record = jsonDecode(await recordFile.readAsString()) as Map;
       final configuration =
           jsonDecode(record['configuration'] as String) as Map;
-      expect(configuration['version'], 4);
+      expect(configuration['version'], 5);
       expect(configuration['chunkIds'], 'bundle-relative');
-      configuration['version'] = 3;
+      configuration['version'] = 4;
       record['configuration'] = jsonEncode(configuration);
       await recordFile.writeAsString(jsonEncode(record));
       expect(await knowledge.status(bundle), isA<KnowledgeIndexIncompatible>());

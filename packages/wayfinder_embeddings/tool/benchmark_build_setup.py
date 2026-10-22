@@ -1,5 +1,5 @@
 """Measure clean and cached native builds in disposable package copies."""
-import pathlib, tempfile, shutil, subprocess, time, json
+import pathlib, tempfile, shutil, subprocess, time, json, urllib.parse
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', required=True)
@@ -15,11 +15,15 @@ try:
     shutil.copytree(pkg,target,ignore=shutil.ignore_patterns('build','.dart_tool','comparison_results','*.dylib','*.so','*.dll'))
     shutil.rmtree(target/'models',ignore_errors=True)
     llama=scratch/'llamadart'
-    shutil.copytree(pathlib.Path.home()/'.pub-cache/hosted/pub.dev/llamadart-0.8.23',llama,ignore=shutil.ignore_patterns('.dart_tool','build'))
+    # The llamadart the workspace resolved; run `dart pub get` first.
+    config=json.loads((root/'.dart_tool/package_config.json').read_text())
+    resolved=next(entry['rootUri'] for entry in config['packages'] if entry['name']=='llamadart')
+    resolved=pathlib.Path(urllib.parse.unquote(urllib.parse.urlparse(resolved).path)) if resolved.startswith('file:') else (root/'.dart_tool'/resolved).resolve()
+    shutil.copytree(resolved,llama,ignore=shutil.ignore_patterns('.dart_tool','build'))
     if (root/'pubspec.lock').exists(): shutil.copy2(root/'pubspec.lock',target/'pubspec.lock')
     manifest=target/'pubspec.yaml'
     text=manifest.read_text().replace('resolution: workspace\n','')
-    text+='\ndependency_overrides:\n  llamadart:\n    path: ../llamadart\nhooks:\n  user_defines:\n    llamadart:\n      llamadart_native_runtimes: [llama_cpp]\n      llamadart_native_backends: [cpu]\n'
+    text+='\ndependency_overrides:\n  llamadart:\n    path: ../llamadart\nhooks:\n  user_defines:\n    llamadart:\n      llamadart_native_runtimes: [llama_cpp]\n      llamadart_native_backends:\n        platforms:\n          linux: [cpu]\n          windows: [cpu]\n'
     manifest.write_text(text)
     logroot=output
     def run(name,cmd):

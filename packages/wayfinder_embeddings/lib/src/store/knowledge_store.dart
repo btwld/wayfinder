@@ -149,10 +149,13 @@ class WayfinderKnowledgeStore {
   final int cacheBytes;
   final FutureOr<void> Function()? loadObjectBox;
 
-  // Increment when chunking, snapshot or application input semantics change.
-  // The encoder's identity is part of the configuration key beside it.
+  // Increment when chunking, snapshot or application input semantics change,
+  // or when the inference runtime does: another llama.cpp build can change
+  // vectors from the same model. Version 5 is llamadart 0.15 with
+  // llamadart-native v0.7.0-2 (tool/src/native_cli_assets.dart). The
+  // encoder's identity is part of the configuration key beside it.
   static final _configuration = jsonEncode({
-    'version': 4,
+    'version': 5,
     'context': 'okf-context-v2',
     'chunkCharacters': 1000,
     'longInput': 'reject',

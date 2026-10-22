@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; another inference runtime is another configuration)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -35,7 +35,9 @@ configuration in per-user application data, outside the repository, under
 `indexes/<bundle key>/<configuration key>/`. The configuration key hashes the
 chunking, snapshot and storage configuration with the encoder's identity, so
 indexes built for another model, chunker or format never share a directory;
-each costs one build. The bundle key is not the bare path hash 0.2 used, so
+each costs one build. A new inference runtime, which can change the vectors of
+the same model, moves the configuration's version, so its indexes are built
+anew too. The bundle key is not the bare path hash 0.2 used, so
 a 0.2 index is never read, changed or deleted. Chunk IDs hash each chunk's
 bundle-relative identity, not the absolute root, so the same bundle in two
 worktrees has the same IDs and ranks alike. Store original inputs, passages,

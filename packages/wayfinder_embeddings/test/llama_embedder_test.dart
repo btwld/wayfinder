@@ -37,7 +37,7 @@ void main() {
   }) => LlamaEmbedder.open(
     modelFile: modelFile,
     model: spec,
-    newEngine: () => engine,
+    loadEngine: engine.load,
     longInputPolicy: policy,
   );
 
@@ -110,20 +110,35 @@ void main() {
     );
   });
 
-  test(
-    'verifies the model before loading and disposes on verification failure',
-    () async {
-      await modelFile.writeAsString('corruption');
-      await expectLater(open(), throwsFormatException);
-      expect(engine.loads, 0);
-      expect(engine.disposals, 1);
-    },
-  );
+  test('verifies the model before anything loads', () async {
+    await modelFile.writeAsString('corruption');
+    await expectLater(open(), throwsFormatException);
+    expect(engine.loads, 0);
+    expect(engine.disposals, 0);
+  });
 
-  test('closes a runtime whose model load fails', () async {
+  test('loads the verified file on the CPU within the model limits', () async {
+    final embedder = await open();
+    addTearDown(embedder.dispose);
+    expect(engine.loads, 1);
+    expect(engine.source!.source.path, modelFile.absolute.path);
+    expect(engine.source!.projector, isNull);
+    final params = engine.params!;
+    expect(params.contextSize, spec.maxTokens);
+    expect(params.batchSize, spec.maxTokens);
+    expect(params.microBatchSize, spec.maxTokens);
+    expect(params.device, ComputeDevice.cpu);
+    expect(params.preferredBackend, GpuBackend.cpu);
+    expect(params.gpuLayers, 0);
+    expect(params.numberOfThreads, 4);
+    expect(params.numberOfThreadsBatch, 4);
+    expect(params.validate, returnsNormally);
+  });
+
+  test('reports a failed load once, without a retry', () async {
     engine.failLoad = true;
     await expectLater(open(), throwsStateError);
-    expect(engine.disposals, 1);
+    expect(engine.loads, 1);
   });
 
   test('disposal is idempotent and prevents subsequent operations', () async {
@@ -140,7 +155,7 @@ void main() {
     final truncate = await LlamaEmbedder.open(
       modelFile: modelFile,
       model: spec,
-      newEngine: _Engine.new,
+      loadEngine: _Engine().load,
       longInputPolicy: LongInputPolicy.truncate,
     );
     addTearDown(reject.dispose);
@@ -164,7 +179,7 @@ void main() {
           queryPrefix: spec.queryPrefix,
           license: 'test (relicensed text)',
         ),
-        newEngine: _Engine.new,
+        loadEngine: _Engine().load,
       );
       final prefixed = await LlamaEmbedder.open(
         modelFile: modelFile,
@@ -178,7 +193,7 @@ void main() {
           queryPrefix: 'search_query: ',
           license: spec.license,
         ),
-        newEngine: _Engine.new,
+        loadEngine: _Engine().load,
       );
       final embedder = await open();
       addTearDown(mirrored.dispose);
@@ -194,10 +209,10 @@ void main() {
     final embedder = await LlamaEmbedder.open(
       modelFile: modelFile,
       model: spec,
-      newEngine: () {
+      loadEngine: (model, params) {
         final next = _Engine()..failStart = engines.isEmpty;
         engines.add(next);
-        return next;
+        return next.load(model, params);
       },
     );
     addTearDown(embedder.dispose);
@@ -220,10 +235,10 @@ void main() {
       LlamaEmbedder.open(
         modelFile: modelFile,
         model: spec,
-        newEngine: () {
+        loadEngine: (model, params) {
           final next = _Engine()..failStart = true;
           engines.add(next);
-          return next;
+          return next.load(model, params);
         },
       ),
       throwsA(isA<LlamaModelException>()),
@@ -231,6 +246,33 @@ void main() {
     expect(engines, hasLength(_engineStartAttempts));
     expect(engines.map((engine) => engine.disposals), everyElement(1));
   });
+
+  test(
+    'recognises the startup timeout LlamaEngine.load reports, and retries',
+    () async {
+      final backends = <_StartlessBackend>[];
+      await expectLater(
+        LlamaEmbedder.open(
+          modelFile: modelFile,
+          model: spec,
+          loadEngine: (model, params) {
+            final backend = _StartlessBackend();
+            backends.add(backend);
+            return LlamaEngine.load(model, params: params, backend: backend);
+          },
+        ),
+        throwsA(
+          isA<LlamaModelException>().having(
+            (error) => '${error.details}',
+            'details',
+            contains('initialize its backend'),
+          ),
+        ),
+      );
+      expect(backends, hasLength(_engineStartAttempts));
+      expect(backends.map((backend) => backend.loads), everyElement(1));
+    },
+  );
 }
 
 /// Matches the bounded retry in `LlamaEmbedder.open`.
@@ -247,21 +289,28 @@ class _Engine extends LlamaEngine {
   var failStart = false;
   var wrongBatchCount = false;
   var normalize = false;
+  LlamaModel? source;
+  ModelParams? params;
   List<double> vector = [1, 0, 0];
 
-  @override
-  Future<void> loadModel(
-    String path, {
-    ModelParams modelParams = const ModelParams(),
-  }) async {
+  /// Stands in for `LlamaEngine.load`, which disposes the engine it created
+  /// when the load fails.
+  Future<LlamaEngine> load(LlamaModel model, ModelParams params) async {
     loads++;
+    source = model;
+    this.params = params;
     if (failStart) {
+      await dispose();
       throw LlamaModelException(
-        'Failed to load model from $path',
-        LlamaBackendInitializationException('Timed out after 30000 ms'),
+        'Failed to load model from ${model.source.path}',
+        _startupTimeout,
       );
     }
-    if (failLoad) throw StateError('load failed');
+    if (failLoad) {
+      await dispose();
+      throw StateError('load failed');
+    }
+    return this;
   }
 
   @override
@@ -300,4 +349,37 @@ class _Engine extends LlamaEngine {
   Future<void> dispose() async {
     disposals++;
   }
+}
+
+/// The message llamadart's native backend gives when its worker misses the
+/// startup timeout.
+const _startupTimeout =
+    'Timed out after 30000 ms waiting for the llama.cpp worker to initialize '
+    'its backend. The native runtime may be unavailable or unresponsive.';
+
+/// A backend whose worker never starts, behind the real `LlamaEngine.load`.
+final class _StartlessBackend implements LlamaBackend {
+  var loads = 0;
+
+  @override
+  bool get isReady => false;
+
+  @override
+  bool get supportsUrlLoading => false;
+
+  @override
+  Future<void> setLogLevel(LlamaLogLevel level) async {}
+
+  @override
+  Future<int> modelLoad(String path, ModelParams params) async {
+    loads++;
+    throw LlamaBackendInitializationException(_startupTimeout);
+  }
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
 }
