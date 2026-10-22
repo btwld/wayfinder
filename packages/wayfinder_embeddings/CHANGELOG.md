@@ -14,7 +14,7 @@
   over a model file it located. The store never locates a model or loads
   native code itself. `wayfinderSearchInput` and the new
   `knowledgeMetadataFilterInput` are the Ack inputs of a host's search tool.
-- The store's chunk IDs no longer depend on where a bundle lives:
+- **BREAKING:** The store's chunk IDs no longer depend on where a bundle lives:
   `KnowledgeSnapshot.load` and `KnowledgeSnapshot.fromSources` take an
   `idNamespace` that replaces the `bundleId` in each chunk ID, and the store
   passes a constant, so a bundle's copies in two worktrees get the same IDs
