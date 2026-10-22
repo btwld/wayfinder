@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges;
 
-import '../../wayfinder_embeddings.dart';
+import '../chunking/documents/markdown_chunker.dart';
+import '../models/chunk.dart';
+import '../models/chunk_metadata.dart';
 import '../models/metadata_collections.dart';
 import 'knowledge_input_diagnostic.dart';
 

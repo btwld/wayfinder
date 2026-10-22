@@ -5,9 +5,11 @@ locally with dense vectors from an in-process llamadart model.
 
 ## What it does
 
-- **Chunk** Dart, TypeScript, Markdown, and text files into addressable
-  segments with line ranges and symbol metadata. Chunk ids are stable hashes of
-  the source path, line range, type, and content.
+- **Chunk** TypeScript, Markdown, and text files into addressable segments
+  with line ranges and symbol metadata. Chunk ids are stable hashes of the
+  source path, line range, type, and content. Dart chunking lives in
+  [`wayfinder_dart_chunker`](../wayfinder_dart_chunker/README.md), so this
+  package does not depend on the analyzer.
 - **Rank** chunks for a natural-language query with dense
   retrieval and optional cross-encoder reranking.
 - **Expand** a precise hit to its enclosing class, namespace, or file.
@@ -16,9 +18,9 @@ Chunk budgets count non-whitespace characters, so indentation and blank lines
 do not force a split.
 
 Budgets guide splitting and summarization; an indivisible line, sentence,
-signature, code block, or table may exceed the configured budget. Dart uses
-the analyzer AST. TypeScript uses a structural scanner rather than a complete
-TypeScript/TSX parser, so unfamiliar syntax can fall back to a file chunk.
+signature, code block, or table may exceed the configured budget. TypeScript
+uses a structural scanner rather than a complete TypeScript/TSX parser, so
+unfamiliar syntax can fall back to a file chunk.
 
 Markdown emits `heading`, `paragraph`, `code`, `table`, and `footnote` chunks. A
 run of footnote definitions and their indented continuations becomes one
@@ -152,7 +154,7 @@ dart run tool/build_wayfinder_embeddings.dart --offline
 ```
 
 The knowledge example always loads the prepared model. Its bundle and query
-are fixed in its source. The basic and code examples are model-free previews.
+are fixed in its source. The basic example is a model-free preview.
 `compare_embeddings` accepts a corpus directory and query/judgment files for
 evaluation; it is not an interactive OKF bundle search interface. Use the
 `KnowledgeSnapshot`/`KnowledgeIndex` API for a consumer's own bundle and query.
@@ -168,12 +170,13 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 Future<void> main() async {
-  // 1. Register a chunker per content type.
+  // 1. Register a chunker per content type. For Dart sources, add
+  //    DartChunker from package:wayfinder_dart_chunker.
   final registry = ChunkerRegistry()
-    ..registerChunker(DartChunker())
+    ..registerChunker(TypeScriptChunker())
     ..registerChunker(MarkdownChunker());
 
-  final files = Directory('lib')
+  final files = Directory('src')
       .listSync(recursive: true)
       .whereType<File>()
       .toList();
@@ -281,18 +284,19 @@ finite vectors before scoring to avoid numeric overflow or underflow.
 
 ## Local examples and fixtures
 
-Run these from the package directory:
+Run it from the package directory:
 
 ```bash
 dart run example/basic_example.dart
-dart run example/code_example.dart
 ```
 
-Both preview the checked-in `fixtures/samples/` files without loading a model.
-They do not create a searchable index. The sample corpus covers
-all four chunkers, including plain text and Markdown table examples inside code
-fences. Markdown code blocks retain literal table syntax; actual tables inherit
-their heading metadata and are omitted when `includeTables` is false.
+It previews a checked-in `fixtures/samples/` file without loading a model and
+creates no searchable index. The sample corpus covers the three built-in
+chunkers, including plain text and Markdown table examples inside code fences.
+Markdown code blocks retain literal table syntax; actual tables inherit their
+heading metadata and are omitted when `includeTables` is false. The Dart sample
+and its code example moved to
+[`wayfinder_dart_chunker`](../wayfinder_dart_chunker/README.md).
 
 The sample corpus has its own golden snapshot. The separate `fixtures/corpus/`
 retrieval benchmark retains its recorded queries and metrics.
@@ -395,6 +399,7 @@ dart test test/fixtures_pipeline_golden_test.dart test/retrieval_fixture_gate_te
 dart run tool/compare_embeddings.dart \
   --embedders=dense --store=memory --top=10 \
   --long-input=truncate \
+  --reference-chunks=test/goldens/baseline_chunks.json \
   --queries=fixtures/corpus/retrieval_queries.json \
   --qrels=fixtures/corpus/retrieval_qrels.json \
   --query-groups=fixtures/corpus/retrieval_query_groups.json \
@@ -404,6 +409,15 @@ dart run tool/compare_embeddings.dart \
 
 The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
 Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
+
+The judged corpus is mostly Dart, and this package has no Dart chunker.
+`--reference-chunks` replays the corpus golden's chunks for every file no
+built-in chunker handles, so the gate keeps the chunk ids the qrels name;
+TypeScript and Markdown files still go through their chunkers. The golden tests
+and `tool/validation.dart` replay the same golden. `wayfinder_dart_chunker`'s
+`test/judged_corpus_test.dart` checks that its chunker still produces those
+Dart chunks, and rewrites them with `UPDATE_GOLDENS=1`. Budget experiments
+apply to the built-in chunkers only.
 
 ## License
 

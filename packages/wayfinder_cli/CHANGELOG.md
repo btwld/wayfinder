@@ -40,6 +40,11 @@
   five minutes is stopped; clones report progress, so a long clone keeps
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
+- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
+  Indexes that 0.2.0 wrote open unchanged and need no rebuild.
+- `analyzer` and its dependencies are no longer part of the executable, and
+  native bundles no longer ship their licenses. Search and indexing are
+  unchanged; the CLI never chunked Dart source.
 
 # 0.2.0
 

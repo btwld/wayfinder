@@ -165,16 +165,11 @@ Map<String, List<SearchResult>> _freezeSearchResultsByQuery(
 /// characters, not tokens. Leave a field null to keep that chunker's default.
 class ChunkingOptions {
   factory ChunkingOptions({
-    int? dartMaxChunkLength,
     int? typescriptMaxChunkLength,
     int? markdownMaxChunkLength,
     int? textMaxChunkLength,
   }) {
     return ChunkingOptions._(
-      dartMaxChunkLength: _checkPositiveOrNull(
-        dartMaxChunkLength,
-        'dartMaxChunkLength',
-      ),
       typescriptMaxChunkLength: _checkPositiveOrNull(
         typescriptMaxChunkLength,
         'typescriptMaxChunkLength',
@@ -191,19 +186,16 @@ class ChunkingOptions {
   }
 
   const ChunkingOptions._({
-    this.dartMaxChunkLength,
     this.typescriptMaxChunkLength,
     this.markdownMaxChunkLength,
     this.textMaxChunkLength,
   });
 
-  final int? dartMaxChunkLength;
   final int? typescriptMaxChunkLength;
   final int? markdownMaxChunkLength;
   final int? textMaxChunkLength;
 
   bool get hasOverrides =>
-      dartMaxChunkLength != null ||
       typescriptMaxChunkLength != null ||
       markdownMaxChunkLength != null ||
       textMaxChunkLength != null;
@@ -425,15 +417,15 @@ String _fixtureRelativePath(String sourcePath, Directory fixturesDir) {
   return p.split(p.relative(sourcePath, from: fixturesDir.path)).join('/');
 }
 
+/// A registry with every built-in chunker, under [chunking]'s budgets.
+///
+/// With [reference], files whose content type no built-in chunker handles,
+/// such as the judged corpus's Dart sources, replay its committed chunks.
 ChunkerRegistry buildDefaultRegistry({
   ChunkingOptions chunking = const ChunkingOptions._(),
+  ReferenceChunks? reference,
 }) {
-  return ChunkerRegistry()
-    ..registerChunker(
-      chunking.dartMaxChunkLength == null
-          ? DartChunker()
-          : DartChunker(maxChunkLength: chunking.dartMaxChunkLength!),
-    )
+  final registry = ChunkerRegistry()
     ..registerChunker(
       chunking.typescriptMaxChunkLength == null
           ? TypeScriptChunker()
@@ -451,6 +443,146 @@ ChunkerRegistry buildDefaultRegistry({
           ? TextChunker()
           : TextChunker(maxChunkLength: chunking.textMaxChunkLength!),
     );
+  reference?._registerMissing(registry);
+  return registry;
+}
+
+/// Committed chunks for the fixture files no built-in chunker handles.
+///
+/// The judged corpus is mostly Dart, and the Dart chunker lives in
+/// `wayfinder_dart_chunker`, which depends on this package, so this package
+/// cannot run it. The corpus golden keeps the Dart chunks its qrels name, and
+/// replaying them keeps the dense gate on those judged chunk ids.
+/// `wayfinder_dart_chunker`'s tests check that its chunker still produces
+/// them, and rewrite them with `UPDATE_GOLDENS=1`.
+class ReferenceChunks {
+  ReferenceChunks._(this.manifest, this.fixturesDir, this._chunksByPath);
+
+  /// Reads a manifest that [buildChunkManifest] wrote for [fixturesDir].
+  factory ReferenceChunks.load(File manifest, Directory fixturesDir) {
+    final decoded = _readGoldenManifest(manifest);
+    final chunksByPath = <String, List<Map<String, Object?>>>{};
+    for (final MapEntry(key: path, value: entry) in decoded.entries) {
+      if (entry is! Map<String, Object?> ||
+          entry['chunks'] is! List<Object?> ||
+          entry['total'] != (entry['chunks']! as List<Object?>).length) {
+        throw FormatException(
+          '${manifest.path}: "$path" needs a "chunks" list and its "total".',
+        );
+      }
+      chunksByPath[path] = [
+        for (final chunk in entry['chunks']! as List<Object?>)
+          if (chunk is Map<String, Object?>)
+            chunk
+          else
+            throw FormatException(
+              '${manifest.path}: "$path" has a chunk that is not an object.',
+            ),
+      ];
+    }
+    return ReferenceChunks._(manifest, fixturesDir, chunksByPath);
+  }
+
+  /// The manifest the chunks come from.
+  final File manifest;
+
+  /// The directory the manifest's paths are relative to.
+  final Directory fixturesDir;
+
+  final Map<String, List<Map<String, Object?>>> _chunksByPath;
+
+  /// The fixture-relative paths the manifest covers.
+  Iterable<String> get paths => _chunksByPath.keys;
+
+  void _registerMissing(ChunkerRegistry registry) {
+    final extensionsByType = <String, Set<String>>{};
+    for (final path in paths) {
+      final type = inferContentType(path);
+      if (registry.getChunkerByType(type) != null) continue;
+      extensionsByType
+          .putIfAbsent(type, () => {})
+          .add(p.extension(path).toLowerCase());
+    }
+    for (final MapEntry(key: type, value: extensions)
+        in extensionsByType.entries) {
+      registry.registerChunker(_ReferenceChunker(type, extensions, this));
+    }
+  }
+
+  /// The committed chunks of [sourcePath], whose text is [content].
+  ///
+  /// Throws a [StateError] when the manifest lacks the file or no longer
+  /// matches its text.
+  List<Chunk> chunksFor(String sourcePath, String content) {
+    final relative = _fixtureRelativePath(sourcePath, fixturesDir);
+    final records = _chunksByPath[relative];
+    if (records == null) {
+      throw StateError(
+        '${manifest.path} has no chunks for $relative. Rewrite it with '
+        "wayfinder_dart_chunker's judged corpus test.",
+      );
+    }
+    final runtimeIds = <String, String>{};
+    final chunks = <Chunk>[];
+    for (final record in records) {
+      final chunk = Chunk(
+        sourcePath: sourcePath,
+        lineStart: readInt(record, 'lineStart', context: 'ReferenceChunks'),
+        lineEnd: readInt(record, 'lineEnd', context: 'ReferenceChunks'),
+        content: readString(
+          record,
+          'content',
+          context: 'ReferenceChunks',
+          allowBlank: true,
+        ),
+        type: readString(record, 'type', context: 'ReferenceChunks'),
+        metadata: Map<String, Object?>.from(
+          readMap(record, 'metadata', context: 'ReferenceChunks'),
+        ),
+      );
+      final stableId = readString(record, 'id', context: 'ReferenceChunks');
+      if (stableFixtureChunkId(chunk, fixturesDir) != stableId ||
+          !content.contains(chunk.content)) {
+        throw StateError(
+          '$relative no longer matches ${manifest.path}. Rewrite the manifest '
+          "with wayfinder_dart_chunker's judged corpus test, then review the "
+          'qrels that name its chunk ids.',
+        );
+      }
+      runtimeIds[stableId] = chunk.id;
+      chunks.add(chunk);
+    }
+    return [
+      for (final chunk in chunks)
+        switch (chunk.metadata['parentHeadingId']) {
+          final String parent when runtimeIds.containsKey(parent) =>
+            chunk.copyWith(
+              metadata: {
+                ...chunk.metadata,
+                'parentHeadingId': runtimeIds[parent],
+              },
+            ),
+          _ => chunk,
+        },
+    ];
+  }
+}
+
+/// Replays [ReferenceChunks] for one content type.
+class _ReferenceChunker extends BaseChunker {
+  _ReferenceChunker(this.contentType, this.supportedExtensions, this._chunks);
+
+  @override
+  final String contentType;
+
+  @override
+  final Set<String> supportedExtensions;
+
+  final ReferenceChunks _chunks;
+
+  @override
+  List<Chunk> chunkContent(String content, ChunkMetadata metadata) =>
+      _chunks.chunksFor(metadata.sourcePath, content);
 }
 
 Future<void> validateAgainstGolden({

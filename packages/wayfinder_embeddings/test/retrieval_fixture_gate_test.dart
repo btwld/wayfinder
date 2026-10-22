@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import '../tool/src/pipeline_workflow.dart' as workflow;
 import '../tool/src/retrieval_evaluator.dart';
@@ -57,7 +58,7 @@ void main() {
               '${minimum.key} needs enough qrels queries to catch slice regressions.',
         );
       }
-      final registry = workflow.buildDefaultRegistry();
+      final registry = _corpusRegistry(fixtureDir);
       final files = workflow.collectFixtureFiles(fixtureDir);
       final preview = workflow.PreviewResult.fromFiles(
         registry: registry,
@@ -89,7 +90,7 @@ void main() {
       final fixtureDir = Directory(
         p.join(Directory.current.path, 'fixtures/corpus'),
       );
-      final registry = workflow.buildDefaultRegistry();
+      final registry = _corpusRegistry(fixtureDir);
       final files = workflow.collectFixtureFiles(fixtureDir);
       final preview = workflow.PreviewResult.fromFiles(
         registry: registry,
@@ -110,6 +111,16 @@ void main() {
     });
   });
 }
+
+/// The built-in chunkers, with the corpus's Dart chunks replayed from its
+/// golden; wayfinder_dart_chunker checks that its chunker still makes them.
+ChunkerRegistry _corpusRegistry(Directory fixtureDir) =>
+    workflow.buildDefaultRegistry(
+      reference: workflow.ReferenceChunks.load(
+        File('test/goldens/baseline_chunks.json'),
+        fixtureDir,
+      ),
+    );
 
 Map<String, String> _readStringMap(File file) {
   final decoded = _readObjectMap(file);

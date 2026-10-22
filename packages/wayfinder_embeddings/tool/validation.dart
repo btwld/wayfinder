@@ -10,6 +10,10 @@ import 'src/pipeline_workflow.dart' as workflow;
 // ignore_for_file: avoid_slow_async_io
 // CLI validation writes local artifacts synchronously for straightforward tooling.
 
+/// The corpus golden this tool compares against. It also supplies the chunks
+/// of the corpus files no built-in chunker handles.
+const _goldenPath = 'test/goldens/baseline_chunks.json';
+
 Future<void> main(List<String> args) async {
   stdout.writeln('Starting validation script...');
 
@@ -37,16 +41,30 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('\n1. Setting up chunkers and preview pipeline...');
-  final registry = workflow.buildDefaultRegistry();
-  final preview = workflow.PreviewResult.fromFiles(
-    registry: registry,
-    files: files,
-    fixturesDir: config.fixturesRoot,
-    onFileProcessed: (file, chunks) {
-      final relative = p.relative(file.path, from: config.fixturesRoot.path);
-      stdout.writeln('  • $relative -> ${chunks.length} chunks');
-    },
-  );
+  // The golden also supplies the chunks of files no built-in chunker handles,
+  // the corpus's Dart sources; wayfinder_dart_chunker's tests check those.
+  final golden = File(p.join(config.packageRoot.path, _goldenPath));
+  final workflow.PreviewResult preview;
+  try {
+    final registry = workflow.buildDefaultRegistry(
+      reference: workflow.ReferenceChunks.load(golden, config.fixturesRoot),
+    );
+    preview = workflow.PreviewResult.fromFiles(
+      registry: registry,
+      files: files,
+      fixturesDir: config.fixturesRoot,
+      onFileProcessed: (file, chunks) {
+        final relative = p.relative(file.path, from: config.fixturesRoot.path);
+        stdout.writeln('  • $relative -> ${chunks.length} chunks');
+      },
+    );
+  } on Exception catch (error) {
+    stderr.writeln(error);
+    exit(1);
+  } on StateError catch (error) {
+    stderr.writeln(error.message);
+    exit(1);
+  }
 
   _reportSkips('Preview', preview.skipped);
   stdout.writeln('Preview produced ${preview.chunks.length} total chunks.');
@@ -57,6 +75,7 @@ Future<void> main(List<String> args) async {
       packageRoot: config.packageRoot,
       fixturesDir: config.fixturesRoot,
       preview: preview,
+      goldenPath: _goldenPath,
     );
   } on StateError catch (error) {
     stderr.writeln(error);

@@ -10,6 +10,7 @@ environment:
 workspace:
   - packages/wayfinder
   - packages/wayfinder_embeddings
+  - packages/wayfinder_dart_chunker
   - packages/wayfinder_cli
 
 dev_dependencies:

@@ -364,7 +364,6 @@ void main() {
       final shared = CompareOptions.parse(const [
         '--chunk-budget=800',
       ]).chunking;
-      expect(shared.dartMaxChunkLength, 800);
       expect(shared.typescriptMaxChunkLength, 800);
       expect(shared.markdownMaxChunkLength, 800);
       expect(shared.textMaxChunkLength, 800);
@@ -379,6 +378,27 @@ void main() {
         '--ts-chunk-budget=400',
       ]).chunking;
       expect(alias.typescriptMaxChunkLength, 400);
+    });
+
+    test('has no Dart chunk budget', () {
+      expect(
+        () => CompareOptions.parse(const ['--dart-chunk-budget=800']),
+        throwsArgumentErrorSaying('Could not find an option named'),
+      );
+    });
+
+    test('resolves the reference chunk manifest', () {
+      expect(CompareOptions.parse(const []).referenceChunksPath, isNull);
+      expect(
+        CompareOptions.parse(const [
+          '--reference-chunks=test/goldens/baseline_chunks.json',
+        ]).referenceChunksPath,
+        'test/goldens/baseline_chunks.json',
+      );
+      expect(
+        () => CompareOptions.parse(const ['--reference-chunks=']),
+        throwsArgumentErrorSaying('--reference-chunks requires a file path'),
+      );
     });
 
     test('rejects blank numeric option values', () {
