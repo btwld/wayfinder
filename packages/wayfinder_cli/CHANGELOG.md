@@ -22,13 +22,22 @@
   graph projection now come from `package:wayfinder/project.dart`; the command
   and MCP server keep their output and exit codes.
 - `validate` reads each locked package from the file `get` keeps under
-  `profiles/packages/` in the data directory and runs no Git. After upgrading
-  from 0.2, run `wayfinder get` once; it fetches nothing when the cache already
-  holds the locked commits.
-- `get` and `upgrade` run Git without prompts, hooks or inherited `GIT_*`
-  variables, with SSH in batch mode and a five-minute limit per command. A
-  second `get` on the same project fails at once while the first runs, and
-  `get`s that share a Profile source wait for each other.
+  `profiles/packages/` in the data directory and runs no Git. On a cache 0.2
+  wrote, which has no such files, `validate` copies each one out of its
+  source's cached mirror with `git show` the first time, without fetching, so
+  verdicts and exit codes are unchanged.
+- **BREAKING:** `get` and `upgrade` ignore inherited `GIT_*` variables other
+  than `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`,
+  `GIT_SSH_COMMAND`, `GIT_SSH` and `GIT_SSH_VARIANT`. Move a setting such as
+  `GIT_SSL_CAINFO` or `GIT_ASKPASS` into Git's configuration
+  (`http.sslCAInfo`, a credential helper).
+- `get` and `upgrade` run Git without prompts or hooks. SSH runs the command
+  Git would choose (`GIT_SSH_COMMAND`, `core.sshCommand`, `GIT_SSH`, then
+  `ssh`) with `-o BatchMode=yes` added for OpenSSH, so it fails instead of
+  asking for a passphrase or host key. A Git command that writes nothing for
+  five minutes is stopped; clones report progress, so a long clone keeps
+  running. A second `get` on the same project fails at once while the first
+  runs, and `get`s that share a Profile source wait for each other.
 
 # 0.2.0
 

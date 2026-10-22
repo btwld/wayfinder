@@ -7,33 +7,45 @@
   lock types; `validateWithProfileSources`, now with a required `resolver`;
   `ProfileSkills`; `projectWayfinderGraph`, `wayfinderLinkFields` and the Ack
   `wayfinderGraphInput`; `WayfinderDataDirectory.resolve`; and
-  `WayfinderException`, which gains a stable `code` beside its message.
+  `WayfinderException`, which gains a stable `code` beside its message and a
+  `WayfinderException.cancelled()` constructor.
 - The resolver splits `get` into `plan`, which may fetch into the cache but
   writes nothing in the project, and `apply`, which writes it and throws
   `resolution-stale` when the configuration, lock or cache changed since.
   `resolve` runs both. `select` reads the lock and the package files a plan
-  kept under `profiles/packages/`, and never runs Git; a 0.2 cache has no
-  package files, so `select` reports `profile-unresolved` until the next
-  `get`. `WayfinderProfileResolutionException.code` is now the diagnostic's
-  value; the `DiagnosticCode` is `diagnostic`.
+  kept under `profiles/packages/`, and never runs Git. A cache Wayfinder 0.2
+  wrote has no package files: `restoreCachedPackages` copies them out of the
+  cached mirrors with `git show`, never fetching, and
+  `validateWithProfileSources` does so when `select` finds no Profile, so
+  such a cache validates as before. `WayfinderProfileResolutionException`
+  carries its `DiagnosticCode` as `diagnostic` and that code's value as
+  `code`.
 - `GitRunner` returns `GitResult`, whose `stdout` holds bytes, and takes a
   `WayfinderCancellation` in place of `binary`. The default `runGit` drops
-  every `GIT_*` variable, never prompts, runs SSH in batch mode, skips Git LFS
-  downloads, disables hooks, the filesystem monitor and the `ext::` transport,
-  and kills a command with its children after `timeout` (five minutes) or on
-  cancellation (`git-timeout`, `cancelled`). `wayfinderGitOptions` and
-  `wayfinderGitEnvironment` let a host's runner apply the same.
+  the `GIT_*` variables other than `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`,
+  `GIT_CONFIG_NOSYSTEM`, `GIT_SSH_COMMAND`, `GIT_SSH` and `GIT_SSH_VARIANT`;
+  never prompts; runs the SSH command Git would choose, including
+  `core.sshCommand`, with `-o BatchMode=yes` when it is OpenSSH; skips Git LFS
+  downloads; disables hooks, the filesystem monitor and the `ext::` transport;
+  and kills a command with its children once it writes nothing for `timeout`
+  (five minutes) or on cancellation (`git-timeout`, `cancelled`). The
+  resolver clones with `--progress`, so a long clone keeps running.
+  `wayfinderGitOptions` and `wayfinderGitEnvironment` let a host's runner
+  apply the same, and `throwIfCancelled` checks a cancellation.
 - `WayfinderFileLock` is an exclusive lock that holds across processes and
   across the isolates of one process: `flock(2)` through `dart:ffi` on POSIX,
   `RandomAccessFile.lock` on Windows. A plan holds
-  `profiles/<sha256(location)>.lock` while it clones or refreshes a source,
-  waiting up to 120 seconds; `apply` and `resolve` hold
+  `profiles/<sha256(location)>.lock` while it clones, refreshes or reads a
+  source's mirror, waiting up to 120 seconds; `apply` and `resolve` hold
   `projects/<sha256(root)>.get.lock` and throw `resolution-busy` while another
-  holder has it. The project lock records its root.
+  holder has it. The project lock records its root; on Windows, read that
+  note only while the lock is free.
 - `ProfileValidator.validateLoaded` validates an `OkfBundleLoadResult`
-  without reading the disk, and `ProfileProjection.generatedFiles` returns the
-  files `validate --fix` writes. `validate` delegates to both; its results are
-  unchanged.
+  without reading its bundle files again; only `path-targets-exist` still
+  checks, on disk relative to the bundle root, a link target okf's graph
+  cannot resolve inside the bundle. `ProfileProjection.generatedFiles` returns
+  the files `validate --fix` writes. `validate` delegates to both; its results
+  are unchanged.
 - `wayfinder` depends on `crypto` and `ffi`.
 
 # 0.2.0
