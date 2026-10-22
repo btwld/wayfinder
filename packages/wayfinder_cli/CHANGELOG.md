@@ -1,5 +1,7 @@
 # Unreleased
 
+- Quote the bundle path in generated git hooks, and reject control characters
+  in `--bundle`, so the path cannot become shell source.
 - **BREAKING:** MCP `search` and default CLI text `wayfinder search` now return
   structured Markdown (`## Matches` and `## Related Context`) with
   `<path>:<lineStart>-<lineEnd>` citations, single-line concept metadata, and
