@@ -154,6 +154,8 @@
   0.5.1 writes the same indexes as 0.5.0: a package that sets `version` to
   `0.5.0`, Bitwild 2026.3 included, loads and yields the same findings, every
   verdict is unchanged, and package format stays 2.
+- A `matches-generated` `version` that names another generator revision fails
+  to load with a message that names the revision this wayfinder runs.
 <!--
 Release bookkeeping: the `pruneProjectLocks` and `tryExclusive` bullets below
 (#110) amend the `WayfinderFileLock` bullet above; fold them into it if both
