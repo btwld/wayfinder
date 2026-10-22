@@ -36,6 +36,10 @@
   - `prepare` and `commit` take a `WayfinderCancellation`, checked between
     steps and passed to the resolver and the assessor; a cancelled commit
     writes nothing and leaves the plan committable.
+  - Without a `selection`, `prepare` binds the bundle as `validate` does,
+    through the nearest `wayfinder.json` towards the filesystem root. Its
+    `projectRoot` bounds that search as `WayfinderProjectConfig.bind`'s
+    does, so a bundle with none within the project is judged by OKF alone.
   - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
     plan that is not committable, and `KnowledgeStaleWriteException`
     (`write-stale`) when the bundle, or the `wayfinder.json` or
