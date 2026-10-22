@@ -51,7 +51,7 @@ void main() {
   );
 
   test(
-    'searches from another isolate and a dart run subprocess never fail '
+    'searches from another isolate and a subprocess never fail '
     'during index --force, see the refresh, and read only whole generations',
     () async {
       final first = await writer().index(bundle);
@@ -76,10 +76,23 @@ void main() {
       expect(await isolateMessages.moveNext(), isTrue);
       final stopIsolate = isolateMessages.current as SendPort;
 
-      // The subprocess.
-      final subprocess = await Process.start(Platform.resolvedExecutable, [
-        'run',
+      // The subprocess, from a kernel snapshot. `dart run` would run the
+      // package's build hooks again, which write llamadart's library into
+      // .dart_tool/lib anew while other suites of this run load it.
+      final snapshot = p.join(temp.path, 'search_loop.dill');
+      final compiled = await Process.run(Platform.resolvedExecutable, [
+        'compile',
+        'kernel',
         p.join('test', 'support', 'search_loop.dart'),
+        '--output=$snapshot',
+      ]);
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}${compiled.stderr}',
+      );
+      final subprocess = await Process.start(Platform.resolvedExecutable, [
+        snapshot,
         data.path,
         bundle.root,
         referenceFile.path,
