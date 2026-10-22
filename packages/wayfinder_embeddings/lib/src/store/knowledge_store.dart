@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 
 import '../embedding/base_embedder.dart';
+import '../embedding/llama_embedder.dart' show wayfinderLlamaCppRuntime;
 import '../embedding/model_cache.dart' show EmbeddingModelCache;
 import '../models/embedding.dart';
 import '../okf/knowledge_index.dart';
@@ -185,9 +186,13 @@ class WayfinderKnowledgeStore {
 
   // Increment when chunking, snapshot or application input semantics change.
   // `store` names the generation format. The encoder's identity is part of
-  // the configuration key beside it.
+  // the configuration key beside it. The configuration names the llama.cpp
+  // release Wayfinder reviewed, because another llama.cpp build can give the
+  // same model other vectors; moving wayfinderLlamaCppRuntime builds every
+  // index anew. Version 5 is the first to name it.
   static final _configuration = jsonEncode({
-    'version': 4,
+    'version': 5,
+    'runtime': wayfinderLlamaCppRuntime,
     'context': 'okf-context-v2',
     'chunkCharacters': 1000,
     'longInput': 'reject',

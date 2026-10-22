@@ -99,6 +99,44 @@
   `--offline` still refuses to download. `tool/prepare_benchmark_models.dart`
   downloads each experimental model straight into its `--output` directory
   instead of llamadart's shared cache.
+- **BREAKING:** depends on `llamadart` `>=0.15.6 <0.16.0` instead of the exact
+  0.8.23 pin. Its build hook downloads llama.cpp from
+  `leehack/llamadart-native` v0.7.0-2 (llama.cpp 620d2225) instead of v0.4.0,
+  and checks each archive against the SHA-256 llamadart pins before
+  extracting it.
+- **BREAKING:** `LlamaEmbedder.open` loads the model with `LlamaEngine.load`
+  on the CPU only (`ComputeDevice.cpu`), with the same context, batch,
+  micro-batch and thread counts, and verifies the file before anything loads.
+  Its `newEngine` parameter is replaced by `loadEngine`, a `LlamaEngineLoader`
+  that loads the model itself and leaves nothing behind when it throws, as
+  `LlamaEngine.load` does. Tokenizing, truncation, query prefixes and
+  normalized vectors are unchanged. The one retry of a cold backend start
+  recognises the startup timeout as llamadart 0.15 reports it, inside the
+  `LlamaModelException` of the failed load.
+- The knowledge store's configuration moves to version 5 and names the
+  llama.cpp release Wayfinder reviewed, the new `wayfinderLlamaCppRuntime`
+  (v0.7.0-2), so moving it builds every index anew. The new runtime's vectors
+  differ slightly from 0.8.23's (cosine similarity of at least 0.99995 on the
+  judged corpus on macOS arm64), so each bundle builds once after upgrading,
+  and a version 4 index is never read. Retrieval quality is unchanged: on the
+  judged corpus Recall@10 stays 0.954 and nDCG@10 moves from 0.838 to 0.839,
+  and both OKF evaluation splits rank every query as before. The configuration
+  names the reviewed release, not the one a host's build bundles: a host that
+  shares indexes must resolve a llamadart that pins it, as the README
+  describes.
+- Building a native bundle fails before anything builds when the resolved
+  llamadart pins a `llamadart-native` release other than
+  `wayfinderLlamaCppRuntime`, or when the workspace sets
+  `llamadart_native_tag`, `llamadart_native_repository` or
+  `llamadart_native_path`. It accepts a Windows CPU backend module named for
+  a CPU variant, such as `ggml-cpu-haswell.dll`.
+- The embedding runtime's notices also attribute what llama.cpp vendors into
+  the native library: cpp-httplib and JSON for Modern C++, with their licence
+  texts, and stb_image, miniaudio and subprocess.h. Earlier bundles shipped
+  them without these notices.
+- The README's hook settings for consumers were wrong: llamadart's hook
+  ignores a bare `llamadart_native_backends: [cpu]`, as 0.8.23's did, so Linux
+  and Windows bundled Vulkan as well. It now selects `[cpu]` per platform.
 <!--
 Release bookkeeping: the bullets from "read while indexing (#110)" to the end
 of this section supersede what the bullets above say about an ObjectBox

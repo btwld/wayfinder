@@ -71,6 +71,14 @@
   `version` to `0.5.0`, such as Bitwild 2026.3, keeps loading. A `version`
   that names another revision fails to load with a reason that names the
   revision this wayfinder runs.
+- Builds with `llamadart` 0.15 through `wayfinder_embeddings` 0.3.0: native
+  bundles carry llama.cpp from `llamadart-native` v0.7.0-2 instead of v0.4.0,
+  still CPU only. `licenses/embedding_runtime/` attributes it, and now also
+  the cpp-httplib and JSON for Modern C++ code it contains. Index
+  configuration version 5 names the new runtime, whose vectors differ
+  slightly, so an index an earlier build wrote is not read and `index`
+  builds each bundle once. Search results on the judged corpus and the OKF
+  evaluation are unchanged.
 <!--
 Release bookkeeping: the bullets from "`search`, and the MCP server's `search`
 tool, keep working" to the end of this section supersede what the bullets
