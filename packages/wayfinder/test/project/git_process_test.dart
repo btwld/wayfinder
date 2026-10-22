@@ -186,8 +186,7 @@ void main() {
                 (error) => error.message,
                 'message',
                 'git show exited, but its output was still open 1 second '
-                    'later, held by a process it started; that process was '
-                    'stopped.',
+                    'later, held by a process it started.',
               ),
         ),
       );
