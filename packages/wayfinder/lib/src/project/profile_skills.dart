@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
@@ -181,12 +180,15 @@ abstract final class ProfileSkills {
     File file,
     int limit,
   ) async {
+    const chunkBytes = 64 * 1024;
     final handle = await file.open();
     try {
       final builder = BytesBuilder(copy: false);
       while (builder.length <= limit) {
+        // `limit + 1` would overflow for the largest int.
+        final remaining = limit - builder.length;
         final chunk = await handle.read(
-          min(limit + 1 - builder.length, 64 * 1024),
+          remaining < chunkBytes ? remaining + 1 : chunkBytes,
         );
         if (chunk.isEmpty) break;
         builder.add(chunk);
