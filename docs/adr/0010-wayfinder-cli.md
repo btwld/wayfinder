@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; another inference runtime is another configuration); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -35,12 +35,13 @@ per-user application data, outside the repository, under
 `indexes/bundles/<bundle key>/<configuration key>/`. The configuration key
 hashes the chunking, snapshot and storage configuration with the encoder's
 identity, so indexes built for another model, chunker or format never share
-a directory; each costs one build. The bundle key is not the bare path hash
-0.2 used, and the `bundles/` tree is not where earlier 0.3 builds kept
-ObjectBox databases, so neither kind of earlier index is read, changed or
-deleted. Chunk IDs hash each chunk's bundle-relative identity, not the
-absolute root, so the same bundle in two worktrees has the same IDs and
-ranks alike.
+a directory; each costs one build. A new inference runtime, which can change
+the vectors of the same model, moves the configuration's version, so its
+indexes are built anew too. The bundle key is not the bare path hash 0.2
+used, and the `bundles/` tree is not where earlier 0.3 builds kept ObjectBox
+databases, so neither kind of earlier index is read, changed or deleted.
+Chunk IDs hash each chunk's bundle-relative identity, not the absolute root,
+so the same bundle in two worktrees has the same IDs and ranks alike.
 
 An index is a sequence of immutable generations. Each holds a
 `snapshot.json` record of the original inputs, passages, citations,

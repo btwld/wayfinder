@@ -24,46 +24,48 @@ class LlamaEmbedder extends BaseEmbedder {
     this.coldStartRetries,
   );
 
-  /// Loads and verifies a model before returning an embedder ready for inference.
+  /// Verifies and loads a model, then returns an embedder ready for inference.
   ///
-  /// Every engine built here is owned by this method, including cleanup when
-  /// verification or loading fails. [newEngine] replaces the default engine
-  /// construction and must return an engine with no model loaded.
+  /// The file is checked against [model]'s size and SHA-256 before anything
+  /// loads. The model loads with `LlamaEngine.load` on the CPU, with a
+  /// context, batch and micro-batch of [EmbeddingModelSpec.maxTokens] and four
+  /// threads; a load that fails leaves no engine behind. [loadEngine] replaces
+  /// that load and must keep its contract: return an engine that holds the
+  /// model, or throw having disposed what it created.
   ///
-  /// A backend that never reports itself started is retried once on a fresh
-  /// engine. The runtime's worker startup timeout is fixed, and the first load
-  /// from a freshly installed bundle pays a one-time operating-system
-  /// validation of the native libraries that can exceed it. A runtime that is
-  /// genuinely unavailable still fails, one retry later. [coldStartRetries]
-  /// reports how often that happened, so a caller can show that the retry is
-  /// what kept a run alive instead of leaving it to inference.
+  /// A backend that never reports itself started is retried once with a
+  /// fresh engine. The runtime's worker startup timeout is fixed, and the
+  /// first load from a freshly installed bundle pays a one-time
+  /// operating-system validation of the native libraries that can exceed it.
+  /// A runtime that is genuinely unavailable still fails, one retry later.
+  /// [coldStartRetries] reports how often that happened, so a caller can show
+  /// that the retry is what kept a run alive instead of leaving it to
+  /// inference.
   static Future<LlamaEmbedder> open({
     File? modelFile,
     EmbeddingModelSpec model = localEmbeddingModel,
     LongInputPolicy longInputPolicy = LongInputPolicy.reject,
-    LlamaEngine Function()? newEngine,
+    LlamaEngineLoader? loadEngine,
   }) async {
-    final buildEngine = newEngine ?? () => LlamaEngine(LlamaBackend());
+    final load = loadEngine ?? _loadEngine;
     final file = modelFile ?? defaultEmbeddingModelFile();
+    await model.verify(file);
+    final source = LlamaModel(ModelSource.path(file.absolute.path));
+    final params = ModelParams(
+      contextSize: model.maxTokens,
+      batchSize: model.maxTokens,
+      microBatchSize: model.maxTokens,
+      device: ComputeDevice.cpu,
+      preferredBackend: GpuBackend.cpu,
+      gpuLayers: 0,
+      numberOfThreads: 4,
+      numberOfThreadsBatch: 4,
+    );
     for (var attempt = 1; ; attempt++) {
-      final runtime = buildEngine();
       try {
-        await model.verify(file);
-        await runtime.loadModel(
-          file.absolute.path,
-          modelParams: ModelParams(
-            contextSize: model.maxTokens,
-            batchSize: model.maxTokens,
-            microBatchSize: model.maxTokens,
-            preferredBackend: GpuBackend.cpu,
-            gpuLayers: 0,
-            numberOfThreads: 4,
-            numberOfThreadsBatch: 4,
-          ),
-        );
-        return LlamaEmbedder._(runtime, model, longInputPolicy, attempt - 1);
+        final engine = await load(source, params);
+        return LlamaEmbedder._(engine, model, longInputPolicy, attempt - 1);
       } catch (error) {
-        await runtime.dispose();
         if (attempt >= _engineStartAttempts || !_isBackendStartFailure(error)) {
           rethrow;
         }
@@ -191,15 +193,37 @@ class LlamaEmbedder extends BaseEmbedder {
   }
 }
 
+/// Loads [model] with [params] into a new engine that owns its backend.
+///
+/// [LlamaEmbedder.open] calls it once per attempt. It returns an engine that
+/// holds the model, or throws having disposed everything it created, as
+/// `LlamaEngine.load` does.
+typedef LlamaEngineLoader =
+    Future<LlamaEngine> Function(LlamaModel model, ModelParams params);
+
+Future<LlamaEngine> _loadEngine(LlamaModel model, ModelParams params) =>
+    LlamaEngine.load(model, params: params);
+
 /// One extra attempt absorbs a cold backend start without hiding a broken one.
 const _engineStartAttempts = 2;
 
 /// Whether loading failed because the native worker never finished starting.
+///
+/// `LlamaEngine.load` reports a load that fails as a [LlamaModelException]
+/// whose details are its cause's message, so the worker's startup timeout is
+/// recognised by that message as well as by its type.
 bool _isBackendStartFailure(Object error) => switch (error) {
   LlamaBackendInitializationException() => true,
   LlamaException(details: LlamaBackendInitializationException()) => true,
+  LlamaModelException(details: final String cause) => cause.contains(
+    _workerStartTimeout,
+  ),
   _ => false,
 };
+
+/// What llamadart's native backend says when its worker misses the startup
+/// timeout.
+const _workerStartTimeout = 'waiting for the llama.cpp worker to initialize';
 
 String _modelIdentity(EmbeddingModelSpec model, LongInputPolicy policy) {
   final configuration = jsonEncode({

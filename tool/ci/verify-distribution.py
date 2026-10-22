@@ -5,6 +5,50 @@ from pathlib import Path
 import re
 import tarfile
 
+# llamadart's build hook bundles llama.cpp for the CPU only, as the workspace's
+# hooks.user_defines selects: no GPU backend module, CUDA runtime, LiteRT-LM or
+# stable-diffusion library may reach a release.
+FOREIGN_RUNTIME = re.compile(
+    r'^(?:ggml-(?:vulkan|cuda|hip|opencl|blas|metal|sycl|cann|musa|rpc)\b'
+    r'|cu(?:dart|blas|blaslt)64'
+    r'|.*litert|.*webgpu_dawn|dxcompiler|dxil|gemmamodelconstraintprovider'
+    r'|.*stable[-_]?diffusion)')
+NATIVE_LIBRARY = re.compile(r'\.(?:dll|dylib|so)(?:\.[0-9a-z]+)*$')
+
+
+def canonical_library(name):
+    """A native library's name without `lib`, extension, SONAME or platform."""
+    stem = NATIVE_LIBRARY.sub('', name.lower())
+    stem = stem[3:] if stem.startswith('lib') else stem
+    return re.sub(r'-(?:windows|linux|macos)-[a-z0-9_]+$', '', stem)
+
+
+def check_embedding_runtime(platform, files):
+    """The llama.cpp runtime under lib/, CPU only, plus Windows' bin/ copies."""
+    libraries = {}
+    for name in files:
+        path = Path(name)
+        if len(path.parts) == 2 and path.parts[0] in ('lib', 'bin') and \
+                NATIVE_LIBRARY.search(path.name.lower()):
+            libraries.setdefault(path.parts[0], set()).add(
+                canonical_library(path.name))
+    found = libraries.get('lib', set()) | libraries.get('bin', set())
+    foreign = sorted(name for name in found if FOREIGN_RUNTIME.match(name))
+    if foreign:
+        raise SystemExit(
+            f'Native bundle {platform} ships more than the CPU llama.cpp '
+            f'runtime: {", ".join(foreign)}')
+    if 'llamadart' not in libraries.get('lib', set()):
+        raise SystemExit(f'Native bundle {platform} lacks llamadart in lib/')
+    if platform.startswith('windows'):
+        for directory in ('lib', 'bin'):
+            if not any(name.startswith('ggml-cpu')
+                       for name in libraries.get(directory, set())):
+                raise SystemExit(
+                    f'Native bundle {platform} lacks the CPU backend in '
+                    f'{directory}/')
+
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('directory', type=Path)
 args = parser.parse_args()
@@ -44,6 +88,7 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
         if any('objectbox' in Path(name).name.lower() or
                name.startswith('licenses/objectbox/') for name in files):
             raise SystemExit(f'Unexpected ObjectBox asset: {platform}')
+        check_embedding_runtime(platform, files)
         manifest = bundle.extractfile(files['SHA256SUMS']).read().decode('utf-8')
         checked = set()
         for line in manifest.splitlines():
