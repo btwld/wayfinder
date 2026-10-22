@@ -45,7 +45,10 @@ abstract interface class WayfinderEncoderProvider {
 ///
 /// [open] verifies the file's size and SHA-256 against [spec] before it
 /// loads the model, so a host need not verify it first; [verify] checks the
-/// same without loading.
+/// same without loading. Both report a file that is missing or unreadable
+/// as `model-missing` and other bytes as `model-invalid`, and what fixes
+/// either is [EmbeddingModelRemedy.provideModel]: a host keys its wording
+/// on the code.
 final class LocalModelEncoderProvider implements WayfinderEncoderProvider {
   LocalModelEncoderProvider({
     required this.modelFile,
