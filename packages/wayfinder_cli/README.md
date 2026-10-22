@@ -394,11 +394,14 @@ refresh or read a source, and others wait up to two minutes;
 hold across processes and isolates; keep the data directory on a local disk.
 
 Only writers lock. `index` holds the bundle's `writer.lock` for its whole run, so
-a second `index` of the bundle fails with `Index is busy`. `search` takes no lock:
+a second `index` of the bundle fails with `Index is busy`. `search` holds no lock:
 it reads the generation `current` names, which never changes, so it keeps working
-while an index runs. Indexing writes a complete new generation and replaces
-`current` atomically, so a search reads either the old generation or the new
-one, never a partial one. A failed index preserves the previous generation.
+while an index runs. To tell whether an index runs, it probes `writer.lock` for
+an instant, which a starting `index` waits out rather than report as busy.
+Indexing writes a complete new generation and replaces `current` atomically, so
+a search reads either the old generation or the new one, never a partial one;
+on Windows the replacement waits for searches that have `current` open. A
+failed index preserves the previous generation.
 While another command holds `writer.lock`, `search` serves the last completed
 generation even when files changed since: the output adds a `refresh-in-progress`
 notice, and for edited files a `source-changed` notice, and marks their passages
