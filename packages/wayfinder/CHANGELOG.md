@@ -196,8 +196,9 @@
 - A `matches-generated` `version` that names another generator revision fails
   to load with a message that names the revision this wayfinder runs.
 <!--
-Release bookkeeping: the last two bullets (#110) amend the `WayfinderFileLock`
-bullet above; fold them into it if both ship in one release.
+Release bookkeeping: the `pruneProjectLocks` and `tryExclusive` bullets below
+(#110) amend the `WayfinderFileLock` bullet above; fold them into it if both
+ship in one release.
 -->
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
   each project whose root no longer exists, such as a removed worktree, once
@@ -258,7 +259,8 @@ bullet above; fold them into it if both ship in one release.
   `profile-skill-stale` notes. `select`'s diagnostics are unchanged.
 - `plan(lockedOnly: true)` resolves exactly the commits `wayfinder.lock`
   pins: it fetches a source only when its mirror is missing or lacks the
-  locked commit, never moves a ref, and keeps the lock's bytes. It throws
+  locked commit, never re-resolves a ref (the lock's commits stay as
+  written), and keeps the lock's bytes. It throws
   `ProfileLockChangeRequiredException` (`lock-change-required`) before any
   Git command when the lock as written would change, and once read for a
   package that disagrees with the lock. `ProfileResolutionPlan.lockedOnly`

@@ -1958,13 +1958,16 @@ void main() {
                 'diagnostic',
                 DiagnosticCode.profileTimeout,
               )
+              // Where the parse stopped depends on the runner's speed;
+              // profile_package_bound_test names the rule exactly.
               .having(
                 (error) => error.message,
                 'message',
-                'Profile package hostile at ${source.path} '
-                    '(${tags['arm-hostile']}) cannot be evaluated by this '
-                    'validator: did not finish within 300 milliseconds at '
-                    'rules[1].tests.',
+                startsWith(
+                  'Profile package hostile at ${source.path} '
+                  '(${tags['arm-hostile']}) cannot be evaluated by this '
+                  'validator: did not finish within 300 milliseconds at ',
+                ),
               ),
         ),
       );

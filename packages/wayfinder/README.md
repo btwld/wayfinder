@@ -75,6 +75,10 @@ Future<void> main() async {
   validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
   package files out of the cached mirrors with `restoreCachedPackages`,
   without fetching.
+  `pruneProjectLocks` deletes the `get` locks of project roots that no longer
+  exist once they have gone unused for its period (30 days by default),
+  reading a lock's note only while the lock is free;
+  `WayfinderKnowledgeStore.prune` calls it.
 - `status(root)` says, offline and without Git, where each binding's Profile
   stands as `select` would find it: a `ProfileBindingState` (`resolved`,
   `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
@@ -83,10 +87,11 @@ Future<void> main() async {
   `select` reports.
 - `plan(root, lockedOnly: true)` resolves exactly the commits
   `wayfinder.lock` pins and leaves the lock as written: it fetches a source
-  only when its mirror lacks the locked commit and never moves a ref. A lock
-  that would change, because it is missing or stale or does not hold each
-  binding's chain, fails with `lock-change-required` before any Git command.
-  Apply the plan to reinstall the locked Profile skills.
+  only when its mirror lacks the locked commit and never re-resolves a ref,
+  so the lock's commits stay as written. A lock that would change, because
+  it is missing or stale or does not hold each binding's chain, fails with
+  `lock-change-required` before any Git command. Apply the plan to reinstall
+  the locked Profile skills.
 - `allowFetch`, a `ProfileFetchPolicy`, decides each clone or refresh just
   before it runs, and every Git command that can reach the network follows
   its yes for that `ProfileFetch.location`, so it is all a consent gate
@@ -95,12 +100,10 @@ Future<void> main() async {
   approved.
 - Reading a Profile package runs its rules' `tests`, so the resolver reads
   each one on an isolate of its own and refuses one that runs past
-  `packageTimeout` (ten seconds) as `wayfinder/profile-timeout`;
-  `ProfilePackage.parseWithin` is that bounded parse.
-  `pruneProjectLocks` deletes the `get` locks of project roots that no longer
-  exist once they have gone unused for its period (30 days by default),
-  reading a lock's note only while the lock is free;
-  `WayfinderKnowledgeStore.prune` calls it.
+  `packageTimeout` (ten seconds) as `wayfinder/profile-timeout`, and one
+  whose parse stops on an error, such as a stack overflow, as
+  `wayfinder/profile-invalid`; `ProfilePackage.parseWithin` is that bounded
+  parse.
 - `ProfileSkills.read(projectRoot, revision)` returns the `SKILL.md` text
   `get` installed for a Profile revision, or null when no installed copy
   holds that revision, the check behind `profile-skill-stale`.
@@ -140,7 +143,8 @@ if (status.bindings.any(
     lockedOnly: true,
     allowFetch: (fetch) => approved.contains(fetch.location),
   );
-  await resolver.apply(plan); // writes only the locked skills it lists
+  // Writes the locked skills it lists and prunes plan.removedSkills.
+  await resolver.apply(plan);
 }
 ```
 
