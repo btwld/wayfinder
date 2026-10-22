@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -318,6 +319,30 @@ void main() {
       },
       skip: Platform.isWindows ? 'needs symbolic links' : false,
     );
+
+    test('never returns the text of a revision get puts in place while it '
+        'reads', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      final racing = _ReplacedBeforeRead(
+        p.join(project.path, _claude, 'SKILL.md'),
+        () async {
+          // What `get` leaves after renaming a new revision into place.
+          await mark(_claude, 'f' * 40);
+          await File(
+            p.join(project.path, _claude, 'SKILL.md'),
+          ).writeAsString('new revision');
+        },
+      );
+      final read = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision),
+        racing,
+      );
+      expect(racing.replaced, isTrue);
+      expect(read, 'agents copy');
+    });
   });
 
   test('a skill directory without SKILL.md fails get', () async {
@@ -660,6 +685,52 @@ void main() {
       );
     });
   });
+}
+
+/// Runs [replace] outside the overrides just before the first read of
+/// [target], as a concurrent `get` would.
+final class _ReplacedBeforeRead extends IOOverrides {
+  _ReplacedBeforeRead(this.target, this.replace);
+
+  final String target;
+  final Future<void> Function() replace;
+  var replaced = false;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (replaced || !p.equals(path, target)) return file;
+    return _BeforeRead(file, () async {
+      replaced = true;
+      await Zone.root.run(replace);
+    });
+  }
+
+  // The inherited type lookup passes the native call a path without its
+  // terminating NUL, so the real lookup runs outside the overrides instead.
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) => Zone
+      .root
+      .run(() => FileSystemEntity.type(path, followLinks: followLinks));
+}
+
+final class _BeforeRead implements File {
+  _BeforeRead(this._file, this._before);
+
+  final File _file;
+  final Future<void> Function() _before;
+
+  @override
+  String get path => _file.path;
+
+  @override
+  Future<String> readAsString({Encoding encoding = utf8}) async {
+    await _before();
+    return _file.readAsString(encoding: encoding);
+  }
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<Map<String, (String?, DateTime)>> _stat(String root) async => {
