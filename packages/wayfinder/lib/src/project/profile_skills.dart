@@ -78,15 +78,22 @@ abstract final class ProfileSkills {
   /// before `get` or after the lock moved on, and when that directory has
   /// no readable UTF-8 `SKILL.md`. [projectRoot] is the directory of the
   /// `wayfinder.json` that bound the bundle, which a selection names as
-  /// [SelectedProfile.projectRoot]. Reads nothing that a symbolic link
+  /// [SelectedProfile.projectRoot]. Returns nothing that a symbolic link
   /// places outside it, and never writes.
   ///
   /// Each file is confined by its real path, and that real path is what is
   /// read, so a symbolic link retargeted after the check does not move the
-  /// read. The text is returned only when its real path still holds no
-  /// symbolic link after the read, so a file replaced by a link meanwhile
-  /// is not returned either; what Dart cannot exclude is a link that is put
-  /// in place and taken away again while the file is being opened.
+  /// read. Each file is read only when it is a regular file, checked
+  /// without following links just before it is opened, and the text is
+  /// returned only when its real path still holds no symbolic link after
+  /// the read and the marker, read again, is still a regular file, so a
+  /// file or marker replaced by a link meanwhile is not returned either.
+  /// Dart opens a file only by following its path, and an open of a named
+  /// pipe waits for a writer, so two swaps between that last check and the
+  /// open remain out of reach: a link put in place and taken away again
+  /// before the read ends, whose target is returned, and a named pipe,
+  /// which holds the read until something writes to it. A host that must
+  /// exclude them keeps writers out of the project while it reads.
   ///
   /// With [maxBytes], at most `maxBytes + 1` bytes are read: a longer file
   /// is cut at the last character boundary within its first [maxBytes]
@@ -110,15 +117,12 @@ abstract final class ProfileSkills {
     } on FileSystemException {
       return null;
     }
-    // The real path of the regular file at [path] when it lies inside the
-    // project; null otherwise. Only this path is read afterwards.
+    // The real path of [path] when it lies inside the project; null
+    // otherwise. Only this path is read afterwards, and only when it holds
+    // a regular file just before it is opened.
     Future<String?> confined(String path) async {
       final resolved = await _realPath(path);
-      if (resolved == null || !p.isWithin(real, resolved)) return null;
-      return await FileSystemEntity.type(resolved, followLinks: false) ==
-              FileSystemEntityType.file
-          ? resolved
-          : null;
+      return resolved != null && p.isWithin(real, resolved) ? resolved : null;
     }
 
     for (final directory in directories(revision.id)) {
@@ -128,14 +132,17 @@ abstract final class ProfileSkills {
         final skillFile = await confined(p.join(path, 'SKILL.md'));
         if (markerFile == null ||
             skillFile == null ||
-            await _revisionIn(File(markerFile)) != revision) {
+            await _revisionIn(File(markerFile), followLinks: false) !=
+                revision ||
+            !await _isRegularFile(skillFile)) {
           continue;
         }
         final text = await _readText(File(skillFile), maxBytes);
         final now = await _realPath(skillFile);
         if (now != null &&
             p.equals(now, skillFile) &&
-            await _revisionIn(File(markerFile)) == revision) {
+            await _revisionIn(File(markerFile), followLinks: false) ==
+                revision) {
           return text;
         }
       } on FileSystemException {
@@ -463,10 +470,15 @@ abstract final class ProfileSkills {
   static const _markerMaxBytes = 64 * 1024;
 
   /// The revision the marker [file] records; null when it is not a regular
-  /// file, is larger than 64 KiB, or cannot be read or parsed.
-  static Future<SkillRevision?> _revisionIn(File file) async {
+  /// file just before it is opened, is larger than 64 KiB, or cannot be
+  /// read or parsed. Without [followLinks], a symbolic link at [file] is
+  /// not a regular file.
+  static Future<SkillRevision?> _revisionIn(
+    File file, {
+    bool followLinks = true,
+  }) async {
     try {
-      if (await FileSystemEntity.type(file.path) != FileSystemEntityType.file) {
+      if (!await _isRegularFile(file.path, followLinks: followLinks)) {
         return null;
       }
       final (:bytes, :more) = await _readPrefix(file, _markerMaxBytes);
@@ -485,4 +497,13 @@ abstract final class ProfileSkills {
     }
     return null;
   }
+
+  /// Whether [path] holds a regular file. Checked just before each open,
+  /// since opening a named pipe waits for a writer.
+  static Future<bool> _isRegularFile(
+    String path, {
+    bool followLinks = false,
+  }) async =>
+      await FileSystemEntity.type(path, followLinks: followLinks) ==
+      FileSystemEntityType.file;
 }
