@@ -28,9 +28,9 @@ library acquires it only by calling `EmbeddingModelCache.provision`, after its
 user agrees. Both download the pinned artifact into a model cache, by default
 in per-user application data, and verify its size and SHA-256 before an
 atomic rename, so a failed download never replaces a model. Locating the model
-reads files only, and so does `EmbeddingModelCache.remove`, which deletes the
-model and its downloads' temporary files when the host's user no longer wants
-it.
+reads files only. `EmbeddingModelCache.remove` deletes the model and its
+downloads' temporary files, also without the network, when the host's user
+no longer wants it.
 
 Persist one derived index per canonical bundle path and configuration in
 per-user application data, outside the repository, under
