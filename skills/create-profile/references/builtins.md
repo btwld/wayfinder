@@ -98,7 +98,7 @@ package's `implements.release` in the indexes it writes.
   "additionalProperties": false,
   "properties": {
     "generator": {"enum": ["okf-index"]},
-    "version": {"const": "<the engine's okf version, such as 0.5.0>"},
+    "version": {"const": "<the engine's okf generator revision, such as 0.5.0>"},
     "keep": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "extra": {"enum": ["report", "ignore"]}
   }
@@ -106,11 +106,18 @@ package's `implements.release` in the indexes it writes.
 ```
 
 `keep` defaults to none and `extra` to `report`. `version` names the okf
-release whose generator the package's verdicts assume, the `engine.okf` value
-of a `wayfinder validate --output json` run. A package that sets it loads only
-on a wayfinder built with that okf, and so reports INCOMPLETE rather than new
-index findings after an okf upgrade. Omit it to accept whatever generator the
-engine ships.
+generator revision the package's verdicts assume: the okf release that last
+changed what the generator writes, which okf exports as
+`okfIndexGeneratorRevision`. It is not the okf release a `wayfinder validate
+--output json` run reports as `engine.okf`. okf changes the generator's
+output only in a minor release, so one okf minor series has one revision:
+every okf 0.5 release, whether `engine.okf` reads 0.5.0, 0.5.1 or later,
+writes revision 0.5.0, and that is the value to pin. A wayfinder that moves
+to a new revision says so in its changelog. A package that sets `version`
+loads only on a wayfinder whose okf has that revision; on any other it
+reports INCOMPLETE rather than new index findings, and the reason the load
+gives names the revision that wayfinder runs. Omit it to accept whatever
+generator the engine ships.
 
 ```json
 {

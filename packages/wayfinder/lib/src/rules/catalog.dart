@@ -346,9 +346,11 @@ BuiltinCheck _builtinCheck(Map<String, Object?> json, String where) {
   }
   final params = json['params'] as Map<String, Object?>? ?? const {};
   if (!builtin.params.safeParse(params).isOk) {
+    final reason = builtin.explainParams?.call(params);
     throw ProfilePackageException(
       '$where.params',
-      'params do not match what builtin $name accepts',
+      'params do not match what builtin $name accepts'
+          '${reason == null ? '' : '; $reason'}',
     );
   }
   return BuiltinCheck(name, builtin, params);

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs); 2026-10-22 (the knowledge store's notices are typed, a search can be cancelled, a retained encoder can be released while the snapshots stay, the model cache removes its model, and `forget` deletes lock files and forgets a project root's indexes); 2026-10-22 (a Profile skill read reads the real paths it checked and can be bounded in bytes, a selection names its project root, skill writes and prunes keep to the real roots they checked, and `get` writes no marker it would not read back); 2026-10-22 (a plan can leave Profile skills alone; `status` reports why a lock would change, each chain member's local copy and each skill directory as data; library messages name no command, and diagnostics and resolution failures carry the remedy and data the CLI words); 2026-10-22 (the retrieval library's model failures name no command and carry their remedy as data, and the store's `model-missing` and `model-invalid` each imply that one remedy)
+- Updated: 2026-10-22. Hosts embed the libraries. Writers lock indexes. Readers do not.
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results beyond a Profile skill marker that is unreadable, not a regular file or over 64 KiB counting as no marker, and `get` refusing a file or link where a skill directory goes
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -138,8 +138,9 @@ Binding takes the same bound: with `projectRoot`, the search for a bundle's
 `wayfinder.json` climbs the same directories as without it but reads only
 those whose real path is that root or inside it, and stops there, so a
 bundle with none there reports `config-missing`. Adoption's closing
-validation binds within the root it adopted. The command still finds the
-project from any directory inside it by asking for its search of ancestors
+validation binds within the root it adopted, and `KnowledgeWriter.prepare`
+takes the same `projectRoot`. The command still finds the project from any
+directory inside it by asking for its search of ancestors
 (`searchAncestors: true`) and binding without a bound, so its results and
 exit codes are unchanged. `projectRoot` is a host input like `configPath`:
 it narrows where a library caller's search looks, as `--config` names the
@@ -218,6 +219,30 @@ each skill directory's state rather than refusing an unmarked one.
 `apply` writes the lock and skills and refuses a plan
 whose configuration, lock or cached package files changed since
 (`resolution-stale`). `resolve` is both under one hold of the project's lock.
+
+**An edit of `wayfinder.json` relocks offline.** The lock's hash covers the
+whole configuration, actors and project vocabulary included, so a host that
+registers an actor makes the lock stale although its Profiles stay the same.
+`relock` applies the host's edit to the configuration's text and writes the
+lock for the result under one hold of the project's `get` lock, so no `get`,
+apply or adoption runs meanwhile and a plan made before it no longer
+applies. It keeps exactly the commits the lock pins: it runs no Git, so it
+fetches nothing and resolves no ref, and it reads each chain from the
+Profile cache and composes it as `select` does. It writes and deletes no
+skill. Before writing anything it refuses, as `lock-change-required` with
+the `ProfileLockChange`, an edit after which the lock does not pin exactly
+each binding's chain at its source, since only a resolution that may fetch
+can lock that, and it refuses what selection would report, such as a
+package the cache lacks. It writes the configuration, then the lock, each
+through a temporary file. A file it cannot read or replace is
+`relock-failed` (`ProfileRelockFailedException`), not a missing lock: when
+a write fails, a file it already wrote gets its original bytes back where
+the file system allows, and the exception names any file that kept the new
+bytes, which relocking again with the text unchanged repairs. The lock it
+writes is the one `get` writes for the same commits, so it needs no guide
+§9 entry and no format bump.
+`WayfinderConfigEditor.encode(minimal: true)` makes the edit itself change
+only the members it touches, keeping the rest of the file's bytes.
 A plan keeps the package file of each package it reads, so `select`, the
 selection validation uses, reads files only and never runs Git. A cache
 Wayfinder 0.2 wrote has the mirrors but no package files: when `select` finds
@@ -272,7 +297,7 @@ descriptor never releases them. A lock file stays in place on release.
 | Resource | Lock file under the data directory | Mode | On contention |
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
-| A project's `get`, or its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
+| A project's `get`, its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone, or its relock | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
 | A bundle's index for one configuration, while `index`, `forget` or `forgetProjectRoot` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never hold it, and probe it with `isHeld` to report a refresh | `index-busy` |
 | The machine's one background index (`wayfinder index --detach`) | `background-index.lock` | exclusive, never waits | the CLI reports `running` and starts nothing |
 

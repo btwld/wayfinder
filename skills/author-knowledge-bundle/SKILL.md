@@ -91,7 +91,9 @@ A write is complete only when all of these exist:
    indexes, run `wayfinder validate <bundle> --fix`. It writes them, then
    validates. Never edit a generated index by hand. Without such a Profile,
    `--fix` writes nothing and reports `wayfinder/fix-not-applied`. Update
-   each `index.md` the bundle keeps yourself, per OKF §8.
+   each `index.md` the bundle keeps yourself, per OKF §8. A fix that writes
+   leaves okf's lock file, `.okf.lock`, at the bundle root; never commit it,
+   and add it to the project's `.gitignore` if it is missing.
 3. A `log.md` entry for a lifecycle event, under today's `## YYYY-MM-DD`
    heading, newest first, as `* **<Lead word>**: <what changed>`. The Profile
    skills say which events to log. A formatting-only change needs no entry.
@@ -100,6 +102,19 @@ A write is complete only when all of these exist:
 5. A scoped Profile Review per
    [references/profile-assessment.md](./references/profile-assessment.md),
    with its report in the interaction or pull request.
+
+If your host offers write tools built on Wayfinder's authoring library
+(`KnowledgeWriter` in `package:wayfinder/authoring.dart`), such as create,
+update, link and deprecate, prefer them to editing files. One call does steps
+1 to 3 as one write: it writes the concept, rewrites only the generated
+indexes the change affects, and records the log entry you pass exactly as
+given. It judges the result before writing and refuses a write that adds an
+error, naming the finding; repair what it names rather than editing around
+it. It does not refuse an error the bundle already had, or a bundle no
+Profile judged, so step 4 still applies: run `wayfinder validate <bundle>`,
+or confirm the tool reports the candidate's gate as `PASS`. You still choose
+the content and the log entry from each Profile skill, and you still run the
+Profile Review in step 5.
 
 ## Where the Profile skills are silent
 

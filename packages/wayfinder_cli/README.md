@@ -46,8 +46,11 @@ agent, `~/.ssh/config`, `core.sshCommand` or a Git credential helper. A second
 `validate` read only a current lock/cache, never fetch, and preserve the
 independent OKF result if the Profile source is unresolved. When the selected
 chain has a `matches-generated` rule, `validate --fix` first writes okf's
-generated indexes, then validates. It never writes a bundle without a selected
-Profile or one that fails OKF. A bundle with no `wayfinder.json`
+generated indexes, then validates, holding okf's bundle lock while it
+writes. Taking that lock leaves `.okf.lock` at the bundle root, as okf's own
+writes do; add `.okf.lock` to the project's `.gitignore`. `index` and
+`search` ignore it. `--fix` never writes a bundle without a selected Profile
+or one that fails OKF. A bundle with no `wayfinder.json`
 above it reports `wayfinder/config-missing`. `graph`, `index`, and `search`
 do not resolve Profile sources. See the
 [configuration guide](https://github.com/btwld/wayfinder/blob/main/docs/wayfinder-configuration.md).

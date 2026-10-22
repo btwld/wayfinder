@@ -1,12 +1,13 @@
 # Engine compatibility with OKF 0.2
 
-Status: Complete for package format 2, `okf` 0.5.0, and OKF 0.2
+Status: Complete for package format 2, `okf` 0.5.1, and OKF 0.2
 
 This non-normative review records whether the wayfinder engine keeps the
 pinned OKF 0.2 contract intact. The specification pin is
 `open-knowledge-format` at `ad30107`, vendored in
 [`OKF-0.2.md`](../skills/author-knowledge-bundle/references/OKF-0.2.md). The
-`okf` package pin is `>=0.5.0 <0.5.1`. The
+`okf` package constraint is `^0.5.1`, whose index generator revision is
+0.5.0. The
 [engine contract](../implementation/okf-implementation-guide.md) is
 authoritative over every summary here.
 
@@ -37,6 +38,7 @@ An engine behavior passes only when all four answers are yes:
 | `graph`, `index`, and `search` read the explicit bundle without resolving Profile sources | §11 tolerant reading | Pass | A broken or absent Profile selection never makes ordinary OKF reading fail. |
 | Keeps `wayfinder.json`, `wayfinder.lock`, and installed skills outside the bundle | §3.1 reserves `index.md` and `log.md` and makes every other Markdown file a concept | Pass | Project configuration never becomes a concept, frontmatter, or an index entry. |
 | Never probes the network during validation | §11 does not make network resolution a rejection condition | Pass | An external resource that no longer resolves stays ordinary provenance or a body link. |
+| Runs `okf` 0.5.1, generator unchanged: the same validator, finding report, defined keys and loader as 0.5.0, and `OkfIndexGenerator` at revision 0.5.0 | §§4.1, 8, and 11 | Pass | Pass. okf 0.5.1 adds the write projection and exports okfVersion. Validation output matches 0.5.0. engine.okf reports 0.5.1. |
 
 ## When to redo this review
 
@@ -44,7 +46,8 @@ An upstream OKF specification release needs a new review before the engine
 reads it, even when no engine behavior otherwise changes. An `okf` package
 release needs a review row when it changes what okf reports, which keys it
 defines, or what its index generator writes. The engine reports the `okf`
-version it ran as `engine.okf`, and a generator change is a breaking engine
+version it ran as `engine.okf`. A generator change moves okf's generator
+revision, and moving the engine onto a new revision is a breaking engine
 change (guide §5.6).
 
 ## Completion gate

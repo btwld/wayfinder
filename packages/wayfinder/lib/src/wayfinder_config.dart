@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'config_layout.dart';
+import 'config_search.dart';
 import 'diagnostics.dart';
 import 'profile_package.dart';
 import 'published_schemas.dart';
@@ -279,7 +281,10 @@ final class WayfinderProjectConfig {
           ),
         );
       }
-    } else if (await _findConfig(bundlePath, projectRoot: projectRoot)
+    } else if ((await searchProjectConfig(
+          bundlePath,
+          projectRoot: projectRoot,
+        )).found
         case final found?) {
       file = found;
     } else {
@@ -372,55 +377,6 @@ final class WayfinderProjectConfig {
       projectRoot: p.normalize(file.absolute.parent.path),
       source: source,
     );
-  }
-
-  static Future<File?> _findConfig(
-    String bundlePath, {
-    String? projectRoot,
-  }) async {
-    final ceiling = projectRoot == null ? null : await _realPath(projectRoot);
-    var directory = p.dirname(File(bundlePath).absolute.path);
-    while (true) {
-      var read = true;
-      var last = false;
-      if (ceiling != null) {
-        final real = await _realPath(directory);
-        // Read only inside the project; end at its root or above it.
-        read = p.equals(real, ceiling) || p.isWithin(ceiling, real);
-        last = p.equals(real, ceiling) || p.isWithin(real, ceiling);
-      }
-      if (read) {
-        final file = File(p.join(directory, 'wayfinder.json'));
-        if (await file.exists()) return file;
-      }
-      final parent = p.dirname(directory);
-      if (last || parent == directory) return null;
-      directory = parent;
-    }
-  }
-
-  /// [path] absolute, with its symbolic links resolved: the segments that
-  /// do not exist, or are links that do not resolve, are appended to the
-  /// real path of their nearest ancestor that does.
-  static Future<String> _realPath(String path) async {
-    final absolute = Directory(path).absolute.path;
-    final missing = <String>[];
-    var existing = absolute;
-    while (true) {
-      try {
-        return p.normalize(
-          p.joinAll([
-            await Directory(existing).resolveSymbolicLinks(),
-            ...missing,
-          ]),
-        );
-      } on FileSystemException {
-        final parent = p.dirname(existing);
-        if (parent == existing) return p.normalize(absolute);
-        missing.insert(0, p.basename(existing));
-        existing = parent;
-      }
-    }
   }
 
   static ProfileId _profileId(String value) {
@@ -534,46 +490,9 @@ final class WayfinderConfigEncoder extends Converter<Object?, String> {
   @override
   String convert(Object? input) {
     final buffer = StringBuffer();
-    _write(buffer, input, '');
+    writeConfigJson(buffer, input, '');
     buffer.write('\n');
     return buffer.toString();
-  }
-
-  static void _write(StringBuffer buffer, Object? value, String indent) {
-    switch (value) {
-      case final Map<Object?, Object?> map when map.isNotEmpty:
-        final inner = '$indent  ';
-        buffer.write('{\n');
-        for (final (index, MapEntry(:key, value: item))
-            in map.entries.indexed) {
-          buffer
-            ..write(inner)
-            ..write(jsonEncode(key.toString()))
-            ..write(': ');
-          _write(buffer, item, inner);
-          buffer.write(index == map.length - 1 ? '\n' : ',\n');
-        }
-        buffer
-          ..write(indent)
-          ..write('}');
-      case final List<Object?> list
-          when list.isNotEmpty &&
-              list.any((item) => item is Map || item is List):
-        final inner = '$indent  ';
-        buffer.write('[\n');
-        for (final (index, item) in list.indexed) {
-          buffer.write(inner);
-          _write(buffer, item, inner);
-          buffer.write(index == list.length - 1 ? '\n' : ',\n');
-        }
-        buffer
-          ..write(indent)
-          ..write(']');
-      case final List<Object?> list:
-        buffer.write('[${list.map(jsonEncode).join(', ')}]');
-      default:
-        buffer.write(jsonEncode(value));
-    }
   }
 }
 
@@ -593,14 +512,17 @@ enum WayfinderVocabulary {
 /// they do not change: other fields, including ones this release does not
 /// model, their values as written, such as `./knowledge`, and the order of
 /// keys. Edits change the decoded document; [config] checks it against the
-/// schema, and [encode] writes it with [WayfinderConfigEncoder].
+/// schema, and [encode] writes it with [WayfinderConfigEncoder], or with
+/// `minimal` changes only the members the edits touched.
 final class WayfinderConfigEditor {
-  WayfinderConfigEditor._(this._document);
+  WayfinderConfigEditor._(this._document, this._source);
 
   /// A version 1 document with no Profile entries yet; add one with
   /// [setProfile] before reading [config].
-  factory WayfinderConfigEditor.empty() =>
-      WayfinderConfigEditor._({'version': 1, 'profiles': <String, Object?>{}});
+  factory WayfinderConfigEditor.empty() => WayfinderConfigEditor._({
+    'version': 1,
+    'profiles': <String, Object?>{},
+  }, null);
 
   /// Edits [source]. Throws [WayfinderConfigException] unless it is a JSON
   /// object without a repeated key, which an edit would silently drop; it
@@ -620,16 +542,59 @@ final class WayfinderConfigEditor {
       );
     }
     _JsonDuplicateKeyScanner(source).scan();
-    return WayfinderConfigEditor._(_copy(decoded)! as Map<String, Object?>);
+    return WayfinderConfigEditor._(
+      _copy(decoded)! as Map<String, Object?>,
+      source,
+    );
   }
 
   final Map<String, Object?> _document;
+
+  /// The text [WayfinderConfigEditor.parse] read; null for an empty editor.
+  final String? _source;
 
   /// A copy of the edited document.
   Map<String, Object?> toJson() => _copy(_document)! as Map<String, Object?>;
 
   /// The edited document as `wayfinder.json` text.
-  String encode() => const WayfinderConfigEncoder().convert(_document);
+  ///
+  /// By default the whole document is written with
+  /// [WayfinderConfigEncoder], in the documented layout. With [minimal],
+  /// the text the editor parsed is kept and only the JSON members the edits
+  /// changed are rewritten, so a host that adds one actor changes only
+  /// those bytes, and every other byte stays: indentation, key order, line
+  /// endings, and values as written. A member it adds goes after the last
+  /// member of its object, on lines of its own at that member's indentation
+  /// and in the documented layout, with the file's own indentation step and
+  /// line ending; in an object or list written on one line, it goes on that
+  /// line. A member or item it removes is cut out with its separator, and a
+  /// changed value is written in its place.
+  ///
+  /// The full encoder writes an object or list whole instead where an edit
+  /// cannot be spliced: when it is new, when an edit reorders the members
+  /// that remain or puts a new one before them, and when a list both gains
+  /// and loses items. The result is checked by parsing it: when it does not
+  /// decode to exactly the edited document, keys in order, or repeats a key,
+  /// the whole document is written with the full encoder. An editor made
+  /// with [WayfinderConfigEditor.empty] has no text to keep and encodes in
+  /// full.
+  String encode({bool minimal = false}) {
+    final source = _source;
+    if (minimal && source != null) {
+      final text = spliceJsonChecked(source, _document, accept: _repeatsNoKey);
+      if (text != null) return text;
+    }
+    return const WayfinderConfigEncoder().convert(_document);
+  }
+
+  static bool _repeatsNoKey(String text) {
+    try {
+      _JsonDuplicateKeyScanner(text).scan();
+      return true;
+    } on WayfinderConfigException {
+      return false;
+    }
+  }
 
   /// The edited document, parsed and checked as [WayfinderProjectConfig.parse]
   /// checks a file. Throws [WayfinderConfigException].

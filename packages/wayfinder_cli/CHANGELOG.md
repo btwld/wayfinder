@@ -45,6 +45,18 @@
   wait forever, or that is larger than 64 KiB counts the same way, and `get`
   refuses to install the skill of a Profile whose release is too long for
   its marker to stay within 64 KiB.
+- `validate --fix` holds okf's exclusive bundle lock while it loads the bundle
+  again, writes the generated indexes and validates, so it waits for an okf
+  read or write of the bundle in another process instead of interleaving with
+  it. One with nothing to write takes no lock, and a lock it cannot take, as
+  in a bundle it may not write, is reported as `wayfinder/fix-failed` with
+  exit code 1, as a failed write always was.
+- Like okf's own writes, a `validate --fix` that writes leaves `.okf.lock` at
+  the bundle root. Add `.okf.lock` to the project's `.gitignore`. `index` and
+  `search` leave the file out of the bundle inventory they compare, at any
+  depth, as okf's loader does; before, a bundle holding one failed `index`
+  with `Knowledge changed while loading` and `search` reported the index
+  stale.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
@@ -88,6 +100,18 @@
   `--detach` reported `started` and the background run failed.
 - Native bundles no longer include the `analyzer` packages or their license
   files. Search and indexing are unchanged; the CLI never chunked Dart source.
+- **BREAKING:** `engine.okf` in `validate --output json` and the MCP
+  `validate` tool reports the okf release the CLI runs, `0.5.1` or a later
+  okf 0.5 release, instead of always `0.5.0`, and `validate --output sarif`
+  names the same release in its `okf` tool extension. It no longer equals the
+  `version` a Profile's `matches-generated` rule pins, which names okf's index
+  generator revision and stays `0.5.0`, so a check that expects `engine.okf`
+  to be `0.5.0`, or to equal that `version`, fails.
+- Requires `okf` `^0.5.1`. A Profile's `matches-generated` `version` names
+  okf's index generator revision, which stays 0.5.0. Index verdicts are
+  unchanged, and a Profile that pins `version` to `0.5.0`, such as Bitwild
+  2026.3, keeps loading. A `version` that names another revision fails to
+  load with a reason that names the revision this wayfinder runs.
 - Builds with `llamadart` 0.15 through `wayfinder_embeddings` 0.3.0: native
   bundles carry llama.cpp from `llamadart-native` v0.7.0-2 instead of v0.4.0,
   still CPU only. `licenses/embedding_runtime/` attributes it, and now also

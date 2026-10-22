@@ -11,10 +11,15 @@ diagnostics (`EngineDiagnostic`), and the gate derived from them
 import 'package:wayfinder/wayfinder.dart';
 ```
 
+A project on disk is in `package:wayfinder/project.dart` ([Projects](#projects)),
+and writes a Profile governs are in `package:wayfinder/authoring.dart`
+([Authoring](#authoring)).
+
 `ProfileValidator.validateLoaded` validates a bundle okf has already loaded,
 such as a candidate built in memory, without reading its files again; only the
-`path-targets-exist` builtin checks, on disk relative to the bundle root, a
-link target okf's graph cannot resolve inside the bundle.
+`path-targets-exist` builtin looks further, for a path target okf's graph
+cannot resolve: first in the loaded bundle, so a candidate sees the files it
+adds, then on disk relative to the bundle root.
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them. `EffectiveProfile.requiredConceptFields` lists
 the frontmatter keys a concept must carry for the gate to pass: those the
@@ -107,6 +112,25 @@ Future<void> main() async {
   `lock-change-required` before any Git command, and the
   `ProfileLockChangeRequiredException` carries that `ProfileLockChange`.
   Apply the plan to reinstall the locked Profile skills.
+- `relock(root, edit:)` changes `wayfinder.json` and writes the lock for
+  it offline, under one hold of the project's `get` lock, as a host does to
+  register an actor: the lock's hash covers the whole configuration, so the
+  edit alone would leave it stale. `edit` receives the configuration's text
+  and returns the new text. Relocking keeps exactly the commits the lock
+  pins, runs no Git, and leaves Profile skills alone, as `skills: false`
+  does. Before writing anything it refuses an edit that changes a Profile,
+  source or binding the lock does not pin as it stands, and a missing lock,
+  with `lock-change-required` and its `ProfileLockChange`, and what
+  selection would report, such as a package missing from the cache or a
+  chain that no longer composes. A file it cannot read or replace throws
+  `ProfileRelockFailedException` (`relock-failed`). When a write fails, a
+  file it already wrote gets its original bytes back where that is
+  possible; the exception's `changed` names any file that kept the new
+  bytes, and is empty otherwise. When `wayfinder.json` kept the edit,
+  `status` reports the lock as `configuration-changed`, and relocking with
+  an edit that returns the text unchanged writes the lock for it. A `get`,
+  an apply, an adoption and another relock exclude it and are excluded
+  (`resolution-busy`), and a plan made before it no longer applies.
 - `plan(root, skills: false)` leaves Profile skills alone, as a host does to
   fill the Profile cache without touching `.claude/skills` or
   `.agents/skills`: it reads no skill file, refuses no skill directory, and
@@ -235,7 +259,149 @@ records these decisions.
 `WayfinderConfigEditor` write `wayfinder.json` in its documented layout. The
 editor changes a Profile's source and bundles, the project's vocabulary and
 its actors, and keeps every field it does not model and every value as
-written.
+written. `encode(minimal: true)` also keeps the file's own bytes: it
+rewrites only the members the edits changed, so registering an actor adds
+exactly that actor, at the indentation and with the line endings the file
+uses. It writes an object or list whole where an edit cannot be spliced,
+such as a list that both gains and loses items, and writes the whole file
+with the full encoder when the spliced text does not parse back to the
+edited document. Registering an actor with `relock`, with
+`package:wayfinder/wayfinder.dart` imported for the editor:
+
+```dart
+await resolver.relock(
+  project.root,
+  edit: (text) =>
+      (WayfinderConfigEditor.parse(text)..putActor(
+            ProfileId.parse('bitwild-profile'),
+            'mcp:claude-code',
+            const WayfinderActorMetadata(name: 'Claude Code', side: 'tool'),
+          ))
+          .encode(minimal: true),
+);
+```
+
+## Authoring
+
+`package:wayfinder/authoring.dart` is the write path for a bundle a Profile
+governs. `KnowledgeWriter.prepare` builds the candidate one change describes
+and judges it in memory; it writes nothing. `KnowledgeWriter.commit` writes
+exactly what was judged, under okf's bundle lock:
+
+```dart
+import 'package:okf/okf.dart';
+import 'package:wayfinder/authoring.dart';
+import 'package:wayfinder/project.dart';
+
+Future<void> main() async {
+  final writer = KnowledgeWriter(
+    resolver: WayfinderProfileResolver(
+      dataDirectory: WayfinderDataDirectory.resolve(),
+    ),
+  );
+  final plan = await writer.prepare(
+    'knowledge',
+    CreateConcept(
+      id: OkfConceptId('reporting/pagination-contract'),
+      frontmatter: {
+        'type': 'Specification',
+        'title': 'Pagination contract',
+        'description': 'How the renderer splits an export into pages.',
+        'status': 'draft',
+      },
+      body: '# Specification\n\nPages break at section bounds.\n',
+    ),
+    stamp: const KnowledgeStamp.generated(by: 'claude-code/opus-5'),
+    logEntry: const KnowledgeLogEntry(
+      action: 'Creation',
+      description:
+          'Recorded [Pagination contract](/reporting/pagination-contract.md).',
+    ),
+  );
+  for (final finding in plan.introduced) {
+    print(finding.toText());
+  }
+  if (plan.committable) await writer.commit(plan);
+}
+```
+
+- A `KnowledgeChange` is `CreateConcept`, `UpdateConcept` (a null field
+  removes it), `LinkConcepts`, which appends to the concept's `relationships`,
+  `DeprecateConcept`, or the `RegenerateIndexes` repair, which writes exactly
+  what `validate --fix` writes.
+- When the selected Profile generates indexes, a write rewrites only those
+  whose generated text it changes; any other index keeps its bytes, stale or
+  not. Without such a rule, okf regenerates the changed concept's ancestor
+  indexes.
+- The root log records the caller's `KnowledgeLogEntry` exactly as given,
+  several as `KnowledgeLogEntries` in the order given under one date, okf's
+  lifecycle entry (`KnowledgeLog.lifecycle`, the default), or nothing
+  (`KnowledgeLog.none`). New entries are inserted as lines in the log's own
+  style, so the existing entries keep their bytes.
+- A `KnowledgeStamp` records `generated: {by, at}` when the write creates or
+  changes content (the body, `title`, `description` or `type`); a verified
+  stamp also appends `{by, at}` to `verified`. A change may not set either
+  key itself. `changesConceptContent(before, after)` is that rule over two
+  documents, `UpdateConcept.changesContent(current)` applies it to one
+  update, and the plan's `changesContent` says what `prepare` decided on the
+  concept as it read it. A `KnowledgeContentLog` records the entry it holds
+  only for such a write, so a host that logs content changes only, such as
+  with an `Update` entry, passes it instead of applying the rule itself.
+- The plan holds the `base` and `candidate` validations, the `diff` of every
+  file it writes, and the candidate's Profile findings split into
+  `introduced` and `preExisting` by rule id and path. `okf` is the
+  candidate's whole OKF result, and `introducedOkf` and `preExistingOkf`
+  split its findings the same way, by finding id and location path. It is
+  `committable` when okf accepts the whole candidate and it introduces no
+  Profile error. Check `plan.candidate.gate` to require a passing bundle,
+  and `plan.assessed` to require that a Profile judged the write: when none
+  can be selected, the plan is judged by OKF alone.
+- `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
+  plan that is not committable and `KnowledgeStaleWriteException`
+  (`write-stale`) when the bundle, or a project file its selection came
+  from, changed since `prepare`; the exception's `projectFiles` names the
+  files that changed. Neither writes anything. The plan's `projectFiles`
+  are those files, with the digest of their bytes: the `wayfinder.json` and
+  `wayfinder.lock` the selection came from, whether or not it selected a
+  Profile, with each closer `wayfinder.json` path binding looked at first,
+  absent; or, when no configuration binds the bundle, each `wayfinder.json`
+  path binding looked at, absent. So one that appears, which would bind the
+  bundle, makes the plan stale. A host that selects itself captures them
+  with its selection and passes them as `projectFiles`, so a change between
+  its selection and `prepare` is refused too: `KnowledgeProjectFiles.forBundle`
+  or `read` before it selects, or the digests of the bytes it read itself,
+  each path made absolute when the `KnowledgeProjectFiles` is built.
+  `commit` checks them under okf's lock of the bundle, which `relock` and
+  `get` do not take, so the check is not atomic with them: a host that both
+  relocks and writes serializes the two itself.
+  `KnowledgeWriteFailedException` (`write-failed`) reports a bundle that
+  cannot be locked, read or written; its `partial` is true only when okf's
+  rollback failed too. A plan commits once.
+- `prepare` and `commit` take a `WayfinderCancellation`, checked between
+  steps; a cancelled commit writes nothing and leaves the plan committable.
+- Without a `selection`, `prepare` binds the bundle through the nearest
+  `wayfinder.json` above it, towards the filesystem root by default. A host
+  passes the project root it opens as `projectRoot`, and binding then reads
+  nothing above it, as `WayfinderProjectConfig.bind` does.
+
+`prepare` reads the bundle under okf's shared claim, releases it, and then
+runs the Profile assessment once through a `KnowledgeAssessor`, with plain
+data and no lock. The default runs it on the calling isolate; another
+isolate works too:
+
+```dart
+final writer = KnowledgeWriter(
+  resolver: resolver,
+  assess: (input, cancel) => Isolate.run(input.assess),
+);
+```
+
+A Profile's rules can be slow, so a host that needs a deadline spawns an
+isolate it kills when the deadline passes or `cancel` fires. Run every other
+step on the isolate that does the process's other okf bundle I/O. A commit leaves okf's
+`.okf.lock` in the bundle, as `validate --fix` does; ignore it in Git.
+[ADR-0019](../../docs/adr/0019-profile-aware-writes.md) records these
+decisions.
 
 For the command and MCP server, install **wayfinder_cli**:
 

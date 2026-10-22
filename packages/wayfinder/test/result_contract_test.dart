@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/wayfinder.dart';
@@ -14,7 +15,7 @@ void main() {
 
     expect(jsonEncode(repeated.toJson()), jsonEncode(result.toJson()));
     expect(result.exitCode, 0);
-    expect(result.toJson()['engine'], {'okf': okfPackageVersion});
+    expect(result.toJson()['engine'], {'okf': okfVersion});
     expect(result.toJson(), <String, Object?>{
       'okf': <String, Object?>{
         'state': 'PASS',
@@ -32,7 +33,7 @@ void main() {
       },
       'diagnostics': <Object?>[],
       'gate': <String, Object?>{'state': 'PASS'},
-      'engine': <String, Object?>{'okf': okfPackageVersion},
+      'engine': <String, Object?>{'okf': okfVersion},
     });
     final text = result.toTextLines().join('\n');
     expect(text, contains('Profile bitwild-profile 2026.3: PASS'));
@@ -117,7 +118,7 @@ void main() {
       },
       'diagnostics': <Object?>[],
       'gate': <String, Object?>{'state': 'FAIL'},
-      'engine': <String, Object?>{'okf': okfPackageVersion},
+      'engine': <String, Object?>{'okf': okfVersion},
     });
     expect(
       result.toTextLines(),
@@ -146,7 +147,7 @@ void main() {
         },
       ],
       'gate': <String, Object?>{'state': 'INCOMPLETE'},
-      'engine': <String, Object?>{'okf': okfPackageVersion},
+      'engine': <String, Object?>{'okf': okfVersion},
     });
     expect(result.toTextLines().join('\n'), '''OKF: PASS
 OKF Report: 0 error(s), 0 advisory(ies).

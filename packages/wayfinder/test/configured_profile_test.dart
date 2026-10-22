@@ -8,26 +8,19 @@ import 'package:wayfinder/wayfinder.dart';
 import 'support.dart';
 
 void main() {
-  test(
-    'the engine embeds its schemas and okf version, and no Profile',
-    () async {
-      final source = await File(
-        'lib/src/generated/published_schemas.g.dart',
-      ).readAsString();
-      expect(
-        RegExp(
-          r'^const String (\w+)',
-          multiLine: true,
-        ).allMatches(source).map((match) => match[1]),
-        [
-          'wayfinderConfigurationSchema',
-          'wayfinderProfileSchema',
-          'okfPackageVersion',
-        ],
-      );
-      expect(source, isNot(contains('bitwild')));
-    },
-  );
+  test('the engine embeds its schemas and no Profile', () async {
+    final source = await File(
+      'lib/src/generated/published_schemas.g.dart',
+    ).readAsString();
+    expect(
+      RegExp(
+        r'^const String (\w+)',
+        multiLine: true,
+      ).allMatches(source).map((match) => match[1]),
+      ['wayfinderConfigurationSchema', 'wayfinderProfileSchema'],
+    );
+    expect(source, isNot(contains('bitwild')));
+  });
 
   late Directory project;
   late Directory bundle;

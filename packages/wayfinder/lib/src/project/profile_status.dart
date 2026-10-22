@@ -284,6 +284,15 @@ final class ProfileLockChangeRequiredException extends WayfinderException {
             'never does: ${change.reason}',
       );
 
+  /// The refusal of [WayfinderProfileResolver.relock], which keeps exactly
+  /// the commits the lock pins, before it writes anything.
+  ProfileLockChangeRequiredException.relock(this.change)
+    : super(
+        'lock-change-required',
+        'Relocking keeps exactly the commits wayfinder.lock pins, so it '
+            'cannot lock this configuration: ${change.reason}',
+      );
+
   /// What would change in the lock, and why.
   final ProfileLockChange change;
 
