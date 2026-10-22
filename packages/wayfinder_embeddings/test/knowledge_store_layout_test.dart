@@ -814,6 +814,10 @@ Future<void> main(List<String> arguments) async {
         testOn: '!windows',
       );
 
+      final busy = throwsA(
+        isA<WayfinderException>().having((e) => e.code, 'code', 'index-busy'),
+      );
+
       test('is refused, deleting nothing, while an operation holds one of '
           'the indexes', () async {
         final before = await treeBytes(indexes());
@@ -821,21 +825,35 @@ Future<void> main(List<String> arguments) async {
           writerLock(indexed[nested]!.single),
         );
         try {
-          await expectLater(
-            store().forgetProjectRoot(project.path),
-            throwsA(
-              isA<WayfinderException>().having(
-                (e) => e.code,
-                'code',
-                'index-busy',
-              ),
-            ),
-          );
-          expect(await treeBytes(indexes()), before);
+          await expectLater(store().forgetProjectRoot(project.path), busy);
         } finally {
           await held!.release();
         }
+        // Read once released: Windows reads no held lock file.
+        expect(await treeBytes(indexes()), before);
         expect(await store().forgetProjectRoot(project.path), hasLength(2));
+      });
+
+      test('is refused, deleting nothing, while an operation holds an index '
+          'whose recorded root cannot be read', () async {
+        // Another project's bundle, whose note is blank, as while its writer
+        // replaces it; on Windows no held note can be read at all.
+        final unread = indexed[sibling]!.single;
+        await writerLock(unread).writeAsString('');
+        final before = await treeBytes(indexes());
+        final held = await WayfinderFileLock.tryExclusive(writerLock(unread));
+        try {
+          await expectLater(store().forgetProjectRoot(project.path), busy);
+        } finally {
+          await held!.release();
+        }
+        expect(await treeBytes(indexes()), before);
+        expect(
+          await store().forgetProjectRoot(project.path),
+          [first.root, nested.root]..sort(),
+          reason: 'released, an index that records no root is not found',
+        );
+        expect(currentGeneration(unread).existsSync(), isTrue);
       });
 
       test('refuses a blank root, which would name the working '
@@ -850,11 +868,24 @@ Future<void> main(List<String> arguments) async {
         expect(await treeBytes(indexes()), before);
       });
 
-      test('leaves an index whose lock records no root for prune', () async {
-        final unnoted = writerLock(indexed[nested]!.single);
-        await unnoted.writeAsString('');
-        expect(await store().forgetProjectRoot(project.path), [first.root]);
-        expect(currentGeneration(indexed[nested]!.single).existsSync(), isTrue);
+      test('leaves an index whose lock records no root, which prune keeps '
+          'too and forget of its bundle deletes', () async {
+        final unnoted = indexed[nested]!.single;
+        await writerLock(unnoted).writeAsString('');
+        final projectPath = project.path;
+        await project.delete(recursive: true);
+        expect(await store().forgetProjectRoot(projectPath), [first.root]);
+        expect(currentGeneration(unnoted).existsSync(), isTrue);
+        final pruned = await store().prune(unusedFor: Duration.zero);
+        expect(
+          pruned.removed,
+          isEmpty,
+          reason: "its root is unknown and its configuration is the store's",
+        );
+        expect(currentGeneration(unnoted).existsSync(), isTrue);
+        await store().forget(nested);
+        expect(await Directory(p.dirname(unnoted)).exists(), isFalse);
+        expectKept([sibling, outside]);
       });
     });
 
