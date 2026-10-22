@@ -88,11 +88,10 @@ void main() {
   test('stops a package whose rule tests run past the timeout, naming the '
       'rule', () async {
     final watch = Stopwatch()..start();
+    // Long enough for a loaded runner to reach the second rule; the
+    // hostile pattern runs far longer.
     await expectLater(
-      ProfilePackage.parseWithin(
-        _hostile,
-        timeout: const Duration(milliseconds: 300),
-      ),
+      ProfilePackage.parseWithin(_hostile, timeout: const Duration(seconds: 2)),
       throwsA(
         isA<ProfilePackageException>()
             .having((error) => error.timedOut, 'timedOut', isTrue)
@@ -101,11 +100,52 @@ void main() {
             .having(
               (error) => '$error',
               'text',
-              'did not finish within 300 milliseconds at rules[1].tests',
+              'did not finish within 2 seconds at rules[1].tests',
             ),
       ),
     );
     expect(watch.elapsed, lessThan(const Duration(seconds: 10)));
+  });
+
+  test('reports a parse that stops on another error as the package\'s, '
+      'without parsing it again here', () async {
+    // Dart's regular-expression engine runs out of backtracking stack on a
+    // long enough subject and throws a StackOverflowError, which no
+    // ProfilePackageException catches.
+    final json = packageJson(
+      rules: [
+        ruleJson(
+          'long-title',
+          subject: 'frontmatter',
+          schema: {
+            'properties': {
+              'title': {'pattern': r'^(?:a|b)*$'},
+            },
+          },
+          valid: [
+            {'title': 'LONG'},
+          ],
+          invalid: [
+            {'title': 'c'},
+          ],
+        ),
+      ],
+    ).replaceFirst('LONG', 'ab' * 6000000);
+    expect(() => ProfilePackage.parse(json), throwsA(isA<Error>()));
+    await expectLater(
+      ProfilePackage.parseWithin(json),
+      throwsA(
+        isA<ProfilePackageException>()
+            .having((error) => error.where, 'where', 'rules[0].tests')
+            .having(
+              (error) => error.message,
+              'message',
+              'failed: Stack Overflow',
+            )
+            .having((error) => error.timedOut, 'timedOut', isFalse)
+            .having((error) => error.unsupported, 'unsupported', isFalse),
+      ),
+    );
   });
 
   test('the default bound is ten seconds', () {
