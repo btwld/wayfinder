@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/src/rules/builtins.dart';
@@ -138,7 +139,7 @@ void main() {
         },
         'matches-generated': {
           'generator': 'okf-index',
-          'version': okfPackageVersion,
+          'version': okfIndexGeneratorRevision,
           'keep': ['index.md'],
           'extra': 'ignore',
         },

@@ -1,7 +1,6 @@
 import 'package:ack/ack.dart';
 import 'package:okf/okf_io.dart';
 
-import '../generated/published_schemas.g.dart';
 import 'builtins.dart';
 import 'facts.dart';
 
@@ -25,16 +24,17 @@ Iterable<Violation> filesPresent(
 
 final matchesGeneratedParams = Ack.object({
   'generator': Ack.literal('okf-index'),
-  'version': Ack.literal(okfPackageVersion).optional(),
+  'version': Ack.literal(okfIndexGeneratorRevision).optional(),
   'keep': Ack.list(Ack.string().minLength(1)).unique().optional(),
   'extra': Ack.enumString(['report', 'ignore']).optional(),
 });
 
 /// What `generator` writes for the bundle, by bundle-relative path. The
-/// generated text declares the Profile's `implements.release`; which okf
-/// generator wrote it is the engine's okf dependency, reported as
-/// `engine.okf`. A package that pins `version` loads only on an engine with
-/// that okf, so a generator upgrade cannot change its verdicts unannounced.
+/// generated text declares the Profile's `implements.release`. The bytes are
+/// those of the engine's okf release, reported as `engine.okf`, and every okf
+/// release with one [okfIndexGeneratorRevision] writes the same bytes. A
+/// package that pins `version` names that revision, so it loads only on an
+/// engine whose generator writes the bytes its verdicts assume.
 Map<String, String> generated(BundleFacts facts, Map<String, Object?> params) =>
     switch (params['generator']) {
       'okf-index' => const OkfIndexGenerator().generate(
