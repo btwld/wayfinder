@@ -63,7 +63,9 @@
   rank the same in every worktree.
 - With `WAYFINDER_EMBEDDING_MODEL` set, `index` checks the file before it
   reports a current index, and so can report one; before, it reloaded the
-  model on every run.
+  model on every run. `index <bundle> --detach` checks it first too, and an
+  invalid setting fails with the foreground's error and exit code 2; before,
+  `--detach` reported `started` and the background run failed.
 - Commands on one index exclude each other with a `flock` lock file beside
   it, across processes and isolates; a second one still fails with
   `Index is busy`.

@@ -196,8 +196,9 @@ An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
 
 Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
-invalid explicit setting fails instead of selecting another model: `index`
-checks it even when the saved index is current.
+invalid explicit setting fails instead of selecting another model: `index`,
+including `index <bundle> --detach`, checks it even when the saved index is
+current.
 
 Native builds check the installed and packaged ObjectBox bytes against pinned
 platform hashes and include its license and attribution.

@@ -687,6 +687,56 @@ void main() {
       skip: skipWithoutObjectBox,
     );
 
+    test(
+      '--detach checks an explicit model setting before it reports a current '
+      'index',
+      () async {
+        final temp = await Directory.systemTemp.createTemp('wayfinder-model-');
+        addTearDown(() => temp.delete(recursive: true));
+        final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+        for (final file in Directory(
+          'test/fixtures/knowledge',
+        ).listSync().whereType<File>()) {
+          await file.copy(p.join(bundle.path, p.basename(file.path)));
+        }
+        final data = Directory(p.join(temp.path, 'data'));
+        // An index that is current for the command's own model, built with
+        // deterministic vectors under that model's identity.
+        final store = WayfinderKnowledgeStore(
+          dataDirectory: data,
+          encoder: _InstalledIdentityProvider(),
+          loadObjectBox: loadObjectBox,
+        );
+        final target = ProjectBundle(
+          'knowledge',
+          'knowledge',
+          bundle.resolveSymbolicLinksSync(),
+        );
+        await store.index(target);
+        expect(await store.status(target), isA<KnowledgeIndexCurrent>());
+        await store.dispose();
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          ['run', 'bin/wayfinder.dart', 'index', bundle.path, '--detach'],
+          environment: {
+            for (final entry in Platform.environment.entries)
+              if (entry.key != 'KNOWLEDGE_EMBEDDING_MODEL')
+                entry.key: entry.value,
+            'WAYFINDER_DATA_DIR': data.path,
+            'WAYFINDER_EMBEDDING_MODEL': p.join(temp.path, 'missing.gguf'),
+            'WAYFINDER_NO_UPDATE_CHECK': '1',
+          },
+          includeParentEnvironment: false,
+        );
+        expect(result.exitCode, 2, reason: '${result.stdout}');
+        expect(result.stderr, contains('missing.gguf'));
+        expect(result.stdout, isNot(contains('current')));
+      },
+      skip: skipWithoutObjectBox,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
     test('a background index stops when its bundle disappears', () async {
       final bundle = await Directory.systemTemp.createTemp('wayfinder-gone-');
       final run = indexCli(
@@ -984,3 +1034,27 @@ class _SearchKnowledge extends WayfinderKnowledgeStore {
 /// The resolver the command uses by default.
 WayfinderProfileResolver _defaultResolver() =>
     WayfinderProfileResolver(dataDirectory: WayfinderDataDirectory.resolve());
+
+/// Deterministic vectors under the identity of the command's own model, so
+/// the command finds the index current without loading a model.
+final class _InstalledIdentityProvider implements WayfinderEncoderProvider {
+  @override
+  WayfinderEncoderIdentity get identity =>
+      LocalModelEncoderProvider.identityFor(localEmbeddingModel);
+
+  @override
+  Future<WayfinderEncoder> open() async => WayfinderEncoder(
+    _NamedEmbedder(identity),
+    (text) async => text.split(' ').length,
+    512,
+  );
+}
+
+class _NamedEmbedder extends DeterministicTestEmbedder {
+  _NamedEmbedder(this.identity) : super(modelName: identity.model);
+
+  final WayfinderEncoderIdentity identity;
+
+  @override
+  String get sourceName => identity.source;
+}
