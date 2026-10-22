@@ -305,6 +305,9 @@ with one of these diagnostics:
 - `wayfinder/profile-unsupported` when a package is well-formed for another
   engine. It may declare another `format`, an OKF release this okf cannot
   read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
+- `wayfinder/profile-timeout` when reading a package, its rule tests
+  included, does not finish within ten seconds, as a `pattern` that
+  backtracks without end can cause. The Profile's author fixes the rule.
 - `wayfinder/profile-composition` when the chain does not compose.
 
 ## Sources and lockfile
@@ -496,10 +499,10 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    following each locked package's `extends` to the root.
 4. Parse each package in the chain, including its rule tests, then compose
    the chain and the project entry. A package that fails reports
-   `profile-invalid` or `profile-unsupported`, and a chain that does not
-   compose reports `profile-composition`. A chain member's installed skill
-   that is missing or not at the locked commit reports the
-   `profile-skill-stale` warning.
+   `profile-invalid`, `profile-unsupported` or `profile-timeout`, and a
+   chain that does not compose reports `profile-composition`. A chain
+   member's installed skill that is missing or not at the locked commit
+   reports the `profile-skill-stale` warning.
 5. When OKF passed, run the rules of every package in the chain against the
    composed vocabulary, parent first. Contextual rules are left to Profile
    Review.

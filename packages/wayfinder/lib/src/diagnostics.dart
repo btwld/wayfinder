@@ -49,6 +49,13 @@ enum DiagnosticCode {
     DiagnosticChannel.configuration,
     'This wayfinder cannot read a Profile package in the selected chain.',
   ),
+  profileTimeout(
+    'profile-timeout',
+    DiagnosticLevel.error,
+    DiagnosticChannel.configuration,
+    'A Profile package in the selected chain did not finish loading within '
+        'the time the engine allows.',
+  ),
   profileComposition(
     'profile-composition',
     DiagnosticLevel.error,

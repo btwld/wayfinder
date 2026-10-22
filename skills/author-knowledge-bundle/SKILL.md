@@ -45,13 +45,15 @@ chain is missing or a Profile skill cannot be loaded, act on the diagnostic
   authorized authoring, run `wayfinder get` and include the resulting
   `wayfinder.lock` and skill directories in the change. Otherwise report it.
   `validate` itself never fetches.
-- `wayfinder/profile-invalid`, `wayfinder/profile-unsupported`, or
-  `wayfinder/profile-composition`: a package in the chain cannot be read or
-  composed, so no rule ran. Do not guess the rules. Report the diagnostic.
-  `profile-unsupported` means the package needs a newer wayfinder.
+- `wayfinder/profile-invalid`, `wayfinder/profile-unsupported`,
+  `wayfinder/profile-timeout`, or `wayfinder/profile-composition`: a package
+  in the chain cannot be read or composed, so no rule ran. Do not guess the
+  rules. Report the diagnostic. `profile-unsupported` means the package
+  needs a newer wayfinder.
   `profile-composition` can come from the project's own additions in
-  `wayfinder.json`, so check those first. A malformed package is for its
-  Profile's author to fix.
+  `wayfinder.json`, so check those first. A malformed package, or one whose
+  rule tests run too long (`profile-timeout`), is for its Profile's author to
+  fix.
 - `wayfinder/profile-skill-stale`, or a chain id with no installed skill
   directory although its package ships one: run `wayfinder get`, which
   installs the skill pinned to the locked commit. Never edit an installed

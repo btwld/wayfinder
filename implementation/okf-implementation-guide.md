@@ -264,6 +264,7 @@ that blocks a complete assessment.
 | `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
 | `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `$schema` dialect, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
+| `profile-timeout` | error | reading a package in the chain, its rule tests included, did not finish within the engine's bound (§5.6) |
 | `profile-composition` | error | the chain and the project additions do not compose (§5.7) |
 | `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
 | `project-type` | note | the configuration adds a type to the Profile types |
@@ -697,7 +698,13 @@ builtin rule has none, because exercising a builtin needs a bundle. Severity is 
 action and never changes the gate or the exit status. A note is a summary
 entry (§4.1). A check is either a JSON Schema over one subject's facts or a
 builtin. The parser runs each rule's `tests` and reports a package whose
-examples disagree with its check as `wayfinder/profile-invalid`.
+examples disagree with its check as `wayfinder/profile-invalid`. A rule's
+`pattern` runs on a backtracking regular-expression engine, where a pattern
+can take far longer than any rule needs, so the engine bounds reading a
+package: one whose parse, its tests included, does not finish within the
+engine's bound, ten seconds in this engine, is refused whole and reported as
+`wayfinder/profile-timeout`. A package's tests should finish in
+milliseconds.
 
 A builtin is a check the engine implements and versions with its release. Any
 package may call one by name with `params`. The rule's id, severity, message,
@@ -766,11 +773,11 @@ The engine selects a Profile only through `wayfinder.json` and its lock
 bundle content, and never applies part of a package. When it cannot select
 and read the whole chain, the Profile state is `NOT ASSESSED` and an error
 diagnostic says why: `config-missing`, `config-invalid`, `bundle-unbound`,
-`profile-unresolved`, `profile-invalid`, `profile-unsupported`, or
-`profile-composition` (§4.1). Only then does JSON omit `profile.id`,
-`profile.release`, and `profile.chain`. The gate is then `INCOMPLETE` with
-exit `2`, unless OKF or an evaluated rule already failed it. A `PASS` always
-means every selected rule ran.
+`profile-unresolved`, `profile-invalid`, `profile-unsupported`,
+`profile-timeout`, or `profile-composition` (§4.1). Only then does JSON
+omit `profile.id`, `profile.release`, and `profile.chain`. The gate is then
+`INCOMPLETE` with exit `2`, unless OKF or an evaluated rule already failed
+it. A `PASS` always means every selected rule ran.
 
 ### 5.9 Tolerant reading
 
@@ -855,6 +862,21 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+**Bounded package reading, next wayfinder release.** Binds no Profile and
+keeps package format 2. §5.6 bounds reading a Profile package, its rule
+`tests` included, and refuses one that runs past the bound as the new
+`wayfinder/profile-timeout` configuration diagnostic, which §§4.1 and 5.8
+add to the closed set. Affected sections: §§4.1, 5.6, 5.8, and 9. Driver: a
+host that embeds resolution found that a package whose tests run a pattern
+that backtracks without end, such as `^(a+)+$` on a near miss, held `get`,
+`validate` and every selection forever, and nothing on the parsing isolate
+could stop it. Migration for implementations: read a package where its
+parse can be stopped, refuse it whole once it runs past a bound well above
+what real packages take, and report `profile-timeout`. Migration for
+packages: none. Bitwild, the largest shipped package, parses with its tests
+in about five milliseconds, so no package reads differently, and a package
+that would take ten seconds was already unusable.
 
 **Profile-aware writes, next wayfinder release.** Binds no Profile and keeps
 package format 2. The new §3.5 binds a tool that writes a bundle on its

@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -14,6 +15,7 @@ import 'support.dart';
 
 final _bitwild = ProfileId.parse('bitwild-profile');
 final _client = ProfileId.parse('client-profile');
+final _hostile = ProfileId.parse('hostile-profile');
 
 void main() {
   late Directory temp;
@@ -1556,6 +1558,22 @@ void main() {
         'format': 3,
       }, tag: 'arm-unsupported');
       await commitPackage('copy', package('bitwild-profile'), tag: 'arm-copy');
+      await commitPackage(
+        'hostile',
+        jsonDecode(
+              await File(
+                p.join(
+                  'test',
+                  'project',
+                  'fixtures',
+                  'hostile-pattern',
+                  'wayfinder-profile.json',
+                ),
+              ).readAsString(),
+            )
+            as Map<String, Object?>,
+        tag: 'arm-hostile',
+      );
       tags = {
         for (final tag in [
           'v2026.3',
@@ -1563,6 +1581,7 @@ void main() {
           'arm-misnamed',
           'arm-unsupported',
           'arm-copy',
+          'arm-hostile',
         ])
           tag: await _gitOutput(source.path, ['rev-parse', '$tag^{commit}']),
       };
@@ -1589,11 +1608,100 @@ void main() {
       return (selection as UnselectedProfile).reasons.single;
     }
 
+    /// The status of the binding [id], which must be [state] and report
+    /// exactly what [select] reports for the bundle.
+    Future<ProfileBindingStatus> agrees(
+      ProfileBindingState state, {
+      ProfileId? id,
+      WayfinderProfileResolver? using,
+    }) async {
+      final reading = using ?? resolver;
+      final status = (await reading.status(project.path)).of(id ?? _bitwild)!;
+      expect(status.state, state);
+      switch (await reading.select(bundle)) {
+        case UnselectedProfile(:final reasons):
+          expect(status.diagnostic?.toJson(), reasons.single.toJson());
+        case SelectedProfile(:final notes):
+          expect(status.diagnostic, isNull);
+          expect(
+            status.notes.map((note) => note.toJson()),
+            notes.map((note) => note.toJson()),
+          );
+      }
+      return status;
+    }
+
     test('selects the locked chain with its commits', () async {
       final selection = await resolver.select(bundle) as SelectedProfile;
       expect(selection.profile.selected.id, _bitwild);
       expect(selection.commits, {_bitwild: tags['v2026.3']});
       expect(selection.config?.path, 'wayfinder.json');
+      final status = await agrees(ProfileBindingState.resolved);
+      expect(status.chain.map((locked) => locked.commit), [tags['v2026.3']]);
+      expect(status.missing, isEmpty);
+      expect(status.toJson(), {
+        'id': 'bitwild-profile',
+        'state': 'resolved',
+        'source': {
+          'git': source.path,
+          'ref': 'v2026.3',
+          'path': 'profiles/bitwild',
+        },
+        'applies_to': ['knowledge'],
+        'chain': [
+          {'id': 'bitwild-profile', ...locked('v2026.3', 'profiles/bitwild')},
+        ],
+        'missing': <Object?>[],
+        'diagnostic': null,
+        'notes': <Object?>[],
+      });
+    });
+
+    test('status reports each binding, in id order', () async {
+      final solo = ProfileId.parse('solo-profile');
+      await commitPackage('solo', {
+        'format': 2,
+        'id': 'solo-profile',
+        'release': '1.0',
+        'implements': {'id': 'okf', 'release': '0.2'},
+        'rules': <Object?>[],
+      }, tag: 'arm-solo');
+      await Directory(p.join(project.path, 'other')).create();
+      final value = await config();
+      value['profiles']['solo-profile'] = {
+        'source': {'git': source.path, 'ref': 'arm-solo', 'path': 'solo'},
+        'applies_to': ['./other'],
+      };
+      await saveConfig(value);
+      await resolver.resolve(project.path);
+      calls.clear();
+
+      var status = await resolver.status(project.path);
+      expect(status.resolved, isTrue);
+      expect(status.bindings.map((binding) => binding.id), [_bitwild, solo]);
+      expect(status.of(solo)!.appliesTo, ['other']);
+      expect(status.toJson(), containsPair('resolved', true));
+
+      final locked = status.of(solo)!.chain.single;
+      await File(
+        p.join(
+          data.path,
+          'profiles',
+          'packages',
+          '${sha256.convert(utf8.encode('${locked.commit}\u0000solo'))}.json',
+        ),
+      ).delete();
+      status = await resolver.status(project.path);
+      expect(status.resolved, isFalse);
+      expect(status.of(_bitwild)!.state, ProfileBindingState.resolved);
+      expect(status.of(solo)!.state, ProfileBindingState.cacheMissing);
+      expect(status.of(solo)!.missing.map((package) => package.toJson()), [
+        locked.toJson(),
+      ]);
+      expect(
+        status.of(solo)!.diagnostic?.code,
+        DiagnosticCode.profileUnresolved,
+      );
     });
 
     test('config-missing when the named file does not exist', () async {
@@ -1608,6 +1716,16 @@ void main() {
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.configInvalid);
       expect(diagnostic.location?.path, 'wayfinder.json');
+      await expectLater(
+        resolver.status(project.path),
+        throwsA(
+          isA<WayfinderException>().having(
+            (error) => error.code,
+            'code',
+            'config-invalid',
+          ),
+        ),
+      );
     });
 
     test('bundle-unbound when no entry applies to the bundle', () async {
@@ -1629,6 +1747,7 @@ void main() {
         'Profile lock is missing or unreadable. Run wayfinder get.',
       );
       expect(diagnostic.location?.path, 'wayfinder.json');
+      expect((await agrees(ProfileBindingState.lockMissing)).chain, isEmpty);
     });
 
     test('profile-unresolved when the configuration changed', () async {
@@ -1644,6 +1763,7 @@ void main() {
         'Profile lock is stale: the configuration changed after wayfinder '
         'get. Run wayfinder get.',
       );
+      await agrees(ProfileBindingState.lockStale);
     });
 
     test('profile-unresolved when the lock lacks the chain', () async {
@@ -1661,6 +1781,7 @@ void main() {
         'Profile lock has no complete chain for Profile bitwild-profile. '
         'Run wayfinder get.',
       );
+      await agrees(ProfileBindingState.lockStale);
     });
 
     group('profile-unresolved when the lock records another', () {
@@ -1683,6 +1804,7 @@ void main() {
           diagnostic.message,
           message(other, 'v2026.3', 'profiles/bitwild'),
         );
+        await agrees(ProfileBindingState.lockStale);
       });
 
       test('ref', () async {
@@ -1695,6 +1817,7 @@ void main() {
           diagnostic.message,
           message(source.path, 'arm-child', 'profiles/bitwild'),
         );
+        await agrees(ProfileBindingState.lockStale);
       });
 
       test('path', () async {
@@ -1707,6 +1830,7 @@ void main() {
         final diagnostic = await reason();
         expect(diagnostic.code, DiagnosticCode.profileUnresolved);
         expect(diagnostic.message, message(source.path, 'v2026.3', 'copy'));
+        await agrees(ProfileBindingState.lockStale);
       });
     });
 
@@ -1719,6 +1843,9 @@ void main() {
         'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) is '
         'not in the local cache. Run wayfinder get.',
       );
+      final status = await agrees(ProfileBindingState.cacheMissing);
+      expect(status.missing.map((locked) => locked.commit), [tags['v2026.3']]);
+      expect(status.chain, status.missing);
     });
 
     test('profile-unresolved when only the mirror survives, as a 0.2 cache '
@@ -1735,6 +1862,7 @@ void main() {
         'Wayfinder wrote. Run wayfinder get; it fetches nothing while the '
         'cached source holds that commit.',
       );
+      await agrees(ProfileBindingState.cacheMissing);
     });
 
     test('profile-unresolved when the package release differs', () async {
@@ -1752,6 +1880,7 @@ void main() {
         'Profile bitwild-profile at ${tags['v2026.3']} declares release '
         '2026.3; the lock records 2026.9. Run wayfinder get.',
       );
+      expect((await agrees(ProfileBindingState.lockStale)).chain, hasLength(1));
     });
 
     test('profile-unresolved when the package parent differs', () async {
@@ -1769,6 +1898,7 @@ void main() {
         'Profile client-profile at ${tags['arm-child']} declares another '
         'parent than the lock records. Run wayfinder get.',
       );
+      await agrees(ProfileBindingState.lockStale, id: _client);
     });
 
     test('profile-invalid when the package declares another id', () async {
@@ -1786,6 +1916,7 @@ void main() {
         'Profile package misnamed at ${source.path} (${tags['arm-misnamed']}) '
         'declares id someone-else; the lock names it client-profile.',
       );
+      await agrees(ProfileBindingState.packageInvalid, id: _client);
     });
 
     test('profile-unsupported when the package format is unknown', () async {
@@ -1801,6 +1932,75 @@ void main() {
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.profileUnsupported);
       expect(diagnostic.message, contains('package format 3 is not supported'));
+      await agrees(ProfileBindingState.packageUnsupported, id: _client);
+    });
+
+    test('profile-timeout when reading a package runs past the bound, and the '
+        'mirror is free again', () async {
+      final bounded = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+        packageTimeout: const Duration(milliseconds: 300),
+      );
+      await bindOnly('hostile-profile', {
+        'git': source.path,
+        'ref': 'arm-hostile',
+        'path': 'hostile',
+      });
+      final watch = Stopwatch()..start();
+      await expectLater(
+        bounded.plan(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>()
+              .having((error) => error.code, 'code', 'profile-timeout')
+              .having(
+                (error) => error.diagnostic,
+                'diagnostic',
+                DiagnosticCode.profileTimeout,
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                'Profile package hostile at ${source.path} '
+                    '(${tags['arm-hostile']}) cannot be evaluated by this '
+                    'validator: did not finish within 300 milliseconds at '
+                    'rules[1].tests.',
+              ),
+        ),
+      );
+      expect(watch.elapsed, lessThan(const Duration(seconds: 20)));
+      expect(
+        await WayfinderFileLock.isHeld(
+          File(
+            p.join(
+              data.path,
+              'profiles',
+              '${sha256.convert(utf8.encode(source.path))}.lock',
+            ),
+          ),
+        ),
+        isFalse,
+      );
+      calls.clear();
+
+      await writeLock({
+        'hostile-profile': locked('arm-hostile', 'hostile', release: '1.0'),
+      });
+      final selection = await bounded.select(bundle) as UnselectedProfile;
+      expect(selection.reasons.single.code, DiagnosticCode.profileTimeout);
+      await agrees(
+        ProfileBindingState.packageTimeout,
+        id: _hostile,
+        using: bounded,
+      );
+      final validation = await validateWithProfileSources(
+        bundle,
+        resolver: bounded,
+      );
+      expect(validation.gate, GateState.incomplete);
+      expect(validation.diagnostics.map((diagnostic) => diagnostic.id), [
+        'wayfinder/profile-timeout',
+      ]);
     });
 
     test('profile-composition when the project repeats a chain name', () async {
@@ -1819,6 +2019,7 @@ void main() {
         'Profile bitwild-profile: The project declares tag draft, which '
         'equals an OKF status value.',
       );
+      await agrees(ProfileBindingState.compositionFailed);
     });
   });
 }

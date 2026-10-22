@@ -109,6 +109,7 @@ is a separate review. Route by task:
 | `refresh-in-progress` / `source-changed` notices | Results come from the last completed index while another command indexes. Verify passages marked `source changed` against their files. |
 | `Another wayfinder get is changing <project>` | A second `get` or `upgrade` ran while one was resolving the project. Retry after it finishes. |
 | `wayfinder/profile-unresolved`: a package `has no package file in the local cache` | The cache keeps each locked package file for validation, and `validate` restores one from the cached source when it can. Run `wayfinder get`; it fetches nothing while the cached source holds the locked commit. |
+| `wayfinder/profile-timeout`, or `get` failing with `did not finish within 10 seconds` | Reading a package of the chain ran its rule tests past the engine's bound, as a `pattern` that backtracks without end can. No rule ran. Report it to the Profile's author; retrying does not help. |
 | Embedding model missing or unreadable | Check the reported configured path and assets. Reinstall the complete runtime when incomplete; copying only the executable is insufficient. Reindexing alone cannot repair a model-load failure. |
 | Dense search reports missing compatible passage vectors | Repair the encoder if needed, then index the same bundle and retry. There is no alternate retrieval fallback. |
 | CLI `--mode` or MCP `mode` rejected after upgrade | Remove the retired field, including an explicit dense value. Refresh MCP tool discovery. |

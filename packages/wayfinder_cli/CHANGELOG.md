@@ -1,5 +1,13 @@
 # Unreleased
 
+- `get`, `upgrade` and `validate` stop reading a Profile package whose rule
+  tests run past ten seconds, as a `pattern` that backtracks without end can
+  make them: `get` fails naming the rule, and `validate` reports
+  `wayfinder/profile-timeout`, so the gate is `INCOMPLETE` (exit code 2)
+  unless OKF failed it, instead of running forever.
+- `get` and `upgrade` stop a Git command that writes more than 64 MiB, and no
+  longer wait for a helper, such as an SSH connection master, that holds
+  Git's output open after the command exits.
 - `validate --fix` holds okf's exclusive bundle lock while it loads the bundle
   again, writes the generated indexes and validates, so it waits for an okf
   read or write of the bundle in another process instead of interleaving with

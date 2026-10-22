@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public)
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -57,8 +57,9 @@ a native library from disk or resolves files next to the executable, except
 the embedding model, which the retrieval library downloads only when a host
 calls `EmbeddingModelCache.provision` ([ADR-0010](0010-wayfinder-cli.md)). A host
 injects the data directory (`WayfinderDataDirectory.resolve()` by default),
-a `GitRunner` (`runGit` by default), a `WayfinderCancellation`, and the
-validator's okf loader and graph builder. The knowledge store also takes a
+a `GitRunner` (`runGit` by default) or only the `GitProcessStarter` that
+`runGit` starts Git with, a `WayfinderCancellation`, and the validator's okf
+loader and graph builder. The knowledge store also takes a
 `WayfinderEncoderProvider`, whose identity names the index without opening a
 model, such as `LocalModelEncoderProvider` over a model file the host
 located and the store verifies before loading. The store keeps indexes as
@@ -103,8 +104,23 @@ also skips Git LFS downloads, disables hooks, the filesystem monitor and the
 `ext::` transport, and closes stdin. It kills a command with its children on
 cancellation, or once the command writes nothing for its timeout; a clone
 reports progress, so a long clone keeps running. Git output is bytes
-(`GitResult`), because skill files are blobs. A host's own runner applies the
-same options and environment.
+(`GitResult`), because skill files are blobs, and bounded: a command that
+writes more than `maxOutputBytes` of stdout (64 MiB by default) is stopped
+with `git-output-too-large` rather than return a cut blob, and only the last
+64 KiB of stderr are kept. Once a command exits, `runGit` reads its output
+until the streams close or a second passes without any, because a helper it
+left running, such as an SSH connection master, can hold them open. A host
+whose process layer must start every process, for its search path, sandbox
+or tree kill, passes a `GitProcessStarter` to `runGit` and keeps all of this;
+the starter receives the hardened arguments and the whole environment, and
+its `GitProcess.kill` stops the command's tree. A host that writes its own
+runner applies the same through the public rules: `wayfinderGitOptions`,
+`wayfinderGitEnvironment`, `gitMayReachRemote` (the subcommands of
+`wayfinderGitRemoteSubcommands`, found by `gitSubcommand` past Git's global
+options), `wayfinderSshCommand` (the SSH command Git would choose, in batch
+mode) and `wayfinderConfiguredSshCommand` (the `core.sshCommand` lookup).
+The remote rule chooses when to look SSH up; it is no sandbox, since an
+alias can reach a remote under any name.
 
 **Resolution is plan, then apply.** `plan` resolves and composes every chain
 and may clone or refresh a source in the cache, but writes nothing in the
@@ -112,15 +128,55 @@ project. A host's `ProfileFetchPolicy` decides each clone or refresh just
 before it runs, including one of a chain parent's source that the
 configuration never names; a refused fetch throws
 `ProfileFetchRequiredException` (`fetch-required`), which names it, so the
-host can ask the person and plan again. `apply` writes the lock and skills
-and refuses a plan whose configuration, lock or cached package files changed
-since (`resolution-stale`). `resolve` is both under one hold of the project's
-lock. A plan keeps the package file of each package it reads, so `select`, the
-selection validation uses, reads files only and never runs Git. A cache
-Wayfinder 0.2 wrote has the mirrors but no package files: when `select` finds
-no Profile, `validateWithProfileSources` copies the missing files out of the
-existing mirrors with `git show` (`restoreCachedPackages`), never fetching,
-and selects again.
+host can ask the person and plan again. The policy is all a host needs for
+per-source consent: every Git command a resolution runs that can reach the
+network, a mirror's `clone` or `remote update`, follows the policy's yes for
+the `ProfileFetch.location` it reaches, and every other command reads a
+mirror already in the cache. That location is
+`WayfinderProfileSource.locationOf(git, projectRoot:)`: a URL, `scp`-style
+address or absolute path as written, a relative path joined to the project
+root. It names the cache directory and mirror lock too, so a consent gate
+compares it with the locations of the sources a person approved and needs
+no wrapper around Git. `plan(lockedOnly: true)` resolves exactly the commits
+`wayfinder.lock` pins, as a host does to bring a project's locked Profiles
+onto a machine: it fetches a source only when its mirror is missing or lacks
+the locked commit, never moves a ref, and keeps the lock's bytes. When the
+lock as written would change, because it is missing or stale, lacks a
+binding's chain or holds a package no chain reaches, it throws
+`lock-change-required` before any Git command; a package whose own file
+disagrees with the lock, which only an edited lock has, is refused once read.
+`apply` writes the lock and skills and refuses a plan whose configuration,
+lock or cached package files changed since (`resolution-stale`). `resolve` is
+both under one hold of the project's lock. A plan keeps the package file of
+each package it reads, so `select`, the selection validation uses, reads
+files only and never runs Git. A cache Wayfinder 0.2 wrote has the mirrors
+but no package files: when `select` finds no Profile,
+`validateWithProfileSources` copies the missing files out of the existing
+mirrors with `git show` (`restoreCachedPackages`), never fetching, and
+selects again. `status` reports, offline and without Git, where each binding
+stands as `select` would find it, with a stable state: `resolved`,
+`lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
+`package-unsupported`, `package-timeout` or `composition-failed`, the locked
+chain, the members missing from the cache, and the diagnostic `select`
+reports. The diagnostics keep their codes, so the command's output is
+unchanged; a host reads the state instead of telling `profile-unresolved`
+messages apart.
+
+**Reading a package is bounded.** Parsing a package runs its rules' `tests`,
+and so its `pattern`s, on Dart's backtracking regular-expression engine,
+which nothing on the parsing isolate can interrupt. The resolver therefore
+reads every package, in a plan or a selection, with
+`ProfilePackage.parseWithin`: the parse runs on an isolate of its own, which
+is killed once it runs past the resolver's `packageTimeout` (ten seconds),
+and the package is refused as `wayfinder/profile-timeout`, naming the rule
+whose tests were running (guide §5.6, [ADR-0015](0015-profile-rule-catalogs.md)).
+The isolate holds no lock, so killing it leaves the mirror free. A package
+that passed is read again on the calling isolate without its tests. Every
+read runs the tests: no verdict is cached by the package's digest, because a
+cached verdict could outlive the engine that reached it. Validating a
+bundle's content runs the same patterns and is not bounded by the engine; a
+host that validates content it does not control runs that where it can stop
+it.
 
 **Wayfinder's lock files use `WayfinderFileLock`.** It is `flock(2)` on a
 descriptor of its own through `dart:ffi` on POSIX, and `RandomAccessFile.lock`
@@ -184,6 +240,13 @@ calls `restoreCachedPackages` or `resolve`.
 Git settings made through other `GIT_*` variables, such as `GIT_SSL_CAINFO`
 or `GIT_ASKPASS`, no longer reach resolution; put them in Git's configuration
 (`http.sslCAInfo`, a credential helper). A user's own SSH command still runs.
+
+A host keeps one process layer and one consent gate without copying
+Wayfinder's: its starter runs the hardened Git, its `ProfileFetchPolicy`
+decides each source, a locked-only plan downloads what a lock pins, and
+`status` names each binding's state offline. A Profile package whose tests
+stall fails `get` and selection with `profile-timeout` instead of holding
+them, at the cost of one short-lived isolate per package read.
 
 Lock files and package files accumulate in the data directory, which stays
 derived and removable; `prune` removes the indexes of bundles that no longer

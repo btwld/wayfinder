@@ -75,6 +75,28 @@ Future<void> main() async {
   validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
   package files out of the cached mirrors with `restoreCachedPackages`,
   without fetching.
+- `status(root)` says, offline and without Git, where each binding's Profile
+  stands as `select` would find it: a `ProfileBindingState` (`resolved`,
+  `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
+  `package-unsupported`, `package-timeout` or `composition-failed`), the
+  locked chain, the members missing from the cache, and the diagnostic
+  `select` reports.
+- `plan(root, lockedOnly: true)` resolves exactly the commits
+  `wayfinder.lock` pins and leaves the lock as written: it fetches a source
+  only when its mirror lacks the locked commit and never moves a ref. A lock
+  that would change, because it is missing or stale or does not hold each
+  binding's chain, fails with `lock-change-required` before any Git command.
+  Apply the plan to reinstall the locked Profile skills.
+- `allowFetch`, a `ProfileFetchPolicy`, decides each clone or refresh just
+  before it runs, and every Git command that can reach the network follows
+  its yes for that `ProfileFetch.location`, so it is all a consent gate
+  needs. `WayfinderProfileSource.locationOf(git, projectRoot:)` is the
+  location the resolver gives a source: compare it with the sources a person
+  approved.
+- Reading a Profile package runs its rules' `tests`, so the resolver reads
+  each one on an isolate of its own and refuses one that runs past
+  `packageTimeout` (ten seconds) as `wayfinder/profile-timeout`;
+  `ProfilePackage.parseWithin` is that bounded parse.
   `pruneProjectLocks` deletes the `get` locks of project roots that no longer
   exist once they have gone unused for its period (30 days by default),
   reading a lock's note only while the lock is free;
@@ -90,10 +112,39 @@ Future<void> main() async {
   `WayfinderCancellation`, and `WayfinderFileLock`, a `flock` lock that holds
   across processes and isolates and whose momentary `isHeld` probe never makes
   a `tryExclusive` fail, are the injection points and building blocks.
-  A host's `GitRunner` applies `wayfinderGitOptions` and
-  `wayfinderGitEnvironment`, and on cancellation throws
-  `WayfinderException.cancelled()`; `throwIfCancelled` checks between steps.
+  `runGit` keeps stdout as bytes up to `maxOutputBytes` (64 MiB) and starts
+  Git through `start`, a `GitProcessStarter`: a host whose process layer must
+  start every process passes its own and keeps the rest of the hardening. A
+  host's own `GitRunner` applies `wayfinderGitOptions`,
+  `wayfinderGitEnvironment` and `wayfinderConfiguredSshCommand`, with
+  `gitMayReachRemote` and `wayfinderSshCommand` for the rules they follow,
+  and on cancellation throws `WayfinderException.cancelled()`;
+  `throwIfCancelled` checks between steps.
 - Failures are `WayfinderException`s with a stable `code`.
+
+A host that brings a project's locked Profiles onto a machine with a
+person's consent reads the status, then plans from the lock alone:
+
+```dart
+final status = await resolver.status(project.root);
+if (status.bindings.any(
+  (binding) => binding.state == ProfileBindingState.cacheMissing,
+)) {
+  final approved = {
+    for (final git in sourcesThePersonApproved)
+      WayfinderProfileSource.locationOf(git, projectRoot: project.root),
+  };
+  final plan = await resolver.plan(
+    project.root,
+    lockedOnly: true,
+    allowFetch: (fetch) => approved.contains(fetch.location),
+  );
+  await resolver.apply(plan); // writes only the locked skills it lists
+}
+```
+
+A refused fetch throws `ProfileFetchRequiredException` (`fetch-required`),
+which names the source to ask about before planning again.
 
 Run all okf bundle I/O of a process on one isolate: okf's bundle lock does
 not exclude isolates. [ADR-0018](../../docs/adr/0018-embeddable-libraries.md)

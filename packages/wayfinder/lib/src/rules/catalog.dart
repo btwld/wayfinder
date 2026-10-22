@@ -118,11 +118,17 @@ final class CatalogRule {
 /// produces, builtin params the builtin does not take, duplicate ids, a
 /// message placeholder nothing fills, a rule whose own examples disagree
 /// with its schema, and any schema the gate or Ack refuses.
+///
+/// Without [runTests], each rule's `tests` are checked for their shape and
+/// slots but not run, for a package whose tests already passed.
+/// [beforeTests] hears a rule's `tests` location just before they run.
 List<CatalogRule> compileRules(
   List<Object?> rules, {
   required ProfileId namespace,
   required Map<String, Object?> defs,
   required Uri? Function(String slug) helpUri,
+  bool runTests = true,
+  void Function(String where)? beforeTests,
 }) {
   final compiled = <CatalogRule>[];
   final ids = <String>{};
@@ -134,6 +140,8 @@ List<CatalogRule> compileRules(
       namespace: namespace,
       defs: defs,
       helpUri: helpUri,
+      runTests: runTests,
+      beforeTests: beforeTests,
     );
     if (!ids.add(rule.descriptor.id)) {
       throw ProfilePackageException('$where.id', 'duplicate rule id');
@@ -149,6 +157,8 @@ CatalogRule _rule(
   required ProfileId namespace,
   required Map<String, Object?> defs,
   required Uri? Function(String slug) helpUri,
+  required bool runTests,
+  required void Function(String where)? beforeTests,
 }) {
   final slug = map['id'] as String;
   final OkfFindingId id;
@@ -193,9 +203,12 @@ CatalogRule _rule(
           );
         }
       }
-      final failures = _failingExamples(check, examples);
-      if (failures.isNotEmpty) {
-        throw ProfilePackageException('$where.tests', failures.join(', '));
+      if (runTests) {
+        beforeTests?.call('$where.tests');
+        final failures = _failingExamples(check, examples);
+        if (failures.isNotEmpty) {
+          throw ProfilePackageException('$where.tests', failures.join(', '));
+        }
       }
     case BuiltinCheck(:final name, :final builtin):
       if (map.containsKey('tests')) {

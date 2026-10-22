@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-01
-- Updated: 2026-10-07 (Ack evaluates rule schemas); 2026-10-22 (`matches-generated` pins okf's generator revision)
+- Updated: 2026-10-07 (Ack evaluates rule schemas); 2026-10-22 (`matches-generated` pins okf's generator revision); 2026-10-22 (reading a package, its tests included, is bounded)
 - Scope: how a Profile's rules are represented and evaluated
 - Driver: a second knowledge base, over the same okf release, that keeps its frontmatter rules in JSON Schema
 
@@ -41,7 +41,12 @@ evaluates them in three parts.
    suppressions.
 
 Each schema rule carries pass and fail `tests` that run when the package is
-parsed. A rule's severity is `error`, `advisory`, or `note`; a note produces
+parsed. The engine reads a package where it can stop the parse, and refuses
+one whose parse, its tests included, runs past its bound as
+`wayfinder/profile-timeout`
+([guide §5.6](../../implementation/okf-implementation-guide.md#56-rules-and-builtins)).
+No earlier verdict on a package is reused, because it could outlive the
+engine that reached it. A rule's severity is `error`, `advisory`, or `note`; a note produces
 summary entries, never findings. A package that names a subject, builtin, or
 keyword the engine lacks is reported unsupported and never partially applied.
 
@@ -97,8 +102,14 @@ treats as an engine change rather than a Profile change.
 
 A package is data, so it cannot run code or change another package's
 findings. Its `pattern` keywords run on Dart's backtracking regular-expression
-engine, though, and a hostile pattern can stall validation, so a project
-configures only Profile sources it trusts.
+engine, though. The bound stops a pattern that stalls the package's own
+tests, so a hostile package cannot hold `get` or a selection. The same
+pattern can still stall validating a bundle's content, which the engine does
+not bound, so a project configures only Profile sources it trusts, and a host
+that validates content it does not control runs validation where it can stop
+it. The bound, ten seconds, sits far above the few milliseconds the largest
+shipped package takes, so it changes no package's reading and needs no
+`format` bump.
 
 ## Reconsider when
 
