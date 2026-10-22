@@ -264,7 +264,7 @@ It collapses repeated contexts to the first child hit.
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 5.3.2, tested with Dart package 5.0.4, verifies the
+  The installer pins native 5.3.2, tested with Dart package 5.3.2, verifies the
   release archive's SHA-256 before extracting it, and writes only to this
   package's `lib/` directory. It covers every platform upstream publishes for
   5.3.2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
@@ -369,6 +369,10 @@ Existing databases using the previous vector schema require reindexing into a
 **new directory**. The store refuses to open incompatible databases before
 ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
 when changing the schema; preserve `lib/objectbox-model.json` UID history.
+The committed bindings come from `objectbox_generator` 5.3.2 and keep every id
+and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
+`test/objectbox_store_test.dart` opens such a store from
+[`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).
 
 Run `dart run example/native_example.dart` after preparing the model.
 Generic Markdown chunking preserves caller-supplied metadata; an OKF adapter
