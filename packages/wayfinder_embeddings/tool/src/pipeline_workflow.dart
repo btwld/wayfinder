@@ -585,16 +585,35 @@ class _ReferenceChunker extends BaseChunker {
       _chunks.chunksFor(metadata.sourcePath, content);
 }
 
+/// The judged corpus golden, relative to this package.
+///
+/// `wayfinder_dart_chunker`'s `test/judged_corpus_test.dart` is its only
+/// writer, because only that package makes the corpus's Dart chunks. This
+/// package replays those chunks from it and only compares against it, even
+/// with `UPDATE_GOLDENS=1`, so the two packages cannot rewrite it in turn.
+const corpusGoldenPath = 'test/goldens/baseline_chunks.json';
+
+const _rewriteCorpusGolden =
+    'wayfinder_dart_chunker writes it: after reviewing the change, run '
+    'UPDATE_GOLDENS=1 dart test test/judged_corpus_test.dart in '
+    'packages/wayfinder_dart_chunker, then review every qrels id that moved.';
+
+/// Compares [preview]'s chunk manifest with the golden at [goldenPath].
+///
+/// With `UPDATE_GOLDENS=1`, rewrites that golden instead, unless it is the
+/// [corpusGoldenPath], which this package never writes.
 Future<void> validateAgainstGolden({
   required Directory packageRoot,
   required Directory fixturesDir,
   required PreviewResult preview,
-  String goldenPath = 'test/goldens/baseline_chunks.json',
+  String goldenPath = corpusGoldenPath,
 }) async {
   final manifest = buildChunkManifest(preview.chunks, fixturesDir);
   final goldenFile = File(p.join(packageRoot.path, goldenPath));
+  final writtenElsewhere = p.equals(goldenPath, corpusGoldenPath);
 
-  final shouldUpdateGoldens = Platform.environment['UPDATE_GOLDENS'] == '1';
+  final shouldUpdateGoldens =
+      Platform.environment['UPDATE_GOLDENS'] == '1' && !writtenElsewhere;
   if (shouldUpdateGoldens) {
     _writeGolden(goldenFile, manifest);
     stdout.writeln(
@@ -607,15 +626,15 @@ Future<void> validateAgainstGolden({
   if (!goldenFile.existsSync()) {
     throw StateError(
       'Golden file missing: ${goldenFile.path}. '
-      'Run with UPDATE_GOLDENS=1 to create it.',
+      '${writtenElsewhere ? _rewriteCorpusGolden : 'Run with UPDATE_GOLDENS=1 to create it.'}',
     );
   }
 
   final expected = _readGoldenManifest(goldenFile);
   if (!_manifestsEqual(manifest, expected)) {
     throw StateError(
-      'Chunk manifest diverged from golden snapshot. '
-      'Run with UPDATE_GOLDENS=1 to refresh the golden.',
+      'Chunk manifest diverged from golden snapshot $goldenPath. '
+      '${writtenElsewhere ? _rewriteCorpusGolden : 'Run with UPDATE_GOLDENS=1 to refresh the golden.'}',
     );
   }
   stdout.writeln('Golden comparison passed.');
@@ -927,6 +946,11 @@ List<String> _checkWorkflowQueries(List<String> queries) {
 ///
 /// Parent heading references use the same fixture-relative ids as their chunks.
 /// File and type keys are sorted; chunk order within each file is preserved.
+///
+/// `wayfinder_dart_chunker`'s `test/support/chunk_manifest.dart` repeats this
+/// format, with [collectFixtureFiles] and [stableFixtureChunkId], to write the
+/// [corpusGoldenPath] golden. Change both together: the corpus golden test
+/// here fails whenever the two disagree.
 Map<String, Object?> buildChunkManifest(
   List<Chunk> chunks,
   Directory fixturesDir,

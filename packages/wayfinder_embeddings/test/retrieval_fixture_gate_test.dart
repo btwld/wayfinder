@@ -117,7 +117,7 @@ void main() {
 ChunkerRegistry _corpusRegistry(Directory fixtureDir) =>
     workflow.buildDefaultRegistry(
       reference: workflow.ReferenceChunks.load(
-        File('test/goldens/baseline_chunks.json'),
+        File(workflow.corpusGoldenPath),
         fixtureDir,
       ),
     );

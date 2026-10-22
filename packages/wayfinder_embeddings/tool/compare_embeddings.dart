@@ -219,9 +219,7 @@ Future<void> main(List<String> args) async {
       );
     } on StateError catch (error) {
       stderr.writeln(error);
-      stderr.writeln(
-        'Inspect ${config.outputDir.path} or rerun with UPDATE_GOLDENS=1.',
-      );
+      stderr.writeln('Inspect ${config.outputDir.path}.');
       exit(1);
     }
   } else {

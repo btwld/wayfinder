@@ -10,10 +10,6 @@ import 'src/pipeline_workflow.dart' as workflow;
 // ignore_for_file: avoid_slow_async_io
 // CLI validation writes local artifacts synchronously for straightforward tooling.
 
-/// The corpus golden this tool compares against. It also supplies the chunks
-/// of the corpus files no built-in chunker handles.
-const _goldenPath = 'test/goldens/baseline_chunks.json';
-
 Future<void> main(List<String> args) async {
   stdout.writeln('Starting validation script...');
 
@@ -43,7 +39,9 @@ Future<void> main(List<String> args) async {
   stdout.writeln('\n1. Setting up chunkers and preview pipeline...');
   // The golden also supplies the chunks of files no built-in chunker handles,
   // the corpus's Dart sources; wayfinder_dart_chunker's tests check those.
-  final golden = File(p.join(config.packageRoot.path, _goldenPath));
+  final golden = File(
+    p.join(config.packageRoot.path, workflow.corpusGoldenPath),
+  );
   final workflow.PreviewResult preview;
   try {
     final registry = workflow.buildDefaultRegistry(
@@ -75,13 +73,11 @@ Future<void> main(List<String> args) async {
       packageRoot: config.packageRoot,
       fixturesDir: config.fixturesRoot,
       preview: preview,
-      goldenPath: _goldenPath,
+      goldenPath: workflow.corpusGoldenPath,
     );
   } on StateError catch (error) {
     stderr.writeln(error);
-    stderr.writeln(
-      'Inspect ${config.outputDir.path} or rerun with UPDATE_GOLDENS=1.',
-    );
+    stderr.writeln('Inspect ${config.outputDir.path}.');
     exit(1);
   }
 
