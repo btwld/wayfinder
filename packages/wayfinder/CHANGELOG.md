@@ -132,6 +132,59 @@
   they locked (the same device and inode on POSIX), and otherwise open the
   path again, so a cleanup that deletes a lock file while holding it never
   leaves two holders on different files.
+- `runGit` takes `start`, a `GitProcessStarter` (`startGitProcess` by
+  default), so a host whose process layer starts every process runs the
+  hardened Git through it: the starter receives the hardened arguments and
+  the whole environment, and `GitProcess.kill` stops the command's tree.
+  `maxOutputBytes` (`wayfinderGitMaxOutputBytes`, 64 MiB) bounds stdout: a
+  command that writes more is stopped with `git-output-too-large` instead of
+  returning a cut blob. Stderr keeps its last 64 KiB. Once a command exits,
+  its output is read until the streams close or a second passes without
+  any, so a helper that holds them open, such as an SSH connection master,
+  no longer holds the command; a stopped command that does not exit within
+  five seconds still fails.
+- The rules a host's own runner would copy are public: `gitSubcommand`,
+  which also skips the values of `--git-dir`, `--work-tree`, `--namespace`,
+  `--config-env`, `--attr-source` and `--super-prefix`; `gitMayReachRemote`
+  over `wayfinderGitRemoteSubcommands`, which adds `archive`, `fetch-pack`,
+  `send-pack`, `maintenance` and `lfs`; `wayfinderSshCommand`, the SSH
+  command Git would choose (`GIT_SSH_COMMAND`, `core.sshCommand`, `GIT_SSH`,
+  `ssh`) in batch mode; and `wayfinderConfiguredSshCommand`, the
+  `core.sshCommand` lookup before a remote command.
+- Reading a Profile package is bounded (ADR-0015, ADR-0018, guide §9).
+  `ProfilePackage.parseWithin` parses on an isolate of its own and kills it
+  once it runs past its timeout (`ProfilePackage.parseTimeout`, ten
+  seconds), throwing a `ProfilePackageException` with `timedOut` that names
+  the rule whose `tests` were running. The resolver reads every package
+  this way, bounded by its `packageTimeout`, and reports one that runs past
+  it as the new `wayfinder/profile-timeout` diagnostic
+  (`DiagnosticCode.profileTimeout`), so a package whose tests run a pattern
+  that backtracks without end fails `get` and selection instead of holding
+  them. Every read runs the tests; no verdict is cached. Bitwild parses in
+  about five milliseconds, so no package reads differently and package
+  format stays 2.
+- `WayfinderProfileResolver.status` reports, offline and without Git, a
+  `ProfileResolutionStatus` with one `ProfileBindingStatus` per binding: a
+  stable `ProfileBindingState` (`resolved`, `lock-missing`, `lock-stale`,
+  `cache-missing`, `package-invalid`, `package-unsupported`,
+  `package-timeout` or `composition-failed`), the locked chain, the chain
+  members missing from the cache, the diagnostic `select` reports and its
+  `profile-skill-stale` notes. `select`'s diagnostics are unchanged.
+- `plan(lockedOnly: true)` resolves exactly the commits `wayfinder.lock`
+  pins: it fetches a source only when its mirror is missing or lacks the
+  locked commit, never moves a ref, and keeps the lock's bytes. It throws
+  `ProfileLockChangeRequiredException` (`lock-change-required`) before any
+  Git command when the lock as written would change, and once read for a
+  package that disagrees with the lock. `ProfileResolutionPlan.lockedOnly`
+  reports it, and the plan's JSON adds `locked_only`.
+- `WayfinderProfileSource.locationOf` is the location the resolver gives a
+  source, as `ProfileFetch.location` reports it. A `ProfileFetchPolicy` is
+  all per-source consent needs: every Git command a resolution runs that can
+  reach the network follows the policy's yes for that location.
+- A Profile skill marker that cannot be read counts as no marker: validation
+  warns `profile-skill-stale` instead of failing selection as
+  `profile-unresolved`, and `get` leaves such a directory alone as it does
+  any unmarked one.
 
 # 0.2.0
 

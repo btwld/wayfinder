@@ -19,6 +19,14 @@
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
+- `get`, `upgrade` and `validate` stop reading a Profile package whose rule
+  tests run past ten seconds, as a `pattern` that backtracks without end can
+  make them: `get` fails naming the rule, and `validate` reports
+  `wayfinder/profile-timeout`, so the gate is `INCOMPLETE` (exit code 2)
+  unless OKF failed it, instead of running forever.
+- `get` and `upgrade` stop a Git command that writes more than 64 MiB, and no
+  longer wait for a helper, such as an SSH connection master, that holds
+  Git's output open after the command exits.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command

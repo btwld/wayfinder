@@ -438,6 +438,365 @@ void main() {
     );
     expect(await lockFile().exists(), isFalse);
   });
+  group('a locked-only plan', () {
+    late String locked;
+    late List<int> lockBytes;
+
+    setUp(() async {
+      await resolver.resolve(project.path);
+      locked = await _lockedCommit(lockFile());
+      lockBytes = await lockFile().readAsBytes();
+      calls.clear();
+    });
+
+    /// Commits again in the source and moves `v2026.3` to it, so a plan
+    /// that resolved the ref would see another commit; the locked one stays
+    /// reachable from the branch.
+    Future<String> moveTag() async {
+      await File(p.join(source.path, 'revision.txt')).writeAsString('moved');
+      await fixtureGit(source.path, ['add', '.']);
+      await fixtureGit(source.path, ['commit', '-q', '-m', 'Move']);
+      await fixtureGit(source.path, ['tag', '-f', 'v2026.3']);
+      return fixtureGit(source.path, ['rev-parse', 'HEAD']);
+    }
+
+    test('fetches exactly the locked commits onto a machine without them, '
+        'and leaves the lock', () async {
+      await moveTag();
+      await data.delete(recursive: true);
+      final asked = <ProfileFetch>[];
+      final plan = await resolver.plan(
+        project.path,
+        lockedOnly: true,
+        allowFetch: (fetch) {
+          asked.add(fetch);
+          return true;
+        },
+      );
+      expect(plan.lockedOnly, isTrue);
+      expect(plan.toJson(), containsPair('locked_only', true));
+      expect(plan.lockChanged, isFalse);
+      expect(plan.packages[_bitwild]!.commit, locked);
+      expect(asked.map((fetch) => (fetch.kind, fetch.location)), [
+        (ProfileFetchKind.clone, source.path),
+      ]);
+      // The only command that reached the network cloned the locked source,
+      // and every read named the locked commit; no ref was resolved.
+      expect(calls.where(gitMayReachRemote).map((call) => call.first), [
+        'clone',
+      ]);
+      expect(calls, anyElement(equals(['cat-file', '-e', '$locked^{commit}'])));
+      expect(calls.where((call) => call.first == 'rev-parse'), isEmpty);
+      expect(
+        calls.where((call) => call.first == 'show').map((call) => call[1]),
+        everyElement(startsWith('$locked:')),
+      );
+      await resolver.apply(plan);
+      expect(await lockFile().readAsBytes(), lockBytes);
+      calls.clear();
+      expect(await resolver.select(bundle()), isA<SelectedProfile>());
+      expect(calls, isEmpty);
+    });
+
+    test('refreshes a mirror that lacks the locked commit, and resolves '
+        'that commit', () async {
+      final moved = await moveTag();
+      final lock = jsonDecode(await lockFile().readAsString()) as Map;
+      ((lock['packages'] as Map)['bitwild-profile'] as Map)['resolved_commit'] =
+          moved;
+      await lockFile().writeAsString(jsonEncode(lock));
+      final asked = <ProfileFetch>[];
+      final plan = await resolver.plan(
+        project.path,
+        lockedOnly: true,
+        allowFetch: (fetch) {
+          asked.add(fetch);
+          return true;
+        },
+      );
+      expect(plan.packages[_bitwild]!.commit, moved);
+      expect(asked.map((fetch) => (fetch.kind, fetch.location)), [
+        (ProfileFetchKind.refresh, source.path),
+      ]);
+      expect(calls.where(gitMayReachRemote).map((call) => call.first), [
+        'remote',
+      ]);
+      expect(calls.where((call) => call.first == 'rev-parse'), isEmpty);
+    });
+
+    test('runs no Git command and fetches nothing when the lock as written '
+        'would change', () async {
+      await data.delete(recursive: true);
+      Future<void> refused(ProfileBindingState state, String reason) async {
+        calls.clear();
+        await expectLater(
+          resolver.plan(project.path, lockedOnly: true),
+          throwsA(
+            isA<ProfileLockChangeRequiredException>()
+                .having((error) => error.code, 'code', 'lock-change-required')
+                .having((error) => error.state, 'state', state)
+                .having(
+                  (error) => error.message,
+                  'message',
+                  'Resolving would change wayfinder.lock, which a '
+                      'locked-only plan never does: $reason',
+                ),
+          ),
+        );
+        expect(calls, isEmpty);
+        expect(await data.exists(), isFalse, reason: 'nothing was fetched');
+      }
+
+      Future<void> writeLock(
+        Map<String, Object?> Function(Map<String, Object?> lock) edit,
+      ) => lockFile().writeAsString(
+        jsonEncode(
+          edit(jsonDecode(utf8.decode(lockBytes)) as Map<String, Object?>),
+        ),
+      );
+      Map<String, Object?> packagesOf(Map<String, Object?> lock) =>
+          lock['packages']! as Map<String, Object?>;
+      Map<String, Object?> bitwildOf(Map<String, Object?> lock) =>
+          packagesOf(lock)['bitwild-profile']! as Map<String, Object?>;
+
+      await lockFile().delete();
+      await refused(
+        ProfileBindingState.lockMissing,
+        'Profile lock is missing or unreadable.',
+      );
+
+      await writeLock((lock) => {...lock, 'configuration_sha256': '0' * 64});
+      await refused(
+        ProfileBindingState.lockStale,
+        'Profile lock is stale: the configuration changed after wayfinder '
+        'get.',
+      );
+
+      await writeLock(
+        (lock) => {
+          ...lock,
+          'packages': {
+            'bitwild-profile': {...bitwildOf(lock), 'requested_ref': 'main'},
+          },
+        },
+      );
+      await refused(
+        ProfileBindingState.lockStale,
+        'Profile lock records bitwild-profile from ${source.path} at main '
+        '(profiles/bitwild); the configuration names ${source.path} at '
+        'v2026.3 (profiles/bitwild).',
+      );
+
+      await writeLock(
+        (lock) => {
+          ...lock,
+          'packages': {
+            ...packagesOf(lock),
+            'stray-profile': {...bitwildOf(lock), 'path': 'stray'},
+          },
+        },
+      );
+      await refused(
+        ProfileBindingState.lockStale,
+        'Profile lock records stray-profile, which no configured chain '
+        'reaches.',
+      );
+    });
+
+    test('refuses once read a package that disagrees with the lock it was '
+        'locked from', () async {
+      final lock = jsonDecode(await lockFile().readAsString()) as Map;
+      ((lock['packages'] as Map)['bitwild-profile'] as Map)['release'] =
+          '2026.9';
+      await lockFile().writeAsString(jsonEncode(lock));
+      await expectLater(
+        resolver.plan(project.path, lockedOnly: true),
+        throwsA(
+          isA<ProfileLockChangeRequiredException>().having(
+            (error) => error.state,
+            'state',
+            ProfileBindingState.lockStale,
+          ),
+        ),
+      );
+      expect(calls.where(gitMayReachRemote), isEmpty);
+    });
+
+    test('keeps a lock that reads the same in other bytes', () async {
+      await lockFile().writeAsString(
+        jsonEncode(jsonDecode(utf8.decode(lockBytes))),
+      );
+      final compact = await lockFile().readAsBytes();
+      final plan = await resolver.plan(project.path, lockedOnly: true);
+      expect(plan.lockChanged, isFalse);
+      await resolver.apply(plan);
+      expect(await lockFile().readAsBytes(), compact);
+      expect((await resolver.plan(project.path)).lockChanged, isTrue);
+    });
+
+    test('reinstalls the locked skills offline', () async {
+      final skill = Directory(
+        p.join(project.path, '.claude', 'skills', 'bitwild-profile'),
+      );
+      await skill.delete(recursive: true);
+      final plan = await resolver.plan(
+        project.path,
+        lockedOnly: true,
+        allowFetch: (_) => false,
+      );
+      expect(plan.fetched, isFalse);
+      expect(plan.skills.single.written, isTrue);
+      await resolver.apply(plan);
+      expect(await File(p.join(skill.path, 'SKILL.md')).exists(), isTrue);
+      expect(await lockFile().readAsBytes(), lockBytes);
+    });
+
+    test('does not upgrade', () {
+      expect(
+        () => resolver.plan(project.path, upgrade: true, lockedOnly: true),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('per-source consent', () {
+    test('the source location rule', () {
+      String locate(String git) =>
+          WayfinderProfileSource.locationOf(git, projectRoot: '/work/app');
+      expect(
+        locate('https://example.test/p.git'),
+        'https://example.test/p.git',
+      );
+      expect(
+        locate('ssh://git@example.test/p.git'),
+        'ssh://git@example.test/p.git',
+      );
+      expect(
+        locate('git@example.test:org/p.git'),
+        'git@example.test:org/p.git',
+      );
+      expect(locate('/srv/profiles'), '/srv/profiles');
+      expect(locate(r'C:\profiles'), r'C:\profiles');
+      expect(locate('../profiles'), p.normalize('/work/profiles'));
+      expect(locate('./vendor/./p'), p.normalize('/work/app/vendor/p'));
+    });
+
+    test('a fetch policy hears of every Git command that can reach the '
+        'network before it runs, at the location it reaches', () async {
+      // A Profile in another repository, named by a relative path, extends
+      // Bitwild from the source repository.
+      final other = await Directory(p.join(temp.path, 'other')).create();
+      await fixtureGit(other.path, ['init', '-q']);
+      await fixtureGit(other.path, ['config', 'user.email', 't@example.test']);
+      await fixtureGit(other.path, ['config', 'user.name', 'Wayfinder Test']);
+      await Directory(p.join(other.path, 'child')).create();
+      await File(
+        p.join(other.path, 'child', 'wayfinder-profile.json'),
+      ).writeAsString(
+        jsonEncode({
+          'format': 2,
+          'id': 'client-profile',
+          'release': '1.0',
+          'implements': {'id': 'okf', 'release': '0.2'},
+          'extends': {
+            'git': source.path,
+            'ref': 'v2026.3',
+            'path': 'profiles/bitwild',
+          },
+          'rules': <Object?>[],
+        }),
+      );
+      await fixtureGit(other.path, ['add', '.']);
+      await fixtureGit(other.path, ['commit', '-q', '-m', 'Child']);
+      await fixtureGit(other.path, ['tag', 'v1']);
+      await File(p.join(project.path, 'wayfinder.json')).writeAsString(
+        jsonEncode({
+          'version': 1,
+          'profiles': {
+            'client-profile': {
+              'source': {'git': '../other', 'ref': 'v1', 'path': 'child'},
+              'applies_to': ['./knowledge'],
+            },
+          },
+        }),
+      );
+      final otherLocation = WayfinderProfileSource.locationOf(
+        '../other',
+        projectRoot: project.path,
+      );
+      expect(otherLocation, other.path);
+      final byMirror = {
+        for (final location in [otherLocation, source.path])
+          p.join(
+            data.path,
+            'profiles',
+            sha256.convert(utf8.encode(location)).toString(),
+          ): location,
+      };
+      final allowed = <String>{};
+      final unasked = <String>[];
+      final remote = <String>[];
+      final consenting = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: (arguments, {workingDirectory, cancel}) {
+          if (gitMayReachRemote(arguments)) {
+            final location = arguments.first == 'clone'
+                ? arguments[arguments.indexOf('--') + 1]
+                : byMirror[workingDirectory]!;
+            remote.add('${arguments.first} $location');
+            if (!allowed.contains(location)) unasked.add(arguments.join(' '));
+          }
+          return runGit(
+            arguments,
+            workingDirectory: workingDirectory,
+            cancel: cancel,
+          );
+        },
+      );
+      bool allow(ProfileFetch fetch) {
+        expect(
+          fetch.location,
+          WayfinderProfileSource.locationOf(
+            fetch.git,
+            projectRoot: project.path,
+          ),
+        );
+        allowed.add(fetch.location);
+        return true;
+      }
+
+      final planned = await consenting.plan(project.path, allowFetch: allow);
+      expect(planned.fetches.map((fetch) => (fetch.kind, fetch.location)), [
+        (ProfileFetchKind.clone, other.path),
+        (ProfileFetchKind.clone, source.path),
+      ]);
+      await consenting.apply(planned);
+      allowed.clear();
+      await consenting.plan(project.path, upgrade: true, allowFetch: allow);
+      expect(remote, [
+        'clone ${other.path}',
+        'clone ${source.path}',
+        'remote ${other.path}',
+        'remote ${source.path}',
+      ]);
+      expect(unasked, isEmpty);
+
+      // A policy that refuses the parent's source stops before its fetch.
+      await data.delete(recursive: true);
+      allowed.clear();
+      remote.clear();
+      await expectLater(
+        consenting.plan(
+          project.path,
+          allowFetch: (fetch) => allow(fetch) && fetch.location == other.path,
+        ),
+        failsWith('fetch-required'),
+      );
+      expect(remote, ['clone ${other.path}']);
+      expect(unasked, isEmpty);
+    });
+  });
+
   test('pruneProjectLocks deletes the get lock of a removed project once '
       'unused, and never a held one', () async {
     await resolver.resolve(project.path);

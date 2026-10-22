@@ -340,10 +340,12 @@ abstract final class ProfileSkills {
   static Future<bool> _owned(Directory directory, String id) async =>
       (await _markedRevision(directory))?.id.value == id;
 
+  /// The revision [directory]'s marker records; null without a marker, or
+  /// with one that cannot be read or parsed, which marks no revision.
   static Future<SkillRevision?> _markedRevision(Directory directory) async {
     final file = File(p.join(directory.path, marker));
-    if (!await file.exists()) return null;
     try {
+      if (!await file.exists()) return null;
       if (jsonDecode(await file.readAsString()) case {
         'id': final String id,
         'release': final String release,
@@ -352,6 +354,8 @@ abstract final class ProfileSkills {
         return (id: ProfileId.parse(id), release: release, commit: commit);
       }
     } on FormatException {
+      return null;
+    } on FileSystemException {
       return null;
     }
     return null;
