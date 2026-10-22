@@ -147,14 +147,143 @@ void main() {
       expect(result.stderr, endsWith('fatal: the end'));
     });
 
-    test('returns once an exited command goes quiet, though its output stays '
-        'open', () async {
-      next = (_) => _FakeProcess.exiting(0, stdout: ['done\n'], close: false);
+    test('reads stdout to its end after the command exits, however long a '
+        'chunk takes', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final running = runGit(['show', 'c:p.json'], start: start);
+      process
+        ..write('{"part":')
+        ..exitWith(0);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      process.write('"rest"}');
+      await process.closeOutput();
+      final result = await running;
+      expect(result.exitCode, 0);
+      expect(result.text, '{"part":"rest"}');
+      expect(process.kills, 0);
+    });
+
+    test('fails an exited command whose stdout stays open, and stops what '
+        'holds it', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
       final watch = Stopwatch()..start();
-      final result = await runGit(['show', 'x'], start: start);
-      expect(result.text, 'done\n');
+      final running = runGit(
+        ['show', 'c:p.json'],
+        timeout: const Duration(seconds: 1),
+        start: start,
+      );
+      process
+        ..write('{"part":')
+        ..exitWith(0);
+      await expectLater(
+        running,
+        throwsA(
+          isA<WayfinderException>()
+              .having((error) => error.code, 'code', 'git-output-incomplete')
+              .having(
+                (error) => error.message,
+                'message',
+                'git show exited, but its output was still open 1 second '
+                    'later, held by a process it started; that process was '
+                    'stopped.',
+              ),
+        ),
+      );
       expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
-      expect(processes.single.kills, 0);
+      expect(process.kills, 1);
+    });
+
+    test('a cancel stops the read of an exited command\'s output', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final cancel = WayfinderCancellationController();
+      final running = runGit(['show', 'x'], cancel: cancel, start: start);
+      process
+        ..write('{"part":')
+        ..exitWith(0);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      cancel.cancel();
+      await expectLater(running, failsWith('cancelled'));
+      expect(process.kills, 1);
+    });
+
+    test('fails stdout that passes maxOutputBytes after the exit', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final running = runGit(
+        ['cat-file', 'blob', 'x'],
+        maxOutputBytes: 1000,
+        start: start,
+      );
+      process.exitWith(0);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      process
+        ..write('a' * 600)
+        ..write('b' * 600);
+      await expectLater(running, failsWith('git-output-too-large'));
+      expect(process.kills, 1);
+    });
+
+    test('fails a command whose stdout reports an error', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final running = runGit(['show', 'x'], start: start);
+      process
+        ..write('{"part":')
+        ..failStdout()
+        ..exitWith(0);
+      await expectLater(running, failsWith('git-output-incomplete'));
+      expect(process.kills, 1);
+    });
+
+    test('returns once an exited command\'s stderr goes quiet, though it '
+        'stays open', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final watch = Stopwatch()..start();
+      final running = runGit(['show', 'x'], start: start);
+      process
+        ..write('done\n')
+        ..writeError('warning: kept open\n')
+        ..exitWith(0);
+      await process.closeStdout();
+      final result = await running;
+      expect(result.text, 'done\n');
+      expect(result.stderr, 'warning: kept open\n');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(process.kills, 0);
+    });
+
+    test('cuts stderr that is still being written at the limit, and stops '
+        'its writer', () async {
+      final process = _FakeProcess.running();
+      next = (_) => process;
+      final watch = Stopwatch()..start();
+      final running = runGit(
+        ['show', 'x'],
+        timeout: const Duration(seconds: 1),
+        start: start,
+      );
+      process
+        ..write('done\n')
+        ..exitWith(0);
+      await process.closeStdout();
+      final writer = Timer.periodic(
+        const Duration(milliseconds: 100),
+        (_) => process.writeError('.'),
+      );
+      try {
+        final result = await running;
+        expect(result.exitCode, 0);
+        expect(result.text, 'done\n');
+        expect(result.stderr, isNotEmpty);
+      } finally {
+        writer.cancel();
+      }
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(process.kills, 1);
     });
 
     test('refuses a limit that keeps nothing', () {
@@ -189,20 +318,30 @@ void main() {
         expect(watch.elapsed, lessThan(const Duration(seconds: 20)));
       });
 
-      test(
-        'a helper left holding the output does not hold the command',
-        () async {
-          final watch = Stopwatch()..start();
-          final result = await runGit([
-            '-c',
-            'alias.linger=!sleep 8 & echo done',
-            'linger',
-          ], workingDirectory: temp.path);
-          expect(result.exitCode, 0, reason: result.stderr);
-          expect(result.text, 'done\n');
-          expect(watch.elapsed, lessThan(const Duration(seconds: 6)));
-        },
-      );
+      test('a helper left holding stderr does not hold the command', () async {
+        final watch = Stopwatch()..start();
+        final result = await runGit([
+          '-c',
+          'alias.linger=!sleep 8 >/dev/null & echo done',
+          'linger',
+        ], workingDirectory: temp.path);
+        expect(result.exitCode, 0, reason: result.stderr);
+        expect(result.text, 'done\n');
+        expect(watch.elapsed, lessThan(const Duration(seconds: 6)));
+      });
+
+      test('a helper left holding stdout fails the command', () async {
+        final watch = Stopwatch()..start();
+        await expectLater(
+          runGit(
+            ['-c', 'alias.linger=!sleep 6 2>/dev/null & echo done', 'linger'],
+            workingDirectory: temp.path,
+            timeout: const Duration(seconds: 2),
+          ),
+          failsWith('git-output-incomplete'),
+        );
+        expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      });
     },
     skip: Platform.isWindows ? 'the aliases are POSIX shell' : false,
   );
@@ -405,6 +544,26 @@ final class _FakeProcess implements GitProcess {
   Future<void> _closeOutput() async {
     await Future.wait([_stdout.close(), _stderr.close()]);
   }
+
+  /// Writes [text] to stdout unless it closed.
+  void write(String text) {
+    if (!_stdout.isClosed) _stdout.add(utf8.encode(text));
+  }
+
+  /// Writes [text] to stderr unless it closed.
+  void writeError(String text) {
+    if (!_stderr.isClosed) _stderr.add(utf8.encode(text));
+  }
+
+  void failStdout() => _stdout.addError(const FileSystemException('lost'));
+
+  void exitWith(int code) {
+    if (!_exit.isCompleted) _exit.complete(code);
+  }
+
+  Future<void> closeStdout() => _stdout.close();
+
+  Future<void> closeOutput() => _closeOutput();
 
   @override
   late final IOSink stdin = IOSink(_StdinTarget(this));
