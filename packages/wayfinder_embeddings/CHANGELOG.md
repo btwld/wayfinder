@@ -11,16 +11,9 @@
   `dispose`. Results carry typed `KnowledgeCitation`s and the CLI's JSON and
   Markdown; failures are `WayfinderException`s with stable codes. The host
   supplies a `WayfinderEncoderProvider`, such as `LocalModelEncoderProvider`
-  over a model file it located, and optionally an ObjectBox loader; the store
-  never locates a model or loads native code itself, and reports
-  `objectbox-unavailable`, keeping ObjectBox's own hint off stdout, when
-  ObjectBox's library does not load. `wayfinderSearchInput`
-  and the new `knowledgeMetadataFilterInput` are the Ack inputs of a host's
-  search tool.
-- Indexes live in `indexes/<bundle key>/<configuration key>/`, so another
-  model, chunker or format never shares a directory. An index Wayfinder 0.2
-  wrote, at `indexes/<sha256 of the root>/`, is never read, changed or
-  deleted; each bundle builds once after upgrading.
+  over a model file it located. The store never locates a model or loads
+  native code itself. `wayfinderSearchInput` and the new
+  `knowledgeMetadataFilterInput` are the Ack inputs of a host's search tool.
 - The store's chunk IDs no longer depend on where a bundle lives:
   `KnowledgeSnapshot.load` and `KnowledgeSnapshot.fromSources` take an
   `idNamespace` that replaces the `bundleId` in each chunk ID, and the store
@@ -70,7 +63,8 @@
   `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
   unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
   working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
-  store still builds each bundle once in its new layout (see above).
+  store does not use that store. It builds each bundle once in the plain-file
+  layout below.
 - New `package:wayfinder_embeddings/model_cache.dart` entry with
   `EmbeddingModelCache`, so an application can obtain the pinned Arctic Embed
   XS Q8_0 model itself. `target` describes the download (source URL, size,
@@ -136,17 +130,9 @@
 - The README's hook settings for consumers were wrong: llamadart's hook
   ignores a bare `llamadart_native_backends: [cpu]`, as 0.8.23's did, so Linux
   and Windows bundled Vulkan as well. It now selects `[cpu]` per platform.
-<!--
-Release bookkeeping: the bullets from "read while indexing (#110)" to the end
-of this section supersede what the bullets above say about an ObjectBox
-loader, `objectbox-unavailable` and the
-`indexes/<bundle key>/<configuration key>/` layout. If both ship in one
-release, fold these into those bullets and drop the superseded text; if the
-bullets above ship first, move these under the next release.
--->
 - **BREAKING:** read while indexing (#110). The knowledge store no longer
   uses ObjectBox. Each index is a sequence of immutable generations in
-  `indexes/bundles/<bundle key>/<configuration key>/`:
+  `indexes/bundles/<bundle key>/<configuration key>/generation-*`:
   `generation-<id>/snapshot.json`, the record, and `vectors.f32`, a 16-byte
   header (`WFVF32\0\x01`, then the dimension and row count as little-endian
   32-bit integers) followed by one little-endian float32 row per snapshot
