@@ -10,6 +10,8 @@ import 'package:wayfinder_cli/src/search_output.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:test/test.dart';
 
+import 'support.dart';
+
 void main() {
   final library = File(
     '../wayfinder_embeddings/lib/${Platform.isMacOS
@@ -1094,7 +1096,7 @@ void main() {
   );
 }
 
-/// Deterministic vectors test storage/lifecycle; they are not quality evidence.
+/// Deterministic [keywordVector]s test storage and lifecycle.
 class _Encoder extends BaseEmbedder {
   _Encoder(this.modelName, this.fail);
   @override
@@ -1110,17 +1112,11 @@ class _Encoder extends BaseEmbedder {
   String get sourceName => 'wayfinder-fixture';
   @override
   int get dimension => 384;
-  List<double> vector(String text) => [
-    text.toLowerCase().contains('password') ? 1 : 0,
-    text.toLowerCase().contains('weather') || text.contains('Rain') ? 1 : 0,
-    0.01,
-    ...List.filled(381, 0.0),
-  ];
   @override
   Future<List<double>> generateEmbedding(String text) async {
     if (fail) throw StateError('Inference failed');
     documents++;
-    return vector(text);
+    return keywordVector(text);
   }
 
   @override
@@ -1128,7 +1124,7 @@ class _Encoder extends BaseEmbedder {
     if (closed || failQuery) throw StateError('Query inference failed');
     queries++;
     queryTexts.add(text);
-    return vector(text);
+    return keywordVector(text);
   }
 
   @override

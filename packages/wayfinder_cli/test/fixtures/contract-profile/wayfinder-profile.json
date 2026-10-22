@@ -1,0 +1,103 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "$comment": "A frozen Profile for golden_contract_test.dart. It is not Bitwild, so a Bitwild release leaves the CLI and MCP contract goldens alone. Edit it only with a reviewed golden change.",
+  "format": 2,
+  "id": "contract-profile",
+  "release": "1.0",
+  "implements": {"id": "okf", "release": "0.2"},
+  "docs": "https://example.test/contract-profile",
+  "frontmatter_keys": [
+    {"name": "relationships", "description": "Typed relationships to other resources."}
+  ],
+  "rules": [
+    {
+      "id": "frontmatter-key-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept MUST NOT carry a frontmatter key that neither OKF nor this Profile declares.",
+      "message": "Frontmatter key {failing} is not declared.",
+      "check": {
+        "subject": "concept",
+        "each": "keys",
+        "schema": {
+          "properties": {
+            "value": {"anyOf": [{"$ref": "#/$defs/okf-key"}, {"$ref": "#/$defs/declared-key"}]}
+          }
+        }
+      },
+      "tests": {
+        "slots": {"profile.frontmatterKeys": ["relationships"]},
+        "valid": [{"value": "type"}, {"value": "relationships"}],
+        "invalid": [{"value": "owner"}]
+      }
+    },
+    {
+      "id": "tag-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every used tag MUST be declared by the Profile binding.",
+      "message": "Tag {failing} is not declared.",
+      "check": {
+        "subject": "concept",
+        "each": "tags",
+        "schema": {"properties": {"value": {"$ref": "#/$defs/tag-name"}}}
+      },
+      "tests": {
+        "slots": {"profile.tags": ["accounts"]},
+        "valid": [{"value": "accounts", "count": 1}],
+        "invalid": [{"value": "billing", "count": 1}]
+      }
+    },
+    {
+      "id": "actor-declared",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "Every used actor ID MUST be declared by the Profile binding.",
+      "message": "Actor {id} is not declared.",
+      "check": {
+        "subject": "actor",
+        "schema": {"properties": {"id": {"$ref": "#/$defs/actor-id"}}}
+      },
+      "tests": {
+        "slots": {"profile.actors": ["process:fixture"]},
+        "valid": [{"id": "process:fixture", "first_use": "a.md"}],
+        "invalid": [{"id": "agent/unknown", "first_use": "a.md"}]
+      }
+    },
+    {
+      "id": "generation-provenance-recommended",
+      "category": "provenance",
+      "severity": "advisory",
+      "status": "stable",
+      "description": "A concept carries no `generated` field.",
+      "message": "Generation provenance is recommended when it is known.",
+      "check": {"subject": "frontmatter", "schema": {"required": ["generated"]}},
+      "tests": {
+        "valid": [{"generated": {"by": "process:fixture"}}],
+        "invalid": [{}]
+      }
+    },
+    {
+      "id": "deprecated-concept",
+      "category": "history",
+      "severity": "note",
+      "status": "stable",
+      "description": "A concept is deprecated.",
+      "message": "This concept is deprecated and stays searchable.",
+      "check": {"subject": "frontmatter", "schema": {"properties": {"status": {"not": {"const": "deprecated"}}}}},
+      "tests": {
+        "valid": [{"status": "stable"}, {}],
+        "invalid": [{"status": "deprecated"}]
+      }
+    }
+  ],
+  "$defs": {
+    "okf-key": {"$ref": "#/$defs/okf.frontmatterKeys"},
+    "declared-key": {"$ref": "#/$defs/profile.frontmatterKeys"},
+    "tag-name": {"$ref": "#/$defs/profile.tags"},
+    "actor-id": {"$ref": "#/$defs/profile.actors"}
+  }
+}

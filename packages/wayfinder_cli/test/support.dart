@@ -18,3 +18,13 @@ Future<void> copyBitwildPackage(String repository) async {
     await entity.copy(target.path);
   }
 }
+
+/// Deterministic 384-dimension vectors keyed on two words, for test encoders.
+/// They exercise storage, ranking and output; they are not retrieval-quality
+/// evidence.
+List<double> keywordVector(String text) => [
+  text.toLowerCase().contains('password') ? 1 : 0,
+  text.toLowerCase().contains('weather') || text.contains('Rain') ? 1 : 0,
+  0.01,
+  ...List.filled(381, 0.0),
+];

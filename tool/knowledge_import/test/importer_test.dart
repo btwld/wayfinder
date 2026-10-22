@@ -1,19 +1,44 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:knowledge_import/knowledge_import.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
-  test('rejects duplicate and traversal source entries', () {
+  test('rejects a duplicate source id when paths are safe', () {
     expect(
       () => SourceManifest.fromJson(
         '{"version":1,"sources":['
         '{"id":"x","repository":"file:///tmp/x","ref":"main",'
-        '"adapter":"skills","paths":["../secret"]},'
+        '"adapter":"skills","paths":["docs"]},'
         '{"id":"x","repository":"file:///tmp/y","ref":"main",'
-        '"adapter":"skills","paths":[]}]}',
+        '"adapter":"skills","paths":["docs"]}]}',
       ),
-      throwsFormatException,
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          startsWith('Duplicate source id'),
+        ),
+      ),
+    );
+  });
+
+  test('rejects a traversal source path on its own', () {
+    expect(
+      () => SourceManifest.fromJson(
+        '{"version":1,"sources":['
+        '{"id":"x","repository":"file:///tmp/x","ref":"main",'
+        '"adapter":"skills","paths":["../secret"]}]}',
+      ),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('Unsafe source path'),
+        ),
+      ),
     );
   });
 
@@ -43,5 +68,47 @@ void main() {
       File('${root.path}/knowledge/example.md').readAsStringSync(),
       'first\n',
     );
+  });
+
+  test('rejects change paths that leave the project', () async {
+    final sandbox = await Directory.systemTemp.createTemp(
+      'knowledge-import-guard-',
+    );
+    addTearDown(() => sandbox.delete(recursive: true));
+    final root = await Directory(p.join(sandbox.path, 'project')).create();
+    final importer = KnowledgeImporter();
+    final changeSet = File(p.join(sandbox.path, 'changes.json'));
+    final absolute = p.join(sandbox.path, 'absolute.md');
+    const safe = 'Change paths must be safe project-relative paths.';
+    for (final (path, message) in [
+      ('../x.md', safe),
+      ('nested/../../x.md', safe),
+      (absolute, safe),
+    ]) {
+      changeSet.writeAsStringSync(
+        jsonEncode({
+          'version': 1,
+          'changes': [
+            {'path': path, 'content': 'escaped\n'},
+          ],
+        }),
+      );
+      await expectLater(
+        importer.apply(root, changeSet),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            message,
+          ),
+        ),
+        reason: path,
+      );
+      expect(
+        {for (final entity in sandbox.listSync()) p.basename(entity.path)},
+        {'project', 'changes.json'},
+        reason: path,
+      );
+    }
   });
 }
