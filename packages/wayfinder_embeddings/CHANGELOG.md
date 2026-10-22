@@ -1,6 +1,21 @@
 # 0.3.0 (unreleased)
 
 - Requires `wayfinder` `^0.3.0`.
+- **BREAKING:** `DartChunker` moved to the new `wayfinder_dart_chunker`
+  package, and this package no longer depends on `analyzer`, so an application
+  can choose its own analyzer version. `wayfinder_embeddings.dart` no longer
+  exports it. Add `wayfinder_dart_chunker` and import
+  `package:wayfinder_dart_chunker/wayfinder_dart_chunker.dart` to keep chunking
+  Dart; its `defaultCodeRegistry()` registers `DartChunker` beside this
+  package's TypeScript, Markdown and text chunkers. Chunks, ids and metadata
+  are unchanged, so saved indexes stay valid. No deprecated alias is provided.
+- The code example and the Dart sample move to `wayfinder_dart_chunker`.
+  `tool/compare_embeddings.dart` drops `--dart-chunk-budget` and gains
+  `--reference-chunks`, which replays a committed chunk manifest for files no
+  built-in chunker handles. The judged corpus gate replays its Dart chunks from
+  `test/goldens/baseline_chunks.json`, so its chunk ids, qrels and recorded
+  metrics are unchanged; `wayfinder_dart_chunker` checks that its chunker
+  still produces those chunks.
 - Depends on `objectbox` `^5.3.2` and `flat_buffers` `^25.9.23` instead of the
   exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
   this package. `lib/objectbox.g.dart` is regenerated with

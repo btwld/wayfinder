@@ -1,4 +1,5 @@
 import 'package:test/test.dart';
+import 'package:wayfinder_dart_chunker/wayfinder_dart_chunker.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 void main() {

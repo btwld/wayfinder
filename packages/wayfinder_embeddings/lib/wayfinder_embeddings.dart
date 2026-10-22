@@ -11,7 +11,6 @@ export 'src/chunking/chunker_registry.dart';
 export 'src/chunking/documents/markdown_chunker.dart';
 export 'src/chunking/documents/text_chunker.dart';
 // Language-specific chunkers
-export 'src/chunking/languages/dart_chunker.dart';
 export 'src/chunking/languages/typescript_chunker.dart';
 // Embedding
 export 'src/embedding/base_embedder.dart';
