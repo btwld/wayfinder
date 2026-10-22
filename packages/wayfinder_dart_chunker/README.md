@@ -1,7 +1,7 @@
 # wayfinder_dart_chunker
 
 Chunks Dart source files for
-[`wayfinder_embeddings`](../wayfinder_embeddings/README.md) along the
+[`wayfinder_embeddings`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_embeddings) along the
 declarations of the analyzer's AST. It is a separate package so that
 `wayfinder_embeddings` does not depend on `analyzer`, and an application that
 does not chunk Dart keeps its own analyzer version.
