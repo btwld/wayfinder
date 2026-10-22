@@ -117,7 +117,8 @@ Future<void> main() async {
   `.agents/skills`: it reads no skill file, refuses no skill directory, and
   its apply writes and deletes none. The plan's `skillDirectories` reports
   every skill directory's state, unmarked and outside ones included, which a
-  plan with skills refuses with `ProfileSkillDirectoriesException`.
+  plan with skills refuses with `ProfileSkillDirectoriesException`; its
+  `skills` say only that apply leaves each skill alone (`written: false`).
 - `allowFetch`, a `ProfileFetchPolicy`, decides each clone or refresh just
   before it runs, and every Git command that can reach the network follows
   its yes for that `ProfileFetch.location`, so it is all a consent gate

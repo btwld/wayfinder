@@ -190,52 +190,54 @@ host can ask the person and plan again. The policy is all a host needs for
 per-source consent: every Git command a resolution runs that can reach the
 network, a mirror's `clone` or `remote update`, follows the policy's yes for
 the `ProfileFetch.location` it reaches, and every other command reads a mirror
-already in the cache. That location is `WayfinderProfileSource.locationOf(git,
-projectRoot:)`: a URL, `scp`-style address or absolute path as written, a
-relative path joined to the project root. It names the cache directory and
-mirror lock too, so a consent gate compares it with the locations of the
-sources a person approved and needs no wrapper around Git. `plan(lockedOnly:
-true)` resolves exactly the commits `wayfinder.lock` pins, as a host does to
-bring a project's locked Profiles onto a machine: it fetches a source only
-when its mirror is missing or lacks the locked commit, never re-resolves a
-ref, so the lock's commits stay as written, and keeps the lock's bytes. When
-the lock as written would change, because it is missing or stale, lacks a
-binding's chain or holds a package no chain reaches, it throws
-`lock-change-required` before any Git command; a package whose own file
-disagrees with the lock, which only an edited lock has, is refused once read.
-The refusal's `ProfileLockChange` says why as data: its kind, the binding and
-the lock entries it concerns. `plan(skills: false)` leaves Profile skills
-alone, as a host does to fill the cache before it asks about the protected
-paths a skill install writes: it reads no skill file, refuses no skill
-directory, its apply writes and deletes none, and it reports each skill
-directory's state rather than refusing an unmarked one. `apply` writes the
-lock and skills and refuses a plan whose configuration, lock or cached package
-files changed since (`resolution-stale`). `resolve` is both under one hold of
-the project's lock. A plan keeps the package file of each package it reads, so
-`select`, the selection validation uses, reads files only and never runs Git.
-A cache Wayfinder 0.2 wrote has the mirrors but no package files: when
-`select` finds no Profile, `validateWithProfileSources` copies the missing
-files out of the existing mirrors with `git show` (`restoreCachedPackages`),
-never fetching, and selects again. `status` reports, offline and without Git,
-where each binding stands as `select` would find it, with a stable state:
-`resolved`, `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
+already in the cache. That location is
+`WayfinderProfileSource.locationOf(git, projectRoot:)`: a URL, `scp`-style
+address or absolute path as written, a relative path joined to the project
+root. It names the cache directory and mirror lock too, so a consent gate
+compares it with the locations of the sources a person approved and needs no
+wrapper around Git. `plan(lockedOnly: true)` resolves exactly the commits
+`wayfinder.lock` pins, as a host does to bring a project's locked Profiles
+onto a machine: it fetches a source only when its mirror is missing or lacks
+the locked commit, never re-resolves a ref, so the lock's commits stay as
+written, and keeps the lock's bytes. When the lock as written would change,
+because it is missing or stale, lacks a binding's chain or holds a package no
+chain reaches, it throws `lock-change-required` before any Git command; a
+package whose own file disagrees with the lock, which only an edited lock has,
+is refused once read. The refusal's `ProfileLockChange` says why as data: its
+kind, the binding and the lock entries it concerns. `plan(skills: false)`
+leaves Profile skills alone, as a host does to fill the cache before it asks
+about the protected paths a skill install writes: it reads no skill file,
+refuses no skill directory, its apply writes and deletes none, and it reports
+each skill directory's state rather than refusing an unmarked one.
+`apply` writes the lock and skills and refuses a plan
+whose configuration, lock or cached package files changed since
+(`resolution-stale`). `resolve` is both under one hold of the project's lock.
+A plan keeps the package file of each package it reads, so `select`, the
+selection validation uses, reads files only and never runs Git. A cache
+Wayfinder 0.2 wrote has the mirrors but no package files: when `select` finds
+no Profile, `validateWithProfileSources` copies the missing files out of the
+existing mirrors with `git show` (`restoreCachedPackages`), never fetching,
+and selects again. `status` reports, offline and without Git, where each
+binding stands as `select` would find it, with a stable state: `resolved`,
+`lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,
 `package-unsupported`, `package-timeout` or `composition-failed`, the locked
 chain, the members missing from the cache, and the diagnostic `select`
 reports. The diagnostics keep their codes, so the command's output is
 unchanged; a host reads the state instead of telling `profile-unresolved`
-messages apart. It also reports, without Git, what a consent gate names: each
-chain member's local copy (whether its source's mirror and its package file
-are in the cache, since a locked-only plan contacts a source only to clone a
-missing mirror or refresh one that lacks the locked commit), the state of each
-skill directory a resolved chain installs into (`current`, `missing`, `stale`,
-`unmarked` or `outside`, as `ProfileSkills.inspect` reads it), and the
-`ProfileLockChange` a locked-only plan would refuse with, a lock entry no
-chain reaches included. `get` refuses anything that occupies a skill directory
-without the Profile's marker, a file or link included, before it writes the
-lock. A Profile skill marker that cannot be read counts as no marker, so its
-skill is `profile-skill-stale` and `get` leaves the directory alone. Without
-that, `status` would meet the failed read as a file it cannot read and report
-`cache-missing`.
+messages apart. It also reports, from one read of the lock and without Git,
+what a consent gate names: each chain member's local copy (whether its
+source's mirror and its package file are in the cache, since a locked-only
+plan contacts a source only to clone a missing mirror or refresh one that
+lacks the locked commit), the state of each skill directory a resolved chain
+installs into (`current`, `missing`, `stale`, `unmarked` or `outside`, as
+`ProfileSkills.inspect` reads it), and the `ProfileLockChange` a locked-only
+plan would refuse with, a lock entry no chain reaches included. `get` refuses
+anything that occupies a skill directory without the Profile's marker, a file
+or link included, before it writes the lock.
+A Profile skill marker that cannot be read counts as no
+marker, so its skill is `profile-skill-stale` and `get` leaves the directory
+alone. Without that, `status` would meet the failed read as a file it cannot
+read and report `cache-missing`.
 
 **Reading a package is bounded.** Parsing a package runs its rules' `tests`,
 and so its `pattern`s, on Dart's backtracking regular-expression engine,

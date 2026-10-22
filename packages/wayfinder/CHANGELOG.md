@@ -311,8 +311,9 @@ release.
   its apply writes and deletes none. `ProfileResolutionPlan.includesSkills`
   reports it, and `ProfileResolutionPlan.skillDirectories` lists every
   directory a locked package's skill installs into with its state, including
-  the unmarked and outside ones a plan with skills refuses. The plan's JSON
-  adds `includes_skills` and `skill_directories`.
+  the unmarked and outside ones a plan with skills refuses. Such a plan's
+  `skills` are all `written: false`, which says only that apply leaves them
+  alone. The plan's JSON adds `includes_skills` and `skill_directories`.
 - `ProfileSkills.inspect` reports, for one skill revision and without
   writing, each skill directory as a `ProfileSkillDirectory`: its root, path,
   the revision its marker records and a `ProfileSkillDirectoryState`

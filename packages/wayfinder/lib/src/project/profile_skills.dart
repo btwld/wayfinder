@@ -106,7 +106,10 @@ final class MaterializedSkill {
   /// Project-relative, as `.claude/skills/<id>` and `.agents/skills/<id>`.
   final List<String> directories;
 
-  /// False when every directory already held the locked revision.
+  /// Whether `get` replaced its directories: false when every directory
+  /// already held the locked revision, and always false after a plan that
+  /// left skills alone (`ProfileResolutionPlan.includesSkills` false), where
+  /// it says only that the skill was not touched.
   final bool written;
 
   Map<String, Object?> toJson() => {

@@ -268,7 +268,11 @@ final class ProfileResolutionResult {
   /// One revision per Profile id across every configured chain.
   final Map<ProfileId, LockedPackage> packages;
 
-  /// One per locked package that ships a skill, in id order.
+  /// One per locked package that ships a skill, in id order. After a plan
+  /// that left skills alone (`ProfileResolutionPlan.includesSkills` false),
+  /// each `written` is false because apply did not touch the skill, which
+  /// may be missing, stale or unmarked; the plan's
+  /// `ProfileResolutionPlan.skillDirectories` has their states.
   final List<MaterializedSkill> skills;
 
   /// Project-relative directories deleted because their Profile no longer
@@ -346,8 +350,10 @@ final class ProfileResolutionPlan {
   final bool lockChanged;
 
   /// One per locked package that ships a skill, in id order; `written` is
-  /// whether applying replaces its directories, never when the plan leaves
-  /// skills alone ([includesSkills] is false).
+  /// whether applying replaces its directories. When the plan leaves skills
+  /// alone ([includesSkills] is false), `written` is always false and says
+  /// only that applying does not touch the skill, not that it is current:
+  /// [skillDirectories] has each directory's state.
   final List<MaterializedSkill> skills;
 
   /// Project-relative skill directories applying would delete; none when
@@ -361,7 +367,8 @@ final class ProfileResolutionPlan {
   /// [ProfileSkillDirectoryState.unmarked] or
   /// [ProfileSkillDirectoryState.outside] directory, so it lists those only
   /// when it leaves skills alone, where they are reported rather than
-  /// refused.
+  /// refused, or for a candidate plan, which reports them in
+  /// [CandidateResolution.skillProblems] instead of throwing.
   final List<ProfileSkillDirectory> skillDirectories;
 
   final String _lockText;
