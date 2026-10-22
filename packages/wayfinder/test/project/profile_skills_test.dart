@@ -508,6 +508,62 @@ void main() {
       skip: Platform.isWindows ? 'needs symbolic links' : false,
     );
 
+    test('never returns a text whose marker a symbolic link replaced while it '
+        'read', () async {
+      await resolver.resolve(project.path);
+      await File(
+        p.join(project.path, _agents, 'SKILL.md'),
+      ).writeAsString('agents copy');
+      // Outside the project, a marker for the same revision.
+      final outside = await File(
+        p.join(temp.path, 'outside-marker'),
+      ).writeAsString(marker(revision.commit));
+      final real = await project.resolveSymbolicLinks();
+      final checkedMarker = p.join(real, _claude, '.wayfinder-profile');
+      final swap = _OnFirstPath(
+        (path) => p.equals(path, p.join(real, _claude, 'SKILL.md')),
+        () {
+          File(checkedMarker).deleteSync();
+          Link(checkedMarker).createSync(outside.path);
+        },
+      );
+      final result = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.read(project.path, revision),
+        swap,
+      );
+      expect(swap.fired, isTrue);
+      expect(result, (text: 'agents copy', truncated: false));
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
+
+    test(
+      'checks that SKILL.md is a regular file just before opening it',
+      () async {
+        await resolver.resolve(project.path);
+        await File(
+          p.join(project.path, _agents, 'SKILL.md'),
+        ).writeAsString('agents copy');
+        final real = await project.resolveSymbolicLinks();
+        final skill = p.join(real, _claude, 'SKILL.md');
+        // After SKILL.md was confined, while the marker is read, a named
+        // pipe takes its place; opening it would wait for a writer.
+        final swap = _OnFirstPath(
+          (path) => p.equals(path, p.join(real, _claude, '.wayfinder-profile')),
+          () {
+            File(skill).deleteSync();
+            final made = Process.runSync('mkfifo', [skill]);
+            if (made.exitCode != 0) throw StateError('${made.stderr}');
+          },
+        );
+        final result = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.read(project.path, revision),
+          swap,
+        ).timeout(const Duration(seconds: 10));
+        expect(swap.fired, isTrue);
+        expect(result, (text: 'agents copy', truncated: false));
+      },
+      skip: Platform.isWindows ? 'mkfifo is POSIX' : false,
+    );
+
     test('never returns the text of a revision get puts in place while it '
         'reads', () async {
       await resolver.resolve(project.path);
