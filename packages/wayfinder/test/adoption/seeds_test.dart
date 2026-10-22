@@ -11,9 +11,11 @@ void main() {
   late List<String> blocks;
 
   setUpAll(() async {
-    final seeding = await File(
+    // .gitattributes pins skills/** to LF; normalising here as well keeps the
+    // comparison independent of how the file was checked out.
+    final seeding = (await File(
       p.join('..', '..', 'skills', 'adopt-knowledge-bundle', 'SEEDING.md'),
-    ).readAsString();
+    ).readAsString()).replaceAll('\r\n', '\n');
     blocks = [
       for (final match in RegExp(
         r'^(`{3,})[a-z]*\n(.*?)^\1$',
