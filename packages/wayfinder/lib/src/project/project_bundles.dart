@@ -32,13 +32,26 @@ final class WayfinderProject {
   /// In path order, one per canonical root.
   final List<ProjectBundle> bundles;
 
-  /// Finds the nearest `wayfinder.json` from [from] and its `applies_to`
-  /// paths. Without one, the nearest `knowledge/` directory below the Git
-  /// repository boundary is the project's one bundle. [bundleName] keeps
-  /// only the bundle whose folder has that name.
+  /// Finds a project's bundles from [from].
+  ///
+  /// With [searchAncestors] false, the default, [from] is the project root,
+  /// as a host knows the workspace or worktree it opens, and discovery reads
+  /// nothing above it, not even to find a Git boundary: the bundles are the
+  /// `applies_to` paths of its own `wayfinder.json`, or, without one, its
+  /// `knowledge/` directory.
+  ///
+  /// With [searchAncestors] true, as the `wayfinder` command searches from
+  /// its working directory, discovery finds the nearest `wayfinder.json` at
+  /// or above [from] and its `applies_to` paths. Without one, the nearest
+  /// `knowledge/` directory below the Git repository boundary is the
+  /// project's one bundle.
+  ///
+  /// [bundleName] keeps only the bundle whose folder has that name. A
+  /// [from] that does not exist or cannot be read is `bundles-missing`.
   static Future<WayfinderProject> discover(
     Directory from, {
     String? bundleName,
+    bool searchAncestors = false,
   }) async {
     if (bundleName != null && bundleName.trim().isEmpty) {
       throw const WayfinderException(
@@ -46,47 +59,19 @@ final class WayfinderProject {
         '--bundle must be a nonblank bundle name.',
       );
     }
-    var directory = Directory(await from.resolveSymbolicLinks());
-    Directory? legacyProject;
-    File? config;
-    List<String>? paths;
-    while (true) {
-      final candidate = File(p.join(directory.path, 'wayfinder.json'));
-      if (await candidate.exists()) {
-        try {
-          paths = WayfinderProjectConfig.parse(
-            await candidate.readAsString(),
-          ).bundles.map((bundle) => bundle.path).toList();
-        } on WayfinderConfigException catch (error) {
-          throw WayfinderException('config-invalid', error.message);
-        } on FileSystemException catch (error) {
-          throw WayfinderException(
-            'config-invalid',
-            'Cannot read ${candidate.path}: ${error.message}.',
-          );
-        }
-        config = candidate;
-        break;
-      }
-      if (await Directory(p.join(directory.path, 'knowledge')).exists()) {
-        legacyProject ??= directory;
-      }
-      if (await FileSystemEntity.type(p.join(directory.path, '.git')) !=
-              FileSystemEntityType.notFound ||
-          directory.parent.path == directory.path) {
-        if (legacyProject != null) {
-          directory = legacyProject;
-          paths = ['knowledge'];
-          break;
-        }
-        throw const WayfinderException(
-          'bundles-missing',
-          'No project bundles found. Configure wayfinder.json, create '
-              'knowledge/, or pass an explicit bundle path.',
-        );
-      }
-      directory = directory.parent;
+    final Directory start;
+    try {
+      start = Directory(await from.resolveSymbolicLinks());
+    } on FileSystemException catch (error) {
+      throw WayfinderException(
+        'bundles-missing',
+        'No project bundles found in ${from.path}: it does not exist or '
+            'cannot be read (${error.osError?.message ?? error.message}).',
+      );
     }
+    final (directory, config, paths) = searchAncestors
+        ? await _nearest(start)
+        : await _atRoot(start);
     paths.sort();
     final selected = paths
         .where((path) => bundleName == null || p.basename(path) == bundleName)
@@ -131,6 +116,68 @@ final class WayfinderProject {
       config,
       List.unmodifiable(bundles),
     );
+  }
+
+  /// The bundles [root] itself configures, reading nothing above it.
+  static Future<(Directory, File?, List<String>)> _atRoot(
+    Directory root,
+  ) async {
+    final candidate = File(p.join(root.path, 'wayfinder.json'));
+    if (await candidate.exists()) {
+      return (root, candidate, await _configuredPaths(candidate));
+    }
+    if (await Directory(p.join(root.path, 'knowledge')).exists()) {
+      return (root, null, ['knowledge']);
+    }
+    throw WayfinderException(
+      'bundles-missing',
+      'No project bundles found in ${root.path}: it holds neither '
+          'wayfinder.json nor a knowledge/ directory.',
+    );
+  }
+
+  /// The nearest configured project at or above [from], or the nearest
+  /// `knowledge/` directory below the Git repository boundary.
+  static Future<(Directory, File?, List<String>)> _nearest(
+    Directory from,
+  ) async {
+    var directory = from;
+    Directory? legacyProject;
+    while (true) {
+      final candidate = File(p.join(directory.path, 'wayfinder.json'));
+      if (await candidate.exists()) {
+        return (directory, candidate, await _configuredPaths(candidate));
+      }
+      if (await Directory(p.join(directory.path, 'knowledge')).exists()) {
+        legacyProject ??= directory;
+      }
+      if (await FileSystemEntity.type(p.join(directory.path, '.git')) !=
+              FileSystemEntityType.notFound ||
+          directory.parent.path == directory.path) {
+        if (legacyProject != null) return (legacyProject, null, ['knowledge']);
+        throw const WayfinderException(
+          'bundles-missing',
+          'No project bundles found. Configure wayfinder.json, create '
+              'knowledge/, or pass an explicit bundle path.',
+        );
+      }
+      directory = directory.parent;
+    }
+  }
+
+  static Future<List<String>> _configuredPaths(File config) async {
+    try {
+      return WayfinderProjectConfig.parse(
+        await config.readAsString(),
+      ).bundles.map((bundle) => bundle.path).toList();
+    } on WayfinderConfigException catch (error) {
+      throw WayfinderException('config-invalid', error.message);
+    } on FileSystemException catch (error) {
+      throw WayfinderException(
+        'config-invalid',
+        'Cannot read ${config.path}: ${error.message}.',
+      );
+    }
   }
 }
 

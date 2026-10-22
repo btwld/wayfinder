@@ -776,6 +776,51 @@ void main() {
         );
       });
 
+      test('a server started in a subdirectory finds the project', () async {
+        final child = await Directory(
+          p.join(project.path, 'lib', 'ui'),
+        ).create(recursive: true);
+        final incoming = StreamController<List<int>>();
+        final outgoing = StreamController<List<int>>();
+        final transport = IOStreamTransport(
+          stream: incoming.stream,
+          sink: outgoing.sink,
+        );
+        final nested = WayfinderMcpServer(
+          workingDirectory: child,
+          knowledge: knowledge,
+        ).serve(transport: transport);
+        final nestedClient = McpClient(
+          const Implementation(name: 'nested-test', version: '1.0.0'),
+          options: McpClientOptions(protocol: protocol),
+        );
+        try {
+          await nestedClient.connect(
+            IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+          );
+          final search = await nestedClient.callTool(
+            const CallToolRequest(
+              name: 'search',
+              arguments: {'query': 'caching'},
+            ),
+          );
+          expect(search.isError, isNot(true));
+          expect(knowledge.calls.single, contains('shared-kit'));
+          expect(knowledge.calls.single, contains('knowledge'));
+          final graph = _payload(
+            await nestedClient.callTool(const CallToolRequest(name: 'graph')),
+          );
+          expect([
+            for (final bundle in graph['bundles']! as List<Object?>)
+              (bundle! as Map<String, Object?>)['path'],
+          ], paths);
+        } finally {
+          await nestedClient.close();
+          await transport.close();
+          await nested;
+        }
+      });
+
       test(
         'graph load failures identify the bundle and leave the session usable',
         () async {

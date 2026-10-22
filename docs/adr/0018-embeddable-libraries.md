@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110)
-- Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public)
+- Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
 ## Context
@@ -29,10 +29,17 @@ adds `ProfileValidator.validateLoaded`, which validates a bundle okf already
 loaded and reads no bundle file (only `path-targets-exist` still checks, on
 disk relative to the bundle root, a link target okf's graph cannot resolve
 inside the bundle), and `ProfileProjection.generatedFiles`, the files `--fix`
-would write.
+would write. `EffectiveProfile.requiredConceptFields` lists the frontmatter
+keys every concept must carry: those an error rule's `frontmatter` schema
+check names in a `required` it applies unconditionally. A host can then say
+what a concept needs without evaluating rules.
 `package:wayfinder/project.dart` holds project discovery, the data directory,
 Profile resolution and selection, validation from that selection, the graph
 projection with its Ack input, cancellation, the Git runner and the file lock.
+`ProfileSkills.read` returns a Profile skill's installed `SKILL.md` only when
+its marker holds the locked revision, the check behind
+`profile-skill-stale`. It takes no lock: it reads the marker again after the
+text, so a concurrent `get` never makes it return another revision's text.
 `package:wayfinder_embeddings/knowledge_store.dart` holds the index
 lifecycle: `WayfinderKnowledgeStore` reports a bundle's index `status`,
 indexes it with progress events and cancellation, searches one bundle or a
@@ -61,6 +68,23 @@ host: it finds the model in its bundle or in the package during
 development. Failures are
 `WayfinderException`s with a stable `code` and a sentence that names no
 command; the CLI adds what to run, such as `Run wayfinder index <bundle>.`
+
+**A host's root bounds the project.** A host knows the workspace or
+worktree it opens, and a `wayfinder.json` or Git boundary above it, such as
+one in a home directory, is not that project's. `WayfinderProject.discover`
+therefore reads nothing above the root it is given: the bundles are those
+the root's own `wayfinder.json` applies to, or its `knowledge/` directory.
+Binding takes the same bound: with `projectRoot`, the search for a bundle's
+`wayfinder.json` climbs the same directories as without it but reads only
+those whose real path is that root or inside it, and stops there, so a
+bundle with none there reports `config-missing`. The command still finds the
+project from any directory inside it by asking for its search of ancestors
+(`searchAncestors: true`) and binding without a bound, so its results and
+exit codes are unchanged. `projectRoot` is a host input like `configPath`:
+it narrows where a library caller's search looks, as `--config` names the
+file outright, while the command's search, the diagnostic and how a package
+reads stay as the guide states them. It therefore needs no guide §9 entry
+and no format bump.
 
 **Git runs hardened and bounded.** `runGit` drops the `GIT_*` variables a
 hook or linked worktree exports, such as `GIT_DIR`. It keeps only those that

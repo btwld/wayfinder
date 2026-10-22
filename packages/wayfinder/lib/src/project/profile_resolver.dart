@@ -440,11 +440,22 @@ final class WayfinderProfileResolver {
   /// each package from the local cache, composed. Never runs Git, never
   /// fetches, never writes, and reports every failure as exactly one
   /// diagnostic. A chain member's skill that `get` has not installed at the
-  /// locked commit is a warning, so the rules still run.
-  Future<ProfileSelection> select(String bundle, {String? configPath}) async {
+  /// locked commit is a warning, so the rules still run. Without
+  /// [configPath] it binds through the nearest `wayfinder.json` above
+  /// [bundle], never above [projectRoot] when one is given
+  /// ([WayfinderProjectConfig.bind]).
+  Future<ProfileSelection> select(
+    String bundle, {
+    String? configPath,
+    String? projectRoot,
+  }) async {
     final BoundBundle bound;
     try {
-      bound = await WayfinderProjectConfig.bind(bundle, configPath: configPath);
+      bound = await WayfinderProjectConfig.bind(
+        bundle,
+        configPath: configPath,
+        projectRoot: projectRoot,
+      );
     } on BundleBindingException catch (error) {
       return UnselectedProfile([error.diagnostic]);
     }
@@ -538,11 +549,12 @@ final class WayfinderProfileResolver {
   /// mirror that already exists, under its lock: never fetches, never
   /// waits for another holder of a mirror, and never writes in the project.
   /// Does nothing unless the lock is current and holds [bundle]'s chain.
-  /// Returns how many files it wrote; [select] reports what is still
-  /// missing.
+  /// Binds [bundle] as [select] does. Returns how many files it wrote;
+  /// [select] reports what is still missing.
   Future<int> restoreCachedPackages(
     String bundle, {
     String? configPath,
+    String? projectRoot,
     WayfinderCancellation? cancel,
   }) async {
     var restored = 0;
@@ -550,6 +562,7 @@ final class WayfinderProfileResolver {
       final bound = await WayfinderProjectConfig.bind(
         bundle,
         configPath: configPath,
+        projectRoot: projectRoot,
       );
       final lock = await _readLock(
         File(p.join(bound.projectRoot, 'wayfinder.lock')),
@@ -1834,18 +1847,26 @@ final class _Session {
 /// selects again, so a cache Wayfinder 0.2 wrote validates as it did. That
 /// runs `git show` through the resolver's runner and never fetches; with a
 /// complete cache, validation runs no Git. It writes nothing in the project
-/// beyond what [fix] writes in [bundle].
+/// beyond what [fix] writes in [bundle]. [configPath] and [projectRoot]
+/// bind [bundle] as [WayfinderProfileResolver.select] does.
 Future<ProfileValidationResult> validateWithProfileSources(
   String bundle, {
   String? configPath,
+  String? projectRoot,
   required WayfinderProfileResolver resolver,
   bool fix = false,
 }) async {
-  var selection = await resolver.select(bundle, configPath: configPath);
+  Future<ProfileSelection> select() =>
+      resolver.select(bundle, configPath: configPath, projectRoot: projectRoot);
+  var selection = await select();
   if (selection is UnselectedProfile &&
-      await resolver.restoreCachedPackages(bundle, configPath: configPath) >
+      await resolver.restoreCachedPackages(
+            bundle,
+            configPath: configPath,
+            projectRoot: projectRoot,
+          ) >
           0) {
-    selection = await resolver.select(bundle, configPath: configPath);
+    selection = await select();
   }
   return const ProfileValidator().validate(bundle, selection, fix: fix);
 }

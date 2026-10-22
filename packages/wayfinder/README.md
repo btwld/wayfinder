@@ -21,12 +21,17 @@ such as a candidate built in memory, without reading its files again; only the
 cannot resolve: first in the loaded bundle, so a candidate sees the files it
 adds, then on disk relative to the bundle root.
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
-write, without writing them.
+write, without writing them. `EffectiveProfile.requiredConceptFields` lists
+the frontmatter keys a concept must carry for the gate to pass: those the
+Profile's error rules require of every concept, for Bitwild `type`, `title`,
+`description` and `status`.
 
 ## Projects
 
 `package:wayfinder/project.dart` is what the `wayfinder` command does with a
-project on disk, for a host that embeds it:
+project on disk, for a host that embeds it. A host passes the project root
+it opens, and the library reads nothing above it; the command passes
+`searchAncestors: true` to find the project from any directory inside it.
 
 ```dart
 import 'dart:io';
@@ -34,7 +39,7 @@ import 'dart:io';
 import 'package:wayfinder/project.dart';
 
 Future<void> main() async {
-  final project = await WayfinderProject.discover(Directory.current);
+  final project = await WayfinderProject.discover(Directory('/work/app'));
   final resolver = WayfinderProfileResolver(
     dataDirectory: WayfinderDataDirectory.resolve(),
   );
@@ -42,6 +47,7 @@ Future<void> main() async {
   for (final bundle in project.bundles) {
     final result = await validateWithProfileSources(
       bundle.root,
+      projectRoot: project.root,
       resolver: resolver,
     );
     print('${bundle.name}: ${result.gate.wireValue}');
@@ -49,8 +55,18 @@ Future<void> main() async {
 }
 ```
 
-- `WayfinderProject.discover` finds the nearest `wayfinder.json`, or a
-  conventional `knowledge/` directory, and lists its bundles.
+- `WayfinderProject.discover(root)` lists the bundles `root`'s own
+  `wayfinder.json` applies to or, without one, its conventional `knowledge/`
+  directory, and reads nothing above `root`. With `searchAncestors: true` it
+  finds the nearest `wayfinder.json` at or above a directory instead, or the
+  nearest `knowledge/` directory below the Git boundary, as the `wayfinder`
+  command does from its working directory.
+- Without `configPath`, `WayfinderProjectConfig.bind`, the resolver's
+  `select` and `restoreCachedPackages`, and `validateWithProfileSources` find
+  a bundle's `wayfinder.json` by climbing from the bundle. With `projectRoot`
+  they read only directories whose real path is that root or inside it, and
+  stop there: a conventional project inside another project reports
+  `config-missing` rather than binding the outer project's configuration.
 - `WayfinderProfileResolver` resolves Git Profile sources. `plan` may fetch
   into the cache but writes nothing in the project; `apply` writes the lock and
   Profile skills, and refuses a plan whose configuration, lock or cache changed
@@ -63,6 +79,11 @@ Future<void> main() async {
   exist once they have gone unused for its period (30 days by default),
   reading a lock's note only while the lock is free;
   `WayfinderKnowledgeStore.prune` calls it.
+- `ProfileSkills.read(projectRoot, revision)` returns the `SKILL.md` text
+  `get` installed for a Profile revision, or null when no installed copy
+  holds that revision, the check behind `profile-skill-stale`.
+  `ProfileSkills.revisionsOf(selection)` lists the revisions of a selected
+  chain's skills.
 - `projectWayfinderGraph` is the `graph` command's projection, and
   `wayfinderGraphInput` its Ack query input.
 - `WayfinderDataDirectory.resolve`, `GitRunner` and the hardened `runGit`,

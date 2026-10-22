@@ -69,6 +69,33 @@
   `wayfinderGraphInput`; `WayfinderDataDirectory.resolve`; and
   `WayfinderException`, which gains a stable `code` beside its message and a
   `WayfinderException.cancelled()` constructor.
+- `WayfinderProject.discover(root)` reads nothing above `root`: the bundles
+  are those `root`'s own `wayfinder.json` applies to or, without one, its
+  `knowledge/` directory. `searchAncestors: true` is the command's search
+  instead, the nearest `wayfinder.json` at or above the directory or the
+  nearest `knowledge/` directory below the Git boundary; the CLI and MCP
+  server pass it, so their output is unchanged. A directory that does not
+  exist or cannot be read is `bundles-missing`, not a `FileSystemException`.
+- `WayfinderProjectConfig.bind`, the resolver's `select` and
+  `restoreCachedPackages`, and `validateWithProfileSources` take
+  `projectRoot`, which stops their search for a bundle's `wayfinder.json` at
+  that directory: the search climbs from the bundle's parent as before but
+  reads only directories whose real path is `projectRoot` or inside it, so a
+  bundle with none there reports `config-missing`. Without it they search
+  towards the filesystem root as before.
+- `EffectiveProfile.requiredConceptFields` lists the frontmatter keys every
+  concept must carry for the gate to pass: those an error rule's
+  `frontmatter` schema check requires unconditionally, in rule order. For
+  Bitwild these are `type`, `title`, `description` and `status`. It
+  combines `requiredRootProperties`, which a `SchemaCheck`'s `schema` now
+  lists for its own rule.
+- `ProfileSkills.read` returns the `SKILL.md` text `get` installed for a
+  skill revision, from a directory whose marker holds that revision and that
+  no symbolic link places outside the project, or null. It takes no lock and
+  reads the marker again after the text, so a concurrent `get` never makes
+  it return another revision's text.
+  `ProfileSkills.revisionsOf` lists the skill revisions of a
+  `SelectedProfile`'s chain.
 - The resolver splits `get` into `plan`, which may fetch into the cache but
   writes nothing in the project, and `apply`, which writes it and throws
   `resolution-stale` when the configuration, lock or cache changed since.

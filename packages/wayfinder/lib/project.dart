@@ -8,18 +8,23 @@
 /// data directory. A host keeps all okf bundle I/O of one process on one
 /// isolate, because okf's bundle lock does not exclude isolates (ADR-0018).
 ///
+/// Given a project root, discovery and binding read nothing above it; the
+/// command opts into its search of the working directory's ancestors with
+/// `searchAncestors: true`.
+///
 /// ```dart
 /// import 'dart:io';
 ///
 /// import 'package:wayfinder/project.dart';
 ///
-/// final project = await WayfinderProject.discover(Directory.current);
+/// final project = await WayfinderProject.discover(Directory('/work/app'));
 /// final resolver = WayfinderProfileResolver(
 ///   dataDirectory: WayfinderDataDirectory.resolve(),
 /// );
 /// for (final bundle in project.bundles) {
 ///   final result = await validateWithProfileSources(
 ///     bundle.root,
+///     projectRoot: project.root,
 ///     resolver: resolver,
 ///   );
 ///   print('${bundle.name}: ${result.gate.wireValue}');

@@ -72,7 +72,10 @@ class WayfinderMcpServer {
       Future<Map<String, Object?>> Function(ProjectBundle) action,
     ) async {
       if (rootBundle != null) return action(rootBundle);
-      final bundles = (await WayfinderProject.discover(project)).bundles;
+      final bundles = (await WayfinderProject.discover(
+        project,
+        searchAncestors: true,
+      )).bundles;
       final reports = <Map<String, Object?>>[];
       for (final bundle in bundles) {
         try {
@@ -194,7 +197,10 @@ class WayfinderMcpServer {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
         if (rootBundle == null) {
-          final bundles = (await WayfinderProject.discover(project)).bundles;
+          final bundles = (await WayfinderProject.discover(
+            project,
+            searchAncestors: true,
+          )).bundles;
           return (await _knowledge.search(
             bundles,
             query,

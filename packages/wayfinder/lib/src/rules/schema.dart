@@ -30,6 +30,7 @@ final class RuleSchema {
     required this.slots,
     required this.rootPropertyNames,
     required this.mayObserveUnnamedRootProperties,
+    required this.requiredRootProperties,
     required AckSchema<Object, Object> probe,
   }) : _slotFree = slots.isEmpty ? BoundSchema._(probe) : null;
 
@@ -82,6 +83,9 @@ final class RuleSchema {
       slots: walk.slots,
       rootPropertyNames: walk.rootPropertyNames,
       mayObserveUnnamedRootProperties: walk.mayObserveUnnamedRootProperties,
+      requiredRootProperties: List.unmodifiable(
+        _requiredRootProperties(schema, merged),
+      ),
       probe: probe,
     );
   }
@@ -93,6 +97,16 @@ final class RuleSchema {
   final Set<String> rootPropertyNames;
 
   final bool mayObserveUnnamedRootProperties;
+
+  /// The root properties every accepted instance has, in document order:
+  /// those a `required` names at the root, in an `allOf` member, or in a
+  /// def a root `$ref` reaches, all of which apply to the same instance
+  /// unconditionally. A name required only under `if`, `then`, `else`,
+  /// `anyOf`, `oneOf` or `not`, or below a property, is not listed. A host
+  /// asking what a concept must carry reads
+  /// `EffectiveProfile.requiredConceptFields`, which combines these over a
+  /// Profile's error rules.
+  final List<String> requiredRootProperties;
 
   final BoundSchema? _slotFree;
 
@@ -386,6 +400,33 @@ final class _Walk {
         'unsupported keyword "$keyword"',
         unsupported: true,
       );
+}
+
+/// See [RuleSchema.requiredRootProperties]. [schema] already passed the
+/// walk, so every `required` is a list of strings and every `$ref` names a
+/// def or a slot.
+Iterable<String> _requiredRootProperties(
+  Object? schema,
+  Map<String, Object?> defs,
+) {
+  final names = <String>{};
+  final visited = <String>{};
+  void visit(Object? node) {
+    if (node is! Map<String, Object?>) return;
+    if (node['required'] case final List<Object?> required) {
+      names.addAll(required.cast<String>());
+    }
+    if (node['allOf'] case final List<Object?> members) members.forEach(visit);
+    if (node[r'$ref'] case final String ref) {
+      final name = Uri.decodeComponent(
+        ref.substring(r'#/$defs/'.length),
+      ).replaceAll('~1', '/').replaceAll('~0', '~');
+      if (visited.add(name)) visit(defs[name]);
+    }
+  }
+
+  visit(schema);
+  return names;
 }
 
 String _child(String pointer, String token) => '$pointer/${_escape(token)}';
