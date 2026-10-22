@@ -228,8 +228,10 @@ New boundaries or omitted context can change retrieval results; ranking algorith
 and model identity are unchanged.
 
 Benchmark inputs and recorded results live in [`fixtures/`](fixtures/README.md).
-Alternative model weights stay in benchmark tooling; the application model
-remains Arctic XS Q8_0.
+Alternative model weights stay in benchmark tooling:
+`tool/prepare_benchmark_models.dart --output=DIR` downloads each one straight
+into `DIR/<model-id>/`, never into the Wayfinder data directory. The
+application model remains Arctic XS Q8_0.
 
 ## Command-line entry points
 
@@ -246,7 +248,7 @@ commands using local embeddings. The following developer commands run from this 
 (`packages/wayfinder_embeddings`):
 
 ```bash
-# Download/cache and verify the pinned XS model once.
+# Download, cache and verify the pinned XS model once, then stage it in models/.
 dart run tool/prepare_model.dart
 
 # Run the fixed-query OKF fixture example with local embeddings.
@@ -431,11 +433,15 @@ melos run objectbox:install
 melos run wayfinder_embeddings:build
 ```
 
-The prepare step uses llamadart's shared download cache, an immutable revision,
-and SHA-256 verification. It stages `models/embedding.gguf` and a manifest;
-weights stay out of Git. `objectbox:install` verifies its pinned release archive
-the same way, so every native asset a bundle ships is checked against a recorded
-hash. From this package, add `--offline` to
+The prepare step downloads the model once per machine through
+[`EmbeddingModelCache`](#provision-the-model-from-an-application), from an
+immutable revision, into the cache's default directory in the Wayfinder data
+directory, and verifies its size and SHA-256. It then stages a verified copy as
+`models/embedding.gguf` with a manifest; weights stay out of Git. A model that
+an earlier release downloaded into llamadart's shared cache is copied from
+there instead, and stays where it is. `objectbox:install` verifies its pinned
+release archive the same way, so every native asset a bundle ships is checked
+against a recorded hash. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
 require an already staged or cached model. Native build hooks may still need
 their own runtime cache; `--offline` controls model acquisition only.
@@ -463,6 +469,74 @@ Distribute the whole bundle. Its executable passes the model beside it in
 running executable, and uses an `installation` its caller names, then the
 development `models/` directory. `WAYFINDER_EMBEDDING_MODEL` or the CLI's
 `--model` overrides it. Runtime inference never downloads weights.
+
+### Provision the model from an application
+
+An application that embeds this package, rather than shipping a Wayfinder
+bundle, obtains the model through `package:wayfinder_embeddings/model_cache.dart`.
+`EmbeddingModelCache` keeps the pinned model in one directory:
+`models/arctic-embed-xs-q8_0/` in the data directory you pass as
+`dataDirectory:`, by default the Wayfinder data directory
+(`WayfinderDataDirectory.resolve()`, so `WAYFINDER_DATA_DIR` moves it, beside
+the CLI's indexes and Profiles). `EmbeddingModelCache.inDirectory` uses a
+directory of your choice instead. The file inside is `embedding.gguf`, the
+name a staged `models/` directory uses, so a bundle's `models/` directory is a
+cache directory too.
+
+- `target` describes the download to show before asking: the source URL, the
+  25,279,840 bytes, the SHA-256 and the destination file.
+- `locate()` is offline. It reads files only and returns the verified cached
+  model, or the first verified file in `alsoCheck` (for example the
+  `models/embedding.gguf` of an installed Wayfinder bundle), or null.
+- `provision()` is the only call that downloads. It returns a stream:
+  `ModelDownloading` events as bytes arrive (about once per percent), then
+  `ModelVerifying`, then `ModelProvisioned` with the file. A model already in
+  place yields only `ModelProvisioned`, without a request. The download goes
+  to a temporary `.embedding.gguf.<random>.part` file in the cache directory,
+  and only a file whose size and SHA-256 match the pin is renamed into place,
+  so a failed download never replaces or removes the model already there. A
+  `WayfinderCancellation`, or cancelling the subscription, stops it and
+  removes the temporary file. A process killed mid-download leaves its
+  `.part` file behind; `provision()` removes such a file once nothing has
+  written to it for a day, and deleting it by hand is safe.
+
+Failures are `WayfinderException`s:
+
+- `model-download-failed`: a network error, a response other than 200, or
+  nothing received for `stallTimeout` (one minute by default);
+- `model-invalid`: the downloaded size or SHA-256 differs from the pin, or
+  the response announces a different size before its body;
+- `model-cache-unavailable`: the cache directory cannot be created or
+  written, or something other than the model is in the way of the target;
+- `cancelled`: the `WayfinderCancellation` stopped the download;
+- `data-directory-unavailable`: thrown by `EmbeddingModelCache()` when no
+  `dataDirectory:` is given and the Wayfinder data directory cannot be
+  located.
+
+`model_cache.dart` also exports `WayfinderException`,
+`WayfinderCancellation`, `WayfinderCancellationController` and
+`WayfinderDataDirectory` from `package:wayfinder/project.dart`, so catching
+and cancelling need no direct `wayfinder` dependency. Pass `client:` to
+supply the `http.Client`, for example one configured for a proxy, or a fake
+in tests; the cache never closes a client it was given.
+
+```dart
+import 'package:wayfinder_embeddings/model_cache.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+
+Future<LlamaEmbedder> openEmbedder() async {
+  final cache = EmbeddingModelCache();
+  var model = await cache.locate();
+  if (model == null) {
+    // Ask first: this downloads cache.target.bytes from cache.target.source.
+    await for (final step in cache.provision()) {
+      if (step is ModelDownloading) print('${(step.fraction * 100).round()}%');
+      if (step is ModelProvisioned) model = step.file;
+    }
+  }
+  return LlamaEmbedder.open(modelFile: model!);
+}
+```
 
 `LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
 call `dispose()` in a `finally` block. A backend that never reports itself

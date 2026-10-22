@@ -71,6 +71,33 @@
   unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
   working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
   store still builds each bundle once in its new layout (see above).
+- New `package:wayfinder_embeddings/model_cache.dart` entry with
+  `EmbeddingModelCache`, so an application can obtain the pinned Arctic Embed
+  XS Q8_0 model itself. `target` describes the download (source URL, size,
+  SHA-256, destination); `locate` finds a verified copy without touching the
+  network; `provision` downloads it through an injectable `http.Client` into a
+  temporary file in the cache directory, reports progress, verifies the size
+  and SHA-256 before an atomic rename, and is cancellable, removing the
+  temporary file. A response that announces a size other than the pinned one
+  is refused before its body, and temporary files an interrupted download
+  left are removed once nothing has written to them for a day. The cache
+  directory is `models/<id>` in the `dataDirectory` given, by default the
+  Wayfinder data directory, or any directory through
+  `EmbeddingModelCache.inDirectory`. Failures are `WayfinderException`s:
+  `model-download-failed`, `model-invalid`, `model-cache-unavailable` (the
+  cache directory cannot be written), `cancelled`, and
+  `data-directory-unavailable` from the default constructor. The entry also
+  exports `WayfinderException`, `WayfinderCancellation`,
+  `WayfinderCancellationController` and `WayfinderDataDirectory`, so a host
+  needs no direct `wayfinder` dependency. Adds the `http` dependency.
+- `tool/prepare_model.dart` downloads through `EmbeddingModelCache` instead of
+  llamadart's download manager, into the cache's default directory in the
+  Wayfinder data directory, and prints download progress. It still stages
+  `models/embedding.gguf` and its manifest, still copies a verified model from
+  the llamadart caches earlier releases filled, leaving their files there, and
+  `--offline` still refuses to download. `tool/prepare_benchmark_models.dart`
+  downloads each experimental model straight into its `--output` directory
+  instead of llamadart's shared cache.
 
 # 0.2.0
 

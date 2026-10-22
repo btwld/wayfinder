@@ -18,6 +18,7 @@ dependencies:
   crypto: ^3.0.3
   equatable: ^2.0.7
   flat_buffers: ^25.9.23
+  http: ^1.5.0
   llamadart: 0.8.23
   meta: ^1.16.0
   objectbox: ^5.3.2
