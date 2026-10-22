@@ -92,6 +92,24 @@ void main() {
     expect(requests, 1);
   });
 
+  test('a cache in the output directory downloads straight into '
+      'place', () async {
+    final output = Directory(p.join(directory.path, 'benchmark', 'fixture'));
+    final file = await prepareEmbeddingModel(
+      output: output,
+      model: model,
+      cacheDirectory: output,
+      legacyDownloads: const [],
+    );
+    expect(file.path, p.join(output.path, 'embedding.gguf'));
+    expect(await file.readAsBytes(), bytes);
+    expect(output.listSync().map((entry) => p.basename(entry.path)).toSet(), {
+      'embedding.gguf',
+      'manifest.json',
+    });
+    expect(requests, 1);
+  });
+
   test('a checksum failure preserves the existing staged file', () async {
     final output = await Directory(p.join(directory.path, 'models')).create();
     final target = await File(

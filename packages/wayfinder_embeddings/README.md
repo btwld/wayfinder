@@ -228,8 +228,10 @@ New boundaries or omitted context can change retrieval results; ranking algorith
 and model identity are unchanged.
 
 Benchmark inputs and recorded results live in [`fixtures/`](fixtures/README.md).
-Alternative model weights stay in benchmark tooling; the application model
-remains Arctic XS Q8_0.
+Alternative model weights stay in benchmark tooling:
+`tool/prepare_benchmark_models.dart --output=DIR` downloads each one straight
+into `DIR/<model-id>/`, never into the Wayfinder data directory. The
+application model remains Arctic XS Q8_0.
 
 ## Command-line entry points
 
