@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs)
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs); 2026-10-22 (a Profile skill read reads the real paths it checked and can be bounded in bytes, a selection names its project root, and skill writes and prunes keep to the real roots they checked)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -40,6 +40,26 @@ projection with its Ack input, cancellation, the Git runner and the file lock.
 its marker holds the locked revision, the check behind
 `profile-skill-stale`. It takes no lock: it reads the marker again after the
 text, so a concurrent `get` never makes it return another revision's text.
+It confines the marker and `SKILL.md` by their real paths and reads those
+paths, so a symbolic link retargeted after the check cannot move the read
+outside the project, and it drops a text whose real path holds a link once
+read. Dart opens a file only by following its path, so a link put in place
+and removed again while the file opens is the one swap this cannot see; a
+host that must exclude it keeps writers out of the project while it reads.
+A host bounds what a huge file costs with `maxBytes`: the read stops one
+byte past it, and a longer file is cut at the last UTF-8 character boundary
+within it and reported `truncated` rather than refused, since a host that
+shows a skill can still show its start and say it was cut. A marker is read
+up to 64 KiB, far beyond any Wayfinder writes, and only when it is a regular
+file, so a named pipe or a huge file marks no revision instead of holding
+the read.
+`SelectedProfile.projectRoot` names the directory of the `wayfinder.json`
+that bound the selection, where its skills are installed and its
+`profile-skill-stale` notes looked, so a host passes it to `read` rather
+than derive it from the configuration's path. `get` installs and prunes
+skills the same way, under the real path of each skill root it confined to
+the project, and replaces a directory only after checking its marker just
+before moving it.
 `package:wayfinder_embeddings/knowledge_store.dart` holds the index
 lifecycle: `WayfinderKnowledgeStore` reports a bundle's index `status`,
 indexes it with progress events and cancellation, searches one bundle or a
