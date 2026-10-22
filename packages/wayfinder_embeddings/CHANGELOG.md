@@ -203,6 +203,51 @@ bullets above ship first, move these under the next release.
   at least a day ago (`EmbeddingModelCache.removeAbandonedDownloads`, which
   covers every model directory under `models/`). `KnowledgePruneResult` gains
   `projectLocks` and `downloads`.
+- **BREAKING:** search notices are typed. `KnowledgeSearchResponse.notices`,
+  `KnowledgeBundleSearch.notices` and `KnowledgeProjectSearch.notices` are
+  lists of the new `KnowledgeNotice` instead of strings: a stable `code`
+  (`KnowledgeNoticeCode`, whose `wireValue` is `unresolved-relationship`,
+  `governing-source-unavailable`, `refresh-in-progress` or
+  `source-changed`), the `message`, the bundle-relative `paths` it concerns
+  (the matches whose link did not resolve, the governing source, or every
+  changed file, not only the ten the message names), the link `target` of an
+  unresolved relationship, and in a project search the `bundle`. `text` is the
+  line printed before: a project search's still starts with the bundle's
+  name. A host tells notices apart by `code` instead of by a text prefix.
+  `toJson()` and `toMarkdown()` are unchanged, and so are the CLI's and MCP
+  server's output. One notice is reported per sentence, as before; an
+  unresolved target several matches link to now names each of them in
+  `paths`. Construct `KnowledgeSearchResponse` with `KnowledgeNotice`s.
+- `search` and `searchBundle` take a `WayfinderCancellation`, checked before
+  each bundle, before the encoder is opened and the query encoded, and
+  before the passages are scored. A cancelled search throws `cancelled`,
+  whose message names no bundle, and keeps a retained encoder and its parsed
+  snapshots. `KnowledgeIndex.search` takes one too, checked before it
+  encodes the query and before it scores. A host's subclass that overrides
+  `search` or `searchBundle` adds the parameter.
+- `WayfinderKnowledgeStore.releaseEncoder()` disposes a retained encoder once
+  the operations using it finish, and keeps the parsed snapshots; the next
+  index run or search opens another. The new `encoderIdleTimeout`, with
+  `retainEncoder`, does the same once no index run or search has used the
+  encoder for that long, so a long-lived host frees the model's memory
+  without disposing the store. `status`, `forget`, `prune` and an index that
+  finds its index current use no encoder and never keep it open.
+- `EmbeddingModelCache.remove()` deletes the model at the target, verified or
+  not, and the temporary files of this cache's downloads, offline, and
+  returns their paths. It fails with `model-cache-unavailable`, deleting no
+  model, when something other than a file or link is at the target or the
+  model cannot be deleted.
+- `forget` also deletes each index's `writer.lock`, while holding it, and
+  the directories that leaves empty, instead of leaving them for `prune`. An
+  operation that opened a lock file just before locks its path again, so it
+  still excludes the next. A lock file whose index could not be deleted
+  entirely, as when a reader on Windows has a generation open, stays for a
+  later `prune`, which now keeps such a lock file too.
+- New `WayfinderKnowledgeStore.forgetProjectRoot(root)` forgets every bundle
+  at or inside a project root, found by the bundle root each index's
+  `writer.lock` records, so a host can remove a deleted worktree's indexes
+  without its bundle list. It returns the bundle roots it forgot, and throws
+  `index-busy`, deleting nothing, while an operation indexes one of them.
 
 # 0.2.0
 

@@ -375,6 +375,99 @@ void main() {
     expect(requests, hasLength(1));
   });
 
+  group('remove', () {
+    test('deletes the model and every temporary file of its downloads, '
+        'offline', () async {
+      final cache = cacheWith(serving(const Stream.empty(), status: 500));
+      directory.createSync();
+      cache.target.file.writeAsBytesSync(bytes);
+      final partials = [
+        for (final suffix in ['0123456789abcdef', 'fedcba9876543210'])
+          File(p.join(directory.path, '.embedding.gguf.$suffix.part'))
+            ..writeAsStringSync('partial'),
+      ];
+      // A fresh download's file goes too, not only an abandoned one's.
+      partials.first.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 2)),
+      );
+      for (final name in [
+        '.other.gguf.0123456789abcdef.part',
+        '.embedding.gguf.not-a-random-name.part',
+        'notes.txt',
+      ]) {
+        File(p.join(directory.path, name)).writeAsStringSync('kept');
+      }
+      final removed = await cache.remove();
+      expect(removed.toSet(), {
+        cache.target.file.path,
+        for (final partial in partials) partial.path,
+      });
+      expect(removed.first, cache.target.file.path);
+      expect(entries()..sort(), [
+        '.embedding.gguf.not-a-random-name.part',
+        '.other.gguf.0123456789abcdef.part',
+        'notes.txt',
+      ]);
+      expect(await cache.locate(), isNull);
+      expect(await cache.remove(), isEmpty);
+      expect(requests, isEmpty);
+    });
+
+    test('deletes a model that does not verify, and a link at the target '
+        'without its target', () async {
+      final cache = cacheWith(servingChunks([bytes]));
+      directory.createSync();
+      cache.target.file.writeAsStringSync('damaged');
+      expect(await cache.remove(), [cache.target.file.path]);
+      expect(entries(), isEmpty);
+
+      final elsewhere = File(p.join(root.path, 'elsewhere.gguf'))
+        ..writeAsBytesSync(bytes);
+      Link(cache.target.file.path).createSync(elsewhere.path);
+      expect(await cache.remove(), [cache.target.file.path]);
+      expect(entries(), isEmpty);
+      expect(elsewhere.readAsBytesSync(), bytes);
+      expect(requests, isEmpty);
+    });
+
+    test('with nothing installed deletes nothing and creates no '
+        'directory', () async {
+      expect(await cacheWith(servingChunks([bytes])).remove(), isEmpty);
+      expect(directory.existsSync(), isFalse);
+    });
+
+    test('refuses something other than the model at the target', () async {
+      final cache = cacheWith(servingChunks([bytes]));
+      Directory(
+        p.join(cache.target.file.path, 'occupied'),
+      ).createSync(recursive: true);
+      await expectLater(
+        cache.remove(),
+        failsWith('model-cache-unavailable', contains(directory.path)),
+      );
+      expect(FileSystemEntity.isDirectorySync(cache.target.file.path), isTrue);
+    });
+
+    test('reports a model it cannot delete', () async {
+      final cache = cacheWith(servingChunks([bytes]));
+      directory.createSync();
+      cache.target.file.writeAsBytesSync(bytes);
+      await Process.run('chmod', ['a-w', directory.path]);
+      try {
+        await expectLater(
+          cache.remove(),
+          failsWith(
+            'model-cache-unavailable',
+            contains(cache.target.file.path),
+          ),
+        );
+      } finally {
+        await Process.run('chmod', ['u+w', directory.path]);
+      }
+      expect(await cache.locate(), isNotNull);
+    }, testOn: '!windows');
+  });
+
   test('an injected client stays open', () async {
     final succeeding = _TrackingClient(servingChunks([bytes]));
     final failing = _TrackingClient(serving(const Stream.empty(), status: 503));

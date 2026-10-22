@@ -279,6 +279,81 @@ void main() {
       },
     );
 
+    test('a cancelled search stops before it encodes or scores and at the '
+        'next bundle, names no bundle, and keeps a retained encoder', () async {
+      final other = await copyStoreBundle(temp, 'other');
+      await knowledge.index(bundle);
+      await knowledge.index(other);
+      final shared = store(retainEncoder: true);
+      final cancelled = throwsA(
+        isA<WayfinderException>()
+            .having((e) => e.code, 'code', 'cancelled')
+            .having(
+              (e) => e.message,
+              'message',
+              'The operation was cancelled.',
+            ),
+      );
+      try {
+        final opened = encoders.length;
+        await expectLater(
+          shared.search(
+            [bundle, other],
+            'password',
+            cancel: WayfinderCancellationController()..cancel(),
+          ),
+          cancelled,
+        );
+        await expectLater(
+          shared.searchBundle(
+            bundle,
+            'password',
+            cancel: WayfinderCancellationController()..cancel(),
+          ),
+          cancelled,
+        );
+        expect(encoders, hasLength(opened), reason: 'no encoder was opened');
+
+        await shared.searchBundle(bundle, 'warm');
+        final encoder = encoders.last;
+        final during = WayfinderCancellationController();
+        encoder.beforeQuery = (_) async => during.cancel();
+        await expectLater(
+          shared.searchBundle(bundle, 'password', cancel: during),
+          cancelled,
+          reason: 'cancelled while the query was encoded, so not scored',
+        );
+        encoder.beforeQuery = null;
+
+        // The project's second bundle stops before its encoder and scoring.
+        final next = WayfinderCancellationController();
+        var pinned = 0;
+        generationPinned[shared] = (_) async {
+          if (++pinned == 2) next.cancel();
+        };
+        await expectLater(
+          shared.search([bundle, other], 'weather', cancel: next),
+          cancelled,
+        );
+        generationPinned[shared] = null;
+        expect(pinned, 2);
+        expect(encoder.queryTexts.where((text) => text == 'weather'), [
+          'weather',
+        ]);
+
+        expect(encoder.isDisposed, isFalse);
+        final found = await shared.search(
+          [bundle, other],
+          'password',
+          cancel: WayfinderCancellationController(),
+        );
+        expect(found.matches, isNotEmpty);
+        expect(encoders.last, same(encoder));
+      } finally {
+        await shared.dispose();
+      }
+    });
+
     test('dispose waits for a failed encoder to finish disposing', () async {
       await knowledge.index(bundle);
       final disposing = Completer<void>();
@@ -983,17 +1058,61 @@ void main() {
               .every((hit) => !hit.sourceChanged),
           isTrue,
         );
-        expect(served.notices, [
-          ...served.response.notices.where(
-            (notice) =>
-                !notice.startsWith('refresh-in-progress:') &&
-                !notice.startsWith('source-changed:'),
+        // The freshness notices come last, typed: a host never parses
+        // their text.
+        final freshness = served.notices.skip(served.notices.length - 2);
+        expect(
+          served.notices.take(served.notices.length - 2),
+          everyElement(
+            isA<KnowledgeNotice>().having(
+              (notice) => notice.code,
+              'code',
+              isNot(
+                anyOf(
+                  KnowledgeNoticeCode.refreshInProgress,
+                  KnowledgeNoticeCode.sourceChanged,
+                ),
+              ),
+            ),
           ),
-          startsWith('refresh-in-progress: '),
-          allOf(
-            startsWith('source-changed: recovery.md '),
-            contains('changed'),
-          ),
+        );
+        expect(freshness, [
+          isA<KnowledgeNotice>()
+              .having(
+                (notice) => notice.code,
+                'code',
+                KnowledgeNoticeCode.refreshInProgress,
+              )
+              .having(
+                (notice) => notice.message,
+                'message',
+                startsWith('refresh-in-progress: '),
+              )
+              .having((notice) => notice.paths, 'paths', isEmpty)
+              .having((notice) => notice.bundle, 'bundle', isNull),
+          isA<KnowledgeNotice>()
+              .having(
+                (notice) => notice.code,
+                'code',
+                KnowledgeNoticeCode.sourceChanged,
+              )
+              .having(
+                (notice) => notice.text,
+                'text',
+                allOf(
+                  startsWith('source-changed: recovery.md '),
+                  contains('changed'),
+                ),
+              )
+              .having((notice) => notice.paths, 'paths', ['recovery.md']),
+        ]);
+        expect(
+          KnowledgeNoticeCode.refreshInProgress.wireValue,
+          'refresh-in-progress',
+        );
+        expect(KnowledgeNoticeCode.sourceChanged.wireValue, 'source-changed');
+        expect(served.toJson()['notices'], [
+          for (final notice in served.notices) notice.message,
         ]);
         final json = served.toJson();
         expect(
@@ -1016,8 +1135,25 @@ void main() {
         );
         expect(project.freshness.single.refreshing, isTrue);
         expect(project.matches.first.sourceChanged, isTrue);
+        final refresh = project.notices.singleWhere(
+          (notice) => notice.code == KnowledgeNoticeCode.refreshInProgress,
+        );
+        expect(refresh.bundle, same(bundle));
+        expect(refresh.message, startsWith('refresh-in-progress: '));
+        expect(refresh.text, 'knowledge: ${refresh.message}');
         expect(
-          project.notices,
+          project.notices
+              .singleWhere(
+                (notice) => notice.code == KnowledgeNoticeCode.sourceChanged,
+              )
+              .paths,
+          ['recovery.md'],
+        );
+        expect(project.toJson()['notices'], [
+          for (final notice in project.notices) notice.text,
+        ]);
+        expect(
+          project.toJson()['notices'],
           contains(startsWith('knowledge: refresh-in-progress: ')),
         );
         expect(
@@ -1038,7 +1174,11 @@ void main() {
       expect(after.freshness.refreshing, isFalse);
       expect(after.matches.every((hit) => !hit.sourceChanged), isTrue);
       expect(
-        after.notices.where((notice) => notice.startsWith('refresh-')),
+        after.notices.where(
+          (notice) =>
+              notice.code == KnowledgeNoticeCode.refreshInProgress ||
+              notice.code == KnowledgeNoticeCode.sourceChanged,
+        ),
         isEmpty,
       );
       expect(after.toJson().toString(), isNot(contains('sourceChanged')));
@@ -1077,7 +1217,10 @@ void main() {
           plain.toJson()['matches'],
           reason: 'the same generation, scored the same',
         );
-        expect(served.notices, [...plain.notices, startsWith('refresh-')]);
+        expect(served.notices.map((notice) => notice.code), [
+          ...plain.notices.map((notice) => notice.code),
+          KnowledgeNoticeCode.refreshInProgress,
+        ]);
         expect(plain.freshness.refreshing, isFalse);
       } finally {
         release.complete();

@@ -1075,6 +1075,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     calls.add(
       'searchBundles:${bundles.map((b) => b.root).join(',')}:$query:$limit',
@@ -1133,6 +1134,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     calls.add('search:${bundle.root}:$query:$limit');
     if (failSearch) {
@@ -1143,7 +1145,12 @@ class _Knowledge extends WayfinderKnowledgeStore {
       KnowledgeSearchResponse(
         matches: [],
         context: [],
-        notices: ['fixture notice'],
+        notices: [
+          KnowledgeNotice(
+            KnowledgeNoticeCode.unresolvedRelationship,
+            'fixture notice',
+          ),
+        ],
       ),
     );
   }
@@ -1157,6 +1164,7 @@ class _HitKnowledge extends _Knowledge {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     final hit = SearchResult(
       chunk: Chunk(

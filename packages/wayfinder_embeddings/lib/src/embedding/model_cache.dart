@@ -87,8 +87,8 @@ final class ModelProvisioned extends ModelProvisionProgress {
 /// - `model-invalid` when the downloaded size or SHA-256 differs from the
 ///   pin, or the response announces a size other than the pinned one;
 /// - `model-cache-unavailable` when the cache directory cannot be created or
-///   written, or something other than the model is in the way of the
-///   target;
+///   written, something other than the model is in the way of the target,
+///   or [remove] cannot delete the model;
 /// - `cancelled` when the `WayfinderCancellation` passed to [provision]
 ///   stops it;
 /// - `data-directory-unavailable` from the default constructor, when no
@@ -156,6 +156,66 @@ final class EmbeddingModelCache {
       if (await _matches(file)) return file;
     }
     return null;
+  }
+
+  /// Deletes the model at the [target] and the temporary files of this
+  /// cache's downloads, and returns the paths it deleted. It reads and
+  /// deletes files only, never touches the network, and deletes a file at
+  /// the target whether or not it verifies. The cache directory stays.
+  ///
+  /// Throws `model-cache-unavailable`, having deleted no model, when
+  /// something other than a file or link is at the target, or the model
+  /// cannot be deleted, such as one an engine holds open on Windows. A
+  /// temporary file that cannot be deleted, such as one a download in
+  /// progress holds open on Windows, is left for a later [provision] to
+  /// remove. Remove the model while no [provision] runs for this directory,
+  /// in this process or another: one that runs meanwhile either fails or
+  /// installs the model again.
+  Future<List<String>> remove() async {
+    final removed = <String>[];
+    final path = target.file.path;
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    if (type != FileSystemEntityType.notFound) {
+      if (type != FileSystemEntityType.file &&
+          type != FileSystemEntityType.link) {
+        throw WayfinderException(
+          'model-cache-unavailable',
+          'The embedding model cache ${directory.path} holds something other '
+              'than the model at $path.',
+        );
+      }
+      final FileSystemEntity model = type == FileSystemEntityType.link
+          ? Link(path)
+          : File(path);
+      try {
+        await model.delete();
+        removed.add(path);
+      } on PathNotFoundException {
+        // Another removal deleted it first.
+      } on FileSystemException catch (error) {
+        final os = error.osError?.message ?? error.message;
+        throw WayfinderException(
+          'model-cache-unavailable',
+          'The embedding model $path cannot be deleted: $os.',
+        );
+      }
+    }
+    try {
+      await for (final entry in directory.list(followLinks: false)) {
+        if (entry is! File || !_ownPartial.hasMatch(p.basename(entry.path))) {
+          continue;
+        }
+        try {
+          await entry.delete();
+          removed.add(entry.path);
+        } on FileSystemException {
+          // Removed meanwhile, or held open by a download on Windows.
+        }
+      }
+    } on FileSystemException {
+      // No cache directory: nothing was downloaded.
+    }
+    return removed;
   }
 
   /// Installs the verified model in [directory] unless it is already there.
@@ -349,9 +409,12 @@ final class EmbeddingModelCache {
   /// to for [_abandonedAfter]. A download in progress, in this process or
   /// another, fails unless bytes arrive within its stall timeout, a minute
   /// by default, so its file is never that old.
-  Future<void> _removeAbandonedPartials() => _removeAbandoned(
-    directory,
-    RegExp('^${RegExp.escape('.${spec.fileName}.')}[0-9a-f]{16}\\.part\$'),
+  Future<void> _removeAbandonedPartials() =>
+      _removeAbandoned(directory, _ownPartial);
+
+  /// The name of a temporary file of a download of this cache's model.
+  late final _ownPartial = RegExp(
+    '^${RegExp.escape('.${spec.fileName}.')}[0-9a-f]{16}\\.part\$',
   );
 
   /// Deletes the temporary files of downloads into the default cache

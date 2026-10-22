@@ -294,6 +294,7 @@ class _ProjectKnowledge extends WayfinderKnowledgeStore {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     receivedFilters = filters;
     searched.addAll(bundles.map((bundle) => bundle.root));

@@ -51,7 +51,12 @@ export 'src/embedding/llama_embedder.dart' show wayfinderLlamaCppRuntime;
 export 'src/models/chunk.dart' show Chunk;
 export 'src/models/search_result.dart' show SearchResult;
 export 'src/okf/knowledge_index.dart'
-    show KnowledgeContextHit, KnowledgeMetadataFilter, KnowledgeSearchResponse;
+    show
+        KnowledgeContextHit,
+        KnowledgeMetadataFilter,
+        KnowledgeNotice,
+        KnowledgeNoticeCode,
+        KnowledgeSearchResponse;
 export 'src/okf/knowledge_input_diagnostic.dart';
 export 'src/store/encoder.dart';
 export 'src/store/index_result.dart';

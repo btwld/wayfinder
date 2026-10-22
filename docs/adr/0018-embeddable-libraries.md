@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs)
+- Updated: 2026-10-22 (the knowledge store entry and its index lock; a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (only writers hold an index's lock, the knowledge store needs no ObjectBox, the background-index slot uses the helper, and `prune` deletes the `get` locks of removed projects; `tryExclusive` waits out a reader's momentary probe and locks only the file its path names; #110); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public); 2026-10-22 (a host's process layer runs the hardened Git, whose remote and SSH rules are public; reading a package is bounded; each binding's Profile status, locked-only plans and the source location rule are public, and the fetch policy is all per-source consent needs); 2026-10-22 (the knowledge store's notices are typed, a search can be cancelled, a retained encoder can be released while the snapshots stay, the model cache removes its model, and `forget` deletes lock files and forgets a project root's indexes)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -43,10 +43,15 @@ text, so a concurrent `get` never makes it return another revision's text.
 `package:wayfinder_embeddings/knowledge_store.dart` holds the index
 lifecycle: `WayfinderKnowledgeStore` reports a bundle's index `status`,
 indexes it with progress events and cancellation, searches one bundle or a
-project's bundles ranked together, and `forget`s and `prune`s indexes. Its
-results are typed citations with the CLI's JSON and Markdown renderings, and
-it exports the Ack inputs of host search tools, `wayfinderSearchInput` and
-`knowledgeMetadataFilterInput`. `package:wayfinder_embeddings/testing.dart`
+project's bundles ranked together, also cancellably, and `forget`s and
+`prune`s indexes; `forgetProjectRoot` forgets every bundle of a project root
+that may be gone. Its results are typed citations and typed notices with the
+CLI's JSON and Markdown renderings; a notice has a stable code, its sentence
+and the paths it concerns, so a host never parses its text. It exports the
+Ack inputs of host search tools, `wayfinderSearchInput` and
+`knowledgeMetadataFilterInput`. A host that retains the store's encoder can
+release it, at once or after an idle period, without losing the parsed
+snapshots or disposing the store. `package:wayfinder_embeddings/testing.dart`
 has `DeterministicTestEmbedder`, whose word-hash vectors test mechanisms
 without a model, as [ADR-0017](0017-dense-only-retrieval.md) allows. The
 core depends on none of `wayfinder_embeddings`, ObjectBox, llamadart or
@@ -55,7 +60,8 @@ analyzer.
 **The host owns its resources.** Neither library downloads, prompts, loads
 a native library from disk or resolves files next to the executable, except
 the embedding model, which the retrieval library downloads only when a host
-calls `EmbeddingModelCache.provision` ([ADR-0010](0010-wayfinder-cli.md)). A host
+calls `EmbeddingModelCache.provision`, and deletes only when it calls
+`EmbeddingModelCache.remove` ([ADR-0010](0010-wayfinder-cli.md)). A host
 injects the data directory (`WayfinderDataDirectory.resolve()` by default),
 a `GitRunner` (`runGit` by default) or only the `GitProcessStarter` that
 `runGit` starts Git with, a `WayfinderCancellation`, and the validator's okf
@@ -199,7 +205,7 @@ descriptor never releases them. A lock file stays in place on release.
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get`, or its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
-| A bundle's index for one configuration, while `index` or `forget` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never hold it, and probe it with `isHeld` to report a refresh | `index-busy` |
+| A bundle's index for one configuration, while `index`, `forget` or `forgetProjectRoot` runs, and while `prune` deletes it | `indexes/bundles/<bundle key>/<configuration key>/writer.lock` | exclusive, never waits; searches and `status` never hold it, and probe it with `isHeld` to report a refresh | `index-busy` |
 | The machine's one background index (`wayfinder index --detach`) | `background-index.lock` | exclusive, never waits | the CLI reports `running` and starts nothing |
 
 "Never waits" means never waiting for a holder. `isHeld` takes a shared lock
@@ -217,16 +223,23 @@ not exclude each other, so a background index of an earlier release does not
 exclude one of this release. Only writers hold an index's lock: searches read
 immutable generations without it, so a search during an index keeps working
 ([ADR-0010](0010-wayfinder-cli.md)). The writer lock records the bundle root,
-and its modification time is the index's last use: a writer writes the note,
-and a search or `status` sets the time. `forget` and `prune` delete the
-index's pointer and generations while holding it and keep the lock file.
-Only `prune` deletes a lock file, an index's or a removed project's `get`
-lock, while holding it, and only once it has gone unused for the prune's
-period, so no operation is opening it. An operation that opened it just before
-it went still never holds a deleted file: once `WayfinderFileLock` has the
-lock, it checks that the path still names the file it locked (the same device
-and inode on POSIX; Windows deletes no open file) and otherwise opens the path
-again, so two operations never hold different files.
+which also lets `forgetProjectRoot` find the bundles of a project that is
+gone, and its modification time is the index's last use: a writer writes the
+note, and a search or `status` sets the time. `forget` and `forgetProjectRoot`
+delete the index's pointer and generations while holding the lock, then the
+lock file and the directories that leaves empty, since a host forgets an
+index it means to be gone, such as a removed worktree's. `prune` deletes the
+pointer and generations the same way, but a lock file, an index's or a
+removed project's `get` lock, only once it has gone unused for the prune's
+period, so no operation is opening it. Either keeps a lock file while
+anything else is left beside it, such as a generation a reader on Windows
+has open, so a later prune still finds the index. A lock file is deleted
+while held, on Windows right after its release. An operation that opened it
+just before it went still never holds a deleted file: once
+`WayfinderFileLock` has the lock, it checks that the path still names the
+file it locked (the same device and inode on POSIX; Windows deletes no open
+file) and otherwise opens the path again, so two operations never hold
+different files.
 
 **One isolate per process does okf bundle I/O.** okf's bundle lock does not
 exclude isolates, so a process runs all okf bundle I/O on one isolate:
@@ -267,8 +280,10 @@ the only remaining race needs an operation to open a lock file unused for
 that long in the moment `prune` deletes it, and another to start on that
 index meanwhile; it costs at worst a rebuild, and the publishing operation
 that loses reports `index-busy`. A `prune` with a short period widens that
-window. `flock` is only as strong as the filesystem: keep the data directory
-on a local disk.
+window, and so does `forget`, which deletes lock files at once: a host
+forgets indexes nothing uses any more, such as a removed worktree's. `flock`
+is only as strong as the filesystem: keep the data directory on a local
+disk.
 
 ## Reconsider when
 

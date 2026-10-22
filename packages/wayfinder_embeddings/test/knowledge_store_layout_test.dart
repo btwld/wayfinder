@@ -586,7 +586,7 @@ Future<void> main(List<String> arguments) async {
 
   group('forget and prune', () {
     test('forget deletes every configuration of a bundle, even a removed one, '
-        'and keeps their lock files', () async {
+        'with their lock files and directories', () async {
       final other = await copyStoreBundle(temp, 'other');
       final first = await store().index(bundle);
       final second = await store(
@@ -597,16 +597,49 @@ Future<void> main(List<String> arguments) async {
       expect(bundleDirectory.listSync(), hasLength(2));
       await Directory(bundle.root).delete(recursive: true);
       await store().forget(bundle);
-      for (final index in [first.index, second.index]) {
-        expect(
-          Directory(index).listSync().map((e) => p.basename(e.path)),
-          ['writer.lock'],
-          reason: 'an operation that opened a lock file still excludes others',
-        );
-      }
+      expect(await bundleDirectory.exists(), isFalse);
+      expect(await Directory(second.index).exists(), isFalse);
+      expect(indexes().listSync().map((e) => p.basename(e.path)), [
+        p.basename(p.dirname(kept.index)),
+      ]);
       expect(currentGeneration(kept.index).existsSync(), isTrue);
+      expect(await writerLock(kept.index).exists(), isTrue);
       expect(await store().status(other), isA<KnowledgeIndexCurrent>());
       await store().forget(bundle);
+    });
+
+    test('forget keeps the lock file of an index it could not delete entirely, '
+        'for a later forget', () async {
+      final result = await store().index(bundle);
+      final stuck = await Directory(
+        p.join(result.index, 'generation-stuck', 'inner'),
+      ).create(recursive: true);
+      await Process.run('chmod', ['a-w', stuck.parent.path]);
+      try {
+        await store().forget(bundle);
+        expect(await writerLock(result.index).exists(), isTrue);
+        expect(File(p.join(result.index, 'current')).existsSync(), isFalse);
+        expect(await store().status(bundle), isA<KnowledgeIndexMissing>());
+      } finally {
+        await Process.run('chmod', ['u+w', stuck.parent.path]);
+      }
+      await store().forget(bundle);
+      expect(await Directory(p.dirname(result.index)).exists(), isFalse);
+    }, testOn: '!windows');
+
+    test('forget leaves a bundle that is indexed again in a fresh '
+        'directory', () async {
+      final first = await store().index(bundle);
+      await store().forget(bundle);
+      expect(await Directory(first.index).exists(), isFalse);
+      expect(await store().status(bundle), isA<KnowledgeIndexMissing>());
+      final again = await store().index(bundle);
+      expect(again.index, first.index);
+      expect(again.embeddedChunks, greaterThan(0));
+      expect(await store().status(bundle), isA<KnowledgeIndexCurrent>());
+      expect(jsonDecode(await writerLock(again.index).readAsString()), {
+        'root': bundle.root,
+      });
     });
 
     test(
@@ -625,10 +658,7 @@ Future<void> main(List<String> arguments) async {
         expect(result.bundle, resolved.root);
         await Directory(resolved.root).delete(recursive: true);
         await store().forget(linked);
-        expect(
-          Directory(result.index).listSync().map((e) => p.basename(e.path)),
-          ['writer.lock'],
-        );
+        expect(await Directory(p.dirname(result.index)).exists(), isFalse);
       },
       testOn: '!windows',
     );
@@ -660,8 +690,160 @@ Future<void> main(List<String> arguments) async {
       release.complete();
       await holding;
       await store().forget(bundle);
-      expect(File(p.join(result.index, 'current')).existsSync(), isFalse);
+      expect(await Directory(p.dirname(result.index)).exists(), isFalse);
       expect(await store().status(bundle), isA<KnowledgeIndexMissing>());
+    });
+
+    group('forgetProjectRoot', () {
+      late Directory project;
+      late ProjectBundle first;
+      late ProjectBundle nested;
+      late ProjectBundle outside;
+      late ProjectBundle sibling;
+      late Map<ProjectBundle, List<String>> indexed;
+
+      /// Indexes [bundles], the first with a second encoder as well.
+      Future<Map<ProjectBundle, List<String>>> indexAll(
+        List<ProjectBundle> bundles,
+      ) async => {
+        for (final (i, item) in bundles.indexed)
+          item: [
+            (await store().index(item)).index,
+            if (i == 0)
+              (await store(
+                DeterministicEncoderProvider(model: 'another'),
+              ).index(item)).index,
+          ],
+      };
+
+      setUp(() async {
+        project = await Directory(p.join(temp.path, 'project')).create();
+        first = await copyStoreBundle(project);
+        nested = await copyStoreBundle(
+          await Directory(p.join(project.path, 'docs')).create(),
+          'kb',
+        );
+        // Neither inside the project nor its root, though its path starts
+        // with the project's.
+        sibling = await copyStoreBundle(
+          await Directory(p.join(temp.path, 'project-2')).create(),
+        );
+        outside = bundle;
+        indexed = await indexAll([first, nested, sibling, outside]);
+      });
+
+      void expectKept(List<ProjectBundle> bundles) {
+        for (final kept in bundles) {
+          for (final index in indexed[kept]!) {
+            expect(currentGeneration(index).existsSync(), isTrue);
+            expect(writerLock(index).existsSync(), isTrue);
+          }
+        }
+      }
+
+      test('deletes every index of a removed project, with their lock files '
+          'and directories, and keeps the rest', () async {
+        final projectPath = project.path;
+        await project.delete(recursive: true);
+        expect(
+          await store().forgetProjectRoot(projectPath),
+          [first.root, nested.root]..sort(),
+        );
+        for (final removed in [first, nested]) {
+          expect(
+            await Directory(p.dirname(indexed[removed]!.first)).exists(),
+            isFalse,
+          );
+        }
+        expect(indexes().listSync().map((e) => p.basename(e.path)).toSet(), {
+          for (final kept in [sibling, outside])
+            p.basename(p.dirname(indexed[kept]!.single)),
+        });
+        expectKept([sibling, outside]);
+        expect(await store().status(outside), isA<KnowledgeIndexCurrent>());
+        expect(await store().status(sibling), isA<KnowledgeIndexCurrent>());
+        expect(await store().forgetProjectRoot(projectPath), isEmpty);
+      });
+
+      test('deletes the indexes of a project that still exists', () async {
+        expect(
+          await store().forgetProjectRoot(project.path),
+          [first.root, nested.root]..sort(),
+        );
+        expect(await store().status(first), isA<KnowledgeIndexMissing>());
+        expect(await store().status(nested), isA<KnowledgeIndexMissing>());
+        expectKept([sibling, outside]);
+        // A bundle root is a project root of its own.
+        expect(await store().forgetProjectRoot(sibling.root), [sibling.root]);
+        expectKept([outside]);
+      });
+
+      test(
+        'finds a removed project by a path through a symbolic link',
+        () async {
+          final link = Link(p.join(temp.path, 'linked'));
+          await link.create(project.path);
+          final linkedPath = link.path;
+          await project.delete(recursive: true);
+          expect(
+            await store().forgetProjectRoot(linkedPath),
+            isEmpty,
+            reason: 'the link now names nothing, so its target is unknown',
+          );
+          await link.delete();
+          final real = await Directory(p.join(temp.path, 'real')).create();
+          await link.create(real.path);
+          final linked = await copyStoreBundle(
+            await Directory(p.join(linkedPath, 'worktree')).create(),
+          );
+          final result = await store().index(linked);
+          expect(
+            p.isWithin(real.resolveSymbolicLinksSync(), result.bundle),
+            isTrue,
+          );
+          await Directory(
+            p.join(real.path, 'worktree'),
+          ).delete(recursive: true);
+          expect(
+            await store().forgetProjectRoot(p.join(linkedPath, 'worktree')),
+            [result.bundle],
+          );
+          expect(await Directory(p.dirname(result.index)).exists(), isFalse);
+          expectKept([sibling, outside]);
+        },
+        testOn: '!windows',
+      );
+
+      test('is refused, deleting nothing, while an operation holds one of '
+          'the indexes', () async {
+        final before = await treeBytes(indexes());
+        final held = await WayfinderFileLock.tryExclusive(
+          writerLock(indexed[nested]!.single),
+        );
+        try {
+          await expectLater(
+            store().forgetProjectRoot(project.path),
+            throwsA(
+              isA<WayfinderException>().having(
+                (e) => e.code,
+                'code',
+                'index-busy',
+              ),
+            ),
+          );
+          expect(await treeBytes(indexes()), before);
+        } finally {
+          await held!.release();
+        }
+        expect(await store().forgetProjectRoot(project.path), hasLength(2));
+      });
+
+      test('leaves an index whose lock records no root for prune', () async {
+        final unnoted = writerLock(indexed[nested]!.single);
+        await unnoted.writeAsString('');
+        expect(await store().forgetProjectRoot(project.path), [first.root]);
+        expect(currentGeneration(indexed[nested]!.single).existsSync(), isTrue);
+      });
     });
 
     test('prune deletes indexes of missing roots and unused other '
@@ -716,6 +898,29 @@ Future<void> main(List<String> arguments) async {
       expect(later.removed, isEmpty, reason: 'no index was left to remove');
       expect(await Directory(p.dirname(goneIndex.index)).exists(), isFalse);
     });
+
+    test(
+      'prune keeps the lock file of an index it could not delete entirely',
+      () async {
+        final gone = await copyStoreBundle(temp, 'gone');
+        final result = await store().index(gone);
+        final stuck = await Directory(
+          p.join(result.index, 'generation-stuck', 'inner'),
+        ).create(recursive: true);
+        await Directory(gone.root).delete(recursive: true);
+        await Process.run('chmod', ['a-w', stuck.parent.path]);
+        try {
+          final pruned = await store().prune(unusedFor: Duration.zero);
+          expect(pruned.removed.single.reason, 'missing-root');
+          expect(await writerLock(result.index).exists(), isTrue);
+        } finally {
+          await Process.run('chmod', ['u+w', stuck.parent.path]);
+        }
+        await store().prune(unusedFor: Duration.zero);
+        expect(await Directory(p.dirname(result.index)).exists(), isFalse);
+      },
+      testOn: '!windows',
+    );
 
     test('prune leaves an index an operation holds for later', () async {
       final gone = await copyStoreBundle(temp, 'gone');

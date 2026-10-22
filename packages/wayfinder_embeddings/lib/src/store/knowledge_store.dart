@@ -97,23 +97,23 @@ final class _GenerationUnreadable implements Exception {
 /// `MemoryStore`. [search] refuses an index that is missing, stale or
 /// incompatible, and never indexes implicitly.
 ///
-/// Only writers lock. [index] and [forget] hold the bundle's
-/// `writer.lock` (`WayfinderFileLock`), across isolates and processes;
-/// another writer meanwhile fails with `index-busy` instead of waiting.
-/// [status], [search] and [searchBundle] hold no lock, so they keep working
-/// while an index runs: they read the last published generation, which
-/// nothing changes. To tell whether a writer runs, they probe the writer
-/// lock with `WayfinderFileLock.isHeld`, a shared lock taken for an instant,
-/// which a writer's `WayfinderFileLock.tryExclusive` waits out rather than
-/// report as busy. A superseded generation stays for [gracePeriod] after
-/// the publication that replaced it, so a reader that read the pointer just
-/// before still finds it; garbage collection runs after a later
-/// publication, and a reader that loses the race anyway reads the pointer
-/// again. With [StaleIndexPolicy.serveWhileRefreshing], a search during a
-/// refresh serves the last published generation even when the bundle has
-/// changed since, with notices. [forget] and [prune] delete generations and
-/// keep the lock file; only [prune] deletes a lock file, once it has gone
-/// unused for its period.
+/// Only writers lock. [index], [forget] and [forgetProjectRoot] hold the
+/// bundle's `writer.lock` (`WayfinderFileLock`), across isolates and
+/// processes; another writer meanwhile fails with `index-busy` instead of
+/// waiting. [status], [search] and [searchBundle] hold no lock, so they keep
+/// working while an index runs: they read the last published generation,
+/// which nothing changes. To tell whether a writer runs, they probe the
+/// writer lock with `WayfinderFileLock.isHeld`, a shared lock taken for an
+/// instant, which a writer's `WayfinderFileLock.tryExclusive` waits out
+/// rather than report as busy. A superseded generation stays for
+/// [gracePeriod] after the publication that replaced it, so a reader that
+/// read the pointer just before still finds it; garbage collection runs
+/// after a later publication, and a reader that loses the race anyway reads
+/// the pointer again. With [StaleIndexPolicy.serveWhileRefreshing], a search
+/// during a refresh serves the last published generation even when the
+/// bundle has changed since, with notices. [forget] and [forgetProjectRoot]
+/// delete an index with its lock file and the directories that leaves empty;
+/// [prune] deletes a lock file only once it has gone unused for its period.
 ///
 /// The store never locates a model, downloads anything or loads a native
 /// library itself: [encoder] supplies encoders (ADR-0018). okf reads each
@@ -126,22 +126,22 @@ final class _GenerationUnreadable implements Exception {
 /// - `data-directory-unavailable`, or `data-directory-invalid` when the data
 ///   directory is inside the bundle;
 /// - `index-busy` when another operation is indexing or forgetting the
-///   bundle's index, for [index] and [forget], and for a search with
-///   [StaleIndexPolicy.serveWhileRefreshing] while the first index of a
-///   bundle is being built or an unusable one replaced; on Windows also
-///   when readers keep the `current` pointer open for seconds while [index]
-///   publishes or [forget] deletes it;
+///   bundle's index, for [index], [forget] and [forgetProjectRoot], and for
+///   a search with [StaleIndexPolicy.serveWhileRefreshing] while the first
+///   index of a bundle is being built or an unusable one replaced; on
+///   Windows also when readers keep the `current` pointer open for seconds
+///   while [index] publishes or [forget] deletes it;
 /// - `index-missing`, `index-stale` or `index-incompatible` when [search]
 ///   finds no usable index; [status] reports the same as a value;
 /// - `bundle-changed` when the bundle changed while an operation read it;
 /// - `model-missing` or `model-invalid` from the [encoder], and
 ///   `model-invalid` when an opened encoder reports another identity;
-/// - `cancelled` when an [index] run was cancelled;
+/// - `cancelled` when an [index] run or a search was cancelled;
 /// - `closed` after [dispose].
 ///
-/// A project [search] prefixes each message with the failing bundle's root.
-/// Messages are sentences for a reader and never name a command; a host
-/// says how to index.
+/// A project [search] prefixes each message but `cancelled`'s with the
+/// failing bundle's root. Messages are sentences for a reader and never name
+/// a command; a host says how to index.
 ///
 /// A host's tests may extend this class to replace operations; tests that
 /// index for real use `package:wayfinder_embeddings/testing.dart`.
@@ -161,6 +161,15 @@ class WayfinderKnowledgeStore {
   /// server. Without it, each operation opens and disposes its own encoder.
   /// [dispose] waits for accepted operations and releases the encoder.
   ///
+  /// With [encoderIdleTimeout] as well, the store releases the retained
+  /// encoder once no operation has used it for that long, as
+  /// [releaseEncoder] does: the parsed snapshots stay, and the next
+  /// operation that needs an encoder opens one again. Only an [index] run
+  /// that embeds and a search use the encoder; [status], [forget], [prune]
+  /// and an [index] that finds its index current do not, so they never keep
+  /// it open. Until it runs, the pending release keeps the isolate alive;
+  /// [dispose] cancels it. It must be positive, and needs [retainEncoder].
+  ///
   /// A superseded generation stays readable for [gracePeriod] after a newer
   /// one is published.
   WayfinderKnowledgeStore({
@@ -169,12 +178,29 @@ class WayfinderKnowledgeStore {
     this.retainEncoder = false,
     this.cacheBytes = 64 << 20,
     this.gracePeriod = const Duration(minutes: 10),
+    this.encoderIdleTimeout,
   }) {
     if (cacheBytes < 0) {
       throw ArgumentError.value(cacheBytes, 'cacheBytes', 'must not be < 0');
     }
     if (gracePeriod.isNegative) {
       throw ArgumentError.value(gracePeriod, 'gracePeriod', 'must not be < 0');
+    }
+    if (encoderIdleTimeout case final idle?) {
+      if (idle <= Duration.zero) {
+        throw ArgumentError.value(
+          idle,
+          'encoderIdleTimeout',
+          'must be positive',
+        );
+      }
+      if (!retainEncoder) {
+        throw ArgumentError.value(
+          idle,
+          'encoderIdleTimeout',
+          'needs retainEncoder',
+        );
+      }
     }
   }
 
@@ -183,6 +209,10 @@ class WayfinderKnowledgeStore {
   final bool retainEncoder;
   final int cacheBytes;
   final Duration gracePeriod;
+
+  /// How long a retained encoder stays open after the last operation that
+  /// used it; null keeps it until [dispose] or [releaseEncoder].
+  final Duration? encoderIdleTimeout;
 
   // Increment when chunking, snapshot or application input semantics change.
   // `store` names the generation format. The encoder's identity is part of
@@ -247,6 +277,10 @@ class WayfinderKnowledgeStore {
       sha256.convert(utf8.encode(jsonEncode({'root': root}))).toString();
 
   SharedEncoder? _retained;
+
+  /// Releases [_retained] once [encoderIdleTimeout] has passed since the
+  /// last operation stopped using it.
+  Timer? _idleRelease;
   Future<void>? _opening;
   final Set<Future<void>> _disposals = {};
   final Map<String, _CachedSavedIndex> _cachedSavedIndexes = {};
@@ -458,12 +492,19 @@ class WayfinderKnowledgeStore {
   /// the whole search. [stale] decides whether a stale index may be served
   /// while another operation refreshes it. [filters] select passages by
   /// frontmatter before ranking. Every lifecycle status stays eligible.
+  ///
+  /// [cancel] is checked before each bundle, before the encoder is opened
+  /// and the query encoded, and before the passages are scored; a cancelled
+  /// search throws `cancelled`, without a bundle's root before its message,
+  /// and keeps a retained encoder. A query vector being encoded is not
+  /// interrupted.
   Future<KnowledgeProjectSearch> search(
     List<ProjectBundle> bundles,
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) => _admit(
     limit: limit,
     () => _encoding((acquire) async {
@@ -471,6 +512,7 @@ class WayfinderKnowledgeStore {
       final responses = <KnowledgeSearchResponse>[];
       final freshness = <KnowledgeSearchFreshness>[];
       for (final bundle in bundles) {
+        throwIfCancelled(cancel);
         try {
           final found = await _searchIndex(
             await _namespace(bundle),
@@ -478,6 +520,7 @@ class WayfinderKnowledgeStore {
             limit: limit,
             filters: filters,
             stale: stale,
+            cancel: cancel,
             allContext: true,
             encoder: () async {
               final opened = await acquire();
@@ -492,6 +535,7 @@ class WayfinderKnowledgeStore {
           responses.add(found.response);
           freshness.add(found.freshness);
         } on WayfinderException catch (error) {
+          if (error.code == 'cancelled') rethrow;
           throw WayfinderException(
             error.code,
             '${bundle.root}: ${error.message}',
@@ -508,22 +552,26 @@ class WayfinderKnowledgeStore {
   );
 
   /// Searches the saved index of one [bundle], with its own context policy
-  /// rather than a project's shared ranking. [stale] is as for [search].
+  /// rather than a project's shared ranking. [stale] and [cancel] are as for
+  /// [search].
   Future<KnowledgeBundleSearch> searchBundle(
     ProjectBundle bundle,
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) => _admit(
     limit: limit,
     () => _encoding((acquire) async {
+      throwIfCancelled(cancel);
       final found = await _searchIndex(
         await _namespace(bundle),
         query,
         limit: limit,
         filters: filters,
         stale: stale,
+        cancel: cancel,
         encoder: acquire,
       );
       return KnowledgeBundleSearch(
@@ -535,40 +583,59 @@ class WayfinderKnowledgeStore {
   );
 
   /// Deletes every configuration's index of [bundle], whose root may no
-  /// longer exist, such as a removed worktree. Throws `index-busy`, and
-  /// deletes nothing, while an operation indexes any of them; a search
-  /// reading one meanwhile then reports it missing. The lock files stay, so
-  /// an operation that opened one meanwhile still excludes the next;
-  /// [prune] deletes them once they go unused.
+  /// longer exist, such as a removed worktree, with its `writer.lock` and the
+  /// directories that leaves empty. Throws `index-busy`, and deletes nothing,
+  /// while an operation indexes any of them; a search reading one meanwhile
+  /// then reports it missing.
+  ///
+  /// A lock file is deleted while it is held (on Windows, which deletes no
+  /// open file, right after its release), and an operation that opened it
+  /// just before locks the path again once it has the lock
+  /// (`WayfinderFileLock`), so it still excludes the next. A generation a
+  /// reader on Windows still has open stays, with its lock file, for a later
+  /// [prune] or publication to delete.
   Future<void> forget(ProjectBundle bundle) => _admit(() async {
     final root = await _canonicalPath(bundle.root);
     if (root == null) return;
-    final indexes = Directory(
-      p.join(await _resolvedDataDirectory(), 'indexes', 'bundles'),
+    final directory = Directory(
+      p.join(await _bundlesDirectory(), _rootKey(root)),
     );
-    final directory = Directory(p.join(indexes.path, _rootKey(root)));
     if (!await directory.exists()) return;
-    final namespaces = [
-      await for (final entry in directory.list(followLinks: false))
-        if (entry is Directory && _key.hasMatch(p.basename(entry.path))) entry,
-    ];
-    final held = <(Directory, WayfinderFileLock)>[];
-    try {
-      for (final namespace in namespaces) {
-        final lock = await WayfinderFileLock.tryExclusive(
-          File(p.join(namespace.path, _writerName)),
-        );
-        if (lock == null) throw _busy;
-        held.add((namespace, lock));
+    await _forget([directory]);
+  });
+
+  /// Deletes every index of every bundle at or inside the project [root],
+  /// whose directory may no longer exist, such as a removed worktree, with
+  /// their `writer.lock`s and the directories that leaves empty, as [forget]
+  /// does for one bundle. Returns the canonical roots of the bundles whose
+  /// indexes it deleted, sorted.
+  ///
+  /// Indexes are kept per bundle root, so this finds a project's bundles by
+  /// the root each index's `writer.lock` records, never by reading the
+  /// project, which may be gone. [root] is canonicalized as [forget]
+  /// canonicalizes a bundle's root: symbolic links in the part of it that
+  /// still exists are resolved. Throws `index-busy`, and deletes nothing,
+  /// while an operation indexes any of those bundles. An index whose
+  /// `writer.lock` records no root, or cannot be read, as on Windows while a
+  /// writer holds every configuration of it, is left for [prune].
+  Future<List<String>> forgetProjectRoot(String root) => _admit(() async {
+    final project = await _canonicalPath(root);
+    if (project == null) return const <String>[];
+    final indexes = Directory(await _bundlesDirectory());
+    if (!await indexes.exists()) return const <String>[];
+    final forgotten = <String, Directory>{};
+    for (final entry in await indexes.list(followLinks: false).toList()) {
+      if (entry is! Directory || !_key.hasMatch(p.basename(entry.path))) {
+        continue;
       }
-      for (final (namespace, _) in held) {
-        await _clear(namespace);
-      }
-    } finally {
-      for (final (_, lock) in held) {
-        await lock.release();
+      final bundle = await _recordedRoot(entry);
+      if (bundle != null &&
+          (p.equals(bundle, project) || p.isWithin(project, bundle))) {
+        forgotten[bundle] = entry;
       }
     }
+    await _forget(forgotten.values.toList());
+    return forgotten.keys.toList()..sort();
   });
 
   /// Deletes what no bundle will use again: every index of a root that no
@@ -679,7 +746,9 @@ class WayfinderKnowledgeStore {
                 ),
               );
             }
-            if (await unused() && await _deleteLockFile(lock)) {
+            if (await unused() &&
+                await _holdsOnlyLock(namespace) &&
+                await _deleteLockFile(lock)) {
               changed = await _deleteIfEmpty(namespace) || changed;
             }
           } finally {
@@ -701,10 +770,26 @@ class WayfinderKnowledgeStore {
     );
   });
 
+  /// Releases the retained encoder now and keeps the parsed snapshots, so a
+  /// host can free the model's memory without losing them. Operations that
+  /// use the encoder finish with it; it is disposed once they have, and the
+  /// next operation that needs an encoder opens one again. Completes once
+  /// the encoder is disposed, with the error its disposal threw, if any.
+  /// Does nothing when no encoder is retained, such as without
+  /// [retainEncoder]; an encoder still opening is kept.
+  Future<void> releaseEncoder() async {
+    final retained = _retained;
+    if (retained == null) return;
+    _evict(retained);
+    await retained.disposed;
+  }
+
   /// Rejects new operations, waits for accepted ones, then disposes a
   /// retained encoder. Later calls return the same future.
   Future<void> dispose() => _closing ??= () async {
+    _cancelIdleRelease();
     await _pending;
+    _cancelIdleRelease();
     _cachedSavedIndexes.clear();
     final retained = _retained;
     _retained = null;
@@ -791,6 +876,7 @@ class WayfinderKnowledgeStore {
     while (true) {
       if (_retained case final retained?) {
         retained.users++;
+        _cancelIdleRelease();
         return retained;
       }
       // Never load a second model while an evicted one is still disposing.
@@ -812,13 +898,38 @@ class WayfinderKnowledgeStore {
   Future<void> _releaseEncoder(SharedEncoder shared) async {
     shared.users--;
     if (!retainEncoder) shared.evicted = true;
-    if (shared.evicted && shared.users == 0) await _disposeEncoder(shared);
+    if (shared.users > 0) return;
+    if (shared.evicted) {
+      await _disposeEncoder(shared);
+    } else if (identical(_retained, shared)) {
+      _scheduleIdleRelease(shared);
+    }
+  }
+
+  /// Releases [shared] once [encoderIdleTimeout] passes with no operation
+  /// using it. An operation that takes it meanwhile cancels the release.
+  void _scheduleIdleRelease(SharedEncoder shared) {
+    final idle = encoderIdleTimeout;
+    if (idle == null || _closing != null) return;
+    _idleRelease?.cancel();
+    _idleRelease = Timer(idle, () {
+      _idleRelease = null;
+      if (identical(_retained, shared) && shared.users == 0) _evict(shared);
+    });
+  }
+
+  void _cancelIdleRelease() {
+    _idleRelease?.cancel();
+    _idleRelease = null;
   }
 
   /// Keeps new operations off [shared], and disposes it once unused.
   void _evict(SharedEncoder shared) {
     shared.evicted = true;
-    if (identical(_retained, shared)) _retained = null;
+    if (identical(_retained, shared)) {
+      _retained = null;
+      _cancelIdleRelease();
+    }
     if (shared.users == 0) unawaited(_disposeEncoder(shared));
   }
 
@@ -1033,6 +1144,83 @@ class WayfinderKnowledgeStore {
     }
   }
 
+  /// `indexes/bundles` in the data directory, which holds a directory per
+  /// bundle key.
+  Future<String> _bundlesDirectory() async =>
+      p.join(await _resolvedDataDirectory(), 'indexes', 'bundles');
+
+  /// Deletes every index in the bundle key [directories], all or nothing:
+  /// takes every namespace's writer lock first and throws `index-busy`,
+  /// deleting nothing, when one is held. Then deletes each index, its lock
+  /// file while holding it, and the directories that leaves empty.
+  static Future<void> _forget(List<Directory> directories) async {
+    final held = <(Directory, WayfinderFileLock)>[];
+    try {
+      for (final directory in directories) {
+        final List<Directory> namespaces;
+        try {
+          namespaces = [
+            await for (final entry in directory.list(followLinks: false))
+              if (entry is Directory && _key.hasMatch(p.basename(entry.path)))
+                entry,
+          ];
+        } on PathNotFoundException {
+          continue; // Another forget or prune deleted it meanwhile.
+        }
+        for (final namespace in namespaces) {
+          final lock = await WayfinderFileLock.tryExclusive(
+            File(p.join(namespace.path, _writerName)),
+          );
+          if (lock == null) throw _busy;
+          held.add((namespace, lock));
+        }
+      }
+      for (final (namespace, _) in held) {
+        await _clear(namespace);
+      }
+      for (final (namespace, lock) in held) {
+        if (await _holdsOnlyLock(namespace) && await _deleteLockFile(lock)) {
+          await _deleteIfEmpty(namespace);
+        }
+      }
+      for (final directory in directories) {
+        await _deleteIfEmpty(directory);
+      }
+    } finally {
+      for (final (_, lock) in held) {
+        await lock.release();
+      }
+    }
+  }
+
+  /// The bundle root the indexes in the bundle key [directory] belong to,
+  /// as a `writer.lock` in it records it, or null when none says. Every
+  /// configuration of one bundle records the same root, so the first
+  /// readable note answers; a note whose root has another key is ignored.
+  /// Reads a note held by a writer where the platform allows it; Windows
+  /// refuses, and another configuration's note may answer instead.
+  static Future<String?> _recordedRoot(Directory directory) async {
+    final key = p.basename(directory.path);
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry is! Directory || !_key.hasMatch(p.basename(entry.path))) {
+        continue;
+      }
+      try {
+        if (jsonDecode(
+              await File(p.join(entry.path, _writerName)).readAsString(),
+            )
+            case {'root': final String root} when _rootKey(root) == key) {
+          return root;
+        }
+      } on FileSystemException {
+        // Missing, or held on Windows.
+      } on FormatException {
+        // No note yet, or one a writer is replacing.
+      }
+    }
+    return null;
+  }
+
   /// Deletes everything in the namespace [directory] but its writer lock,
   /// while holding that lock. Returns whether there was an index to delete.
   ///
@@ -1065,6 +1253,19 @@ class WayfinderKnowledgeStore {
       }
     }
     return cleared;
+  }
+
+  /// Whether the namespace [directory] holds nothing but its writer lock. A
+  /// generation that could not be deleted, such as one a reader on Windows
+  /// has open, keeps the lock file, so a later [prune] still finds it.
+  static Future<bool> _holdsOnlyLock(Directory directory) async {
+    try {
+      return await directory
+          .list(followLinks: false)
+          .every((entry) => p.basename(entry.path) == _writerName);
+    } on FileSystemException {
+      return false;
+    }
   }
 
   /// Deletes the lock file [lock] holds, and releases it. False when the
@@ -1116,6 +1317,7 @@ class WayfinderKnowledgeStore {
     required int limit,
     required Future<WayfinderEncoder> Function() encoder,
     required StaleIndexPolicy stale,
+    WayfinderCancellation? cancel,
     bool allContext = false,
     KnowledgeMetadataFilter? filters,
   }) async {
@@ -1164,6 +1366,7 @@ class WayfinderKnowledgeStore {
     }
     final (:saved, :vectors) = pinned!;
     final snapshot = saved.snapshot;
+    throwIfCancelled(cancel);
     final activeEncoder = await encoder();
     if (activeEncoder.embedder.dimension != saved.dimension) {
       throw WayfinderException(
@@ -1188,6 +1391,7 @@ class WayfinderKnowledgeStore {
               expandRelationships: true,
               metadataFilter: filters,
             ),
+            cancel: cancel,
           );
       if (_inventoryHash(await _inventory(index.root)) !=
           _inventoryHash(files)) {
@@ -1202,7 +1406,7 @@ class WayfinderKnowledgeStore {
           context: response.context,
           notices: [
             ...response.notices,
-            _refreshNotice,
+            _refreshNotice(),
             if (changed.isNotEmpty) _sourceChangedNotice(changed),
           ],
         );
@@ -1227,9 +1431,11 @@ class WayfinderKnowledgeStore {
     }
   }
 
-  static const _refreshNotice =
-      'refresh-in-progress: An index refresh is running; these results come '
-      'from the last completed index.';
+  static KnowledgeNotice _refreshNotice() => KnowledgeNotice(
+    KnowledgeNoticeCode.refreshInProgress,
+    'refresh-in-progress: An index refresh is running; these results come '
+    'from the last completed index.',
+  );
 
   /// The generation [index]'s pointer names now, or null.
   static Future<String?> _pointedGeneration(_Namespace index) async {
@@ -1242,15 +1448,19 @@ class WayfinderKnowledgeStore {
     }
   }
 
-  static String _sourceChangedNotice(Set<String> paths) {
+  static KnowledgeNotice _sourceChangedNotice(Set<String> paths) {
     final sorted = paths.toList()..sort();
     const shown = 10;
     final named = sorted.take(shown).join(', ');
     final more = sorted.length > shown
         ? ' and ${sorted.length - shown} more'
         : '';
-    return 'source-changed: $named$more changed after the served index was '
-        'built; cited lines marked source changed may differ from the files.';
+    return KnowledgeNotice(
+      KnowledgeNoticeCode.sourceChanged,
+      'source-changed: $named$more changed after the served index was '
+      'built; cited lines marked source changed may differ from the files.',
+      paths: sorted,
+    );
   }
 
   /// A [MemoryStore] holding [pinned]'s vectors and, with [chunks], its
