@@ -77,28 +77,45 @@
 - `WayfinderProjectConfig.toJson` and `encode`, `WayfinderConfigEncoder`, and
   `WayfinderConfigEditor`, which edits a `wayfinder.json` document's Profile
   sources, bundles, vocabulary and actors and keeps every field it does not
-  model. The definitions, actors, sources, bindings and `ProjectVocabulary`
-  gain `toJson`.
+  model. `WayfinderVocabulary` names the vocabulary list an edit changes, and
+  `WayfinderProfileBinding.explicitBundlePath` writes a bundle path in the
+  `./` form. The definitions, actors, sources, bindings and
+  `ProjectVocabulary` gain `toJson`.
 - `ProfileResolutionPlan.fetches` lists each clone or refresh a plan made,
-  as `ProfileFetch` values, and its JSON gains `fetches`.
-- New `package:wayfinder/adoption.dart` (ADR-0020): `KnowledgeAdoption.plan`
-  reads a project and resolves a Profile, writing nothing in the project, and
+  as `ProfileFetch` values, and its JSON gains `fetches`. `plan` and
+  `resolve` take a `ProfileFetchPolicy`, `allowFetch`, that decides each
+  fetch before it runs, including one of a chain parent's source the
+  configuration never names. A refused fetch throws
+  `ProfileFetchRequiredException` (`fetch-required`), which carries the
+  `ProfileFetch`.
+- `ProfileSkills.markerText` is the text of a skill directory's
+  `.wayfinder-profile` marker.
+- New `package:wayfinder/adoption.dart` (ADR-0020). `KnowledgeAdoption.plan`
+  reads a project and resolves a Profile, writing nothing in the project. It
   lists every file it would write with its text or digest, every Git fetch,
   the Profile's source, release and chain, the skills it installs, the
-  conflicts that stop it, and the gate the adopted bundle will have.
-  `KnowledgeAdoption.apply` writes `wayfinder.json`, `wayfinder.lock`
-  through the resolver, the seeded bundle (`index.md`, `log.md` and the seed
-  concepts a host passes, with generated indexes), the Profile skills and a
-  `<bundle>/.okf.lock` line in `.gitignore`, reporting each step. It refuses
-  a plan with conflicts (`adoption-conflict`) or whose inputs changed
-  (`adoption-stale`, `resolution-stale`) before writing, holds
-  `projects/<sha256(root)>.adopt.lock` (`adoption-busy`), and undoes earlier
-  steps when one fails. A request without a ref pins the default branch as
-  its commit, and an offline request reads the Profile cache as it is and
-  throws `fetch-required` where it would fetch. Adoption never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or
-  hooks; the plan returns the `### Knowledge bundle` block as text.
-  `KnowledgeSeeds` holds the generic seed that the adopt-knowledge-bundle
-  skill's `SEEDING.md` shows.
+  conflicts that stop it, and the gate the adopted bundle will have. A
+  request without a ref pins the default branch as its commit. The request's
+  `allowFetch` decides each fetch, and an offline request reads the Profile
+  cache as it is; either way a fetch that may not run throws
+  `fetch-required`. Planning wraps an unreadable project as
+  `adoption-failed`.
+- `KnowledgeAdoption.apply` writes the seeded bundle (`index.md`, `log.md`
+  and the seed concepts a host passes, with generated indexes),
+  `wayfinder.json`, `wayfinder.lock` and the Profile skills through the
+  resolver, a `<bundle>/.okf.lock` line in `.gitignore` unless it is listed
+  there, and an optional host step, reporting each step. It refuses a plan
+  with conflicts (`adoption-conflict`), one another Profile cache planned
+  (`adoption-invalid`), or one whose inputs changed (`adoption-stale`,
+  `resolution-stale`) before writing. It holds the project's `get` lock from
+  that check on (`resolution-busy`), checks its cancellation before each
+  step, and undoes the earlier steps when one fails, reporting a step whose
+  undo failed as `undo-failed`. A marked skill directory it does not
+  install is a conflict (`skill-foreign`), so adoption deletes nothing.
+- Adoption never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks; the
+  plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
+  holds the generic seed that the adopt-knowledge-bundle skill's
+  `SEEDING.md` shows.
 
 # 0.2.0
 

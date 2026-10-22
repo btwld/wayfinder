@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -31,6 +32,39 @@ Future<({Directory directory, String commit})> profileSource(
     directory: directory,
     commit: await fixtureGit(directory.path, ['rev-parse', 'HEAD']),
   );
+}
+
+/// A second local Git repository under [temp] holding `client-profile` at
+/// `profile`, whose package extends Bitwild from the repository [parent]
+/// at `main`, committed once on `main`.
+Future<Directory> clientSource(
+  Directory temp, {
+  required Directory parent,
+}) async {
+  final directory = await Directory(p.join(temp.path, 'client')).create();
+  await fixtureGit(directory.path, ['init', '-q', '-b', 'main']);
+  await _identify(directory.path);
+  final package = File(
+    p.join(directory.path, 'profile', 'wayfinder-profile.json'),
+  );
+  await package.parent.create(recursive: true);
+  await package.writeAsString(
+    jsonEncode({
+      'format': 2,
+      'id': 'client-profile',
+      'release': '1',
+      'implements': {'id': 'okf', 'release': '0.2'},
+      'extends': {
+        'git': parent.path,
+        'ref': 'main',
+        'path': 'profiles/bitwild',
+      },
+      'rules': <Object?>[],
+    }),
+  );
+  await fixtureGit(directory.path, ['add', '.']);
+  await fixtureGit(directory.path, ['commit', '-q', '-m', 'Client Profile']);
+  return directory;
 }
 
 /// An empty Git repository under [temp], as a project before adoption.

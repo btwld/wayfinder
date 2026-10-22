@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (the adoption lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public)
+- Updated: 2026-10-22 (a host's fetch policy, and adoption holding the project's `get` lock, with [ADR-0020](0020-programmatic-adoption.md)); 2026-10-22 (a host's root bounds discovery and binding; required concept fields and installed skill text are public)
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule, and no change to the command's results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -89,15 +89,19 @@ same options and environment.
 
 **Resolution is plan, then apply.** `plan` resolves and composes every chain
 and may clone or refresh a source in the cache, but writes nothing in the
-project. `apply` writes the lock and skills and refuses a plan whose
-configuration, lock or cached package files changed since (`resolution-stale`).
-`resolve` is both under one hold of the project's lock. A plan keeps the
-package file of each package it reads, so `select`, the selection validation
-uses, reads files only and never runs Git. A cache Wayfinder 0.2 wrote has the
-mirrors but no package files: when `select` finds no Profile,
-`validateWithProfileSources` copies the missing files out of the existing
-mirrors with `git show` (`restoreCachedPackages`), never fetching, and
-selects again.
+project. A host's `ProfileFetchPolicy` decides each clone or refresh just
+before it runs, including one of a chain parent's source that the
+configuration never names; a refused fetch throws
+`ProfileFetchRequiredException` (`fetch-required`), which names it, so the
+host can ask the person and plan again. `apply` writes the lock and skills
+and refuses a plan whose configuration, lock or cached package files changed
+since (`resolution-stale`). `resolve` is both under one hold of the project's
+lock. A plan keeps the package file of each package it reads, so `select`, the
+selection validation uses, reads files only and never runs Git. A cache
+Wayfinder 0.2 wrote has the mirrors but no package files: when `select` finds
+no Profile, `validateWithProfileSources` copies the missing files out of the
+existing mirrors with `git show` (`restoreCachedPackages`), never fetching,
+and selects again.
 
 **Wayfinder's lock files use `WayfinderFileLock`.** It is `flock(2)` on a
 descriptor of its own through `dart:ffi` on POSIX, and `RandomAccessFile.lock`
@@ -108,8 +112,7 @@ descriptor never releases them. A lock file stays in place on release.
 | Resource | Lock file under the data directory | Mode | On contention |
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
-| A project's `get` | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
-| A project's adoption ([ADR-0020](0020-programmatic-adoption.md)), while it applies | `projects/<sha256(root)>.adopt.lock` | exclusive, never waits | `adoption-busy` |
+| A project's `get`, or its adoption ([ADR-0020](0020-programmatic-adoption.md)) from the check step until every step has finished or been undone | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
 
 A plan holds one mirror's lock at a time, so two plans never deadlock. The
 project lock records the project root it protects, so a later cleanup can

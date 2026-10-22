@@ -126,6 +126,8 @@ Future<void> main() async {
       dataDirectory: WayfinderDataDirectory.resolve(),
     ),
   );
+  // The sources the person approved fetching.
+  final approved = {'https://github.com/btwld/wayfinder'};
   final plan = await adoption.plan(
     AdoptionRequest(
       projectRoot: Directory.current.path,
@@ -134,36 +136,51 @@ Future<void> main() async {
         git: 'https://github.com/btwld/wayfinder',
         path: 'profiles/bitwild',
       ),
+      allowFetch: (fetch) => approved.contains(fetch.location),
     ),
   );
   for (final file in plan.files) print('${file.action.wireValue} ${file.path}');
   for (final conflict in plan.conflicts) print(conflict);
   if (!plan.applicable) return;
-  final result = await adoption.apply(plan);
+  final result = await adoption.apply(
+    plan,
+    // The host's own writes, undone with the rest if they fail.
+    hostStep: () async => print(plan.agentInstructions), // for AGENTS.md
+  );
   print('gate ${result.validation?.gate.wireValue}');
-  print(plan.agentInstructions); // for AGENTS.md
 }
 ```
 
 - `plan` writes nothing in the project. It resolves the Profile, which may
-  clone or refresh it in the Profile cache (an offline request throws
-  `fetch-required` instead), and lists every file `apply` writes with its
-  text or digest, every Git fetch, the Profile's source, release and chain,
-  the conflicts that stop it, and the gate the adopted bundle will have.
+  clone or refresh it in the Profile cache, and lists every file `apply`
+  writes with its text or digest, every Git fetch, the Profile's source,
+  release and chain, the conflicts that stop it, and the gate the adopted
+  bundle will have.
+- `allowFetch` decides each clone or refresh before it runs, including one of
+  a chain parent's repository that the request never names: no plan can list
+  those before it reads the child. A refused fetch throws
+  `ProfileFetchRequiredException` (`fetch-required`) naming it; ask the
+  person, then plan again with it allowed. An `offline` request reads the
+  cache as it is and refuses every fetch.
 - A request without a ref pins the source's default branch in
   `wayfinder.json` as the commit it resolves to.
 - `apply` writes `wayfinder.json`, `wayfinder.lock`, the seeded bundle
   (`index.md`, `log.md` and any seed concepts the host passes), the Profile
-  skills and, unless the request says otherwise, a `knowledge/.okf.lock`
-  line in `.gitignore`. It refuses a plan with conflicts or whose inputs
-  changed, before writing, and undoes earlier steps when one fails, so the
-  project never holds a partial bundle. It then validates: `PASS` completes
-  adoption.
+  skills and, unless the request says otherwise or `.gitignore` already lists
+  it, a `knowledge/.okf.lock` line in `.gitignore`, then runs `hostStep`. It
+  refuses a plan with conflicts or whose inputs changed, before writing. It
+  holds the project's `get` lock throughout, so a `get` already running stops
+  it with `resolution-busy` before anything is written. It undoes earlier
+  steps when one fails or `cancel` fires, so the project never holds a
+  partial bundle, and reports a step whose undo failed as `undo-failed`. It
+  then validates: `PASS` completes adoption.
 - It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks. The plan
   returns the `### Knowledge bundle` block as text for the host to place.
 - An existing `wayfinder.json` or `wayfinder.lock`, a bundle directory that
-  already holds files (unless the request binds it), and a skill directory
-  without Wayfinder's marker are conflicts.
+  already holds files other than `.okf.lock` (unless the request binds it), a
+  skill directory without Wayfinder's marker, and one Wayfinder installed
+  that the adoption does not install are conflicts. Adoption deletes
+  nothing.
 - `KnowledgeSeeds` holds the generic seed text.
 
 [ADR-0020](../../docs/adr/0020-programmatic-adoption.md) records these

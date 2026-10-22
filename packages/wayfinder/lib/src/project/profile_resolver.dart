@@ -207,6 +207,32 @@ final class ProfileFetch {
       '${kind.wireValue} $git${ref == null ? '' : ' for $ref'}';
 }
 
+/// Whether a resolution may make [fetch], asked just before it runs. A
+/// chain reaches each parent's source only once the child's package is
+/// read, so a plan asks about every source it reaches, including a parent
+/// in another repository that the configuration never names. Answer from
+/// what the person already approved: the source's mirror stays locked
+/// while the policy runs, so it must not wait for them. A refused fetch
+/// throws [ProfileFetchRequiredException]; ask then, and plan again.
+typedef ProfileFetchPolicy = bool Function(ProfileFetch fetch);
+
+/// `fetch-required`: resolving needs [fetch], and the request is offline or
+/// its [ProfileFetchPolicy] refused it. Nothing was fetched for it; the
+/// fetches made before it stay in the Profile cache.
+final class ProfileFetchRequiredException extends WayfinderException {
+  ProfileFetchRequiredException(this.fetch, {required bool offline})
+    : super(
+        'fetch-required',
+        'Resolving needs to ${fetch.kind.wireValue} the Profile source '
+            '${fetch.git}${fetch.ref == null ? '' : ' for ${fetch.ref}'}, '
+            'and ${offline ? 'fetching is not allowed' : 'that fetch was not '
+                      'allowed'}.',
+      );
+
+  /// The fetch resolving needs next.
+  final ProfileFetch fetch;
+}
+
 final class ProfileResolutionResult {
   const ProfileResolutionResult({
     required this.projectRoot,
@@ -341,8 +367,9 @@ final class ProfileResolutionPlan {
 ///   each package a plan read, so [select] reads files and never runs Git;
 ///   [restoreCachedPackages] fills it from the mirrors for a cache an
 ///   earlier Wayfinder wrote;
-/// - `projects/<sha256(root)>.get.lock`, held while [apply] or [resolve]
-///   changes a project, and recording that project's root.
+/// - `projects/<sha256(root)>.get.lock`, held while [apply], [resolve] or
+///   an adoption (`package:wayfinder/adoption.dart`) changes a project, and
+///   recording that project's root.
 final class WayfinderProfileResolver {
   WayfinderProfileResolver({
     required this.dataDirectory,
@@ -358,15 +385,23 @@ final class WayfinderProfileResolver {
   /// Resolves every binding's chain, composes it so a broken chain fails
   /// here rather than at validation, locks one revision per Profile id, and
   /// reads each locked package's skill from its locked commit. Fetches only
-  /// when the mirror is missing, a ref must move, or [upgrade] asks; never
+  /// when the mirror is missing, a ref must move, or [upgrade] asks, and
+  /// only what [allowFetch] allows (every fetch when it is null); never
   /// writes in the project.
   Future<ProfileResolutionPlan> plan(
     String project, {
     bool upgrade = false,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     final (:projectRoot, :configFile) = await _locate(project);
-    return _planFile(projectRoot, configFile, upgrade: upgrade, cancel: cancel);
+    return _planFile(
+      projectRoot,
+      configFile,
+      upgrade: upgrade,
+      allowFetch: allowFetch,
+      cancel: cancel,
+    );
   }
 
   /// Writes [plan]: the lock, the skills it lists, and the removals. Holds
@@ -383,6 +418,7 @@ final class WayfinderProfileResolver {
   Future<ProfileResolutionResult> resolve(
     String project, {
     bool upgrade = false,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     final (:projectRoot, :configFile) = await _locate(project);
@@ -393,6 +429,7 @@ final class WayfinderProfileResolver {
           projectRoot,
           configFile,
           upgrade: upgrade,
+          allowFetch: allowFetch,
           cancel: cancel,
         ),
       ),
@@ -596,6 +633,7 @@ final class WayfinderProfileResolver {
     String projectRoot,
     File configFile, {
     required bool upgrade,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     throwIfCancelled(cancel);
@@ -613,6 +651,7 @@ final class WayfinderProfileResolver {
         upgrade: upgrade,
         previous: _parseLock(lockBytes),
         cancel: cancel,
+        allowFetch: allowFetch,
       ),
     );
   }
@@ -712,7 +751,13 @@ final class WayfinderProfileResolver {
     );
   }
 
-  Future<ProfileResolutionResult> _apply(ProfileResolutionPlan plan) async {
+  /// Writes [plan] once its inputs are unchanged. Without [prune], marked
+  /// skill directories of other Profiles and interrupted copies stay for
+  /// the next `get`.
+  Future<ProfileResolutionResult> _apply(
+    ProfileResolutionPlan plan, {
+    bool prune = true,
+  }) async {
     final configFile = File(plan.configPath);
     final lockFile = File(plan.lockPath);
     final configBytes = await _readBytes(configFile);
@@ -737,7 +782,9 @@ final class WayfinderProfileResolver {
         files,
       );
     }
-    final removed = await ProfileSkills.prune(projectRoot, shipped);
+    final removed = prune
+        ? await ProfileSkills.prune(projectRoot, shipped)
+        : const <String>[];
     return ProfileResolutionResult(
       projectRoot: projectRoot,
       configPath: plan.configPath,
@@ -1518,8 +1565,8 @@ final class _CandidateSink {
 final class CandidateResolution {
   CandidateResolution._(this.plan, this.profiles, this.skillProblems);
 
-  /// What [WayfinderProfileResolver.apply] writes once the configuration is
-  /// on disk with exactly the planned bytes and no lock exists.
+  /// What [applyCandidateResolution] writes once the configuration is on
+  /// disk with exactly the planned bytes and no lock exists.
   final ProfileResolutionPlan plan;
 
   /// Each binding's composed chain, by its Profile id.
@@ -1546,12 +1593,14 @@ final class CandidateResolution {
 /// and checks them. Unmarked or escaping skill directories are reported in
 /// [CandidateResolution.skillProblems] instead of thrown. With [offline],
 /// refs resolve in the cached mirrors as they are, and a fetch the plan
-/// still needs throws `fetch-required`.
+/// still needs throws [ProfileFetchRequiredException]; otherwise
+/// [allowFetch] decides each fetch.
 Future<CandidateResolution> planCandidateResolution(
   WayfinderProfileResolver resolver, {
   required String projectRoot,
   required List<int> configuration,
   bool offline = false,
+  ProfileFetchPolicy? allowFetch,
   WayfinderCancellation? cancel,
 }) async {
   throwIfCancelled(cancel);
@@ -1567,6 +1616,7 @@ Future<CandidateResolution> planCandidateResolution(
       previous: null,
       cancel: cancel,
       offline: offline,
+      allowFetch: allowFetch,
     ),
     candidate: sink,
   );
@@ -1577,16 +1627,38 @@ Future<CandidateResolution> planCandidateResolution(
   );
 }
 
+/// Runs [action] holding [resolver]'s `get` lock of the project at
+/// [projectRoot], as [WayfinderProfileResolver.apply] does, so no `get`
+/// changes the project meanwhile. Throws `resolution-busy` while another
+/// holder has it. The lock does not nest: inside [action], write a plan
+/// with [applyCandidateResolution], never with `apply`.
+Future<T> withProjectLock<T>(
+  WayfinderProfileResolver resolver,
+  String projectRoot,
+  Future<T> Function() action,
+) => resolver._withProjectLock(projectRoot, action);
+
+/// Writes [resolution] as [WayfinderProfileResolver.apply] would, refusing
+/// changed inputs the same way, for a caller that already holds the
+/// project's lock through [withProjectLock]. It deletes nothing: marked
+/// skill directories of other Profiles are the caller's to report, and
+/// interrupted copies wait for the next `get`.
+Future<ProfileResolutionResult> applyCandidateResolution(
+  WayfinderProfileResolver resolver,
+  CandidateResolution resolution,
+) => resolver._apply(resolution.plan, prune: false);
+
 /// The commit at the default branch (`HEAD`) of the Profile source [git],
 /// as resolving it from [projectRoot] reaches it. Clones the source into the
-/// cache when it is missing and refreshes it otherwise, unless [offline],
-/// which reads a cached mirror as it is and throws `fetch-required` without
-/// one.
+/// cache when it is missing and refreshes it otherwise, as [allowFetch]
+/// allows, unless [offline], which reads a cached mirror as it is and
+/// throws [ProfileFetchRequiredException] without one.
 Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
   WayfinderProfileResolver resolver, {
   required String projectRoot,
   required String git,
   bool offline = false,
+  ProfileFetchPolicy? allowFetch,
   WayfinderCancellation? cancel,
 }) async {
   final session = _Session(
@@ -1595,6 +1667,7 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
     previous: null,
     cancel: cancel,
     offline: offline,
+    allowFetch: allowFetch,
   );
   final source = WayfinderProfileSource(git: git, ref: 'HEAD', path: '.');
   final commit = await resolver._withMirror(source, session, (
@@ -1659,6 +1732,7 @@ final class _Session {
     required this.previous,
     required this.cancel,
     this.offline = false,
+    this.allowFetch,
   });
 
   final String projectRoot;
@@ -1670,6 +1744,9 @@ final class _Session {
   /// refreshing a branch or tag, and [fetch] throws `fetch-required`.
   final bool offline;
 
+  /// Decides each fetch when not [offline]; null allows every one.
+  final ProfileFetchPolicy? allowFetch;
+
   bool get fetched => fetches.isNotEmpty;
 
   /// Each clone or refresh, in order.
@@ -1679,7 +1756,8 @@ final class _Session {
   final snapshots = <String, String>{};
 
   /// Records a fetch of [source] that is about to run, or throws
-  /// `fetch-required` when [offline].
+  /// [ProfileFetchRequiredException] when [offline] or [allowFetch] refuses
+  /// it.
   void fetch(
     ProfileFetchKind kind,
     WayfinderProfileSource source,
@@ -1692,13 +1770,8 @@ final class _Session {
       location: location,
       ref: defaultBranch ? null : source.ref,
     );
-    if (offline) {
-      throw WayfinderException(
-        'fetch-required',
-        'Resolving needs to ${kind.wireValue} the Profile source '
-            '${source.git}${defaultBranch ? '' : ' for ${source.ref}'}, '
-            'and fetching is not allowed.',
-      );
+    if (offline || !(allowFetch?.call(fetch) ?? true)) {
+      throw ProfileFetchRequiredException(fetch, offline: offline);
     }
     fetches.add(fetch);
   }

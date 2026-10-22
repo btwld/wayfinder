@@ -8,8 +8,9 @@ This text is `KnowledgeSeeds` in `package:wayfinder/adoption.dart`, and a
 test keeps the two equal. `KnowledgeAdoption` fills the placeholders from
 the request and the resolved Profile: the Profile's id and source, with the
 resolved commit as `ref` when none is named; the OKF release its chain
-implements; and the day of adoption. It writes the files below and returns
-the agent instructions as text.
+implements; and the day of adoption. It writes the files below. Its plan
+returns the `### Knowledge bundle` block as text, and
+`KnowledgeSeeds.wayfinderInstructions()` holds the `### Wayfinder` block.
 
 ## `wayfinder.json`
 
@@ -72,8 +73,12 @@ edit a generated index by hand. Without such a Profile, keep each
 ## `.gitignore`
 
 okf creates its lock file, `.okf.lock`, at the bundle root when it first
-writes the bundle. Add the line `knowledge/.okf.lock` to the project's
-`.gitignore` unless a pattern there already ignores it.
+writes the bundle. Add this line to the project's `.gitignore` unless
+`.gitignore` already lists it:
+
+```gitignore
+knowledge/.okf.lock
+```
 
 ## Agent instructions
 

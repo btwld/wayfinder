@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -82,6 +83,32 @@ void main() {
     ),
   );
 
+  Future<File> getLock() async {
+    final root = await project.resolveSymbolicLinks();
+    return File(
+      p.join(
+        data.path,
+        'projects',
+        '${sha256.convert(utf8.encode(root))}.get.lock',
+      ),
+    );
+  }
+
+  /// What [KnowledgeAdoption.apply] threw for [plan].
+  Future<KnowledgeAdoptionException> applyFailure(
+    KnowledgeAdoptionPlan plan, {
+    KnowledgeAdoption? using,
+    WayfinderCancellation? cancel,
+    Future<void> Function()? hostStep,
+  }) async {
+    try {
+      await (using ?? adoption).apply(plan, cancel: cancel, hostStep: hostStep);
+    } on KnowledgeAdoptionException catch (error) {
+      return error;
+    }
+    fail('apply succeeded');
+  }
+
   Future<void> expectWrittenAsPlanned(KnowledgeAdoptionPlan plan) async {
     for (final file in plan.files) {
       final bytes = await File(
@@ -148,10 +175,17 @@ void main() {
 
       final result = await adoption.apply(plan);
       expect(result.complete, isTrue);
-      expect([for (final step in result.steps) step.step], AdoptionStep.values);
       expect(
-        result.steps.map((step) => step.outcome),
-        everyElement(AdoptionStepOutcome.done),
+        [for (final step in result.steps) (step.step, step.outcome)],
+        [
+          for (final step in AdoptionStep.values)
+            (
+              step,
+              step == AdoptionStep.host
+                  ? AdoptionStepOutcome.skipped
+                  : AdoptionStepOutcome.done,
+            ),
+        ],
       );
       expect(result.written, paths);
       await expectWrittenAsPlanned(plan);
@@ -319,6 +353,120 @@ void main() {
       );
     });
 
+    test('with Bitwild from a git: source of this repository', () async {
+      final top = await Process.run('git', ['rev-parse', '--show-toplevel']);
+      if (top.exitCode != 0) {
+        markTestSkipped('This package is not in a Git checkout.');
+        return;
+      }
+      final repository = (top.stdout as String).trim();
+      // The source is the committed tree, which uncommitted changes to the
+      // package would not reach.
+      if ((await fixtureGit(repository, [
+        'status',
+        '--porcelain',
+        '--',
+        'profiles/bitwild',
+      ])).isNotEmpty) {
+        markTestSkipped('profiles/bitwild has uncommitted changes.');
+        return;
+      }
+      final head = await fixtureGit(repository, ['rev-parse', 'HEAD']);
+      final plan = await adoption.plan(
+        AdoptionRequest(
+          projectRoot: project.path,
+          profile: _bitwild,
+          source: AdoptionSource(
+            git: repository,
+            path: 'profiles/bitwild',
+            ref: head,
+          ),
+        ),
+      );
+      expect(await gitStatus(project.path), isEmpty);
+      expect(plan.conflicts, isEmpty);
+      expect(plan.profile.commit, head);
+      expect(plan.fetches.map((fetch) => (fetch.kind, fetch.location)), [
+        (ProfileFetchKind.clone, repository),
+      ]);
+      expect(plan.validation.gate, GateState.pass);
+
+      final result = await adoption.apply(plan);
+      expect(result.complete, isTrue);
+      await expectWrittenAsPlanned(plan);
+      expect((await validate()).gate, GateState.pass);
+    });
+
+    test('with a Profile whose parent lives in another repository, asking '
+        'about each source before fetching it', () async {
+      final client = await clientSource(temp, parent: source);
+      final clientId = ProfileId.parse('client-profile');
+      AdoptionRequest request({
+        bool offline = false,
+        ProfileFetchPolicy? allowFetch,
+      }) => AdoptionRequest(
+        projectRoot: project.path,
+        profile: clientId,
+        source: AdoptionSource(git: client.path, path: 'profile', ref: 'main'),
+        offline: offline,
+        allowFetch: allowFetch,
+      );
+      Matcher needs(ProfileFetchKind kind, String location) => throwsA(
+        isA<ProfileFetchRequiredException>()
+            .having((error) => error.code, 'code', 'fetch-required')
+            .having(
+              (error) => (error.fetch.kind, error.fetch.location),
+              'fetch',
+              (kind, location),
+            ),
+      );
+      Directory mirror(String location) => Directory(
+        p.join(
+          data.path,
+          'profiles',
+          sha256.convert(utf8.encode(location)).toString(),
+        ),
+      );
+
+      // The person approved the source they named, and nothing else.
+      final approved = {client.path};
+      final asked = <String>[];
+      bool allow(ProfileFetch fetch) {
+        asked.add(fetch.location);
+        return approved.contains(fetch.location);
+      }
+
+      await expectLater(
+        adoption.plan(request(allowFetch: allow)),
+        needs(ProfileFetchKind.clone, source.path),
+      );
+      expect(asked, [client.path, source.path]);
+      expect(await mirror(client.path).exists(), isTrue);
+      expect(await mirror(source.path).exists(), isFalse);
+      // Offline, the cached child names the parent's fetch as well.
+      await expectLater(
+        adoption.plan(request(offline: true)),
+        needs(ProfileFetchKind.clone, source.path),
+      );
+      expect(await mirror(source.path).exists(), isFalse);
+      expect(await gitStatus(project.path), isEmpty);
+
+      approved.add(source.path);
+      final plan = await adoption.plan(request(allowFetch: allow));
+      expect(plan.fetches.map((fetch) => (fetch.kind, fetch.location)), [
+        (ProfileFetchKind.refresh, client.path),
+        (ProfileFetchKind.clone, source.path),
+      ]);
+      expect(plan.profile.chain.map((package) => package.id), [
+        _bitwild,
+        clientId,
+      ]);
+      expect(plan.conflicts, isEmpty);
+      final result = await adoption.apply(plan);
+      expect(result.complete, isTrue);
+      expect((await validate()).gate, GateState.pass);
+    });
+
     test('binding an existing bundle writes nothing in it', () async {
       await copyTree(
         p.join('..', '..', 'examples', 'acme-notes', 'knowledge'),
@@ -359,17 +507,15 @@ void main() {
       'project', () async {
     await File(p.join(project.path, 'README.md')).writeAsString('# Project\n');
     await File(p.join(project.path, '.gitignore')).writeAsString('build/');
-    await Directory(bundle()).create();
-    await File(p.join(bundle(), '.keep')).create();
     await commitAll(project.path);
-    await File(p.join(bundle(), '.keep')).delete();
-    expect(await Directory(bundle()).list().isEmpty, isTrue);
+    // Git tracks no empty directory, so an empty bundle leaves status clean.
+    await Directory(bundle()).create();
     final before = await fileSnapshot(project.path);
-    final status = await gitStatus(project.path);
+    expect(await gitStatus(project.path), isEmpty);
 
     final plan = await adoption.plan(bitwild());
     expect(await fileSnapshot(project.path), before);
-    expect(await gitStatus(project.path), status);
+    expect(await gitStatus(project.path), isEmpty);
     expect(await Directory(bundle()).list().isEmpty, isTrue);
     expect(plan.conflicts, isEmpty);
     final gitignore = plan.files.last;
@@ -386,14 +532,17 @@ void main() {
     await expectLater(
       adoption.plan(bitwild(ref: 'missing', offline: true)),
       throwsA(
-        isA<WayfinderException>().having(
-          (error) => error.code,
-          'code',
-          'fetch-required',
-        ),
+        isA<ProfileFetchRequiredException>()
+            .having((error) => error.code, 'code', 'fetch-required')
+            .having(
+              (error) => (error.fetch.kind, error.fetch.location),
+              'fetch',
+              (ProfileFetchKind.refresh, source.path),
+            ),
       ),
     );
     expect(await fileSnapshot(project.path), before);
+    expect(await gitStatus(project.path), isEmpty);
 
     await adoption.apply(plan);
     expect(
@@ -407,40 +556,80 @@ void main() {
     expect(
       adoption.plan(bitwild(offline: true)),
       throwsA(
-        isA<WayfinderException>()
+        isA<ProfileFetchRequiredException>()
             .having((error) => error.code, 'code', 'fetch-required')
-            .having((error) => error.message, 'message', contains(source.path)),
+            .having((error) => error.message, 'message', contains(source.path))
+            .having(
+              (error) => (error.fetch.kind, error.fetch.location),
+              'fetch',
+              (ProfileFetchKind.clone, source.path),
+            ),
       ),
     );
   });
 
-  test('an unmarked .claude/skills/<id> is refused before anything is '
-      'written', () async {
-    final own = Directory(
-      p.join(project.path, '.claude', 'skills', 'bitwild-profile'),
+  for (final root in ['.claude', '.agents']) {
+    test('an unmarked $root/skills/<id> is refused before anything is '
+        'written', () async {
+      final own = Directory(
+        p.join(project.path, root, 'skills', 'bitwild-profile'),
+      );
+      await own.create(recursive: true);
+      await File(p.join(own.path, 'SKILL.md')).writeAsString('# Mine\n');
+      await commitAll(project.path);
+      final before = await fileSnapshot(project.path);
+
+      final plan = await adoption.plan(bitwild());
+      expect(await gitStatus(project.path), isEmpty);
+      expect(plan.applicable, isFalse);
+      expect(plan.conflicts.map((conflict) => (conflict.code, conflict.path)), [
+        ('skill-unowned', '$root/skills/bitwild-profile'),
+      ]);
+      expect(plan.toJson()['conflicts'], [
+        containsPair('code', 'skill-unowned'),
+      ]);
+
+      KnowledgeAdoptionException? failure;
+      try {
+        await adoption.apply(plan);
+      } on KnowledgeAdoptionException catch (error) {
+        failure = error;
+      }
+      expect(failure?.code, 'adoption-conflict');
+      expect(failure!.steps.map((step) => (step.step, step.outcome)), [
+        (AdoptionStep.check, AdoptionStepOutcome.failed),
+      ]);
+      expect(await fileSnapshot(project.path), before);
+      expect(await gitStatus(project.path), isEmpty);
+    });
+  }
+
+  test('a marked skill of a Profile the adoption does not lock is a '
+      'conflict, and nothing is deleted', () async {
+    final other = Directory(
+      p.join(project.path, '.claude', 'skills', 'other-profile'),
     );
-    await own.create(recursive: true);
-    await File(p.join(own.path, 'SKILL.md')).writeAsString('# Mine\n');
-    await commitAll(project.path);
+    await other.create(recursive: true);
+    await File(p.join(other.path, '.wayfinder-profile')).writeAsString(
+      ProfileSkills.markerText((
+        id: ProfileId.parse('other-profile'),
+        release: '1',
+        commit: '0' * 40,
+      )),
+    );
+    await File(p.join(other.path, 'SKILL.md')).writeAsString('# Other\n');
     final before = await fileSnapshot(project.path);
 
     final plan = await adoption.plan(bitwild());
-    expect(plan.applicable, isFalse);
     expect(plan.conflicts.map((conflict) => (conflict.code, conflict.path)), [
-      ('skill-unowned', '.claude/skills/bitwild-profile'),
+      ('skill-foreign', '.claude/skills/other-profile'),
     ]);
-    expect(plan.toJson()['conflicts'], [containsPair('code', 'skill-unowned')]);
-
+    expect(
+      plan.files.map((file) => file.path),
+      isNot(anyElement(startsWith('.claude/skills/other-profile'))),
+    );
     await expectLater(adoption.apply(plan), failsWith('adoption-conflict'));
     expect(await fileSnapshot(project.path), before);
-    expect(await gitStatus(project.path), isEmpty);
-    try {
-      await adoption.apply(plan);
-    } on KnowledgeAdoptionException catch (error) {
-      expect(error.steps.map((step) => (step.step, step.outcome)), [
-        (AdoptionStep.check, AdoptionStepOutcome.failed),
-      ]);
-    }
   });
 
   test('AGENTS.md, CLAUDE.md, .mcp.json and hooks are never written', () async {
@@ -545,14 +734,53 @@ void main() {
     });
   });
 
-  test('a step that fails undoes the steps before it', () async {
+  test('a get holding the project stops apply at the check step', () async {
+    final before = await fileSnapshot(project.path);
+    final plan = await adoption.plan(bitwild());
+    final held = await WayfinderFileLock.tryExclusive(await getLock());
+    addTearDown(() => held?.release());
+
+    final failure = await applyFailure(plan);
+    expect(failure.code, 'resolution-busy');
+    expect(failure.steps.map((step) => (step.step, step.outcome)), [
+      (AdoptionStep.check, AdoptionStepOutcome.failed),
+    ]);
+    expect(await fileSnapshot(project.path), before);
+
+    await held!.release();
+    expect((await adoption.apply(plan)).complete, isTrue);
+  });
+
+  test('a get while apply holds the project is resolution-busy', () async {
+    final plan = await adoption.plan(bitwild());
+    Object? during;
+    final result = await adoption.apply(
+      plan,
+      hostStep: () async {
+        try {
+          await resolver.resolve(project.path);
+        } on WayfinderException catch (error) {
+          during = error.code;
+        }
+      },
+    );
+    expect(during, 'resolution-busy');
+    expect(result.complete, isTrue);
+  });
+
+  test('a step that fails after the Profile is installed undoes every step '
+      'before it and restores the replaced skill', () async {
     // A marked copy from an earlier revision, which applying replaces.
     final previous = Directory(
       p.join(project.path, '.agents', 'skills', 'bitwild-profile'),
     );
     await previous.create(recursive: true);
     await File(p.join(previous.path, '.wayfinder-profile')).writeAsString(
-      '${jsonEncode({'id': 'bitwild-profile', 'release': '2026.2', 'commit': '0' * 40})}\n',
+      ProfileSkills.markerText((
+        id: _bitwild,
+        release: '2026.2',
+        commit: '0' * 40,
+      )),
     );
     await File(p.join(previous.path, 'SKILL.md')).writeAsString('# Old\n');
     await commitAll(project.path);
@@ -569,45 +797,191 @@ void main() {
       AdoptionFileAction.replace,
     );
 
-    // Another get holds the project, so the profile step fails.
-    final root = await project.resolveSymbolicLinks();
-    final held = await WayfinderFileLock.tryExclusive(
-      File(
-        p.join(
-          data.path,
-          'projects',
-          '${sha256.convert(utf8.encode(root))}.get.lock',
-        ),
-      ),
+    final failure = await applyFailure(
+      plan,
+      hostStep: () async {
+        // Everything Wayfinder writes is in place.
+        expect(
+          await File(p.join(project.path, 'wayfinder.lock')).exists(),
+          isTrue,
+        );
+        expect(
+          await File(p.join(previous.path, 'SKILL.md')).readAsString(),
+          isNot('# Old\n'),
+        );
+        throw StateError('The host could not write AGENTS.md.');
+      },
     );
-    addTearDown(() => held?.release());
-    KnowledgeAdoptionException? failure;
-    try {
-      await adoption.apply(plan);
-    } on KnowledgeAdoptionException catch (error) {
-      failure = error;
-    }
-    expect(failure?.code, 'resolution-busy');
-    expect(failure!.steps.map((step) => (step.step, step.outcome)), [
+    expect(failure.code, 'adoption-failed');
+    expect(failure.message, contains('could not write AGENTS.md'));
+    expect(failure.steps.map((step) => (step.step, step.outcome)), [
       (AdoptionStep.check, AdoptionStepOutcome.done),
       (AdoptionStep.bundle, AdoptionStepOutcome.undone),
       (AdoptionStep.configuration, AdoptionStepOutcome.undone),
-      (AdoptionStep.profile, AdoptionStepOutcome.failed),
+      (AdoptionStep.profile, AdoptionStepOutcome.undone),
+      (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
+      (AdoptionStep.host, AdoptionStepOutcome.failed),
     ]);
     expect(await fileSnapshot(project.path), before);
     expect(await gitStatus(project.path), isEmpty);
     expect(await Directory(bundle()).exists(), isFalse);
+    expect(
+      await Directory(
+        p.join(project.path, '.agents', 'skills'),
+      ).list().map((entity) => p.basename(entity.path)).toList(),
+      ['bitwild-profile'],
+      reason: 'no backup is left beside the restored skill',
+    );
+    expect(await Directory(p.join(project.path, '.claude')).exists(), isFalse);
 
-    await held!.release();
     final result = await adoption.apply(plan);
     expect(result.complete, isTrue);
     expect(
       await File(p.join(previous.path, 'SKILL.md')).readAsString(),
       isNot('# Old\n'),
     );
+    expect(
+      await Directory(
+        p.join(project.path, '.agents', 'skills'),
+      ).list().map((entity) => p.basename(entity.path)).toList(),
+      ['bitwild-profile'],
+    );
   });
 
-  test('a .gitignore that ignores the lock already is left alone', () async {
+  test('a step whose undo fails is reported undo-failed', () async {
+    if (Platform.isWindows) return;
+    final plan = await adoption.plan(bitwild());
+    final failure = await applyFailure(
+      plan,
+      hostStep: () async {
+        // The seeded files can no longer be removed.
+        await chmod('555', bundle());
+        throw StateError('The host failed.');
+      },
+    );
+    await chmod('755', bundle());
+    if (failure.steps.any(
+      (step) => step.outcome == AdoptionStepOutcome.undoFailed,
+    )) {
+      expect(failure.steps.map((step) => (step.step, step.outcome)), [
+        (AdoptionStep.check, AdoptionStepOutcome.done),
+        (AdoptionStep.bundle, AdoptionStepOutcome.undoFailed),
+        (AdoptionStep.configuration, AdoptionStepOutcome.undone),
+        (AdoptionStep.profile, AdoptionStepOutcome.undone),
+        (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
+        (AdoptionStep.host, AdoptionStepOutcome.failed),
+      ]);
+      expect(
+        failure.message,
+        contains('Undoing the earlier steps also failed'),
+      );
+      expect(await Directory(bundle()).exists(), isTrue);
+      expect(
+        await File(p.join(project.path, 'wayfinder.json')).exists(),
+        isFalse,
+      );
+    } else {
+      markTestSkipped('This user deletes files in a read-only directory.');
+    }
+  });
+
+  test('cancelling stops apply before its next step and undoes the earlier '
+      'ones', () async {
+    final plan = await adoption.plan(bitwild());
+    final cancelled = WayfinderCancellationController()..cancel();
+    final before = await fileSnapshot(project.path);
+    final early = await applyFailure(plan, cancel: cancelled);
+    expect(early.code, 'cancelled');
+    expect(early.steps.map((step) => (step.step, step.outcome)), [
+      (AdoptionStep.check, AdoptionStepOutcome.failed),
+    ]);
+
+    // Cancelled once wayfinder.json is written.
+    final late = await applyFailure(
+      plan,
+      cancel: _CancelWhen(
+        () => File(p.join(project.path, 'wayfinder.json')).existsSync(),
+      ),
+    );
+    expect(late.code, 'cancelled');
+    expect(late.steps.map((step) => (step.step, step.outcome)), [
+      (AdoptionStep.check, AdoptionStepOutcome.done),
+      (AdoptionStep.bundle, AdoptionStepOutcome.undone),
+      (AdoptionStep.configuration, AdoptionStepOutcome.undone),
+      (AdoptionStep.profile, AdoptionStepOutcome.failed),
+    ]);
+    expect(await fileSnapshot(project.path), before);
+  });
+
+  test('apply refuses a plan another data directory resolved', () async {
+    final plan = await adoption.plan(bitwild());
+    final elsewhere = KnowledgeAdoption(
+      resolver: WayfinderProfileResolver(
+        dataDirectory: Directory(p.join(temp.path, 'other-data')),
+      ),
+    );
+    final failure = await applyFailure(plan, using: elsewhere);
+    expect(failure.code, 'adoption-invalid');
+    expect(failure.message, contains(data.path));
+    expect(await gitStatus(project.path), isEmpty);
+  });
+
+  test(
+    'a project that cannot be read fails the plan as adoption-failed',
+    () async {
+      if (Platform.isWindows) return;
+      final gitignore = File(p.join(project.path, '.gitignore'));
+      await gitignore.writeAsString('build/\n');
+      await chmod('000', gitignore.path);
+      addTearDown(() => chmod('644', gitignore.path));
+      try {
+        await gitignore.readAsBytes();
+        markTestSkipped('This user reads files without read permission.');
+        return;
+      } on FileSystemException {
+        // As expected.
+      }
+      await expectLater(
+        adoption.plan(bitwild()),
+        throwsA(
+          isA<WayfinderException>().having(
+            (error) => error.code,
+            'code',
+            'adoption-failed',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('a bundle that holds only okf\'s lock file is seeded, keeping the '
+      'lock file', () async {
+    await Directory(bundle()).create();
+    final okfLock = File(p.join(bundle(), '.okf.lock'));
+    await okfLock.writeAsString('');
+    final plan = await adoption.plan(bitwild());
+    expect(plan.conflicts, isEmpty);
+    expect(plan.mode, AdoptionBundleMode.seed);
+    expect(plan.files.map((file) => file.path), isNot(contains(okfLock.path)));
+
+    final failure = await applyFailure(
+      plan,
+      hostStep: () async => throw StateError('The host failed.'),
+    );
+    expect(failure.code, 'adoption-failed');
+    expect(
+      await Directory(
+        bundle(),
+      ).list().map((entity) => p.basename(entity.path)).toList(),
+      ['.okf.lock'],
+    );
+
+    expect((await adoption.apply(plan)).complete, isTrue);
+    expect(await okfLock.exists(), isTrue);
+    expect(await File(p.join(bundle(), 'index.md')).exists(), isTrue);
+  });
+
+  test('a .gitignore that lists the lock already is left alone', () async {
     await File(
       p.join(project.path, '.gitignore'),
     ).writeAsString('**/.okf.lock\n');
@@ -627,6 +1001,26 @@ void main() {
       await File(p.join(project.path, '.gitignore')).readAsString(),
       '**/.okf.lock\n',
     );
+  });
+
+  test('a .gitignore line counts with trailing spaces and stops counting '
+      'once a later line re-includes it', () async {
+    final gitignore = File(p.join(project.path, '.gitignore'));
+    for (final (text, appends) in [
+      ('knowledge/.okf.lock  \n', false),
+      ('/knowledge/.okf.lock\n', false),
+      ('.okf.lock\n!knowledge/.okf.lock\n', true),
+      ('!.okf.lock\n.okf.lock\n', false),
+      ('*.lock\n', true),
+    ]) {
+      await gitignore.writeAsString(text);
+      final plan = await adoption.plan(bitwild(ref: 'main'));
+      expect(
+        plan.files.any((file) => file.kind == AdoptionFileKind.gitignore),
+        appends,
+        reason: text,
+      );
+    }
   });
 
   test('ignoreOkfLock false leaves .gitignore unwritten', () async {
@@ -690,18 +1084,14 @@ void main() {
     );
     expect(plan.files.last.content, 'docs/knowledge/.okf.lock\n');
 
-    final root = await project.resolveSymbolicLinks();
-    final held = await WayfinderFileLock.tryExclusive(
-      File(
-        p.join(
-          data.path,
-          'projects',
-          '${sha256.convert(utf8.encode(root))}.get.lock',
-        ),
-      ),
+    final failure = await applyFailure(
+      plan,
+      hostStep: () async {
+        expect(await Directory(bundle('docs/knowledge')).exists(), isTrue);
+        throw StateError('The host failed.');
+      },
     );
-    await expectLater(adoption.apply(plan), failsWith('resolution-busy'));
-    await held!.release();
+    expect(failure.code, 'adoption-failed');
     expect(await Directory(p.join(project.path, 'docs')).exists(), isFalse);
     expect(await gitStatus(project.path), isEmpty);
 
@@ -774,7 +1164,6 @@ void main() {
       'fetches',
       'files',
       'skills',
-      'removed_skills',
       'conflicts',
       'applicable',
       'gate',
@@ -812,4 +1201,23 @@ void main() {
     });
     expect(jsonDecode(jsonEncode(json)), json);
   });
+}
+
+/// Cancelled once [condition] holds, so a test can stop apply between two
+/// given steps.
+final class _CancelWhen implements WayfinderCancellation {
+  _CancelWhen(this.condition);
+
+  final bool Function() condition;
+
+  @override
+  bool get isCancelled => condition();
+
+  @override
+  Future<void> get whenCancelled => Completer<void>().future;
+}
+
+Future<void> chmod(String mode, String path) async {
+  final result = await Process.run('chmod', [mode, path]);
+  if (result.exitCode != 0) throw StateError('chmod failed: ${result.stderr}');
 }
