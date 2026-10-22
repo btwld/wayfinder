@@ -1,8 +1,9 @@
 /// What a write records in the bundle's root `log.md`.
 ///
 /// The log is authored history (guide §3.2): the writer never derives an
-/// entry of its own. It writes the caller's [KnowledgeLogEntry], okf's
-/// lifecycle entries ([lifecycle]), or nothing ([none]).
+/// entry of its own. It writes the caller's [KnowledgeLogEntry] or
+/// [KnowledgeLogEntries], okf's lifecycle entries ([lifecycle]), or nothing
+/// ([none]).
 sealed class KnowledgeLog {
   const KnowledgeLog();
 
@@ -37,6 +38,40 @@ final class KnowledgeLogEntry extends KnowledgeLog {
 
   /// Markdown, such as a link to the concept.
   final String description;
+}
+
+/// Several entries the caller authored for one write, such as Bitwild's
+/// `Area created` and `Creation` for a concept in a new directory. Each is
+/// written exactly as given, as a [KnowledgeLogEntry] is, under the
+/// writer's one date heading, in the order given.
+final class KnowledgeLogEntries extends KnowledgeLog {
+  /// [entries] holds at least one entry.
+  KnowledgeLogEntries(Iterable<KnowledgeLogEntry> entries)
+    : entries = List.unmodifiable(entries);
+
+  final List<KnowledgeLogEntry> entries;
+}
+
+/// The entries [log] supplies, in order; null for [KnowledgeLog.lifecycle]
+/// and [KnowledgeLog.none].
+List<KnowledgeLogEntry>? suppliedLogEntries(KnowledgeLog log) => switch (log) {
+  final KnowledgeLogEntry entry => [entry],
+  KnowledgeLogEntries(:final entries) => entries,
+  _LifecycleLog() || _NoLog() => null,
+};
+
+/// Whether the writer can record each entry of [log] exactly as given.
+void checkLog(KnowledgeLog log) {
+  if (log case KnowledgeLogEntries(:final entries) when entries.isEmpty) {
+    throw ArgumentError.value(
+      entries,
+      'logEntry',
+      'must hold at least one entry; KnowledgeLog.none records none',
+    );
+  }
+  for (final entry in suppliedLogEntries(log) ?? const <KnowledgeLogEntry>[]) {
+    checkLogEntry(entry);
+  }
 }
 
 /// Whether the writer can record [entry] exactly as given.
