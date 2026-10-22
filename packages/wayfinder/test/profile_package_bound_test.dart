@@ -109,34 +109,40 @@ void main() {
 
   test('reports a parse that stops on another error as the package\'s, '
       'without parsing it again here', () async {
-    // Dart's regular-expression engine runs out of backtracking stack on a
-    // long enough subject and throws a StackOverflowError, which no
-    // ProfilePackageException catches.
+    // A value nested a million arrays deep overflows the stack while the
+    // package's schemas are read, which throws a StackOverflowError that no
+    // ProfilePackageException catches. It is built as text, because encoding
+    // it would overflow here first. (A long subject for a backtracking
+    // pattern overflows only Dart 3.12's regular-expression engine; 3.11's
+    // grows its backtracking stack without a limit.)
     final json = packageJson(
       rules: [
         ruleJson(
-          'long-title',
+          'deep',
           subject: 'frontmatter',
           schema: {
             'properties': {
-              'title': {'pattern': r'^(?:a|b)*$'},
+              'title': {'type': 'array'},
             },
           },
           valid: [
-            {'title': 'LONG'},
+            {'title': 'DEEP'},
           ],
           invalid: [
             {'title': 'c'},
           ],
         ),
       ],
-    ).replaceFirst('LONG', 'ab' * 6000000);
-    expect(() => ProfilePackage.parse(json), throwsA(isA<Error>()));
+    ).replaceFirst('"DEEP"', '${'[' * 1000000}${']' * 1000000}');
+    expect(
+      () => ProfilePackage.parse(json),
+      throwsA(isA<StackOverflowError>()),
+    );
     await expectLater(
       ProfilePackage.parseWithin(json),
       throwsA(
         isA<ProfilePackageException>()
-            .having((error) => error.where, 'where', 'rules[0].tests')
+            .having((error) => error.where, 'where', 'package')
             .having(
               (error) => error.message,
               'message',

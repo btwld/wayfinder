@@ -157,11 +157,11 @@ final class ProfilePackage {
   /// with [ProfilePackageException.timedOut] set, naming the rule whose
   /// `tests` were running. A package whose parse passed is then read on the
   /// calling isolate without running its tests again. A parse that stops on
-  /// another error, such as a stack overflow while a rule's `tests` run,
-  /// throws a [ProfilePackageException] that names the error and where the
-  /// parse was, so the package reads as invalid instead of failing its
-  /// reader. Only when no isolate can be started does it parse on the
-  /// calling isolate, unbounded, as [parse] does.
+  /// another error, such as a stack overflow, throws a
+  /// [ProfilePackageException] that names the error and where the parse was,
+  /// so the package reads as invalid instead of failing its reader. Only when
+  /// no isolate can be started does it parse on the calling isolate,
+  /// unbounded, as [parse] does.
   ///
   /// Every call runs the tests: an earlier verdict is never reused, because
   /// it could outlive the engine that reached it.
