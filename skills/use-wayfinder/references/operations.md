@@ -99,7 +99,7 @@ is a separate review. Route by task:
 | `Knowledge changed while indexing` / `during search` | Files changed mid-command. Let edits finish and rerun. |
 | `Index is busy` | Another Wayfinder command holds this bundle. Retry after it finishes. |
 | `Another wayfinder get is changing <project>` | A second `get` or `upgrade` ran while one was resolving the project. Retry after it finishes. |
-| `wayfinder/profile-unresolved`: a package `is not in the local cache` right after upgrading Wayfinder | The cache now keeps each locked package file for validation. Run `wayfinder get` once; it fetches nothing when the cached sources already hold the locked commits. |
+| `wayfinder/profile-unresolved`: a package `has no package file in the local cache` | The cache keeps each locked package file for validation, and `validate` restores one from the cached source when it can. Run `wayfinder get`; it fetches nothing while the cached source holds the locked commit. |
 | Embedding model or ObjectBox library missing or unreadable | Check the reported configured path and assets. Reinstall the complete runtime when incomplete; copying only the executable is insufficient. Reindexing alone cannot repair a model-load failure. |
 | Dense search reports missing compatible passage vectors | Repair the encoder if needed, then index the same bundle and retry. There is no alternate retrieval fallback. |
 | CLI `--mode` or MCP `mode` rejected after upgrade | Remove the retired field, including an explicit dense value. Refresh MCP tool discovery. |

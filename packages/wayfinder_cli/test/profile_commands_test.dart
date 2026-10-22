@@ -84,6 +84,27 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  test('validate keeps its verdict on a cache an earlier Wayfinder wrote, '
+      'without fetching', () async {
+    expect(await cli.run(['get', project.path]), 0);
+    final knowledge = p.join(project.path, 'knowledge');
+    final verdict = await cli.run(['validate', knowledge, '--output=json']);
+    final report = output.last;
+    expect(
+      ((jsonDecode(report) as Map)['profile'] as Map)['state'],
+      isNot('NOT ASSESSED'),
+    );
+    await Directory(
+      p.join(data.path, 'profiles', 'packages'),
+    ).delete(recursive: true);
+    // A source the mirror cannot reach proves validation fetches nothing.
+    await source.rename('${source.path}-moved');
+    output.clear();
+    expect(await cli.run(['validate', knowledge, '--output=json']), verdict);
+    expect(output.last, report);
+    expect(errors, isEmpty);
+  });
+
   test('a get another process holds fails and names it', () async {
     final root = await project.resolveSymbolicLinks();
     final busy = (await WayfinderFileLock.tryExclusive(
