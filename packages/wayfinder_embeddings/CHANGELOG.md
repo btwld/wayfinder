@@ -1,6 +1,12 @@
 # 0.3.0 (unreleased)
 
 - Requires `wayfinder` `^0.3.0`.
+- Depends on `objectbox` `^5.3.2` and `flat_buffers` `^25.9.23` instead of the
+  exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
+  this package. `lib/objectbox.g.dart` is regenerated with
+  `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
+  unchanged, so stores written by 0.2.0 open and keep working without a
+  reindex; a test opens one that 0.2.0 wrote.
 
 # 0.2.0
 
