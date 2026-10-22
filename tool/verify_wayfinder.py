@@ -39,11 +39,11 @@ def main():
         env.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
         env.pop("WAYFINDER_EMBEDDING_MODEL", None)
 
-        def run(name, *command, expected=0):
+        def run(name, *command, expected=0, timeout=90):
             start = time.perf_counter()
             result = subprocess.run(
                 [str(binary), *map(str, command)], cwd=cwd, env=env,
-                text=True, capture_output=True, timeout=90,
+                text=True, capture_output=True, timeout=timeout,
             )
             assert result.returncode == expected, (name, result.stdout, result.stderr)
             reports.append({"case": name, "wallMs": (time.perf_counter()-start)*1000,
@@ -144,7 +144,10 @@ def main():
         # publishes a new generation, on every platform: on Windows the
         # publication waits for searches that have the pointer open. A copy
         # of the bundle with more passages keeps the forced index running
-        # long enough for searches to overlap it.
+        # long enough for searches to overlap it. Embedding its 303 chunks on
+        # a small runner's CPU takes minutes, so the indexing steps get
+        # budgets that do not assume a fast machine.
+        loop_budget = 300
         loop_corpus = temp / "loop-knowledge"
         shutil.copytree(corpus, loop_corpus)
         for i in range(300):
@@ -152,7 +155,8 @@ def main():
                 f"---\ntitle: Note {i}\ntype: reference\n---\n"
                 f"Operational note {i} about deployments, retries and dashboards.\n")
         loop_index = Path(json.loads(run("loop-index", "index", loop_corpus,
-                                         "--output=json").stdout)["index"])
+                                         "--output=json",
+                                         timeout=loop_budget).stdout)["index"])
 
         def writer_held():
             """Whether a writer holds writer.lock, probed as isHeld does."""
@@ -184,7 +188,7 @@ def main():
         try:
             # Searching starts once the forced index holds the writer lock, so
             # the first search overlaps it.
-            deadline = time.monotonic() + 90
+            deadline = time.monotonic() + loop_budget
             while (forced.poll() is None and time.monotonic() < deadline
                    and not writer_held()):
                 time.sleep(0.01)
@@ -200,7 +204,7 @@ def main():
                 refreshes += any(n.startswith("refresh-in-progress: ")
                                  for n in found["notices"])
         finally:
-            out, err = forced.communicate(timeout=120)
+            out, err = forced.communicate(timeout=loop_budget)
         assert forced.returncode == 0, (out, err)
         reports.append({"case": "search-loop-during-force",
                         "wallMs": (time.perf_counter()-start)*1000,
