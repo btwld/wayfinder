@@ -24,7 +24,12 @@ def canonical_library(name):
 
 
 def check_embedding_runtime(platform, files):
-    """The llama.cpp runtime under lib/, CPU only, plus Windows' bin/ copies."""
+    """The llama.cpp runtime under lib/, CPU only, plus Windows' bin/ copies.
+
+    Linux and Windows bundles load llama.cpp's backends as separate modules,
+    so each needs a CPU backend module (`ggml-cpu` or a CPU variant such as
+    `ggml-cpu-haswell`); Windows needs it beside the executable as well.
+    """
     libraries = {}
     for name in files:
         path = Path(name)
@@ -40,13 +45,13 @@ def check_embedding_runtime(platform, files):
             f'runtime: {", ".join(foreign)}')
     if 'llamadart' not in libraries.get('lib', set()):
         raise SystemExit(f'Native bundle {platform} lacks llamadart in lib/')
-    if platform.startswith('windows'):
-        for directory in ('lib', 'bin'):
-            if not any(name.startswith('ggml-cpu')
-                       for name in libraries.get(directory, set())):
-                raise SystemExit(
-                    f'Native bundle {platform} lacks the CPU backend in '
-                    f'{directory}/')
+    cpu_directories = {'linux': ('lib',), 'windows': ('lib', 'bin')}
+    for directory in cpu_directories.get(platform.split('-')[0], ()):
+        if not any(name == 'ggml-cpu' or name.startswith('ggml-cpu-')
+                   for name in libraries.get(directory, set())):
+            raise SystemExit(
+                f'Native bundle {platform} lacks the CPU backend in '
+                f'{directory}/')
 
 
 parser = argparse.ArgumentParser(description=__doc__)
