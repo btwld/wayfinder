@@ -70,6 +70,10 @@ Future<void> main() async {
   validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
   package files out of the cached mirrors with `restoreCachedPackages`,
   without fetching.
+  `pruneProjectLocks` deletes the `get` locks of project roots that no longer
+  exist once they have gone unused for its period (30 days by default),
+  reading a lock's note only while the lock is free;
+  `WayfinderKnowledgeStore.prune` calls it.
 - `ProfileSkills.read(projectRoot, revision)` returns the `SKILL.md` text
   `get` installed for a Profile revision, or null when no installed copy
   holds that revision, the check behind `profile-skill-stale`.
@@ -79,7 +83,8 @@ Future<void> main() async {
   `wayfinderGraphInput` its Ack query input.
 - `WayfinderDataDirectory.resolve`, `GitRunner` and the hardened `runGit`,
   `WayfinderCancellation`, and `WayfinderFileLock`, a `flock` lock that holds
-  across processes and isolates, are the injection points and building blocks.
+  across processes and isolates and whose momentary `isHeld` probe never makes
+  a `tryExclusive` fail, are the injection points and building blocks.
   A host's `GitRunner` applies `wayfinderGitOptions` and
   `wayfinderGitEnvironment`, and on cancellation throws
   `WayfinderException.cancelled()`; `throwIfCancelled` checks between steps.
