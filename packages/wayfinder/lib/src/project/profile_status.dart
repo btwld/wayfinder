@@ -53,37 +53,6 @@ enum ProfileBindingState {
   final String wireValue;
 }
 
-/// Why resolving would change `wayfinder.lock`, as [ProfileLockChange.kind]
-/// reports it.
-enum ProfileLockChangeKind {
-  /// There is no `wayfinder.lock`, or it cannot be read or parsed.
-  lockMissing('lock-missing'),
-
-  /// `wayfinder.json` changed after the lock was written: the lock's
-  /// configuration hash no longer matches it.
-  configurationChanged('configuration-changed'),
-
-  /// The lock holds no complete chain for [ProfileLockChange.profile].
-  chainMissing('chain-missing'),
-
-  /// The lock records another source, ref or path for
-  /// [ProfileLockChange.profile] than `wayfinder.json` names.
-  sourceChanged('source-changed'),
-
-  /// Each of [ProfileLockChange.packages] declares another release or
-  /// parent than the lock records, or a parent the lock pins no commit of.
-  packageChanged('package-changed'),
-
-  /// The lock holds [ProfileLockChange.packages], which no configured chain
-  /// reaches.
-  packagesUnreached('packages-unreached');
-
-  const ProfileLockChangeKind(this.wireValue);
-
-  /// The stable value [ProfileLockChange.toJson] reports.
-  final String wireValue;
-}
-
 /// What would change in `wayfinder.lock`, and why, when resolving cannot
 /// keep it as written: [ProfileBindingStatus.lockChange] offline, and
 /// [ProfileLockChangeRequiredException.change] once a locked-only plan

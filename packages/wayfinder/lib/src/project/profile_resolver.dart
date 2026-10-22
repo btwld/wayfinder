@@ -654,6 +654,7 @@ final class WayfinderProfileResolver {
           message,
           location: config,
           remedy: remedy,
+          lockChange: lockChange?.kind,
         ),
       ),
       selection: null,
