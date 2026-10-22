@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import '../tool/src/native_cli_assets.dart';
 
@@ -11,17 +12,51 @@ void main() {
     // not committed, so a new llamadart patch release is resolved at once.
     expect(
       await resolvedLlamaCppRuntime(),
-      reviewedLlamaCppRuntime,
+      wayfinderLlamaCppRuntime,
       reason:
           'A llamadart release that pins another llamadart-native release '
           'ships other binaries, which can change vectors. Review '
-          'tool/native_assets, and the knowledge store configuration version, '
-          'before moving reviewedLlamaCppRuntime.',
+          'tool/native_assets before moving wayfinderLlamaCppRuntime, which '
+          'also moves the knowledge store configuration.',
     );
     expect(
       await File('tool/native_assets/NOTICE').readAsString(),
-      contains('llamadart-native $reviewedLlamaCppRuntime'),
+      contains('llamadart-native $wayfinderLlamaCppRuntime'),
     );
+    await verifyLlamaCppRuntime();
+  });
+
+  test('refuses a workspace that overrides the native release', () async {
+    final temp = await Directory.systemTemp.createTemp('native-cli-assets-');
+    addTearDown(() => temp.delete(recursive: true));
+    final pubspec = File(p.join(temp.path, 'pubspec.yaml'));
+    for (final key in llamaCppRuntimeOverrideKeys) {
+      await pubspec.writeAsString(
+        'hooks:\n'
+        '  user_defines:\n'
+        '    llamadart:\n'
+        '      llamadart_native_runtimes: [llama_cpp]\n'
+        '      $key: value\n',
+      );
+      await expectLater(
+        verifyLlamaCppRuntime(rootPubspec: pubspec),
+        throwsA(
+          isA<StateError>().having((e) => e.message, 'message', contains(key)),
+        ),
+        reason: key,
+      );
+    }
+    await pubspec.writeAsString(
+      'hooks:\n'
+      '  user_defines:\n'
+      '    llamadart:\n'
+      '      # llamadart_native_path: ../bundles\n'
+      '      llamadart_native_runtimes: [llama_cpp]\n',
+    );
+    await verifyLlamaCppRuntime(rootPubspec: pubspec);
+    expect(llamaCppRuntimeOverrides('"llamadart_native_tag": v1\n'), [
+      'llamadart_native_tag',
+    ]);
   });
 
   test('stages the runtime notices in the bundle', () async {

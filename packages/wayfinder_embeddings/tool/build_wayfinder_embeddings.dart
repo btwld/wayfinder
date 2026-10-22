@@ -34,6 +34,7 @@ Future<void> main(List<String> args) async {
         throw ArgumentError('Build output must not overwrite $source/.');
       }
     }
+    await verifyLlamaCppRuntime();
     await verifiedObjectBoxLibrary(package);
     final model = await prepareEmbeddingModel(
       output: Directory('models'),

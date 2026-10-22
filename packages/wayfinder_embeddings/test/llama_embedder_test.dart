@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:llamadart/llamadart.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder_embeddings/src/embedding/llama_embedder.dart'
+    show llamaCppWorkerStartTimeout;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 void main() {
@@ -273,6 +277,33 @@ void main() {
       expect(backends.map((backend) => backend.loads), everyElement(1));
     },
   );
+
+  test(
+    'llamadart still reports the startup timeout the retry matches',
+    () async {
+      // LlamaEngine.load keeps only the message of the timeout, so the retry
+      // matches its text; a reworded message would silently end the retry.
+      final library = await Isolate.resolvePackageUri(
+        Uri.parse('package:llamadart/llamadart.dart'),
+      );
+      final backend = File(
+        p.join(
+          p.dirname(library!.toFilePath()),
+          'src',
+          'backends',
+          'llama_cpp',
+          'llama_cpp_backend.dart',
+        ),
+      );
+      expect(
+        await backend.readAsString(),
+        contains(llamaCppWorkerStartTimeout),
+        reason:
+            'The resolved llamadart reports its worker startup timeout in other '
+            'words; match them in LlamaEmbedder.open.',
+      );
+    },
+  );
 }
 
 /// Matches the bounded retry in `LlamaEmbedder.open`.
@@ -354,8 +385,8 @@ class _Engine extends LlamaEngine {
 /// The message llamadart's native backend gives when its worker misses the
 /// startup timeout.
 const _startupTimeout =
-    'Timed out after 30000 ms waiting for the llama.cpp worker to initialize '
-    'its backend. The native runtime may be unavailable or unresponsive.';
+    'Timed out after 30000 ms $llamaCppWorkerStartTimeout its backend. '
+    'The native runtime may be unavailable or unresponsive.';
 
 /// A backend whose worker never starts, behind the real `LlamaEngine.load`.
 final class _StartlessBackend implements LlamaBackend {
