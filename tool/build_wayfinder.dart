@@ -25,6 +25,7 @@ Future<void> main(List<String> arguments) async {
         'Output must be a subdirectory of the workspace build/ directory.',
       );
     }
+    await verifyLlamaCppRuntime();
     final package = p.join(workspace, 'packages', 'wayfinder_embeddings');
     final model = await prepareEmbeddingModel(
       output: Directory(p.join(package, 'models')),
