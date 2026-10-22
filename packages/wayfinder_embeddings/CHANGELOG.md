@@ -1,3 +1,7 @@
+# 0.3.0 (unreleased)
+
+- Requires `wayfinder` `^0.3.0`.
+
 # 0.2.0
 
 - **BREAKING:** Dense-only retrieval replaces the former BM25/hybrid paths.
