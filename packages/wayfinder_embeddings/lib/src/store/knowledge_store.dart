@@ -167,8 +167,9 @@ class WayfinderKnowledgeStore {
   /// operation that needs an encoder opens one again. Only an [index] run
   /// that embeds and a search use the encoder; [status], [forget],
   /// [forgetProjectRoot], [prune] and an [index] that finds its index
-  /// current do not, so they never keep it open. Until it runs, the pending release keeps the isolate alive;
-  /// [dispose] cancels it. It must be positive, and needs [retainEncoder].
+  /// current do not, so they never keep it open. Until it runs, the pending
+  /// release keeps the isolate alive; [dispose] cancels it. It must be
+  /// positive, and needs [retainEncoder].
   ///
   /// A superseded generation stays readable for [gracePeriod] after a newer
   /// one is published.
