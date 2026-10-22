@@ -44,7 +44,12 @@ library;
 // passage, choose another model, or build search results in a fake.
 export 'src/embedding/base_embedder.dart' show BaseEmbedder;
 export 'src/embedding/embedding_model_spec.dart'
-    show EmbeddingModelSpec, localEmbeddingModel;
+    show
+        EmbeddingModelMismatchException,
+        EmbeddingModelMissingException,
+        EmbeddingModelRemedy,
+        EmbeddingModelSpec,
+        localEmbeddingModel;
 // The llama.cpp release the store's configuration names, which a host that
 // shares indexes checks its resolved llamadart against.
 export 'src/embedding/llama_embedder.dart' show wayfinderLlamaCppRuntime;
