@@ -61,9 +61,6 @@ export 'src/authoring/knowledge_project_files.dart' show KnowledgeProjectFiles;
 export 'src/authoring/knowledge_stamp.dart' show KnowledgeStamp;
 export 'src/authoring/knowledge_writer.dart'
     show
-        KnowledgeAssessment,
-        KnowledgeAssessmentInput,
-        KnowledgeAssessor,
         KnowledgeChangeException,
         KnowledgeCommitResult,
         KnowledgeFileDiff,
@@ -72,3 +69,5 @@ export 'src/authoring/knowledge_writer.dart'
         KnowledgeWritePlan,
         KnowledgeWriteRefusedException,
         KnowledgeWriter;
+export 'src/knowledge_assessment.dart'
+    show KnowledgeAssessment, KnowledgeAssessmentInput, KnowledgeAssessor;

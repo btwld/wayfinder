@@ -1847,10 +1847,11 @@ final class WayfinderProfileResolver {
   static File _mirrorLock(Directory mirror) => File('${mirror.path}.lock');
 
   /// The commit of [source] to read from its mirror [root], under the
-  /// mirror's lock. Keeps a commit the previous lock pinned for the same
-  /// source unless upgrading, and fetches only when the mirror is missing or
-  /// a ref must move. [child] is the package that names [source] as its
-  /// parent; null for a configured source.
+  /// mirror's lock. Keeps the commit the session pins for the source, then
+  /// one the previous lock pinned for the same source unless upgrading, and
+  /// fetches only when the mirror is missing or a ref must move. [child] is
+  /// the package that names [source] as its parent; null for a configured
+  /// source.
   Future<String> _checkoutLocked(
     WayfinderProfileSource source,
     String location,
@@ -1858,17 +1859,19 @@ final class WayfinderProfileResolver {
     _Session session, {
     ProfileId? child,
   }) async {
-    final preferred = session.upgrade
-        ? null
-        : session.previous?.packages.values
-              .where(
-                (locked) =>
-                    locked.git == source.git &&
-                    locked.requestedRef == source.ref &&
-                    locked.path == source.path,
-              )
-              .firstOrNull
-              ?.commit;
+    final preferred =
+        session.pinned?.commitOf(source) ??
+        (session.upgrade
+            ? null
+            : session.previous?.packages.values
+                  .where(
+                    (locked) =>
+                        locked.git == source.git &&
+                        locked.requestedRef == source.ref &&
+                        locked.path == source.path,
+                  )
+                  .firstOrNull
+                  ?.commit);
     if (preferred == null && session.lockedOnly) {
       throw ProfileLockChangeRequiredException(
         ProfileLockChange(
@@ -2374,13 +2377,16 @@ final class CandidateResolution {
 /// [CandidateResolution.skillProblems] instead of thrown. With [offline],
 /// refs resolve in the cached mirrors as they are, and a fetch the plan
 /// still needs throws [ProfileFetchRequiredException]; otherwise
-/// [allowFetch] decides each fetch.
+/// [allowFetch] decides each fetch. A [pinned] source, as
+/// [resolveSourcePackage] resolved it, is read at its commit without
+/// resolving its ref again, so it is fetched once.
 Future<CandidateResolution> planCandidateResolution(
   WayfinderProfileResolver resolver, {
   required String projectRoot,
   required List<int> configuration,
   bool offline = false,
   ProfileFetchPolicy? allowFetch,
+  SourcePackage? pinned,
   WayfinderCancellation? cancel,
 }) async {
   throwIfCancelled(cancel);
@@ -2397,6 +2403,7 @@ Future<CandidateResolution> planCandidateResolution(
       cancel: cancel,
       offline: offline,
       allowFetch: allowFetch,
+      pinned: pinned,
     ),
     candidate: sink,
   );
@@ -2428,19 +2435,60 @@ Future<ProfileResolutionResult> applyCandidateResolution(
   CandidateResolution resolution,
 ) => resolver._apply(resolution.plan, prune: false);
 
-/// The commit at the default branch (`HEAD`) of the Profile source [git],
-/// as resolving it from [projectRoot] reaches it. Clones the source into the
-/// cache when it is missing and refreshes it otherwise, as [allowFetch]
-/// allows, unless [offline], which reads a cached mirror as it is and
-/// throws [ProfileFetchRequiredException] without one.
-Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
+/// A Profile source as [resolveSourcePackage] resolved it: the package at
+/// [path] of [git] at [ref], read at [commit], declaring [id].
+final class SourcePackage {
+  const SourcePackage({
+    required this.git,
+    required this.ref,
+    required this.path,
+    required this.commit,
+    required this.id,
+  });
+
+  final String git;
+
+  /// The ref a binding records: the requested one, or [commit] when the
+  /// source's default branch was resolved.
+  final String ref;
+  final String path;
+  final String commit;
+
+  /// The id the package declares.
+  final ProfileId id;
+
+  /// [commit] when [source] names this package as a binding does; else
+  /// null.
+  String? commitOf(WayfinderProfileSource source) =>
+      source.git == git && source.ref == ref && source.path == path
+      ? commit
+      : null;
+}
+
+/// The Profile package at [path] of the source [git], resolved from
+/// [projectRoot] as a binding reaches it: at [ref], or, when [ref] is null,
+/// at the commit the source's default branch (`HEAD`) points to, which the
+/// result records as its ref. Clones the source into the cache when it is
+/// missing and refreshes it as the ref needs, as [allowFetch] allows,
+/// unless [offline], which reads a cached mirror as it is and throws
+/// [ProfileFetchRequiredException] without one.
+///
+/// It reads the id the package declares and runs none of its rules; a
+/// package with no id it can read is parsed in full, so it fails as
+/// resolving it would. Pass the result to [planCandidateResolution] as
+/// `pinned`, so that plan reads the same commit without fetching again.
+Future<({SourcePackage package, List<ProfileFetch> fetches})>
+resolveSourcePackage(
   WayfinderProfileResolver resolver, {
   required String projectRoot,
   required String git,
+  required String? ref,
+  required String path,
   bool offline = false,
   ProfileFetchPolicy? allowFetch,
   WayfinderCancellation? cancel,
 }) async {
+  throwIfCancelled(cancel);
   final session = _Session(
     projectRoot: projectRoot,
     upgrade: false,
@@ -2449,49 +2497,100 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
     offline: offline,
     allowFetch: allowFetch,
   );
-  final source = WayfinderProfileSource(git: git, ref: 'HEAD', path: '.');
-  final commit = await resolver._withMirror(source, session, (
+  final requested = WayfinderProfileSource(
+    git: git,
+    ref: ref ?? 'HEAD',
+    path: path,
+  );
+  final package = await resolver._withMirror(requested, session, (
     location,
     mirror,
   ) async {
-    if (!await mirror.exists()) {
-      await resolver._cloneMirror(
-        source,
+    final String commit;
+    if (ref != null) {
+      commit = await resolver._checkoutLocked(
+        requested,
         location,
         mirror,
         session,
-        defaultBranch: true,
       );
-    } else if (!offline) {
-      session.fetch(
-        ProfileFetchKind.refresh,
-        source,
-        location,
-        defaultBranch: true,
-      );
+    } else {
+      if (!await mirror.exists()) {
+        await resolver._cloneMirror(
+          requested,
+          location,
+          mirror,
+          session,
+          defaultBranch: true,
+        );
+      } else if (!offline) {
+        session.fetch(
+          ProfileFetchKind.refresh,
+          requested,
+          location,
+          defaultBranch: true,
+        );
+        final result = await resolver._git(session, [
+          'remote',
+          'update',
+          '--prune',
+        ], workingDirectory: mirror.path);
+        resolver._checkGit(result, 'refresh Profile source $git');
+      }
       final result = await resolver._git(session, [
-        'remote',
-        'update',
-        '--prune',
+        'rev-parse',
+        '--verify',
+        'HEAD^{commit}',
       ], workingDirectory: mirror.path);
-      resolver._checkGit(result, 'refresh Profile source $git');
+      if (result.exitCode != 0) {
+        throw WayfinderProfileResolutionException(
+          'Profile source $git has no default branch to resolve. Name a ref.',
+        );
+      }
+      commit = result.text.trim();
     }
+    final source = WayfinderProfileSource(
+      git: git,
+      ref: ref ?? commit,
+      path: path,
+    );
+    final origin = WayfinderProfileResolver._packageOrigin(source, commit);
     final result = await resolver._git(session, [
-      'rev-parse',
-      '--verify',
-      'HEAD^{commit}',
+      'show',
+      '$commit:$path/wayfinder-profile.json',
     ], workingDirectory: mirror.path);
     if (result.exitCode != 0) {
       throw WayfinderProfileResolutionException(
-        'Profile source $git has no default branch to resolve. Name a ref.',
+        '$origin has no package at $path/wayfinder-profile.json.',
       );
     }
-    return result.text.trim();
+    return SourcePackage(
+      git: git,
+      ref: source.ref,
+      path: path,
+      commit: commit,
+      id:
+          _declaredId(result.stdout) ??
+          (await resolver._parsePackage(result.stdout, origin)).id,
+    );
   });
   return (
-    commit: commit,
+    package: package,
     fetches: List<ProfileFetch>.unmodifiable(session.fetches),
   );
+}
+
+/// The `id` the package JSON [bytes] declare, or null when they declare
+/// none that parses.
+ProfileId? _declaredId(List<int> bytes) {
+  try {
+    if (jsonDecode(utf8.decode(bytes)) case {'id': final String id}) {
+      return _profileIdOrNull(id);
+    }
+  } on FormatException {
+    // The caller parses the package in full, which says why it fails.
+  }
+  return null;
 }
 
 /// A failure to resolve or select a Profile. [diagnostic] is how validation
@@ -2599,6 +2698,7 @@ final class _Session {
     this.offline = false,
     this.allowFetch,
     this.lockedOnly = false,
+    this.pinned,
   });
 
   final String projectRoot;
@@ -2616,6 +2716,10 @@ final class _Session {
 
   /// Decides each fetch when not [offline]; null allows every one.
   final ProfileFetchPolicy? allowFetch;
+
+  /// A source a caller already resolved for this plan, read at its commit
+  /// without resolving its ref again, so planning fetches it once.
+  final SourcePackage? pinned;
 
   bool get fetched => fetches.isNotEmpty;
 
@@ -2662,10 +2766,30 @@ Future<ProfileValidationResult> validateWithProfileSources(
   String? projectRoot,
   required WayfinderProfileResolver resolver,
   bool fix = false,
+}) async => const ProfileValidator().validate(
+  bundle,
+  await selectWithProfileSources(
+    bundle,
+    configPath: configPath,
+    projectRoot: projectRoot,
+    resolver: resolver,
+  ),
+  fix: fix,
+);
+
+/// The selection [validateWithProfileSources] validates [bundle] with:
+/// [resolver]'s, after restoring package files the cache lacks when it
+/// selects no Profile. Only `package:wayfinder/adoption.dart` uses it
+/// besides; `project.dart` does not export it.
+Future<ProfileSelection> selectWithProfileSources(
+  String bundle, {
+  String? configPath,
+  String? projectRoot,
+  required WayfinderProfileResolver resolver,
 }) async {
   Future<ProfileSelection> select() =>
       resolver.select(bundle, configPath: configPath, projectRoot: projectRoot);
-  var selection = await select();
+  final selection = await select();
   if (selection is UnselectedProfile &&
       await resolver.restoreCachedPackages(
             bundle,
@@ -2673,9 +2797,9 @@ Future<ProfileValidationResult> validateWithProfileSources(
             projectRoot: projectRoot,
           ) >
           0) {
-    selection = await select();
+    return select();
   }
-  return const ProfileValidator().validate(bundle, selection, fix: fix);
+  return selection;
 }
 
 ProfileId? _profileIdOrNull(String value) {
