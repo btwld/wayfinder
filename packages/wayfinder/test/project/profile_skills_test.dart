@@ -627,6 +627,149 @@ void main() {
     }
   });
 
+  group(
+    'a skill root behind a symbolic link inside the project',
+    () {
+      late Directory shared;
+      late Directory other;
+      late Directory foreign;
+      final revision = (
+        id: ProfileId.parse('acme-notes'),
+        release: '1.0',
+        commit: 'a' * 40,
+      );
+      final files = [
+        (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+      ];
+
+      Future<Directory> marked(Directory directory, String id) async {
+        await directory.create(recursive: true);
+        await File(p.join(directory.path, '.wayfinder-profile')).writeAsString(
+          jsonEncode({'id': id, 'release': '1', 'commit': 'b' * 40}),
+        );
+        return directory;
+      }
+
+      setUp(() async {
+        shared = await Directory(
+          p.join(project.path, 'shared', 'agents-skills'),
+        ).create(recursive: true);
+        await Directory(p.join(project.path, '.agents')).create();
+        await Link(p.join(project.path, '.agents/skills')).create(shared.path);
+        other = await Directory(p.join(temp.path, 'other')).create();
+        foreign = await marked(
+          Directory(p.join(other.path, '.agents/skills/old-profile')),
+          'old-profile',
+        );
+      });
+
+      // Points .agents/skills outside the project, as a concurrent change
+      // could after the check.
+      void retarget() => Link(
+        p.join(project.path, '.agents/skills'),
+      ).updateSync(p.join(other.path, '.agents/skills'));
+
+      test('get installs and prunes there', () async {
+        final retired = await marked(
+          Directory(p.join(shared.path, 'retired-profile')),
+          'retired-profile',
+        );
+        final result = await resolver.resolve(project.path);
+        expect(result.removedSkills, ['.agents/skills/retired-profile']);
+        expect(await installed(_agents), await installed(_claude));
+        expect(
+          await File(p.join(shared.path, 'acme-notes', 'SKILL.md')).exists(),
+          isTrue,
+        );
+        expect(await retired.exists(), isFalse);
+        expect(await foreign.exists(), isTrue);
+      });
+
+      test('write keeps to the real root it checked when the link moves '
+          'afterwards', () async {
+        final swap = _OnFirstPath(
+          (path) => p.basename(path).startsWith('.acme-notes.staged-'),
+          retarget,
+          directories: true,
+        );
+        await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.write(project.path, revision, files),
+          swap,
+        );
+        expect(swap.fired, isTrue);
+        expect(
+          await File(
+            p.join(shared.path, 'acme-notes', 'SKILL.md'),
+          ).readAsString(),
+          'x',
+        );
+        expect(
+          await Directory(
+            p.join(other.path, '.agents/skills'),
+          ).list().map((entry) => p.basename(entry.path)).toList(),
+          ['old-profile'],
+        );
+      });
+
+      test('prune keeps to the real root it checked when the link moves '
+          'afterwards', () async {
+        final old = await marked(
+          Directory(p.join(shared.path, 'old-profile')),
+          'old-profile',
+        );
+        final swap = _OnFirstPath(
+          (path) => p.basename(path) == '.wayfinder-profile',
+          retarget,
+        );
+        final removed = await IOOverrides.runWithIOOverrides(
+          () => ProfileSkills.prune(project.path, {}),
+          swap,
+        );
+        expect(swap.fired, isTrue);
+        expect(removed, ['.agents/skills/old-profile']);
+        expect(await old.exists(), isFalse);
+        expect(await foreign.exists(), isTrue);
+      });
+    },
+    skip: Platform.isWindows ? 'needs symbolic links' : false,
+  );
+
+  test('write refuses to replace a directory without its marker', () async {
+    final revision = (
+      id: ProfileId.parse('acme-notes'),
+      release: '1.0',
+      commit: 'a' * 40,
+    );
+    final mine = await Directory(
+      p.join(project.path, _agents),
+    ).create(recursive: true);
+    await File(p.join(mine.path, 'SKILL.md')).writeAsString('mine');
+    await File(
+      p.join(mine.path, '.wayfinder-profile'),
+    ).writeAsString(marker('a' * 40).replaceFirst('acme-notes', 'other'));
+    await expectLater(
+      ProfileSkills.write(project.path, revision, [
+        (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+      ]),
+      throwsA(
+        isA<FileSystemException>().having(
+          (error) => error.message,
+          'message',
+          '$_agents exists without a .wayfinder-profile marker for '
+              'acme-notes, so wayfinder did not replace it.',
+        ),
+      ),
+    );
+    expect(
+      await Directory(
+        p.join(project.path, '.agents/skills'),
+      ).list().map((entry) => p.basename(entry.path)).toList(),
+      ['acme-notes'],
+      reason: 'nothing staged is left behind',
+    );
+    expect((await installed(_agents))['SKILL.md'], 'mine');
+  });
+
   group('a skill root that resolves outside the project', () {
     late Directory other;
     late Directory foreign;
@@ -793,6 +936,43 @@ final class _BeforeRead implements File {
 
   @override
   Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Runs [hook] once, outside the overrides, when the code under test first
+/// names a file whose path [matches], or with [directories] a directory:
+/// after any check of that path, just before using it.
+final class _OnFirstPath extends IOOverrides {
+  _OnFirstPath(this.matches, this.hook, {this.directories = false});
+
+  final bool Function(String path) matches;
+  final void Function() hook;
+  final bool directories;
+  var fired = false;
+
+  void _named(String path) {
+    if (fired || !matches(path)) return;
+    fired = true;
+    Zone.root.run(hook);
+  }
+
+  @override
+  File createFile(String path) {
+    _named(path);
+    return super.createFile(path);
+  }
+
+  @override
+  Directory createDirectory(String path) {
+    if (directories) _named(path);
+    return super.createDirectory(path);
+  }
+
+  // The inherited type lookup passes the native call a path without its
+  // terminating NUL, so the real lookup runs outside the overrides instead.
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) => Zone
+      .root
+      .run(() => FileSystemEntity.type(path, followLinks: followLinks));
 }
 
 Future<Map<String, (String?, DateTime)>> _stat(String root) async => {
