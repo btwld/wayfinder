@@ -333,6 +333,14 @@ final class KnowledgeWriter {
   /// [commit] also refuses the plan if that `wayfinder.json` or the
   /// `wayfinder.lock` beside it changed since.
   ///
+  /// Without [selection], the bundle binds through the nearest
+  /// `wayfinder.json` above it. By default that search climbs towards the
+  /// filesystem root, as the `wayfinder` command's does. A host that knows
+  /// the project root passes it as [projectRoot], and the search then reads
+  /// no `wayfinder.json` above it ([WayfinderProjectConfig.bind]), so a
+  /// bundle with none within it is judged by OKF alone. [projectRoot] is
+  /// unused with a [selection].
+  ///
   /// [cancel] is checked between steps and passed to the resolver and the
   /// assessor; a cancelled prepare throws [WayfinderException.cancelled].
   ///
@@ -347,6 +355,7 @@ final class KnowledgeWriter {
     required KnowledgeStamp stamp,
     KnowledgeLog logEntry = KnowledgeLog.lifecycle,
     ProfileSelection? selection,
+    String? projectRoot,
     WayfinderCancellation? cancel,
   }) async {
     _check(change, stamp, logEntry);
@@ -358,6 +367,7 @@ final class KnowledgeWriter {
         stamp: stamp,
         log: logEntry,
         selection: selection,
+        projectRoot: projectRoot,
         cancel: cancel,
       );
     } on FileSystemException catch (error) {
@@ -371,6 +381,7 @@ final class KnowledgeWriter {
     required KnowledgeStamp stamp,
     required KnowledgeLog log,
     required ProfileSelection? selection,
+    required String? projectRoot,
     required WayfinderCancellation? cancel,
   }) async {
     if (await FileSystemEntity.type(bundle) != FileSystemEntityType.directory) {
@@ -388,8 +399,10 @@ final class KnowledgeWriter {
       // Read the project files before selecting, so a change between the
       // two makes the plan stale rather than pairing a new lock with an
       // old selection.
-      projectFiles = await _ProjectFiles.read(await _boundConfigFile(bundle));
-      chosen = await _select(bundle, cancel);
+      projectFiles = await _ProjectFiles.read(
+        await _boundConfigFile(bundle, projectRoot),
+      );
+      chosen = await _select(bundle, projectRoot, cancel);
     }
     throwIfCancelled(cancel);
     final now = _clock();
@@ -525,6 +538,7 @@ final class KnowledgeWriter {
 
   Future<ProfileSelection> _select(
     String bundle,
+    String? projectRoot,
     WayfinderCancellation? cancel,
   ) async {
     final resolver =
@@ -532,10 +546,15 @@ final class KnowledgeWriter {
         (throw ArgumentError(
           'KnowledgeWriter.prepare needs a selection or a resolver.',
         ));
-    final selection = await resolver.select(bundle);
+    final selection = await resolver.select(bundle, projectRoot: projectRoot);
     if (selection is UnselectedProfile &&
-        await resolver.restoreCachedPackages(bundle, cancel: cancel) > 0) {
-      return resolver.select(bundle);
+        await resolver.restoreCachedPackages(
+              bundle,
+              projectRoot: projectRoot,
+              cancel: cancel,
+            ) >
+            0) {
+      return resolver.select(bundle, projectRoot: projectRoot);
     }
     return selection;
   }
@@ -545,9 +564,15 @@ final class KnowledgeWriter {
     _ => null,
   };
 
-  static Future<String?> _boundConfigFile(String bundle) async {
+  static Future<String?> _boundConfigFile(
+    String bundle,
+    String? projectRoot,
+  ) async {
     try {
-      return (await WayfinderProjectConfig.bind(bundle)).config.file;
+      return (await WayfinderProjectConfig.bind(
+        bundle,
+        projectRoot: projectRoot,
+      )).config.file;
     } on BundleBindingException {
       return null;
     }
