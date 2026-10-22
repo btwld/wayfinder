@@ -383,14 +383,29 @@ cache directory too.
   and only a file whose size and SHA-256 match the pin is renamed into place,
   so a failed download never replaces or removes the model already there. A
   `WayfinderCancellation`, or cancelling the subscription, stops it and
-  removes the temporary file. A process killed mid-download can leave a
-  `.part` file behind; it is safe to delete.
+  removes the temporary file. A process killed mid-download leaves its
+  `.part` file behind; `provision()` removes such a file once nothing has
+  written to it for a day, and deleting it by hand is safe.
 
-Failures are `WayfinderException`s: `model-download-failed` (a network error,
-a response other than 200, or nothing received for `stallTimeout`, one minute
-by default), `model-invalid` (the size or SHA-256 differs) and `cancelled`.
-Pass `client:` to supply the `http.Client`, for example one configured for a
-proxy, or a fake in tests.
+Failures are `WayfinderException`s:
+
+- `model-download-failed`: a network error, a response other than 200, or
+  nothing received for `stallTimeout` (one minute by default);
+- `model-invalid`: the downloaded size or SHA-256 differs from the pin, or
+  the response announces a different size before its body;
+- `model-cache-unavailable`: the cache directory cannot be created or
+  written, or something other than the model is in the way of the target;
+- `cancelled`: the `WayfinderCancellation` stopped the download;
+- `data-directory-unavailable`: thrown by `EmbeddingModelCache()` when no
+  `dataDirectory:` is given and the Wayfinder data directory cannot be
+  located.
+
+`model_cache.dart` also exports `WayfinderException`,
+`WayfinderCancellation`, `WayfinderCancellationController` and
+`WayfinderDataDirectory` from `package:wayfinder/project.dart`, so catching
+and cancelling need no direct `wayfinder` dependency. Pass `client:` to
+supply the `http.Client`, for example one configured for a proxy, or a fake
+in tests; the cache never closes a client it was given.
 
 ```dart
 import 'package:wayfinder_embeddings/model_cache.dart';
@@ -406,7 +421,7 @@ Future<LlamaEmbedder> openEmbedder() async {
       if (step is ModelProvisioned) model = step.file;
     }
   }
-  return LlamaEmbedder.open(modelFile: model);
+  return LlamaEmbedder.open(modelFile: model!);
 }
 ```
 

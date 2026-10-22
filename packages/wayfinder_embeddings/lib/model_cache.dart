@@ -8,6 +8,12 @@
 /// host calls it after the user agrees to the download its
 /// `EmbeddingModelCache.target` describes.
 ///
+/// The entry also exports the `package:wayfinder/project.dart` types its
+/// API uses: `WayfinderException` for failures, `WayfinderCancellation` and
+/// `WayfinderCancellationController` to stop a download, and
+/// `WayfinderDataDirectory` for the default data directory. A host needs no
+/// direct `wayfinder` dependency to use it.
+///
 /// ```dart
 /// import 'package:wayfinder_embeddings/model_cache.dart';
 ///
@@ -30,6 +36,13 @@
 /// }
 /// ```
 library;
+
+export 'package:wayfinder/project.dart'
+    show
+        WayfinderCancellation,
+        WayfinderCancellationController,
+        WayfinderDataDirectory,
+        WayfinderException;
 
 export 'src/embedding/embedding_model_spec.dart'
     show EmbeddingModelSpec, localEmbeddingModel;

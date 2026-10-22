@@ -5,7 +5,6 @@ import 'package:crypto/crypto.dart';
 import 'package:llamadart/llamadart.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/model_cache.dart';
 
 import '../tool/src/model_preparation.dart';
