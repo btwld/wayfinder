@@ -547,6 +547,66 @@ void main() {
         expect(errors, isEmpty);
       });
 
+      test('a search the client cancels is cancelled in the store, and the '
+          'session goes on', () async {
+        final entered = Completer<WayfinderCancellation?>();
+        final stopped = Completer<void>();
+        knowledge.onSearch = (cancel) async {
+          entered.complete(cancel);
+          await cancel!.whenCancelled;
+          stopped.complete();
+          throw const WayfinderException.cancelled();
+        };
+        final abort = BasicAbortController();
+        final call = client.callTool(
+          const CallToolRequest(
+            name: 'search',
+            arguments: {'query': 'password'},
+          ),
+          options: RequestOptions(signal: abort.signal),
+        );
+        final observed = call.then<void>(
+          (_) => fail('A cancelled call has no result.'),
+          onError: (Object _) {},
+        );
+        expect((await entered.future)!.isCancelled, isFalse);
+        abort.abort('No longer needed.');
+        await stopped.future.timeout(const Duration(seconds: 5));
+        await observed;
+        knowledge.onSearch = null;
+        final next = await client.callTool(
+          const CallToolRequest(
+            name: 'search',
+            arguments: {'query': 'password'},
+          ),
+        );
+        expect(next.isError, isNot(true));
+      });
+
+      test('disconnect cancels an active search', () async {
+        final entered = Completer<void>();
+        final stopped = Completer<void>();
+        knowledge.onSearch = (cancel) async {
+          entered.complete();
+          await cancel!.whenCancelled;
+          stopped.complete();
+          throw const WayfinderException.cancelled();
+        };
+        final call = client.callTool(
+          const CallToolRequest(
+            name: 'search',
+            arguments: {'query': 'password'},
+          ),
+        );
+        final observed = call.then<void>((_) {}, onError: (Object _) {});
+        await entered.future;
+        await client.close();
+        await serverTransport.close();
+        await stopped.future.timeout(const Duration(seconds: 5));
+        await serving;
+        await observed;
+      });
+
       test('a stale-index error does not end the session', () async {
         knowledge.failSearch = true;
         final error = await client.callTool(
@@ -1060,6 +1120,10 @@ class _Knowledge extends WayfinderKnowledgeStore {
   bool failSearch = false;
   bool disposed = false;
 
+  /// Runs in [search] and [searchBundle], with the call's cancellation,
+  /// before they answer.
+  Future<void> Function(WayfinderCancellation? cancel)? onSearch;
+
   @override
   Future<void> dispose() async {
     disposed = true;
@@ -1080,6 +1144,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     calls.add(
       'searchBundles:${bundles.map((b) => b.root).join(',')}:$query:$limit',
     );
+    await onSearch?.call(cancel);
     if (failSearch) {
       throw const WayfinderException('index-stale', 'Index is stale.');
     }
@@ -1137,6 +1202,7 @@ class _Knowledge extends WayfinderKnowledgeStore {
     WayfinderCancellation? cancel,
   }) async {
     calls.add('search:${bundle.root}:$query:$limit');
+    await onSearch?.call(cancel);
     if (failSearch) {
       throw const WayfinderException('index-stale', 'Index is stale.');
     }

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-09
-- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output); 2026-10-22 (search during an index serves the last published index; only indexes are busy)
+- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output); 2026-10-22 (search during an index serves the last published index; only indexes are busy); 2026-10-22 (a search the client cancels, or one running at disconnect, stops)
 - Scope: local MCP adapter; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md)
 
@@ -59,10 +59,13 @@ batch of passages or a query, so a search runs between an index's batches
 rather than after the whole index. Searches hold no lock, and only probe the
 writer's: during an index, the server's own or another process's, they read
 the last published generation.
-A second index of a bundle while one runs fails as busy. Disconnect drains
-active operations, but cancellation does not roll back a generation already
-being built. Indexing is atomic per bundle, not across bundles: a later
-bundle's failure does not roll back an earlier completed index.
+A second index of a bundle while one runs fails as busy. A search the client
+cancels, or one still running when the client disconnects, stops at the
+store's next cancellation check, since no response is sent for it. Disconnect
+drains active operations; an index runs to its end, and cancellation does not
+roll back a generation already being built. Indexing is atomic per bundle,
+not across bundles: a later bundle's failure does not roll back an earlier
+completed index.
 
 ## Options considered
 

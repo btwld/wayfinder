@@ -128,6 +128,11 @@ these under the next release.
   (`WayfinderFileLock`) like Wayfinder's other lock files, so it excludes
   other isolates as well as other processes. It does not exclude a background
   index of an earlier release.
+- The MCP server's `search` stops when the client cancels the call, or
+  disconnects while it runs, before it encodes the query or scores passages,
+  instead of finishing a search whose result no one reads. An `index` still
+  runs to its end. The output of `search`, and of the MCP `search` tool, is
+  unchanged.
 
 # 0.2.0
 
