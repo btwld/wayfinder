@@ -114,9 +114,10 @@ output only in a minor release, so one okf minor series has one revision:
 every okf 0.5 release, whether `engine.okf` reads 0.5.0, 0.5.1 or later,
 writes revision 0.5.0, and that is the value to pin. A wayfinder that moves
 to a new revision says so in its changelog. A package that sets `version`
-loads only on a wayfinder whose okf has that revision, and so reports
-INCOMPLETE rather than new index findings after a generator change. Omit it
-to accept whatever generator the engine ships.
+loads only on a wayfinder whose okf has that revision; on any other it
+reports INCOMPLETE rather than new index findings, and the reason the load
+gives names the revision that wayfinder runs. Omit it to accept whatever
+generator the engine ships.
 
 ```json
 {

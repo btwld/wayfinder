@@ -276,6 +276,40 @@ void main() {
           });
         }
       }
+
+      test('a matches-generated version pinned to another generator revision '
+          'names the revision this engine runs', () {
+        expect(
+          () => ProfilePackage.parse(
+            package('matches-generated', {
+              'generator': 'okf-index',
+              'version': '0.4.0',
+            }),
+          ),
+          rejectedAt(
+            'rules[0].check.params',
+            'params do not match what builtin matches-generated accepts; '
+                'this wayfinder runs okf generator revision '
+                '$okfIndexGeneratorRevision, not 0.4.0',
+          ),
+        );
+        expect(
+          () => ProfilePackage.parse(
+            package('matches-generated', {
+              'generator': 'okf-index',
+              'version': okfIndexGeneratorRevision,
+              'extra': 'bogus',
+            }),
+          ),
+          throwsA(
+            isA<ProfilePackageException>().having(
+              (error) => error.message,
+              'message',
+              isNot(contains('generator revision')),
+            ),
+          ),
+        );
+      });
     });
 
     test('a builtin check with tests, or a schema check without', () {
