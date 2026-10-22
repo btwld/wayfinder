@@ -219,6 +219,22 @@ void main() {
       );
     });
 
+    test('a root that does not exist is bundles-missing', () async {
+      final missing = Directory(p.join(root.path, 'missing'));
+      for (final searchAncestors in [false, true]) {
+        await expectLater(
+          WayfinderProject.discover(missing, searchAncestors: searchAncestors),
+          failsWith(
+            'bundles-missing',
+            startsWith(
+              'No project bundles found in ${missing.path}: it does not '
+              'exist or cannot be read (',
+            ),
+          ),
+        );
+      }
+    });
+
     test('never stats a path above the root', () async {
       Future<List<String>> touched(
         Future<Object?> Function() body, {
