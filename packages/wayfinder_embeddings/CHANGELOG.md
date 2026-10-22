@@ -15,7 +15,9 @@
   built-in chunker handles. The judged corpus gate replays its Dart chunks from
   `test/goldens/baseline_chunks.json`, so its chunk ids, qrels and recorded
   metrics are unchanged; `wayfinder_dart_chunker` checks that its chunker
-  still produces those chunks.
+  still produces those chunks. With `--qrels`, the tool now exits with an
+  error instead of scoring when a fixture file has no chunker or a stable-id
+  judgment names a chunk the corpus lacks.
 - Depends on `objectbox` `^5.3.2` and `flat_buffers` `^25.9.23` instead of the
   exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
   this package. `lib/objectbox.g.dart` is regenerated with
