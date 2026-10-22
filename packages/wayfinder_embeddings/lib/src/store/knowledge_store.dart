@@ -442,8 +442,9 @@ class WayfinderKnowledgeStore {
         final staged = await directory.createTemp('generation-');
         var published = false;
         try {
-          await File(p.join(staged.path, IndexGeneration.vectorsFile))
-              .writeAsBytes(bytes, flush: true);
+          await File(
+            p.join(staged.path, IndexGeneration.vectorsFile),
+          ).writeAsBytes(bytes, flush: true);
           final record = {
             'configuration': _configuration,
             'model': _space,
@@ -459,8 +460,9 @@ class WayfinderKnowledgeStore {
             },
             'snapshot': fitted.toMap(),
           };
-          await File(p.join(staged.path, IndexGeneration.snapshotFile))
-              .writeAsString(jsonEncode(record), flush: true);
+          await File(
+            p.join(staged.path, IndexGeneration.snapshotFile),
+          ).writeAsString(jsonEncode(record), flush: true);
           await _publish(index, p.basename(staged.path));
           published = true;
           await _collectGarbage(index, keep: p.basename(staged.path));
@@ -1084,8 +1086,9 @@ class WayfinderKnowledgeStore {
         _generationName.hasMatch(replaced)) {
       // Written before the pointer moves, and again by every later
       // publication, so its time never precedes the replacement.
-      await File(p.join(directory, '$replaced.superseded'))
-          .writeAsString('', flush: true);
+      await File(
+        p.join(directory, '$replaced.superseded'),
+      ).writeAsString('', flush: true);
     }
     final pending = File(p.join(directory, _pendingName));
     await pending.writeAsString(generation, flush: true);
@@ -1227,8 +1230,9 @@ class WayfinderKnowledgeStore {
       }
       final lock = File(p.join(entry.path, _writerName));
       try {
-        if (jsonDecode(await lock.readAsString())
-            case {'root': final String root} when _rootKey(root) == key) {
+        if (jsonDecode(await lock.readAsString()) case {
+          'root': final String root,
+        } when _rootKey(root) == key) {
           return root;
         }
       } on FileSystemException {
@@ -1463,8 +1467,9 @@ class WayfinderKnowledgeStore {
   /// The generation [index]'s pointer names now, or null.
   static Future<String?> _pointedGeneration(_Namespace index) async {
     try {
-      return await File(p.join(index.directory.path, _currentName))
-          .readAsString();
+      return await File(
+        p.join(index.directory.path, _currentName),
+      ).readAsString();
     } on FileSystemException {
       return null;
     }
