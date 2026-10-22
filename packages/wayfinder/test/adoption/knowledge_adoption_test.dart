@@ -981,6 +981,27 @@ void main() {
     expect(await File(p.join(bundle(), 'index.md')).exists(), isTrue);
   });
 
+  test('the validate step reads no wayfinder.json above the project '
+      'root', () async {
+    // A configuration above the project, as in a home directory.
+    await File(p.join(temp.path, 'wayfinder.json')).writeAsString('{}');
+    final plan = await adoption.plan(bitwild());
+    expect(plan.conflicts, isEmpty);
+    final result = await adoption.apply(
+      plan,
+      // A host step that leaves the project without its configuration.
+      hostStep: () async {
+        await File(p.join(project.path, 'wayfinder.json')).delete();
+      },
+    );
+    expect(result.complete, isFalse);
+    final codes = [
+      for (final diagnostic in result.validation!.diagnostics) diagnostic.code,
+    ];
+    expect(codes, contains(DiagnosticCode.configMissing));
+    expect(codes, isNot(contains(DiagnosticCode.configInvalid)));
+  });
+
   test('a .gitignore that lists the lock already is left alone', () async {
     await File(
       p.join(project.path, '.gitignore'),

@@ -468,7 +468,8 @@ final class KnowledgeAdoption {
   /// partial bundle unless a step reports `undo-failed`. Validation runs
   /// last, after the lock is released, and undoes nothing: a gate other
   /// than `PASS` returns a result that is not
-  /// [KnowledgeAdoptionResult.complete].
+  /// [KnowledgeAdoptionResult.complete]. It binds the bundle within the
+  /// plan's project root, so it never reads a `wayfinder.json` above it.
   Future<KnowledgeAdoptionResult> apply(
     KnowledgeAdoptionPlan plan, {
     WayfinderCancellation? cancel,
@@ -509,6 +510,7 @@ final class KnowledgeAdoption {
     try {
       validation = await validateWithProfileSources(
         p.joinAll([root, ...p.posix.split(plan.bundle)]),
+        projectRoot: root,
         resolver: resolver,
       );
       run.done(const [], 'Gate ${validation.gate.wireValue}.');
