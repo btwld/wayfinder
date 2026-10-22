@@ -57,42 +57,34 @@ void main() {
     expect(ext.text.trim(), 'never');
   });
 
-  test(
-    "a repository's hooks never run",
-    () async {
-      await fixtureGit(temp.path, ['init', '-q']);
-      await fixtureGit(temp.path, [
-        'config',
-        'user.email',
-        'test@example.test',
-      ]);
-      await fixtureGit(temp.path, ['config', 'user.name', 'Wayfinder Test']);
-      await fixtureGit(temp.path, ['commit', '-q', '--allow-empty', '-m', 'x']);
-      final marker = File(p.join(temp.path, 'hook-ran'));
-      final hook = File(
-        p.join(temp.path, '.git', 'hooks', 'reference-transaction'),
-      );
-      await hook.writeAsString('#!/bin/sh\ntouch "${marker.path}"\n');
-      await Process.run('chmod', ['+x', hook.path]);
-      final head = await fixtureGit(temp.path, ['rev-parse', 'HEAD']);
-      final result = await runGit([
-        'update-ref',
-        'refs/heads/wayfinder',
-        head,
-      ], workingDirectory: temp.path);
-      expect(result.exitCode, 0, reason: result.stderr);
-      expect(await marker.exists(), isFalse);
-      await fixtureGit(temp.path, [
-        '-c',
-        'core.hooksPath=${hook.parent.path}',
-        'update-ref',
-        'refs/heads/plain',
-        head,
-      ]);
-      expect(await marker.exists(), isTrue, reason: 'the hook is live');
-    },
-    skip: Platform.isWindows ? 'hooks need a POSIX shell here' : false,
-  );
+  test("a repository's hooks never run", () async {
+    await fixtureGit(temp.path, ['init', '-q']);
+    await fixtureGit(temp.path, ['config', 'user.email', 'test@example.test']);
+    await fixtureGit(temp.path, ['config', 'user.name', 'Wayfinder Test']);
+    await fixtureGit(temp.path, ['commit', '-q', '--allow-empty', '-m', 'x']);
+    final marker = File(p.join(temp.path, 'hook-ran'));
+    final hook = File(
+      p.join(temp.path, '.git', 'hooks', 'reference-transaction'),
+    );
+    await hook.writeAsString('#!/bin/sh\ntouch "${marker.path}"\n');
+    await Process.run('chmod', ['+x', hook.path]);
+    final head = await fixtureGit(temp.path, ['rev-parse', 'HEAD']);
+    final result = await runGit([
+      'update-ref',
+      'refs/heads/wayfinder',
+      head,
+    ], workingDirectory: temp.path);
+    expect(result.exitCode, 0, reason: result.stderr);
+    expect(await marker.exists(), isFalse);
+    await fixtureGit(temp.path, [
+      '-c',
+      'core.hooksPath=${hook.parent.path}',
+      'update-ref',
+      'refs/heads/plain',
+      head,
+    ]);
+    expect(await marker.exists(), isTrue, reason: 'the hook is live');
+  }, skip: Platform.isWindows ? 'hooks need a POSIX shell here' : false);
 
   test('the environment drops GIT_* variables and never prompts', () {
     final environment = wayfinderGitEnvironment({
@@ -169,60 +161,56 @@ void main() {
     });
   });
 
-  group(
-    'a remote command runs the configured SSH command',
-    () {
-      late File log;
-      late Map<String, String> environment;
+  group('a remote command runs the configured SSH command', () {
+    late File log;
+    late Map<String, String> environment;
 
-      setUp(() async {
-        log = File(p.join(temp.path, 'ssh.log'));
-        final fake = File(p.join(temp.path, 'bin', 'ssh'));
-        await fake.parent.create();
-        await fake.writeAsString(
-          '#!/bin/sh\necho "\$*" >> "${log.path}"\nexit 255\n',
-        );
-        await Process.run('chmod', ['+x', fake.path]);
-        final global = File(p.join(temp.path, 'global.gitconfig'));
-        await global.writeAsString(
-          '[core]\n\tsshCommand = ${fake.path} -i /no/such/key\n',
-        );
-        environment = {
-          for (final MapEntry(:key, :value) in Platform.environment.entries)
-            if (!key.startsWith('GIT_')) key: value,
-          'GIT_CONFIG_GLOBAL': global.path,
-          'GIT_CONFIG_NOSYSTEM': '1',
-        };
-      });
+    setUp(() async {
+      log = File(p.join(temp.path, 'ssh.log'));
+      final fake = File(p.join(temp.path, 'bin', 'ssh'));
+      await fake.parent.create();
+      await fake.writeAsString(
+        '#!/bin/sh\necho "\$*" >> "${log.path}"\nexit 255\n',
+      );
+      await Process.run('chmod', ['+x', fake.path]);
+      final global = File(p.join(temp.path, 'global.gitconfig'));
+      await global.writeAsString(
+        '[core]\n\tsshCommand = ${fake.path} -i /no/such/key\n',
+      );
+      environment = {
+        for (final MapEntry(:key, :value) in Platform.environment.entries)
+          if (!key.startsWith('GIT_')) key: value,
+        'GIT_CONFIG_GLOBAL': global.path,
+        'GIT_CONFIG_NOSYSTEM': '1',
+      };
+    });
 
-      test("core.sshCommand from Git's configuration", () async {
-        final result = await runGit([
-          'ls-remote',
-          'ssh://example.invalid/profile.git',
-        ], environment: environment);
-        expect(result.exitCode, isNot(0));
-        expect(
-          await log.readAsString(),
-          contains('-i /no/such/key -o BatchMode=yes'),
-        );
-      });
+    test("core.sshCommand from Git's configuration", () async {
+      final result = await runGit([
+        'ls-remote',
+        'ssh://example.invalid/profile.git',
+      ], environment: environment);
+      expect(result.exitCode, isNot(0));
+      expect(
+        await log.readAsString(),
+        contains('-i /no/such/key -o BatchMode=yes'),
+      );
+    });
 
-      test('an inherited GIT_SSH_COMMAND over it', () async {
-        final result = await runGit(
-          ['ls-remote', 'ssh://example.invalid/profile.git'],
-          environment: {
-            ...environment,
-            'GIT_SSH_COMMAND': '${p.join(temp.path, 'bin', 'ssh')} -v',
-          },
-        );
-        expect(result.exitCode, isNot(0));
-        final line = await log.readAsString();
-        expect(line, contains('-v -o BatchMode=yes'));
-        expect(line, isNot(contains('/no/such/key')));
-      });
-    },
-    skip: Platform.isWindows ? 'the fake ssh is a POSIX shell script' : false,
-  );
+    test('an inherited GIT_SSH_COMMAND over it', () async {
+      final result = await runGit(
+        ['ls-remote', 'ssh://example.invalid/profile.git'],
+        environment: {
+          ...environment,
+          'GIT_SSH_COMMAND': '${p.join(temp.path, 'bin', 'ssh')} -v',
+        },
+      );
+      expect(result.exitCode, isNot(0));
+      final line = await log.readAsString();
+      expect(line, contains('-v -o BatchMode=yes'));
+      expect(line, isNot(contains('/no/such/key')));
+    });
+  }, skip: Platform.isWindows ? 'the fake ssh is a POSIX shell script' : false);
 
   test('a command sees the hardened environment', () async {
     final result = await runGit(

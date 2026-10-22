@@ -239,17 +239,17 @@ void main() {
     expect(await installed(_claude), expected);
     expect(await installed(_agents), expected);
     expect(upgraded.skills.single.written, isTrue);
-    final hidden = await Directory(
-      p.join(project.path, '.claude/skills'),
-    ).list().map((entry) => p.basename(entry.path)).toList();
+    final hidden = await Directory(p.join(project.path, '.claude/skills'))
+        .list()
+        .map((entry) => p.basename(entry.path))
+        .toList();
     expect(hidden, ['acme-notes']);
   });
 
   test('a marked directory goes when its Profile stops shipping it', () async {
     Future<Directory> marked(String path, String id) async {
-      final directory = await Directory(
-        p.join(project.path, path),
-      ).create(recursive: true);
+      final directory = await Directory(p.join(project.path, path))
+          .create(recursive: true);
       await File(p.join(directory.path, '.wayfinder-profile')).writeAsString(
         jsonEncode({'id': id, 'release': '1', 'commit': 'a' * 40}),
       );
@@ -264,9 +264,8 @@ void main() {
       '.agents/skills/.acme-notes.old-12-34',
       'acme-notes',
     );
-    final mine = await Directory(
-      p.join(project.path, '.claude/skills/mine'),
-    ).create();
+    final mine = await Directory(p.join(project.path, '.claude/skills/mine'))
+        .create();
     final unmarkedStaging = await Directory(
       p.join(project.path, '.agents/skills/.acme-notes.staged-56-78'),
     ).create();
@@ -298,9 +297,8 @@ void main() {
   test('a stale skill is a warning that leaves the gate alone', () async {
     await resolver.resolve(project.path);
     final locked = await commit();
-    await File(
-      p.join(project.path, _claude, '.wayfinder-profile'),
-    ).writeAsString(marker('f' * 40));
+    await File(p.join(project.path, _claude, '.wayfinder-profile'))
+        .writeAsString(marker('f' * 40));
     final stale = await validate();
     expect(stale.gate, GateState.pass);
     expect(stale.exitCode, 0);
@@ -356,16 +354,15 @@ void main() {
       },
     ];
 
-    final selection =
-        await resolver.select(p.join(project.path, 'knowledge'))
-            as SelectedProfile;
+    final selection = await resolver.select(
+      p.join(project.path, 'knowledge'),
+    ) as SelectedProfile;
     expect(selection.notes.map((note) => note.toJson()), stale);
     final validation = await validate();
     expect(validation.gate, GateState.pass);
     expect(validation.diagnostics.map((d) => d.toJson()), stale);
-    final status = (await resolver.status(
-      project.path,
-    )).of(ProfileId.parse('acme-notes'))!;
+    final status = (await resolver.status(project.path))
+        .of(ProfileId.parse('acme-notes'))!;
     expect(status.state, ProfileBindingState.resolved);
     expect(status.notes.map((note) => note.toJson()), stale);
 
@@ -402,15 +399,14 @@ void main() {
     Future<String?> read() async =>
         (await ProfileSkills.read(project.path, revision))?.text;
 
-    Future<void> mark(String directory, String commit) => File(
-      p.join(project.path, directory, '.wayfinder-profile'),
-    ).writeAsString(marker(commit));
+    Future<void> mark(String directory, String commit) =>
+        File(p.join(project.path, directory, '.wayfinder-profile'))
+            .writeAsString(marker(commit));
 
     Future<void> writeSkill(String text) async {
       for (final directory in [_claude, _agents]) {
-        await File(
-          p.join(project.path, directory, 'SKILL.md'),
-        ).writeAsString(text);
+        await File(p.join(project.path, directory, 'SKILL.md'))
+            .writeAsString(text);
       }
     }
 
@@ -507,9 +503,8 @@ void main() {
 
     test('skips a directory the staleness check rejects', () async {
       await resolver.resolve(project.path);
-      await File(
-        p.join(project.path, _agents, 'SKILL.md'),
-      ).writeAsString('agents copy');
+      await File(p.join(project.path, _agents, 'SKILL.md'))
+          .writeAsString('agents copy');
       await mark(_claude, 'f' * 40);
       expect(await ProfileSkills.stale(project.path, revision), [_claude]);
       expect(await read(), 'agents copy');
@@ -522,12 +517,10 @@ void main() {
 
     test('skips a SKILL.md that is not UTF-8 text', () async {
       await resolver.resolve(project.path);
-      await File(
-        p.join(project.path, _claude, 'SKILL.md'),
-      ).writeAsBytes([0x61, 0xff, 0x62]);
-      await File(
-        p.join(project.path, _agents, 'SKILL.md'),
-      ).writeAsString('agents copy');
+      await File(p.join(project.path, _claude, 'SKILL.md'))
+          .writeAsBytes([0x61, 0xff, 0x62]);
+      await File(p.join(project.path, _agents, 'SKILL.md'))
+          .writeAsString('agents copy');
       expect(await read(), 'agents copy');
       expect(await ProfileSkills.read(project.path, revision, maxBytes: 2), (
         text: 'agents copy'.substring(0, 2),
@@ -535,34 +528,28 @@ void main() {
       ));
     });
 
-    test(
-      'reads nothing a symbolic link places outside the project',
-      () async {
-        await resolver.resolve(project.path);
-        final outside = await File(
-          p.join(temp.path, 'outside.md'),
-        ).writeAsString('outside');
-        final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
-        await claudeSkill.delete();
-        await Link(claudeSkill.path).create(outside.path);
-        expect(await read(), text, reason: 'the .agents copy still holds it');
+    test('reads nothing a symbolic link places outside the project', () async {
+      await resolver.resolve(project.path);
+      final outside = await File(p.join(temp.path, 'outside.md'))
+          .writeAsString('outside');
+      final claudeSkill = File(p.join(project.path, _claude, 'SKILL.md'));
+      await claudeSkill.delete();
+      await Link(claudeSkill.path).create(outside.path);
+      expect(await read(), text, reason: 'the .agents copy still holds it');
 
-        final agents = Directory(p.join(project.path, _agents));
-        final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
-        await Link(agents.path).create(elsewhere.path);
-        expect(await ProfileSkills.stale(project.path, revision), isEmpty);
-        expect(await read(), isNull);
-      },
-      skip: Platform.isWindows ? 'needs symbolic links' : false,
-    );
+      final agents = Directory(p.join(project.path, _agents));
+      final elsewhere = await agents.rename(p.join(temp.path, 'elsewhere'));
+      await Link(agents.path).create(elsewhere.path);
+      expect(await ProfileSkills.stale(project.path, revision), isEmpty);
+      expect(await read(), isNull);
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
 
     test(
       'reads the real path it checked, not a link retargeted after the check',
       () async {
         await resolver.resolve(project.path);
-        await File(
-          p.join(project.path, _agents, 'SKILL.md'),
-        ).writeAsString('agents copy');
+        await File(p.join(project.path, _agents, 'SKILL.md'))
+            .writeAsString('agents copy');
         // The .claude copy lives elsewhere in the project, behind a link.
         final claude = Directory(p.join(project.path, _claude));
         final vendored = await claude.rename(p.join(project.path, 'vendor'));
@@ -570,9 +557,8 @@ void main() {
         expect(await read(), text);
         // Outside the project, a copy that marks the same revision.
         final outside = await Directory(p.join(temp.path, 'outside')).create();
-        await File(
-          p.join(outside.path, '.wayfinder-profile'),
-        ).writeAsString(marker(revision.commit));
+        await File(p.join(outside.path, '.wayfinder-profile'))
+            .writeAsString(marker(revision.commit));
         await File(p.join(outside.path, 'SKILL.md')).writeAsString('outside');
 
         final swap = _OnFirstPath(
@@ -598,12 +584,10 @@ void main() {
       'never returns a file a symbolic link replaced after the check',
       () async {
         await resolver.resolve(project.path);
-        await File(
-          p.join(project.path, _agents, 'SKILL.md'),
-        ).writeAsString('agents copy');
-        final outside = await File(
-          p.join(temp.path, 'outside.md'),
-        ).writeAsString('outside');
+        await File(p.join(project.path, _agents, 'SKILL.md'))
+            .writeAsString('agents copy');
+        final outside = await File(p.join(temp.path, 'outside.md'))
+            .writeAsString('outside');
         final checked = p.join(
           await project.resolveSymbolicLinks(),
           _claude,
@@ -626,13 +610,11 @@ void main() {
     test('never returns a text whose marker a symbolic link replaced while it '
         'read', () async {
       await resolver.resolve(project.path);
-      await File(
-        p.join(project.path, _agents, 'SKILL.md'),
-      ).writeAsString('agents copy');
+      await File(p.join(project.path, _agents, 'SKILL.md'))
+          .writeAsString('agents copy');
       // Outside the project, a marker for the same revision.
-      final outside = await File(
-        p.join(temp.path, 'outside-marker'),
-      ).writeAsString(marker(revision.commit));
+      final outside = await File(p.join(temp.path, 'outside-marker'))
+          .writeAsString(marker(revision.commit));
       final real = await project.resolveSymbolicLinks();
       final checkedMarker = p.join(real, _claude, '.wayfinder-profile');
       final swap = _OnFirstPath(
@@ -654,9 +636,8 @@ void main() {
       'checks that SKILL.md is a regular file just before opening it',
       () async {
         await resolver.resolve(project.path);
-        await File(
-          p.join(project.path, _agents, 'SKILL.md'),
-        ).writeAsString('agents copy');
+        await File(p.join(project.path, _agents, 'SKILL.md'))
+            .writeAsString('agents copy');
         final real = await project.resolveSymbolicLinks();
         final skill = p.join(real, _claude, 'SKILL.md');
         // After SKILL.md was confined, while the marker is read, a named
@@ -682,9 +663,8 @@ void main() {
     test('never returns the text of a revision get puts in place while it '
         'reads', () async {
       await resolver.resolve(project.path);
-      await File(
-        p.join(project.path, _agents, 'SKILL.md'),
-      ).writeAsString('agents copy');
+      await File(p.join(project.path, _agents, 'SKILL.md'))
+          .writeAsString('agents copy');
       final checked = p.join(
         await project.resolveSymbolicLinks(),
         _claude,
@@ -692,9 +672,8 @@ void main() {
       );
       final racing = _OnFirstPath((path) => p.equals(path, checked), () {
         // What `get` leaves after renaming a new revision into place.
-        File(
-          p.join(project.path, _claude, '.wayfinder-profile'),
-        ).writeAsStringSync(marker('f' * 40));
+        File(p.join(project.path, _claude, '.wayfinder-profile'))
+            .writeAsStringSync(marker('f' * 40));
         File(checked).writeAsStringSync('new revision');
       });
       final result = await IOOverrides.runWithIOOverrides(
@@ -763,20 +742,16 @@ void main() {
 
     test('a marker larger than 64 KiB marks no revision', () async {
       await resolver.resolve(project.path);
-      final padded = marker(
-        revision.commit,
-      ).replaceFirst('{', '{${' ' * (64 * 1024)}');
-      await File(
-        p.join(project.path, _claude, '.wayfinder-profile'),
-      ).writeAsString(padded);
+      final padded = marker(revision.commit)
+          .replaceFirst('{', '{${' ' * (64 * 1024)}');
+      await File(p.join(project.path, _claude, '.wayfinder-profile'))
+          .writeAsString(padded);
       expect(await ProfileSkills.stale(project.path, revision), [_claude]);
-      await File(
-        p.join(project.path, _agents, 'SKILL.md'),
-      ).writeAsString('agents copy');
+      await File(p.join(project.path, _agents, 'SKILL.md'))
+          .writeAsString('agents copy');
       expect(await read(), 'agents copy');
-      await File(
-        p.join(project.path, _agents, '.wayfinder-profile'),
-      ).writeAsString(padded);
+      await File(p.join(project.path, _agents, '.wayfinder-profile'))
+          .writeAsString(padded);
       expect(await read(), isNull);
       // Wayfinder's own markers are far smaller.
       expect(
@@ -785,25 +760,21 @@ void main() {
       );
     });
 
-    test(
-      'a marker that is not a regular file marks no revision',
-      () async {
-        await resolver.resolve(project.path);
-        final fifo = p.join(project.path, _claude, '.wayfinder-profile');
-        await File(fifo).delete();
-        await _run('mkfifo', [fifo]);
-        // Opening a FIFO with no writer would wait forever.
-        expect(
-          await ProfileSkills.stale(
-            project.path,
-            revision,
-          ).timeout(const Duration(seconds: 10)),
-          [_claude],
-        );
-        expect(await read().timeout(const Duration(seconds: 10)), text);
-      },
-      skip: Platform.isWindows ? 'mkfifo is POSIX' : false,
-    );
+    test('a marker that is not a regular file marks no revision', () async {
+      await resolver.resolve(project.path);
+      final fifo = p.join(project.path, _claude, '.wayfinder-profile');
+      await File(fifo).delete();
+      await _run('mkfifo', [fifo]);
+      // Opening a FIFO with no writer would wait forever.
+      expect(
+        await ProfileSkills.stale(
+          project.path,
+          revision,
+        ).timeout(const Duration(seconds: 10)),
+        [_claude],
+      );
+      expect(await read().timeout(const Duration(seconds: 10)), text);
+    }, skip: Platform.isWindows ? 'mkfifo is POSIX' : false);
   });
 
   test('a skill directory without SKILL.md fails get', () async {
@@ -920,9 +891,8 @@ void main() {
   );
 
   test('a skill that holds a symlink fails get', () async {
-    await Link(
-      p.join(source.path, 'profile', 'skill', 'outside'),
-    ).create('../../../outside');
+    await Link(p.join(source.path, 'profile', 'skill', 'outside'))
+        .create('../../../outside');
     await commitSource();
     await expectLater(
       resolver.resolve(project.path),
@@ -1026,112 +996,107 @@ void main() {
     }
   });
 
-  group(
-    'a skill root behind a symbolic link inside the project',
-    () {
-      late Directory shared;
-      late Directory other;
-      late Directory foreign;
-      final revision = (
-        id: ProfileId.parse('acme-notes'),
-        release: '1.0',
-        commit: 'a' * 40,
+  group('a skill root behind a symbolic link inside the project', () {
+    late Directory shared;
+    late Directory other;
+    late Directory foreign;
+    final revision = (
+      id: ProfileId.parse('acme-notes'),
+      release: '1.0',
+      commit: 'a' * 40,
+    );
+    final files = [
+      (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+    ];
+
+    Future<Directory> marked(Directory directory, String id) async {
+      await directory.create(recursive: true);
+      await File(p.join(directory.path, '.wayfinder-profile')).writeAsString(
+        jsonEncode({'id': id, 'release': '1', 'commit': 'b' * 40}),
       );
-      final files = [
-        (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
-      ];
+      return directory;
+    }
 
-      Future<Directory> marked(Directory directory, String id) async {
-        await directory.create(recursive: true);
-        await File(p.join(directory.path, '.wayfinder-profile')).writeAsString(
-          jsonEncode({'id': id, 'release': '1', 'commit': 'b' * 40}),
-        );
-        return directory;
-      }
+    setUp(() async {
+      shared = await Directory(p.join(project.path, 'shared', 'agents-skills'))
+          .create(recursive: true);
+      await Directory(p.join(project.path, '.agents')).create();
+      await Link(p.join(project.path, '.agents/skills')).create(shared.path);
+      other = await Directory(p.join(temp.path, 'other')).create();
+      foreign = await marked(
+        Directory(p.join(other.path, '.agents/skills/old-profile')),
+        'old-profile',
+      );
+    });
 
-      setUp(() async {
-        shared = await Directory(
-          p.join(project.path, 'shared', 'agents-skills'),
-        ).create(recursive: true);
-        await Directory(p.join(project.path, '.agents')).create();
-        await Link(p.join(project.path, '.agents/skills')).create(shared.path);
-        other = await Directory(p.join(temp.path, 'other')).create();
-        foreign = await marked(
-          Directory(p.join(other.path, '.agents/skills/old-profile')),
-          'old-profile',
-        );
-      });
+    // Points .agents/skills outside the project, as a concurrent change
+    // could after the check.
+    void retarget() =>
+        Link(p.join(project.path, '.agents/skills'))
+            .updateSync(p.join(other.path, '.agents/skills'));
 
-      // Points .agents/skills outside the project, as a concurrent change
-      // could after the check.
-      void retarget() => Link(
-        p.join(project.path, '.agents/skills'),
-      ).updateSync(p.join(other.path, '.agents/skills'));
+    test('get installs and prunes there', () async {
+      final retired = await marked(
+        Directory(p.join(shared.path, 'retired-profile')),
+        'retired-profile',
+      );
+      final result = await resolver.resolve(project.path);
+      expect(result.removedSkills, ['.agents/skills/retired-profile']);
+      expect(await installed(_agents), await installed(_claude));
+      expect(
+        await File(p.join(shared.path, 'acme-notes', 'SKILL.md')).exists(),
+        isTrue,
+      );
+      expect(await retired.exists(), isFalse);
+      expect(await foreign.exists(), isTrue);
+    });
 
-      test('get installs and prunes there', () async {
-        final retired = await marked(
-          Directory(p.join(shared.path, 'retired-profile')),
-          'retired-profile',
-        );
-        final result = await resolver.resolve(project.path);
-        expect(result.removedSkills, ['.agents/skills/retired-profile']);
-        expect(await installed(_agents), await installed(_claude));
-        expect(
-          await File(p.join(shared.path, 'acme-notes', 'SKILL.md')).exists(),
-          isTrue,
-        );
-        expect(await retired.exists(), isFalse);
-        expect(await foreign.exists(), isTrue);
-      });
+    test('write keeps to the real root it checked when the link moves '
+        'afterwards', () async {
+      final swap = _OnFirstPath(
+        (path) => p.basename(path).startsWith('.acme-notes.staged-'),
+        retarget,
+        directories: true,
+      );
+      await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.write(project.path, revision, files),
+        swap,
+      );
+      expect(swap.fired, isTrue);
+      expect(
+        await File(p.join(shared.path, 'acme-notes', 'SKILL.md'))
+            .readAsString(),
+        'x',
+      );
+      expect(
+        await Directory(p.join(other.path, '.agents/skills'))
+            .list()
+            .map((entry) => p.basename(entry.path))
+            .toList(),
+        ['old-profile'],
+      );
+    });
 
-      test('write keeps to the real root it checked when the link moves '
-          'afterwards', () async {
-        final swap = _OnFirstPath(
-          (path) => p.basename(path).startsWith('.acme-notes.staged-'),
-          retarget,
-          directories: true,
-        );
-        await IOOverrides.runWithIOOverrides(
-          () => ProfileSkills.write(project.path, revision, files),
-          swap,
-        );
-        expect(swap.fired, isTrue);
-        expect(
-          await File(
-            p.join(shared.path, 'acme-notes', 'SKILL.md'),
-          ).readAsString(),
-          'x',
-        );
-        expect(
-          await Directory(
-            p.join(other.path, '.agents/skills'),
-          ).list().map((entry) => p.basename(entry.path)).toList(),
-          ['old-profile'],
-        );
-      });
-
-      test('prune keeps to the real root it checked when the link moves '
-          'afterwards', () async {
-        final old = await marked(
-          Directory(p.join(shared.path, 'old-profile')),
-          'old-profile',
-        );
-        final swap = _OnFirstPath(
-          (path) => p.basename(path) == '.wayfinder-profile',
-          retarget,
-        );
-        final removed = await IOOverrides.runWithIOOverrides(
-          () => ProfileSkills.prune(project.path, {}),
-          swap,
-        );
-        expect(swap.fired, isTrue);
-        expect(removed, ['.agents/skills/old-profile']);
-        expect(await old.exists(), isFalse);
-        expect(await foreign.exists(), isTrue);
-      });
-    },
-    skip: Platform.isWindows ? 'needs symbolic links' : false,
-  );
+    test('prune keeps to the real root it checked when the link moves '
+        'afterwards', () async {
+      final old = await marked(
+        Directory(p.join(shared.path, 'old-profile')),
+        'old-profile',
+      );
+      final swap = _OnFirstPath(
+        (path) => p.basename(path) == '.wayfinder-profile',
+        retarget,
+      );
+      final removed = await IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.prune(project.path, {}),
+        swap,
+      );
+      expect(swap.fired, isTrue);
+      expect(removed, ['.agents/skills/old-profile']);
+      expect(await old.exists(), isFalse);
+      expect(await foreign.exists(), isTrue);
+    });
+  }, skip: Platform.isWindows ? 'needs symbolic links' : false);
 
   test('write refuses to replace a directory without its marker', () async {
     final revision = (
@@ -1139,13 +1104,11 @@ void main() {
       release: '1.0',
       commit: 'a' * 40,
     );
-    final mine = await Directory(
-      p.join(project.path, _agents),
-    ).create(recursive: true);
+    final mine = await Directory(p.join(project.path, _agents))
+        .create(recursive: true);
     await File(p.join(mine.path, 'SKILL.md')).writeAsString('mine');
-    await File(
-      p.join(mine.path, '.wayfinder-profile'),
-    ).writeAsString(marker('a' * 40).replaceFirst('acme-notes', 'other'));
+    await File(p.join(mine.path, '.wayfinder-profile'))
+        .writeAsString(marker('a' * 40).replaceFirst('acme-notes', 'other'));
     await expectLater(
       ProfileSkills.write(project.path, revision, [
         (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
@@ -1160,9 +1123,10 @@ void main() {
       ),
     );
     expect(
-      await Directory(
-        p.join(project.path, '.agents/skills'),
-      ).list().map((entry) => p.basename(entry.path)).toList(),
+      await Directory(p.join(project.path, '.agents/skills'))
+          .list()
+          .map((entry) => p.basename(entry.path))
+          .toList(),
       ['acme-notes'],
       reason: 'nothing staged is left behind',
     );
@@ -1211,9 +1175,10 @@ void main() {
     expect(appears.fired, isTrue);
     expect(await installed(_agents), {'SKILL.md': 'mine'});
     expect(
-      await Directory(
-        p.join(project.path, '.agents/skills'),
-      ).list().map((entry) => p.basename(entry.path)).toList(),
+      await Directory(p.join(project.path, '.agents/skills'))
+          .list()
+          .map((entry) => p.basename(entry.path))
+          .toList(),
       ['acme-notes'],
       reason: 'nothing staged is left behind',
     );
@@ -1370,9 +1335,8 @@ void main() {
 
     Future<void> linkRoot() async {
       await Directory(p.join(project.path, '.agents')).create();
-      await Link(
-        p.join(project.path, '.agents/skills'),
-      ).create(p.join(other.path, '.agents/skills'));
+      await Link(p.join(project.path, '.agents/skills'))
+          .create(p.join(other.path, '.agents/skills'));
     }
 
     test('write refuses it and prune leaves it alone', () async {
