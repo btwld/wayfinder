@@ -4,8 +4,9 @@
 - Date: 2026-10-22
 - Scope: the write path for a bundle a Profile governs: how a change becomes a
   candidate, which reserved files it rewrites, how the candidate is judged,
-  and when it commits; `validate --fix` under okf's bundle lock. No Profile
-  rule, package format or result changes.
+  and when it commits; `validate --fix` under okf's bundle lock, and the
+  `.okf.lock` file both leave. No Profile rule, package format or result
+  changes.
 - Driver: [#45](https://github.com/btwld/wayfinder/issues/45). Agents and
   hosts wrote Profile bundles with raw file edits, because okf's writes
   rewrite indexes and the log in okf's own way and judge only OKF.
@@ -102,8 +103,9 @@ files the change affects. The writer obeys the one-isolate rule of ADR-0018:
 A write re-serializes the concept it changes in okf's canonical form, so its
 frontmatter layout may change; the other files keep their bytes. okf takes
 its lock by creating `.okf.lock` at the bundle root, so a commit or a fix that
-writes leaves that file; okf's loader ignores it, and a project may ignore it
-in Git.
+writes leaves that file. okf's loader ignores it, and so does the inventory
+`wayfinder index` and `search` compare to decide freshness, at any depth; a
+project ignores it in Git, as this repository does.
 
 The library adds no MCP tool, and ADR-0011 still exposes no authoring tool.
 Write tools over this library are a separate decision. Move and delete are
