@@ -4,10 +4,12 @@
 /// how often a refresh was running.
 ///
 /// The concurrency test runs [searchLoop] in a second isolate, and this
-/// file's [main] as a `dart run` subprocess:
+/// file's [main] as a subprocess from a kernel snapshot, which runs no build
+/// hooks:
 ///
 /// ```sh
-/// dart run test/support/search_loop.dart <data> <bundle root> <reference>
+/// dart compile kernel test/support/search_loop.dart --output=search_loop.dill
+/// dart search_loop.dill <data> <bundle root> <reference>
 /// ```
 ///
 /// The subprocess prints `refresh` once it has seen a refresh, and a final
