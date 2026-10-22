@@ -586,6 +586,7 @@ class WayfinderCli {
         final bundles = (await WayfinderProject.discover(
           _workingDirectory,
           bundleName: command.option('bundle'),
+          searchAncestors: true,
         )).bundles;
         final results = <Map<String, Object?>>[];
         final knowledge = _knowledge();
@@ -795,6 +796,7 @@ class WayfinderCli {
       final bundles = (await WayfinderProject.discover(
         _workingDirectory,
         bundleName: command.option('bundle'),
+        searchAncestors: true,
       )).bundles;
       final responses = await _knowledge().searchBundles(
         bundles.map((bundle) => bundle.root).toList(),

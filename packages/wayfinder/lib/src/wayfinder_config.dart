@@ -193,9 +193,18 @@ final class WayfinderProjectConfig {
   /// project directory, never a lock, cache or network. Throws
   /// [BundleBindingException] with the one diagnostic that explains why no
   /// binding applies.
+  ///
+  /// Without [configPath], the search starts in the bundle's parent
+  /// directory and climbs towards the filesystem root. [projectRoot] bounds
+  /// it: the search then reads `wayfinder.json` only in the directories from
+  /// the bundle's parent up to [projectRoot] itself, never above it, and
+  /// finds none for a bundle outside [projectRoot]. Both paths are compared
+  /// with their symbolic links resolved. An explicit [configPath] is read
+  /// wherever it is.
   static Future<BoundBundle> bind(
     String bundlePath, {
     String? configPath,
+    String? projectRoot,
   }) async {
     final File file;
     if (configPath != null) {
@@ -209,13 +218,17 @@ final class WayfinderProjectConfig {
           ),
         );
       }
-    } else if (await _findConfig(bundlePath) case final found?) {
+    } else if (await _findConfig(bundlePath, projectRoot: projectRoot)
+        case final found?) {
       file = found;
     } else {
-      throw const BundleBindingException(
+      throw BundleBindingException(
         EngineDiagnostic(
           DiagnosticCode.configMissing,
-          'No wayfinder.json was found above the bundle.',
+          projectRoot == null
+              ? 'No wayfinder.json was found above the bundle.'
+              : 'No wayfinder.json was found above the bundle within '
+                    'the project root $projectRoot.',
         ),
       );
     }
@@ -241,10 +254,10 @@ final class WayfinderProjectConfig {
     } on WayfinderConfigException catch (error) {
       unbound(DiagnosticCode.configInvalid, error.message);
     }
-    final String projectRoot;
+    final String configRoot;
     final String requested;
     try {
-      projectRoot = await file.parent.resolveSymbolicLinks();
+      configRoot = await file.parent.resolveSymbolicLinks();
       requested = await Directory(bundlePath).resolveSymbolicLinks();
     } on FileSystemException catch (error) {
       unbound(
@@ -255,7 +268,7 @@ final class WayfinderProjectConfig {
     WayfinderBundleBinding? selected;
     final realPaths = <String, String>{};
     for (final bundle in config.bundles) {
-      final configuredPath = p.normalize(p.join(projectRoot, bundle.path));
+      final configuredPath = p.normalize(p.join(configRoot, bundle.path));
       try {
         final realPath = await Directory(configuredPath).resolveSymbolicLinks();
         realPaths[configuredPath] = realPath;
@@ -268,7 +281,7 @@ final class WayfinderProjectConfig {
       }
     }
     for (final entry in realPaths.entries) {
-      if (!p.isWithin(projectRoot, entry.value)) {
+      if (!p.isWithin(configRoot, entry.value)) {
         unbound(
           DiagnosticCode.configInvalid,
           'Bundle ${entry.key} resolves outside the project.',
@@ -300,14 +313,35 @@ final class WayfinderProjectConfig {
     );
   }
 
-  static Future<File?> _findConfig(String bundlePath) async {
-    var directory = p.dirname(File(bundlePath).absolute.path);
-    while (true) {
+  static Future<File?> _findConfig(
+    String bundlePath, {
+    String? projectRoot,
+  }) async {
+    final ceiling = projectRoot == null ? null : await _realPath(projectRoot);
+    var directory = p.dirname(
+      ceiling == null
+          ? File(bundlePath).absolute.path
+          : await _realPath(bundlePath),
+    );
+    while (ceiling == null ||
+        p.equals(directory, ceiling) ||
+        p.isWithin(ceiling, directory)) {
       final file = File(p.join(directory, 'wayfinder.json'));
       if (await file.exists()) return file;
       final parent = p.dirname(directory);
       if (parent == directory) return null;
       directory = parent;
+    }
+    return null;
+  }
+
+  /// [path] absolute, with its symbolic links resolved when it exists.
+  static Future<String> _realPath(String path) async {
+    final directory = Directory(path);
+    try {
+      return await directory.resolveSymbolicLinks();
+    } on FileSystemException {
+      return p.normalize(directory.absolute.path);
     }
   }
 

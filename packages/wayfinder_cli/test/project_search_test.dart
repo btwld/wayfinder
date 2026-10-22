@@ -171,6 +171,24 @@ void main() {
       expect(result['bundles'], hasLength(2));
     },
   );
+  test('project index and search find the project from a subdirectory '
+      'of it', () async {
+    final child = await Directory(
+      p.join(project.path, 'lib', 'ui'),
+    ).create(recursive: true);
+    final nested = WayfinderCli(
+      out: output.add,
+      err: errors.add,
+      knowledge: () => knowledge,
+      workingDirectory: child,
+      notices: false,
+    );
+    expect(await nested.run(['index', '--output=json']), 0);
+    expect(await nested.run(['search', 'caching', '--output=json']), 0);
+    for (final bundles in [knowledge.indexed, knowledge.searched]) {
+      expect(bundles.map(p.basename), ['flutter-dev-kit', 'knowledge']);
+    }
+  });
   test('index can filter by bundle name', () async {
     expect(await cli.run(['index', '--bundle=flutter-dev-kit']), 0);
     expect(knowledge.indexed.map(p.basename), ['flutter-dev-kit']);
