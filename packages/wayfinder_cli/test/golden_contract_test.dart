@@ -205,6 +205,49 @@ void main() {
         expect(code, 0);
         await expectGolden('search_bundle.json', fixture.json(jsonDecode(out)));
       });
+
+      // The goldens number chunk IDs, so this pins what they do not: the
+      // same project elsewhere gets the same IDs.
+      test('CLI search JSON chunk IDs do not depend on where the project '
+          'lives', () async {
+        final elsewhere = await _ContractProject.create();
+        addTearDown(elsewhere.dispose);
+        expect(elsewhere.project.path, isNot(fixture.project.path));
+        final (indexed, _) = await elsewhere.cli(['index', '--output=json']);
+        expect(indexed, 0);
+        Future<List<String>> ids(_ContractProject project) async {
+          final (code, out) = await project.cli([
+            'search',
+            _query,
+            '--output=json',
+          ]);
+          expect(code, 0);
+          final found = <String>[];
+          void walk(Object? value) {
+            switch (value) {
+              case Map():
+                for (final MapEntry(:key, :value) in value.entries) {
+                  if ((key == 'id' || key == 'parentChunkId') &&
+                      value is String &&
+                      _sha256.hasMatch(value)) {
+                    found.add(value);
+                  } else {
+                    walk(value);
+                  }
+                }
+              case List():
+                value.forEach(walk);
+            }
+          }
+
+          walk(jsonDecode(out));
+          return found;
+        }
+
+        final here = await ids(fixture);
+        expect(here, isNotEmpty);
+        expect(await ids(elsewhere), here);
+      });
     },
     // An update must not skip them: it would report green with these four
     // goldens left as they were.
