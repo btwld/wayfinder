@@ -1,8 +1,14 @@
 # Retrieval identities hash fixture contents; preserve them across checkouts.
 packages/wayfinder_embeddings/fixtures/** text eol=lf
+packages/wayfinder_dart_chunker/fixtures/** text eol=lf
 
 # Compressed benchmark artifacts must not undergo line-ending conversion.
 packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
+
+# The 0.2.0 ObjectBox database is binary, and the store compares its schema
+# markers byte for byte.
+packages/wayfinder_embeddings/test/fixtures/objectbox-0.2.0/*.mdb binary
+packages/wayfinder_embeddings/test/fixtures/objectbox-0.2.0/*.schema text eol=lf
 
 # The golden test compares bytes; a CRLF checkout would fail every golden.
 packages/wayfinder/test/goldens/** text eol=lf

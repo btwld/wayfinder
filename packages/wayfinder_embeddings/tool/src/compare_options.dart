@@ -107,8 +107,13 @@ final ArgParser compareArgParser = ArgParser()
     help: 'Reranker request timeout.',
     defaultsTo: '30',
   )
-  ..addOption('chunk-budget', help: 'Chunk budget for every chunker.')
-  ..addOption('dart-chunk-budget', help: 'Chunk budget for Dart files.')
+  ..addOption(
+    'reference-chunks',
+    help:
+        'Chunk manifest to replay for files no built-in chunker handles, such '
+        "as the judged corpus's Dart sources.",
+  )
+  ..addOption('chunk-budget', help: 'Chunk budget for every built-in chunker.')
   ..addOption(
     'typescript-chunk-budget',
     aliases: ['ts-chunk-budget'],
@@ -158,6 +163,7 @@ class CompareOptions {
       ..storeKind
       ..rerankerUrl
       ..rerankerRequestTimeout
+      ..referenceChunksPath
       ..chunking;
     return options;
   }
@@ -270,11 +276,13 @@ class CompareOptions {
   Duration get rerankerRequestTimeout =>
       Duration(seconds: _positiveInt('reranker-timeout-seconds')!);
 
+  /// Chunk manifest replayed for files no built-in chunker handles, or null.
+  String? get referenceChunksPath => _filePath('reference-chunks');
+
   /// Chunk budget overrides for the built-in chunkers.
   workflow.ChunkingOptions get chunking {
     final sharedBudget = _positiveInt('chunk-budget');
     return workflow.ChunkingOptions(
-      dartMaxChunkLength: _positiveInt('dart-chunk-budget') ?? sharedBudget,
       typescriptMaxChunkLength:
           _positiveInt('typescript-chunk-budget') ?? sharedBudget,
       markdownMaxChunkLength:

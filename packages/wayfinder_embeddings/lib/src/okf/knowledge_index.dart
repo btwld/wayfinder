@@ -4,7 +4,11 @@ import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
 import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
 
-import '../../wayfinder_embeddings.dart';
+import '../embedding/base_embedder.dart';
+import '../models/chunk.dart';
+import '../models/embedding.dart';
+import '../models/search_result.dart';
+import '../storage/base_store.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 

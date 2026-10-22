@@ -150,7 +150,7 @@ repository into the bundle.
 | MCP | Agent access to `validate`, `index`, `search`, and `graph` for one bundle over stdio. | [`wayfinder mcp <bundle>`](packages/wayfinder_cli/README.md#mcp-server) |
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
 | Dart projects | Embed what the CLI does with a project: discover its bundles, resolve and select Profiles, validate, and project the graph. | [`WayfinderProject` and `WayfinderProfileResolver`](packages/wayfinder/README.md#projects) from `package:wayfinder/project.dart` |
-| Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` |
+| Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart`; Dart source chunking in [`wayfinder_dart_chunker`](packages/wayfinder_dart_chunker/README.md) |
 
 CLI and MCP search can span configured bundles. CLI search also supports
 [frontmatter filters](packages/wayfinder_cli/README.md#filter-search-by-frontmatter).
@@ -213,6 +213,7 @@ architecture decisions, and retrieval evidence.
 | [`packages/wayfinder/`](packages/wayfinder/) | Core Dart validation and project library, and tests |
 | [`packages/wayfinder_cli/`](packages/wayfinder_cli/) | CLI and MCP server, a shell over the libraries |
 | [`packages/wayfinder_embeddings/`](packages/wayfinder_embeddings/) | Reusable local retrieval library |
+| [`packages/wayfinder_dart_chunker/`](packages/wayfinder_dart_chunker/) | Dart source chunking for the retrieval library |
 | [`profiles/bitwild/`](profiles/bitwild/) | Bitwild's rules, skill, rationale, and releases |
 | [`skills/`](skills/) | Profile-agnostic agent skills |
 | [`implementation/`](implementation/) | Engine contract |
@@ -245,6 +246,6 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` runs analysis, formatting, and tests across all three
+`dart run melos run lint` runs analysis, formatting, and tests across all four
 packages. For documentation or skill changes, also check local links and compare
 changed rule wording with its authoritative source.
