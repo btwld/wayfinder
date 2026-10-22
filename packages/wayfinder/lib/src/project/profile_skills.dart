@@ -126,13 +126,28 @@ abstract final class ProfileSkills {
   /// outside [projectRoot], where a write or prune would change another
   /// project's skills. [write] refuses them and [prune] skips them. A link
   /// that cannot be resolved counts as outside.
-  static Future<List<String>> escaping(String projectRoot) async {
-    final real = await Directory(projectRoot).resolveSymbolicLinks();
+  static Future<List<String>> escaping(String projectRoot) async => [
+    for (final (:root, :real) in await _resolvedRoots(projectRoot))
+      if (real == null) root,
+  ];
+
+  /// Each of [roots] with its real path under [projectRoot], or null when a
+  /// symbolic link places it outside, as [escaping] reports it. [write] and
+  /// [prune] then work under that real path, so a link changed after the
+  /// check does not move them.
+  static Future<List<({String root, String? real})>> _resolvedRoots(
+    String projectRoot,
+  ) async {
+    final project = await Directory(projectRoot).resolveSymbolicLinks();
     return [
       for (final root in roots)
-        if (await _realPath(p.join(projectRoot, root)) case final resolved
-            when resolved == null || !p.isWithin(real, resolved))
-          root,
+        (
+          root: root,
+          real: switch (await _realPath(p.join(projectRoot, root))) {
+            final resolved? when p.isWithin(project, resolved) => resolved,
+            _ => null,
+          },
+        ),
     ];
   }
 
@@ -159,8 +174,10 @@ abstract final class ProfileSkills {
 
   /// Why `get` may not install Profile skills under [projectRoot], or null
   /// when every root resolves inside the project.
-  static Future<String?> escapingProblem(String projectRoot) async {
-    final escaped = await escaping(projectRoot);
+  static Future<String?> escapingProblem(String projectRoot) async =>
+      _escapingProblem(await escaping(projectRoot));
+
+  static String? _escapingProblem(List<String> escaped) {
     if (escaped.isEmpty) return null;
     final (verb, pronoun) = escaped.length == 1
         ? ('resolves', 'it')
@@ -186,17 +203,26 @@ abstract final class ProfileSkills {
   /// Replaces each of [revision]'s directories with [files] and the marker.
   /// Each directory is staged as a hidden sibling and renamed into place,
   /// so an agent never reads a half-written skill. Throws before writing
-  /// anything when a file's path would land outside its directory.
+  /// anything when a file's path would land outside its directory, and
+  /// instead of replacing a directory that holds no marker for its id. It
+  /// works under the real path of each skill root, which [escaping]
+  /// confines to the project, and checks the marker of the directory it
+  /// replaces just before moving it.
   static Future<void> write(
     String projectRoot,
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
-    if (await escapingProblem(projectRoot) case final problem?) {
+    final resolved = await _resolvedRoots(projectRoot);
+    final escaped = [
+      for (final (:root, :real) in resolved)
+        if (real == null) root,
+    ];
+    if (_escapingProblem(escaped) case final problem?) {
       throw FileSystemException(problem, projectRoot);
     }
-    for (final directory in directories(revision.id)) {
-      final target = Directory(p.join(projectRoot, directory));
+    for (final (:root, :real) in resolved) {
+      final target = Directory(p.join(real!, revision.id.value));
       final stamp = '$pid-${DateTime.now().microsecondsSinceEpoch}';
       final prefix = p.join(target.parent.path, '.${revision.id.value}.');
       final staged = Directory('${prefix}staged-$stamp');
@@ -240,9 +266,17 @@ abstract final class ProfileSkills {
             );
           }
         }
-        final previous = await target.exists()
-            ? await target.rename(old)
-            : null;
+        Directory? previous;
+        if (await target.exists()) {
+          if (!await _owned(target, revision.id.value)) {
+            throw FileSystemException(
+              '$root/${revision.id.value} exists without a $marker marker '
+              'for ${revision.id.value}, so wayfinder did not replace it.',
+              target.path,
+            );
+          }
+          previous = await target.rename(old);
+        }
         try {
           await staged.rename(target.path);
         } on Object {
@@ -286,11 +320,10 @@ abstract final class ProfileSkills {
     String projectRoot,
     Set<ProfileId> keep,
   ) async {
-    final outside = await escaping(projectRoot);
     final found = <({Directory entry, String? reported})>[];
-    for (final root in roots) {
-      if (outside.contains(root)) continue;
-      final parent = Directory(p.join(projectRoot, root));
+    for (final (:root, :real) in await _resolvedRoots(projectRoot)) {
+      if (real == null) continue;
+      final parent = Directory(real);
       if (!await parent.exists()) continue;
       final entries = await parent.list(followLinks: false).toList()
         ..sort((left, right) => left.path.compareTo(right.path));
