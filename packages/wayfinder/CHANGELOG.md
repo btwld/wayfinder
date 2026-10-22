@@ -190,8 +190,9 @@
   reach the network follows the policy's yes for that location.
 - A Profile skill marker that cannot be read counts as no marker: validation
   warns `profile-skill-stale` instead of failing selection as
-  `profile-unresolved`, and `get` leaves such a directory alone as it does
-  any unmarked one.
+  `profile-unresolved`, `status` reports the binding `resolved` with that
+  warning rather than `cache-missing`, and `get` leaves such a directory
+  alone as it does any unmarked one.
 
 # 0.2.0
 

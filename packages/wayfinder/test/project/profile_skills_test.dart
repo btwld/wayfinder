@@ -247,6 +247,72 @@ void main() {
     expect((await validate()).diagnostics, isEmpty);
   });
 
+  test('a marker that cannot be read marks no revision, so the skill is stale '
+      'and the directory stays the user\'s', () async {
+    await resolver.resolve(project.path);
+    final locked = await commit();
+    final unreadable = File(
+      p.join(project.path, _claude, '.wayfinder-profile'),
+    );
+    await _run('chmod', ['000', unreadable.path]);
+    addTearDown(() => _run('chmod', ['644', unreadable.path]));
+    try {
+      await unreadable.readAsString();
+      markTestSkipped('this user reads a file whose mode is 000');
+      return;
+    } on FileSystemException {
+      // Unreadable, as the test needs.
+    }
+    final stale = [
+      {
+        'id': 'wayfinder/profile-skill-stale',
+        'level': 'warning',
+        'message':
+            'Profile acme-notes skill in $_claude is not the locked commit '
+            '$locked. Run wayfinder get.',
+        'location': {'path': 'wayfinder.json'},
+      },
+    ];
+
+    final selection =
+        await resolver.select(p.join(project.path, 'knowledge'))
+            as SelectedProfile;
+    expect(selection.notes.map((note) => note.toJson()), stale);
+    final validation = await validate();
+    expect(validation.gate, GateState.pass);
+    expect(validation.diagnostics.map((d) => d.toJson()), stale);
+    final status = (await resolver.status(
+      project.path,
+    )).of(ProfileId.parse('acme-notes'))!;
+    expect(status.state, ProfileBindingState.resolved);
+    expect(status.notes.map((note) => note.toJson()), stale);
+
+    final skill = File(p.join(project.path, _claude, 'SKILL.md'));
+    final before = (
+      await skill.readAsString(),
+      (await unreadable.stat()).modeString(),
+      (await unreadable.stat()).modified,
+    );
+    await expectLater(
+      resolver.resolve(project.path),
+      throwsA(
+        isA<WayfinderProfileResolutionException>().having(
+          (error) => error.message,
+          'message',
+          startsWith(
+            '$_claude already exists without a .wayfinder-profile marker, '
+            'so wayfinder did not install it.',
+          ),
+        ),
+      ),
+    );
+    expect((
+      await skill.readAsString(),
+      (await unreadable.stat()).modeString(),
+      (await unreadable.stat()).modified,
+    ), before);
+  }, skip: Platform.isWindows ? 'chmod is POSIX' : false);
+
   group('read', () {
     late SkillRevision revision;
     late String text;
