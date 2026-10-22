@@ -350,6 +350,37 @@ void main() {
       );
     });
 
+    test('a selection names the project root of the wayfinder.json that '
+        'bound it', () async {
+      await resolver.resolve(project.path);
+      final bundle = p.join(project.path, 'knowledge');
+      for (final selection in [
+        await resolver.select(bundle),
+        // A host's root above the project only bounds the search.
+        await resolver.select(bundle, projectRoot: temp.path),
+        await resolver.select(
+          bundle,
+          configPath: p.join(project.path, 'wayfinder.json'),
+        ),
+      ]) {
+        selection as SelectedProfile;
+        expect(selection.projectRoot, p.normalize(project.absolute.path));
+        expect(p.dirname(selection.config!.file), selection.projectRoot);
+        expect(
+          await ProfileSkills.read(
+            selection.projectRoot!,
+            ProfileSkills.revisionsOf(selection).single,
+          ),
+          text,
+        );
+      }
+      final byHand = await resolver.select(bundle) as SelectedProfile;
+      expect(
+        SelectedProfile(byHand.profile, config: byHand.config).projectRoot,
+        isNull,
+      );
+    });
+
     test('skips a directory the staleness check rejects', () async {
       await resolver.resolve(project.path);
       await File(

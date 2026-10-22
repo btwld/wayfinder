@@ -44,6 +44,7 @@ final class SelectedProfile extends ProfileSelection {
   SelectedProfile(
     this.profile, {
     this.config,
+    this.projectRoot,
     this.commits = const {},
     Iterable<EngineDiagnostic> notes = const [],
   }) : notes = List.unmodifiable(notes) {
@@ -57,6 +58,12 @@ final class SelectedProfile extends ProfileSelection {
   /// The project file that bound the bundle; null for a selection built by
   /// hand, as in tests and authoring tools. Project-type notes point here.
   final ProjectFileLocation? config;
+
+  /// The absolute directory of [config], symbolic links unresolved: where
+  /// `wayfinder.lock` is and `get` installs Profile skills, whose markers
+  /// [notes] checked. A host passes it to `ProfileSkills.read`. Null for a
+  /// selection built by hand.
+  final String? projectRoot;
 
   /// The locked commit of each package in the chain; empty for a selection
   /// built by hand.
