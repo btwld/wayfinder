@@ -219,13 +219,14 @@ bullets above ship first, move these under the next release.
   server's output. One notice is reported per sentence, as before; an
   unresolved target several matches link to now names each of them in
   `paths`. Construct `KnowledgeSearchResponse` with `KnowledgeNotice`s.
-- `search` and `searchBundle` take a `WayfinderCancellation`, checked before
-  each bundle, before the encoder is opened and the query encoded, and
-  before the passages are scored. A cancelled search throws `cancelled`,
-  whose message names no bundle, and keeps a retained encoder and its parsed
-  snapshots. `KnowledgeIndex.search` takes one too, checked before it
-  encodes the query and before it scores. A host's subclass that overrides
-  `search` or `searchBundle` adds the parameter.
+- **BREAKING:** `search` and `searchBundle` take a `WayfinderCancellation?
+  cancel`, so a subclass that overrides them, as a host's test double may,
+  must add the parameter. It is checked before each bundle, before the
+  encoder is opened and the query encoded, and before the passages are
+  scored. A cancelled search throws `cancelled`, whose message names no
+  bundle, and keeps a retained encoder and its parsed snapshots.
+  `KnowledgeIndex.search` takes one too, checked before it encodes the query
+  and before it scores.
 - `WayfinderKnowledgeStore.releaseEncoder()` disposes a retained encoder once
   the operations using it finish, and keeps the parsed snapshots; the next
   index run or search opens another. The new `encoderIdleTimeout`, with
