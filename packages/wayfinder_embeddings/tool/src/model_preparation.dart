@@ -15,7 +15,8 @@ import 'package:wayfinder_embeddings/model_cache.dart';
 /// earlier releases downloaded into ([legacyDownloads]), which keep their
 /// files. Only when none has it, and not [offline], does the cache download
 /// it. A copy is verified before it is renamed into [output], so a corrupt
-/// or interrupted preparation never replaces a staged model.
+/// or interrupted preparation never replaces a staged model. A
+/// [cacheDirectory] equal to [output] downloads straight into place.
 Future<File> prepareEmbeddingModel({
   required Directory output,
   bool offline = false,
