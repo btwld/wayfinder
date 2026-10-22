@@ -40,7 +40,13 @@ void main() {
     final staged = Directory(
       p.join(bundle.path, 'licenses', 'embedding_runtime'),
     ).listSync().map((entry) => p.basename(entry.path)).toSet();
-    expect(staged, {'NOTICE', 'llamadart-LICENSE', 'llama-cpp-LICENSE'});
+    expect(staged, {
+      'NOTICE',
+      'llamadart-LICENSE',
+      'llama-cpp-LICENSE',
+      'cpp-httplib-LICENSE',
+      'nlohmann-json-LICENSE',
+    });
     if (Platform.isWindows) {
       expect(
         File(p.join(bundle.path, 'bin', 'ggml-cpu.dll')).existsSync(),
