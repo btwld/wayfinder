@@ -31,6 +31,11 @@
   and `DeterministicEncoderProvider`, 384-dimension word-hash vectors that test
   indexing, storage and search without a model. They are no relevance
   evidence (ADR-0017).
+- `knowledge_store.dart` also exports what a host names beside the store:
+  `BaseEmbedder` for its own encoder provider, `Chunk` and `SearchResult` for
+  a citation's passage, `EmbeddingModelSpec` and `localEmbeddingModel` for
+  another model, and `KnowledgeSearchResponse` and `KnowledgeContextHit` for
+  search results in a fake.
 - `KnowledgeIndex.synchronize` takes `onEmbedded`, which reports the inputs
   embedded so far, and a `WayfinderCancellation` checked between batches.
   `LlamaEmbedder.source` and `LlamaEmbedder.modelNameFor` give an embedder's

@@ -103,7 +103,9 @@ try {
   checking its size and SHA-256. `loadObjectBox`, when given, runs before the
   first database opens; leave it out when the process already provides
   ObjectBox, as Flutter's `objectbox_flutter_libs` does. The CLI's own host
-  code is `packages/wayfinder_cli/lib/src/native_runtime.dart`.
+  code is `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a
+  host names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse`
+  included, comes from `knowledge_store.dart`.
 - **Operations.** `status` compares the saved index with the bundle without
   an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
   input warnings), `KnowledgeIndexStale` (the changed paths) or

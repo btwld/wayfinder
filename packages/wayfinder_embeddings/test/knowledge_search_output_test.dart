@@ -4,8 +4,6 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// The search Markdown hosts render as tool text, and the JSON beside it.
 void main() {
