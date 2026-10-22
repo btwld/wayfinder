@@ -140,31 +140,72 @@ def main():
                 holder.wait(timeout=10)
             run("crash-lock-recovered", "index", corpus, "--output=json")
 
-            # A search loop in other processes keeps working while index --force
-            # publishes new generations.
-            forced = subprocess.Popen([str(binary), "index", corpus, "--force"],
-                                      cwd=cwd, env=env, text=True,
-                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            start = time.perf_counter()
-            loops = refreshes = 0
-            try:
-                while forced.poll() is None or loops == 0:
-                    result = subprocess.run(
-                        [str(binary), "search", str(corpus), "password", "--output=json"],
-                        cwd=cwd, env=env, text=True, capture_output=True, timeout=90,
-                    )
-                    assert result.returncode == 0, (result.stdout, result.stderr)
-                    found = json.loads(result.stdout)
-                    assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
-                    loops += 1
-                    refreshes += any(n.startswith("refresh-in-progress: ")
-                                     for n in found["notices"])
-            finally:
-                out, err = forced.communicate(timeout=120)
-            assert forced.returncode == 0, (out, err)
-            reports.append({"case": "search-loop-during-force",
-                            "wallMs": (time.perf_counter()-start)*1000,
-                            "searches": loops, "refreshNotices": refreshes})
+        # A search loop in other processes keeps working while index --force
+        # publishes a new generation, on every platform: on Windows the
+        # publication waits for searches that have the pointer open. A copy
+        # of the bundle with more passages keeps the forced index running
+        # long enough for searches to overlap it.
+        loop_corpus = temp / "loop-knowledge"
+        shutil.copytree(corpus, loop_corpus)
+        for i in range(300):
+            (loop_corpus / f"note-{i}.md").write_text(
+                f"---\ntitle: Note {i}\ntype: reference\n---\n"
+                f"Operational note {i} about deployments, retries and dashboards.\n")
+        loop_index = Path(json.loads(run("loop-index", "index", loop_corpus,
+                                         "--output=json").stdout)["index"])
+
+        def writer_held():
+            """Whether a writer holds writer.lock, probed as isHeld does."""
+            lock_path = loop_index / "writer.lock"
+            if os.name == "nt":
+                # LockFileEx locks are mandatory: a held lock refuses reads.
+                try:
+                    with lock_path.open("rb") as probe:
+                        probe.read(1)
+                except FileNotFoundError:
+                    return False
+                except OSError:
+                    return True
+                return False
+            import fcntl
+            with lock_path.open("rb") as probe:
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    return True
+                fcntl.flock(probe, fcntl.LOCK_UN)
+                return False
+
+        forced = subprocess.Popen([str(binary), "index", loop_corpus, "--force"],
+                                  cwd=cwd, env=env, text=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        start = time.perf_counter()
+        loops = refreshes = 0
+        try:
+            # Searching starts once the forced index holds the writer lock, so
+            # the first search overlaps it.
+            deadline = time.monotonic() + 90
+            while (forced.poll() is None and time.monotonic() < deadline
+                   and not writer_held()):
+                time.sleep(0.01)
+            while forced.poll() is None or loops < 2:
+                result = subprocess.run(
+                    [str(binary), "search", str(loop_corpus), "password", "--output=json"],
+                    cwd=cwd, env=env, text=True, capture_output=True, timeout=90,
+                )
+                assert result.returncode == 0, (result.stdout, result.stderr)
+                found = json.loads(result.stdout)
+                assert found["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
+                loops += 1
+                refreshes += any(n.startswith("refresh-in-progress: ")
+                                 for n in found["notices"])
+        finally:
+            out, err = forced.communicate(timeout=120)
+        assert forced.returncode == 0, (out, err)
+        reports.append({"case": "search-loop-during-force",
+                        "wallMs": (time.perf_counter()-start)*1000,
+                        "searches": loops, "refreshNotices": refreshes})
+        assert refreshes >= 1, "no search overlapped index --force"
 
         # Oversized context and indented separators are recoverable, not index failures.
         oversized = corpus / "oversized.md"
