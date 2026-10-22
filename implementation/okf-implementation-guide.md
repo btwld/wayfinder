@@ -849,7 +849,7 @@ that would take ten seconds was already unusable.
 
 **okf generator revision, next wayfinder release.** Binds no Profile and
 keeps package format 2. These entries change the engine contract that the
-release after wayfinder 0.2.x implements.
+first wayfinder release to depend on `okf` `^0.5.1` implements.
 
 `matches-generated` compares its `version` param with okf's index generator
 revision, `okfIndexGeneratorRevision`, instead of with the okf release the
