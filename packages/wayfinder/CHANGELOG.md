@@ -385,9 +385,12 @@ release.
   each binding's chain at its source, and the resolution failure selection
   would report, such as a package missing from the cache or a chain that no
   longer composes. It writes the lock only when its configuration hash
-  changes, and gives a file it wrote its bytes back when a later write
-  fails; `ProfileRelockResult` says what it wrote. A `get`, an apply, an
-  adoption and another relock exclude it (`resolution-busy`).
+  changes; `ProfileRelockResult` says what it wrote. A file it cannot read
+  or replace throws `ProfileRelockFailedException` (`relock-failed`), not
+  a missing lock. When a write fails, a file it already wrote gets its
+  original bytes back where that is possible, and the exception's `changed`
+  names any file that kept the new bytes. A `get`, an apply, an adoption
+  and another relock exclude it (`resolution-busy`).
 - `WayfinderConfigEditor.encode(minimal: true)` keeps the text the editor
   parsed and rewrites only the members the edits changed, so registering an
   actor changes only those bytes, at the file's own indentation and line
@@ -408,14 +411,18 @@ release.
 - `KnowledgeWritePlan.projectFiles`, a `KnowledgeProjectFiles`, are the
   project files the plan's selection came from, with the SHA-256 of their
   bytes, which `commit` checks under okf's exclusive lock: `wayfinder.json`
-  and `wayfinder.lock` also when no Profile was selected, and when no
+  and `wayfinder.lock` also when no Profile was selected, with each closer
+  `wayfinder.json` path binding looked at first, absent; and when no
   configuration binds the bundle, each `wayfinder.json` path binding looked
   at, absent. `prepare` takes the `projectFiles` a host captured with its
   own selection (`KnowledgeProjectFiles.forBundle`, `read`, or digests it
-  computed), and `KnowledgeStaleWriteException.projectFiles` names the files
-  that changed. A plan judged without a Profile is now refused as
-  `write-stale` when its configuration or lock changes, or a configuration
-  appears, before it commits.
+  computed, whose paths are made absolute when it is built), and
+  `KnowledgeStaleWriteException.projectFiles` names the files that changed.
+  A plan is now refused as `write-stale` when its configuration or lock
+  changes, or a configuration appears that would bind its bundle, before
+  it commits, also when it was judged without a Profile. The check is not
+  atomic with `relock` or `get`, which hold the project's lock rather than
+  the bundle's.
 
 # 0.2.0
 

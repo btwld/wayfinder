@@ -366,7 +366,8 @@ final class KnowledgeWriter {
   /// The Profile is [selection], or [resolver]'s selection for the bundle
   /// as `validate` makes it. [commit] also refuses the plan when a project
   /// file that selection came from changed since ([projectFiles]):
-  /// `wayfinder.json` and the `wayfinder.lock` beside it, or, when no
+  /// `wayfinder.json` and the `wayfinder.lock` beside it, with each closer
+  /// `wayfinder.json` path binding looked at first, absent; or, when no
   /// configuration binds the bundle, each `wayfinder.json` path binding
   /// looked at, absent.
   ///
@@ -557,6 +558,14 @@ final class KnowledgeWriter {
   /// [KnowledgeWriteFailedException] when the bundle cannot be locked or
   /// written. A plan commits once; committing it again throws a
   /// [StateError].
+  ///
+  /// The project files are checked under okf's lock of the bundle, which
+  /// `WayfinderProfileResolver.relock` and `get` do not take: they hold the
+  /// project's `get` lock instead. So one that rewrites `wayfinder.json` or
+  /// `wayfinder.lock` after the check and before okf writes goes unseen,
+  /// and the write commits as it was judged. A host that both relocks and
+  /// writes serializes the two itself, such as by queueing them on the one
+  /// isolate that does its okf bundle I/O.
   Future<KnowledgeCommitResult> commit(
     KnowledgeWritePlan plan, {
     WayfinderCancellation? cancel,
@@ -627,18 +636,28 @@ final class KnowledgeWriter {
   /// the configuration a [SelectedProfile] names, none for one built
   /// without it, the configuration an [UnselectedProfile]'s reason is
   /// located at, or else what binding [bundle] within [projectRoot] reads.
+  /// A configuration that binding [bundle] finds comes with each closer
+  /// `wayfinder.json` path, absent ([projectFilesOf]).
   static Future<KnowledgeProjectFiles> _filesOf(
     String bundle,
     ProfileSelection selection,
     String? projectRoot,
   ) async => switch (selection) {
-    SelectedProfile(:final config?) => KnowledgeProjectFiles.read(config.file),
+    SelectedProfile(:final config?) => projectFilesOf(
+      bundle,
+      config.file,
+      projectRoot: projectRoot,
+    ),
     SelectedProfile() => KnowledgeProjectFiles.none,
     UnselectedProfile(:final reasons) => switch ([
       for (final reason in reasons)
         if (reason.location case ProjectFileLocation(:final file)) file,
     ]) {
-      [final file, ...] => KnowledgeProjectFiles.read(file),
+      [final file, ...] => projectFilesOf(
+        bundle,
+        file,
+        projectRoot: projectRoot,
+      ),
       _ => KnowledgeProjectFiles.forBundle(bundle, projectRoot: projectRoot),
     },
   };

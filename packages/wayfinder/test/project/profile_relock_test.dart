@@ -227,6 +227,22 @@ void main() {
       expect(lock.existsSync(), isFalse);
     });
 
+    test('a lock that cannot be read, as the file system failure it is '
+        'rather than a missing lock', () async {
+      await lock.delete();
+      // Reading a directory as a file fails as an unreadable lock does.
+      await Directory(lock.path).create();
+      await refuses(
+        _addActor,
+        isA<ProfileRelockFailedException>()
+            .having((error) => error.code, 'code', 'relock-failed')
+            .having((error) => error.partial, 'partial', isFalse)
+            .having((error) => error.changed, 'changed', isEmpty)
+            .having((error) => error.message, 'message', contains(lock.path)),
+      );
+      expect(Directory(lock.path).existsSync(), isTrue);
+    });
+
     test('text that is not a valid configuration', () async {
       await refuses(
         (text) => '{"version": 1',
@@ -314,11 +330,50 @@ void main() {
         () => resolver.relock(project.path, edit: _addActor),
         overrides,
       ),
-      throwsA(isA<FileSystemException>()),
+      throwsA(
+        isA<ProfileRelockFailedException>()
+            .having((error) => error.code, 'code', 'relock-failed')
+            .having((error) => error.partial, 'partial', isFalse)
+            .having((error) => error.changed, 'changed', isEmpty),
+      ),
     );
     // wayfinder.json was written, then restored, around the failed lock.
     expect(overrides.configWrites, 2);
     expect(await projectFiles(), before);
+  });
+
+  test('a write whose restore fails too names the file it left changed, '
+      'which status reports and relocking again repairs', () async {
+    final lockBytes = await lock.readAsBytes();
+    final edited = _addActor(await config.readAsString());
+    final overrides = _FailingLockWrite(failRestore: true);
+    await expectLater(
+      IOOverrides.runWithIOOverrides(
+        () => resolver.relock(project.path, edit: _addActor),
+        overrides,
+      ),
+      throwsA(
+        isA<ProfileRelockFailedException>()
+            .having((error) => error.code, 'code', 'relock-failed')
+            .having((error) => error.partial, 'partial', isTrue)
+            .having((error) => error.changed.map(p.basename), 'changed', [
+              'wayfinder.json',
+            ]),
+      ),
+    );
+    expect(overrides.configWrites, 2);
+    expect(await config.readAsString(), edited);
+    expect(await lock.readAsBytes(), lockBytes);
+    expect(
+      (await resolver.status(project.path)).lockChange?.kind,
+      ProfileLockChangeKind.configurationChanged,
+    );
+
+    final repaired = await resolver.relock(project.path, edit: (text) => text);
+    expect(repaired.configChanged, isFalse);
+    expect(repaired.lockChanged, isTrue);
+    expect((await resolver.status(project.path)).lockChange, isNull);
+    expect(calls, isEmpty);
   });
 
   test('relock and get exclude each other', () async {
@@ -389,20 +444,25 @@ void main() {
 }
 
 /// Fails the write of `wayfinder.lock`'s temporary file, after
-/// `wayfinder.json` was written.
+/// `wayfinder.json` was written, and with [failRestore] each later write of
+/// `wayfinder.json` too, such as the one that gives it its bytes back.
 final class _FailingLockWrite extends IOOverrides {
-  /// How many temporary `wayfinder.json` files were written.
+  _FailingLockWrite({this.failRestore = false});
+
+  final bool failRestore;
+
+  /// How many temporary `wayfinder.json` files were created.
   var configWrites = 0;
 
   @override
   File createFile(String path) {
     final name = p.basename(path);
-    if (name.startsWith('wayfinder.json.tmp-')) configWrites++;
-    return super.createFile(
-      name.startsWith('wayfinder.lock.tmp-')
-          ? p.join(path, 'missing', 'file')
-          : path,
-    );
+    final config = name.startsWith('wayfinder.json.tmp-');
+    if (config) configWrites++;
+    final fails =
+        name.startsWith('wayfinder.lock.tmp-') ||
+        (config && failRestore && configWrites > 1);
+    return super.createFile(fails ? p.join(path, 'missing', 'file') : path);
   }
 
   // The inherited type lookup passes the native call a path without its

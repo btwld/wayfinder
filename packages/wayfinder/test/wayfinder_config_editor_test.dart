@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/src/config_layout.dart';
 import 'package:wayfinder/wayfinder.dart';
 
 final _acme = ProfileId.parse('acme-notes');
@@ -381,6 +382,83 @@ void _minimalEncodingTests(File bitwildExample) {
           '"applies_to": ["./knowledge", "./docs"]',
         ),
       );
+    });
+
+    test("an edit that reorders a profile's members writes that object "
+        'whole, and the rest keeps its bytes', () {
+      // A layout the full encoder would not write, outside the profile.
+      final source = text.replaceFirst('"version": 1,', '"version" : 1,');
+      expect(source, isNot(text));
+      // Removing every tag drops the list; adding one back puts it last.
+      final editor = WayfinderConfigEditor.parse(source)
+        ..removeDefinition(_bitwild, WayfinderVocabulary.tags, 'reporting')
+        ..removeDefinition(_bitwild, WayfinderVocabulary.tags, 'export')
+        ..putDefinition(
+          _bitwild,
+          WayfinderVocabulary.tags,
+          const WayfinderDefinition(
+            name: 'reporting',
+            description: 'Reporting and document generation',
+          ),
+        );
+      final profile = (editor.toJson()['profiles']! as Map)['bitwild-profile'];
+      expect((profile as Map).keys.last, 'tags');
+      const key = '"bitwild-profile": ';
+      final start = source.indexOf(key) + key.length;
+      const end = '\n  }\n}\n';
+      expect(source, endsWith(end));
+      final written = const WayfinderConfigEncoder()
+          .convert(profile)
+          .trimRight()
+          .replaceAll('\n', '\n    ');
+      expect(minimal(editor), '${source.substring(0, start)}$written$end');
+      expect(minimal(editor), isNot(editor.encode()));
+    });
+
+    test('a member added before one that remains writes its object whole, '
+        'and the rest keeps its bytes', () {
+      const source =
+          '{\n'
+          '  "keep" :  [ 1,2 ],\n'
+          '  "object": {\n'
+          '    "b": 1,\n'
+          '    "c":  2\n'
+          '  }\n'
+          '}\n';
+      expect(
+        spliceJson(source, {
+          'keep': [1, 2],
+          'object': {'a': 0, 'b': 1, 'c': 2},
+        }),
+        '{\n'
+        '  "keep" :  [ 1,2 ],\n'
+        '  "object": {\n'
+        '    "a": 0,\n'
+        '    "b": 1,\n'
+        '    "c": 2\n'
+        '  }\n'
+        '}\n',
+      );
+    });
+
+    test('a spliced text that does not parse back to the edits, or that '
+        'the editor refuses, is not used', () {
+      final edited = WayfinderConfigEditor.parse(text)
+        ..putActor(_bitwild, 'mcp:claude-code', _assistant);
+      final document = edited.toJson();
+      expect(spliceJsonChecked(text, document), edited.encode(minimal: true));
+      for (final splice in <String Function(String, Object?)>[
+        // Other JSON.
+        (source, _) => source,
+        // Not JSON.
+        (source, _) => source.substring(1),
+        // Throws as a parser does.
+        (_, _) => throw const FormatException('Unexpected character'),
+      ]) {
+        expect(spliceJsonChecked(text, document, splice: splice), isNull);
+      }
+      // A text the caller refuses, as the editor refuses a repeated key.
+      expect(spliceJsonChecked(text, document, accept: (_) => false), isNull);
     });
 
     test('an editor with no source text encodes in full', () {

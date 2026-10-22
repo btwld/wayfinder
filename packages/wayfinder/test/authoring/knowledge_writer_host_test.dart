@@ -419,6 +419,95 @@ void main() {
       );
     });
 
+    test('a configuration that appears closer to the bundle than the one '
+        'that bound it makes the plan stale', () async {
+      // The bundle moves one level down, and a host relocks the edit that
+      // binds it there.
+      final nested = p.join(project, 'sub', 'knowledge');
+      await copyDirectory(bundle, nested);
+      await resolver.relock(
+        project,
+        edit: (text) => text.replaceFirst('"./knowledge"', '"./sub/knowledge"'),
+      );
+      final closer = p.join(project, 'sub', 'wayfinder.json');
+      final tracked = [closer, config, lock];
+
+      final bound = await KnowledgeProjectFiles.forBundle(
+        nested,
+        projectRoot: project,
+      );
+      expect(bound.sha256.keys, tracked);
+      expect(bound.sha256[closer], isNull);
+      // A configuration a host names is tracked alone with its lock.
+      expect(
+        (await KnowledgeProjectFiles.forBundle(
+          nested,
+          configPath: config,
+          projectRoot: project,
+        )).sha256.keys,
+        [config, lock],
+      );
+
+      final selection = await resolver.select(nested, projectRoot: project);
+      expect(selection, isA<SelectedProfile>());
+      final plans = [
+        await writer.prepare(
+          nested,
+          _createContract(),
+          stamp: _agent,
+          projectRoot: project,
+        ),
+        await writer.prepare(
+          nested,
+          _createContract(),
+          stamp: _agent,
+          selection: selection,
+          projectRoot: project,
+        ),
+      ];
+      for (final plan in plans) {
+        expect(plan.assessed, isTrue);
+        expect(plan.projectFiles.sha256.keys, tracked);
+      }
+
+      await File(closer).writeAsString(await File(config).readAsString());
+      for (final plan in plans) {
+        await expectLater(
+          writer.commit(plan),
+          throwsA(
+            isA<KnowledgeStaleWriteException>().having(
+              (error) => error.projectFiles,
+              'projectFiles',
+              [closer],
+            ),
+          ),
+        );
+      }
+      expect(
+        File(p.join(nested, _contract.documentPath)).existsSync(),
+        isFalse,
+      );
+    });
+
+    test('the default constructor makes each path absolute when it is '
+        'built', () async {
+      final digest = KnowledgeProjectFiles.digest(
+        await File(config).readAsBytes(),
+      );
+      final files = KnowledgeProjectFiles({
+        p.relative(config): digest,
+        p.join(project, 'sub', '..', 'wayfinder.lock'): null,
+      });
+      expect(files.sha256, {config: digest, lock: null});
+      expect(
+        () => KnowledgeProjectFiles({
+          config: digest,
+          p.join(project, '.', 'wayfinder.json'): null,
+        }),
+        throwsArgumentError,
+      );
+    });
+
     test('digests a host read itself are checked the same way', () async {
       final files = KnowledgeProjectFiles({
         config: KnowledgeProjectFiles.digest(await File(config).readAsBytes()),
