@@ -141,25 +141,27 @@ final class KnowledgeProjectSearch {
   /// keeping the best [limit] matches and at most [limit] context passages:
   /// each match, followed by the relationship context reached from it.
   /// [freshness], when given, has one entry per bundle too.
-  KnowledgeProjectSearch(
+  factory KnowledgeProjectSearch(
     List<ProjectBundle> bundles,
     List<KnowledgeSearchResponse> responses, {
     required int limit,
     List<KnowledgeSearchFreshness>? freshness,
-  }) : bundles = List.unmodifiable(bundles),
-       responses = List.unmodifiable(responses),
-       freshness = List.unmodifiable(
-         freshness ??
-             List.filled(bundles.length, const KnowledgeSearchFreshness()),
-       ) {
-    if (bundles.length != responses.length ||
-        this.freshness.length != bundles.length) {
+  }) {
+    final bundleList = List<ProjectBundle>.unmodifiable(bundles);
+    final responseList = List<KnowledgeSearchResponse>.unmodifiable(responses);
+    final freshnessList = List<KnowledgeSearchFreshness>.unmodifiable(
+      freshness ??
+          List.filled(bundles.length, const KnowledgeSearchFreshness()),
+    );
+    if (bundleList.length != responseList.length ||
+        freshnessList.length != bundleList.length) {
       throw ArgumentError('Supply one response per bundle.');
     }
     final candidates =
         <({ProjectBundle bundle, SearchResult hit})>[
-          for (final (i, bundle) in bundles.indexed)
-            for (final hit in responses[i].matches) (bundle: bundle, hit: hit),
+          for (final (i, bundle) in bundleList.indexed)
+            for (final hit in responseList[i].matches)
+              (bundle: bundle, hit: hit),
         ]..sort((a, b) {
           final score = b.hit.similarity.compareTo(a.hit.similarity);
           if (score != 0) return score;
@@ -179,7 +181,7 @@ final class KnowledgeProjectSearch {
     }
 
     KnowledgeSearchFreshness freshnessOf(ProjectBundle bundle) =>
-        this.freshness[bundles.indexOf(bundle)];
+        freshnessList[bundleList.indexOf(bundle)];
     for (final match in ranked) {
       add(
         KnowledgeCitation._of(
@@ -189,7 +191,7 @@ final class KnowledgeProjectSearch {
           freshness: freshnessOf(match.bundle),
         ),
       );
-      final response = responses[bundles.indexOf(match.bundle)];
+      final response = responseList[bundleList.indexOf(match.bundle)];
       for (final related in response.context.where(
         (hit) =>
             hit.reason == 'relationship' &&
@@ -204,21 +206,35 @@ final class KnowledgeProjectSearch {
         );
       }
     }
-    matches = List.unmodifiable([
-      for (final match in ranked)
-        KnowledgeCitation._of(
-          match.bundle,
-          match.hit,
-          reason: 'match',
-          freshness: freshnessOf(match.bundle),
-        ),
-    ]);
-    this.context = List.unmodifiable(context);
-    notices = List.unmodifiable([
-      for (final (i, bundle) in bundles.indexed)
-        for (final notice in responses[i].notices) notice.about(bundle),
-    ]);
+    return KnowledgeProjectSearch._(
+      bundleList,
+      responseList,
+      freshnessList,
+      List.unmodifiable([
+        for (final match in ranked)
+          KnowledgeCitation._of(
+            match.bundle,
+            match.hit,
+            reason: 'match',
+            freshness: freshnessOf(match.bundle),
+          ),
+      ]),
+      List.unmodifiable(context),
+      List.unmodifiable([
+        for (final (i, bundle) in bundleList.indexed)
+          for (final notice in responseList[i].notices) notice.about(bundle),
+      ]),
+    );
   }
+
+  KnowledgeProjectSearch._(
+    this.bundles,
+    this.responses,
+    this.freshness,
+    this.matches,
+    this.context,
+    this.notices,
+  );
 
   /// The bundles searched, in order.
   final List<ProjectBundle> bundles;
@@ -230,16 +246,16 @@ final class KnowledgeProjectSearch {
   final List<KnowledgeSearchFreshness> freshness;
 
   /// The best matches across all bundles, best first.
-  late final List<KnowledgeCitation> matches;
+  final List<KnowledgeCitation> matches;
 
   /// The matches and the relationship context reached from each, in that
   /// order, within the limit.
-  late final List<KnowledgeCitation> context;
+  final List<KnowledgeCitation> context;
 
   /// Each bundle's notices in bundle order, each naming its
   /// [KnowledgeNotice.bundle], so its [KnowledgeNotice.text] starts with the
   /// bundle's name.
-  late final List<KnowledgeNotice> notices;
+  final List<KnowledgeNotice> notices;
 
   /// The JSON of `wayfinder search --output=json` in project mode.
   Map<String, Object?> toJson() => {
