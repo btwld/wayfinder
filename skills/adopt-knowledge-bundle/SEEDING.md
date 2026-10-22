@@ -4,6 +4,14 @@ The generic parts of an adoption seed. The selected Profile's skill supplies
 the rest: its own root-file templates and any agent-instruction lines.
 Replace placeholders with project facts.
 
+This text is `KnowledgeSeeds` in `package:wayfinder/adoption.dart`, and a
+test keeps the two equal. `KnowledgeAdoption` fills the placeholders from
+the request and the resolved Profile: the Profile's id and source, with the
+resolved commit as `ref` when none is named; the OKF release its chain
+implements; and the day of adoption. It writes the files below. Its plan
+returns the `### Knowledge bundle` block as text, and
+`KnowledgeSeeds.wayfinderInstructions()` holds the `### Wayfinder` block.
+
 ## `wayfinder.json`
 
 At the project root:
@@ -61,6 +69,16 @@ hand only while the bundle holds no concepts. Once it holds one,
 `wayfinder validate knowledge --fix` writes every generated index. Never
 edit a generated index by hand. Without such a Profile, keep each
 `index.md` current yourself, as OKF §8 describes.
+
+## `.gitignore`
+
+okf creates its lock file, `.okf.lock`, at the bundle root when it first
+writes the bundle. Add this line to the project's `.gitignore` unless
+`.gitignore` already lists it:
+
+```gitignore
+knowledge/.okf.lock
+```
 
 ## Agent instructions
 

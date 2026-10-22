@@ -167,6 +167,72 @@ final class ProfileLock {
   }
 }
 
+/// How a resolution reached the network for a Profile source.
+enum ProfileFetchKind {
+  /// Cloned a source the cache did not hold yet.
+  clone('clone'),
+
+  /// Refreshed a cached source's refs (`git remote update`).
+  refresh('refresh');
+
+  const ProfileFetchKind(this.wireValue);
+  final String wireValue;
+}
+
+/// One Git fetch a resolution made into the Profile cache: [git] as the
+/// configuration spells it, [location] as Git reached it, and the [ref] it
+/// was looking for, or null for the source's default branch.
+final class ProfileFetch {
+  const ProfileFetch({
+    required this.kind,
+    required this.git,
+    required this.location,
+    required this.ref,
+  });
+
+  final ProfileFetchKind kind;
+  final String git;
+  final String location;
+  final String? ref;
+
+  Map<String, Object?> toJson() => {
+    'kind': kind.wireValue,
+    'git': git,
+    'location': location,
+    'ref': ref,
+  };
+
+  @override
+  String toString() =>
+      '${kind.wireValue} $git${ref == null ? '' : ' for $ref'}';
+}
+
+/// Whether a resolution may make [fetch], asked just before it runs. A
+/// chain reaches each parent's source only once the child's package is
+/// read, so a plan asks about every source it reaches, including a parent
+/// in another repository that the configuration never names. Answer from
+/// what the person already approved: the source's mirror stays locked
+/// while the policy runs, so it must not wait for them. A refused fetch
+/// throws [ProfileFetchRequiredException]; ask then, and plan again.
+typedef ProfileFetchPolicy = bool Function(ProfileFetch fetch);
+
+/// `fetch-required`: resolving needs [fetch], and the request is offline or
+/// its [ProfileFetchPolicy] refused it. Nothing was fetched for it; the
+/// fetches made before it stay in the Profile cache.
+final class ProfileFetchRequiredException extends WayfinderException {
+  ProfileFetchRequiredException(this.fetch, {required bool offline})
+    : super(
+        'fetch-required',
+        'Resolving needs to ${fetch.kind.wireValue} the Profile source '
+            '${fetch.git}${fetch.ref == null ? '' : ' for ${fetch.ref}'}, '
+            'and ${offline ? 'fetching is not allowed' : 'that fetch was not '
+                      'allowed'}.',
+      );
+
+  /// The fetch resolving needs next.
+  final ProfileFetch fetch;
+}
+
 final class ProfileResolutionResult {
   const ProfileResolutionResult({
     required this.projectRoot,
@@ -223,6 +289,7 @@ final class ProfileResolutionPlan {
     required this.lockPath,
     required this.upgrade,
     required this.fetched,
+    required this.fetches,
     required this.packages,
     required this.lockChanged,
     required this.skills,
@@ -245,6 +312,9 @@ final class ProfileResolutionPlan {
 
   /// Planning cloned or refreshed a Profile source.
   final bool fetched;
+
+  /// Each clone or refresh planning made into the Profile cache, in order.
+  final List<ProfileFetch> fetches;
 
   /// One revision per Profile id across every configured chain.
   final Map<ProfileId, LockedPackage> packages;
@@ -274,6 +344,7 @@ final class ProfileResolutionPlan {
     'lock': lockPath,
     'upgrade': upgrade,
     'fetched': fetched,
+    'fetches': [for (final fetch in fetches) fetch.toJson()],
     'lock_changed': lockChanged,
     'packages': {
       for (final package in packages.values) package.id.value: package.toJson(),
@@ -296,8 +367,9 @@ final class ProfileResolutionPlan {
 ///   each package a plan read, so [select] reads files and never runs Git;
 ///   [restoreCachedPackages] fills it from the mirrors for a cache an
 ///   earlier Wayfinder wrote;
-/// - `projects/<sha256(root)>.get.lock`, held while [apply] or [resolve]
-///   changes a project, and recording that project's root.
+/// - `projects/<sha256(root)>.get.lock`, held while [apply], [resolve] or
+///   an adoption (`package:wayfinder/adoption.dart`) changes a project, and
+///   recording that project's root.
 final class WayfinderProfileResolver {
   WayfinderProfileResolver({
     required this.dataDirectory,
@@ -313,15 +385,23 @@ final class WayfinderProfileResolver {
   /// Resolves every binding's chain, composes it so a broken chain fails
   /// here rather than at validation, locks one revision per Profile id, and
   /// reads each locked package's skill from its locked commit. Fetches only
-  /// when the mirror is missing, a ref must move, or [upgrade] asks; never
+  /// when the mirror is missing, a ref must move, or [upgrade] asks, and
+  /// only what [allowFetch] allows (every fetch when it is null); never
   /// writes in the project.
   Future<ProfileResolutionPlan> plan(
     String project, {
     bool upgrade = false,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     final (:projectRoot, :configFile) = await _locate(project);
-    return _plan(projectRoot, configFile, upgrade: upgrade, cancel: cancel);
+    return _planFile(
+      projectRoot,
+      configFile,
+      upgrade: upgrade,
+      allowFetch: allowFetch,
+      cancel: cancel,
+    );
   }
 
   /// Writes [plan]: the lock, the skills it lists, and the removals. Holds
@@ -338,13 +418,20 @@ final class WayfinderProfileResolver {
   Future<ProfileResolutionResult> resolve(
     String project, {
     bool upgrade = false,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     final (:projectRoot, :configFile) = await _locate(project);
     return _withProjectLock(
       projectRoot,
       () async => _apply(
-        await _plan(projectRoot, configFile, upgrade: upgrade, cancel: cancel),
+        await _planFile(
+          projectRoot,
+          configFile,
+          upgrade: upgrade,
+          allowFetch: allowFetch,
+          cancel: cancel,
+        ),
       ),
     );
   }
@@ -529,33 +616,59 @@ final class WayfinderProfileResolver {
     return (projectRoot: projectRoot, configFile: configFile);
   }
 
-  Future<ProfileResolutionPlan> _plan(
+  Future<ProfileResolutionPlan> _planFile(
     String projectRoot,
     File configFile, {
     required bool upgrade,
+    ProfileFetchPolicy? allowFetch,
     WayfinderCancellation? cancel,
   }) async {
     throwIfCancelled(cancel);
     final configBytes = await configFile.readAsBytes();
+    final lockBytes = await _readBytes(
+      File(p.join(projectRoot, 'wayfinder.lock')),
+    );
+    return _plan(
+      projectRoot,
+      configPath: configFile.path,
+      configBytes: configBytes,
+      lockBytes: lockBytes,
+      session: _Session(
+        projectRoot: projectRoot,
+        upgrade: upgrade,
+        previous: _parseLock(lockBytes),
+        cancel: cancel,
+        allowFetch: allowFetch,
+      ),
+    );
+  }
+
+  /// Plans [configBytes] as the project's `wayfinder.json`. [lockBytes] is
+  /// the lock [apply] expects to find. With [candidate], the configured
+  /// bundles are not checked, because the caller creates and checks them;
+  /// skill directories `get` could not install are recorded there instead
+  /// of thrown; and each binding's composed Profile is kept.
+  Future<ProfileResolutionPlan> _plan(
+    String projectRoot, {
+    required String configPath,
+    required List<int> configBytes,
+    required List<int>? lockBytes,
+    required _Session session,
+    _CandidateSink? candidate,
+  }) async {
+    final cancel = session.cancel;
     final raw = utf8.decode(configBytes);
     final config = WayfinderProjectConfig.parse(raw);
-    final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
-    await _checkBundlePaths(config, projectRoot);
-    final lockBytes = await _readBytes(lockFile);
+    if (candidate == null) await _checkBundlePaths(config, projectRoot);
 
-    final session = _Session(
-      projectRoot: projectRoot,
-      upgrade: upgrade,
-      previous: _parseLock(lockBytes),
-      cancel: cancel,
-    );
     final packages = <ProfileId, LockedPackage>{};
     final skills = <ProfileId, String>{};
     for (final binding in config.profiles.values) {
       final chain = await _resolveChain(binding, session);
-      _compose(binding.id, [
+      final composed = _compose(binding.id, [
         for (final member in chain) member.package,
       ], binding.project);
+      candidate?.profiles[binding.id] = composed;
       for (final member in chain) {
         _insert(packages, member.locked);
         if (member.package.skill case final skill?) {
@@ -563,7 +676,14 @@ final class WayfinderProfileResolver {
         }
       }
     }
-    await _checkSkillDirectories(projectRoot, skills.keys);
+    if (candidate == null) {
+      await _checkSkillDirectories(projectRoot, skills.keys);
+    } else {
+      candidate.skillProblems = await _skillDirectoryProblems(
+        projectRoot,
+        skills.keys,
+      );
+    }
     final ids = skills.keys.toList()
       ..sort((left, right) => left.value.compareTo(right.value));
     final pending = <ProfileId, List<SkillFile>>{};
@@ -585,10 +705,11 @@ final class WayfinderProfileResolver {
         '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n';
     return ProfileResolutionPlan._(
       projectRoot: projectRoot,
-      configPath: configFile.path,
-      lockPath: lockFile.path,
-      upgrade: upgrade,
+      configPath: configPath,
+      lockPath: p.join(projectRoot, 'wayfinder.lock'),
+      upgrade: session.upgrade,
       fetched: session.fetched,
+      fetches: List.unmodifiable(session.fetches),
       packages: lock.packages,
       lockChanged:
           lockBytes == null || !_sameBytes(lockBytes, utf8.encode(text)),
@@ -617,7 +738,13 @@ final class WayfinderProfileResolver {
     );
   }
 
-  Future<ProfileResolutionResult> _apply(ProfileResolutionPlan plan) async {
+  /// Writes [plan] once its inputs are unchanged. Without [prune], marked
+  /// skill directories of other Profiles and interrupted copies stay for
+  /// the next `get`.
+  Future<ProfileResolutionResult> _apply(
+    ProfileResolutionPlan plan, {
+    bool prune = true,
+  }) async {
     final configFile = File(plan.configPath);
     final lockFile = File(plan.lockPath);
     final configBytes = await _readBytes(configFile);
@@ -630,12 +757,7 @@ final class WayfinderProfileResolver {
         plan._lockSha256) {
       throw _stale('wayfinder.lock');
     }
-    for (final MapEntry(key: path, value: digest) in plan._snapshots.entries) {
-      final bytes = await _readBytes(File(path));
-      if (bytes == null || sha256.convert(bytes).toString() != digest) {
-        throw _stale('The Profile cache');
-      }
-    }
+    await _checkSnapshots(plan);
     final projectRoot = plan.projectRoot;
     final shipped = {for (final skill in plan.skills) skill.id};
     await _checkSkillDirectories(projectRoot, shipped);
@@ -647,7 +769,9 @@ final class WayfinderProfileResolver {
         files,
       );
     }
-    final removed = await ProfileSkills.prune(projectRoot, shipped);
+    final removed = prune
+        ? await ProfileSkills.prune(projectRoot, shipped)
+        : const <String>[];
     return ProfileResolutionResult(
       projectRoot: projectRoot,
       configPath: plan.configPath,
@@ -663,6 +787,17 @@ final class WayfinderProfileResolver {
       skills: plan.skills,
       removedSkills: removed,
     );
+  }
+
+  /// Throws `resolution-stale` when a package file [plan] read in the cache
+  /// has changed since.
+  static Future<void> _checkSnapshots(ProfileResolutionPlan plan) async {
+    for (final MapEntry(key: path, value: digest) in plan._snapshots.entries) {
+      final bytes = await _readBytes(File(path));
+      if (bytes == null || sha256.convert(bytes).toString() != digest) {
+        throw _stale('The Profile cache');
+      }
+    }
   }
 
   static WayfinderException _stale(String what) => WayfinderException(
@@ -708,14 +843,11 @@ final class WayfinderProfileResolver {
     String projectRoot,
     Iterable<ProfileId> ids,
   ) async {
-    if (ids.isNotEmpty) {
-      if (await ProfileSkills.escapingProblem(projectRoot)
-          case final problem?) {
-        throw WayfinderProfileResolutionException(problem);
-      }
+    final problems = await _skillDirectoryProblems(projectRoot, ids);
+    if (problems.escaping case final problem?) {
+      throw WayfinderProfileResolutionException(problem);
     }
-    final unowned = await ProfileSkills.unowned(projectRoot, ids);
-    if (unowned.isNotEmpty) {
+    if (problems.unowned case final unowned when unowned.isNotEmpty) {
       throw WayfinderProfileResolutionException(
         '${unowned.join(', ')} already exists without a '
         '${ProfileSkills.marker} marker, so wayfinder did not install it. '
@@ -724,6 +856,19 @@ final class WayfinderProfileResolver {
       );
     }
   }
+
+  /// Why the skills of [ids] could not be installed: the message for skill
+  /// roots that resolve outside the project, and the existing unmarked
+  /// directories.
+  static Future<SkillDirectoryProblems> _skillDirectoryProblems(
+    String projectRoot,
+    Iterable<ProfileId> ids,
+  ) async => (
+    escaping: ids.isEmpty
+        ? null
+        : await ProfileSkills.escapingProblem(projectRoot),
+    unowned: await ProfileSkills.unowned(projectRoot, ids),
+  );
 
   Future<void> _checkBundlePaths(
     WayfinderProjectConfig config,
@@ -938,29 +1083,11 @@ final class WayfinderProfileResolver {
               .firstOrNull
               ?.commit;
     if (!await root.exists()) {
-      final temporary = Directory(
-        '${root.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      try {
-        session.fetched = true;
-        // --progress keeps a long clone writing, so runGit's inactivity
-        // timeout stops only a clone that stalls.
-        final result = await _git(session, [
-          'clone',
-          '--mirror',
-          '--progress',
-          '--',
-          location,
-          temporary.path,
-        ]);
-        _checkGit(result, 'clone Profile source ${source.git}');
-        await temporary.rename(root.path);
-      } on Object {
-        if (await temporary.exists()) await temporary.delete(recursive: true);
-        rethrow;
-      }
-    } else if (preferred == null && !_commitRef.hasMatch(source.ref)) {
-      session.fetched = true;
+      await _cloneMirror(source, location, root, session);
+    } else if (preferred == null &&
+        !_commitRef.hasMatch(source.ref) &&
+        !session.offline) {
+      session.fetch(ProfileFetchKind.refresh, source, location);
       final result = await _git(session, [
         'remote',
         'update',
@@ -972,7 +1099,7 @@ final class WayfinderProfileResolver {
       return _resolveRefWithFetch(root, source, session);
     }
     if (!await _hasCommit(root, preferred, session)) {
-      session.fetched = true;
+      session.fetch(ProfileFetchKind.refresh, source, location);
       final result = await _git(session, [
         'remote',
         'update',
@@ -992,6 +1119,43 @@ final class WayfinderProfileResolver {
       }
     }
     return preferred;
+  }
+
+  /// Clones [source]'s repository at [location] into the mirror [root],
+  /// under the mirror's lock.
+  Future<void> _cloneMirror(
+    WayfinderProfileSource source,
+    String location,
+    Directory root,
+    _Session session, {
+    bool defaultBranch = false,
+  }) async {
+    session.fetch(
+      ProfileFetchKind.clone,
+      source,
+      location,
+      defaultBranch: defaultBranch,
+    );
+    final temporary = Directory(
+      '${root.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      // --progress keeps a long clone writing, so runGit's inactivity
+      // timeout stops only a clone that stalls.
+      final result = await _git(session, [
+        'clone',
+        '--mirror',
+        '--progress',
+        '--',
+        location,
+        temporary.path,
+      ]);
+      _checkGit(result, 'clone Profile source ${source.git}');
+      await temporary.rename(root.path);
+    } on Object {
+      if (await temporary.exists()) await temporary.delete(recursive: true);
+      rethrow;
+    }
   }
 
   Future<GitResult> _git(
@@ -1026,7 +1190,11 @@ final class WayfinderProfileResolver {
   ) async {
     final local = await _resolveRef(repository, source.ref, session);
     if (local != null) return local;
-    session.fetched = true;
+    session.fetch(
+      ProfileFetchKind.refresh,
+      source,
+      _gitLocation(source.git, session.projectRoot),
+    );
     final result = await _git(session, [
       'remote',
       'update',
@@ -1368,6 +1536,171 @@ final class WayfinderProfileResolver {
   }
 }
 
+/// Why `get` could not install a chain's skills: the message for skill
+/// roots that resolve outside the project, and the existing directories
+/// that hold no marker for their id.
+typedef SkillDirectoryProblems = ({String? escaping, List<String> unowned});
+
+final class _CandidateSink {
+  final profiles = <ProfileId, EffectiveProfile>{};
+  SkillDirectoryProblems skillProblems = (escaping: null, unowned: const []);
+}
+
+/// A plan of `get` for a configuration that is not in the project yet, from
+/// [planCandidateResolution]. Only `package:wayfinder/adoption.dart` uses
+/// it; `project.dart` does not export it.
+final class CandidateResolution {
+  CandidateResolution._(this.plan, this.profiles, this.skillProblems);
+
+  /// What [applyCandidateResolution] writes once the configuration is on
+  /// disk with exactly the planned bytes and no lock exists.
+  final ProfileResolutionPlan plan;
+
+  /// Each binding's composed chain, by its Profile id.
+  final Map<ProfileId, EffectiveProfile> profiles;
+
+  /// What stops [plan]'s skills from being installed; apply throws for it.
+  final SkillDirectoryProblems skillProblems;
+
+  /// The files of each skill apply installs, by Profile id. Each lands in
+  /// every directory of `ProfileSkills.directories`, beside the marker.
+  Map<ProfileId, List<SkillFile>> get skillFiles => plan._pending;
+
+  /// The `wayfinder.lock` text apply writes.
+  String get lockText => plan._lockText;
+
+  /// Throws `resolution-stale` when a package file the plan read in the
+  /// cache has changed since, before anything is written.
+  Future<void> checkCache() => WayfinderProfileResolver._checkSnapshots(plan);
+}
+
+/// Plans `get` for [configuration], the `wayfinder.json` bytes adoption will
+/// write, before the file exists. Ignores any lock in the project, so the
+/// plan expects none, and checks no configured bundle: the caller creates
+/// and checks them. Unmarked or escaping skill directories are reported in
+/// [CandidateResolution.skillProblems] instead of thrown. With [offline],
+/// refs resolve in the cached mirrors as they are, and a fetch the plan
+/// still needs throws [ProfileFetchRequiredException]; otherwise
+/// [allowFetch] decides each fetch.
+Future<CandidateResolution> planCandidateResolution(
+  WayfinderProfileResolver resolver, {
+  required String projectRoot,
+  required List<int> configuration,
+  bool offline = false,
+  ProfileFetchPolicy? allowFetch,
+  WayfinderCancellation? cancel,
+}) async {
+  throwIfCancelled(cancel);
+  final sink = _CandidateSink();
+  final plan = await resolver._plan(
+    projectRoot,
+    configPath: p.join(projectRoot, 'wayfinder.json'),
+    configBytes: configuration,
+    lockBytes: null,
+    session: _Session(
+      projectRoot: projectRoot,
+      upgrade: false,
+      previous: null,
+      cancel: cancel,
+      offline: offline,
+      allowFetch: allowFetch,
+    ),
+    candidate: sink,
+  );
+  return CandidateResolution._(
+    plan,
+    Map.unmodifiable(sink.profiles),
+    sink.skillProblems,
+  );
+}
+
+/// Runs [action] holding [resolver]'s `get` lock of the project at
+/// [projectRoot], as [WayfinderProfileResolver.apply] does, so no `get`
+/// changes the project meanwhile. Throws `resolution-busy` while another
+/// holder has it. The lock does not nest: inside [action], write a plan
+/// with [applyCandidateResolution], never with `apply`.
+Future<T> withProjectLock<T>(
+  WayfinderProfileResolver resolver,
+  String projectRoot,
+  Future<T> Function() action,
+) => resolver._withProjectLock(projectRoot, action);
+
+/// Writes [resolution] as [WayfinderProfileResolver.apply] would, refusing
+/// changed inputs the same way, for a caller that already holds the
+/// project's lock through [withProjectLock]. It deletes nothing: marked
+/// skill directories of other Profiles are the caller's to report, and
+/// interrupted copies wait for the next `get`.
+Future<ProfileResolutionResult> applyCandidateResolution(
+  WayfinderProfileResolver resolver,
+  CandidateResolution resolution,
+) => resolver._apply(resolution.plan, prune: false);
+
+/// The commit at the default branch (`HEAD`) of the Profile source [git],
+/// as resolving it from [projectRoot] reaches it. Clones the source into the
+/// cache when it is missing and refreshes it otherwise, as [allowFetch]
+/// allows, unless [offline], which reads a cached mirror as it is and
+/// throws [ProfileFetchRequiredException] without one.
+Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
+  WayfinderProfileResolver resolver, {
+  required String projectRoot,
+  required String git,
+  bool offline = false,
+  ProfileFetchPolicy? allowFetch,
+  WayfinderCancellation? cancel,
+}) async {
+  final session = _Session(
+    projectRoot: projectRoot,
+    upgrade: false,
+    previous: null,
+    cancel: cancel,
+    offline: offline,
+    allowFetch: allowFetch,
+  );
+  final source = WayfinderProfileSource(git: git, ref: 'HEAD', path: '.');
+  final commit = await resolver._withMirror(source, session, (
+    location,
+    mirror,
+  ) async {
+    if (!await mirror.exists()) {
+      await resolver._cloneMirror(
+        source,
+        location,
+        mirror,
+        session,
+        defaultBranch: true,
+      );
+    } else if (!offline) {
+      session.fetch(
+        ProfileFetchKind.refresh,
+        source,
+        location,
+        defaultBranch: true,
+      );
+      final result = await resolver._git(session, [
+        'remote',
+        'update',
+        '--prune',
+      ], workingDirectory: mirror.path);
+      resolver._checkGit(result, 'refresh Profile source $git');
+    }
+    final result = await resolver._git(session, [
+      'rev-parse',
+      '--verify',
+      'HEAD^{commit}',
+    ], workingDirectory: mirror.path);
+    if (result.exitCode != 0) {
+      throw WayfinderProfileResolutionException(
+        'Profile source $git has no default branch to resolve. Name a ref.',
+      );
+    }
+    return result.text.trim();
+  });
+  return (
+    commit: commit,
+    fetches: List<ProfileFetch>.unmodifiable(session.fetches),
+  );
+}
+
 /// A failure to resolve or select a Profile. [diagnostic] is how validation
 /// reports it when it finds no usable Profile; [code] is its value.
 final class WayfinderProfileResolutionException extends WayfinderException {
@@ -1385,6 +1718,8 @@ final class _Session {
     required this.upgrade,
     required this.previous,
     required this.cancel,
+    this.offline = false,
+    this.allowFetch,
   });
 
   final String projectRoot;
@@ -1392,10 +1727,41 @@ final class _Session {
   final ProfileLock? previous;
   final WayfinderCancellation? cancel;
 
-  bool fetched = false;
+  /// Refuse to reach the network: a cached mirror is read as it is, without
+  /// refreshing a branch or tag, and [fetch] throws `fetch-required`.
+  final bool offline;
+
+  /// Decides each fetch when not [offline]; null allows every one.
+  final ProfileFetchPolicy? allowFetch;
+
+  bool get fetched => fetches.isNotEmpty;
+
+  /// Each clone or refresh, in order.
+  final fetches = <ProfileFetch>[];
 
   /// Each package file read, by cache path, with the SHA-256 of its bytes.
   final snapshots = <String, String>{};
+
+  /// Records a fetch of [source] that is about to run, or throws
+  /// [ProfileFetchRequiredException] when [offline] or [allowFetch] refuses
+  /// it.
+  void fetch(
+    ProfileFetchKind kind,
+    WayfinderProfileSource source,
+    String location, {
+    bool defaultBranch = false,
+  }) {
+    final fetch = ProfileFetch(
+      kind: kind,
+      git: source.git,
+      location: location,
+      ref: defaultBranch ? null : source.ref,
+    );
+    if (offline || !(allowFetch?.call(fetch) ?? true)) {
+      throw ProfileFetchRequiredException(fetch, offline: offline);
+    }
+    fetches.add(fetch);
+  }
 }
 
 /// The validation the CLI and MCP server share: [resolver]'s selection for

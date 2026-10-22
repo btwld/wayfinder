@@ -54,6 +54,10 @@ export 'src/project/graph_input.dart' show wayfinderGraphInput;
 export 'src/project/profile_resolver.dart'
     show
         LockedPackage,
+        ProfileFetch,
+        ProfileFetchKind,
+        ProfileFetchPolicy,
+        ProfileFetchRequiredException,
         ProfileLock,
         ProfileResolutionPlan,
         ProfileResolutionResult,

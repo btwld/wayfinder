@@ -74,6 +74,17 @@ void main() {
     expect(await lockFile().exists(), isFalse);
     expect(plan.lockChanged, isTrue);
     expect(plan.fetched, isTrue);
+    expect(plan.fetches.map((fetch) => (fetch.kind, fetch.git, fetch.ref)), [
+      (ProfileFetchKind.clone, source.path, 'v2026.3'),
+    ]);
+    expect(plan.toJson()['fetches'], [
+      {
+        'kind': 'clone',
+        'git': source.path,
+        'location': source.path,
+        'ref': 'v2026.3',
+      },
+    ]);
     expect(plan.packages.keys, [_bitwild]);
     expect(plan.toJson()['skills'], [
       {
@@ -122,10 +133,52 @@ void main() {
     final plan = await resolver.plan(project.path);
     expect(plan.lockChanged, isFalse);
     expect(plan.fetched, isFalse);
+    expect(plan.fetches, isEmpty);
     expect(calls.map((call) => call.first), isNot(contains('clone')));
     final result = await resolver.apply(plan);
     expect(result.reused, isTrue);
     expect(await lockFile().readAsBytes(), lock);
+  });
+
+  test('a fetch policy decides each fetch before it runs', () async {
+    final asked = <ProfileFetch>[];
+    await expectLater(
+      resolver.plan(
+        project.path,
+        allowFetch: (fetch) {
+          asked.add(fetch);
+          return false;
+        },
+      ),
+      throwsA(
+        isA<ProfileFetchRequiredException>()
+            .having((error) => error.code, 'code', 'fetch-required')
+            .having(
+              (error) =>
+                  (error.fetch.kind, error.fetch.location, error.fetch.ref),
+              'fetch',
+              (ProfileFetchKind.clone, source.path, 'v2026.3'),
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              contains('that fetch was not allowed'),
+            ),
+      ),
+    );
+    expect(asked.map((fetch) => fetch.location), [source.path]);
+    expect(calls.map((call) => call.first), isNot(contains('clone')));
+    await expectLater(
+      resolver.resolve(project.path, allowFetch: (_) => false),
+      failsWith('fetch-required'),
+    );
+    expect(await lockFile().exists(), isFalse);
+
+    final plan = await resolver.plan(
+      project.path,
+      allowFetch: (fetch) => fetch.location == source.path,
+    );
+    expect(plan.fetches.map((fetch) => fetch.kind), [ProfileFetchKind.clone]);
   });
 
   test('select runs no Git command at all', () async {
