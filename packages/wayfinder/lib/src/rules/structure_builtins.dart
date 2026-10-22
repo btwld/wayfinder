@@ -29,6 +29,17 @@ final matchesGeneratedParams = Ack.object({
   'extra': Ack.enumString(['report', 'ignore']).optional(),
 });
 
+/// Names the generator revision this engine runs when [params] pin
+/// another, so the author of a package that cannot load learns the value
+/// from the engine rather than from okf's source.
+String? matchesGeneratedRevisionMismatch(Map<String, Object?> params) =>
+    switch (params['version']) {
+      final String version when version != okfIndexGeneratorRevision =>
+        'this wayfinder runs okf generator revision '
+            '$okfIndexGeneratorRevision, not $version',
+      _ => null,
+    };
+
 /// What `generator` writes for the bundle, by bundle-relative path. The
 /// generated text declares the Profile's `implements.release`. The bytes are
 /// those of the engine's okf release, reported as `engine.okf`, and every okf

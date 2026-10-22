@@ -5,7 +5,9 @@
   it runs as `engine.okf`, `0.5.1` or later, and a Profile's
   `matches-generated` `version` names okf's index generator revision, which
   stays 0.5.0. Index verdicts are unchanged, and a Profile that pins
-  `version` to `0.5.0`, such as Bitwild 2026.3, keeps loading.
+  `version` to `0.5.0`, such as Bitwild 2026.3, keeps loading. A `version`
+  that names another revision fails to load with a reason that names the
+  revision this wayfinder runs.
 
 # 0.2.0
 
