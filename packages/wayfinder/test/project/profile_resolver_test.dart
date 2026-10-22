@@ -1,6 +1,7 @@
 // The tests edit wayfinder.json and wayfinder.lock as decoded JSON.
 // ignore_for_file: avoid_dynamic_calls
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -1712,6 +1713,18 @@ void main() {
       var status = await resolver.status(project.path);
       expect(status.resolved, isTrue);
       expect(status.bindings.map((binding) => binding.id), [_bitwild, solo]);
+
+      // One read of the lock serves the project's lockChange and every
+      // binding, so all of them describe the same lock even while a get
+      // replaces it; select reads it once too.
+      for (final read in [
+        () => resolver.status(project.path),
+        () => resolver.select(bundle),
+      ]) {
+        final opens = _LockOpens();
+        await IOOverrides.runWithIOOverrides(read, opens);
+        expect(opens.count, 1);
+      }
       expect(status.of(solo)!.appliesTo, ['other']);
       expect(status.toJson(), containsPair('resolved', true));
 
@@ -2283,3 +2296,21 @@ bool _fetches(List<String> call) => const {
   'pull',
   'ls-remote',
 }.contains(call.first);
+
+/// Counts the `wayfinder.lock` files opened while it is in force.
+final class _LockOpens extends IOOverrides {
+  var count = 0;
+
+  @override
+  File createFile(String path) {
+    if (p.basename(path) == 'wayfinder.lock') count++;
+    return super.createFile(path);
+  }
+
+  // The inherited type lookup passes the native call a path without its
+  // terminating NUL, so the real lookup runs outside the overrides instead.
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) => Zone
+      .root
+      .run(() => FileSystemEntity.type(path, followLinks: followLinks));
+}
