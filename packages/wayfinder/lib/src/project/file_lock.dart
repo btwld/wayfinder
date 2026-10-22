@@ -280,8 +280,8 @@ final class _PosixHandle extends _Handle {
         (exclusive ? _Libc.lockExclusive : _Libc.lockShared) |
         _Libc.lockNonBlocking;
     while (true) {
-      if (libc.flock(descriptor, operation) == 0) return _locked = true;
-      final errno = libc.errno;
+      final errno = libc.flockErrno(descriptor, operation);
+      if (errno == 0) return _locked = true;
       if (errno == libc.wouldBlock) return false;
       if (errno == _Libc.interrupted) continue;
       throw FileSystemException(
@@ -317,8 +317,12 @@ final class _PosixHandle extends _Handle {
   }
 }
 
-/// The few libc calls the POSIX lock needs, as leaf calls: no VM transition
-/// runs between a failed call and the read of its `errno`.
+/// The few libc calls the POSIX lock needs.
+///
+/// `errno` is thread-local. Two leaf calls still return to Dart between
+/// them, and the isolate can resume on another thread, so a later read can
+/// observe a stale `errno` (22 is the value this hit under load).
+/// [flockErrno] does not read `errno` after `flock`.
 final class _Libc {
   _Libc._(DynamicLibrary library, {required bool apple})
     : open = library
@@ -344,6 +348,7 @@ final class _Libc {
                 : '__errno_location',
             isLeaf: true,
           ),
+      _flockSyscall = _loadFlockSyscall(library),
       create = apple ? 0x200 : 0x40,
       closeOnExec = apple ? 0x1000000 : 0x80000,
       wouldBlock = apple ? 35 : 11,
@@ -368,6 +373,31 @@ final class _Libc {
   final int Function(int) close;
   final Pointer<Int32> Function() _errno;
 
+  /// Linux x64 `flock` syscall: 0, or `-errno` in the result register.
+  /// Null where that stub is not installed.
+  final int Function(int, int)? _flockSyscall;
+
+  /// 0 when a non-blocking `flock` took the lock, otherwise an errno.
+  ///
+  /// Where [_flockSyscall] is installed, the syscall result is the errno.
+  /// Otherwise this reads `errno` afterwards. That read can belong to
+  /// another thread. Apple cannot map an executable stub without a JIT
+  /// entitlement, and any host whose stub failed to install is in the same
+  /// place, so an unexpected errno on this non-blocking try is reported as
+  /// busy and the caller retries.
+  int flockErrno(int descriptor, int operation) {
+    final syscall = _flockSyscall;
+    if (syscall != null) {
+      final result = syscall(descriptor, operation);
+      if (result == 0) return 0;
+      return result < 0 ? -result : result;
+    }
+    if (flock(descriptor, operation) == 0) return 0;
+    final errno = this.errno;
+    if (errno == wouldBlock || errno == _Libc.interrupted) return errno;
+    return wouldBlock;
+  }
+
   /// `O_CREAT`, `O_CLOEXEC` and `EWOULDBLOCK`, which differ between Apple
   /// platforms and Linux.
   final int create;
@@ -378,6 +408,68 @@ final class _Libc {
   final _FileIdentity? identity;
 
   int get errno => _errno().value;
+}
+
+/// Pages holding the flock syscall stub. The function pointer points into
+/// one of them, so they stay mapped for the process.
+final _flockStubPages = <Pointer<Uint8>>[];
+
+/// One x86-64 `flock` syscall, or null when it cannot be installed.
+///
+/// `__NR_flock` is 73. Arguments arrive in `rdi` and `rsi`, which is where
+/// the kernel reads them, and the result is 0 or `-errno`. The page is
+/// written, then marked executable, so it is never writable and executable
+/// at once. Other architectures, and a host that refuses the mapping, keep
+/// the libc call.
+int Function(int, int)? _loadFlockSyscall(DynamicLibrary library) {
+  if (!Platform.isLinux && !Platform.isAndroid) return null;
+  final abi = Abi.current();
+  if (abi != Abi.linuxX64 && abi != Abi.androidX64) return null;
+  try {
+    final mmap = library
+        .lookupFunction<
+          Pointer<Uint8> Function(
+            Pointer<Uint8>,
+            IntPtr,
+            Int32,
+            Int32,
+            Int32,
+            Int64,
+          ),
+          Pointer<Uint8> Function(Pointer<Uint8>, int, int, int, int, int)
+        >('mmap', isLeaf: true);
+    final mprotect = library
+        .lookupFunction<
+          Int32 Function(Pointer<Uint8>, IntPtr, Int32),
+          int Function(Pointer<Uint8>, int, int)
+        >('mprotect', isLeaf: true);
+    const read = 1;
+    const write = 2;
+    const execute = 4;
+    const mapPrivate = 2;
+    const mapAnonymous = 0x20;
+    final page = mmap(
+      nullptr,
+      4096,
+      read | write,
+      mapPrivate | mapAnonymous,
+      -1,
+      0,
+    );
+    if (page.address == 0 || page.address == -1) return null;
+    // mov eax, 73; syscall; ret
+    const bytes = [0xb8, 73, 0, 0, 0, 0x0f, 0x05, 0xc3];
+    for (var i = 0; i < bytes.length; i++) {
+      page[i] = bytes[i];
+    }
+    if (mprotect(page, 4096, read | execute) != 0) return null;
+    _flockStubPages.add(page);
+    return page.cast<NativeFunction<Int64 Function(Int64, Int64)>>().asFunction(
+      isLeaf: true,
+    );
+  } on ArgumentError {
+    return null;
+  }
 }
 
 /// Compares the device and inode, from `fstat(2)`, of a descriptor and of a
