@@ -259,19 +259,24 @@ abstract final class ProfileSkills {
     r'^\.([a-z0-9-]+)\.(?:staged|old)-\d+-\d+$',
   );
 
-  static Future<void> _createMarked(
-    Directory directory,
-    SkillRevision revision,
-  ) async {
-    await directory.create(recursive: true);
+  /// The [marker] file's text for [revision].
+  static String markerText(SkillRevision revision) {
     final text = const JsonEncoder.withIndent('  ').convert({
       'id': revision.id.value,
       'release': revision.release,
       'commit': revision.commit,
     });
+    return '$text\n';
+  }
+
+  static Future<void> _createMarked(
+    Directory directory,
+    SkillRevision revision,
+  ) async {
+    await directory.create(recursive: true);
     await File(
       p.join(directory.path, marker),
-    ).writeAsString('$text\n', flush: true);
+    ).writeAsString(markerText(revision), flush: true);
   }
 
   static Future<bool> _owned(Directory directory, String id) async =>

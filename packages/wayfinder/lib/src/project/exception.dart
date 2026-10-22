@@ -12,6 +12,10 @@
 ///   Profile cache stays locked past its timeout;
 /// - `resolution-stale` when the configuration, lock or Profile cache changed
 ///   after a plan;
+/// - from `package:wayfinder/adoption.dart`: `adoption-invalid`,
+///   `adoption-conflict`, `adoption-stale`, `adoption-busy` and
+///   `adoption-failed`, and `fetch-required` when an offline plan would have
+///   to clone or refresh a Profile source;
 /// - `data-directory-unavailable` when no data directory can be located;
 /// - `git-timeout` when a Git command writes nothing for its timeout;
 /// - `cancelled` when a `WayfinderCancellation` stopped the operation; a

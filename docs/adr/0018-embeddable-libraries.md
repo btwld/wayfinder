@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-22
+- Updated: 2026-10-22 (the adoption lock, with [ADR-0020](0020-programmatic-adoption.md))
 - Scope: the public Dart entries, what a host injects, Wayfinder's lock files, and the CLI's role; no Profile rule and no change to results
 - Builds on [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0012](0012-wayfinder-graph-projection.md)
 
@@ -84,6 +85,7 @@ descriptor never releases them. A lock file stays in place on release.
 | --- | --- | --- | --- |
 | A Profile source's mirror, while a plan clones, refreshes or reads it | `profiles/<sha256(location)>.lock` | exclusive, waits up to 120 s; restoring package files never waits | waits, then `resolution-busy`; restoring skips the mirror |
 | A project's `get` | `projects/<sha256(root)>.get.lock` | exclusive, never waits | `resolution-busy` |
+| A project's adoption ([ADR-0020](0020-programmatic-adoption.md)), while it applies | `projects/<sha256(root)>.adopt.lock` | exclusive, never waits | `adoption-busy` |
 
 A plan holds one mirror's lock at a time, so two plans never deadlock. The
 project lock records the project root it protects, so a later cleanup can

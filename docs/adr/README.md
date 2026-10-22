@@ -31,3 +31,4 @@ relevant guide; an ADR records the durable choice and links there.
 | [0016](0016-independent-profile-packages.md) | Every Profile is an independent package the validator enforces |
 | [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; preserve model, storage, context, and generic reranking |
 | [0018](0018-embeddable-libraries.md) | Public project and retrieval libraries; the host injects resources; `flock` lock files; one isolate for okf bundle I/O |
+| [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing |

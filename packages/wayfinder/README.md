@@ -85,3 +85,65 @@ wayfinder mcp knowledge
 For indexing and search without native setup, use the complete scripted
 installation in the [installation guide](../../docs/install.md).
 The reusable retrieval library is `wayfinder_embeddings`.
+
+## Adoption
+
+`package:wayfinder/adoption.dart` adopts a Profile in a project, as the
+[`adopt-knowledge-bundle`](../../skills/adopt-knowledge-bundle/SKILL.md)
+skill does, for a host that sets projects up itself:
+
+```dart
+import 'dart:io';
+
+import 'package:wayfinder/adoption.dart';
+import 'package:wayfinder/project.dart';
+import 'package:wayfinder/wayfinder.dart';
+
+Future<void> main() async {
+  final adoption = KnowledgeAdoption(
+    resolver: WayfinderProfileResolver(
+      dataDirectory: WayfinderDataDirectory.resolve(),
+    ),
+  );
+  final plan = await adoption.plan(
+    AdoptionRequest(
+      projectRoot: Directory.current.path,
+      profile: ProfileId.parse('bitwild-profile'),
+      source: const AdoptionSource(
+        git: 'https://github.com/btwld/wayfinder',
+        path: 'profiles/bitwild',
+      ),
+    ),
+  );
+  for (final file in plan.files) print('${file.action.wireValue} ${file.path}');
+  for (final conflict in plan.conflicts) print(conflict);
+  if (!plan.applicable) return;
+  final result = await adoption.apply(plan);
+  print('gate ${result.validation?.gate.wireValue}');
+  print(plan.agentInstructions); // for AGENTS.md
+}
+```
+
+- `plan` writes nothing in the project. It resolves the Profile, which may
+  clone or refresh it in the Profile cache (an offline request throws
+  `fetch-required` instead), and lists every file `apply` writes with its
+  text or digest, every Git fetch, the Profile's source, release and chain,
+  the conflicts that stop it, and the gate the adopted bundle will have.
+- A request without a ref pins the source's default branch in
+  `wayfinder.json` as the commit it resolves to.
+- `apply` writes `wayfinder.json`, `wayfinder.lock`, the seeded bundle
+  (`index.md`, `log.md` and any seed concepts the host passes), the Profile
+  skills and, unless the request says otherwise, a `knowledge/.okf.lock`
+  line in `.gitignore`. It refuses a plan with conflicts or whose inputs
+  changed, before writing, and undoes earlier steps when one fails, so the
+  project never holds a partial bundle. It then validates: `PASS` completes
+  adoption.
+- It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks. The plan
+  returns the `### Knowledge bundle` block as text for the host to place.
+- An existing `wayfinder.json` or `wayfinder.lock`, a bundle directory that
+  already holds files (unless the request binds it), and a skill directory
+  without Wayfinder's marker are conflicts.
+- `KnowledgeSeeds` holds the generic seed text.
+
+[ADR-0020](../../docs/adr/0020-programmatic-adoption.md) records these
+decisions.

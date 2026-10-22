@@ -74,6 +74,17 @@ void main() {
     expect(await lockFile().exists(), isFalse);
     expect(plan.lockChanged, isTrue);
     expect(plan.fetched, isTrue);
+    expect(plan.fetches.map((fetch) => (fetch.kind, fetch.git, fetch.ref)), [
+      (ProfileFetchKind.clone, source.path, 'v2026.3'),
+    ]);
+    expect(plan.toJson()['fetches'], [
+      {
+        'kind': 'clone',
+        'git': source.path,
+        'location': source.path,
+        'ref': 'v2026.3',
+      },
+    ]);
     expect(plan.packages.keys, [_bitwild]);
     expect(plan.toJson()['skills'], [
       {
@@ -122,6 +133,7 @@ void main() {
     final plan = await resolver.plan(project.path);
     expect(plan.lockChanged, isFalse);
     expect(plan.fetched, isFalse);
+    expect(plan.fetches, isEmpty);
     expect(calls.map((call) => call.first), isNot(contains('clone')));
     final result = await resolver.apply(plan);
     expect(result.reused, isTrue);

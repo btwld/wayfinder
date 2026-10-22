@@ -52,6 +52,26 @@
   sources, bundles, vocabulary and actors and keeps every field it does not
   model. The definitions, actors, sources, bindings and `ProjectVocabulary`
   gain `toJson`.
+- `ProfileResolutionPlan.fetches` lists each clone or refresh a plan made,
+  as `ProfileFetch` values, and its JSON gains `fetches`.
+- New `package:wayfinder/adoption.dart` (ADR-0020): `KnowledgeAdoption.plan`
+  reads a project and resolves a Profile, writing nothing in the project, and
+  lists every file it would write with its text or digest, every Git fetch,
+  the Profile's source, release and chain, the skills it installs, the
+  conflicts that stop it, and the gate the adopted bundle will have.
+  `KnowledgeAdoption.apply` writes `wayfinder.json`, `wayfinder.lock`
+  through the resolver, the seeded bundle (`index.md`, `log.md` and the seed
+  concepts a host passes, with generated indexes), the Profile skills and a
+  `<bundle>/.okf.lock` line in `.gitignore`, reporting each step. It refuses
+  a plan with conflicts (`adoption-conflict`) or whose inputs changed
+  (`adoption-stale`, `resolution-stale`) before writing, holds
+  `projects/<sha256(root)>.adopt.lock` (`adoption-busy`), and undoes earlier
+  steps when one fails. A request without a ref pins the default branch as
+  its commit, and an offline request reads the Profile cache as it is and
+  throws `fetch-required` where it would fetch. Adoption never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or
+  hooks; the plan returns the `### Knowledge bundle` block as text.
+  `KnowledgeSeeds` holds the generic seed that the adopt-knowledge-bundle
+  skill's `SEEDING.md` shows.
 
 # 0.2.0
 

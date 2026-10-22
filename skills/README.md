@@ -9,7 +9,7 @@ Profile's conventions reach agents through that Profile's own skill.
 | Skill | Invocation | Responsibility |
 | --- | --- | --- |
 | [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model-invoked | Author bundle content and perform Profile Review. Owns OKF mechanics and the write sequence, and loads the skill of each Profile in the bundle's chain. |
-| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Bind a new bundle to a Profile, install its skill, seed the root files the Profile gives, and add agent routing. Generic parts live in [SEEDING.md](adopt-knowledge-bundle/SEEDING.md). |
+| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Bind a new bundle to a Profile, install its skill, seed the root files the Profile gives, and add agent routing. Generic parts live in [SEEDING.md](adopt-knowledge-bundle/SEEDING.md), which is the seed `package:wayfinder/adoption.dart` writes. |
 | [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared assessment reference and each Profile's review map. |
 | [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
 | [create-profile](create-profile/SKILL.md) | user-invoked | Create, revise, or maintain a Profile package: ask its author what a machine enforces and what is judgment, write its rules with tests and its skill, prove both, and release it. |
@@ -72,4 +72,6 @@ or a rewritten specification.
 Keep them Profile-agnostic. A convention one Profile chooses belongs in that
 Profile's skill, written through `create-profile`, never here. When the CLI's
 contract changes, such as a diagnostic id or the JSON shape, search the whole
-family for the old wording, starting with `SEEDING.md`.
+family for the old wording, starting with `SEEDING.md`. Its seed blocks are
+`KnowledgeSeeds` in `package:wayfinder/adoption.dart`: change both together,
+and `packages/wayfinder/test/adoption/seeds_test.dart` checks they agree.
