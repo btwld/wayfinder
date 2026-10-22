@@ -2,12 +2,6 @@
 
 - Quote the bundle path in generated git hooks, and reject control characters
   and a leading `-` in `--bundle`, so the path cannot become shell source.
-- **BREAKING:** MCP `search` and default CLI text `wayfinder search` now return
-  structured Markdown (`## Matches` and `## Related Context`) with
-  `<path>:<lineStart>-<lineEnd>` citations, single-line concept metadata, and
-  resolved `sources` entries instead of the JSON search payload. Callers that
-  require machine-readable JSON must use `wayfinder search --output=json` or
-  remain on `0.2.0`.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval
   service instead of the one-shot CLI default. Preserve explicit Dart knowledge
   factory overrides and ordinary one-shot command behavior.
@@ -28,6 +22,12 @@
 
 # 0.2.0
 
+- **BREAKING:** MCP `search` and default CLI text `wayfinder search` now return
+  structured Markdown (`## Matches` and `## Related Context`) with
+  `<path>:<lineStart>-<lineEnd>` citations, single-line concept metadata, and
+  resolved `sources` entries instead of the JSON search payload. Callers that
+  require machine-readable JSON must use `wayfinder search --output=json` or
+  remain on `0.1.2`.
 - `wayfinder mcp` without a bundle now discovers all configured project bundles,
   matching CLI project search/index. Search ranks them together with one query
   embedding, a global limit, and bundle-aware citations; index refreshes them

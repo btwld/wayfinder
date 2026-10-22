@@ -1,27 +1,7 @@
-/// DartChunker — AST-driven chunker for Dart source files.
-/// -------------------------------------------------------
-/// Features:
-/// - Produces semantically meaningful chunks (class/mixin/extension/enum/etc.)
-/// - Includes documentation comments and annotations in summaries
-/// - Summarizes both containers and large functions/methods/constructors
-/// - Optional "directives" chunk (library/import/export/part)
-/// - Stable line ranges, helpful metadata, and reduced duplication
+/// Chunks Dart source by declaration using the analyzer AST.
 ///
-/// Recommended usage:
-/// - Run this in an ingestion step (desktop/CLI/CI), persist chunks + embeddings
-/// - Ship only the vector DB to your app; avoid bundling the Analyzer in mobile
-///
-/// Requires:
-///   analyzer: ^6.x (dev_dependency)
-///
-/// Example:
-///   final chunker = DartChunker(maxChunkLength: 1600);
-///   final chunks = chunker.chunkContent(content, ChunkMetadata(...));
-///
-/// Notes:
-/// - line numbers are 1-based
-/// - `summary=true` & `truncated=true` metadata when body is omitted
-/// - Set `alwaysSummarizeContainers=false` if you want full container bodies too
+/// Containers are summarized to the signature. Functions are summarized
+/// once they exceed the non-whitespace budget.
 library;
 
 import 'package:analyzer/dart/analysis/utilities.dart';

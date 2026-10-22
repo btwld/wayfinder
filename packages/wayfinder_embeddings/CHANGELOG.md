@@ -1,4 +1,4 @@
-# Unreleased
+# 0.2.0
 
 - **BREAKING:** Dense-only retrieval replaces the former BM25/hybrid paths.
   Supply `embedder:` to both `KnowledgeIndex` constructors; remove
@@ -16,9 +16,6 @@
   ANN queries; callers still own partial vector coverage. No model, snapshot,
   input identity, storage schema, context, or chunking change is implied by this
   cutoff. Compatible saved indexes remain usable.
-
-# 0.2.0
-
 - `OkfLinkField` names a producer frontmatter key whose entries are typed
   links, and `okfFieldEdges` resolves them as okf resolves a link target.
   Both live in `package:wayfinder`, which this package now depends on;
