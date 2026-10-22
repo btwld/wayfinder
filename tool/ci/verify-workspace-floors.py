@@ -26,7 +26,12 @@ def dependencies(text: str) -> dict[str, str]:
 
 
 def unreleased(changelog: Path) -> bool:
-    match = re.search(r"^# Unreleased\n(.*?)(?=^# |\Z)", changelog.read_text(), re.M | re.S)
+    """Whether `# Unreleased` or `# <version> (unreleased)` lists changes."""
+    match = re.search(
+        r"^# (?:Unreleased|\S+ \(unreleased\))\n(.*?)(?=^# |\Z)",
+        changelog.read_text(),
+        re.M | re.S,
+    )
     return bool(match and match[1].strip())
 
 
