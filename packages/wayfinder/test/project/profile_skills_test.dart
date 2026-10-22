@@ -392,6 +392,36 @@ void main() {
         SelectedProfile(byHand.profile, config: byHand.config).projectRoot,
         isNull,
       );
+      expect(
+        SelectedProfile(
+          byHand.profile,
+          config: byHand.config,
+          projectRoot: p.join(project.path, 'knowledge', '..'),
+        ).projectRoot,
+        p.join(project.path, 'knowledge', '..'),
+        reason: 'the same directory, spelled another way',
+      );
+      for (final (config, root) in [
+        (null, project.path),
+        (byHand.config, temp.path),
+        (byHand.config, p.relative(project.path)),
+      ]) {
+        expect(
+          () => SelectedProfile(
+            byHand.profile,
+            config: config,
+            projectRoot: root,
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.name,
+              'name',
+              'projectRoot',
+            ),
+          ),
+          reason: root,
+        );
+      }
     });
 
     test('skips a directory the staleness check rejects', () async {
