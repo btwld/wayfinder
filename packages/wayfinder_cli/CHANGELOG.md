@@ -32,6 +32,11 @@
   Git's stderr open after the command exits. A helper that holds Git's
   stdout open fails the command ten seconds after it exits, rather than
   holding it forever or reading part of its output.
+- `validate` and the MCP `validate` tool warn `wayfinder/profile-skill-stale`
+  for a Profile skill whose `.wayfinder-profile` marker cannot be read,
+  instead of reporting `wayfinder/profile-unresolved`, so the gate no longer
+  turns `INCOMPLETE` (exit code 2) over it. `get` reports such a directory as
+  one it did not install, as it does an unmarked one.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
