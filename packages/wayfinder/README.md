@@ -122,10 +122,15 @@ Future<void> main() async {
   source or binding the lock does not pin as it stands, and a missing lock,
   with `lock-change-required` and its `ProfileLockChange`, and what
   selection would report, such as a package missing from the cache or a
-  chain that no longer composes. A failed write gives both files their
-  bytes back. A `get`, an apply, an adoption and another relock exclude it
-  and are excluded (`resolution-busy`), and a plan made before it no longer
-  applies.
+  chain that no longer composes. A file it cannot read or replace throws
+  `ProfileRelockFailedException` (`relock-failed`). When a write fails, a
+  file it already wrote gets its original bytes back where that is
+  possible; the exception's `changed` names any file that kept the new
+  bytes, and is empty otherwise. When `wayfinder.json` kept the edit,
+  `status` reports the lock as `configuration-changed`, and relocking with
+  an edit that returns the text unchanged writes the lock for it. A `get`,
+  an apply, an adoption and another relock exclude it and are excluded
+  (`resolution-busy`), and a plan made before it no longer applies.
 - `plan(root, skills: false)` leaves Profile skills alone, as a host does to
   fill the Profile cache without touching `.claude/skills` or
   `.agents/skills`: it reads no skill file, refuses no skill directory, and
@@ -358,12 +363,17 @@ Future<void> main() async {
   files that changed. Neither writes anything. The plan's `projectFiles`
   are those files, with the digest of their bytes: the `wayfinder.json` and
   `wayfinder.lock` the selection came from, whether or not it selected a
-  Profile, or, when no configuration binds the bundle, each `wayfinder.json`
-  path binding looked at, absent, so one that appears makes the plan stale.
-  A host that selects itself captures them with its selection and passes
-  them as `projectFiles`, so a change between its selection and `prepare`
-  is refused too: `KnowledgeProjectFiles.forBundle` or `read` before it
-  selects, or the digests of the bytes it read itself.
+  Profile, with each closer `wayfinder.json` path binding looked at first,
+  absent; or, when no configuration binds the bundle, each `wayfinder.json`
+  path binding looked at, absent. So one that appears, which would bind the
+  bundle, makes the plan stale. A host that selects itself captures them
+  with its selection and passes them as `projectFiles`, so a change between
+  its selection and `prepare` is refused too: `KnowledgeProjectFiles.forBundle`
+  or `read` before it selects, or the digests of the bytes it read itself,
+  each path made absolute when the `KnowledgeProjectFiles` is built.
+  `commit` checks them under okf's lock of the bundle, which `relock` and
+  `get` do not take, so the check is not atomic with them: a host that both
+  relocks and writes serializes the two itself.
   `KnowledgeWriteFailedException` (`write-failed`) reports a bundle that
   cannot be locked, read or written; its `partial` is true only when okf's
   rollback failed too. A plan commits once.

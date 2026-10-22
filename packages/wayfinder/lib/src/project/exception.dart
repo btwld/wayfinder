@@ -24,7 +24,9 @@
 ///   clone or refresh a Profile source that the request is offline for or
 ///   its fetch policy refused;
 /// - `lock-change-required`, a `ProfileLockChangeRequiredException`, when a
-///   locked-only plan would change `wayfinder.lock`;
+///   locked-only plan or a relock would change what `wayfinder.lock` pins;
+/// - `relock-failed`, a `ProfileRelockFailedException`, when a relock
+///   cannot read or replace `wayfinder.json` or `wayfinder.lock`;
 /// - from `package:wayfinder/adoption.dart`: `adoption-invalid`,
 ///   `adoption-conflict`, `adoption-stale` and `adoption-failed`;
 /// - `data-directory-unavailable` when no data directory can be located;

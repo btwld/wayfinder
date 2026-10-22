@@ -581,17 +581,19 @@ final class WayfinderConfigEditor {
   String encode({bool minimal = false}) {
     final source = _source;
     if (minimal && source != null) {
-      try {
-        final text = spliceJson(source, _document);
-        _JsonDuplicateKeyScanner(text).scan();
-        if (sameJson(jsonDecode(text), _document)) return text;
-      } on FormatException {
-        // Fall back to the full encoder below.
-      } on WayfinderConfigException {
-        // So does a spliced text that repeats a key.
-      }
+      final text = spliceJsonChecked(source, _document, accept: _repeatsNoKey);
+      if (text != null) return text;
     }
     return const WayfinderConfigEncoder().convert(_document);
+  }
+
+  static bool _repeatsNoKey(String text) {
+    try {
+      _JsonDuplicateKeyScanner(text).scan();
+      return true;
+    } on WayfinderConfigException {
+      return false;
+    }
   }
 
   /// The edited document, parsed and checked as [WayfinderProjectConfig.parse]

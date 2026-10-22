@@ -294,6 +294,54 @@ final class ProfileResolutionResult {
   };
 }
 
+/// `relock-failed`: the file system refused to read or replace
+/// `wayfinder.json` or `wayfinder.lock` while
+/// [WayfinderProfileResolver.relock] ran. The message names the path and
+/// the operating system's reason.
+///
+/// [changed] is empty when both files hold the bytes they held before
+/// relocking: it failed while reading, a write failed before it replaced
+/// its file, or each file it already wrote got its original bytes back. It
+/// lists each file left holding what relocking wrote only when giving the
+/// original bytes back failed too ([partial]). Then `wayfinder.json` may
+/// hold the edit while `wayfinder.lock` is stale, which
+/// [WayfinderProfileResolver.status] reports as
+/// [ProfileLockChangeKind.configurationChanged]; relocking again with an
+/// edit that returns the text unchanged writes the lock for it.
+final class ProfileRelockFailedException extends WayfinderException {
+  ProfileRelockFailedException(
+    String message, {
+    List<String> changed = const [],
+  }) : changed = List.unmodifiable(changed),
+       super('relock-failed', message);
+
+  factory ProfileRelockFailedException._of(
+    FileSystemException error, {
+    List<String> changed = const [],
+  }) {
+    final reason = error.osError?.message;
+    final path = error.path;
+    return ProfileRelockFailedException(
+      [
+        error.message,
+        if (reason != null && reason.isNotEmpty) ': $reason',
+        if (path != null && path.isNotEmpty) ' ($path)',
+        '.',
+        if (changed.isNotEmpty)
+          ' Giving ${changed.join(' and ')} its original bytes back failed '
+              'too.',
+      ].join(),
+      changed: changed,
+    );
+  }
+
+  /// The absolute path of each file left holding what relocking wrote.
+  final List<String> changed;
+
+  /// Whether a file was left holding what relocking wrote ([changed]).
+  bool get partial => changed.isNotEmpty;
+}
+
 /// What [WayfinderProfileResolver.relock] wrote: the edited
 /// `wayfinder.json` and the lock for it, which pins the same [packages].
 final class ProfileRelockResult {
@@ -583,9 +631,9 @@ final class WayfinderProfileResolver {
   /// - throws [ProfileLockChangeRequiredException] (`lock-change-required`),
   ///   whose `change` says why, unless the lock pins, for the edited
   ///   configuration, exactly each binding's chain at the source it names
-  ///   and nothing more. A missing or unreadable lock, a new or removed
-  ///   binding or Profile, another source, ref or path, and a lock entry no
-  ///   binding reaches need a resolution, which may fetch;
+  ///   and nothing more. A missing lock or one that does not parse, a new
+  ///   or removed binding or Profile, another source, ref or path, and a
+  ///   lock entry no binding reaches need a resolution, which may fetch;
   /// - checks the configured bundles as `get` does, and selects each
   ///   binding's chain from the Profile cache as [select] does, composed
   ///   with the edited project vocabulary. It throws what selection would
@@ -598,9 +646,15 @@ final class WayfinderProfileResolver {
   /// with the edited configuration's hash and the same packages, when its
   /// hash changes: a lock whose hash already matches keeps its bytes, while
   /// one an earlier edit left stale is written as well. Each file is
-  /// replaced through a temporary file beside it; when a write fails, a
-  /// file already written gets its original bytes back and the error is
-  /// rethrown.
+  /// replaced through a temporary file beside it, so a failed write leaves
+  /// that file as it was.
+  ///
+  /// When the file system refuses to read or replace either file, it
+  /// throws [ProfileRelockFailedException] (`relock-failed`), naming the
+  /// path and the operating system's reason. Once a write fails, each file
+  /// relocking already wrote gets its original bytes back where the file
+  /// system allows; the exception's `changed` lists each one that could not,
+  /// and is empty when both files hold the bytes they held before.
   ///
   /// It runs no Git command, so it never fetches or resolves a ref, and
   /// leaves Profile skills alone, as a plan with `skills: false` does: it
@@ -633,7 +687,12 @@ final class WayfinderProfileResolver {
   ) async {
     throwIfCancelled(cancel);
     final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
-    final configBytes = await configFile.readAsBytes();
+    final List<int> configBytes;
+    try {
+      configBytes = await configFile.readAsBytes();
+    } on FileSystemException catch (error) {
+      throw ProfileRelockFailedException._of(error);
+    }
     final String current;
     try {
       current = utf8.decode(configBytes);
@@ -643,14 +702,9 @@ final class WayfinderProfileResolver {
         '${configFile.path} is not UTF-8 text.',
       );
     }
-    final List<int>? lockBytes;
-    try {
-      lockBytes = await _readBytes(lockFile);
-    } on FileSystemException catch (error) {
-      throw ProfileLockChangeRequiredException.relock(
-        ProfileLockChange(ProfileLockChangeKind.lockMissing, error.message),
-      );
-    }
+    // An absent lock is one a resolution writes; one that cannot be read
+    // is the file system's failure, which a resolution would meet too.
+    final lockBytes = await _relockRead(lockFile);
     final edited = await edit(current);
     throwIfCancelled(cancel);
     final WayfinderProjectConfig config;
@@ -711,11 +765,11 @@ final class WayfinderProfileResolver {
     throwIfCancelled(cancel);
     // Only a writer that holds no lock, such as an editor, can have changed
     // either file since it was read.
-    final configNow = await _readBytes(configFile);
+    final configNow = await _relockRead(configFile);
     if (configNow == null || !_sameBytes(configNow, configBytes)) {
       throw _stale('wayfinder.json');
     }
-    final lockNow = await _readBytes(lockFile);
+    final lockNow = await _relockRead(lockFile);
     if (lockNow == null || !_sameBytes(lockNow, lockBytes!)) {
       throw _stale('wayfinder.lock');
     }
@@ -726,22 +780,29 @@ final class WayfinderProfileResolver {
         written[configFile] = configBytes;
       }
       if (lockChanged) {
-        await _replace(
-          lockFile,
-          utf8.encode(
-            '${const JsonEncoder.withIndent('  ').convert(relocked.toJson())}'
-            '\n',
-          ),
-        );
+        await _replace(lockFile, utf8.encode(_lockTextOf(relocked)));
         written[lockFile] = lockBytes;
       }
-    } on Object {
+    } on Object catch (error) {
+      // Give each file already written its bytes back; the error that
+      // stopped the write is the one to report.
+      final changed = <String>[];
       for (final MapEntry(key: file, value: bytes) in written.entries) {
         try {
           await _replace(file, bytes);
         } on FileSystemException {
-          // The error that stopped the write is the one to report.
+          changed.add(file.path);
         }
+      }
+      if (error is FileSystemException) {
+        throw ProfileRelockFailedException._of(error, changed: changed);
+      }
+      if (changed.isNotEmpty) {
+        throw ProfileRelockFailedException(
+          'Relocking failed ($error), and giving ${changed.join(' and ')} '
+          'its original bytes back failed too.',
+          changed: changed,
+        );
       }
       rethrow;
     }
@@ -1331,8 +1392,7 @@ final class WayfinderProfileResolver {
       configurationSha256: canonicalConfigurationSha256(raw),
       packages: Map.unmodifiable(packages),
     );
-    final text =
-        '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n';
+    final text = _lockTextOf(lock);
     var lockChanged =
         lockBytes == null || !_sameBytes(lockBytes, utf8.encode(text));
     if (session.lockedOnly && lockChanged) {
@@ -1427,7 +1487,9 @@ final class WayfinderProfileResolver {
         for (final id in shipped) plan.packages[id]!.revision,
       ]);
     }
-    if (plan.lockChanged) await _writeLock(lockFile, plan._lockText);
+    if (plan.lockChanged) {
+      await _replace(lockFile, utf8.encode(plan._lockText));
+    }
     for (final MapEntry(key: id, value: files) in plan._pending.entries) {
       await ProfileSkills.write(
         projectRoot,
@@ -2188,16 +2250,7 @@ final class WayfinderProfileResolver {
     final current = await _readBytes(file);
     if (current == null || !_sameBytes(current, bytes)) {
       await file.parent.create(recursive: true);
-      final temp = File(
-        '${file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      try {
-        await temp.writeAsBytes(bytes, flush: true);
-        await temp.rename(file.path);
-      } on Object {
-        if (await temp.exists()) await temp.delete();
-        rethrow;
-      }
+      await _replace(file, bytes);
     }
     return sha256.convert(bytes).toString();
   }
@@ -2207,6 +2260,16 @@ final class WayfinderProfileResolver {
       return await file.readAsBytes();
     } on PathNotFoundException {
       return null;
+    }
+  }
+
+  /// [file]'s bytes for [relock]: null when it is absent, and
+  /// [ProfileRelockFailedException] when it cannot be read.
+  static Future<List<int>?> _relockRead(File file) async {
+    try {
+      return await _readBytes(file);
+    } on FileSystemException catch (error) {
+      throw ProfileRelockFailedException._of(error);
     }
   }
 
@@ -2235,25 +2298,17 @@ final class WayfinderProfileResolver {
     }
   }
 
+  /// The text of `wayfinder.lock` for [lock], as `get` and `relock` write
+  /// it.
+  static String _lockTextOf(ProfileLock lock) =>
+      '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n';
+
   static ProfileLock? _parseLock(List<int>? bytes) {
     if (bytes == null) return null;
     try {
       return ProfileLock.tryParse(jsonDecode(utf8.decode(bytes)));
     } on FormatException {
       return null;
-    }
-  }
-
-  Future<void> _writeLock(File file, String text) async {
-    final temp = File(
-      '${file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
-    );
-    try {
-      await temp.writeAsString(text, flush: true);
-      await temp.rename(file.path);
-    } on Object {
-      if (await temp.exists()) await temp.delete();
-      rethrow;
     }
   }
 

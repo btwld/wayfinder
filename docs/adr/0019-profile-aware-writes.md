@@ -5,7 +5,8 @@
 - Updated: 2026-10-22 (what a host's write pipeline needed: the
   content-change rule as a public function and a log that records only
   content changes, the OKF finding delta, and project files a host captures
-  with its selection, tracked when no Profile is selected too)
+  with its selection, tracked when no Profile is selected too, including
+  each closer configuration path, absent)
 - Scope: the write path for a bundle a Profile governs: how a change becomes a
   candidate, which reserved files it rewrites, how the candidate is judged,
   and when it commits; `validate --fix` under okf's bundle lock, and the
@@ -125,13 +126,20 @@ whether okf's rollback also failed and left part of the write.
 plan when a project file its selection came from changed since, and lets okf
 refuse a changed bundle. The project files are the `wayfinder.json` the
 bundle was bound through and the `wayfinder.lock` beside it, whether or not
-a Profile was selected, since a lock that appears would select one; when no
+a Profile was selected, since a lock that appears would select one, with
+each closer `wayfinder.json` path binding looked at first, absent; when no
 configuration binds the bundle, they are each `wayfinder.json` path binding
-looked at, absent, since one that appears would bind it. A host that selects
-itself passes the files it captured with its selection, digests included,
-so a change between its selection and `prepare` is refused too. Either
-failure is `write-stale`, naming the project files that changed, and nothing
-is written.
+looked at, absent. Either way a configuration that appears where binding
+looked would bind the bundle. A host that selects itself passes the files
+it captured with its selection, digests included, so a change between its
+selection and `prepare` is refused too. Either failure is `write-stale`,
+naming the project files that changed, and nothing is written. The check
+runs under okf's lock of the bundle, while `relock` and `get` hold the
+project's `get` lock, so it is not atomic with them: one that rewrites a
+project file between the check and okf's write goes unseen. No lock spans
+both, and taking the project's lock in `commit`, which never waits, would
+fail writes during every `get`; a host that both relocks and writes
+serializes the two itself.
 
 **`validate --fix` writes under the same lock.** When a fix has something to
 write, it takes `OkfBundleLock.write`, loads the bundle again and writes; a fix

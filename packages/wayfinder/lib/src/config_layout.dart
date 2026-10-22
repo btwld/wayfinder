@@ -48,6 +48,27 @@ String spliceJson(String source, Object? edited) {
   return buffer.toString();
 }
 
+/// [splice]'s text for [source] changed to hold [edited], or null when it
+/// is not JSON, does not decode to exactly [edited], object keys in order,
+/// or [accept] refuses it; the caller then writes [edited] in full.
+/// [splice] is [spliceJson]; a test passes another to reach the null.
+String? spliceJsonChecked(
+  String source,
+  Object? edited, {
+  bool Function(String text)? accept,
+  String Function(String source, Object? edited) splice = spliceJson,
+}) {
+  try {
+    final text = splice(source, edited);
+    if (sameJson(jsonDecode(text), edited) && (accept?.call(text) ?? true)) {
+      return text;
+    }
+  } on FormatException {
+    // Not JSON: the caller writes the document in full.
+  }
+  return null;
+}
+
 /// Writes [value] as `wayfinder.json` lays JSON out: objects one member per
 /// line, indented by [unit] beyond [indent], a list of plain values on one
 /// line, other lists one item per line. The first line takes no indentation
