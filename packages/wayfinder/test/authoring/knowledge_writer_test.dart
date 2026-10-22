@@ -772,7 +772,13 @@ void main() {
           selection: input.selection,
         ).assess(),
       ).prepare(bundle, _createContract(), stamp: _agent),
-      throwsStateError,
+      throwsA(
+        isA<WayfinderException>().having(
+          (error) => error.code,
+          'code',
+          'assessment-failed',
+        ),
+      ),
     );
   });
 
