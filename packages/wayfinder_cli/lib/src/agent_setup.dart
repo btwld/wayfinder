@@ -142,6 +142,7 @@ class AgentSetup {
             p.isAbsolute(bundle) ||
             relative == '..' ||
             relative.startsWith('../') ||
+            relative.startsWith('-') ||
             bundle.runes.any((rune) => rune < 0x20 || rune == 0x7F))) {
       throw const WayfinderException(
         '--bundle must be a path inside the project.',

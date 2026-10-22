@@ -585,6 +585,11 @@ void main() {
       (null, '../outside', 'inside the project'),
       (null, '/absolute', 'inside the project'),
       (null, 'has\nnewline', 'inside the project'),
+      (null, 'has\ttab', 'inside the project'),
+      (null, 'has\rreturn', 'inside the project'),
+      (null, 'has\x1bescape', 'inside the project'),
+      (null, 'has\x7fdelete', 'inside the project'),
+      (null, '-hidden', 'inside the project'),
     ]) {
       test('rejects $message', () async {
         if (contents != null) {
