@@ -18,6 +18,17 @@
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
+- Project discovery, Profile resolution, selection, Profile skills and the
+  graph projection now come from `package:wayfinder/project.dart`; the command
+  and MCP server keep their output and exit codes.
+- `validate` reads each locked package from the file `get` keeps under
+  `profiles/packages/` in the data directory and runs no Git. After upgrading
+  from 0.2, run `wayfinder get` once; it fetches nothing when the cache already
+  holds the locked commits.
+- `get` and `upgrade` run Git without prompts, hooks or inherited `GIT_*`
+  variables, with SSH in batch mode and a five-minute limit per command. A
+  second `get` on the same project fails at once while the first runs, and
+  `get`s that share a Profile source wait for each other.
 
 # 0.2.0
 

@@ -1,57 +1,20 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder/wayfinder.dart';
 
-import 'knowledge.dart';
+import '../diagnostics.dart';
+import '../profile_package.dart';
+import '../rules/profile.dart';
+import '../validation.dart';
+import '../wayfinder_config.dart';
+import 'cancellation.dart';
+import 'exception.dart';
+import 'file_lock.dart';
+import 'git.dart';
 import 'profile_skills.dart';
-
-/// Runs `git` with [arguments], decoding output as UTF-8, or leaving stdout
-/// as bytes when [binary]. The resolver's only way to touch a repository,
-/// so a test can prove validation never fetches by spying on it.
-typedef GitRunner =
-    Future<ProcessResult> Function(
-      List<String> arguments, {
-      String? workingDirectory,
-      bool binary,
-    });
-
-/// Runs with [environment], by default the process's, minus the variables
-/// that name a repository. A git hook or linked worktree exports `GIT_DIR`,
-/// and inherited it would point every mirror command at the user's own
-/// repository instead of the one in [workingDirectory].
-Future<ProcessResult> runGit(
-  List<String> arguments, {
-  String? workingDirectory,
-  bool binary = false,
-  Map<String, String>? environment,
-}) => Process.run(
-  'git',
-  arguments,
-  workingDirectory: workingDirectory,
-  environment: {
-    for (final MapEntry(:key, :value)
-        in (environment ?? Platform.environment).entries)
-      if (!_repositoryVariables.contains(key)) key: value,
-  },
-  includeParentEnvironment: false,
-  stdoutEncoding: binary ? null : utf8,
-  stderrEncoding: utf8,
-);
-
-const _repositoryVariables = {
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_NAMESPACE',
-  'GIT_PREFIX',
-  'GIT_CEILING_DIRECTORIES',
-};
 
 /// One package as `wayfinder get` pinned it. [extendsId] names another
 /// entry of the same lock, so the lock stays flat however deep a chain is.
@@ -249,125 +212,145 @@ final class ProfileResolutionResult {
   };
 }
 
-/// Resolves Git Profile sources and persists their lock metadata.
+/// What `get` would write, from [WayfinderProfileResolver.plan]. Planning
+/// fetches into the Profile cache when a ref must move but writes nothing
+/// in the project; [WayfinderProfileResolver.apply] writes it, and refuses
+/// when the configuration, lock or cache it read has changed since.
+final class ProfileResolutionPlan {
+  ProfileResolutionPlan._({
+    required this.projectRoot,
+    required this.configPath,
+    required this.lockPath,
+    required this.upgrade,
+    required this.fetched,
+    required this.packages,
+    required this.lockChanged,
+    required this.skills,
+    required this.removedSkills,
+    required String lockText,
+    required String configurationSha256,
+    required String? lockSha256,
+    required Map<ProfileId, List<SkillFile>> pending,
+    required Map<String, String> snapshots,
+  }) : _lockText = lockText,
+       _configurationSha256 = configurationSha256,
+       _lockSha256 = lockSha256,
+       _pending = pending,
+       _snapshots = snapshots;
+
+  final String projectRoot;
+  final String configPath;
+  final String lockPath;
+  final bool upgrade;
+
+  /// Planning cloned or refreshed a Profile source.
+  final bool fetched;
+
+  /// One revision per Profile id across every configured chain.
+  final Map<ProfileId, LockedPackage> packages;
+
+  /// Whether applying rewrites `wayfinder.lock`.
+  final bool lockChanged;
+
+  /// One per locked package that ships a skill, in id order; `written` is
+  /// whether applying replaces its directories.
+  final List<MaterializedSkill> skills;
+
+  /// Project-relative skill directories applying would delete.
+  final List<String> removedSkills;
+
+  final String _lockText;
+  final String _configurationSha256;
+  final String? _lockSha256;
+  final Map<ProfileId, List<SkillFile>> _pending;
+
+  /// Each Profile package file the plan read, by its cache path, with the
+  /// SHA-256 of its bytes.
+  final Map<String, String> _snapshots;
+
+  Map<String, Object?> toJson() => {
+    'project': projectRoot,
+    'configuration': configPath,
+    'lock': lockPath,
+    'upgrade': upgrade,
+    'fetched': fetched,
+    'lock_changed': lockChanged,
+    'packages': {
+      for (final package in packages.values) package.id.value: package.toJson(),
+    },
+    'skills': [for (final skill in skills) skill.toJson()],
+    'removed_skills': removedSkills,
+  };
+}
+
+/// Resolves Git Profile sources, persists their lock metadata, and selects
+/// a bundle's Profile from them.
+///
+/// Its state lives under [dataDirectory]:
+///
+/// - `profiles/<sha256(location)>/`, a bare mirror of each source, and
+///   beside it `profiles/<sha256(location)>.lock`, held while a planner
+///   clones or refreshes it, for up to [mirrorLockTimeout];
+/// - `profiles/packages/<sha256(commit, path)>.json`, the package file of
+///   each package a plan read, so [select] reads files and never runs Git;
+/// - `projects/<sha256(root)>.get.lock`, held while [apply] or [resolve]
+///   changes a project, and recording that project's root.
 final class WayfinderProfileResolver {
-  WayfinderProfileResolver({Directory? dataDirectory, GitRunner git = runGit})
-    : dataDirectory =
-          dataDirectory ?? WayfinderKnowledge.defaultDataDirectory(),
-      _runGit = git;
+  WayfinderProfileResolver({
+    required this.dataDirectory,
+    GitRunner git = runGit,
+  }) : _runGit = git;
 
   final Directory dataDirectory;
   final GitRunner _runGit;
 
-  /// `wayfinder get` and `upgrade`. Resolves every binding's chain, composes
-  /// it so a broken chain fails here rather than at validation, locks one
-  /// revision per Profile id, and installs each locked package's skill from
-  /// its locked commit. Converges: with the same configuration, lock and
-  /// cache it fetches nothing and writes nothing.
+  /// How long a planner waits while another holds a Profile source's mirror.
+  static const mirrorLockTimeout = Duration(seconds: 120);
+
+  /// Resolves every binding's chain, composes it so a broken chain fails
+  /// here rather than at validation, locks one revision per Profile id, and
+  /// reads each locked package's skill from its locked commit. Fetches only
+  /// when the mirror is missing, a ref must move, or [upgrade] asks; never
+  /// writes in the project.
+  Future<ProfileResolutionPlan> plan(
+    String project, {
+    bool upgrade = false,
+    WayfinderCancellation? cancel,
+  }) async {
+    final (:projectRoot, :configFile) = await _locate(project);
+    return _plan(projectRoot, configFile, upgrade: upgrade, cancel: cancel);
+  }
+
+  /// Writes [plan]: the lock, the skills it lists, and the removals. Holds
+  /// the project's `get` lock and throws `resolution-busy` while another
+  /// holder has it. Throws `resolution-stale` when `wayfinder.json`,
+  /// `wayfinder.lock` or a package file the plan read in the cache has
+  /// changed since [plan].
+  Future<ProfileResolutionResult> apply(ProfileResolutionPlan plan) =>
+      _withProjectLock(plan.projectRoot, () => _apply(plan));
+
+  /// `wayfinder get` and `upgrade`: [plan] then [apply] under one hold of
+  /// the project's `get` lock. Converges: with the same configuration, lock
+  /// and cache it fetches nothing and writes nothing in the project.
   Future<ProfileResolutionResult> resolve(
     String project, {
     bool upgrade = false,
+    WayfinderCancellation? cancel,
   }) async {
-    final projectRoot = p.normalize(Directory(project).absolute.path);
-    final configFile = File(p.join(projectRoot, 'wayfinder.json'));
-    if (!await configFile.exists()) {
-      throw WayfinderProfileResolutionException(
-        'Project $projectRoot does not contain wayfinder.json.',
-      );
-    }
-    final raw = await configFile.readAsString();
-    final config = WayfinderProjectConfig.parse(raw);
-    final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
-    await _checkBundlePaths(config, projectRoot);
-
-    final session = _Session(
-      projectRoot: projectRoot,
-      upgrade: upgrade,
-      previous: await _readLock(lockFile),
-    );
-    final packages = <ProfileId, LockedPackage>{};
-    final skills = <ProfileId, String>{};
-    for (final binding in config.profiles.values) {
-      final chain = await _resolveChain(binding, session);
-      _compose(binding.id, [
-        for (final member in chain) member.package,
-      ], binding.project);
-      for (final member in chain) {
-        _insert(packages, member.locked);
-        if (member.package.skill case final skill?) {
-          skills[member.locked.id] = skill;
-        }
-      }
-    }
-    if (skills.isNotEmpty) {
-      if (await ProfileSkills.escapingProblem(projectRoot)
-          case final problem?) {
-        throw WayfinderProfileResolutionException(problem);
-      }
-    }
-    final unowned = await ProfileSkills.unowned(projectRoot, skills.keys);
-    if (unowned.isNotEmpty) {
-      throw WayfinderProfileResolutionException(
-        '${unowned.join(', ')} already exists without a '
-        '${ProfileSkills.marker} marker, so wayfinder did not install it. '
-        'Move it aside and run the command again to install the Profile '
-        'skill there.',
-      );
-    }
-    final ids = skills.keys.toList()
-      ..sort((left, right) => left.value.compareTo(right.value));
-    final pending = <ProfileId, List<SkillFile>>{};
-    for (final id in ids) {
-      final locked = packages[id]!;
-      if ((await ProfileSkills.stale(
-        projectRoot,
-        locked.revision,
-      )).isNotEmpty) {
-        pending[id] = await _skillFiles(locked, skills[id]!, projectRoot);
-      }
-    }
-    final lock = ProfileLock(
-      configurationSha256: canonicalConfigurationSha256(raw),
-      packages: Map.unmodifiable(packages),
-    );
-    final text =
-        '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n';
-    final unchanged =
-        await lockFile.exists() && await lockFile.readAsString() == text;
-    if (!unchanged) await _writeLock(lockFile, text);
-    for (final MapEntry(key: id, value: files) in pending.entries) {
-      await ProfileSkills.write(projectRoot, packages[id]!.revision, files);
-    }
-    final removed = await ProfileSkills.prune(projectRoot, skills.keys.toSet());
-    return ProfileResolutionResult(
-      projectRoot: projectRoot,
-      configPath: configFile.path,
-      lockPath: lockFile.path,
-      reused:
-          !upgrade &&
-          unchanged &&
-          !session.fetched &&
-          pending.isEmpty &&
-          removed.isEmpty,
-      upgraded: upgrade,
-      packages: lock.packages,
-      skills: [
-        for (final id in ids)
-          MaterializedSkill(
-            id: id,
-            directories: ProfileSkills.directories(id),
-            written: pending.containsKey(id),
-          ),
-      ],
-      removedSkills: removed,
+    final (:projectRoot, :configFile) = await _locate(project);
+    return _withProjectLock(
+      projectRoot,
+      () async => _apply(
+        await _plan(projectRoot, configFile, upgrade: upgrade, cancel: cancel),
+      ),
     );
   }
 
   /// Validation's selection: the bundle's binding, its chain from the lock,
-  /// each package from the local cache, composed. Never fetches, never
-  /// writes, and reports every failure as exactly one diagnostic. A chain
-  /// member's skill that `get` has not installed at the locked commit is a
-  /// warning, so the rules still run.
+  /// each package from the local cache, composed. Never runs Git, never
+  /// fetches, never writes, and reports every failure as exactly one
+  /// diagnostic. A chain member's skill that `get` has not installed at the
+  /// locked commit is a warning, so the rules still run.
   Future<ProfileSelection> select(String bundle, {String? configPath}) async {
     final BoundBundle bound;
     try {
@@ -421,7 +404,7 @@ final class WayfinderProfileResolver {
       }
       final packages = <ProfilePackage>[];
       for (final (index, locked) in chain.indexed) {
-        final package = await _readCached(locked, bound.projectRoot);
+        final package = await _readCached(locked);
         if (!_matchesLockedParent(
           package.parent,
           child: locked,
@@ -453,13 +436,220 @@ final class WayfinderProfileResolver {
         ],
       );
     } on WayfinderProfileResolutionException catch (error) {
-      return unselected(error.code, error.message);
+      return unselected(error.diagnostic, error.message);
     } on FileSystemException catch (error) {
       return unselected(unresolved, error.message);
-    } on ProcessException catch (error) {
-      return unselected(
-        unresolved,
-        'Cannot read the local Profile cache: ${error.message}',
+    }
+  }
+
+  static String canonicalConfigurationSha256(String raw) =>
+      sha256.convert(utf8.encode(_canonicalJson(jsonDecode(raw)))).toString();
+
+  Future<({String projectRoot, File configFile})> _locate(
+    String project,
+  ) async {
+    final projectRoot = p.normalize(Directory(project).absolute.path);
+    final configFile = File(p.join(projectRoot, 'wayfinder.json'));
+    if (!await configFile.exists()) {
+      throw WayfinderProfileResolutionException(
+        'Project $projectRoot does not contain wayfinder.json.',
+      );
+    }
+    return (projectRoot: projectRoot, configFile: configFile);
+  }
+
+  Future<ProfileResolutionPlan> _plan(
+    String projectRoot,
+    File configFile, {
+    required bool upgrade,
+    WayfinderCancellation? cancel,
+  }) async {
+    throwIfCancelled(cancel);
+    final configBytes = await configFile.readAsBytes();
+    final raw = utf8.decode(configBytes);
+    final config = WayfinderProjectConfig.parse(raw);
+    final lockFile = File(p.join(projectRoot, 'wayfinder.lock'));
+    await _checkBundlePaths(config, projectRoot);
+    final lockBytes = await _readBytes(lockFile);
+
+    final session = _Session(
+      projectRoot: projectRoot,
+      upgrade: upgrade,
+      previous: _parseLock(lockBytes),
+      cancel: cancel,
+    );
+    final packages = <ProfileId, LockedPackage>{};
+    final skills = <ProfileId, String>{};
+    for (final binding in config.profiles.values) {
+      final chain = await _resolveChain(binding, session);
+      _compose(binding.id, [
+        for (final member in chain) member.package,
+      ], binding.project);
+      for (final member in chain) {
+        _insert(packages, member.locked);
+        if (member.package.skill case final skill?) {
+          skills[member.locked.id] = skill;
+        }
+      }
+    }
+    await _checkSkillDirectories(projectRoot, skills.keys);
+    final ids = skills.keys.toList()
+      ..sort((left, right) => left.value.compareTo(right.value));
+    final pending = <ProfileId, List<SkillFile>>{};
+    for (final id in ids) {
+      final locked = packages[id]!;
+      if ((await ProfileSkills.stale(
+        projectRoot,
+        locked.revision,
+      )).isNotEmpty) {
+        throwIfCancelled(cancel);
+        pending[id] = await _skillFiles(locked, skills[id]!, session);
+      }
+    }
+    final lock = ProfileLock(
+      configurationSha256: canonicalConfigurationSha256(raw),
+      packages: Map.unmodifiable(packages),
+    );
+    final text =
+        '${const JsonEncoder.withIndent('  ').convert(lock.toJson())}\n';
+    return ProfileResolutionPlan._(
+      projectRoot: projectRoot,
+      configPath: configFile.path,
+      lockPath: lockFile.path,
+      upgrade: upgrade,
+      fetched: session.fetched,
+      packages: lock.packages,
+      lockChanged:
+          lockBytes == null || !_sameBytes(lockBytes, utf8.encode(text)),
+      skills: List.unmodifiable([
+        for (final id in ids)
+          MaterializedSkill(
+            id: id,
+            directories: ProfileSkills.directories(id),
+            written: pending.containsKey(id),
+          ),
+      ]),
+      removedSkills: List.unmodifiable(
+        await ProfileSkills.prunable(projectRoot, skills.keys.toSet()),
+      ),
+      lockText: text,
+      configurationSha256: sha256.convert(configBytes).toString(),
+      lockSha256: lockBytes == null
+          ? null
+          : sha256.convert(lockBytes).toString(),
+      pending: Map.unmodifiable(pending),
+      snapshots: {
+        for (final package in packages.values)
+          _snapshotFile(package.commit, package.path).path: session
+              .snapshots[_snapshotFile(package.commit, package.path).path]!,
+      },
+    );
+  }
+
+  Future<ProfileResolutionResult> _apply(ProfileResolutionPlan plan) async {
+    final configFile = File(plan.configPath);
+    final lockFile = File(plan.lockPath);
+    final configBytes = await _readBytes(configFile);
+    if (configBytes == null ||
+        sha256.convert(configBytes).toString() != plan._configurationSha256) {
+      throw _stale('wayfinder.json');
+    }
+    final lockBytes = await _readBytes(lockFile);
+    if ((lockBytes == null ? null : sha256.convert(lockBytes).toString()) !=
+        plan._lockSha256) {
+      throw _stale('wayfinder.lock');
+    }
+    for (final MapEntry(key: path, value: digest) in plan._snapshots.entries) {
+      final bytes = await _readBytes(File(path));
+      if (bytes == null || sha256.convert(bytes).toString() != digest) {
+        throw _stale('The Profile cache');
+      }
+    }
+    final projectRoot = plan.projectRoot;
+    final shipped = {for (final skill in plan.skills) skill.id};
+    await _checkSkillDirectories(projectRoot, shipped);
+    if (plan.lockChanged) await _writeLock(lockFile, plan._lockText);
+    for (final MapEntry(key: id, value: files) in plan._pending.entries) {
+      await ProfileSkills.write(
+        projectRoot,
+        plan.packages[id]!.revision,
+        files,
+      );
+    }
+    final removed = await ProfileSkills.prune(projectRoot, shipped);
+    return ProfileResolutionResult(
+      projectRoot: projectRoot,
+      configPath: plan.configPath,
+      lockPath: plan.lockPath,
+      reused:
+          !plan.upgrade &&
+          !plan.lockChanged &&
+          !plan.fetched &&
+          plan._pending.isEmpty &&
+          removed.isEmpty,
+      upgraded: plan.upgrade,
+      packages: plan.packages,
+      skills: plan.skills,
+      removedSkills: removed,
+    );
+  }
+
+  static WayfinderException _stale(String what) => WayfinderException(
+    'resolution-stale',
+    '$what changed after resolution was planned. Run wayfinder get again.',
+  );
+
+  /// Runs [action] while holding the `get` lock of the project at
+  /// [projectRoot], so one writer at a time changes its lock and skills.
+  Future<T> _withProjectLock<T>(
+    String projectRoot,
+    Future<T> Function() action,
+  ) async {
+    final root = await Directory(projectRoot).resolveSymbolicLinks();
+    final lock = await WayfinderFileLock.tryExclusive(
+      File(
+        p.join(
+          dataDirectory.path,
+          'projects',
+          '${sha256.convert(utf8.encode(root))}.get.lock',
+        ),
+      ),
+    );
+    if (lock == null) {
+      throw WayfinderException(
+        'resolution-busy',
+        'Another wayfinder get is changing $projectRoot. Retry when it '
+            'finishes.',
+      );
+    }
+    try {
+      await lock.writeNote('${jsonEncode({'root': root})}\n');
+      return await action();
+    } finally {
+      await lock.release();
+    }
+  }
+
+  /// Throws when a Profile skill could not be installed safely: a skill root
+  /// resolves outside the project, or a skill directory exists without the
+  /// marker for its id.
+  Future<void> _checkSkillDirectories(
+    String projectRoot,
+    Iterable<ProfileId> ids,
+  ) async {
+    if (ids.isNotEmpty) {
+      if (await ProfileSkills.escapingProblem(projectRoot)
+          case final problem?) {
+        throw WayfinderProfileResolutionException(problem);
+      }
+    }
+    final unowned = await ProfileSkills.unowned(projectRoot, ids);
+    if (unowned.isNotEmpty) {
+      throw WayfinderProfileResolutionException(
+        '${unowned.join(', ')} already exists without a '
+        '${ProfileSkills.marker} marker, so wayfinder did not install it. '
+        'Move it aside and run the command again to install the Profile '
+        'skill there.',
       );
     }
   }
@@ -488,15 +678,12 @@ final class WayfinderProfileResolver {
     }
     for (final path in realPaths) {
       if (realPaths.any((other) => other != path && p.isWithin(other, path))) {
-        throw const WayfinderProfileResolutionException(
+        throw WayfinderProfileResolutionException(
           'Configured bundle paths must not overlap after resolving symlinks.',
         );
       }
     }
   }
-
-  static String canonicalConfigurationSha256(String raw) =>
-      sha256.convert(utf8.encode(_canonicalJson(jsonDecode(raw)))).toString();
 
   Future<List<({LockedPackage locked, ProfilePackage package})>> _resolveChain(
     WayfinderProfileBinding binding,
@@ -514,10 +701,12 @@ final class WayfinderProfileResolver {
     var checkout = await _checkout(source, session);
     ProfileId? configured = binding.id;
     while (true) {
+      throwIfCancelled(session.cancel);
       final package = await _readPackage(
         checkout.repository,
         checkout.commit,
         source,
+        session,
         expected: configured == null ? null : (configured, 'the configuration'),
       );
       if (members.any((member) => member.package.id == package.id)) {
@@ -605,16 +794,49 @@ final class WayfinderProfileResolver {
       final failure = compositionFailure(id, error);
       throw WayfinderProfileResolutionException(
         failure.message,
-        code: failure.code,
+        diagnostic: failure.code,
       );
     }
   }
 
   /// The mirror of [source]'s repository and the commit to read. Keeps a
   /// commit the previous lock pinned for the same source unless upgrading,
-  /// and fetches only when the mirror is missing or a ref must move.
+  /// and fetches only when the mirror is missing or a ref must move. Holds
+  /// the mirror's lock throughout, so two planners never clone or refresh
+  /// one mirror at once.
   Future<({Directory repository, String commit})> _checkout(
     WayfinderProfileSource source,
+    _Session session,
+  ) async {
+    final location = _gitLocation(source.git, session.projectRoot);
+    final root = _repositoryCache(location);
+    await root.parent.create(recursive: true);
+    final WayfinderFileLock lock;
+    try {
+      lock = await WayfinderFileLock.exclusive(
+        File('${root.path}.lock'),
+        timeout: mirrorLockTimeout,
+        cancel: session.cancel,
+      );
+    } on TimeoutException {
+      throw WayfinderException(
+        'resolution-busy',
+        'Another wayfinder process held the Profile source ${source.git} '
+            'for ${mirrorLockTimeout.inSeconds} seconds. Retry when it '
+            'finishes.',
+      );
+    }
+    try {
+      return await _checkoutLocked(source, location, root, session);
+    } finally {
+      await lock.release();
+    }
+  }
+
+  Future<({Directory repository, String commit})> _checkoutLocked(
+    WayfinderProfileSource source,
+    String location,
+    Directory root,
     _Session session,
   ) async {
     final preferred = session.upgrade
@@ -628,16 +850,13 @@ final class WayfinderProfileResolver {
               )
               .firstOrNull
               ?.commit;
-    final location = _gitLocation(source.git, session.projectRoot);
-    final root = _repositoryCache(location);
-    await root.parent.create(recursive: true);
     if (!await root.exists()) {
       final temporary = Directory(
         '${root.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
       );
       try {
         session.fetched = true;
-        final result = await _runGit([
+        final result = await _git(session, [
           'clone',
           '--mirror',
           '--',
@@ -652,7 +871,7 @@ final class WayfinderProfileResolver {
       }
     } else if (preferred == null && !_commitRef.hasMatch(source.ref)) {
       session.fetched = true;
-      final result = await _runGit([
+      final result = await _git(session, [
         'remote',
         'update',
         '--prune',
@@ -665,9 +884,9 @@ final class WayfinderProfileResolver {
         commit: await _resolveRefWithFetch(root, source, session),
       );
     }
-    if (!await _hasCommit(root, preferred)) {
+    if (!await _hasCommit(root, preferred, session)) {
       session.fetched = true;
-      final result = await _runGit([
+      final result = await _git(session, [
         'remote',
         'update',
         '--prune',
@@ -677,7 +896,7 @@ final class WayfinderProfileResolver {
         'refresh Profile source ${source.git} while finding locked commit '
         '$preferred',
       );
-      if (!await _hasCommit(root, preferred)) {
+      if (!await _hasCommit(root, preferred, session)) {
         throw WayfinderProfileResolutionException(
           'Locked commit $preferred of ${source.git} is unavailable even '
           'after refreshing the source. Run wayfinder upgrade to select a '
@@ -688,8 +907,25 @@ final class WayfinderProfileResolver {
     return (repository: root, commit: preferred);
   }
 
-  Future<bool> _hasCommit(Directory repository, String commit) async =>
-      (await _runGit([
+  Future<GitResult> _git(
+    _Session session,
+    List<String> arguments, {
+    String? workingDirectory,
+  }) {
+    throwIfCancelled(session.cancel);
+    return _runGit(
+      arguments,
+      workingDirectory: workingDirectory,
+      cancel: session.cancel,
+    );
+  }
+
+  Future<bool> _hasCommit(
+    Directory repository,
+    String commit,
+    _Session session,
+  ) async =>
+      (await _git(session, [
         'cat-file',
         '-e',
         '$commit^{commit}',
@@ -701,10 +937,10 @@ final class WayfinderProfileResolver {
     WayfinderProfileSource source,
     _Session session,
   ) async {
-    final local = await _resolveRef(repository, source.ref);
+    final local = await _resolveRef(repository, source.ref, session);
     if (local != null) return local;
     session.fetched = true;
-    final result = await _runGit([
+    final result = await _git(session, [
       'remote',
       'update',
       '--prune',
@@ -713,25 +949,29 @@ final class WayfinderProfileResolver {
       result,
       'refresh Profile source ${source.git} while finding ref ${source.ref}',
     );
-    final fetched = await _resolveRef(repository, source.ref);
+    final fetched = await _resolveRef(repository, source.ref, session);
     if (fetched != null) return fetched;
     throw WayfinderProfileResolutionException(
       'Profile ref ${source.ref} could not be resolved in ${source.git}.',
     );
   }
 
-  Future<String?> _resolveRef(Directory repository, String ref) async {
+  Future<String?> _resolveRef(
+    Directory repository,
+    String ref,
+    _Session session,
+  ) async {
     final candidates = _commitRef.hasMatch(ref)
         ? <String>['$ref^{commit}']
         : <String>['refs/heads/$ref^{commit}', 'refs/tags/$ref^{commit}'];
     final matches = <String>[];
     for (final candidate in candidates) {
-      final result = await _runGit([
+      final result = await _git(session, [
         'rev-parse',
         '--verify',
         candidate,
       ], workingDirectory: repository.path);
-      if (result.exitCode == 0) matches.add(result.stdout.toString().trim());
+      if (result.exitCode == 0) matches.add(result.text.trim());
     }
     if (matches.length == 1) return matches.single;
     if (matches.length > 1) {
@@ -747,6 +987,17 @@ final class WayfinderProfileResolver {
       dataDirectory.path,
       'profiles',
       sha256.convert(utf8.encode(git)).toString(),
+    ),
+  );
+
+  /// Where a plan keeps the package file of [path] at [commit]. A commit
+  /// fixes the file, so one copy serves every source that reaches it.
+  File _snapshotFile(String commit, String path) => File(
+    p.join(
+      dataDirectory.path,
+      'profiles',
+      'packages',
+      '${sha256.convert(utf8.encode('$commit\u0000$path'))}.json',
     ),
   );
 
@@ -769,21 +1020,18 @@ final class WayfinderProfileResolver {
           .split('/')
           .every((segment) => !const {'', '.', '..'}.contains(segment));
 
-  Future<ProfilePackage> _readCached(
-    LockedPackage locked,
-    String projectRoot,
-  ) async {
-    final cache = _repositoryCache(_gitLocation(locked.git, projectRoot));
-    if (!await cache.exists() || !await _hasCommit(cache, locked.commit)) {
+  /// [locked]'s package from the file a plan kept, without Git.
+  Future<ProfilePackage> _readCached(LockedPackage locked) async {
+    final file = _snapshotFile(locked.commit, locked.path);
+    if (!await file.exists()) {
       throw WayfinderProfileResolutionException(
         'Profile ${locked.id} at ${locked.git} (${locked.commit}) is not in '
         'the local cache. Run wayfinder get.',
       );
     }
-    final package = await _readPackage(
-      cache,
-      locked.commit,
-      locked.source,
+    final package = _parsePackage(
+      await file.readAsBytes(),
+      _packageOrigin(locked.source, locked.commit),
       expected: (locked.id, 'the lock'),
     );
     if (package.release != locked.release) {
@@ -797,20 +1045,22 @@ final class WayfinderProfileResolver {
   }
 
   /// Every file of [locked]'s skill directory [skill] at its locked commit,
-  /// read from the mirror `get` just resolved. Only regular files at plain
-  /// relative paths are installed: a symlink or submodule could point
+  /// read from the mirror the plan just resolved. Only regular files at
+  /// plain relative paths are installed: a symlink or submodule could point
   /// outside the skill, and git stores tree entry names such as `..`
   /// verbatim, so a crafted tree could name a path outside it.
   Future<List<SkillFile>> _skillFiles(
     LockedPackage locked,
     String skill,
-    String projectRoot,
+    _Session session,
   ) async {
-    final repository = _repositoryCache(_gitLocation(locked.git, projectRoot));
+    final repository = _repositoryCache(
+      _gitLocation(locked.git, session.projectRoot),
+    );
     final tree = p.posix.join(locked.path, skill);
     final origin =
         'Profile ${locked.id} skill $tree at ${locked.git} (${locked.commit})';
-    final listing = await _runGit([
+    final listing = await _git(session, [
       'ls-tree',
       '-r',
       '-z',
@@ -820,7 +1070,7 @@ final class WayfinderProfileResolver {
       throw WayfinderProfileResolutionException('$origin is not a directory.');
     }
     final files = <SkillFile>[];
-    for (final entry in listing.stdout.toString().split('\x00')) {
+    for (final entry in listing.text.split('\x00')) {
       if (entry.isEmpty) continue;
       final tab = entry.indexOf('\t');
       final [mode, _, object] = entry.substring(0, tab).split(' ');
@@ -842,17 +1092,13 @@ final class WayfinderProfileResolver {
           'the installed directory.',
         );
       }
-      final blob = await _runGit(
-        ['cat-file', 'blob', object],
-        workingDirectory: repository.path,
-        binary: true,
-      );
+      final blob = await _git(session, [
+        'cat-file',
+        'blob',
+        object,
+      ], workingDirectory: repository.path);
       _checkGit(blob, 'read $origin/$path');
-      files.add((
-        path: path,
-        bytes: blob.stdout as List<int>,
-        executable: mode == '100755',
-      ));
+      files.add((path: path, bytes: blob.stdout, executable: mode == '100755'));
     }
     final manifest = files.where((file) => file.path == 'SKILL.md').firstOrNull;
     if (manifest == null) {
@@ -887,16 +1133,18 @@ final class WayfinderProfileResolver {
     return null;
   }
 
-  /// When [expected] names an id, a package declaring another is refused:
-  /// the id is the finding namespace and the lock key, so the two must agree.
+  /// Reads [source]'s package at [commit] from [repository] and keeps its
+  /// bytes in the cache for [select], before parsing, so even a package that
+  /// fails here is selected later with the same diagnostic.
   Future<ProfilePackage> _readPackage(
     Directory repository,
     String commit,
-    WayfinderProfileSource source, {
+    WayfinderProfileSource source,
+    _Session session, {
     (ProfileId, String)? expected,
   }) async {
-    final origin = 'Profile package ${source.path} at ${source.git} ($commit)';
-    final result = await _runGit([
+    final origin = _packageOrigin(source, commit);
+    final result = await _git(session, [
       'show',
       '$commit:${source.path}/wayfinder-profile.json',
     ], workingDirectory: repository.path);
@@ -905,30 +1153,89 @@ final class WayfinderProfileResolver {
         '$origin has no package at ${source.path}/wayfinder-profile.json.',
       );
     }
+    final snapshot = _snapshotFile(commit, source.path);
+    session.snapshots[snapshot.path] = await _keep(snapshot, result.stdout);
+    return _parsePackage(result.stdout, origin, expected: expected);
+  }
+
+  static String _packageOrigin(WayfinderProfileSource source, String commit) =>
+      'Profile package ${source.path} at ${source.git} ($commit)';
+
+  /// When [expected] names an id, a package declaring another is refused:
+  /// the id is the finding namespace and the lock key, so the two must agree.
+  static ProfilePackage _parsePackage(
+    List<int> bytes,
+    String origin, {
+    (ProfileId, String)? expected,
+  }) {
     final ProfilePackage package;
     try {
-      package = ProfilePackage.parse(result.stdout.toString());
+      package = ProfilePackage.parse(utf8.decode(bytes));
     } on ProfilePackageException catch (error) {
       throw WayfinderProfileResolutionException(
         '$origin cannot be evaluated by this validator: $error.',
-        code: error.unsupported
+        diagnostic: error.unsupported
             ? DiagnosticCode.profileUnsupported
             : DiagnosticCode.profileInvalid,
+      );
+    } on FormatException {
+      throw WayfinderProfileResolutionException(
+        '$origin cannot be evaluated by this validator: it is not UTF-8.',
+        diagnostic: DiagnosticCode.profileInvalid,
       );
     }
     if (expected case (final id, final namer) when package.id != id) {
       throw WayfinderProfileResolutionException(
         '$origin declares id ${package.id}; $namer names it $id.',
-        code: DiagnosticCode.profileInvalid,
+        diagnostic: DiagnosticCode.profileInvalid,
       );
     }
     return package;
   }
 
-  Future<ProfileLock?> _readLock(File file) async {
-    if (!await file.exists()) return null;
+  /// Writes [bytes] to [file] unless it already holds them, and returns
+  /// their SHA-256.
+  static Future<String> _keep(File file, List<int> bytes) async {
+    final current = await _readBytes(file);
+    if (current == null || !_sameBytes(current, bytes)) {
+      await file.parent.create(recursive: true);
+      final temp = File(
+        '${file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
+      );
+      try {
+        await temp.writeAsBytes(bytes, flush: true);
+        await temp.rename(file.path);
+      } on Object {
+        if (await temp.exists()) await temp.delete();
+        rethrow;
+      }
+    }
+    return sha256.convert(bytes).toString();
+  }
+
+  static Future<List<int>?> _readBytes(File file) async {
     try {
-      return ProfileLock.tryParse(jsonDecode(await file.readAsString()));
+      return await file.readAsBytes();
+    } on PathNotFoundException {
+      return null;
+    }
+  }
+
+  static bool _sameBytes(List<int> left, List<int> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
+  Future<ProfileLock?> _readLock(File file) async =>
+      _parseLock(await _readBytes(file));
+
+  static ProfileLock? _parseLock(List<int>? bytes) {
+    if (bytes == null) return null;
+    try {
+      return ProfileLock.tryParse(jsonDecode(utf8.decode(bytes)));
     } on FormatException {
       return null;
     }
@@ -947,7 +1254,7 @@ final class WayfinderProfileResolver {
     }
   }
 
-  void _checkGit(ProcessResult result, String action) {
+  void _checkGit(GitResult result, String action) {
     if (result.exitCode != 0) {
       throw WayfinderProfileResolutionException(
         '$action failed (git exit ${result.exitCode}). Check the source and ref.',
@@ -956,14 +1263,15 @@ final class WayfinderProfileResolver {
   }
 }
 
+/// A failure to resolve or select a Profile. [diagnostic] is how validation
+/// reports it when it finds no usable Profile; [code] is its value.
 final class WayfinderProfileResolutionException extends WayfinderException {
-  const WayfinderProfileResolutionException(
-    super.message, {
-    this.code = DiagnosticCode.profileUnresolved,
-  });
+  WayfinderProfileResolutionException(
+    String message, {
+    this.diagnostic = DiagnosticCode.profileUnresolved,
+  }) : super(diagnostic.slug, message);
 
-  /// How validation reports this failure when it finds no usable Profile.
-  final DiagnosticCode code;
+  final DiagnosticCode diagnostic;
 }
 
 final class _Session {
@@ -971,27 +1279,30 @@ final class _Session {
     required this.projectRoot,
     required this.upgrade,
     required this.previous,
+    required this.cancel,
   });
 
   final String projectRoot;
   final bool upgrade;
   final ProfileLock? previous;
+  final WayfinderCancellation? cancel;
 
   bool fetched = false;
+
+  /// Each package file read, by cache path, with the SHA-256 of its bytes.
+  final snapshots = <String, String>{};
 }
 
-/// Shared read-only validation entry point for the CLI and MCP server.
+/// The read-only validation the CLI and MCP server share: [resolver]'s
+/// selection for [bundle], then [ProfileValidator.validate].
 Future<ProfileValidationResult> validateWithProfileSources(
   String bundle, {
   String? configPath,
-  WayfinderProfileResolver? resolver,
+  required WayfinderProfileResolver resolver,
   bool fix = false,
 }) async => const ProfileValidator().validate(
   bundle,
-  await (resolver ?? WayfinderProfileResolver()).select(
-    bundle,
-    configPath: configPath,
-  ),
+  await resolver.select(bundle, configPath: configPath),
   fix: fix,
 );
 

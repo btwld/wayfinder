@@ -1,0 +1,28 @@
+/// A failure a host can act on: [code] is a stable kebab-case identifier,
+/// and [message] is the sentence the command line prints.
+///
+/// The project library throws these codes:
+///
+/// - `bundle-name-invalid`, `bundle-unknown`, `bundle-ambiguous`,
+///   `bundle-missing`, `bundle-escapes`, `bundles-missing` and
+///   `config-invalid` while discovering a project's bundles;
+/// - the `DiagnosticCode` value a `WayfinderProfileResolutionException`
+///   carries, such as `profile-unresolved`;
+/// - `resolution-busy` when another `get` holds the project's lock, or the
+///   Profile cache stays locked past its timeout;
+/// - `resolution-stale` when the configuration, lock or Profile cache changed
+///   after a plan;
+/// - `data-directory-unavailable` when no data directory can be located;
+/// - `git-timeout` when a Git command outlives its timeout;
+/// - `cancelled` when a `WayfinderCancellation` stopped the operation.
+///
+/// Other Wayfinder packages add their own codes.
+class WayfinderException implements Exception {
+  const WayfinderException(this.code, this.message);
+
+  final String code;
+  final String message;
+
+  @override
+  String toString() => message;
+}

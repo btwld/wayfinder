@@ -33,9 +33,13 @@ Index and search always use local embeddings. Validation runs the existing
 OKF and the Profile checks its `wayfinder.json` selects and retains their output and exit
 codes. Validation never assesses the judgment a Profile's skill asks for.
 For projects with direct Git Profile sources, `get` writes or reuses
-`wayfinder.lock`; `upgrade` refreshes a branch or tag. CLI and MCP
-`validate` read only a current lock/cache and preserve the independent OKF
-result if the Profile source is unresolved. When the selected chain has a
+`wayfinder.lock`; `upgrade` refreshes a branch or tag. Git runs without
+prompts or hooks, ignores inherited `GIT_*` variables, and stops a command
+after five minutes; configure credentials in Git's configuration, a
+credential helper or `~/.ssh/config`. A second `get` on the same project fails
+at once while the first runs. CLI and MCP `validate` read only a current
+lock/cache, run no Git, and preserve the independent OKF result if the Profile
+source is unresolved. When the selected chain has a
 `matches-generated` rule, `validate --fix` first writes okf's generated
 indexes, then validates. It never writes a bundle without a selected
 Profile or one that fails OKF. A bundle with no `wayfinder.json`
@@ -345,6 +349,15 @@ copy of the indexed bundle text with its metadata, so `wayfinder index` places t
 knowledge in per-user application data on every machine that runs it. Nothing
 leaves the machine; deleting the index directory removes the copy, and indexing
 rebuilds it from the original bundle.
+
+`get` keeps each Profile source as a bare mirror under `profiles/`, and the
+package file of each package it read under `profiles/packages/`, which is all
+`validate` reads. A cache from Wayfinder 0.2 has no package files: run
+`wayfinder get` once, which fetches nothing when the mirrors already hold the
+locked commits. `profiles/<source>.lock` lets one `get` at a time refresh a
+source, and others wait up to two minutes; `projects/<project>.get.lock`
+records the project it guards. These locks hold across processes and isolates;
+keep the data directory on a local disk.
 
 An OS lock serializes same-bundle commands. Indexing stages a replacement
 database and snapshot, then publishes their completed generation atomically.

@@ -5,11 +5,11 @@ import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/project.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-import 'graph.dart';
 import 'index_result.dart';
 
 typedef _SavedIndex = ({
@@ -43,13 +43,6 @@ class _SharedQueryEmbedder extends BaseEmbedder {
       _vector ??= delegate.generateQueryVector(text);
 }
 
-class WayfinderException implements Exception {
-  const WayfinderException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
-
 /// Owns an encoder and its tokenizer for one command.
 class WayfinderEncoder {
   WayfinderEncoder(this.embedder, this.countTokens, this.maxTokens);
@@ -69,7 +62,7 @@ class WayfinderKnowledge {
     this.keepEncoderAlive = false,
     Future<WayfinderEncoder> Function()? openEncoder,
     ({String model, String source})? encoderIdentity,
-  }) : dataDirectory = dataDirectory ?? defaultDataDirectory(),
+  }) : dataDirectory = dataDirectory ?? WayfinderDataDirectory.resolve(),
        _openEncoder = openEncoder ?? _openLocalEncoder,
        _encoderIdentity = encoderIdentity,
        _localEncoder = openEncoder == null && !_modelOverride();
@@ -224,37 +217,6 @@ class WayfinderKnowledge {
     'store': '384-v1',
   });
 
-  static Directory defaultDataDirectory() {
-    final env = Platform.environment;
-    final override = env['WAYFINDER_DATA_DIR'];
-    if (override != null && override.trim().isNotEmpty) {
-      return Directory(override);
-    }
-    final home = env[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
-    if (Platform.isWindows) {
-      final local = env['LOCALAPPDATA'];
-      if (local != null) return Directory(p.join(local, 'Wayfinder'));
-    } else if (home != null) {
-      if (Platform.isMacOS) {
-        return Directory(
-          p.join(home, 'Library', 'Application Support', 'Wayfinder'),
-        );
-      }
-      final xdg = env['XDG_DATA_HOME'];
-      return Directory(
-        p.join(
-          xdg != null && p.isAbsolute(xdg)
-              ? xdg
-              : p.join(home, '.local', 'share'),
-          'wayfinder',
-        ),
-      );
-    }
-    throw const WayfinderException(
-      'Cannot locate local app data. Set WAYFINDER_DATA_DIR.',
-    );
-  }
-
   static Future<WayfinderEncoder> _openLocalEncoder() async {
     String? modelPath;
     try {
@@ -276,11 +238,13 @@ class WayfinderKnowledge {
       );
     } on FileSystemException {
       throw WayfinderException(
+        'model-missing',
         'The local embedding model is missing or unreadable ($modelPath). Reinstall the complete '
-        'Wayfinder bundle; for source development run melos run wayfinder_embeddings:prepare.',
+            'Wayfinder bundle; for source development run melos run wayfinder_embeddings:prepare.',
       );
     } on FormatException {
       throw WayfinderException(
+        'model-invalid',
         'The local embedding model failed verification ($modelPath). Reinstall the complete Wayfinder bundle.',
       );
     }
@@ -311,8 +275,9 @@ class WayfinderKnowledge {
       }
       if (!library.existsSync()) {
         throw const WayfinderException(
+          'objectbox-unavailable',
           'The ObjectBox native library is missing. Reinstall the complete '
-          'Wayfinder bundle; for source development run melos run objectbox:install.',
+              'Wayfinder bundle; for source development run melos run objectbox:install.',
         );
       }
       try {
@@ -321,20 +286,25 @@ class WayfinderKnowledge {
         DynamicLibrary.open(library.absolute.path);
       } on ArgumentError {
         throw const WayfinderException(
+          'objectbox-unavailable',
           'The ObjectBox native library cannot load on this platform. '
-          'Reinstall the matching Wayfinder bundle.',
+              'Reinstall the matching Wayfinder bundle.',
         );
       }
     }
     final root = await Directory(bundle).resolveSymbolicLinks();
     if (!await Directory(root).exists()) {
-      throw const WayfinderException('The bundle must be a directory.');
+      throw const WayfinderException(
+        'bundle-missing',
+        'The bundle must be a directory.',
+      );
     }
     final requested = p.normalize(dataDirectory.absolute.path);
     var ancestor = Directory(requested);
     while (!await ancestor.exists()) {
       if (ancestor.parent.path == ancestor.path) {
         throw const WayfinderException(
+          'data-directory-unavailable',
           'Cannot resolve the Wayfinder data directory.',
         );
       }
@@ -348,6 +318,7 @@ class WayfinderKnowledge {
     );
     if (p.equals(root, data) || p.isWithin(root, data)) {
       throw const WayfinderException(
+        'data-directory-invalid',
         'Wayfinder data must be outside the knowledge bundle.',
       );
     }
@@ -357,6 +328,7 @@ class WayfinderKnowledge {
     final lockKey = await directory.resolveSymbolicLinks();
     if (!_active.add(lockKey)) {
       throw const WayfinderException(
+        'index-busy',
         'Index is busy. Retry when the current command finishes.',
       );
     }
@@ -369,6 +341,7 @@ class WayfinderKnowledge {
         await lock.lock(FileLock.exclusive);
       } on FileSystemException {
         throw const WayfinderException(
+          'index-busy',
           'Index is busy. Retry when the current command finishes.',
         );
       }
@@ -456,6 +429,7 @@ class WayfinderKnowledge {
         };
         if (_inventoryHash(savedInputs) != inventory) {
           throw const WayfinderException(
+            'bundle-changed',
             'Knowledge changed while loading. Run wayfinder index again.',
           );
         }
@@ -493,6 +467,7 @@ class WayfinderKnowledge {
           }
           if (await _inventory(root) != inventory) {
             throw const WayfinderException(
+              'bundle-changed',
               'Knowledge changed while indexing. Run wayfinder index again.',
             );
           }
@@ -595,7 +570,7 @@ class WayfinderKnowledge {
             ),
           );
         } on WayfinderException catch (error) {
-          throw WayfinderException('$bundle: ${error.message}');
+          throw WayfinderException(error.code, '$bundle: ${error.message}');
         }
       }
       return results;
@@ -617,12 +592,14 @@ class WayfinderKnowledge {
         record.configuration != _configuration ||
         record.inventory != await _inventory(root)) {
       throw const WayfinderException(
+        'index-stale',
         'Index is missing, stale or incompatible. Run wayfinder index <bundle>.',
       );
     }
     final snapshot = record.snapshot;
     if (snapshot.bundleId != root) {
       throw const WayfinderException(
+        'index-incompatible',
         'Index belongs to another bundle. Run wayfinder index <bundle>.',
       );
     }
@@ -640,6 +617,7 @@ class WayfinderKnowledge {
       if (record.model != index.embeddingModelName ||
           record.source != activeEncoder.embedder.sourceName) {
         throw const WayfinderException(
+          'index-incompatible',
           'Embedding configuration changed. Run wayfinder index <bundle>.',
         );
       }
@@ -654,6 +632,7 @@ class WayfinderKnowledge {
       );
       if (record.inventory != await _inventory(root)) {
         throw const WayfinderException(
+          'bundle-changed',
           'Knowledge changed during search. Run wayfinder index <bundle>.',
         );
       }
@@ -663,6 +642,7 @@ class WayfinderKnowledge {
         'Dense search requires compatible embeddings',
       )) {
         throw WayfinderException(
+          'index-incompatible',
           '${error.message} Run wayfinder index <bundle>.',
         );
       }
@@ -771,6 +751,7 @@ class WayfinderKnowledge {
     } on Object {
       _cachedSavedIndexes.remove(cacheKey);
       throw const WayfinderException(
+        'index-incompatible',
         'Saved index is incomplete or incompatible. Run wayfinder index <bundle>.',
       );
     }

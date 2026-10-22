@@ -1,7 +1,6 @@
+import 'package:wayfinder/project.dart' show ProjectBundle;
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
-
-import 'project_bundles.dart';
 
 typedef ProjectMatch = ({ProjectBundle bundle, SearchResult hit});
 typedef ProjectContext = ({ProjectBundle bundle, KnowledgeContextHit hit});

@@ -3,10 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
-import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
-import 'package:wayfinder_cli/src/profile_skills.dart';
 
 const _claude = '.claude/skills/acme-notes';
 const _agents = '.agents/skills/acme-notes';
@@ -587,21 +585,6 @@ void main() {
         isTrue,
       );
     });
-  });
-
-  test('get lists the installed skills', () async {
-    final output = <String>[];
-    final cli = WayfinderCli(
-      out: output.add,
-      err: (_) {},
-      notices: false,
-      profileResolver: () => resolver,
-    );
-    expect(await cli.run(['get', project.path]), 0);
-    expect(output.last, 'Installed skill acme-notes → $_claude, $_agents');
-    output.clear();
-    expect(await cli.run(['get', project.path]), 0);
-    expect(output.last, 'Current skill acme-notes → $_claude, $_agents');
   });
 }
 

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/project.dart' show WayfinderException;
 
-import 'knowledge.dart';
 import 'version.dart';
 
 /// Runs an external command; throws [ProcessException] when it is missing.
@@ -60,7 +60,10 @@ class AgentSetup {
         _homeOverride ??
         Platform.environment[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
     if (home == null || home.isEmpty) {
-      throw const WayfinderException('Cannot locate the home directory.');
+      throw const WayfinderException(
+        'setup-failed',
+        'Cannot locate the home directory.',
+      );
     }
     return home;
   }
@@ -131,6 +134,7 @@ class AgentSetup {
   }) async {
     if (!await Directory(project).exists()) {
       throw const WayfinderException(
+        'setup-failed',
         'The project must be an existing directory.',
       );
     }
@@ -143,6 +147,7 @@ class AgentSetup {
             relative == '..' ||
             relative.startsWith('../'))) {
       throw const WayfinderException(
+        'setup-failed',
         '--bundle must be a path inside the project.',
       );
     }
@@ -153,16 +158,25 @@ class AgentSetup {
       try {
         decoded = jsonDecode(await file.readAsString());
       } on FormatException {
-        throw const WayfinderException('.mcp.json is not valid JSON.');
+        throw const WayfinderException(
+          'setup-failed',
+          '.mcp.json is not valid JSON.',
+        );
       }
       if (decoded is! Map<String, Object?>) {
-        throw const WayfinderException('.mcp.json must contain a JSON object.');
+        throw const WayfinderException(
+          'setup-failed',
+          '.mcp.json must contain a JSON object.',
+        );
       }
       config = decoded;
     }
     final servers = config['mcpServers'] ?? <String, Object?>{};
     if (servers is! Map<String, Object?>) {
-      throw const WayfinderException('.mcp.json mcpServers must be an object.');
+      throw const WayfinderException(
+        'setup-failed',
+        '.mcp.json mcpServers must be an object.',
+      );
     }
     final entry = {
       'type': 'stdio',
@@ -174,8 +188,9 @@ class AgentSetup {
       _out('.mcp.json already configures the Wayfinder MCP server.');
     } else if (existing != null && !force) {
       throw const WayfinderException(
+        'setup-failed',
         '.mcp.json already has a different wayfinder server. '
-        'Rerun with --force to replace it.',
+            'Rerun with --force to replace it.',
       );
     } else {
       config['mcpServers'] = {...servers, 'wayfinder': entry};
@@ -216,20 +231,32 @@ class AgentSetup {
         try {
           decoded = jsonDecode(await file.readAsString());
         } on FormatException {
-          throw WayfinderException('${file.path} is not valid JSON.');
+          throw WayfinderException(
+            'setup-failed',
+            '${file.path} is not valid JSON.',
+          );
         }
         if (decoded is! Map<String, Object?>) {
-          throw WayfinderException('${file.path} must contain a JSON object.');
+          throw WayfinderException(
+            'setup-failed',
+            '${file.path} must contain a JSON object.',
+          );
         }
         config = decoded;
       }
       final hooks = config['hooks'] ?? <String, Object?>{};
       if (hooks is! Map<String, Object?>) {
-        throw WayfinderException('${file.path} hooks must be an object.');
+        throw WayfinderException(
+          'setup-failed',
+          '${file.path} hooks must be an object.',
+        );
       }
       final start = hooks['SessionStart'] ?? <Object?>[];
       if (start is! List) {
-        throw WayfinderException('${file.path} SessionStart must be an array.');
+        throw WayfinderException(
+          'setup-failed',
+          '${file.path} SessionStart must be an array.',
+        );
       }
       // Preserve other handlers even when they share a group with ours.
       final kept = <Object?>[];
@@ -281,6 +308,7 @@ class AgentSetup {
       );
     } else if (start >= 0 || end >= 0) {
       throw const WayfinderException(
+        'setup-failed',
         'AGENTS.md contains an incomplete Wayfinder session block.',
       );
     } else {
@@ -353,10 +381,16 @@ class AgentSetup {
     try {
       decoded = jsonDecode(await file.readAsString());
     } on FormatException {
-      throw WayfinderException('${file.path} is not valid JSON.');
+      throw WayfinderException(
+        'setup-failed',
+        '${file.path} is not valid JSON.',
+      );
     }
     if (decoded is! Map<String, Object?>) {
-      throw WayfinderException('${file.path} must contain a JSON object.');
+      throw WayfinderException(
+        'setup-failed',
+        '${file.path} must contain a JSON object.',
+      );
     }
     if (decoded case {
       'hooks':
@@ -442,8 +476,9 @@ class AgentSetup {
     ]..sort();
     if (names.isEmpty) {
       throw const WayfinderException(
+        'setup-failed',
         'This Wayfinder installation has no bundled skills. Reinstall the '
-        'complete runtime, or install the Claude Code plugin.',
+            'complete runtime, or install the Claude Code plugin.',
       );
     }
     return names;

@@ -5,12 +5,9 @@ import 'dart:io';
 import 'package:ack/ack.dart';
 import 'package:ack_mcp_dart/ack_mcp_dart.dart';
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:wayfinder/project.dart';
 
-import 'graph.dart';
-import 'graph_input.dart';
 import 'knowledge.dart';
-import 'profile_resolver.dart';
-import 'project_bundles.dart';
 import 'project_search.dart';
 import 'search_input.dart';
 import 'search_output.dart';
@@ -29,7 +26,11 @@ class WayfinderMcpServer {
     WayfinderProfileResolver? profileResolver,
   }) : _workingDirectory = workingDirectory ?? Directory.current,
        _knowledge = knowledge ?? WayfinderKnowledge(keepEncoderAlive: true),
-       _profileResolver = profileResolver ?? WayfinderProfileResolver();
+       _profileResolver =
+           profileResolver ??
+           WayfinderProfileResolver(
+             dataDirectory: WayfinderDataDirectory.resolve(),
+           );
 
   final String? rootPath;
   final Directory _workingDirectory;
@@ -60,7 +61,7 @@ class WayfinderMcpServer {
       Future<Map<String, Object?>> Function(String) action,
     ) async {
       if (root != null) return action(root);
-      final bundles = await discoverProjectBundles(project);
+      final bundles = (await WayfinderProject.discover(project)).bundles;
       final reports = <Map<String, Object?>>[];
       for (final bundle in bundles) {
         try {
@@ -70,7 +71,10 @@ class WayfinderMcpServer {
             ...await action(bundle.root),
           });
         } on WayfinderException catch (error) {
-          throw WayfinderException('${bundle.path}: ${error.message}');
+          throw WayfinderException(
+            error.code,
+            '${bundle.path}: ${error.message}',
+          );
         }
       }
       return {'bundles': reports};
@@ -175,7 +179,7 @@ class WayfinderMcpServer {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
         if (root == null) {
-          final bundles = await discoverProjectBundles(project);
+          final bundles = (await WayfinderProject.discover(project)).bundles;
           final responses = await _knowledge.searchBundles(
             bundles.map((bundle) => bundle.root).toList(),
             query,
@@ -217,7 +221,7 @@ class WayfinderMcpServer {
                 (arguments['resolutions'] as List?)?.cast<String>() ?? const [],
           );
           if (result.graph == null) {
-            throw WayfinderException(result.report!.toText());
+            throw WayfinderException('graph-refused', result.report!.toText());
           }
           return result.toJson();
         }),
