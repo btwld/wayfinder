@@ -9,7 +9,6 @@ import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/messages.dart';
 import 'package:wayfinder_cli/src/native_runtime.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
 import 'package:wayfinder/project.dart';

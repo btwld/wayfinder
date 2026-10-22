@@ -36,7 +36,15 @@
 /// for tests.
 library;
 
-export 'src/okf/knowledge_index.dart' show KnowledgeMetadataFilter;
+// What a host names to implement an encoder provider, read a citation's
+// passage, choose another model, or build search results in a fake.
+export 'src/embedding/base_embedder.dart' show BaseEmbedder;
+export 'src/embedding/embedding_model_spec.dart'
+    show EmbeddingModelSpec, localEmbeddingModel;
+export 'src/models/chunk.dart' show Chunk;
+export 'src/models/search_result.dart' show SearchResult;
+export 'src/okf/knowledge_index.dart'
+    show KnowledgeContextHit, KnowledgeMetadataFilter, KnowledgeSearchResponse;
 export 'src/okf/knowledge_input_diagnostic.dart';
 export 'src/store/encoder.dart';
 export 'src/store/index_result.dart';

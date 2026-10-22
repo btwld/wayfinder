@@ -6,9 +6,7 @@ import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/testing.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 void main() {
   late Directory project;
