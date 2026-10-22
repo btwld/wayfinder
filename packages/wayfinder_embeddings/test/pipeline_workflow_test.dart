@@ -816,8 +816,10 @@ void main() {
   });
 }
 
+/// Writes [contents] to [relativePath], a POSIX path under [dir], at the
+/// native path a directory listing reports for it.
 File _writeFixture(Directory dir, String relativePath, String contents) {
-  final file = File(p.join(dir.path, relativePath));
+  final file = File(p.joinAll([dir.path, ...p.posix.split(relativePath)]));
   file.createSync(recursive: true);
   file.writeAsStringSync(contents);
   return file;
