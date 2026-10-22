@@ -67,7 +67,8 @@ lists every field, the subject facts, and the package layout.
 
 - Give every schema rule `tests` with at least one valid and one invalid
   example. The engine runs them at parse, so a rule whose examples disagree
-  with its check never loads.
+  with its check never loads, and neither does a package whose tests run
+  past ten seconds (`wayfinder/profile-timeout`).
 - Give every rule id a heading in `README.md`, because each finding links
   to `docs#<rule-id>`.
 - When the Profile has judgment answers, write `skill/SKILL.md` with `name`

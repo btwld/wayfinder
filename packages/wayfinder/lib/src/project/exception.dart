@@ -7,7 +7,8 @@
 ///   `bundle-missing`, `bundle-escapes`, `bundles-missing` and
 ///   `config-invalid` while discovering a project's bundles;
 /// - the `DiagnosticCode` value a `WayfinderProfileResolutionException`
-///   carries, such as `profile-unresolved`;
+///   carries, such as `profile-unresolved`, or `profile-timeout` when reading
+///   a Profile package ran past the resolver's bound;
 /// - `resolution-busy` when another `get` holds the project's lock, or the
 ///   Profile cache stays locked past its timeout;
 /// - `resolution-stale` when the configuration, lock or Profile cache changed
@@ -15,10 +16,13 @@
 /// - `fetch-required`, a `ProfileFetchRequiredException`, when a plan would
 ///   clone or refresh a Profile source that the request is offline for or
 ///   its fetch policy refused;
+/// - `lock-change-required`, a `ProfileLockChangeRequiredException`, when a
+///   locked-only plan would change `wayfinder.lock`;
 /// - from `package:wayfinder/adoption.dart`: `adoption-invalid`,
 ///   `adoption-conflict`, `adoption-stale` and `adoption-failed`;
 /// - `data-directory-unavailable` when no data directory can be located;
-/// - `git-timeout` when a Git command writes nothing for its timeout;
+/// - `git-timeout` when a Git command writes nothing for its timeout, and
+///   `git-output-too-large` when it writes more stdout than its limit;
 /// - `cancelled` when a `WayfinderCancellation` stopped the operation; a
 ///   host's `GitRunner` throws [WayfinderException.cancelled] for it too.
 ///

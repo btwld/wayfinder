@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
@@ -92,6 +94,7 @@ final class ProfilePackageException implements Exception {
     this.where,
     this.message, {
     this.unsupported = false,
+    this.timedOut = false,
   });
 
   /// Path into the package JSON, such as `rules[3].check.subject`.
@@ -102,6 +105,11 @@ final class ProfilePackageException implements Exception {
   /// format, OKF release or a builtin is unknown here), so the remedy is to
   /// upgrade wayfinder rather than to fix the Profile.
   final bool unsupported;
+
+  /// True when [ProfilePackage.parseWithin] stopped the parse at its
+  /// timeout; [where] names the rule whose `tests` were running, or
+  /// `package` when no rule's were.
+  final bool timedOut;
 
   @override
   String toString() => '$message at $where';
@@ -130,8 +138,112 @@ final class ProfilePackage {
   /// unsupported format or OKF release, a reserved id, a name repeated
   /// within a noun, a declared frontmatter key OKF already defines, and
   /// every rule-level problem [compileRules] reports, including a rule
-  /// whose own examples disagree with its check.
-  static ProfilePackage parse(String json) {
+  /// whose own examples disagree with its check. It runs the tests on the
+  /// calling isolate, unbounded; [parseWithin] bounds them.
+  static ProfilePackage parse(String json) => _parse(json);
+
+  /// How long [parseWithin] lets a parse run by default. Bitwild's, the
+  /// largest shipped package, takes a few milliseconds.
+  static const parseTimeout = Duration(seconds: 10);
+
+  /// [parse], bounded: the parse runs on an isolate of its own, which is
+  /// stopped once it runs past [timeout].
+  ///
+  /// A schema rule's `tests` run the package's `pattern` keywords on Dart's
+  /// backtracking regular-expression engine, where a hostile or broken
+  /// pattern can run for hours, and nothing on the parsing isolate can
+  /// interrupt it. This throws what [parse] throws for the same package,
+  /// and a parse stopped at [timeout] throws a [ProfilePackageException]
+  /// with [ProfilePackageException.timedOut] set, naming the rule whose
+  /// `tests` were running. A package whose parse passed is then read on the
+  /// calling isolate without running its tests again. When no isolate can be
+  /// started, or the parse stops on an error that is not a
+  /// [ProfilePackageException], it parses on the calling isolate as [parse]
+  /// does.
+  ///
+  /// Every call runs the tests: an earlier verdict is never reused, because
+  /// it could outlive the engine that reached it.
+  static Future<ProfilePackage> parseWithin(
+    String json, {
+    Duration timeout = parseTimeout,
+  }) async {
+    final port = ReceivePort();
+    // Null once the parse passed, its [ProfilePackageException], or
+    // [_notBounded] when it must run on this isolate instead.
+    final outcome = Completer<Object?>();
+    void finish(Object? result) {
+      if (!outcome.isCompleted) outcome.complete(result);
+    }
+
+    var running = 'package';
+    // Sent on [port]: a rule's `tests` location before they run, `true`
+    // when the parse passed, its failure as a record, the error report of an
+    // uncaught error as a list, and null when the isolate exits.
+    port.listen((Object? message) {
+      switch (message) {
+        case final String where:
+          running = where;
+        case true:
+          finish(null);
+        case (final String where, final String text, final bool unsupported):
+          finish(
+            ProfilePackageException(where, text, unsupported: unsupported),
+          );
+        default:
+          finish(_notBounded);
+      }
+    });
+    Timer? deadline;
+    final Object? result;
+    try {
+      final Isolate isolate;
+      try {
+        isolate = await Isolate.spawn(
+          _parseOnIsolate,
+          (port.sendPort, json),
+          onExit: port.sendPort,
+          onError: port.sendPort,
+          debugName: 'wayfinder-profile-package',
+        );
+      } on IsolateSpawnException {
+        return _parse(json);
+      }
+      deadline = Timer(timeout, () {
+        if (outcome.isCompleted) return;
+        isolate.kill(priority: Isolate.immediate);
+        finish(
+          ProfilePackageException(
+            running,
+            'did not finish within ${_describe(timeout)}',
+            timedOut: true,
+          ),
+        );
+      });
+      result = await outcome.future;
+    } finally {
+      deadline?.cancel();
+      port.close();
+    }
+    return switch (result) {
+      null => _parse(json, runTests: false),
+      final ProfilePackageException failure => throw failure,
+      _ => _parse(json),
+    };
+  }
+
+  static String _describe(Duration duration) =>
+      duration.inMilliseconds % 1000 == 0
+      ? '${duration.inSeconds} second${duration.inSeconds == 1 ? '' : 's'}'
+      : '${duration.inMilliseconds} milliseconds';
+
+  /// [parse]; without [runTests], rules' `tests` are checked for their shape
+  /// but not run. [beforeTests] hears each rule's `tests` location before
+  /// they run.
+  static ProfilePackage _parse(
+    String json, {
+    bool runTests = true,
+    void Function(String where)? beforeTests,
+  }) {
     final Object? decoded;
     try {
       decoded = jsonDecode(json);
@@ -228,6 +340,8 @@ final class ProfilePackage {
         namespace: id,
         defs: root[r'$defs'] as Map<String, Object?>? ?? const {},
         helpUri: (slug) => docs?.replace(fragment: slug),
+        runTests: runTests,
+        beforeTests: beforeTests,
       ),
     );
   }
@@ -276,4 +390,20 @@ final class ProfilePackage {
   /// `<id>/<slug>` and its help URI, so reporting cannot drift from the
   /// package.
   final List<CatalogRule> rules;
+}
+
+/// [ProfilePackage.parseWithin]'s isolate stopped on an error of its own, so
+/// the parse runs on the calling isolate instead.
+const _notBounded = Object();
+
+/// The whole work of [ProfilePackage.parseWithin]'s isolate: the parse,
+/// reported on the port.
+void _parseOnIsolate((SendPort, String) input) {
+  final (port, json) = input;
+  try {
+    ProfilePackage._parse(json, beforeTests: port.send);
+    port.send(true);
+  } on ProfilePackageException catch (error) {
+    port.send((error.where, error.message, error.unsupported));
+  }
 }
