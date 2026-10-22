@@ -613,6 +613,11 @@ void main() {
           truncated: true,
         ), reason: '$maxBytes');
       }
+      // The largest int, which a host may pass for no limit.
+      expect(await readUpTo(0x7FFFFFFFFFFFFFFF), (
+        text: 'aé€😀',
+        truncated: false,
+      ));
       await writeSkill('');
       expect(await readUpTo(0), (text: '', truncated: false));
       await expectLater(readUpTo(-1), throwsRangeError);
