@@ -1,11 +1,15 @@
 # Unreleased
 
+- Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
+
+# 0.2.0
+
 - **BREAKING:** MCP `search` and default CLI text `wayfinder search` now return
   structured Markdown (`## Matches` and `## Related Context`) with
   `<path>:<lineStart>-<lineEnd>` citations, single-line concept metadata, and
   resolved `sources` entries instead of the JSON search payload. Callers that
   require machine-readable JSON must use `wayfinder search --output=json` or
-  remain on `0.2.0`.
+  remain on `0.1.2`.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval
   service instead of the one-shot CLI default. Preserve explicit Dart knowledge
   factory overrides and ordinary one-shot command behavior.
@@ -23,9 +27,6 @@
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
-
-# 0.2.0
-
 - `wayfinder mcp` without a bundle now discovers all configured project bundles,
   matching CLI project search/index. Search ranks them together with one query
   embedding, a global limit, and bundle-aware citations; index refreshes them
