@@ -242,4 +242,41 @@ void main() {
     }
     expect(await file.readAsString(), '{"root":"/a"}\n');
   });
+
+  test(
+    'contended non-blocking probes do not throw a stale flock errno',
+    () async {
+      // One holder, and this isolate plus three others calling the
+      // non-blocking paths against it. A failed flock and the errno read
+      // are separate calls; fifty rounds is enough for the race to show
+      // when other dart test processes are running.
+      final path = file.path;
+      for (var round = 0; round < 50; round++) {
+        final holder = (await WayfinderFileLock.tryExclusive(file))!;
+        try {
+          await Future.wait([
+            _hammerLock(path),
+            for (var i = 0; i < 3; i++) Isolate.run(() => _hammerLock(path)),
+          ]);
+        } finally {
+          await holder.release();
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+}
+
+/// Probes a lock another holder keeps. [WayfinderFileLock.isHeld] and a
+/// refused [WayfinderFileLock.tryExclusive] must not throw.
+Future<void> _hammerLock(String path) async {
+  final file = File(path);
+  for (var i = 0; i < 100; i++) {
+    await WayfinderFileLock.isHeld(file);
+  }
+  final acquired = await WayfinderFileLock.tryExclusive(file);
+  if (acquired != null) {
+    await acquired.release();
+    throw StateError('A probe took a lock another holder kept.');
+  }
 }
