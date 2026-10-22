@@ -645,7 +645,18 @@ Future<LlamaEmbedder> openEmbedder() async {
 }
 ```
 
-`LlamaEmbedder.open()` verifies the file before loading. It owns the engine;
+`LlamaEmbedder.open()` verifies the file before loading, with
+`EmbeddingModelSpec.verify`: a missing file throws
+`EmbeddingModelMissingException`, a `FileSystemException`, and other bytes
+`EmbeddingModelMismatchException`, a `FormatException`. Their messages name
+no command; their `remedy`, `EmbeddingModelRemedy.provideModel`, says as
+data that a verified copy of the pinned model fixes it, for the host to word.
+That typed `remedy` reaches a host that calls `verify` or
+`LlamaEmbedder.open()` itself. Through a `LocalModelEncoderProvider`, as a
+`WayfinderKnowledgeStore` opens its model, the two are the
+`WayfinderException` codes `model-missing` and `model-invalid`, whose remedy
+is always `provideModel`, so a host of the store keys its wording on the
+code. It owns the engine;
 call `dispose()` in a `finally` block. A backend that never reports itself
 started is retried once on a fresh engine, because the first load from a
 freshly installed bundle can exceed the runtime's fixed worker startup timeout

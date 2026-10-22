@@ -293,17 +293,31 @@ final class KnowledgeAdoption {
       cancel: cancel,
     );
     fetches.addAll(resolution.plan.fetches);
-    if (resolution.skillProblems.escaping case final message?) {
-      for (final root in await ProfileSkills.escaping(projectRoot)) {
-        conflicts.add(AdoptionConflict('skill-root-escapes', root, message));
+    final problems = resolution.skillProblems;
+    for (final root in ProfileSkills.roots) {
+      if (problems.any(
+        (directory) =>
+            directory.root == root &&
+            directory.state == ProfileSkillDirectoryState.outside,
+      )) {
+        conflicts.add(
+          AdoptionConflict(
+            'skill-root-escapes',
+            root,
+            '$root resolves outside the project through a symbolic link, so '
+                'adoption would not install the Profile skill there. Point it '
+                'inside the project and plan again.',
+          ),
+        );
       }
     }
-    for (final directory in resolution.skillProblems.unowned) {
+    for (final directory in problems) {
+      if (directory.state != ProfileSkillDirectoryState.unmarked) continue;
       conflicts.add(
         AdoptionConflict(
           'skill-unowned',
-          directory,
-          '$directory already exists without a ${ProfileSkills.marker} '
+          directory.path,
+          '${directory.path} already exists without a ${ProfileSkills.marker} '
               'marker, so adoption would not install the Profile skill there. '
               'Move it aside and plan again.',
         ),
@@ -315,8 +329,9 @@ final class KnowledgeAdoption {
           'skill-foreign',
           directory,
           '$directory holds a Profile skill Wayfinder installed that this '
-              'adoption does not install, so the next wayfinder get would '
-              'delete it. Move it aside or remove it, and plan again.',
+              'adoption does not install, so resolving the project\'s '
+              'Profiles again would delete it. Move it aside or remove it, '
+              'and plan again.',
         ),
       );
     }
@@ -341,6 +356,7 @@ final class KnowledgeAdoption {
         path: 'wayfinder.json',
         file: p.join(projectRoot, 'wayfinder.json'),
       ),
+      projectRoot: projectRoot,
       commits: {for (final package in chain) package.id: package.commit},
     );
 
@@ -369,8 +385,8 @@ final class KnowledgeAdoption {
           AdoptionConflict(
             'bundle-okf-invalid',
             bundle,
-            '$bundle fails OKF, so adoption does not bind it. Repair it with '
-                '`okf validate $bundle` and plan again.',
+            '$bundle fails OKF, so adoption does not bind it. Repair what '
+                'OKF validation reports and plan again.',
           ),
         );
       }

@@ -81,6 +81,24 @@ final class WayfinderProfileSource {
 
   Map<String, Object?> toJson() => {'git': git, 'ref': ref, 'path': path};
 
+  /// Where Git reaches the source [git] of the project at [projectRoot], the
+  /// absolute directory holding its `wayfinder.json`: [git] as written for a
+  /// URL, an `scp`-style address such as `git@host:org/repo` or an absolute
+  /// path, and [git] joined to [projectRoot] and normalized for a relative
+  /// path. The resolver clones and refreshes exactly this location, names
+  /// its cache directory and mirror lock after it, and reports it as a
+  /// `ProfileFetch`'s `location`, so a host's consent gate compares it with
+  /// the location of each source a person approved.
+  static String locationOf(String git, {required String projectRoot}) =>
+      p.isAbsolute(git) ||
+          p.windows.isAbsolute(git) ||
+          (Uri.tryParse(git)?.hasScheme ?? false) ||
+          _scpAddress.hasMatch(git)
+      ? git
+      : p.normalize(p.join(projectRoot, git));
+
+  static final _scpAddress = RegExp(r'^(?:[^/@:\\]+@)?[^/:\\]+:.+');
+
   /// Why [git] cannot be recorded as a source, or null. A drive-relative
   /// path changes meaning with the working directory, and a password or
   /// HTTP user-info would be copied into the lock.

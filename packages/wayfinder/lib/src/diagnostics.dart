@@ -49,6 +49,13 @@ enum DiagnosticCode {
     DiagnosticChannel.configuration,
     'This wayfinder cannot read a Profile package in the selected chain.',
   ),
+  profileTimeout(
+    'profile-timeout',
+    DiagnosticLevel.error,
+    DiagnosticChannel.configuration,
+    'A Profile package in the selected chain did not finish loading within '
+        'the time the engine allows.',
+  ),
   profileComposition(
     'profile-composition',
     DiagnosticLevel.error,
@@ -104,6 +111,66 @@ enum DiagnosticCode {
   String get id => 'wayfinder/$slug';
 }
 
+/// What fixes a failure, as data for a host to word in its own terms. The
+/// engine's messages name no command (ADR-0018): the `wayfinder` command
+/// adds what to run, and another host says what it offers instead.
+enum DiagnosticRemedy {
+  /// Resolve the project's Profiles again: write `wayfinder.lock` from
+  /// `wayfinder.json` and install the locked Profile skills, fetching what
+  /// the Profile cache lacks. On the command line, `wayfinder get`.
+  resolveProfiles('resolve-profiles'),
+
+  /// Resolve the project's Profiles again, which reads the locked commit
+  /// from the source's mirror already in the Profile cache, so it fetches
+  /// nothing while that mirror holds the commit. On the command line,
+  /// `wayfinder get`.
+  resolveProfilesFromMirror('resolve-profiles-from-mirror'),
+
+  /// Select new revisions deliberately: move each configured ref to the
+  /// commit it names now and lock that. On the command line,
+  /// `wayfinder upgrade`.
+  upgradeProfiles('upgrade-profiles');
+
+  const DiagnosticRemedy(this.wireValue);
+
+  /// A stable value for a host that records the remedy.
+  final String wireValue;
+}
+
+/// Why resolving would change `wayfinder.lock`: the kind of the project
+/// library's `ProfileLockChange`, and [EngineDiagnostic.lockChange] for a
+/// diagnostic that reports one.
+enum ProfileLockChangeKind {
+  /// There is no `wayfinder.lock`, or it cannot be read or parsed.
+  lockMissing('lock-missing'),
+
+  /// `wayfinder.json` changed after the lock was written: the lock's
+  /// configuration hash no longer matches it.
+  configurationChanged('configuration-changed'),
+
+  /// The lock holds no complete chain for the change's binding
+  /// (`ProfileLockChange.profile`).
+  chainMissing('chain-missing'),
+
+  /// The lock records another source, ref or path for the change's binding
+  /// (`ProfileLockChange.profile`) than `wayfinder.json` names.
+  sourceChanged('source-changed'),
+
+  /// Each of the change's packages (`ProfileLockChange.packages`) declares
+  /// another release or parent than the lock records, or a parent the lock
+  /// pins no commit of.
+  packageChanged('package-changed'),
+
+  /// The lock holds the change's packages (`ProfileLockChange.packages`),
+  /// which no configured chain reaches.
+  packagesUnreached('packages-unreached');
+
+  const ProfileLockChangeKind(this.wireValue);
+
+  /// The stable value `ProfileLockChange.toJson` reports.
+  final String wireValue;
+}
+
 sealed class DiagnosticLocation {
   const DiagnosticLocation();
 
@@ -131,11 +198,33 @@ final class BundleLocation extends DiagnosticLocation {
 }
 
 final class EngineDiagnostic {
-  const EngineDiagnostic(this.code, this.message, {this.location});
+  const EngineDiagnostic(
+    this.code,
+    this.message, {
+    this.location,
+    this.remedy,
+    this.lockChange,
+  });
 
   final DiagnosticCode code;
+
+  /// What happened, naming no command.
   final String message;
   final DiagnosticLocation? location;
+
+  /// What fixes it, when the engine knows: a host words it, as the
+  /// `wayfinder` command adds `Run wayfinder get.` for
+  /// [DiagnosticRemedy.resolveProfiles]. Not part of the result's JSON, text
+  /// or SARIF, whose `message` is the host's to word
+  /// (`ProfileValidationResult.withDiagnosticMessages`).
+  final DiagnosticRemedy? remedy;
+
+  /// Why `wayfinder.lock` would change, for a diagnostic that reports a
+  /// missing or stale lock, so a host can word that cause in its own terms,
+  /// as the `wayfinder` command says the configuration changed after
+  /// `wayfinder get`. Like [remedy], not part of the result's JSON, text or
+  /// SARIF.
+  final ProfileLockChangeKind? lockChange;
 
   String get id => code.id;
   DiagnosticLevel get level => code.level;

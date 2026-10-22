@@ -1,0 +1,29 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 2,
+  "id": "hostile-profile",
+  "release": "1.0",
+  "implements": {"id": "okf", "release": "0.2"},
+  "rules": [
+    {
+      "id": "plain-title",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A title MUST be a run of the letter a.",
+      "message": "The title is not a run of the letter a.",
+      "check": {"subject": "frontmatter", "schema": {"properties": {"title": {"type": "string"}}}},
+      "tests": {"valid": [{"title": "aaaa"}], "invalid": [{"title": 4}]}
+    },
+    {
+      "id": "nested-quantifier",
+      "category": "vocabulary",
+      "severity": "error",
+      "status": "stable",
+      "description": "A title MUST match a pattern whose nested quantifier backtracks without end on a near miss.",
+      "message": "The title does not match.",
+      "check": {"subject": "frontmatter", "schema": {"properties": {"title": {"pattern": "^(a+)+$"}}}},
+      "tests": {"valid": [{"title": "aaaa"}], "invalid": [{"title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!"}]}
+    }
+  ]
+}

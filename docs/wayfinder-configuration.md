@@ -299,11 +299,15 @@ read makes `get` fail with the reason. A package already locked makes
 with one of these diagnostics:
 
 - `wayfinder/profile-invalid` when a package is malformed. A schema
-  violation, a bad id, a repeated name, an OKF frontmatter key, or examples
-  that disagree with their check are all malformed.
+  violation, a bad id, a repeated name, an OKF frontmatter key, examples
+  that disagree with their check, or tests that stop the parse with an
+  error, such as a stack overflow, are all malformed.
 - `wayfinder/profile-unsupported` when a package is well-formed for another
   engine. It may declare another `format`, an OKF release this okf cannot
   read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
+- `wayfinder/profile-timeout` when reading a package, its rule tests
+  included, does not finish within ten seconds, as a `pattern` that
+  backtracks without end can cause. The Profile's author fixes the rule.
 - `wayfinder/profile-composition` when the chain does not compose.
 
 ## Sources and lockfile
@@ -443,8 +447,11 @@ its own.
 `validate` checks each chain member's installed skill against the lock and
 never writes it. A missing directory, or a marker that names another
 revision, reports the `wayfinder/profile-skill-stale` warning with the
-directories to refresh. It does not change the gate or the exit status,
-because the rules still ran. Run `get` to reinstall the locked revision.
+directories to refresh. A marker that cannot be read, is not a regular file,
+or is larger than 64 KiB counts as no marker: the warning names its
+directory, and `get` refuses to replace that directory until you move it
+aside. The warning does not change the gate or the exit status, because the
+rules still ran. Run `get` to reinstall the locked revision.
 
 ## Tags and directories beside a bundle
 
@@ -495,10 +502,10 @@ For `validate`, Wayfinder processes the explicit bundle in this order:
    following each locked package's `extends` to the root.
 4. Parse each package in the chain, including its rule tests, then compose
    the chain and the project entry. A package that fails reports
-   `profile-invalid` or `profile-unsupported`, and a chain that does not
-   compose reports `profile-composition`. A chain member's installed skill
-   that is missing or not at the locked commit reports the
-   `profile-skill-stale` warning.
+   `profile-invalid`, `profile-unsupported` or `profile-timeout`, and a
+   chain that does not compose reports `profile-composition`. A chain
+   member's installed skill that is missing or not at the locked commit
+   reports the `profile-skill-stale` warning.
 5. When OKF passed, run the rules of every package in the chain against the
    composed vocabulary, parent first. Contextual rules are left to Profile
    Review.

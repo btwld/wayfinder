@@ -7,6 +7,8 @@
 /// writes only `wayfinder.lock`, Profile skills, `--fix` output and its
 /// data directory. A host keeps all okf bundle I/O of one process on one
 /// isolate, because okf's bundle lock does not exclude isolates (ADR-0018).
+/// The resolver parses each Profile package on a short-lived isolate of its
+/// own, so a package whose rule tests stall fails rather than hangs.
 ///
 /// Given a project root, discovery and binding read nothing above it; the
 /// command opts into its search of the working directory's ancestors with
@@ -32,6 +34,9 @@
 /// ```
 library;
 
+// The kind of a ProfileLockChange, shared with the diagnostics that report
+// one (EngineDiagnostic.lockChange).
+export 'src/diagnostics.dart' show ProfileLockChangeKind;
 export 'src/project/cancellation.dart'
     show
         WayfinderCancellation,
@@ -42,12 +47,21 @@ export 'src/project/exception.dart' show WayfinderException;
 export 'src/project/file_lock.dart' show WayfinderFileLock;
 export 'src/project/git.dart'
     show
+        GitProcess,
+        GitProcessStarter,
         GitResult,
         GitRunner,
+        gitMayReachRemote,
+        gitSubcommand,
         runGit,
+        startGitProcess,
+        wayfinderConfiguredSshCommand,
         wayfinderGitEnvironment,
+        wayfinderGitMaxOutputBytes,
         wayfinderGitOptions,
-        wayfinderGitTimeout;
+        wayfinderGitRemoteSubcommands,
+        wayfinderGitTimeout,
+        wayfinderSshCommand;
 export 'src/project/graph.dart'
     show
         WayfinderGraphResult,
@@ -64,12 +78,29 @@ export 'src/project/profile_resolver.dart'
         ProfileFetchPolicy,
         ProfileFetchRequiredException,
         ProfileLock,
+        ProfileResolutionBusyException,
         ProfileResolutionPlan,
         ProfileResolutionResult,
+        ProfileSkillDirectoriesException,
         WayfinderProfileResolutionException,
         WayfinderProfileResolver,
         validateWithProfileSources;
 export 'src/project/profile_skills.dart'
-    show MaterializedSkill, ProfileSkills, SkillFile, SkillRevision;
+    show
+        MaterializedSkill,
+        ProfileSkillDirectory,
+        ProfileSkillDirectoryState,
+        ProfileSkillText,
+        ProfileSkills,
+        SkillFile,
+        SkillRevision;
+export 'src/project/profile_status.dart'
+    show
+        ProfileBindingState,
+        ProfileBindingStatus,
+        ProfileLocalCopy,
+        ProfileLockChange,
+        ProfileLockChangeRequiredException,
+        ProfileResolutionStatus;
 export 'src/project/project_bundles.dart'
     show ProjectBundle, WayfinderProject, explicitBundlePrefix;
