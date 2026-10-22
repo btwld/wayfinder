@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
@@ -176,6 +178,56 @@ void main() {
     expect(cycles, greaterThan(0));
   });
 
+  test('a shared probe is not a holder: tryExclusive waits it out', () async {
+    await (await WayfinderFileLock.tryExclusive(file))!.release();
+    // An isHeld probe holds this shared lock for an instant; hold it longer.
+    var release = await holdShared(file);
+    final released = Future<void>.delayed(
+      const Duration(milliseconds: 20),
+      () => release(),
+    );
+    final lock = await WayfinderFileLock.tryExclusive(file);
+    await released;
+    expect(lock, isNotNull);
+    await lock!.release();
+
+    // A lock held longer than an instant still refuses.
+    release = await holdShared(file);
+    try {
+      final watch = Stopwatch()..start();
+      expect(await WayfinderFileLock.tryExclusive(file), isNull);
+      expect(watch.elapsed, greaterThanOrEqualTo(_probeTolerance));
+    } finally {
+      await release();
+    }
+  });
+
+  test(
+    'an acquirer whose lock file a cleanup deleted locks the file now at '
+    'the path',
+    () async {
+      final cleanup = (await WayfinderFileLock.tryExclusive(file))!;
+      // Refused at first, so it tries again while the cleanup deletes the
+      // file it opened.
+      final waiting = WayfinderFileLock.tryExclusive(file);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await file.delete();
+      await cleanup.release();
+      final lock = await waiting;
+      expect(lock, isNotNull);
+      try {
+        expect(await file.exists(), isTrue);
+        expect(await WayfinderFileLock.isHeld(file), isTrue);
+        expect(await WayfinderFileLock.tryExclusive(file), isNull);
+      } finally {
+        await lock!.release();
+      }
+    },
+    skip: Platform.isWindows
+        ? 'Windows deletes no file another handle has open'
+        : false,
+  );
+
   test('isHeld is false for a missing file and creates nothing', () async {
     expect(await WayfinderFileLock.isHeld(file), isFalse);
     expect(await file.parent.exists(), isFalse);
@@ -288,4 +340,45 @@ Future<void> _hammerLock(String path) async {
     await acquired.release();
     throw StateError('A probe took a lock another holder kept.');
   }
+}
+
+/// How long `tryExclusive` retries a taken lock.
+const _probeTolerance = Duration(milliseconds: 100);
+
+/// Takes a shared lock on [file] the way an `isHeld` probe does, and
+/// returns what releases it.
+Future<Future<void> Function()> holdShared(File file) async {
+  if (Platform.isWindows) {
+    final handle = await file.open();
+    await handle.lock(FileLock.shared);
+    return () async {
+      await handle.unlock();
+      await handle.close();
+    };
+  }
+  final library = DynamicLibrary.process();
+  final open = library
+      .lookupFunction<
+        Int32 Function(Pointer<Utf8>, Int32, VarArgs<(Int32,)>),
+        int Function(Pointer<Utf8>, int, int)
+      >('open');
+  final flock = library
+      .lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>(
+        'flock',
+      );
+  final close = library
+      .lookupFunction<Int32 Function(Int32), int Function(int)>('close');
+  final path = file.absolute.path.toNativeUtf8();
+  final descriptor = open(path, 0, 0); // O_RDONLY
+  malloc.free(path);
+  if (descriptor < 0) throw StateError('Cannot open ${file.path}.');
+  if (flock(descriptor, 1 | 4) != 0) {
+    // LOCK_SH | LOCK_NB
+    close(descriptor);
+    throw StateError('Cannot take a shared lock on ${file.path}.');
+  }
+  return () async {
+    flock(descriptor, 8); // LOCK_UN
+    close(descriptor);
+  };
 }
