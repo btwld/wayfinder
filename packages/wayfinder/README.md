@@ -462,7 +462,8 @@ Future<void> main() async {
   if (!plan.applicable) return;
   final result = await adoption.apply(
     plan,
-    // The host's own writes, undone with the rest if they fail.
+    // The host's own writes. If it throws, it undoes its own writes and
+    // adoption undoes Wayfinder's; once it returns, its writes stay.
     hostStep: () async => print(plan.agentInstructions), // for AGENTS.md
     // Progress: each step as it starts and ends.
     onStep: (step) => print('${step.step.wireValue} ${step.outcome.wireValue}'),
@@ -506,12 +507,18 @@ Future<void> main() async {
   writes, such as `AGENTS.md`. The plan digests them with the files adoption
   writes, and `apply` refuses with `adoption-stale` when one changed, before
   writing anything; `KnowledgeAdoptionException.changedPaths` names what
-  changed.
+  changed. Each counts with what it resolves to, so a `CLAUDE.md` linked to
+  `AGENTS.md` goes stale when `AGENTS.md` changes, and one that resolves
+  outside the project or into `.git` is `adoption-invalid`. A directory
+  input is hashed in full when planning and again when applying, so name
+  the files the host reads rather than a large directory.
 - `onStep` hears each step as it happens: `started` as it begins, then
   `done`, `skipped` or `failed`, and after a failure `undone` or
   `undo-failed` for each earlier step, latest first. When it throws for a
   step's start or end, that step fails and the earlier ones are undone, so a
-  test can stop adoption at any step.
+  test can stop adoption at any step. The host step's `done` is the
+  exception: the host's writes are in place and adoption cannot undo them,
+  so what it throws then is ignored, as for a failure or undo report.
 - Planning judges the bundle as applying leaves it, and `apply` judges the
   adopted bundle, each through the adoption's `KnowledgeAssessor`, the one
   `KnowledgeWriter` takes: in process by default, or bounded with

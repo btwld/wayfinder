@@ -120,7 +120,16 @@ final class AdoptionRequest {
   /// as `AGENTS.md`. Planning digests each, as it does the files adoption
   /// writes, and applying refuses the plan with `adoption-stale` before
   /// writing anything when one changed since, absent or present, so the
-  /// host's step shares adoption's staleness check. A directory counts with
-  /// everything below it.
+  /// host's step shares adoption's staleness check.
+  ///
+  /// Each counts with what it resolves to: a symbolic link in its path, its
+  /// own included, is followed, so `CLAUDE.md` linked to `AGENTS.md` counts
+  /// with `AGENTS.md`'s bytes, and moving the link counts as a change.
+  /// Planning throws `adoption-invalid` for one that resolves outside the
+  /// project, to the project directory itself or into `.git`. A directory
+  /// counts with every file below it, each read in full when planning and
+  /// again when applying, so name the files the host reads rather than a
+  /// large directory; a link below it counts by its target, not by what it
+  /// points to.
   final List<String> hostInputs;
 }

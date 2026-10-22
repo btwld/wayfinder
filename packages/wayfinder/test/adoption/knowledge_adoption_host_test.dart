@@ -50,6 +50,7 @@ void main() {
     ProfileId? profile,
     String? ref,
     bool offline = false,
+    bool bindExisting = false,
     List<String> hostInputs = const [],
   }) => AdoptionRequest(
     projectRoot: project.path,
@@ -60,6 +61,7 @@ void main() {
       ref: ref,
     ),
     offline: offline,
+    bindExisting: bindExisting,
     hostInputs: hostInputs,
   );
 
@@ -532,6 +534,137 @@ void main() {
       expect(await gitStatus(project.path), isEmpty);
     });
 
+    test('fails a skipped step it throws for, undoing every step before '
+        'it', () async {
+      // A bound bundle skips the bundle step; a listed lock file skips the
+      // .gitignore step.
+      await copyTree(
+        p.join('..', '..', 'examples', 'acme-notes', 'knowledge'),
+        [project.path, 'knowledge'],
+      );
+      await File(
+        p.join(project.path, '.gitignore'),
+      ).writeAsString('knowledge/.okf.lock\n');
+      await commitAll(project.path);
+      final before = await fileSnapshot(project.path);
+      final plan = await adoption.plan(bitwild(bindExisting: true));
+      expect(plan.conflicts, isEmpty);
+      for (final skipping in [AdoptionStep.bundle, AdoptionStep.gitignore]) {
+        final reports = <AdoptionStepReport>[];
+        final failure = await applyFailure(
+          plan,
+          onStep: (report) {
+            reports.add(report);
+            if (report.step == skipping &&
+                report.outcome == AdoptionStepOutcome.skipped) {
+              throw StateError('Not skipped.');
+            }
+          },
+        );
+        final finished = steps.take(steps.indexOf(skipping));
+        expect(failure.message, 'Bad state: Not skipped.');
+        expect(outcomes(reports), [
+          for (final step in finished) ...[
+            (step, AdoptionStepOutcome.started),
+            (
+              step,
+              step == AdoptionStep.bundle
+                  ? AdoptionStepOutcome.skipped
+                  : AdoptionStepOutcome.done,
+            ),
+          ],
+          (skipping, AdoptionStepOutcome.started),
+          (skipping, AdoptionStepOutcome.skipped),
+          (skipping, AdoptionStepOutcome.failed),
+          for (final step in finished.toList().reversed)
+            if (step != AdoptionStep.check && step != AdoptionStep.bundle)
+              (step, AdoptionStepOutcome.undone),
+        ], reason: skipping.wireValue);
+        expect(outcomes(failure.steps).last, (
+          skipping,
+          AdoptionStepOutcome.failed,
+        ));
+        expect(await fileSnapshot(project.path), before);
+        expect(await gitStatus(project.path), isEmpty);
+      }
+    });
+
+    test('what it throws for the host step\'s end is ignored, and the '
+        'host\'s writes and Wayfinder\'s stay', () async {
+      final agents = File(p.join(project.path, 'AGENTS.md'));
+      final plan = await adoption.plan(bitwild(hostInputs: ['AGENTS.md']));
+      final reports = <AdoptionStepReport>[];
+      final result = await adoption.apply(
+        plan,
+        hostStep: () => agents.writeAsString(plan.agentInstructions),
+        onStep: (report) {
+          reports.add(report);
+          if (report.step == AdoptionStep.host &&
+              report.outcome == AdoptionStepOutcome.done) {
+            throw StateError('Too late.');
+          }
+        },
+      );
+      expect(outcomes(reports).skip(10), [
+        (AdoptionStep.host, AdoptionStepOutcome.started),
+        (AdoptionStep.host, AdoptionStepOutcome.done),
+        (AdoptionStep.validate, AdoptionStepOutcome.started),
+        (AdoptionStep.validate, AdoptionStepOutcome.done),
+      ]);
+      expect(result.complete, isTrue);
+      expect(await agents.readAsString(), plan.agentInstructions);
+      for (final file in plan.files) {
+        expect(
+          await File(
+            p.joinAll([project.path, ...file.path.split('/')]),
+          ).exists(),
+          isTrue,
+          reason: file.path,
+        );
+      }
+    });
+
+    test(
+      'hears undo-failed for a step whose undo fails',
+      () async {
+        final plan = await adoption.plan(bitwild());
+        final reports = <AdoptionStepReport>[];
+        final failure = await applyFailure(
+          plan,
+          hostStep: () async {
+            // The seeded files can no longer be removed.
+            await _chmod('555', bundle());
+            throw StateError('The host failed.');
+          },
+          onStep: reports.add,
+        );
+        await _chmod('755', bundle());
+        if (!failure.steps.any(
+          (step) => step.outcome == AdoptionStepOutcome.undoFailed,
+        )) {
+          markTestSkipped('This user deletes files in a read-only directory.');
+          return;
+        }
+        expect(outcomes(reports).skip(10), [
+          (AdoptionStep.host, AdoptionStepOutcome.started),
+          (AdoptionStep.host, AdoptionStepOutcome.failed),
+          (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
+          (AdoptionStep.profile, AdoptionStepOutcome.undone),
+          (AdoptionStep.configuration, AdoptionStepOutcome.undone),
+          (AdoptionStep.bundle, AdoptionStepOutcome.undoFailed),
+        ]);
+        expect(
+          jsonEncode(reports.last.toJson()),
+          jsonEncode(
+            failure.steps
+                .firstWhere((step) => step.step == AdoptionStep.bundle)
+                .toJson(),
+          ),
+        );
+      },
+      skip: Platform.isWindows ? 'chmod is POSIX' : false,
+    );
+
     test('a check that refuses the plan is the only step reported', () async {
       final plan = await adoption.plan(bitwild());
       await File(p.join(project.path, '.gitignore')).writeAsString('build/\n');
@@ -786,7 +919,14 @@ void main() {
     });
 
     test('a host input outside the project is refused', () async {
-      for (final path in ['../AGENTS.md', '/etc/hosts', '.git/config', '']) {
+      for (final path in [
+        '../AGENTS.md',
+        '/etc/hosts',
+        '.git/config',
+        '.GIT/config',
+        'docs/.Git',
+        '',
+      ]) {
         await expectLater(
           adoption.plan(bitwild(hostInputs: [path])),
           throwsA(
@@ -801,7 +941,109 @@ void main() {
       }
       expect(await data.exists(), isFalse);
     });
+
+    test('a host input that is a symbolic link counts with what it points '
+        'to', () async {
+      final agents = File(p.join(project.path, 'AGENTS.md'));
+      await agents.writeAsString('# Agents\n');
+      final claude = Link(p.join(project.path, 'CLAUDE.md'));
+      await claude.create('AGENTS.md');
+      await commitAll(project.path);
+      final plan = await adoption.plan(bitwild(hostInputs: ['CLAUDE.md']));
+      expect(plan.conflicts, isEmpty);
+
+      // An edit made through the link.
+      await agents.writeAsString('# Agents\n\nEdited meanwhile.\n');
+      final before = await fileSnapshot(project.path);
+      var hostRan = false;
+      final edited = await applyFailure(
+        plan,
+        hostStep: () async => hostRan = true,
+      );
+      expect(edited.code, 'adoption-stale');
+      expect(edited.changedPaths, ['CLAUDE.md']);
+      expect(outcomes(edited.steps), [
+        (AdoptionStep.check, AdoptionStepOutcome.failed),
+      ]);
+      expect(hostRan, isFalse);
+      expect(await fileSnapshot(project.path), before);
+
+      // The link moved to a file with the same bytes.
+      await agents.writeAsString('# Agents\n');
+      await File(p.join(project.path, 'README.md')).writeAsString('# Agents\n');
+      await claude.update('README.md');
+      final moved = await applyFailure(plan);
+      expect(moved.changedPaths, ['CLAUDE.md']);
+
+      // As planned again, the plan applies.
+      await claude.update('AGENTS.md');
+      expect((await adoption.apply(plan)).complete, isTrue);
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
+
+    test('a host input that resolves outside the project or into .git is '
+        'refused, and one moved outside after planning is stale', () async {
+      final outside = await Directory(p.join(temp.path, 'outside')).create();
+      await File(p.join(outside.path, 'AGENTS.md')).writeAsString('# Out\n');
+      await Link(p.join(project.path, 'vendor')).create(outside.path);
+      await Link(
+        p.join(project.path, 'SHARED.md'),
+      ).create(p.join('..', 'outside', 'AGENTS.md'));
+      await Link(
+        p.join(project.path, 'config'),
+      ).create(p.join('.git', 'config'));
+      await Link(p.join(project.path, 'here')).create('.');
+      await Link(p.join(project.path, 'loop-a')).create('loop-b');
+      await Link(p.join(project.path, 'loop-b')).create('loop-a');
+      for (final path in [
+        'vendor/AGENTS.md',
+        'vendor',
+        'SHARED.md',
+        'config',
+        'here',
+        'loop-a',
+      ]) {
+        await expectLater(
+          adoption.plan(bitwild(hostInputs: [path])),
+          throwsA(
+            isA<WayfinderException>()
+                .having((error) => error.code, 'code', 'adoption-invalid')
+                .having(
+                  (error) => error.message,
+                  'message',
+                  contains('Host input $path'),
+                ),
+          ),
+          reason: path,
+        );
+      }
+      expect(await data.exists(), isFalse);
+
+      // A directory linked within the project resolves there.
+      final documentation = await Directory(
+        p.join(project.path, 'documentation'),
+      ).create();
+      await File(
+        p.join(documentation.path, 'AGENTS.md'),
+      ).writeAsString('# Agents\n');
+      final docs = Link(p.join(project.path, 'docs'));
+      await docs.create('documentation');
+      final plan = await adoption.plan(bitwild(hostInputs: ['docs/AGENTS.md']));
+      expect(plan.conflicts, isEmpty);
+
+      // Pointed outside after planning, it is stale, and nothing is written.
+      await docs.update(outside.path);
+      final before = await fileSnapshot(project.path);
+      final failure = await applyFailure(plan);
+      expect(failure.code, 'adoption-stale');
+      expect(failure.changedPaths, ['docs/AGENTS.md']);
+      expect(await fileSnapshot(project.path), before);
+    }, skip: Platform.isWindows ? 'needs symbolic links' : false);
   });
+}
+
+Future<void> _chmod(String mode, String path) async {
+  final result = await Process.run('chmod', [mode, path]);
+  if (result.exitCode != 0) throw StateError('chmod failed: ${result.stderr}');
 }
 
 /// A concept whose `title` is [title].

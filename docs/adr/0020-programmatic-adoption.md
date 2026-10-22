@@ -46,7 +46,8 @@ the undo of each earlier step, latest first, so a host shows progress
 without inferring it from cancellation checks. A listener that throws for a
 step's start or end fails that step like any failure inside it, so a test
 can stop adoption at any step; what it throws while a failure is reported
-is ignored. A failed step's report carries its code, so a host can tell a
+is ignored, and so is what it throws for the host step's `done`, because
+the host's writes are in place by then and only the host could undo them. A failed step's report carries its code, so a host can tell a
 cancelled or timed-out validation from a failed one.
 
 **Applying holds the project as `get` does.** From the check step until
@@ -105,7 +106,11 @@ its step writes or its request came from, such as `AGENTS.md`, as host
 inputs. The plan digests them with the files adoption writes, and the check
 step refuses the plan as `adoption-stale`, naming every changed path,
 before anything is written, rather than at the host's step after
-Wayfinder's files are in place.
+Wayfinder's files are in place. A host input counts with what it resolves
+to, every symbolic link in its path followed, because `CLAUDE.md` is often
+a link to `AGENTS.md` and an edit through the link must count; one that
+resolves outside the project or into `.git` is `adoption-invalid`, so
+adoption reads nothing outside the project for it.
 
 **Adoption writes only Wayfinder's files.** It writes `wayfinder.json`,
 `wayfinder.lock`, the bundle, the Profile skills under `.claude/skills/<id>`

@@ -208,8 +208,8 @@
   with conflicts (`adoption-conflict`), one another Profile cache planned
   (`adoption-invalid`), or one whose inputs changed (`adoption-stale`,
   `resolution-stale`) before writing. It holds the project's `get` lock from
-  that check on (`resolution-busy`), checks its cancellation before each
-  step, and undoes the earlier steps when one fails, reporting a step whose
+  that check on (`resolution-busy`), checks its cancellation as each step
+  starts, and undoes the earlier steps when one fails, reporting a step whose
   undo failed as `undo-failed`. A marked skill directory it does not
   install is a conflict (`skill-foreign`), so adoption deletes nothing.
   Its closing validation binds the bundle with the plan's `projectRoot`, so
@@ -235,11 +235,15 @@
     own step writes, such as `AGENTS.md`. Planning digests them, and
     `apply` refuses with `adoption-stale` when one changed, before writing.
     `KnowledgeAdoptionException.changedPaths` names the paths that changed.
+    Each counts with what it resolves to through symbolic links, so an edit
+    through a linked `CLAUDE.md` counts; one that resolves outside the
+    project or into `.git` is `adoption-invalid`.
   - `apply(onStep:)` hears each step as it happens: the new
     `AdoptionStepOutcome.started`, then its end, and after a failure the
     undo of each earlier step, latest first. What it throws for a step's
-    start or end fails that step. The validate step now checks the
-    cancellation too.
+    start or end fails that step, except for the host step's `done`, after
+    the host's writes, which adoption cannot undo. The validate step now
+    checks the cancellation too.
   - A failed `AdoptionStepReport` carries the failure's `code`.
 - **BREAKING:** Remove the `okfPackageVersion` export; import `okfVersion` or
   `okfIndexGeneratorRevision` from `package:okf/okf.dart`.
