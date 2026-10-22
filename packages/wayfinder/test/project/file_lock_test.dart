@@ -123,7 +123,16 @@ void main() {
       await reader.close();
       final writer = await file.open(mode: FileMode.append);
       await writer.close();
-      await file.readAsString();
+      if (Platform.isWindows) {
+        // LockFileEx locks are mandatory: no other handle can read the
+        // locked file.
+        await expectLater(
+          file.readAsString(),
+          throwsA(isA<FileSystemException>()),
+        );
+      } else {
+        await file.readAsString();
+      }
       expect(await WayfinderFileLock.isHeld(file), isTrue);
       expect(await probeFromSubprocess(), {'held': true, 'acquired': false});
       final path = file.path;
