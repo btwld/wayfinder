@@ -89,6 +89,12 @@ Run all okf bundle I/O of a process on one isolate: okf's bundle lock does
 not exclude isolates. [ADR-0018](../../docs/adr/0018-embeddable-libraries.md)
 records these decisions.
 
+`WayfinderProjectConfig.toJson`, `WayfinderConfigEncoder` and
+`WayfinderConfigEditor` write `wayfinder.json` in its documented layout. The
+editor changes a Profile's source and bundles, the project's vocabulary and
+its actors, and keeps every field it does not model and every value as
+written.
+
 For the command and MCP server, install **wayfinder_cli**:
 
 ```sh

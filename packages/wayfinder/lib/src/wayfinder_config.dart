@@ -42,6 +42,8 @@ final class WayfinderDefinition {
 
   final String name;
   final String description;
+
+  Map<String, Object?> toJson() => {'name': name, 'description': description};
 }
 
 final class WayfinderActorMetadata {
@@ -56,6 +58,13 @@ final class WayfinderActorMetadata {
   final String? organization;
   final String? role;
   final String? side;
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'organization': ?organization,
+    'role': ?role,
+    'side': ?side,
+  };
 }
 
 /// A Profile package selected from a Git revision.
@@ -69,6 +78,8 @@ final class WayfinderProfileSource {
   final String git;
   final String ref;
   final String path;
+
+  Map<String, Object?> toJson() => {'git': git, 'ref': ref, 'path': path};
 
   /// Why [git] cannot be recorded as a source, or null. A drive-relative
   /// path changes meaning with the working directory, and a password or
@@ -107,6 +118,21 @@ final class WayfinderProfileBinding {
   /// Never empty: an entry exists to apply its Profile.
   final List<String> appliesTo;
   final ProjectVocabulary project;
+
+  /// The entry as `wayfinder.json` holds it, with each bundle path in the
+  /// explicit `./` form and only the vocabulary the project declares.
+  Map<String, Object?> toJson() => {
+    'source': source.toJson(),
+    'applies_to': [for (final path in appliesTo) explicitBundlePath(path)],
+    ...project.toJson(),
+  };
+
+  /// [path] in the explicit form the configuration documents: `./knowledge`
+  /// for `knowledge`.
+  static String explicitBundlePath(String path) {
+    final normalized = p.posix.normalize(path);
+    return normalized.startsWith('./') ? normalized : './$normalized';
+  }
 }
 
 final class WayfinderBundleBinding {
@@ -131,6 +157,20 @@ final class WayfinderProjectConfig {
   final int version;
   final Map<ProfileId, WayfinderProfileBinding> profiles;
   final List<WayfinderBundleBinding> bundles;
+
+  /// The configuration as JSON: [parse] of its encoding yields an equal
+  /// configuration. It drops what parsing normalized away, such as a bundle
+  /// path's spelling; [WayfinderConfigEditor] keeps a document's own text.
+  Map<String, Object?> toJson() => {
+    'version': version,
+    'profiles': {
+      for (final MapEntry(:key, :value) in profiles.entries)
+        key.value: value.toJson(),
+    },
+  };
+
+  /// [toJson] as `wayfinder.json` text.
+  String encode() => const WayfinderConfigEncoder().convert(toJson());
 
   /// Decodes [source], checks it against the published schema, then runs
   /// the cross-document checks the schema cannot express.
@@ -464,6 +504,262 @@ final class BoundBundle {
 
   /// The configuration text the lock's hash covers.
   final String source;
+}
+
+/// Writes `wayfinder.json` text the way the documentation shows it: objects
+/// indented by two spaces, a list of plain values such as `applies_to` on
+/// one line, keys in the order given, and a final newline. The same JSON
+/// always encodes to the same bytes.
+final class WayfinderConfigEncoder extends Converter<Object?, String> {
+  const WayfinderConfigEncoder();
+
+  @override
+  String convert(Object? input) {
+    final buffer = StringBuffer();
+    _write(buffer, input, '');
+    buffer.write('\n');
+    return buffer.toString();
+  }
+
+  static void _write(StringBuffer buffer, Object? value, String indent) {
+    switch (value) {
+      case final Map<Object?, Object?> map when map.isNotEmpty:
+        final inner = '$indent  ';
+        buffer.write('{\n');
+        for (final (index, MapEntry(:key, value: item))
+            in map.entries.indexed) {
+          buffer
+            ..write(inner)
+            ..write(jsonEncode(key.toString()))
+            ..write(': ');
+          _write(buffer, item, inner);
+          buffer.write(index == map.length - 1 ? '\n' : ',\n');
+        }
+        buffer
+          ..write(indent)
+          ..write('}');
+      case final List<Object?> list
+          when list.isNotEmpty &&
+              list.any((item) => item is Map || item is List):
+        final inner = '$indent  ';
+        buffer.write('[\n');
+        for (final (index, item) in list.indexed) {
+          buffer.write(inner);
+          _write(buffer, item, inner);
+          buffer.write(index == list.length - 1 ? '\n' : ',\n');
+        }
+        buffer
+          ..write(indent)
+          ..write(']');
+      case final List<Object?> list:
+        buffer.write('[${list.map(jsonEncode).join(', ')}]');
+      default:
+        buffer.write(jsonEncode(value));
+    }
+  }
+}
+
+/// Which project vocabulary list of a Profile entry an edit changes.
+enum WayfinderVocabulary {
+  types('types'),
+  tags('tags'),
+  relationships('relationships');
+
+  const WayfinderVocabulary(this.key);
+
+  /// The entry's field.
+  final String key;
+}
+
+/// Structured edits to a `wayfinder.json` document that keep everything
+/// they do not change: other fields, including ones this release does not
+/// model, their values as written, such as `./knowledge`, and the order of
+/// keys. Edits change the decoded document; [config] checks it against the
+/// schema, and [encode] writes it with [WayfinderConfigEncoder].
+final class WayfinderConfigEditor {
+  WayfinderConfigEditor._(this._document);
+
+  /// A version 1 document with no Profile entries yet; add one with
+  /// [setProfile] before reading [config].
+  factory WayfinderConfigEditor.empty() =>
+      WayfinderConfigEditor._({'version': 1, 'profiles': <String, Object?>{}});
+
+  /// Edits [source]. Throws [WayfinderConfigException] unless it is a JSON
+  /// object without a repeated key, which an edit would silently drop; it
+  /// need not be a valid configuration until [config] is read.
+  factory WayfinderConfigEditor.parse(String source) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException catch (error) {
+      throw WayfinderConfigException(
+        'wayfinder.json is not valid JSON: ${error.message.split('\n').first}',
+      );
+    }
+    if (decoded is! Map<String, Object?>) {
+      throw const WayfinderConfigException(
+        'wayfinder.json must hold a JSON object.',
+      );
+    }
+    _JsonDuplicateKeyScanner(source).scan();
+    return WayfinderConfigEditor._(_copy(decoded)! as Map<String, Object?>);
+  }
+
+  final Map<String, Object?> _document;
+
+  /// A copy of the edited document.
+  Map<String, Object?> toJson() => _copy(_document)! as Map<String, Object?>;
+
+  /// The edited document as `wayfinder.json` text.
+  String encode() => const WayfinderConfigEncoder().convert(_document);
+
+  /// The edited document, parsed and checked as [WayfinderProjectConfig.parse]
+  /// checks a file. Throws [WayfinderConfigException].
+  WayfinderProjectConfig get config => WayfinderProjectConfig.parse(encode());
+
+  /// Points the entry [id] at [source]. Creates the entry when it is
+  /// missing, with [appliesTo] (required then); otherwise replaces only its
+  /// `source`, and its `applies_to` when [appliesTo] is given.
+  void setProfile(
+    ProfileId id,
+    WayfinderProfileSource source, {
+    List<String>? appliesTo,
+  }) {
+    final profiles = _profiles();
+    final existing = profiles[id.value];
+    if (existing == null && appliesTo == null) {
+      throw ArgumentError.value(
+        appliesTo,
+        'appliesTo',
+        'is required for a new Profile entry',
+      );
+    }
+    final entry = switch (existing) {
+      null => <String, Object?>{},
+      final Map<String, Object?> map => map,
+      _ => throw WayfinderConfigException('profiles.$id must be an object.'),
+    };
+    final previous = entry['source'];
+    entry['source'] = {
+      if (previous is Map<String, Object?>) ...previous,
+      ...source.toJson(),
+    };
+    if (appliesTo != null) {
+      entry['applies_to'] = [
+        for (final path in appliesTo)
+          WayfinderProfileBinding.explicitBundlePath(path),
+      ];
+    }
+    profiles[id.value] = entry;
+  }
+
+  /// Removes the entry [id], if present.
+  void removeProfile(ProfileId id) => _profiles().remove(id.value);
+
+  /// Adds [path] to the entry's `applies_to` unless it lists it already.
+  void addBundle(ProfileId id, String path) {
+    final list = _list(_entry(id), 'applies_to');
+    final normalized = p.posix.normalize(path);
+    if (list.any(
+      (item) => item is String && p.posix.normalize(item) == normalized,
+    )) {
+      return;
+    }
+    list.add(WayfinderProfileBinding.explicitBundlePath(path));
+  }
+
+  /// Removes [path] from the entry's `applies_to`, however it is spelled.
+  void removeBundle(ProfileId id, String path) {
+    final normalized = p.posix.normalize(path);
+    _list(_entry(id), 'applies_to').removeWhere(
+      (item) => item is String && p.posix.normalize(item) == normalized,
+    );
+  }
+
+  /// Adds [definition] to the entry's [kind] list, or replaces the one with
+  /// its name in place.
+  void putDefinition(
+    ProfileId id,
+    WayfinderVocabulary kind,
+    WayfinderDefinition definition,
+  ) {
+    final list = _list(_entry(id), kind.key);
+    final index = list.indexWhere(
+      (item) => item is Map && item['name'] == definition.name,
+    );
+    if (index < 0) {
+      list.add(definition.toJson());
+    } else {
+      list[index] = {
+        ...(list[index]! as Map<String, Object?>),
+        ...definition.toJson(),
+      };
+    }
+  }
+
+  /// Removes the [kind] definition named [name]; drops an emptied list.
+  void removeDefinition(ProfileId id, WayfinderVocabulary kind, String name) {
+    final entry = _entry(id);
+    if (entry[kind.key] == null) return;
+    final list = _list(entry, kind.key)
+      ..removeWhere((item) => item is Map && item['name'] == name);
+    if (list.isEmpty) entry.remove(kind.key);
+  }
+
+  /// Registers [actorId] with [actor], replacing the fields [actor] sets
+  /// and keeping any others the existing record has.
+  void putActor(ProfileId id, String actorId, WayfinderActorMetadata actor) {
+    final entry = _entry(id);
+    final actors = switch (entry['actors'] ??= <String, Object?>{}) {
+      final Map<String, Object?> map => map,
+      _ => throw WayfinderConfigException(
+        'profiles.$id.actors must be an object.',
+      ),
+    };
+    final previous = actors[actorId];
+    actors[actorId] = {
+      if (previous is Map<String, Object?>) ...previous,
+      ...actor.toJson(),
+    };
+  }
+
+  /// Removes [actorId]; drops an emptied `actors` object.
+  void removeActor(ProfileId id, String actorId) {
+    final entry = _entry(id);
+    if (entry['actors'] case final Map<String, Object?> actors) {
+      actors.remove(actorId);
+      if (actors.isEmpty) entry.remove('actors');
+    }
+  }
+
+  Map<String, Object?> _profiles() =>
+      switch (_document['profiles'] ??= <String, Object?>{}) {
+        final Map<String, Object?> map => map,
+        _ => throw const WayfinderConfigException(
+          'wayfinder.json profiles must be an object.',
+        ),
+      };
+
+  Map<String, Object?> _entry(ProfileId id) => switch (_profiles()[id.value]) {
+    final Map<String, Object?> map => map,
+    null => throw WayfinderConfigException('No Profile entry $id to edit.'),
+    _ => throw WayfinderConfigException('profiles.$id must be an object.'),
+  };
+
+  static List<Object?> _list(Map<String, Object?> entry, String key) =>
+      switch (entry[key] ??= <Object?>[]) {
+        final List<Object?> list => list,
+        _ => throw WayfinderConfigException('$key must be a list.'),
+      };
+
+  static Object? _copy(Object? value) => switch (value) {
+    final Map<Object?, Object?> map => <String, Object?>{
+      for (final MapEntry(:key, :value) in map.entries)
+        key.toString(): _copy(value),
+    },
+    final List<Object?> list => <Object?>[for (final item in list) _copy(item)],
+    _ => value,
+  };
 }
 
 /// No binding applies to a bundle; [diagnostic] says why.

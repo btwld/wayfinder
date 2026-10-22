@@ -74,6 +74,11 @@
   the files `validate --fix` writes. `validate` delegates to both; its results
   are unchanged.
 - `wayfinder` depends on `crypto` and `ffi`.
+- `WayfinderProjectConfig.toJson` and `encode`, `WayfinderConfigEncoder`, and
+  `WayfinderConfigEditor`, which edits a `wayfinder.json` document's Profile
+  sources, bundles, vocabulary and actors and keeps every field it does not
+  model. The definitions, actors, sources, bindings and `ProjectVocabulary`
+  gain `toJson`.
 
 # 0.2.0
 

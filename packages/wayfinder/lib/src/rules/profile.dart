@@ -57,6 +57,22 @@ final class ProjectVocabulary {
   final List<WayfinderDefinition> tags;
   final List<WayfinderDefinition> relationships;
   final Map<String, WayfinderActorMetadata> actors;
+
+  /// The fields of a `wayfinder.json` Profile entry this vocabulary fills,
+  /// leaving out each empty one.
+  Map<String, Object?> toJson() => {
+    if (types.isNotEmpty) 'types': [for (final type in types) type.toJson()],
+    if (tags.isNotEmpty) 'tags': [for (final tag in tags) tag.toJson()],
+    if (relationships.isNotEmpty)
+      'relationships': [
+        for (final relationship in relationships) relationship.toJson(),
+      ],
+    if (actors.isNotEmpty)
+      'actors': {
+        for (final MapEntry(:key, :value) in actors.entries)
+          key: value.toJson(),
+      },
+  };
 }
 
 final class ProfileCompositionException implements Exception {
