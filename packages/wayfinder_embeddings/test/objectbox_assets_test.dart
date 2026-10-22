@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -23,6 +24,30 @@ void main() {
     for (final pin in pins) {
       expect(entries[pin[1]]['archiveSha256'], pin[2]);
     }
+  });
+
+  test('resolves the Dart objectbox the native library is pinned for', () async {
+    // The pubspec allows any objectbox 5.x from 5.3.2, and the lockfile is not
+    // committed; the workspace root's dependency override holds the pair.
+    final manifest =
+        jsonDecode(
+              await File('tool/objectbox_assets/manifest.json').readAsString(),
+            )
+            as Map<String, dynamic>;
+    final library = await Isolate.resolvePackageUri(
+      Uri.parse('package:objectbox/objectbox.dart'),
+    );
+    final pubspec = await File(
+      p.join(p.dirname(p.dirname(library!.toFilePath())), 'pubspec.yaml'),
+    ).readAsString();
+    expect(
+      RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(pubspec)?[1],
+      manifest['version'],
+      reason:
+          'Dart objectbox and the native library move together: update the '
+          "workspace root's dependency override, tool/install_objectbox.sh "
+          'and tool/objectbox_assets/manifest.json in one change.',
+    );
   });
 
   final libraryName = Platform.isWindows
