@@ -52,7 +52,9 @@ Run validation before saying a bundle conforms, and after editing one.
 selected chain uses `matches-generated`, it first writes okf's generated
 indexes, then validates. Otherwise it writes nothing and reports
 `wayfinder/fix-not-applied`, as it does for a bundle with no selected
-Profile or one OKF rejects. A bundle with no `wayfinder.json` above it
+Profile or one OKF rejects. A fix that writes takes okf's bundle lock and
+leaves `.okf.lock` at the bundle root; it is not knowledge, so keep it out of
+commits and expect the project's `.gitignore` to list it. A bundle with no `wayfinder.json` above it
 reports `wayfinder/config-missing`. A missing or stale lock still leaves an
 independent OKF result; run `wayfinder get` to resolve the declared source, or
 `wayfinder upgrade` only when intentionally advancing a mutable ref.

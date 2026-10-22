@@ -23,6 +23,11 @@ typedef _SavedIndex = ({
 
 typedef _CachedSavedIndex = ({String text, int bytes, _SavedIndex index});
 
+/// okf's `okfBundleLockFileName`, which okf's loader leaves out of a bundle.
+/// The command depends on okf only in its tests, which create the file
+/// through okf's own lock.
+const _okfBundleLockFileName = '.okf.lock';
+
 /// Scoped to one project query; native model ownership stays with the command.
 class _SharedQueryEmbedder extends BaseEmbedder {
   _SharedQueryEmbedder(this.delegate);
@@ -757,12 +762,16 @@ class WayfinderKnowledge {
     }
   }
 
+  /// The bundle's files as okf's loader reads them, so it leaves out okf's
+  /// `.okf.lock` at any depth, which a `validate --fix` or a write leaves
+  /// behind, and never opens it.
   Future<String> _inventory(String root) async {
     final files = [
       await for (final entry in Directory(
         root,
       ).list(recursive: true, followLinks: false))
-        if (entry is File) entry,
+        if (entry is File && p.basename(entry.path) != _okfBundleLockFileName)
+          entry,
     ];
     final paths = <String, String>{};
     const batchSize = 32;

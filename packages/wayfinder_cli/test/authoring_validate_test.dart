@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf/okf.dart';
+import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/authoring.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
+import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'support.dart';
 
@@ -14,6 +16,13 @@ import 'support.dart';
 /// after each commit by the `validate` command, on a copy of the Bitwild
 /// example. `package:wayfinder`'s own tests cover the writer in depth.
 void main() {
+  final objectBox = File(
+    '../wayfinder_embeddings/lib/${Platform.isMacOS
+        ? 'libobjectbox.dylib'
+        : Platform.isWindows
+        ? 'objectbox.dll'
+        : 'libobjectbox.so'}',
+  );
   late Directory temp;
   late String bundle;
   late WayfinderProfileResolver resolver;
@@ -131,6 +140,76 @@ void main() {
       expect(await validateGate(), 'PASS', reason: '$change');
     }
   });
+
+  test(
+    'a bundle that validate --fix wrote, leaving .okf.lock, indexes and '
+    'searches',
+    () async {
+      // A missing generated index gives --fix something to write.
+      await File(p.join(bundle, 'reporting', 'index.md')).delete();
+      final output = <String>[];
+      final cli = WayfinderCli(
+        out: output.add,
+        err: output.add,
+        notices: false,
+        profileResolver: () => resolver,
+        knowledge: () => WayfinderKnowledge(
+          dataDirectory: Directory(p.join(temp.path, 'data')),
+          encoderIdentity: (model: _KeywordEncoder.model, source: 'fixture'),
+          openEncoder: () async => WayfinderEncoder(
+            _KeywordEncoder(),
+            (text) async => text.split(' ').length,
+            512,
+          ),
+        ),
+      );
+      Future<int> run(List<String> arguments) async {
+        output.clear();
+        return cli.run(arguments);
+      }
+
+      expect(await run(['validate', bundle, '--fix', '--output', 'json']), 0);
+      final report = jsonDecode(output.single) as Map<String, Object?>;
+      expect((report['fix']! as Map)['written'], ['reporting/index.md']);
+      expect(File(p.join(bundle, okfBundleLockFileName)).existsSync(), isTrue);
+
+      expect(await run(['index', bundle]), 0, reason: output.join('\n'));
+      expect(
+        await run(['search', bundle, 'PDF export', '--output=json']),
+        0,
+        reason: output.join('\n'),
+      );
+      expect(
+        (jsonDecode(output.single) as Map)['matches'],
+        isNotEmpty,
+        reason: output.join('\n'),
+      );
+    },
+    skip: objectBox.existsSync()
+        ? false
+        : 'Install ObjectBox to run the index test.',
+  );
+}
+
+/// Deterministic vectors, enough to index and search; not retrieval
+/// evidence.
+final class _KeywordEncoder extends BaseEmbedder {
+  static const model = 'fixture-v1';
+
+  @override
+  String get sourceName => 'fixture';
+  @override
+  String get modelName => model;
+  @override
+  int get dimension => 384;
+  @override
+  Future<List<double>> generateEmbedding(String text) async =>
+      keywordVector(text);
+  @override
+  Future<List<double>> generateQueryVector(String text) async =>
+      keywordVector(text);
+  @override
+  Future<void> dispose() async {}
 }
 
 Future<String> _git(String directory, List<String> arguments) async {

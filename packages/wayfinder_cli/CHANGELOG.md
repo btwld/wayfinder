@@ -6,6 +6,12 @@
   it. One with nothing to write takes no lock, and a lock it cannot take, as
   in a bundle it may not write, is reported as `wayfinder/fix-failed` with
   exit code 1, as a failed write always was.
+- Like okf's own writes, a `validate --fix` that writes leaves `.okf.lock` at
+  the bundle root. Add `.okf.lock` to the project's `.gitignore`. `index` and
+  `search` leave the file out of the bundle inventory they compare, at any
+  depth, as okf's loader does; before, a bundle holding one failed `index`
+  with `Knowledge changed while loading` and `search` reported the index
+  stale.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command

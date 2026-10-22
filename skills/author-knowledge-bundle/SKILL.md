@@ -89,7 +89,9 @@ A write is complete only when all of these exist:
    indexes, run `wayfinder validate <bundle> --fix`. It writes them, then
    validates. Never edit a generated index by hand. Without such a Profile,
    `--fix` writes nothing and reports `wayfinder/fix-not-applied`. Update
-   each `index.md` the bundle keeps yourself, per OKF §8.
+   each `index.md` the bundle keeps yourself, per OKF §8. A fix that writes
+   leaves okf's lock file, `.okf.lock`, at the bundle root; never commit it,
+   and add it to the project's `.gitignore` if it is missing.
 3. A `log.md` entry for a lifecycle event, under today's `## YYYY-MM-DD`
    heading, newest first, as `* **<Lead word>**: <what changed>`. The Profile
    skills say which events to log. A formatting-only change needs no entry.
