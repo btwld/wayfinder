@@ -101,15 +101,18 @@ A write is complete only when all of these exist:
    [references/profile-assessment.md](./references/profile-assessment.md),
    with its report in the interaction or pull request.
 
-When your host offers write tools built on Wayfinder's authoring library
+If your host offers write tools built on Wayfinder's authoring library
 (`KnowledgeWriter` in `package:wayfinder/authoring.dart`), such as create,
-update, link and deprecate, prefer them to editing files. One
-call does steps 1 to 4 as one write: it writes the concept, rewrites only the
-generated indexes the change affects, records the log entry you pass exactly
-as given, and judges the result before writing. It refuses a write that adds
-an error and names the finding; repair what it names rather than editing
-around it. You still choose the content and the log entry from each Profile
-skill, and you still run the Profile Review in step 5.
+update, link and deprecate, prefer them to editing files. One call does steps
+1 to 3 as one write: it writes the concept, rewrites only the generated
+indexes the change affects, and records the log entry you pass exactly as
+given. It judges the result before writing and refuses a write that adds an
+error, naming the finding; repair what it names rather than editing around
+it. It does not refuse an error the bundle already had, or a bundle no
+Profile judged, so step 4 still applies: run `wayfinder validate <bundle>`,
+or confirm the tool reports the candidate's gate as `PASS`. You still choose
+the content and the log entry from each Profile skill, and you still run the
+Profile Review in step 5.
 
 ## Where the Profile skills are silent
 

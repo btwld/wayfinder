@@ -11,6 +11,10 @@ diagnostics (`EngineDiagnostic`), and the gate derived from them
 import 'package:wayfinder/wayfinder.dart';
 ```
 
+A project on disk is in `package:wayfinder/project.dart` ([Projects](#projects)),
+and writes a Profile governs are in `package:wayfinder/authoring.dart`
+([Authoring](#authoring)).
+
 `ProfileValidator.validateLoaded` validates a bundle okf has already loaded,
 such as a candidate built in memory, without reading its files again; only the
 `path-targets-exist` builtin looks further, for a path target okf's graph
