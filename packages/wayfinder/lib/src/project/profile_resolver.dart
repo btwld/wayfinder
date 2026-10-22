@@ -546,6 +546,7 @@ final class WayfinderProfileResolver {
     final (:status, :selection) = await _assess(
       projectRoot: bound.projectRoot,
       raw: bound.source,
+      lock: await _readProjectLock(bound.projectRoot),
       binding: bound.binding,
       config: bound.config,
     );
@@ -591,28 +592,34 @@ final class WayfinderProfileResolver {
     );
     final ids = config.profiles.keys.toList()
       ..sort((left, right) => left.value.compareTo(right.value));
-    final lockPath = p.join(projectRoot, 'wayfinder.lock');
+    // One read of the lock for the whole status, so the project's
+    // lockChange and every binding's describe the same lock even while a
+    // `get` replaces it.
+    final lock = await _readProjectLock(projectRoot);
     ProfileLockChange? lockChange;
-    try {
-      _checkLockedOnly(raw, await _readLock(File(lockPath)));
-    } on ProfileLockChangeRequiredException catch (error) {
-      lockChange = error.change;
-    } on FileSystemException catch (error) {
+    if (lock.error case final error?) {
       lockChange = ProfileLockChange(
         ProfileLockChangeKind.lockMissing,
         error.message,
       );
+    } else {
+      try {
+        _checkLockedOnly(raw, lock.lock);
+      } on ProfileLockChangeRequiredException catch (error) {
+        lockChange = error.change;
+      }
     }
     return ProfileResolutionStatus(
       projectRoot: projectRoot,
       configPath: configFile.path,
-      lockPath: lockPath,
+      lockPath: p.join(projectRoot, 'wayfinder.lock'),
       lockChange: lockChange,
       bindings: List.unmodifiable([
         for (final id in ids)
           (await _assess(
             projectRoot: projectRoot,
             raw: raw,
+            lock: lock,
             binding: config.profiles[id]!,
             config: location,
           )).status,
@@ -621,12 +628,13 @@ final class WayfinderProfileResolver {
   }
 
   /// What [select] does for [binding] of the configuration [raw] at
-  /// [config], in the project at [projectRoot]: its status, and the
-  /// selection when it is resolved. Every failure is the one diagnostic
-  /// [select] reports, at [config].
+  /// [config], in the project at [projectRoot] whose `wayfinder.lock` read
+  /// as [lock]: its status, and the selection when it is resolved. Every
+  /// failure is the one diagnostic [select] reports, at [config].
   Future<({ProfileBindingStatus status, SelectedProfile? selection})> _assess({
     required String projectRoot,
     required String raw,
+    required _LockRead lock,
     required WayfinderProfileBinding binding,
     required ProjectFileLocation config,
   }) async {
@@ -668,10 +676,7 @@ final class WayfinderProfileResolver {
       lockChange: change,
     );
 
-    final ProfileLock? lock;
-    try {
-      lock = await _readLock(File(p.join(projectRoot, 'wayfinder.lock')));
-    } on FileSystemException catch (error) {
+    if (lock.error case final error?) {
       // A lock that exists but cannot be read: the error is the reason, and
       // what fixes it is the host's to find.
       return failed(
@@ -683,7 +688,7 @@ final class WayfinderProfileResolver {
         ),
       );
     }
-    switch (_lockedChain(lock, raw, binding)) {
+    switch (_lockedChain(lock.lock, raw, binding)) {
       case final ProfileLockChange change:
         return lockChanges(change);
       case final List<LockedPackage> locked:
@@ -1978,6 +1983,20 @@ final class WayfinderProfileResolver {
   Future<ProfileLock?> _readLock(File file) async =>
       _parseLock(await _readBytes(file));
 
+  /// The `wayfinder.lock` of [projectRoot], read once for everything one
+  /// [status] or [select] reports: the parsed lock, null when there is none
+  /// or it does not parse, or the error that kept it from being read.
+  Future<_LockRead> _readProjectLock(String projectRoot) async {
+    try {
+      return (
+        lock: await _readLock(File(p.join(projectRoot, 'wayfinder.lock'))),
+        error: null,
+      );
+    } on FileSystemException catch (error) {
+      return (lock: null, error: error);
+    }
+  }
+
   static ProfileLock? _parseLock(List<int>? bytes) {
     if (bytes == null) return null;
     try {
@@ -2317,6 +2336,10 @@ final class ProfileResolutionBusyException extends WayfinderException {
   /// The source as the configuration or a package spells its `git`.
   final String? source;
 }
+
+/// `wayfinder.lock` as one read found it: [lock] null when there is none or
+/// it does not parse, and [error] set when it could not be read.
+typedef _LockRead = ({ProfileLock? lock, FileSystemException? error});
 
 final class _Session {
   _Session({
