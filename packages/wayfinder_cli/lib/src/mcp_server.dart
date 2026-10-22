@@ -18,8 +18,10 @@ import 'version.dart';
 /// Retrieval calls share one lazy encoder, one call into it at a time, so a
 /// search can run while an index does. Each call still checks source
 /// freshness; a search during a refresh serves the last published index
-/// with a notice. Disconnect drains active calls and disposes the encoder;
-/// cancellation is not a rollback.
+/// with a notice. A search the client cancels, or one running when the
+/// client disconnects, stops at its next check, since no one reads its
+/// result. Disconnect drains active calls and disposes the encoder; an index
+/// runs to its end, and cancellation is not a rollback.
 class WayfinderMcpServer {
   WayfinderMcpServer({
     this.rootPath,
@@ -196,6 +198,7 @@ class WayfinderMcpServer {
       callback: (arguments, extra) => callText(() async {
         final query = arguments['query']! as String;
         final limit = arguments['limit']! as int;
+        final cancel = _cancellation(extra.signal);
         if (rootBundle == null) {
           final bundles = (await WayfinderProject.discover(
             project,
@@ -206,6 +209,7 @@ class WayfinderMcpServer {
             query,
             limit: limit,
             stale: StaleIndexPolicy.serveWhileRefreshing,
+            cancel: cancel,
           )).toMarkdown();
         }
         return (await _knowledge.searchBundle(
@@ -213,6 +217,7 @@ class WayfinderMcpServer {
           query,
           limit: limit,
           stale: StaleIndexPolicy.serveWhileRefreshing,
+          cancel: cancel,
         )).toMarkdown(prefix: rootPrefix);
       }),
     );
@@ -290,4 +295,18 @@ class WayfinderMcpServer {
 
   CallToolResult _error(String message) =>
       CallToolResult(isError: true, content: [TextContent(text: message)]);
+
+  /// Cancelled once [signal] aborts: the client cancelled the request, or
+  /// the connection closed. Either way no response is sent.
+  static WayfinderCancellation _cancellation(AbortSignal signal) {
+    final cancellation = WayfinderCancellationController();
+    if (signal.aborted) {
+      cancellation.cancel();
+    } else {
+      signal.onAbort.first
+          .then<void>((_) => cancellation.cancel(), onError: (Object _) {})
+          .ignore();
+    }
+    return cancellation;
+  }
 }
