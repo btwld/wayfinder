@@ -10,7 +10,8 @@ library;
 // only as experiments that throw by default. Every version the pubspec
 // allows, >=8.4.1 <11.0.0, still has the old members, and the tests pass on
 // 8.4.1, 9.0.0 and 10.2.0. Read the new members once the floor reaches 10.0.0.
-// ignore_for_file: deprecated_member_use
+// Each of those reads carries its own ignore, so any other deprecation, such
+// as one in wayfinder_embeddings, still reports.
 
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -109,10 +110,15 @@ class DartChunker extends BaseChunker {
     /// - ctors: '{' or ';'
     /// Returns null if not applicable.
     int? bodyBoundaryOffset(AstNode node) => switch (node) {
+      // ignore: deprecated_member_use
       ClassDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       MixinDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       ExtensionDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       ExtensionTypeDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       EnumDeclaration() => node.leftBracket.offset,
       MethodDeclaration() => fnBodyBoundary(node.body),
       ConstructorDeclaration() => fnBodyBoundary(node.body),
@@ -290,6 +296,7 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleClassDeclaration(ClassDeclaration declaration, _AddNode addNode) {
+    // ignore: deprecated_member_use
     final className = declaration.name.lexeme;
     addNode(
       declaration,
@@ -297,6 +304,7 @@ class DartChunker extends BaseChunker {
       metadataOverrides: {
         'name': className,
         'abstract': declaration.abstractKeyword != null,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
         'extends': ?declaration.extendsClause?.superclass.toSource(),
         if (declaration.withClause != null)
@@ -313,6 +321,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'class': className};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -362,6 +371,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'mixin': mixinName};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -392,6 +402,7 @@ class DartChunker extends BaseChunker {
       'extension': ?extensionName,
       'on': onClause,
     };
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -405,13 +416,16 @@ class DartChunker extends BaseChunker {
     ExtensionTypeDeclaration declaration,
     _AddNode addNode,
   ) {
+    // ignore: deprecated_member_use
     final name = declaration.name.lexeme;
     addNode(
       declaration,
       'extensionType',
       metadataOverrides: {
         'name': name,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
+        // ignore: deprecated_member_use
         'on': declaration.representation.fieldType.toSource(),
         if (declaration.implementsClause != null)
           'implements': [
@@ -423,6 +437,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'extensionType': name};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -433,12 +448,14 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleEnumDeclaration(EnumDeclaration declaration, _AddNode addNode) {
+    // ignore: deprecated_member_use
     final enumName = declaration.name.lexeme;
     addNode(
       declaration,
       'enum',
       metadataOverrides: {
         'name': enumName,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
         if (declaration.withClause != null)
           'with': [
@@ -454,6 +471,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'enum': enumName};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode, includeStaticAndTypeParams: false);
