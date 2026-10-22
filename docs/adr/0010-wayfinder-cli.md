@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; the configuration names the reviewed llama.cpp release); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; the configuration names the reviewed llama.cpp release); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh); 2026-10-22 (what a host found: typed search notices, cancelling a search, releasing an idle retained encoder, removing the model, and forgetting a project root's indexes with their lock files)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -28,7 +28,9 @@ library acquires it only by calling `EmbeddingModelCache.provision`, after its
 user agrees. Both download the pinned artifact into a model cache, by default
 in per-user application data, and verify its size and SHA-256 before an
 atomic rename, so a failed download never replaces a model. Locating the model
-reads files only.
+reads files only, and so does `EmbeddingModelCache.remove`, which deletes the
+model and its downloads' temporary files when the host's user no longer wants
+it.
 
 Persist one derived index per canonical bundle path and configuration in
 per-user application data, outside the repository, under
@@ -80,8 +82,11 @@ While another operation holds the writer lock, the application's search
 instead serves the last published generation: it adds a
 `refresh-in-progress` notice, and when files changed since that generation
 was built, a `source-changed` notice and a `sourceChanged` mark on their
-citations. With no refresh running, a stale index is refused as before, and
-the library refuses by default. Search
+citations. Each notice carries a stable code, its sentence and the
+bundle-relative paths it concerns, so a host tells notices apart without
+reading their text; the command prints the same lines. With no refresh
+running, a stale index is refused as before, and the library refuses by
+default. Search
 includes every lifecycle state and bounded relationship context, following
 typed `relationships` entries before untyped body links, and never derives
 authority from type, verification, or similarity. MCP retains one lazily opened
@@ -89,13 +94,21 @@ encoder that its calls share, one call into the model at a time, so a search
 can run between an index's batches. It evicts the encoder when the encoder
 fails, but not on an expected refusal such as a stale or busy index, and
 disposes it on disconnect, while one-shot CLI commands open and close their
-own encoder.
+own encoder. A host that retains an encoder for longer may release it at
+once or once it has gone unused for a period it chooses, keeping the parsed
+snapshots, and the next index run or search opens it again. A host can
+cancel a search as it cancels an index: between bundles, before the query is
+encoded and before passages are scored.
 
 The lifecycle is a library, `wayfinder_embeddings/knowledge_store.dart`
 ([ADR-0018](0018-embeddable-libraries.md)); the CLI and MCP server are its
-host. Its `forget` deletes a bundle's indexes, and `prune` those of bundle
-roots that no longer exist and of other configurations left unused, with
-the `get` locks of removed projects and abandoned model downloads.
+host. Its `forget` deletes a bundle's indexes with their lock files and the
+directories they leave empty, and `forgetProjectRoot` those of every bundle
+at or inside a project root, which it finds by the bundle root each index's
+lock records, so a removed worktree needs no bundle list. `prune` deletes
+those of bundle roots that no longer exist and of other configurations left
+unused, with the `get` locks of removed projects and abandoned model
+downloads.
 
 ## Consequences
 

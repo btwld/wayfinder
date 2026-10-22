@@ -1101,6 +1101,7 @@ class _SearchKnowledge extends WayfinderKnowledgeStore {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
     StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     limits.add(limit);
     policies.add(stale);

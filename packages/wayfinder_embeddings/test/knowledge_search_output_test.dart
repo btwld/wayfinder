@@ -214,7 +214,12 @@ void main() {
       KnowledgeSearchResponse(
         matches: [hit],
         context: [KnowledgeContextHit(hit, 'match')],
-        notices: const ['Notice line 1\n## Fake Notice Heading'],
+        notices: [
+          KnowledgeNotice(
+            KnowledgeNoticeCode.unresolvedRelationship,
+            'Notice line 1\n## Fake Notice Heading',
+          ),
+        ],
       ),
     ).toMarkdown();
     expect(

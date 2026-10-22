@@ -44,9 +44,19 @@ final class SharedEncoder {
   bool evicted = false;
 
   Future<void>? _disposal;
+  final _disposing = Completer<({Future<void> disposal})>();
+
+  /// Completes once [dispose] has disposed the embedder, with the error the
+  /// disposal threw, if any.
+  Future<void> get disposed =>
+      _disposing.future.then((started) => started.disposal);
 
   /// Disposes the embedder once, however often it is called.
-  Future<void> dispose() => _disposal ??= opened.embedder.dispose();
+  Future<void> dispose() => _disposal ??= () {
+    final disposal = opened.embedder.dispose();
+    _disposing.complete((disposal: disposal));
+    return disposal;
+  }();
 }
 
 /// [delegate] with each call made under [_lock]. Disposing it does nothing:
