@@ -92,8 +92,11 @@ void main() {
       );
       expect(await installed.length(), greaterThan(1000));
     },
-    skip: !File('lib/$libraryName').existsSync()
-        ? 'Install the pinned ObjectBox library to exercise bundle staging.'
-        : false,
+    skip:
+        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
+            File('lib/$libraryName').existsSync()
+        ? false
+        : 'Install the pinned ObjectBox library to exercise bundle staging. '
+              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
   );
 }
