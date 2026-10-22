@@ -147,8 +147,12 @@ jobs:
       - run: dart run melos run objectbox:install
         working-directory: .
       # The whole package: the test job skips every test that needs
-      # ObjectBox or the model.
+      # ObjectBox or the model. WAYFINDER_REQUIRE_NATIVE runs them anyway, as
+      # WAYFINDER_REQUIRE_JSONSCHEMA does for the schema leg, so a missing
+      # install fails this job instead of exiting 0.
       - run: dart test
+        env:
+          WAYFINDER_REQUIRE_NATIVE: "1"
       - run: dart test
         working-directory: packages/wayfinder_cli
       - run: dart run tool/build_wayfinder.dart --offline
