@@ -24,7 +24,9 @@ Profile's error rules require of every concept, for Bitwild `type`, `title`,
 ## Projects
 
 `package:wayfinder/project.dart` is what the `wayfinder` command does with a
-project on disk, for a host that embeds it:
+project on disk, for a host that embeds it. A host passes the project root
+it opens, and the library reads nothing above it; the command passes
+`searchAncestors: true` to find the project from any directory inside it.
 
 ```dart
 import 'dart:io';
@@ -32,7 +34,7 @@ import 'dart:io';
 import 'package:wayfinder/project.dart';
 
 Future<void> main() async {
-  final project = await WayfinderProject.discover(Directory.current);
+  final project = await WayfinderProject.discover(Directory('/work/app'));
   final resolver = WayfinderProfileResolver(
     dataDirectory: WayfinderDataDirectory.resolve(),
   );
@@ -57,9 +59,9 @@ Future<void> main() async {
 - Without `configPath`, `WayfinderProjectConfig.bind`, the resolver's
   `select` and `restoreCachedPackages`, and `validateWithProfileSources` find
   a bundle's `wayfinder.json` by climbing from the bundle. With `projectRoot`
-  they never climb above it: a conventional project inside another project
-  reports `config-missing` rather than binding the outer project's
-  configuration.
+  they read only directories whose real path is that root or inside it, and
+  stop there: a conventional project inside another project reports
+  `config-missing` rather than binding the outer project's configuration.
 - `WayfinderProfileResolver` resolves Git Profile sources. `plan` may fetch
   into the cache but writes nothing in the project; `apply` writes the lock and
   Profile skills, and refuses a plan whose configuration, lock or cache changed
