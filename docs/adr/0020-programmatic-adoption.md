@@ -36,8 +36,9 @@ the host gives one, reporting each step and checking the host's
 cancellation before each. When a step fails, it undoes the earlier ones in
 reverse, restoring a replaced skill directory, so the project holds no
 partial bundle; a step whose undo also fails is reported `undo-failed`.
-Validation runs last and undoes nothing: a gate other than `PASS` leaves
-adoption incomplete (guide §2.3).
+Validation runs last, binding the bundle within the project root
+(ADR-0018), and undoes nothing: a gate other than `PASS` leaves adoption
+incomplete (guide §2.3).
 
 **Applying holds the project as `get` does.** From the check step until
 every step has finished or been undone, `apply` holds the resolver's

@@ -172,6 +172,8 @@
   step, and undoes the earlier steps when one fails, reporting a step whose
   undo failed as `undo-failed`. A marked skill directory it does not
   install is a conflict (`skill-foreign`), so adoption deletes nothing.
+  Its closing validation binds the bundle with the plan's `projectRoot`, so
+  no `wayfinder.json` above the project applies.
 - Adoption never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks; the
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
