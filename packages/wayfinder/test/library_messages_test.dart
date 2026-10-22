@@ -3,35 +3,57 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// The library's messages say what happened and name no command
+/// The libraries' messages say what happened and name no command
 /// (ADR-0018): a host words what to run, as the `wayfinder` command adds
-/// `Run wayfinder get.`. This reads every string literal under `lib/`,
-/// adjacent literals joined as Dart joins them, and refuses one that tells
-/// someone to run a command.
+/// `Run wayfinder get.`. This reads every string literal under the `lib/`
+/// of `wayfinder` and of `wayfinder_embeddings`, adjacent literals joined as
+/// Dart joins them, and refuses one that tells someone to run a command.
+/// `wayfinder_embeddings` is read from this repository's checkout, beside
+/// this package.
 ///
-/// Two files hold text a host writes into a project or publishes rather
-/// than messages, and may name commands: the adoption seeds, whose
-/// `AGENTS.md` block and bundle seeds tell agents what to run, and the
-/// published schemas, whose descriptions document the command.
+/// Two files of `wayfinder` hold text a host writes into a project or
+/// publishes rather than messages, and may name commands: the adoption
+/// seeds, whose `AGENTS.md` block and bundle seeds tell agents what to run,
+/// and the published schemas, whose descriptions document the command.
 void main() {
-  const content = {'src/adoption/seeds.dart', 'src/generated'};
+  const libraries = {
+    'wayfinder': (
+      lib: 'lib',
+      content: {'src/adoption/seeds.dart', 'src/generated'},
+    ),
+    'wayfinder_embeddings': (
+      lib: '../wayfinder_embeddings/lib',
+      content: <String>{},
+    ),
+  };
 
-  test('no library message names a command', () {
-    final offending = <String>[];
-    for (final file in Directory(
-      'lib',
-    ).listSync(recursive: true).whereType<File>()) {
-      final path = p.posix.joinAll(p.split(p.relative(file.path, from: 'lib')));
-      if (!path.endsWith('.dart') ||
-          content.any((skipped) => path.startsWith(skipped))) {
-        continue;
-      }
-      for (final literal in stringLiterals(file.readAsStringSync())) {
-        if (commands.hasMatch(literal)) offending.add('$path: $literal');
-      }
-    }
-    expect(offending, isEmpty);
-  });
+  for (final MapEntry(key: name, value: (:lib, :content))
+      in libraries.entries) {
+    test(
+      'no $name library message names a command',
+      () {
+        final offending = <String>[];
+        for (final file in Directory(
+          lib,
+        ).listSync(recursive: true).whereType<File>()) {
+          final path = p.posix.joinAll(
+            p.split(p.relative(file.path, from: lib)),
+          );
+          if (!path.endsWith('.dart') ||
+              content.any((skipped) => path.startsWith(skipped))) {
+            continue;
+          }
+          for (final literal in stringLiterals(file.readAsStringSync())) {
+            if (commands.hasMatch(literal)) offending.add('$path: $literal');
+          }
+        }
+        expect(offending, isEmpty);
+      },
+      skip: Directory(lib).existsSync()
+          ? false
+          : 'no $name checkout beside this package',
+    );
+  }
 
   test('the pattern finds a command however a message names it', () {
     for (final message in [

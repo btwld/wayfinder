@@ -45,7 +45,12 @@ export 'package:wayfinder/project.dart'
         WayfinderException;
 
 export 'src/embedding/embedding_model_spec.dart'
-    show EmbeddingModelSpec, localEmbeddingModel;
+    show
+        EmbeddingModelMismatchException,
+        EmbeddingModelMissingException,
+        EmbeddingModelRemedy,
+        EmbeddingModelSpec,
+        localEmbeddingModel;
 export 'src/embedding/model_cache.dart'
     show
         EmbeddingModelCache,

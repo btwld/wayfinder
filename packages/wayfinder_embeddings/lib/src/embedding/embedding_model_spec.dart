@@ -29,20 +29,20 @@ class EmbeddingModelSpec {
   String get fileName => 'embedding.gguf';
 
   /// Verifies bytes before loading native code or staging a build asset.
+  ///
+  /// Throws [EmbeddingModelMissingException], a [FileSystemException], when
+  /// [file] does not exist, and [EmbeddingModelMismatchException], a
+  /// [FormatException], when its size or SHA-256 is not this model's. Their
+  /// messages say what happened and name no command; their `remedy` says
+  /// what fixes it, for a host to word.
   Future<void> verify(File file) async {
     if (!await file.exists()) {
-      throw FileSystemException(
-        'Embedding model is missing. Run melos run wayfinder_embeddings:prepare '
-        'or provide a verified model path.',
-        file.path,
-      );
+      throw EmbeddingModelMissingException(file.path);
     }
     if (await file.length() != bytes ||
         (await crypto.sha256.bind(file.openRead()).first).toString() !=
             sha256) {
-      throw FormatException(
-        'Embedding model size or SHA-256 mismatch: ${file.path}',
-      );
+      throw EmbeddingModelMismatchException(file.path);
     }
   }
 
@@ -72,6 +72,46 @@ class EmbeddingModelSpec {
     'queryPrefix': queryPrefix,
     'license': license,
   };
+}
+
+/// What fixes a model [EmbeddingModelSpec.verify] refuses, as data for a
+/// host to word: the library's messages name no command (ADR-0018).
+enum EmbeddingModelRemedy {
+  /// Put a verified copy of the pinned model where the host looks for it:
+  /// download it with `EmbeddingModelCache.provision`, or name a copy that
+  /// passes [EmbeddingModelSpec.verify]. The `wayfinder` command says to
+  /// reinstall its complete bundle, and in a source checkout to prepare the
+  /// model with Melos.
+  provideModel('provide-model');
+
+  const EmbeddingModelRemedy(this.wireValue);
+
+  /// A stable value for a host that records the remedy.
+  final String wireValue;
+}
+
+/// [EmbeddingModelSpec.verify] found no model file at [path]. It is a
+/// [FileSystemException], so code that catches one still does.
+final class EmbeddingModelMissingException extends FileSystemException {
+  const EmbeddingModelMissingException(String path)
+    : super('Embedding model is missing.', path);
+
+  /// What fixes it.
+  EmbeddingModelRemedy get remedy => EmbeddingModelRemedy.provideModel;
+}
+
+/// [EmbeddingModelSpec.verify] found a model file at [path] whose size or
+/// SHA-256 is not the pinned model's. It is a [FormatException], so code
+/// that catches one still does.
+final class EmbeddingModelMismatchException extends FormatException {
+  EmbeddingModelMismatchException(this.path)
+    : super('Embedding model size or SHA-256 mismatch: $path');
+
+  /// The file that failed verification.
+  final String path;
+
+  /// What fixes it.
+  EmbeddingModelRemedy get remedy => EmbeddingModelRemedy.provideModel;
 }
 
 /// Arctic Embed XS Q8_0, using CLS pooling and normalized retrieval vectors.
