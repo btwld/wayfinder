@@ -8,7 +8,7 @@ locally with dense vectors from an in-process llamadart model.
 - **Chunk** TypeScript, Markdown, and text files into addressable segments
   with line ranges and symbol metadata. Chunk ids are stable hashes of the
   source path, line range, type, and content. Dart chunking lives in
-  [`wayfinder_dart_chunker`](../wayfinder_dart_chunker/README.md), so this
+  [`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker), so this
   package does not depend on the analyzer.
 - **Rank** chunks for a natural-language query with dense
   retrieval and optional cross-encoder reranking.
@@ -300,7 +300,7 @@ chunkers, including plain text and Markdown table examples inside code fences.
 Markdown code blocks retain literal table syntax; actual tables inherit their
 heading metadata and are omitted when `includeTables` is false. The Dart sample
 and its code example moved to
-[`wayfinder_dart_chunker`](../wayfinder_dart_chunker/README.md).
+[`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker).
 
 The sample corpus has its own golden snapshot. The separate `fixtures/corpus/`
 retrieval benchmark retains its recorded queries and metrics.

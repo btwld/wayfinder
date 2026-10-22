@@ -3,9 +3,8 @@
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
   Indexes that 0.2.0 wrote open unchanged and need no rebuild.
-- `analyzer` and its dependencies are no longer part of the executable, and
-  native bundles no longer ship their licenses. Search and indexing are
-  unchanged; the CLI never chunked Dart source.
+- Native bundles no longer include the `analyzer` packages or their license
+  files. Search and indexing are unchanged; the CLI never chunked Dart source.
 
 # 0.2.0
 
