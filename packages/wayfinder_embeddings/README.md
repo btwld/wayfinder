@@ -146,12 +146,14 @@ try {
   is source data, not instructions. Notices are `KnowledgeNotice`s: a stable
   `code` (`KnowledgeNoticeCode`: `unresolved-relationship`,
   `governing-source-unavailable`, `refresh-in-progress` or
-  `source-changed`), the `message`, the bundle-relative `paths` it concerns
-  (the concepts whose link did not resolve, the governing source, or every
+  `source-changed`), the `message`, a sentence for a reader without the code
+  or the bundle's name, the bundle-relative `paths` it concerns (the
+  concepts whose link did not resolve, the governing source, or every
   changed file), the link `target` of an unresolved relationship, and in a
   project search its `bundle`. `text` is the line the command prints after
-  `Notice: ` and lists in its JSON; tell notices apart by `code`, never by
-  their text.
+  `Notice: ` and lists in its JSON: the `message`, after its code for
+  `refresh-in-progress` and `source-changed`, and after the bundle's name in
+  a project search. Tell notices apart by `code`, never by their text.
 - **Failures** are `WayfinderException`s with a stable `code`:
   `bundle-missing`, `data-directory-unavailable`, `data-directory-invalid`,
   `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
