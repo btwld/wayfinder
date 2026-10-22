@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 import '../models/chunk.dart';
 
 /// One passage as the search Markdown prints it: its citation `prefix`,
-/// the `bundle` name shown in its bracket, and the `bundleRoot` its relative
-/// `sources` resolve against.
+/// the `bundle` name shown in its bracket, the `bundleRoot` its relative
+/// `sources` resolve against, and whether its file changed after indexing.
 typedef MarkdownPassage = ({
   String prefix,
   String? bundle,
@@ -15,6 +15,7 @@ typedef MarkdownPassage = ({
   String reason,
   String? relationship,
   String? viaPath,
+  bool sourceChanged,
 });
 
 typedef _PassageKey = (String, String, int, int);
@@ -165,7 +166,7 @@ String _renderPassage(
   final citation =
       '${_inline('${passage.prefix}${chunk.sourcePath}', escape)}:${chunk.lineStart}-${chunk.lineEnd}';
   final bracket =
-      '[${passage.bundle == null ? '' : '${_inline(passage.bundle!, escape)}; '}${_inline(status, escape)}; ${_inline(passage.reason, escape)}]';
+      '[${passage.bundle == null ? '' : '${_inline(passage.bundle!, escape)}; '}${_inline(status, escape)}; ${_inline(passage.reason, escape)}${passage.sourceChanged ? '; source changed' : ''}]';
   final lines = <String>['### $citation $bracket'];
 
   final type = frontmatter?['type']?.toString().trim();

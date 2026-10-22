@@ -15,9 +15,11 @@ import 'version.dart';
 
 /// Exposes project-wide tools, or one explicitly selected bundle.
 ///
-/// Retrieval calls share one lazy encoder and serialize its use. Each call still
-/// checks source freshness and closes its store. Disconnect drains active calls
-/// and disposes the encoder; cancellation is not a rollback.
+/// Retrieval calls share one lazy encoder, one call into it at a time, so a
+/// search can run while an index does. Each call still checks source
+/// freshness; a search during a refresh serves the last published index
+/// with a notice. Disconnect drains active calls and disposes the encoder;
+/// cancellation is not a rollback.
 class WayfinderMcpServer {
   WayfinderMcpServer({
     this.rootPath,
@@ -197,12 +199,14 @@ class WayfinderMcpServer {
             bundles,
             query,
             limit: limit,
+            stale: StaleIndexPolicy.serveWhileRefreshing,
           )).toMarkdown();
         }
         return (await _knowledge.searchBundle(
           rootBundle,
           query,
           limit: limit,
+          stale: StaleIndexPolicy.serveWhileRefreshing,
         )).toMarkdown(prefix: rootPrefix);
       }),
     );

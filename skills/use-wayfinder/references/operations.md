@@ -33,8 +33,13 @@ Project search (CLI or MCP) ranks across selected bundles with a global limit.
 Its JSON adds `bundles` and annotates each match/context hit with `bundle` and
 `bundlePath`; combine that path with `chunk.sourcePath` for project-relative
 citations. A stale selected index fails the whole search: run `wayfinder index`
-and retry. Explicit paths preserve the single-bundle JSON shape. Do not combine
-a path and `--bundle`.
+and retry. While another Wayfinder command indexes a bundle, search (CLI or MCP)
+instead returns that bundle's last completed index with a `refresh-in-progress`
+notice. Passages from files edited since are marked `source changed` (JSON
+`"sourceChanged": true`) and named in a `source-changed` notice: read those
+files directly before citing them, or search again once the index finishes.
+Explicit paths preserve the single-bundle JSON shape. Do not combine a path and
+`--bundle`.
 
 For **graph**, `--type`, `--path-prefix` and `--resolution` are repeatable and match the MCP
 `types`, `path_prefixes` and `resolutions` filters.
@@ -99,10 +104,12 @@ is a separate review. Route by task:
 | No project bundles found | Start the host from the consuming project and check `wayfinder.json`'s `applies_to` paths, or the conventional `knowledge/` directory. Discovery never fetches bundles. |
 | `Index is missing` / `Index is stale` / `Saved index is incomplete or incompatible` / `The saved index has another configuration` / `Index belongs to another bundle` / `Embedding configuration changed` (each ends `Run wayfinder index <bundle>.`) | Run `index` on the same bundle, then search again. The first `index` after upgrading from Wayfinder 0.2 rebuilds every bundle. |
 | `Knowledge changed while indexing` / `during search` | Files changed mid-command. Let edits finish and rerun. |
-| `Index is busy` | Another Wayfinder command holds this bundle. Retry after it finishes. |
+| `Index is busy` | Another Wayfinder command is indexing this bundle or deleting its index. Search still works meanwhile; retry the index after it finishes. |
+| `The index is being built` | The bundle's first index, or one replacing an unusable index, is still running. Retry the search after it finishes. |
+| `refresh-in-progress` / `source-changed` notices | Results come from the last completed index while another command indexes. Verify passages marked `source changed` against their files. |
 | `Another wayfinder get is changing <project>` | A second `get` or `upgrade` ran while one was resolving the project. Retry after it finishes. |
 | `wayfinder/profile-unresolved`: a package `has no package file in the local cache` | The cache keeps each locked package file for validation, and `validate` restores one from the cached source when it can. Run `wayfinder get`; it fetches nothing while the cached source holds the locked commit. |
-| Embedding model or ObjectBox library missing or unreadable | Check the reported configured path and assets. Reinstall the complete runtime when incomplete; copying only the executable is insufficient. Reindexing alone cannot repair a model-load failure. |
+| Embedding model missing or unreadable | Check the reported configured path and assets. Reinstall the complete runtime when incomplete; copying only the executable is insufficient. Reindexing alone cannot repair a model-load failure. |
 | Dense search reports missing compatible passage vectors | Repair the encoder if needed, then index the same bundle and retry. There is no alternate retrieval fallback. |
 | CLI `--mode` or MCP `mode` rejected after upgrade | Remove the retired field, including an explicit dense value. Refresh MCP tool discovery. |
 | `Wayfinder data must be outside the knowledge bundle` | `WAYFINDER_DATA_DIR` points inside the bundle. Point it elsewhere. |

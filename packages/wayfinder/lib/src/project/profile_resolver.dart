@@ -805,6 +805,69 @@ final class WayfinderProfileResolver {
     '$what changed after resolution was planned. Run wayfinder get again.',
   );
 
+  /// Deletes the `get` lock file of each project whose root no longer
+  /// exists, such as a removed worktree, once no `get` has used it for
+  /// [unusedFor], and returns the deleted files.
+  ///
+  /// A lock file records the root it guards. Its note is read only while
+  /// no one holds the lock, because Windows refuses to read a held lock
+  /// file, and a held lock is left for a later call. Like an index's lock
+  /// file, it is deleted only once unused for the period: deleting one a
+  /// `get` has just opened would let that `get` and the next hold different
+  /// files.
+  Future<List<String>> pruneProjectLocks({
+    Duration unusedFor = const Duration(days: 30),
+  }) async {
+    final directory = Directory(p.join(dataDirectory.path, 'projects'));
+    final removed = <String>[];
+    if (!await directory.exists()) return removed;
+    final now = DateTime.now();
+    final name = RegExp(r'^([0-9a-f]{64})\.get\.lock$');
+    for (final entry in await directory.list(followLinks: false).toList()) {
+      final key = name.firstMatch(p.basename(entry.path))?[1];
+      if (entry is! File || key == null) continue;
+      if (await WayfinderFileLock.isHeld(entry)) continue;
+      final String root;
+      try {
+        if (jsonDecode(await entry.readAsString()) case {
+          'root': final String value,
+        } when sha256.convert(utf8.encode(value)).toString() == key) {
+          root = value;
+        } else {
+          continue;
+        }
+      } on FileSystemException {
+        continue;
+      } on FormatException {
+        continue;
+      }
+      Future<bool> abandoned() async {
+        if (await Directory(root).exists()) return false;
+        final stat = await entry.stat();
+        return stat.type == FileSystemEntityType.file &&
+            now.difference(stat.modified) >= unusedFor;
+      }
+
+      if (!await abandoned()) continue;
+      final lock = await WayfinderFileLock.tryExclusive(entry);
+      if (lock == null) continue;
+      try {
+        // A `get` may have used it between the check and the lock.
+        if (!await abandoned()) continue;
+        // POSIX deletes an open file, so delete it while holding the lock;
+        // Windows needs the handle closed first.
+        if (Platform.isWindows) await lock.release();
+        await entry.delete();
+        removed.add(entry.path);
+      } on FileSystemException {
+        // Windows keeps a file another handle has open; a later call retries.
+      } finally {
+        await lock.release();
+      }
+    }
+    return removed;
+  }
+
   /// Runs [action] while holding the `get` lock of the project at
   /// [projectRoot], so one writer at a time changes its lock and skills.
   Future<T> _withProjectLock<T>(

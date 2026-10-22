@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -30,46 +30,78 @@ in per-user application data, and verify its size and SHA-256 before an
 atomic rename, so a failed download never replaces a model. Locating the model
 reads files only.
 
-Persist one derived ObjectBox index per canonical bundle path and
-configuration in per-user application data, outside the repository, under
-`indexes/<bundle key>/<configuration key>/`. The configuration key hashes the
-chunking, snapshot and storage configuration with the encoder's identity, so
-indexes built for another model, chunker or format never share a directory;
-each costs one build. The bundle key is not the bare path hash 0.2 used, so
-a 0.2 index is never read, changed or deleted. Chunk IDs hash each chunk's
-bundle-relative identity, not the absolute root, so the same bundle in two
-worktrees has the same IDs and ranks alike. Store original inputs, passages,
-citations, metadata, and graph-reconstruction inputs so search reopens a
-completed snapshot without re-fitting documents. An index update reuses
-compatible vectors in a private generation and atomically publishes only a
-completed, closed generation; the previous generation survives a failure.
+Persist one derived index per canonical bundle path and configuration in
+per-user application data, outside the repository, under
+`indexes/bundles/<bundle key>/<configuration key>/`. The configuration key
+hashes the chunking, snapshot and storage configuration with the encoder's
+identity, so indexes built for another model, chunker or format never share
+a directory; each costs one build. The bundle key is not the bare path hash
+0.2 used, and the `bundles/` tree is not where earlier 0.3 builds kept
+ObjectBox databases, so neither kind of earlier index is read, changed or
+deleted. Chunk IDs hash each chunk's bundle-relative identity, not the
+absolute root, so the same bundle in two worktrees has the same IDs and
+ranks alike.
 
-Serialize operations on the same index with an OS lock
-([ADR-0018](0018-embeddable-libraries.md)). Compare source hashes and the
-inventory okf's loader sees, which leaves out okf's `.okf.lock`, to detect
-edits; search refuses an absent, stale, or incompatible index and directs
-the caller to `wayfinder index`. Search
+An index is a sequence of immutable generations. Each holds a
+`snapshot.json` record of the original inputs, passages, citations,
+metadata and graph-reconstruction inputs, so search reopens a completed
+snapshot without re-fitting documents, and a `vectors.f32` file: a header,
+then one little-endian float32 row per passage in snapshot order, whose
+dimension, row count and SHA-256 the record names. An index update reuses
+compatible vectors, writes a complete new generation, and publishes it by
+atomically replacing a `current` pointer; the previous generation survives a
+failure. Search loads the published generation into an in-memory store and
+scores every eligible vector exactly, as it did over ObjectBox, whose HNSW
+index it never used: the stored vectors are the same float32 values, so
+rankings do not change, and no native database library is needed.
+
+Only writers lock ([ADR-0018](0018-embeddable-libraries.md)). An index, or
+`forget`, holds the bundle's `writer.lock` for its whole run; a second
+writer fails as busy instead of waiting. `status` and search hold no lock:
+they read the pointer and the generation it names, which nothing changes, so
+a search keeps working while an index runs (#110). They tell whether a writer
+runs by probing its lock with a shared lock for an instant, which a starting
+writer waits out rather than report as busy; on Windows, where a file another
+handle has open cannot be replaced, a publication waits up to two seconds for
+readers to close the pointer, then fails as busy. A superseded generation
+is deleted only by a later publication, and only ten minutes after it was
+superseded, so a reader that read the pointer just before still finds it;
+a reader that loses that race anyway reads the pointer again rather than
+fail. Compare source hashes and the inventory okf's loader sees, which
+leaves out okf's `.okf.lock`, to detect edits; search refuses an absent,
+stale, or incompatible index and directs the caller to `wayfinder index`.
+While another operation holds the writer lock, the application's search
+instead serves the last published generation: it adds a
+`refresh-in-progress` notice, and when files changed since that generation
+was built, a `source-changed` notice and a `sourceChanged` mark on their
+citations. With no refresh running, a stale index is refused as before, and
+the library refuses by default. Search
 includes every lifecycle state and bounded relationship context, following
 typed `relationships` entries before untyped body links, and never derives
 authority from type, verification, or similarity. MCP retains one lazily opened
-encoder across serialized retrieval calls, evicting it when the encoder or
-ObjectBox fails, but not on an expected refusal such as a stale or busy index,
-and disposing it on disconnect, while one-shot CLI commands open and close
-their own encoder.
+encoder that its calls share, one call into the model at a time, so a search
+can run between an index's batches. It evicts the encoder when the encoder
+fails, but not on an expected refusal such as a stale or busy index, and
+disposes it on disconnect, while one-shot CLI commands open and close their
+own encoder.
 
 The lifecycle is a library, `wayfinder_embeddings/knowledge_store.dart`
 ([ADR-0018](0018-embeddable-libraries.md)); the CLI and MCP server are its
 host. Its `forget` deletes a bundle's indexes, and `prune` those of bundle
-roots that no longer exist and of other configurations left unused.
+roots that no longer exist and of other configurations left unused, with
+the `get` locks of removed projects and abandoned model downloads.
 
 ## Consequences
 
 Indexes duplicate bundle text in local app data and can be removed and
 rebuilt; so can the model cache, at the cost of one download. Upgrading from
-0.2 builds each bundle's index once; the 0.2 index stays until it is deleted
-by hand. Staging may briefly need room for two databases. Hash checks are not
-an adversarial filesystem transaction, and atomic publication is not a
-power-loss guarantee.
+0.2, or from an ObjectBox-backed 0.3 build, builds each bundle's index once;
+the earlier index stays until it is deleted by hand. Staging and the grace
+period may briefly keep several generations. A search during a refresh can
+return the previous generation's passages for edited files; its notices and
+marks say so, and the cited text must be checked against the file. Hash checks
+are not an adversarial filesystem transaction, and atomic publication is not
+a power-loss guarantee.
 
 The application has no watcher, answer generator, or automatic bundle fix
 beyond `validate --fix`. Reindex after edits. Current commands and storage

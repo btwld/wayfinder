@@ -7,7 +7,6 @@ import 'package:test/test.dart';
 import 'package:wayfinder/authoring.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/native_runtime.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
@@ -150,7 +149,6 @@ void main() {
       store = () => WayfinderKnowledgeStore(
         dataDirectory: Directory(p.join(temp.path, 'data')),
         encoder: DeterministicEncoderProvider(),
-        loadObjectBox: loadObjectBox,
       );
       cli = WayfinderCli(
         out: output.add,
@@ -220,7 +218,7 @@ void main() {
       expect(await index(), isTrue, reason: 'the lock file is no change');
       expect(await status(), isA<KnowledgeIndexCurrent>());
       await expectSearchFinds('PDF export');
-    }, skip: skipWithoutObjectBox);
+    });
 
     test('a commit makes the index stale only for the files it wrote, and a '
         'lock alone changes nothing', () async {
@@ -269,7 +267,7 @@ void main() {
       expect(await index(), isFalse);
       expect(await index(), isTrue, reason: 'the lock file is no change');
       await expectSearchFinds('pagination contract');
-    }, skip: skipWithoutObjectBox);
+    });
   });
 }
 

@@ -99,6 +99,72 @@
   `--offline` still refuses to download. `tool/prepare_benchmark_models.dart`
   downloads each experimental model straight into its `--output` directory
   instead of llamadart's shared cache.
+<!--
+Release bookkeeping: the bullets from "read while indexing (#110)" to the end
+of this section supersede what the bullets above say about an ObjectBox
+loader, `objectbox-unavailable` and the
+`indexes/<bundle key>/<configuration key>/` layout. If both ship in one
+release, fold these into those bullets and drop the superseded text; if the
+bullets above ship first, move these under the next release.
+-->
+- **BREAKING:** read while indexing (#110). The knowledge store no longer
+  uses ObjectBox. Each index is a sequence of immutable generations in
+  `indexes/bundles/<bundle key>/<configuration key>/`:
+  `generation-<id>/snapshot.json`, the record, and `vectors.f32`, a 16-byte
+  header (`WFVF32\0\x01`, then the dimension and row count as little-endian
+  32-bit integers) followed by one little-endian float32 row per snapshot
+  chunk, in chunk order. The record names the vectors' dimension, row count,
+  SHA-256 and a hash of the input each row embeds, and a reader checks them.
+  An index
+  publishes a complete generation by atomically replacing a `current`
+  pointer. A search loads the published generation into a `MemoryStore` and
+  scores every eligible passage exactly, as before: the vectors are the same
+  float32 values, so rankings do not change. The configuration's `store`
+  becomes `f32-v1`, so each bundle builds once. An index Wayfinder 0.2 wrote,
+  or one an ObjectBox-backed store wrote in `indexes/<bundle key>/`, is never
+  read, changed or deleted, by `forget` and `prune` included.
+  `WayfinderKnowledgeStore` drops `loadObjectBox` and the
+  `objectbox-unavailable` code, and accepts an encoder of any dimension.
+  `ObjectBoxStore` stays in `wayfinder_embeddings.dart` for custom retrieval
+  workflows; the store does not use it.
+- Only writers lock. `index` and `forget` hold the index's `writer.lock`, in
+  its directory, across isolates and processes, and a second writer still
+  fails with `index-busy`. `status`, `search` and `searchBundle` hold no
+  lock, so they keep working while an index runs, and never read a partial
+  generation. They probe the writer lock for an instant
+  (`WayfinderFileLock.isHeld`), which a starting writer waits out instead of
+  failing with `index-busy`. On Windows, which replaces no file another
+  handle has open, a publication waits up to two seconds for readers that
+  have the `current` pointer open, then fails with `index-busy` and keeps the
+  published generation; a reader that cannot read the pointer reads it again
+  after a short wait. A superseded generation stays for the new `gracePeriod` (10
+  minutes by default) after the publication that replaced it and goes with a
+  later publication; a reader that loses that race reads the pointer again
+  instead of failing. A search or `status` records the index's use on the
+  lock file, which `prune` compares with its period.
+- `search` and `searchBundle` take a `StaleIndexPolicy`. `refuse`, the
+  default, refuses a stale index as before. `serveWhileRefreshing` serves the
+  last published generation while another operation holds the writer lock:
+  the result adds a `refresh-in-progress` notice and, for files edited since,
+  a `source-changed` notice; `KnowledgeCitation.sourceChanged` marks their
+  passages, which the JSON adds as `"sourceChanged": true` and the Markdown as
+  `source changed` in the citation's bracket. While a bundle's first index is
+  being built, such a search fails with `index-busy`. Results gain
+  `freshness` (`KnowledgeSearchFreshness`: `refreshing` and `changedPaths`).
+- **BREAKING:** the sealed `KnowledgeIndexStatus` gains
+  `KnowledgeIndexRefreshing`, which `status` reports, with the published
+  generation's status, while a writer runs. An exhaustive `switch` over a
+  status must handle it.
+- With `retainEncoder`, operations no longer run one at a time. They share one
+  encoder, and each call into it, a batch of passages, a query vector or a
+  token count, waits for the previous one, so a search runs between an
+  index's batches and two calls never use one model at once. A failed
+  encoder is disposed once no operation uses it.
+- `prune` also deletes the `get` locks of project roots that no longer exist
+  (`WayfinderProfileResolver.pruneProjectLocks`) and model downloads abandoned
+  at least a day ago (`EmbeddingModelCache.removeAbandonedDownloads`, which
+  covers every model directory under `models/`). `KnowledgePruneResult` gains
+  `projectLocks` and `downloads`.
 
 # 0.2.0
 

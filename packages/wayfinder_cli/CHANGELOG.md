@@ -71,6 +71,37 @@
   `version` to `0.5.0`, such as Bitwild 2026.3, keeps loading. A `version`
   that names another revision fails to load with a reason that names the
   revision this wayfinder runs.
+<!--
+Release bookkeeping: the bullets from "`search`, and the MCP server's `search`
+tool, keep working" to the end of this section supersede what the bullets
+above say about the CLI loading ObjectBox, the
+`indexes/<bundle-key>/<configuration-key>/` layout and commands on one index
+excluding each other. If both ship in one release, fold these into those
+bullets and drop the superseded text; if the bullets above ship first, move
+these under the next release.
+-->
+- `search`, and the MCP server's `search` tool, keep working while another
+  command indexes the bundle (#110): they serve the last completed index with
+  a `refresh-in-progress` notice. Passages of files edited since are marked
+  `source changed` (`"sourceChanged": true` in JSON) and listed in a
+  `source-changed` notice. Without an index running, a stale index still
+  fails. Only `index` holds a bundle's lock: a second `index` of the bundle
+  still fails with `Index is busy`, and `index --detach` reports `running`.
+  A search's momentary probe of that lock never makes an `index` busy.
+  The MCP server's calls share its encoder one model call at a time, so a
+  search no longer waits for a whole index.
+- **BREAKING:** indexes are plain files in
+  `indexes/bundles/<bundle-key>/<configuration-key>/`, and the `index` field of
+  `index --output=json` names that directory. An index in an earlier layout,
+  Wayfinder 0.2's or an ObjectBox database in `indexes/<bundle-key>/`, is
+  never read, changed or deleted, so the first `index` after upgrading builds
+  each bundle again; delete those directories by hand to reclaim their space.
+- The CLI no longer loads ObjectBox, and native bundles no longer ship its
+  library or its license notice.
+- The background-index slot, `background-index.lock`, is a `flock` lock
+  (`WayfinderFileLock`) like Wayfinder's other lock files, so it excludes
+  other isolates as well as other processes. It does not exclude a background
+  index of an earlier release.
 
 # 0.2.0
 

@@ -267,19 +267,22 @@ void main() {
       expect(_response(next), isNot(_response(first)));
     });
 
-    test('concurrent queries serialize and match uncached results', () async {
-      await search(retained);
-      final queries = ['weather', 'password', 'password recovery'];
-      final actual = await Future.wait([
-        for (final query in queries) search(retained, query: query),
-      ]);
-      for (var i = 0; i < queries.length; i++) {
-        expect(
-          _response(actual[i]),
-          _response(await search(uncached, query: queries[i])),
-        );
-      }
-    });
+    test(
+      'concurrent queries share the encoder and match uncached results',
+      () async {
+        await search(retained);
+        final queries = ['weather', 'password', 'password recovery'];
+        final actual = await Future.wait([
+          for (final query in queries) search(retained, query: query),
+        ]);
+        for (var i = 0; i < queries.length; i++) {
+          expect(
+            _response(actual[i]),
+            _response(await search(uncached, query: queries[i])),
+          );
+        }
+      },
+    );
 
     test('dispose refuses reuse; a new store reopens the snapshot', () async {
       final first = await search(retained);
@@ -359,7 +362,7 @@ void main() {
         isNot(same(first.matches.first.chunk)),
       );
     });
-  }, skip: skipWithoutObjectBox);
+  });
 }
 
 Map<String, Object?> _response(KnowledgeBundleSearch result) => {

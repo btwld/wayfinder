@@ -659,18 +659,11 @@ class WayfinderCli {
           // An invalid explicit model fails here, as in the foreground,
           // rather than reporting a current index or a background failure.
           await verifyModelOverride();
-          String state;
-          try {
-            state =
-                !force &&
-                    await knowledge.status(_explicitBundle(bundle))
-                        is KnowledgeIndexCurrent
-                ? 'current'
-                : 'started';
-          } on WayfinderException catch (error) {
-            if (error.code != 'index-busy') rethrow;
-            state = 'running';
-          }
+          var state = switch (await knowledge.status(_explicitBundle(bundle))) {
+            KnowledgeIndexRefreshing() => 'running',
+            KnowledgeIndexCurrent() when !force => 'current',
+            _ => 'started',
+          };
           if (state == 'started') {
             final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
             if (slot == null) {
@@ -805,6 +798,7 @@ class WayfinderCli {
         query,
         limit: limit,
         filters: filters,
+        stale: StaleIndexPolicy.serveWhileRefreshing,
       );
       if (json) {
         _json(result.toJson());
@@ -819,6 +813,7 @@ class WayfinderCli {
       query,
       limit: limit,
       filters: filters,
+      stale: StaleIndexPolicy.serveWhileRefreshing,
     );
     if (json) {
       _json(result.toJson());
@@ -859,42 +854,23 @@ class WayfinderCli {
       _out(const JsonEncoder.withIndent('  ').convert(value));
 }
 
-/// The machine-wide right to run a background index: an exclusive lock on a
-/// file in the Wayfinder data directory.
+/// The machine-wide right to run a background index: an exclusive
+/// [WayfinderFileLock] on `background-index.lock` in the Wayfinder data
+/// directory, which excludes other processes and other isolates alike.
 class _BackgroundSlot {
-  _BackgroundSlot._(this._path, this._file);
+  _BackgroundSlot._(this._lock);
 
-  // File locks belong to a process, so a second claim from this process must
-  // be refused here rather than by the lock.
-  static final _held = <String>{};
-  final String _path;
-  final RandomAccessFile _file;
+  final WayfinderFileLock _lock;
 
   /// Returns null while another background index holds the slot.
   static Future<_BackgroundSlot?> claim(Directory data) async {
-    await data.create(recursive: true);
-    final path = p.join(data.absolute.path, 'background-index.lock');
-    if (!_held.add(path)) return null;
-    RandomAccessFile? file;
-    try {
-      file = await File(path).open(mode: FileMode.append);
-      await file.lock(FileLock.exclusive);
-      return _BackgroundSlot._(path, file);
-    } on FileSystemException {
-      await file?.close();
-      _held.remove(path);
-      if (file == null) rethrow;
-      return null;
-    }
+    final lock = await WayfinderFileLock.tryExclusive(
+      File(p.join(data.absolute.path, 'background-index.lock')),
+    );
+    return lock == null ? null : _BackgroundSlot._(lock);
   }
 
-  Future<void> release() async {
-    try {
-      await _file.close();
-    } finally {
-      _held.remove(_path);
-    }
-  }
+  Future<void> release() => _lock.release();
 }
 
 String _safe(String value) => value.replaceAllMapped(
