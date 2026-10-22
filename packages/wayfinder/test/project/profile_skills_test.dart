@@ -1056,6 +1056,122 @@ void main() {
       reason: 'nothing staged is left behind',
     );
     expect((await installed(_agents))['SKILL.md'], 'mine');
+    expect(
+      await Directory(p.join(project.path, '.claude')).exists(),
+      isFalse,
+      reason: 'it refuses before writing any root',
+    );
+  });
+
+  test('write refuses a directory that appears without its marker after '
+      'the check, leaving the roots it already replaced', () async {
+    final revision = (
+      id: ProfileId.parse('acme-notes'),
+      release: '1.0',
+      commit: 'a' * 40,
+    );
+    // While .agents is being staged, after .claude was replaced, another
+    // tool creates .agents/skills/acme-notes.
+    final appears = _OnFirstPath(
+      (path) =>
+          p.split(path).contains('.agents') && p.basename(path) == 'SKILL.md',
+      () {
+        final mine = Directory(p.join(project.path, _agents))
+          ..createSync(recursive: true);
+        File(p.join(mine.path, 'SKILL.md')).writeAsStringSync('mine');
+      },
+    );
+    await expectLater(
+      IOOverrides.runWithIOOverrides(
+        () => ProfileSkills.write(project.path, revision, [
+          (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
+        ]),
+        appears,
+      ),
+      throwsA(
+        isA<FileSystemException>().having(
+          (error) => error.message,
+          'message',
+          '$_agents exists without a .wayfinder-profile marker for '
+              'acme-notes, so wayfinder did not replace it.',
+        ),
+      ),
+    );
+    expect(appears.fired, isTrue);
+    expect(await installed(_agents), {'SKILL.md': 'mine'});
+    expect(
+      await Directory(
+        p.join(project.path, '.agents/skills'),
+      ).list().map((entry) => p.basename(entry.path)).toList(),
+      ['acme-notes'],
+      reason: 'nothing staged is left behind',
+    );
+    expect((await installed(_claude))['SKILL.md'], 'x');
+  });
+
+  group('a release too long for its marker', () {
+    final longRelease = 'a' * (64 * 1024);
+
+    test('write refuses it before writing', () async {
+      await expectLater(
+        ProfileSkills.write(
+          project.path,
+          (
+            id: ProfileId.parse('acme-notes'),
+            release: longRelease,
+            commit: 'a' * 40,
+          ),
+          [(path: 'SKILL.md', bytes: utf8.encode('x'), executable: false)],
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'has a release too long for the .wayfinder-profile marker, which '
+                'is read up to 64 KiB',
+          ),
+        ),
+      );
+      expect(
+        await Directory(p.join(project.path, '.claude')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(p.join(project.path, '.agents')).exists(),
+        isFalse,
+      );
+    });
+
+    test('fails get before writing the lock', () async {
+      final package = sourceFile('wayfinder-profile.json');
+      await package.writeAsString(
+        (await package.readAsString()).replaceFirst(
+          '"release": "1.0"',
+          '"release": "$longRelease"',
+        ),
+      );
+      await commitSource();
+      await expectLater(
+        resolver.resolve(project.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            'Profile acme-notes release is too long for the '
+                '.wayfinder-profile marker, which wayfinder reads up to '
+                '64 KiB, so wayfinder did not install its skill.',
+          ),
+        ),
+      );
+      expect(
+        await File(p.join(project.path, 'wayfinder.lock')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(p.join(project.path, '.claude')).exists(),
+        isFalse,
+      );
+    });
   });
 
   group('a skill root that resolves outside the project', () {

@@ -291,17 +291,23 @@ abstract final class ProfileSkills {
 
   /// Replaces each of [revision]'s directories with [files] and the marker.
   /// Each directory is staged as a hidden sibling and renamed into place,
-  /// so an agent never reads a half-written skill. Throws before writing
-  /// anything when a file's path would land outside its directory, and
-  /// instead of replacing a directory that holds no marker for its id. It
-  /// works under the real path of each skill root, which [escaping]
-  /// confines to the project, and checks the marker of the directory it
-  /// replaces just before moving it.
+  /// so an agent never reads a half-written skill. It works under the real
+  /// path of each skill root, which [escaping] confines to the project.
+  ///
+  /// Throws before writing anything when a root escapes the project, when
+  /// [revision]'s marker would be larger than the 64 KiB a marker is read
+  /// up to, when a file's path would land outside its directory, and when a
+  /// directory it would replace holds no marker for its id. It checks each
+  /// directory's marker again just before moving it aside, so a directory
+  /// that appears without one meanwhile is never replaced either; that
+  /// refusal comes after the roots before it were replaced, and leaves them
+  /// so.
   static Future<void> write(
     String projectRoot,
     SkillRevision revision,
     List<SkillFile> files,
   ) async {
+    final id = revision.id.value;
     final resolved = await _resolvedRoots(projectRoot);
     final escaped = [
       for (final (:root, :real) in resolved)
@@ -310,23 +316,21 @@ abstract final class ProfileSkills {
     if (_escapingProblem(escaped) case final problem?) {
       throw FileSystemException(problem, projectRoot);
     }
-    for (final (:root, :real) in resolved) {
-      final target = Directory(p.join(real!, revision.id.value));
-      final stamp = '$pid-${DateTime.now().microsecondsSinceEpoch}';
-      final prefix = p.join(target.parent.path, '.${revision.id.value}.');
-      final staged = Directory('${prefix}staged-$stamp');
-      final old = '${prefix}old-$stamp';
-      final targets = [
-        for (final file in files)
-          (
-            file: file,
-            path: p.normalize(
-              p.joinAll([staged.path, ...p.posix.split(file.path)]),
-            ),
-          ),
-      ];
-      for (final (:file, :path) in targets) {
-        if (!p.isWithin(staged.path, path)) {
+    if (!skillMarkerFits(revision)) {
+      throw ArgumentError.value(
+        id,
+        'revision',
+        'has a release too long for the $marker marker, which is read up to '
+            '64 KiB',
+      );
+    }
+    final writes = [
+      for (final (:root, :real) in resolved)
+        _StagedWrite(root, Directory(p.join(real!, id)), files),
+    ];
+    for (final write in writes) {
+      for (final (:file, :path) in write.targets) {
+        if (!p.isWithin(write.staged.path, path)) {
           throw ArgumentError.value(
             file.path,
             'files',
@@ -334,6 +338,19 @@ abstract final class ProfileSkills {
           );
         }
       }
+    }
+    FileSystemException unowned(_StagedWrite write) => FileSystemException(
+      '${write.root}/$id exists without a $marker marker for $id, so '
+      'wayfinder did not replace it.',
+      write.target.path,
+    );
+    for (final write in writes) {
+      if (await write.target.exists() && !await _owned(write.target, id)) {
+        throw unowned(write);
+      }
+    }
+    for (final write in writes) {
+      final _StagedWrite(:target, :staged, :old, :targets) = write;
       await target.parent.create(recursive: true);
       try {
         await _createMarked(staged, revision);
@@ -357,13 +374,7 @@ abstract final class ProfileSkills {
         }
         Directory? previous;
         if (await target.exists()) {
-          if (!await _owned(target, revision.id.value)) {
-            throw FileSystemException(
-              '$root/${revision.id.value} exists without a $marker marker '
-              'for ${revision.id.value}, so wayfinder did not replace it.',
-              target.path,
-            );
-          }
+          if (!await _owned(target, id)) throw unowned(write);
           previous = await target.rename(old);
         }
         try {
@@ -467,8 +478,9 @@ abstract final class ProfileSkills {
   static Future<SkillRevision?> _markedRevision(Directory directory) =>
       _revisionIn(File(p.join(directory.path, marker)));
 
-  /// Far more than any [markerText]; a larger file is not one Wayfinder
-  /// wrote, and is never read whole.
+  /// Far more than any [markerText] of a real release; a larger file is
+  /// never read whole, and [write] refuses a revision whose marker would be
+  /// larger.
   static const _markerMaxBytes = 64 * 1024;
 
   /// The revision the marker [file] records; null when it is not a regular
@@ -508,4 +520,48 @@ abstract final class ProfileSkills {
   }) async =>
       await FileSystemEntity.type(path, followLinks: followLinks) ==
       FileSystemEntityType.file;
+}
+
+/// Whether [revision]'s marker is no larger than the 64 KiB a marker is
+/// read up to, so the directory [ProfileSkills.write] marks with it reads
+/// back as holding it. `get` refuses to install a skill whose marker does
+/// not fit.
+bool skillMarkerFits(SkillRevision revision) =>
+    utf8.encode(ProfileSkills.markerText(revision)).length <=
+    ProfileSkills._markerMaxBytes;
+
+/// One skill root's part of [ProfileSkills.write]: the directory it
+/// replaces, the hidden sibling it stages the files in, and the name it
+/// moves the replaced directory to.
+final class _StagedWrite {
+  factory _StagedWrite(String root, Directory target, List<SkillFile> files) {
+    final prefix = p.join(target.parent.path, '.${p.basename(target.path)}.');
+    final stamp = '$pid-${DateTime.now().microsecondsSinceEpoch}';
+    final staged = '${prefix}staged-$stamp';
+    return _StagedWrite._(
+      root,
+      target,
+      Directory(staged),
+      '${prefix}old-$stamp',
+      [
+        for (final file in files)
+          (
+            file: file,
+            path: p.normalize(p.joinAll([staged, ...p.posix.split(file.path)])),
+          ),
+      ],
+    );
+  }
+
+  _StagedWrite._(this.root, this.target, this.staged, this.old, this.targets);
+
+  /// Project-relative, as `.claude/skills`.
+  final String root;
+  final Directory target;
+  final Directory staged;
+  final String old;
+
+  /// Each file with the path it is staged at, which [ProfileSkills.write]
+  /// checks lies inside [staged].
+  final List<({SkillFile file, String path})> targets;
 }
