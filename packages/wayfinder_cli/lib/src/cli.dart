@@ -657,6 +657,9 @@ class WayfinderCli {
         }
         if (command.flag('detach')) {
           final knowledge = _knowledge();
+          // An invalid explicit model fails here, as in the foreground,
+          // rather than reporting a current index or a background failure.
+          await verifyModelOverride();
           String state;
           try {
             state =
