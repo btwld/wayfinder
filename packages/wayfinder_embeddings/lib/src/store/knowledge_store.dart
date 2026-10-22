@@ -1443,8 +1443,8 @@ class WayfinderKnowledgeStore {
 
   static KnowledgeNotice _refreshNotice() => KnowledgeNotice(
     KnowledgeNoticeCode.refreshInProgress,
-    'refresh-in-progress: An index refresh is running; these results come '
-    'from the last completed index.',
+    'An index refresh is running; these results come from the last '
+    'completed index.',
   );
 
   /// The generation [index]'s pointer names now, or null.
@@ -1467,8 +1467,8 @@ class WayfinderKnowledgeStore {
         : '';
     return KnowledgeNotice(
       KnowledgeNoticeCode.sourceChanged,
-      'source-changed: $named$more changed after the served index was '
-      'built; cited lines marked source changed may differ from the files.',
+      '$named$more changed after the served index was built; cited lines '
+      'marked source changed may differ from the files.',
       paths: sorted,
     );
   }

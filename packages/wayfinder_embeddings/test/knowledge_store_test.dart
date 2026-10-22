@@ -1002,9 +1002,14 @@ void main() {
 
     test('search serves the published generation while an index runs, with '
         'notices and source-changed citations', () async {
+      final recovery = file('recovery.md');
+      // A link in the served generation names no concept, so the search
+      // reports an unresolved relationship beside the freshness notices.
+      await recovery.writeAsString(
+        '${await recovery.readAsString()}\nSee [the old guide](/missing.md).\n',
+      );
       final first = await knowledge.index(bundle);
       final servedGeneration = p.basename(currentGeneration(first.index).path);
-      final recovery = file('recovery.md');
       final original = await recovery.readAsString();
       await recovery.writeAsString('$original\nLinks expire after an hour.\n');
       final entered = Completer<void>();
@@ -1058,36 +1063,35 @@ void main() {
               .every((hit) => !hit.sourceChanged),
           isTrue,
         );
-        // The freshness notices come last, typed: a host never parses
-        // their text.
-        final freshness = served.notices.skip(served.notices.length - 2);
-        expect(
-          served.notices.take(served.notices.length - 2),
-          everyElement(
-            isA<KnowledgeNotice>().having(
-              (notice) => notice.code,
-              'code',
-              isNot(
-                anyOf(
-                  KnowledgeNoticeCode.refreshInProgress,
-                  KnowledgeNoticeCode.sourceChanged,
-                ),
-              ),
-            ),
-          ),
-        );
-        expect(freshness, [
+        // Typed, so a host never parses their text: the response's own
+        // notices first, then the freshness notices.
+        const refreshMessage =
+            'An index refresh is running; these results come from the last '
+            'completed index.';
+        const changedMessage =
+            'recovery.md changed after the served index was built; cited '
+            'lines marked source changed may differ from the files.';
+        expect(served.notices, [
+          isA<KnowledgeNotice>()
+              .having(
+                (notice) => notice.code,
+                'code',
+                KnowledgeNoticeCode.unresolvedRelationship,
+              )
+              .having(
+                (notice) => notice.message,
+                'message',
+                'Unresolved relationship: /missing.md',
+              )
+              .having((notice) => notice.paths, 'paths', ['recovery.md'])
+              .having((notice) => notice.target, 'target', '/missing.md'),
           isA<KnowledgeNotice>()
               .having(
                 (notice) => notice.code,
                 'code',
                 KnowledgeNoticeCode.refreshInProgress,
               )
-              .having(
-                (notice) => notice.message,
-                'message',
-                startsWith('refresh-in-progress: '),
-              )
+              .having((notice) => notice.message, 'message', refreshMessage)
               .having((notice) => notice.paths, 'paths', isEmpty)
               .having((notice) => notice.bundle, 'bundle', isNull),
           isA<KnowledgeNotice>()
@@ -1096,14 +1100,7 @@ void main() {
                 'code',
                 KnowledgeNoticeCode.sourceChanged,
               )
-              .having(
-                (notice) => notice.text,
-                'text',
-                allOf(
-                  startsWith('source-changed: recovery.md '),
-                  contains('changed'),
-                ),
-              )
+              .having((notice) => notice.message, 'message', changedMessage)
               .having((notice) => notice.paths, 'paths', ['recovery.md']),
         ]);
         expect(
@@ -1111,9 +1108,21 @@ void main() {
           'refresh-in-progress',
         );
         expect(KnowledgeNoticeCode.sourceChanged.wireValue, 'source-changed');
-        expect(served.toJson()['notices'], [
-          for (final notice in served.notices) notice.message,
-        ]);
+        // The lines `wayfinder search` and the MCP tool print, exactly as
+        // before notices were typed.
+        const refreshLine =
+            'refresh-in-progress: An index refresh is running; these results '
+            'come from the last completed index.';
+        const changedLine =
+            'source-changed: recovery.md changed after the served index was '
+            'built; cited lines marked source changed may differ from the '
+            'files.';
+        const lines = [
+          'Unresolved relationship: /missing.md',
+          refreshLine,
+          changedLine,
+        ];
+        expect(served.toJson()['notices'], lines);
         final json = served.toJson();
         expect(
           ((json['matches']! as List).first as Map)['sourceChanged'],
@@ -1127,7 +1136,13 @@ void main() {
             '[stable; match; source changed]',
           ),
         );
-        expect(markdown, contains('Notice: refresh-in-progress: '));
+        expect(
+          markdown,
+          endsWith(
+            '\n${[for (final line in lines) 'Notice: $line'].join('\n')}\n'
+            'Ranked passages; verify the cited support before answering.',
+          ),
+        );
         final project = await knowledge.search(
           [bundle],
           'password recovery',
@@ -1135,26 +1150,30 @@ void main() {
         );
         expect(project.freshness.single.refreshing, isTrue);
         expect(project.matches.first.sourceChanged, isTrue);
-        final refresh = project.notices.singleWhere(
-          (notice) => notice.code == KnowledgeNoticeCode.refreshInProgress,
-        );
-        expect(refresh.bundle, same(bundle));
-        expect(refresh.message, startsWith('refresh-in-progress: '));
-        expect(refresh.text, 'knowledge: ${refresh.message}');
-        expect(
-          project.notices
-              .singleWhere(
-                (notice) => notice.code == KnowledgeNoticeCode.sourceChanged,
-              )
-              .paths,
-          ['recovery.md'],
-        );
-        expect(project.toJson()['notices'], [
-          for (final notice in project.notices) notice.text,
+        expect(project.notices.map((notice) => notice.code), [
+          KnowledgeNoticeCode.unresolvedRelationship,
+          KnowledgeNoticeCode.refreshInProgress,
+          KnowledgeNoticeCode.sourceChanged,
         ]);
         expect(
-          project.toJson()['notices'],
-          contains(startsWith('knowledge: refresh-in-progress: ')),
+          project.notices.map((notice) => notice.bundle),
+          everyElement(same(bundle)),
+        );
+        expect(project.notices.map((notice) => notice.message), [
+          'Unresolved relationship: /missing.md',
+          refreshMessage,
+          changedMessage,
+        ]);
+        expect(project.notices.last.paths, ['recovery.md']);
+        expect(project.toJson()['notices'], [
+          for (final line in lines) 'knowledge: $line',
+        ]);
+        expect(
+          project.toMarkdown(),
+          endsWith(
+            '\n${[for (final line in lines) 'Notice: knowledge: $line'].join('\n')}'
+            '\nRanked passages; verify the cited support before answering.',
+          ),
         );
         expect(
           ((project.toJson()['matches']! as List).first

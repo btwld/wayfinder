@@ -796,17 +796,25 @@ void main() {
           0,
         );
         final result = jsonDecode(output.single) as Map;
-        expect(result['notices'], [
-          startsWith('refresh-in-progress: '),
-          startsWith('source-changed: recovery.md '),
-        ]);
+        const refreshLine =
+            'refresh-in-progress: An index refresh is running; these results '
+            'come from the last completed index.';
+        const changedLine =
+            'source-changed: recovery.md changed after the served index was '
+            'built; cited lines marked source changed may differ from the '
+            'files.';
+        const notices = [refreshLine, changedLine];
+        expect(result['notices'], notices);
         final match = (result['matches'] as List).first as Map;
         expect(match['chunk']['sourcePath'], 'recovery.md');
         expect(match['sourceChanged'], isTrue);
         output.clear();
         expect(await command.run(['search', bundle.path, 'password']), 0);
         expect(output.single, contains('match; source changed]'));
-        expect(output.single, contains('Notice: refresh-in-progress: '));
+        expect(
+          output.single,
+          contains('\nNotice: ${notices.join('\nNotice: ')}\n'),
+        );
         output.clear();
         expect(
           await command.run([

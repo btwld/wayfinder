@@ -208,12 +208,14 @@ bullets above ship first, move these under the next release.
   lists of the new `KnowledgeNotice` instead of strings: a stable `code`
   (`KnowledgeNoticeCode`, whose `wireValue` is `unresolved-relationship`,
   `governing-source-unavailable`, `refresh-in-progress` or
-  `source-changed`), the `message`, the bundle-relative `paths` it concerns
-  (the matches whose link did not resolve, the governing source, or every
-  changed file, not only the ten the message names), the link `target` of an
-  unresolved relationship, and in a project search the `bundle`. `text` is the
-  line printed before: a project search's still starts with the bundle's
-  name. A host tells notices apart by `code` instead of by a text prefix.
+  `source-changed`), the `message`, a sentence for a reader without the code
+  or the bundle's name, the bundle-relative `paths` it concerns (the matches
+  whose link did not resolve, the governing source, or every changed file,
+  not only the ten the message names), the link `target` of an unresolved
+  relationship, and in a project search the `bundle`. `text` is the line
+  printed before: the `refresh-in-progress` and `source-changed` lines still
+  start with their code, and a project search's with the bundle's name. A
+  host tells notices apart by `code` instead of by a text prefix.
   `toJson()` and `toMarkdown()` are unchanged, and so are the CLI's and MCP
   server's output. One notice is reported per sentence, as before; an
   unresolved target several matches link to now names each of them in

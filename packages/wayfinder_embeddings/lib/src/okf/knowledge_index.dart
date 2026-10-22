@@ -198,9 +198,9 @@ final class KnowledgeNotice {
 
   final KnowledgeNoticeCode code;
 
-  /// The sentence, without the name of the bundle it concerns. The
-  /// `refresh-in-progress` and `source-changed` sentences start with their
-  /// code, as the command has always printed them.
+  /// The sentence for a reader, without the code or the name of the bundle
+  /// it concerns, such as `An index refresh is running; these results come
+  /// from the last completed index.`
   final String message;
 
   /// Bundle-relative paths it concerns, sorted:
@@ -223,12 +223,22 @@ final class KnowledgeNotice {
   /// several bundles together; null in one bundle's own response.
   final ProjectBundle? bundle;
 
-  /// [message], after the [bundle]'s name and a colon when it has one: the
-  /// text `wayfinder search` prints.
-  String get text => switch (bundle) {
-    final bundle? => '${bundle.name}: $message',
-    null => message,
-  };
+  /// The line `wayfinder search` prints after `Notice: ` and lists under
+  /// `notices` in its JSON: [message], after its code and a colon for
+  /// `refresh-in-progress` and `source-changed`, as the command has always
+  /// printed them, and after the [bundle]'s name and a colon when it has one.
+  String get text {
+    final line = switch (code) {
+      KnowledgeNoticeCode.refreshInProgress ||
+      KnowledgeNoticeCode.sourceChanged => '${code.wireValue}: $message',
+      KnowledgeNoticeCode.unresolvedRelationship ||
+      KnowledgeNoticeCode.governingSourceUnavailable => message,
+    };
+    return switch (bundle) {
+      final bundle? => '${bundle.name}: $line',
+      null => line,
+    };
+  }
 
   /// This notice, about [bundle].
   KnowledgeNotice about(ProjectBundle bundle) => KnowledgeNotice(
