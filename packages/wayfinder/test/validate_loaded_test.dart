@@ -34,6 +34,56 @@ void main() {
     });
   }
 
+  test('validateLoaded finds a path target in the loaded bundle before the '
+      'disk, so a candidate sees the files it adds', () async {
+    final bundle = fixtureBundle(fixture('configured-project'));
+    final selection = await selectFixture(
+      bundle,
+      configPath: p.posix.join(fixture('configured-project'), 'wayfinder.json'),
+    );
+    final disk = await const OkfBundleLoader().inspect(bundle);
+    // A target with a space is a scope descriptor to okf's graph, so only
+    // the builtin's own existence check can resolve it.
+    final cited = OkfDocument.parse(
+      (await File(p.join(bundle, 'sample.md')).readAsString()).replaceFirst(
+        'status: stable',
+        'status: stable\nsources:\n  - resource: /data/new sample.json',
+      ),
+    );
+    OkfBundleLoadResult candidate({required bool withAsset}) {
+      final documents = {...disk.documents, 'cited.md': cited};
+      final assets = [...disk.assets, if (withAsset) 'data/new sample.json'];
+      return OkfBundleLoadResult(
+        rootPath: disk.rootPath,
+        bundle: OkfBundle.fromDocuments(
+          documents,
+          indexes: disk.indexes,
+          logs: disk.logs,
+          assets: assets,
+        ),
+        documents: documents,
+        indexes: disk.indexes,
+        logs: disk.logs,
+        assets: assets,
+        report: disk.report,
+      );
+    }
+
+    List<String> unresolved(OkfBundleLoadResult loaded) => [
+      for (final finding
+          in validator.validateLoaded(loaded, selection).findings)
+        if (finding.id == 'bitwild-profile/source-path-unresolved')
+          finding.path,
+    ];
+
+    expect(unresolved(candidate(withAsset: false)), ['cited.md']);
+    expect(unresolved(candidate(withAsset: true)), isEmpty);
+    expect(
+      File(p.join(bundle, 'data', 'new sample.json')).existsSync(),
+      isFalse,
+    );
+  });
+
   group('ProfileProjection.generatedFiles', () {
     late Directory project;
     late String bundle;

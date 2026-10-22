@@ -325,9 +325,20 @@ Map<String, Object?> _targetFacts(OkfGraphEdge edge) => {
 
 final class BundleInventory {
   BundleInventory(Iterable<String> paths)
-    : nonRootDirectories = _directories(paths);
+    : _files = paths.toSet(),
+      nonRootDirectories = _directories(paths);
+
+  final Set<String> _files;
 
   final List<String> nonRootDirectories;
+
+  late final Set<String> _directorySet = nonRootDirectories.toSet();
+
+  /// Whether the loaded bundle holds [path], a normalized bundle-relative
+  /// file or directory. For a candidate built in memory this includes files
+  /// a write has not committed yet, which the disk does not hold.
+  bool contains(String path) =>
+      path == '.' || _files.contains(path) || _directorySet.contains(path);
 
   late final Set<String> _areaDirectories = nonRootDirectories
       .where(

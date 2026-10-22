@@ -101,6 +101,16 @@ A write is complete only when all of these exist:
    [references/profile-assessment.md](./references/profile-assessment.md),
    with its report in the interaction or pull request.
 
+When your host offers write tools built on Wayfinder's authoring library
+(`KnowledgeWriter` in `package:wayfinder/authoring.dart`), such as create,
+update, link and deprecate, prefer them to editing files. One
+call does steps 1 to 4 as one write: it writes the concept, rewrites only the
+generated indexes the change affects, records the log entry you pass exactly
+as given, and judges the result before writing. It refuses a write that adds
+an error and names the finding; repair what it names rather than editing
+around it. You still choose the content and the log entry from each Profile
+skill, and you still run the Profile Review in step 5.
+
 ## Where the Profile skills are silent
 
 Follow OKF. The vendored [OKF 0.2 specification](./references/OKF-0.2.md)

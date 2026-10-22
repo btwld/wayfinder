@@ -389,7 +389,9 @@ final class ProfileValidator {
   /// as a diagnostic. Reads only the bundle; [selection] carries everything
   /// known about the Profile. With [fix], first writes what
   /// [ProfileProjection.generatedFiles] returns, then validates the bundle
-  /// again from disk.
+  /// again from disk. A fix that has something to write holds okf's
+  /// exclusive bundle lock (`OkfBundleLock.write`) while it loads the bundle
+  /// again, writes and validates; one with nothing to write takes no lock.
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
@@ -397,31 +399,54 @@ final class ProfileValidator {
   }) async {
     final loaded = await loader.inspect(bundlePath);
     if (!fix) return validateLoaded(loaded, selection);
+    final unfixed = _fixNotApplied(loaded, selection);
+    if (unfixed != null) return unfixed;
+    final selected = selection as SelectedProfile;
+    final files = ProfileProjection(
+      buildGraph: buildGraph,
+    ).generatedFiles(selected, loaded);
+    if (files == null) {
+      return _fixThenAssess(loaded.validate(), loaded, selected);
+    }
+    if (files.entries.every(
+      (file) => withLfLineEndings(loaded.indexes[file.key]) == file.value,
+    )) {
+      return _assess(loaded.validate(), loaded, selected, fixed: const []);
+    }
+    return OkfBundleLock.write(loaded.rootPath, () async {
+      final current = await loader.inspect(loaded.rootPath);
+      return _fixNotApplied(current, selection) ??
+          _fixThenAssess(current.validate(), current, selected);
+    });
+  }
+
+  /// The result of a fix that cannot run on [loaded], or null when it can.
+  ProfileValidationResult? _fixNotApplied(
+    OkfBundleLoadResult loaded,
+    ProfileSelection selection,
+  ) {
     final validation = loaded.validate();
-    final fixNotApplied = switch (selection) {
+    final reason = switch (selection) {
       _ when !validation.isConformant => 'OKF failed.',
       UnselectedProfile() => 'No Profile was selected.',
       SelectedProfile() => null,
     };
-    if (fixNotApplied != null) {
-      return _validateLoaded(
-        loaded,
-        selection,
-        validation: validation,
-        diagnostics: [
-          EngineDiagnostic(DiagnosticCode.fixNotApplied, fixNotApplied),
-        ],
-      );
-    }
-    return _fixThenAssess(validation, loaded, selection as SelectedProfile);
+    if (reason == null) return null;
+    return _validateLoaded(
+      loaded,
+      selection,
+      validation: validation,
+      diagnostics: [EngineDiagnostic(DiagnosticCode.fixNotApplied, reason)],
+    );
   }
 
   /// Validates a bundle okf already loaded, such as a candidate an authoring
   /// tool built in memory, against [selection]. Never throws for bundle
   /// content, and reads no bundle file from disk. Only the
-  /// `path-targets-exist` builtin looks at the disk: it checks a link target
-  /// okf's graph cannot resolve inside the bundle, such as one that leaves
-  /// it, relative to the loaded `rootPath`.
+  /// `path-targets-exist` builtin looks further, for a path target okf's
+  /// graph cannot resolve: first in [loaded], so a candidate sees the files
+  /// it adds, then on disk relative to the loaded `rootPath`, such as for a
+  /// target that leaves the bundle.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,

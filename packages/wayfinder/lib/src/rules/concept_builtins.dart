@@ -20,7 +20,9 @@ final pathTargetsExistParams = Ack.object({
 });
 
 /// One finding per (document, target) whose path-valued `fields` entry
-/// names something that exists neither in the bundle nor on disk.
+/// names something that exists neither in the bundle nor on disk. The
+/// loaded bundle answers first, so a candidate judged in memory sees the
+/// files it would write; the disk answers for what lies outside it.
 Iterable<Violation> pathTargetsExist(
   BundleFacts facts,
   Map<String, Object?> params,
@@ -32,7 +34,7 @@ Iterable<Violation> pathTargetsExist(
         (origin) => origin.wireValue == field,
       ),
   };
-  final rootPath = facts.loaded.rootPath;
+  bool exists(OkfGraphEdge edge) => _exists(facts, edge);
   final emitted = <(String, String)>{};
   for (final edge in links.graph.edges.where(
     (edge) => selected.contains(edge.origin),
@@ -41,17 +43,17 @@ Iterable<Violation> pathTargetsExist(
     // A relative path that climbs out of the bundle is `invalid` to the
     // graph, so it is resolved against the bundle root on disk instead. The
     // graph reads a target with whitespace as a scope descriptor; one that
-    // starts with `/`, `./` or `../` is still a path, so it is checked on
-    // disk too. URLs and other descriptors never reach here.
+    // starts with `/`, `./` or `../` is still a path, so it is checked
+    // against the loaded bundle, then on disk. URLs and other descriptors
+    // never reach here.
     final missing = switch (edge.resolution) {
       OkfGraphResolution.unresolved => true,
-      OkfGraphResolution.invalid =>
-        _leavesBundle(edge) && !_existsOnDisk(rootPath, edge),
+      OkfGraphResolution.invalid => _leavesBundle(edge) && !exists(edge),
       OkfGraphResolution.descriptor =>
         (edge.rawTarget.startsWith('/') ||
                 edge.rawTarget.startsWith('./') ||
                 edge.rawTarget.startsWith('../')) &&
-            !_existsOnDisk(rootPath, edge),
+            !exists(edge),
       _ => false,
     };
     if (missing && emitted.add((edge.source.documentPath, edge.rawTarget))) {
@@ -71,7 +73,7 @@ bool _leavesBundle(OkfGraphEdge edge) {
   return joined == '..' || joined.startsWith('../');
 }
 
-bool _existsOnDisk(String rootPath, OkfGraphEdge edge) {
+bool _exists(BundleFacts facts, OkfGraphEdge edge) {
   final target = _pathPart(edge.rawTarget);
   if (target == null) return false;
   final directory = target.startsWith('/')
@@ -84,8 +86,20 @@ bool _existsOnDisk(String rootPath, OkfGraphEdge edge) {
       return segment;
     }
   });
+  final relative = p.posix.normalize(
+    p.posix.joinAll(<String>[...directory.split('/'), ...segments]),
+  );
+  if (relative != '..' &&
+      !relative.startsWith('../') &&
+      facts.inventory.contains(relative)) {
+    return true;
+  }
   final absolute = p.normalize(
-    p.joinAll(<String>[rootPath, ...directory.split('/'), ...segments]),
+    p.joinAll(<String>[
+      facts.loaded.rootPath,
+      ...directory.split('/'),
+      ...segments,
+    ]),
   );
   return FileSystemEntity.typeSync(absolute) != FileSystemEntityType.notFound;
 }
