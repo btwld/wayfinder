@@ -33,6 +33,13 @@
     base and candidate load results and the selection, which a host may send
     to an isolate it can kill; the default runs
     `KnowledgeAssessmentInput.assess` on the calling isolate.
+    `KnowledgeAssessmentInput.assessWithin` is that assessment bounded: it
+    runs on an isolate of its own, killed once it runs past its timeout (30
+    seconds by default) or its cancellation fires, and throws
+    `assessment-timeout`, `cancelled` or `assessment-failed`. Adoption takes
+    the same `KnowledgeAssessor`; its input
+    (`KnowledgeAssessmentInput.bundle`) has no `base`, so
+    `KnowledgeAssessment.base` is null for it.
   - `prepare` and `commit` take a `WayfinderCancellation`, checked between
     steps and passed to the resolver and the assessor; a cancelled commit
     writes nothing and leaves the plan committable.
@@ -211,6 +218,29 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
+- What a host composing adoption needs (ADR-0020):
+  - `KnowledgeAdoption(assess:)` takes a `KnowledgeAssessor`, the seam
+    `KnowledgeWriter` has, so a host can bound or move the Profile
+    assessment. Planning judges the bundle as applying leaves it through
+    it, and the validate step of `apply` judges the adopted bundle through
+    it; the default stays on the calling isolate. An assessment that fails
+    stops planning, and fails only the validate step of `apply`, which
+    undoes nothing.
+  - `AdoptionRequest.profile` is optional: the binding takes the id the
+    package at the source declares. A request that names another throws
+    `AdoptionProfileConflictException` (`adoption-profile-conflict`), with
+    the `requested` and `declared` ids, before anything is written.
+    Planning still fetches the source once.
+  - `AdoptionRequest.hostInputs` names project files the host read or its
+    own step writes, such as `AGENTS.md`. Planning digests them, and
+    `apply` refuses with `adoption-stale` when one changed, before writing.
+    `KnowledgeAdoptionException.changedPaths` names the paths that changed.
+  - `apply(onStep:)` hears each step as it happens: the new
+    `AdoptionStepOutcome.started`, then its end, and after a failure the
+    undo of each earlier step, latest first. What it throws for a step's
+    start or end fails that step. The validate step now checks the
+    cancellation too.
+  - A failed `AdoptionStepReport` carries the failure's `code`.
 - **BREAKING:** Remove the `okfPackageVersion` export; import `okfVersion` or
   `okfIndexGeneratorRevision` from `package:okf/okf.dart`.
 - Depend on `okf` `^0.5.1` instead of exactly 0.5.0. The `matches-generated`

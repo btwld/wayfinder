@@ -17,8 +17,13 @@ final class AdoptionInputs {
   final Map<String, String> entries;
 
   /// Reads the files adoption writes or checks, the bundle directory and
-  /// every ancestor of it, and the agent skill roots.
-  static Future<AdoptionInputs> read(String projectRoot, String bundle) async {
+  /// every ancestor of it, the agent skill roots, and each of the host's
+  /// [hostInputs] with everything below it.
+  static Future<AdoptionInputs> read(
+    String projectRoot,
+    String bundle, {
+    List<String> hostInputs = const [],
+  }) async {
     final segments = p.posix.split(bundle);
     final entries = <String, String>{
       for (final path in const [
@@ -38,6 +43,8 @@ final class AdoptionInputs {
       bundle: await _describe(projectRoot, bundle, recursive: true),
       for (final root in ProfileSkills.roots)
         root: await _describe(projectRoot, root, recursive: true),
+      for (final path in hostInputs)
+        path: await _describe(projectRoot, path, recursive: true),
     };
     return AdoptionInputs._(Map.unmodifiable(entries));
   }

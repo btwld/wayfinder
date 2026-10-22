@@ -28,7 +28,13 @@
 /// - `relock-failed`, a `ProfileRelockFailedException`, when a relock
 ///   cannot read or replace `wayfinder.json` or `wayfinder.lock`;
 /// - from `package:wayfinder/adoption.dart`: `adoption-invalid`,
-///   `adoption-conflict`, `adoption-stale` and `adoption-failed`;
+///   `adoption-conflict`, `adoption-stale`, `adoption-failed` and
+///   `adoption-profile-conflict`, an `AdoptionProfileConflictException`,
+///   when the request names another id than its Profile package declares;
+/// - from a `KnowledgeAssessmentInput.assessWithin` that `authoring.dart`
+///   and `adoption.dart` export: `assessment-timeout` when a Profile
+///   assessment runs past its timeout, and `assessment-failed` when it
+///   stops on an error or cannot start;
 /// - `data-directory-unavailable` when no data directory can be located;
 /// - `git-timeout` when a Git command writes nothing for its timeout, and
 ///   `git-output-too-large` when it writes more stdout than its limit;

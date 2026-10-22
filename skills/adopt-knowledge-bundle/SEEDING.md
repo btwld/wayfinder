@@ -6,10 +6,10 @@ Replace placeholders with project facts.
 
 This text is `KnowledgeSeeds` in `package:wayfinder/adoption.dart`, and a
 test keeps the two equal. `KnowledgeAdoption` fills the placeholders from
-the request and the resolved Profile: the Profile's id and source, with the
-resolved commit as `ref` when none is named; the OKF release its chain
-implements; and the day of adoption. It writes the files below. Its plan
-returns the `### Knowledge bundle` block as text, and
+the request and the resolved Profile: the Profile's source and the id its
+package declares, with the resolved commit as `ref` when none is named; the
+OKF release its chain implements; and the day of adoption. It writes the
+files below. Its plan returns the `### Knowledge bundle` block as text, and
 `KnowledgeSeeds.wayfinderInstructions()` holds the `### Wayfinder` block.
 
 ## `wayfinder.json`

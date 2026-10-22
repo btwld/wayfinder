@@ -6,7 +6,9 @@
   content-change rule as a public function and a log that records only
   content changes, the OKF finding delta, and project files a host captures
   with its selection, tracked when no Profile is selected too, including
-  each closer configuration path, absent)
+  each closer configuration path, absent); 2026-10-22 (adoption shares the
+  assessor seam, and core offers a bounded assessment,
+  [ADR-0020](0020-programmatic-adoption.md))
 - Scope: the write path for a bundle a Profile governs: how a change becomes a
   candidate, which reserved files it rewrites, how the candidate is judged,
   and when it commits; `validate --fix` under okf's bundle lock, and the
@@ -111,7 +113,10 @@ it, and only then calls a `KnowledgeAssessor` once with a
 `KnowledgeAssessmentInput`: the base and candidate load results and the
 selection, plain data with no file handle or lock. The default runs
 `KnowledgeAssessmentInput.assess` on the calling isolate; a host that must
-bound it runs it on an isolate it kills at a deadline. Judging outside the
+bound it runs it on an isolate it kills at a deadline, as
+`KnowledgeAssessmentInput.assessWithin` does. Adoption takes the same
+assessor with an input that holds one bundle and no base, so a host
+composes one assessor for both. Judging outside the
 claim is safe because the commit rechecks okf's snapshot, and it keeps a
 slow rule from blocking writers in other processes. `prepare` and `commit`
 take a `WayfinderCancellation`: checked between steps, passed to the
