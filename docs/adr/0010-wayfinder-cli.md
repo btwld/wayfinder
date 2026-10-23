@@ -2,7 +2,7 @@
 
 - Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; the configuration names the reviewed llama.cpp release); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh); 2026-10-22 (what a host found: typed search notices, cancelling a search, releasing an idle retained encoder, removing the model, and forgetting a project root's indexes with their lock files)
+- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output); 2026-10-22 (indexes namespaced by configuration, bundle-relative chunk IDs, the lifecycle in a library; a host may provision the model; the configuration names the reviewed llama.cpp release); 2026-10-22 (read while indexing, #110: plain-file generations instead of ObjectBox, a lock only writers take and readers only probe, serving the last generation during a refresh); 2026-10-22 (what a host found: typed search notices, cancelling a search, releasing an idle retained encoder, removing the model, and forgetting a project root's indexes with their lock files); 2026-10-23 (every index run and prune collects generations superseded past the grace period)
 - Scope: application commands and the local index lifecycle; no Profile rule
 - Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
 
@@ -72,8 +72,11 @@ runs by probing its lock with a shared lock for an instant, which a starting
 writer waits out rather than report as busy; on Windows, where a file another
 handle has open cannot be replaced, a publication waits up to two seconds for
 readers to close the pointer, then fails as busy. A superseded generation
-is deleted only by a later publication, and only ten minutes after it was
-superseded, so a reader that read the pointer just before still finds it;
+is deleted only by a later writer, an index run (forced, current or
+publishing) or a prune, and only ten minutes after it was superseded, so a
+reader that read the pointer just before still finds it, and repeated
+forced indexes leave at most the generations superseded in the last ten
+minutes;
 a reader that loses that race anyway reads the pointer again rather than
 fail. Compare source hashes and the inventory okf's loader sees, which
 leaves out okf's `.okf.lock`, to detect edits; search refuses an absent,

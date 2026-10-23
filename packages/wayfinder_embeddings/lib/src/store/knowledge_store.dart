@@ -109,8 +109,9 @@ final class _GenerationUnreadable implements Exception {
 /// rather than report as busy. A superseded generation stays for
 /// [gracePeriod] after the publication that replaced it, so a reader that
 /// read the pointer just before still finds it; garbage collection runs
-/// after a later publication, and a reader that loses the race anyway reads
-/// the pointer again. With [StaleIndexPolicy.serveWhileRefreshing], a search
+/// whenever a writer holds the lock, at the start of every [index], after
+/// each publication and in [prune], and a reader that loses the race anyway
+/// reads the pointer again. With [StaleIndexPolicy.serveWhileRefreshing], a search
 /// during a refresh serves the last published generation even when the
 /// bundle has changed since, with notices. [forget] and [forgetProjectRoot]
 /// delete an index with its lock file and the directories that leaves empty;
@@ -173,7 +174,8 @@ class WayfinderKnowledgeStore {
   /// positive, and needs [retainEncoder].
   ///
   /// A superseded generation stays readable for [gracePeriod] after a newer
-  /// one is published.
+  /// one is published, and the next [index] or [prune] after that deletes
+  /// it.
   WayfinderKnowledgeStore({
     required this.dataDirectory,
     required this.encoder,
@@ -350,6 +352,7 @@ class WayfinderKnowledgeStore {
     final index = await _namespace(bundle);
     final lock = await _lockWriter(index);
     try {
+      await _collectExpired(index);
       return await _encoding((acquire) async {
         final watch = Stopwatch()..start();
         final root = index.root;
@@ -752,7 +755,21 @@ class WayfinderKnowledgeStore {
             return await unused() ? 'other-configuration' : null;
           }
 
-          if (await reason() == null) continue;
+          if (await reason() == null) {
+            // A kept index still loses generations whose grace has passed.
+            final lock = await WayfinderFileLock.tryExclusive(file);
+            if (lock == null) continue;
+            try {
+              await _collectExpired((
+                root: root ?? '',
+                directory: namespace,
+                writer: file,
+              ));
+            } finally {
+              await lock.release();
+            }
+            continue;
+          }
           final lock = await WayfinderFileLock.tryExclusive(file);
           if (lock == null) {
             busy.add(namespace.path);
@@ -1138,6 +1155,23 @@ class WayfinderKnowledgeStore {
       await Future<void>.delayed(delay);
       waited += delay;
       if (delay < const Duration(milliseconds: 320)) delay *= 2;
+    }
+  }
+
+  /// [_collectGarbage] around the generation [index]'s pointer names, for a
+  /// writer lock's holder that publishes nothing: an [index] run, before it
+  /// knows whether it will, and [prune]. So a generation superseded within
+  /// [gracePeriod] of the last publication still goes once its grace has
+  /// passed, at the next run that writes, instead of waiting for another
+  /// publication. Does nothing when the pointer cannot be read, since the
+  /// current generation is then unknown.
+  Future<void> _collectExpired(_Namespace index) async {
+    final current = await _pointedGeneration(index);
+    if (current == null || !_generationName.hasMatch(current)) return;
+    try {
+      await _collectGarbage(index, keep: current);
+    } on FileSystemException {
+      // A later run retries.
     }
   }
 

@@ -1295,6 +1295,51 @@ void main() {
       );
     });
 
+    test('repeated forced indexes leave no superseded generation once its '
+        'grace has passed, without another publication', () async {
+      final first = await knowledge.index(bundle);
+      Set<String> entries() => {
+        for (final entry in Directory(first.index).listSync())
+          p.basename(entry.path),
+      };
+      Future<void> expireGrace() async {
+        for (final entry in Directory(first.index).listSync()) {
+          if (entry is File && entry.path.endsWith('.superseded')) {
+            await entry.setLastModified(
+              DateTime.now().subtract(const Duration(minutes: 11)),
+            );
+          }
+        }
+      }
+
+      for (var run = 0; run < 3; run++) {
+        await knowledge.index(bundle, force: true);
+      }
+      expect(
+        entries().where((name) => name.endsWith('.superseded')),
+        hasLength(3),
+        reason: 'all three superseded within the grace period',
+      );
+      await expireGrace();
+      final current = await knowledge.index(bundle);
+      expect(current.current, isTrue, reason: 'nothing was published');
+      final only = {
+        'current',
+        'writer.lock',
+        p.basename(currentGeneration(first.index).path),
+      };
+      expect(entries(), only);
+
+      await knowledge.index(bundle, force: true);
+      await expireGrace();
+      await knowledge.prune();
+      expect(entries(), {
+        'current',
+        'writer.lock',
+        p.basename(currentGeneration(first.index).path),
+      }, reason: 'prune collects them as well');
+    });
+
     test('a reader that loses a race with garbage collection reads the '
         'pointer again', () async {
       final first = await knowledge.index(bundle);
