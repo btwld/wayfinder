@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
+import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart'
     show ProjectBundle, WayfinderCancellation, throwIfCancelled;
 import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
@@ -163,6 +165,13 @@ enum KnowledgeNoticeCode {
   /// a target that resolves to no concept of the bundle.
   unresolvedRelationship('unresolved-relationship'),
 
+  /// A match's `resource`, `sources[].resource`, `computation`,
+  /// `executor.resource` or `attester.resource` is a path that names no file
+  /// or directory, in the bundle or, for one that leaves the bundle, on
+  /// disk. These fields cite what a concept rests on; they are not
+  /// relationships.
+  unresolvedSource('unresolved-source'),
+
   /// A governing source the search policy names is excluded by the policy or
   /// has no passage, so it could not be added as context.
   governingSourceUnavailable('governing-source-unavailable'),
@@ -207,6 +216,8 @@ final class KnowledgeNotice {
   ///
   /// - [KnowledgeNoticeCode.unresolvedRelationship]: the matched concepts
   ///   whose link to [target] did not resolve;
+  /// - [KnowledgeNoticeCode.unresolvedSource]: the matched concepts whose
+  ///   source path [target] names nothing;
   /// - [KnowledgeNoticeCode.governingSourceUnavailable]: the governing
   ///   source;
   /// - [KnowledgeNoticeCode.sourceChanged]: every file added, removed or
@@ -215,8 +226,9 @@ final class KnowledgeNotice {
   /// - [KnowledgeNoticeCode.refreshInProgress]: none.
   final List<String> paths;
 
-  /// The link target as written, for
-  /// [KnowledgeNoticeCode.unresolvedRelationship]; otherwise null.
+  /// The link target or source path as written, for
+  /// [KnowledgeNoticeCode.unresolvedRelationship] and
+  /// [KnowledgeNoticeCode.unresolvedSource]; otherwise null.
   final String? target;
 
   /// The bundle it concerns, in the notices of a project search, which ranks
@@ -232,6 +244,7 @@ final class KnowledgeNotice {
       KnowledgeNoticeCode.refreshInProgress ||
       KnowledgeNoticeCode.sourceChanged => '${code.wireValue}: $message',
       KnowledgeNoticeCode.unresolvedRelationship ||
+      KnowledgeNoticeCode.unresolvedSource ||
       KnowledgeNoticeCode.governingSourceUnavailable => message,
     };
     return switch (bundle) {
@@ -297,6 +310,7 @@ class KnowledgeIndex {
     required this.store,
     required this.embedder,
     this.includeContext = false,
+    this.bundleRoot,
   }) : countTokens = null,
        maxTokens = null,
        _snapshot = snapshot;
@@ -307,6 +321,7 @@ class KnowledgeIndex {
     this.includeContext = false,
     this.countTokens,
     this.maxTokens,
+    this.bundleRoot,
   }) {
     if ((countTokens == null) != (maxTokens == null) ||
         (maxTokens != null && maxTokens! <= 0)) {
@@ -320,6 +335,12 @@ class KnowledgeIndex {
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
   final int? maxTokens;
+
+  /// The bundle's directory on disk, where a source path that leaves the
+  /// bundle, such as `../../lib/billing.dart`, is looked up. Without it such
+  /// a path is never reported as [KnowledgeNoticeCode.unresolvedSource]:
+  /// the snapshot alone cannot tell whether it exists.
+  final String? bundleRoot;
   KnowledgeSnapshot? _snapshot;
   bool _synchronizing = false;
   int _searches = 0;
@@ -685,13 +706,29 @@ class KnowledgeIndex {
       for (final edge in snapshot.graph.edges.where(
         (edge) => edge.source.documentPath == source,
       )) {
-        follow(
-          source,
-          targetConcept: edge.targetConcept,
-          resolution: edge.resolution,
-          rawTarget: edge.rawTarget,
-          edge: edge,
-        );
+        if (edge.origin == OkfGraphEdgeOrigin.bodyLink) {
+          follow(
+            source,
+            targetConcept: edge.targetConcept,
+            resolution: edge.resolution,
+            rawTarget: edge.rawTarget,
+            edge: edge,
+          );
+          continue;
+        }
+        // A path-valued field cites a source. One that names a concept is
+        // still context; one that names nothing is a source problem.
+        final target = edge.targetConcept?.documentPath;
+        if (target != null && byPath.containsKey(target)) {
+          add(target, 'relationship', via: source, edge: edge);
+        } else if (_sourceMissing(snapshot, edge)) {
+          notice(
+            KnowledgeNoticeCode.unresolvedSource,
+            'Unresolved source: ${edge.rawTarget}',
+            path: source,
+            target: edge.rawTarget,
+          );
+        }
       }
     }
     return KnowledgeSearchResponse(
@@ -707,5 +744,73 @@ class KnowledgeIndex {
           ),
       ],
     );
+  }
+
+  /// Whether the path-valued [edge] names no file or directory, as the
+  /// `path-targets-exist` builtin decides. okf's graph is bundle-scoped: a
+  /// path that climbs out of the bundle is `invalid` to it, and one that
+  /// starts with `/`, `./` or `../` but has whitespace is a `descriptor`,
+  /// so those are looked up under [bundleRoot]. URLs and prose descriptors
+  /// name no path.
+  bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
+    switch (edge.resolution) {
+      case OkfGraphResolution.unresolved:
+        return true;
+      case OkfGraphResolution.invalid:
+      case OkfGraphResolution.descriptor:
+        final raw = edge.rawTarget;
+        final cut = raw.indexOf(RegExp(r'[?#]'));
+        final target = cut < 0 ? raw : raw.substring(0, cut);
+        if (target.isEmpty) return false;
+        if (edge.resolution == OkfGraphResolution.descriptor &&
+            !(target.startsWith('/') ||
+                target.startsWith('./') ||
+                target.startsWith('../'))) {
+          return false;
+        }
+        final directory = target.startsWith('/')
+            ? '.'
+            : p.posix.dirname(edge.source.documentPath);
+        final segments = [
+          for (final segment in target.split('/'))
+            _decodeSegment(segment) ?? segment,
+        ];
+        final relative = p.posix.normalize(
+          p.posix.joinAll([...directory.split('/'), ...segments]),
+        );
+        final leaves = relative == '..' || relative.startsWith('../');
+        if (!leaves &&
+            (snapshot.sources.containsKey(relative) ||
+                snapshot.assets.contains(relative))) {
+          return false;
+        }
+        // An invalid path that stays in the bundle is malformed, not absent
+        // from the disk; validation reports it.
+        if (!leaves && edge.resolution == OkfGraphResolution.invalid) {
+          return true;
+        }
+        final root = bundleRoot;
+        if (root == null) return false;
+        return FileSystemEntity.typeSync(
+              p.normalize(
+                p.joinAll([root, ...directory.split('/'), ...segments]),
+              ),
+            ) ==
+            FileSystemEntityType.notFound;
+      case OkfGraphResolution.resolvedConcept:
+      case OkfGraphResolution.resolvedAsset:
+      case OkfGraphResolution.external:
+        return false;
+    }
+  }
+
+  static String? _decodeSegment(String segment) {
+    try {
+      return Uri.decodeComponent(segment);
+    } on ArgumentError {
+      return null;
+    } on FormatException {
+      return null;
+    }
   }
 }

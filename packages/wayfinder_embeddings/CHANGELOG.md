@@ -1,5 +1,19 @@
 # 0.3.0 (unreleased)
 
+- Every `WayfinderKnowledgeStore.index` run, including one that finds its
+  index current, and `prune` delete the generations superseded more than
+  `gracePeriod` ago. Only a later publication used to, so the generations a
+  burst of forced indexes superseded, with their `.superseded` markers,
+  stayed until the bundle's index changed again.
+- A search no longer reports a concept's `sources[].resource`, `resource`,
+  `computation`, `executor.resource` or `attester.resource` as an
+  `unresolved-relationship`. okf's graph resolves targets inside the bundle
+  only, so a source written relative to the concept that leaves it, such as
+  `../../lib/billing.dart`, is `invalid` to it; the store now looks such a
+  path up on disk under the bundle (`KnowledgeIndex`'s new `bundleRoot`), as
+  the `path-targets-exist` builtin does, and reports only a path that names
+  nothing, with the new code `unresolved-source`. Body links and typed link
+  fields still report `unresolved-relationship`.
 - Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
 - New `package:wayfinder_embeddings/knowledge_store.dart`: the index
   lifecycle `wayfinder index` and `wayfinder search` use, moved out of the

@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -255,7 +256,10 @@ def main():
         current = json.loads(run("warnings-without-model", "index", corpus, "--output=json").stdout)
         assert current["current"] and current["warnings"] == warnings
         run("validation-without-model", "validate", example / "knowledge")
-        assert "Reinstall" in run("missing-model", "search", corpus, "password", expected=2).stderr
+        missing = run("missing-model", "search", corpus, "password", expected=2).stderr
+        assert "No local embedding model was found" in missing
+        assert re.search(r"[\\/]models[\\/]embedding\.gguf \(the installed bundle\)", missing)
+        assert "reinstall the complete Wayfinder bundle" in missing
         model.write_bytes(b"corrupt")
         assert "verification" in run("corrupt-model", "search", corpus, "password", expected=2).stderr
         index_bytes = sum(f.stat().st_size for f in index.rglob("*") if f.is_file())

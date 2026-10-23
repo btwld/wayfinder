@@ -66,7 +66,9 @@ okf_version: "<OKF release the Profile implements>"
 
 If a Profile in the chain requires generated indexes, write this index by
 hand only while the bundle holds no concepts. Once it holds one,
-`wayfinder validate knowledge --fix` writes every generated index. Never
+`wayfinder validate knowledge --fix`, or the first Profile-aware write that
+adds it, writes every generated index; okf's generated root index does not
+link `log.md`, so the seed's link goes with it. Never
 edit a generated index by hand. Without such a Profile, keep each
 `index.md` current yourself, as OKF §8 describes.
 
