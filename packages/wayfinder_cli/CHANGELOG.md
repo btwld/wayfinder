@@ -15,7 +15,17 @@
   `WAYFINDER_EMBEDDING_MODEL`, the bundle's `models/`, `./models` and the
   source package, and only when its size and SHA-256 match the pin. A
   source-built command used to report the model missing beside a model a
-  host such as Stargate had installed.
+  host such as Stargate had installed. When no model is found, the failure
+  now lists every location searched, in order, as absolute paths, says
+  that `WAYFINDER_EMBEDDING_MODEL` is not set, and names each remedy:
+  setting it, reinstalling the bundle, preparing the model in a source
+  checkout, or installing it into the data directory with an application
+  that provisions it. It used to name only `models/embedding.gguf`, a
+  relative path it had not searched alone. A cached model that fails its size
+  or SHA-256 check, with no other copy found, is reported as
+  `model-invalid` naming that file, and a `WAYFINDER_EMBEDDING_MODEL` that
+  is empty or names no file as `model-missing` naming the setting and the
+  path, instead of as a missing model.
 - Quote the bundle path in generated git hooks, and reject control characters
   and a leading `-` in `--bundle`, so the path cannot become shell source.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval

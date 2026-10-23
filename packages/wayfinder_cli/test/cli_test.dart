@@ -57,13 +57,26 @@ void main() {
     );
     expect(
       message('model-missing', 'The model is missing (/m.gguf).'),
-      'The model is missing (/m.gguf). Reinstall the complete Wayfinder '
-      'bundle; for source development run melos run '
+      'The model is missing (/m.gguf). Point WAYFINDER_EMBEDDING_MODEL at '
+      'a verified copy of the model, reinstall the complete Wayfinder '
+      'bundle, or for source development run melos run '
       'wayfinder_embeddings:prepare.',
     );
     expect(
       message('model-invalid', 'Bad model.'),
-      'Bad model. Reinstall the complete Wayfinder bundle.',
+      'Bad model. Point WAYFINDER_EMBEDDING_MODEL at a verified copy of the '
+      'model or reinstall the complete Wayfinder bundle.',
+    );
+    // The locator words its own remedy for what it searched.
+    expect(
+      commandMessage(
+        const ModelLocationException(
+          'model-missing',
+          'Nothing at /a.',
+          remedy: 'Put it there.',
+        ),
+      ),
+      'Nothing at /a. Put it there.',
     );
     expect(message('index-busy', 'Index is busy.'), 'Index is busy.');
   });

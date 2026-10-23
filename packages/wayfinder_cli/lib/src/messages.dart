@@ -14,6 +14,7 @@ String commandMessage(WayfinderException error, {bool indexing = false}) =>
       ProfileSkillDirectoriesException() =>
         '${error.message} Move it aside and run the command again to install '
             'the Profile skill there.',
+      ModelLocationException(:final remedy) => '${error.message} $remedy',
       ProfileResolutionBusyException(projectRoot: final root?) =>
         'Another wayfinder get is changing $root. Retry when it finishes.',
       WayfinderProfileResolutionException(remedy: final remedy?) =>
@@ -25,10 +26,13 @@ String commandMessage(WayfinderException error, {bool indexing = false}) =>
           '${error.message} Run wayfinder index '
               '${indexing ? 'again' : '<bundle>'}.',
         'model-missing' =>
-          '${error.message} Reinstall the complete Wayfinder bundle; for '
-              'source development run melos run wayfinder_embeddings:prepare.',
+          '${error.message} Point WAYFINDER_EMBEDDING_MODEL at a verified '
+              'copy of the model, reinstall the complete Wayfinder bundle, or '
+              'for source development run melos run '
+              'wayfinder_embeddings:prepare.',
         'model-invalid' =>
-          '${error.message} Reinstall the complete Wayfinder bundle.',
+          '${error.message} Point WAYFINDER_EMBEDDING_MODEL at a verified '
+              'copy of the model or reinstall the complete Wayfinder bundle.',
         'resolution-stale' => '${error.message} Run wayfinder get again.',
         _ => error.message,
       },
@@ -63,3 +67,16 @@ String _run(DiagnosticRemedy remedy) => switch (remedy) {
   DiagnosticRemedy.upgradeProfiles =>
     'Run wayfinder upgrade to select a new revision.',
 };
+
+/// A model the command could not locate (`model-missing`) or found only a
+/// copy of that fails verification (`model-invalid`). The message lists
+/// where the command looked; [remedy] is what the command says fixes it.
+final class ModelLocationException extends WayfinderException {
+  const ModelLocationException(
+    super.code,
+    super.message, {
+    required this.remedy,
+  });
+
+  final String remedy;
+}
