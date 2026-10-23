@@ -215,7 +215,9 @@ the `wayfinder_embeddings` package during source development, and then the
 model an application installed with `EmbeddingModelCache` in the data
 directory (`models/arctic-embed-xs-q8_0/embedding.gguf`, under
 `WAYFINDER_DATA_DIR` when it is set). It uses that cached copy only when its
-size and SHA-256 match the pinned model.
+size and SHA-256 match the pinned model. When it finds none, the failure
+lists each location it searched, in order, and what puts a model there; a
+cached copy that fails the check is reported as such rather than as missing.
 
 Indexes are plain files, so the command needs no database library; native
 builds ship only the embedding runtime and the model.
