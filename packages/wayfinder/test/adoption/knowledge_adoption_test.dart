@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:okf/okf.dart' show OkfConceptId;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/adoption.dart';
+import 'package:wayfinder/authoring.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 
@@ -501,6 +503,92 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  test('a write onto a seeded empty bundle leaves the root index okf '
+      'generates, the one a seed with that concept writes', () async {
+    const actor = WayfinderActorMetadata(name: 'Claude Code', side: 'tool');
+    const vocabulary = ProjectVocabulary(actors: {'claude-code/opus-5': actor});
+    AdoptionRequest request(String root, [List<AdoptionSeedConcept>? seed]) =>
+        AdoptionRequest(
+          projectRoot: root,
+          profile: _bitwild,
+          source: AdoptionSource(
+            git: source.path,
+            path: 'profiles/bitwild',
+            ref: 'main',
+          ),
+          concepts: seed ?? const [],
+          vocabulary: vocabulary,
+        );
+    await adoption.apply(await adoption.plan(request(project.path)));
+    final index = File(p.join(bundle(), 'index.md'));
+    // Bitwild's root-index-lists-log requires the link while the bundle
+    // holds no concept, and okf's generator writes no root index then.
+    expect(await index.readAsString(), contains('[Knowledge Log](log.md)'));
+    expect((await validate()).gate, GateState.pass);
+
+    final concept = OkfConceptId('reporting/pagination-contract');
+    final writer = KnowledgeWriter(
+      resolver: WayfinderProfileResolver(dataDirectory: data),
+      clock: () => DateTime.utc(2026, 10, 22, 9, 30),
+    );
+    final plan = await writer.prepare(
+      bundle(),
+      CreateConcept(
+        id: concept,
+        frontmatter: {
+          'type': 'Specification',
+          'title': 'Pagination contract',
+          'description': 'How the renderer splits an export into pages.',
+          'status': 'draft',
+        },
+        body: '# Specification\n\nThe renderer breaks pages at sections.\n',
+      ),
+      stamp: const KnowledgeStamp.generated(by: 'claude-code/opus-5'),
+    );
+    expect(plan.committable, isTrue);
+    await writer.commit(plan);
+    final written = await index.readAsString();
+    expect(written, isNot(contains('log.md')));
+
+    // The same concept seeded instead gets the same root index.
+    final other = await Directory(p.join(temp.path, 'other')).create();
+    await fixtureGit(other.path, ['init', '-q', '-b', 'main']);
+    final seeded = await adoption.plan(
+      request(other.path, [
+        AdoptionSeedConcept(
+          path: concept.documentPath,
+          text: await File(
+            p.join(bundle(), concept.documentPath),
+          ).readAsString(),
+        ),
+      ]),
+    );
+    expect(
+      seeded.files
+          .singleWhere((file) => file.path == 'knowledge/index.md')
+          .content,
+      written,
+    );
+    // And it is what validate --fix writes: nothing is left to fix.
+    expect(
+      (await validateWithProfileSources(
+        bundle(),
+        resolver: WayfinderProfileResolver(dataDirectory: data),
+        fix: true,
+      )).fixed,
+      isEmpty,
+    );
+
+    // Keeping the seed's link in a generated index would make it stale.
+    await index.writeAsString('$written\n* [Knowledge Log](log.md)\n');
+    final kept = await validate();
+    expect(kept.gate, GateState.fail);
+    expect(
+      kept.findings.map((finding) => finding.id),
+      contains('bitwild-profile/index-current'),
+    );
   });
 
   test('plan leaves git status --porcelain empty and writes nothing in the '
