@@ -102,7 +102,10 @@ located and the store verifies before loading. The store keeps indexes as
 plain files and needs no database library
 ([ADR-0010](0010-wayfinder-cli.md)). The CLI's `native_runtime.dart` is that
 host: it finds the model in its bundle or in the package during
-development. Failures are
+development, and otherwise the verified model `EmbeddingModelCache`
+installed in its data directory, after an explicit
+`WAYFINDER_EMBEDDING_MODEL`, so the command uses the copy a host
+provisioned. Failures are
 `WayfinderException`s with a stable `code` and a sentence that names no
 command; the CLI adds what to run, such as `Run wayfinder index <bundle>.`
 The same holds for the diagnostics selection and `status` report: the

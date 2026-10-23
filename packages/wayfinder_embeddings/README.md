@@ -569,7 +569,10 @@ Distribute the whole bundle. Its executable passes the model beside it in
 `models/`; the library's `defaultEmbeddingModelFile` never looks next to the
 running executable, and uses an `installation` its caller names, then the
 development `models/` directory. `WAYFINDER_EMBEDDING_MODEL` or the CLI's
-`--model` overrides it. Runtime inference never downloads weights.
+`--model` overrides it. When none of those holds a model, the `wayfinder`
+command also uses a verified model `EmbeddingModelCache` installed in its
+data directory, so a host that provisioned the cache and the command share
+one copy. Runtime inference never downloads weights.
 
 ### Provision the model from an application
 

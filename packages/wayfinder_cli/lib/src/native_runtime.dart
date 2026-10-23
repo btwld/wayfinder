@@ -1,15 +1,16 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/model_cache.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
-    show defaultEmbeddingModelFile, localEmbeddingModel;
+    show defaultEmbeddingModelFile;
 
 // The native resource only the installed command owns: the local model,
-// located next to the executable in a native bundle or in the
-// wayfinder_embeddings package during development. The retrieval library
-// never looks for it itself (ADR-0018).
+// located next to the executable in a native bundle, in the
+// wayfinder_embeddings package during development, or in the model cache a
+// host such as an application installed in the data directory. The
+// retrieval library never looks for it itself (ADR-0018).
 
 /// The knowledge store `wayfinder` uses: Wayfinder's data directory and the
 /// local model. The MCP server [retainEncoder]s across calls; one-shot
@@ -44,16 +45,41 @@ Future<Uri?> _embeddingsPackage() => Isolate.resolvePackageUri(
   Uri.parse('package:wayfinder_embeddings/wayfinder_embeddings.dart'),
 );
 
-/// The model an explicit setting names, else the bundled one, else
-/// `models/` under the current directory, else the one
-/// `melos run wayfinder_embeddings:prepare` downloads.
-Future<File> _modelFile() async {
-  final environment = Platform.environment;
+/// The model [locateModelFile] finds for this process.
+Future<File> _modelFile() => locateModelFile(
+  environment: Platform.environment,
+  installation: _installation,
+  embeddingsPackage: _embeddingsPackage,
+);
+
+/// The model file the command uses, in this order:
+///
+/// 1. the file `WAYFINDER_EMBEDDING_MODEL` (or the legacy
+///    `KNOWLEDGE_EMBEDDING_MODEL`) in [environment] names, even when it is
+///    missing or invalid;
+/// 2. `models/` in the [installation], the bundle the executable belongs to;
+/// 3. `models/` under the current directory;
+/// 4. the one `melos run wayfinder_embeddings:prepare` downloads into the
+///    `wayfinder_embeddings` package, during source development;
+/// 5. the model `EmbeddingModelCache.provision` installed in the data
+///    directory ([WayfinderDataDirectory.resolve] of [environment]), only
+///    when it passes the cache's own size and SHA-256 check.
+///
+/// The first of 2 to 4 that exists is returned; the encoder verifies it
+/// before loading it. When none exists and the cache holds no verified
+/// model, the path of 4 is returned during source development and that of
+/// 3 otherwise, so the failure names it.
+Future<File> locateModelFile({
+  required Map<String, String> environment,
+  Directory? installation,
+  Future<Uri?> Function()? embeddingsPackage,
+  EmbeddingModelSpec spec = localEmbeddingModel,
+}) async {
   final File model;
   try {
     model = defaultEmbeddingModelFile(
       environment: environment,
-      installation: _installation,
+      installation: installation,
     );
   } on FileSystemException catch (error) {
     throw WayfinderException(
@@ -66,12 +92,22 @@ Future<File> _modelFile() async {
       environment.containsKey('KNOWLEDGE_EMBEDDING_MODEL')) {
     return model;
   }
-  final package = await _embeddingsPackage();
-  return package == null
+  final package = await embeddingsPackage?.call();
+  final missing = package == null
       ? model
-      : File.fromUri(
-          package.resolve('../models/${localEmbeddingModel.fileName}'),
-        );
+      : File.fromUri(package.resolve('../models/${spec.fileName}'));
+  if (package != null && await missing.exists()) return missing;
+  final Directory dataDirectory;
+  try {
+    dataDirectory = WayfinderDataDirectory.resolve(environment: environment);
+  } on WayfinderException {
+    return missing;
+  }
+  final cached = await EmbeddingModelCache(
+    dataDirectory: dataDirectory,
+    spec: spec,
+  ).locate();
+  return cached ?? missing;
 }
 
 /// The pinned local model wherever [_modelFile] finds it, located when an
