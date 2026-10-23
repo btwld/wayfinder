@@ -193,7 +193,7 @@ file URI. A `--fix` that cannot write a file marks the invocation
 unsuccessful and records the reason as a tool execution notification.
 Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
-line ranges, metadata, similarity, context inclusion reasons and link notices.
+line ranges, metadata, similarity, context inclusion reasons, and notices for links and source paths that do not resolve.
 All lifecycle states remain eligible and status is displayed. Ranked passages
 are candidates; verify the supporting text before answering.
 

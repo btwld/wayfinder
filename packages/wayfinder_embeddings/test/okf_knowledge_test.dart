@@ -638,6 +638,74 @@ void main() {
     );
   });
 
+  test('a source path is a source, not a relationship: one that resolves '
+      'on disk is silent and a missing one is a source notice', () async {
+    final project = await Directory.systemTemp.createTemp('wayfinder-sources-');
+    addTearDown(() => project.delete(recursive: true));
+    await File('${project.path}/lib/billing.dart').create(recursive: true);
+    final root = '${project.path}/knowledge';
+    final sources = {
+      'rules/invoice-tax.md': concept(
+        'InvoiceTax applies once.',
+        fields:
+            'sources:\n'
+            '  - {resource: "../../lib/billing.dart"}\n'
+            '  - {resource: "../../lib/gone.dart"}\n'
+            '  - {resource: /missing.md}\n'
+            '  - {resource: "https://example.invalid/spec"}\n'
+            '  - {resource: "the billing team"}\n',
+      ),
+    };
+    final built = snapshot(sources);
+    expect(
+      {for (final edge in built.graph.edges) edge.rawTarget: edge.resolution},
+      containsPair('../../lib/billing.dart', OkfGraphResolution.invalid),
+      reason: 'okf resolves graph targets inside the bundle only',
+    );
+    final index = KnowledgeIndex.fromSnapshot(
+      snapshot: built,
+      store: MemoryStore(),
+      embedder: CountingEmbedder(focus: 'InvoiceTax'),
+      bundleRoot: root,
+    );
+    await KnowledgeIndex(
+      store: index.store,
+      embedder: index.embedder,
+    ).synchronize(built);
+    final result = await index.search(
+      'InvoiceTax',
+      policy: KnowledgeSearchPolicy(expandRelationships: true),
+    );
+    expect(result.notices, [
+      _notice(
+        KnowledgeNoticeCode.unresolvedSource,
+        'Unresolved source: ../../lib/gone.dart',
+        paths: ['rules/invoice-tax.md'],
+        target: '../../lib/gone.dart',
+      ),
+      _notice(
+        KnowledgeNoticeCode.unresolvedSource,
+        'Unresolved source: /missing.md',
+        paths: ['rules/invoice-tax.md'],
+        target: '/missing.md',
+      ),
+    ]);
+    expect(KnowledgeNoticeCode.unresolvedSource.wireValue, 'unresolved-source');
+
+    // Without the bundle's directory a path that leaves the bundle cannot be
+    // checked, so it is never reported.
+    final unrooted = KnowledgeIndex(
+      store: MemoryStore(),
+      embedder: CountingEmbedder(focus: 'InvoiceTax'),
+    );
+    await unrooted.synchronize(built);
+    final plain = await unrooted.search(
+      'InvoiceTax',
+      policy: KnowledgeSearchPolicy(expandRelationships: true),
+    );
+    expect(plain.notices.map((notice) => notice.target), ['/missing.md']);
+  });
+
   test('search checks its cancellation before it encodes the query and '
       'before it scores', () async {
     final embedder = _QueryHookEmbedder();
