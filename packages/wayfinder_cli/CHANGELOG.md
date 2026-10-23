@@ -1,5 +1,9 @@
 # 0.3.0 (unreleased)
 
+- Every `index`, including `index --force` and one that finds the index
+  current, deletes the index generations superseded more than ten minutes
+  before, so repeated forced indexes no longer leave `generation-*` folders
+  and `.superseded` markers behind until the knowledge changes.
 - `search` and the MCP `search` tool no longer report a concept's source
   path, such as `sources: [{resource: ../../lib/billing.dart}]`, as an
   unresolved relationship. A source that exists on disk adds no notice, and

@@ -1,5 +1,10 @@
 # 0.3.0 (unreleased)
 
+- Every `WayfinderKnowledgeStore.index` run, including one that finds its
+  index current, and `prune` delete the generations superseded more than
+  `gracePeriod` ago. Only a later publication used to, so the generations a
+  burst of forced indexes superseded, with their `.superseded` markers,
+  stayed until the bundle's index changed again.
 - A search no longer reports a concept's `sources[].resource`, `resource`,
   `computation`, `executor.resource` or `attester.resource` as an
   `unresolved-relationship`. okf's graph resolves targets inside the bundle
