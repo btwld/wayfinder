@@ -1,5 +1,12 @@
 # 0.3.0 (unreleased)
 
+- `index`, `search` and `wayfinder mcp` also find the embedding model that
+  `EmbeddingModelCache` installed in the data directory
+  (`models/arctic-embed-xs-q8_0/embedding.gguf`), after
+  `WAYFINDER_EMBEDDING_MODEL`, the bundle's `models/`, `./models` and the
+  source package, and only when its size and SHA-256 match the pin. A
+  source-built command used to report the model missing beside a model a
+  host such as Stargate had installed.
 - Quote the bundle path in generated git hooks, and reject control characters
   and a leading `-` in `--bundle`, so the path cannot become shell source.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval

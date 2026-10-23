@@ -209,7 +209,13 @@ load findings refuse a graph, and 2 for usage or I/O failure.
 Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
 invalid explicit setting fails instead of selecting another model: `index`,
 including `index <bundle> --detach`, checks it even when the saved index is
-current.
+current. Without it, the command uses the first model it finds in the
+installed bundle's `models/`, in `models/` under the current directory, in
+the `wayfinder_embeddings` package during source development, and then the
+model an application installed with `EmbeddingModelCache` in the data
+directory (`models/arctic-embed-xs-q8_0/embedding.gguf`, under
+`WAYFINDER_DATA_DIR` when it is set). It uses that cached copy only when its
+size and SHA-256 match the pinned model.
 
 Indexes are plain files, so the command needs no database library; native
 builds ship only the embedding runtime and the model.
