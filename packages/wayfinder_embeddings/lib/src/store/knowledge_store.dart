@@ -1475,6 +1475,7 @@ class WayfinderKnowledgeStore {
             store: store,
             embedder: activeEncoder.embedder,
             includeContext: true,
+            bundleRoot: index.root,
           ).search(
             query,
             limit: limit,

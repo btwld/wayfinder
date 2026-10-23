@@ -1,5 +1,10 @@
 # 0.3.0 (unreleased)
 
+- `search` and the MCP `search` tool no longer report a concept's source
+  path, such as `sources: [{resource: ../../lib/billing.dart}]`, as an
+  unresolved relationship. A source that exists on disk adds no notice, and
+  one that names nothing is reported as `Unresolved source: <path>`
+  (`unresolved-source`).
 - `index`, `search` and `wayfinder mcp` also find the embedding model that
   `EmbeddingModelCache` installed in the data directory
   (`models/arctic-embed-xs-q8_0/embedding.gguf`), after

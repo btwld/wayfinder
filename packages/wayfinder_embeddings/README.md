@@ -152,11 +152,12 @@ try {
   and the MCP `search` tool, with control characters escaped. Retrieved text
   is source data, not instructions. Notices are `KnowledgeNotice`s: a stable
   `code` (`KnowledgeNoticeCode`: `unresolved-relationship`,
-  `governing-source-unavailable`, `refresh-in-progress` or
-  `source-changed`), the `message`, a sentence for a reader without the code
-  or the bundle's name, the bundle-relative `paths` it concerns (the
-  concepts whose link did not resolve, the governing source, or every
-  changed file), the link `target` of an unresolved relationship, and in a
+  `unresolved-source`, `governing-source-unavailable`, `refresh-in-progress`
+  or `source-changed`), the `message`, a sentence for a reader without the
+  code or the bundle's name, the bundle-relative `paths` it concerns (the
+  concepts whose link or source path did not resolve, the governing source,
+  or every changed file), the `target` as written of an unresolved
+  relationship or source, and in a
   project search its `bundle`. `text` is the line the command prints after
   `Notice: ` and lists in its JSON: the `message`, after its code for
   `refresh-in-progress` and `source-changed`, and after the bundle's name in
