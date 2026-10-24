@@ -121,7 +121,13 @@ package's own `$defs` may not use a slot id.
 map for the subject, or one element when the check has `each`. `slots` gives
 the slot values the examples assume, and every slot the check uses needs
 one. The engine runs the tests whenever it parses the package; `wayfinder
-get` fails on the first example that disagrees with its check.
+get` fails on the first example that disagrees with its check. Reading a
+package, its tests included, must finish within ten seconds, or `get` fails
+and `validate` reports `wayfinder/profile-timeout`. Keep `pattern` free of
+nested quantifiers such as `(a+)+`, which backtrack without end on a near
+miss; a package's tests take milliseconds. Keep examples small, too: one
+deep or long enough to overflow the engine's stack fails the package as
+`wayfinder/profile-invalid`.
 
 Write an invalid example for each way the rule should fire, and a valid one
 for each nearby case it must not catch.

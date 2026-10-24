@@ -29,13 +29,38 @@
   Bitwild these are `type`, `title`, `description` and `status`. It
   combines `requiredRootProperties`, which a `SchemaCheck`'s `schema` now
   lists for its own rule.
-- `ProfileSkills.read` returns the `SKILL.md` text `get` installed for a
-  skill revision, from a directory whose marker holds that revision and that
-  no symbolic link places outside the project, or null. It takes no lock and
-  reads the marker again after the text, so a concurrent `get` never makes
-  it return another revision's text.
+- `ProfileSkills.read` returns the `SKILL.md` `get` installed for a skill
+  revision, as a `ProfileSkillText`, from a directory whose marker holds that
+  revision and that no symbolic link places outside the project, or null. It
+  reads the marker and `SKILL.md` through the real paths it confined to the
+  project, so a link retargeted after the check does not move the read,
+  opens each only when it is a regular file just before the open, and
+  returns the text only when its real path still holds no link afterwards
+  and its marker is not a link. A link or named pipe swapped in between that
+  last check and the open stays out of its reach, since Dart cannot open a
+  file without following a link or waiting on a pipe.
+  It takes no lock and reads the marker again after the text, so a
+  concurrent `get` never makes it return another revision's text. With
+  `maxBytes` it reads at most one byte past the limit and cuts a longer file
+  at the last UTF-8 character boundary within it, setting `truncated`; a
+  `SKILL.md` that is not UTF-8 text counts as unreadable.
   `ProfileSkills.revisionsOf` lists the skill revisions of a
   `SelectedProfile`'s chain.
+- `SelectedProfile.projectRoot` is the directory of the `wayfinder.json`
+  that bound the selection, where `get` installed its skills, so a host
+  passes it to `ProfileSkills.read` instead of deriving it from `config`.
+  It is null for a selection built by hand that names none, and the
+  constructor refuses one that is not the absolute directory of `config`.
+- `ProfileSkills.write` and `ProfileSkills.prune` work under the real path
+  of each skill root that `escaping` confined to the project, so a symbolic
+  link changed after that check does not move a write or a delete. `write`
+  refuses to replace a directory without the marker for its id: it checks
+  every root before writing any, and each again just before moving it, where
+  a directory that appeared meanwhile stops it after the roots before it
+  were replaced. A marker that is not a regular file when checked or is
+  larger than 64 KiB marks no revision and is never read whole; `write`
+  refuses, and `get` fails before writing anything for, a revision whose
+  release would make its marker larger.
 - The resolver splits `get` into `plan`, which may fetch into the cache but
   writes nothing in the project, and `apply`, which writes it and throws
   `resolution-stale` when the configuration, lock or cache changed since.
@@ -132,6 +157,134 @@
   they locked (the same device and inode on POSIX), and otherwise open the
   path again, so a cleanup that deletes a lock file while holding it never
   leaves two holders on different files.
+- `runGit` takes `start`, a `GitProcessStarter` (`startGitProcess` by
+  default), so a host whose process layer starts every process runs the
+  hardened Git through it: the starter receives the hardened arguments and
+  the whole environment, and `GitProcess.kill` stops the command's tree.
+  `maxOutputBytes` (`wayfinderGitMaxOutputBytes`, 64 MiB) bounds stdout: a
+  command that writes more is stopped with `git-output-too-large` instead of
+  returning a cut blob. Stderr keeps its last 64 KiB. Once a command exits,
+  its stdout is read to its end and its stderr until it closes or a second
+  passes without any, so a helper that holds stderr open, such as an SSH
+  connection master, no longer holds the command. Both must end within ten
+  seconds of the exit, or the command's `timeout` when shorter: a stdout
+  still open then fails with `git-output-incomplete`, never returning part
+  of it, a stderr still being written is cut, and either way
+  `GitProcess.kill` is asked to stop the helpers; `cancel` still stops the
+  read. A stopped command that does
+  not exit within five seconds still fails.
+- The rules a host's own runner would copy are public: `gitSubcommand`,
+  which also skips the values of `--git-dir`, `--work-tree`, `--namespace`,
+  `--config-env`, `--attr-source` and `--super-prefix`; `gitMayReachRemote`
+  over `wayfinderGitRemoteSubcommands`, which adds `archive`, `fetch-pack`,
+  `send-pack`, `maintenance` and `lfs`; `wayfinderSshCommand`, the SSH
+  command Git would choose (`GIT_SSH_COMMAND`, `core.sshCommand`, `GIT_SSH`,
+  `ssh`) in batch mode; and `wayfinderConfiguredSshCommand`, the
+  `core.sshCommand` lookup before a remote command.
+- Reading a Profile package is bounded (ADR-0015, ADR-0018, guide §9).
+  `ProfilePackage.parseWithin` parses on an isolate of its own and kills it
+  once it runs past its timeout (`ProfilePackage.parseTimeout`, ten
+  seconds), throwing a `ProfilePackageException` with `timedOut` that names
+  the rule whose `tests` were running. The resolver reads every package
+  this way, bounded by its `packageTimeout`, and reports one that runs past
+  it as the new `wayfinder/profile-timeout` diagnostic
+  (`DiagnosticCode.profileTimeout`), so a package whose tests run a pattern
+  that backtracks without end fails `get` and selection instead of holding
+  them. A parse that stops on another error, such as a stack overflow in a
+  rule's tests, throws a `ProfilePackageException` naming it, reported as
+  `profile-invalid`, rather than parsing again unbounded on the caller.
+  Every read runs the tests; no verdict is cached. Bitwild parses in about
+  five milliseconds, so no package reads differently and package format
+  stays 2.
+- `WayfinderProfileResolver.status` reports, offline and without Git, a
+  `ProfileResolutionStatus` with one `ProfileBindingStatus` per binding: a
+  stable `ProfileBindingState` (`resolved`, `lock-missing`, `lock-stale`,
+  `cache-missing`, `package-invalid`, `package-unsupported`,
+  `package-timeout` or `composition-failed`), the locked chain, the chain
+  members missing from the cache, the diagnostic `select` reports and its
+  `profile-skill-stale` notes. `select`'s diagnostics are unchanged.
+- `plan(lockedOnly: true)` resolves exactly the commits `wayfinder.lock`
+  pins: it fetches a source only when its mirror is missing or lacks the
+  locked commit, never re-resolves a ref (the lock's commits stay as
+  written), and keeps the lock's bytes. It throws
+  `ProfileLockChangeRequiredException` (`lock-change-required`) before any
+  Git command when the lock as written would change, and once read for a
+  package that disagrees with the lock. `ProfileResolutionPlan.lockedOnly`
+  reports it, and the plan's JSON adds `locked_only`.
+- `WayfinderProfileSource.locationOf` is the location the resolver gives a
+  source, as `ProfileFetch.location` reports it. A `ProfileFetchPolicy` is
+  all per-source consent needs: every Git command a resolution runs that can
+  reach the network follows the policy's yes for that location.
+- A Profile skill marker that cannot be read counts as no marker: validation
+  warns `profile-skill-stale` instead of failing selection as
+  `profile-unresolved`, `status` reports the binding `resolved` with that
+  warning rather than `cache-missing`, and `get` leaves such a directory
+  alone as it does any unmarked one.
+- `plan(skills: false)` leaves Profile skills alone, so a host can fill the
+  Profile cache without touching `.claude/skills` or `.agents/skills`: the
+  plan reads no skill file from a mirror and refuses no skill directory, and
+  its apply writes and deletes none. `ProfileResolutionPlan.includesSkills`
+  reports it, and `ProfileResolutionPlan.skillDirectories` lists every
+  directory a locked package's skill installs into with its state, including
+  the unmarked and outside ones a plan with skills refuses. Such a plan's
+  `skills` are all `written: false`, which says only that apply leaves them
+  alone. The plan's JSON adds `includes_skills` and `skill_directories`.
+- `ProfileSkills.inspect` reports, for one skill revision and without
+  writing, each skill directory as a `ProfileSkillDirectory`: its root, path,
+  the revision its marker records and a `ProfileSkillDirectoryState`
+  (`current`, `missing`, `stale`, `unmarked` or `outside`). `stale` is
+  derived from it and reports the same paths.
+- `get` refuses a file or symbolic link where a Profile skill directory
+  goes, as it refuses a directory without the Profile's marker, before
+  writing anything; it used to write the lock and fail while moving the
+  skill into place. `ProfileSkills.unowned` and `ProfileSkills.write` count
+  such an entry as unowned. `ProfileSkills.write` refuses a skill root that
+  resolves outside the project with the `ProfileSkillDirectoriesException`
+  `get` throws, rather than a `FileSystemException`, so a root a link moves
+  outside after `get`'s check fails the same way.
+- `status` reports as data, per binding: `copies`, one `ProfileLocalCopy`
+  per chain member saying whether its source's mirror and its package file
+  are in the Profile cache, with the source's location, so a consent gate
+  names only the sources a locked-only plan contacts; `skillDirectories`, the
+  states of a resolved chain's skill directories behind the
+  `profile-skill-stale` notes; and `lockChange`, a `ProfileLockChange` for a
+  lock that is missing or stale. `ProfileResolutionStatus.lockChange` is what
+  a locked-only plan would refuse before running Git, including a lock entry
+  no chain reaches, all from one read of the lock. The JSON adds `copies`,
+  `lock_change` and `skill_directories`.
+- `ProfileLockChangeRequiredException` carries a `ProfileLockChange`
+  (`change`): its `ProfileLockChangeKind` (`lock-missing`,
+  `configuration-changed`, `chain-missing`, `source-changed`,
+  `package-changed` or `packages-unreached`), the binding it concerns, the
+  lock entries that would change and the reason its message ends with. The
+  constructor takes the change; `state` and `profile` derive from it, and
+  `profile` is null for a missing lock or a changed configuration, which
+  concern every binding.
+- The project library's messages name no command (ADR-0018), and the
+  `wayfinder` command keeps printing what to run. A diagnostic's
+  `EngineDiagnostic.remedy`, a `DiagnosticRemedy`, says when resolving the
+  Profiles again fixes it (`resolve-profiles`, or
+  `resolve-profiles-from-mirror` when the cached mirror needs no fetch), and
+  `WayfinderProfileResolutionException.remedy` when selecting new revisions
+  does (`upgrade-profiles`). Results, text and SARIF do not report the
+  remedy; `ProfileValidationResult.withDiagnosticMessages` rewords a
+  result's diagnostics for a host to render. `get`'s refusal of a skill
+  directory is a `ProfileSkillDirectoriesException`, with the refused
+  `directories` and their `outsideRoots`, and `resolution-busy` a
+  `ProfileResolutionBusyException`, naming the busy `projectRoot` or
+  `source`. These messages lose their closing advice to run a command:
+  `profile-unresolved` and `profile-skill-stale` diagnostics,
+  `resolution-stale`, a locked commit no refresh finds, and
+  `ProfileSkills.escapingProblem`. A stale lock's reason reads `the
+  configuration changed after the lock was written`, a busy project
+  `Another Profile resolution is changing <root>`, and a lock change found
+  once a package is read names that package. A diagnostic for a missing or
+  stale lock carries its `ProfileLockChangeKind`
+  (`EngineDiagnostic.lockChange`), which `package:wayfinder/wayfinder.dart`
+  now declares and `package:wayfinder/project.dart` still exports, so a host
+  words the cause itself, as the command keeps `the configuration changed
+  after wayfinder get`. Adoption's `bundle-okf-invalid` and `skill-foreign`
+  conflicts no longer name `okf validate` or `wayfinder get`.
 
 # 0.2.0
 

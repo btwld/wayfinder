@@ -19,6 +19,32 @@
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
+- `get` and `upgrade` refuse a file or symbolic link where a Profile skill
+  directory goes, as they refuse a directory without Wayfinder's marker,
+  before writing anything; they used to write `wayfinder.lock` and then fail
+  while moving the skill into place.
+- `get`, `upgrade` and `validate` stop reading a Profile package whose rule
+  tests run past ten seconds, as a `pattern` that backtracks without end can
+  make them: `get` fails naming the rule, and `validate` reports
+  `wayfinder/profile-timeout`, so the gate is `INCOMPLETE` (exit code 2)
+  unless OKF failed it, instead of running forever. A package whose parse
+  stops on an error, such as a stack overflow in a rule's tests, is reported
+  the same way as `wayfinder/profile-invalid` instead of stopping the
+  command.
+- `get` and `upgrade` stop a Git command that writes more than 64 MiB, and no
+  longer wait for a helper, such as an SSH connection master, that holds
+  Git's stderr open after the command exits. A helper that holds Git's
+  stdout open fails the command ten seconds after it exits, rather than
+  holding it forever or reading part of its output.
+- `validate` and the MCP `validate` tool warn `wayfinder/profile-skill-stale`
+  for a Profile skill whose `.wayfinder-profile` marker cannot be read,
+  instead of reporting `wayfinder/profile-unresolved`, so the gate no longer
+  turns `INCOMPLETE` (exit code 2) over it. `get` reports such a directory as
+  one it did not install, as it does an unmarked one. A marker that is not a
+  regular file when checked, such as a named pipe, which made the command
+  wait forever, or that is larger than 64 KiB counts the same way, and `get`
+  refuses to install the skill of a Profile whose release is too long for
+  its marker to stay within 64 KiB.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
