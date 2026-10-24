@@ -917,6 +917,8 @@ void main() {
     test('a host input outside the project is refused', () async {
       for (final path in [
         '../AGENTS.md',
+        'docs/../AGENTS.md',
+        'link/../AGENTS.md',
         '/etc/hosts',
         '.git/config',
         '.GIT/config',

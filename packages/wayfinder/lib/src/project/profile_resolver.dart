@@ -2439,6 +2439,79 @@ Future<ProfileResolutionResult> applyCandidateResolution(
   CandidateResolution resolution,
 ) => resolver._apply(resolution.plan, prune: false);
 
+/// The commit at the default branch (`HEAD`) of the Profile source [git],
+/// as resolving it from [projectRoot] reaches it. Clones the source into the
+/// cache when it is missing and refreshes it otherwise, as [allowFetch]
+/// allows, unless [offline], which reads a cached mirror as it is and
+/// throws [ProfileFetchRequiredException] without one.
+Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
+  WayfinderProfileResolver resolver, {
+  required String projectRoot,
+  required String git,
+  bool offline = false,
+  ProfileFetchPolicy? allowFetch,
+  WayfinderCancellation? cancel,
+}) async {
+  final session = _Session(
+    projectRoot: projectRoot,
+    upgrade: false,
+    previous: null,
+    cancel: cancel,
+    offline: offline,
+    allowFetch: allowFetch,
+  );
+  final source = WayfinderProfileSource(git: git, ref: 'HEAD', path: '.');
+  final commit = await resolver._withMirror(source, session, (
+    location,
+    mirror,
+  ) async {
+    if (!await mirror.exists()) {
+      await resolver._cloneMirror(
+        source,
+        location,
+        mirror,
+        session,
+        defaultBranch: true,
+      );
+    } else if (!offline) {
+      session.fetch(
+        ProfileFetchKind.refresh,
+        source,
+        location,
+        defaultBranch: true,
+      );
+      final result = await resolver._git(session, [
+        'remote',
+        'update',
+        '--prune',
+        'origin',
+      ], workingDirectory: mirror.path);
+      resolver._checkGit(result, 'refresh Profile source $git');
+      // `remote update` fetches branches and prunes deleted ones. It leaves
+      // the mirror's own HEAD on the default branch from the clone, so a
+      // source that renamed that branch would pin the old commit, or fail
+      // once the old branch is gone. The refresh above already consented to
+      // this remote; reading its symbolic HEAD is part of that refresh.
+      await _pinMirrorHead(resolver, session, mirror, git);
+    }
+    final result = await resolver._git(session, [
+      'rev-parse',
+      '--verify',
+      'HEAD^{commit}',
+    ], workingDirectory: mirror.path);
+    if (result.exitCode != 0) {
+      throw WayfinderProfileResolutionException(
+        'Profile source $git has no default branch to resolve. Name a ref.',
+      );
+    }
+    return result.text.trim();
+  });
+  return (
+    commit: commit,
+    fetches: List<ProfileFetch>.unmodifiable(session.fetches),
+  );
+}
+
 /// A Profile source as [resolveSourcePackage] resolved it: the package at
 /// [path] of [git] at [ref], read at [commit], declaring [id].
 final class SourcePackage {

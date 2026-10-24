@@ -507,9 +507,11 @@ Future<void> main() async {
   writes, such as `AGENTS.md`. The plan digests them with the files adoption
   writes, and `apply` refuses with `adoption-stale` when one changed, before
   writing anything; `KnowledgeAdoptionException.changedPaths` names what
-  changed. Each counts with what it resolves to, so a `CLAUDE.md` linked to
-  `AGENTS.md` goes stale when `AGENTS.md` changes, and one that resolves
-  outside the project or into `.git` is `adoption-invalid`. A directory
+  changed. A `..` segment in the path as given is `adoption-invalid`,
+  before any symlink is followed. Each other path counts with what it
+  resolves to, so a `CLAUDE.md` linked to `AGENTS.md` goes stale when
+  `AGENTS.md` changes, and one that resolves outside the project or into
+  `.git` is `adoption-invalid`. A directory
   input is hashed in full when planning and again when applying, so name
   the files the host reads rather than a large directory.
 - `onStep` hears each step as it happens: `started` as it begins, then

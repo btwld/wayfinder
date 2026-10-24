@@ -1210,11 +1210,14 @@ final class KnowledgeAdoption {
     final result = SplayTreeSet<String>();
     for (final path in paths) {
       final normalized = p.posix.normalize(path);
+      // `..` is judged on the path as given. Normalizing first would remove
+      // it before the later symlink walk, so `link/../AGENTS.md` would be
+      // recorded as `AGENTS.md` when `link` points outside the project.
       if (path.contains(r'\') ||
           p.posix.isAbsolute(normalized) ||
           RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
           normalized == '.' ||
-          p.posix.split(normalized).contains('..') ||
+          p.posix.split(path).contains('..') ||
           AdoptionInputs.inGit(normalized)) {
         throw _invalid(
           'Host input $path must be a path inside the project, as a relative '

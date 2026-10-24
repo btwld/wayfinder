@@ -220,7 +220,7 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
-- What a host composing adoption needs (ADR-0020):
+- What a host composing adoption needs (ADR-0025):
   - `KnowledgeAdoption(assess:)` takes a `KnowledgeAssessor`, the seam
     `KnowledgeWriter` has, so a host can bound or move the Profile
     assessment. Planning judges the bundle as applying leaves it through
@@ -237,9 +237,11 @@
     own step writes, such as `AGENTS.md`. Planning digests them, and
     `apply` refuses with `adoption-stale` when one changed, before writing.
     `KnowledgeAdoptionException.changedPaths` names the paths that changed.
-    Each counts with what it resolves to through symbolic links, so an edit
-    through a linked `CLAUDE.md` counts; one that resolves outside the
-    project or into `.git` is `adoption-invalid`.
+    A `..` segment in the path as given is `adoption-invalid`, before any
+    symlink is followed. Each other path counts with what it resolves to
+    through symbolic links, so an edit through a linked `CLAUDE.md` counts;
+    one that resolves outside the project or into `.git` is
+    `adoption-invalid`.
   - `apply(onStep:)` hears each step as it happens: the new
     `AdoptionStepOutcome.started`, then its end, and after a failure the
     undo of each earlier step, latest first. What it throws for a step's
