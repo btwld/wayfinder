@@ -1,3 +1,5 @@
+# 0.3.0 (unreleased)
+
 # 0.2.0
 
 - `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema

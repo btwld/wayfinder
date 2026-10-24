@@ -1,0 +1,99 @@
+{
+  "bundles": [
+    {
+      "name": "shared-kit",
+      "path": "kits/shared-kit",
+      "okf": {
+        "state": "PASS",
+        "report": {
+          "findings": []
+        }
+      },
+      "profile": {
+        "id": "contract-profile",
+        "release": "1.0",
+        "chain": [
+          {
+            "id": "contract-profile",
+            "release": "1.0",
+            "commit": "<profile-commit>"
+          }
+        ],
+        "state": "FAIL",
+        "findings": [
+          {
+            "id": "contract-profile/frontmatter-key-declared",
+            "severity": "error",
+            "message": "Frontmatter key owner is not declared.",
+            "location": {
+              "path": "password-reset.md"
+            },
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#frontmatter-key-declared"
+          },
+          {
+            "id": "contract-profile/generation-provenance-recommended",
+            "severity": "advisory",
+            "message": "Generation provenance is recommended when it is known.",
+            "location": {
+              "path": "password-reset.md"
+            },
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#generation-provenance-recommended"
+          }
+        ],
+        "summary": []
+      },
+      "diagnostics": [],
+      "gate": {
+        "state": "FAIL"
+      },
+      "engine": {
+        "okf": "0.5.0"
+      },
+      "exit_code": 1
+    },
+    {
+      "name": "knowledge",
+      "path": "knowledge",
+      "okf": {
+        "state": "PASS",
+        "report": {
+          "findings": []
+        }
+      },
+      "profile": {
+        "id": "contract-profile",
+        "release": "1.0",
+        "chain": [
+          {
+            "id": "contract-profile",
+            "release": "1.0",
+            "commit": "<profile-commit>"
+          }
+        ],
+        "state": "PASS",
+        "findings": [],
+        "summary": [
+          {
+            "id": "contract-profile/deprecated-concept",
+            "message": "This concept is deprecated and stays searchable.",
+            "location": {
+              "path": "weather.md"
+            },
+            "profile_release": "1.0",
+            "help_uri": "https://example.test/contract-profile#deprecated-concept"
+          }
+        ]
+      },
+      "diagnostics": [],
+      "gate": {
+        "state": "PASS"
+      },
+      "engine": {
+        "okf": "0.5.0"
+      },
+      "exit_code": 0
+    }
+  ]
+}

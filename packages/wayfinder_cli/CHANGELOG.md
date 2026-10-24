@@ -17,6 +17,7 @@
   identity, snapshot format, context behavior, and bundle/Profile rules are unchanged.
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
+- Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
 
 # 0.2.0
 

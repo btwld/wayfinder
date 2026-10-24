@@ -23,6 +23,9 @@ outside the workspace and run its publish dry run. An unchanged dependency does
 not need another release. `tool/ci/verify-workspace-floors.py` keeps each
 sibling floor at the sibling's own version and fails while a depended-on
 package has unreleased changes on a version pub.dev already has.
+A changelog collects those changes under `# Unreleased`, or under
+`# <version> (unreleased)` once the version is raised; the script reads both.
+The preparation change renames either heading to `# <version>`.
 
 CI requires the CLI pubspec, `wayfinderVersion`, and
 `.claude-plugin/plugin.json` to stay aligned. Bump them together with the CLI
