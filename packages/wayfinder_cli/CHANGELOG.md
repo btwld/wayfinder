@@ -1,4 +1,4 @@
-# Unreleased
+# 0.3.0 (unreleased)
 
 - Quote the bundle path in generated git hooks, and reject control characters
   and a leading `-` in `--bundle`, so the path cannot become shell source.

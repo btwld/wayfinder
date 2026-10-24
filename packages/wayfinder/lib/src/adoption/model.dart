@@ -188,8 +188,12 @@ enum AdoptionStep {
   final String wireValue;
 }
 
-/// How a step ended.
+/// Where a step stands: [started] while it runs, then how it ended.
 enum AdoptionStepOutcome {
+  /// The step began. Reported only to `KnowledgeAdoption.apply`'s
+  /// `onStep`, never in a result or an exception.
+  started('started'),
+
   done('done'),
 
   /// Nothing to do, as for a bound bundle or a `.gitignore` that already
@@ -217,6 +221,7 @@ final class AdoptionStepReport {
     this.outcome, {
     this.paths = const [],
     this.message,
+    this.code,
   });
 
   final AdoptionStep step;
@@ -224,11 +229,17 @@ final class AdoptionStepReport {
   final List<String> paths;
   final String? message;
 
+  /// For a [AdoptionStepOutcome.failed] step, the failure's code: a
+  /// [WayfinderException]'s, such as `cancelled` or `assessment-timeout`,
+  /// and `adoption-failed` for any other error. Null otherwise.
+  final String? code;
+
   Map<String, Object?> toJson() => {
     'step': step.wireValue,
     'outcome': outcome.wireValue,
     'paths': paths,
     'message': ?message,
+    'code': ?code,
   };
 }
 
@@ -246,11 +257,44 @@ final class KnowledgeAdoptionException extends WayfinderException {
     super.message, {
     required this.steps,
     this.cause,
-  });
+    List<String> changedPaths = const [],
+  }) : changedPaths = List.unmodifiable(changedPaths);
 
-  /// Each step's report, ending with the one that failed.
+  /// Each step's report, in step order, ending with the one that failed.
   final List<AdoptionStepReport> steps;
 
   /// The error the failed step raised.
   final Object? cause;
+
+  /// For `adoption-stale`, the project-relative paths that changed since
+  /// planning, in path order, the request's `hostInputs` included; empty
+  /// otherwise.
+  final List<String> changedPaths;
+}
+
+/// `adoption-profile-conflict`: the request named the Profile [requested],
+/// and the package at its source declares [declared]. Planning stops before
+/// it resolves the Profile's chain, and nothing is written in the project.
+/// Plan again naming [declared], or naming no Profile to take the one the
+/// package declares.
+final class AdoptionProfileConflictException extends WayfinderException {
+  AdoptionProfileConflictException({
+    required this.requested,
+    required this.declared,
+    required this.git,
+    required this.path,
+    required this.commit,
+  }) : super(
+         'adoption-profile-conflict',
+         'The Profile package at $path in $git ($commit) declares the id '
+             '$declared, and the request names $requested.',
+       );
+
+  final ProfileId requested;
+  final ProfileId declared;
+
+  /// The source as the request named it, and the commit read.
+  final String git;
+  final String path;
+  final String commit;
 }

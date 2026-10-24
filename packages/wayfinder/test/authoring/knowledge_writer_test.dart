@@ -768,7 +768,7 @@ void main() {
       logEntry: _creation,
     );
     expect(inputs, hasLength(1));
-    expect(inputs.single.base.rootPath, plan.bundle);
+    expect(inputs.single.base?.rootPath, plan.bundle);
     expect(
       inputs.single.candidate.indexes.keys,
       contains('reporting/index.md'),
@@ -784,6 +784,46 @@ void main() {
     expect(plan.committable, isTrue);
     expect(plan.assessed, isTrue);
     expect((await elsewhere.commit(plan)).changedPaths, here.changedPaths);
+  });
+
+  test('a bounded assessment judges a write as the calling isolate '
+      'does, and an assessor that judges no base is refused', () async {
+    final bounded = await KnowledgeWriter(
+      resolver: resolver,
+      clock: () => _now,
+      assess: (input, cancel) => input.assessWithin(cancel: cancel),
+    ).prepare(bundle, _createContract(), stamp: _agent, logEntry: _creation);
+    final here = await writer.prepare(
+      bundle,
+      _createContract(),
+      stamp: _agent,
+      logEntry: _creation,
+    );
+    expect(bounded.candidate.toJson(), here.candidate.toJson());
+    expect(bounded.base.toJson(), here.base.toJson());
+    expect(
+      [for (final finding in bounded.introduced) finding.id],
+      [for (final finding in here.introduced) finding.id],
+    );
+    expect(bounded.committable, here.committable);
+
+    await expectLater(
+      KnowledgeWriter(
+        resolver: resolver,
+        clock: () => _now,
+        assess: (input, cancel) async => KnowledgeAssessmentInput.bundle(
+          bundle: input.candidate,
+          selection: input.selection,
+        ).assess(),
+      ).prepare(bundle, _createContract(), stamp: _agent),
+      throwsA(
+        isA<WayfinderException>().having(
+          (error) => error.code,
+          'code',
+          'assessment-failed',
+        ),
+      ),
+    );
   });
 
   test('a cancelled prepare or commit writes nothing, and a plan whose '

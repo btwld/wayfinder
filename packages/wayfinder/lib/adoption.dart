@@ -2,23 +2,26 @@
 /// it, and seed its knowledge bundle, as the adopt-knowledge-bundle skill
 /// describes (ADR-0020).
 ///
-/// [KnowledgeAdoption.plan] reads the project and resolves the Profile, and
-/// writes nothing in the project; the plan lists every file, Git fetch and
-/// conflict, and fetches only what [AdoptionRequest.allowFetch] allows.
+/// [KnowledgeAdoption.plan] reads the project and resolves the Profile the
+/// package at the request's source declares, and writes nothing in the
+/// project; the plan lists every file, Git fetch and conflict, and fetches
+/// only what [AdoptionRequest.allowFetch] allows.
 /// [KnowledgeAdoption.apply] writes `wayfinder.json`, `wayfinder.lock`, the
 /// seeded bundle, the Profile skills and a `.gitignore` line, then the
 /// host's own step, or nothing, while it holds the project's `get` lock,
-/// then validates. It never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or
-/// hooks: the plan returns the agent-instruction block as text. Like the
-/// rest of `package:wayfinder/project.dart`, run it on the isolate that
-/// does the process's okf bundle I/O (ADR-0018).
+/// then validates, reporting each step as it starts and ends. It never
+/// writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks: the plan returns
+/// the agent-instruction block as text. Like the rest of
+/// `package:wayfinder/project.dart`, run it on the isolate that does the
+/// process's okf bundle I/O (ADR-0018); only the Profile assessment may run
+/// elsewhere, through a [KnowledgeAssessor] such as one that calls
+/// [KnowledgeAssessmentInput.assessWithin].
 ///
 /// ```dart
 /// import 'dart:io';
 ///
 /// import 'package:wayfinder/adoption.dart';
 /// import 'package:wayfinder/project.dart';
-/// import 'package:wayfinder/wayfinder.dart';
 ///
 /// Future<void> main() async {
 ///   final adoption = KnowledgeAdoption(
@@ -29,7 +32,6 @@
 ///   final plan = await adoption.plan(
 ///     AdoptionRequest(
 ///       projectRoot: Directory.current.path,
-///       profile: ProfileId.parse('bitwild-profile'),
 ///       source: const AdoptionSource(
 ///         git: 'https://github.com/btwld/wayfinder',
 ///         path: 'profiles/bitwild',
@@ -55,6 +57,7 @@ export 'src/adoption/model.dart'
         AdoptionFileAction,
         AdoptionFileKind,
         AdoptionProfile,
+        AdoptionProfileConflictException,
         AdoptionStep,
         AdoptionStepOutcome,
         AdoptionStepReport,
@@ -62,3 +65,5 @@ export 'src/adoption/model.dart'
 export 'src/adoption/request.dart'
     show AdoptionRequest, AdoptionSeedConcept, AdoptionSource;
 export 'src/adoption/seeds.dart' show KnowledgeSeeds;
+export 'src/knowledge_assessment.dart'
+    show KnowledgeAssessment, KnowledgeAssessmentInput, KnowledgeAssessor;
