@@ -362,7 +362,7 @@ void main() {
       for (final remote in [
         ['clone', '--mirror', '--', 'url', 'dir'],
         ['-c', 'x=y', 'fetch', 'origin'],
-        ['remote', 'update', '--prune'],
+        ['remote', 'update', '--prune', 'origin'],
         ['ls-remote', 'url'],
         ['push'],
         ['archive', '--remote=url', 'HEAD'],

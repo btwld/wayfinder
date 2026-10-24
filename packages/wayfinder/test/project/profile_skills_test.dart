@@ -211,7 +211,16 @@ void main() {
         ProfileSkills.write(project.path, revision, [
           (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
         ]),
-        throwsA(isA<FileSystemException>()),
+        throwsA(
+          isA<ProfileSkillDirectoriesException>().having(
+            (error) => [
+              for (final directory in error.directories)
+                (directory.path, directory.state),
+            ],
+            'directories',
+            [(_agents, ProfileSkillDirectoryState.unmarked)],
+          ),
+        ),
       );
       expect(await FileSystemEntity.type(path, followLinks: false), type);
       expect(await Directory(p.join(project.path, _claude)).exists(), isFalse);
@@ -1141,11 +1150,13 @@ void main() {
         (path: 'SKILL.md', bytes: utf8.encode('x'), executable: false),
       ]),
       throwsA(
-        isA<FileSystemException>().having(
-          (error) => error.message,
-          'message',
-          '$_agents exists without a .wayfinder-profile marker for '
-              'acme-notes, so wayfinder did not replace it.',
+        isA<ProfileSkillDirectoriesException>().having(
+          (error) => [
+            for (final directory in error.directories)
+              (directory.path, directory.state),
+          ],
+          'directories',
+          [(_agents, ProfileSkillDirectoryState.unmarked)],
         ),
       ),
     );
@@ -1190,11 +1201,13 @@ void main() {
         appears,
       ),
       throwsA(
-        isA<FileSystemException>().having(
-          (error) => error.message,
-          'message',
-          '$_agents exists without a .wayfinder-profile marker for '
-              'acme-notes, so wayfinder did not replace it.',
+        isA<ProfileSkillDirectoriesException>().having(
+          (error) => [
+            for (final directory in error.directories)
+              (directory.path, directory.state),
+          ],
+          'directories',
+          [(_agents, ProfileSkillDirectoryState.unmarked)],
         ),
       ),
     );

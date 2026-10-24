@@ -442,7 +442,8 @@ abstract final class ProfileSkills {
   /// [ProfileSkillDirectoryState.outside], as `get` refuses it; when
   /// [revision]'s marker would be larger than the 64 KiB a marker is read
   /// up to; when a file's path would land outside its directory; and when a
-  /// directory it would replace holds no marker for its id. It checks each
+  /// directory it would replace holds no marker for its id, the same
+  /// exception with [ProfileSkillDirectoryState.unmarked]. It checks each
   /// directory's marker again just before moving it aside, so a directory
   /// that appears without one meanwhile is never replaced either; that
   /// refusal comes after the roots before it were replaced, and leaves them
@@ -494,14 +495,18 @@ abstract final class ProfileSkills {
         }
       }
     }
-    FileSystemException unowned(_StagedWrite write) => FileSystemException(
-      '${write.root}/$id exists without a $marker marker for $id, so '
-      'wayfinder did not replace it.',
-      write.target.path,
-    );
+    ProfileSkillDirectoriesException unmarked(_StagedWrite write) =>
+        ProfileSkillDirectoriesException([
+          ProfileSkillDirectory(
+            profile: revision.id,
+            root: write.root,
+            path: '${write.root}/$id',
+            state: ProfileSkillDirectoryState.unmarked,
+          ),
+        ]);
     for (final write in writes) {
       if (await _occupied(write.target) && !await _owned(write.target, id)) {
-        throw unowned(write);
+        throw unmarked(write);
       }
     }
     for (final write in writes) {
@@ -529,7 +534,7 @@ abstract final class ProfileSkills {
         }
         Directory? previous;
         if (await _occupied(target)) {
-          if (!await _owned(target, id)) throw unowned(write);
+          if (!await _owned(target, id)) throw unmarked(write);
           previous = await target.rename(old);
         }
         try {

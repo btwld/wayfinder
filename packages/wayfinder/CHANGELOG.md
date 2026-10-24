@@ -145,14 +145,6 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
-<<<<<<< HEAD
-=======
-<!--
-Release bookkeeping: the `pruneProjectLocks` and `tryExclusive` bullets below
-(#110) amend the `WayfinderFileLock` bullet above; fold them into it if both
-ship in one release.
--->
->>>>>>> 9173ce0 (docs(core): keep the Projects bullets in place and word locked-only plans)
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
   each project whose root no longer exists, such as a removed worktree, once
   no `get` used it for a period (30 days by default), and returns the deleted
@@ -228,11 +220,6 @@ ship in one release.
   `profile-unresolved`, `status` reports the binding `resolved` with that
   warning rather than `cache-missing`, and `get` leaves such a directory
   alone as it does any unmarked one.
-<!--
-Release bookkeeping: the bullets below amend the `status` and
-`plan(lockedOnly: true)` bullets above; fold them in if both ship in one
-release.
--->
 - `plan(skills: false)` leaves Profile skills alone, so a host can fill the
   Profile cache without touching `.claude/skills` or `.agents/skills`: the
   plan reads no skill file from a mirror and refuses no skill directory, and

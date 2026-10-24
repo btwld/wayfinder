@@ -173,7 +173,7 @@ enum ProfileFetchKind {
   /// Cloned a source the cache did not hold yet.
   clone('clone'),
 
-  /// Refreshed a cached source's refs (`git remote update`).
+  /// Refreshed a cached source's refs (`git remote update --prune origin`).
   refresh('refresh');
 
   const ProfileFetchKind(this.wireValue);
@@ -219,11 +219,12 @@ final class ProfileFetch {
 ///
 /// It is all a host needs for per-source consent. Every Git command a
 /// resolution runs that can reach the network, a mirror's `clone` or its
-/// `remote update`, follows the policy's yes for that command's
-/// [ProfileFetch.location], which is the URL or path Git reaches. Every
-/// other command reads a mirror already in the cache. Compare the location
-/// with [WayfinderProfileSource.locationOf] of each source the person
-/// approved.
+/// `remote update --prune origin`, follows the policy's yes for that
+/// command's [ProfileFetch.location], which is the URL or path Git reaches.
+/// The refresh names `origin`, the remote the clone stored for that
+/// location, so another remote on the mirror is not contacted. Every other
+/// command reads a mirror already in the cache. Compare the location with
+/// [WayfinderProfileSource.locationOf] of each source the person approved.
 typedef ProfileFetchPolicy = bool Function(ProfileFetch fetch);
 
 /// `fetch-required`: resolving needs [fetch], and the request is offline or
@@ -1602,6 +1603,7 @@ final class WayfinderProfileResolver {
         'remote',
         'update',
         '--prune',
+        'origin',
       ], workingDirectory: root.path);
       _checkGit(result, 'refresh Profile source ${source.git}');
     }
@@ -1614,6 +1616,7 @@ final class WayfinderProfileResolver {
         'remote',
         'update',
         '--prune',
+        'origin',
       ], workingDirectory: root.path);
       _checkGit(
         result,
@@ -1709,6 +1712,7 @@ final class WayfinderProfileResolver {
       'remote',
       'update',
       '--prune',
+      'origin',
     ], workingDirectory: repository.path);
     _checkGit(
       result,
@@ -2176,6 +2180,7 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
         'remote',
         'update',
         '--prune',
+        'origin',
       ], workingDirectory: mirror.path);
       resolver._checkGit(result, 'refresh Profile source $git');
       // `remote update` fetches branches and prunes deleted ones. It leaves
