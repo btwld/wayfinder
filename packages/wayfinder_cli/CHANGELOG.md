@@ -1,5 +1,6 @@
 # 0.3.0 (unreleased)
 
+- Depends on `ack` and `ack_mcp_dart` `^2.0.0-alpha.1`.
 - Every `index`, including `index --force` and one that finds the index
   current, deletes the index generations superseded more than ten minutes
   before, so repeated forced indexes no longer leave `generation-*` folders

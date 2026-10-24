@@ -16,7 +16,7 @@
   target that starts with `/` does not leave the bundle, `/../` included,
   and a malformed path that stays in the bundle is left to validation.
   Body links and typed link fields still report `unresolved-relationship`.
-- Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
+- Requires `wayfinder` `^0.3.0`, and depends on `ack` `^2.0.0-alpha.1`.
 - New `package:wayfinder_embeddings/knowledge_store.dart`: the index
   lifecycle `wayfinder index` and `wayfinder search` use, moved out of the
   CLI. `WayfinderKnowledgeStore` keeps saved indexes of OKF bundles in the

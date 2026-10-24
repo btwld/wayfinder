@@ -44,7 +44,9 @@ final class PublishedSchema {
     : _document = jsonDecode(source) as Map<String, Object?>;
 
   final Map<String, Object?> _document;
-  late final _schema = Ack.fromJsonSchema(_document);
+  // The published schemas assert `format`, as the rule subset does; Ack only
+  // does when asked, since Draft 2020-12 makes it an annotation by default.
+  late final _schema = Ack.fromJsonSchema(_document, assertFormats: true);
 
   PublishedSchemaViolation? violation(Object? value) {
     final result = _schema.safeParse(value);

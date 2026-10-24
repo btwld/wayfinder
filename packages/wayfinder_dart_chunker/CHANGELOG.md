@@ -6,4 +6,5 @@
 - `defaultCodeRegistry()` registers `DartChunker` beside the TypeScript,
   Markdown and text chunkers of `wayfinder_embeddings`, with optional
   per-chunker budgets.
-- Supports `analyzer` `>=8.4.1 <11.0.0`.
+- Supports `analyzer` `>=13.1.0 <14.0.0`, reading each declaration through
+  `namePart` and `body`.
