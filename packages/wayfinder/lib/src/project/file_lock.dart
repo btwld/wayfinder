@@ -366,6 +366,7 @@ final class _Libc {
             isLeaf: true,
           ),
       _flockSyscall = _loadFlockSyscall(library),
+      _openatSyscall = _loadOpenatSyscall(library),
       create = apple ? 0x200 : 0x40,
       closeOnExec = apple ? 0x1000000 : 0x80000,
       wouldBlock = apple ? 35 : 11,
@@ -389,6 +390,9 @@ final class _Libc {
   /// contention.
   static const badFile = 9;
 
+  /// `open` failed and its errno was not captured. Not a real errno.
+  static const openUnknown = -4096;
+
   final int Function(Pointer<Utf8>, int, int) open;
   final int Function(int, int) flock;
   final int Function(int) close;
@@ -397,6 +401,10 @@ final class _Libc {
   /// Linux x64 `flock` syscall: 0, or `-errno` in the result register.
   /// Null where that stub is not installed.
   final int Function(int, int)? _flockSyscall;
+
+  /// Linux x64 `openat` syscall: a descriptor, or `-errno`.
+  /// Null where that stub is not installed.
+  final int Function(int, Pointer<Utf8>, int, int)? _openatSyscall;
 
   /// 0 when a non-blocking `flock` took the lock, otherwise an errno.
   ///
@@ -419,6 +427,26 @@ final class _Libc {
     return flockErrnoAfterSeparateRead(errno, wouldBlock: wouldBlock);
   }
 
+  /// A descriptor, or a negative errno.
+  ///
+  /// Where [_openatSyscall] is installed, the syscall result is the errno,
+  /// so a missing path stays `ENOENT`. Otherwise a failed `open` returns
+  /// [openUnknown] and does not read `errno`: that read can belong to
+  /// another thread, and a stale value made a deleted path look like this
+  /// file.
+  int openErrno(Pointer<Utf8> path, int flags, int mode) {
+    final syscall = _openatSyscall;
+    if (syscall != null) {
+      final result = syscall(-100, path, flags, mode); // AT_FDCWD
+      if (result >= 0) return result;
+      if (result <= -1 && result >= -4095) return result;
+      return openUnknown;
+    }
+    final descriptor = open(path, flags, mode);
+    if (descriptor >= 0) return descriptor;
+    return openUnknown;
+  }
+
   /// `O_CREAT`, `O_CLOEXEC` and `EWOULDBLOCK`, which differ between Apple
   /// platforms and Linux.
   final int create;
@@ -431,9 +459,9 @@ final class _Libc {
   int get errno => _errno().value;
 }
 
-/// Pages holding the flock syscall stub. The function pointer points into
-/// one of them, so they stay mapped for the process.
-final _flockStubPages = <Pointer<Uint8>>[];
+/// Pages holding syscall stubs. The function pointers point into them, so
+/// they stay mapped for the process.
+final _stubPages = <Pointer<Uint8>>[];
 
 /// One x86-64 `flock` syscall, or null when it cannot be installed.
 ///
@@ -443,6 +471,38 @@ final _flockStubPages = <Pointer<Uint8>>[];
 /// at once. Other architectures, and a host that refuses the mapping, keep
 /// the libc call.
 int Function(int, int)? _loadFlockSyscall(DynamicLibrary library) {
+  // mov eax, 73; syscall; ret
+  final page = _mapStub(library, const [0xb8, 73, 0, 0, 0, 0x0f, 0x05, 0xc3]);
+  if (page == null) return null;
+  return page.cast<NativeFunction<Int64 Function(Int64, Int64)>>().asFunction(
+    isLeaf: true,
+  );
+}
+
+/// One x86-64 `openat` syscall, or null when it cannot be installed.
+///
+/// `__NR_openat` is 257. The fourth argument arrives in `rcx` and the kernel
+/// reads it from `r10`. The result is a descriptor or `-errno`.
+int Function(int, Pointer<Utf8>, int, int)? _loadOpenatSyscall(
+  DynamicLibrary library,
+) {
+  // mov eax, 257; mov r10, rcx; syscall; ret
+  final page = _mapStub(library, const [
+    0xb8, 0x01, 0x01, 0x00, 0x00, // mov eax, 257
+    0x49, 0x89, 0xca, // mov r10, rcx
+    0x0f, 0x05, // syscall
+    0xc3, // ret
+  ]);
+  if (page == null) return null;
+  return page
+      .cast<
+        NativeFunction<Int64 Function(Int64, Pointer<Utf8>, Int64, Int64)>
+      >()
+      .asFunction(isLeaf: true);
+}
+
+/// Maps [bytes] as an executable page, or null when this host cannot.
+Pointer<Uint8>? _mapStub(DynamicLibrary library, List<int> bytes) {
   if (!Platform.isLinux && !Platform.isAndroid) return null;
   final abi = Abi.current();
   if (abi != Abi.linuxX64 && abi != Abi.androidX64) return null;
@@ -478,16 +538,12 @@ int Function(int, int)? _loadFlockSyscall(DynamicLibrary library) {
       0,
     );
     if (page.address == 0 || page.address == -1) return null;
-    // mov eax, 73; syscall; ret
-    const bytes = [0xb8, 73, 0, 0, 0, 0x0f, 0x05, 0xc3];
     for (var i = 0; i < bytes.length; i++) {
       page[i] = bytes[i];
     }
     if (mprotect(page, 4096, read | execute) != 0) return null;
-    _flockStubPages.add(page);
-    return page.cast<NativeFunction<Int64 Function(Int64, Int64)>>().asFunction(
-      isLeaf: true,
-    );
+    _stubPages.add(page);
+    return page;
   } on ArgumentError {
     return null;
   }
@@ -540,21 +596,31 @@ final class _FileIdentity {
   final bool wideDevice;
 
   /// Whether [path] names the file [descriptor] has open. True when either
-  /// cannot be read, unless the path names nothing.
+  /// cannot be read, unless the path names nothing or the open's errno was
+  /// not captured.
   bool sameFile(_Libc libc, int descriptor, String path) {
     final buffer = calloc<Uint8>(2 * _size);
     final native = path.toNativeUtf8();
     try {
       final named = buffer + _size;
       if (_fstat(descriptor, buffer) != 0) return true;
-      final other = libc.open(native, _Libc.readOnly | libc.closeOnExec, 0);
-      if (other < 0) return libc.errno != _Libc.notFound;
-      try {
-        if (_fstat(other, named) != 0) return true;
-      } finally {
-        libc.close(other);
+      while (true) {
+        final opened = libc.openErrno(
+          native,
+          _Libc.readOnly | libc.closeOnExec,
+          0,
+        );
+        if (opened == -_Libc.interrupted) continue;
+        if (opened < 0) {
+          return opened != -_Libc.notFound && opened != _Libc.openUnknown;
+        }
+        try {
+          if (_fstat(opened, named) != 0) return true;
+        } finally {
+          libc.close(opened);
+        }
+        return _id(buffer) == _id(named);
       }
-      return _id(buffer) == _id(named);
     } finally {
       malloc.free(native);
       calloc.free(buffer);

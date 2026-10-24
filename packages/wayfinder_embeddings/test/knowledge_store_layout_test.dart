@@ -654,6 +654,41 @@ Future<void> main(List<String> arguments) async {
       expect(await Directory(p.dirname(result.index)).exists(), isFalse);
     }, testOn: '!windows');
 
+    test('forget that cannot remove one pointer deletes nothing', () async {
+      final first = await store().index(bundle);
+      final second = await store(
+        DeterministicEncoderProvider(model: 'another'),
+      ).index(bundle);
+      final bundleDirectory = Directory(p.dirname(first.index));
+      final before = await treeBytes(bundleDirectory, lockContents: false);
+      // A directory that refuses the unlink stands in for a reader on
+      // Windows who keeps `current` open past the retry. The other
+      // configuration's pointer must be put back.
+      await Process.run('chmod', ['a-w', second.index]);
+      try {
+        await expectLater(
+          store().forget(bundle),
+          throwsA(
+            isA<WayfinderException>().having(
+              (error) => error.code,
+              'code',
+              'index-busy',
+            ),
+          ),
+        );
+        expect(await treeBytes(bundleDirectory, lockContents: false), before);
+        expect(await store().status(bundle), isA<KnowledgeIndexCurrent>());
+        expect(
+          await store(
+            DeterministicEncoderProvider(model: 'another'),
+          ).status(bundle),
+          isA<KnowledgeIndexCurrent>(),
+        );
+      } finally {
+        await Process.run('chmod', ['u+w', second.index]);
+      }
+    }, testOn: '!windows');
+
     test('forget leaves a bundle that is indexed again in a fresh '
         'directory', () async {
       final first = await store().index(bundle);

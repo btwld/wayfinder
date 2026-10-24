@@ -606,8 +606,8 @@ class WayfinderKnowledgeStore {
   /// Deletes every configuration's index of [bundle], whose root may no
   /// longer exist, such as a removed worktree, with its `writer.lock` and the
   /// directories that leaves empty. Throws `index-busy`, and deletes nothing,
-  /// while an operation indexes any of them; a search reading one meanwhile
-  /// then reports it missing.
+  /// while an operation indexes any of them or a `current` pointer cannot be
+  /// removed; a search reading one meanwhile then reports it missing.
   ///
   /// A lock file is deleted while it is held (on Windows, which deletes no
   /// open file, right after its release), and an operation that opened it
@@ -636,9 +636,10 @@ class WayfinderKnowledgeStore {
   /// project, which may be gone. [root] is canonicalized as [forget]
   /// canonicalizes a bundle's root: symbolic links in the part of it that
   /// still exists are resolved. Throws `index-busy`, and deletes nothing,
-  /// while another operation indexes or forgets any of those bundles, and
-  /// also while one holds the index of a bundle whose recorded root cannot
-  /// be read, since it may be one of them: Windows refuses to read a held
+  /// while another operation indexes or forgets any of those bundles, while
+  /// a `current` pointer cannot be removed, or while one holds the index of
+  /// a bundle whose recorded root cannot be read, since it may be one of
+  /// them: Windows refuses to read a held
   /// `writer.lock`, so there a bundle being indexed with no other
   /// configuration's lock to read makes the call busy, whichever project it
   /// belongs to. An index whose `writer.lock` records no root and is not
@@ -1183,8 +1184,12 @@ class WayfinderKnowledgeStore {
 
   /// Deletes every index in the bundle key [directories], all or nothing:
   /// takes every namespace's writer lock first and throws `index-busy`,
-  /// deleting nothing, when one is held. Then deletes each index, its lock
-  /// file while holding it, and the directories that leaves empty.
+  /// deleting nothing, when one is held. It then removes every `current`
+  /// pointer, and if one cannot be removed puts the others back and throws
+  /// `index-busy`, so a reader on Windows who keeps a later pointer open
+  /// does not leave the earlier indexes deleted. Then it deletes each
+  /// index, its lock file while holding it, and the directories that leaves
+  /// empty.
   static Future<void> _forget(List<Directory> directories) async {
     final held = <(Directory, WayfinderFileLock)>[];
     try {
@@ -1206,6 +1211,24 @@ class WayfinderKnowledgeStore {
           if (lock == null) throw _busy;
           held.add((namespace, lock));
         }
+      }
+      final unpublished = <(Directory, String)>[];
+      try {
+        for (final (namespace, _) in held) {
+          final saved = await _unpublish(namespace);
+          if (saved != null) unpublished.add((namespace, saved));
+        }
+      } on Object {
+        for (final (namespace, saved) in unpublished) {
+          try {
+            await File(
+              p.join(namespace.path, _currentName),
+            ).writeAsString(saved, flush: true);
+          } on FileSystemException {
+            // The pointer stays absent until a later index republishes.
+          }
+        }
+        rethrow;
       }
       for (final (namespace, _) in held) {
         await _clear(namespace);
@@ -1266,6 +1289,28 @@ class WayfinderKnowledgeStore {
       if (await WayfinderFileLock.isHeld(lock)) throw _busy;
     }
     return null;
+  }
+
+  /// Removes [directory]'s `current` pointer and returns the text it held.
+  /// Null when there was no pointer. Throws `index-busy`, deleting nothing,
+  /// when the pointer cannot be read or removed.
+  static Future<String?> _unpublish(Directory directory) async {
+    final pointer = File(p.join(directory.path, _currentName));
+    final String saved;
+    try {
+      if (!await pointer.exists()) return null;
+      saved = await pointer.readAsString();
+    } on FileSystemException {
+      throw _busy;
+    }
+    try {
+      await _whileReadersClose(pointer.delete);
+    } on PathNotFoundException {
+      return null;
+    } on FileSystemException {
+      throw _busy;
+    }
+    return saved;
   }
 
   /// Deletes everything in the namespace [directory] but its writer lock,

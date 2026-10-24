@@ -233,9 +233,11 @@
 - `forget` also deletes each index's `writer.lock`, while holding it, and
   the directories that leaves empty, instead of leaving them for `prune`. An
   operation that opened a lock file just before locks its path again, so it
-  still excludes the next. A lock file whose index could not be deleted
-  entirely, as when a reader on Windows has a generation open, stays for a
-  later `prune`, which now keeps such a lock file too.
+  still excludes the next. When a `current` pointer cannot be removed, as
+  when a reader on Windows keeps it open, `forget` puts back any pointer it
+  already removed and deletes nothing. A lock file whose index could not be
+  deleted entirely, as when a reader on Windows has a generation open, stays
+  for a later `prune`, which now keeps such a lock file too.
 - New `WayfinderKnowledgeStore.forgetProjectRoot(root)` forgets every bundle
   at or inside a project root, found by the bundle root each index's
   `writer.lock` records, so a host can remove a deleted worktree's indexes

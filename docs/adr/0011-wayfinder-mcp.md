@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-09
-- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output); 2026-10-22 (search during an index serves the last published index; only indexes are busy); 2026-10-22 (a search the client cancels, or one running at disconnect, stops)
+- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output)
 - Scope: local MCP adapter; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md)
 
@@ -22,9 +22,7 @@ bundles, using the same discovery boundary and conventional `knowledge/`
 fallback as CLI project search. Discovery runs on each call and never fetches
 sources. Search uses one query embedding and one global result limit and keeps
 bundle-aware citations. Index explicitly refreshes every selected bundle; a
-missing or stale index fails search rather than returning a subset, except
-while a refresh of it runs, when search serves the last published index with
-a notice ([ADR-0010](0010-wayfinder-cli.md)). Validation
+missing or stale index fails search rather than returning a subset. Validation
 and graph stay independent per bundle, returned under `bundles` with each
 bundle's name and project-relative path. Validation gates and graph node
 identities are never merged across bundles.
@@ -53,19 +51,12 @@ indexing, while the host controls approval. There is no HTTP host,
 authentication, or bundle-authoring tool.
 
 The server retains one lazily opened encoder and a bounded verified snapshot
-cache across retrieval calls, evicting the encoder on failure and disposing it
-on disconnect. Calls share the encoder one call into the model at a time, a
-batch of passages or a query, so a search runs between an index's batches
-rather than after the whole index. Searches hold no lock, and only probe the
-writer's: during an index, the server's own or another process's, they read
-the last published generation.
-A second index of a bundle while one runs fails as busy. A search the client
-cancels, or one still running when the client disconnects, stops at the
-store's next cancellation check, since no response is sent for it. Disconnect
-drains active operations; an index runs to its end, and cancellation does not
-roll back a generation already being built. Indexing is atomic per bundle,
-not across bundles: a later bundle's failure does not roll back an earlier
-completed index.
+cache across serialized retrieval calls, evicting the encoder on failure and
+disposing it on disconnect, while each retrieval call opens and closes its own
+store. Overlapping calls may return a busy error. Disconnect drains active
+operations, but cancellation does not roll back a generation already being
+built. Indexing is atomic per bundle, not across bundles: a later bundle's
+failure does not roll back an earlier completed index.
 
 ## Options considered
 

@@ -120,10 +120,6 @@
   plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
   holds the generic seed that the adopt-knowledge-bundle skill's
   `SEEDING.md` shows.
-<!--
-Release bookkeeping: the last two bullets (#110) amend the `WayfinderFileLock`
-bullet above; fold them into it if both ship in one release.
--->
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
   each project whose root no longer exists, such as a removed worktree, once
   no `get` used it for a period (30 days by default), and returns the deleted
