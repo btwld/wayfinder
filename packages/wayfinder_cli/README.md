@@ -193,7 +193,7 @@ file URI. A `--fix` that cannot write a file marks the invocation
 unsuccessful and records the reason as a tool execution notification.
 Search also accepts `--limit=1..100`
 (default 5). Query text is one quoted argument. Results include original paths,
-line ranges, metadata, similarity, context inclusion reasons and link notices.
+line ranges, metadata, similarity, context inclusion reasons, and notices for links and source paths that do not resolve.
 All lifecycle states remain eligible and status is displayed. Ranked passages
 are candidates; verify the supporting text before answering.
 
@@ -209,7 +209,15 @@ load findings refuse a graph, and 2 for usage or I/O failure.
 Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
 invalid explicit setting fails instead of selecting another model: `index`,
 including `index <bundle> --detach`, checks it even when the saved index is
-current.
+current. Without it, the command uses the first model it finds in the
+installed bundle's `models/`, in `models/` under the current directory, in
+the `wayfinder_embeddings` package during source development, and then the
+model an application installed with `EmbeddingModelCache` in the data
+directory (`models/arctic-embed-xs-q8_0/embedding.gguf`, under
+`WAYFINDER_DATA_DIR` when it is set). It uses that cached copy only when its
+size and SHA-256 match the pinned model. When it finds none, the failure
+lists each location it searched, in order, and what puts a model there; a
+cached copy that fails the check is reported as such rather than as missing.
 
 Indexes are plain files, so the command needs no database library; native
 builds ship only the embedding runtime and the model.
