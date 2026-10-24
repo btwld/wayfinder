@@ -24,7 +24,9 @@
 ///   clone or refresh a Profile source that the request is offline for or
 ///   its fetch policy refused;
 /// - `lock-change-required`, a `ProfileLockChangeRequiredException`, when a
-///   locked-only plan would change `wayfinder.lock`;
+///   locked-only plan or a relock would change what `wayfinder.lock` pins;
+/// - `relock-failed`, a `ProfileRelockFailedException`, when a relock
+///   cannot read or replace `wayfinder.json` or `wayfinder.lock`;
 /// - from `package:wayfinder/adoption.dart`: `adoption-invalid`,
 ///   `adoption-conflict`, `adoption-stale` and `adoption-failed`;
 /// - `data-directory-unavailable` when no data directory can be located;
@@ -33,7 +35,9 @@
 /// - `cancelled` when a `WayfinderCancellation` stopped the operation; a
 ///   host's `GitRunner` throws [WayfinderException.cancelled] for it too.
 ///
-/// Other Wayfinder packages add their own codes.
+/// `package:wayfinder/authoring.dart` adds `write-refused`, `write-stale`,
+/// `write-failed` and the codes of its `KnowledgeChangeException`. Other
+/// Wayfinder packages add their own codes.
 class WayfinderException implements Exception {
   const WayfinderException(this.code, this.message);
 
