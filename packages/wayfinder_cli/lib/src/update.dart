@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wayfinder/project.dart' show WayfinderException;
 
 import 'agent_setup.dart';
-import 'knowledge.dart';
 import 'version.dart';
 
 /// Fetches the repository's GitHub releases as decoded JSON.
@@ -148,6 +148,7 @@ class Updater {
   Future<void> run({bool check = false, String? version}) async {
     if (version != null && !_published.hasMatch(version)) {
       throw const WayfinderException(
+        'update-failed',
         '--version must be a published release version.',
       );
     }
@@ -155,10 +156,14 @@ class Updater {
     try {
       target = version ?? await checker.latest(refresh: true);
     } on Object catch (error) {
-      throw WayfinderException('Could not check GitHub releases: $error');
+      throw WayfinderException(
+        'update-failed',
+        'Could not check GitHub releases: $error',
+      );
     }
     if (target == null) {
       throw const WayfinderException(
+        'update-failed',
         'No published Wayfinder release was found.',
       );
     }
@@ -211,8 +216,9 @@ class Updater {
     );
     if (!await record.exists()) {
       throw const WayfinderException(
+        'update-failed',
         'Cannot tell how Wayfinder was installed. Rerun the installer from '
-        'https://github.com/btwld/wayfinder/blob/main/docs/install.md.',
+            'https://github.com/btwld/wayfinder/blob/main/docs/install.md.',
       );
     }
     final script = Platform.isWindows ? 'install.ps1' : 'install.sh';
@@ -244,6 +250,7 @@ class Updater {
           : await _runInstaller('/bin/sh', [file.path], environment);
       if (code != 0) {
         throw WayfinderException(
+          'update-failed',
           'The installer failed; Wayfinder $wayfinderVersion remains installed.',
         );
       }
@@ -287,7 +294,10 @@ Future<String> _downloadText(
     final response = await request.close().timeout(timeout);
     final body = await response.transform(utf8.decoder).join().timeout(timeout);
     if (response.statusCode != HttpStatus.ok) {
-      throw WayfinderException('$url returned HTTP ${response.statusCode}.');
+      throw WayfinderException(
+        'update-failed',
+        '$url returned HTTP ${response.statusCode}.',
+      );
     }
     return body;
   } finally {

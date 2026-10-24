@@ -14,6 +14,14 @@ The Profile decides the seed. Its skill, which `wayfinder get` installs,
 carries the root-file templates and any lines the agent instructions need.
 This skill runs the generic steps around them.
 
+The same adoption is a library call for a host that sets projects up in
+process: `KnowledgeAdoption` in `package:wayfinder/adoption.dart` (ADR-0020)
+plans every file, fetch and conflict of steps 3 and 4 before writing any,
+fetching only the sources the host approves, then applies them or nothing.
+It returns the `AGENTS.md` block of step 5 as text and never runs
+`wayfinder setup`. The generic seed in
+[SEEDING.md](./SEEDING.md) is the text that library writes.
+
 Inspect existing state, prepare what is missing, and apply changes within the
 user's request. Ask only about unresolved choices, conflicting existing
 instructions, or work outside the requested scope.
@@ -46,7 +54,14 @@ bundle that does not exist. Write project-root `wayfinder.json` from
 `wayfinder get`. It writes `wayfinder.lock` and installs the Profile's skill
 at `.claude/skills/<id>/` and `.agents/skills/<id>/`. Include all three in the
 change. If `get` cannot resolve the source, stop and report that the Profile
-cannot be assessed yet.
+cannot be assessed yet. `get` refuses a skill directory that holds no
+`.wayfinder-profile` marker: it belongs to someone else, so ask before moving
+it aside.
+
+okf creates a lock file, `.okf.lock`, at the bundle root the first time it
+writes the bundle, and leaves it there. Add `knowledge/.okf.lock` to
+`.gitignore`, as [SEEDING.md](./SEEDING.md#gitignore) shows, unless
+`.gitignore` already lists it or the user prefers to commit it.
 
 ### 4. Seed the bundle
 

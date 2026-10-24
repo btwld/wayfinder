@@ -1,8 +1,10 @@
 import 'package:okf/okf.dart';
 
 import '../profile_package.dart';
+import '../profile_rule_descriptors.dart';
 import '../wayfinder_config.dart';
 import 'catalog.dart';
+import 'facts.dart' show SubjectKind;
 
 enum Slot {
   okfFrontmatterKeys('okf.frontmatterKeys'),
@@ -55,6 +57,22 @@ final class ProjectVocabulary {
   final List<WayfinderDefinition> tags;
   final List<WayfinderDefinition> relationships;
   final Map<String, WayfinderActorMetadata> actors;
+
+  /// The fields of a `wayfinder.json` Profile entry this vocabulary fills,
+  /// leaving out each empty one.
+  Map<String, Object?> toJson() => {
+    if (types.isNotEmpty) 'types': [for (final type in types) type.toJson()],
+    if (tags.isNotEmpty) 'tags': [for (final tag in tags) tag.toJson()],
+    if (relationships.isNotEmpty)
+      'relationships': [
+        for (final relationship in relationships) relationship.toJson(),
+      ],
+    if (actors.isNotEmpty)
+      'actors': {
+        for (final MapEntry(:key, :value) in actors.entries)
+          key: value.toJson(),
+      },
+  };
 }
 
 final class ProfileCompositionException implements Exception {
@@ -198,6 +216,25 @@ final class EffectiveProfile {
   Iterable<CatalogRule> get rules => chain.expand((package) => package.rules);
 
   bool get needsLinks => rules.any((rule) => rule.needsLinks);
+
+  /// The frontmatter keys a concept must carry for the gate to pass, in rule
+  /// order without repeats: each key that an `error` rule's schema check
+  /// over the `frontmatter` subject names in a `required` it applies
+  /// unconditionally, at the schema root, in an `allOf` member, or in a def
+  /// a root `$ref` reaches. A key that only an advisory or note rule asks
+  /// for, that a rule requires only under `if`, `anyOf`, `oneOf` or `not`,
+  /// or that a builtin checks is not listed. For Bitwild these are `type`,
+  /// `title`, `description` and `status`.
+  List<String> get requiredConceptFields => List.unmodifiable({
+    for (final rule in rules)
+      if (rule.descriptor.severity == RuleSeverity.error)
+        if (rule.check case SchemaCheck(
+          subject: SubjectKind.frontmatter,
+          each: null,
+          :final schema,
+        ))
+          ...schema.requiredRootProperties,
+  });
 
   Map<Slot, List<String>> get slots => {
     Slot.okfFrontmatterKeys: okfKnownFrontmatterKeys.toList(),

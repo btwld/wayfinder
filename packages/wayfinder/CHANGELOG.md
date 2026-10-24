@@ -1,5 +1,126 @@
 # 0.3.0 (unreleased)
 
+- New `package:wayfinder/project.dart`, moved from `wayfinder_cli`'s private
+  sources so a host can embed what the command does (ADR-0018):
+  `WayfinderProject.discover` and `ProjectBundle`;
+  `WayfinderProfileResolver`, now with a required `dataDirectory`, and its
+  lock types; `validateWithProfileSources`, now with a required `resolver`;
+  `ProfileSkills`; `projectWayfinderGraph`, `wayfinderLinkFields` and the Ack
+  `wayfinderGraphInput`; `WayfinderDataDirectory.resolve`; and
+  `WayfinderException`, which gains a stable `code` beside its message and a
+  `WayfinderException.cancelled()` constructor.
+- `WayfinderProject.discover(root)` reads nothing above `root`: the bundles
+  are those `root`'s own `wayfinder.json` applies to or, without one, its
+  `knowledge/` directory. `searchAncestors: true` is the command's search
+  instead, the nearest `wayfinder.json` at or above the directory or the
+  nearest `knowledge/` directory below the Git boundary; the CLI and MCP
+  server pass it, so their output is unchanged. A directory that does not
+  exist or cannot be read is `bundles-missing`, not a `FileSystemException`.
+- `WayfinderProjectConfig.bind`, the resolver's `select` and
+  `restoreCachedPackages`, and `validateWithProfileSources` take
+  `projectRoot`, which stops their search for a bundle's `wayfinder.json` at
+  that directory: the search climbs from the bundle's parent as before but
+  reads only directories whose real path is `projectRoot` or inside it, so a
+  bundle with none there reports `config-missing`. Without it they search
+  towards the filesystem root as before.
+- `EffectiveProfile.requiredConceptFields` lists the frontmatter keys every
+  concept must carry for the gate to pass: those an error rule's
+  `frontmatter` schema check requires unconditionally, in rule order. For
+  Bitwild these are `type`, `title`, `description` and `status`. It
+  combines `requiredRootProperties`, which a `SchemaCheck`'s `schema` now
+  lists for its own rule.
+- `ProfileSkills.read` returns the `SKILL.md` text `get` installed for a
+  skill revision, from a directory whose marker holds that revision and that
+  no symbolic link places outside the project, or null. It takes no lock and
+  reads the marker again after the text, so a concurrent `get` never makes
+  it return another revision's text.
+  `ProfileSkills.revisionsOf` lists the skill revisions of a
+  `SelectedProfile`'s chain.
+- The resolver splits `get` into `plan`, which may fetch into the cache but
+  writes nothing in the project, and `apply`, which writes it and throws
+  `resolution-stale` when the configuration, lock or cache changed since.
+  `resolve` runs both. `select` reads the lock and the package files a plan
+  kept under `profiles/packages/`, and never runs Git. A cache Wayfinder 0.2
+  wrote has no package files: `restoreCachedPackages` copies them out of the
+  cached mirrors with `git show`, never fetching, and
+  `validateWithProfileSources` does so when `select` finds no Profile, so
+  such a cache validates as before. `WayfinderProfileResolutionException`
+  carries its `DiagnosticCode` as `diagnostic` and that code's value as
+  `code`.
+- `GitRunner` returns `GitResult`, whose `stdout` holds bytes, and takes a
+  `WayfinderCancellation` in place of `binary`. The default `runGit` drops
+  the `GIT_*` variables other than `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`,
+  `GIT_CONFIG_NOSYSTEM`, `GIT_SSH_COMMAND`, `GIT_SSH` and `GIT_SSH_VARIANT`;
+  never prompts; runs the SSH command Git would choose, including
+  `core.sshCommand`, with `-o BatchMode=yes` when it is OpenSSH; skips Git LFS
+  downloads; disables hooks, the filesystem monitor and the `ext::` transport;
+  and kills a command with its children once it writes nothing for `timeout`
+  (five minutes) or on cancellation (`git-timeout`, `cancelled`). The
+  resolver clones with `--progress`, so a long clone keeps running.
+  `wayfinderGitOptions` and `wayfinderGitEnvironment` let a host's runner
+  apply the same, and `throwIfCancelled` checks a cancellation.
+- `WayfinderFileLock` is an exclusive lock that holds across processes and
+  across the isolates of one process: `flock(2)` through `dart:ffi` on POSIX,
+  `RandomAccessFile.lock` on Windows. A plan holds
+  `profiles/<sha256(location)>.lock` while it clones, refreshes or reads a
+  source's mirror, waiting up to 120 seconds; `apply` and `resolve` hold
+  `projects/<sha256(root)>.get.lock` and throw `resolution-busy` while another
+  holder has it. The project lock records its root; on Windows, read that
+  note only while the lock is free.
+- `ProfileValidator.validateLoaded` validates an `OkfBundleLoadResult`
+  without reading its bundle files again; only `path-targets-exist` still
+  checks, on disk relative to the bundle root, a link target okf's graph
+  cannot resolve inside the bundle. `ProfileProjection.generatedFiles` returns
+  the files `validate --fix` writes. `validate` delegates to both; its results
+  are unchanged.
+- `wayfinder` depends on `crypto` and `ffi`.
+- `WayfinderProjectConfig.toJson` and `encode`, `WayfinderConfigEncoder`, and
+  `WayfinderConfigEditor`, which edits a `wayfinder.json` document's Profile
+  sources, bundles, vocabulary and actors and keeps every field it does not
+  model. `WayfinderVocabulary` names the vocabulary list an edit changes, and
+  `WayfinderProfileBinding.explicitBundlePath` writes a bundle path in the
+  `./` form. The definitions, actors, sources, bindings and
+  `ProjectVocabulary` gain `toJson`.
+- `ProfileResolutionPlan.fetches` lists each clone or refresh a plan made,
+  as `ProfileFetch` values, and its JSON gains `fetches`. `plan` and
+  `resolve` take a `ProfileFetchPolicy`, `allowFetch`, that decides each
+  fetch before it runs, including one of a chain parent's source the
+  configuration never names. A refused fetch throws
+  `ProfileFetchRequiredException` (`fetch-required`), which carries the
+  `ProfileFetch`.
+- `ProfileSkills.markerText` is the text of a skill directory's
+  `.wayfinder-profile` marker.
+- New `package:wayfinder/adoption.dart` (ADR-0020). `KnowledgeAdoption.plan`
+  reads a project and resolves a Profile, writing nothing in the project. It
+  lists every file it would write with its text or digest, every Git fetch,
+  the Profile's source, release and chain, the skills it installs, the
+  conflicts that stop it, and the gate the adopted bundle will have. A
+  request without a ref pins the source's current default branch as its
+  commit. A later plan refreshes the mirror and follows a default branch
+  that has moved. The request's
+  `allowFetch` decides each fetch, and an offline request reads the Profile
+  cache as it is; either way a fetch that may not run throws
+  `fetch-required`. Planning wraps an unreadable project as
+  `adoption-failed`.
+- `KnowledgeAdoption.apply` writes the seeded bundle (`index.md`, `log.md`
+  and the seed concepts a host passes, with generated indexes),
+  `wayfinder.json`, `wayfinder.lock` and the Profile skills through the
+  resolver, a `<bundle>/.okf.lock` line in `.gitignore` unless it is listed
+  there, and an optional host step, reporting each step. It refuses a plan
+  with conflicts (`adoption-conflict`), one another Profile cache planned
+  (`adoption-invalid`), or one whose inputs changed (`adoption-stale`,
+  `resolution-stale`) before writing. It holds the project's `get` lock from
+  that check on (`resolution-busy`), checks its cancellation before each
+  step, and undoes the earlier steps when one fails, reporting a step whose
+  undo failed as `undo-failed`. A marked skill directory it does not
+  install is a conflict (`skill-foreign`), so adoption deletes nothing.
+  Its closing validation binds the bundle with the plan's `projectRoot`, so
+  no `wayfinder.json` above the project applies.
+- Adoption never writes `AGENTS.md`, `CLAUDE.md`, `.mcp.json` or hooks; the
+  plan returns the `### Knowledge bundle` block as text. `KnowledgeSeeds`
+  holds the generic seed that the adopt-knowledge-bundle skill's
+  `SEEDING.md` shows.
+
 # 0.2.0
 
 - `wayfinder` depends on `ack`, which replaces the engine's own JSON Schema

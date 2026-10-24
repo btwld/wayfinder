@@ -1,11 +1,15 @@
+// The tests edit wayfinder.json and wayfinder.lock as decoded JSON.
+// ignore_for_file: avoid_dynamic_calls
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
+import 'package:wayfinder/src/project/profile_resolver.dart'
+    show resolveDefaultBranch;
 import 'package:wayfinder/wayfinder.dart';
-import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
 
 import 'support.dart';
 
@@ -79,6 +83,26 @@ void main() {
 
   Future<String> sourceCommit() =>
       _gitOutput(source.path, ['rev-parse', 'HEAD']);
+
+  /// What `wayfinder validate --output=json` prints for [bundle], and its
+  /// exit code.
+  Future<(int, Map<String, dynamic>)> validateJson(
+    String bundle, {
+    bool fix = false,
+  }) async {
+    final result = await validateWithProfileSources(
+      bundle,
+      resolver: WayfinderProfileResolver(dataDirectory: data),
+      fix: fix,
+    );
+    return (
+      result.exitCode,
+      jsonDecode(jsonEncode(result.toJson())) as Map<String, dynamic>,
+    );
+  }
+
+  Future<ProfileResolutionResult> get() =>
+      WayfinderProfileResolver(dataDirectory: data).resolve(project.path);
 
   Future<void> advanceSource() async {
     await File(
@@ -348,8 +372,8 @@ void main() {
       throwsA(
         isA<WayfinderProfileResolutionException>()
             .having(
-              (error) => error.code,
-              'code',
+              (error) => error.diagnostic,
+              'diagnostic',
               DiagnosticCode.profileInvalid,
             )
             .having(
@@ -394,8 +418,8 @@ void main() {
         throwsA(
           isA<WayfinderProfileResolutionException>()
               .having(
-                (error) => error.code,
-                'code',
+                (error) => error.diagnostic,
+                'diagnostic',
                 DiagnosticCode.profileUnsupported,
               )
               .having(
@@ -572,8 +596,8 @@ void main() {
         throwsA(
           isA<WayfinderProfileResolutionException>()
               .having(
-                (error) => error.code,
-                'code',
+                (error) => error.diagnostic,
+                'diagnostic',
                 DiagnosticCode.profileComposition,
               )
               .having(
@@ -811,6 +835,43 @@ void main() {
     });
   });
 
+  test('a refresh follows a source that moved its default branch', () async {
+    final resolver = WayfinderProfileResolver(dataDirectory: data);
+    final first = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    final previous = await _gitOutput(source.path, [
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    ]);
+    await _git(source.path, ['checkout', '-q', '-b', 'relocated-default']);
+    await advanceSource();
+    final moved = await sourceCommit();
+    expect(moved, isNot(first.commit));
+
+    final second = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    expect(second.commit, moved);
+    expect(second.fetches.single.kind, ProfileFetchKind.refresh);
+    expect(second.fetches.single.ref, isNull);
+
+    await _git(source.path, ['branch', '-D', previous]);
+    await advanceSource();
+    final afterDelete = await sourceCommit();
+    final third = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    expect(third.commit, afterDelete);
+  });
+
   test('get fetches a locked commit the mirror lacks', () async {
     final branch = await _gitOutput(source.path, [
       'symbolic-ref',
@@ -856,10 +917,10 @@ void main() {
     };
     final resolver = WayfinderProfileResolver(
       dataDirectory: data,
-      git: (arguments, {workingDirectory, binary = false}) => runGit(
+      git: (arguments, {workingDirectory, cancel}) => runGit(
         arguments,
         workingDirectory: workingDirectory,
-        binary: binary,
+        cancel: cancel,
         environment: environment,
       ),
     );
@@ -869,13 +930,18 @@ void main() {
       await resolver.select(p.join(project.path, 'knowledge')),
       isA<SelectedProfile>(),
     );
-    final mirror = await Directory(p.join(data.path, 'profiles')).list().single;
+    final mirror = await Directory(p.join(data.path, 'profiles'))
+        .list()
+        .where(
+          (entry) => entry is Directory && p.basename(entry.path) != 'packages',
+        )
+        .single;
     final gitDir = await runGit(
       ['rev-parse', '--git-dir'],
       workingDirectory: mirror.path,
       environment: environment,
     );
-    expect(gitDir.stdout.toString().trim(), '.');
+    expect(gitDir.text.trim(), '.');
   });
 
   test('a package that extends itself fails at get', () async {
@@ -951,9 +1017,6 @@ void main() {
     };
 
     late String bundle;
-    late WayfinderCli cli;
-    late List<String> output;
-    late List<String> errors;
 
     Future<void> commitChild(Map<String, Object?> package, String tag) async {
       final child = Directory(p.join(source.path, 'child'));
@@ -999,14 +1062,6 @@ void main() {
         }
       }
       await configure('child-good');
-      output = [];
-      errors = [];
-      cli = WayfinderCli(
-        out: output.add,
-        err: errors.add,
-        notices: false,
-        profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-      );
     });
 
     test('its rules add findings in the child namespace', () async {
@@ -1026,8 +1081,8 @@ void main() {
       ]);
       final commit = resolved.packages[_client]!.commit;
 
-      expect(await cli.run(['validate', bundle, '--output=json']), 1);
-      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      final (code, report) = await validateJson(bundle);
+      expect(code, 1);
       final profile = report['profile'] as Map<String, dynamic>;
       expect(profile['state'], 'FAIL');
       expect(profile['id'], 'client-profile');
@@ -1047,31 +1102,44 @@ void main() {
         },
       ]);
       expect(report['engine'], {'okf': okfPackageVersion});
-      expect(errors, isEmpty);
     });
 
     test(
       'a package the engine cannot evaluate is NOT ASSESSED, never partial',
       () async {
-        expect(await cli.run(['get', project.path]), 0);
+        await get();
         final lockFile = File(p.join(project.path, 'wayfinder.lock'));
         final locked = await lockFile.readAsString();
 
         await configure('child-bad');
-        expect(await cli.run(['get', project.path]), 2);
-        expect(
-          errors.single,
-          allOf(
-            contains('cannot be evaluated by this validator'),
-            contains(
-              'unknown builtin nonexistent-check; this wayfinder provides '
-              'files-present, path-targets-exist, matches-generated at '
-              'rules[0].check.builtin',
+        await expectLater(
+          get(),
+          throwsA(
+            isA<WayfinderProfileResolutionException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('cannot be evaluated by this validator'),
+                contains(
+                  'unknown builtin nonexistent-check; this wayfinder provides '
+                  'files-present, path-targets-exist, matches-generated at '
+                  'rules[0].check.builtin',
+                ),
+              ),
             ),
           ),
         );
         expect(await lockFile.readAsString(), locked);
 
+        // Only what a plan read is in the cache, so plan the parent at the
+        // commit the hand-written lock below names.
+        await bindOnly('bitwild-profile', {
+          'git': source.path,
+          'ref': 'child-bad',
+          'path': 'profiles/bitwild',
+        });
+        await WayfinderProfileResolver(dataDirectory: data).plan(project.path);
+        await configure('child-bad');
         final raw = await File(
           p.join(project.path, 'wayfinder.json'),
         ).readAsString();
@@ -1103,10 +1171,8 @@ void main() {
             },
           }),
         );
-        output.clear();
-        errors.clear();
-        expect(await cli.run(['validate', bundle, '--output=json']), 2);
-        final report = jsonDecode(output.single) as Map<String, dynamic>;
+        final (code, report) = await validateJson(bundle);
+        expect(code, 2);
         expect((report['okf'] as Map)['state'], 'PASS');
         final profile = report['profile'] as Map<String, dynamic>;
         expect(profile['state'], 'NOT ASSESSED');
@@ -1118,7 +1184,6 @@ void main() {
           contains('unknown builtin nonexistent-check'),
         );
         expect(report['gate'], {'state': 'INCOMPLETE'});
-        expect(errors, isEmpty);
       },
     );
 
@@ -1133,11 +1198,8 @@ void main() {
           ),
         );
         Future<List<Object?>> findings() async {
-          output.clear();
-          expect(await cli.run(['get', project.path]), 0);
-          output.clear();
-          await cli.run(['validate', bundle, '--output=json']);
-          final report = jsonDecode(output.single) as Map<String, dynamic>;
+          await get();
+          final (_, report) = await validateJson(bundle);
           return (report['profile'] as Map)['findings'] as List<Object?>;
         }
 
@@ -1180,8 +1242,8 @@ void main() {
         throwsA(
           isA<WayfinderProfileResolutionException>()
               .having(
-                (error) => error.code,
-                'code',
+                (error) => error.diagnostic,
+                'diagnostic',
                 DiagnosticCode.profileInvalid,
               )
               .having(
@@ -1214,26 +1276,24 @@ void main() {
       (value['profiles']['bitwild-profile']['source'] as Map)['ref'] =
           'missing-ref';
       await saveConfig(value);
-      final output = <String>[];
-      final errors = <String>[];
-      final cli = WayfinderCli(
-        out: output.add,
-        err: errors.add,
-        notices: false,
-        profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-      );
       final bundle = p.join(project.path, 'knowledge');
-      expect(await cli.run(['validate', bundle, '--output=json']), 2);
-      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      final (code, report) = await validateJson(bundle);
+      expect(code, 2);
       expect((report['okf'] as Map)['state'], 'PASS');
       expect((report['profile'] as Map)['state'], 'NOT ASSESSED');
-      expect(errors, isEmpty);
-      output.clear();
-      expect(await cli.run(['graph', bundle]), 0);
-      expect(output.single, contains('nodes'));
-      output.clear();
-      expect(await cli.run(['get', project.path]), 2);
-      expect(errors.last, contains('missing-ref'));
+      final graph = await projectWayfinderGraph(bundle);
+      expect(graph.exitCode, 0);
+      expect(graph.toJson(), contains('nodes'));
+      await expectLater(
+        get(),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            contains('missing-ref'),
+          ),
+        ),
+      );
       expect(
         await File(p.join(project.path, 'wayfinder.lock')).exists(),
         isFalse,
@@ -1262,32 +1322,21 @@ void main() {
         {'name': 'governance', 'description': 'Governance topic'},
       ];
       await saveConfig(value);
-      final output = <String>[];
-      final errors = <String>[];
-      final cli = WayfinderCli(
-        out: output.add,
-        err: errors.add,
-        notices: false,
-        profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-      );
       final bundle = p.join(project.path, 'knowledge');
-      expect(await cli.run(['validate', bundle, '--output=json']), 2);
-      expect(errors, isEmpty);
-      final unresolved = jsonDecode(output.single) as Map<String, dynamic>;
+      final (unresolvedCode, unresolved) = await validateJson(bundle);
+      expect(unresolvedCode, 2);
       expect((unresolved['okf'] as Map)['state'], 'PASS');
       expect((unresolved['profile'] as Map)['state'], 'NOT ASSESSED');
       expect(
         await File(p.join(project.path, 'wayfinder.lock')).exists(),
         isFalse,
       );
-      output.clear();
-      expect(await cli.run(['get', project.path]), 0);
+      await get();
       final lock = File(p.join(project.path, 'wayfinder.lock'));
       expect(await lock.exists(), isTrue);
       final lockedBytes = await lock.readAsBytes();
-      output.clear();
-      expect(await cli.run(['validate', bundle, '--output=json']), 0);
-      final report = jsonDecode(output.single) as Map<String, dynamic>;
+      final (code, report) = await validateJson(bundle);
+      expect(code, 0);
       expect((report['profile'] as Map)['state'], 'PASS');
       expect(await lock.readAsBytes(), lockedBytes);
 
@@ -1296,9 +1345,8 @@ void main() {
         'description': 'A new project topic',
       });
       await saveConfig(value);
-      output.clear();
-      expect(await cli.run(['validate', bundle, '--output=json']), 2);
-      final stale = jsonDecode(output.single) as Map<String, dynamic>;
+      final (staleCode, stale) = await validateJson(bundle);
+      expect(staleCode, 2);
       expect((stale['okf'] as Map)['state'], 'PASS');
       expect((stale['profile'] as Map)['state'], 'NOT ASSESSED');
       expect(await lock.readAsBytes(), lockedBytes);
@@ -1322,22 +1370,26 @@ void main() {
       '* [Knowledge Log](log.md)\n\n# Directories\n\n'
       '* [billing](billing/)\n',
     );
-    final output = <String>[];
-    final errors = <String>[];
-    final cli = WayfinderCli(
-      out: output.add,
-      err: errors.add,
-      notices: false,
-      profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
+    final resolver = WayfinderProfileResolver(dataDirectory: data);
+    await resolver.resolve(project.path);
+
+    final failing = await validateWithProfileSources(
+      bundle,
+      resolver: resolver,
     );
-    expect(await cli.run(['get', project.path]), 0);
+    expect(failing.exitCode, 1);
+    expect(
+      failing.toTextLines(),
+      contains(contains('bitwild-profile/index-current')),
+    );
 
-    output.clear();
-    expect(await cli.run(['validate', bundle]), 1);
-    expect(output, contains(contains('bitwild-profile/index-current')));
-
-    output.clear();
-    expect(await cli.run(['validate', bundle, '--fix']), 0);
+    final fixing = await validateWithProfileSources(
+      bundle,
+      resolver: resolver,
+      fix: true,
+    );
+    expect(fixing.exitCode, 0);
+    final output = fixing.toTextLines().toList();
     expect(output.take(2), [
       'Fix: wrote billing/index.md',
       'Fix: wrote index.md',
@@ -1349,14 +1401,12 @@ void main() {
     );
     final fixed = await _snapshot(bundle);
 
-    output.clear();
-    expect(await cli.run(['validate', bundle, '--fix', '--output=json']), 0);
-    final again = jsonDecode(output.single) as Map<String, dynamic>;
+    final (code, again) = await validateJson(bundle, fix: true);
+    expect(code, 0);
     expect(again['fix'], {'written': <String>[]});
     expect(again['diagnostics'], isEmpty);
     expect((again['profile'] as Map)['state'], 'PASS');
     expect(await _snapshot(bundle), fixed);
-    expect(errors, isEmpty);
   });
 
   test('a Profile with no Bitwild resolves and validates on its own', () async {
@@ -1440,16 +1490,8 @@ void main() {
     expect((lock['packages'] as Map).keys, ['acme-notes']);
     expect(lock['packages']['acme-notes']['release'], '1.0');
 
-    final output = <String>[];
-    final errors = <String>[];
-    final cli = WayfinderCli(
-      out: output.add,
-      err: errors.add,
-      notices: false,
-      profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-    );
-    expect(await cli.run(['validate', bundle, '--output=json']), 1);
-    var report = jsonDecode(output.single) as Map<String, dynamic>;
+    var (code, report) = await validateJson(bundle);
+    expect(code, 1);
     expect((report['profile'] as Map)['release'], '1.0');
     expect((report['profile'] as Map)['findings'], [
       {
@@ -1472,37 +1514,15 @@ void main() {
       'version': 1,
       'profiles': {'acme-notes': entry},
     });
-    expect(await cli.run(['get', project.path]), 0);
-    output.clear();
-    expect(await cli.run(['validate', bundle, '--output=json']), 0);
-    report = jsonDecode(output.single) as Map<String, dynamic>;
+    await get();
+    (code, report) = await validateJson(bundle);
+    expect(code, 0);
     expect((report['profile'] as Map)['state'], 'PASS');
     expect((report['profile'] as Map)['findings'], isEmpty);
     expect((report['diagnostics'] as List).map((d) => (d as Map)['id']), [
       'wayfinder/project-type',
     ]);
     expect(report['gate'], {'state': 'PASS'});
-    expect(errors, isEmpty);
-  });
-
-  test('CLI get and upgrade use the shared resolver', () async {
-    final output = <String>[];
-    final errors = <String>[];
-    final cli = WayfinderCli(
-      out: output.add,
-      err: errors.add,
-      notices: false,
-      profileResolver: () => WayfinderProfileResolver(dataDirectory: data),
-    );
-    expect(await cli.run(['get', project.path, '--output=json']), 0);
-    expect(
-      (jsonDecode(output.single) as Map)['packages'],
-      contains('bitwild-profile'),
-    );
-    output.clear();
-    expect(await cli.run(['upgrade', project.path, '--output=json']), 0);
-    expect(jsonDecode(output.single), containsPair('upgraded', true));
-    expect(errors, isEmpty);
   });
 
   group('select', () {
@@ -1510,6 +1530,17 @@ void main() {
     late List<List<String>> calls;
     late WayfinderProfileResolver resolver;
     late String bundle;
+
+    /// Plans the current configuration, as `get` would, so the Profile
+    /// cache holds each package the plan reads, even one that fails it.
+    Future<void> cacheConfigured() async {
+      try {
+        await resolver.plan(project.path);
+      } on WayfinderException {
+        // The package was read and kept before it failed.
+      }
+      calls.clear();
+    }
 
     Future<void> writeLock(Map<String, Object?> packages) async {
       final raw = await File(
@@ -1584,19 +1615,7 @@ void main() {
     });
 
     tearDown(() {
-      expect(
-        calls.where(_fetches),
-        isEmpty,
-        reason: 'validation never fetches',
-      );
-      expect(
-        calls.map((call) => call.first).toSet().difference({
-          'cat-file',
-          'show',
-        }),
-        isEmpty,
-        reason: 'select only reads the local mirror',
-      );
+      expect(calls, isEmpty, reason: 'select never runs Git');
     });
 
     Future<EngineDiagnostic> reason({String? configPath, String? at}) async {
@@ -1740,6 +1759,22 @@ void main() {
       );
     });
 
+    test('profile-unresolved when only the mirror survives, as a 0.2 cache '
+        'left it', () async {
+      await Directory(
+        p.join(data.path, 'profiles', 'packages'),
+      ).delete(recursive: true);
+      final diagnostic = await reason();
+      expect(diagnostic.code, DiagnosticCode.profileUnresolved);
+      expect(
+        diagnostic.message,
+        'Profile bitwild-profile at ${source.path} (${tags['v2026.3']}) has '
+        'no package file in the local cache, as in a cache an earlier '
+        'Wayfinder wrote. Run wayfinder get; it fetches nothing while the '
+        'cached source holds that commit.',
+      );
+    });
+
     test('profile-unresolved when the package release differs', () async {
       await writeLock({
         'bitwild-profile': locked(
@@ -1763,6 +1798,7 @@ void main() {
         'ref': 'arm-child',
         'path': 'child',
       });
+      await cacheConfigured();
       await writeLock({'client-profile': locked('arm-child', 'child')});
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.profileUnresolved);
@@ -1779,6 +1815,7 @@ void main() {
         'ref': 'arm-misnamed',
         'path': 'misnamed',
       });
+      await cacheConfigured();
       await writeLock({'client-profile': locked('arm-misnamed', 'misnamed')});
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.profileInvalid);
@@ -1795,6 +1832,7 @@ void main() {
         'ref': 'arm-unsupported',
         'path': 'unsupported',
       });
+      await cacheConfigured();
       await writeLock({
         'client-profile': locked('arm-unsupported', 'unsupported'),
       });
@@ -1853,12 +1891,12 @@ Future<String> _gitOutput(String directory, List<String> arguments) async {
 }
 
 GitRunner _spy(List<List<String>> calls) =>
-    (arguments, {workingDirectory, binary = false}) {
+    (arguments, {workingDirectory, cancel}) {
       calls.add(arguments);
       return runGit(
         arguments,
         workingDirectory: workingDirectory,
-        binary: binary,
+        cancel: cancel,
       );
     };
 

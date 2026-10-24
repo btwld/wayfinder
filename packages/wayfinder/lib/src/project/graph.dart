@@ -1,11 +1,14 @@
 import 'dart:convert';
 
 import 'package:okf/okf_io.dart';
-import 'package:wayfinder/wayfinder.dart';
+
+import '../field_edges.dart';
 
 /// Formats `okf graph` already emits. mermaid and DOT are text for a preview.
 const wayfinderGraphOutputs = ['json', 'dot', 'mermaid'];
 
+/// The typed link fields Wayfinder projects beside okf's graph and follows
+/// in search: the engine's `relationships` key (guide §5.5).
 const wayfinderLinkFields = [relationshipsLinkField];
 
 /// Stable OKF resolution wires accepted by `--resolution` and MCP.
@@ -13,6 +16,7 @@ List<String> wayfinderGraphResolutions() => OkfGraphResolution.values
     .map((resolution) => resolution.wireValue)
     .toList(growable: false);
 
+/// A bundle's graph, or the load findings that refused it.
 final class WayfinderGraphResult {
   const WayfinderGraphResult._({
     this.graph,
@@ -56,6 +60,10 @@ final class WayfinderGraphResult {
       (throw StateError('Graph is unavailable when load findings exist.'));
 }
 
+/// The live projection of `OkfGraph.fromBundle` for [bundle], filtered as
+/// `okf graph` filters it, plus each [wayfinderLinkFields] entry between the
+/// selected nodes (ADR-0012). Opens no index or model. Load findings refuse
+/// the graph, as `okf graph` does.
 Future<WayfinderGraphResult> projectWayfinderGraph(
   String bundle, {
   Iterable<String> types = const [],

@@ -21,3 +21,7 @@ packages/wayfinder/lib/src/generated/** text eol=lf
 packages/wayfinder_cli/test/fixtures/** text eol=lf
 # The CLI contract goldens are compared byte for byte, like the core goldens.
 packages/wayfinder_cli/test/goldens/** text eol=lf
+
+# seeds_test compares SEEDING.md's blocks with KnowledgeSeeds byte for byte,
+# and the skills are installed as written.
+skills/** text eol=lf

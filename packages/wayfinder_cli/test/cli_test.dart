@@ -8,8 +8,8 @@ import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_cli/src/index_result.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
 
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/version.dart';
@@ -213,7 +213,10 @@ void main() {
 
   test('validate shares the full existing result and exit code', () async {
     const bundle = '../../examples/bitwild/knowledge';
-    final expected = await validateWithProfileSources(bundle);
+    final expected = await validateWithProfileSources(
+      bundle,
+      resolver: _defaultResolver(),
+    );
     expect(
       await cli.run(['validate', bundle, '--output=json']),
       expected.exitCode,
@@ -228,7 +231,10 @@ void main() {
 
   test('validate --output=sarif writes the result as a SARIF log', () async {
     const bundle = '../../examples/bitwild/knowledge';
-    final expected = await validateWithProfileSources(bundle);
+    final expected = await validateWithProfileSources(
+      bundle,
+      resolver: _defaultResolver(),
+    );
     expect(
       await cli.run(['validate', bundle, '--output=sarif']),
       expected.exitCode,
@@ -371,7 +377,10 @@ void main() {
 
   test('validate preserves an unconfigured result', () async {
     const bundle = 'test/fixtures/knowledge';
-    final expected = await validateWithProfileSources(bundle);
+    final expected = await validateWithProfileSources(
+      bundle,
+      resolver: _defaultResolver(),
+    );
     expect(expected.exitCode, 2);
     expect(expected.diagnostics.map((d) => d.code), [
       DiagnosticCode.configMissing,
@@ -816,6 +825,7 @@ class _IndexKnowledge extends WayfinderKnowledge {
   Future<bool> isCurrent(String bundle) async {
     if (state == 'busy') {
       throw const WayfinderException(
+        'index-busy',
         'Index is busy. Retry when the current command finishes.',
       );
     }
@@ -856,3 +866,7 @@ class _SearchKnowledge extends WayfinderKnowledge {
     return KnowledgeSearchResponse(matches: [], context: [], notices: []);
   }
 }
+
+/// The resolver the command uses by default.
+WayfinderProfileResolver _defaultResolver() =>
+    WayfinderProfileResolver(dataDirectory: WayfinderDataDirectory.resolve());

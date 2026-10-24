@@ -6,10 +6,10 @@ import 'dart:math';
 import 'package:mcp_dart/mcp_dart.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
-import 'package:wayfinder_cli/src/profile_resolver.dart';
 import 'package:wayfinder_cli/src/version.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
@@ -273,7 +273,7 @@ final class _ContractProject {
     final release =
         (jsonDecode(await profile.readAsString()) as Map)['release']! as String;
     final environment = {
-      ...Platform.environment,
+      ...wayfinderGitEnvironment(Platform.environment),
       'GIT_AUTHOR_NAME': 'Wayfinder Test',
       'GIT_AUTHOR_EMAIL': 'test@example.test',
       'GIT_AUTHOR_DATE': '2026-10-01T00:00:00Z',
@@ -282,7 +282,8 @@ final class _ContractProject {
       'GIT_COMMITTER_DATE': '2026-10-01T00:00:00Z',
     };
     Future<String> git(List<String> arguments) async {
-      final result = await runGit(
+      final result = await Process.run(
+        'git',
         [
           '-c',
           'core.autocrlf=false',
@@ -294,6 +295,7 @@ final class _ContractProject {
         ],
         workingDirectory: source.path,
         environment: environment,
+        includeParentEnvironment: false,
       );
       expect(result.exitCode, 0, reason: '${result.stderr}');
       return (result.stdout as String).trim();

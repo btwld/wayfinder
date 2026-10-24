@@ -1,5 +1,7 @@
 # Unreleased
 
+- Quote the bundle path in generated git hooks, and reject control characters
+  and a leading `-` in `--bundle`, so the path cannot become shell source.
 - Fix `wayfinder mcp` command dispatch to use the server's persistent retrieval
   service instead of the one-shot CLI default. Preserve explicit Dart knowledge
   factory overrides and ordinary one-shot command behavior.
@@ -18,6 +20,26 @@
 - Reuse a lazy encoder across serialized MCP retrieval calls. Preserve source
   freshness and per-bundle locks; evict on failure and dispose on disconnect.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
+- Project discovery, Profile resolution, selection, Profile skills and the
+  graph projection now come from `package:wayfinder/project.dart`; the command
+  and MCP server keep their output and exit codes.
+- `validate` reads each locked package from the file `get` keeps under
+  `profiles/packages/` in the data directory and runs no Git. On a cache 0.2
+  wrote, which has no such files, `validate` copies each one out of its
+  source's cached mirror with `git show` the first time, without fetching, so
+  verdicts and exit codes are unchanged.
+- **BREAKING:** `get` and `upgrade` ignore inherited `GIT_*` variables other
+  than `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_NOSYSTEM`,
+  `GIT_SSH_COMMAND`, `GIT_SSH` and `GIT_SSH_VARIANT`. Move a setting such as
+  `GIT_SSL_CAINFO` or `GIT_ASKPASS` into Git's configuration
+  (`http.sslCAInfo`, a credential helper).
+- `get` and `upgrade` run Git without prompts or hooks. SSH runs the command
+  Git would choose (`GIT_SSH_COMMAND`, `core.sshCommand`, `GIT_SSH`, then
+  `ssh`) with `-o BatchMode=yes` added for OpenSSH, so it fails instead of
+  asking for a passphrase or host key. A Git command that writes nothing for
+  five minutes is stopped; clones report progress, so a long clone keeps
+  running. A second `get` on the same project fails at once while the first
+  runs, and `get`s that share a Profile source wait for each other.
 
 # 0.2.0
 
