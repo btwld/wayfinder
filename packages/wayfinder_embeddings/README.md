@@ -435,16 +435,18 @@ It collapses repeated contexts to the first child hit.
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 5.3.2, verifies the release archive's SHA-256
-  before extracting it, and writes only to this package's `lib/` directory.
-  It covers every platform upstream publishes for
-  5.3.2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
+  The installer pins native 6.0.0-beta2, verifies the release archive's
+  SHA-256 before extracting it, and writes only to this package's `lib/`
+  directory. It covers every platform upstream publishes for
+  6.0.0-beta2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
   x64/x86/arm64 - and refuses anything without a pinned hash rather than
   installing another architecture.
-  The package accepts any Dart `objectbox` 5.x from 5.3.2. The repository's
-  workspace overrides it to 5.3.2, so its tests and native bundles always pair
-  Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
-  when the two differ.
+  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.5. The
+  repository's workspace overrides it to 6.0.0-preview.5, the Dart release
+  ObjectBox pairs with native 6.0.0-beta2, so its tests and native bundles
+  always pair the two; `tool/objectbox_assets/manifest.json` records both
+  (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
+  when the override and the manifest differ.
   Tests that need the library, such as `test/objectbox_store_test.dart`, skip
   themselves when it is absent; native CI installs it and runs the whole
   package. The knowledge store does not use it.
@@ -684,8 +686,8 @@ Existing databases using the previous vector schema require reindexing into a
 **new directory**. The store refuses to open incompatible databases before
 ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
 when changing the schema; preserve `lib/objectbox-model.json` UID history.
-The committed bindings come from `objectbox_generator` 5.3.2 and keep every id
-and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
+The committed bindings come from `objectbox_generator` 6.0.0-preview.5 and
+keep every id and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
 `test/objectbox_store_test.dart` opens such a store from
 [`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).
 

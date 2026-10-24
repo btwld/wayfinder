@@ -73,10 +73,13 @@
   still produces those chunks. With `--qrels`, the tool now exits with an
   error instead of scoring when a fixture file has no chunker or a stable-id
   judgment names a chunk the corpus lacks.
-- Depends on `objectbox` `^5.3.2` and `flat_buffers` `^25.9.23` instead of the
-  exact `objectbox` 5.0.4 pin, so applications on current ObjectBox can resolve
-  this package. `lib/objectbox.g.dart` is regenerated with
-  `objectbox_generator` 5.3.2. Every entity, property and index id and UID is
+- Depends on `objectbox` `^6.0.0-preview.5` and `flat_buffers` `^25.9.23`
+  instead of the exact `objectbox` 5.0.4 pin, so applications on current
+  ObjectBox can resolve this package. `lib/objectbox.g.dart` is regenerated
+  with `objectbox_generator` 6.0.0-preview.5, and `objectbox:install` pins
+  native 6.0.0-beta2, the release ObjectBox pairs with that Dart package
+  (`tool/objectbox_assets/manifest.json` records both). Every entity, property
+  and index id and UID is
   unchanged, so an `ObjectBoxStore` directory written by 0.2.0 opens and keeps
   working without a reindex; a test opens one that 0.2.0 wrote. The knowledge
   store does not use that store. It builds each bundle once in the plain-file
