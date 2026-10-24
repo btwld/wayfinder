@@ -1,0 +1,68 @@
+name: Publish wayfinder_dart_chunker
+
+on:
+  push:
+    tags: ['wayfinder_dart_chunker-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-wayfinder_dart_chunker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Match tag to package version
+        working-directory: packages/wayfinder_dart_chunker
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(sed -n 's/^version: //p' pubspec.yaml)"
+          test "$TAG" = "wayfinder_dart_chunker-v$version"
+      # No OIDC permission here: dependency downloads use normal public access.
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_dart_chunker
+      - run: dart test
+        working-directory: packages/wayfinder_dart_chunker
+      - run: dart pub publish --dry-run
+        working-directory: packages/wayfinder_dart_chunker
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Check whether pub.dev already has this version
+        id: pub
+        working-directory: packages/wayfinder_dart_chunker
+        run: |
+          version="$(sed -n 's/^version: //p' pubspec.yaml)"
+          bash "$GITHUB_WORKSPACE/tool/ci/pub-version-published.sh" wayfinder_dart_chunker "$version" >> "$GITHUB_OUTPUT"
+      - if: steps.pub.outputs.published == 'true'
+        run: echo "wayfinder_dart_chunker is already on pub.dev; skipping upload."
+      # The same immutable tag passed verification above. pub.dev accepts this
+      # workflow only after the first version was published by hand and its
+      # automated publishing was configured; see docs/releasing.md.
+      # --force only answers the confirmation a workflow cannot.
+      - if: steps.pub.outputs.published != 'true'
+        run: dart pub publish --force
+        working-directory: packages/wayfinder_dart_chunker

@@ -142,16 +142,18 @@ void main() {
       expect(embedder.truncatedInputs, 0);
     },
     skip:
-        model.existsSync() &&
-            File(
-              'lib/${Platform.isMacOS
-                  ? 'libobjectbox.dylib'
-                  : Platform.isWindows
-                  ? 'objectbox.dll'
-                  : 'libobjectbox.so'}',
-            ).existsSync()
+        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
+            (model.existsSync() &&
+                File(
+                  'lib/${Platform.isMacOS
+                      ? 'libobjectbox.dylib'
+                      : Platform.isWindows
+                      ? 'objectbox.dll'
+                      : 'libobjectbox.so'}',
+                ).existsSync())
         ? false
-        : 'Prepare the model and install ObjectBox for strict persistent recovery.',
+        : 'Prepare the model and install ObjectBox for strict persistent '
+              'recovery. Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
     timeout: const Timeout(Duration(minutes: 3)),
   );
   test(
@@ -190,9 +192,12 @@ void main() {
       );
       expect(embedder.truncatedInputs, 0);
     },
-    skip: model.existsSync()
+    skip:
+        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
+            model.existsSync()
         ? false
-        : 'Prepare the model for strict body-only fitting.',
+        : 'Prepare the model for strict body-only fitting. '
+              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
     timeout: const Timeout(Duration(minutes: 3)),
   );
   test(
@@ -309,9 +314,12 @@ void main() {
         isTrue,
       );
     },
-    skip: model.existsSync()
+    skip:
+        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
+            model.existsSync()
         ? false
-        : 'Run melos run wayfinder_embeddings:prepare for native model tests.',
+        : 'Run melos run wayfinder_embeddings:prepare for native model tests. '
+              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
     timeout: const Timeout(Duration(minutes: 2)),
   );
 }

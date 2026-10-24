@@ -4,16 +4,19 @@ import 'dart:io';
 
 import 'package:okf/okf_io.dart';
 import 'package:mcp_dart/mcp_dart.dart';
-import 'package:wayfinder_embeddings/okf_knowledge.dart';
-import 'package:wayfinder_cli/src/index_result.dart';
-import 'package:wayfinder_cli/src/knowledge.dart';
+import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/mcp_server.dart';
+import 'package:wayfinder_cli/src/messages.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/version.dart';
 import 'package:test/test.dart';
+
+import 'support.dart';
 
 void main() {
   late List<String> output;
@@ -32,6 +35,37 @@ void main() {
         throw StateError('Validation/help must not open retrieval.');
       },
     );
+  });
+
+  test('store failures name the command that fixes them', () {
+    String message(String code, String text, {bool indexing = false}) =>
+        commandMessage(WayfinderException(code, text), indexing: indexing);
+    for (final code in ['index-missing', 'index-stale', 'index-incompatible']) {
+      expect(message(code, 'Why.'), 'Why. Run wayfinder index <bundle>.');
+    }
+    expect(
+      message('bundle-changed', 'Knowledge changed during search.'),
+      'Knowledge changed during search. Run wayfinder index <bundle>.',
+    );
+    expect(
+      message(
+        'bundle-changed',
+        'Knowledge changed while indexing.',
+        indexing: true,
+      ),
+      'Knowledge changed while indexing. Run wayfinder index again.',
+    );
+    expect(
+      message('model-missing', 'The model is missing (/m.gguf).'),
+      'The model is missing (/m.gguf). Reinstall the complete Wayfinder '
+      'bundle; for source development run melos run '
+      'wayfinder_embeddings:prepare.',
+    );
+    expect(
+      message('model-invalid', 'Bad model.'),
+      'Bad model. Reinstall the complete Wayfinder bundle.',
+    );
+    expect(message('index-busy', 'Index is busy.'), 'Index is busy.');
   });
 
   test('root help exposes application commands and MCP transport', () async {
@@ -94,7 +128,7 @@ void main() {
         mcpServer: ({rootPath, workingDirectory, knowledge, profileResolver}) {
           expect(knowledge, same(injected));
           expect(
-            knowledge!.keepEncoderAlive,
+            knowledge!.retainEncoder,
             isFalse,
             reason: 'An explicit override must not be silently reconfigured.',
           );
@@ -421,6 +455,7 @@ void main() {
         0,
       );
       expect(search.limits, [5]);
+      expect(search.policies, [StaleIndexPolicy.serveWhileRefreshing]);
       expect(errors, isEmpty);
     },
   );
@@ -530,7 +565,9 @@ void main() {
           expect(errors, isEmpty);
         }
         expect(
-          (await _IndexKnowledge('current').index('.')).toJson()['warnings'],
+          (await _IndexKnowledge(
+            'current',
+          ).index(const ProjectBundle('.', '.', '.'))).toJson()['warnings'],
           isEmpty,
         );
       },
@@ -588,6 +625,114 @@ void main() {
       expect(spawned, hasLength(1));
     });
 
+    test(
+      'a detached worker persists warnings for a foreground replay',
+      () async {
+        final temp = await Directory.systemTemp.createTemp('wayfinder-detach-');
+        addTearDown(() => temp.delete(recursive: true));
+        final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+        for (final file in Directory(
+          'test/fixtures/knowledge',
+        ).listSync().whereType<File>()) {
+          await file.copy(p.join(bundle.path, p.basename(file.path)));
+        }
+        await File(p.join(bundle.path, 'recovery.md')).writeAsString(
+          '---\ntitle: Recovery\n---\nPassword recovery ${'-' * 700} done.',
+        );
+        final provider = DeterministicEncoderProvider(
+          maxTokens: 80,
+          countTokens: (text) async => text.length + 2,
+        );
+        WayfinderKnowledgeStore store() => WayfinderKnowledgeStore(
+          dataDirectory: Directory(p.join(temp.path, 'data')),
+          encoder: provider,
+        );
+        Future<int>? worker;
+        final cli = WayfinderCli(
+          out: output.add,
+          err: errors.add,
+          notices: false,
+          knowledge: store,
+          spawnDetached: (args) async {
+            worker = WayfinderCli(
+              out: (_) {},
+              err: (_) {},
+              notices: false,
+              knowledge: store,
+            ).run(args);
+          },
+        );
+        expect(
+          await cli.run(['index', bundle.path, '--detach', '--output=json']),
+          0,
+        );
+        expect(jsonDecode(output.single), {
+          'bundle': bundle.path,
+          'detached': 'started',
+        });
+        expect(await worker, 0);
+        final opened = provider.opened.length;
+        output.clear();
+        expect(await cli.run(['index', bundle.path, '--output=json']), 0);
+        final result = jsonDecode(output.single) as Map;
+        expect(result['current'], isTrue);
+        expect(
+          (result['warnings'] as List).single['code'],
+          'oversized_segment_split',
+        );
+        expect(provider.opened.length, opened, reason: 'no model was opened');
+        expect(errors, isEmpty);
+      },
+    );
+
+    test(
+      '--detach checks an explicit model setting before it reports a current '
+      'index',
+      () async {
+        final temp = await Directory.systemTemp.createTemp('wayfinder-model-');
+        addTearDown(() => temp.delete(recursive: true));
+        final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+        for (final file in Directory(
+          'test/fixtures/knowledge',
+        ).listSync().whereType<File>()) {
+          await file.copy(p.join(bundle.path, p.basename(file.path)));
+        }
+        final data = Directory(p.join(temp.path, 'data'));
+        // An index that is current for the command's own model, built with
+        // deterministic vectors under that model's identity.
+        final store = WayfinderKnowledgeStore(
+          dataDirectory: data,
+          encoder: _InstalledIdentityProvider(),
+        );
+        final target = ProjectBundle(
+          'knowledge',
+          'knowledge',
+          bundle.resolveSymbolicLinksSync(),
+        );
+        await store.index(target);
+        expect(await store.status(target), isA<KnowledgeIndexCurrent>());
+        await store.dispose();
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          ['run', 'bin/wayfinder.dart', 'index', bundle.path, '--detach'],
+          environment: {
+            for (final entry in Platform.environment.entries)
+              if (entry.key != 'KNOWLEDGE_EMBEDDING_MODEL')
+                entry.key: entry.value,
+            'WAYFINDER_DATA_DIR': data.path,
+            'WAYFINDER_EMBEDDING_MODEL': p.join(temp.path, 'missing.gguf'),
+            'WAYFINDER_NO_UPDATE_CHECK': '1',
+          },
+          includeParentEnvironment: false,
+        );
+        expect(result.exitCode, 2, reason: '${result.stdout}');
+        expect(result.stderr, contains('missing.gguf'));
+        expect(result.stdout, isNot(contains('current')));
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
     test('a background index stops when its bundle disappears', () async {
       final bundle = await Directory.systemTemp.createTemp('wayfinder-gone-');
       final run = indexCli(
@@ -599,6 +744,98 @@ void main() {
         run,
         throwsA(isA<_Terminated>().having((t) => t.code, 'code', 2)),
       );
+    });
+  });
+
+  group('read while indexing', () {
+    test('search serves the published index with notices while another '
+        'command indexes; a second index is busy', () async {
+      final temp = await Directory.systemTemp.createTemp('wayfinder-refresh-');
+      addTearDown(() => temp.delete(recursive: true));
+      final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+      for (final file in Directory(
+        'test/fixtures/knowledge',
+      ).listSync().whereType<File>()) {
+        await file.copy(p.join(bundle.path, p.basename(file.path)));
+      }
+      WayfinderKnowledgeStore store() => WayfinderKnowledgeStore(
+        dataDirectory: Directory(p.join(temp.path, 'data')),
+        encoder: DeterministicEncoderProvider(
+          create: () => DeterministicTestEmbedder(vectorOf: keywordVector),
+        ),
+      );
+      final command = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        notices: false,
+        knowledge: store,
+        spawnDetached: (arguments) async => fail('Nothing may start.'),
+      );
+      expect(await command.run(['index', bundle.path, '--output=json']), 0);
+      final index = (jsonDecode(output.single) as Map)['index'] as String;
+      output.clear();
+      final recovery = File(p.join(bundle.path, 'recovery.md'));
+      await recovery.writeAsString(
+        '${await recovery.readAsString()}\nUse a backup code.\n',
+      );
+      // What another process's index holds while it runs.
+      final writer = await WayfinderFileLock.tryExclusive(
+        File(p.join(index, 'writer.lock')),
+      );
+      try {
+        expect(await command.run(['index', bundle.path]), 2);
+        expect(errors.single, contains('Index is busy'));
+        errors.clear();
+        expect(
+          await command.run([
+            'search',
+            bundle.path,
+            'password',
+            '--output=json',
+          ]),
+          0,
+        );
+        final result = jsonDecode(output.single) as Map;
+        const refreshLine =
+            'refresh-in-progress: An index refresh is running; these results '
+            'come from the last completed index.';
+        const changedLine =
+            'source-changed: recovery.md changed after the served index was '
+            'built; cited lines marked source changed may differ from the '
+            'files.';
+        const notices = [refreshLine, changedLine];
+        expect(result['notices'], notices);
+        final match = (result['matches'] as List).first as Map;
+        expect(match['chunk']['sourcePath'], 'recovery.md');
+        expect(match['sourceChanged'], isTrue);
+        output.clear();
+        expect(await command.run(['search', bundle.path, 'password']), 0);
+        expect(output.single, contains('match; source changed]'));
+        expect(
+          output.single,
+          contains('\nNotice: ${notices.join('\nNotice: ')}\n'),
+        );
+        output.clear();
+        expect(
+          await command.run([
+            'index',
+            bundle.path,
+            '--detach',
+            '--output=json',
+          ]),
+          0,
+        );
+        expect(jsonDecode(output.single), {
+          'bundle': bundle.path,
+          'detached': 'running',
+        });
+        expect(errors, isEmpty);
+      } finally {
+        await writer!.release();
+      }
+      output.clear();
+      expect(await command.run(['search', bundle.path, 'password']), 2);
+      expect(errors.single, contains('Index is stale'));
     });
   });
 
@@ -809,38 +1046,42 @@ class _Terminated extends Error {
 
 /// Reports a fixed index state without opening storage or a model. An index
 /// with [hold] does not finish until the test completes it.
-class _IndexKnowledge extends WayfinderKnowledge {
+class _IndexKnowledge extends WayfinderKnowledgeStore {
   _IndexKnowledge(
     this.state, {
     this.warnings = const [],
     this.hold,
-    super.dataDirectory,
-  });
+    Directory? dataDirectory,
+  }) : super(
+         dataDirectory: dataDirectory ?? Directory.systemTemp,
+         encoder: DeterministicEncoderProvider(),
+       );
   final List<KnowledgeInputDiagnostic> warnings;
   final String state;
   final Completer<void>? hold;
   final forced = <bool>[];
 
   @override
-  Future<bool> isCurrent(String bundle) async {
+  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) async {
     if (state == 'busy') {
-      throw const WayfinderException(
-        'index-busy',
-        'Index is busy. Retry when the current command finishes.',
-      );
+      return const KnowledgeIndexRefreshing(KnowledgeIndexCurrent());
     }
-    return state == 'current';
+    return state == 'current'
+        ? const KnowledgeIndexCurrent()
+        : const KnowledgeIndexStale([]);
   }
 
   @override
   Future<WayfinderIndexResult> index(
-    String bundle, {
+    ProjectBundle bundle, {
     bool force = false,
+    void Function(IndexProgress progress)? onProgress,
+    WayfinderCancellation? cancel,
   }) async {
     forced.add(force);
     await hold?.future;
     return WayfinderIndexResult(
-      bundle: bundle,
+      bundle: bundle.root,
       index: 'saved',
       warnings: warnings,
       embeddedChunks: 0,
@@ -852,21 +1093,57 @@ class _IndexKnowledge extends WayfinderKnowledge {
   }
 }
 
-class _SearchKnowledge extends WayfinderKnowledge {
+class _SearchKnowledge extends WayfinderKnowledgeStore {
+  _SearchKnowledge()
+    : super(
+        dataDirectory: Directory.systemTemp,
+        encoder: DeterministicEncoderProvider(),
+      );
   final limits = <int>[];
+  final policies = <StaleIndexPolicy>[];
 
   @override
-  Future<KnowledgeSearchResponse> search(
-    String bundle,
+  Future<KnowledgeBundleSearch> searchBundle(
+    ProjectBundle bundle,
     String query, {
     int limit = 5,
     KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
   }) async {
     limits.add(limit);
-    return KnowledgeSearchResponse(matches: [], context: [], notices: []);
+    policies.add(stale);
+    return KnowledgeBundleSearch(
+      bundle,
+      KnowledgeSearchResponse(matches: [], context: [], notices: []),
+    );
   }
 }
 
 /// The resolver the command uses by default.
 WayfinderProfileResolver _defaultResolver() =>
     WayfinderProfileResolver(dataDirectory: WayfinderDataDirectory.resolve());
+
+/// Deterministic vectors under the identity of the command's own model, so
+/// the command finds the index current without loading a model.
+final class _InstalledIdentityProvider implements WayfinderEncoderProvider {
+  @override
+  WayfinderEncoderIdentity get identity =>
+      LocalModelEncoderProvider.identityFor(localEmbeddingModel);
+
+  @override
+  Future<WayfinderEncoder> open() async => WayfinderEncoder(
+    _NamedEmbedder(identity),
+    (text) async => text.split(' ').length,
+    512,
+  );
+}
+
+class _NamedEmbedder extends DeterministicTestEmbedder {
+  _NamedEmbedder(this.identity) : super(modelName: identity.model);
+
+  final WayfinderEncoderIdentity identity;
+
+  @override
+  String get sourceName => identity.source;
+}

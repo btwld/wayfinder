@@ -1,85 +1,67 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:llamadart/llamadart.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_embeddings/model_cache.dart';
 
 /// Stages the pinned model for development or an application bundle.
 ///
-/// Download/resume/cache ownership stays with llamadart. A verified local model
-/// needs no network. A corrupt or interrupted download never replaces a staged
-/// model; only a verified copy is renamed into place.
+/// A verified model already in [output] needs nothing else. Otherwise the
+/// model is copied from the first verified copy found without network
+/// access: the [EmbeddingModelCache] in [cacheDirectory] (by default its
+/// directory in the Wayfinder data directory), then the llamadart caches
+/// earlier releases downloaded into ([legacyDownloads]), which keep their
+/// files. Only when none has it, and not [offline], does the cache download
+/// it. A copy is verified before it is renamed into [output], so a corrupt
+/// or interrupted preparation never replaces a staged model. A
+/// [cacheDirectory] equal to [output] downloads straight into place.
 Future<File> prepareEmbeddingModel({
   required Directory output,
   bool offline = false,
   EmbeddingModelSpec model = localEmbeddingModel,
-  ModelDownloadManager? downloads,
-  ModelDownloadManager? legacyDownloads,
+  Directory? cacheDirectory,
+  http.Client? client,
+  Iterable<ModelDownloadManager>? legacyDownloads,
+  void Function(ModelProvisionProgress step)? onProgress,
 }) async {
   await output.create(recursive: true);
-  final target = File(p.join(output.path, model.fileName));
-  var valid = false;
-  if (await target.exists()) {
-    try {
-      await model.verify(target);
-      valid = true;
-    } on FormatException {
-      // Recover from a partial or stale staged file via the verified cache.
-    }
-  }
-  if (!valid) {
-    final manager =
-        downloads ??
-        // The native conditional implementation is a non-const factory.
-        // ignore: prefer_const_constructors
-        DefaultModelDownloadManager.sharedCache(
-          namespace: 'wayfinder-embeddings',
+  final staged = EmbeddingModelCache.inDirectory(output, spec: model);
+  final target = staged.target.file;
+  if (await staged.locate() == null) {
+    final cache = cacheDirectory == null
+        ? EmbeddingModelCache(spec: model, client: client)
+        : EmbeddingModelCache.inDirectory(
+            cacheDirectory,
+            spec: model,
+            client: client,
+          );
+    var source =
+        await cache.locate() ??
+        await _legacyCachedModel(model, legacyDownloads ?? _legacyCaches());
+    if (source == null) {
+      if (offline) {
+        throw FileSystemException(
+          'The embedding model is neither staged nor cached. '
+          'Run without --offline to download it.',
+          target.path,
         );
-    final source = ModelSource.url(Uri.parse(model.url));
-    final legacy =
-        legacyDownloads ??
-        (downloads == null
-            // ignore: prefer_const_constructors
-            ? DefaultModelDownloadManager.sharedCache(
-                namespace: 'concepta-knowledge',
-              )
-            : null);
-    ModelCacheEntry? entry;
-    // Check both caches without network access before starting a new download.
-    // Keep the legacy cache intact for old binaries and offline installations.
-    for (final cache in [manager, ?legacy]) {
-      try {
-        entry = await cache.ensureModel(
-          source,
-          options: ModelLoadOptions(
-            sha256: model.sha256,
-            cachePolicy: ModelCachePolicy.cacheOnly,
-          ),
-        );
-        break;
-      } on LlamaStateException {
-        // The pinned native manager reports a cache miss with this exception.
+      }
+      await for (final step in cache.provision()) {
+        onProgress?.call(step);
+        if (step is ModelProvisioned) source = step.file;
       }
     }
-    entry ??= await manager.ensureModel(
-      source,
-      options: ModelLoadOptions(
-        sha256: model.sha256,
-        cachePolicy: offline
-            ? ModelCachePolicy.cacheOnly
-            : ModelCachePolicy.preferCached,
-      ),
-    );
-    final cached = File(entry.filePath);
-    await model.verify(cached);
-    final staging = await output.createTemp('.model-');
-    try {
-      final staged = await cached.copy(p.join(staging.path, model.fileName));
-      await model.verify(staged);
-      await staged.rename(target.path);
-    } finally {
-      await staging.delete(recursive: true);
+    if (!p.equals(source!.absolute.path, target.absolute.path)) {
+      final staging = await output.createTemp('.model-');
+      try {
+        final copy = await source.copy(p.join(staging.path, model.fileName));
+        await model.verify(copy);
+        await copy.rename(target.path);
+      } finally {
+        await staging.delete(recursive: true);
+      }
     }
   }
   await File(p.join(output.path, 'manifest.json')).writeAsString(
@@ -87,4 +69,46 @@ Future<File> prepareEmbeddingModel({
     flush: true,
   );
   return target;
+}
+
+/// The caches `prepare_model.dart` filled through llamadart before
+/// `EmbeddingModelCache`: `wayfinder-embeddings` and, before that,
+/// `concepta-knowledge`. Their models are read, never moved or removed; on a
+/// hit llamadart only refreshes the entry's `updated_at`.
+List<ModelDownloadManager> _legacyCaches() => [
+  // The native conditional implementation is a non-const factory.
+  // ignore: prefer_const_constructors
+  DefaultModelDownloadManager.sharedCache(namespace: 'wayfinder-embeddings'),
+  // ignore: prefer_const_constructors
+  DefaultModelDownloadManager.sharedCache(namespace: 'concepta-knowledge'),
+];
+
+/// A verified copy of [model] in one of [caches], found without network
+/// access, or null.
+Future<File?> _legacyCachedModel(
+  EmbeddingModelSpec model,
+  Iterable<ModelDownloadManager> caches,
+) async {
+  final source = ModelSource.url(Uri.parse(model.url));
+  for (final cache in caches) {
+    try {
+      final entry = await cache.ensureModel(
+        source,
+        options: ModelLoadOptions(
+          sha256: model.sha256,
+          cachePolicy: ModelCachePolicy.cacheOnly,
+        ),
+      );
+      final file = File(entry.filePath);
+      await model.verify(file);
+      return file;
+    } on LlamaStateException {
+      // The pinned native manager reports a cache miss with this exception.
+    } on FileSystemException {
+      // An entry whose file is gone is a miss.
+    } on FormatException {
+      // So is one whose bytes no longer match the pin.
+    }
+  }
+  return null;
 }

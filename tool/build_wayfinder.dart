@@ -6,9 +6,11 @@ import 'package:path/path.dart' as p;
 import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
 import '../packages/wayfinder_embeddings/tool/src/dependency_licenses.dart';
 import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
-import '../packages/wayfinder_embeddings/tool/src/objectbox_assets.dart';
 
 /// Builds Wayfinder from the workspace root with verified model/native assets.
+///
+/// The command needs no ObjectBox library: its knowledge store keeps indexes
+/// as plain generation files.
 Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addFlag('offline', negatable: false)
@@ -23,8 +25,8 @@ Future<void> main(List<String> arguments) async {
         'Output must be a subdirectory of the workspace build/ directory.',
       );
     }
+    await verifyLlamaCppRuntime();
     final package = p.join(workspace, 'packages', 'wayfinder_embeddings');
-    await verifiedObjectBoxLibrary(Directory(package));
     final model = await prepareEmbeddingModel(
       output: Directory(p.join(package, 'models')),
       offline: options.flag('offline'),
@@ -69,7 +71,6 @@ Future<void> main(List<String> arguments) async {
     ).listSync().whereType<File>()) {
       await file.copy(p.join(models.path, p.basename(file.path)));
     }
-    await stageObjectBoxAssets(Directory(package), Directory(bundle));
     await stageNativeCliAssets(Directory(package), Directory(bundle));
     await stageDependencyLicenses(Directory(bundle), [
       'wayfinder_cli',

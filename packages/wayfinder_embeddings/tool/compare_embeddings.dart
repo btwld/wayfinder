@@ -117,8 +117,7 @@ Future<void> main(List<String> args) async {
   }
   if (chunking.hasOverrides) {
     stdout.writeln(
-      'Chunk budgets: dart=${chunking.dartMaxChunkLength ?? 'default'}, '
-      'typescript=${chunking.typescriptMaxChunkLength ?? 'default'}, '
+      'Chunk budgets: typescript=${chunking.typescriptMaxChunkLength ?? 'default'}, '
       'markdown=${chunking.markdownMaxChunkLength ?? 'default'}, '
       'text=${chunking.textMaxChunkLength ?? 'default'} '
       '(non-whitespace characters).',
@@ -145,18 +144,61 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
+  workflow.ReferenceChunks? reference;
+  if (options.referenceChunksPath case final path?) {
+    try {
+      reference = workflow.ReferenceChunks.load(
+        File(path),
+        config.fixturesRoot,
+      );
+    } on FileSystemException catch (error) {
+      stderr.writeln('Error: ${error.message} at ${error.path}');
+      exit(1);
+    } on FormatException catch (error) {
+      stderr.writeln('Invalid reference chunks: $error');
+      exit(1);
+    }
+    stdout.writeln(
+      'Reference chunks: $path (${reference.paths.length} files); files no '
+      'built-in chunker handles replay them.',
+    );
+  }
+
   stdout.writeln('\n1. Building chunk registry and previewing corpus...');
-  final registry = workflow.buildDefaultRegistry(chunking: chunking);
-  final preview = workflow.PreviewResult.fromFiles(
-    registry: registry,
-    files: files,
-    fixturesDir: config.fixturesRoot,
-    onFileProcessed: (file, chunks) {
-      final relative = p.relative(file.path, from: config.fixturesRoot.path);
-      stdout.writeln('  • $relative -> ${chunks.length} chunks');
-    },
+  final registry = workflow.buildDefaultRegistry(
+    chunking: chunking,
+    reference: reference,
   );
+  final workflow.PreviewResult preview;
+  try {
+    preview = workflow.PreviewResult.fromFiles(
+      registry: registry,
+      files: files,
+      fixturesDir: config.fixturesRoot,
+      onFileProcessed: (file, chunks) {
+        final relative = p.relative(file.path, from: config.fixturesRoot.path);
+        stdout.writeln('  • $relative -> ${chunks.length} chunks');
+      },
+    );
+  } on StateError catch (error) {
+    // A reference manifest that no longer matches its corpus.
+    stderr.writeln(error.message);
+    exit(1);
+  }
+  workflow.reportSkippedFiles('Preview', preview.skipped, stdout);
   stdout.writeln('Preview produced ${preview.chunks.length} total chunks.');
+  if (judgments != null) {
+    final reason = workflow.unscorableJudgmentsReason(
+      judgments: judgments,
+      preview: preview,
+      fixturesDir: config.fixturesRoot,
+      stableIds: qrelsMatchMode == QrelsMatchMode.stableId,
+    );
+    if (reason != null) {
+      stderr.writeln(reason);
+      exit(1);
+    }
+  }
 
   workflow.FixtureSpanRelevance? spanRelevance;
   if (judgments != null && qrelsMatchMode == QrelsMatchMode.spanOverlap) {
@@ -164,7 +206,7 @@ Future<void> main(List<String> args) async {
     try {
       final referenceChunks = chunking.hasOverrides
           ? (workflow.PreviewResult.fromFiles(
-              registry: workflow.buildDefaultRegistry(),
+              registry: workflow.buildDefaultRegistry(reference: reference),
               files: files,
               fixturesDir: config.fixturesRoot,
             )).chunks
@@ -190,9 +232,7 @@ Future<void> main(List<String> args) async {
       );
     } on StateError catch (error) {
       stderr.writeln(error);
-      stderr.writeln(
-        'Inspect ${config.outputDir.path} or rerun with UPDATE_GOLDENS=1.',
-      );
+      stderr.writeln('Inspect ${config.outputDir.path}.');
       exit(1);
     }
   } else {

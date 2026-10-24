@@ -438,6 +438,36 @@ void main() {
     );
     expect(await lockFile().exists(), isFalse);
   });
+  test('pruneProjectLocks deletes the get lock of a removed project once '
+      'unused, and never a held one', () async {
+    await resolver.resolve(project.path);
+    final lock = await projectLock();
+    expect(await lock.exists(), isTrue);
+    expect(await resolver.pruneProjectLocks(unusedFor: Duration.zero), isEmpty);
+    final moved = await project.rename('${project.path}-moved');
+    await lock.setLastModified(
+      DateTime.now().subtract(const Duration(days: 40)),
+    );
+    final holder = await WayfinderFileLock.tryExclusive(lock);
+    expect(
+      await resolver.pruneProjectLocks(),
+      isEmpty,
+      reason: 'a held lock is left, and its note is not read',
+    );
+    await holder!.release();
+    await lock.setLastModified(
+      DateTime.now().subtract(const Duration(days: 40)),
+    );
+    expect(
+      await resolver.pruneProjectLocks(unusedFor: const Duration(days: 41)),
+      isEmpty,
+      reason: 'used within the period',
+    );
+    expect(await resolver.pruneProjectLocks(), [lock.path]);
+    expect(await lock.exists(), isFalse);
+    await moved.rename(project.path);
+    expect(await resolver.pruneProjectLocks(), isEmpty);
+  });
 }
 
 Future<String> _lockedCommit(File lock) async {

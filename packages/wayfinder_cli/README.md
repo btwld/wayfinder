@@ -23,7 +23,9 @@ Search ranks matches across all selected bundles with one query embedding and
 one global `--limit`. Project JSON adds `bundles`, plus `bundle` and `bundlePath`
 on each hit; text citations include the project-relative bundle path. Source
 paths, line numbers, status, and relationship context remain available. A missing
-or stale selected index fails the search, rather than silently returning a subset.
+or stale selected index fails the search, rather than silently returning a subset,
+except while another command refreshes it: then search serves the last completed
+index with notices (see [Local storage](#local-storage)).
 
 The explicit `index <path>` and `search <path> "<query>"` forms retain their
 single-bundle JSON shape and ignore neighboring configuration. Background
@@ -78,7 +80,6 @@ From the workspace root:
 
 ```bash
 dart pub get
-dart run melos run objectbox:install
 dart run melos run wayfinder_embeddings:prepare
 dart run wayfinder_cli:wayfinder get examples/bitwild
 dart run wayfinder_cli:wayfinder validate examples/bitwild/knowledge
@@ -107,13 +108,14 @@ runs resolve their own assets independently of the current working directory.
 | Repeat `index`, nothing changed | None; returns without loading the model |
 | Repeat `index` after edits | Reuse compatible vectors; encode changed/new inputs and remove deleted passages |
 | `index --force` | Discard the saved index and re-embed every passage |
-| `search` | Reopen the completed snapshot and encode only the query |
+| `search` | Read the last completed generation and encode only the query; an index running meanwhile is not waited for |
 
 Titles/headings are part of document embedding inputs. Other metadata and
 citation-only updates can refresh without inference. Passage shifts can change
 IDs and cause additional re-encoding. An unchanged index returns without
-opening the model or staging a database copy. `--force` rebuilds from scratch
-into a new generation, which replaces the old one only when it completes.
+opening the model or writing a generation. `--force` rebuilds from scratch
+into a new generation, which replaces the old one only when it completes;
+searches meanwhile keep reading the old one.
 `--detach` returns at once and indexes in a background process only when the
 bundle changed; the refresh hooks use it. One background index runs per
 machine: while one runs, `--detach` reports it and starts nothing. A background
@@ -151,10 +153,15 @@ metadata and graph relationships). Run
 `wayfinder index <bundle>` once to rebuild even if source bytes are unchanged;
 subsequent unchanged calls reuse the index. Snapshot version 1 remains readable
 with additive recovery fields. No bundle migration, Profile release, model change,
-or ObjectBox schema change is required. New fragment boundaries or omitted context
+or storage schema change is required. New fragment boundaries or omitted context
 can change retrieval results. Failed rebuilds preserve the previous generation,
 but search still rejects stale or configuration-incompatible indexes; there is
 no automatic fallback to old vectors.
+
+Index configuration version 5 names the llama.cpp runtime it was built
+with, `llamadart-native` v0.7.0-2 through llamadart 0.15. Its vectors differ
+slightly from earlier runtimes', so an index from an earlier configuration is
+not read, and `wayfinder index <bundle>` builds it once.
 
 Native first-use initialization remains variable. Reusing document vectors
 does not remove model startup or the first query's inference cost; later
@@ -191,15 +198,18 @@ Validation exits 0 for gate `PASS`, 1 for `FAIL` and 2 for `INCOMPLETE`, which
 covers usage and I/O errors and any run with an error diagnostic. With
 `--output json` or `--output sarif`, a run that stops still prints a result
 carrying the `wayfinder/internal-error` diagnostic. Index/search return 0 on success and 2 when they
-cannot complete, including stale indexes, busy stores and missing model assets.
+cannot complete, including stale indexes, an index another command is running
+and missing model assets.
 An empty result set is a successful search. Graph returns 0 on success, 1 when
 load findings refuse a graph, and 2 for usage or I/O failure.
 
 Set `WAYFINDER_EMBEDDING_MODEL` to select a verified local model file. An
-invalid explicit setting fails instead of selecting another model.
+invalid explicit setting fails instead of selecting another model: `index`,
+including `index <bundle> --detach`, checks it even when the saved index is
+current.
 
-Native builds check the installed and packaged ObjectBox bytes against pinned
-platform hashes and include its license and attribution.
+Indexes are plain files, so the command needs no database library; native
+builds ship only the embedding runtime and the model.
 
 ## MCP server
 
@@ -251,18 +261,18 @@ preview.
 Use `index` explicitly before the first search and after source edits. It saves
 document embeddings in the same local app-data directory used by the CLI.
 Discovery and validation work without a model. Search reports missing/stale
-indexes and never indexes implicitly. The host can require approval for index's
+indexes, except while a refresh runs, and never indexes implicitly. The host can require approval for index's
 local writes. There is no per-call bundle override. Search uses dense retrieval
 only; a verified local encoder is required. Unsupported request fields, including
 retired `mode`, are rejected.
 
-The server keeps one lazily opened encoder across index/search calls and
-serializes retrieval operations that share it. The CLI delegates MCP retrieval
-ownership to the server, so `wayfinder mcp` uses this persistent lifetime.
-An explicit Dart `knowledge` factory override keeps the caller's chosen lifetime.
-Each call still checks source
-freshness and closes its store. Failed calls evict the encoder; disconnect drains
-accepted calls and disposes it. The service also retains parsed snapshots in an
+The server keeps one lazily opened encoder across index/search calls; they use
+it one call into the model at a time (a batch of passages or one query), so a
+search runs between an index's batches instead of after it. The CLI delegates
+MCP retrieval ownership to the server, so `wayfinder mcp` uses this persistent
+lifetime. An explicit Dart `knowledge` factory override keeps the caller's
+chosen lifetime. Each call still checks source freshness. Failed calls evict
+the encoder; disconnect drains accepted calls and disposes it. The service also retains parsed snapshots in an
 LRU cache bounded by 64 MiB of UTF-8 JSON text across bundles. Every call rereads
 the pointer and snapshot text; reuse requires the same canonical index directory,
 generation, and complete text. Changed, missing, or invalid records, failed
@@ -271,9 +281,14 @@ records bypass the cache. This avoids repeated parsing and graph reconstruction
 for unchanged snapshots across multi-bundle searches; it retains no open store or
 search response and skips no source freshness check. One-shot CLI commands do not
 cache snapshots and still load their own model. Configure the host's
-tool timeout for first-use startup and the size of the corpus. Overlapping
-retrieval calls can return a busy error. On disconnect, active operations finish
-and release their resources; cancellation does not roll back indexing. The
+tool timeout for first-use startup and the size of the corpus. A second `index`
+of a bundle while one runs returns a busy error; `search` meanwhile serves the
+last completed index with a `refresh-in-progress` notice, as the command does.
+A `search` the client cancels stops before its next step, such as encoding
+the query or scoring passages, and so does one still running when the client
+disconnects. On disconnect, other active operations finish, an `index`
+included, and release their resources; cancellation does not roll back
+indexing. The
 server projects the ordinary OKF graph and does not expose upstream OKF's
 concept-authoring write tools. See [ADR-0012](../../docs/adr/0012-wayfinder-graph-projection.md).
 
@@ -336,14 +351,32 @@ stderr is not a terminal, or when `CI` or `WAYFINDER_NO_UPDATE_CHECK` is set.
 
 ## Local storage
 
-Wayfinder stores an ObjectBox database and snapshot under a hash of the canonical
-absolute bundle path. Separate worktrees get separate indexes; symlink aliases
-resolve to the same root. Moving a bundle requires indexing its new location.
+Wayfinder stores each index under a hash of the canonical absolute bundle
+path, then a hash of the index configuration: chunking, snapshot and storage
+format, and the model's identity. Separate worktrees get separate indexes;
+symlink aliases resolve to the same root. Moving a bundle requires indexing its
+new location, and a release that changes the configuration builds each index
+once in a directory of its own.
 
-- macOS: `~/Library/Application Support/Wayfinder/indexes/<bundle-key>/`
-- Linux: `$XDG_DATA_HOME/wayfinder/indexes/<bundle-key>/`, defaulting to
-  `~/.local/share/wayfinder/indexes/<bundle-key>/`
-- Windows: `%LOCALAPPDATA%/Wayfinder/indexes/<bundle-key>/`
+- macOS: `~/Library/Application Support/Wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
+- Linux: `$XDG_DATA_HOME/wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`,
+  defaulting to `~/.local/share/wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
+- Windows: `%LOCALAPPDATA%/Wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
+
+An index directory holds `writer.lock`, a `current` pointer and immutable
+generations, `generation-<id>/` with `snapshot.json` (the indexed bundle text,
+passages, metadata and the record of the vectors) and `vectors.f32` (a header,
+then one little-endian float32 row per passage, checked against the SHA-256 the
+record names). There is no database: search loads the generation it reads and
+scores every eligible passage exactly.
+
+Wayfinder 0.2 kept one index per bundle directly under `indexes/<bundle-key>/`,
+with a different bundle key, and earlier 0.3 builds kept ObjectBox databases in
+`indexes/<bundle-key>/<configuration-key>/`. This version never reads, changes
+or deletes either, so the first `index` after upgrading builds the index again;
+delete those directories by hand to reclaim their space. The index lifecycle is
+the `wayfinder_embeddings` knowledge store library
+([its guide](../wayfinder_embeddings/README.md#knowledge-store)).
 
 `WAYFINDER_DATA_DIR` overrides the app-data root for isolated runs. It must be
 outside the knowledge bundle. The model is shared by the installation; query
@@ -353,23 +386,38 @@ knowledge in per-user application data on every machine that runs it. Nothing
 leaves the machine; deleting the index directory removes the copy, and indexing
 rebuilds it from the original bundle.
 
+An installed `wayfinder` loads the model from its own bundle. A source checkout's
+`wayfinder_embeddings:prepare`, and an application that embeds
+`wayfinder_embeddings`, download it once into `models/<model-id>/` under the
+same app-data root; deleting that directory costs one download.
+
 `get` keeps each Profile source as a bare mirror under `profiles/`, and the
 package file of each package it read under `profiles/packages/`, which is all
 `validate` reads. A cache from Wayfinder 0.2 has no package files; `validate`
 copies a missing one out of its source's mirror once, without fetching, and
 runs no Git after that. `profiles/<source>.lock` lets one `get` at a time
 refresh or read a source, and others wait up to two minutes;
-`projects/<project>.get.lock` records the project it guards. These locks hold
-across processes and isolates; keep the data directory on a local disk.
+`projects/<project>.get.lock` records the project it guards.
+`background-index.lock` lets one `index --detach` run at a time. These locks
+hold across processes and isolates; keep the data directory on a local disk.
 
-An OS lock serializes same-bundle commands. Indexing stages a replacement
-database and snapshot, then publishes their completed generation atomically.
-Failed indexing preserves the previous generation; searches still reject it
-if source files have changed. Successful indexing removes inactive generations.
-Copying the database temporarily requires space for both generations.
-Saved generations are decoded and validated once per operation. Indexing returns
-a typed result internally, with additive JSON warnings and backward-readable
-snapshot recovery data.
+Only writers lock. `index` holds the bundle's `writer.lock` for its whole run, so
+a second `index` of the bundle fails with `Index is busy`. `search` holds no lock:
+it reads the generation `current` names, which never changes, so it keeps working
+while an index runs. To tell whether an index runs, it probes `writer.lock` for
+an instant, which a starting `index` waits out rather than report as busy.
+Indexing writes a complete new generation and replaces `current` atomically, so
+a search reads either the old generation or the new one, never a partial one;
+on Windows the replacement waits for searches that have `current` open. A
+failed index preserves the previous generation.
+While another command holds `writer.lock`, `search` serves the last completed
+generation even when files changed since: the output adds a `refresh-in-progress`
+notice, and for edited files a `source-changed` notice, and marks their passages
+`source changed` (`"sourceChanged": true` in JSON); reread those lines in the
+files. With no index running, a stale index is refused as before. A superseded
+generation stays for ten minutes after the index that replaced it, so a search
+that started just before still finds it; a later index deletes it. A search
+that loses that race reads `current` again.
 
 Source-content rechecks detect observed edits; they are not an OS filesystem
 snapshot. The adapter scores eligible vectors exactly, so work increases with
@@ -387,7 +435,8 @@ python3 tool/verify_wayfinder_mcp.py build/wayfinder/bundle --output=build/wayfi
 
 The native check copies the bundle to a temporary location and uses fresh
 processes for indexing/search, vector reuse, updates/deletions, missing/corrupt
-models, cross-process locking and crash-lock recovery. It checks validation
+models, cross-process locking, searching while another process indexes, and
+crash-lock recovery. It checks validation
 without a model and preserves the old index after an indexing failure.
 The checked-in fixture is generic; it is not a conformant profile template or
 independent model-quality benchmark. Native CI exercises Linux/macOS.

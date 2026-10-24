@@ -8,10 +8,10 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
-import 'package:wayfinder_cli/src/knowledge.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/version.dart';
-import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support.dart';
 
@@ -23,23 +23,14 @@ import 'support.dart';
 /// fetched and a Bitwild release leaves these goldens alone. It indexes with a
 /// deterministic encoder instead of the local model. Its passages are written
 /// so that no two chunks of one concept tie, because ties fall back to chunk
-/// IDs, which hash the absolute bundle root. Temporary paths, the index key,
-/// chunk IDs, the Profile commit, the server version and timings are
-/// normalized; every other byte is compared. Retrieval needs ObjectBox
-/// (`melos run objectbox:install`).
+/// IDs. Temporary paths, the bundle and configuration keys, chunk IDs, the
+/// Profile commit, the server version and timings are normalized; every other
+/// byte is compared. Retrieval needs no native library.
 ///
 /// Regenerate with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart`
-/// only for an intended contract change, then review the diff. Regenerating
-/// fails without ObjectBox rather than leave the retrieval goldens stale.
+/// only for an intended contract change, then review the diff.
 void main() {
   final update = Platform.environment['UPDATE_GOLDENS'] == '1';
-  final objectBox = File(
-    '../wayfinder_embeddings/lib/${Platform.isMacOS
-        ? 'libobjectbox.dylib'
-        : Platform.isWindows
-        ? 'objectbox.dll'
-        : 'libobjectbox.so'}',
-  );
   late _ContractProject fixture;
   final retrieval = [
     'index.json',
@@ -151,66 +142,92 @@ void main() {
     await expectGolden('validate.json', fixture.json(payload));
   });
 
-  group(
-    'retrieval',
-    () {
-      late String index;
-      setUpAll(() async {
-        if (!objectBox.existsSync()) {
-          fail(
-            'UPDATE_GOLDENS=1 cannot regenerate ${retrieval.join(', ')} '
-            'without ObjectBox; run melos run objectbox:install first.',
-          );
+  group('retrieval', () {
+    late String index;
+    setUpAll(() async {
+      final (code, out) = await fixture.cli(['index', '--output=json']);
+      expect(code, 0);
+      index = fixture.json(jsonDecode(out));
+    });
+
+    test('project index JSON matches index.json', () async {
+      await expectGolden('index.json', index);
+    });
+
+    // A limit of 2 leaves the depends-on target out of the matches, so the
+    // Markdown also shows ## Related Context.
+    test('MCP project search Markdown matches search.md', () async {
+      final markdown = await fixture.mcpSearch(_query, limit: 2);
+      final (code, text) = await fixture.cli(['search', _query, '--limit=2']);
+      expect(code, 0);
+      expect(text, markdown, reason: 'CLI text search prints the same');
+      await expectGolden('search.md', '${fixture.text(markdown)}\n');
+    });
+
+    test('CLI project search JSON matches search_project.json', () async {
+      final (code, out) = await fixture.cli([
+        'search',
+        _query,
+        '--output=json',
+      ]);
+      expect(code, 0);
+      await expectGolden('search_project.json', fixture.json(jsonDecode(out)));
+    });
+
+    test('CLI bundle search JSON matches search_bundle.json', () async {
+      final (code, out) = await fixture.cli([
+        'search',
+        p.join(fixture.project.path, 'knowledge'),
+        _query,
+        '--output=json',
+      ]);
+      expect(code, 0);
+      await expectGolden('search_bundle.json', fixture.json(jsonDecode(out)));
+    });
+
+    // The goldens number chunk IDs, so this pins what they do not: the
+    // same project elsewhere gets the same IDs.
+    test('CLI search JSON chunk IDs do not depend on where the project '
+        'lives', () async {
+      final elsewhere = await _ContractProject.create();
+      addTearDown(elsewhere.dispose);
+      expect(elsewhere.project.path, isNot(fixture.project.path));
+      final (indexed, _) = await elsewhere.cli(['index', '--output=json']);
+      expect(indexed, 0);
+      Future<List<String>> ids(_ContractProject project) async {
+        final (code, out) = await project.cli([
+          'search',
+          _query,
+          '--output=json',
+        ]);
+        expect(code, 0);
+        final found = <String>[];
+        void walk(Object? value) {
+          switch (value) {
+            case Map():
+              for (final MapEntry(:key, :value) in value.entries) {
+                if ((key == 'id' || key == 'parentChunkId') &&
+                    value is String &&
+                    _sha256.hasMatch(value)) {
+                  found.add(value);
+                } else {
+                  walk(value);
+                }
+              }
+            case List():
+              value.forEach(walk);
+          }
         }
-        final (code, out) = await fixture.cli(['index', '--output=json']);
-        expect(code, 0);
-        index = fixture.json(jsonDecode(out));
-      });
 
-      test('project index JSON matches index.json', () async {
-        await expectGolden('index.json', index);
-      });
+        walk(jsonDecode(out));
+        return found;
+      }
 
-      // A limit of 2 leaves the depends-on target out of the matches, so the
-      // Markdown also shows ## Related Context.
-      test('MCP project search Markdown matches search.md', () async {
-        final markdown = await fixture.mcpSearch(_query, limit: 2);
-        final (code, text) = await fixture.cli(['search', _query, '--limit=2']);
-        expect(code, 0);
-        expect(text, markdown, reason: 'CLI text search prints the same');
-        await expectGolden('search.md', '${fixture.text(markdown)}\n');
-      });
-
-      test('CLI project search JSON matches search_project.json', () async {
-        final (code, out) = await fixture.cli([
-          'search',
-          _query,
-          '--output=json',
-        ]);
-        expect(code, 0);
-        await expectGolden(
-          'search_project.json',
-          fixture.json(jsonDecode(out)),
-        );
-      });
-
-      test('CLI bundle search JSON matches search_bundle.json', () async {
-        final (code, out) = await fixture.cli([
-          'search',
-          p.join(fixture.project.path, 'knowledge'),
-          _query,
-          '--output=json',
-        ]);
-        expect(code, 0);
-        await expectGolden('search_bundle.json', fixture.json(jsonDecode(out)));
-      });
-    },
-    // An update must not skip them: it would report green with these four
-    // goldens left as they were.
-    skip: objectBox.existsSync() || update
-        ? false
-        : 'Install ObjectBox to run the retrieval goldens.',
-  );
+      final here = await ids(fixture);
+      expect(here, isNotEmpty);
+      expect(await ids(elsewhere), here);
+    });
+  });
 
   test('the goldens directory holds exactly the contract goldens', () {
     final names = Directory(
@@ -346,19 +363,21 @@ final class _ContractProject {
 
   Future<void> dispose() => _temp.delete(recursive: true);
 
-  WayfinderKnowledge _knowledge({bool keepEncoderAlive = false}) =>
-      WayfinderKnowledge(
+  WayfinderKnowledgeStore _knowledge({bool retainEncoder = false}) =>
+      WayfinderKnowledgeStore(
         dataDirectory: _data,
-        keepEncoderAlive: keepEncoderAlive,
-        encoderIdentity: (model: _model, source: _ContractEncoder.source),
+        retainEncoder: retainEncoder,
         // Space-separated words as tokens. Every passage fits 28 with its
         // context except weather.md's, whose long description alone exceeds
         // it, so indexing embeds that passage body-only and reports one
         // embedding_context_omitted warning.
-        openEncoder: () async => WayfinderEncoder(
-          _ContractEncoder(),
-          (text) async => text.split(' ').length,
-          28,
+        encoder: DeterministicEncoderProvider(
+          model: _model,
+          maxTokens: 28,
+          create: () => DeterministicTestEmbedder(
+            modelName: _model,
+            vectorOf: keywordVector,
+          ),
         ),
       );
 
@@ -411,7 +430,7 @@ final class _ContractProject {
     final serving = WayfinderMcpServer(
       rootPath: rootPath,
       workingDirectory: project,
-      knowledge: _knowledge(keepEncoderAlive: true),
+      knowledge: _knowledge(retainEncoder: true),
       profileResolver: _resolver,
     ).serve(transport: transport);
     final client = McpClient(
@@ -486,8 +505,8 @@ final class _ContractProject {
   String json(Object? value) =>
       '${const JsonEncoder.withIndent('  ').convert(normalize(value))}\n';
 
-  /// OKF chunk IDs hash the absolute bundle root, so each becomes a label
-  /// numbered by first appearance, which keeps matches and context linked.
+  /// Chunk IDs are hashes, so each becomes a label numbered by first
+  /// appearance, which keeps matches and context linked.
   Object? normalize(Object? value) {
     final chunks = <String, String>{};
     Object? walk(Object? value) => switch (value) {
@@ -518,30 +537,11 @@ final class _ContractProject {
     if (result.contains('<tmp>')) result = result.replaceAll(r'\', '/');
     return result
         .replaceAll(_commit, '<profile-commit>')
-        .replaceAll(RegExp(r'indexes/[0-9a-f]{64}'), 'indexes/<bundle-key>');
+        .replaceAll(
+          RegExp(r'indexes/bundles/[0-9a-f]{64}/[0-9a-f]{64}'),
+          'indexes/bundles/<bundle-key>/<configuration-key>',
+        );
   }
-}
-
-/// The [keywordVector] encoder of `knowledge_test.dart`, without its
-/// counters.
-final class _ContractEncoder extends BaseEmbedder {
-  static const source = 'wayfinder-fixture';
-
-  @override
-  String get sourceName => source;
-  @override
-  String get modelName => _model;
-  @override
-  int get dimension => 384;
-
-  @override
-  Future<List<double>> generateEmbedding(String text) async =>
-      keywordVector(text);
-  @override
-  Future<List<double>> generateQueryVector(String text) async =>
-      keywordVector(text);
-  @override
-  Future<void> dispose() async {}
 }
 
 /// The resolved versions of the packages that serialize the MCP wire bytes,

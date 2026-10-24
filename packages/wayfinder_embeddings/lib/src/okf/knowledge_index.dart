@@ -2,9 +2,15 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
+import 'package:wayfinder/project.dart'
+    show ProjectBundle, WayfinderCancellation, throwIfCancelled;
 import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
 
-import '../../wayfinder_embeddings.dart';
+import '../embedding/base_embedder.dart';
+import '../models/chunk.dart';
+import '../models/embedding.dart';
+import '../models/search_result.dart';
+import '../storage/base_store.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 
@@ -149,11 +155,116 @@ class KnowledgeContextHit {
   final OkfFieldEdge? fieldEdge;
 }
 
+/// What a [KnowledgeNotice] reports. [wireValue] is the stable code a host
+/// matches; a later release may add codes, so a `switch` over them keeps a
+/// default.
+enum KnowledgeNoticeCode {
+  /// A match links, through a typed `relationships` entry or a body link, to
+  /// a target that resolves to no concept of the bundle.
+  unresolvedRelationship('unresolved-relationship'),
+
+  /// A governing source the search policy names is excluded by the policy or
+  /// has no passage, so it could not be added as context.
+  governingSourceUnavailable('governing-source-unavailable'),
+
+  /// Another operation was refreshing the index, and the search served the
+  /// last published generation (`StaleIndexPolicy.serveWhileRefreshing`).
+  refreshInProgress('refresh-in-progress'),
+
+  /// Files changed after the served generation was built, so passages cited
+  /// from them may no longer match the files.
+  sourceChanged('source-changed');
+
+  const KnowledgeNoticeCode(this.wireValue);
+
+  /// The kebab-case code, such as `unresolved-relationship`.
+  final String wireValue;
+}
+
+/// Something a search reports besides its passages: a stable [code], the
+/// sentence [message], and the [paths] it concerns.
+///
+/// A host tells notices apart by [code], never by their text. [text] is what
+/// `wayfinder search` prints after `Notice: ` and lists under `notices` in its
+/// JSON.
+final class KnowledgeNotice {
+  KnowledgeNotice(
+    this.code,
+    this.message, {
+    Iterable<String> paths = const [],
+    this.target,
+    this.bundle,
+  }) : paths = List.unmodifiable(paths);
+
+  final KnowledgeNoticeCode code;
+
+  /// The sentence for a reader, without the code or the name of the bundle
+  /// it concerns, such as `An index refresh is running; these results come
+  /// from the last completed index.`
+  final String message;
+
+  /// Bundle-relative paths it concerns, sorted:
+  ///
+  /// - [KnowledgeNoticeCode.unresolvedRelationship]: the matched concepts
+  ///   whose link to [target] did not resolve;
+  /// - [KnowledgeNoticeCode.governingSourceUnavailable]: the governing
+  ///   source;
+  /// - [KnowledgeNoticeCode.sourceChanged]: every file added, removed or
+  ///   edited since the served generation was built, while [message] names
+  ///   at most ten;
+  /// - [KnowledgeNoticeCode.refreshInProgress]: none.
+  final List<String> paths;
+
+  /// The link target as written, for
+  /// [KnowledgeNoticeCode.unresolvedRelationship]; otherwise null.
+  final String? target;
+
+  /// The bundle it concerns, in the notices of a project search, which ranks
+  /// several bundles together; null in one bundle's own response.
+  final ProjectBundle? bundle;
+
+  /// The line `wayfinder search` prints after `Notice: ` and lists under
+  /// `notices` in its JSON: [message], after its code and a colon for
+  /// `refresh-in-progress` and `source-changed`, as the command has always
+  /// printed them, and after the [bundle]'s name and a colon when it has one.
+  String get text {
+    final line = switch (code) {
+      KnowledgeNoticeCode.refreshInProgress ||
+      KnowledgeNoticeCode.sourceChanged => '${code.wireValue}: $message',
+      KnowledgeNoticeCode.unresolvedRelationship ||
+      KnowledgeNoticeCode.governingSourceUnavailable => message,
+    };
+    return switch (bundle) {
+      final bundle? => '${bundle.name}: $line',
+      null => line,
+    };
+  }
+
+  /// This notice, about [bundle].
+  KnowledgeNotice about(ProjectBundle bundle) => KnowledgeNotice(
+    code,
+    message,
+    paths: paths,
+    target: target,
+    bundle: bundle,
+  );
+
+  @override
+  String toString() => text;
+}
+
+/// What a search collects for one notice sentence before it reports it.
+typedef _NoticeFacts = ({
+  KnowledgeNoticeCode code,
+  String? target,
+  Set<String> paths,
+});
+
 class KnowledgeSearchResponse {
   KnowledgeSearchResponse({
     required List<SearchResult> matches,
     required List<KnowledgeContextHit> context,
-    required List<String> notices,
+    required List<KnowledgeNotice> notices,
   }) : matches = List.unmodifiable(matches),
        context = List.unmodifiable(context),
        notices = List.unmodifiable(notices);
@@ -164,8 +275,9 @@ class KnowledgeSearchResponse {
   /// Bounded context after applying explicit governing and relationship policy.
   final List<KnowledgeContextHit> context;
 
-  /// Missing/excluded governing context and unresolved links are visible here.
-  final List<String> notices;
+  /// Missing/excluded governing context and unresolved links, one notice per
+  /// sentence, in the order first found.
+  final List<KnowledgeNotice> notices;
 }
 
 /// Synchronizes one bundle and searches an explicit eligible concept set.
@@ -218,8 +330,17 @@ class KnowledgeIndex {
 
   /// Embeds missing/changed inputs before one atomic replacement. Failed loads
   /// or inference leave the prior store/index usable. Other bundles are retained.
+  ///
+  /// [onEmbedded] reports the inputs embedded so far and the total, before
+  /// the first batch of 32 and after each one. [cancel] is checked before
+  /// each batch and before the store is written; a cancelled call throws
+  /// `WayfinderException.cancelled()` and leaves the store as it was.
   Future<({int embeddedChunks, int removedChunks, int writtenChunks})>
-  synchronize(KnowledgeSnapshot input) async {
+  synchronize(
+    KnowledgeSnapshot input, {
+    void Function(int embedded, int total)? onEmbedded,
+    WayfinderCancellation? cancel,
+  }) async {
     if (_synchronizing || _searches > 0) {
       throw StateError(
         'Await active searches/synchronization before updating.',
@@ -275,7 +396,9 @@ class KnowledgeIndex {
         if (previous[chunk.id] != updated) writes.add(updated);
       }
       final vectors = <Embedding>[];
+      onEmbedded?.call(0, pending.length);
       for (var offset = 0; offset < pending.length; offset += 32) {
+        throwIfCancelled(cancel);
         final batch = pending.skip(offset).take(32).toList();
         final encoded = await embedder.generateEmbeddings(
           batch.map((item) => item.text).toList(),
@@ -294,7 +417,9 @@ class KnowledgeIndex {
             ),
           );
         }
+        onEmbedded?.call(offset + batch.length, pending.length);
       }
+      throwIfCancelled(cancel);
       if (writes.isNotEmpty || vectors.isNotEmpty || removed.isNotEmpty) {
         await store.replaceChunks(
           chunks: writes,
@@ -313,16 +438,25 @@ class KnowledgeIndex {
     }
   }
 
+  /// Ranks the eligible passages by their similarity to [query] and adds the
+  /// [policy]'s context.
+  ///
+  /// [cancel] is checked before the query is encoded and again before the
+  /// passages are scored; a cancelled call throws
+  /// `WayfinderException.cancelled()`. A query vector being encoded is not
+  /// interrupted.
   Future<KnowledgeSearchResponse> search(
     String query, {
     KnowledgeSearchPolicy? policy,
     int limit = 5,
     int? contextLimit,
+    WayfinderCancellation? cancel,
   }) async {
     final snapshot = _snapshot;
     if (snapshot == null || _synchronizing) {
       throw StateError('Synchronize the index before searching.');
     }
+    throwIfCancelled(cancel);
     final budget = contextLimit ?? limit;
     if (query.trim().isEmpty || limit <= 0 || budget <= 0) {
       return KnowledgeSearchResponse(matches: [], context: [], notices: []);
@@ -351,6 +485,7 @@ class KnowledgeIndex {
         if (_queryCache.length > 100) {
           _queryCache.remove(_queryCache.keys.first);
         }
+        throwIfCancelled(cancel);
         for (final embedding in stored) {
           dense.add(
             SearchResult(
@@ -454,7 +589,21 @@ class KnowledgeIndex {
     }
     final context = <KnowledgeContextHit>[];
     final seen = <String>{};
-    final notices = <String>[];
+    // One notice per sentence, in the order first found, with every path
+    // that led to it.
+    final notices = <String, _NoticeFacts>{};
+    void notice(
+      KnowledgeNoticeCode code,
+      String message, {
+      required String path,
+      String? target,
+    }) => notices
+        .putIfAbsent(
+          message,
+          () => (code: code, target: target, paths: <String>{}),
+        )
+        .paths
+        .add(path);
     void add(
       String path,
       String reason, {
@@ -466,7 +615,11 @@ class KnowledgeIndex {
       final governor = policy.governingSources[path];
       if (governor != null) {
         if (!byPath.containsKey(governor)) {
-          notices.add('Governing source excluded or has no passage: $governor');
+          notice(
+            KnowledgeNoticeCode.governingSourceUnavailable,
+            'Governing source excluded or has no passage: $governor',
+            path: governor,
+          );
         } else {
           add(governor, 'governing', via: path);
         }
@@ -505,7 +658,12 @@ class KnowledgeIndex {
         );
       } else if (resolution == OkfGraphResolution.unresolved ||
           resolution == OkfGraphResolution.invalid) {
-        notices.add('Unresolved relationship: $rawTarget');
+        notice(
+          KnowledgeNoticeCode.unresolvedRelationship,
+          'Unresolved relationship: $rawTarget',
+          path: source,
+          target: rawTarget,
+        );
       }
     }
 
@@ -539,7 +697,15 @@ class KnowledgeIndex {
     return KnowledgeSearchResponse(
       matches: matches,
       context: context,
-      notices: notices.toSet().toList(),
+      notices: [
+        for (final MapEntry(key: message, :value) in notices.entries)
+          KnowledgeNotice(
+            value.code,
+            message,
+            paths: value.paths.toList()..sort(),
+            target: value.target,
+          ),
+      ],
     );
   }
 }

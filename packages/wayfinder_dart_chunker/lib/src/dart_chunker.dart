@@ -4,14 +4,19 @@
 /// once they exceed the non-whitespace budget.
 library;
 
+// analyzer 10.0.0 deprecates the declaration members this chunker reads
+// (`members`, `leftBracket`, `name`, `typeParameters`, `representation`) for
+// `body`, `namePart` and `primaryConstructor`, which analyzer 8 and 9 offer
+// only as experiments that throw by default. Every version the pubspec
+// allows, >=8.4.1 <11.0.0, still has the old members, and the tests pass on
+// 8.4.1, 9.0.0 and 10.2.0. Read the new members once the floor reaches 10.0.0.
+// Each of those reads carries its own ignore, so any other deprecation, such
+// as one in wayfinder_embeddings, still reports.
+
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
-
-import '../../models/chunk.dart';
-import '../../models/chunk_metadata.dart';
-import '../../util/checks.dart';
-import '../base_chunker.dart';
-import '../chunk_budget.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
+    show BaseChunker, Chunk, ChunkMetadata;
 
 typedef _AddNode =
     void Function(
@@ -21,14 +26,26 @@ typedef _AddNode =
       bool isContainer,
     });
 
+/// Chunks Dart source files along the declarations of the analyzer's AST.
+///
+/// Register it in a `ChunkerRegistry` for `.dart` files, or use
+/// `defaultCodeRegistry`, which also registers the `wayfinder_embeddings`
+/// chunkers.
 class DartChunker extends BaseChunker {
+  /// Creates a chunker; [maxChunkLength] counts non-whitespace characters.
   DartChunker({
     int maxChunkLength = 1600, // good default for ~2k-token embedders
     this.alwaysSummarizeContainers =
         true, // avoid duplicating body with members
     this.emitDirectivesChunk = true, // include library/import/export/part
     this.includeDocAndAnnotations = true, // include /// docs & @annotations
-  }) : maxChunkLength = checkPositive(maxChunkLength, 'maxChunkLength');
+  }) : maxChunkLength = maxChunkLength > 0
+           ? maxChunkLength
+           : throw ArgumentError.value(
+               maxChunkLength,
+               'maxChunkLength',
+               'must be greater than zero',
+             );
 
   /// Upper bound for chunk text length, measured in non-whitespace characters.
   final int maxChunkLength;
@@ -93,10 +110,15 @@ class DartChunker extends BaseChunker {
     /// - ctors: '{' or ';'
     /// Returns null if not applicable.
     int? bodyBoundaryOffset(AstNode node) => switch (node) {
+      // ignore: deprecated_member_use
       ClassDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       MixinDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       ExtensionDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       ExtensionTypeDeclaration() => node.leftBracket.offset,
+      // ignore: deprecated_member_use
       EnumDeclaration() => node.leftBracket.offset,
       MethodDeclaration() => fnBodyBoundary(node.body),
       ConstructorDeclaration() => fnBodyBoundary(node.body),
@@ -122,7 +144,7 @@ class DartChunker extends BaseChunker {
       final needsSummary =
           (isContainer && alwaysSummarizeContainers) ||
           (bodyStart != null &&
-              !fitsNonWhitespaceBudget(chunkText, maxChunkLength));
+              _nonWhitespaceLength(chunkText) > maxChunkLength);
 
       if (bodyStart != null && needsSummary) {
         // Stop BEFORE '{' or '=>' or ';' (do not include it)
@@ -274,6 +296,7 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleClassDeclaration(ClassDeclaration declaration, _AddNode addNode) {
+    // ignore: deprecated_member_use
     final className = declaration.name.lexeme;
     addNode(
       declaration,
@@ -281,6 +304,7 @@ class DartChunker extends BaseChunker {
       metadataOverrides: {
         'name': className,
         'abstract': declaration.abstractKeyword != null,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
         'extends': ?declaration.extendsClause?.superclass.toSource(),
         if (declaration.withClause != null)
@@ -297,6 +321,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'class': className};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -346,6 +371,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'mixin': mixinName};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -376,6 +402,7 @@ class DartChunker extends BaseChunker {
       'extension': ?extensionName,
       'on': onClause,
     };
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -389,13 +416,16 @@ class DartChunker extends BaseChunker {
     ExtensionTypeDeclaration declaration,
     _AddNode addNode,
   ) {
+    // ignore: deprecated_member_use
     final name = declaration.name.lexeme;
     addNode(
       declaration,
       'extensionType',
       metadataOverrides: {
         'name': name,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
+        // ignore: deprecated_member_use
         'on': declaration.representation.fieldType.toSource(),
         if (declaration.implementsClause != null)
           'implements': [
@@ -407,6 +437,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'extensionType': name};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
@@ -417,12 +448,14 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleEnumDeclaration(EnumDeclaration declaration, _AddNode addNode) {
+    // ignore: deprecated_member_use
     final enumName = declaration.name.lexeme;
     addNode(
       declaration,
       'enum',
       metadataOverrides: {
         'name': enumName,
+        // ignore: deprecated_member_use
         'typeParams': ?declaration.typeParameters?.toSource(),
         if (declaration.withClause != null)
           'with': [
@@ -438,6 +471,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'enum': enumName};
+    // ignore: deprecated_member_use
     for (final member in declaration.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode, includeStaticAndTypeParams: false);
@@ -498,4 +532,16 @@ class DartChunker extends BaseChunker {
       },
     );
   }
+}
+
+/// Counts the characters a chunk budget measures: everything but ASCII space
+/// and the control characters U+0009 to U+000D, as `wayfinder_embeddings`'
+/// built-in chunkers count them.
+int _nonWhitespaceLength(String value) {
+  var count = 0;
+  for (var i = 0; i < value.length; i++) {
+    final unit = value.codeUnitAt(i);
+    if (unit != 0x20 && (unit < 0x09 || unit > 0x0D)) count++;
+  }
+  return count;
 }

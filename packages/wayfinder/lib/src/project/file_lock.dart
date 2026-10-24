@@ -24,9 +24,12 @@ import 'cancellation.dart';
 ///
 /// Its descriptor is close-on-exec, and [release] unlocks before closing, so
 /// a child process another isolate starts never keeps the lock. The lock
-/// file stays in place on release: deleting a lock file another process has
-/// open would let two holders lock different files. Always [release] in a
-/// `finally`; an abandoned lock is held until its process exits.
+/// file stays in place on release. A cleanup that deletes a lock file
+/// deletes it while holding the lock, and an acquirer that opened the file
+/// just before checks, once it has the lock, that the path still names the
+/// file it locked, and opens the path again when it does not; so two holders
+/// never lock different files. Always [release] in a `finally`; an abandoned
+/// lock is held until its process exits.
 final class WayfinderFileLock {
   WayfinderFileLock._(this.file, this._handle);
 
@@ -37,20 +40,28 @@ final class WayfinderFileLock {
   /// Whether [release] ran.
   bool get isReleased => _handle == null;
 
-  /// Takes the lock without waiting; null while another holder has it.
-  /// Creates [file] and its directory when missing.
+  /// How long [tryExclusive] keeps trying a lock that is taken. An [isHeld]
+  /// probe takes a shared lock for an instant, while a holder keeps the lock
+  /// for its whole operation.
+  static const _probeTolerance = Duration(milliseconds: 100);
+
+  /// Takes the lock without waiting for a holder; null while another holder
+  /// has it. Creates [file] and its directory when missing.
+  ///
+  /// An [isHeld] probe holds a shared lock on the file for an instant, and
+  /// must not read as a holder, so a refused attempt is tried again for up
+  /// to 100 milliseconds before this returns null.
   static Future<WayfinderFileLock?> tryExclusive(File file) async {
-    final handle = await _open(file);
-    try {
-      if (await handle.tryLock(exclusive: true)) {
-        return WayfinderFileLock._(file, handle);
-      }
-    } on Object {
-      await handle.close();
-      rethrow;
+    final watch = Stopwatch()..start();
+    var delay = const Duration(milliseconds: 1);
+    while (true) {
+      final lock = await _attempt(file);
+      if (lock != null) return lock;
+      final left = _probeTolerance - watch.elapsed;
+      if (left <= Duration.zero) return null;
+      await Future<void>.delayed(delay < left ? delay : left);
+      if (delay < const Duration(milliseconds: 32)) delay *= 2;
     }
-    await handle.close();
-    return null;
   }
 
   /// Takes the lock, polling until it is free. Throws a [TimeoutException]
@@ -61,7 +72,6 @@ final class WayfinderFileLock {
     Duration timeout = const Duration(seconds: 120),
     WayfinderCancellation? cancel,
   }) async {
-    final handle = await _open(file);
     // One listener per wait, removed after it, so a long-lived cancellation
     // does not collect one per poll.
     final cancelled = Completer<void>();
@@ -73,9 +83,7 @@ final class WayfinderFileLock {
       var delay = const Duration(milliseconds: 5);
       while (true) {
         throwIfCancelled(cancel);
-        if (await handle.tryLock(exclusive: true)) {
-          return WayfinderFileLock._(file, handle);
-        }
+        if (await _attempt(file) case final lock?) return lock;
         final left = timeout - watch.elapsed;
         if (left <= Duration.zero) {
           throw TimeoutException(
@@ -87,17 +95,37 @@ final class WayfinderFileLock {
         await Future.any([Future<void>.delayed(wait), cancelled.future]);
         if (delay < const Duration(milliseconds: 200)) delay *= 2;
       }
-    } on Object {
-      await handle.close();
-      rethrow;
     } finally {
       await listening?.cancel();
     }
   }
 
+  /// One try for the lock on a descriptor opened for it; null when another
+  /// descriptor has a conflicting lock. A cleanup may have deleted the file
+  /// between this open and this lock, leaving the descriptor on a file no
+  /// one else opens, so the lock is returned only while the path still
+  /// names the file it locked; otherwise the path is opened again.
+  static Future<WayfinderFileLock?> _attempt(File file) async {
+    for (var opened = 0; opened < 3; opened++) {
+      final handle = await _open(file);
+      var kept = false;
+      try {
+        if (!await handle.tryLock(exclusive: true)) return null;
+        if (await handle.namesFile()) {
+          kept = true;
+          return WayfinderFileLock._(file, handle);
+        }
+      } finally {
+        if (!kept) await handle.close();
+      }
+    }
+    return null;
+  }
+
   /// Whether any holder, in this process or another, has the lock on
   /// [file]. Tries a shared lock on a descriptor of its own and releases it
-  /// at once, so it never disturbs a holder. False when [file] is missing.
+  /// at once, so it never disturbs a holder, and [tryExclusive] does not
+  /// mistake it for one. False when [file] is missing.
   static Future<bool> isHeld(File file) async {
     final _Handle handle;
     try {
@@ -144,6 +172,10 @@ sealed class _Handle {
 
   Future<void> write(String text);
 
+  /// Whether the lock file's path still names the file this descriptor has
+  /// open. True when that cannot be told.
+  Future<bool> namesFile();
+
   /// Releases any lock and closes the descriptor.
   Future<void> close();
 }
@@ -187,6 +219,11 @@ final class _WindowsHandle extends _Handle {
     await _file.flush();
   }
 
+  /// Windows deletes no file another handle has open, so the path names the
+  /// file this handle opened for as long as it is open.
+  @override
+  Future<bool> namesFile() async => true;
+
   @override
   Future<void> close() async {
     try {
@@ -204,10 +241,11 @@ final class _WindowsHandle extends _Handle {
 }
 
 final class _PosixHandle extends _Handle {
-  _PosixHandle(this._descriptor, this._path);
+  _PosixHandle(this._descriptor, this._path, this._absolutePath);
 
   int? _descriptor;
   final String _path;
+  final String _absolutePath;
   bool _locked = false;
 
   static Future<_PosixHandle> open(File file, {required bool create}) async {
@@ -218,7 +256,9 @@ final class _PosixHandle extends _Handle {
           _Libc.readWrite | libc.closeOnExec | (create ? libc.create : 0);
       while (true) {
         final descriptor = libc.open(path, flags, 420); // 0644
-        if (descriptor >= 0) return _PosixHandle(descriptor, file.path);
+        if (descriptor >= 0) {
+          return _PosixHandle(descriptor, file.path, file.absolute.path);
+        }
         final errno = libc.errno;
         if (errno == _Libc.interrupted) continue;
         final error = OSError('open failed', errno);
@@ -255,6 +295,12 @@ final class _PosixHandle extends _Handle {
   @override
   Future<void> write(String text) =>
       File(_path).writeAsString(text, flush: true);
+
+  @override
+  Future<bool> namesFile() async {
+    final libc = _Libc.instance;
+    return libc.identity?.sameFile(libc, _descriptor!, _absolutePath) ?? true;
+  }
 
   @override
   Future<void> close() async {
@@ -320,9 +366,11 @@ final class _Libc {
             isLeaf: true,
           ),
       _flockSyscall = _loadFlockSyscall(library),
+      _openatSyscall = _loadOpenatSyscall(library),
       create = apple ? 0x200 : 0x40,
       closeOnExec = apple ? 0x1000000 : 0x80000,
-      wouldBlock = apple ? 35 : 11;
+      wouldBlock = apple ? 35 : 11,
+      identity = _FileIdentity.lookup(library, apple: apple);
 
   static final instance = _Libc._(
     DynamicLibrary.process(),
@@ -333,6 +381,7 @@ final class _Libc {
   static const lockExclusive = 2;
   static const lockNonBlocking = 4;
   static const unlock = 8;
+  static const readOnly = 0;
   static const readWrite = 2;
   static const interrupted = 4;
   static const notFound = 2;
@@ -340,6 +389,9 @@ final class _Libc {
   /// `EBADF`. The same value on Linux and Apple. A bad descriptor is not
   /// contention.
   static const badFile = 9;
+
+  /// `open` failed and its errno was not captured. Not a real errno.
+  static const openUnknown = -4096;
 
   final int Function(Pointer<Utf8>, int, int) open;
   final int Function(int, int) flock;
@@ -349,6 +401,10 @@ final class _Libc {
   /// Linux x64 `flock` syscall: 0, or `-errno` in the result register.
   /// Null where that stub is not installed.
   final int Function(int, int)? _flockSyscall;
+
+  /// Linux x64 `openat` syscall: a descriptor, or `-errno`.
+  /// Null where that stub is not installed.
+  final int Function(int, Pointer<Utf8>, int, int)? _openatSyscall;
 
   /// 0 when a non-blocking `flock` took the lock, otherwise an errno.
   ///
@@ -371,18 +427,41 @@ final class _Libc {
     return flockErrnoAfterSeparateRead(errno, wouldBlock: wouldBlock);
   }
 
+  /// A descriptor, or a negative errno.
+  ///
+  /// Where [_openatSyscall] is installed, the syscall result is the errno,
+  /// so a missing path stays `ENOENT`. Otherwise a failed `open` returns
+  /// [openUnknown] and does not read `errno`: that read can belong to
+  /// another thread, and a stale value made a deleted path look like this
+  /// file.
+  int openErrno(Pointer<Utf8> path, int flags, int mode) {
+    final syscall = _openatSyscall;
+    if (syscall != null) {
+      final result = syscall(-100, path, flags, mode); // AT_FDCWD
+      if (result >= 0) return result;
+      if (result <= -1 && result >= -4095) return result;
+      return openUnknown;
+    }
+    final descriptor = open(path, flags, mode);
+    if (descriptor >= 0) return descriptor;
+    return openUnknown;
+  }
+
   /// `O_CREAT`, `O_CLOEXEC` and `EWOULDBLOCK`, which differ between Apple
   /// platforms and Linux.
   final int create;
   final int closeOnExec;
   final int wouldBlock;
 
+  /// Null where the identity of an open file cannot be read.
+  final _FileIdentity? identity;
+
   int get errno => _errno().value;
 }
 
-/// Pages holding the flock syscall stub. The function pointer points into
-/// one of them, so they stay mapped for the process.
-final _flockStubPages = <Pointer<Uint8>>[];
+/// Pages holding syscall stubs. The function pointers point into them, so
+/// they stay mapped for the process.
+final _stubPages = <Pointer<Uint8>>[];
 
 /// One x86-64 `flock` syscall, or null when it cannot be installed.
 ///
@@ -392,6 +471,38 @@ final _flockStubPages = <Pointer<Uint8>>[];
 /// at once. Other architectures, and a host that refuses the mapping, keep
 /// the libc call.
 int Function(int, int)? _loadFlockSyscall(DynamicLibrary library) {
+  // mov eax, 73; syscall; ret
+  final page = _mapStub(library, const [0xb8, 73, 0, 0, 0, 0x0f, 0x05, 0xc3]);
+  if (page == null) return null;
+  return page.cast<NativeFunction<Int64 Function(Int64, Int64)>>().asFunction(
+    isLeaf: true,
+  );
+}
+
+/// One x86-64 `openat` syscall, or null when it cannot be installed.
+///
+/// `__NR_openat` is 257. The fourth argument arrives in `rcx` and the kernel
+/// reads it from `r10`. The result is a descriptor or `-errno`.
+int Function(int, Pointer<Utf8>, int, int)? _loadOpenatSyscall(
+  DynamicLibrary library,
+) {
+  // mov eax, 257; mov r10, rcx; syscall; ret
+  final page = _mapStub(library, const [
+    0xb8, 0x01, 0x01, 0x00, 0x00, // mov eax, 257
+    0x49, 0x89, 0xca, // mov r10, rcx
+    0x0f, 0x05, // syscall
+    0xc3, // ret
+  ]);
+  if (page == null) return null;
+  return page
+      .cast<
+        NativeFunction<Int64 Function(Int64, Pointer<Utf8>, Int64, Int64)>
+      >()
+      .asFunction(isLeaf: true);
+}
+
+/// Maps [bytes] as an executable page, or null when this host cannot.
+Pointer<Uint8>? _mapStub(DynamicLibrary library, List<int> bytes) {
   if (!Platform.isLinux && !Platform.isAndroid) return null;
   final abi = Abi.current();
   if (abi != Abi.linuxX64 && abi != Abi.androidX64) return null;
@@ -427,17 +538,97 @@ int Function(int, int)? _loadFlockSyscall(DynamicLibrary library) {
       0,
     );
     if (page.address == 0 || page.address == -1) return null;
-    // mov eax, 73; syscall; ret
-    const bytes = [0xb8, 73, 0, 0, 0, 0x0f, 0x05, 0xc3];
     for (var i = 0; i < bytes.length; i++) {
       page[i] = bytes[i];
     }
     if (mprotect(page, 4096, read | execute) != 0) return null;
-    _flockStubPages.add(page);
-    return page.cast<NativeFunction<Int64 Function(Int64, Int64)>>().asFunction(
-      isLeaf: true,
-    );
+    _stubPages.add(page);
+    return page;
   } on ArgumentError {
     return null;
   }
+}
+
+/// Compares the device and inode, from `fstat(2)`, of a descriptor and of a
+/// descriptor this opens on a path.
+///
+/// `struct stat` holds `st_dev` at offset 0, 64 bits wide on 64-bit Linux
+/// and Android and 32 bits on Apple platforms, and the 64-bit `st_ino` at
+/// offset 8. x86-64 macOS has that layout through `fstat$INODE64`; glibc
+/// exports `fstat` from 2.33 on. Elsewhere [lookup] returns null and the
+/// lock trusts its path.
+final class _FileIdentity {
+  _FileIdentity._(this._fstat, {required this.wideDevice});
+
+  static _FileIdentity? lookup(DynamicLibrary library, {required bool apple}) {
+    final abi = Abi.current();
+    final String symbol;
+    if (apple) {
+      symbol = abi == Abi.macosX64 ? r'fstat$INODE64' : 'fstat';
+    } else if (const {
+      Abi.linuxX64,
+      Abi.linuxArm64,
+      Abi.linuxRiscv64,
+      Abi.androidX64,
+      Abi.androidArm64,
+      Abi.androidRiscv64,
+    }.contains(abi)) {
+      symbol = 'fstat';
+    } else {
+      return null;
+    }
+    if (!library.providesSymbol(symbol)) return null;
+    return _FileIdentity._(
+      library.lookupFunction<
+        Int32 Function(Int32, Pointer<Uint8>),
+        int Function(int, Pointer<Uint8>)
+      >(symbol, isLeaf: true),
+      wideDevice: !apple,
+    );
+  }
+
+  /// Larger than any `struct stat` (144 bytes).
+  static const _size = 256;
+
+  final int Function(int, Pointer<Uint8>) _fstat;
+
+  /// Whether `st_dev` is 64 bits wide.
+  final bool wideDevice;
+
+  /// Whether [path] names the file [descriptor] has open. True when either
+  /// cannot be read, unless the path names nothing or the open's errno was
+  /// not captured.
+  bool sameFile(_Libc libc, int descriptor, String path) {
+    final buffer = calloc<Uint8>(2 * _size);
+    final native = path.toNativeUtf8();
+    try {
+      final named = buffer + _size;
+      if (_fstat(descriptor, buffer) != 0) return true;
+      while (true) {
+        final opened = libc.openErrno(
+          native,
+          _Libc.readOnly | libc.closeOnExec,
+          0,
+        );
+        if (opened == -_Libc.interrupted) continue;
+        if (opened < 0) {
+          return opened != -_Libc.notFound && opened != _Libc.openUnknown;
+        }
+        try {
+          if (_fstat(opened, named) != 0) return true;
+        } finally {
+          libc.close(opened);
+        }
+        return _id(buffer) == _id(named);
+      }
+    } finally {
+      malloc.free(native);
+      calloc.free(buffer);
+    }
+  }
+
+  (int, int) _id(Pointer<Uint8> stat) => (
+    wideDevice ? stat.cast<Int64>().value : stat.cast<Int32>().value,
+    (stat + 8).cast<Uint64>().value,
+  );
 }

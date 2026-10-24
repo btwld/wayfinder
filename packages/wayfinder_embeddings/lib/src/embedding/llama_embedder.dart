@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:llamadart/llamadart.dart';
+import 'package:meta/meta.dart';
 
 import '../util/checks.dart';
 import 'base_embedder.dart';
@@ -10,6 +11,18 @@ import 'embedding_model_spec.dart';
 
 /// How to handle text longer than the model's tokenizer context.
 enum LongInputPolicy { reject, truncate }
+
+/// The `leehack/llamadart-native` release whose llama.cpp build Wayfinder
+/// reviewed and measured its vectors with: what its notices attribute and what
+/// the knowledge store's configuration names.
+///
+/// llamadart's build hook downloads the release its own version pins, so this
+/// says what Wayfinder reviewed, not what a host's build bundles. Wayfinder's
+/// own builds fail when the resolved llamadart pins another release. A host
+/// that shares indexes with them, or with other hosts, must resolve a
+/// llamadart that pins this release, because another llama.cpp build can give
+/// the same model other vectors under the same configuration.
+const wayfinderLlamaCppRuntime = 'v0.7.0-2';
 
 /// In-process embeddings from a verified local GGUF. Never downloads at runtime.
 ///
@@ -24,52 +37,64 @@ class LlamaEmbedder extends BaseEmbedder {
     this.coldStartRetries,
   );
 
-  /// Loads and verifies a model before returning an embedder ready for inference.
+  /// Verifies and loads a model, then returns an embedder ready for inference.
   ///
-  /// Every engine built here is owned by this method, including cleanup when
-  /// verification or loading fails. [newEngine] replaces the default engine
-  /// construction and must return an engine with no model loaded.
+  /// The file is checked against [model]'s size and SHA-256 before anything
+  /// loads. The model loads with `LlamaEngine.load` on the CPU, with a
+  /// context, batch and micro-batch of [EmbeddingModelSpec.maxTokens] and the
+  /// threads [threadsFor] gives the machine's processor count; a load that
+  /// fails leaves no engine behind. [loadEngine] replaces
+  /// that load and must keep its contract: return an engine that holds the
+  /// model, or throw having disposed what it created.
   ///
-  /// A backend that never reports itself started is retried once on a fresh
-  /// engine. The runtime's worker startup timeout is fixed, and the first load
-  /// from a freshly installed bundle pays a one-time operating-system
-  /// validation of the native libraries that can exceed it. A runtime that is
-  /// genuinely unavailable still fails, one retry later. [coldStartRetries]
-  /// reports how often that happened, so a caller can show that the retry is
-  /// what kept a run alive instead of leaving it to inference.
+  /// A backend that never reports itself started is retried once with a
+  /// fresh engine. The runtime's worker startup timeout is fixed, and the
+  /// first load from a freshly installed bundle pays a one-time
+  /// operating-system validation of the native libraries that can exceed it.
+  /// A runtime that is genuinely unavailable still fails, one retry later.
+  /// [coldStartRetries] reports how often that happened, so a caller can show
+  /// that the retry is what kept a run alive instead of leaving it to
+  /// inference.
   static Future<LlamaEmbedder> open({
     File? modelFile,
     EmbeddingModelSpec model = localEmbeddingModel,
     LongInputPolicy longInputPolicy = LongInputPolicy.reject,
-    LlamaEngine Function()? newEngine,
+    LlamaEngineLoader? loadEngine,
   }) async {
-    final buildEngine = newEngine ?? () => LlamaEngine(LlamaBackend());
+    final load = loadEngine ?? _loadEngine;
     final file = modelFile ?? defaultEmbeddingModelFile();
+    await model.verify(file);
+    final source = LlamaModel(ModelSource.path(file.absolute.path));
+    final threads = threadsFor(Platform.numberOfProcessors);
+    final params = ModelParams(
+      contextSize: model.maxTokens,
+      batchSize: model.maxTokens,
+      microBatchSize: model.maxTokens,
+      device: ComputeDevice.cpu,
+      preferredBackend: GpuBackend.cpu,
+      gpuLayers: 0,
+      numberOfThreads: threads,
+      numberOfThreadsBatch: threads,
+    );
     for (var attempt = 1; ; attempt++) {
-      final runtime = buildEngine();
       try {
-        await model.verify(file);
-        await runtime.loadModel(
-          file.absolute.path,
-          modelParams: ModelParams(
-            contextSize: model.maxTokens,
-            batchSize: model.maxTokens,
-            microBatchSize: model.maxTokens,
-            preferredBackend: GpuBackend.cpu,
-            gpuLayers: 0,
-            numberOfThreads: 4,
-            numberOfThreadsBatch: 4,
-          ),
-        );
-        return LlamaEmbedder._(runtime, model, longInputPolicy, attempt - 1);
+        final engine = await load(source, params);
+        return LlamaEmbedder._(engine, model, longInputPolicy, attempt - 1);
       } catch (error) {
-        await runtime.dispose();
         if (attempt >= _engineStartAttempts || !_isBackendStartFailure(error)) {
           rethrow;
         }
       }
     }
   }
+
+  /// The threads an embedder computes with on a machine with [processors]
+  /// processors: up to four, leaving one processor to the rest of the process.
+  ///
+  /// llama.cpp's compute threads wait for each other by spinning, so more
+  /// threads than free processors makes inference many times slower instead
+  /// of faster.
+  static int threadsFor(int processors) => (processors - 1).clamp(1, 4);
 
   final LlamaEngine _engine;
   final EmbeddingModelSpec model;
@@ -83,8 +108,18 @@ class LlamaEmbedder extends BaseEmbedder {
   int get truncatedInputs => _truncatedInputs;
   int _truncatedInputs = 0;
 
+  /// The [sourceName] of every [LlamaEmbedder].
+  static const source = 'llamadart';
+
+  /// The [modelName] an embedder opened with [model] and [longInputPolicy]
+  /// reports, known without loading the model.
+  static String modelNameFor(
+    EmbeddingModelSpec model, {
+    LongInputPolicy longInputPolicy = LongInputPolicy.reject,
+  }) => _modelIdentity(model, longInputPolicy);
+
   @override
-  String get sourceName => 'llamadart';
+  String get sourceName => source;
 
   @override
   late final String modelName = _modelIdentity(model, longInputPolicy);
@@ -181,15 +216,39 @@ class LlamaEmbedder extends BaseEmbedder {
   }
 }
 
+/// Loads [model] with [params] into a new engine that owns its backend.
+///
+/// [LlamaEmbedder.open] calls it once per attempt. It returns an engine that
+/// holds the model, or throws having disposed everything it created, as
+/// `LlamaEngine.load` does.
+typedef LlamaEngineLoader =
+    Future<LlamaEngine> Function(LlamaModel model, ModelParams params);
+
+Future<LlamaEngine> _loadEngine(LlamaModel model, ModelParams params) =>
+    LlamaEngine.load(model, params: params);
+
 /// One extra attempt absorbs a cold backend start without hiding a broken one.
 const _engineStartAttempts = 2;
 
 /// Whether loading failed because the native worker never finished starting.
+///
+/// `LlamaEngine.load` reports a load that fails as a [LlamaModelException]
+/// whose details are its cause's message, so the worker's startup timeout is
+/// recognised by that message as well as by its type.
 bool _isBackendStartFailure(Object error) => switch (error) {
   LlamaBackendInitializationException() => true,
   LlamaException(details: LlamaBackendInitializationException()) => true,
+  LlamaModelException(details: final String cause) => cause.contains(
+    llamaCppWorkerStartTimeout,
+  ),
   _ => false,
 };
+
+/// What llamadart's native backend says when its worker misses the startup
+/// timeout. A test checks that the resolved llamadart still says it.
+@visibleForTesting
+const llamaCppWorkerStartTimeout =
+    'waiting for the llama.cpp worker to initialize';
 
 String _modelIdentity(EmbeddingModelSpec model, LongInputPolicy policy) {
   final configuration = jsonEncode({

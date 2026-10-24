@@ -330,17 +330,13 @@ void main() {
     test('applies custom chunk budgets to default chunkers', () {
       final registry = workflow.buildDefaultRegistry(
         chunking: workflow.ChunkingOptions(
-          dartMaxChunkLength: 80,
           typescriptMaxChunkLength: 60,
           markdownMaxChunkLength: 40,
           textMaxChunkLength: 20,
         ),
       );
 
-      expect(
-        (registry.getChunkerByType('dart')! as DartChunker).maxChunkLength,
-        80,
-      );
+      expect(registry.getChunkerByType('dart'), isNull);
       expect(
         (registry.getChunkerByType('typescript')! as TypeScriptChunker)
             .maxChunkLength,
@@ -358,10 +354,6 @@ void main() {
     });
 
     test('rejects non-positive custom chunk budgets', () {
-      expect(
-        () => workflow.ChunkingOptions(dartMaxChunkLength: 0),
-        throwsA(isA<ArgumentError>()),
-      );
       expect(
         () => workflow.ChunkingOptions(markdownMaxChunkLength: -1),
         throwsA(isA<ArgumentError>()),
@@ -460,6 +452,196 @@ void main() {
       } finally {
         tempDir.deleteSync(recursive: true);
       }
+    });
+  });
+
+  group('reference chunks', () {
+    late Directory tempDir;
+    late Directory fixturesDir;
+    late File source;
+    late File manifest;
+    late List<Chunk> committed;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('reference_chunks_test');
+      fixturesDir = Directory(p.join(tempDir.path, 'corpus'))..createSync();
+      source = _writeFixture(
+        fixturesDir,
+        'lib/greeter.dart',
+        'class Greeter {\n  void greet() {}\n}\n',
+      );
+      _writeFixture(fixturesDir, 'docs/notes.md', '# Notes\n\nGreet people.\n');
+      committed = [
+        Chunk(
+          sourcePath: source.path,
+          lineStart: 1,
+          lineEnd: 1,
+          content: 'class Greeter',
+          type: 'class',
+          metadata: const {'name': 'Greeter', 'summary': true},
+        ),
+        Chunk(
+          sourcePath: source.path,
+          lineStart: 2,
+          lineEnd: 2,
+          content: 'void greet() {}',
+          type: 'method',
+          metadata: const {'class': 'Greeter', 'name': 'greet'},
+        ),
+      ];
+      manifest = File(p.join(tempDir.path, 'chunks.json'))
+        ..writeAsStringSync(
+          jsonEncode(workflow.buildChunkManifest(committed, fixturesDir)),
+        );
+    });
+
+    tearDown(() => tempDir.deleteSync(recursive: true));
+
+    test('replays files no built-in chunker handles', () {
+      final registry = workflow.buildDefaultRegistry(
+        reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+      );
+      final preview = workflow.PreviewResult.fromFiles(
+        registry: registry,
+        files: workflow.collectFixtureFiles(fixturesDir),
+        fixturesDir: fixturesDir,
+      );
+
+      expect(preview.skipped, isEmpty);
+      expect(
+        preview.chunks.where((chunk) => chunk.sourcePath == source.path),
+        committed,
+      );
+      expect(
+        preview.chunks.where((chunk) => chunk.sourcePath.endsWith('.md')),
+        isNotEmpty,
+        reason: 'Markdown keeps its built-in chunker.',
+      );
+      expect(registry.getChunkerByType('markdown'), isA<MarkdownChunker>());
+    });
+
+    test('refuses a source that changed since the manifest', () {
+      source.writeAsStringSync('class Renamed {\n  void greet() {}\n}\n');
+      final registry = workflow.buildDefaultRegistry(
+        reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+      );
+
+      expect(
+        () => registry.chunkFiles([source]).toList(),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('no longer matches'),
+          ),
+        ),
+      );
+    });
+
+    test('refuses a file the manifest lacks', () {
+      final other = _writeFixture(fixturesDir, 'lib/other.dart', 'void f() {}');
+      final registry = workflow.buildDefaultRegistry(
+        reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+      );
+
+      expect(
+        () => registry.chunkFiles([other]).toList(),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('has no chunks for lib/other.dart'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects a malformed manifest', () {
+      manifest.writeAsStringSync(
+        jsonEncode({
+          'lib/greeter.dart': {'total': 3, 'chunks': <Object?>[]},
+        }),
+      );
+
+      expect(
+        () => workflow.ReferenceChunks.load(manifest, fixturesDir),
+        throwsFormatException,
+      );
+    });
+
+    group('qrels scoring', () {
+      late RelevanceJudgments judgments;
+
+      setUp(() {
+        judgments = RelevanceJudgments(
+          relevanceByQuery: {
+            'q1': {workflow.stableFixtureChunkId(committed[1], fixturesDir): 2},
+          },
+        );
+      });
+
+      String? reason(ChunkerRegistry registry, {bool stableIds = true}) =>
+          workflow.unscorableJudgmentsReason(
+            judgments: judgments,
+            preview: workflow.PreviewResult.fromFiles(
+              registry: registry,
+              files: workflow.collectFixtureFiles(fixturesDir),
+              fixturesDir: fixturesDir,
+            ),
+            fixturesDir: fixturesDir,
+            stableIds: stableIds,
+          );
+
+      test('refuses qrels when a fixture file has no chunker', () {
+        for (final stableIds in [true, false]) {
+          expect(
+            reason(workflow.buildDefaultRegistry(), stableIds: stableIds),
+            allOf(
+              contains(
+                'no chunker handles 1 fixture file(s): lib/greeter.dart',
+              ),
+              contains('--reference-chunks=test/goldens/baseline_chunks.json'),
+            ),
+          );
+        }
+      });
+
+      test('refuses stable-id qrels the preview cannot retrieve', () {
+        // Every file has a chunker, but one judged id names no chunk.
+        judgments = RelevanceJudgments(
+          relevanceByQuery: {
+            ...judgments.relevanceByQuery,
+            'q2': {'stale-id': 1},
+          },
+        );
+        final registry = workflow.buildDefaultRegistry(
+          reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+        );
+
+        expect(
+          reason(registry),
+          allOf(
+            contains(
+              '1 judgment(s) name a chunk id this preview lacks: q2:stale-id.',
+            ),
+            contains('--reference-chunks=test/goldens/baseline_chunks.json'),
+            contains('--qrels-match=span-overlap'),
+          ),
+        );
+        // Span-overlap qrels resolve against their own reference chunking.
+        expect(reason(registry, stableIds: false), isNull);
+      });
+
+      test('accepts qrels the preview covers', () {
+        expect(
+          reason(
+            workflow.buildDefaultRegistry(
+              reference: workflow.ReferenceChunks.load(manifest, fixturesDir),
+            ),
+          ),
+          isNull,
+        );
+      });
     });
   });
 
@@ -634,8 +816,10 @@ void main() {
   });
 }
 
+/// Writes [contents] to [relativePath], a POSIX path under [dir], at the
+/// native path a directory listing reports for it.
 File _writeFixture(Directory dir, String relativePath, String contents) {
-  final file = File(p.join(dir.path, relativePath));
+  final file = File(p.joinAll([dir.path, ...p.posix.split(relativePath)]));
   file.createSync(recursive: true);
   file.writeAsStringSync(contents);
   return file;
