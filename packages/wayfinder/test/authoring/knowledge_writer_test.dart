@@ -197,7 +197,34 @@ void main() {
     expect(plan.diff, isEmpty);
     expect(plan.committable, isTrue);
     expect((await writer.commit(plan)).changedPaths, isEmpty);
-    expect(await _status(project), isEmpty);
+    expect(await _status(project), ['?? knowledge/$okfBundleLockFileName']);
+    await expectLater(writer.commit(plan), throwsStateError);
+
+    final config = File(p.join(project, 'wayfinder.json'));
+    final again = await writer.prepare(
+      bundle,
+      LinkConcepts(
+        source: _request,
+        relationship: const KnowledgeRelationship(
+          relationship: 'assessed-by',
+          resource: '/reporting/pdf-export-feasibility.md',
+        ),
+      ),
+      stamp: _agent,
+    );
+    final before = await _files(bundle);
+    await config.writeAsString('${await config.readAsString()}\n');
+    await expectLater(
+      writer.commit(again),
+      throwsA(
+        isA<KnowledgeStaleWriteException>().having(
+          (error) => error.projectFiles,
+          'projectFiles',
+          [config.path],
+        ),
+      ),
+    );
+    expect(await _files(bundle), before);
   });
 
   test('a supplied log entry is written exactly as given, keeping every '
@@ -473,20 +500,37 @@ void main() {
     expect((await validate()).gate, GateState.pass);
   });
 
-  test(
-    'Regenerate on a current bundle writes nothing and takes no lock',
-    () async {
-      final plan = await writer.prepare(
-        bundle,
-        const RegenerateIndexes(),
-        stamp: _agent,
-        logEntry: _creation,
-      );
-      expect(plan.diff, isEmpty);
-      expect((await writer.commit(plan)).changedPaths, isEmpty);
-      expect(await _status(project), isEmpty);
-    },
-  );
+  test('Regenerate on a current bundle writes no document, and a later '
+      'bundle change is stale', () async {
+    final plan = await writer.prepare(
+      bundle,
+      const RegenerateIndexes(),
+      stamp: _agent,
+      logEntry: _creation,
+    );
+    expect(plan.diff, isEmpty);
+    expect((await writer.commit(plan)).changedPaths, isEmpty);
+    expect(await _status(project), ['?? knowledge/$okfBundleLockFileName']);
+    await expectLater(writer.commit(plan), throwsStateError);
+
+    final labels = File(p.join(bundle, _labels.documentPath));
+    final stale = await writer.prepare(
+      bundle,
+      const RegenerateIndexes(),
+      stamp: _agent,
+    );
+    await labels.writeAsString('${await labels.readAsString()}\nMore.\n');
+    await expectLater(
+      writer.commit(stale),
+      throwsA(
+        isA<KnowledgeStaleWriteException>().having(
+          (error) => error.code,
+          'code',
+          'write-stale',
+        ),
+      ),
+    );
+  });
 
   test('Regenerate without a fixable rule is not applied', () async {
     final selection = SelectedProfile(

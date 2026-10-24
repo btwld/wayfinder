@@ -68,8 +68,10 @@ final class KnowledgeProjectFiles {
   final Map<String, String?> sha256;
 
   /// The tracked paths whose bytes differ now from [sha256], in its order:
-  /// changed, created or deleted. A file that cannot be read counts as
-  /// absent.
+  /// changed, created or deleted. A path that is absent is null, the same
+  /// as one that was absent when these files were captured. A path that
+  /// exists but cannot be read throws [FileSystemException]; it is not
+  /// treated as absent.
   Future<List<String>> changed() async => [
     for (final MapEntry(key: path, value: digest) in sha256.entries)
       if (await _digest(path) != digest) path,
@@ -118,10 +120,13 @@ final class KnowledgeProjectFiles {
     return absolute;
   }
 
+  /// The digest of [path], or null when no file is there. Any other failure
+  /// to read it is thrown, so an unreadable file is not mistaken for an
+  /// absent one.
   static Future<String?> _digest(String path) async {
     try {
       return sha256Of(await File(path).readAsBytes());
-    } on FileSystemException {
+    } on PathNotFoundException {
       return null;
     }
   }

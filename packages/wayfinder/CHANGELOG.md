@@ -43,7 +43,9 @@
   - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
     plan that is not committable, and `KnowledgeStaleWriteException`
     (`write-stale`) when the bundle, or the `wayfinder.json` or
-    `wayfinder.lock` its selection came from, changed since `prepare`.
+    `wayfinder.lock` its selection came from, changed since `prepare`,
+    including when the diff is empty. A project file that exists but cannot
+    be read is `write-failed`; only a path that is absent counts as absent.
     `KnowledgeChangeException` reports a change that cannot be described
     against the bundle: `bundle-missing`, `concept-exists`,
     `concept-not-found`, `change-invalid` (including a concept that is not
@@ -362,15 +364,10 @@
   words the cause itself, as the command keeps `the configuration changed
   after wayfinder get`. Adoption's `bundle-okf-invalid` and `skill-foreign`
   conflicts no longer name `okf validate` or `wayfinder get`.
-<!--
-Release bookkeeping: the bullets below amend the authoring and
-`WayfinderConfigEditor` bullets above; fold them in if both ship in one
-release.
--->
 - `WayfinderProfileResolver.relock(project, edit:)` applies an edit of
   `wayfinder.json`, such as registering an actor, and writes
   `wayfinder.lock` for the result under one hold of the project's `get` lock
-  (ADR-0018). It keeps exactly the commits the lock pins, runs no Git and
+  (ADR-0024). It keeps exactly the commits the lock pins, runs no Git and
   writes no skill. Before writing anything it throws `lock-change-required`
   (`ProfileLockChangeRequiredException.relock`, with its
   `ProfileLockChange`) when, after the edit, the lock does not pin exactly

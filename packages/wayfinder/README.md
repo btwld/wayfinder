@@ -359,8 +359,10 @@ Future<void> main() async {
 - `commit` throws `KnowledgeWriteRefusedException` (`write-refused`) for a
   plan that is not committable and `KnowledgeStaleWriteException`
   (`write-stale`) when the bundle, or a project file its selection came
-  from, changed since `prepare`; the exception's `projectFiles` names the
-  files that changed. Neither writes anything. The plan's `projectFiles`
+  from, changed since `prepare`, including when the diff is empty; the
+  exception's `projectFiles` names the files that changed. A project file
+  that exists but cannot be read fails the commit (`write-failed`); only a
+  path that is absent counts as absent. Neither writes anything. The plan's `projectFiles`
   are those files, with the digest of their bytes: the `wayfinder.json` and
   `wayfinder.lock` the selection came from, whether or not it selected a
   Profile, with each closer `wayfinder.json` path binding looked at first,

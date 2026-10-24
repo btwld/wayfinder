@@ -2,7 +2,6 @@
 
 - Status: accepted
 - Date: 2026-10-22
-- Updated: 2026-10-22 (registering an actor is a minimal edit applied through an offline relock, [ADR-0018](0018-embeddable-libraries.md))
 - Scope: `package:wayfinder/adoption.dart`, the generic adoption seed, the configuration encoder and editor, and the resolver's fetch policy; no Profile rule and no change to results
 - Builds on [ADR-0018](0018-embeddable-libraries.md)
 
@@ -97,8 +96,7 @@ okf's `.okf.lock` counts as empty, and the lock file stays.
 and `WayfinderConfigEncoder` write the layout the documentation shows, and
 `WayfinderConfigEditor` makes structured edits (a Profile's source and
 bundles, project vocabulary, actors) that keep every field it does not
-model and every value as written, and can write them as changes to only the
-members they touch, keeping the rest of the file's bytes.
+model and every value as written.
 
 ## Consequences
 
@@ -113,11 +111,8 @@ which the host step can write; the skill path keeps writing it, and
 
 Changing an existing binding, its Profile or its release remains migration
 work: `wayfinder.json` or `wayfinder.lock` in the project is a conflict.
-Registering an actor later is an edit with `WayfinderConfigEditor`, written
-with `encode(minimal: true)` and applied through the resolver's `relock`,
-which locks it at the locked commits without Git under the project's `get`
-lock; on the command line, an edit followed by `wayfinder get` reuses the
-locked commit without fetching.
+Registering an actor later is an edit with `WayfinderConfigEditor` followed
+by `wayfinder get`, which reuses the locked commit without fetching.
 
 ## Reconsider when
 

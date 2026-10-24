@@ -561,5 +561,39 @@ void main() {
         );
       },
     );
+
+    test('a project file that cannot be read fails the commit instead of '
+        'counting as absent', () async {
+      final root = p.join(temp.path, 'plain');
+      final plain = p.join(root, 'knowledge');
+      await copyDirectory(bundle, plain);
+      final plan = await writer.prepare(
+        plain,
+        _createContract(),
+        stamp: _agent,
+        projectRoot: root,
+      );
+      final candidate = p.join(root, 'wayfinder.json');
+      expect(plan.projectFiles.sha256, {candidate: null});
+      expect(await KnowledgeProjectFiles({candidate: null}).changed(), isEmpty);
+
+      // A directory is not a file the digest can read, and it is not absent.
+      await Directory(candidate).create();
+      await expectLater(
+        KnowledgeProjectFiles({candidate: null}).changed(),
+        throwsA(isA<FileSystemException>()),
+      );
+      await expectLater(
+        writer.commit(plan),
+        throwsA(
+          isA<KnowledgeWriteFailedException>().having(
+            (error) => error.code,
+            'code',
+            'write-failed',
+          ),
+        ),
+      );
+      expect(File(p.join(plain, _contract.documentPath)).existsSync(), isFalse);
+    });
   });
 }

@@ -556,8 +556,12 @@ final class KnowledgeWriter {
   /// project file the plan's selection came from
   /// ([KnowledgeWritePlan.projectFiles]), changed since [prepare], and
   /// [KnowledgeWriteFailedException] when the bundle cannot be locked or
-  /// written. A plan commits once; committing it again throws a
-  /// [StateError].
+  /// written, or a project file exists but cannot be read. A plan commits
+  /// once; committing it again throws a [StateError].
+  ///
+  /// A plan whose [KnowledgeWritePlan.diff] is empty takes this path too.
+  /// The checks run under the lock, the plan is consumed, and no document
+  /// is rewritten. A second commit throws [StateError].
   ///
   /// The project files are checked under okf's lock of the bundle, which
   /// `WayfinderProfileResolver.relock` and `get` do not take: they hold the
@@ -565,7 +569,9 @@ final class KnowledgeWriter {
   /// `wayfinder.lock` after the check and before okf writes goes unseen,
   /// and the write commits as it was judged. A host that both relocks and
   /// writes serializes the two itself, such as by queueing them on the one
-  /// isolate that does its okf bundle I/O.
+  /// isolate that does its okf bundle I/O. A project file that exists but
+  /// cannot be read fails the commit; only a path that is absent counts as
+  /// the absent digest.
   Future<KnowledgeCommitResult> commit(
     KnowledgeWritePlan plan, {
     WayfinderCancellation? cancel,
@@ -575,7 +581,6 @@ final class KnowledgeWriter {
       throw KnowledgeWriteRefusedException(plan);
     }
     throwIfCancelled(cancel);
-    if (plan.diff.isEmpty) return KnowledgeCommitResult(changedPaths: []);
     try {
       return await OkfBundleLock.write(plan.bundle, () async {
         throwIfCancelled(cancel);

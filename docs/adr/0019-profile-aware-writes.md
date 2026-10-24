@@ -124,8 +124,12 @@ whether okf's rollback also failed and left part of the write.
 
 **Stale plans are refused.** `commit` holds okf's exclusive claim, refuses a
 plan when a project file its selection came from changed since, and lets okf
-refuse a changed bundle. The project files are the `wayfinder.json` the
-bundle was bound through and the `wayfinder.lock` beside it, whether or not
+refuse a changed bundle. A plan whose diff is empty takes that path too: the
+checks run, the plan is consumed, and no document is rewritten. A project
+file that exists but cannot be read fails the commit (`write-failed`); only
+a path that is absent counts as the absent digest. The project files are the
+`wayfinder.json` the bundle was bound through and the `wayfinder.lock` beside
+it, whether or not
 a Profile was selected, since a lock that appears would select one, with
 each closer `wayfinder.json` path binding looked at first, absent; when no
 configuration binds the bundle, they are each `wayfinder.json` path binding
