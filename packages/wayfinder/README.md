@@ -162,8 +162,9 @@ Future<void> main() async {
   `ProfileFetchRequiredException` (`fetch-required`) naming it; ask the
   person, then plan again with it allowed. An `offline` request reads the
   cache as it is and refuses every fetch.
-- A request without a ref pins the source's default branch in
-  `wayfinder.json` as the commit it resolves to.
+- A request without a ref pins the source's current default branch in
+  `wayfinder.json` as the commit it resolves to. A later plan refreshes the
+  mirror and follows a default branch that has moved.
 - `apply` writes `wayfinder.json`, `wayfinder.lock`, the seeded bundle
   (`index.md`, `log.md` and any seed concepts the host passes), the Profile
   skills and, unless the request says otherwise or `.gitignore` already lists

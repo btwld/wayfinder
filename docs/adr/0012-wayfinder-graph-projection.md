@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-11
-- Updated: 2026-10-01 (typed `relationships` edges beside the okf graph); 2026-10-22 (the projection moved into `package:wayfinder/project.dart`; output unchanged)
+- Updated: 2026-10-01 (typed `relationships` edges beside the okf graph)
 - Scope: the `graph` command and MCP tool; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
 
@@ -24,12 +24,8 @@ Wayfinder graph model could drift from OKF's graph contract.
 - Each `relationships` entry is added beside the unchanged okf graph. JSON
   keeps every okf key and adds a `field_edges` array; Mermaid and DOT add one
   edge per entry, labelled with its relationship name. The frontmatter key
-  list is `wayfinderLinkFields`, the engine's `relationships` key.
-  `okfFieldEdges` and the retrieval library take a field list as a generic
-  parameter, so neither holds Profile knowledge.
-- The projection, `projectWayfinderGraph`, and its query input are part of
-  `package:wayfinder/project.dart` ([ADR-0018](0018-embeddable-libraries.md)),
-  so a host projects the same graph without the CLI.
+  list is a generic `wayfinder_embeddings` seam the CLI configures, so the
+  library holds no Profile knowledge.
 - The graph is refused when `OkfBundleLoader.inspect` has findings, matching
   `okf graph`.
 - The same JSON is a read-only MCP `graph` tool whose arguments follow

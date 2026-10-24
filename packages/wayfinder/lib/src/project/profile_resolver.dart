@@ -1695,6 +1695,12 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
         '--prune',
       ], workingDirectory: mirror.path);
       resolver._checkGit(result, 'refresh Profile source $git');
+      // `remote update` fetches branches and prunes deleted ones. It leaves
+      // the mirror's own HEAD on the default branch from the clone, so a
+      // source that renamed that branch would pin the old commit, or fail
+      // once the old branch is gone. The refresh above already consented to
+      // this remote; reading its symbolic HEAD is part of that refresh.
+      await _pinMirrorHead(resolver, session, mirror, git);
     }
     final result = await resolver._git(session, [
       'rev-parse',
@@ -1712,6 +1718,55 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
     commit: commit,
     fetches: List<ProfileFetch>.unmodifiable(session.fetches),
   );
+}
+
+/// Points [mirror]'s HEAD at the default branch `origin` advertises now.
+Future<void> _pinMirrorHead(
+  WayfinderProfileResolver resolver,
+  _Session session,
+  Directory mirror,
+  String git,
+) async {
+  final listed = await resolver._git(session, [
+    'ls-remote',
+    '--symref',
+    'origin',
+    'HEAD',
+  ], workingDirectory: mirror.path);
+  resolver._checkGit(listed, 'read the default branch of Profile source $git');
+  final ref = _remoteHeadRef(listed.text);
+  if (ref == null) {
+    throw WayfinderProfileResolutionException(
+      'Profile source $git has no default branch to resolve. Name a ref.',
+    );
+  }
+  final pinned = await resolver._git(session, [
+    'symbolic-ref',
+    'HEAD',
+    ref,
+  ], workingDirectory: mirror.path);
+  resolver._checkGit(
+    pinned,
+    'record the default branch of Profile source $git',
+  );
+}
+
+/// `refs/heads/main` from `git ls-remote --symref`, or null when the remote
+/// advertises no symbolic branch HEAD.
+String? _remoteHeadRef(String text) {
+  for (final line in const LineSplitter().convert(text)) {
+    if (!line.startsWith('ref:')) continue;
+    final tab = line.indexOf('\t');
+    final ref = (tab == -1 ? line : line.substring(0, tab))
+        .substring('ref:'.length)
+        .trim();
+    if (ref.startsWith('refs/heads/') &&
+        !ref.contains('..') &&
+        !ref.endsWith('/')) {
+      return ref;
+    }
+  }
+  return null;
 }
 
 /// A failure to resolve or select a Profile. [diagnostic] is how validation

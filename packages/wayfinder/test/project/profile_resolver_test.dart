@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
+import 'package:wayfinder/src/project/profile_resolver.dart'
+    show resolveDefaultBranch;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -831,6 +833,43 @@ void main() {
         );
       }
     });
+  });
+
+  test('a refresh follows a source that moved its default branch', () async {
+    final resolver = WayfinderProfileResolver(dataDirectory: data);
+    final first = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    final previous = await _gitOutput(source.path, [
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    ]);
+    await _git(source.path, ['checkout', '-q', '-b', 'relocated-default']);
+    await advanceSource();
+    final moved = await sourceCommit();
+    expect(moved, isNot(first.commit));
+
+    final second = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    expect(second.commit, moved);
+    expect(second.fetches.single.kind, ProfileFetchKind.refresh);
+    expect(second.fetches.single.ref, isNull);
+
+    await _git(source.path, ['branch', '-D', previous]);
+    await advanceSource();
+    final afterDelete = await sourceCommit();
+    final third = await resolveDefaultBranch(
+      resolver,
+      projectRoot: project.path,
+      git: source.path,
+    );
+    expect(third.commit, afterDelete);
   });
 
   test('get fetches a locked commit the mirror lacks', () async {

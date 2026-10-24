@@ -271,6 +271,23 @@ final class _PosixHandle extends _Handle {
   }
 }
 
+/// Errno to report after a failed non-blocking `flock` whose [errno] was
+/// read in a later call.
+///
+/// That read can belong to another thread. `EBADF` (9) is returned as
+/// itself: a bad descriptor is not contention, and reporting it as
+/// [wouldBlock] would make a probe say the lock is held. `EINTR` (4) and
+/// [wouldBlock] pass through. Any other value, including 0 and the stale 22
+/// this hit under load, is reported as [wouldBlock] so the caller retries.
+int flockErrnoAfterSeparateRead(int errno, {required int wouldBlock}) {
+  if (errno == wouldBlock ||
+      errno == _Libc.interrupted ||
+      errno == _Libc.badFile) {
+    return errno;
+  }
+  return wouldBlock;
+}
+
 /// The few libc calls the POSIX lock needs.
 ///
 /// `errno` is thread-local. Two leaf calls still return to Dart between
@@ -320,6 +337,10 @@ final class _Libc {
   static const interrupted = 4;
   static const notFound = 2;
 
+  /// `EBADF`. The same value on Linux and Apple. A bad descriptor is not
+  /// contention.
+  static const badFile = 9;
+
   final int Function(Pointer<Utf8>, int, int) open;
   final int Function(int, int) flock;
   final int Function(int) close;
@@ -331,23 +352,23 @@ final class _Libc {
 
   /// 0 when a non-blocking `flock` took the lock, otherwise an errno.
   ///
-  /// Where [_flockSyscall] is installed, the syscall result is the errno.
-  /// Otherwise this reads `errno` afterwards. That read can belong to
-  /// another thread. Apple cannot map an executable stub without a JIT
-  /// entitlement, and any host whose stub failed to install is in the same
-  /// place, so an unexpected errno on this non-blocking try is reported as
-  /// busy and the caller retries.
+  /// Where [_flockSyscall] is installed, the syscall result is the errno,
+  /// including [badFile]. Otherwise this reads `errno` afterwards. That read
+  /// can belong to another thread. Apple cannot map an executable stub
+  /// without a JIT entitlement, and any host whose stub failed to install is
+  /// in the same place. [flockErrnoAfterSeparateRead] still returns [badFile]
+  /// unchanged: a bad descriptor is not a held lock. Any other unexpected
+  /// errno is reported as busy and the caller retries.
   int flockErrno(int descriptor, int operation) {
     final syscall = _flockSyscall;
     if (syscall != null) {
       final result = syscall(descriptor, operation);
       if (result == 0) return 0;
+      // The kernel returns `-errno`. `EBADF` stays `EBADF`.
       return result < 0 ? -result : result;
     }
     if (flock(descriptor, operation) == 0) return 0;
-    final errno = this.errno;
-    if (errno == wouldBlock || errno == _Libc.interrupted) return errno;
-    return wouldBlock;
+    return flockErrnoAfterSeparateRead(errno, wouldBlock: wouldBlock);
   }
 
   /// `O_CREAT`, `O_CLOEXEC` and `EWOULDBLOCK`, which differ between Apple

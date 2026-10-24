@@ -95,7 +95,9 @@
   lists every file it would write with its text or digest, every Git fetch,
   the Profile's source, release and chain, the skills it installs, the
   conflicts that stop it, and the gate the adopted bundle will have. A
-  request without a ref pins the default branch as its commit. The request's
+  request without a ref pins the source's current default branch as its
+  commit. A later plan refreshes the mirror and follows a default branch
+  that has moved. The request's
   `allowFetch` decides each fetch, and an offline request reads the Profile
   cache as it is; either way a fetch that may not run throws
   `fetch-required`. Planning wraps an unreadable project as

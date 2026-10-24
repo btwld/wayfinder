@@ -6,6 +6,8 @@ import 'dart:isolate';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
+import 'package:wayfinder/src/project/file_lock.dart'
+    show flockErrnoAfterSeparateRead;
 
 void main() {
   late Directory temp;
@@ -250,6 +252,17 @@ void main() {
       await lock.release();
     }
     expect(await file.readAsString(), '{"root":"/a"}\n');
+  });
+
+  test('a bad flock descriptor is not reported as contention', () {
+    expect(flockErrnoAfterSeparateRead(9, wouldBlock: 11), 9);
+    expect(flockErrnoAfterSeparateRead(9, wouldBlock: 35), 9);
+    expect(flockErrnoAfterSeparateRead(11, wouldBlock: 11), 11);
+    expect(flockErrnoAfterSeparateRead(35, wouldBlock: 35), 35);
+    expect(flockErrnoAfterSeparateRead(4, wouldBlock: 11), 4);
+    expect(flockErrnoAfterSeparateRead(22, wouldBlock: 11), 11);
+    expect(flockErrnoAfterSeparateRead(22, wouldBlock: 35), 35);
+    expect(flockErrnoAfterSeparateRead(0, wouldBlock: 11), 11);
   });
 
   test(
