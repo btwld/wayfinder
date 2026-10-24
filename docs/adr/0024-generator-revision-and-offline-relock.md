@@ -2,15 +2,14 @@
 
 - Status: accepted
 - Date: 2026-10-24
-- Scope: what `matches-generated` `version` names, the project root a write binds within, and an offline relock of `wayfinder.json`; no Profile rule and no change to verdicts
-- Amends: [ADR-0015](0015-profile-rule-catalogs.md), [ADR-0018](0018-embeddable-libraries.md) and [ADR-0020](0020-programmatic-adoption.md)
-- Builds on [ADR-0019](0019-profile-aware-writes.md)
+- Scope: what `matches-generated` `version` names, the project root a write binds within, an offline relock of `wayfinder.json`, and the lock an empty write still takes; no Profile rule and no change to verdicts
+- Amends: [ADR-0015](0015-profile-rule-catalogs.md), [ADR-0018](0018-embeddable-libraries.md), [ADR-0019](0019-profile-aware-writes.md) and [ADR-0020](0020-programmatic-adoption.md)
 
 ## Context
 
-ADR-0015, ADR-0018 and ADR-0020 stay as they were accepted. This record
-carries three decisions that this release needs and that those records do
-not.
+ADR-0015, ADR-0018, ADR-0019 and ADR-0020 stay as they were accepted. This
+record carries four decisions that this release needs and that those records
+do not.
 
 ## Decision
 
@@ -32,9 +31,16 @@ not.
   edit changed. Registering an actor is that edit. On the command line, an
   edit followed by `wayfinder get` still reuses the locked commit without
   fetching.
+- A plan whose diff is empty still takes okf's exclusive bundle lock.
+  `commit` checks the project files and the bundle snapshot, consumes the
+  plan, and rewrites no document. A project file that exists but cannot be
+  read fails the commit (`write-failed`); only a path that is absent counts
+  as the absent digest.
 
 ## Consequences
 
 A package that sets `version` to `0.5.0`, Bitwild 2026.3 included, loads and
 yields the same findings. A host can register an actor without fetching, and
-a write stays inside the project the host opened.
+a write stays inside the project the host opened. An empty write is checked
+and consumed under the same lock as one that changes a file. A project file
+the commit cannot read fails, and does not count as absent.
