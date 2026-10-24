@@ -650,8 +650,11 @@ void main() {
         fields:
             'sources:\n'
             '  - {resource: "../../lib/billing.dart"}\n'
+            '  - {resource: "../../lib"}\n'
             '  - {resource: "../../lib/gone.dart"}\n'
             '  - {resource: /missing.md}\n'
+            '  - {resource: "/../outside.txt"}\n'
+            '  - {resource: "foo\\\\bar"}\n'
             '  - {resource: "https://example.invalid/spec"}\n'
             '  - {resource: "the billing team"}\n',
       ),

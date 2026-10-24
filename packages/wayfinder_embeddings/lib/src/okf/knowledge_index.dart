@@ -750,58 +750,77 @@ class KnowledgeIndex {
   /// `path-targets-exist` builtin decides. okf's graph is bundle-scoped: a
   /// path that climbs out of the bundle is `invalid` to it, and one that
   /// starts with `/`, `./` or `../` but has whitespace is a `descriptor`,
-  /// so those are looked up under [bundleRoot]. URLs and prose descriptors
-  /// name no path.
+  /// so those are looked up under [bundleRoot]. A target that starts with
+  /// `/` does not leave the bundle, `/../` included: joining it to the
+  /// source's directory keeps it absolute. An `invalid` path that stays in
+  /// the bundle is malformed, and validation reports it, so it is not a
+  /// missing source. URLs and prose descriptors name no path.
   bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
-    switch (edge.resolution) {
-      case OkfGraphResolution.unresolved:
-        return true;
-      case OkfGraphResolution.invalid:
-      case OkfGraphResolution.descriptor:
-        final raw = edge.rawTarget;
-        final cut = raw.indexOf(RegExp(r'[?#]'));
-        final target = cut < 0 ? raw : raw.substring(0, cut);
-        if (target.isEmpty) return false;
-        if (edge.resolution == OkfGraphResolution.descriptor &&
-            !(target.startsWith('/') ||
+    final target = _pathPart(edge.rawTarget);
+    return switch (edge.resolution) {
+      OkfGraphResolution.unresolved => true,
+      OkfGraphResolution.invalid =>
+        _leavesBundle(edge, target) && !_targetExists(snapshot, edge, target),
+      OkfGraphResolution.descriptor =>
+        target != null &&
+            (target.startsWith('/') ||
                 target.startsWith('./') ||
-                target.startsWith('../'))) {
-          return false;
-        }
-        final directory = target.startsWith('/')
-            ? '.'
-            : p.posix.dirname(edge.source.documentPath);
-        final segments = [
-          for (final segment in target.split('/'))
-            _decodeSegment(segment) ?? segment,
-        ];
-        final relative = p.posix.normalize(
-          p.posix.joinAll([...directory.split('/'), ...segments]),
-        );
-        final leaves = relative == '..' || relative.startsWith('../');
-        if (!leaves &&
-            (snapshot.sources.containsKey(relative) ||
-                snapshot.assets.contains(relative))) {
-          return false;
-        }
-        // An invalid path that stays in the bundle is malformed, not absent
-        // from the disk; validation reports it.
-        if (!leaves && edge.resolution == OkfGraphResolution.invalid) {
-          return true;
-        }
-        final root = bundleRoot;
-        if (root == null) return false;
-        return FileSystemEntity.typeSync(
-              p.normalize(
-                p.joinAll([root, ...directory.split('/'), ...segments]),
-              ),
-            ) ==
-            FileSystemEntityType.notFound;
-      case OkfGraphResolution.resolvedConcept:
-      case OkfGraphResolution.resolvedAsset:
-      case OkfGraphResolution.external:
-        return false;
+                target.startsWith('../')) &&
+            !_targetExists(snapshot, edge, target),
+      OkfGraphResolution.resolvedConcept ||
+      OkfGraphResolution.resolvedAsset ||
+      OkfGraphResolution.external => false,
+    };
+  }
+
+  /// As `path-targets-exist` decides: a target that starts with `/` stays in
+  /// the bundle, and any other leaves when joining it to the source's
+  /// directory climbs out.
+  bool _leavesBundle(OkfGraphEdge edge, String? target) {
+    if (target == null || target.startsWith('/')) return false;
+    final joined = p.posix.normalize(
+      p.posix.join(p.posix.dirname(edge.source.documentPath), target),
+    );
+    return joined == '..' || joined.startsWith('../');
+  }
+
+  /// Whether [target] names a file or directory the snapshot holds, or, when
+  /// it leaves the bundle, one on disk under [bundleRoot]. Without a root a
+  /// path that needs the disk counts as present, so it is not reported.
+  bool _targetExists(
+    KnowledgeSnapshot snapshot,
+    OkfGraphEdge edge,
+    String? target,
+  ) {
+    if (target == null) return false;
+    final directory = target.startsWith('/')
+        ? '.'
+        : p.posix.dirname(edge.source.documentPath);
+    final segments = [
+      for (final segment in target.split('/'))
+        _decodeSegment(segment) ?? segment,
+    ];
+    final relative = p.posix.normalize(
+      p.posix.joinAll([...directory.split('/'), ...segments]),
+    );
+    if (relative != '..' &&
+        !relative.startsWith('../') &&
+        (snapshot.sources.containsKey(relative) ||
+            snapshot.assets.contains(relative))) {
+      return true;
     }
+    final root = bundleRoot;
+    if (root == null) return true;
+    return FileSystemEntity.typeSync(
+          p.normalize(p.joinAll([root, ...directory.split('/'), ...segments])),
+        ) !=
+        FileSystemEntityType.notFound;
+  }
+
+  static String? _pathPart(String raw) {
+    final cut = raw.indexOf(RegExp(r'[?#]'));
+    final path = cut < 0 ? raw : raw.substring(0, cut);
+    return path.isEmpty ? null : path;
   }
 
   static String? _decodeSegment(String segment) {

@@ -12,8 +12,10 @@
   `../../lib/billing.dart`, is `invalid` to it; the store now looks such a
   path up on disk under the bundle (`KnowledgeIndex`'s new `bundleRoot`), as
   the `path-targets-exist` builtin does, and reports only a path that names
-  nothing, with the new code `unresolved-source`. Body links and typed link
-  fields still report `unresolved-relationship`.
+  nothing, with the new code `unresolved-source`. A directory counts. A
+  target that starts with `/` does not leave the bundle, `/../` included,
+  and a malformed path that stays in the bundle is left to validation.
+  Body links and typed link fields still report `unresolved-relationship`.
 - Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
 - New `package:wayfinder_embeddings/knowledge_store.dart`: the index
   lifecycle `wayfinder index` and `wayfinder search` use, moved out of the
