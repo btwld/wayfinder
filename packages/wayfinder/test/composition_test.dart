@@ -10,7 +10,7 @@ import 'support.dart';
 
 final acme = ProfilePackage.parse(
   jsonEncode({
-    'format': 2,
+    'format': 3,
     'id': 'acme-notes',
     'release': '1.0',
     'implements': {'id': 'okf', 'release': '0.2'},

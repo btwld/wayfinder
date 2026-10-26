@@ -1,0 +1,28 @@
+{
+  "independent_profile": {
+    "okf": "PASS",
+    "gate": "FAIL",
+    "findings": [
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "asset.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "billing.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "department/references.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "interactions.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "interactions/dailies.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "references-extra.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "references.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "references.vendor.md"},
+      {"id": "directory-probe/same-stem-directory", "severity": "error", "path": "references/vendor.md"}
+    ]
+  },
+  "bitwild": {
+    "okf": "PASS",
+    "gate": "PASS",
+    "findings": [
+      {"id": "bitwild-profile/concept-area-name-collision", "severity": "advisory", "path": "asset.md"},
+      {"id": "bitwild-profile/concept-area-name-collision", "severity": "advisory", "path": "billing.md"},
+      {"id": "bitwild-profile/concept-area-name-collision", "severity": "advisory", "path": "department/references.md"},
+      {"id": "bitwild-profile/concept-area-name-collision", "severity": "advisory", "path": "references-extra.md"},
+      {"id": "bitwild-profile/concept-area-name-collision", "severity": "advisory", "path": "references.vendor.md"}
+    ]
+  }
+}

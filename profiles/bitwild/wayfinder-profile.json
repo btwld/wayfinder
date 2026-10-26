@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
-  "format": 2,
+  "format": 3,
   "id": "bitwild-profile",
   "release": "2026.3",
   "implements": {
@@ -1524,11 +1524,23 @@
       "check": {
         "subject": "concept",
         "schema": {
-          "properties": {
-            "sibling_directory": {
-              "const": false
+          "anyOf": [
+            {
+              "required": ["path"],
+              "properties": {
+                "path": {
+                  "pattern": "^(interactions|references)(/|\\.md$)"
+                }
+              }
+            },
+            {
+              "properties": {
+                "sibling_directory": {
+                  "const": false
+                }
+              }
             }
-          }
+          ]
         }
       },
       "tests": {
@@ -1536,11 +1548,39 @@
           {
             "path": "area/note.md",
             "sibling_directory": false
+          },
+          {
+            "path": "interactions.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "references.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "interactions/dailies.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "references/vendor.md",
+            "sibling_directory": true
           }
         ],
         "invalid": [
           {
             "path": "area.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "references-extra.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "references.vendor.md",
+            "sibling_directory": true
+          },
+          {
+            "path": "department/references.md",
             "sibling_directory": true
           }
         ]

@@ -1,7 +1,7 @@
 # `implementation/`: the wayfinder engine contract
 
 [`okf-implementation-guide.md`](okf-implementation-guide.md) is the engine
-contract for Profile package format 2 and OKF 0.2. It binds no single Profile.
+contract for Profile package format 3 and OKF 0.2. It binds no single Profile.
 
 Precedence runs one way. OKF wins over the engine contract, and the engine
 contract wins over each Profile package. The contract is this guide plus the

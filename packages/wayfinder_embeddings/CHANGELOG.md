@@ -1,5 +1,7 @@
-# 0.3.0 (unreleased)
+# 1.0.0 (unreleased)
 
+- Prepare the first stable retrieval-library release, with the public
+  compatibility and support boundaries in [the stability contract](../../docs/stability.md).
 - Ingestion refuses an explicit chunk ID reused for different text within one
   call, including across files, instead of silently dropping the later chunk.
   Identical duplicates retain their existing deduplication behavior.
@@ -24,7 +26,7 @@
   target that starts with `/` does not leave the bundle, `/../` included,
   and a malformed path that stays in the bundle is left to validation.
   Body links and typed link fields still report `unresolved-relationship`.
-- Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
+- Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.
 - New `package:wayfinder_embeddings/knowledge_store.dart`: the index
   lifecycle `wayfinder index` and `wayfinder search` use, moved out of the
   CLI. `WayfinderKnowledgeStore` keeps saved indexes of OKF bundles in the

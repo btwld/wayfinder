@@ -887,7 +887,7 @@ void main() {
     test('a package whose id cannot be read fails as resolving it '
         'would', () async {
       final broken = await _repository(temp, 'broken', {
-        'profile/wayfinder-profile.json': '{"format": 2, "id": "Not An Id"}',
+        'profile/wayfinder-profile.json': '{"format": 3, "id": "Not An Id"}',
       });
       await expectLater(
         adoption.plan(
@@ -1121,7 +1121,7 @@ String _concept(String title) =>
 /// against `^(a+)+$|^[A-Z]`: quick on its own tests and on a capitalized
 /// title, and exponential on [_hostileTitle].
 String _slowPackage() => jsonEncode({
-  'format': 2,
+  'format': 3,
   'id': 'slow-notes',
   'release': '1',
   'implements': {'id': 'okf', 'release': '0.2'},

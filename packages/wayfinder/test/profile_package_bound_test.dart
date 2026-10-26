@@ -37,6 +37,15 @@ void main() {
     );
   });
 
+  test('accepts the supported integral format representation 3.0', () async {
+    final document = jsonDecode(packageJson()) as Map<String, Object?>;
+    document['format'] = 3.0;
+    final json = jsonEncode(document);
+    final bounded = await ProfilePackage.parseWithin(json);
+    expect(bounded.id, ProfilePackage.parse(json).id);
+    expect(bounded.id, ProfileId.parse('probe'));
+  });
+
   test('throws what parse throws', () async {
     final disagreeing = packageJson(
       rules: [
@@ -57,9 +66,14 @@ void main() {
         ),
       ],
     );
-    final unsupported = (jsonDecode(packageJson()) as Map<String, Object?>)
-      ..['format'] = 3;
-    for (final json in [disagreeing, jsonEncode(unsupported), '{']) {
+    final unsupported = [
+      for (final format in <num>[2, 2.0, 4.0])
+        jsonEncode(
+          (jsonDecode(packageJson()) as Map<String, Object?>)
+            ..['format'] = format,
+        ),
+    ];
+    for (final json in [disagreeing, ...unsupported, '{']) {
       Object? expected;
       try {
         ProfilePackage.parse(json);

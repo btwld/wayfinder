@@ -76,15 +76,41 @@ void main() {
       );
 
   group('parse refuses whole what this engine cannot evaluate', () {
-    test('another package format, before any schema check', () {
+    for (final format in <num>[2, 2.0, 4, 4.0, 9007199254740993]) {
+      test('refuses package format $format before any schema check', () {
+        final json = jsonDecode(packageJson()) as Map<String, Object?>;
+        json['format'] = format;
+        json['surprise'] = true;
+        expect(
+          () => ProfilePackage.parse(jsonEncode(json)),
+          rejectedAt(
+            'format',
+            'package format $format is not supported; this wayfinder reads format 3',
+            unsupported: true,
+          ),
+        );
+      });
+    }
+
+    test('the supported integral representation 3.0 is accepted', () {
       final json = jsonDecode(packageJson()) as Map<String, Object?>;
-      json['format'] = 3;
-      json['surprise'] = true;
+      json['format'] = 3.0;
       expect(
-        () => ProfilePackage.parse(jsonEncode(json)),
-        rejectedAt('format', 'format 3 is not supported', unsupported: true),
+        ProfilePackage.parse(jsonEncode(json)).id,
+        ProfileId.parse('probe'),
       );
     });
+
+    for (final format in <Object>[2.5, '2']) {
+      test('a non-integer format $format is malformed, not unsupported', () {
+        final json = jsonDecode(packageJson()) as Map<String, Object?>;
+        json['format'] = format;
+        expect(
+          () => ProfilePackage.parse(jsonEncode(json)),
+          rejectedAt('format', 'must be 3', unsupported: false),
+        );
+      });
+    }
 
     test('an OKF release its okf cannot read', () {
       final json = jsonDecode(packageJson()) as Map<String, Object?>;

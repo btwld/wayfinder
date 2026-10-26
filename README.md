@@ -205,6 +205,7 @@ for result details and diagnostics.
 | Write a Profile | [`create-profile`](skills/create-profile/SKILL.md) and the [engine contract](implementation/okf-implementation-guide.md#5-profile-packages) |
 | Explore a worked bundle | [Examples](examples/README.md) |
 | Develop or release Wayfinder | [Contributor guide](docs/contributing.md) and [release guide](docs/releasing.md) |
+| Integrate against the prepared 1.0 surface | [Compatibility and support contract](docs/stability.md) |
 
 The [documentation index](docs/index.md) also covers vocabulary, compatibility,
 architecture decisions, and retrieval evidence.

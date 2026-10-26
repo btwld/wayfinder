@@ -230,8 +230,8 @@ const String wayfinderProfileSchema = r'''
       "type": "string"
     },
     "format": {
-      "const": 2,
-      "description": "The package format the engine must read. Engine compatibility is this integer, never a Profile release."
+      "const": 3,
+      "description": "The package format the engine must read. Format 3 makes concept.sibling_directory independent of directory names: it reports a same-stem sibling directory in the loaded bundle inventory. A package owns any placement exceptions in its rules. Older formats are unsupported, never reinterpreted. Engine compatibility is this integer, never a Profile release."
     },
     "id": {
       "$ref": "#/$defs/profileId",

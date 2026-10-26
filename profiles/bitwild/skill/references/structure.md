@@ -52,6 +52,14 @@ An area is a directory that holds every concept whose subject is one thing.
   its subject. Never create a generic `overview.md` or any concept that
   duplicates the generated index.
 
+The `concept-area-name-collision` advisory asks for review of a same-named
+concept beside an area. Its package rule exempts the top-level
+`interactions/` and `references/` trees and root concepts named
+`interactions.md` or `references.md`; they organize time and mirrored sources,
+not subject areas. A same-named directory inside another subject area has
+no automatic exemption. The engine's sibling-directory fact itself has no
+directory-name policy.
+
 ## Fixed directories
 
 The Profile fixes five names. Every other directory name, including names in

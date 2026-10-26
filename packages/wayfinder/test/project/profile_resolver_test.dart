@@ -413,7 +413,7 @@ void main() {
       );
       final invalid =
           jsonDecode(await manifest.readAsString()) as Map<String, dynamic>;
-      invalid['format'] = 3;
+      invalid['format'] = 4;
       await manifest.writeAsString(jsonEncode(invalid));
       await _git(source.path, ['add', '.']);
       await _git(source.path, ['commit', '-q', '-m', 'Invalid Profile']);
@@ -429,7 +429,7 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                contains('package format 3 is not supported'),
+                contains('package format 4 is not supported'),
               ),
         ),
       );
@@ -525,7 +525,7 @@ void main() {
     'a package names its parent; the project never wires the chain',
     () async {
       await commitPackage('child', {
-        'format': 2,
+        'format': 3,
         'id': 'client-profile',
         'release': '3',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -629,7 +629,7 @@ void main() {
     await commitPackage(
       'profile',
       {
-        'format': 2,
+        'format': 3,
         'id': 'client-profile',
         'release': '1',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -678,7 +678,7 @@ void main() {
     await commitPackage(
       'profile',
       {
-        'format': 2,
+        'format': 3,
         'id': 'client-profile',
         'release': '1',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -730,7 +730,7 @@ void main() {
       await commitPackage(
         'profile',
         {
-          'format': 2,
+          'format': 3,
           'id': 'client-profile',
           'release': '1',
           'implements': {'id': 'okf', 'release': '0.2'},
@@ -950,7 +950,7 @@ void main() {
 
   test('a package that extends itself fails at get', () async {
     await commitPackage('a', {
-      'format': 2,
+      'format': 3,
       'id': 'loop-a',
       'release': '1',
       'implements': {'id': 'okf', 'release': '0.2'},
@@ -958,7 +958,7 @@ void main() {
       'rules': <Object?>[],
     });
     await commitPackage('b', {
-      'format': 2,
+      'format': 3,
       'id': 'loop-b',
       'release': '1',
       'implements': {'id': 'okf', 'release': '0.2'},
@@ -980,7 +980,7 @@ void main() {
 
   group('a child Profile package ships rules', () {
     Map<String, Object?> childPackage(Map<String, Object?> check) => {
-      'format': 2,
+      'format': 3,
       'id': 'client-profile',
       'release': '2026.3',
       'implements': {'id': 'okf', 'release': '0.2'},
@@ -1418,7 +1418,7 @@ void main() {
     await acme.create();
     await File(p.join(acme.path, 'wayfinder-profile.json')).writeAsString(
       jsonEncode({
-        'format': 2,
+        'format': 3,
         'id': 'acme-notes',
         'release': '1.0',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -1576,7 +1576,7 @@ void main() {
 
     setUp(() async {
       Map<String, Object?> package(String id, {Object? extend}) => {
-        'format': 2,
+        'format': 3,
         'id': id,
         'release': '2026.3',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -1595,7 +1595,7 @@ void main() {
       );
       await commitPackage('unsupported', {
         ...package('client-profile'),
-        'format': 3,
+        'format': 4,
       }, tag: 'arm-unsupported');
       await commitPackage('copy', package('bitwild-profile'), tag: 'arm-copy');
       await commitPackage(
@@ -1734,7 +1734,7 @@ void main() {
     test('status reports each binding, in id order', () async {
       final solo = ProfileId.parse('solo-profile');
       await commitPackage('solo', {
-        'format': 2,
+        'format': 3,
         'id': 'solo-profile',
         'release': '1.0',
         'implements': {'id': 'okf', 'release': '0.2'},
@@ -2194,7 +2194,7 @@ void main() {
       });
       final diagnostic = await reason();
       expect(diagnostic.code, DiagnosticCode.profileUnsupported);
-      expect(diagnostic.message, contains('package format 3 is not supported'));
+      expect(diagnostic.message, contains('package format 4 is not supported'));
       await agrees(ProfileBindingState.packageUnsupported, id: _client);
     });
 

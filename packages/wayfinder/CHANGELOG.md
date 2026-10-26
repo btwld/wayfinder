@@ -1,5 +1,22 @@
-# 0.3.0 (unreleased)
+# 1.0.0 (unreleased)
 
+- Prepare the first stable validation/project/adoption/authoring release.
+  The accepted engine contract and [stability boundaries](../../docs/stability.md)
+  define its public API, compatibility and host obligations; publication and
+  exact-source platform verification remain separate release gates.
+
+- **BREAKING:** Reads Profile package format 3 only; format 2 is
+  `profile-unsupported`, never silently reinterpreted. The concept fact
+  `sibling_directory` now includes every same-stem sibling directory
+  represented by the loaded file inventory, without directory-name policy
+  (ADR-0029). Package authors review uses of that fact, put any chosen
+  placement exceptions in their rules, and release a format 3 revision.
+  Projects move source refs and pinned parent refs to migrated revisions,
+  then refresh and commit locks and installed skills with `get` or `upgrade`;
+  `upgrade` alone cannot advance an immutable old ref. A package whose own
+  rules do not use the fact needs no rule changes, but its entire parent
+  chain must also be reviewed and migrated. Migrated Bitwild keeps
+  its previous findings, with its existing exceptions in its own rule.
 - Git timeout and cancellation cleanup also terminate live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
 - Project discovery rejects selected bundle roots that resolve to the same
@@ -8,10 +25,11 @@
 - A failed adoption step whose own rollback fails now reports `undoFailed`,
   as earlier completed steps already do when their rollback fails. The
   original failure code and cause remain available.
-- Clarify format 2 composition: all rules use the whole chain's and project's
+- Clarify composition: all rules use the whole chain's and project's
   vocabulary. Added names can affect inherited findings; inherited rule
-  definitions and severities cannot change. Existing verdicts and packages
-  are unchanged (ADR-0027). Remove an unused private legacy body parser and
+  definitions and severities cannot change. This clarification alone changes
+  no verdict (ADR-0027); format migration is described separately above.
+  Remove an unused private legacy body parser and
   correct the duplicate-rule-id regression so it reaches that check.
 - New `package:wayfinder/authoring.dart`, the write path for a bundle a
   Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one

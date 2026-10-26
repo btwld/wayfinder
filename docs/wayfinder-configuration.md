@@ -188,7 +188,7 @@ This minimal package shows the shape with two rules:
 ```json
 {
   "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
-  "format": 2,
+  "format": 3,
   "id": "client-profile",
   "release": "1.0.0",
   "implements": {"id": "okf", "release": "0.2"},
@@ -305,11 +305,20 @@ with one of these diagnostics:
   error, such as a stack overflow, are all malformed.
 - `wayfinder/profile-unsupported` when a package is well-formed for another
   engine. It may declare another `format`, an OKF release this okf cannot
-  read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
+  read, or a builtin this engine lacks. Use a matching engine or migrate the
+  package; upgrading the engine cannot restore support for an older format.
 - `wayfinder/profile-timeout` when reading a package, its rule tests
   included, does not finish within ten seconds, as a `pattern` that
   backtracks without end can cause. The Profile's author fixes the rule.
 - `wayfinder/profile-composition` when the chain does not compose.
+
+This engine reads package format 3 only. Its `sibling_directory` fact treats
+every directory name alike; a package owns placement exceptions in its rules.
+A format 2 package must be migrated through its own release process before
+this engine assesses it. Move the binding's source ref and any pinned parent
+refs to migrated revisions, then refresh and commit the lock and installed
+skills with `get` or `upgrade`. Merely running `upgrade` cannot advance an
+immutable old source ref. See the [format migration record](adr/0029-profile-neutral-directory-facts.md).
 
 ## Sources and lockfile
 
