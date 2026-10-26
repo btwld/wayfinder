@@ -51,7 +51,7 @@ that rule's definition, severity, namespace, or release.
   "status": "stable",
   "description": "Every concept type MUST be declared.",
   "message": "Type {type} is not declared.",
-  "check": {"subject": "concept", "schema": {"properties": {"type": {"$ref": "#/$defs/type-name"}}}},
+  "check": {"subject": "concept", "schema": {"properties": {"type": {"$ref": "#/$defs/profile.types"}}}},
   "tests": {"slots": {"profile.types": ["Runbook"]}, "valid": [{"type": "Runbook"}], "invalid": [{"type": "Memo"}]}
 }
 ```

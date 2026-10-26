@@ -303,15 +303,11 @@ indexing. The
 server projects the ordinary OKF graph and does not expose upstream OKF's
 concept-authoring write tools. See [ADR-0012](../../docs/adr/0012-wayfinder-graph-projection.md).
 
-The current `mcp_dart` stdio transport defaults to a 10 MiB incoming frame
-limit; oversized client requests close the transport. Native model startup is
-variable: a macOS CI run once reached llamadart's 30-second worker timeout
-and passed on retry. That observation is not a guaranteed startup bound or a
-permanent fix; allow adequate host time for cold startup and corpus-sized
-indexing.
+The `mcp_dart` stdio transport defaults to a 10 MiB incoming frame limit;
+oversized client requests close the transport.
 
-Tool argument contracts use ACK through the published `ack_mcp_dart ^1.3.0`
-adapter and the compatible `ack ^1.2.0` core. The adapter applies the search
+Tool argument contracts use Ack through `ack_mcp_dart`; versions are in the
+[package manifest](pubspec.yaml). The adapter applies the search
 default and normalizes integral JSON numbers before the callback. It preserves
 the advertised nonblank query, 1–100 limit and closed-object constraints.
 
@@ -450,7 +446,8 @@ models, cross-process locking, searching while another process indexes, and
 crash-lock recovery. It checks validation
 without a model and preserves the old index after an indexing failure.
 The checked-in fixture is generic; it is not a conformant profile template or
-independent model-quality benchmark. Native CI exercises Linux/macOS.
+independent model-quality benchmark. The [CI workflow](../../.github/workflows/ci.yml)
+runs these checks on the supported native targets.
 
 See [ADR-0010](../../docs/adr/0010-wayfinder-cli.md) for the application decision
 and [ADR-0009](../../docs/adr/0009-local-knowledge-retrieval.md) for model and

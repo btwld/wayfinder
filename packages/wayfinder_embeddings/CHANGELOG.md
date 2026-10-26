@@ -7,9 +7,6 @@
   Identical duplicates retain their existing deduplication behavior.
 - Parse native-runtime override keys as YAML, including flow mappings, so a
   different layout cannot bypass the reviewed llama.cpp pin at bundle build.
-- Clarify saved-index checks: readers verify vector shape and file digest,
-  not snapshot-derived input hashes. Those hashes support incremental reuse;
-  runtime behavior is unchanged.
 - Every `WayfinderKnowledgeStore.index` run, including one that finds its
   index current, and `prune` delete the generations superseded more than
   `gracePeriod` ago. Only a later publication used to, so the generations a
@@ -72,8 +69,10 @@
   exports it. Add `wayfinder_dart_chunker` and import
   `package:wayfinder_dart_chunker/wayfinder_dart_chunker.dart` to keep chunking
   Dart; its `defaultCodeRegistry()` registers `DartChunker` beside this
-  package's TypeScript, Markdown and text chunkers. Chunks, ids and metadata
-  are unchanged, so saved indexes stay valid. No deprecated alias is provided.
+  package's TypeScript, Markdown and text chunkers. The extraction itself
+  preserves chunks, ids and metadata. See the [chunker changelog](../wayfinder_dart_chunker/CHANGELOG.md)
+  for its enhanced-enum field fix and affected-file re-ingestion. No deprecated
+  alias is provided.
 - The code example and the Dart sample move to `wayfinder_dart_chunker`.
   `tool/compare_embeddings.dart` drops `--dart-chunk-budget` and gains
   `--reference-chunks`, which replays a committed chunk manifest for files no
@@ -169,7 +168,9 @@
   header (`WFVF32\0\x01`, then the dimension and row count as little-endian
   32-bit integers) followed by one little-endian float32 row per snapshot
   chunk, in chunk order. The record names the vectors' dimension, row count,
-  SHA-256 and a hash of the input each row embeds, and a reader checks them.
+  SHA-256 and a hash of the input each row embeds. A reader checks vector
+  shape, file digest and input-hash list shape, not the input hashes against
+  the snapshot. Indexing uses those hashes for vector reuse.
   An index
   publishes a complete generation by atomically replacing a `current`
   pointer. A search loads the published generation into a `MemoryStore` and
@@ -224,7 +225,7 @@
   `KnowledgeBundleSearch.notices` and `KnowledgeProjectSearch.notices` are
   lists of the new `KnowledgeNotice` instead of strings: a stable `code`
   (`KnowledgeNoticeCode`, whose `wireValue` is `unresolved-relationship`,
-  `governing-source-unavailable`, `refresh-in-progress` or
+  `unresolved-source`, `governing-source-unavailable`, `refresh-in-progress` or
   `source-changed`), the `message`, a sentence for a reader without the code
   or the bundle's name, the bundle-relative `paths` it concerns (the matches
   whose link did not resolve, the governing source, or every changed file,

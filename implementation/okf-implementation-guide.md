@@ -395,7 +395,7 @@ A validator MUST dispatch through `wayfinder.json` alone. For a bundle named
 by exactly one `applies_to` path, it follows the lock's `extends` pointers
 from that entry's id to the root, reads each package from the local cache at
 its locked commit, and dispatches on each package's `format`, which MUST be
-`2`, the package format this engine reads. A Profile's `release` is its own
+`3`, the package format this engine reads. A Profile's `release` is its own
 name and never selects engine behavior. The chain need not reach any
 particular Profile. The engine verifies safe paths, each package's OKF
 binding, and that the chain composes (§5.7). A package is data the engine evaluates, read from
@@ -895,7 +895,7 @@ additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
 **Profile-neutral directory facts, package format 3, wayfinder 1.0.0.**
-Affected sections: the guide header, §§4.1, 5.4, 5.6, 5.7, and 9; the package
+Affected sections: the guide header, §§4.1, 4.4, 5.4, 5.6, 5.7, and 9; the package
 schema and generic authoring guidance are updated with them (ADR-0029).
 Driver: independent Profiles and Bitwild are both resolved through the
 shipped example/CI workflows, but the shared `sibling_directory` fact

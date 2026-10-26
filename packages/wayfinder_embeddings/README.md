@@ -487,9 +487,6 @@ loads the model with `LlamaEngine.load` on the CPU only, with a 512-token
 context, batch and micro-batch, and up to four threads, one fewer than the
 machine's processors. Development and CLI builds
 need Dart 3.11.0+, the minimum every package in the workspace declares.
-llamadart 0.15 requires only 3.10.7, so the declared floor sits above it.
-Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart
-3.11 CLI still labels its bundle command as preview.
 
 Another llama.cpp build can give the same model slightly different vectors.
 `wayfinderLlamaCppRuntime` names the `llamadart-native` release Wayfinder

@@ -31,6 +31,7 @@ every Profile. Profile skills install per project.
 ## Installation and routing
 
 Use the [root README's agent setup instructions](../README.md#use-with-coding-agents).
+Install the family as a unit: the skills reference one another.
 The native installer installs this family (`wayfinder skills install`) and
 `wayfinder update` refreshes it; `wayfinder setup` configures a project's MCP
 server.
@@ -49,14 +50,6 @@ merely because this repository was cloned.
 Keep upstream `okf` write tools separately configured if needed. Wayfinder's
 `validate`, `index`, `search` and `graph` tools project and retrieve; they do
 not replace concept-authoring writes.
-
-Install the family as a unit: sibling references make a partial installation
-incomplete.
-
-`author-knowledge-bundle` owns concept mechanics. Its description routes bundle
-writes and reviews to it, and adoption also puts an explicit pointer in the
-consuming repository's agent instructions. The other skills delegate instead
-of keeping their own rule text.
 
 ## Pinned OKF
 

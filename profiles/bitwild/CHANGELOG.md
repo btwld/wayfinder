@@ -7,6 +7,15 @@ the names of their time. The 2026.2 and 2026.1 entries cite sections of that
 release's prose text, which [`versions/`](versions/) keeps. The 2026.3 prose
 text is gone, so its entries name sections by subject.
 
+## 2026.3 guidance clarification (2026-10-26)
+
+The skill now says to reuse tags declared by the selected chain, not copy them
+into project configuration. The shipped child Profile's `billing` tag exposed
+that contradiction. Its migration example also applies the existing
+lifecycle/verification test conditionally, rather than assuming a capability
+area is always maintained as one unit. No rule, vocabulary or review-map check
+changes. Bundle verdicts are unchanged and no bundle edit is needed.
+
 ## 2026.3 revision for package-owned directory policy (2026-10-26)
 
 Release 2026.3 remains unpublished, so this revision keeps its release name

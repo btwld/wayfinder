@@ -97,7 +97,7 @@
   depth, as okf's loader does; before, a bundle holding one failed `index`
   with `Knowledge changed while loading` and `search` reported the index
   stale.
-- Requires `wayfinder` and `wayfinder_embeddings` `^0.3.0`.
+- Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.
 - Project discovery, Profile resolution, selection, Profile skills and the
   graph projection now come from `package:wayfinder/project.dart`; the command
   and MCP server keep their output and exit codes.
@@ -118,7 +118,7 @@
   five minutes is stopped; clones report progress, so a long clone keeps
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
-- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.3.0.
+- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 1.0.0.
 - `index` and `search` come from the `wayfinder_embeddings` knowledge store,
   and the MCP server's tools with them. The CLI finds the model in its
   bundle and passes it in. It does not load ObjectBox. Output and exit codes
@@ -152,7 +152,7 @@
   unchanged, and a Profile that pins `version` to `0.5.0`, such as Bitwild
   2026.3, keeps loading. A `version` that names another revision fails to
   load with a reason that names the revision this wayfinder runs.
-- Builds with `llamadart` 0.15 through `wayfinder_embeddings` 0.3.0: native
+- Builds with `llamadart` 0.15 through `wayfinder_embeddings` 1.0.0: native
   bundles carry llama.cpp from `llamadart-native` v0.7.0-2 instead of v0.4.0,
   still CPU only. `licenses/embedding_runtime/` attributes it, and now also
   the cpp-httplib and JSON for Modern C++ code it contains. Index

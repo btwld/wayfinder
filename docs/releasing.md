@@ -18,10 +18,8 @@ releases cannot collide with application releases.
 
 ## Prepare a release
 
-The [1.0 compatibility contract](stability.md) names the prepared public
-surfaces and support/migration boundaries. A `1.0.0` preparation commit does
-not publish a package, activate an installer release, or establish platform
-success without its checks.
+The [1.0 compatibility contract](stability.md) names the public surfaces and
+support/migration boundaries.
 
 Preparation does not publish. Publish changed core or `wayfinder_embeddings`
 dependencies before the CLI, then resolve the CLI from hosted dependencies
@@ -133,11 +131,8 @@ not this necessarily blocked release-stage command while its own run is pending.
 ### Release gates
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
-tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
-enforces it. `wayfinder update` offers only stable `wayfinder-v` releases, so
-a suffixed prerelease never reaches it. Claude Code updates the plugin from the
-default branch when its version changes, whatever the release flag says, so
-merging a version bump ships the skills.
+tagging. `wayfinder update` offers only stable `wayfinder-v` releases, so
+a suffixed prerelease never reaches it.
 The public installers install GitHub's latest release, so publishing a stable
 release makes it the default at once; verify before dispatching. Only
 application releases may be GitHub's latest release: the installers refuse any

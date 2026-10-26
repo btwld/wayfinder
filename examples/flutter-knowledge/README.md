@@ -53,10 +53,8 @@ The authoring project above is not an installation payload. Consumers receive
 and lock. Keep `sources.json`, `sources.lock.json`, `provenance.json`, evaluation
 queries, and `.wayfinder-import/` in the publisher workspace.
 
-The temporary `flutterapp` demo installs concepts under
-`.wayfinder/bundles/flutter-dev-kit/`, selected source snapshots under
-`.wayfinder/sources/flutter-dev-kit/`, and notices under
-`.wayfinder/licenses/flutter-dev-kit/`. Source links in that installed copy point
-to local evidence and preserve the upstream revision in citations.
-This is a manual demo: `wayfinder add` and bundle-name configuration are not yet
-implemented by the current CLI.
+Bundle installation is manual; the CLI does not install bundles from Git.
+Choose the consumer's bundle and evidence paths, update source links to the
+installed evidence, and preserve upstream revisions in citations. Configure
+the bundle in the consumer's `wayfinder.json`, then run `wayfinder get`,
+validation, and indexing there.

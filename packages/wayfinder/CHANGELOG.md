@@ -29,8 +29,6 @@
   vocabulary. Added names can affect inherited findings; inherited rule
   definitions and severities cannot change. This clarification alone changes
   no verdict (ADR-0027); format migration is described separately above.
-  Remove an unused private legacy body parser and
-  correct the duplicate-rule-id regression so it reaches that check.
 - New `package:wayfinder/authoring.dart`, the write path for a bundle a
   Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one
   `KnowledgeChange` (`CreateConcept`, `UpdateConcept`, `LinkConcepts`, which
@@ -289,8 +287,9 @@
   extension report okf's own `okfVersion`, 0.5.1 or a later okf 0.5 release,
   so `engine.okf` is no longer the value a package pins as `version`. okf
   0.5.1 writes the same indexes as 0.5.0: a package that sets `version` to
-  `0.5.0`, Bitwild 2026.3 included, loads and yields the same findings, every
-  verdict is unchanged, and package format stays 2.
+  `0.5.0`, Bitwild 2026.3 included, keeps the same index findings. The
+  generator-revision change itself needs no package-format migration; the
+  separate format 3 migration is described above.
 - A `matches-generated` `version` that names another generator revision fails
   to load with a message that names the revision this wayfinder runs.
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
@@ -342,8 +341,8 @@
   rule's tests, throws a `ProfilePackageException` naming it, reported as
   `profile-invalid`, rather than parsing again unbounded on the caller.
   Every read runs the tests; no verdict is cached. Bitwild parses in about
-  five milliseconds, so no package reads differently and package format
-  stays 2.
+  five milliseconds, so bounded reading adds no package-interpretation
+  change. The separate format 3 migration is described above.
 - `WayfinderProfileResolver.status` reports, offline and without Git, a
   `ProfileResolutionStatus` with one `ProfileBindingStatus` per binding: a
   stable `ProfileBindingState` (`resolved`, `lock-missing`, `lock-stale`,

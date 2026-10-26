@@ -48,8 +48,8 @@ chain is missing or a Profile skill cannot be loaded, act on the diagnostic
 - `wayfinder/profile-invalid`, `wayfinder/profile-unsupported`,
   `wayfinder/profile-timeout`, or `wayfinder/profile-composition`: a package
   in the chain cannot be read or composed, so no rule ran. Do not guess the
-  rules. Report the diagnostic. `profile-unsupported` means the package
-  needs a newer wayfinder.
+  rules. Report the diagnostic. `profile-unsupported` needs a matching engine
+  or a package migration; a newer engine need not read an older format.
   `profile-composition` can come from the project's own additions in
   `wayfinder.json`, so check those first. A malformed package, or one whose
   rule tests run too long (`profile-timeout`), is for its Profile's author to
