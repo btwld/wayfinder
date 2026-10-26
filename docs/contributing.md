@@ -23,6 +23,9 @@ is a chain.** OKF wins over the engine contract, which wins over each Profile pa
 
 Run the [core contributor checks](../README.md#contributor-checks) from the
 repository root. `dart run melos run lint` checks all four workspace packages.
+Package test runs are serialized because workspace members share native
+build-hook output; concurrent runs can race during library copying or macOS
+codesigning. Tests within each package keep their normal concurrency.
 
 ## Schemas and Profile packages
 

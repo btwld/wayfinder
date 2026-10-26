@@ -1,5 +1,13 @@
 # 0.3.0 (unreleased)
 
+- Ingestion refuses an explicit chunk ID reused for different text within one
+  call, including across files, instead of silently dropping the later chunk.
+  Identical duplicates retain their existing deduplication behavior.
+- Parse native-runtime override keys as YAML, including flow mappings, so a
+  different layout cannot bypass the reviewed llama.cpp pin at bundle build.
+- Clarify saved-index checks: readers verify vector shape and file digest,
+  not snapshot-derived input hashes. Those hashes support incremental reuse;
+  runtime behavior is unchanged.
 - Every `WayfinderKnowledgeStore.index` run, including one that finds its
   index current, and `prune` delete the generations superseded more than
   `gracePeriod` ago. Only a later publication used to, so the generations a

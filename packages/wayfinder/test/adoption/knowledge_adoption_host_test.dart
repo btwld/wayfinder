@@ -661,6 +661,69 @@ void main() {
       );
     }, skip: Platform.isWindows ? 'chmod is POSIX' : false);
 
+    test('reports undo-failed when the failed step cannot undo its own '
+        'writes, retaining its original cause', () async {
+      final plan = await adoption.plan(bitwild());
+      final configuration = File(p.join(project.path, 'wayfinder.json'));
+      final reports = <AdoptionStepReport>[];
+      const cause = WayfinderException(
+        'listener-failed',
+        'Forced listener failure.',
+      );
+      var readWasRefused = false;
+      late KnowledgeAdoptionException failure;
+      try {
+        failure = await applyFailure(
+          plan,
+          onStep: (report) {
+            reports.add(report);
+            if (report.step == AdoptionStep.configuration &&
+                report.outcome == AdoptionStepOutcome.done) {
+              final chmod = Process.runSync('chmod', [
+                '000',
+                configuration.path,
+              ]);
+              if (chmod.exitCode != 0) throw StateError('chmod failed');
+              try {
+                configuration.readAsBytesSync();
+              } on FileSystemException {
+                readWasRefused = true;
+              }
+              throw cause;
+            }
+          },
+        );
+      } finally {
+        if (await configuration.exists()) {
+          await _chmod('644', configuration.path);
+        }
+      }
+      expect(failure.code, cause.code);
+      expect(failure.cause, same(cause));
+      if (!readWasRefused) {
+        markTestSkipped('This user can read a file with mode 000.');
+        return;
+      }
+      expect(await configuration.exists(), isTrue);
+      expect(await Directory(bundle()).exists(), isFalse);
+      final failed = failure.steps.last;
+      expect(failed.step, AdoptionStep.configuration);
+      expect(failed.outcome, AdoptionStepOutcome.undoFailed);
+      expect(failed.code, cause.code);
+      expect(failed.message, cause.message);
+      expect(
+        reports
+            .where((report) => report.step == AdoptionStep.configuration)
+            .map((report) => report.outcome),
+        [
+          AdoptionStepOutcome.started,
+          AdoptionStepOutcome.done,
+          AdoptionStepOutcome.failed,
+          AdoptionStepOutcome.undoFailed,
+        ],
+      );
+    }, skip: Platform.isWindows ? 'chmod is POSIX' : false);
+
     test('a check that refuses the plan is the only step reported', () async {
       final plan = await adoption.plan(bitwild());
       await File(p.join(project.path, '.gitignore')).writeAsString('build/\n');

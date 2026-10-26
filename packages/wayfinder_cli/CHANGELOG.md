@@ -1,5 +1,11 @@
 # 0.3.0 (unreleased)
 
+- Setup removes only Wayfinder's legacy Stop-hook handlers, preserving
+  unrelated handlers and metadata in the same group.
+- Correct the model lookup order in the ADR record to match the implementation,
+  tests and user documentation; no lookup behavior changes (ADR-0028).
+- The Windows public-install verifier restores the user's registry PATH after
+  its temporary install, including when verification fails.
 - Every `index`, including `index --force` and one that finds the index
   current, deletes the index generations superseded more than ten minutes
   before, so repeated forced indexes no longer leave `generation-*` folders

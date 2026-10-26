@@ -4,6 +4,7 @@
 - Date: 2026-10-24
 - Scope: where the CLI finds an embedding model a host installed, when superseded index generations are deleted, and which source paths a search reports; no Profile rule
 - Amends: [ADR-0010](0010-wayfinder-cli.md) and [ADR-0018](0018-embeddable-libraries.md)
+- Model lookup order corrected by: [ADR-0028](0028-model-lookup-order-correction.md)
 
 ## Context
 

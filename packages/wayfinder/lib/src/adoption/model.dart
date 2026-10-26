@@ -206,8 +206,8 @@ enum AdoptionStepOutcome {
   /// The step had finished, and a later failure undid it.
   undone('undone'),
 
-  /// The step had finished, and undoing it after a later failure failed
-  /// too, so the project may still hold some of what it wrote.
+  /// Undoing this step after its own or a later failure failed too, so
+  /// the project may still hold some of what it wrote.
   undoFailed('undo-failed');
 
   const AdoptionStepOutcome(this.wireValue);
@@ -229,9 +229,10 @@ final class AdoptionStepReport {
   final List<String> paths;
   final String? message;
 
-  /// For a [AdoptionStepOutcome.failed] step, the failure's code: a
-  /// [WayfinderException]'s, such as `cancelled` or `assessment-timeout`,
-  /// and `adoption-failed` for any other error. Null otherwise.
+  /// The original failure's code for the step that failed, including when
+  /// its own undo also failed: a [WayfinderException]'s, such as `cancelled`
+  /// or `assessment-timeout`, and `adoption-failed` for any other error.
+  /// Null for other steps, including an earlier step whose undo failed.
   final String? code;
 
   Map<String, Object?> toJson() => {
@@ -261,6 +262,8 @@ final class KnowledgeAdoptionException extends WayfinderException {
   }) : changedPaths = List.unmodifiable(changedPaths);
 
   /// Each step's report, in step order, ending with the one that failed.
+  /// That step reports `undo-failed` when its own rollback also failed,
+  /// retaining the original failure's message and code.
   final List<AdoptionStepReport> steps;
 
   /// The error the failed step raised.

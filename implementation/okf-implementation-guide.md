@@ -746,13 +746,17 @@ reach any particular Profile. A cycle fails `get`.
 
 Composition only adds. A child adds rules in its own namespace and adds
 vocabulary. It cannot remove, replace, or re-grade an inherited rule, so an
-ancestor's findings are the same with or without the child. Format 2 has no
-field that changes an inherited rule. A later format may add an explicit one
-in the child package, never in `wayfinder.json`.
+ancestor's rule definition stays unchanged. Format 2 has no field that
+changes an inherited rule. A later format may add an explicit one in the
+child package, never in `wayfinder.json`.
 
 The engine composes the chain and the entry's project additions into one
 effective Profile before evaluating anything. Composition depends on nothing
-else, so the same inputs always compose the same way. A type, tag, or
+else, so the same inputs always compose the same way. Every rule uses that
+effective vocabulary, including rules inherited from an ancestor. A child
+or project addition can therefore change an inherited rule's findings: for
+example, a tag-declaration check accepts a tag the child adds. The rule's
+definition, severity, namespace, and release do not change. A type, tag, or
 relationship name MUST be unique across the chain and the project additions.
 A frontmatter key MUST be unique along the chain. A tag MUST NOT equal a
 type, an OKF status, an OKF trust tier, or a relationship name. A violation
@@ -763,7 +767,7 @@ repeats one of its own names is a configuration error (`config-invalid`).
 
 Validation evaluates the rules of every package in the chain, root ancestor
 first. Each finding names its package's `id` as namespace and its package's
-`release`, so an ancestor's findings never depend on a child. A project
+`release`, including when it uses vocabulary a child adds. A project
 locks one source per Profile id (§4.7), so a namespace in its reports
 always means one ruleset.
 
@@ -863,6 +867,19 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+**Shared effective vocabulary, next wayfinder release.** Clarifies §§5.7
+and 9 and the package schema descriptions (ADR-0027). Driver: the shipped
+`examples/profiles/two-rule-child` declares `billing`; an inherited
+tag-declaration check accepts that tag when the child is selected, contrary
+to §5.7's former claim that ancestor findings never change. Every rule
+already uses the whole chain's and project's vocabulary. Migration for
+implementations: retain that composition and evaluation order; do not bind
+an ancestor to an ancestor-only vocabulary. Migration for packages and
+bundles: none; existing verdicts and package interpretation are unchanged,
+so format stays 2. Rule definitions cannot be overridden, but their results
+can depend on added vocabulary. The generic package-authoring guidance and
+a composition golden now make that distinction explicit.
 
 **Bounded package reading, next wayfinder release.** Binds no Profile and
 keeps package format 2. §5.6 bounds reading a Profile package, its rule

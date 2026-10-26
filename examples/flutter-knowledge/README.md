@@ -39,6 +39,13 @@ stay ignored under `.wayfinder-import/`. `plan` is offline and produces no
 canonical bundle edits. `apply` requires a reviewed changeset and exact
 baseline hashes.
 
+Source ids must be single nonempty path components (not `.` or `..`);
+changing a source's repository creates a separate disposable mirror even
+when its id stays the same. `apply` refuses paths through existing symbolic
+links and paths naming the project root, and checks again before each write.
+It does not protect against another process changing the filesystem during
+the write; run it in a workspace without concurrent edits.
+
 ## Consumer installation
 
 The authoring project above is not an installation payload. Consumers receive

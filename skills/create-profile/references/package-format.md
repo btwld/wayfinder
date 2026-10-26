@@ -37,6 +37,9 @@ name its parent by path, so both release at one commit.
 
 A child only adds. It cannot change or remove a parent's rule or
 vocabulary. Names stay unique across the chain and the project entry.
+Every rule uses the vocabulary of the whole chain plus the project entry,
+so an added name can change an inherited rule's findings. It does not change
+that rule's definition, severity, namespace, or release.
 
 ## Rules
 
@@ -102,6 +105,7 @@ root.
 ## Slots
 
 A slot is the composed vocabulary: the whole chain plus the project entry.
+Inherited rules receive these same slots, not an ancestor-only vocabulary.
 The engine supplies a `$defs` entry named by each slot id, so
 `{"$ref": "#/$defs/profile.types"}` stands for "one of these names". A
 package's own `$defs` may not use a slot id.

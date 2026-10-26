@@ -40,3 +40,5 @@ relevant guide; an ADR records the durable choice and links there.
 | [0024](0024-generator-revision-and-offline-relock.md) | `matches-generated` pins okf's generator revision; a write takes the host's project root; `wayfinder.json` relocks offline; an empty diff takes the lock, and an unreadable project file is `write-failed` |
 | [0025](0025-host-adoption-seams.md) | Adoption binds the package's own id, shares the write assessor, and checks a host's files before it writes |
 | [0026](0026-model-cache-and-source-paths.md) | The CLI finds a host's installed model; superseded generations are collected on every index; source paths match `path-targets-exist` |
+| [0027](0027-shared-effective-vocabulary.md) | Every rule uses the whole chain's and project's vocabulary; inherited definitions stay unchanged, but their results can change |
+| [0028](0028-model-lookup-order-correction.md) | Correct ADR-0026's lookup order to the tested behavior: installed and development models precede the verified data-directory cache |

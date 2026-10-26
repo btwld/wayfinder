@@ -1,5 +1,18 @@
 # 0.3.0 (unreleased)
 
+- Git timeout and cancellation cleanup also terminate live descendants of
+  SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Project discovery rejects selected bundle roots that resolve to the same
+  directory or overlap through aliases, as binding and resolution already do.
+  An unrelated, unselected missing bundle still does not prevent selection.
+- A failed adoption step whose own rollback fails now reports `undoFailed`,
+  as earlier completed steps already do when their rollback fails. The
+  original failure code and cause remain available.
+- Clarify format 2 composition: all rules use the whole chain's and project's
+  vocabulary. Added names can affect inherited findings; inherited rule
+  definitions and severities cannot change. Existing verdicts and packages
+  are unchanged (ADR-0027). Remove an unused private legacy body parser and
+  correct the duplicate-rule-id regression so it reaches that check.
 - New `package:wayfinder/authoring.dart`, the write path for a bundle a
   Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one
   `KnowledgeChange` (`CreateConcept`, `UpdateConcept`, `LinkConcepts`, which

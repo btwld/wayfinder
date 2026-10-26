@@ -369,18 +369,22 @@ void main() {
       final rule = ruleJson(
         'a',
         subject: 'root',
-        schema: true,
-        valid: [<String, Object?>{}],
-        invalid: [
-          {'okf_version': 1},
+        schema: {
+          'required': ['okf_version'],
+        },
+        valid: [
+          {'okf_version': '0.2'},
         ],
+        invalid: [<String, Object?>{}],
       );
-      (rule['tests']! as Map<String, Object?>)['invalid'] = [
-        <String, Object?>{},
-      ];
+      // The first rule must compile before the second can collide with it.
+      expect(
+        ProfilePackage.parse(packageJson(rules: [rule])).rules,
+        hasLength(1),
+      );
       expect(
         () => ProfilePackage.parse(packageJson(rules: [rule, rule])),
-        rejectedAt('rules[0].tests', 'invalid[0] passes'),
+        rejectedAt('rules[1].id', 'duplicate rule id'),
       );
     });
   });
