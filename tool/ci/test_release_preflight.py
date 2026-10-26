@@ -7,7 +7,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
+from unittest import mock
 
 
 SPEC = importlib.util.spec_from_file_location(
@@ -67,6 +69,39 @@ class SourceCiTest(unittest.TestCase):
                                             'checked-sha').status, 'blocked')
         self.assertEqual(preflight.source_ci(ci(conclusion='failure'),
                                             'checked-sha').status, 'failed')
+
+    def test_distribution_adapter_requires_release_eligible_source_ci(self):
+        workflow = (preflight.ROOT / '.github/workflows/distribute-wayfinder.yml').read_text()
+        section = workflow.split('      - name: Require the application tag and successful CI\n', 1)[1]
+        inline = textwrap.dedent(section.split('        run: |\n', 1)[1].split('      - uses:', 1)[0])
+        sha = 'a' * 40
+
+        def command_output(command, **kwargs):
+            if command[:4] == ['git', 'rev-list', '-n', '1']:
+                return sha + '\n'
+            self.assertEqual(command, ['gh', 'api', 'repos/btwld/wayfinder/actions/runs/123'])
+            return json.dumps(run)
+
+        original_directory = Path.cwd()
+        try:
+            os.chdir(preflight.ROOT)
+            for event, branch, accepted in [('pull_request', 'feature', False),
+                                            ('pull_request', 'main', False),
+                                            ('push', 'feature', False), ('push', 'main', True)]:
+                with self.subTest(event=event, branch=branch):
+                    run = ci(head_sha=sha, event=event, head_branch=branch)
+                    with mock.patch.dict(os.environ, {'GITHUB_SHA': sha,
+                                                     'GITHUB_REPOSITORY': 'btwld/wayfinder',
+                                                     'CI_RUN_ID': '123'}, clear=True), \
+                            mock.patch('subprocess.check_output', side_effect=command_output) as commands:
+                        if accepted:
+                            exec(compile(inline, '<distribution-prepare>', 'exec'), {})
+                        else:
+                            with self.assertRaises(SystemExit):
+                                exec(compile(inline, '<distribution-prepare>', 'exec'), {})
+                        self.assertEqual(commands.call_count, 2)
+        finally:
+            os.chdir(original_directory)
 
 
 class HostedProbeTest(unittest.TestCase):

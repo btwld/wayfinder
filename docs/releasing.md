@@ -89,6 +89,9 @@ candidate evidence, not release-eligible source CI: release preparation needs
 a successful `ci.yml` **push on `main`** in `btwld/wayfinder` for the exact
 checked commit. A run for another repository, workflow or SHA cannot supply
 that evidence. Do not use a green older SHA or local Mac checks in its place.
+The native distribution workflow reuses this same CI eligibility check before
+downloading artifacts; a successful PR or feature-branch push cannot replace
+release-eligible push/main CI.
 
 The CLI's sibling floors name the prepared core and embeddings versions.
 Until those versions exist on pub.dev, the hosted-dependency and hosted-CLI
