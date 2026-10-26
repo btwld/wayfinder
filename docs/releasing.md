@@ -167,7 +167,7 @@ with the successful source CI run ID. CI must belong to that exact commit and
 provide macOS ARM64, Linux x64 and Windows x64 bundles. Fetch tags at checkout so
 the publishing adapter can verify the application tag locally.
 
-The cli_pkg/Grinder entry point is `wayfinder-deploy-github`. Its adapter retain complete native libraries,
+The cli_pkg/Grinder entry point is `wayfinder-deploy-github`. Its adapter retains complete native libraries,
 model, licenses and checksums; cli_pkg's default executable archive is insufficient.
 The publisher verifies the existing tag and marks only suffixed versions as
 prereleases. GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`.

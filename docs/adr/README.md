@@ -4,8 +4,8 @@ ADRs record why the engine and its tools are shaped the way they are. The
 [OKF specification](../../skills/author-knowledge-bundle/references/OKF-0.2.md),
 the [engine contract](../../implementation/okf-implementation-guide.md), and
 each Profile package govern behavior, in that order. An ADR explains a
-decision; it adds no requirement. These records govern this repository, not
-ADRs inside a project's knowledge bundle.
+decision; it adds no requirement. These records describe this repository's
+architecture, not decisions inside a project's knowledge bundle.
 
 Each record states the decision as it was accepted. A later change is a new
 record with `Amends:` or `Supersedes:` pointing at that record. Git history
@@ -21,25 +21,42 @@ and `Consequences`. Add `Options considered` or `Reconsider when` only when
 they carry distinct evidence. Commands and dependency details belong in the
 relevant guide; an ADR records the durable choice and links there.
 
-| ADR | Decision |
-| --- | --- |
-| [0008](0008-okfp-adopts-okf-finding-contract.md) | Publish okf's finding report unchanged and speak its grammar for Profile findings |
-| [0009](0009-local-knowledge-retrieval.md) | Arctic Embed XS for local embeddings; retrieval defaults superseded by ADR-0017 |
-| [0010](0010-wayfinder-cli.md) | One CLI validates, indexes, and searches local knowledge; index storage and refresh reads amended by ADR-0022; model lookup and source paths amended by ADR-0026 |
-| [0011](0011-wayfinder-mcp.md) | Serve Wayfinder tools over local MCP stdio, across the project's bundles; search during an index amended by ADR-0022 |
-| [0012](0012-wayfinder-graph-projection.md) | Project the ordinary OKF graph, with typed relationship edges beside it; field list and library home amended by ADR-0021 |
-| [0015](0015-profile-rule-catalogs.md) | Profile rules are data: schemas over parsed facts, or named builtins; package reads bounded by ADR-0023; generator revision amended by ADR-0024; vocabulary clarified by ADR-0027; directory facts amended by ADR-0029 |
-| [0016](0016-independent-profile-packages.md) | Every Profile is an independent package the validator enforces; vocabulary clarified by ADR-0027; format and directory facts amended by ADR-0029 |
-| [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; preserve model, storage, context, and generic reranking |
-| [0018](0018-embeddable-libraries.md) | Public project and retrieval libraries; the host injects resources and its root bounds the project; `flock` lock files; one isolate for okf bundle I/O; knowledge store amended by ADR-0022; host seams amended by ADR-0023; a write's project root amended by ADR-0024; a host's installed model amended by ADR-0026 |
-| [0019](0019-profile-aware-writes.md) | One write path through okf's projection seam: rewrite only indexes whose generated text changes, caller-authored log entries, an in-memory delta gate a host may run on another isolate, and stale plans refused by the project files their selection came from; an empty diff and an unreadable project file amended by ADR-0024; the shared assessor amended by ADR-0025 |
-| [0020](0020-programmatic-adoption.md) | Adoption is a plan, then an apply that writes only Wayfinder's files, or nothing; offline relock amended by ADR-0024; host adoption seams amended by ADR-0025 |
-| [0021](0021-graph-projection-in-project-library.md) | The graph projection and `wayfinderLinkFields` live in the project library; graph output is unchanged |
-| [0022](0022-plain-file-index-generations.md) | Plain-file index generations that search reads while an index runs; the knowledge store is the public lifecycle |
-| [0023](0023-host-resolution-seams.md) | Bounded package reads, Profile status as data, and Git refreshes that name origin |
-| [0024](0024-generator-revision-and-offline-relock.md) | `matches-generated` pins okf's generator revision; a write takes the host's project root; `wayfinder.json` relocks offline; an empty diff takes the lock, and an unreadable project file is `write-failed` |
-| [0025](0025-host-adoption-seams.md) | Adoption binds the package's own id, shares the write assessor, and checks a host's files before it writes |
-| [0026](0026-model-cache-and-source-paths.md) | The CLI finds a host's installed model; superseded generations are collected on every index; source paths match `path-targets-exist`; lookup order corrected by ADR-0028 |
-| [0027](0027-shared-effective-vocabulary.md) | Every rule uses the whole chain's and project's vocabulary; inherited definitions stay unchanged, but their results can change |
-| [0028](0028-model-lookup-order-correction.md) | Correct ADR-0026's lookup order to the tested behavior: installed and development models precede the verified data-directory cache |
-| [0029](0029-profile-neutral-directory-facts.md) | Format 3 makes sibling-directory facts neutral; each Profile owns placement exceptions, and format 2 is explicitly unsupported |
+## Catalog
+
+Numbers are stable references. Gaps reflect retired records; do not renumber
+the remaining records or reuse a retired number. Append new records instead.
+
+The last column links later changes to a decision. Read those for the amended
+part; the original record still explains the rest. For current behavior, use
+the engine contract and package guides.
+
+| ADR | Decision | Later changes |
+| --- | --- | --- |
+| [0008](0008-okfp-adopts-okf-finding-contract.md) | Preserve okf's finding report and use its grammar for Profile findings | [0016](0016-independent-profile-packages.md) |
+| [0009](0009-local-knowledge-retrieval.md) | Arctic Embed XS for local embeddings | [0017](0017-dense-only-retrieval.md) (retrieval defaults only) |
+| [0010](0010-wayfinder-cli.md) | One CLI for validation, indexing, and local search | [0017](0017-dense-only-retrieval.md) (modes), [0022](0022-plain-file-index-generations.md), [0026](0026-model-cache-and-source-paths.md) |
+| [0011](0011-wayfinder-mcp.md) | Project-wide tools over local MCP stdio | [0022](0022-plain-file-index-generations.md) |
+| [0012](0012-wayfinder-graph-projection.md) | Ordinary OKF graph plus typed relationship edges | [0021](0021-graph-projection-in-project-library.md) |
+| [0015](0015-profile-rule-catalogs.md) | Profile rules as schemas over facts or named builtins | [0023](0023-host-resolution-seams.md), [0024](0024-generator-revision-and-offline-relock.md), [0027](0027-shared-effective-vocabulary.md), [0029](0029-profile-neutral-directory-facts.md) |
+| [0016](0016-independent-profile-packages.md) | Independent Profile packages, selected and enforced equally | [0027](0027-shared-effective-vocabulary.md), [0029](0029-profile-neutral-directory-facts.md) |
+| [0017](0017-dense-only-retrieval.md) | Dense-only retrieval; retain generic reranking and context | — |
+| [0018](0018-embeddable-libraries.md) | Embeddable libraries, host-owned resources, bounded roots, and locking | [0020](0020-programmatic-adoption.md), [0022](0022-plain-file-index-generations.md), [0023](0023-host-resolution-seams.md), [0024](0024-generator-revision-and-offline-relock.md), [0026](0026-model-cache-and-source-paths.md) |
+| [0019](0019-profile-aware-writes.md) | Profile-aware writes through okf's transaction | [0024](0024-generator-revision-and-offline-relock.md), [0025](0025-host-adoption-seams.md) |
+| [0020](0020-programmatic-adoption.md) | Adoption as plan, then apply, with rollback | [0024](0024-generator-revision-and-offline-relock.md), [0025](0025-host-adoption-seams.md) |
+| [0021](0021-graph-projection-in-project-library.md) | Graph projection and its field list belong in the project library | — |
+| [0022](0022-plain-file-index-generations.md) | Plain-file generations; search stays available during refresh | — |
+| [0023](0023-host-resolution-seams.md) | Bounded package reads, structured status, and approved Git refreshes | — |
+| [0024](0024-generator-revision-and-offline-relock.md) | Pin the generator revision, bound writes, and relock offline | — |
+| [0025](0025-host-adoption-seams.md) | Resolve adoption's id, share assessment, and check host files | — |
+| [0026](0026-model-cache-and-source-paths.md) | Find host-installed models, collect old indexes, and align source paths | [0028](0028-model-lookup-order-correction.md) |
+| [0027](0027-shared-effective-vocabulary.md) | Shared vocabulary can change findings, not inherited rule definitions | — |
+| [0028](0028-model-lookup-order-correction.md) | Correct the recorded model lookup order; no runtime change | — |
+| [0029](0029-profile-neutral-directory-facts.md) | Format 3 neutralizes directory facts; Profiles own placement exceptions | — |
+
+## Retired records
+
+Older changelogs still cite [ADR-0006](https://github.com/btwld/wayfinder/blob/4995f8d2bd9195e1239857cc8c1ab7ebb3f57da6/docs/adr/0006-raw-tier-under-references.md)
+and [ADR-0007](https://github.com/btwld/wayfinder/blob/4995f8d2bd9195e1239857cc8c1ab7ebb3f57da6/docs/adr/0007-index-targets-compared-percent-decoded.md).
+They remain readable at those fixed revisions, not as current guidance. The
+[retirement change](https://github.com/btwld/wayfinder/commit/4ebf6a69fc8f4aafadbecbeaf455f61459ee0785)
+removed them and other superseded or Profile-specific records from this catalog.

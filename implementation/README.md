@@ -20,7 +20,7 @@ rationale, and history live in its package, such as
 | § | Chapter | Settles |
 | --- | --- | --- |
 | 2 | Adoption | Project binding, seeding the bundle root, and the agent-instruction paragraph |
-| 3 | Index generation | okf's reference generator, exact comparison, and `validate --fix`; preservation of authored history |
+| 3 | Index generation | okf's reference generator, exact comparison, and `validate --fix`; preservation of authored history; Profile-aware writes (§3.5) |
 | 4 | Validation | Results, diagnostics, and the derived gate; stable finding IDs; what a validator must never report; dispatch; the project binding and lock |
 | 5 | Profile packages | What a package is; OKF first; the compatibility test; identity, release, and format; vocabulary and frontmatter keys; rules and builtins; composition; exact selection; tolerant reading; how the contract and each Profile change |
 | 6 | Distribution | Profiles distribute themselves as packages; their skills reach projects through `get`; tools pinned per repository |
