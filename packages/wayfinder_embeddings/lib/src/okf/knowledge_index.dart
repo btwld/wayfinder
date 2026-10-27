@@ -758,7 +758,7 @@ class KnowledgeIndex {
   bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
     final target = _pathPart(edge.rawTarget);
     return switch (edge.resolution) {
-      OkfGraphResolution.unresolved => true,
+      OkfGraphResolution.unresolved => !_targetExists(snapshot, edge, target),
       OkfGraphResolution.invalid =>
         _leavesBundle(edge, target) && !_targetExists(snapshot, edge, target),
       OkfGraphResolution.descriptor =>
@@ -792,29 +792,44 @@ class KnowledgeIndex {
     OkfGraphEdge edge,
     String? target,
   ) {
-    if (target == null) return false;
+    if (target == null || target.contains(r'\')) return false;
     final directory = target.startsWith('/')
         ? '.'
         : p.posix.dirname(edge.source.documentPath);
-    final segments = [
-      for (final segment in target.split('/'))
-        _decodeSegment(segment) ?? segment,
-    ];
+    final segments = <String>[];
+    for (final segment in target.split('/')) {
+      final decoded = _decodeSegment(segment);
+      if (decoded != null &&
+          (decoded.contains('/') || decoded.contains(r'\'))) {
+        return false;
+      }
+      segments.add(decoded ?? segment);
+    }
     final relative = p.posix.normalize(
       p.posix.joinAll([...directory.split('/'), ...segments]),
     );
-    if (relative != '..' &&
-        !relative.startsWith('../') &&
-        (snapshot.sources.containsKey(relative) ||
-            snapshot.assets.contains(relative))) {
-      return true;
-    }
+    final inBundle = relative != '..' && !relative.startsWith('../');
+    if (inBundle && _snapshotContains(snapshot, relative)) return true;
+    if (!inBundle && target.startsWith('/')) return false;
     final root = bundleRoot;
-    if (root == null) return true;
+    if (root == null) return !inBundle;
     return FileSystemEntity.typeSync(
           p.normalize(p.joinAll([root, ...directory.split('/'), ...segments])),
         ) !=
         FileSystemEntityType.notFound;
+  }
+
+  static bool _snapshotContains(KnowledgeSnapshot snapshot, String relative) {
+    if (relative == '.') {
+      return snapshot.sources.isNotEmpty || snapshot.assets.isNotEmpty;
+    }
+    if (snapshot.sources.containsKey(relative) ||
+        snapshot.assets.contains(relative)) {
+      return true;
+    }
+    final prefix = '$relative/';
+    return snapshot.sources.keys.any((path) => path.startsWith(prefix)) ||
+        snapshot.assets.any((path) => path.startsWith(prefix));
   }
 
   static String? _pathPart(String raw) {

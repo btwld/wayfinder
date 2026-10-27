@@ -61,9 +61,8 @@ class IngestionPipeline {
     DuplicateChunkCallback? onDuplicateChunk,
     bool dedupe = true,
   }) async {
-    final chunkBatch = <Chunk>[];
-    final embeddingBatch = <Embedding>[];
-    final seenChunkText = <String, String>{};
+    final planned = <({List<Chunk> newChunks, List<Chunk> chunksToEmbed})>[];
+    final seenChunks = <String, Chunk>{};
 
     for (final chunked in chunkedFiles) {
       // New or updated chunks, and chunks that still need a vector for this
@@ -72,27 +71,21 @@ class IngestionPipeline {
       final chunksToEmbed = <Chunk>[];
       for (final chunk in chunked.chunks) {
         if (dedupe) {
-          final seenText = seenChunkText[chunk.id];
-          if (seenText != null) {
-            if (seenText != chunk.content) {
-              throw StateError(
-                'Chunk ID ${chunk.id} was reused for different text. '
-                'Use content-derived IDs for changed content.',
-              );
-            }
+          final seen = seenChunks[chunk.id];
+          if (seen != null) {
+            _requireSameContent(seen, chunk);
             onDuplicateChunk?.call(chunk);
+            if (seen != chunk) {
+              seenChunks[chunk.id] = chunk;
+              newChunks.add(chunk);
+            }
             continue;
           }
-          seenChunkText[chunk.id] = chunk.content;
+          seenChunks[chunk.id] = chunk;
         }
         final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
         if (existingChunk != null) {
-          if (existingChunk.content != chunk.content) {
-            throw StateError(
-              'Chunk ID ${chunk.id} was reused for different text. '
-              'Use content-derived IDs for changed content.',
-            );
-          }
+          _requireSameContent(existingChunk, chunk);
           onDuplicateChunk?.call(chunk);
           if (existingChunk != chunk) {
             newChunks.add(chunk);
@@ -111,10 +104,15 @@ class IngestionPipeline {
         newChunks.add(chunk);
         chunksToEmbed.add(chunk);
       }
+      planned.add((newChunks: newChunks, chunksToEmbed: chunksToEmbed));
+    }
 
-      chunkBatch.addAll(newChunks);
-      if (chunksToEmbed.isNotEmpty) {
-        embeddingBatch.addAll(await _embedChunks(chunksToEmbed));
+    final chunkBatch = <Chunk>[];
+    final embeddingBatch = <Embedding>[];
+    for (final item in planned) {
+      chunkBatch.addAll(item.newChunks);
+      if (item.chunksToEmbed.isNotEmpty) {
+        embeddingBatch.addAll(await _embedChunks(item.chunksToEmbed));
       }
 
       if (chunkBatch.length + embeddingBatch.length >= _storeBatchSize) {
@@ -123,6 +121,15 @@ class IngestionPipeline {
     }
 
     await _flushBatch(chunks: chunkBatch, embeddings: embeddingBatch);
+  }
+
+  static void _requireSameContent(Chunk existing, Chunk candidate) {
+    if (existing.content != candidate.content) {
+      throw StateError(
+        'Chunk ID ${candidate.id} was reused for different text. '
+        'Use content-derived IDs for changed content.',
+      );
+    }
   }
 
   /// Embeds every chunk in [chunks] with one embedder call.

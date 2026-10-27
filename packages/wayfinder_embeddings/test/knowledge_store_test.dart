@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf_io.dart' show OkfBundleLoadException;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
@@ -185,6 +186,42 @@ void main() {
       }
       expect(encoders.last.disposals, 1);
     });
+
+    test(
+      'invalid UTF-8 in a Markdown file reports stale/OkfBundleLoadException '
+      'without evicting a retained encoder',
+      () async {
+        await knowledge.index(bundle);
+        final shared = store(retainEncoder: true);
+        final bad = file('broken.md');
+        try {
+          await shared.searchBundle(bundle, 'password');
+          final encoder = encoders.last;
+          final opened = encoders.length;
+          await bad.writeAsBytes(const <int>[0xC3, 0x28]);
+          expect(await shared.status(bundle), isA<KnowledgeIndexStale>());
+          await expectLater(
+            shared.searchBundle(bundle, 'password'),
+            throwsA(
+              isA<WayfinderException>().having(
+                (e) => e.code,
+                'code',
+                'index-stale',
+              ),
+            ),
+          );
+          await expectLater(
+            shared.index(bundle),
+            throwsA(isA<OkfBundleLoadException>()),
+          );
+          expect(encoder.isDisposed, isFalse);
+          expect(encoders.length, opened);
+        } finally {
+          if (await bad.exists()) await bad.delete();
+          await shared.dispose();
+        }
+      },
+    );
 
     test('a retained encoder survives busy, cancelled and limit refusals, '
         'and reads never wait for a search', () async {
