@@ -94,7 +94,7 @@ final class ParsedBody {
 final RegExp _footnoteReference = RegExp(r'\[\^([^\]]+)\]');
 
 final RegExp _fencedCode = RegExp(
-  r'^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?^ {0,3}\1',
+  r'^ {0,3}(?:(`{3,})[^\n]*\n.*?^ {0,3}\1`*|(~{3,})[^\n]*\n.*?^ {0,3}\2~*)[ \t]*$',
   multiLine: true,
   dotAll: true,
 );

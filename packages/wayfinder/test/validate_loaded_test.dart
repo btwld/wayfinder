@@ -84,6 +84,105 @@ void main() {
     );
   });
 
+  test(
+    'validateLoaded resolves bundle-internal directory targets and rejects '
+    'slash-prefixed parent escapes, %2F segments, and nested fenced footnotes',
+    () async {
+      final project = await copyFixture('configured-project');
+      addTearDown(() => project.delete(recursive: true));
+      final bundle = fixtureBundle(project.path);
+      await File(p.join(project.path, 'outside file.txt')).writeAsString('x\n');
+      await Directory(p.join(bundle, 'empty data')).create();
+      final selection = await selectFixture(
+        bundle,
+        configPath: p.join(project.path, 'wayfinder.json'),
+      );
+      final disk = await const OkfBundleLoader().inspect(bundle);
+      final sampleText = await File(p.join(bundle, 'sample.md')).readAsString();
+
+      OkfBundleLoadResult withDoc(
+        String name,
+        String text, {
+        List<String> extraAssets = const [],
+      }) {
+        final doc = OkfDocument.parse(text);
+        final documents = {...disk.documents, name: doc};
+        final assets = [...disk.assets, ...extraAssets];
+        return OkfBundleLoadResult(
+          rootPath: disk.rootPath,
+          bundle: OkfBundle.fromDocuments(
+            documents,
+            indexes: disk.indexes,
+            logs: disk.logs,
+            assets: assets,
+          ),
+          documents: documents,
+          indexes: disk.indexes,
+          logs: disk.logs,
+          assets: assets,
+          report: disk.report,
+        );
+      }
+
+      final dirCite = sampleText.replaceFirst(
+        'status: stable',
+        'status: stable\nsources:\n'
+            '  - resource: /data\n'
+            '  - resource: ./data\n'
+            '  - resource: ./empty data',
+      );
+      expect(
+        validator
+            .validateLoaded(
+              withDoc('dir.md', dirCite, extraAssets: ['data/file.json']),
+              selection,
+            )
+            .findings
+            .where((f) => f.id == 'bitwild-profile/source-path-unresolved'),
+        isEmpty,
+      );
+
+      final escapeCite = sampleText.replaceFirst(
+        'status: stable',
+        'status: stable\nsources:\n'
+            '  - resource: /../outside file.txt\n'
+            '  - resource: /data%2Fnew sample.json',
+      );
+      expect(
+        validator
+            .validateLoaded(
+              withDoc(
+                'escape.md',
+                escapeCite,
+                extraAssets: ['data/new sample.json'],
+              ),
+              selection,
+            )
+            .findings
+            .where((f) => f.id == 'bitwild-profile/source-path-unresolved')
+            .length,
+        2,
+      );
+
+      final cited = sampleText.replaceFirst(
+        'status: stable',
+        'status: stable\nsources:\n  - id: s1\n    resource: /log.md',
+      );
+      for (final fenced in [
+        '$cited\nOne claim.[^s1]\n\n````markdown\n```dart\n```\n[^s1]: fenced\n````\n',
+        '$cited\nOne claim.[^s1]\n\n```\n[^s1]: fenced\n````\n',
+      ]) {
+        expect(
+          validator
+              .validateLoaded(withDoc('fenced.md', fenced), selection)
+              .findings
+              .map((f) => f.id),
+          contains('bitwild-profile/source-attribution-join'),
+        );
+      }
+    },
+  );
+
   group('ProfileProjection.generatedFiles', () {
     late Directory project;
     late String bundle;
