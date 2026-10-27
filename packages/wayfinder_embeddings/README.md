@@ -185,8 +185,11 @@ try {
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
   snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and a hash of the input each row embeds, and a reader checks
-  them before it scores. A 0.2 index, at `indexes/<sha256 of the root>/`, and an
+  count, SHA-256 and a hash of the input each row embeds. Before scoring, a
+  reader checks the vector shape and file digest and the input-hash list's
+  shape; it does not recompute those input hashes from the snapshot. Indexing
+  uses them to decide which vectors it can reuse. A 0.2 index, at
+  `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
   `indexes/<bundle key>/<configuration key>/`, are never read, changed or
   deleted: the first index after an upgrade builds anew. Chunk IDs do not
@@ -484,9 +487,6 @@ loads the model with `LlamaEngine.load` on the CPU only, with a 512-token
 context, batch and micro-batch, and up to four threads, one fewer than the
 machine's processors. Development and CLI builds
 need Dart 3.11.0+, the minimum every package in the workspace declares.
-llamadart 0.15 requires only 3.10.7, so the declared floor sits above it.
-Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart
-3.11 CLI still labels its bundle command as preview.
 
 Another llama.cpp build can give the same model slightly different vectors.
 `wayfinderLlamaCppRuntime` names the `llamadart-native` release Wayfinder

@@ -80,7 +80,7 @@ String packageJson({
   List<Object?> rules = const [],
   Map<String, Object?> extra = const {},
 }) => jsonEncode({
-  'format': 2,
+  'format': 3,
   'id': id,
   'release': release,
   'implements': {'id': 'okf', 'release': '0.2'},

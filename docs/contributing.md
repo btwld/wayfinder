@@ -1,28 +1,18 @@
 # Contributing to Wayfinder
 
-Read [`AGENTS.md`](../AGENTS.md) before contributing. Engine-contract and Profile
-changes have separate requirements:
-
-- **The engine contract** says what any Profile package is and how the engine reads it.
-  It changes through an ADR and the guide's change record, and a change that would make an
-  existing package read differently bumps the package `format`.
-- **A Profile** changes through its own release process. A Bitwild rule earns its way in
-  by being needed on a real corpus and by being generic. If it names a client, a domain, or
-  a project's own vocabulary, it belongs in that project's binding or bundle. Each change
-  has a [changelog](../profiles/bitwild/CHANGELOG.md) entry stating the **driver** and the
-  migration impact.
-
-Record the real-use driver so reviewers can distinguish a demonstrated need
-from a preference.
-
-Two rules govern every Profile edit. **Silence is deference.** Where a Profile says nothing
-and OKF settles the point, follow OKF and do not mint a convention in its place. **Precedence
-is a chain.** OKF wins over the engine contract, which wins over each Profile package.
+Read [`AGENTS.md`](../AGENTS.md) before contributing. It owns the
+[engine-contract change requirements](../AGENTS.md#changing-the-engine-contract)
+and the separate [Profile release process](../AGENTS.md#changing-a-profile),
+including real-use evidence, OKF precedence, and migration records.
 
 ## Checks
 
-Run the [core contributor checks](../README.md#contributor-checks) from the
-repository root. `dart run melos run lint` checks all four workspace packages.
+Use Dart 3.11.0 or later. Run the
+[core contributor checks](../README.md#contributor-checks) from the repository
+root; `dart run melos run lint` checks all four workspace packages.
+Package test runs are serialized because workspace members share native
+build-hook output; concurrent runs can race during library copying or macOS
+codesigning. Tests within each package keep their normal concurrency.
 
 ## Schemas and Profile packages
 
@@ -93,11 +83,6 @@ Profile's rules; the judgment its skill asks for is reviewed separately.
 See the [release guide](releasing.md) for package publication and native binaries.
 
 ## Dart workspace development
-
-Developing the workspace requires Dart 3.11.0 or later. Run `dart pub get` at the
-repository root, then `dart run melos run lint` to analyze, check formatting, and test all workspace
-packages. Every package declares the same Dart 3.11.0 minimum, so one SDK serves
-the whole workspace.
 
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)

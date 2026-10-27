@@ -1,5 +1,12 @@
-# 0.3.0 (unreleased)
+# 1.0.0 (unreleased)
 
+- Prepare the first stable retrieval-library release, with the public
+  compatibility and support boundaries in [the stability contract](../../docs/stability.md).
+- Ingestion refuses an explicit chunk ID reused for different text within one
+  call, including across files, instead of silently dropping the later chunk.
+  Identical duplicates retain their existing deduplication behavior.
+- Parse native-runtime override keys as YAML, including flow mappings, so a
+  different layout cannot bypass the reviewed llama.cpp pin at bundle build.
 - Every `WayfinderKnowledgeStore.index` run, including one that finds its
   index current, and `prune` delete the generations superseded more than
   `gracePeriod` ago. Only a later publication used to, so the generations a
@@ -16,7 +23,7 @@
   target that starts with `/` does not leave the bundle, `/../` included,
   and a malformed path that stays in the bundle is left to validation.
   Body links and typed link fields still report `unresolved-relationship`.
-- Requires `wayfinder` `^0.3.0`, and depends on `ack` `^1.7.0`.
+- Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.
 - New `package:wayfinder_embeddings/knowledge_store.dart`: the index
   lifecycle `wayfinder index` and `wayfinder search` use, moved out of the
   CLI. `WayfinderKnowledgeStore` keeps saved indexes of OKF bundles in the
@@ -62,8 +69,10 @@
   exports it. Add `wayfinder_dart_chunker` and import
   `package:wayfinder_dart_chunker/wayfinder_dart_chunker.dart` to keep chunking
   Dart; its `defaultCodeRegistry()` registers `DartChunker` beside this
-  package's TypeScript, Markdown and text chunkers. Chunks, ids and metadata
-  are unchanged, so saved indexes stay valid. No deprecated alias is provided.
+  package's TypeScript, Markdown and text chunkers. The extraction itself
+  preserves chunks, ids and metadata. See the [chunker changelog](../wayfinder_dart_chunker/CHANGELOG.md)
+  for its enhanced-enum field fix and affected-file re-ingestion. No deprecated
+  alias is provided.
 - The code example and the Dart sample move to `wayfinder_dart_chunker`.
   `tool/compare_embeddings.dart` drops `--dart-chunk-budget` and gains
   `--reference-chunks`, which replays a committed chunk manifest for files no
@@ -159,7 +168,9 @@
   header (`WFVF32\0\x01`, then the dimension and row count as little-endian
   32-bit integers) followed by one little-endian float32 row per snapshot
   chunk, in chunk order. The record names the vectors' dimension, row count,
-  SHA-256 and a hash of the input each row embeds, and a reader checks them.
+  SHA-256 and a hash of the input each row embeds. A reader checks vector
+  shape, file digest and input-hash list shape, not the input hashes against
+  the snapshot. Indexing uses those hashes for vector reuse.
   An index
   publishes a complete generation by atomically replacing a `current`
   pointer. A search loads the published generation into a `MemoryStore` and
@@ -214,7 +225,7 @@
   `KnowledgeBundleSearch.notices` and `KnowledgeProjectSearch.notices` are
   lists of the new `KnowledgeNotice` instead of strings: a stable `code`
   (`KnowledgeNoticeCode`, whose `wireValue` is `unresolved-relationship`,
-  `governing-source-unavailable`, `refresh-in-progress` or
+  `unresolved-source`, `governing-source-unavailable`, `refresh-in-progress` or
   `source-changed`), the `message`, a sentence for a reader without the code
   or the bundle's name, the bundle-relative `paths` it concerns (the matches
   whose link did not resolve, the governing source, or every changed file,

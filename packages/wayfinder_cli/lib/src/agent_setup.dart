@@ -401,19 +401,30 @@ class AgentSetup {
           final Map<String, Object?> hooks &&
           {'Stop': final List<Object?> stop},
     }) {
-      bool ours(Object? group) =>
-          group is Map &&
-          group['hooks'] is List &&
-          (group['hooks'] as List).any(
-            (entry) =>
-                entry is Map &&
-                '${entry['command']}'.contains('wayfinder index'),
-          );
-      final kept = [
-        for (final group in stop)
-          if (!ours(group)) group,
-      ];
-      if (kept.length == stop.length) return;
+      var changed = false;
+      final kept = <Object?>[];
+      for (final group in stop) {
+        if (group is! Map || group['hooks'] is! List) {
+          kept.add(group);
+          continue;
+        }
+        final handlers = group['hooks'] as List;
+        final remainingHandlers = [
+          for (final entry in handlers)
+            if (!(entry is Map &&
+                '${entry['command']}'.contains('wayfinder index')))
+              entry,
+        ];
+        if (remainingHandlers.length == handlers.length) {
+          kept.add(group);
+        } else {
+          changed = true;
+          if (remainingHandlers.isNotEmpty) {
+            kept.add({...group, 'hooks': remainingHandlers});
+          }
+        }
+      }
+      if (!changed) return;
       final remaining = {...hooks}..remove('Stop');
       if (kept.isNotEmpty) remaining['Stop'] = kept;
       final config = {...decoded}..remove('hooks');

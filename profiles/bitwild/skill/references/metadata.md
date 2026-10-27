@@ -35,8 +35,10 @@ redundant when written and wrong once the real signal moves. For example,
 `partially-resolved` on a question restates an inbound edge, and nothing
 updates the tag when a second edge lands.
 
-Declare every used tag once in the project's `wayfinder.json` entry. Do not
-use `captures` as a tag merely because a concept cites evidence.
+Use tags declared by the selected Profile chain or the project's
+`wayfinder.json` entry. Add project-local topics there; do not redeclare a
+package's tags. Do not use `captures` as a tag merely because a concept cites
+evidence.
 
 ## Sources
 

@@ -31,7 +31,7 @@ jobs:
           CI_RUN_ID: ${{ inputs.ci_run_id }}
         shell: python
         run: |
-          import json, os, re, subprocess
+          import json, os, re, runpy, subprocess
           from pathlib import Path
           version = re.search(r'^version: (.+)$', Path('packages/wayfinder_cli/pubspec.yaml').read_text(), re.M)
           if not version or not re.fullmatch(r'\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?', version[1]):
@@ -49,9 +49,10 @@ jobs:
           run = json.loads(subprocess.check_output([
               'gh', 'api', f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id}"
           ]))
-          if (run['head_sha'] != os.environ['GITHUB_SHA'] or
-                  run['conclusion'] != 'success' or run['path'] != '.github/workflows/ci.yml'):
-              raise SystemExit('Release requires successful CI for this exact commit')
+          gate = runpy.run_path('tool/ci/release-preflight.py')['source_ci'](
+              run, os.environ['GITHUB_SHA'], os.environ['GITHUB_REPOSITORY'])
+          if gate.status != 'passed':
+              raise SystemExit(gate.message)
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}

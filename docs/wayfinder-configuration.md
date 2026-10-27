@@ -145,8 +145,10 @@ from one commit.
 
 An extending Profile is identified by its own `id`. It inherits every rule
 and every name its ancestors declare, then adds its own. A child package
-lists only what it adds. It cannot replace a name or change an inherited
-rule, so a parent's findings are the same with or without the child. A
+lists only what it adds. It cannot replace a name or override an inherited
+rule's definition or severity. Every rule uses the whole chain's and
+project's vocabulary, so an added name can change an inherited rule's
+findings. Findings keep the declaring package's namespace and release. A
 package that extends itself, directly or through its ancestors, fails `get`.
 
 No Profile is a base. A chain ends at the first package without
@@ -188,7 +190,7 @@ This minimal package shows the shape with two rules:
 ```json
 {
   "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
-  "format": 2,
+  "format": 3,
   "id": "client-profile",
   "release": "1.0.0",
   "implements": {"id": "okf", "release": "0.2"},
@@ -235,7 +237,7 @@ This minimal package shows the shape with two rules:
 
 The fields have these jobs:
 
-- `format` is the package format the engine reads, always `2` here. Engine
+- `format` is the package format the engine reads, always `3` here. Engine
   compatibility is this integer, never a Profile release.
 - `id` is the Profile identity in lowercase kebab-case, at most 64
   characters. It is the finding namespace (`client-profile/status-value`), the
@@ -261,7 +263,7 @@ The fields have these jobs:
 - `$defs` holds schemas a rule may reference. The engine adds one entry per
   slot, named by the slot id, such as `#/$defs/profile.types`, for the
   composed vocabulary; a package entry may not use a slot id.
-- `rules` holds the package's rules. A rule only adds findings.
+- `rules` holds the package's checks and their finding or summary metadata.
 
 A rule's `check` is either a schema check or a builtin. A schema check names
 a `subject` and a JSON Schema in the engine's keyword subset, which Ack
@@ -305,11 +307,20 @@ with one of these diagnostics:
   error, such as a stack overflow, are all malformed.
 - `wayfinder/profile-unsupported` when a package is well-formed for another
   engine. It may declare another `format`, an OKF release this okf cannot
-  read, or a builtin this engine lacks. Upgrade `wayfinder` to assess it.
+  read, or a builtin this engine lacks. Use a matching engine or migrate the
+  package; upgrading the engine cannot restore support for an older format.
 - `wayfinder/profile-timeout` when reading a package, its rule tests
   included, does not finish within ten seconds, as a `pattern` that
   backtracks without end can cause. The Profile's author fixes the rule.
 - `wayfinder/profile-composition` when the chain does not compose.
+
+This engine reads package format 3 only. Its `sibling_directory` fact treats
+every directory name alike; a package owns placement exceptions in its rules.
+A format 2 package must be migrated through its own release process before
+this engine assesses it. Move the binding's source ref and any pinned parent
+refs to migrated revisions, then refresh and commit the lock and installed
+skills with `get` or `upgrade`. Merely running `upgrade` cannot advance an
+immutable old source ref. See the [format migration record](adr/0029-profile-neutral-directory-facts.md).
 
 ## Sources and lockfile
 
@@ -457,11 +468,8 @@ rules still ran. Run `get` to reinstall the locked revision.
 ## Tags and directories beside a bundle
 
 A Profile package's `tags` array defines stable reusable vocabulary. A
-project entry extends that vocabulary for the bundles in `applies_to`:
-
-```yaml
-tags: [customer-reporting]
-```
+project entry extends it with name/description objects, as in
+[the project file](#the-project-file), for the bundles in `applies_to`.
 
 A tag definition does not apply a tag automatically. Concepts opt in through
 frontmatter, and a tag must describe the concept's actual topic.

@@ -41,17 +41,12 @@ independent status, provenance, relationships, reuse, replacement, or
 history. Apply that in context, and keep a reviewed exception when the
 context supports it.
 
-For example, take a requirements specification with 149 atomic requirements
-across 17 capability areas. One concept per requirement gives each its own
-`sources`, `verified`, and trust tier, which is the highest fidelity
-available. It is also wrong. 149 concepts swamp their areas, and an atomic
-requirement has no lifecycle apart from its capability area and the rule it
-formalizes. Review recommends one concept per capability area, with the
-requirements in the body and their IDs kept verbatim. Footnotes keyed to
-`sources[].id` carry mixed provenance inside the concept
-([metadata.md](metadata.md#sources)). The split test
-([capture.md](capture.md#split-a-concept)) does not apply, because a
-capability area is signed off as a unit or not at all.
+Requirements maintained and verified as a unit can stay in one concept, with
+their IDs kept verbatim and claim-level provenance in footnotes
+([metadata.md](metadata.md#sources)). Requirements that need independent
+lifecycle or verification follow the same promotion and split tests as any
+other knowledge. Neither the requirement count nor the number of capability
+areas decides the granularity.
 
 Standing rules normally go the other way, one rule per concept. Each carries
 its own provenance and trust tier, and averaging them would let a

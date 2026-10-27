@@ -77,7 +77,7 @@ final class KnowledgeImporter {
         'A change set must declare version 1 and changes.',
       );
     }
-    final root = p.normalize(project.absolute.path);
+    final root = await project.resolveSymbolicLinks();
     final writes = <({File file, String content})>[];
     for (final raw in (value['changes'] as List)) {
       if (raw is! Map<String, dynamic>)
@@ -93,9 +93,7 @@ final class KnowledgeImporter {
           'Change paths must be safe project-relative paths.',
         );
       }
-      final file = File(p.join(root, relative));
-      if (!p.isWithin(root, file.absolute.path) && file.absolute.path != root)
-        throw FormatException('Change escapes the project: $relative');
+      final file = await _projectFile(root, relative);
       final expected = raw['expected_sha256'] as String?;
       if (await file.exists()) {
         final current = _sha256(await file.readAsString());
@@ -109,6 +107,7 @@ final class KnowledgeImporter {
       writes.add((file: file, content: content));
     }
     for (final write in writes) {
+      await _projectFile(root, p.relative(write.file.path, from: root));
       await write.file.parent.create(recursive: true);
       final temporary = File(
         '${write.file.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
@@ -154,7 +153,12 @@ final class KnowledgeImporter {
     SourceSpec source,
     Directory cache,
   ) async {
-    final destination = Directory(p.join(cache.path, source.id));
+    // The manifest may keep an id while changing its repository. Hash the
+    // structured identity so neither separators nor a long display id can
+    // change the cache path's shape or exceed a filename-component limit.
+    final destination = Directory(
+      p.join(cache.path, _sha256(jsonEncode([source.id, source.repository]))),
+    );
     if (!await destination.exists()) {
       final result = await _process([
         'git',
@@ -209,6 +213,28 @@ final class KnowledgeImporter {
       files: files,
       licenseEvidence: source.licenseEvidence,
     );
+  }
+
+  /// Refuses existing symbolic links below the project, including the file
+  /// itself: a reviewed project-relative path must not write elsewhere.
+  static Future<File> _projectFile(String root, String relative) async {
+    final file = File(p.normalize(p.join(root, relative)));
+    if (!p.isWithin(root, file.path)) {
+      throw FormatException(
+        'Change path must name a file inside the project: $relative',
+      );
+    }
+    var current = root;
+    for (final segment in p.split(p.relative(file.path, from: root))) {
+      current = p.join(current, segment);
+      if (await FileSystemEntity.type(current, followLinks: false) ==
+          FileSystemEntityType.link) {
+        throw FormatException(
+          'Change path passes through a symbolic link: $relative',
+        );
+      }
+    }
+    return file;
   }
 
   Future<SourceLockDocument> _readLock(Directory project) async =>

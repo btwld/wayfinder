@@ -4,6 +4,9 @@
 - Date: 2026-10-02
 - Scope: Profile representation, selection, results, builtins, and Profile skills, from package format 2
 - Driver: a second knowledge base that needs its own Profile without Bitwild, and engine failures that let link rules pass unassessed
+- Later contract decisions: [ADR-0027](0027-shared-effective-vocabulary.md)
+  clarifies shared vocabulary; [ADR-0029](0029-profile-neutral-directory-facts.md)
+  changes package format and directory facts.
 
 ## Context
 

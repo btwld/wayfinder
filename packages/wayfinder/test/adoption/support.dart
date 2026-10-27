@@ -50,7 +50,7 @@ Future<Directory> clientSource(
   await package.parent.create(recursive: true);
   await package.writeAsString(
     jsonEncode({
-      'format': 2,
+      'format': 3,
       'id': 'client-profile',
       'release': '1',
       'implements': {'id': 'okf', 'release': '0.2'},

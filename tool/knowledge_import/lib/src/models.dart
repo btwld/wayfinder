@@ -33,6 +33,14 @@ final class SourceManifest {
   void validate() {
     final ids = <String>{};
     for (final source in sources) {
+      if (source.id.trim().isEmpty ||
+          source.id == '.' ||
+          source.id == '..' ||
+          source.id.contains('/') ||
+          source.id.contains('\\') ||
+          RegExp(r'^[A-Za-z]:').hasMatch(source.id)) {
+        throw FormatException('Unsafe source id: ${source.id}');
+      }
       if (!ids.add(source.id))
         throw FormatException('Duplicate source id: ${source.id}');
       if (source.repository.trim().isEmpty || source.ref.trim().isEmpty) {

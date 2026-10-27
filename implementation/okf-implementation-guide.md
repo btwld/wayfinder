@@ -1,8 +1,12 @@
 # Wayfinder implementation guide
 
-The engine contract for Profile package format **2** and **OKF 0.2 exactly**.
+The engine contract for Profile package format **3** and **OKF 0.2 exactly**.
 
-Status: Proposed
+Status: Accepted for wayfinder 1.0.0 (unreleased)
+
+The [1.0 stability contract](../docs/stability.md) identifies the public
+compatibility and support boundaries. Acceptance of this contract is not
+publication or a claim that release verification has completed.
 
 ---
 
@@ -263,7 +267,7 @@ that blocks a complete assessment.
 | `bundle-unbound` | error | the configuration does not apply to the bundle |
 | `profile-unresolved` | error | the lock is missing, stale, or lacks the bundle's chain, or a package is not in the local cache or disagrees with the release or parent the lock records |
 | `profile-invalid` | error | a package in the chain is malformed, such as a schema violation, a bad id, a repeated name, an OKF frontmatter key, or rule examples that disagree with their check |
-| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `$schema` dialect, `format` or `$ref` form outside the engine subset; upgrading wayfinder is the remedy |
+| `profile-unsupported` | error | a package in the chain is well-formed for another engine, with another `format`, an OKF release this okf cannot read, or a builtin this engine lacks, or a rule schema keyword, `$schema` dialect, `format` or `$ref` form outside the engine subset; use a matching engine or migrate the package (§5.4) |
 | `profile-timeout` | error | reading a package in the chain, its rule tests included, did not finish within the engine's bound (§5.6) |
 | `profile-composition` | error | the chain and the project additions do not compose (§5.7) |
 | `profile-skill-stale` | warning | a chain member ships a skill whose installed copy is missing or not at the locked commit (§4.7) |
@@ -391,7 +395,7 @@ A validator MUST dispatch through `wayfinder.json` alone. For a bundle named
 by exactly one `applies_to` path, it follows the lock's `extends` pointers
 from that entry's id to the root, reads each package from the local cache at
 its locked commit, and dispatches on each package's `format`, which MUST be
-`2`, the package format this engine reads. A Profile's `release` is its own
+`3`, the package format this engine reads. A Profile's `release` is its own
 name and never selects engine behavior. The chain need not reach any
 particular Profile. The engine verifies safe paths, each package's OKF
 binding, and that the chain composes (§5.7). A package is data the engine evaluates, read from
@@ -657,8 +661,14 @@ name of the installed skill directory, so no mapping between them exists.
 Profile picks its own scheme; Bitwild uses `<year>.<serial>`.
 
 `format` names what the engine must understand to read the package. This
-engine reads format `2`. A package with another format is reported as
-`wayfinder/profile-unsupported`, never read the old way or partly applied.
+engine reads format `3`. A package with another format, including `2`, is
+reported as `wayfinder/profile-unsupported`, never read the old way or partly
+applied.
+Format 3 removes directory-name policy from the `sibling_directory` fact
+(§5.6). A format 2 package needs an explicit migration, not merely a new
+engine: its author reviews uses of that fact, publishes a format 3 revision,
+and the project moves its binding's source ref to that revision before
+refreshing the lock with `get` or `upgrade` (§4.7).
 
 `implements` binds the package to one OKF release, `{"id": "okf", "release":
 "0.2"}`. Every package in a chain binds the same release, and this engine
@@ -719,6 +729,17 @@ engine health, which is a diagnostic. The create-profile
 [builtins reference](../skills/create-profile/references/builtins.md) lists
 each builtin with its params.
 
+Facts describe the loaded bundle without any Profile's directory conventions.
+The concept fact `sibling_directory` is true exactly when the loaded file
+inventory contains a directory beside the concept whose name is the concept's
+filename without `.md`. For `billing.md` this is `billing/`; for
+`references/vendor.md` it is `references/vendor/`. Every path is treated the
+same. Directories are those implied by files in the loaded inventory, not
+empty directories found by additional disk I/O. This definition also applies
+to an in-memory candidate that has not been written. A Profile that excludes
+particular names expresses that policy in its rule schema over `path` and
+`sibling_directory`; the engine excludes none.
+
 Generated text is engine contract. `matches-generated` compares a bundle with
 the output of the generator in the engine's `okf` release (§3.1), so the
 bytes a Profile accepts depend on that release's generator revision as well
@@ -746,13 +767,17 @@ reach any particular Profile. A cycle fails `get`.
 
 Composition only adds. A child adds rules in its own namespace and adds
 vocabulary. It cannot remove, replace, or re-grade an inherited rule, so an
-ancestor's findings are the same with or without the child. Format 2 has no
-field that changes an inherited rule. A later format may add an explicit one
-in the child package, never in `wayfinder.json`.
+ancestor's rule definition stays unchanged. Format 3 has no field that
+changes an inherited rule. A later format may add an explicit one in the
+child package, never in `wayfinder.json`.
 
 The engine composes the chain and the entry's project additions into one
 effective Profile before evaluating anything. Composition depends on nothing
-else, so the same inputs always compose the same way. A type, tag, or
+else, so the same inputs always compose the same way. Every rule uses that
+effective vocabulary, including rules inherited from an ancestor. A child
+or project addition can therefore change an inherited rule's findings: for
+example, a tag-declaration check accepts a tag the child adds. The rule's
+definition, severity, namespace, and release do not change. A type, tag, or
 relationship name MUST be unique across the chain and the project additions.
 A frontmatter key MUST be unique along the chain. A tag MUST NOT equal a
 type, an OKF status, an OKF trust tier, or a relationship name. A violation
@@ -763,7 +788,7 @@ repeats one of its own names is a configuration error (`config-invalid`).
 
 Validation evaluates the rules of every package in the chain, root ancestor
 first. Each finding names its package's `id` as namespace and its package's
-`release`, so an ancestor's findings never depend on a child. A project
+`release`, including when it uses vocabulary a child adds. A project
 locks one source per Profile id (§4.7), so a namespace in its reports
 always means one ruleset.
 
@@ -863,6 +888,53 @@ states which. Nothing here licenses a tool to reject a bundle that is valid OKF.
 ---
 
 ## 9. Change record
+
+Entries below are newest-first decision history. Earlier format numbers and
+"next wayfinder release" wording describe the decision at that time, not
+additional formats this engine reads. The current contract in §5.4 reads
+format 3 only; historical entries are not compatibility promises for format 2.
+
+**Profile-neutral directory facts, package format 3, wayfinder 1.0.0.**
+Affected sections: the guide header, §§4.1, 4.4, 5.4, 5.6, 5.7, and 9; the package
+schema and generic authoring guidance are updated with them (ADR-0029).
+Driver: independent Profiles and Bitwild are both resolved through the
+shipped example/CI workflows, but the shared `sibling_directory` fact
+excluded `interactions/` and `references/` even for a Profile that chose no
+such directory convention. Bitwild's existing mirrored-source and time-axis
+exceptions belong in its package, not in all Profiles' input facts.
+
+Migration for implementations: accept only format 3, report format 2 as
+`profile-unsupported` before reading its rules, and compute the same-stem
+sibling-directory fact from the whole loaded inventory without name
+exclusions. No OKF field, graph, loader or generator meaning changes.
+Migration for packages: review every use of `sibling_directory`, encode any
+chosen directory exemptions in the rule itself, and publish a format 3
+revision through the package's release process. A package whose own rules
+do not use this fact needs no rule changes, but its parents must also be
+migrated. The chain's verdicts stay unchanged only when no rule in it uses
+the fact or every affected package explicitly preserves its prior policy.
+Bitwild's unpublished 2026.3 revision moves its existing exceptions
+into `concept-area-name-collision`, preserving its findings. Migration for
+projects: move the selected package's source ref, and every pinned parent
+ref, to migrated revisions, then refresh and commit the lock and installed
+skills with `get` or `upgrade`. An immutable old ref cannot advance merely
+because `upgrade` was run. Until migration, a format 2 selection is
+`NOT ASSESSED` with an `INCOMPLETE` gate (exit 2) when OKF passes, never a
+silently different Profile verdict. An older engine remains an option for
+an intentionally unmigrated package.
+
+**Shared effective vocabulary, next wayfinder release.** Clarifies §§5.7
+and 9 and the package schema descriptions (ADR-0027). Driver: the shipped
+`examples/profiles/two-rule-child` declares `billing`; an inherited
+tag-declaration check accepts that tag when the child is selected, contrary
+to §5.7's former claim that ancestor findings never change. Every rule
+already uses the whole chain's and project's vocabulary. Migration for
+implementations: retain that composition and evaluation order; do not bind
+an ancestor to an ancestor-only vocabulary. Migration for packages and
+bundles: none; existing verdicts and package interpretation are unchanged,
+so format stays 2. Rule definitions cannot be overridden, but their results
+can depend on added vocabulary. The generic package-authoring guidance and
+a composition golden now make that distinction explicit.
 
 **Bounded package reading, next wayfinder release.** Binds no Profile and
 keeps package format 2. §5.6 bounds reading a Profile package, its rule

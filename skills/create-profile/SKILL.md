@@ -65,6 +65,16 @@ One answer often splits. "Every concept type must be declared" is a rule;
 Follow [references/package-format.md](references/package-format.md). It
 lists every field, the subject facts, and the package layout.
 
+- Write package format 3. For a format 2 revision, review every use of
+  `sibling_directory`: it now includes every same-stem sibling directory in
+  the loaded inventory, without directory-name exceptions. Put any chosen
+  placement exemptions in this Profile's own rule, not in a generic engine
+  fact. Follow the Profile's release process and move project bindings and
+  pinned parent refs to that migrated revision before refreshing their locks.
+- If the package extends another, prove inherited vocabulary checks with
+  the child's additions too. Every rule uses the whole chain's and project's
+  vocabulary; adding a name can change an inherited finding without changing
+  the inherited rule's definition or severity.
 - Give every schema rule `tests` with at least one valid and one invalid
   example. The engine runs them at parse, so a rule whose examples disagree
   with its check never loads, and neither does a package whose tests run
