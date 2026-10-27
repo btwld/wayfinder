@@ -4,7 +4,7 @@
     "name": "Concepta"
   },
   "metadata": {
-    "description": "Wayfinder: author, adopt, assess and search OKF knowledge bundles bound to a Profile."
+    "description": "Wayfinder: author, adopt, assess and search OKF knowledge bundles bound to a Profile, and create Profiles."
   },
   "plugins": [
     {

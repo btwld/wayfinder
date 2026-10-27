@@ -1,7 +1,7 @@
 name: wayfinder_workspace
 description: >-
-  Workspace for Wayfinder: local knowledge discovery, the Concepta OKF Profile
-  toolchain, and reusable retrieval libraries.
+  Workspace for Wayfinder: OKF Profile validation, local knowledge discovery,
+  and reusable retrieval libraries.
 publish_to: none
 
 environment:

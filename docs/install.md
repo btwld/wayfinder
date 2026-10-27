@@ -138,8 +138,8 @@ Install and verify the commands first. From the consuming project, in Claude Cod
 /plugin install wayfinder@wayfinder
 ```
 
-The plugin includes the author, adopt, assess and use-wayfinder skill family and
-registers the Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
+The plugin includes the author, adopt, assess, use-wayfinder and create-profile
+skill family and registers the Wayfinder MCP server. `/mcp` should list `wayfinder`. Its tools are `validate`,
 `index`, `search` and `graph`. By default it serves all configured project bundles.
 Set `WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
 `WAYFINDER_EXECUTABLE` when the executable

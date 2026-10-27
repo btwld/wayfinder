@@ -28,6 +28,16 @@ jobs:
         run: |
           version="$(sed -n 's/^version: //p' pubspec.yaml)"
           test "$TAG" = "wayfinder-v$version"
+      - name: Verify sibling dependencies are published on pub.dev
+        run: |
+          for pkg in wayfinder wayfinder_embeddings; do
+            ver="$(sed -n 's/^version: //p' "packages/$pkg/pubspec.yaml")"
+            out="$(bash tool/ci/pub-version-published.sh "$pkg" "$ver")"
+            test "$out" = "published=true" || {
+              echo "Sibling dependency $pkg $ver is not yet published on pub.dev." >&2
+              exit 1
+            }
+          done
       # No OIDC permission here: dependency downloads use normal public access.
       - run: dart pub get
       - run: dart analyze --fatal-infos

@@ -6,7 +6,7 @@
 - Scope: how a Profile's rules are represented and evaluated
 - Driver: a second knowledge base, over the same okf release, that keeps its frontmatter rules in JSON Schema
 - Later contract decisions: [ADR-0027](0027-shared-effective-vocabulary.md)
-  clarifies shared vocabulary; [ADR-0029](0029-profile-neutral-directory-facts.md)
+  clarifies shared vocabulary; [ADR-0028](0028-profile-neutral-directory-facts.md)
   changes package format and directory facts.
 
 ## Context
