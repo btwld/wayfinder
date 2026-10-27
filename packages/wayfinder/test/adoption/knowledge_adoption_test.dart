@@ -1221,14 +1221,20 @@ void main() {
       git: source.path,
       path: 'profiles/bitwild',
     );
-    await refused(
-      AdoptionRequest(
-        projectRoot: project.path,
-        profile: _bitwild,
-        source: bitwildSource,
-        bundle: '../outside',
-      ),
-    );
+    for (final invalidBundle in [
+      '../outside',
+      'sub/../knowledge',
+      '.GIT/knowledge',
+    ]) {
+      await refused(
+        AdoptionRequest(
+          projectRoot: project.path,
+          profile: _bitwild,
+          source: bitwildSource,
+          bundle: invalidBundle,
+        ),
+      );
+    }
     await refused(
       AdoptionRequest(
         projectRoot: project.path,

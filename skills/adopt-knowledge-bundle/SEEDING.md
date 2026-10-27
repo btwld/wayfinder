@@ -93,7 +93,7 @@ Profile's adoption guidance gives to the end of `### Knowledge bundle`.
 Durable project documentation and knowledge live in the OKF bundle at
 `knowledge/`. `wayfinder.json` binds it to a Profile, and `wayfinder get`
 installs each Profile's skill under `.claude/skills/` and `.agents/skills/`.
-Start at `knowledge/index.md`, then the area index, then the concept.
+Start at `knowledge/index.md` and follow links to the relevant directory index or concept.
 
 Follow the `author-knowledge-bundle` skill before writing anything under
 `knowledge/`, including before creating a directory there. It loads the

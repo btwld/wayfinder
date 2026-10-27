@@ -47,7 +47,7 @@ Iterable<Violation> pathTargetsExist(
     // against the loaded bundle, then on disk. URLs and other descriptors
     // never reach here.
     final missing = switch (edge.resolution) {
-      OkfGraphResolution.unresolved => true,
+      OkfGraphResolution.unresolved => !exists(edge),
       OkfGraphResolution.invalid => _leavesBundle(edge) && !exists(edge),
       OkfGraphResolution.descriptor =>
         (edge.rawTarget.startsWith('/') ||
@@ -75,25 +75,24 @@ bool _leavesBundle(OkfGraphEdge edge) {
 
 bool _exists(BundleFacts facts, OkfGraphEdge edge) {
   final target = _pathPart(edge.rawTarget);
-  if (target == null) return false;
+  if (target == null || target.contains(r'\')) return false;
   final directory = target.startsWith('/')
       ? '.'
       : p.posix.dirname(edge.source.documentPath);
-  final segments = target.split('/').map((segment) {
-    try {
-      return Uri.decodeComponent(segment);
-    } on ArgumentError {
-      return segment;
+  final segments = <String>[];
+  for (final segment in target.split('/')) {
+    final decoded = _decodeSegment(segment);
+    if (decoded != null && (decoded.contains('/') || decoded.contains(r'\'))) {
+      return false;
     }
-  });
+    segments.add(decoded ?? segment);
+  }
   final relative = p.posix.normalize(
     p.posix.joinAll(<String>[...directory.split('/'), ...segments]),
   );
-  if (relative != '..' &&
-      !relative.startsWith('../') &&
-      facts.inventory.contains(relative)) {
-    return true;
-  }
+  final inBundle = relative != '..' && !relative.startsWith('../');
+  if (inBundle && facts.inventory.contains(relative)) return true;
+  if (!inBundle && target.startsWith('/')) return false;
   final absolute = p.normalize(
     p.joinAll(<String>[
       facts.loaded.rootPath,
@@ -108,4 +107,12 @@ String? _pathPart(String raw) {
   final cut = raw.indexOf(RegExp(r'[?#]'));
   final path = cut < 0 ? raw : raw.substring(0, cut);
   return path.isEmpty ? null : path;
+}
+
+String? _decodeSegment(String segment) {
+  try {
+    return Uri.decodeComponent(segment);
+  } on ArgumentError {
+    return null;
+  }
 }

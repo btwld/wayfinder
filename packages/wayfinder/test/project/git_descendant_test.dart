@@ -28,17 +28,22 @@ Future<Map<String, Object?>> exercise(String cause) async {
   final ids = File(p.join(temp.path, 'owned-pids'));
   final cancel = WayfinderCancellationController();
   int? helperId;
-  int? childId;
+  int? firstChildId;
+  int? secondChildId;
   try {
-    // A shell blocked opening this unique FIFO has no child of its own.
-    // Its argument retains an ownership marker for safe fixture cleanup.
+    // Wait only on the second reader so killing it first without stopping
+    // the tree would let the helper exit and reparent the first.
     await Process.run('mkfifo', [descendant.path]);
     await helper.writeAsString(
       '#!/bin/sh\n'
       '/bin/sh -c ${quote('read ignored < ${quote(descendant.path)}')} '
       '</dev/null >/dev/null 2>&1 &\n'
-      'printf \'%s %s\\n\' "\$\$" "\$!" > ${quote(ids.path)}\n'
-      'wait\n',
+      'first="\$!"\n'
+      '/bin/sh -c ${quote('read ignored < ${quote(descendant.path)}')} '
+      '</dev/null >/dev/null 2>&1 &\n'
+      'second="\$!"\n'
+      'printf \'%s %s %s\\n\' "\$\$" "\$first" "\$second" > ${quote(ids.path)}\n'
+      'wait "\$second"\n',
     );
     await Process.run('chmod', ['+x', helper.path]);
     final finished =
@@ -62,7 +67,7 @@ Future<Map<String, Object?>> exercise(String cause) async {
     while (DateTime.now().isBefore(deadline)) {
       try {
         final text = (await ids.readAsString()).trim();
-        if (RegExp(r'^\d+ \d+$').hasMatch(text)) {
+        if (RegExp(r'^\d+ \d+ \d+$').hasMatch(text)) {
           final parsed = text.split(' ').map(int.parse).toList();
           if (parsed.every((id) => id > 0)) {
             numbers = parsed;
@@ -84,29 +89,35 @@ Future<Map<String, Object?>> exercise(String cause) async {
       };
     }
     helperId = numbers[0];
-    childId = numbers[1];
-    final before = await state(childId);
+    firstChildId = numbers[1];
+    secondChildId = numbers[2];
+    final beforeFirst = await state(firstChildId);
+    final beforeSecond = await state(secondChildId);
     if (cause == 'cancel') cancel.cancel();
     final code = await finished;
     final afterHelper = await state(helperId);
-    final afterChild = await state(childId);
+    final afterFirst = await state(firstChildId);
+    final afterSecond = await state(secondChildId);
     return {
       'cause': cause,
       'error': code,
-      'descendant_running_before': before.running,
+      'descendant_running_before': beforeFirst.running && beforeSecond.running,
       'helper_running_after': afterHelper.running,
-      'descendant_running_after': afterChild.running,
-      'descendant_state_after': afterChild.text,
+      'descendant_running_after': afterFirst.running || afterSecond.running,
+      'descendant_state_after': '${afterFirst.text} | ${afterSecond.text}',
       'pass':
-          before.running &&
+          beforeFirst.running &&
+          beforeSecond.running &&
           code == (cause == 'timeout' ? 'git-timeout' : 'cancelled') &&
           !afterHelper.running &&
-          !afterChild.running,
+          !afterFirst.running &&
+          !afterSecond.running,
     };
   } finally {
     cancel.cancel();
     for (final (id, marker) in [
-      (childId, descendant.path),
+      (firstChildId, descendant.path),
+      (secondChildId, descendant.path),
       (helperId, helper.path),
     ]) {
       if (id == null || id <= 0) continue;
