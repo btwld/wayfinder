@@ -111,4 +111,28 @@ void main() {
       );
     }
   });
+
+  test('rejects flag-like repository or ref, malformed JSON types, and '
+      'duplicate change paths', () async {
+    for (final bad in [
+      '{"version":1,"sources":[{"id":"x","repository":"--upload-pack=x","ref":"main","adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"--all","adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":123,"adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"main","adapter":"a","paths":[123]}]}',
+    ]) {
+      expect(() => SourceManifest.fromJson(bad), throwsFormatException);
+    }
+
+    final root = await Directory.systemTemp.createTemp('knowledge-import-dup-');
+    addTearDown(() => root.delete(recursive: true));
+    final importer = KnowledgeImporter();
+    final dup = File('${root.path}/dup.json')
+      ..writeAsStringSync(
+        '{"version":1,"changes":['
+        '{"path":"knowledge/example.md","content":"first\\n"},'
+        '{"path":"./knowledge/example.md","content":"second\\n"}]}',
+      );
+    await expectLater(importer.apply(root, dup), throwsFormatException);
+    expect(File('${root.path}/knowledge/example.md').existsSync(), isFalse);
+  });
 }
