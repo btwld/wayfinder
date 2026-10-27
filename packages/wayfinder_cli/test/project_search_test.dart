@@ -270,6 +270,16 @@ void main() {
     expect(errors.single, contains('leaves the project'));
     expect(knowledge.searched, isEmpty);
   });
+
+  test(
+    'explicit relative bundle paths resolve against workingDirectory',
+    () async {
+      expect(await cli.run(['index', 'knowledge']), 0);
+      expect(knowledge.indexed, [p.join(project.path, 'knowledge')]);
+      expect(await cli.run(['search', 'knowledge', 'caching']), 0);
+      expect(knowledge.searched, [p.join(project.path, 'knowledge')]);
+    },
+  );
 }
 
 class _ProjectKnowledge extends WayfinderKnowledgeStore {
@@ -286,6 +296,21 @@ class _ProjectKnowledge extends WayfinderKnowledgeStore {
   bool staleIndex = false;
   final policies = <StaleIndexPolicy>[];
   bool related = false;
+
+  @override
+  Future<KnowledgeBundleSearch> searchBundle(
+    ProjectBundle bundle,
+    String query, {
+    int limit = 5,
+    KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
+  }) async {
+    searched.add(bundle.root);
+    queries.add(query);
+    policies.add(stale);
+    return KnowledgeBundleSearch(bundle, _response(bundle.root));
+  }
 
   @override
   Future<KnowledgeProjectSearch> search(

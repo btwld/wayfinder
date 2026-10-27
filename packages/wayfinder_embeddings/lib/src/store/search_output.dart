@@ -50,9 +50,11 @@ bool _isResolvablePath(
 }) {
   if (rawPath.isEmpty) return true;
   if (rawPath.contains('`') || rawPath.startsWith('//')) return false;
-  if (rawPath.startsWith('/') ||
-      rawPath.startsWith('./') ||
-      rawPath.startsWith('../')) {
+  if (rawPath.startsWith('/')) {
+    final inBundle = p.posix.normalize(rawPath.substring(1));
+    return inBundle != '..' && !inBundle.startsWith('../');
+  }
+  if (rawPath.startsWith('./') || rawPath.startsWith('../')) {
     return true;
   }
   if (bundleRoot != null) {
