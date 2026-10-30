@@ -10,7 +10,7 @@ with questions the content actually answers.
 Keep source acquisition manifests (`sources.json`, `sources.lock.json`),
 reconciliation records (`provenance.json`), importer code, full repository
 mirrors, staging, and evaluation queries in the publisher's authoring workspace.
-They are build inputs; copying a whole authoring project is not installation.
+They are build inputs, not consumer installation files.
 
 A consumer receives the knowledge concepts, indexes and history, the required
 Profile binding and lock, and attribution with the applicable license notices.
@@ -19,11 +19,6 @@ under `.wayfinder/sources/<bundle-name>/`. Link to those actual files from the
 installed concepts and retain the upstream revision in citations or attribution.
 Keep evidence and license files outside the searchable concept tree. Derived
 indexes and Profile caches are local runtime data.
-
-For the current Flutter demo, the concept tree is
-`.wayfinder/bundles/flutter-dev-kit/`, evidence lives in
-`.wayfinder/sources/flutter-dev-kit/`, and notices live in
-`.wayfinder/licenses/flutter-dev-kit/`.
 
 ## Capability limits
 
