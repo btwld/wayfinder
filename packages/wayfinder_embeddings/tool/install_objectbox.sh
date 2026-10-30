@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # Install the native library for the Dart objectbox release the workspace
-# resolves: the root pubspec.yaml overrides objectbox to this version, and
-# test/objectbox_assets_test.dart fails when the two differ. Verify the
+# resolves: the root pubspec.yaml overrides objectbox to the release that
+# tool/objectbox_assets/manifest.json pairs with this version (dartVersion),
+# and test/objectbox_assets_test.dart fails when they differ. Verify the
 # release archive before any of its bytes reach the package or a Wayfinder
 # bundle. Downloading the pinned artifact directly, instead of running the
 # upstream download.sh, is what makes that checksum possible; it also avoids
@@ -12,19 +13,19 @@ set -euo pipefail
 # Every platform the upstream script can resolve is pinned here, so selection
 # never silently falls back to another architecture. Refresh a checksum with
 # `shasum -a 256 objectbox-<platform>.<extension>` on the matching asset.
-version=5.3.2
+version=6.0.0-beta2
 package_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 checksum_for() {
   case "$1" in
-    macos-universal) echo 680c598573ede04b9762565d48d4e161ad286f786f159abb8da89353bfa1d0bc ;;
-    linux-x64) echo 6dbb5450c36dd11ee9074f16ecc61e79b45ff43c2082934601f3166b39c8a613 ;;
-    linux-aarch64) echo bdfbfbf4971057e11018ca6645697d8a40ebc7df56ccde63397cbb0e0609c0e8 ;;
-    linux-armv7hf) echo 9e7e4ed9df601cad54950a829f57dd77f297dffb0d0e3b9758bbe2fb01fd0064 ;;
-    linux-armv6hf) echo b641a2b36094b442a58ada5e9cbe100568ec4108e484c30a0bce87347aec679c ;;
-    windows-x64) echo 57d7db013bbb46efe415307c9f3baf7564bdc40818ee1f1c42046f4241403d63 ;;
-    windows-x86) echo 1e64c03f4ce7a616b426874444cf3fa61853d919e64517b845bb8117f1b6382b ;;
-    windows-arm64) echo e32ea12aebd76f00bcf9def941a3c73b24d2cc2dcd0e79a033b49522a2b2c0fd ;;
+    macos-universal) echo 130e702cbc006f1df481016f8550dff7d67334979d4685526d06b77d78e731bd ;;
+    linux-x64) echo 58833743a8c3c5092fe930843aa259a0159bda4c1ce9a048e71a7d75a61cf5dc ;;
+    linux-aarch64) echo 0be396a4b28eca8fb9701dd31a3d2a41ea4fe76079c9dfe447eee70aeaf4384c ;;
+    linux-armv7hf) echo 11ab8d69a6276acbb4c04b34cbc41139fb324958baa377cfe078bc29816066c7 ;;
+    linux-armv6hf) echo be30c91a7a1af770e30372e1093483f8bf819c5a807d9d734056f5c3810b01e6 ;;
+    windows-x64) echo c26fae7232bc07c9e2e1f55a3d2ba831b3b631ed8baaafcae01e79e086a80670 ;;
+    windows-x86) echo 9cb9c99be87f9a0274535cf5e01221617485d2d28c1049cf48d61e0eddf8c768 ;;
+    windows-arm64) echo 5797eea3967df8018b5a47e3f6494228ea812b5c90894a86e84e2ba8e7776034 ;;
     *) return 1 ;;
   esac
 }

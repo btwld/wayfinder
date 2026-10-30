@@ -1,5 +1,9 @@
 # 0.3.0 (unreleased)
 
+- Depends on `ack` `^2.0.0-alpha.1`. Rule schemas and the published schemas
+  still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
+  with `format` as an annotation unless asked, so both imports pass
+  `assertFormats: true`.
 - New `package:wayfinder/authoring.dart`, the write path for a bundle a
   Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one
   `KnowledgeChange` (`CreateConcept`, `UpdateConcept`, `LinkConcepts`, which
