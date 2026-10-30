@@ -34,7 +34,9 @@ read `.claude/skills/<id>/SKILL.md`, or
 later Profile adds to an earlier one and never relaxes it. Follow each skill's
 routing for the write at hand.
 
-No chain means `NOT ASSESSED`. Never guess a Profile or its rules. Diagnose:
+Read `profile.state` for the assessment state: without a chain, it can be
+`NOT ASSESSED` or `BLOCKED BY OKF` when OKF fails without a selected Profile.
+Never guess a Profile or its rules. Diagnose:
 
 | Diagnostic | Action |
 | --- | --- |
