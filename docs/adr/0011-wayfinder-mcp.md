@@ -2,77 +2,37 @@
 
 - Status: accepted
 - Date: 2026-09-09
-- Updated: 2026-10-16 (project-wide discovery across configured bundles); 2026-10-20 (retained encoder, snapshot cache, and Markdown search output)
+- Updated: 2026-10-16 (project discovery); 2026-10-20 (encoder, cache and Markdown output)
 - Scope: local MCP adapter; no Profile rule
-- Builds on [ADR-0010](0010-wayfinder-cli.md)
+- Builds on: [ADR-0010](0010-wayfinder-cli.md)
+- Amended by: [ADR-0022](0022-plain-file-index-generations.md) (search during refresh)
 
-## Context
+## Context and decision
 
-Agents need Wayfinder validation and retrieval without parsing shell output
-or maintaining another search implementation. Upstream `okf mcp` serves
-format-level reads and writes; it does not replace Wayfinder's gate or
-semantic search. A project can hold its own knowledge and installed reference
-bundles, and an agent needs one search across them, as the CLI already
-provides.
+Agents need validation and cited retrieval without parsing shell output or
+implementing another search. Expose `validate`, `index`, `search`, and read-only
+`graph` through `wayfinder mcp`, a local stdio server over the same libraries as
+the CLI. Upstream `okf mcp` supplies format operations, not Wayfinder's gate.
+Shell-only access lacks typed tool discovery; HTTP hosting is deferred until a
+real deployment needs authentication or remote access.
 
-## Decision
+Discover configured project bundles on each call without fetching; fall back to
+`knowledge/`. Explicit `wayfinder mcp <bundle>` or `WAYFINDER_KNOWLEDGE_DIR`
+binds one bundle. Tool arguments cannot choose arbitrary paths. Project search
+uses one query embedding, a global limit and bundle-aware citations; validation
+and graph remain independent per bundle. Missing/incompatible indexes fail;
+ADR-0022 permits previous snapshots during refresh with notices.
 
-Run `wayfinder mcp` as a local stdio server over the project's configured
-bundles, using the same discovery boundary and conventional `knowledge/`
-fallback as CLI project search. Discovery runs on each call and never fetches
-sources. Search uses one query embedding and one global result limit and keeps
-bundle-aware citations. Index explicitly refreshes every selected bundle; a
-missing or stale index fails search rather than returning a subset. Validation
-and graph stay independent per bundle, returned under `bundles` with each
-bundle's name and project-relative path. Validation gates and graph node
-identities are never merged across bundles.
-
-An explicit `wayfinder mcp <bundle>` binds to that canonical bundle at startup
-and keeps the single-bundle result shapes. A nonblank `WAYFINDER_KNOWLEDGE_DIR`
-selects that mode when no argument is given. Tool arguments cannot select an
-arbitrary path or retrieval mode.
-
-Use the MCP SDK for transport, negotiation, and framing, and Ack for argument
-validation and defaults. Stdout carries JSON-RPC only; diagnostics go to
-stderr. Dependency versions live in the
-[package manifest](../../packages/wayfinder_cli/pubspec.yaml).
-
-Expose the CLI's `validate`, `index`, `search`, and read-only `graph`
-([ADR-0012](0012-wayfinder-graph-projection.md)) services. Return `validate`,
-`index`, and `graph` results as JSON in one text content block, and `search`
-results as Markdown in one text content block. A validation report with failing
-findings is a completed result with an `exit_code`, not a failed tool call;
-execution failures use `isError` without ending the session. Search returns
-candidate passages, citations, and notices, not an answer-confidence claim.
-
-Discovery and validation need no model. Indexing is explicit and writes only
-derived app data. Tool annotations mark read-only calls and non-destructive
-indexing, while the host controls approval. There is no HTTP host,
-authentication, or bundle-authoring tool.
-
-The server retains one lazily opened encoder and a bounded verified snapshot
-cache across serialized retrieval calls, evicting the encoder on failure and
-disposing it on disconnect, while each retrieval call opens and closes its own
-store. Overlapping calls may return a busy error. Disconnect drains active
-operations, but cancellation does not roll back a generation already being
-built. Indexing is atomic per bundle, not across bundles: a later bundle's
-failure does not roll back an earlier completed index.
-
-## Options considered
-
-- Shell-only invocation was rejected because agents need typed discovery,
-  validation, and result handling.
-- An HTTP server was deferred because the supported use is a local process.
+Use the MCP SDK for framing and Ack for arguments. Stdout is JSON-RPC only;
+diagnostics use stderr. Validation, index and graph return JSON text; search
+returns Markdown candidates and notices. Failing validation findings are completed
+results with an exit code; execution errors use `isError` without ending the
+session. See the [MCP guide](../../packages/wayfinder_cli/README.md#mcp-server).
 
 ## Consequences
 
-The server reuses CLI behavior rather than defining a second validation or
-retrieval contract; the engine's report, schemas, Profile packages, bundle
-content, and storage formats are the same as on the command line. Current tool
-arguments and limits live in the
-[CLI guide](../../packages/wayfinder_cli/README.md).
-
-## Reconsider when
-
-A real deployment needs remote hosting, authentication, or stronger
-cancellation and concurrency guarantees.
+There is one validation/retrieval contract, no authoring tool or answer-confidence
+claim. Indexing writes derived local data explicitly; host approval controls it.
+MCP shares a lazy encoder and bounded snapshot cache. Cancellation stops searches,
+not an index already building; per-bundle publication is not a multi-bundle
+transaction. A later bundle's index failure leaves earlier publications intact.

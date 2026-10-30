@@ -4,6 +4,7 @@
 - Date: 2026-10-24
 - Scope: the index lifecycle, what search reads during a refresh, and the public knowledge store; no Profile rule
 - Amends: [ADR-0010](0010-wayfinder-cli.md), [ADR-0011](0011-wayfinder-mcp.md) and [ADR-0018](0018-embeddable-libraries.md)
+- Amendment incorporated: [ADR-0026](0026-model-cache-and-source-paths.md)
 
 ## Context
 
@@ -11,8 +12,7 @@ ADR-0010 stored one ObjectBox index per bundle and had search refuse a stale
 index. ADR-0011 failed a search that overlapped another retrieval call. The
 index lifecycle then moved into a library a host can embed, and the storage
 became plain files so a search can read the last published index while a
-refresh runs. Those three records stay as they were accepted; this record
-carries the change.
+refresh runs. This record replaces those storage and concurrency choices.
 
 ## Decision
 
@@ -57,3 +57,16 @@ carries the change.
 A search during a refresh can cite the previous generation. Its notices say
 so. Upgrading builds each index once. `flock` is only as strong as the
 filesystem: keep the data directory on a local disk.
+
+## Cleanup and source paths (0026, 2026-10-24)
+
+Every index run, even when already current, and `prune` collect generations older
+than the supersession grace period. This avoids retaining a burst of forced
+indexes until another publication; open Windows readers can still defer removal.
+
+Search reports path-valued sources consistently with `path-targets-exist`:
+directories count as present; a leading `/` stays bundle-relative (including
+`/../`); malformed paths that remain inside the bundle are validation's concern,
+not duplicate search notices. Model lookup belongs in the
+[CLI runtime guide](../../packages/wayfinder_cli/README.md#embedding-model-lookup);
+model provisioning/removal remains an explicit host action.

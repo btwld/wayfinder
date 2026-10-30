@@ -5,6 +5,7 @@
 - Updated: 2026-10-01 (typed `relationships` edges beside the okf graph)
 - Scope: the `graph` command and MCP tool; no Profile rule
 - Builds on [ADR-0010](0010-wayfinder-cli.md) and [ADR-0011](0011-wayfinder-mcp.md)
+- Amendment incorporated: [ADR-0021](0021-graph-projection-in-project-library.md)
 
 ## Context
 
@@ -46,3 +47,10 @@ The graph is a discardable projection, never a source of truth.
 
 The upstream graph contract changes, or a consumer needs graph semantics
 ordinary OKF cannot represent. Such a change needs a compatibility review.
+
+## Library home (0021, 2026-10-24)
+
+`projectWayfinderGraph`, its query input and `wayfinderLinkFields` live in
+`package:wayfinder/project.dart`. `okfFieldEdges` and retrieval accept that field
+list as a parameter. CLI and MCP delegate to this projection; output and OKF
+semantics are unchanged. Hosts need no CLI or Profile-specific graph model.

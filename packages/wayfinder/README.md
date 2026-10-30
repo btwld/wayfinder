@@ -145,11 +145,12 @@ Future<void> main() async {
   location the resolver gives a source: compare it with the sources a person
   approved.
 - Reading a Profile package runs its rules' `tests`, so the resolver reads
-  each one on an isolate of its own and refuses one that runs past
+  each one on an isolate of its own when available, and refuses one that runs past
   `packageTimeout` (ten seconds) as `wayfinder/profile-timeout`, and one
   whose parse stops on an error, such as a stack overflow, as
-  `wayfinder/profile-invalid`; `ProfilePackage.parseWithin` is that bounded
-  parse.
+  `wayfinder/profile-invalid`. `ProfilePackage.parseWithin` falls back to
+  synchronous parsing without a timeout if isolate spawning is unavailable;
+  hosts needing hard limits must isolate that work themselves.
 - `ProfileSkills.read(projectRoot, revision)` returns the `SKILL.md` text
   `get` installed for a Profile revision as a `ProfileSkillText`, or null
   when no installed copy holds that revision, the check behind

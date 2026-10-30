@@ -5,6 +5,7 @@
 - Updated: 2026-10-07 (Ack evaluates rule schemas)
 - Scope: how a Profile's rules are represented and evaluated
 - Driver: a second knowledge base, over the same okf release, that keeps its frontmatter rules in JSON Schema
+- Amendments incorporated: [0023](0023-host-resolution-seams.md) (parser bounds in [0018](0018-embeddable-libraries.md#host-controls-0023-2026-10-24)), [0024](0024-generator-revision-and-offline-relock.md)
 
 ## Context
 
@@ -77,3 +78,11 @@ configures only Profile sources it trusts.
 
 A real rule cannot be expressed over the engine's facts and builtins without a
 rule-specific fact.
+
+## Generator identity (0024, 2026-10-24)
+
+`matches-generated.version` pins `okfIndexGeneratorRevision`, not the dependency
+release reported as `engine.okf`. The `^0.5.1` dependency uses generator revision
+`0.5.0`, so existing packages remain format 2 and retain their findings. A release
+that changes generated output needs compatibility review and a breaking changelog
+entry for every Profile using that builtin; see the [guide §5.6](../../implementation/okf-implementation-guide.md#56-rules-and-builtins).

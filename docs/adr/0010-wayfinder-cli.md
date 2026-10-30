@@ -1,58 +1,36 @@
 # ADR-0010: One CLI validates, indexes, and searches local knowledge
 
-- Status: accepted; retrieval mode exposure superseded by [ADR-0017](0017-dense-only-retrieval.md)
+- Status: accepted; retrieval modes superseded by [ADR-0017](0017-dense-only-retrieval.md)
 - Date: 2026-09-09
-- Updated: 2026-10-18 (dense-only retrieval in [ADR-0017](0017-dense-only-retrieval.md)); 2026-10-20 (retained MCP encoder and Markdown search output)
-- Scope: application commands and the local index lifecycle; no Profile rule
-- Builds on [ADR-0009](0009-local-knowledge-retrieval.md)
+- Updated: 2026-10-18 (dense-only); 2026-10-20 (retained MCP encoder and Markdown output)
+- Scope: commands and local index lifecycle; no Profile rule
+- Amendments: [0018](0018-embeddable-libraries.md) (public libraries), [0022](0022-plain-file-index-generations.md) (storage and refresh reads), [0026](0026-model-cache-and-source-paths.md) (model lookup and source paths)
 
-## Context
+## Context and decision
 
-The validation library and the retrieval library serve different purposes.
-Users and agents need one application with an explicit bundle path and an
-arbitrary query, without making semantic retrieval part of Profile
-conformance.
+Provide one application for `validate`, `index`, and `search`, while keeping
+semantic retrieval separate from Profile conformance. Validation needs no model.
+Indexing explicitly saves verified local document embeddings; search encodes the
+query against that saved index and never implicitly rebuilds it. Runtime commands
+never download or train models. Native distributions include the verified model.
 
-## Decision
+The original ObjectBox storage and refusal of every stale index were replaced
+by ADR-0022's immutable plain-file generations: search may read the previous
+snapshot during a refresh, with notices. Without a refresh, stale indexes are
+refused. Derived indexes live outside the repository, keyed by canonical bundle
+path and configuration.
 
-Expose `wayfinder validate`, `wayfinder index`, and `wayfinder search`.
-Validation runs the engine contract and needs no model.
-
-The application indexes with verified local Arctic XS embeddings and searches
-saved document vectors with an encoded query. Both the application and the
-reusable library use dense-only retrieval ([ADR-0017](0017-dense-only-retrieval.md));
-retired lexical and hybrid mode choices are rejected. Build tooling
-owns model acquisition, and the native distribution includes the verified
-artifact. Runtime commands never download or train a model.
-
-Persist one derived ObjectBox index per canonical bundle path in per-user
-application data, outside the repository. Store original inputs, passages,
-citations, metadata, and graph-reconstruction inputs so search reopens a
-completed snapshot without re-fitting documents. An index update reuses
-compatible vectors in a private generation and atomically publishes only a
-completed, closed generation; the previous generation survives a failure.
-
-Serialize operations on the same bundle with an OS lock. Compare source hashes
-and inventory to detect edits; search refuses an absent, stale, or
-incompatible index and directs the caller to `wayfinder index`. Search
-includes every lifecycle state and bounded relationship context, following
-typed `relationships` entries before untyped body links, and never derives
-authority from type, verification, or similarity. MCP retains one lazily opened
-encoder across serialized retrieval calls, evicting it on failure and disposing
-it on disconnect, while one-shot CLI commands open and close their own encoder.
+Search includes every lifecycle state and bounded relationship context, following
+typed `relationships` before untyped body links. Type, verification and similarity
+do not imply authority. MCP retains a lazy encoder across calls; one-shot CLI
+commands own and close theirs. The [CLI guide](../../packages/wayfinder_cli/README.md)
+owns current commands, runtime model lookup and source-path behavior.
 
 ## Consequences
 
-Indexes duplicate bundle text in local app data and can be removed and
-rebuilt. Staging may briefly need room for two databases. Hash checks are not
-an adversarial filesystem transaction, and atomic publication is not a
-power-loss guarantee.
-
-The application has no watcher, answer generator, or automatic bundle fix
-beyond `validate --fix`. Reindex after edits. Current commands and storage
-details live in the [CLI guide](../../packages/wayfinder_cli/README.md).
-
-## Reconsider when
-
-A real consumer needs remote hosting, a different persistence guarantee, or a
-retrieval mode that cannot stay an explicit, inspectable command contract.
+Explicit indexing makes cost and freshness visible but requires reindexing after
+edits. Local indexes duplicate bundle text and may be deleted and rebuilt;
+staging needs space for old and new generations. Hash checks are not adversarial
+filesystem transactions, and atomic publication is not a power-loss guarantee.
+There is no watcher or answer generator. Reconsider for a concrete remote-hosting,
+persistence or retrieval need that cannot fit this inspectable command contract.
