@@ -1,28 +1,74 @@
 # Contributing to Wayfinder
 
-Read [`AGENTS.md`](../AGENTS.md) before contributing. Engine-contract and Profile
-changes have separate requirements:
+Read [AGENTS.md](../AGENTS.md) for authority, scope and routing. Use the driving
+issue as scope, or state the maintenance scope in the PR. Record the real-use
+driver; project-specific vocabulary belongs in that project's binding or bundle.
 
-- **The engine contract** says what any Profile package is and how the engine reads it.
-  It changes through an ADR and the guide's change record, and a change that would make an
-  existing package read differently bumps the package `format`.
-- **A Profile** changes through its own release process. A Bitwild rule earns its way in
-  by being needed on a real corpus and by being generic. If it names a client, a domain, or
-  a project's own vocabulary, it belongs in that project's binding or bundle. Each change
-  has a [changelog](../profiles/bitwild/CHANGELOG.md) entry stating the **driver** and the
-  migration impact.
+## Engine contract changes
 
-Record the real-use driver so reviewers can distinguish a demonstrated need
-from a preference.
+A change to what a package is, how the engine reads or composes one, its
+results, its diagnostics, or its builtins needs all of the following in the
+same change:
 
-Two rules govern every Profile edit. **Silence is deference.** Where a Profile says nothing
-and OKF settles the point, follow OKF and do not mint a convention in its place. **Precedence
-is a chain.** OKF wins over the engine contract, which wins over each Profile package.
+1. An ADR, or an amendment to the ADR it changes.
+2. The guide's §9 change-record entry naming affected sections, the real-use
+   driver, and the migration impact for implementations and packages.
+3. A package `format` bump when an existing package would read differently.
+   Never reinterpret an old package silently.
+4. Updated schemas, goldens, and the generic skills that teach the contract.
+
+An upstream OKF **specification** release requires an engine compatibility
+review in [`docs/compatibility-review.md`](compatibility-review.md) before
+the engine reads it. An `okf` package release that changes what okf reports or
+what its index generator writes needs a review row and a changelog entry that
+names it as breaking for every Profile using `matches-generated`. Never claim
+unreviewed compatibility.
+
+## Profile changes
+
+A Profile changes through its own release process, in its package. For
+Bitwild, a rule or vocabulary change needs all of the following in the same
+change:
+
+1. The rule in `wayfinder-profile.json`, with `tests` that pass and fail, and
+   a golden fixture that fires it.
+2. A `### <rule-id>` heading with its rationale in the README.
+3. A [`CHANGELOG.md`](../profiles/bitwild/CHANGELOG.md) entry naming the rules
+   changed, the real-use driver, and migration impact in words: whether
+   bundles that passed still pass, and what they must do if not.
+4. A row in Bitwild's [compatibility review](../profiles/bitwild/compatibility-review.md)
+   for each new or changed rule or declared key.
+5. When the release is published, a new `release` value, a tag that never
+   moves, and an immutable snapshot of the superseded package under
+   `profiles/bitwild/versions/`.
+
+Keep canonical paths and symbols stable. A Profile's release lives in its
+package's `release` field, and the engine's in its pubspec and changelog, not
+in filenames or symbol names. Only immutable snapshots, including vendored
+OKF, carry versions in their names.
+
+When a rule changes, search that Profile's skill for the old wording, starting
+with its adoption seed. A validator cannot detect a skill teaching withdrawn
+judgment. Keep the generic skill family Profile-agnostic; update `create-profile`
+and its references with engine-contract changes.
 
 ## Checks
 
-Run the [core contributor checks](../README.md#contributor-checks) from the
-repository root. `dart run melos run lint` checks all four workspace packages.
+From the root, run the core checks used by [CI](../.github/workflows/ci.yml):
+
+```sh
+dart pub get
+dart format --output=none --set-exit-if-changed packages/wayfinder/lib packages/wayfinder/test
+dart analyze --fatal-infos
+(cd packages/wayfinder && dart test)
+dart run tool/generate_published_schemas.dart --check
+python3 tool/ci/verify-configured-example.py
+python3 tool/ci/verify-independent-profile.py
+```
+
+`dart run melos run lint` checks all four packages. For docs/skills, also check
+local links and compare changed wording with its authoritative source. Report
+what ran; validation checks conformance, not the judgment a skill asks for.
 
 ## Schemas and Profile packages
 
@@ -46,58 +92,31 @@ it parses the package, so a rule whose examples disagree with its check never lo
 
 ## Golden results
 
-`packages/wayfinder/test/golden_test.dart` pins every fixture's full validation result in
-`packages/wayfinder/test/goldens/`. When a change is meant to alter findings, regenerate them
-from `packages/wayfinder` with `UPDATE_GOLDENS=1 dart test test/golden_test.dart` and review
-the golden diff with the change. An unexpected golden diff is a regression.
-`published_schema_wording_test.dart` likewise pins, in
-`packages/wayfinder/test/published_schema_wording/golden.json`, the message for
-every single-defect mutation of its seeds that fails its published schema. The
-seeds are frozen copies of the Bitwild example's `wayfinder.json`, the Bitwild
-package and the `two-rule-child` package, so editing a Profile or an example
-leaves the golden alone. Regenerate it with the same `UPDATE_GOLDENS=1` only
-after an intended wording change.
+Regenerate only for intended contract/wording changes; review the diff in the
+same change. Unexpected golden changes are regressions. From the owning package,
+run `UPDATE_GOLDENS=1 dart test <test-path>`:
 
-`packages/wayfinder_cli/test/golden_contract_test.dart` pins the CLI and MCP
-output contracts in `packages/wayfinder_cli/test/goldens/`: the MCP
-`initialize` result and `tools/list`, and the same pair under MCP 2026-07-28
-(`server/discover`); project `index` JSON; MCP project `validate`, checked
-against each bundle's CLI JSON; the MCP project search Markdown; and CLI
-search JSON for the project and for one bundle. It runs the project in
-`test/fixtures/contract-project/` with a deterministic test encoder and binds
-the frozen Profile in `test/fixtures/contract-profile/` from a local Git
-source, so a Bitwild release leaves these goldens alone. It normalizes
-temporary paths, the index key, chunk IDs, the Profile commit, the server
-version, the okf release in `engine.okf` (checked against `okfVersion`) and
-timings; a test beside them checks that the project indexed elsewhere gets
-the same chunk IDs. The goldens need no native library, so every CI job runs
-them. Regenerate from `packages/wayfinder_cli`
-with `UPDATE_GOLDENS=1 dart test test/golden_contract_test.dart` only for an
-intended contract change, and review the diff with it. `mcp_dart` and `ack`
-serialize the MCP results and input schemas, so upgrading either can move
-`tools_list.json` too; that upgrade needs the same reviewed regeneration.
+| Package / test path | Pins |
+| --- | --- |
+| `wayfinder` / `test/golden_test.dart` | Full fixture validation reports in `test/goldens/`. |
+| `wayfinder` / `test/published_schema_wording_test.dart` | First-failure wording for single-defect schema mutations in `test/published_schema_wording/golden.json`. Frozen Bitwild/two-rule-child seeds make this independent of Profile/example edits. |
+| `wayfinder_cli` / `test/golden_contract_test.dart` | MCP initialization/discovery (including 2026-07-28), project index/validate/search and single-bundle search outputs in `test/goldens/`. |
+
+CLI/MCP goldens use a deterministic encoder, local Git Profile source and frozen
+contract fixtures, not native retrieval or the live Bitwild release. They
+normalize environment/version/timing details; adjacent tests check chunk identity
+across locations. `mcp_dart`/`ack` upgrades can change discovery schemas and need
+the same reviewed regeneration.
 
 ## Formatting and documentation
 
-**Format with a `stable` SDK, not with the declared floor.** `dart format`'s output is
-version-dependent and its style is gated on the package's language version, so a floor
-SDK and a newer stable can disagree on the same file. CI checks formatting on `stable`
-only — that is what defines the canonical style — while the floor job still analyzes and
-tests. Formatting with the floor SDK can produce output CI rejects.
-
-For skill or documentation changes, also check local links and compare changed
-rule wording with its authoritative source. Release-tool changes additionally
-use the checks under `tool/release/` in CI. Example-gate success covers the
-Profile's rules; the judgment its skill asks for is reviewed separately.
-
-See the [release guide](releasing.md) for package publication and native binaries.
+Use Dart 3.11.0 or later. **Format with stable**, which defines CI's canonical
+style; the floor SDK can format differently and is used for analysis/tests only.
+For docs/skills, check local links and authoritative wording. Release-tool changes
+also run `tool/release/` checks. Example validation covers conformance; review
+skill judgment separately. See [releasing](releasing.md) for publication/binaries.
 
 ## Dart workspace development
-
-Developing the workspace requires Dart 3.11.0 or later. Run `dart pub get` at the
-repository root, then `dart run melos run lint` to analyze, check formatting, and test all workspace
-packages. Every package declares the same Dart 3.11.0 minimum, so one SDK serves
-the whole workspace.
 
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)

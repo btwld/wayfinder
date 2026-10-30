@@ -2,7 +2,8 @@
 
 The engine contract for Profile package format **2** and **OKF 0.2 exactly**.
 
-Status: Proposed
+Status: Implemented engine contract for package format 2 and pinned OKF 0.2;
+§9 distinguishes unreleased changes.
 
 ---
 
