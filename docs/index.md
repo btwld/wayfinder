@@ -20,7 +20,7 @@
 
 ## Decisions
 
-[ADR catalog](adr/README.md) — Why the engine, CLI, MCP server, and retrieval are shaped as they are.
+[Architecture decision log](../ARCHITECTURE.md) — Why the engine, CLI, MCP server, and retrieval are shaped as they are.
 
 ## Retrieval evidence
 

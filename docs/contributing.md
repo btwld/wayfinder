@@ -10,7 +10,8 @@ A change to what a package is, how the engine reads or composes one, its
 results, its diagnostics, or its builtins needs all of the following in the
 same change:
 
-1. An ADR, or an amendment to the ADR it changes.
+1. A titled, dated entry or amendment in [ARCHITECTURE.md](../ARCHITECTURE.md),
+   using 1–3 sentences for the choice, reason and cost; no new numbered ADR file.
 2. The guide's §9 change-record entry naming affected sections, the real-use
    driver, and the migration impact for implementations and packages.
 3. A package `format` bump when an existing package would read differently.

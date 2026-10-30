@@ -11,7 +11,7 @@ Read [README.md](README.md) for the layout, then the task's relevant files:
 | Profile format, selection, evaluation, adoption or generation | [Engine contract](implementation/okf-implementation-guide.md), [schemas](docs/schemas/), [pinned OKF 0.2](skills/author-knowledge-bundle/references/OKF-0.2.md) |
 | Bitwild rules or vocabulary | [README](profiles/bitwild/README.md), [package](profiles/bitwild/wayfinder-profile.json), [changelog](profiles/bitwild/CHANGELOG.md) |
 | Agent workflows | [Skills](skills/README.md), affected `SKILL.md` and routed references |
-| Validator, retrieval or release tooling | Relevant [package](packages/), [ADRs](docs/adr/README.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
+| Validator, retrieval or release tooling | Relevant [package](packages/), [decision log](ARCHITECTURE.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
 
 ## Authority and scope
 

@@ -1,8 +1,1 @@
-# ADR-0024: Pin the generator revision, and relock offline
-
-- Status: accepted; consolidated into the linked topics (editorial, no reversal)
-- Date: 2026-10-24
-
-Pin generator identity, bound writes to the host root, relock offline, and check even empty commits.
-
-Rationale and current boundaries: [ADR-0015](0015-profile-rule-catalogs.md#generator-identity-0024-2026-10-24), [0018](0018-embeddable-libraries.md), [0019](0019-profile-aware-writes.md) and [0020](0020-programmatic-adoption.md).
+ADR-0024: Pin the generator revision, and relock offline — accepted amendment consolidated with [ADR-0015](../../ARCHITECTURE.md#profile-rules-are-data-adr-0015-adr-0024), [ADR-0019](../../ARCHITECTURE.md#safe-writes-with-a-delta-gate-adr-0019-adr-0024-adr-0025), [ADR-0020](../../ARCHITECTURE.md#adoption-as-plan-then-apply-adr-0020-adr-0024-adr-0025); dated 2026-10-24.

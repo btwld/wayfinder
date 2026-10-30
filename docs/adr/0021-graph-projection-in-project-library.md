@@ -1,8 +1,1 @@
-# ADR-0021: Keep the graph projection in the project library
-
-- Status: accepted; consolidated into the linked topics (editorial, no reversal)
-- Date: 2026-10-24
-
-The graph projection and `wayfinderLinkFields` live in the project library; graph output is unchanged.
-
-Rationale and current boundaries: [ADR-0012](0012-wayfinder-graph-projection.md) and [ADR-0018](0018-embeddable-libraries.md).
+ADR-0021: Keep the graph projection in the project library — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#project-the-ordinary-okf-graph-adr-0012-adr-0021); original dates and amendment IDs are retained there.

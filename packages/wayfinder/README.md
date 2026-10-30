@@ -282,6 +282,32 @@ await resolver.relock(
 );
 ```
 
+## Host operating boundaries
+
+The [decision log](../../ARCHITECTURE.md#embeddable-libraries-and-host-ownership-adr-0018-adr-0023)
+records the library boundary; hosts must also observe these operating constraints:
+
+- Run all okf bundle I/O in one process on one isolate: validate, graph, reads,
+  writes, adoption, fix, index and search. Its POSIX `fcntl` locks belong to the
+  process; another isolate is not excluded and closing another descriptor can
+  release the lock. In-memory assessment and Profile resolution may move isolates.
+- Wayfinder's descriptor-owned locks use `flock` on POSIX and byte ranges on
+  Windows. Keep the data directory on local disk; these are not distributed locks.
+  A mirror lock waits up to 120 seconds; project get/adoption locks do not wait.
+  Hold one mirror lock at a time. Read a project lock's root note only while free;
+  Windows prevents another handle reading a held lock file.
+- Git drops inherited `GIT_*` routing variables, retaining only configuration-file
+  and SSH-command choices, disables interactive prompts and bounds processes.
+  Put stripped settings such as CA paths/credential helpers into Git config.
+  Refresh contacts only the approved clone's `origin`; host fetch policy still
+  decides every source, including parents discovered during resolution.
+- `projectRoot` bounds discovery/binding/writes. Cancellation is cooperative
+  between steps, never inside okf's write transaction. Hosts serialize project
+  relock/get with bundle writes; no lock spans both staleness checks atomically.
+- Package parsing normally uses a ten-second killable isolate, but synchronous
+  fallback after isolate-spawn failure has no timeout. Bundle rules are unbounded
+  by default; use a host-controlled isolate when a hard limit is required.
+
 ## Authoring
 
 `package:wayfinder/authoring.dart` is the write path for a bundle a Profile
@@ -499,9 +525,9 @@ Future<void> main() async {
   refuses a plan with conflicts or whose inputs changed, before writing. It
   holds the project's `get` lock throughout, so a `get` already running stops
   it with `resolution-busy` before anything is written. It undoes earlier
-  steps when one fails or `cancel` fires, so the project never holds a
-  partial bundle, and reports a step whose undo failed as `undo-failed`. It
-  then validates: `PASS` completes adoption. A validation that cannot run,
+  steps when one fails or `cancel` fires, and reports a failed undo as
+  `undo-failed`; rollback failure can leave partial writes. It then releases
+  the project lock and validates: `PASS` completes adoption. A validation that cannot run,
   such as one the assessor stops, fails only the `validate` step, with its
   `code`, and undoes nothing.
 - The request's `hostInputs` name project files the host read or its step
