@@ -2,18 +2,11 @@
 
 ## Source events are not concepts
 
-A source event is an activity: a daily, a planning session, a demo, a call,
-or a conversation. It never becomes a concept merely because it happened.
-
-Apply the durable-knowledge test instead. An interpreted concept is earned
-when the event produced durable knowledge: a meaningful request, a decision,
-an investigation and its findings, an architectural constraint, a term, a
-standing rule, a named unknown, or reusable guidance. An event that produced
-none leaves no interpreted outcome behind. That is correct, not a gap, and it
-keeps the bundle from turning into routine minutes.
-
-An artifact the event produced, such as a transcript, may still be mirrored
-as an ordinary source concept when [mirroring.md](mirroring.md) allows it.
+A daily, planning session, demo, call or conversation earns no concept merely
+by occurring. It must produce durable knowledge: a meaningful request, decision,
+findings, constraint, term, standing rule, named unknown or reusable guidance.
+No durable outcome means no interpreted concept; this is not a gap.
+An artifact may still be mirrored when [mirroring.md](mirroring.md) allows it.
 
 A request is ordinarily its own concept. It outlives the conversation that
 expressed it and can later be analyzed, specified, implemented, rejected, or
@@ -52,8 +45,7 @@ An Interaction Record is the narrow case of the same test. Write one only
 when an interaction's combined context is itself durable: several linked
 outcomes, a negotiation, or a demo whose overall shape matters.
 
-- Never write one when the combined context is not durable.
-- Never write one as routine minutes.
+- Never use it as routine minutes.
 - When a single outcome mattered, give that outcome its own concept in its
   subject's area and link it straight to its original source. No Interaction
   Record is needed.
