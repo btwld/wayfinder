@@ -2,7 +2,8 @@
 
 The engine contract for Profile package format **2** and **OKF 0.2 exactly**.
 
-Status: Proposed
+Status: Implemented engine contract for package format 2 and pinned OKF 0.2;
+§9 distinguishes unreleased changes.
 
 ---
 
@@ -706,6 +707,14 @@ engine's bound, ten seconds in this engine, is refused whole and reported as
 `wayfinder/profile-timeout`, and one whose parse stops on an error, such as a
 stack overflow, as `wayfinder/profile-invalid`. A package's tests should
 finish in milliseconds.
+
+
+**Current implementation gap:** `ProfilePackage.parseWithin` normally enforces
+that bound with a killable isolate, but falls back to synchronous parsing without
+a timeout after `IsolateSpawnException`. The fallback does not meet the bounded-read
+guarantee above; hosts needing a hard limit must isolate the work themselves.
+This documents the existing gap, without changing package format or the contract;
+see [host operating boundaries](../packages/wayfinder/README.md#host-operating-boundaries).
 
 A builtin is a check the engine implements and versions with its release. Any
 package may call one by name with `params`. The rule's id, severity, message,

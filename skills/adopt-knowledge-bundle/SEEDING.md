@@ -4,13 +4,10 @@ The generic parts of an adoption seed. The selected Profile's skill supplies
 the rest: its own root-file templates and any agent-instruction lines.
 Replace placeholders with project facts.
 
-This text is `KnowledgeSeeds` in `package:wayfinder/adoption.dart`, and a
-test keeps the two equal. `KnowledgeAdoption` fills the placeholders from
-the request and the resolved Profile: the Profile's source and the id its
-package declares, with the resolved commit as `ref` when none is named; the
-OKF release its chain implements; and the day of adoption. It writes the
-files below. Its plan returns the `### Knowledge bundle` block as text, and
-`KnowledgeSeeds.wayfinderInstructions()` holds the `### Wayfinder` block.
+The fenced blocks mirror `KnowledgeSeeds` in `package:wayfinder/adoption.dart`;
+a parity test keeps their bytes equal. Adoption fills project facts, the
+package's declared id, resolved ref/commit, OKF release and date. Its plan returns
+agent instructions for the host to place.
 
 ## `wayfinder.json`
 
@@ -64,13 +61,10 @@ okf_version: "<OKF release the Profile implements>"
 * **Initialization**: Established the knowledge bundle.
 ````
 
-If a Profile in the chain requires generated indexes, write this index by
-hand only while the bundle holds no concepts. Once it holds one,
-`wayfinder validate knowledge --fix`, or the first Profile-aware write that
-adds it, writes every generated index; okf's generated root index does not
-link `log.md`, so the seed's link goes with it. Never
-edit a generated index by hand. Without such a Profile, keep each
-`index.md` current yourself, as OKF §8 describes.
+For generated-index rules, handwrite this index only while there are no concepts.
+The first Profile-aware concept write, or `wayfinder validate knowledge --fix`,
+generates indexes; okf's generated root omits the seed's `log.md` link. Never edit
+generated indexes. Otherwise maintain them per OKF §8.
 
 ## `.gitignore`
 
@@ -86,6 +80,16 @@ knowledge/.okf.lock
 
 Add both blocks to `AGENTS.md` under `## Agent skills`. Append the lines the
 Profile's adoption guidance gives to the end of `### Knowledge bundle`.
+
+
+**Correct the legacy freshness sentence when placing these instructions.** The
+literal below mirrors the current code generator for parity testing; its “never
+answers from a stale index” claim is outdated. Replace that sentence with:
+“Search can return the previous snapshot during refresh with notices; verify
+changed sources before relying on them. Without a refresh, a stale-index error
+requires indexing and searching again.” Follow
+[use-wayfinder](../use-wayfinder/SKILL.md#operations-and-boundaries).
+The code-backed generator needs a separate change to emit that wording directly.
 
 ```markdown
 ### Knowledge bundle

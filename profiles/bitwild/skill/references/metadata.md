@@ -6,17 +6,11 @@ spec. This reference adds only what the Profile decides.
 
 ## Baseline frontmatter
 
-Every concept carries nonempty `type`, `title`, `description`, and `status`.
-Choose truthful values for each. `description` is one sentence, and the
-generated index copies it verbatim.
-
-Write only OKF-defined keys plus `relationships`. Readers still preserve
-unknown keys, because this producer restriction does not change OKF's
-tolerant-reader contract.
-
-Every timestamp names an instant, so it carries a UTC offset. A date-only or
-offset-less value raises `okf/timestamp-without-offset`.
-`okf format --migrate-timestamps` rewrites such values to the datetime form.
+The [package rules](https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md)
+enforce baseline fields and allowed keys; choose truthful values. The generated
+index copies `description` verbatim. Readers preserve unknown fields despite
+producer restrictions. Copy syntax from pinned OKF §§4–5, including timestamp
+UTC offsets; migrate date-only values with `okf format --migrate-timestamps`.
 
 ## Status
 
@@ -28,15 +22,10 @@ it movable; movability depends on citations, not status
 
 ## Tags
 
-Tags carry topic and nothing else. Never use a tag as an alias for kind
-(`type`), lifecycle (`status`), trust (derived from `verified`), or how
-settled the subject is (body prose). A tag that restates one of those is
-redundant when written and wrong once the real signal moves. For example,
-`partially-resolved` on a question restates an inbound edge, and nothing
-updates the tag when a second edge lands.
-
-Declare every used tag once in the project's `wayfinder.json` entry. Do not
-use `captures` as a tag merely because a concept cites evidence.
+Tags carry topic only, never kind, lifecycle, trust or settledness. For example,
+`partially-resolved` restates relationships and becomes wrong when closure changes.
+Declare used tags in the project's binding; do not tag `captures` just because
+there is a source citation.
 
 ## Sources
 
@@ -83,18 +72,11 @@ its OKF prefix, or its derived trust tier.
 
 ## How settled the subject is
 
-State how settled the subject is in the body, beside the reasoning that
-justifies it, with pointers to what would settle it. Never put it in
-frontmatter or `status`, which describe the document. Which party can answer
-an open point may also stay in the body.
-
-A shared settledness vocabulary is optional. If the project adopts one,
-define it once in a `ways-of-working/` concept.
-
-Settledness is not derivable from links. `constrained-by` may target a fully
-settled constraint, broken links are valid, and an absent link is silence,
-not evidence. A concept can be first-party and verified and still describe
-an unsettled subject.
+Describe settledness beside its reasoning in the body, with what would settle it
+and who can answer when useful. Keep it out of frontmatter/status. An optional
+shared vocabulary belongs once in `ways-of-working/`. Links do not establish
+settledness: a constraint may be settled, broken links are valid and absence is
+silence. Verified first-party content can still describe an unsettled subject.
 
 ## Freshness
 

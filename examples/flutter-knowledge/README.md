@@ -53,3 +53,10 @@ The temporary `flutterapp` demo installs concepts under
 to local evidence and preserve the upstream revision in citations.
 This is a manual demo: `wayfinder add` and bundle-name configuration are not yet
 implemented by the current CLI.
+
+## Consumer demo paths
+
+For the current Flutter demo, the concept tree is
+`.wayfinder/bundles/flutter-dev-kit/`, evidence lives in
+`.wayfinder/sources/flutter-dev-kit/`, and notices live in
+`.wayfinder/licenses/flutter-dev-kit/`.

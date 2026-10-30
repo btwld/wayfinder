@@ -1,10 +1,7 @@
 # Profile assessment
 
-Part of the `author-knowledge-bundle` skill. This reference defines Profile
-Review for both scopes: the scoped review that completes every atomic write,
-and the deliberate whole-bundle assessment the `assess-knowledge-bundle`
-skill runs. It owns the flow and the report. Each Profile skill in the
-bundle's chain owns what to judge.
+Shared flow for scoped atomic-write review and whole-bundle assessment.
+Each installed Profile skill owns the checks, force and escalation cases.
 
 ## Collect automated validation
 
@@ -21,19 +18,12 @@ Never substitute a guess for a deterministic result.
 
 ## Load what to judge
 
-Read `profile.chain[].id` from the JSON and load each Profile's installed
-skill, root first, as the authoring skill's
-[Load the Profile chain](../SKILL.md#load-the-profile-chain) describes.
-Each Profile skill names its review map: the checks to judge, the force of
-each, and its escalation cases. Judge every check in scope from every
-chain member.
-
-A missing, unreadable, or unresolved configuration still yields the OKF
-result and the diagnostics, but it leaves no Profile to judge. Never review
-under an assumed Profile. Emit the report anyway: `Gate` records the
-collected result, `Reviewed` says contextual review was not performed, and
-`Outcome` is `NEEDS HUMAN`. That is a configuration problem, not a judgment
-failure.
+Load `profile.chain[].id` skills root first per
+[Load the Profile chain](../SKILL.md#load-the-profile-chain), and judge every
+in-scope check in every review map. If configuration is missing/unusable, never
+assume a Profile: retain the OKF result and diagnostics, report review not
+performed under `Reviewed`, and use `NEEDS HUMAN`. A chain member without a skill
+contributes no contextual checks; say so in the report.
 
 ## Scope
 
@@ -75,5 +65,3 @@ left the run `INCOMPLETE`, and name that diagnostic's id.
 
 `Outcome` `PASS` means every check in scope was judged with enough context.
 It does not replace or reinterpret the OKF result or the Profile findings.
-A chain member that ships no skill contributes no checks; say so in
-`Reviewed`.
