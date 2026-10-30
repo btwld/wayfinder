@@ -50,7 +50,8 @@ complete setup. Never invent project types, tags, relationships or actor IDs.
 ## 5. Point agents at it
 
 Add/update [the instruction blocks](./SEEDING.md#agent-instructions) under
-`## Agent skills` in `AGENTS.md`, with the Profile's additions. Preserve user edits
+`## Agent skills` in `AGENTS.md`, applying SEEDING’s freshness correction and the
+Profile’s additions. Preserve user edits
 and other blocks; avoid duplicates. `CLAUDE.md` imports `@AGENTS.md`.
 
 Run `wayfinder setup --hooks` and include its `.mcp.json`/`.githooks/` changes.

@@ -81,6 +81,16 @@ knowledge/.okf.lock
 Add both blocks to `AGENTS.md` under `## Agent skills`. Append the lines the
 Profile's adoption guidance gives to the end of `### Knowledge bundle`.
 
+
+**Correct the legacy freshness sentence when placing these instructions.** The
+literal below mirrors the current code generator for parity testing; its “never
+answers from a stale index” claim is outdated. Replace that sentence with:
+“Search can return the previous snapshot during refresh with notices; verify
+changed sources before relying on them. Without a refresh, a stale-index error
+requires indexing and searching again.” Follow
+[use-wayfinder](../use-wayfinder/SKILL.md#operations-and-boundaries).
+The code-backed generator needs a separate change to emit that wording directly.
+
 ```markdown
 ### Knowledge bundle
 
@@ -107,9 +117,3 @@ Run `wayfinder setup --hooks` once per clone: it registers the MCP server in
 `.mcp.json` and refreshes the index after pulls, checkouts and rebases that
 change the bundle.
 ```
-
-**Freshness clarification:** the literal seed above is kept in parity with the
-code generator. Current search can serve the previous snapshot during refresh,
-with `refresh-in-progress` and possibly `source-changed` notices; without a refresh
-it refuses stale indexes. Follow [use-wayfinder](../use-wayfinder/SKILL.md#operations-and-boundaries)
-and verify changed sources before relying on them.
