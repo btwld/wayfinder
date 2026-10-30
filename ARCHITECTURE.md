@@ -52,7 +52,7 @@ The projection and `wayfinderLinkFields` live in the project library (ADR-0021),
 
 Date: 2026-10-01; Ack evaluation 2026-10-07; generator identity 2026-10-24.
 
-Represent Profile rules as schemas over parsed facts or named builtins, with engine-owned finding identity and wording, so authors can change rules without a binary release; a fixture probe reproduced compiled findings and avoided the review/runtime cost of a new expression language.
+Represent Profile rules as schemas over parsed facts or named builtins, with engine-owned finding identity and messages the engine renders from Profile-supplied templates, so authors can change rules without a binary release; a fixture probe reproduced compiled findings and avoided the review/runtime cost of a new expression language.
 This limits rules to shared facts/capabilities, requires engine releases for new ones and trusts source-provided regular expressions; bounded package parsing does not bound bundle assessment.
 Pin generated-output assumptions to `okfIndexGeneratorRevision`, not the dependency release (ADR-0024), so a generator change requires explicit compatibility/migration review under the [package contract](implementation/okf-implementation-guide.md#56-rules-and-builtins).
 
