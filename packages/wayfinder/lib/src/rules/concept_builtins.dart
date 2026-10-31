@@ -82,10 +82,10 @@ bool _exists(BundleFacts facts, OkfGraphEdge edge) {
   final segments = <String>[];
   for (final segment in target.split('/')) {
     final decoded = _decodeSegment(segment);
-    if (decoded != null && (decoded.contains('/') || decoded.contains(r'\'))) {
+    if (decoded.contains('/') || decoded.contains(r'\')) {
       return false;
     }
-    segments.add(decoded ?? segment);
+    segments.add(decoded);
   }
   final relative = p.posix.normalize(
     p.posix.joinAll(<String>[...directory.split('/'), ...segments]),
@@ -109,10 +109,10 @@ String? _pathPart(String raw) {
   return path.isEmpty ? null : path;
 }
 
-String? _decodeSegment(String segment) {
+String _decodeSegment(String segment) {
   try {
     return Uri.decodeComponent(segment);
   } on ArgumentError {
-    return null;
+    return segment;
   }
 }
