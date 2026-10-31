@@ -156,7 +156,10 @@ void main() {
     for (final malformed in [
       {...lock, 'manifest_sha256': null},
       {...lock, 'resolved_at': 123},
-      {...lock, 'sources': <Object?>[null]},
+      {
+        ...lock,
+        'sources': <Object?>[null],
+      },
       {
         ...lock,
         'sources': [
@@ -166,7 +169,10 @@ void main() {
       {
         ...lock,
         'sources': [
-          {...source, 'files': <Object?>[null]},
+          {
+            ...source,
+            'files': <Object?>[null],
+          },
         ],
       },
       {

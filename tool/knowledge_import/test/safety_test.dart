@@ -144,35 +144,32 @@ void main() {
     },
   );
 
-  test(
-    'null paths still resolves legacy selected_paths',
-    () async {
-      final source = await _repository(temp, 'legacy-source', 'Legacy source\n');
-      await File(p.join(project.path, 'sources.json')).writeAsString(
-        jsonEncode({
-          'version': 1,
-          'sources': [
-            {
-              'id': 'legacy',
-              'repository': source.path,
-              'adapter': 'skills',
-              'paths': null,
-              'selected_paths': ['note.md'],
-            },
-          ],
-        }),
-      );
+  test('null paths still resolves legacy selected_paths', () async {
+    final source = await _repository(temp, 'legacy-source', 'Legacy source\n');
+    await File(p.join(project.path, 'sources.json')).writeAsString(
+      jsonEncode({
+        'version': 1,
+        'sources': [
+          {
+            'id': 'legacy',
+            'repository': source.path,
+            'adapter': 'skills',
+            'paths': null,
+            'selected_paths': ['note.md'],
+          },
+        ],
+      }),
+    );
 
-      final importer = KnowledgeImporter();
-      final lock = await importer.resolve(project);
-      expect(lock.sources.single.files.single.path, 'note.md');
-      expect(
-        lock.sources.single.files.single.sha256,
-        sha256.convert(utf8.encode('Legacy source\n')).toString(),
-      );
-      expect(await importer.check(project), isEmpty);
-    },
-  );
+    final importer = KnowledgeImporter();
+    final lock = await importer.resolve(project);
+    expect(lock.sources.single.files.single.path, 'note.md');
+    expect(
+      lock.sources.single.files.single.sha256,
+      sha256.convert(utf8.encode('Legacy source\n')).toString(),
+    );
+    expect(await importer.check(project), isEmpty);
+  });
 
   test(
     'a long valid source id still resolves through the mirror cache',
