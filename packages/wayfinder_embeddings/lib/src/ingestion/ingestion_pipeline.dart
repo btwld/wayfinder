@@ -74,12 +74,7 @@ class IngestionPipeline {
         if (dedupe) {
           final seenText = seenChunkText[chunk.id];
           if (seenText != null) {
-            if (seenText != chunk.content) {
-              throw StateError(
-                'Chunk ID ${chunk.id} was reused for different text. '
-                'Use content-derived IDs for changed content.',
-              );
-            }
+            _requireSameContent(seenText, chunk);
             onDuplicateChunk?.call(chunk);
             continue;
           }
@@ -87,12 +82,7 @@ class IngestionPipeline {
         }
         final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
         if (existingChunk != null) {
-          if (existingChunk.content != chunk.content) {
-            throw StateError(
-              'Chunk ID ${chunk.id} was reused for different text. '
-              'Use content-derived IDs for changed content.',
-            );
-          }
+          _requireSameContent(existingChunk.content, chunk);
           onDuplicateChunk?.call(chunk);
           if (existingChunk != chunk) {
             newChunks.add(chunk);
@@ -123,6 +113,15 @@ class IngestionPipeline {
     }
 
     await _flushBatch(chunks: chunkBatch, embeddings: embeddingBatch);
+  }
+
+  static void _requireSameContent(String existing, Chunk candidate) {
+    if (existing != candidate.content) {
+      throw StateError(
+        'Chunk ID ${candidate.id} was reused for different text. '
+        'Use content-derived IDs for changed content.',
+      );
+    }
   }
 
   /// Embeds every chunk in [chunks] with one embedder call.
