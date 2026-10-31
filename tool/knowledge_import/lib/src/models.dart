@@ -83,8 +83,8 @@ final class SourceSpec {
         'main',
     adapter: _string(json, 'adapter'),
     paths: _stringList(
-      json.containsKey('paths') ? json['paths'] : json['selected_paths'],
-      json.containsKey('paths') ? 'paths' : 'selected_paths',
+      json['paths'] ?? json['selected_paths'],
+      json['paths'] == null ? 'selected_paths' : 'paths',
     ),
     enabled: _optionalBool(json, 'enabled') ?? true,
     licenseEvidence: _optionalString(json, 'license_evidence'),
