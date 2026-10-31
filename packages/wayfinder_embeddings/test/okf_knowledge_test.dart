@@ -643,6 +643,7 @@ void main() {
     final project = await Directory.systemTemp.createTemp('wayfinder-sources-');
     addTearDown(() => project.delete(recursive: true));
     await File('${project.path}/lib/billing.dart').create(recursive: true);
+    await File('${project.path}/outside file.txt').create(recursive: true);
     final root = '${project.path}/knowledge';
     final sources = {
       'rules/invoice-tax.md': concept(
@@ -651,13 +652,17 @@ void main() {
             'sources:\n'
             '  - {resource: "../../lib/billing.dart"}\n'
             '  - {resource: "../../lib"}\n'
+            '  - {resource: "/rules"}\n'
             '  - {resource: "../../lib/gone.dart"}\n'
             '  - {resource: /missing.md}\n'
             '  - {resource: "/../outside.txt"}\n'
+            '  - {resource: "/../outside file.txt"}\n'
+            '  - {resource: "/rules%2Finvoice tax.md"}\n'
             '  - {resource: "foo\\\\bar"}\n'
             '  - {resource: "https://example.invalid/spec"}\n'
             '  - {resource: "the billing team"}\n',
       ),
+      'rules/invoice tax.md': concept('Secondary tax rule.'),
     };
     final built = snapshot(sources);
     expect(
@@ -688,15 +693,28 @@ void main() {
       ),
       _notice(
         KnowledgeNoticeCode.unresolvedSource,
+        'Unresolved source: /../outside file.txt',
+        paths: ['rules/invoice-tax.md'],
+        target: '/../outside file.txt',
+      ),
+      _notice(
+        KnowledgeNoticeCode.unresolvedSource,
         'Unresolved source: /missing.md',
         paths: ['rules/invoice-tax.md'],
         target: '/missing.md',
+      ),
+      _notice(
+        KnowledgeNoticeCode.unresolvedSource,
+        'Unresolved source: /rules%2Finvoice tax.md',
+        paths: ['rules/invoice-tax.md'],
+        target: '/rules%2Finvoice tax.md',
       ),
     ]);
     expect(KnowledgeNoticeCode.unresolvedSource.wireValue, 'unresolved-source');
 
     // Without the bundle's directory a path that leaves the bundle cannot be
-    // checked, so it is never reported.
+    // checked, so it is never reported; in-bundle paths and slash-prefixed
+    // escapes are still checked against the snapshot.
     final unrooted = KnowledgeIndex(
       store: MemoryStore(),
       embedder: CountingEmbedder(focus: 'InvoiceTax'),
@@ -706,7 +724,11 @@ void main() {
       'InvoiceTax',
       policy: KnowledgeSearchPolicy(expandRelationships: true),
     );
-    expect(plain.notices.map((notice) => notice.target), ['/missing.md']);
+    expect(plain.notices.map((notice) => notice.target), [
+      '/../outside file.txt',
+      '/missing.md',
+      '/rules%2Finvoice tax.md',
+    ]);
   });
 
   test('search checks its cancellation before it encodes the query and '

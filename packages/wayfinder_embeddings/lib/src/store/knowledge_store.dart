@@ -5,7 +5,8 @@ import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:okf/okf_io.dart' show okfBundleLockFileName;
+import 'package:okf/okf_io.dart'
+    show OkfBundleLoadException, okfBundleLockFileName;
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 
@@ -892,12 +893,16 @@ class WayfinderKnowledgeStore {
     Future<T> Function(Future<WayfinderEncoder> Function() acquire) action,
   ) async {
     SharedEncoder? held;
-    Future<WayfinderEncoder> acquire() async =>
-        (held ??= await _acquireEncoder()).encoder;
+    var acquiring = false;
+    Future<WayfinderEncoder> acquire() async {
+      acquiring = true;
+      return (held ??= await _acquireEncoder()).encoder;
+    }
+
     try {
       return await action(acquire);
     } catch (error) {
-      if (_mayHaveFailedEncoder(error)) {
+      if (acquiring && _mayHaveFailedEncoder(error)) {
         _cachedSavedIndexes.clear();
         if (held case final used?) _evict(used);
         if (_retained case final retained?) _evict(retained);
@@ -916,6 +921,7 @@ class WayfinderKnowledgeStore {
       'model-missing',
       'model-invalid',
     }.contains(code),
+    OkfBundleLoadException() => false,
     _ => true,
   };
 
@@ -1833,11 +1839,20 @@ class WayfinderKnowledgeStore {
           final path = p.posix.joinAll(
             p.split(p.relative(entry.path, from: root)),
           );
-          final digest = path.endsWith('.md')
-              ? sha256
-                    .convert(utf8.encode(await entry.readAsString()))
-                    .toString()
-              : 'asset';
+          final String digest;
+          if (path.endsWith('.md')) {
+            final bytes = await entry.readAsBytes();
+            final content =
+                bytes.length >= 3 &&
+                    bytes[0] == 0xEF &&
+                    bytes[1] == 0xBB &&
+                    bytes[2] == 0xBF
+                ? Uint8List.sublistView(bytes, 3)
+                : bytes;
+            digest = sha256.convert(content).toString();
+          } else {
+            digest = 'asset';
+          }
           return MapEntry(path, digest);
         }),
       );

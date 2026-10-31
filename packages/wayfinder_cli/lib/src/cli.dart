@@ -53,6 +53,7 @@ class WayfinderCli {
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
+       _workingDirectoryOverride = workingDirectory,
        _workingDirectory = workingDirectory ?? Directory.current,
        _releases = releases ?? _noticeReleases,
        _notices = notices ?? _interactive();
@@ -65,6 +66,7 @@ class WayfinderCli {
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
   final WayfinderProfileResolver Function()? _profileResolverFactory;
+  final Directory? _workingDirectoryOverride;
   final Directory _workingDirectory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
@@ -101,7 +103,7 @@ class WayfinderCli {
     final slot = await _BackgroundSlot.claim(knowledge.dataDirectory);
     // Another background index started first; the next trigger refreshes.
     if (slot == null) return 0;
-    final root = Directory(bundle).absolute;
+    final root = Directory(_resolvePath(bundle)).absolute;
     final stop = Completer<int>();
     final deadline = Timer(_backgroundLimit, () {
       if (!stop.isCompleted) stop.complete(124);
@@ -434,7 +436,7 @@ class WayfinderCli {
           );
         }
         final result = await _profileResolver().resolve(
-          command.rest.firstOrNull ?? '.',
+          _resolvePath(command.rest.firstOrNull ?? '.'),
           upgrade: name == 'upgrade',
         );
         if (command.option('output') == 'json') {
@@ -531,7 +533,7 @@ class WayfinderCli {
           );
         }
         await _agentSetup(_out).configureProject(
-          command.rest.firstOrNull ?? '.',
+          _resolvePath(command.rest.firstOrNull ?? '.'),
           bundle: command.option('bundle'),
           force: command.flag('force'),
           hooks: command.flag('hooks'),
@@ -557,11 +559,12 @@ class WayfinderCli {
           );
         }
         final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
+        final rootPath =
+            command.rest.firstOrNull ??
+            (override == null || override.trim().isEmpty ? null : override);
         // Without an injected store, the server retains its encoder.
         await _mcpServer(
-          rootPath:
-              command.rest.firstOrNull ??
-              (override == null || override.trim().isEmpty ? null : override),
+          rootPath: rootPath == null ? null : _resolvePath(rootPath),
           workingDirectory: _workingDirectory,
           knowledge: _knowledgeOverride?.call(),
           profileResolver: _profileResolver(),
@@ -612,7 +615,7 @@ class WayfinderCli {
       final bundle = command.rest.first;
       if (name == 'graph') {
         final result = await projectWayfinderGraph(
-          bundle,
+          _resolvePath(bundle),
           types: command.multiOption('type'),
           pathPrefixes: command.multiOption('path-prefix'),
           resolutions: command.multiOption('resolution'),
@@ -628,10 +631,11 @@ class WayfinderCli {
       final json = output == 'json';
       if (name == 'validate') {
         structuredOutput = output == 'text' ? null : output;
+        final rawConfig = command.option('config');
         final result = commandValidation(
           await validateWithProfileSources(
-            bundle,
-            configPath: command.option('config'),
+            _resolvePath(bundle),
+            configPath: rawConfig == null ? null : _resolvePath(rawConfig),
             resolver: _profileResolver(),
             fix: command.flag('fix'),
           ),
@@ -675,7 +679,7 @@ class WayfinderCli {
               await slot.release();
               await _spawnDetached([
                 'index',
-                bundle,
+                p.absolute(_resolvePath(bundle)),
                 '--background',
                 if (force) '--force',
               ]);
@@ -831,9 +835,14 @@ class WayfinderCli {
     return 0;
   }
 
+  String _resolvePath(String path) =>
+      p.isAbsolute(path) || _workingDirectoryOverride == null
+      ? path
+      : p.join(_workingDirectory.path, path);
+
   /// A bundle named by its path on the command line.
-  static ProjectBundle _explicitBundle(String path) =>
-      ProjectBundle(p.basename(p.normalize(path)), path, path);
+  ProjectBundle _explicitBundle(String path) =>
+      ProjectBundle(p.basename(p.normalize(path)), path, _resolvePath(path));
 
   void _printIndex(WayfinderIndexResult result) {
     if (result.current) {

@@ -53,6 +53,7 @@ void main() {
                 },
                 {'id': 'S14', 'resource': 'FY2026/Q1'},
                 {'id': 'S15', 'resource': 'archive/%FF.md'},
+                {'id': 'S16', 'resource': '/../outside.txt'},
                 {'resource': 'https://example.test/spec#s1'},
               ],
             },
@@ -145,6 +146,7 @@ void main() {
         '[S13] knowledge/billing/references/evidence.parquet?download=1#row-4, '
         '[S14] FY2026/Q1, '
         '[S15] knowledge/billing/archive/%FF.md, '
+        '[S16] /../outside.txt, '
         'https://example.test/spec#s1',
       ),
     );
@@ -182,6 +184,7 @@ void main() {
       {'id': 'S13', 'resource': 'references/evidence.parquet?download=1#row-4'},
       {'id': 'S14', 'resource': 'FY2026/Q1'},
       {'id': 'S15', 'resource': 'archive/%FF.md'},
+      {'id': 'S16', 'resource': '/../outside.txt'},
       {'resource': 'https://example.test/spec#s1'},
     ]);
   });

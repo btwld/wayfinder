@@ -635,7 +635,7 @@ void main() {
           spawned,
           starts
               ? [
-                  ['index', '.', '--background'],
+                  ['index', p.absolute('.'), '--background'],
                 ]
               : isEmpty,
         );
@@ -701,7 +701,7 @@ void main() {
         0,
       );
       expect(spawned, [
-        ['index', '.', '--background', '--force'],
+        ['index', p.absolute('.'), '--background', '--force'],
       ]);
       expect(jsonDecode(output.single), {'bundle': '.', 'detached': 'started'});
     });
