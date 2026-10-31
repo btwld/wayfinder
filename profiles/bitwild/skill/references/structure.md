@@ -62,35 +62,20 @@ directory-name policy.
 
 ## Fixed directories
 
-The Profile fixes five names. Every other directory name, including names in
-examples, is illustrative and belongs to the project.
+Only these five directory names are fixed; others are project vocabulary:
 
-- `architecture/` holds architecture whose subject is the system as a whole:
-  structure, technology, boundaries, integration contracts, and the ADRs that
-  shaped them. Architecture about one capability lives in that capability's
-  area. The type stays `Architecture Document` in both places.
-- `ways-of-working/` holds how the team works: process decisions,
-  conventions, engineering and operational guidance, and decisions about the
-  bundle itself.
-- `interactions/` is the time-axis exception. A dated record usually spans
-  several subjects, so no area can host it. It may nest by cadence or kind,
-  such as `interactions/dailies/`. An interaction that produced one durable
-  outcome contributes that outcome to its subject's area, not a record here,
-  so a thin `interactions/` is the expected shape.
-- `references/` holds mirrored source material
-  ([mirroring.md](mirroring.md)). It is not an area: it is organized by
-  source and date, may nest, and is exempt from subject naming.
-- `computations/` is OKF §10.4's home for Attested Computations. It holds
-  only `Attested Computation` concepts and their indexes, and may nest by the
-  subject or runtime they share. A computation may instead live with the
-  subject it computes. Concepts that use a computation stay with their own
-  subjects and link to it.
+| Directory | Membership |
+| --- | --- |
+| `architecture/` | System-wide structure, technology, boundaries, contracts and ADRs; capability-specific architecture stays with its capability. |
+| `ways-of-working/` | Process, conventions, operational/engineering guidance and bundle decisions. |
+| `interactions/` | Durable combined interaction context; may nest by cadence/kind. Single outcomes go with their subject, so a thin directory is expected. |
+| `references/` | [Mirrored material](mirroring.md), organized by source/date, not subject; may nest. |
+| `computations/` | Only OKF §10.4 Attested Computations and indexes; may nest by shared subject/runtime. Computations may instead live with their subject; consumers stay with theirs and link to them. |
 
 ## Placement
 
-A concept lives with its subject. A decision about billing goes in the
-billing area. A decision about how the team captures knowledge goes in
-`ways-of-working/`. Placement follows subject, never type.
+Place concepts with their subject: billing decisions in billing, knowledge-process
+decisions in `ways-of-working/`. Type never determines placement.
 
 ## IDs and paths
 

@@ -6,19 +6,9 @@ disable-model-invocation: true
 
 # Create a Profile
 
-A Profile is a package that a project binds its OKF bundle to. It adds
-guardrails to OKF and stays fully OKF-compliant. The Profile's author owns
-every answer. This skill asks the questions and turns the answers into two
-artifacts:
-
-- `wayfinder-profile.json`, the rules and vocabulary `wayfinder validate`
-  enforces;
-- `skill/`, the judgment a validator cannot decide, which `wayfinder get`
-  installs into every project that uses the Profile.
-
-You write for two readers who never saw this conversation: the engine, which
-parses the package, and an agent that reads the installed skill cold, in the
-middle of a write or a review.
+Turn author-ratified conventions into `wayfinder-profile.json` (machine rules)
+and `skill/` (contextual judgment). Both extend OKF without redefining it. Write
+for an engine and an agent that never saw this conversation.
 
 ## 1. Ground in the author's corpus
 
@@ -77,8 +67,9 @@ lists every field, the subject facts, and the package layout.
   the inherited rule's definition or severity.
 - Give every schema rule `tests` with at least one valid and one invalid
   example. The engine runs them at parse, so a rule whose examples disagree
-  with its check never loads, and neither does a package whose tests run
-  past ten seconds (`wayfinder/profile-timeout`).
+  with its check never loads. Parsing normally has a ten-second isolate bound
+  (`wayfinder/profile-timeout`); synchronous fallback has no bound. See
+  [parser limits](references/package-format.md#tests).
 - Give every rule id a heading in `README.md`, because each finding links
   to `docs#<rule-id>`.
 - When the Profile has judgment answers, write `skill/SKILL.md` with `name`
@@ -143,12 +134,7 @@ release name if the author's scheme marks breaking changes.
 
 ## 6. Maintain it
 
-Run this skill again as a revision when a rule or a vocabulary name changes,
-or when review reports keep raising a judgment the skill does not cover.
-
-1. Re-interview only the questions the change touches (step 2).
-2. Compare the skill with the package. Every vocabulary table, rule id, and
-   rule the skill mentions must match the package. A skill can teach a
-   withdrawn rule while every file it produces still validates.
-3. Prove it again (step 4).
-4. Release it with a new `release` value and a changelog entry (step 5).
+For rule/vocabulary changes or recurring uncovered judgments, re-interview only
+affected questions. Compare every skill vocabulary table and cited rule with the
+package: withdrawn guidance can still produce files that validate. Repeat the
+proof and release with a new `release` and migration changelog.

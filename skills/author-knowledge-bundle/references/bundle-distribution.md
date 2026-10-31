@@ -10,7 +10,7 @@ with questions the content actually answers.
 Keep source acquisition manifests (`sources.json`, `sources.lock.json`),
 reconciliation records (`provenance.json`), importer code, full repository
 mirrors, staging, and evaluation queries in the publisher's authoring workspace.
-They are build inputs; copying a whole authoring project is not installation.
+They are build inputs, not consumer installation files.
 
 A consumer receives the knowledge concepts, indexes and history, the required
 Profile binding and lock, and attribution with the applicable license notices.

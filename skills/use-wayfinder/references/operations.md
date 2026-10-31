@@ -2,21 +2,15 @@
 
 ## Choose the interface
 
-Check for the **Wayfinder MCP tools** (`search`, `index`, `validate`, `graph`,
-usually prefixed `mcp__wayfinder__` or `mcp__plugin_wayfinder_wayfinder__`) and
-prefer them. Default `wayfinder mcp` launches discover every bundle in the
-nearest `wayfinder.json` (`applies_to`), or the conventional `knowledge/` fallback.
-`search` takes `{"query": "<one natural-language question>", "limit": 5}`. It uses
-dense retrieval across those bundles with one global limit; it needs no bundle list.
-Every actual search requires the local encoder. Do not send retired `mode` fields;
-unsupported fields are rejected. `index` refreshes them all. Project `validate`
-and `graph` return independent reports in `bundles`, each with `name` and
-project-relative `path`; read every validation report's gate and `exit_code` before
-claiming the project passes. An explicit `wayfinder mcp <bundle>` launch or
-`WAYFINDER_KNOWLEDGE_DIR` restricts the tools to one bundle and preserves the
-single-bundle result shapes. `graph` takes optional `types`, `path_prefixes` and
-`resolutions` and returns the versioned OKF graph JSON, plus a `field_edges` array
-holding each concept's typed `relationships` entries.
+Prefer Wayfinder MCP `search`, `index`, `validate`, `graph` tools (usually
+`mcp__wayfinder__` or `mcp__plugin_wayfinder_wayfinder__`). Default launches discover
+configured `applies_to` bundles or `knowledge/`; explicit launch paths or
+`WAYFINDER_KNOWLEDGE_DIR` select one with single-bundle result shapes.
+Search takes `{"query": "<question>", "limit": 5}`, uses a local encoder and a
+global limit; no bundle list or retired `mode` field. Index refreshes selected
+bundles. Project validation/graph return independent `bundles` with name/path;
+check every gate/exit code. Graph returns OKF JSON plus typed `field_edges` and
+accepts `types`, `path_prefixes`, `resolutions` filters.
 
 Otherwise use the **CLI**. Search/index default to all project bundles listed by
 the nearest `wayfinder.json`, or conventional `knowledge/` without configuration.
@@ -65,25 +59,16 @@ independent OKF result; run `wayfinder get` to resolve the declared source, or
 `wayfinder upgrade` only when intentionally advancing a mutable ref.
 `graph`, `index`, and `search` do not need Profile-source resolution.
 
-The result ends with one gate, derived from three parts: the OKF result, the
-Profile findings, and the engine's diagnostics (`diagnostics` in JSON, the
-text `Diagnostics:` block). A diagnostic has a `wayfinder/` id and reports on
-the run, not on the bundle.
+The gate combines OKF, Profile findings and run diagnostics (`wayfinder/` IDs).
 
-- Exit `0` and gate `PASS`: OKF passed, no finding is an error, and every
-  selected rule ran. Advisory findings may remain; mention the relevant ones
-  without treating them as failures. Summary entries (`profile.summary`, or
-  the text `Summary:` block) report what the Profile permits, such as a
-  planned link. Note and warning diagnostics, such as
-  `wayfinder/project-type`, are information too. None of these are failures.
-- Exit `1` and gate `FAIL`: OKF failed or a Profile finding is an error.
-  Report each error with its `id`, path and message.
-- Exit `2` and gate `INCOMPLETE`: the run could not assess everything, so it
-  is not a pass. An error diagnostic names why, for example
-  `wayfinder/profile-unresolved` (run `wayfinder get`),
-  `wayfinder/config-missing`, or `wayfinder/link-graph-unavailable`. Report
-  the diagnostic, not a verdict. With `--output json` a run that stopped
-  still prints a result carrying `wayfinder/internal-error`.
+| Exit / Gate | Meaning / report |
+| --- | --- |
+| 0 / PASS | OKF passed, every selected rule ran, no error finding. Advisories, summary notes and note/warning diagnostics remain information; mention relevant ones without calling them failures. |
+| 1 / FAIL | OKF or a Profile rule failed. Report each error's id, path and message. |
+| 2 / INCOMPLETE | Not everything was assessed. Name the diagnostic and remedy, e.g. `profile-unresolved` needs `get`; do not claim a pass. Stopped JSON runs still report `wayfinder/internal-error`. |
+
+Read `profile.summary`/text `Summary:` for permitted cases, and JSON `diagnostics`
+or text `Diagnostics:` for run problems, not bundle findings.
 
 Validation covers only the deterministic rules; contextual judgment
 is a separate review. Route by task:

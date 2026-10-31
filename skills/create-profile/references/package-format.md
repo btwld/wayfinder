@@ -147,20 +147,19 @@ package's own `$defs` may not use a slot id.
 
 ## Tests
 
-`valid` and `invalid` each hold at least one example. An example is a fact
-map for the subject, or one element when the check has `each`. `slots` gives
-the slot values the examples assume, and every slot the check uses needs
-one. The engine runs the tests whenever it parses the package; `wayfinder
-get` fails on the first example that disagrees with its check. Reading a
-package, its tests included, must finish within ten seconds, or `get` fails
-and `validate` reports `wayfinder/profile-timeout`. Keep `pattern` free of
-nested quantifiers such as `(a+)+`, which backtrack without end on a near
-miss; a package's tests take milliseconds. Keep examples small, too: one
-deep or long enough to overflow the engine's stack fails the package as
-`wayfinder/profile-invalid`.
+`valid` and `invalid` each need at least one example: a subject fact map, or an
+array element with `each`. Supply `slots` for every slot the check uses. Tests run
+on every package parse; disagreement fails the package. Cover every firing mode
+and nearby case that must pass.
 
-Write an invalid example for each way the rule should fire, and a valid one
-for each nearby case it must not catch.
+Package parsing normally runs in a killable isolate with a ten-second bound;
+expiry is `wayfinder/profile-timeout`. If isolate spawning is unavailable,
+`parseWithin` falls back to synchronous parsing **without a timeout**. This is
+not an unconditional execution limit. Bundle-rule evaluation is unbounded by
+default too; hosts needing hard limits must isolate work themselves.
+
+Keep patterns free of pathological backtracking (for example `(a+)+`) and examples
+small. Stack overflow/deep malformed input fails as `wayfinder/profile-invalid`.
 
 ## Skill
 
