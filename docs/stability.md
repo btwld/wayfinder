@@ -38,7 +38,7 @@ An example teaches the public API it uses; it does not establish another API.
   Profile equally. All inherited rules use the effective chain/project
   vocabulary; additions may change findings but cannot override an inherited
   rule's definition or severity. A package interpretation change follows the
-  [contract-change process](../AGENTS.md#changing-the-engine-contract), including
+  [contract-change process](contributing.md#engine-contract-changes), including
   a format bump when an existing package would read differently.
 - **Agent integrations:** generic skill names and the CLI installation/status
   operations remain part of the application surface. Profile skills are pinned
