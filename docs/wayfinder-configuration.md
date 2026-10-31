@@ -320,7 +320,7 @@ A format 2 package must be migrated through its own release process before
 this engine assesses it. Move the binding's source ref and any pinned parent
 refs to migrated revisions, then refresh and commit the lock and installed
 skills with `get` or `upgrade`. Merely running `upgrade` cannot advance an
-immutable old source ref. See the [format migration record](adr/0029-profile-neutral-directory-facts.md).
+immutable old source ref. See the [format migration record](../ARCHITECTURE.md#profile-owned-directory-policy-adr-0029).
 
 ## Sources and lockfile
 

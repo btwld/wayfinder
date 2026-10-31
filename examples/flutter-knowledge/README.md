@@ -39,13 +39,6 @@ stay ignored under `.wayfinder-import/`. `plan` is offline and produces no
 canonical bundle edits. `apply` requires a reviewed changeset and exact
 baseline hashes.
 
-Source ids must be single nonempty path components (not `.` or `..`);
-changing a source's repository creates a separate disposable mirror even
-when its id stays the same. `apply` refuses paths through existing symbolic
-links and paths naming the project root, and checks again before each write.
-It does not protect against another process changing the filesystem during
-the write; run it in a workspace without concurrent edits.
-
 ## Consumer installation
 
 The authoring project above is not an installation payload. Consumers receive
@@ -53,8 +46,17 @@ The authoring project above is not an installation payload. Consumers receive
 and lock. Keep `sources.json`, `sources.lock.json`, `provenance.json`, evaluation
 queries, and `.wayfinder-import/` in the publisher workspace.
 
-Bundle installation is manual; the CLI does not install bundles from Git.
-Choose the consumer's bundle and evidence paths, update source links to the
-installed evidence, and preserve upstream revisions in citations. Configure
-the bundle in the consumer's `wayfinder.json`, then run `wayfinder get`,
-validation, and indexing there.
+The temporary `flutterapp` demo installs concepts under
+`.wayfinder/bundles/flutter-dev-kit/`, selected source snapshots under
+`.wayfinder/sources/flutter-dev-kit/`, and notices under
+`.wayfinder/licenses/flutter-dev-kit/`. Source links in that installed copy point
+to local evidence and preserve the upstream revision in citations.
+This is a manual demo: `wayfinder add` and bundle-name configuration are not yet
+implemented by the current CLI.
+
+## Consumer demo paths
+
+For the current Flutter demo, the concept tree is
+`.wayfinder/bundles/flutter-dev-kit/`, evidence lives in
+`.wayfinder/sources/flutter-dev-kit/`, and notices live in
+`.wayfinder/licenses/flutter-dev-kit/`.

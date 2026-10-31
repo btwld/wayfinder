@@ -1,70 +1,40 @@
 # Skills
 
-Wayfinder's own agent workflows, shipped together as the `wayfinder` plugin.
-They know OKF and the `wayfinder` CLI, and no particular Profile. Each
-Profile's conventions reach agents through that Profile's own skill.
-
-## The family
+The `wayfinder` plugin ships a Profile-agnostic family. Generic skills own
+OKF/CLI mechanics; a Profile's installed skill owns its conventions and judgment.
 
 | Skill | Invocation | Responsibility |
 | --- | --- | --- |
-| [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model-invoked | Author bundle content and perform Profile Review. Owns OKF mechanics and the write sequence, and loads the skill of each Profile in the bundle's chain. |
-| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user-invoked | Bind a new bundle to a Profile, install its skill, seed the root files the Profile gives, and add agent routing. Generic parts live in [SEEDING.md](adopt-knowledge-bundle/SEEDING.md), which is the seed `package:wayfinder/adoption.dart` writes. |
-| [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user-invoked | Run a deliberate whole-bundle assessment through the shared assessment reference and each Profile's review map. |
-| [use-wayfinder](use-wayfinder/SKILL.md) | model-invoked | Search, index, validate and project the graph of a bundle with Wayfinder's MCP tools or CLI; answer from verified, cited passages. Routes writes and reviews to the skills above. |
-| [create-profile](create-profile/SKILL.md) | user-invoked | Create, revise, or maintain a Profile package: ask its author what a machine enforces and what is judgment, write its rules with tests and its skill, prove both, and release it. |
+| [author-knowledge-bundle](author-knowledge-bundle/SKILL.md) | model | Bundle writes, OKF mechanics and scoped Profile Review; loads each Profile skill. |
+| [adopt-knowledge-bundle](adopt-knowledge-bundle/SKILL.md) | user | Bind and seed a bundle, install Profile skills and agent routing. |
+| [assess-knowledge-bundle](assess-knowledge-bundle/SKILL.md) | user | Whole-bundle assessment using the shared review flow. |
+| [use-wayfinder](use-wayfinder/SKILL.md) | model | Discover, verify, index, validate and explore knowledge; delegates writes. |
+| [create-profile](create-profile/SKILL.md) | user | Elicit, write, prove and maintain Profile rules and judgment. |
+
+Install the family together: sibling references make partial copies incomplete.
+The [installation guide](../docs/install.md) covers plugin/skill installation,
+updates, MCP and startup hooks. Startup does no indexing. Default MCP discovers
+configured project bundles; explicit launches restrict it to one. This source
+repository has no root `knowledge/`, so select an example project when using it
+here. Wayfinder MCP does not expose concept-authoring tools.
 
 ## Profile skills
 
-A Profile's judgment ships as that Profile's skill, in its package, beside
-the rules that `wayfinder validate` enforces. `create-profile` writes it.
-`wayfinder get` installs it into each project that uses the Profile, as
-`.claude/skills/<id>/` and `.agents/skills/<id>/`, pinned to the commit the
-lock records, and the project commits it. Its name is the Profile id, which
-`validate --output json` lists as `profile.chain[].id`, so the authoring
-skill loads the skill of each Profile in a bundle's chain. See
+`wayfinder get` installs each Profile's `skill/` into
+`.claude/skills/<id>/` and `.agents/skills/<id>/`, pinned to the locked commit.
+Projects commit those directories with the lock. `profile.chain[].id` in validation
+JSON gives their load order, root first. See
 [Profile skills](../docs/wayfinder-configuration.md#profile-skills).
+The generic family installs per user; Profile skills install per project.
 
-This family installs at user level, once per machine, and stays the same for
-every Profile. Profile skills install per project.
+## Pinned OKF and maintenance
 
-## Installation and routing
+The [OKF 0.2 reference](author-knowledge-bundle/references/OKF-0.2.md) is pinned to
+upstream `ad30107`, with Apache-2.0 attribution. Keep its bytes and load relevant
+sections on demand; do not rewrite it into another skill.
 
-Use the [root README's agent setup instructions](../README.md#use-with-coding-agents).
-Install the family as a unit: the skills reference one another.
-The native installer installs this family (`wayfinder skills install`) and
-`wayfinder update` refreshes it; `wayfinder setup` configures a project's MCP
-server.
-`wayfinder setup --session-hooks` adds a short startup pointer to `use-wayfinder`
-for Claude, Codex, and Gemini; Grok reads it from `AGENTS.md`. That skill links
-to author, adopt, and assess for the relevant task. Startup does no indexing.
-The `wayfinder` plugin also registers the installed Wayfinder MCP server. Install
-the CLI first; use the complete native bundle for indexing and search. By default
-it serves all configured project bundles, with a `knowledge/` fallback. Set
-`WAYFINDER_KNOWLEDGE_DIR` only to restrict it to one explicit bundle, and
-`WAYFINDER_EXECUTABLE` if the executable is not on `PATH`. The source repository
-itself has no `knowledge/`; contributors enabling the plugin here must select a
-real bundle, such as an example project. No root `.mcp.json` auto-starts a server
-merely because this repository was cloned.
-
-Keep upstream `okf` write tools separately configured if needed. Wayfinder's
-`validate`, `index`, `search` and `graph` tools project and retrieve; they do
-not replace concept-authoring writes.
-
-## Pinned OKF
-
-The [vendored OKF 0.2 specification](author-knowledge-bundle/references/OKF-0.2.md)
-answers every question no Profile skill settles. It is pinned to upstream
-commit `ad30107` in the canonical `open-knowledge-format` repository, with
-Apache-2.0 attribution, so offline consumers read the reviewed specification
-instead of a changing `main` URL. Keep it as a reference, not a second skill
-or a rewritten specification.
-
-## Changing these skills
-
-Keep them Profile-agnostic. A convention one Profile chooses belongs in that
-Profile's skill, written through `create-profile`, never here. When the CLI's
-contract changes, such as a diagnostic id or the JSON shape, search the whole
-family for the old wording, starting with `SEEDING.md`. Its seed blocks are
-`KnowledgeSeeds` in `package:wayfinder/adoption.dart`: change both together,
-and `packages/wayfinder/test/adoption/seeds_test.dart` checks they agree.
+Keep Profile conventions in their own packages. When CLI contracts change,
+search the whole family for retired wording, starting with
+[SEEDING.md](adopt-knowledge-bundle/SEEDING.md). Its literal blocks mirror
+`KnowledgeSeeds` in `package:wayfinder/adoption.dart`; change both together and
+run `packages/wayfinder/test/adoption/seeds_test.dart`.
