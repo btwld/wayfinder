@@ -259,6 +259,25 @@ void main() {
     expect(footnotes, [(label: 'real', referenced: true, defined: true)]);
   });
 
+  for (final fence in [
+    '```dart\n[^example]: code only\n',
+    '~~~\n[^example]: code only\n',
+    '````markdown\n```\n[^example]: code only\n',
+    '```\n[^example]: code only\n``` text\n',
+  ]) {
+    test('an unclosed fence cannot supply a footnote definition: $fence', () {
+      expect(ParsedBody('Claim.[^example]\n\n$fence').footnotes(), [
+        (label: 'example', referenced: true, defined: false),
+      ]);
+    });
+  }
+
+  test('an unused quoted footnote remains a definition', () {
+    expect(ParsedBody('> [^quoted]: retained definition\n').footnotes(), [
+      (label: 'quoted', referenced: false, defined: true),
+    ]);
+  });
+
   test('a footnote definition inside a blockquote is a definition', () {
     final footnotes = ParsedBody(
       [

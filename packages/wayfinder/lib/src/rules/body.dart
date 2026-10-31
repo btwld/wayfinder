@@ -1,13 +1,14 @@
 import 'package:markdown/markdown.dart' as markdown;
 
 final class ParsedBody {
-  ParsedBody(this.source)
-    : nodes = markdown.Document(
-        extensionSet: markdown.ExtensionSet.gitHubFlavored,
-      ).parse(source);
+  ParsedBody(String source) {
+    nodes = _document.parse(source);
+  }
 
-  final String source;
-  final List<markdown.Node> nodes;
+  final _document = markdown.Document(
+    extensionSet: markdown.ExtensionSet.gitHubFlavored,
+  );
+  late final List<markdown.Node> nodes;
 
   List<String> headings() => [
     for (final node in nodes)
@@ -29,16 +30,11 @@ final class ParsedBody {
     return targets;
   }
 
-  /// A reference the parser joined to its definition survives only as a
-  /// `footnote-ref` element, so its label is read back from the link, and
-  /// the join proves the definition wherever it sits, a blockquote included.
-  /// One it could not join stays literal text, which also happens to
-  /// adjacent references such as `[^a][^b]` when both definitions exist, so
-  /// its definition is checked in the source rather than inferred from the
-  /// tree.
+  /// The parser retains definitions even when no reference joined them.
+  /// Read unjoined references from text nodes, including adjacent references,
+  /// while leaving code and rendered footnote bodies out of the scan.
   List<({String label, bool referenced, bool defined})> footnotes() {
     final labels = <String>{};
-    final joined = <String>{};
     void collect(markdown.Node node, {bool excluded = false}) {
       if (node case final markdown.Text text) {
         if (excluded) return;
@@ -55,7 +51,6 @@ final class ParsedBody {
           if (href.startsWith('#fn-')) {
             final label = Uri.decodeComponent(href.substring(4));
             labels.add(label);
-            joined.add(label);
           }
           return;
         }
@@ -71,19 +66,10 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
-    final defined = {
-      for (final match in _footnoteDefinition.allMatches(
-        source.replaceAll(_fencedCode, ''),
-      ))
-        match[1]!,
-    };
+    final defined = _document.footnoteReferences.keys.toSet();
     return [
       for (final label in labels)
-        (
-          label: label,
-          referenced: true,
-          defined: joined.contains(label) || defined.contains(label),
-        ),
+        (label: label, referenced: true, defined: defined.contains(label)),
       for (final label in defined)
         if (!labels.contains(label))
           (label: label, referenced: false, defined: true),
@@ -92,14 +78,3 @@ final class ParsedBody {
 }
 
 final RegExp _footnoteReference = RegExp(r'\[\^([^\]]+)\]');
-
-final RegExp _fencedCode = RegExp(
-  r'^ {0,3}(?:(`{3,})[^\n]*\n.*?^ {0,3}\1`*|(~{3,})[^\n]*\n.*?^ {0,3}\2~*)[ \t]*$',
-  multiLine: true,
-  dotAll: true,
-);
-
-final RegExp _footnoteDefinition = RegExp(
-  r'^ {0,3}\[\^([^\]]+)\]:',
-  multiLine: true,
-);
