@@ -116,4 +116,4 @@ This keeps existing verdicts and finding ownership, while requiring authors to t
 Date: 2026-10-26; amends ADR-0015/0016.
 
 Read format 3 only and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages.
-Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#53-identity-and-release).
+Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#54-identity-release-and-format).
