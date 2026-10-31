@@ -111,4 +111,87 @@ void main() {
       );
     }
   });
+
+  test('rejects flag-like repository or ref, malformed JSON types, and '
+      'duplicate change paths', () async {
+    for (final bad in [
+      '{"version":1,"sources":[{"id":"x","repository":"--upload-pack=x","ref":"main","adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"--all","adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":123,"adapter":"a","paths":["docs"]}]}',
+      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"main","adapter":"a","paths":[123]}]}',
+    ]) {
+      expect(() => SourceManifest.fromJson(bad), throwsFormatException);
+    }
+
+    final root = await Directory.systemTemp.createTemp('knowledge-import-dup-');
+    addTearDown(() => root.delete(recursive: true));
+    final importer = KnowledgeImporter();
+    final dup = File('${root.path}/dup.json')
+      ..writeAsStringSync(
+        '{"version":1,"changes":['
+        '{"path":"knowledge/example.md","content":"first\\n"},'
+        '{"path":"./knowledge/example.md","content":"second\\n"}]}',
+      );
+    await expectLater(importer.apply(root, dup), throwsFormatException);
+    expect(File('${root.path}/knowledge/example.md').existsSync(), isFalse);
+  });
+
+  test('source lock parsing validates nested field types', () {
+    final file = {'path': 'docs/note.md', 'sha256': 'abc', 'bytes': 4};
+    final source = {
+      'id': 'docs',
+      'repository': 'https://example.test/docs.git',
+      'ref': 'main',
+      'commit': List.filled(40, 'a').join(),
+      'adapter': 'skills',
+      'files': [file],
+    };
+    final lock = {
+      'version': 1,
+      'manifest_sha256': 'abc',
+      'resolved_at': '2026-10-31T00:00:00Z',
+      'sources': [source],
+    };
+    expect(SourceLockDocument.fromJson(lock).toJson(), lock);
+    for (final malformed in [
+      {...lock, 'manifest_sha256': null},
+      {...lock, 'resolved_at': 123},
+      {
+        ...lock,
+        'sources': <Object?>[null],
+      },
+      {
+        ...lock,
+        'sources': [
+          {...source, 'license_evidence': 123},
+        ],
+      },
+      {
+        ...lock,
+        'sources': [
+          {
+            ...source,
+            'files': <Object?>[null],
+          },
+        ],
+      },
+      {
+        ...lock,
+        'sources': [
+          {
+            ...source,
+            'files': [
+              {...file, 'bytes': '4'},
+            ],
+          },
+        ],
+      },
+    ]) {
+      expect(
+        () => SourceLockDocument.fromJson(malformed),
+        throwsFormatException,
+        reason: jsonEncode(malformed),
+      );
+    }
+  });
 }
