@@ -224,6 +224,42 @@ class WayfinderMcpServer {
       }),
     );
     server.registerAckTool(
+      'query',
+      description:
+          'Select whole concepts from live OKF metadata, or run a saved project query. '
+          'Returns deterministic JSON rows or groups, totals and pagination. No index or model required. '
+          'Supply exactly one of query or saved. Does not execute computations or attest results.',
+      input: wayfinderQueryInput,
+      annotations: readOnly,
+      callback: (arguments, extra) => call(() async {
+        if (arguments.containsKey('query') == arguments.containsKey('saved')) {
+          throw const WayfinderException(
+            'query-invalid',
+            'Supply exactly one query or saved ID.',
+          );
+        }
+        final bundles = rootBundle == null
+            ? (await WayfinderProject.discover(
+                project,
+                searchAncestors: true,
+              )).bundles
+            : [rootBundle];
+        final saved = arguments['saved'];
+        final query = saved is String
+            ? await loadWayfinderSavedQuery(_workingDirectory, bundles, saved)
+            : WayfinderQuery.fromJson(
+                arguments['query']! as Map<String, Object?>,
+              );
+        return (await queryWayfinderBundles(
+          bundles,
+          query,
+          offset: arguments['offset']! as int,
+          limit: arguments['limit']! as int,
+          cancel: _cancellation(extra.signal),
+        )).toJson();
+      }),
+    );
+    server.registerAckTool(
       'graph',
       description:
           'Project the ordinary OKF relationship graph, plus the typed '

@@ -131,13 +131,20 @@ def main():
             check("initialize-without-model", server.initialize)
             listing = check("list-tools", lambda: server.request("tools/list", {}))
             assert {t["name"] for t in listing["tools"]} == {
-                "validate", "index", "search", "graph",
+                "validate", "index", "search", "graph", "query",
             }
             validate = check("validate-without-model", lambda: server.tool("validate"))
             cli = subprocess.run([str(binary), "validate", str(corpus), "--output=json"],
                                  env=env, cwd=cwd, text=True, capture_output=True, timeout=30)
             assert validate.pop("exit_code") == cli.returncode
             assert validate == json.loads(cli.stdout)
+            query = check("query-without-model", lambda: server.tool("query", {"query": {}}))
+            cli_query = subprocess.run([str(binary), "query", str(corpus), "--output=json"],
+                                       env=env, cwd=cwd, text=True, capture_output=True, timeout=30)
+            assert cli_query.returncode == 0, cli_query.stderr
+            assert query == json.loads(cli_query.stdout)
+            assert query["total"] == 2 and query["kind"] == "rows"
+            check("query-reject-root-override", lambda: server.tool("query", {"query": {}, "root": str(temp)}, error=True))
             graph = check("graph-without-model", lambda: server.tool("graph"))
             cli = subprocess.run([str(binary), "graph", str(corpus), "--output=json"],
                                  env=env, cwd=cwd, text=True, capture_output=True, timeout=30)

@@ -48,6 +48,12 @@ Project the ordinary OKF graph and add typed relationships beside it, avoiding a
 The projection and `wayfinderLinkFields` live in the project library (ADR-0021), with Profile-agnostic field-list injection into graph/retrieval; this graph is discardable, and consumers needing different semantics must seek a compatibility review rather than treating it as a new source of truth.
 [Graph output](packages/wayfinder_cli/README.md) remains okf JSON/Mermaid/DOT plus relationship edges.
 
+## Exact queries over live concepts
+
+Date: 2026-10-31.
+
+Add read-only structured queries to the core project library and share their contract through CLI/MCP, so reusable metadata views need neither a per-project renderer script nor semantic ranking. Saved query IDs resolve versioned local JSON in the consuming project's `.wayfinder/queries/`; the existing metadata predicate remains available to embeddings consumers, and no OKF/Profile semantics change. Every query scans/fingerprints live sources and refuses partial data, paying filesystem cost without promising a transactional snapshot or computation attestation; see [queries](docs/queries.md).
+
 ## Profile rules are data (ADR-0015, ADR-0024)
 
 Date: 2026-10-01; Ack evaluation 2026-10-07; generator identity 2026-10-24.

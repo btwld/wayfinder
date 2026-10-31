@@ -35,6 +35,7 @@ wayfinder validate knowledge
 wayfinder index knowledge
 wayfinder search knowledge "How is reporting implemented?"
 wayfinder graph knowledge --output mermaid
+wayfinder query --type Guide --output json
 ```
 
 Reindex after edits; unchanged content reuses vectors. Search never implicitly
@@ -62,9 +63,11 @@ load as needed; adoption, assessment and Profile creation are explicitly invoked
 commit those skill directories with the lock.
 
 Run `wayfinder setup` to configure project MCP. `wayfinder mcp` serves
-`validate`, `index`, `search` and `graph` across configured bundles over stdio;
+`validate`, `index`, `search`, `query` and `graph` across configured bundles over stdio;
 `wayfinder mcp <bundle>` selects one. See the
 [MCP guide](packages/wayfinder_cli/README.md#mcp-server).
+
+Exact metadata views and saved query IDs are documented in [structured queries](docs/queries.md).
 
 ## Documentation
 

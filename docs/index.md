@@ -58,3 +58,5 @@ The Dart OKF adapter also requires an embedder; there is no model-free search
 fallback. Chunk preview and snapshot parsing remain model-free. See the
 [API guide](../packages/wayfinder_embeddings/README.md#search-an-okf-bundle) and
 [dense-only migration](../docs/adr/0017-dense-only-retrieval.md).
+
+- [Structured queries and saved views](queries.md) — model-free concept selection, grouping, CLI/MCP and project query IDs.

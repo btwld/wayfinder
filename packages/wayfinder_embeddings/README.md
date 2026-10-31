@@ -762,3 +762,7 @@ The cutoff does not change model identity, input format, snapshot format, or
 store schema. Compatible existing saved indexes remain usable. Independent
 changes to contextual input or an opt-in chunking policy still have their own
 rebuild requirements. No bundle or Profile migration is introduced.
+
+## Structured knowledge queries
+
+See the [query guide](../../docs/queries.md) for exact live concept queries and saved views through the core Dart API, CLI and MCP. Queries need no model/index and preserve Profile and search behavior.

@@ -79,6 +79,152 @@
       }
     },
     {
+      "name": "query",
+      "description": "Select whole concepts from live OKF metadata, or run a saved project query. Returns deterministic JSON rows or groups, totals and pagination. No index or model required. Supply exactly one of query or saved. Does not execute computations or attest results.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "object",
+            "properties": {
+              "where": {
+                "type": "object",
+                "properties": {
+                  "types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "required_tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "statuses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "path_prefixes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  },
+                  "title_contains": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description_contains": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              "select": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "title",
+                    "description",
+                    "type",
+                    "status",
+                    "effective_status",
+                    "tags",
+                    "resource"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "order_by": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": [
+                        "title",
+                        "type",
+                        "effective_status",
+                        "id",
+                        "path"
+                      ]
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "asc",
+                        "desc"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "group_by": {
+                "type": "string",
+                "enum": [
+                  "type",
+                  "effective_status"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "saved": {
+            "type": "string",
+            "minLength": 1
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
       "name": "graph",
       "description": "Project the ordinary OKF relationship graph, plus the typed relationships edges in field_edges, as the same versioned JSON as wayfinder graph --output=json, wrapped under bundles in project mode. Optional types, path_prefixes and resolutions select an induced subgraph. Load findings refuse a graph. Does not open the search index or model. Writes and concept authoring remain upstream okf tools.",
       "inputSchema": {
@@ -202,6 +348,149 @@
         },
         "annotations": {
           "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      {
+        "name": "query",
+        "description": "Select whole concepts from live OKF metadata, or run a saved project query. Returns deterministic JSON rows or groups, totals and pagination. No index or model required. Supply exactly one of query or saved. Does not execute computations or attest results.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "object",
+              "properties": {
+                "where": {
+                  "type": "object",
+                  "properties": {
+                    "types": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "required_tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "path_prefixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "title_contains": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description_contains": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "select": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "title",
+                      "description",
+                      "type",
+                      "status",
+                      "effective_status",
+                      "tags",
+                      "resource"
+                    ]
+                  },
+                  "uniqueItems": true
+                },
+                "order_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": [
+                          "title",
+                          "type",
+                          "effective_status",
+                          "id",
+                          "path"
+                        ]
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "field"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "group_by": {
+                  "type": "string",
+                  "enum": [
+                    "type",
+                    "effective_status"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "saved": {
+              "type": "string",
+              "minLength": 1
+            },
+            "offset": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          "additionalProperties": false
+        },
+        "annotations": {
+          "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false

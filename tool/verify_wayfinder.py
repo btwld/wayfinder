@@ -256,6 +256,13 @@ def main():
         current = json.loads(run("warnings-without-model", "index", corpus, "--output=json").stdout)
         assert current["current"] and current["warnings"] == warnings
         run("validation-without-model", "validate", example / "knowledge")
+        query_data = json.loads(run("query-without-model", "query", corpus, "--output=json").stdout)
+        assert query_data["kind"] == "rows" and query_data["total"] == 2
+        assert {row["id"] for row in query_data["rows"]} == {"oversized", "recovery"}
+        grouped = json.loads(run("query-groups-without-model", "query", corpus,
+                                 "--group-by=type", "--limit=1", "--output=json").stdout)
+        assert grouped["total"] == 2 and grouped["kind"] == "groups"
+
         missing = run("missing-model", "search", corpus, "password", expected=2).stderr
         assert "No local embedding model was found" in missing
         assert re.search(r"[\\/]models[\\/]embedding\.gguf \(the installed bundle\)", missing)
