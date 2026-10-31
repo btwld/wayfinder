@@ -41,12 +41,12 @@ independent status, provenance, relationships, reuse, replacement, or
 history. Apply that in context, and keep a reviewed exception when the
 context supports it.
 
-Requirements maintained and verified as a unit can stay in one concept, with
-their IDs kept verbatim and claim-level provenance in footnotes
-([metadata.md](metadata.md#sources)). Requirements that need independent
-lifecycle or verification follow the same promotion and split tests as any
-other knowledge. Neither the requirement count nor the number of capability
-areas decides the granularity.
+For example, 149 atomic requirements across 17 capabilities may belong in 17
+concepts **if each capability is verified and evolves as one unit**. Preserve
+requirement IDs in the body and attribute individual claims with source footnotes.
+If requirements have independent owners, verification, dependencies or replacement
+history, separate concepts can be appropriate. Neither document count nor atomic
+wording settles granularity; apply the promotion and split tests to the corpus.
 
 Standing rules normally go the other way, one rule per concept. Each carries
 its own provenance and trust tier, and averaging them would let a
@@ -108,40 +108,20 @@ is known, leave the gap visible for review instead of deleting it.
 
 ## Review the capture boundary
 
-Review existing meeting notes, source-event documents, and Interaction
-Records against the durable-knowledge test
-([capture.md](capture.md#source-events-are-not-concepts)). Retire or reshape
-routine minutes that have no durable combined context. For other outcomes,
-apply the promotion and splitting guidance in
-[capture.md](capture.md). A reviewed exception may stay embedded or combined.
-A filename or a type cannot make that decision.
+Review meeting notes and Interaction Records with [capture.md](capture.md),
+including durable context, promotion and split tests. A type/filename cannot
+settle these; retain reviewed exceptions.
 
 ## Relationships, execution records, and mirrors
 
-Inventory labelled relationships, tracker-owned artifacts, specifications,
-externally cited concept IDs, planned moves, stable concepts chosen for
-retirement, and mirrored material.
-
-- Write labelled links as `relationships` entries mechanically
-  ([relationships.md](relationships.md)).
-- Leave the rest to review. That covers path conformance, relationship
-  meaning, lifecycle ownership, intrinsic chronology, whether a citation can be
-  repaired, deletion exceptions, and for mirrors the classification,
-  placement, availability risk, visibility, sanitization, image
-  optimization, and media type ([mirroring.md](mirroring.md)).
-- Move media that review identifies as prohibited out of the repository.
-- Complete each repairable move in one operation. Update known links,
-  indexes, and the log together. A known external citation that cannot be
-  repaired freezes the path
-  ([structure.md](structure.md#moves-and-frozen-paths)).
-- Keep a followable external source as a followable OKF resource when you
-  do not mirror it. Never replace it with a scope descriptor to avoid an
-  availability advisory
-  ([mirroring.md](mirroring.md#deciding-not-to-mirror)).
-
-A project may add its own invariants. A sanitization boundary that excludes
-credentials, prices, or raw transcripts is common. Record them where the
-migration runs, not in the bundle's knowledge.
+Inventory labelled links, tracker artifacts, specifications, cited IDs, moves,
+retirements and mirrors. Mechanically encode labelled links as `relationships`;
+review meaning and lifecycle ownership with [relationships.md](relationships.md).
+Use [structure.md](structure.md#moves-and-frozen-paths) for frozen paths, atomic
+move repair and retirement; use [mirroring.md](mirroring.md) for availability,
+visibility, sanitization, media and followable resources. Move prohibited media
+out of the repository. A project may add its own sanitization boundaries; record
+them with the migration artifacts, not as bundle knowledge.
 
 ## Retire the old tree
 
