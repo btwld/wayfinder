@@ -1,4 +1,6 @@
-# 0.3.0 (unreleased)
+# 0.3.0
+
+- Re-export the shared core `KnowledgeMetadataFilter` through existing public imports; eligibility semantics and search signatures remain unchanged.
 
 - Every `WayfinderKnowledgeStore.index` run, including one that finds its
   index current, and `prune` delete the generations superseded more than

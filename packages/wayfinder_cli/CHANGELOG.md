@@ -1,4 +1,6 @@
-# 0.3.0 (unreleased)
+# 0.3.0
+
+- Add `query` to CLI and MCP for exact concept metadata views and saved project query IDs. JSON/row/group contracts match the core API, disclose totals and pagination, refuse incomplete source reads and open no embedding model or index. Query performs no update check.
 
 - Every `index`, including `index --force` and one that finds the index
   current, deletes the index generations superseded more than ten minutes

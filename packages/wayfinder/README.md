@@ -563,3 +563,7 @@ Future<void> main() async {
 
 [ADR-0020](../../docs/adr/0020-programmatic-adoption.md) records these
 decisions.
+
+## Structured knowledge queries
+
+See the [query guide](../../docs/queries.md) for exact live concept queries and saved views through the core Dart API, CLI and MCP. Queries need no model/index and preserve Profile and search behavior.

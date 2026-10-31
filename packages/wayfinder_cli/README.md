@@ -522,3 +522,7 @@ Wayfinder is distributed under the BSD 3-Clause license in [LICENSE](LICENSE).
 Dependencies and separately downloaded models/native libraries retain their
 own licenses. The repository's OKF Profile materials retain their existing
 license.
+
+## Structured knowledge queries
+
+See the [query guide](../../docs/queries.md) for exact live concept queries and saved views through the core Dart API, CLI and MCP. Queries need no model/index and preserve Profile and search behavior.
