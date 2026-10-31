@@ -258,7 +258,7 @@ def main():
         run("validation-without-model", "validate", example / "knowledge")
         query_data = json.loads(run("query-without-model", "query", corpus, "--output=json").stdout)
         assert query_data["kind"] == "rows" and query_data["total"] == 2
-        assert {row["id"] for row in query_data["rows"]} == {"weather", "recovery"}
+        assert {row["id"] for row in query_data["rows"]} == {"oversized", "recovery"}
         grouped = json.loads(run("query-groups-without-model", "query", corpus,
                                  "--group-by=type", "--limit=1", "--output=json").stdout)
         assert grouped["total"] == 2 and grouped["kind"] == "groups"
