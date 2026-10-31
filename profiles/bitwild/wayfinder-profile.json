@@ -378,7 +378,7 @@
       "category": "vocabulary",
       "severity": "error",
       "status": "stable",
-      "description": "A concept MUST NOT carry a frontmatter key that neither OKF 0.2 defines nor the selected Profile release declares.",
+      "description": "A concept MUST NOT carry a frontmatter key that OKF 0.2 does not define and no package in the selected chain declares.",
       "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found {failing}.",
       "check": {
         "subject": "concept",

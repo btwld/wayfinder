@@ -755,11 +755,9 @@ final class KnowledgeAdoption {
             FileSystemEntityType.notFound)
           directory,
     ];
-    run.onUndo(() async {
-      for (final directory in createdRoots.reversed) {
-        await _deleteIfEmpty(Directory(_native(root, directory)));
-      }
-    });
+    for (final directory in createdRoots) {
+      run.onUndo(() => _deleteIfEmpty(Directory(_native(root, directory))));
+    }
     final present = [
       for (final directory in written)
         if (await FileSystemEntity.type(
@@ -788,8 +786,8 @@ final class KnowledgeAdoption {
         backups.remove(backup);
       });
     }
-    run.onUndo(() async {
-      for (final directory in written) {
+    for (final directory in written) {
+      run.onUndo(() async {
         final installed = Directory(_native(root, directory));
         // A directory that was there and is not saved aside is the
         // original: the step failed before moving it.
@@ -797,8 +795,8 @@ final class KnowledgeAdoption {
             await installed.exists()) {
           await installed.delete(recursive: true);
         }
-      }
-    });
+      });
+    }
     final lock = File(p.join(root, 'wayfinder.lock'));
     run.onUndo(() => _deleteIfHolds(lock, utf8.encode(resolution.lockText)));
     await applyCandidateResolution(resolver, resolution);
@@ -1131,9 +1129,8 @@ final class KnowledgeAdoption {
         p.posix.isAbsolute(normalized) ||
         RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
         normalized == '.' ||
-        p.posix
-            .split(normalized)
-            .any((segment) => segment == '..' || segment == '.git')) {
+        p.posix.split(bundle).contains('..') ||
+        AdoptionInputs.inGit(normalized)) {
       throw _invalid(
         'Bundle $bundle must be a directory inside the project, as a '
         'relative POSIX path.',
