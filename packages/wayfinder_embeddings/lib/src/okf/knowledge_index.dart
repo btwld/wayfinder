@@ -750,9 +750,8 @@ class KnowledgeIndex {
   /// `path-targets-exist` builtin decides. okf's graph is bundle-scoped: a
   /// path that climbs out of the bundle is `invalid` to it, and one that
   /// starts with `/`, `./` or `../` but has whitespace is a `descriptor`,
-  /// so those are looked up under [bundleRoot]. A target that starts with
-  /// `/` does not leave the bundle, `/../` included: joining it to the
-  /// source's directory keeps it absolute. An `invalid` path that stays in
+  /// so those are looked up under [bundleRoot]. Bundle-root paths cannot
+  /// climb above that root. An `invalid` path that stays in
   /// the bundle is malformed, and validation reports it, so it is not a
   /// missing source. URLs and prose descriptors name no path.
   bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
@@ -799,11 +798,10 @@ class KnowledgeIndex {
     final segments = <String>[];
     for (final segment in target.split('/')) {
       final decoded = _decodeSegment(segment);
-      if (decoded != null &&
-          (decoded.contains('/') || decoded.contains(r'\'))) {
+      if (decoded.contains('/') || decoded.contains(r'\')) {
         return false;
       }
-      segments.add(decoded ?? segment);
+      segments.add(decoded);
     }
     final relative = p.posix.normalize(
       p.posix.joinAll([...directory.split('/'), ...segments]),
@@ -838,13 +836,13 @@ class KnowledgeIndex {
     return path.isEmpty ? null : path;
   }
 
-  static String? _decodeSegment(String segment) {
+  static String _decodeSegment(String segment) {
     try {
       return Uri.decodeComponent(segment);
     } on ArgumentError {
-      return null;
+      return segment;
     } on FormatException {
-      return null;
+      return segment;
     }
   }
 }
