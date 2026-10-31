@@ -1,4 +1,4 @@
-# 0.3.0
+# 0.4.0
 
 - Add model-free, live structured concept queries, scoped saved query IDs, sorting, pagination and grouped counts through `project.dart`. Share the existing metadata predicate with retrieval while preserving its public import paths. No Profile-format or OKF migration.
 
