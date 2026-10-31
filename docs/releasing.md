@@ -18,6 +18,9 @@ releases cannot collide with application releases.
 
 ## Prepare a release
 
+The [1.0 compatibility contract](stability.md) names the public surfaces and
+support/migration boundaries.
+
 Preparation does not publish. Publish changed core or `wayfinder_embeddings`
 dependencies before the CLI, then resolve the CLI from hosted dependencies
 outside the workspace and run its publish dry run. An unchanged dependency does
@@ -62,14 +65,74 @@ Publication order:
 6. If `wayfinder_dart_chunker` changed, publish
    `wayfinder_dart_chunker-v<version>` at the same checked commit.
 
+### Release preflight
+
+Before publication, run the read-only preflight against the clean prepared
+commit. It reads public pub.dev metadata and, when supplied, the source CI
+run through `gh`; it never creates tags, uploads packages, or dispatches a
+workflow:
+
+```sh
+python3 tool/ci/release-preflight.py \
+  --ci-run-id <successful-source-CI-run-id> \
+  --output .context/release-preflight.json
+```
+
+The tool requires Python 3.10 or later and Git. Reading a CI run requires `gh`;
+the opt-in hosted check also requires Dart. The report distinguishes **passed**,
+**blocked** prerequisites, and **failed**
+checks. Exit `0` means this preflight passed, `2` means a prerequisite/check is
+still missing, and `1` means an actual check failed. A successful PR run is
+candidate evidence, not release-eligible source CI: release preparation needs
+a successful `ci.yml` **push on `main`** in `btwld/wayfinder` for the exact
+checked commit. A run for another repository, workflow or SHA cannot supply
+that evidence. Do not use a green older SHA or local Mac checks in its place.
+The native distribution workflow reuses this same CI eligibility check before
+downloading artifacts; a successful PR or feature-branch push cannot replace
+release-eligible push/main CI.
+
+The CLI's sibling floors name the prepared core and embeddings versions.
+Until those versions exist on pub.dev, the hosted-dependency and hosted-CLI
+gates are **blocked**, not a successful workspace simulation or a demonstrated
+CLI defect. Follow the publication order above; a workspace `dart pub publish
+--dry-run` checks that local package, not the not-yet-published hosted graph.
+The Dart chunker is off the CLI path and keeps its separate first-publication
+administrator requirement below.
+
+Once the changed siblings are published, finish the hosted check with:
+
+```sh
+python3 tool/ci/release-preflight.py \
+  --ci-run-id <successful-source-CI-run-id> \
+  --hosted-cli-check \
+  --output .context/release-preflight.json
+```
+
+The opt-in check stages only regular files read from the captured immutable
+Git commit, not the live CLI worktree, in a
+fresh temporary directory **outside the workspace**, removes only its
+`resolution: workspace`, refuses overrides and pre-existing resolution/build
+state, and runs `dart pub get`, `dart pub deps --json`, analysis and `dart pub
+publish --dry-run`. The dependency graph must contain hosted siblings, not
+workspace/path/Git copies. The preflight accepts the repository's plain
+top-level pubspec layout and refuses ambiguous alternate layouts rather than
+trying to parse arbitrary YAML. Output is saved at the requested path and
+command logs beside it in `<report-stem>.logs/`; the temporary package is
+removed. HEAD identity and tracked/untracked source state are rechecked before
+staging and before reporting success; edits or a new HEAD require a rerun.
+This is a stale-source check, not an adversarial filesystem transaction.
+Run without `--output` to print only the report.
+
+A passing preflight is not release completion. All-platform native inputs,
+the authorized publication tasks and pinned/public installer verification
+remain separate gates. The source CI runs the preflight's offline unit tests,
+not this necessarily blocked release-stage command while its own run is pending.
+
 ### Release gates
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
-tagging. Keep the CLI pubspec, runtime version and plugin version aligned; CI
-enforces it. `wayfinder update` offers only stable `wayfinder-v` releases, so
-a suffixed prerelease never reaches it. Claude Code updates the plugin from the
-default branch when its version changes, whatever the release flag says, so
-merging a version bump ships the skills.
+tagging. `wayfinder update` offers only stable `wayfinder-v` releases, so
+a suffixed prerelease never reaches it.
 The public installers install GitHub's latest release, so publishing a stable
 release makes it the default at once; verify before dispatching. Only
 application releases may be GitHub's latest release: the installers refuse any
@@ -99,7 +162,7 @@ with the successful source CI run ID. CI must belong to that exact commit and
 provide macOS ARM64, Linux x64 and Windows x64 bundles. Fetch tags at checkout so
 the publishing adapter can verify the application tag locally.
 
-The cli_pkg/Grinder entry point is `wayfinder-deploy-github`. Its adapter retain complete native libraries,
+The cli_pkg/Grinder entry point is `wayfinder-deploy-github`. Its adapter retains complete native libraries,
 model, licenses and checksums; cli_pkg's default executable archive is insufficient.
 The publisher verifies the existing tag and marks only suffixed versions as
 prereleases. GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`.

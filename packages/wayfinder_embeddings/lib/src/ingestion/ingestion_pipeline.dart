@@ -63,7 +63,7 @@ class IngestionPipeline {
   }) async {
     final chunkBatch = <Chunk>[];
     final embeddingBatch = <Embedding>[];
-    final seenChunkIds = <String>{};
+    final seenChunkText = <String, String>{};
 
     for (final chunked in chunkedFiles) {
       // New or updated chunks, and chunks that still need a vector for this
@@ -71,18 +71,18 @@ class IngestionPipeline {
       final newChunks = <Chunk>[];
       final chunksToEmbed = <Chunk>[];
       for (final chunk in chunked.chunks) {
-        if (dedupe && !seenChunkIds.add(chunk.id)) {
-          onDuplicateChunk?.call(chunk);
-          continue;
+        if (dedupe) {
+          final seenText = seenChunkText[chunk.id];
+          if (seenText != null) {
+            _requireSameContent(seenText, chunk);
+            onDuplicateChunk?.call(chunk);
+            continue;
+          }
+          seenChunkText[chunk.id] = chunk.content;
         }
         final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
         if (existingChunk != null) {
-          if (existingChunk.content != chunk.content) {
-            throw StateError(
-              'Chunk ID ${chunk.id} was reused for different text. '
-              'Use content-derived IDs for changed content.',
-            );
-          }
+          _requireSameContent(existingChunk.content, chunk);
           onDuplicateChunk?.call(chunk);
           if (existingChunk != chunk) {
             newChunks.add(chunk);
@@ -113,6 +113,15 @@ class IngestionPipeline {
     }
 
     await _flushBatch(chunks: chunkBatch, embeddings: embeddingBatch);
+  }
+
+  static void _requireSameContent(String existing, Chunk candidate) {
+    if (existing != candidate.content) {
+      throw StateError(
+        'Chunk ID ${candidate.id} was reused for different text. '
+        'Use content-derived IDs for changed content.',
+      );
+    }
   }
 
   /// Embeds every chunk in [chunks] with one embedder call.

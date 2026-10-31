@@ -55,8 +55,19 @@ with tempfile.TemporaryDirectory(prefix='wayfinder-public-') as temporary:
         script = work / 'install.ps1'
         download_installer(script)
         # Run the script as the documented `irm ... | iex` command does.
-        subprocess.run([powershell, '-NoProfile', '-Command',
-                        f"Get-Content -Raw -LiteralPath '{script}' | Invoke-Expression"],
+        # USERPROFILE isolates files, but the installer also writes the
+        # current account's registry-backed user PATH. Restore it on success
+        # and failure, as verify_installer.ps1 does for local archive checks.
+        escaped_script = str(script).replace("'", "''")
+        install_command = (
+            "$originalUserPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); "
+            "try { "
+            f"Get-Content -Raw -LiteralPath '{escaped_script}' | Invoke-Expression "
+            "} finally { "
+            "[Environment]::SetEnvironmentVariable('PATH', $originalUserPath, 'User') "
+            "}"
+        )
+        subprocess.run([powershell, '-NoProfile', '-Command', install_command],
                        env=env, check=True)
         bins = list((work / 'runtime').glob('*/bin/wayfinder.exe'))
         if len(bins) != 1:

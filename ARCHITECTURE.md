@@ -98,8 +98,29 @@ Adoption therefore can remain incomplete after a failed final gate, and existing
 
 ## Immutable plain-file index generations (ADR-0022, ADR-0026)
 
-Date: 2026-10-24.
+Date: 2026-10-24; model lookup correction 2026-10-26 (ADR-0028).
 
 Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
+
+## Shared effective vocabulary (ADR-0027)
+
+Date: 2026-10-26; clarifies ADR-0015/0016 without changing interpretation.
+
+Give every rule the vocabulary of the whole Profile chain plus the project, because the shipped child Profile extends tags accepted by inherited rules; children cannot replace, remove or re-grade inherited definitions, but their vocabulary can change inherited findings.
+This keeps existing verdicts and finding ownership, while requiring authors to test inherited checks affected by additions; the [composition contract](implementation/okf-implementation-guide.md#57-composition) governs exact behavior.
+
+## Profile-owned directory policy (ADR-0029)
+
+Date: 2026-10-26; amends ADR-0015/0016.
+
+Read format 3 only and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages.
+Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#54-identity-release-and-format).
+
+## Prepared 1.0 compatibility and release evidence
+
+Date: 2026-10-26.
+
+Define the prepared public surfaces and compatibility obligations in the [1.0 contract](docs/stability.md), because embedders and machine consumers need an explicit boundary across independently versioned packages; public breaking changes carry major releases and migration notes, while Profile releases remain independent.
+Require successful source CI from the exact commit's push to main and independent hosted CLI resolution before release eligibility, because a green PR or workspace resolution cannot establish those facts; the [read-only preflight and remaining distribution gates](docs/releasing.md#release-preflight) can therefore stay blocked on unpublished siblings or missing main evidence without declaring failed candidate code.

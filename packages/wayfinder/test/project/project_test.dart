@@ -160,6 +160,59 @@ void main() {
     );
   });
 
+  test('rejects canonically nested bundles behind disjoint aliases', () async {
+    final inner = await Directory(
+      p.join(project.path, 'outer', 'inner'),
+    ).create(recursive: true);
+    await Link(p.join(project.path, 'alias')).create(inner.path);
+    await configure(['outer', 'alias']);
+    await expectLater(
+      WayfinderProject.discover(project),
+      failsWith(
+        'config-invalid',
+        'Configured bundles overlap after resolving symlinks.',
+      ),
+    );
+  });
+
+  test(
+    'rejects canonical equality instead of silently omitting a bundle',
+    () async {
+      await Link(
+        p.join(project.path, 'alias'),
+      ).create(p.join(project.path, 'knowledge'));
+      await configure(['knowledge', 'alias']);
+      await expectLater(
+        WayfinderProject.discover(project),
+        failsWith(
+          'config-invalid',
+          'Configured bundles overlap after resolving symlinks.',
+        ),
+      );
+    },
+  );
+
+  test('keeps a valid disjoint bundle alias', () async {
+    final other = await Directory(p.join(project.path, 'other')).create();
+    await Link(p.join(project.path, 'alias')).create(other.path);
+    await configure(['knowledge', 'alias']);
+    final found = await WayfinderProject.discover(project);
+    expect(found.bundles.map((bundle) => bundle.path), ['alias', 'knowledge']);
+    expect(found.bundles.first.root, await other.resolveSymbolicLinks());
+  });
+
+  test(
+    'a selected readable bundle need not resolve an unselected missing one',
+    () async {
+      await configure(['knowledge', 'missing']);
+      final found = await WayfinderProject.discover(
+        project,
+        bundleName: 'knowledge',
+      );
+      expect(found.bundles.map((bundle) => bundle.path), ['knowledge']);
+    },
+  );
+
   group('without searchAncestors, a host root bounds discovery', () {
     late Directory root;
 

@@ -1,5 +1,34 @@
-# 0.3.0 (unreleased)
+# 1.0.0 (unreleased)
 
+- Prepare the first stable validation/project/adoption/authoring release.
+  The accepted engine contract and [stability boundaries](../../docs/stability.md)
+  define its public API, compatibility and host obligations; publication and
+  exact-source platform verification remain separate release gates.
+
+- **BREAKING:** Reads Profile package format 3 only; format 2 is
+  `profile-unsupported`, never silently reinterpreted. The concept fact
+  `sibling_directory` now includes every same-stem sibling directory
+  represented by the loaded file inventory, without directory-name policy
+  (ADR-0029). Package authors review uses of that fact, put any chosen
+  placement exceptions in their rules, and release a format 3 revision.
+  Projects move source refs and pinned parent refs to migrated revisions,
+  then refresh and commit locks and installed skills with `get` or `upgrade`;
+  `upgrade` alone cannot advance an immutable old ref. A package whose own
+  rules do not use the fact needs no rule changes, but its entire parent
+  chain must also be reviewed and migrated. Migrated Bitwild keeps
+  its previous findings, with its existing exceptions in its own rule.
+- Git timeout and cancellation cleanup also terminate live descendants of
+  SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Project discovery rejects selected bundle roots that resolve to the same
+  directory or overlap through aliases, as binding and resolution already do.
+  An unrelated, unselected missing bundle still does not prevent selection.
+- A failed adoption step whose own rollback fails now reports `undoFailed`,
+  as earlier completed steps already do when their rollback fails. The
+  original failure code and cause remain available.
+- Clarify composition: all rules use the whole chain's and project's
+  vocabulary. Added names can affect inherited findings; inherited rule
+  definitions and severities cannot change. This clarification alone changes
+  no verdict (ADR-0027); format migration is described separately above.
 - New `package:wayfinder/authoring.dart`, the write path for a bundle a
   Profile governs (ADR-0019). `KnowledgeWriter.prepare` maps one
   `KnowledgeChange` (`CreateConcept`, `UpdateConcept`, `LinkConcepts`, which
@@ -258,8 +287,9 @@
   extension report okf's own `okfVersion`, 0.5.1 or a later okf 0.5 release,
   so `engine.okf` is no longer the value a package pins as `version`. okf
   0.5.1 writes the same indexes as 0.5.0: a package that sets `version` to
-  `0.5.0`, Bitwild 2026.3 included, loads and yields the same findings, every
-  verdict is unchanged, and package format stays 2.
+  `0.5.0`, Bitwild 2026.3 included, keeps the same index findings. The
+  generator-revision change itself needs no package-format migration; the
+  separate format 3 migration is described above.
 - A `matches-generated` `version` that names another generator revision fails
   to load with a message that names the revision this wayfinder runs.
 - `WayfinderProfileResolver.pruneProjectLocks` deletes the `get` lock file of
@@ -311,8 +341,8 @@
   rule's tests, throws a `ProfilePackageException` naming it, reported as
   `profile-invalid`, rather than parsing again unbounded on the caller.
   Every read runs the tests; no verdict is cached. Bitwild parses in about
-  five milliseconds, so no package reads differently and package format
-  stays 2.
+  five milliseconds, so bounded reading adds no package-interpretation
+  change. The separate format 3 migration is described above.
 - `WayfinderProfileResolver.status` reports, offline and without Git, a
   `ProfileResolutionStatus` with one `ProfileBindingStatus` per binding: a
   stable `ProfileBindingState` (`resolved`, `lock-missing`, `lock-stale`,

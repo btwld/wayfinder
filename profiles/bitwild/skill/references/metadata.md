@@ -24,8 +24,9 @@ it movable; movability depends on citations, not status
 
 Tags carry topic only, never kind, lifecycle, trust or settledness. For example,
 `partially-resolved` restates relationships and becomes wrong when closure changes.
-Declare used tags in the project's binding; do not tag `captures` just because
-there is a source citation.
+Use tags declared by the selected Profile chain or the project's binding; add
+project-local topics there without redeclaring package tags. Do not tag
+`captures` just because there is a source citation.
 
 ## Sources
 

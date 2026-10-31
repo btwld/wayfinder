@@ -486,6 +486,8 @@ class DartChunker extends BaseChunker {
             'params': member.parameters.toSource(),
           },
         );
+      } else if (member is FieldDeclaration) {
+        _addField(member, scope, addNode);
       }
     }
   }

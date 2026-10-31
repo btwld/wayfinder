@@ -90,7 +90,6 @@ final class WayfinderProject {
             'Pass an explicit bundle path.',
       );
     }
-    final roots = <String>{};
     final bundles = <ProjectBundle>[];
     for (final path in selected) {
       final bundle = Directory(p.join(directory.path, path));
@@ -107,9 +106,18 @@ final class WayfinderProject {
           'Configured bundle leaves the project: $path.',
         );
       }
-      if (roots.add(root)) {
-        bundles.add(ProjectBundle(p.basename(path), path, root));
+      if (bundles.any(
+        (other) =>
+            p.equals(other.root, root) ||
+            p.isWithin(other.root, root) ||
+            p.isWithin(root, other.root),
+      )) {
+        throw const WayfinderException(
+          'config-invalid',
+          'Configured bundles overlap after resolving symlinks.',
+        );
       }
+      bundles.add(ProjectBundle(p.basename(path), path, root));
     }
     return WayfinderProject._(
       directory.path,

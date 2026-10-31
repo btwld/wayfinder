@@ -7,6 +7,10 @@ Profile when `wayfinder validate`, with this package selected, reports the
 `PASS` gate. This file explains why each rule exists. It adds no requirement
 of its own.
 
+This revision uses package format 3. Format 2 copies need the explicit source
+and lock migration in [CHANGELOG.md](CHANGELOG.md); they are not silently
+reinterpreted by a format 3 engine.
+
 Each rule id below is a heading, so the `help_uri` of a finding lands on the
 rule that raised it.
 
@@ -372,6 +376,13 @@ for the same subject belongs inside it. The pair can also mean the area is
 named after one member instead of what its members share. Placement is a
 judgment, so the rule asks rather than fails
 ([structure.md](skill/references/structure.md#areas)).
+
+The package exempts concepts under the top-level `interactions/` and
+`references/` trees, and root concepts named `interactions.md` and
+`references.md` beside those directories. Those directories organize the
+time axis and mirrored sources, not subject areas. The same names under a
+subject area, such as `billing/references/`, have no such exemption. These
+are this rule's choices, not meanings built into the engine's directory fact.
 
 ### index-current
 

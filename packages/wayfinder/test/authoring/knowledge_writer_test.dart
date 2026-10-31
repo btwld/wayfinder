@@ -536,7 +536,7 @@ void main() {
     final selection = SelectedProfile(
       EffectiveProfile.compose([
         ProfilePackage.parse(
-          '{"format": 2, "id": "plain", "release": "1", '
+          '{"format": 3, "id": "plain", "release": "1", '
           '"implements": {"id": "okf", "release": "0.2"}, "rules": []}',
         ),
       ]),
