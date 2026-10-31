@@ -559,11 +559,12 @@ class WayfinderCli {
           );
         }
         final override = Platform.environment['WAYFINDER_KNOWLEDGE_DIR'];
+        final rootPath =
+            command.rest.firstOrNull ??
+            (override == null || override.trim().isEmpty ? null : override);
         // Without an injected store, the server retains its encoder.
         await _mcpServer(
-          rootPath:
-              command.rest.firstOrNull ??
-              (override == null || override.trim().isEmpty ? null : override),
+          rootPath: rootPath == null ? null : _resolvePath(rootPath),
           workingDirectory: _workingDirectory,
           knowledge: _knowledgeOverride?.call(),
           profileResolver: _profileResolver(),
@@ -678,7 +679,7 @@ class WayfinderCli {
               await slot.release();
               await _spawnDetached([
                 'index',
-                bundle,
+                p.absolute(_resolvePath(bundle)),
                 '--background',
                 if (force) '--force',
               ]);

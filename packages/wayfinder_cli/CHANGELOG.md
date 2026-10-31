@@ -2,6 +2,8 @@
 
 - Prepare the first stable CLI/MCP release. The public compatibility and
   support boundaries are recorded in [the stability contract](../../docs/stability.md).
+- Resolve explicit MCP bundle paths and detached indexing against the CLI's
+  injected working directory, and pass absolute bundle paths to detached workers.
 - **BREAKING:** Validation reads Profile package format 3. Upgrade a selected
   format-2 package and its parent chain, point any pinned source ref at the
   migrated revision, then run `wayfinder upgrade` to refresh the lock and
