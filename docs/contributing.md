@@ -150,3 +150,11 @@ GitHub Actions currently runs Linux jobs only to limit compute usage. macOS
 and Windows test, build, and installation jobs are paused. Native distribution
 is also paused because its release contract requires all three platform
 archives; pub.dev publishing and Linux verification remain available.
+
+
+The `test` matrix analyzes and tests all packages on Dart 3.11.0 and stable.
+The stable-only `native-retrieval` job owns model/ObjectBox integration,
+retrieval quality, relocated bundles and installer verification. This avoids
+running that complete native pipeline twice per commit; native execution on
+the minimum SDK is no longer a CI promise. Stable Linux artifacts still belong
+to the exact tested commit, and the three-platform distribution remains paused.

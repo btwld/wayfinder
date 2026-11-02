@@ -116,10 +116,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
+        # Minimum-SDK analysis and model-free tests stay in `test` above.
+        # Download models and run the full native/bundle pipeline once.
         sdk: [stable]
-        include:
-          - os: ubuntu-latest
-            sdk: "3.11.0"
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -229,4 +228,5 @@ jobs:
             ${{ runner.temp }}/knowledge-cases.json
             ${{ runner.temp }}/okf-development.json
             ${{ runner.temp }}/okf-held-out.json
+
 
