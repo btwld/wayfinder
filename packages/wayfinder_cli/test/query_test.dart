@@ -21,8 +21,9 @@ void main() {
     await File(p.join(bundle.path, 'one.md')).writeAsString(
       '---\ntype: Guide\ntitle: One\ntags: [routing]\n---\nText.\n',
     );
-    await File(p.join(bundle.path, 'two.md'))
-        .writeAsString('---\ntype: Research\ntitle: Two\n---\nText.\n');
+    await File(
+      p.join(bundle.path, 'two.md'),
+    ).writeAsString('---\ntype: Research\ntitle: Two\n---\nText.\n');
     final saved = File(
       p.join(project.path, '.wayfinder', 'queries', 'guides.json'),
     );
@@ -101,8 +102,9 @@ void main() {
     },
   );
   test('invalid source produces refusal with exit one', () async {
-    await File(p.join(project.path, 'knowledge', 'bad.md'))
-        .writeAsString('---\ntype: [bad\n---\n');
+    await File(
+      p.join(project.path, 'knowledge', 'bad.md'),
+    ).writeAsString('---\ntype: [bad\n---\n');
     expect(await cli.run(['query', '--output=json']), 1);
     expect(result()['error'], 'query-refused');
     expect(out, hasLength(1));
@@ -215,8 +217,9 @@ void main() {
     final externalBundle = await Directory(
       p.join(external.path, 'external-knowledge'),
     ).create();
-    await File(p.join(externalBundle.path, 'guide.md'))
-        .writeAsString('---\ntype: Guide\ntitle: External Guide\n---\nText.\n');
+    await File(
+      p.join(externalBundle.path, 'guide.md'),
+    ).writeAsString('---\ntype: Guide\ntitle: External Guide\n---\nText.\n');
     expect(
       await cli.run([
         'query',
@@ -266,9 +269,9 @@ void main() {
         ),
       );
       expect(response.isError, isNot(true));
-      final mcpPayload = jsonDecode(
-        (response.content.single as TextContent).text,
-      ) as Map<String, Object?>;
+      final mcpPayload =
+          jsonDecode((response.content.single as TextContent).text)
+              as Map<String, Object?>;
       expect(mcpPayload, cliPayload);
     } finally {
       await client.close();
