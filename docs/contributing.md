@@ -142,3 +142,11 @@ CLI bundle containing the model and native libraries. The model choice is
 recorded in [ADR-0009](adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
 bundle validation; search examples and evaluation commands live in the
 [embedding package](../packages/wayfinder_embeddings/README.md#command-line-entry-points).
+
+
+## Hosted runner policy
+
+GitHub Actions currently runs Linux jobs only to limit compute usage. macOS
+and Windows test, build, and installation jobs are paused. Native distribution
+is also paused because its release contract requires all three platform
+archives; pub.dev publishing and Linux verification remain available.
