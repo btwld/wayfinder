@@ -210,6 +210,75 @@ void main() {
       await serving;
     }
   });
+
+  test('MCP external bundle root reports basename path matching CLI', () async {
+    final external = await Directory.systemTemp.createTemp('query-external-');
+    addTearDown(() => external.delete(recursive: true));
+    final externalBundle = await Directory(
+      p.join(external.path, 'external-knowledge'),
+    ).create();
+    await File(
+      p.join(externalBundle.path, 'guide.md'),
+    ).writeAsString('---\ntype: Guide\ntitle: External Guide\n---\nText.\n');
+    expect(
+      await cli.run([
+        'query',
+        externalBundle.path,
+        '--type=Guide',
+        '--output=json',
+      ]),
+      0,
+    );
+    final cliPayload = result();
+    expect(cliPayload['bundles'], [
+      {'name': 'external-knowledge', 'path': 'external-knowledge'},
+    ]);
+
+    final incoming = StreamController<List<int>>();
+    final outgoing = StreamController<List<int>>();
+    final transport = IOStreamTransport(
+      stream: incoming.stream,
+      sink: outgoing.sink,
+    );
+    final serving = WayfinderMcpServer(
+      rootPath: externalBundle.path,
+      workingDirectory: project,
+      knowledge: WayfinderKnowledgeStore(
+        dataDirectory: Directory(p.join(project.path, 'unused-data')),
+        encoder: _NoEncoder(),
+      ),
+    ).serve(transport: transport);
+    final client = McpClient(
+      const Implementation(name: 'query-external-test', version: '1.0.0'),
+      options: const McpClientOptions(protocol: McpProtocol.legacy),
+    );
+    try {
+      await client.connect(
+        IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+      );
+      final response = await client.callTool(
+        const CallToolRequest(
+          name: 'query',
+          arguments: {
+            'query': {
+              'where': {
+                'types': ['Guide'],
+              },
+            },
+          },
+        ),
+      );
+      expect(response.isError, isNot(true));
+      final mcpPayload =
+          jsonDecode((response.content.single as TextContent).text)
+              as Map<String, Object?>;
+      expect(mcpPayload, cliPayload);
+    } finally {
+      await client.close();
+      await transport.close();
+      await serving;
+    }
+  });
 }
 
 class _NoEncoder implements WayfinderEncoderProvider {

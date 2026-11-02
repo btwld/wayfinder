@@ -59,9 +59,9 @@ class WayfinderMcpServer {
         ? null
         : ProjectBundle(
             p.basename(root),
-            rootPrefix.endsWith('/')
-                ? rootPrefix.substring(0, rootPrefix.length - 1)
-                : rootPrefix,
+            rootPrefix.isEmpty
+                ? p.basename(root)
+                : rootPrefix.substring(0, rootPrefix.length - 1),
             root,
           );
     final project = Directory(canonical);
