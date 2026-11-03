@@ -74,23 +74,27 @@ introduced by a 1.0 version.
 
 ## SDK and native verification
 
-The prepared packages declare Dart `>=3.11.0 <4.0.0`. The source matrix checks
-Dart 3.11.0 and stable on Linux and Windows; stable is the canonical formatter.
-Required native tests, relocated CLI/MCP probes, the judged retrieval gate and
-no-Dart installer checks cover these prebuilt targets:
-
-| Target | Native source-CI leg |
-| --- | --- |
-| Linux x64 | Ubuntu runner, Dart stable and 3.11.0 |
-| macOS ARM64 | macOS runner, Dart stable |
-| Windows x64 | Windows runner, Dart stable |
+The prepared packages declare Dart `>=3.11.0 <4.0.0`. The active source matrix
+analyzes and tests all four packages on Linux with Dart 3.11.0 and stable;
+stable is the canonical formatter. The stable-only Linux x64 native job runs
+model/ObjectBox integration, relocated CLI/MCP probes, the judged retrieval
+gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0
+is not an active CI guarantee.
 
 The [CI workflow](../.github/workflows/ci.yml) is the executable matrix.
-Installer checks additionally cover PowerShell 7 and Windows PowerShell 5.1.
-These are tested target combinations, not a claim that every historical OS
-version or another CPU/backend works. Other native combinations need their
-own verification before a prebuilt release is offered. Source SDK constraints
-do not provision native libraries or model weights in a consuming application.
+Under the [hosted runner policy](contributing.md#hosted-runner-policy), macOS
+and Windows test, build and installation jobs are paused, including installer
+checks for PowerShell 7 and Windows PowerShell 5.1. Native distribution is
+also paused: its release contract requires Linux x64, macOS ARM64 and Windows
+x64 archives with exact-source verification. Active Linux CI does not satisfy
+those paused platform requirements. The separate
+[public installer workflow](../.github/workflows/verify-public-install.yml)
+checks the currently published release on Linux; it does not establish that
+the prepared 1.0 artifacts have been published or verified.
+
+Other native combinations need their own verification before a prebuilt
+release is offered. Source SDK constraints do not provision native libraries
+or model weights in a consuming application.
 
 A release records the actual tested SDK and runner/platform results. Local
 macOS results do not stand in for Linux, Windows or the designated independent

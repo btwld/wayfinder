@@ -157,6 +157,11 @@ skips upload.
 
 ## Native distribution
 
+Native distribution is currently paused under the
+[hosted runner policy](contributing.md#hosted-runner-policy). Active Linux CI
+does not provide the complete three-platform inputs required below. Resume
+the paused platform verification before attempting native publication.
+
 Run **Distribute Wayfinder native release** against the checked application tag,
 with the successful source CI run ID. CI must belong to that exact commit and
 provide macOS ARM64, Linux x64 and Windows x64 bundles. Fetch tags at checkout so
@@ -174,9 +179,9 @@ dependent jobs. A failed job can be retried without republishing packages or
 replacing release assets. Reruns verify existing
 release bytes and refuse to overwrite mismatches. The installer verification
 job uses local scripts with `WAYFINDER_VERSION`, so it exercises exactly the new
-version. **Verify public Wayfinder
-installation** also runs the public scripts on every installer change to `main`
-and weekly, under PowerShell 7 and Windows PowerShell 5.1 on Windows.
+version. **Verify public Wayfinder installation** currently runs on Linux for
+installer changes to `main` and weekly, against the published release.
+Windows verification under PowerShell 7 and Windows PowerShell 5.1 is paused.
 Windows/Linux validation and external credentials cannot be inferred from local
 macOS results.
 
