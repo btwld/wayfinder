@@ -11,14 +11,11 @@ Follow the project's bundle layout and setup restrictions.
 
 ## 1. Discover
 
-For an unknown location or paraphrased question, prefer the available **Wayfinder
-MCP search** before broad file listings. Ask one focused natural-language question.
-Use exact IDs when known. Reformulate for a missing angle, not to repeat successful
-discovery. If the user requires Wayfinder discovery, perform it explicitly.
-
-MCP searches all configured project bundles unless its launch selects one bundle.
-Do not assume an evidence folder is unindexed; it can be a separate bundle.
-Follow source links or search that bundle when provenance or history is needed.
+For unknown locations or paraphrased questions, prefer available Wayfinder MCP
+search before broad listings. Use one focused question or exact known ID;
+reformulate only for a missing angle. Honor explicit Wayfinder-discovery requests.
+MCP searches configured bundles unless launched for one; evidence folders may be
+separate bundles. Follow source links for history/provenance.
 
 Without MCP, use the CLI:
 
@@ -31,24 +28,18 @@ An explicit path selects one bundle; otherwise project configuration selects the
 Search needs the local embedding model. There is no model-free fallback. Omit
 retired CLI `--mode` and MCP `mode` fields.
 
-For a known file or exact count, read or enumerate directly. Semantic top-k cannot
+For a known file, read directly. For an exact metadata list or count, use MCP `query` (inline query or saved ID) or `wayfinder query --type <type> --output json`; it reads live concepts without a model/index. Check totals and `has_more`, page through results, and keep counts of whole concepts distinct from records embedded in their bodies. Saved definitions live in the consuming project’s `.wayfinder/queries/`; they do not execute computations or establish attestation. See the runtime [query guide](https://github.com/btwld/wayfinder/blob/main/docs/queries.md). Semantic top-k cannot
 prove completeness or absence. Targeted filename/keyword lookup is also useful
 after discovery. A model or index failure is not evidence that a fact is missing.
 
 ## 2. Read the evidence
 
-Open returned paths and read the complete relevant sections, including exceptions.
-Reuse resolved paths and batch independent reads. Follow source and relationship
-links within the authorized corpus; an unresolved graph link does not prove that
-its source is absent.
-
-Results return Markdown grouped under `## Matches` and `## Related Context` with
-`<path>:<lineStart>-<lineEnd>` citations, essential metadata, and source links.
-Inspect direct matches when linked context is unhelpful. Do not discard relevant
-governing context. Use CLI `--output=json` for programmatic selection.
-
-When excerpts omit needed context, read the source directly. Do not keep
-increasing search limits instead of reading a known source.
+Open complete relevant sections, including exceptions. Batch independent reads
+and follow sources/relationships within the authorized corpus; unresolved graph
+links do not prove absence. Results group matches/context with path:line citations,
+metadata and source links. Use CLI `--output=json` for programmatic selection.
+Read known sources directly when excerpts omit context; do not keep increasing
+search limits. Preserve relevant governing context even when linked hits are weak.
 
 ## 3. Verify and answer
 

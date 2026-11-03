@@ -1,118 +1,74 @@
 ---
 name: adopt-knowledge-bundle
-description: Initialize the knowledge bundle in this repository. Bind it to a Profile in wayfinder.json, install that Profile's skill with wayfinder get, seed the root files under knowledge/, and write the AGENTS.md blocks that point agents into the bundle. Run once per repository.
+description: Initialize the knowledge bundle in this repository. Bind it to a Profile in wayfinder.json, install that Profile's skill with wayfinder get, seed the root files under knowledge/, and write the AGENTS.md blocks that point agents into the bundle. Use for each new bundle.
 disable-model-invocation: true
 ---
 
 # Adopt Knowledge Bundle
 
-Set up a repository to carry durable project knowledge as an OKF bundle at
-`knowledge/`, bound to a Profile. This skill seeds the bundle and points
-agents at it. The `author-knowledge-bundle` skill governs every later write.
+Set up `knowledge/` (or the requested bundle path), bind it to the user's Profile
+and route agents to it. The Profile's skill supplies seed conventions;
+`author-knowledge-bundle` governs later writes.
 
-The Profile decides the seed. Its skill, which `wayfinder get` installs,
-carries the root-file templates and any lines the agent instructions need.
-This skill runs the generic steps around them.
+Inspect existing state and apply authorized changes. Ask only about unresolved
+choices, conflicting instructions or work outside scope. Hosts can use the
+adoption library; [SEEDING.md](./SEEDING.md) documents its generic seed.
 
-The same adoption is a library call for a host that sets projects up in
-process: `KnowledgeAdoption` in `package:wayfinder/adoption.dart` (ADR-0020)
-plans every file, fetch and conflict of steps 3 and 4 before writing any,
-fetching only the sources the host approves, then applies them or nothing.
-It returns the `AGENTS.md` block of step 5 as text and never runs
-`wayfinder setup`. The generic seed in
-[SEEDING.md](./SEEDING.md) is the text that library writes.
+## 1. Explore
 
-Inspect existing state, prepare what is missing, and apply changes within the
-user's request. Ask only about unresolved choices, conflicting existing
-instructions, or work outside the requested scope.
+- Inspect the bundle and root `wayfinder.json`. Validate existing bundles with
+  `wayfinder validate knowledge --output json`; report the chain or diagnostic.
+  Preserve their content. Changing a Profile/release is migration, not adoption.
+- Inspect `AGENTS.md` for `### Knowledge bundle`/`### Wayfinder`. Fold an older
+  duplicated `## Documentation` block into the bundle block.
+- Check whether root `CLAUDE.md` imports `@AGENTS.md`.
 
-## Process
+## 2. Choose the Profile
 
-### 1. Explore
+Use the user's Profile id and Git source (`git`, `ref`, `path`). Ask for missing
+choices; never select a Profile on their behalf.
 
-- `knowledge/` and project-root `wayfinder.json`. Does a bundle already
-  exist? If so, run `wayfinder validate knowledge --output json` and report
-  `profile.chain` or the diagnostic that replaces it. An existing bundle needs
-  no seeding. Changing its Profile or release is migration work, not adoption.
-- `AGENTS.md` at the repository root. Does it already have a
-  `### Knowledge bundle` or `### Wayfinder` block? A `## Documentation`
-  section left by an earlier adoption repeats the bundle block; fold it into
-  that block.
-- `CLAUDE.md` at the repository root. Does it import `AGENTS.md` with a line
-  containing `@AGENTS.md`?
+## 3. Bind and install
 
-### 2. Choose the Profile
+Create an empty bundle directory if missing (`get` requires it). Write the
+binding from [SEEDING.md](./SEEDING.md#wayfinderjson), run `wayfinder get`, and
+include the binding, lock and installed `.claude/skills/<id>/` and
+`.agents/skills/<id>/` in the change. If resolution fails, report that the Profile
+cannot yet be assessed. An unmarked skill directory belongs to someone else;
+ask before moving it aside.
 
-The user names the Profile: its id and its Git source (`git`, `ref`, and
-`path`). Ask when they have not. Never pick one on their behalf.
+Add `knowledge/.okf.lock` to `.gitignore` unless already covered or the user
+prefers committing it. okf leaves this file after writes.
 
-### 3. Bind and install
+## 4. Seed the bundle
 
-Create the empty `knowledge/` directory, because `get` refuses a configured
-bundle that does not exist. Write project-root `wayfinder.json` from
-[SEEDING.md](./SEEDING.md#wayfinderjson) with that source, then run
-`wayfinder get`. It writes `wayfinder.lock` and installs the Profile's skill
-at `.claude/skills/<id>/` and `.agents/skills/<id>/`. Include all three in the
-change. If `get` cannot resolve the source, stop and report that the Profile
-cannot be assessed yet. `get` refuses a skill directory that holds no
-`.wayfinder-profile` marker: it belongs to someone else, so ask before moving
-it aside.
+Read installed Profile skills, root first, and follow their adoption guidance.
+Seed only what they name. Without guidance, use only OKF's root `index.md` and
+`log.md` from [SEEDING.md](./SEEDING.md#okf-root-files). Root files alone are a
+complete setup. Never invent project types, tags, relationships or actor IDs.
 
-okf creates a lock file, `.okf.lock`, at the bundle root the first time it
-writes the bundle, and leaves it there. Add `knowledge/.okf.lock` to
-`.gitignore`, as [SEEDING.md](./SEEDING.md#gitignore) shows, unless
-`.gitignore` already lists it or the user prefers to commit it.
+## 5. Point agents at it
 
-### 4. Seed the bundle
+Add/update [the instruction blocks](./SEEDING.md#agent-instructions) under
+`## Agent skills` in `AGENTS.md`, applying SEEDING’s freshness correction and the
+Profile’s additions. Preserve user edits
+and other blocks; avoid duplicates. `CLAUDE.md` imports `@AGENTS.md`.
 
-Read the installed Profile skill and follow its adoption guidance. It gives
-the `wayfinder.json` entry details, the root files, and the first log entry.
-If the Profile ships no skill, or its skill has no adoption guidance, use the
-OKF root files in [SEEDING.md](./SEEDING.md#okf-root-files). When the chain
-has several Profiles, the root Profile's seed comes first and each child's
-additions follow.
+Run `wayfinder setup --hooks` and include its `.mcp.json`/`.githooks/` changes.
+If `setup --help` lacks `--hooks`, skip it and report that. If old docs remain,
+state which home governs which material; seeding does not migrate them.
 
-Seed only what the Profile's adoption guidance names. Without that guidance,
-seed only the OKF root files. A `knowledge/` that holds only its root files
-is fully set up.
+## 6. Validate and review
 
-Do not invent project types, tags, relationship names, or actor IDs while
-seeding.
+For concepts under generated-index rules, run `wayfinder validate knowledge --fix`;
+then require a passing whole-bundle validation and the
+[Profile assessment](../author-knowledge-bundle/references/profile-assessment.md)
+with **Scope: whole bundle**. Repair clear seed defects; report unrelated existing
+defects without expanding into migration.
 
-### 5. Point agents at it
+## 7. Report
 
-Agent instructions live in `AGENTS.md`, and `CLAUDE.md` imports them with an
-`@AGENTS.md` line. Add the blocks from
-[SEEDING.md](./SEEDING.md#agent-instructions), with any lines the Profile's
-adoption guidance adds, or update them in place if they exist. Do not append
-duplicates or overwrite user edits to surrounding sections. The blocks belong
-under an `## Agent skills` heading; create it if no other skill has, and
-leave its other sub-blocks alone.
-
-Then run `wayfinder setup --hooks` in the project root and commit the files
-it writes (`.mcp.json`, `.githooks/`). Skip it, and say so, if
-`wayfinder setup --help` does not list `--hooks`.
-
-If an existing documentation tree remains, state which home is authoritative
-for which material. Do not claim that old documents were migrated by seeding
-a new bundle.
-
-### 6. Validate and review
-
-Run `wayfinder validate knowledge`. For a bundle that holds concepts under a
-Profile that requires generated indexes, run
-`wayfinder validate knowledge --fix` first. Then follow the authoring skill's
-[Profile assessment reference](../author-knowledge-bundle/references/profile-assessment.md)
-with **Scope: whole bundle**, including the Profile Review Report. Repair
-clear defects in the new seed. For an existing bundle, report unrelated
-defects without broadening setup into a migration.
-
-### 7. Report the result
-
-Tell the user what was seeded or preserved and where it starts
-(`knowledge/index.md`, the binding in `wayfinder.json`, the installed
-Profile skill), that `author-knowledge-bundle` governs every later write, and
-that the tree grows out of what the project learns. Include the assessment
-result. If a required check is unavailable or fails, state what remains
-before adoption is complete. For a CI gate, point at
-`wayfinder validate knowledge` and the Wayfinder README.
+Name seeded/preserved files, binding and Profile skills, the assessment outcome
+and any checks still needed. Point to `knowledge/index.md`,
+`author-knowledge-bundle` for future writes and `wayfinder validate knowledge`
+for CI. The tree grows from what the project learns.

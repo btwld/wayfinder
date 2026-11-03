@@ -14,9 +14,8 @@ relationships:
     resource: https://github.com/org/repo/pull/42
 ```
 
-`resource` is a link target: a bundle-relative path with a leading `/`, or a
-URL. It is never a scope descriptor. Never put a relationship in `sources`,
-which records what the content derives from and carries credibility in OKF.
+`resource` is a bundle path starting `/` or a URL, never a scope descriptor.
+`sources` records derivation/credibility, not typed relationships.
 
 ## Standard names
 
@@ -40,23 +39,15 @@ defines it once. Never invent a name in a concept.
 
 ## Choose a name
 
-- Use `part-of` for composition: a constituent, not a narrowing. Two buckets
-  that sum to a balance are `part-of` it, not `refines` it.
-- Use `resolves` only for genuine closure. Evidence that moves an open item
-  forward but leaves it open is `partially-resolves`. A loose `resolves`
-  makes open items read as settled, the same error as an unearned `verified`.
-- Use `tracked-by` for the record that carries who owes an open question and
-  by when. The question stays in the bundle, and openness is still read from
-  `resolves` and `partially-resolves`.
-- Never write a name back along the same edge. Names read outward and
-  backlinks are computed, so `refines` both ways says each concept narrows
-  the other. `related-to` pointed back along an edge that already has a
-  precise name is the same redundancy. Two different complementary names, or
-  `related-to` between genuine peers, are fine.
-- Reaching for `related-to` again and again means a name is missing. Declare
-  a project name instead.
-- An unresolved internal target stays a loadable edge and is reported only as
-  a note. Keep a deliberate planned link. Repair a mistaken one.
+- `part-of` is composition, not narrowing (`refines`).
+- `resolves` means full closure; progress that leaves an item open is
+  `partially-resolves`. `tracked-by` names who chases it in the tracker.
+- Never write the same name back along an existing edge: backlinks are computed.
+  A redundant reverse `related-to` is also wrong; different complementary names
+  or genuine peer associations are fine.
+- Repeated `related-to` may reveal a missing project name; declare it once.
+- Deliberate unresolved internal targets remain loadable planned links (notes);
+  repair accidental ones.
 
 Ordinary Markdown links in the body remain valid untyped edges.
 
@@ -68,11 +59,7 @@ into the bundle; a linked record's status lives only in the tracker. One
 concept may link to several execution records or to none, and the count is
 never a finding.
 
-A specification is a genre, not a location. A tracker owns an execution
-record's state: a status, an assignee, a workflow the bundle does not
-advance. A specification opened as a tracker issue is an execution record,
-so link it and never mirror it. A specification the project maintains as
-durable knowledge outlives the work it scoped, later concepts cite it, and
-its only state is `status`. That is a `Specification` concept, filed with its
-subject. Every durable specification has exactly one lifecycle owner, so it
-never exists both as a tracker record and as a concept.
+A tracker-owned specification is an execution record: link it, never mirror its
+state. A durable specification that outlives the work and is cited as knowledge
+is a `Specification` concept filed with its subject. Each has exactly one
+lifecycle owner; never keep both a tracker record and a concept for it.

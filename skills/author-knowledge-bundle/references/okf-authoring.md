@@ -1,9 +1,7 @@
 # OKF authoring
 
-Part of the `author-knowledge-bundle` skill. This reference covers what OKF
-0.2 itself requires of a concept. Each Profile skill in the bundle's chain
-narrows it; where they differ, the Profile skill wins inside what OKF allows.
-The vendored [OKF 0.2 specification](./OKF-0.2.md) is the authority.
+[Pinned OKF 0.2](./OKF-0.2.md) is authoritative. Profile skills may narrow permitted
+choices within OKF; they cannot redefine its fields.
 
 ## Files
 
@@ -35,8 +33,8 @@ tags: [<topic>]
   meanings OKF §5 gives them. A Profile may restrict which values are allowed,
   never what a field means.
 - Every timestamp is an instant with a UTC offset. A date-only or offset-less
-  value raises `okf/timestamp-without-offset`.
-  `okf format --migrate-timestamps` rewrites such values.
+  value raises `okf/timestamp-without-offset`; migrate with
+  `okf format --migrate-timestamps`.
 - OKF permits producer keys beyond the ones it defines (OKF §4.1). A Profile
   may restrict which keys a concept carries. Follow each Profile skill in
   the chain.

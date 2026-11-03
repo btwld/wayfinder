@@ -5,23 +5,18 @@ description: Judgment for OKF 0.2 knowledge bundles under the bitwild-profile Pr
 
 # bitwild-profile
 
-`wayfinder validate` enforces this Profile's rules and decides conformance.
-The [Bitwild README](https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md)
-explains each rule under its id, and every finding links there. This skill
-carries the judgment a validator cannot decide:
-whether knowledge earns a concept, where it lives, which type and
-relationship name fit, and whether provenance and lifecycle metadata are
-truthful.
-
-The generic `author-knowledge-bundle` skill owns OKF mechanics: frontmatter
-syntax, the atomic write, and the log format. Read it first. This skill adds
-what the Profile decides on top.
+`wayfinder validate` decides conformance; the
+[Bitwild README](https://github.com/btwld/wayfinder/blob/main/profiles/bitwild/README.md)
+explains rule IDs. This skill judges capture, placement, types, relationships and
+truthful provenance/lifecycle. Read `author-knowledge-bundle` first for OKF
+mechanics and the complete write/review sequence.
 
 ## After a write
 
 This Profile requires the indexes okf generates. Run
-`wayfinder validate <bundle> --fix` to write the affected indexes, then
-`wayfinder validate <bundle>`. Never edit a generated index by hand. The
+`wayfinder validate <bundle> --fix` to repair the bundle’s stale generated indexes, then
+`wayfinder validate <bundle>`. Never edit a generated index by hand. Profile-aware write tools instead rewrite only indexes whose generated text
+changes with the write. The
 [adoption reference](references/adoption.md) covers the root index of a
 bundle with no concepts.
 

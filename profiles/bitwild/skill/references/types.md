@@ -5,8 +5,7 @@ and the tags never carry it.
 
 ## Standard types
 
-The Profile package declares these types. A project adds its own in its
-`wayfinder.json` entry under `types`.
+The package declares these types; projects add types in their binding.
 
 | Type | Intended content |
 | --- | --- |
@@ -28,9 +27,7 @@ Profile.
 
 ## Choose between neighbours
 
-The type must match its intended meaning. A project type must match the
-meaning its `wayfinder.json` entry declares. Decide the fit from the
-concept's content, never from headings, paths, or keywords.
+Match content to declared meaning, never infer type from headings/path/keywords.
 
 - Use `Architecture Decision Record` when the decision shapes the software's
   structure and an engineer deciding how to build would read it. Use
@@ -50,13 +47,10 @@ concept's content, never from headings, paths, or keywords.
 
 ## Project types
 
-A project type is allowed once its `wayfinder.json` entry declares it with a
-description that truthfully defines it.
-Validation reports each declared project type as the `wayfinder/project-type`
-note, so repeated needs can inform a later release. Do not reject a project
-type because a standard type might also fit. When reading, preserve unknown
-types, fields, and relationship names. Valid OKF you do not recognize is
-content, not an error.
+Declare a project type once with a truthful description in `wayfinder.json`.
+`wayfinder/project-type` is an informational note that can inform future releases;
+do not reject it merely because a standard type also fits. Readers preserve
+unknown types, fields and relationships per OKF's tolerant-reader contract.
 
 ## Starting headings
 

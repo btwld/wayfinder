@@ -1,13 +1,9 @@
 # The `captures/` evidence layer
 
-Raw evidence lives in `captures/`, beside the bundle and never inside it:
-transcripts, thread exports, and files a client delivered. `captures/` is
-evidence, not knowledge. It is not an OKF bundle, carries no frontmatter, and
-Wayfinder does not index or validate it.
-
-Durable outcomes reach the bundle as concepts that cite a capture package in
-`sources`. If a concept and a capture disagree, re-read the evidence and
-correct any inaccurate concept.
+`captures/` holds raw transcripts, thread exports and delivered files beside the
+bundle. It is not OKF, carries no frontmatter and is not indexed/validated by
+Wayfinder. Durable concepts cite capture packages in `sources`; if they disagree,
+re-read the evidence and correct inaccurate concepts.
 
 ## Packages
 
@@ -27,7 +23,7 @@ or the day files arrived.
   that visibility before adding them. Leave the material where it is if the
   user declines.
 - A capture that produced no durable outcome still gets an intake note that
-  says "none yet". That is a correct result, not a gap.
+  says "none yet".
 
 ## Seed
 

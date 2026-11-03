@@ -8,10 +8,8 @@ demand. Mirror an artifact only when all three hold:
   is evidence to weigh, not enough by itself;
 - the material may live at the repository's visibility.
 
-Never mirror merely because a meeting, call, or thread happened. The bundle
-inherits the repository's access controls and has no per-concept scheme, so
-mirroring widens who can read the material. Confirm the visibility before
-mirroring.
+Never mirror merely because an event occurred. Confirm repository visibility
+before copying: there are no per-concept access controls.
 
 ## What a mirror is
 
@@ -52,12 +50,9 @@ fidelity to the external source.
 
 ## Deciding not to mirror
 
-A decision not to mirror is durable too. Keep ordinary OKF meaning in
-`sources[].resource`: a followable URL or path when one exists, or a scope
-descriptor when the source is inherently unfollowable. Never replace a known
-followable resource with a descriptor to silence an availability advisory.
-When the reason for not mirroring matters to future preservation, state it
-in the body.
+Keep a followable URL/path in `sources[].resource` when one exists; use a scope
+descriptor only for inherently unfollowable material, never to silence an
+availability advisory. Record a material preservation reason in the body.
 
 ```yaml
 sources:

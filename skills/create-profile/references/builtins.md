@@ -31,16 +31,11 @@ Reports one finding listing every missing path as `{failing}`, located at
 the first missing path. A path counts as present when it is any loaded
 bundle file.
 
-```json
-{
-  "type": "object",
-  "required": ["paths"],
-  "additionalProperties": false,
-  "properties": {
-    "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
-  }
-}
-```
+| Parameter | Contract |
+| --- | --- |
+| `paths` | Required nonempty array of unique nonempty strings. |
+
+No other params are accepted.
 
 ```json
 {
@@ -58,19 +53,11 @@ path-valued field names something that exists neither in the bundle nor on
 disk. It reports nothing when the link graph is unavailable; the engine
 reports that as a diagnostic.
 
-```json
-{
-  "type": "object",
-  "required": ["fields"],
-  "additionalProperties": false,
-  "properties": {
-    "fields": {
-      "type": "array", "minItems": 1, "uniqueItems": true,
-      "items": {"enum": ["resource", "sources.resource", "computation", "executor.resource", "attester.resource"]}
-    }
-  }
-}
-```
+| Parameter | Contract |
+| --- | --- |
+| `fields` | Required nonempty unique array chosen from `resource`, `sources.resource`, `computation`, `executor.resource`, `attester.resource`. |
+
+No other params are accepted.
 
 ```json
 {
@@ -91,33 +78,20 @@ fill `{path}`. Line endings on disk are read as LF. `wayfinder validate
 --fix` writes the generator's output. The `okf-index` generator declares the
 package's `implements.release` in the indexes it writes.
 
-```json
-{
-  "type": "object",
-  "required": ["generator"],
-  "additionalProperties": false,
-  "properties": {
-    "generator": {"enum": ["okf-index"]},
-    "version": {"const": "<the engine's okf generator revision, such as 0.5.0>"},
-    "keep": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-    "extra": {"enum": ["report", "ignore"]}
-  }
-}
-```
+| Parameter | Contract |
+| --- | --- |
+| `generator` | Required; `okf-index` only. |
+| `version` | Optional; must equal the engine's `okfIndexGeneratorRevision`. |
+| `keep` | Optional unique nonempty path strings; defaults to none. |
+| `extra` | `report` (default) or `ignore`. |
 
-`keep` defaults to none and `extra` to `report`. `version` names the okf
-generator revision the package's verdicts assume: the okf release that last
-changed what the generator writes, which okf exports as
-`okfIndexGeneratorRevision`. It is not the okf release a `wayfinder validate
---output json` run reports as `engine.okf`. okf changes the generator's
-output only in a minor release, so one okf minor series has one revision:
-every okf 0.5 release, whether `engine.okf` reads 0.5.0, 0.5.1 or later,
-writes revision 0.5.0, and that is the value to pin. A wayfinder that moves
-to a new revision says so in its changelog. A package that sets `version`
-loads only on a wayfinder whose okf has that revision; on any other it
-reports INCOMPLETE rather than new index findings, and the reason the load
-gives names the revision that wayfinder runs. Omit it to accept whatever
-generator the engine ships.
+No other params are accepted.
+
+`version` pins generator output identity, not `engine.okf`. For example, okf's
+0.5.x releases use generator revision `0.5.0`. A different revision makes the
+package unsupported/INCOMPLETE instead of silently changing its index findings.
+Omit `version` to accept the engine's generator. A revision change is a breaking
+engine change recorded in the changelog.
 
 ```json
 {
