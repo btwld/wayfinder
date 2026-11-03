@@ -149,10 +149,15 @@ bundle validation; search examples and evaluation commands live in the
 
 ## Hosted runner policy
 
-GitHub Actions currently runs Linux jobs only to limit compute usage. macOS
-and Windows test, build, and installation jobs are paused. Native distribution
-is also paused because its release contract requires all three platform
-archives; pub.dev publishing and Linux verification remain available.
+Source tests and native artifact verification currently run on Linux only to
+limit compute usage; their macOS and Windows jobs are paused. Native
+distribution is also paused because its release contract requires all three
+platform archives; pub.dev publishing and Linux verification remain available.
+The separate installer-script workflow checks PowerShell 7 and Windows
+PowerShell 5.1 on installer pull requests. Public installer verification runs
+automatically on Linux and supports manual macOS/Windows smoke tests against
+the published release. These installer checks do not replace source tests or
+verification of new native artifacts on those platforms.
 
 
 The `test` matrix analyzes and tests all packages on Dart 3.11.0 and stable.

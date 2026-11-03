@@ -107,14 +107,17 @@ is not an active CI guarantee.
 
 The [CI workflow](../.github/workflows/ci.yml) is the executable matrix.
 Under the [hosted runner policy](contributing.md#hosted-runner-policy), macOS
-and Windows test, build and installation jobs are paused, including installer
-checks for PowerShell 7 and Windows PowerShell 5.1. Native distribution is
-also paused: its release contract requires Linux x64, macOS ARM64 and Windows
-x64 archives with exact-source verification. Active Linux CI does not satisfy
-those paused platform requirements. The separate
+and Windows source tests and native artifact verification are paused. Native
+distribution is also paused: its release contract requires Linux x64, macOS
+ARM64 and Windows x64 archives with exact-source verification. Active Linux CI
+does not satisfy those paused platform requirements. The separate
+[installer-script workflow](../.github/workflows/installer-scripts.yml) checks
+PowerShell 7 and Windows PowerShell 5.1 on installer pull requests; these are
+script and architecture-detection tests, not native artifact verification. The
 [public installer workflow](../.github/workflows/verify-public-install.yml)
-checks the currently published release on Linux; it does not establish that
-the prepared 1.0 artifacts have been published or verified.
+checks the currently published release on Linux automatically and supports
+manual macOS/Windows smoke tests. It does not establish that the prepared 1.0
+artifacts have been published or verified.
 
 Other native combinations need their own verification before a prebuilt
 release is offered. Source SDK constraints do not provision native libraries
