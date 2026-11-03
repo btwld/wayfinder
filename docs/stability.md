@@ -8,12 +8,36 @@ decide whether a candidate can ship.
 
 ## Supported surfaces
 
-| Package | Public surface |
-| --- | --- |
-| `wayfinder` | [`wayfinder.dart`](../packages/wayfinder/lib/wayfinder.dart), [`project.dart`](../packages/wayfinder/lib/project.dart), [`adoption.dart`](../packages/wayfinder/lib/adoption.dart), and [`authoring.dart`](../packages/wayfinder/lib/authoring.dart), including their exported types, failure codes, cancellation and host-injection seams. The Git and file-lock helpers exported by `project.dart` are included. |
-| `wayfinder_embeddings` | [`wayfinder_embeddings.dart`](../packages/wayfinder_embeddings/lib/wayfinder_embeddings.dart), [`okf_knowledge.dart`](../packages/wayfinder_embeddings/lib/okf_knowledge.dart), [`knowledge_store.dart`](../packages/wayfinder_embeddings/lib/knowledge_store.dart), [`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart). Custom chunker, encoder, searcher and storage extension points are included. |
-| `wayfinder_dart_chunker` | [`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart): `DartChunker` and `defaultCodeRegistry`. |
-| `wayfinder_cli` | The documented `wayfinder` commands, options, exit meanings, JSON/SARIF output, MCP tool names and input/output contracts, installer settings and update behavior in the [CLI guide](../packages/wayfinder_cli/README.md) and [installation guide](install.md). This package has no public Dart library entry point. |
+### Core (`wayfinder`)
+
+[`wayfinder.dart`](../packages/wayfinder/lib/wayfinder.dart),
+[`project.dart`](../packages/wayfinder/lib/project.dart),
+[`adoption.dart`](../packages/wayfinder/lib/adoption.dart), and
+[`authoring.dart`](../packages/wayfinder/lib/authoring.dart), including their
+exported types, failure codes, cancellation and host-injection seams. The Git
+and file-lock helpers exported by `project.dart` are included.
+
+### Retrieval (`wayfinder_embeddings`)
+
+[`wayfinder_embeddings.dart`](../packages/wayfinder_embeddings/lib/wayfinder_embeddings.dart),
+[`okf_knowledge.dart`](../packages/wayfinder_embeddings/lib/okf_knowledge.dart),
+[`knowledge_store.dart`](../packages/wayfinder_embeddings/lib/knowledge_store.dart),
+[`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and
+test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart).
+Custom chunker, encoder, searcher and storage extension points are included.
+
+### Dart chunker (`wayfinder_dart_chunker`)
+
+[`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart):
+`DartChunker` and `defaultCodeRegistry`.
+
+### Application (`wayfinder_cli`)
+
+The documented `wayfinder` commands, options, exit meanings, JSON/SARIF output,
+MCP tool names and input/output contracts, installer settings and update
+behavior in the [CLI guide](../packages/wayfinder_cli/README.md) and
+[installation guide](install.md). This package has no public Dart library
+entry point.
 
 Imports under `lib/src`, generated ObjectBox bindings, build/evaluation scripts,
 and the illustrative examples are not additional supported Dart entry points.
@@ -74,23 +98,30 @@ introduced by a 1.0 version.
 
 ## SDK and native verification
 
-The prepared packages declare Dart `>=3.11.0 <4.0.0`. The source matrix checks
-Dart 3.11.0 and stable on Linux and Windows; stable is the canonical formatter.
-Required native tests, relocated CLI/MCP probes, the judged retrieval gate and
-no-Dart installer checks cover these prebuilt targets:
-
-| Target | Native source-CI leg |
-| --- | --- |
-| Linux x64 | Ubuntu runner, Dart stable and 3.11.0 |
-| macOS ARM64 | macOS runner, Dart stable |
-| Windows x64 | Windows runner, Dart stable |
+The prepared packages declare Dart `>=3.11.0 <4.0.0`. The active source matrix
+analyzes and tests all four packages on Linux with Dart 3.11.0 and stable;
+stable is the canonical formatter. The stable-only Linux x64 native job runs
+model/ObjectBox integration, relocated CLI/MCP probes, the judged retrieval
+gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0
+is not an active CI guarantee.
 
 The [CI workflow](../.github/workflows/ci.yml) is the executable matrix.
-Installer checks additionally cover PowerShell 7 and Windows PowerShell 5.1.
-These are tested target combinations, not a claim that every historical OS
-version or another CPU/backend works. Other native combinations need their
-own verification before a prebuilt release is offered. Source SDK constraints
-do not provision native libraries or model weights in a consuming application.
+Under the [hosted runner policy](contributing.md#hosted-runner-policy), macOS
+and Windows source tests and native artifact verification are paused. Native
+distribution is also paused: its release contract requires Linux x64, macOS
+ARM64 and Windows x64 archives with exact-source verification. Active Linux CI
+does not satisfy those paused platform requirements. The separate
+[installer-script workflow](../.github/workflows/installer-scripts.yml) checks
+PowerShell 7 and Windows PowerShell 5.1 on installer pull requests; these are
+script and architecture-detection tests, not native artifact verification. The
+[public installer workflow](../.github/workflows/verify-public-install.yml)
+checks the currently published release on Linux automatically and supports
+manual macOS/Windows smoke tests. It does not establish that the prepared 1.0
+artifacts have been published or verified.
+
+Other native combinations need their own verification before a prebuilt
+release is offered. Source SDK constraints do not provision native libraries
+or model weights in a consuming application.
 
 A release records the actual tested SDK and runner/platform results. Local
 macOS results do not stand in for Linux, Windows or the designated independent
