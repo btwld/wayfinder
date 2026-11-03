@@ -4,7 +4,7 @@ import 'knowledge.dart';
 import 'knowledge_files.dart';
 
 /// What a tree row stands for.
-enum KnowledgeTreeNodeKind { folder, group, file }
+enum KnowledgeTreeNodeKind { bundle, folder, group, file }
 
 final class KnowledgeFileTreeNode {
   const KnowledgeFileTreeNode({
@@ -19,24 +19,25 @@ final class KnowledgeFileTreeNode {
     this.attention,
   });
 
-  /// Unique within one projection: `directory:<path>`, `type:<type>` or
+  /// Unique within one projection: `bundle:<path>`, `directory:<path>`,
+  /// `type:<type>` (`type:<bundle>/<type>` under a bundle) or
   /// `file:<path>`.
   final String id;
   final KnowledgeTreeNodeKind kind;
 
-  /// A folder's or file's path relative to the project root; a group's
-  /// name.
+  /// A bundle's, folder's or file's path relative to the project root; a
+  /// group's type, after its bundle's path when there are several bundles.
   final String path;
   final String label;
   final String? parentId;
   final KnowledgeFileEntry? file;
   final List<KnowledgeFileTreeNode> children;
 
-  /// The files below a folder or group.
+  /// The files below a bundle, folder or group.
   final int fileCount;
 
   /// The most severe finding that needs attention in this file, or in any
-  /// file below this folder or group.
+  /// file below this bundle, folder or group.
   final KnowledgeSeverity? attention;
 
   bool get isDirectory => kind != KnowledgeTreeNodeKind.file;
@@ -53,25 +54,52 @@ const knowledgeOtherFilesGroup = 'Other files';
 /// The group of attachments, when they are shown.
 const knowledgeAttachmentsGroup = 'Attachments';
 
-/// The tree of a bundle's files, by folder or by concept type.
+/// The tree of a project's files, by folder or by concept type.
 ///
-/// Files under [rootPrefix] (the bundle's path) sit at the top level, so the
-/// tree does not repeat the bundle the header already names.
+/// With one bundle, its files sit at the top level: the tree does not
+/// repeat the only bundle there is. With several [bundles], each is a
+/// top-level section holding its own folders or types.
 final class KnowledgeFileTreeProjection {
   KnowledgeFileTreeProjection(
     Iterable<KnowledgeFileEntry> entries, {
     this.grouping = KnowledgeTreeGrouping.folders,
-    String rootPrefix = '',
+    List<KnowledgeBundleSummary> bundles = const [],
   }) {
     final byPath = <String, KnowledgeFileEntry>{};
     for (final entry in entries) {
       byPath.putIfAbsent(entry.path, () => entry);
     }
     files = List.unmodifiable(byPath.values);
-    roots = switch (grouping) {
-      KnowledgeTreeGrouping.folders => _folders(rootPrefix),
-      KnowledgeTreeGrouping.types => _types(),
+    List<KnowledgeFileTreeNode> children(
+      Iterable<KnowledgeFileEntry> members, {
+      String rootPrefix = '',
+      String? parentId,
+    }) => switch (grouping) {
+      KnowledgeTreeGrouping.folders => _folders(members, rootPrefix, parentId),
+      KnowledgeTreeGrouping.types => _types(members, parentId),
     };
+    if (bundles.length < 2) {
+      roots = children(files, rootPrefix: bundles.firstOrNull?.path ?? '');
+    } else {
+      final inBundle = {for (final bundle in bundles) bundle.path};
+      roots = List.unmodifiable([
+        for (final bundle in bundles)
+          _parent(
+            KnowledgeTreeNodeKind.bundle,
+            bundleId(bundle.path),
+            bundle.path,
+            bundle.name,
+            null,
+            children(
+              files.where((file) => file.bundle == bundle.path),
+              rootPrefix: bundle.path,
+              parentId: bundleId(bundle.path),
+            ),
+          ),
+        // Files outside every bundle, such as wayfinder.json.
+        ...children(files.where((file) => !inBundle.contains(file.bundle))),
+      ]);
+    }
     void index(List<KnowledgeFileTreeNode> nodes) {
       for (final node in nodes) {
         _byId[node.id] = node;
@@ -98,18 +126,25 @@ final class KnowledgeFileTreeProjection {
   /// The id of the row that shows the folder at [path].
   static String folderId(String path) => 'directory:$path';
 
+  /// The id of the row that shows the bundle at [path].
+  static String bundleId(String path) => 'bundle:$path';
+
   Set<String> get directoryIds => {
     for (final node in byId.values)
       if (node.isDirectory) node.id,
   };
 
-  List<KnowledgeFileTreeNode> _folders(String rootPrefix) {
+  List<KnowledgeFileTreeNode> _folders(
+    Iterable<KnowledgeFileEntry> members,
+    String rootPrefix,
+    String? parentId,
+  ) {
     final prefix = switch (rootPrefix) {
       '' || '.' => '',
       final value => value.endsWith('/') ? value : '$value/',
     };
     final root = _Branch('');
-    for (final file in files) {
+    for (final file in members) {
       final inside = prefix.isNotEmpty && file.path.startsWith(prefix);
       final relative = inside ? file.path.substring(prefix.length) : file.path;
       final segments = relative.split('/');
@@ -123,7 +158,7 @@ final class KnowledgeFileTreeProjection {
       }
       branch.files[segments.last] = file;
     }
-    return _folderChildren(root, null);
+    return _folderChildren(root, parentId);
   }
 
   List<KnowledgeFileTreeNode> _folderChildren(
@@ -158,11 +193,17 @@ final class KnowledgeFileTreeProjection {
     return List.unmodifiable(result);
   }
 
-  List<KnowledgeFileTreeNode> _types() {
+  /// [members] by concept type; under a bundle (a [parentId]), each
+  /// group's path starts with the bundle's.
+  List<KnowledgeFileTreeNode> _types(
+    Iterable<KnowledgeFileEntry> members,
+    String? parentId,
+  ) {
     final byType = <String, List<KnowledgeFileEntry>>{};
     final others = <KnowledgeFileEntry>[];
     final attachments = <KnowledgeFileEntry>[];
-    for (final file in files) {
+    final bundle = parentId?.substring('bundle:'.length);
+    for (final file in members) {
       if (file.isConcept) {
         final type = file.type.trim().isEmpty
             ? knowledgeUntypedGroup
@@ -180,24 +221,24 @@ final class KnowledgeFileTreeProjection {
         if (b == knowledgeUntypedGroup) return -1;
         return a.toLowerCase().compareTo(b.toLowerCase());
       });
-    return List.unmodifiable([
-      for (final type in types) _group(type, byType[type]!),
-      if (others.isNotEmpty) _group(knowledgeOtherFilesGroup, others),
-      if (attachments.isNotEmpty)
-        _group(knowledgeAttachmentsGroup, attachments),
-    ]);
-  }
+    KnowledgeFileTreeNode group(String name, List<KnowledgeFileEntry> files) {
+      final path = bundle == null ? name : '$bundle/$name';
+      final id = 'type:$path';
+      return _parent(
+        KnowledgeTreeNodeKind.group,
+        id,
+        path,
+        name,
+        parentId,
+        _fileNodes(files, id),
+      );
+    }
 
-  KnowledgeFileTreeNode _group(String name, List<KnowledgeFileEntry> members) {
-    final id = 'type:$name';
-    return _parent(
-      KnowledgeTreeNodeKind.group,
-      id,
-      name,
-      name,
-      null,
-      _fileNodes(members, id),
-    );
+    return List.unmodifiable([
+      for (final type in types) group(type, byType[type]!),
+      if (others.isNotEmpty) group(knowledgeOtherFilesGroup, others),
+      if (attachments.isNotEmpty) group(knowledgeAttachmentsGroup, attachments),
+    ]);
   }
 
   static KnowledgeFileTreeNode _parent(
@@ -265,12 +306,10 @@ final class KnowledgeFileTreeProjection {
     }
   }
 
-  /// The rows to show: a folder's or group's children only while
-  /// [isExpanded] says so. With a [query], only files whose label, path,
-  /// type or tags contain it, and the folders and groups that hold them.
-  /// The rows to show. A [query] keeps the files it matches and their
-  /// folders, and always [keep], the open document, so a filter never hides
-  /// what is being read.
+  /// The rows to show: a bundle's, folder's or group's children only while
+  /// [isExpanded] says so. A [query] keeps the files whose label, path,
+  /// type or tags contain it, with what holds them, and always [keep], the
+  /// open document, so a filter never hides what is being read.
   List<KnowledgeFileTreeRow> visible(
     bool Function(String id) isExpanded, {
     String query = '',

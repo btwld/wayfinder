@@ -4,26 +4,33 @@ import 'dart:async';
 
 import 'knowledge_models.dart';
 
-/// The knowledge bundles of one project root, read-only.
+/// The knowledge bundles of one project root, read-only. The project is
+/// the scope: every bundle shows, and search spans them all.
 ///
-/// A [snapshot] sees the files as they are on disk now. [concept] and
-/// [graph] reuse what the last snapshot of their bundle read, so opening a
-/// concept or refocusing the graph reads no more than it must.
+/// A [snapshot] sees the files as they are on disk now. [validation],
+/// [concept] and [graph] reuse what the last snapshot of their bundle read,
+/// so opening a concept or refocusing the graph reads no more than it must.
 abstract interface class KnowledgeProject {
   /// The project's absolute root.
   String get root;
 
-  /// Every bundle, and for [bundle] alone its validation, concepts and
-  /// link graph ([focus] and [depth] as [graph] takes them).
-  /// Without [bundle], or when the project no longer has it, the snapshot
-  /// describes [preferredKnowledgeBundle].
+  /// Every bundle and its concepts, the validations already judged, and the
+  /// link graph of [graphBundle] ([focus] and [depth] as [graph] takes
+  /// them). Without [graphBundle], or when the project no longer has it,
+  /// the graph is [preferredKnowledgeBundle]'s.
   Future<KnowledgeProjectSnapshot> snapshot({
-    String? bundle,
+    String? graphBundle,
     String? focus,
     int depth = 2,
   });
 
-  Future<KnowledgeConcept> concept({String? bundle, required String id});
+  /// How the Profile judges [bundle] as the last snapshot read it.
+  Future<KnowledgeBundleValidation> validation({required String bundle});
+
+  Future<KnowledgeConcept> concept({
+    required String bundle,
+    required String id,
+  });
 
   /// The link graph of [bundle]; with [focus], only the concepts within
   /// [depth] links of it.
@@ -36,21 +43,21 @@ abstract interface class KnowledgeProject {
   /// Whether semantic search is available here.
   bool get canSearch;
 
+  /// Passages of every bundle, ranked together.
   Future<KnowledgeSearchResult> search(
     String query, {
-    String? bundle,
     int limit = 12,
     KnowledgeCancellation? cancel,
   });
 
-  /// Brings the saved search index of [bundle], or every bundle, up to date.
+  /// Brings the saved search index of every bundle up to date.
   Stream<KnowledgeIndexProgress> index({
-    String? bundle,
     bool force = false,
     KnowledgeCancellation? cancel,
   });
 
-  Future<List<KnowledgeBundleIndexStatus>> indexStatus({String? bundle});
+  /// Where the saved search index of each bundle stands.
+  Future<List<KnowledgeBundleIndexStatus>> indexStatus();
 
   /// Forgets what the project read.
   Future<void> close();

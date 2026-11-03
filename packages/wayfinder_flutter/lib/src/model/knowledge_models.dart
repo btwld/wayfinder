@@ -60,18 +60,35 @@ final class KnowledgeBundleSummary {
     required this.name,
     required this.path,
     required this.conceptCount,
+    this.revision = 0,
   });
 
   final String name;
 
-  /// The bundle's path relative to the project root; `.` for the root.
+  /// The bundle's path relative to the project root; never the root itself,
+  /// which Wayfinder refuses as a bundle.
   final String path;
   final int conceptCount;
+
+  /// Which load of the bundle this describes: it changes when the bundle's
+  /// files, binding or lock do, and only then.
+  final int revision;
+
+  @override
+  bool operator ==(Object other) =>
+      other is KnowledgeBundleSummary &&
+      name == other.name &&
+      path == other.path &&
+      conceptCount == other.conceptCount &&
+      revision == other.revision;
+
+  @override
+  int get hashCode => Object.hash(name, path, conceptCount, revision);
 }
 
-/// The bundle a project opens on: the one named `knowledge`, else the one
-/// with the most concepts, the first by path among equals; null when there
-/// is none.
+/// The bundle a project reads first: the one named `knowledge`, else the
+/// one with the most concepts, the first by path among equals; null when
+/// there is none.
 KnowledgeBundleSummary? preferredKnowledgeBundle(
   Iterable<KnowledgeBundleSummary> bundles,
 ) {
@@ -93,21 +110,24 @@ KnowledgeBundleSummary? preferredKnowledgeBundle(
 final class KnowledgeProjectSnapshot {
   const KnowledgeProjectSnapshot({
     this.bundles = const [],
-    this.bundle,
-    this.validation,
+    this.validations = const {},
     this.concepts = const [],
     this.graph,
   });
 
-  /// Every bundle of the project.
+  /// Every bundle of the project, by path.
   final List<KnowledgeBundleSummary> bundles;
 
-  /// The path of the bundle the rest describes; null when there is none.
-  final String? bundle;
+  /// The verdicts already reached for bundles a Profile judges, by bundle
+  /// path. A bundle without a selected Profile is never here: it looks for
+  /// one again through [KnowledgeProject.validation], as does every bundle
+  /// still being judged.
+  final Map<String, KnowledgeBundleValidation> validations;
 
-  /// How the bundle validates; only [bundle] is validated.
-  final KnowledgeBundleValidation? validation;
+  /// The concepts of every bundle.
   final List<KnowledgeConceptSummary> concepts;
+
+  /// The link graph of one bundle, as [KnowledgeProject.snapshot] was asked.
   final KnowledgeGraph? graph;
 }
 
@@ -445,6 +465,15 @@ final class KnowledgeBundleIndexStatus {
   const KnowledgeBundleIndexStatus({required this.bundle, required this.state});
   final String bundle;
   final KnowledgeIndexState state;
+
+  @override
+  bool operator ==(Object other) =>
+      other is KnowledgeBundleIndexStatus &&
+      other.bundle == bundle &&
+      other.state == state;
+
+  @override
+  int get hashCode => Object.hash(bundle, state);
 }
 
 @immutable

@@ -93,7 +93,7 @@ final class KnowledgeFileEntry {
   );
 }
 
-/// How the tree arranges the bundle: its folders on disk, or its concepts
+/// How the tree arranges each bundle: its folders on disk, or its concepts
 /// grouped by type.
 enum KnowledgeTreeGrouping {
   folders('Folders'),
