@@ -28,7 +28,7 @@ An explicit path selects one bundle; otherwise project configuration selects the
 Search needs the local embedding model. There is no model-free fallback. Omit
 retired CLI `--mode` and MCP `mode` fields.
 
-For a known file or exact count, read or enumerate directly. Semantic top-k cannot
+For a known file, read directly. For an exact metadata list or count, use MCP `query` (inline query or saved ID) or `wayfinder query --type <type> --output json`; it reads live concepts without a model/index. Check totals and `has_more`, page through results, and keep counts of whole concepts distinct from records embedded in their bodies. Saved definitions live in the consuming project’s `.wayfinder/queries/`; they do not execute computations or establish attestation. See the runtime [query guide](https://github.com/btwld/wayfinder/blob/main/docs/queries.md). Semantic top-k cannot
 prove completeness or absence. Targeted filename/keyword lookup is also useful
 after discovery. A model or index failure is not evidence that a fact is missing.
 
