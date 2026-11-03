@@ -51,6 +51,8 @@ jobs:
         run: sh tool/test_install_platform.sh
 
   windows:
+    # Paused to limit GitHub Actions usage.
+    if: ${{ false }}
     # Windows PowerShell 5.1 is what a fresh Windows session runs, and it is
     # where the #98 report came from; PowerShell 7 is what a developer machine
     # usually has. The installer has to work in both.
@@ -80,3 +82,4 @@ jobs:
           }
       - name: Test architecture detection
         run: ./tool/test_install_arch.ps1
+

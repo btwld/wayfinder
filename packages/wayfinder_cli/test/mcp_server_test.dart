@@ -2,17 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mcp_dart/mcp_dart.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/testing.dart';
-import 'package:mcp_dart/mcp_dart.dart';
+import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/messages.dart';
-import 'package:test/test.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support.dart';
 
@@ -302,7 +302,7 @@ void main() {
         final tools = (await client.listTools()).tools;
         expect(
           tools.map((tool) => tool.name),
-          unorderedEquals(['validate', 'index', 'search', 'graph']),
+          unorderedEquals(['validate', 'index', 'search', 'graph', 'query']),
         );
         expect(
           tools.singleWhere((t) => t.name == 'index').annotations?.readOnlyHint,
