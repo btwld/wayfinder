@@ -1,3 +1,8 @@
+# Unreleased
+
+- Requires `wayfinder_embeddings` `^0.5.0`. Output and the indexes the
+  command keeps are unchanged.
+
 # 0.4.0
 
 - Add `query` to CLI and MCP for exact concept metadata views and saved project query IDs. JSON/row/group contracts match the core API, disclose totals and pagination, refuse incomplete source reads and open no embedding model or index. Query performs no update check.

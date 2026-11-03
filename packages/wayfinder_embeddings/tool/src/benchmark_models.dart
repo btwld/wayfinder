@@ -10,6 +10,7 @@ const benchmarkModels = <String, EmbeddingModelSpec>{
   'arctic-embed-xs-q8_0': localEmbeddingModel,
   'arctic-embed-s-q8_0': EmbeddingModelSpec(
     id: 'arctic-embed-s-q8_0',
+    displayName: 'Snowflake Arctic Embed S (Q8_0)',
     url:
         'https://huggingface.co/mradermacher/snowflake-arctic-embed-s-GGUF/'
         'resolve/212aceb754d83530ea0e51cb94318d4157c31488/'
@@ -23,6 +24,7 @@ const benchmarkModels = <String, EmbeddingModelSpec>{
   ),
   'arctic-embed-s-q4_k_m': EmbeddingModelSpec(
     id: 'arctic-embed-s-q4_k_m',
+    displayName: 'Snowflake Arctic Embed S (Q4_K_M)',
     url:
         'https://huggingface.co/mradermacher/snowflake-arctic-embed-s-GGUF/'
         'resolve/212aceb754d83530ea0e51cb94318d4157c31488/'
@@ -36,6 +38,7 @@ const benchmarkModels = <String, EmbeddingModelSpec>{
   ),
   'bge-small-en-v1.5-q8_0': EmbeddingModelSpec(
     id: 'bge-small-en-v1.5-q8_0',
+    displayName: 'BGE Small EN v1.5 (Q8_0)',
     url:
         'https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/'
         'resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/'
@@ -49,6 +52,7 @@ const benchmarkModels = <String, EmbeddingModelSpec>{
   ),
   'bge-small-en-v1.5-q4_k_m': EmbeddingModelSpec(
     id: 'bge-small-en-v1.5-q4_k_m',
+    displayName: 'BGE Small EN v1.5 (Q4_K_M)',
     url:
         'https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/'
         'resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/'
