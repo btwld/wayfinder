@@ -85,6 +85,50 @@ void main() {
   });
 
   test(
+    'path targets retain invalid UTF-8 escapes as literal file names',
+    () async {
+      final project = await copyFixture('configured-project');
+      addTearDown(() => project.delete(recursive: true));
+      final bundle = fixtureBundle(project.path);
+      final sample = File(p.join(bundle, 'sample.md'));
+      final original = await sample.readAsString();
+      final selection = await selectFixture(
+        bundle,
+        configPath: p.join(project.path, 'wayfinder.json'),
+      );
+      for (final name in ['%FF sample.json', '%E0%A4 sample.json']) {
+        final target = File(p.join(bundle, name));
+        await target.writeAsString('{}');
+        await sample.writeAsString(
+          original.replaceFirst(
+            'status: stable',
+            'status: stable\nsources:\n  - resource: ./$name',
+          ),
+        );
+        final result = await validator.validate(bundle, selection);
+        expect(
+          result.findings.where(
+            (f) => f.id == 'bitwild-profile/source-path-unresolved',
+          ),
+          isEmpty,
+        );
+        expect(
+          result.diagnostics.where((d) => d.level == DiagnosticLevel.error),
+          isEmpty,
+        );
+        await target.delete();
+        final missing = await validator.validate(bundle, selection);
+        expect(
+          missing.findings.where(
+            (f) => f.id == 'bitwild-profile/source-path-unresolved',
+          ),
+          hasLength(1),
+        );
+      }
+    },
+  );
+
+  test(
     'validateLoaded resolves bundle-internal directory targets and rejects '
     'slash-prefixed parent escapes, %2F segments, and nested fenced footnotes',
     () async {
