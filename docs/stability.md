@@ -8,12 +8,36 @@ decide whether a candidate can ship.
 
 ## Supported surfaces
 
-| Package | Public surface |
-| --- | --- |
-| `wayfinder` | [`wayfinder.dart`](../packages/wayfinder/lib/wayfinder.dart), [`project.dart`](../packages/wayfinder/lib/project.dart), [`adoption.dart`](../packages/wayfinder/lib/adoption.dart), and [`authoring.dart`](../packages/wayfinder/lib/authoring.dart), including their exported types, failure codes, cancellation and host-injection seams. The Git and file-lock helpers exported by `project.dart` are included. |
-| `wayfinder_embeddings` | [`wayfinder_embeddings.dart`](../packages/wayfinder_embeddings/lib/wayfinder_embeddings.dart), [`okf_knowledge.dart`](../packages/wayfinder_embeddings/lib/okf_knowledge.dart), [`knowledge_store.dart`](../packages/wayfinder_embeddings/lib/knowledge_store.dart), [`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart). Custom chunker, encoder, searcher and storage extension points are included. |
-| `wayfinder_dart_chunker` | [`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart): `DartChunker` and `defaultCodeRegistry`. |
-| `wayfinder_cli` | The documented `wayfinder` commands, options, exit meanings, JSON/SARIF output, MCP tool names and input/output contracts, installer settings and update behavior in the [CLI guide](../packages/wayfinder_cli/README.md) and [installation guide](install.md). This package has no public Dart library entry point. |
+### Core (`wayfinder`)
+
+[`wayfinder.dart`](../packages/wayfinder/lib/wayfinder.dart),
+[`project.dart`](../packages/wayfinder/lib/project.dart),
+[`adoption.dart`](../packages/wayfinder/lib/adoption.dart), and
+[`authoring.dart`](../packages/wayfinder/lib/authoring.dart), including their
+exported types, failure codes, cancellation and host-injection seams. The Git
+and file-lock helpers exported by `project.dart` are included.
+
+### Retrieval (`wayfinder_embeddings`)
+
+[`wayfinder_embeddings.dart`](../packages/wayfinder_embeddings/lib/wayfinder_embeddings.dart),
+[`okf_knowledge.dart`](../packages/wayfinder_embeddings/lib/okf_knowledge.dart),
+[`knowledge_store.dart`](../packages/wayfinder_embeddings/lib/knowledge_store.dart),
+[`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and
+test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart).
+Custom chunker, encoder, searcher and storage extension points are included.
+
+### Dart chunker (`wayfinder_dart_chunker`)
+
+[`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart):
+`DartChunker` and `defaultCodeRegistry`.
+
+### Application (`wayfinder_cli`)
+
+The documented `wayfinder` commands, options, exit meanings, JSON/SARIF output,
+MCP tool names and input/output contracts, installer settings and update
+behavior in the [CLI guide](../packages/wayfinder_cli/README.md) and
+[installation guide](install.md). This package has no public Dart library
+entry point.
 
 Imports under `lib/src`, generated ObjectBox bindings, build/evaluation scripts,
 and the illustrative examples are not additional supported Dart entry points.
