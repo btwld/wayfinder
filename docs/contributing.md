@@ -67,9 +67,12 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all four packages. For docs/skills, also check
-local links and compare changed wording with its authoritative source. Report
-what ran; validation checks conformance, not the judgment a skill asks for.
+`dart run melos run lint` checks all four workspace packages. For docs/skills,
+also check local links and compare changed wording with its authoritative source.
+Report what ran; validation checks conformance, not the judgment a skill asks for.
+
+`packages/wayfinder_flutter` is outside the workspace and needs Flutter. Its
+[README](../packages/wayfinder_flutter/README.md#development) lists its checks.
 
 ## Schemas and Profile packages
 

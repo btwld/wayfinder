@@ -109,3 +109,10 @@ Date: 2026-10-24.
 Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
+
+## Flutter reader SDK outside the Dart workspace
+
+Date: 2026-11-03.
+
+Keep Flutter reader models and widgets in `packages/wayfinder_flutter`, free of any design kit, so desktop and phone readers share one implementation while hosts keep sign-in, storage, navigation and chrome.
+The package stays out of the pub workspace and root analysis so that CLI and library contributors need no Flutter SDK; the cost is a separate workflow and dependency resolution for it.

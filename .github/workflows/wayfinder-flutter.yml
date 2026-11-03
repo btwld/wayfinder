@@ -1,0 +1,44 @@
+name: Wayfinder Flutter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/wayfinder_flutter/**
+      - .github/workflows/wayfinder-flutter.yml
+  pull_request:
+    paths:
+      - packages/wayfinder_flutter/**
+      - .github/workflows/wayfinder-flutter.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter: ["3.47.5", any]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/wayfinder_flutter
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ matrix.flutter }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # dart format's output depends on the version; stable defines the style.
+      - if: matrix.flutter == 'any'
+        run: dart format --output=none --set-exit-if-changed .
+      - run: flutter analyze --fatal-infos
+      - run: flutter test
