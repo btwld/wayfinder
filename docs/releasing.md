@@ -14,10 +14,11 @@ The public repository is `btwld/wayfinder`. All Dart packages use the
 
 The application retains `wayfinder-v` tags and native archive names for installer
 compatibility. The core uses a distinct tag namespace so independent library
-releases cannot collide with application releases. A Profile package releases on
-its own cadence: bump `"release"` in its `wayfinder-profile.json`, snapshot the
-superseded package under `versions/`, and tag `bitwild-profile-v<release>`.
-Never move an existing Profile tag or edit a snapshot.
+releases cannot collide with application releases. Each Profile owns its release
+process, tag names and any snapshot layout; follow that package's policy and
+record compatibility and migration changes with its `"release"` value. Never
+move a published Profile tag or edit an immutable snapshot. For Bitwild, follow
+the [Profile change checklist](contributing.md#profile-changes).
 
 ## Prepare a release
 
