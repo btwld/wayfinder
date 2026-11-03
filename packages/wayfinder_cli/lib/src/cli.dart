@@ -142,7 +142,7 @@ class WayfinderCli {
     if (_notices &&
         command != null &&
         !command.startsWith('-') &&
-        !{'mcp', 'update', 'session-context'}.contains(command)) {
+        !{'mcp', 'query', 'update', 'session-context'}.contains(command)) {
       await _notifyNewerRelease();
     }
     return code;
@@ -258,6 +258,29 @@ class WayfinderCli {
       }
       parser.addCommand(name, command);
     }
+    final queryCommand = ArgParser()
+      ..addFlag('help', abbr: 'h', negatable: false)
+      ..addOption('output', allowed: ['text', 'json'], defaultsTo: 'text')
+      ..addOption('bundle')
+      ..addOption('saved')
+      ..addOption('limit', defaultsTo: '100')
+      ..addOption('offset', defaultsTo: '0')
+      ..addMultiOption('select')
+      ..addMultiOption('order-by', help: 'field[:asc|desc], repeatable.')
+      ..addOption('group-by', allowed: ['type', 'effective_status']);
+    for (final flag in [
+      'type',
+      'tag',
+      'require-tag',
+      'status',
+      'path-prefix',
+    ]) {
+      queryCommand.addMultiOption(flag);
+    }
+    queryCommand
+      ..addOption('title-contains')
+      ..addOption('description-contains');
+    parser.addCommand('query', queryCommand);
     parser.addCommand(
       'graph',
       ArgParser()
@@ -377,6 +400,7 @@ class WayfinderCli {
           'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the selected Profile\n'
           '  index [<bundle>]          Update saved local embeddings for changes\n'
+          '  query [<bundle>]        Query concept metadata or a saved view\n'
           '  search [<bundle>] <query> Search project bundles or an explicit path\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
           '  get [<project>]            Resolve Profile sources and install their skills\n'
@@ -394,7 +418,7 @@ class WayfinderCli {
       if (command == null || options.rest.isNotEmpty) {
         throw const WayfinderException(
           'usage',
-          'Choose validate, index, search, graph, get, upgrade, mcp, skills, setup or '
+          'Choose validate, index, search, query, graph, get, upgrade, mcp, skills, setup or '
               'update. Run wayfinder --help.',
         );
       }
@@ -541,9 +565,13 @@ class WayfinderCli {
       }
       if (command.flag('help')) {
         _out(
-          'Usage: wayfinder $name ${{'search', 'index', 'mcp'}.contains(name) ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
+          'Usage: wayfinder $name ${{'search', 'index', 'mcp', 'query'}.contains(name) ? '[<bundle>]' : '<bundle>'}${name == 'search' ? ' <query>' : ''} [options]\n\n${parser.commands[name]!.usage}',
         );
         return 0;
+      }
+      if (name == 'query') {
+        structuredOutput = command.option('output') == 'json' ? 'json' : null;
+        return await _query(command);
       }
       if (name == 'search') {
         return await _search(command);
@@ -715,6 +743,12 @@ class WayfinderCli {
           )
           ? 'Search uses dense retrieval only. Remove the retired --mode option.'
           : error.message;
+    } on WayfinderQueryRefused catch (error) {
+      if (structuredOutput == 'json') {
+        _json({'error': error.code, 'report': error.report.toJson()});
+      }
+      _err(_safe(error.message));
+      return 1;
     } on WayfinderException catch (error) {
       message = commandMessage(error, indexing: indexing);
     } on FileSystemException catch (error) {
@@ -736,6 +770,102 @@ class WayfinderCli {
         _json(internalErrorSarif(message, toolVersion: wayfinderVersion));
     }
     return 2;
+  }
+
+  Future<int> _query(ArgResults command) async {
+    if (command.rest.length > 1) {
+      throw const WayfinderException(
+        'usage',
+        'query accepts at most one bundle path.',
+      );
+    }
+    final inlineFlags = [
+      'type',
+      'tag',
+      'require-tag',
+      'status',
+      'path-prefix',
+      'title-contains',
+      'description-contains',
+      'select',
+      'order-by',
+      'group-by',
+    ];
+    if (command.option('saved') != null && inlineFlags.any(command.wasParsed)) {
+      throw const WayfinderException(
+        'query-invalid',
+        'Saved queries cannot be combined with inline filters, columns or ordering.',
+      );
+    }
+    final where = <String, Object?>{};
+    for (final entry in {
+      'type': 'types',
+      'tag': 'tags',
+      'require-tag': 'required_tags',
+      'status': 'statuses',
+      'path-prefix': 'path_prefixes',
+    }.entries) {
+      if (command.wasParsed(entry.key)) {
+        where[entry.value] = command.multiOption(entry.key);
+      }
+    }
+    for (final flag in ['title-contains', 'description-contains']) {
+      if (command.wasParsed(flag)) {
+        where[flag.replaceAll('-', '_')] = command.option(flag);
+      }
+    }
+    final query = <String, Object?>{
+      'where': where,
+      if (command.wasParsed('select')) 'select': command.multiOption('select'),
+      if (command.wasParsed('order-by'))
+        'order_by': [
+          for (final raw in command.multiOption('order-by')) _queryOrder(raw),
+        ],
+      if (command.wasParsed('group-by')) 'group_by': command.option('group-by'),
+    };
+    final bundles = await discoverWayfinderQueryBundles(
+      _workingDirectory,
+      explicitPath: command.rest.firstOrNull,
+      bundleName: command.option('bundle'),
+    );
+    final saved = command.option('saved');
+    final selected = saved != null
+        ? await loadWayfinderSavedQuery(_workingDirectory, bundles, saved)
+        : WayfinderQuery.fromJson(query);
+    final limit = int.tryParse(command.option('limit')!);
+    final offset = int.tryParse(command.option('offset')!);
+    if (limit == null || offset == null) {
+      throw const WayfinderException(
+        'query-invalid',
+        'limit and offset must be integers.',
+      );
+    }
+    final result = await queryWayfinderBundles(
+      bundles,
+      selected,
+      offset: offset,
+      limit: limit,
+    );
+    if (command.option('output') == 'json') {
+      _json(result.toJson());
+    } else {
+      _out(result.toText());
+    }
+    return 0;
+  }
+
+  Map<String, Object?> _queryOrder(String raw) {
+    final parts = raw.split(':');
+    if (parts.length > 2) {
+      throw const WayfinderException(
+        'query-invalid',
+        'Order is field[:asc|desc].',
+      );
+    }
+    return {
+      'field': parts.first,
+      'direction': parts.length == 2 ? parts.last : 'asc',
+    };
   }
 
   Future<int> _search(ArgResults command) async {
