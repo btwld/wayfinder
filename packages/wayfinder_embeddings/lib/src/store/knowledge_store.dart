@@ -905,7 +905,6 @@ class WayfinderKnowledgeStore {
       if (acquiring && _mayHaveFailedEncoder(error)) {
         _cachedSavedIndexes.clear();
         if (held case final used?) _evict(used);
-        if (_retained case final retained?) _evict(retained);
       }
       rethrow;
     } finally {

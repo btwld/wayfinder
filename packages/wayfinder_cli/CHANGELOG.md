@@ -11,7 +11,9 @@
   not silently evaluated with different facts. OKF graph, index and search
   remain independent of Profile selection.
 - Setup removes only Wayfinder's legacy Stop-hook handlers, preserving
-  unrelated handlers and metadata in the same group.
+  unrelated handlers and metadata in the same group. Commands that merely
+  mention `wayfinder index`, similarly named executables/subcommands, and
+  non-command handlers are preserved.
 - Correct the model lookup order in the ADR record to match the implementation,
   tests and user documentation; no lookup behavior changes (ADR-0028).
 - The Windows public-install verifier restores the user's registry PATH after
