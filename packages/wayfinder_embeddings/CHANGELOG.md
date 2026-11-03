@@ -1,5 +1,8 @@
 # 1.0.0 (unreleased)
 
+- Evict only the encoder used by a failed operation. A late failure after
+  `releaseEncoder()` no longer disposes a healthy replacement opened by
+  another operation.
 - Prepare the first stable retrieval-library release, with the public
   compatibility and support boundaries in [the stability contract](../../docs/stability.md).
 - Ingestion refuses an explicit chunk ID reused for different text within one

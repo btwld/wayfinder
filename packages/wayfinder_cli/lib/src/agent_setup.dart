@@ -411,9 +411,7 @@ class AgentSetup {
         final handlers = group['hooks'] as List;
         final remainingHandlers = [
           for (final entry in handlers)
-            if (!(entry is Map &&
-                '${entry['command']}'.contains('wayfinder index')))
-              entry,
+            if (!_isLegacyIndexHook(entry)) entry,
         ];
         if (remainingHandlers.length == handlers.length) {
           kept.add(group);
@@ -438,6 +436,18 @@ class AgentSetup {
       );
     }
   }
+
+  /// Only commands emitted by the old Stop-hook installer belong to us;
+  /// mentioning an index command in another handler does not make it ours.
+  static bool _isLegacyIndexHook(Object? entry) => switch (entry) {
+    {'type': 'command', 'command': final String command} => const [
+      'wayfinder index ',
+      'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index ',
+      'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
+          'wayfinder index ',
+    ].any(command.startsWith),
+    _ => false,
+  };
 
   /// Points this clone at .githooks unless another hooks path is configured.
   Future<void> _enableGitHooks(String project) async {

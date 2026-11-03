@@ -1,5 +1,7 @@
 # 1.0.0 (unreleased)
 
+- Preserve literal filenames with invalid UTF-8 percent escapes when checking
+  source paths, instead of letting URI decoding crash validation.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
 

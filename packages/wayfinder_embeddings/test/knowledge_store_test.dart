@@ -316,6 +316,51 @@ void main() {
       },
     );
 
+    test(
+      'a failing released encoder leaves its healthy replacement retained',
+      () async {
+        await knowledge.index(bundle);
+        final shared = store(retainEncoder: true);
+        final entered = Completer<void>();
+        final fail = Completer<void>();
+        try {
+          await shared.searchBundle(bundle, 'password');
+          final old = encoders.last;
+          old.beforeQuery = (_) async {
+            entered.complete();
+            await fail.future;
+            throw StateError('Late inference failure');
+          };
+          final failure = expectLater(
+            shared.searchBundle(bundle, 'password'),
+            throwsStateError,
+          );
+          await entered.future;
+          final releasing = shared.releaseEncoder();
+          expect(
+            (await shared.searchBundle(bundle, 'weather')).matches,
+            isNotEmpty,
+          );
+          final replacement = encoders.last;
+          expect(replacement, isNot(same(old)));
+          final opened = encoders.length;
+          fail.complete();
+          await Future.wait([failure, releasing]);
+          expect(old.isDisposed, isTrue);
+          expect(replacement.isDisposed, isFalse);
+          expect(
+            (await shared.searchBundle(bundle, 'password')).matches,
+            isNotEmpty,
+          );
+          expect(encoders.length, opened);
+          expect(encoders.last, same(replacement));
+        } finally {
+          if (!fail.isCompleted) fail.complete();
+          await shared.dispose();
+        }
+      },
+    );
+
     test('a cancelled search stops before it encodes or scores and at the '
         'next bundle, names no bundle, and keeps a retained encoder and its '
         'parsed snapshots', () async {
