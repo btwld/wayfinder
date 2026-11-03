@@ -19,8 +19,9 @@ final class KnowledgeSearchFreshness {
   final bool refreshing;
 
   /// Bundle-relative paths added, removed or edited after the served
-  /// generation was built; empty unless a stale generation was served while
-  /// [refreshing].
+  /// generation was built; empty unless a stale generation was served, as
+  /// `StaleIndexPolicy.serveWhileRefreshing` does while [refreshing] and
+  /// `StaleIndexPolicy.serve` does at any time.
   final Set<String> changedPaths;
 }
 
@@ -93,7 +94,7 @@ final class KnowledgeCitation {
 
   /// The passage's file changed after the served index was built, so the
   /// cited lines may no longer hold this text. Only a search that served a
-  /// stale generation during a refresh sets it.
+  /// stale generation sets it.
   final bool sourceChanged;
 
   String get sourcePath => chunk.sourcePath;

@@ -109,3 +109,11 @@ Date: 2026-10-24.
 Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
+
+## Portable and resumable index generations
+
+Date: 2026-11-03.
+
+A host whose folders move names a bundle with `ProjectBundle.identity`, which replaces the root in the index's key and the snapshot's `bundleId`; nothing changes without one, and `prune` and `forgetProjectRoot`, which find indexes by their recorded root, leave these to `forget`.
+A run that does not publish keeps its finished batches in `embeddings.partial`, a flushed, checksummed log keyed by input hash, so the next run embeds only what remains and publishes the same bytes, at the cost of a cancelled run no longer leaving the directory untouched; publication stays atomic and readers never read the log.
+`StaleIndexPolicy.serve` serves the last generation with no refresh running, for manual refresh and offline use, which relaxes "refuses stale snapshots outside refresh" for a caller who asks and is told what changed; it is an enum value because it has to land before the 1.0 compatibility contract, which treats a new value as breaking.

@@ -376,6 +376,10 @@ once in a directory of its own.
   defaulting to `~/.local/share/wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
 - Windows: `%LOCALAPPDATA%/Wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
 
+An interrupted `wayfinder index` keeps the passages it finished in
+`embeddings.partial` in the index directory, and the next run continues from
+them; a run that completes deletes the file.
+
 An index directory holds `writer.lock`, a `current` pointer and immutable
 generations, `generation-<id>/` with `snapshot.json` (the indexed bundle text,
 passages, metadata and the record of the vectors) and `vectors.f32` (a header,

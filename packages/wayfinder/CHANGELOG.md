@@ -1,3 +1,10 @@
+# 0.4.1 (unreleased)
+
+- New `ProjectBundle.identity`, a name a host gives a bundle so that
+  `wayfinder_embeddings` keys its saved index by that name instead of the
+  bundle's root, and the index survives the folder moving. It is optional and
+  not part of `toJson`; nothing in this package reads it.
+
 # 0.4.0
 
 - Add model-free, live structured concept queries, scoped saved query IDs, sorting, pagination and grouped counts through `project.dart`. Share the existing metadata predicate with retrieval while preserving its public import paths. No Profile-format or OKF migration.

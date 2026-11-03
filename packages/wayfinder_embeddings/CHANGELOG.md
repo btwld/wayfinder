@@ -1,3 +1,32 @@
+# 0.5.0 (unreleased)
+
+- A bundle's index can outlive its folder. With the new
+  `ProjectBundle.identity`, `WayfinderKnowledgeStore` keys the index by that
+  name instead of the canonical root and records it as the snapshot's
+  `bundleId`, so a host whose folders move, such as an iOS app whose container
+  path changes when it is updated, keeps its index without a re-embed. `prune`
+  and `forgetProjectRoot` leave such an index whatever happened to the root it
+  last recorded; `forget` finds it by its identity. A bundle without an
+  identity keeps its key, its note and its index exactly as before.
+- **BREAKING:** `index` keeps the vectors of the batches a run finished. A run
+  that is cancelled, fails or is killed used to throw its work away, so a
+  phone interrupted at passage 11,000 started over; it now leaves
+  `embeddings.partial` in the index directory, and the next run embeds only
+  what remains, reusing a vector only for an identical input, and publishes
+  the same bytes as a run nothing interrupted. A run that publishes, and one
+  that finds its index current, deletes the file, and `force` starts without
+  it. A cancelled run still publishes nothing, but no longer leaves the index
+  directory byte-identical. `embeddedChunks` counts what the run encoded, and
+  `IndexProgress` counts reused vectors as completed, so its bar shows the
+  whole.
+- **BREAKING:** new `StaleIndexPolicy.serve`, which serves the last published
+  generation with no refresh running, for a host that refreshes on its own
+  schedule or cannot refresh now, with a `source-changed` notice and
+  `KnowledgeCitation.sourceChanged` for files edited since. A missing or
+  incompatible index is still refused. A `switch` over `StaleIndexPolicy` must
+  handle the new value.
+- Requires `wayfinder` `^0.4.1`.
+
 # 0.4.0
 
 - Re-export the shared core `KnowledgeMetadataFilter` through existing public imports; eligibility semantics and search signatures remain unchanged.

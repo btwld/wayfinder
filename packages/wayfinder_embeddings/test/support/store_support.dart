@@ -21,6 +21,27 @@ Future<ProjectBundle> copyStoreBundle(
   return bundleAt(directory.path);
 }
 
+/// Adds [concepts] one-passage concepts to [bundle], `concept-<i>.md`, each
+/// body naming its own file, so an index run has more than one batch.
+Future<void> addConcepts(ProjectBundle bundle, int concepts) async {
+  for (var i = 0; i < concepts; i++) {
+    await File(p.join(bundle.root, 'concept-$i.md')).writeAsString(
+      '---\ntitle: Concept $i\ntype: reference\nstatus: stable\n---\n'
+      '# Concept $i\n\nThe body of concept-$i.\n',
+    );
+  }
+}
+
+/// The one index directory under the data directory [data].
+Directory soleIndex(Directory data) {
+  final bundles = Directory(p.join(data.path, 'indexes', 'bundles'));
+  return bundles
+      .listSync()
+      .whereType<Directory>()
+      .expand((bundle) => bundle.listSync().whereType<Directory>())
+      .single;
+}
+
 /// The project bundle at [path], named after its folder.
 ProjectBundle bundleAt(String path) => ProjectBundle(
   p.basename(path),

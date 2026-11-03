@@ -1,3 +1,11 @@
+# Unreleased
+
+- An interrupted `index` now continues where it stopped: the next run embeds
+  only what remains, with the same result as an uninterrupted run. Until then
+  the index directory holds `embeddings.partial`, which a run that completes
+  deletes. Output and the indexes the command keeps are otherwise unchanged.
+- Requires `wayfinder` `^0.4.1` and `wayfinder_embeddings` `^0.5.0`.
+
 # 0.4.0
 
 - Add `query` to CLI and MCP for exact concept metadata views and saved project query IDs. JSON/row/group contracts match the core API, disclose totals and pagination, refuse incomplete source reads and open no embedding model or index. Query performs no update check.

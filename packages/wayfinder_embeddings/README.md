@@ -115,14 +115,21 @@ try {
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
   index, reports `IndexProgress` (`scanning`, `loading` from before the
   encoder opens, `embedding` with counts, `publishing`) and checks its
-  `WayfinderCancellation` between steps and batches; a cancelled run writes
-  nothing and leaves the current generation. `search` ranks a project's
+  `WayfinderCancellation` between steps and batches; a cancelled run publishes
+  nothing and leaves the current generation. A run that does not publish,
+  whether cancelled, failed or killed, keeps its finished batches in
+  `embeddings.partial` in the index directory, so the next run embeds only
+  what remains; a run that publishes, and one that finds its index current,
+  deletes the file, and `force` starts without it. `search` ranks a project's
   bundles together under one limit; `searchBundle` searches one bundle with
   its own context policy. Both take a `StaleIndexPolicy`: `refuse`, the
   default, refuses a stale index; `serveWhileRefreshing` serves the last
   published generation while another operation indexes the bundle, with a
   `refresh-in-progress` notice, and for files edited since, a
-  `source-changed` notice and `KnowledgeCitation.sourceChanged`. Both also
+  `source-changed` notice and `KnowledgeCitation.sourceChanged`; `serve` does
+  the same with no refresh running, for a host that refreshes on its own
+  schedule or cannot refresh now, and adds the refresh notice only while one
+  runs. A missing or incompatible index is refused either way. Both also
   take a `WayfinderCancellation`, checked before each bundle, before the
   encoder opens and the query is encoded, and before the passages are
   scored; a cancelled search throws `cancelled`. `status` reports
@@ -167,7 +174,8 @@ try {
   `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
   `bundle-changed`, `model-missing`, `model-invalid`, `cancelled` and
   `closed`. `index-busy` comes from a second writer, and from a
-  `serveWhileRefreshing` search while a bundle's first index is being built.
+  `serveWhileRefreshing` or `serve` search while a bundle's first index is
+  being built.
   Messages name no command; the host says how to index.
 - **Tool inputs.** `wayfinderSearchInput` and `knowledgeMetadataFilterInput`
   are the Ack schemas of a host's search tool and its frontmatter filters;
@@ -175,12 +183,19 @@ try {
 - **Layout.** Each index lives in
   `indexes/bundles/<bundle key>/<configuration key>/` under the data
   directory. The bundle key hashes the canonical root, so worktrees and copies
-  index separately; the configuration key hashes the chunking, snapshot and
+  index separately. A host whose folders move, such as an iOS app whose
+  container path changes when it is updated, gives the bundle an identity,
+  `ProjectBundle('docs', 'docs', root, identity: 'github:acme/docs')`, and the
+  key hashes that instead, so the index stays with the bundle; `prune` and
+  `forgetProjectRoot` then leave it, whatever became of the root it last
+  recorded, and `forget` deletes it. Bundles that share an identity share one
+  index. The configuration key hashes the chunking, snapshot and
   storage configuration and the llama.cpp release `wayfinderLlamaCppRuntime`
   names with the encoder identity, so another model, chunker, format or
   runtime release never reads or replaces an index ([what a host
   checks](#local-model-and-builds)). The directory holds
-  `writer.lock`, a `current` pointer, and immutable generations,
+  `writer.lock`, a `current` pointer, after a run that did not finish
+  `embeddings.partial`, and immutable generations,
   `generation-<id>/{snapshot.json, vectors.f32}`: the record, and a header
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per

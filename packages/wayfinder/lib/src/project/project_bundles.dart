@@ -8,11 +8,20 @@ import 'exception.dart';
 /// A configured bundle: its folder [name], its project-relative [path], which
 /// prefixes citations, and its canonical [root].
 final class ProjectBundle {
-  const ProjectBundle(this.name, this.path, this.root);
+  const ProjectBundle(this.name, this.path, this.root, {this.identity});
 
   final String name;
   final String path;
   final String root;
+
+  /// What the bundle's saved index is keyed by instead of [root], for a host
+  /// whose folders move, such as an iOS app whose container path changes when
+  /// it is updated. Null, as for every bundle a project configures, keys the
+  /// index by [root].
+  ///
+  /// It must not be blank and must name one bundle: bundles that share an
+  /// identity share one index. It is not part of [toJson].
+  final String? identity;
 
   Map<String, String> toJson() => {'name': name, 'path': path};
 }
