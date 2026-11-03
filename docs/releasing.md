@@ -179,11 +179,12 @@ dependent jobs. A failed job can be retried without republishing packages or
 replacing release assets. Reruns verify existing
 release bytes and refuse to overwrite mismatches. The installer verification
 job uses local scripts with `WAYFINDER_VERSION`, so it exercises exactly the new
-version. **Verify public Wayfinder installation** currently runs on Linux for
-installer changes to `main` and weekly, against the published release.
-Windows verification under PowerShell 7 and Windows PowerShell 5.1 is paused.
-Windows/Linux validation and external credentials cannot be inferred from local
-macOS results.
+version. **Verify public Wayfinder installation** runs on Ubuntu for installer
+changes and weekly. Before distributing a new native release, use the native
+build and installer checks for each target platform. Dispatch **Verify public
+Wayfinder installation** with the macOS or Windows runner to smoke-test the
+published archives on those platforms. The **Installer scripts** workflow
+checks Windows PowerShell 5.1 and PowerShell 7 on installer pull requests.
 
 ## Partial recovery
 
