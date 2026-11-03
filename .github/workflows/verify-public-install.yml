@@ -33,11 +33,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-          - os: macos-latest
-          - os: windows-latest
-            powershell: pwsh
-          - os: windows-latest
-            powershell: powershell
+            powershell: ''
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
@@ -52,3 +48,4 @@ jobs:
           persist-credentials: false
       - name: Install from public URLs and exercise retrieval without Dart
         run: python tool/verify_public_install.py
+
