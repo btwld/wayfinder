@@ -114,5 +114,7 @@ String _decodeSegment(String segment) {
     return Uri.decodeComponent(segment);
   } on ArgumentError {
     return segment;
+  } on FormatException {
+    return segment;
   }
 }
