@@ -58,7 +58,9 @@ import 'package:path/path.dart' as p;
         ? (missing: false, bundlePath: relative)
         : missing;
   }
-  if (target.startsWith('/') || rootPath == null) return missing;
+  if (target.startsWith('/')) return missing;
+  // An in-memory caller cannot inspect a relative path outside its inventory.
+  if (rootPath == null) return notPath;
   try {
     return (
       missing:
