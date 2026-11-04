@@ -53,7 +53,6 @@ class WayfinderCli {
        _agentSetup = agentSetup ?? ((out) => AgentSetup(out: out)),
        _updaterFactory = updater,
        _profileResolverFactory = profileResolver,
-       _workingDirectoryOverride = workingDirectory,
        _workingDirectory = workingDirectory ?? Directory.current,
        _releases = releases ?? _noticeReleases,
        _notices = notices ?? _interactive();
@@ -66,7 +65,6 @@ class WayfinderCli {
   final Updater Function(void Function(String) out)? _updaterFactory;
   final ReleaseChecker Function() _releases;
   final WayfinderProfileResolver Function()? _profileResolverFactory;
-  final Directory? _workingDirectoryOverride;
   final Directory _workingDirectory;
   final bool _notices;
   final Future<void> Function(List<String> arguments) _spawnDetached;
@@ -965,10 +963,9 @@ class WayfinderCli {
     return 0;
   }
 
-  String _resolvePath(String path) =>
-      p.isAbsolute(path) || _workingDirectoryOverride == null
+  String _resolvePath(String path) => p.isAbsolute(path)
       ? path
-      : p.join(_workingDirectory.path, path);
+      : p.normalize(p.join(_workingDirectory.path, path));
 
   /// A bundle named by its path on the command line.
   ProjectBundle _explicitBundle(String path) =>
