@@ -1,13 +1,27 @@
 # 1.0.0 (unreleased)
 
-- Evict only the encoder used by a failed operation. A late failure after
+- Share core path resolution for `unresolved-source` and Markdown citations.
+  Invalid root escapes, encoded separators, backslashes and malformed escapes
+  now report even without whitespace. In-bundle files and implied directories
+  use the snapshot; only relative external paths consult disk. Missing paths
+  retain their raw citation label instead of displaying a resolved prefix.
+  This supersedes the 0.4.0 `/../` behavior; fix malformed citations and encode
+  literal percent signs as `%25`.
+- Freshness uses the loader's UTF-8/BOM decoding. Invalid UTF-8 reports
+  `OkfBundleLoadException` rather than a stale index that reindexing cannot fix.
+- Evict only an encoder whose own token-count or embedding call threw. A late failure after
   `releaseEncoder()` no longer disposes a healthy replacement opened by
   another operation.
 - Prepare the first stable retrieval-library release, with the public
   compatibility and support boundaries in [the stability contract](../../docs/stability.md).
 - Ingestion refuses an explicit chunk ID reused for different text within one
   call, including across files, instead of silently dropping the later chunk.
-  Identical duplicates retain their existing deduplication behavior.
+  Validate identities before writes using digests and a temporary disk spool,
+  retaining at most one file and write batch of text in memory. File-progress
+  callbacks report chunking before embedding starts. Metadata-only duplicates
+  persist their final metadata once per ID per batch without re-embedding.
+  Encoder/store failures can leave earlier batches committed: atomicity is
+  per store batch, not per ingestion call.
 - Parse native-runtime override keys as YAML, including flow mappings, so a
   different layout cannot bypass the reviewed llama.cpp pin at bundle build.
 - Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.

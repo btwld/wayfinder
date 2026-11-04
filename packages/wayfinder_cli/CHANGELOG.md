@@ -1,5 +1,9 @@
 # 1.0.0 (unreleased)
 
+- Resolve relative paths against the CLI working directory in production and
+  embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
+  commands; only the two historical generated `cd ... &&` forms are removed.
+
 - Prepare the first stable CLI/MCP release. The public compatibility and
   support boundaries are recorded in [the stability contract](../../docs/stability.md).
 - Resolve explicit MCP bundle paths and detached indexing against the CLI's
