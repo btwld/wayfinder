@@ -72,15 +72,9 @@ final class SourceSpec {
   factory SourceSpec.fromJson(Map<String, dynamic> json) => SourceSpec(
     id: _string(json, 'id'),
     repository: _string(json, 'repository'),
-    ref:
-        _optionalString(json, 'ref') ??
-        _optionalString(json, 'discovery_ref') ??
-        'main',
+    ref: _optionalString(json, 'ref') ?? 'main',
     adapter: _string(json, 'adapter'),
-    paths: _stringList(
-      json['paths'] ?? json['selected_paths'],
-      json['paths'] == null ? 'selected_paths' : 'paths',
-    ),
+    paths: _stringList(json['paths'], 'paths'),
     enabled: _optionalBool(json, 'enabled') ?? true,
     licenseEvidence: _optionalString(json, 'license_evidence'),
   );
