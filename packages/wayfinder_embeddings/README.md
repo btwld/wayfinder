@@ -528,9 +528,10 @@ The prepare step downloads the model once per machine through
 [`EmbeddingModelCache`](#provision-the-model-from-an-application), from an
 immutable revision, into the cache's default directory in the Wayfinder data
 directory, and verifies its size and SHA-256. It then stages a verified copy as
-`models/embedding.gguf` with a manifest; weights stay out of Git. A model that
-an earlier release downloaded into llamadart's shared cache is copied from
-there instead, and stays where it is. `objectbox:install` verifies its pinned
+`models/embedding.gguf` with a manifest, the spec's `toMap()`: its `id`,
+`displayName`, source, size, SHA-256, preprocessing and license. Weights stay
+out of Git. A model that an earlier release downloaded into llamadart's shared
+cache is copied from there instead, and stays where it is. `objectbox:install` verifies its pinned
 release archive the same way, so every native asset a bundle ships is checked
 against a recorded hash. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
@@ -597,8 +598,9 @@ directory of your choice instead. The file inside is `embedding.gguf`, the
 name a staged `models/` directory uses, so a bundle's `models/` directory is a
 cache directory too.
 
-- `target` describes the download to show before asking: the source URL, the
-  25,279,840 bytes, the SHA-256 and the destination file.
+- `target` describes the download to show before asking: the model's name
+  for a person (`target.spec.displayName`, `Snowflake Arctic Embed XS`), the
+  source URL, the 25,279,840 bytes, the SHA-256 and the destination file.
 - `locate()` is offline. It reads files only and returns the verified cached
   model, or the first verified file in `alsoCheck` (for example the
   `models/embedding.gguf` of an installed Wayfinder bundle), or null.

@@ -18,6 +18,7 @@ void main() {
     data = Directory(p.join(temp.path, 'data'));
     spec = EmbeddingModelSpec(
       id: 'test-model',
+      displayName: 'Test Model',
       url: 'https://example.invalid/model.gguf',
       sha256: crypto.sha256.convert(bytes).toString(),
       bytes: bytes.length,

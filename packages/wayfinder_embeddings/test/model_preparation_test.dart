@@ -33,6 +33,7 @@ void main() {
     });
     model = EmbeddingModelSpec(
       id: 'fixture',
+      displayName: 'Fixture',
       url: 'http://127.0.0.1:${server.port}/revision/model.gguf',
       sha256: sha256.convert(bytes).toString(),
       bytes: bytes.length,
@@ -65,12 +66,11 @@ void main() {
     );
     expect(steps.last, isA<ModelProvisioned>());
     expect(steps.whereType<ModelDownloading>().last.receivedBytes, 10);
-    expect(
-      jsonDecode(
-        await File(p.join(output.path, 'manifest.json')).readAsString(),
-      ),
-      model.toMap(),
+    final manifest = jsonDecode(
+      await File(p.join(output.path, 'manifest.json')).readAsString(),
     );
+    expect(manifest, model.toMap());
+    expect(manifest, containsPair('displayName', 'Fixture'));
     expect(requests, 1);
     await prepareEmbeddingModel(
       output: output,
