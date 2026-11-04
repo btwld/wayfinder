@@ -36,10 +36,12 @@ void main() {
 
   test('validateLoaded finds a path target in the loaded bundle before the '
       'disk, so a candidate sees the files it adds', () async {
-    final bundle = fixtureBundle(fixture('configured-project'));
+    final project = await copyFixture('configured-project');
+    addTearDown(() => project.delete(recursive: true));
+    final bundle = fixtureBundle(project.path);
     final selection = await selectFixture(
       bundle,
-      configPath: p.posix.join(fixture('configured-project'), 'wayfinder.json'),
+      configPath: p.join(project.path, 'wayfinder.json'),
     );
     final disk = await const OkfBundleLoader().inspect(bundle);
     // A target with a space is a scope descriptor to okf's graph, so only
@@ -78,6 +80,12 @@ void main() {
 
     expect(unresolved(candidate(withAsset: false)), ['cited.md']);
     expect(unresolved(candidate(withAsset: true)), isEmpty);
+    final stale = File(p.join(bundle, 'data', 'new sample.json'));
+    await stale.parent.create(recursive: true);
+    await stale.writeAsString('{}');
+    // A deleted candidate asset must not be rescued by the old file on disk.
+    expect(unresolved(candidate(withAsset: false)), ['cited.md']);
+    await stale.delete();
     expect(
       File(p.join(bundle, 'data', 'new sample.json')).existsSync(),
       isFalse,
@@ -85,7 +93,7 @@ void main() {
   });
 
   test(
-    'path targets retain invalid UTF-8 escapes as literal file names',
+    'path targets reject malformed escapes and accept encoded literal percent',
     () async {
       final project = await copyFixture('configured-project');
       addTearDown(() => project.delete(recursive: true));
@@ -110,10 +118,19 @@ void main() {
           result.findings.where(
             (f) => f.id == 'bitwild-profile/source-path-unresolved',
           ),
-          isEmpty,
+          hasLength(1),
+        );
+        await sample.writeAsString(
+          original.replaceFirst(
+            'status: stable',
+            'status: stable\nsources:\n  - resource: ./'
+                "${name.replaceAll('%', '%25').replaceAll(' ', '%20')}",
+          ),
         );
         expect(
-          result.diagnostics.where((d) => d.level == DiagnosticLevel.error),
+          (await validator.validate(bundle, selection)).findings.where(
+            (f) => f.id == 'bitwild-profile/source-path-unresolved',
+          ),
           isEmpty,
         );
         await target.delete();
@@ -172,8 +189,7 @@ void main() {
         'status: stable',
         'status: stable\nsources:\n'
             '  - resource: /data\n'
-            '  - resource: ./data\n'
-            '  - resource: ./empty data',
+            '  - resource: ./data',
       );
       expect(
         validator
@@ -190,7 +206,12 @@ void main() {
         'status: stable',
         'status: stable\nsources:\n'
             '  - resource: /../outside file.txt\n'
-            '  - resource: /data%2Fnew sample.json',
+            '  - resource: /data%2Fnew sample.json\n'
+            '  - resource: /../outside.txt\n'
+            '  - resource: /data%2Fnew.json\n'
+            '  - resource: ./data%5Cnew.json\n'
+            '  - resource: ./data\\new.json\n'
+            '  - resource: ./%FF.json',
       );
       expect(
         validator
@@ -205,7 +226,29 @@ void main() {
             .findings
             .where((f) => f.id == 'bitwild-profile/source-path-unresolved')
             .length,
-        2,
+        7,
+      );
+      final topLevel = sampleText.replaceFirst(
+        'status: stable',
+        'status: stable\nresource: /../outside.txt',
+      );
+      expect(
+        validator
+            .validateLoaded(withDoc('top.md', topLevel), selection)
+            .findings
+            .where((f) => f.id == 'bitwild-profile/source-path-unresolved'),
+        hasLength(1),
+      );
+      final emptyDirectory = sampleText.replaceFirst(
+        'status: stable',
+        'status: stable\nsources:\n  - resource: ./empty data',
+      );
+      expect(
+        validator
+            .validateLoaded(withDoc('empty.md', emptyDirectory), selection)
+            .findings
+            .where((f) => f.id == 'bitwild-profile/source-path-unresolved'),
+        hasLength(1),
       );
 
       final cited = sampleText.replaceFirst(

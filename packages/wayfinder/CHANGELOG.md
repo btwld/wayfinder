@@ -1,7 +1,11 @@
 # 1.0.0 (unreleased)
 
-- Preserve literal filenames with invalid UTF-8 percent escapes when checking
-  source paths, instead of letting URI decoding crash validation.
+- Correct `path-targets-exist` for no-space invalid paths, encoded separators,
+  backslashes and malformed percent escapes. Encode literal percent as `%25`.
+  Internal files and implied directories come only from the loaded inventory;
+  a candidate deletion cannot resolve through the old disk file. Relative paths
+  outside the bundle may still resolve on disk. The public `resolvePathTarget`
+  shares those decisions with retrieval.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
 
