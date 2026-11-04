@@ -100,33 +100,37 @@ void main() {
       r'regional\finance',
     ]) {
       expect(
-        SourceManifest.fromJson({
-          'version': 1,
-          'sources': [
-            {
-              'id': id,
-              'repository': '/unused/source',
-              'ref': 'main',
-              'adapter': 'markdown',
-              'paths': <String>[],
-            },
-          ],
-        }).sources.single.id,
+        SourceManifest.fromJson(
+          jsonEncode({
+            'version': 1,
+            'sources': [
+              {
+                'id': id,
+                'repository': '/unused/source',
+                'ref': 'main',
+                'adapter': 'markdown',
+                'paths': <String>[],
+              },
+            ],
+          }),
+        ).sources.single.id,
         id,
       );
     }
     expect(
-      () => SourceManifest.fromJson({
-        'version': 1,
-        'sources': [
-          {
-            'id': ' ',
-            'repository': '/unused/source',
-            'ref': 'main',
-            'adapter': 'markdown',
-          },
-        ],
-      }),
+      () => SourceManifest.fromJson(
+        jsonEncode({
+          'version': 1,
+          'sources': [
+            {
+              'id': ' ',
+              'repository': '/unused/source',
+              'ref': 'main',
+              'adapter': 'markdown',
+            },
+          ],
+        }),
+      ),
       throwsFormatException,
     );
   });
