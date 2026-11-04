@@ -22,6 +22,7 @@ void main() {
     ).writeAsString('test model');
     spec = EmbeddingModelSpec(
       id: 'test-model',
+      displayName: 'Test Model',
       url: 'https://example.invalid/model.gguf',
       sha256: sha256.convert(await modelFile.readAsBytes()).toString(),
       bytes: await modelFile.length(),
@@ -177,12 +178,13 @@ void main() {
   });
 
   test(
-    'keeps one identity across mirrors of the same verified bytes',
+    'keeps one identity across renamed mirrors of the same verified bytes',
     () async {
       final mirrored = await LlamaEmbedder.open(
         modelFile: modelFile,
         model: EmbeddingModelSpec(
           id: spec.id,
+          displayName: 'Test Model (renamed)',
           url: 'https://mirror.invalid/copies/model.gguf',
           sha256: spec.sha256,
           bytes: spec.bytes,
@@ -197,6 +199,7 @@ void main() {
         modelFile: modelFile,
         model: EmbeddingModelSpec(
           id: spec.id,
+          displayName: spec.displayName,
           url: spec.url,
           sha256: spec.sha256,
           bytes: spec.bytes,
