@@ -3,8 +3,8 @@ import 'package:path/path.dart' as p;
 import '../models/chunk.dart';
 
 /// One passage as the search Markdown prints it: its citation `prefix`,
-/// the `bundle` name shown in its bracket, the `bundleRoot` its relative
-/// `sources` resolve against, and whether its file changed after indexing.
+/// the `bundle` name shown in its bracket, the `bundleRoot` identifying its
+/// source decisions, and whether its file changed after indexing.
 typedef MarkdownPassage = ({
   String prefix,
   String? bundle,
@@ -53,24 +53,16 @@ List<String> _formatSources(
         final String value when value.trim().isNotEmpty => value.trim(),
         _ => null,
       };
-      String formatEntry(String target) =>
-          id == null ? target : '[$id] $target';
-      final suffixIndex = trimmed.indexOf(RegExp(r'[?#]'));
-      final suffix = suffixIndex >= 0 ? trimmed.substring(suffixIndex) : '';
-      final display = sourcePaths[trimmed];
-      if (display == null) {
-        final entry = formatEntry(trimmed);
-        if (seen.add(entry)) formatted.add(entry);
-        continue;
+      var target = trimmed;
+      if (sourcePaths[trimmed] case final display?) {
+        final suffixIndex = trimmed.indexOf(RegExp(r'[?#]'));
+        final suffix = suffixIndex >= 0 ? trimmed.substring(suffixIndex) : '';
+        final resolvedPath = p.posix.normalize('$prefix$display');
+        if (resolvedPath == fullSelfPath && suffix.isEmpty) continue;
+        target = '$resolvedPath$suffix';
       }
-      final resolvedPath = p.posix.normalize('$prefix$display');
-      if (resolvedPath == fullSelfPath && suffix.isEmpty) {
-        continue;
-      }
-      final entry = formatEntry('$resolvedPath$suffix');
-      if (seen.add(entry)) {
-        formatted.add(entry);
-      }
+      final entry = id == null ? target : '[$id] $target';
+      if (seen.add(entry)) formatted.add(entry);
     }
   }
   return formatted;

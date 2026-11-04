@@ -96,14 +96,13 @@ final class WayfinderProject {
       paths,
       selected: selected,
     );
-    final bundles = [
-      for (final path in selected)
-        ProjectBundle(p.basename(path), path, roots[path]!),
-    ];
     return WayfinderProject._(
       directory.path,
       config,
-      List.unmodifiable(bundles),
+      List.unmodifiable([
+        for (final path in selected)
+          ProjectBundle(p.basename(path), path, roots[path]!),
+      ]),
     );
   }
 

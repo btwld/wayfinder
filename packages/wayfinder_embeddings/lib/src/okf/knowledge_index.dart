@@ -672,7 +672,11 @@ class KnowledgeIndex {
         final target = edge.targetConcept?.documentPath;
         if (target != null && byPath.containsKey(target)) {
           add(target, 'relationship', via: source, edge: edge);
-        } else if (_sourceMissing(snapshot, edge)) {
+        } else if (resolvePathTarget(
+          edge,
+          inBundle: snapshot.inventoryPaths.contains,
+          rootPath: bundleRoot,
+        ).missing) {
           notice(
             KnowledgeNoticeCode.unresolvedSource,
             'Unresolved source: ${edge.rawTarget}',
@@ -697,13 +701,6 @@ class KnowledgeIndex {
       ],
     );
   }
-
-  bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) =>
-      resolvePathTarget(
-        edge,
-        inBundle: snapshot.inventoryPaths.contains,
-        rootPath: bundleRoot,
-      ).missing;
 
   Map<String, Map<String, String?>> _sourcePaths(KnowledgeSnapshot snapshot) {
     final paths = <String, Map<String, String?>>{};

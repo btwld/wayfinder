@@ -70,11 +70,10 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
-    final defined = _definitions;
     return [
       for (final label in labels)
-        (label: label, referenced: true, defined: defined.contains(label)),
-      for (final label in defined)
+        (label: label, referenced: true, defined: _definitions.contains(label)),
+      for (final label in _definitions)
         if (!labels.contains(label))
           (label: label, referenced: false, defined: true),
     ];

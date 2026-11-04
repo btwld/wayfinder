@@ -69,9 +69,6 @@ class IngestionPipeline {
     DuplicateChunkCallback? onDuplicateChunk,
     bool dedupe = true,
   }) async {
-    // Spool a one-shot iterable before writes: only identity digests remain in
-    // memory across files. Temp disk grows with corpus text and is cleaned on
-    // every exit. A late ID conflict therefore cannot partially persist data.
     final spool = await Directory.systemTemp.createTemp('wayfinder-ingest-');
     try {
       final digests = <String, String>{};
@@ -138,8 +135,6 @@ class IngestionPipeline {
             : null;
         if (embedding == null) chunksToEmbed[chunk.id] = chunk;
       }
-      // Only identity validation is call-wide. A later encoder/store failure
-      // can leave earlier batches committed; each storeBatch is atomic.
       for (final embedding in await _embedChunks(
         chunksToEmbed.values.toList(),
       )) {

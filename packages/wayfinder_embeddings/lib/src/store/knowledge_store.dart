@@ -893,16 +893,15 @@ class WayfinderKnowledgeStore {
     Future<T> Function(Future<WayfinderEncoder> Function() acquire) action,
   ) async {
     SharedEncoder? held;
-    Future<WayfinderEncoder> acquire() async {
-      return (held ??= await _acquireEncoder()).encoder;
-    }
+    Future<WayfinderEncoder> acquire() async =>
+        (held ??= await _acquireEncoder()).encoder;
 
     try {
       return await action(acquire);
-    } catch (error) {
-      if (held?.failed == true) {
+    } catch (_) {
+      if (held case final used? when used.failed) {
         _cachedSavedIndexes.clear();
-        if (held case final used?) _evict(used);
+        _evict(used);
       }
       rethrow;
     } finally {
