@@ -15,7 +15,8 @@
   mention `wayfinder index`, similarly named executables/subcommands, and
   non-command handlers are preserved.
 - Correct the model lookup order in the ADR record to match the implementation,
-  tests and user documentation; no lookup behavior changes (ADR-0028).
+  tests and user documentation; no lookup behavior changes. See the
+  model-lookup correction in [the decision log](../../ARCHITECTURE.md).
 - The Windows public-install verifier restores the user's registry PATH after
   its temporary install, including when verification fails.
 - Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.

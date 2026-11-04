@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-wayfinder-${{ github.ref }}
@@ -28,6 +29,10 @@ jobs:
         run: |
           version="$(sed -n 's/^version: //p' pubspec.yaml)"
           test "$TAG" = "wayfinder-core-v$version"
+      - name: Require successful source CI for the publication commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tool/ci/verify-release-ci.py
       # No OIDC permission here: dependency downloads use normal public access.
       - run: dart pub get
       - run: dart analyze --fatal-infos

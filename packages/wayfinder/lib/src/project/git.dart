@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'cancellation.dart';
 import 'exception.dart';
+import 'process_tree_cleanup.dart';
 
 /// A finished Git command. [stdout] keeps Git's bytes, because a blob is
 /// not text; [text] decodes them as UTF-8.
@@ -608,66 +609,19 @@ Future<void> _killTree(
     if (Platform.isWindows) {
       await Process.run('taskkill', ['/T', '/F', '/PID', '${process.pid}']);
     } else {
-      const limit = Duration(seconds: 2);
-      if (exited()) return;
-      final initial = await _processParents(limit);
-      if (exited()) return;
-      final children = <int, List<int>>{};
-      for (final MapEntry(key: child, value: parent) in initial.entries) {
-        children.putIfAbsent(parent, () => []).add(child);
-      }
-      final owned = <int>{process.pid};
-      final order = [process.pid];
-      for (var i = 0; i < order.length; i++) {
-        for (final child in children[order[i]] ?? const <int>[]) {
-          if (child > 0 && owned.add(child)) order.add(child);
-        }
-      }
-      if (order.length > 1) {
-        final stopped = <int>[];
-        try {
-          for (final id in order) {
-            if (exited()) break;
-            if (Process.killPid(id, ProcessSignal.sigstop)) {
-              stopped.add(id);
-            }
-          }
-          if (!exited()) {
-            final current = await _processParents(limit);
-            for (final child in order.skip(1).toList().reversed) {
-              if (!exited() &&
-                  _hasSameAncestry(child, process.pid, initial, current)) {
-                Process.killPid(child, ProcessSignal.sigkill);
-                stopped.remove(child);
-              }
-            }
-          }
-        } finally {
-          for (final id in stopped) {
-            Process.killPid(id, ProcessSignal.sigcont);
-          }
-        }
-      }
+      await cleanupPosixProcessTree(
+        root: process.pid,
+        exited: exited,
+        parents: _processParents,
+        signal: Process.killPid,
+        killRoot: () => process.kill(ProcessSignal.sigkill),
+      );
     }
   } on Exception {
     // Listing/termination is best effort; never leave Git alive on failure.
   } finally {
     if (!exited()) process.kill(ProcessSignal.sigkill);
   }
-}
-
-bool _hasSameAncestry(
-  int child,
-  int root,
-  Map<int, int> initial,
-  Map<int, int> current,
-) {
-  for (var node = child; node != root;) {
-    final parent = initial[node];
-    if (parent == null || current[node] != parent) return false;
-    node = parent;
-  }
-  return true;
 }
 
 /// A bounded live process table. The helper is stopped even when reading it

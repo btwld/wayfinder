@@ -16,6 +16,21 @@ The application retains `wayfinder-v` tags and native archive names for installe
 compatibility. The core uses a distinct tag namespace so independent library
 releases cannot collide with application releases.
 
+## Format-3 rollout window
+
+The published 0.4.0 engine reads format 2. A project tracking Bitwild at
+`ref: main` must pin its last format-2 revision before this preparation lands:
+`6890664959cad82da01bc4d9baeaf210d819055c`, with path `profiles/bitwild`.
+Run `get` with the 0.4.0 engine and commit the refreshed lock and installed
+skills. Keep that pin until a compatible 1.0 runtime is available, then move
+the source ref and every parent ref to format 3 and refresh again.
+
+The plugin's skill update becomes available from the default branch at merge;
+it does not wait for a native release. Keep existing plugin/runtime versions
+aligned during this window. Native distribution remains paused; merging the
+preparation does not promise immediate native 1.0 availability. Coordinate
+runtime availability and project pins before landing the format/plugin flip.
+
 ## Prepare a release
 
 The [1.0 compatibility contract](stability.md) names the public surfaces and
@@ -48,6 +63,10 @@ runtime. Run the publication order below right after that merge, so the
 runtime ships with the skills.
 
 Publication order:
+
+Each package publication workflow first requires successful push/main source
+CI for the exact tagged commit. Passing PR candidate CI alone does not satisfy
+that gate.
 
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
