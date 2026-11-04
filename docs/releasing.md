@@ -64,6 +64,10 @@ runtime ships with the skills.
 
 Publication order:
 
+Each package publication workflow first requires successful push/main source
+CI for the exact tagged commit. Passing PR candidate CI alone does not satisfy
+that gate.
+
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
 2. Publish `wayfinder-core-v<version>`, then

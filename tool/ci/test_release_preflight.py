@@ -70,6 +70,26 @@ class SourceCiTest(unittest.TestCase):
         self.assertEqual(preflight.source_ci(ci(conclusion='failure'),
                                             'checked-sha').status, 'failed')
 
+    def test_all_publication_workflows_require_source_ci_before_dependencies(self):
+        for package in ['wayfinder', 'wayfinder-embeddings', 'wayfinder-cli',
+                        'wayfinder-dart-chunker']:
+            text = (preflight.ROOT / f'.github/workflows/publish-{package}.yml').read_text()
+            self.assertLess(text.index('python3 tool/ci/verify-release-ci.py'),
+                            text.index('run: dart pub get'))
+            self.assertIn('actions: read', text)
+
+    def test_publication_adapter_accepts_only_exact_push_main_success(self):
+        spec = importlib.util.spec_from_file_location(
+            'verify_release_ci', preflight.ROOT / 'tool/ci/verify-release-ci.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for changes in ({'event': 'pull_request'}, {'head_sha': 'other'},
+                        {'head_branch': 'feature'}, {'conclusion': 'failure'}):
+            self.assertEqual(module.verify([ci(**changes)], 'checked-sha',
+                                           'btwld/wayfinder').status, 'blocked')
+        self.assertEqual(module.verify([ci(event='pull_request'), ci()],
+                                       'checked-sha', 'btwld/wayfinder').status, 'passed')
+
     def test_distribution_adapter_requires_release_eligible_source_ci(self):
         workflow = (preflight.ROOT / '.github/workflows/distribute-wayfinder.yml').read_text()
         section = workflow.split('      - name: Require the application tag and successful CI\n', 1)[1]
