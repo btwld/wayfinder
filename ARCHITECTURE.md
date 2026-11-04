@@ -136,3 +136,9 @@ Require successful source CI from the exact commit's push to main and independen
 Date: 2026-11-04.
 
 Use one public path resolver for validation and retrieval, with injected inventory membership and disk lookup only outside the bundle. Candidate deletions and malformed encoded paths previously depended on graph classification or stale files on disk; strict OKF segment decoding and the loaded inventory now determine internal targets. Missing or malformed citations can gain findings/notices, and literal percent signs must be encoded as `%25`.
+
+## Bounded adoption paths and process cleanup
+
+Date: 2026-11-04.
+
+Refuse parent segments and any-case `.git` segments at the adoption request boundary before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget; POSIX PID operations remain best effort because they are not atomic process handles.

@@ -911,6 +911,14 @@ Entries below are newest-first decision history. Earlier format numbers and
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
+**Adoption request and Git cleanup corrections, 2026-11-04.**
+Affected surface: adoption host requests and Git subprocess cleanup. Review
+found normalized parent aliases and any-case `.git` segments accepted at the
+request boundary; they now fail with `adoption-invalid` before planning.
+Hosts must pass a direct project-relative bundle path. Git cleanup keeps the
+root frozen through its kill, discovers late forks and uses one inspection
+budget. Package format and OKF semantics do not change.
+
 **Path-target candidate and decoding corrections, 2026-11-04.**
 Affected sections: §5.6, the builtin reference and public `resolvePathTarget`.
 Driver: no-space source paths escaped the graph's invalid-target branch, and

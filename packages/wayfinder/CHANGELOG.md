@@ -8,12 +8,10 @@
   shares those decisions with retrieval.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
-
 - Prepare the first stable validation/project/adoption/authoring release.
   The accepted engine contract and [stability boundaries](../../docs/stability.md)
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.
-
 - **BREAKING:** Reads Profile package format 3 only; format 2 is
   `profile-unsupported`, never silently reinterpreted. The concept fact
   `sibling_directory` now includes every same-stem sibling directory
@@ -26,7 +24,11 @@
   rules do not use the fact needs no rule changes, but its entire parent
   chain must also be reviewed and migrated. Migrated Bitwild keeps
   its previous findings, with its existing exceptions in its own rule.
-- Git timeout and cancellation cleanup also terminate live descendants of
+- Adoption rejects parent segments such as `sub/../knowledge` and any-case
+  `.git` segments with `adoption-invalid` before planning writes.
+- Git timeout and cancellation cleanup freezes the root through its kill,
+  discovers late-forked descendants and shares one process-inspection budget.
+  It also terminates live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
 - Discovery, binding and resolution share one canonical root check. All
   readable configured roots must be disjoint, even when one is selected.
