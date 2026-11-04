@@ -1828,14 +1828,18 @@ class WayfinderKnowledgeStore {
           final String digest;
           if (path.endsWith('.md')) {
             final bytes = await entry.readAsBytes();
-            final content =
-                bytes.length >= 3 &&
-                    bytes[0] == 0xEF &&
-                    bytes[1] == 0xBB &&
-                    bytes[2] == 0xBF
-                ? Uint8List.sublistView(bytes, 3)
-                : bytes;
-            digest = sha256.convert(content).toString();
+            // Match the loader's text decoding, including its BOM handling.
+            // Malformed bytes report the loader's invalid-bundle diagnostic,
+            // rather than suggesting that reindexing can repair the input.
+            final String text;
+            try {
+              text = utf8.decode(bytes);
+            } on FormatException {
+              throw OkfBundleLoadException(
+                await const OkfBundleLoader().inspect(root),
+              );
+            }
+            digest = sha256.convert(utf8.encode(text)).toString();
           } else {
             digest = 'asset';
           }
