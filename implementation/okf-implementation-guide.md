@@ -748,6 +748,15 @@ to an in-memory candidate that has not been written. A Profile that excludes
 particular names expresses that policy in its rule schema over `path` and
 `sibling_directory`; the engine excludes none.
 
+Path-target checks use the loaded inventory for every in-bundle file or
+implied directory, including in-memory candidates; they never recover a removed
+candidate file from disk. Disk lookup applies only to relative targets outside
+the bundle. Bundle-root parent escapes, raw or decoded backslashes, encoded
+separators and malformed percent escapes report a missing target. A literal
+percent in a filename must be encoded as `%25`. URLs and prose source
+descriptors remain outside the path check; an explicit `/`, `./` or `../`
+prefix identifies a path even when it contains whitespace.
+
 Generated text is engine contract. `matches-generated` compares a bundle with
 the output of the generator in the engine's `okf` release (§3.1), so the
 bytes a Profile accepts depend on that release's generator revision as well
@@ -901,6 +910,36 @@ Entries below are newest-first decision history. Earlier format numbers and
 "next wayfinder release" wording describe the decision at that time, not
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
+
+**Retrieval source and ingestion corrections, 2026-11-04.**
+Affected surfaces: retrieval `unresolved-source`, citation Markdown and ingestion.
+Review found copied path classifiers disagreeing with validation; retrieval now
+uses the §5.6 inventory-first resolver and carries its decisions into display.
+Missing or malformed targets remain raw labels, while valid targets receive a
+bundle prefix. Freshness rejects malformed UTF-8 as invalid bundle input.
+Ingestion validates IDs before writes with digests and temporary disk storage;
+metadata duplicates write one final value per batch. Store-batch atomicity
+remains the transaction boundary. No Profile format or OKF meaning changes;
+callers should fix malformed citations, budget temporary disk, and rebuild
+indexes whose source citations or constructor chunking changed.
+
+**Adoption request and Git cleanup corrections, 2026-11-04.**
+Affected surface: adoption host requests and Git subprocess cleanup. Review
+found normalized parent aliases and any-case `.git` segments accepted at the
+request boundary; they now fail with `adoption-invalid` before planning.
+Hosts must pass a direct project-relative bundle path. Git cleanup keeps the
+root frozen through its kill, discovers late forks and uses one inspection
+budget. Package format and OKF semantics do not change.
+
+**Path-target candidate and decoding corrections, 2026-11-04.**
+Affected sections: §5.6, the builtin reference and public `resolvePathTarget`.
+Driver: no-space source paths escaped the graph's invalid-target branch, and
+candidate deletions could be hidden by stale disk files. Use one inventory-first
+resolver for validation and retrieval, with disk lookup only outside the bundle.
+Packages keep format 3; malformed URI escapes now report rather than borrowing
+a literal filename, and candidates require every cited internal target in their
+own inventory. Encode literal percent signs and fix affected citations before
+writing. No OKF field meaning changes.
 
 **Profile-neutral directory facts, package format 3, wayfinder 1.0.0.**
 Affected sections: the guide header, §§4.1, 4.4, 5.4, 5.6, 5.7, and 9; the package

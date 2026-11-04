@@ -379,7 +379,7 @@
       "severity": "error",
       "status": "stable",
       "description": "A concept MUST NOT carry a frontmatter key that OKF 0.2 does not define and no package in the selected chain declares.",
-      "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found {failing}.",
+      "message": "Frontmatter keys must be defined by OKF 0.2 or declared by the selected Profile chain; found {failing}.",
       "check": {
         "subject": "concept",
         "each": "keys",

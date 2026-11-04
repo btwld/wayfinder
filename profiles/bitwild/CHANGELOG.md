@@ -7,6 +7,13 @@ the names of their time. The 2026.2 and 2026.1 entries cite sections of that
 release's prose text, which [`versions/`](versions/) keeps. The 2026.3 prose
 text is gone, so its entries name sections by subject.
 
+## 2026.3 diagnostic clarification (2026-11-04)
+
+Align `frontmatter-fields-declared`'s message with its existing whole-chain
+check: a child package may declare a key used by an inherited rule. Review of
+the shipped child Profile exposed the stale single-release wording. No check,
+vocabulary or verdict changes; previously conforming bundles need no edit.
+
 ## 2026.3 guidance clarification (2026-10-26)
 
 The skill now says to reuse tags declared by the selected chain, not copy them

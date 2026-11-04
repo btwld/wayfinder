@@ -54,7 +54,7 @@
       {
         "id": "bitwild-profile/frontmatter-fields-declared",
         "severity": "error",
-        "message": "Frontmatter keys must be defined by OKF 0.2 or declared by this Profile release; found owner.",
+        "message": "Frontmatter keys must be defined by OKF 0.2 or declared by the selected Profile chain; found owner.",
         "location": {
           "path": "extra-key.md"
         },

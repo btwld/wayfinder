@@ -24,9 +24,18 @@ final class _CallLock {
 final class SharedEncoder {
   SharedEncoder(this.opened) {
     final lock = _CallLock();
+    Future<T> guarded<T>(Future<T> Function() call) async {
+      try {
+        return await lock.run(call);
+      } catch (_) {
+        failed = true;
+        rethrow;
+      }
+    }
+
     encoder = WayfinderEncoder(
-      _LockedEmbedder(opened.embedder, lock),
-      (text) => lock.run(() => opened.countTokens(text)),
+      _LockedEmbedder(opened.embedder, guarded),
+      (text) => guarded(() => opened.countTokens(text)),
       opened.maxTokens,
     );
   }
@@ -42,6 +51,9 @@ final class SharedEncoder {
 
   /// Whether new operations must open another encoder.
   bool evicted = false;
+
+  /// A call into this encoder threw; unrelated store errors never set it.
+  bool failed = false;
 
   Future<void>? _disposal;
   final _disposing = Completer<({Future<void> disposal})>();
@@ -61,13 +73,13 @@ final class SharedEncoder {
   }();
 }
 
-/// [delegate] with each call made under [_lock]. Disposing it does nothing:
+/// [delegate] with each call made under the call lock. Disposing it does nothing:
 /// its [SharedEncoder] disposes the delegate.
 final class _LockedEmbedder extends BaseEmbedder {
-  _LockedEmbedder(this.delegate, this._lock);
+  _LockedEmbedder(this.delegate, this._guard);
 
   final BaseEmbedder delegate;
-  final _CallLock _lock;
+  final Future<T> Function<T>(Future<T> Function() call) _guard;
 
   @override
   String get sourceName => delegate.sourceName;
@@ -80,15 +92,15 @@ final class _LockedEmbedder extends BaseEmbedder {
 
   @override
   Future<List<double>> generateEmbedding(String text) =>
-      _lock.run(() => delegate.generateEmbedding(text));
+      _guard(() => delegate.generateEmbedding(text));
 
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) =>
-      _lock.run(() => delegate.generateEmbeddings(texts));
+      _guard(() => delegate.generateEmbeddings(texts));
 
   @override
   Future<List<double>> generateQueryVector(String text) =>
-      _lock.run(() => delegate.generateQueryVector(text));
+      _guard(() => delegate.generateQueryVector(text));
 
   @override
   Future<void> dispose() async {}

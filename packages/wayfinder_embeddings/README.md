@@ -390,6 +390,16 @@ Ingestion deduplicates chunk ids across both stored data and the current call.
 An existing chunk still receives a missing embedding for the active source/model.
 Metadata-only updates are persisted without regenerating vectors. Changed text needs a new chunk
 ID; ingestion does not remove obsolete chunks automatically. Delete those
+
+`IngestionPipeline` checks all explicit ID/content pairs before writing, using
+SHA-256 digests and a temporary disk spool. Temporary disk grows with corpus
+text; memory retains digests, one chunked file and one write batch. File-progress
+callbacks report chunking before embedding starts. Identical IDs with metadata
+changes retain the last metadata per batch without duplicate rows or vectors.
+An encoder or store failure can leave earlier batches committed: only each
+`storeBatch` is atomic. Retry or rebuild according to the caller's transaction
+boundary; the OKF store stages a generation before publication.
+
 chunks explicitly or rebuild a fresh store when synchronizing changed files.
 
 For generic search, an empty-result check rejects eligible content with no

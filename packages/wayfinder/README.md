@@ -543,7 +543,11 @@ Future<void> main() async {
   the files the host reads rather than a large directory.
 - `onStep` hears each step as it happens: `started` as it begins, then
   `done`, `skipped` or `failed`, and after a failure `undone` or
-  `undo-failed` for each earlier step, latest first. When it throws for a
+  `undo-failed` for each earlier step, latest first. If undoing the failed
+  step itself fails, that step emits `undo-failed` after its `failed` report,
+  before earlier steps are undone. `KnowledgeAdoptionException.steps` keeps
+  one final report per step: its last entry can therefore be `undo-failed`,
+  with the original failure message and code retained. When it throws for a
   step's start or end, that step fails and the earlier ones are undone, so a
   test can stop adoption at any step. The host step's `done` is the
   exception: the host's writes are in place and adoption cannot undo them,

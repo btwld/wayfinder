@@ -1,14 +1,18 @@
 import 'package:markdown/markdown.dart' as markdown;
 
 final class ParsedBody {
-  ParsedBody(String source) {
-    nodes = _document.parse(source);
+  factory ParsedBody(String source) {
+    final document = markdown.Document(
+      extensionSet: markdown.ExtensionSet.gitHubFlavored,
+    );
+    final nodes = document.parse(source);
+    return ParsedBody._(nodes, document.footnoteReferences.keys.toSet());
   }
 
-  final _document = markdown.Document(
-    extensionSet: markdown.ExtensionSet.gitHubFlavored,
-  );
-  late final List<markdown.Node> nodes;
+  ParsedBody._(this.nodes, this._definitions);
+
+  final List<markdown.Node> nodes;
+  final Set<String> _definitions;
 
   List<String> headings() => [
     for (final node in nodes)
@@ -66,7 +70,7 @@ final class ParsedBody {
     }
 
     nodes.forEach(collect);
-    final defined = _document.footnoteReferences.keys.toSet();
+    final defined = _definitions;
     return [
       for (final label in labels)
         (label: label, referenced: true, defined: defined.contains(label)),

@@ -92,32 +92,47 @@ void main() {
     );
   }, skip: Platform.isWindows ? 'needs symbolic links' : false);
 
-  test('resolve refuses path-shaped ids before running Git', () async {
-    var commands = 0;
-    final importer = KnowledgeImporter(
-      process: (command, cwd) async {
-        commands++;
-        throw StateError('No command may run for an unsafe id');
-      },
-    );
+  test('source ids are labels, not cache paths', () async {
     for (final id in [
-      '../../../escaped',
-      '../x',
-      'nested/id',
-      r'nested\id',
-      '.',
-      '..',
-      'C:escape',
+      'x:docs',
+      '../notes',
+      'regional/finance',
+      r'regional\finance',
     ]) {
-      await _manifest(project, id, '/unused/source');
-      await expectLater(
-        importer.resolve(project),
-        throwsFormatException,
-        reason: id,
+      expect(
+        SourceManifest.fromJson(
+          jsonEncode({
+            'version': 1,
+            'sources': [
+              {
+                'id': id,
+                'repository': '/unused/source',
+                'ref': 'main',
+                'adapter': 'markdown',
+                'paths': <String>[],
+              },
+            ],
+          }),
+        ).sources.single.id,
+        id,
       );
     }
-    expect(commands, 0);
-    expect(await Directory(p.join(temp.path, 'escaped')).exists(), isFalse);
+    expect(
+      () => SourceManifest.fromJson(
+        jsonEncode({
+          'version': 1,
+          'sources': [
+            {
+              'id': ' ',
+              'repository': '/unused/source',
+              'ref': 'main',
+              'adapter': 'markdown',
+            },
+          ],
+        }),
+      ),
+      throwsFormatException,
+    );
   });
 
   test(

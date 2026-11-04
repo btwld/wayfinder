@@ -101,10 +101,17 @@ void main() {
           'test/contract_goldens/sibling-directory.json',
         ).readAsString(),
       );
-      expect({
-        'independent_profile': projection(neutralResult),
-        'bitwild': projection(bitwildResult),
-      }, expected);
+      expect({'independent_profile': projection(neutralResult)}, expected);
+      // Profile findings are a separate Profile-owned regression artifact,
+      // never part of the independent engine contract golden above.
+      expect(
+        projection(bitwildResult),
+        jsonDecode(
+          await File(
+            '../../profiles/bitwild/test/goldens/sibling-directory.json',
+          ).readAsString(),
+        ),
+      );
     },
   );
 }
