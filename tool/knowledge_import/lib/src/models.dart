@@ -177,6 +177,78 @@ final class ResolvedSource {
   };
 }
 
+final class SourceLockDocument {
+  const SourceLockDocument({
+    required this.version,
+    required this.manifestSha256,
+    required this.resolvedAt,
+    required this.sources,
+  });
+
+  factory SourceLockDocument.fromJson(Object? value) {
+    if (value case {
+      'version': 1,
+      'manifest_sha256': final String manifestSha256,
+      'resolved_at': final String resolvedAt,
+      'sources': final List<Object?> sources,
+    }) {
+      return SourceLockDocument(
+        version: 1,
+        manifestSha256: manifestSha256,
+        resolvedAt: resolvedAt,
+        sources: sources.map(ResolvedSource.fromJson).toList(growable: false),
+      )..validate();
+    }
+    throw const FormatException('Invalid source lock.');
+  }
+
+  void validate() {
+    final ids = <String>{};
+    for (final source in sources) {
+      if (source.id.trim().isEmpty || !ids.add(source.id)) {
+        throw FormatException(
+          'Invalid or duplicate locked source id: ${source.id}',
+        );
+      }
+      if (!isSourceCommit(source.commit)) {
+        throw FormatException('Invalid commit for ${source.id}.');
+      }
+      final paths = <String>{};
+      for (final file in source.files) {
+        if (isUnsafeRelativePath(file.path)) {
+          throw FormatException(
+            'Unsafe locked source path: ${source.id}:${file.path}',
+          );
+        }
+        if (!paths.add(file.path)) {
+          throw FormatException(
+            'Duplicate locked source path: ${source.id}:${file.path}',
+          );
+        }
+        if (file.bytes < 0 ||
+            !RegExp(r'^[0-9a-f]{64}$').hasMatch(file.sha256)) {
+          throw FormatException(
+            'Invalid locked file metadata: ${source.id}:${file.path}',
+          );
+        }
+      }
+    }
+  }
+
+  final int version;
+  final String manifestSha256;
+  final String resolvedAt;
+  final List<ResolvedSource> sources;
+  Map<String, Object?> toJson() => {
+    'version': version,
+    'manifest_sha256': manifestSha256,
+    'resolved_at': resolvedAt,
+    'sources': sources.map((source) => source.toJson()).toList(growable: false),
+  };
+}
+
+bool isSourceCommit(String value) => RegExp(r'^[0-9a-f]{40}$').hasMatch(value);
+
 bool isUnsafeRelativePath(String path) =>
     path.isEmpty ||
     path.startsWith('/') ||

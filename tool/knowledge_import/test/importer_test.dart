@@ -114,13 +114,30 @@ void main() {
 
   test('rejects flag-like repository or ref, malformed JSON types, and '
       'duplicate change paths', () async {
-    for (final bad in [
-      '{"version":1,"sources":[{"id":"x","repository":"--upload-pack=x","ref":"main","adapter":"a","paths":["docs"]}]}',
-      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"--all","adapter":"a","paths":["docs"]}]}',
-      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":123,"adapter":"a","paths":["docs"]}]}',
-      '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"main","adapter":"a","paths":[123]}]}',
+    for (final (bad, message) in [
+      (
+        '{"version":1,"sources":[{"id":"x","repository":"--upload-pack=x","ref":"main","adapter":"a","paths":["docs"]}]}',
+        'Unsafe repository or ref in x.',
+      ),
+      (
+        '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"--all","adapter":"a","paths":["docs"]}]}',
+        'Unsafe repository or ref in x.',
+      ),
+      (
+        '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":123,"adapter":"a","paths":["docs"]}]}',
+        'Source field ref must be a string.',
+      ),
+      (
+        '{"version":1,"sources":[{"id":"x","repository":"file:///tmp/x","ref":"main","adapter":"a","paths":[123]}]}',
+        'Source field paths must be a list of strings.',
+      ),
     ]) {
-      expect(() => SourceManifest.fromJson(bad), throwsFormatException);
+      expect(
+        () => SourceManifest.fromJson(bad),
+        throwsA(
+          isA<FormatException>().having((e) => e.message, 'message', message),
+        ),
+      );
     }
 
     final root = await Directory.systemTemp.createTemp('knowledge-import-dup-');
@@ -132,26 +149,137 @@ void main() {
         '{"path":"knowledge/example.md","content":"first\\n"},'
         '{"path":"./knowledge/example.md","content":"second\\n"}]}',
       );
-    await expectLater(importer.apply(root, dup), throwsFormatException);
+    await expectLater(
+      importer.apply(root, dup),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          'Duplicate change path: ./knowledge/example.md',
+        ),
+      ),
+    );
     expect(File('${root.path}/knowledge/example.md').existsSync(), isFalse);
   });
 
-  test('case variants of an apply target are refused before any write', () async {
-    final root = await Directory.systemTemp.createTemp('knowledge-import-case-');
+  test(
+    'case variants of an apply target are refused before any write',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'knowledge-import-case-',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final change = File('${root.path}/changes.json');
+      await change.writeAsString(
+        jsonEncode({
+          'version': 1,
+          'changes': [
+            {'path': 'knowledge/Note.md', 'content': 'First'},
+            {'path': 'knowledge/note.md', 'content': 'Second'},
+          ],
+        }),
+      );
+      await expectLater(
+        KnowledgeImporter().apply(root, change),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'Duplicate change path: knowledge/note.md',
+          ),
+        ),
+      );
+      expect(await Directory('${root.path}/knowledge').exists(), isFalse);
+    },
+  );
+
+  test('resolve passes revision flags separately to Git', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'knowledge-import-argv-',
+    );
     addTearDown(() => root.delete(recursive: true));
-    final change = File('${root.path}/changes.json');
-    await change.writeAsString(jsonEncode({'version': 1, 'changes': [
-      {'path': 'knowledge/Note.md', 'content': 'First'},
-      {'path': 'knowledge/note.md', 'content': 'Second'},
-    ]}));
-    await expectLater(KnowledgeImporter().apply(root, change), throwsA(
-      isA<FormatException>().having((e) => e.message, 'message',
-        'Duplicate change path: knowledge/note.md')));
-    expect(await Directory('${root.path}/knowledge').exists(), isFalse);
+    await File('${root.path}/sources.json').writeAsString(
+      jsonEncode({
+        'version': 1,
+        'sources': [
+          {
+            'id': 'docs',
+            'repository': 'https://example.test/docs.git',
+            'ref': 'main',
+            'adapter': 'skills',
+            'paths': <String>[],
+          },
+        ],
+      }),
+    );
+    final commands = <List<String>>[];
+    final importer = KnowledgeImporter(
+      process: (command, cwd) async {
+        commands.add(command);
+        return ProcessResult(
+          0,
+          0,
+          command.contains('rev-parse')
+              ? '${List.filled(40, 'a').join()}\n'
+              : '',
+          '',
+        );
+      },
+    );
+    await importer.resolve(root);
+    expect(commands.singleWhere((command) => command.contains('rev-parse')), [
+      'git',
+      'rev-parse',
+      '--verify',
+      '--end-of-options',
+      'main^{commit}',
+    ]);
+  });
+
+  test('plan rejects invalid locked commits before writing a plan', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'knowledge-import-lock-',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    await File('${root.path}/sources.lock.json').writeAsString(
+      jsonEncode({
+        'version': 1,
+        'manifest_sha256': 'unused',
+        'resolved_at': '2026-11-04',
+        'sources': [
+          {
+            'id': 'docs',
+            'repository': 'https://example.test/docs.git',
+            'ref': 'main',
+            'commit': 'bad',
+            'adapter': 'skills',
+            'files': [],
+          },
+        ],
+      }),
+    );
+    await expectLater(
+      KnowledgeImporter().plan(root),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          'Invalid commit for docs.',
+        ),
+      ),
+    );
+    expect(
+      await File('${root.path}/.wayfinder-import/plan.json').exists(),
+      isFalse,
+    );
   });
 
   test('source lock parsing validates nested field types', () {
-    final file = {'path': 'docs/note.md', 'sha256': 'abc', 'bytes': 4};
+    final file = {
+      'path': 'docs/note.md',
+      'sha256': List.filled(64, 'a').join(),
+      'bytes': 4,
+    };
     final source = {
       'id': 'docs',
       'repository': 'https://example.test/docs.git',
@@ -168,6 +296,27 @@ void main() {
     };
     expect(SourceLockDocument.fromJson(lock).toJson(), lock);
     for (final malformed in [
+      {
+        ...lock,
+        'sources': [source, source],
+      },
+      {
+        ...lock,
+        'sources': [
+          {...source, 'commit': 'not-a-commit'},
+        ],
+      },
+      {
+        ...lock,
+        'sources': [
+          {
+            ...source,
+            'files': [
+              {...file, 'path': '../outside'},
+            ],
+          },
+        ],
+      },
       {...lock, 'manifest_sha256': null},
       {...lock, 'resolved_at': 123},
       {

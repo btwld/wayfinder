@@ -140,18 +140,8 @@ final class KnowledgeImporter {
         .map((source) => source.id)
         .toSet();
     final actual = lock.sources.map((source) => source.id).toSet();
-    if (lock.sources.length != actual.length ||
-        expected.length != actual.length ||
-        !expected.containsAll(actual))
+    if (expected.length != actual.length || !expected.containsAll(actual)) {
       findings.add('Source lock does not match enabled source IDs.');
-    for (final source in lock.sources) {
-      if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(source.commit))
-        findings.add('Invalid commit for ${source.id}.');
-      for (final file in source.files) {
-        if (isUnsafeRelativePath(file.path)) {
-          findings.add('Unsafe locked source path: ${source.id}:${file.path}');
-        }
-      }
     }
     return findings;
   }
@@ -194,7 +184,7 @@ final class KnowledgeImporter {
     ], destination);
     _requireGit(commitResult, 'resolve ${source.id}:${source.ref}');
     final commit = commitResult.stdout.trim();
-    if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(commit))
+    if (!isSourceCommit(commit))
       throw FormatException('Invalid commit for ${source.id}.');
     final files = <SourceFileLock>[];
     for (final path in source.paths) {
@@ -276,43 +266,6 @@ final class KnowledgeImporter {
       '${const JsonEncoder.withIndent('  ').convert(value)}\n',
     );
   }
-}
-
-final class SourceLockDocument {
-  const SourceLockDocument({
-    required this.version,
-    required this.manifestSha256,
-    required this.resolvedAt,
-    required this.sources,
-  });
-
-  factory SourceLockDocument.fromJson(Object? value) {
-    if (value case {
-      'version': 1,
-      'manifest_sha256': final String manifestSha256,
-      'resolved_at': final String resolvedAt,
-      'sources': final List<Object?> sources,
-    }) {
-      return SourceLockDocument(
-        version: 1,
-        manifestSha256: manifestSha256,
-        resolvedAt: resolvedAt,
-        sources: sources.map(ResolvedSource.fromJson).toList(growable: false),
-      );
-    }
-    throw const FormatException('Invalid source lock.');
-  }
-
-  final int version;
-  final String manifestSha256;
-  final String resolvedAt;
-  final List<ResolvedSource> sources;
-  Map<String, Object?> toJson() => {
-    'version': version,
-    'manifest_sha256': manifestSha256,
-    'resolved_at': resolvedAt,
-    'sources': sources.map((source) => source.toJson()).toList(growable: false),
-  };
 }
 
 Future<int> main(List<String> arguments) async {
