@@ -148,6 +148,8 @@ def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute,
                 target.chmod(0o755 if mode == '100755' else 0o644)
             pubspec = stage / 'pubspec.yaml'
             pubspec.write_text(standalone_pubspec(pubspec.read_text()))
+            if (stage / '.dart_tool').exists():
+                raise ValueError('Staged package already has a package configuration.')
             environment = dict(os.environ, PUB_HOSTED_URL='https://pub.dev')
             environment.pop('DART_PACKAGE_CONFIG', None)
             for name, command in [
