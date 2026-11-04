@@ -1536,6 +1536,7 @@ class WayfinderKnowledgeStore {
         response = KnowledgeSearchResponse(
           matches: response.matches,
           context: response.context,
+          sourcePaths: response.sourcePaths,
           notices: [
             ...response.notices,
             _refreshNotice(),

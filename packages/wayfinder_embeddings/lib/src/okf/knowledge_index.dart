@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
@@ -10,7 +9,7 @@ import 'package:wayfinder/project.dart'
         WayfinderCancellation,
         throwIfCancelled,
         KnowledgeMetadataFilter;
-import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
+import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge, resolvePathTarget;
 
 import '../embedding/base_embedder.dart';
 import '../models/chunk.dart';
@@ -221,9 +220,18 @@ class KnowledgeSearchResponse {
     required List<SearchResult> matches,
     required List<KnowledgeContextHit> context,
     required List<KnowledgeNotice> notices,
+    Map<String, Map<String, String?>> sourcePaths = const {},
   }) : matches = List.unmodifiable(matches),
        context = List.unmodifiable(context),
-       notices = List.unmodifiable(notices);
+       notices = List.unmodifiable(notices),
+       sourcePaths = Map.unmodifiable({
+         for (final entry in sourcePaths.entries)
+           entry.key: Map<String, String?>.unmodifiable(entry.value),
+       });
+
+  /// Per-document source decisions from the same resolver that emits notices.
+  /// Values are bundle-relative display paths, or null to retain the raw label.
+  final Map<String, Map<String, String?>> sourcePaths;
 
   /// Query-ranked matches, one best passage per concept.
   final List<SearchResult> matches;
@@ -677,6 +685,7 @@ class KnowledgeIndex {
     return KnowledgeSearchResponse(
       matches: matches,
       context: context,
+      sourcePaths: _sourcePaths(snapshot),
       notices: [
         for (final MapEntry(key: message, :value) in notices.entries)
           KnowledgeNotice(
@@ -689,103 +698,37 @@ class KnowledgeIndex {
     );
   }
 
-  /// Whether the path-valued [edge] names no file or directory, as the
-  /// `path-targets-exist` builtin decides. okf's graph is bundle-scoped: a
-  /// path that climbs out of the bundle is `invalid` to it, and one that
-  /// starts with `/`, `./` or `../` but has whitespace is a `descriptor`,
-  /// so those are looked up under [bundleRoot]. Bundle-root paths cannot
-  /// climb above that root. An `invalid` path that stays in
-  /// the bundle is malformed, and validation reports it, so it is not a
-  /// missing source. URLs and prose descriptors name no path.
-  bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
-    final target = _pathPart(edge.rawTarget);
-    return switch (edge.resolution) {
-      OkfGraphResolution.unresolved => !_targetExists(snapshot, edge, target),
-      OkfGraphResolution.invalid =>
-        _leavesBundle(edge, target) && !_targetExists(snapshot, edge, target),
-      OkfGraphResolution.descriptor =>
-        target != null &&
-            (target.startsWith('/') ||
-                target.startsWith('./') ||
-                target.startsWith('../')) &&
-            !_targetExists(snapshot, edge, target),
-      OkfGraphResolution.resolvedConcept ||
-      OkfGraphResolution.resolvedAsset ||
-      OkfGraphResolution.external => false,
-    };
-  }
+  bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) =>
+      resolvePathTarget(
+        edge,
+        inBundle: snapshot.inventoryPaths.contains,
+        rootPath: bundleRoot,
+      ).missing;
 
-  /// As `path-targets-exist` decides: a target that starts with `/` stays in
-  /// the bundle, and any other leaves when joining it to the source's
-  /// directory climbs out.
-  bool _leavesBundle(OkfGraphEdge edge, String? target) {
-    if (target == null || target.startsWith('/')) return false;
-    final joined = p.posix.normalize(
-      p.posix.join(p.posix.dirname(edge.source.documentPath), target),
-    );
-    return joined == '..' || joined.startsWith('../');
-  }
-
-  /// Whether [target] names a file or directory the snapshot holds, or, when
-  /// it leaves the bundle, one on disk under [bundleRoot]. Without a root a
-  /// path that needs the disk counts as present, so it is not reported.
-  bool _targetExists(
-    KnowledgeSnapshot snapshot,
-    OkfGraphEdge edge,
-    String? target,
-  ) {
-    if (target == null || target.contains(r'\')) return false;
-    final directory = target.startsWith('/')
-        ? '.'
-        : p.posix.dirname(edge.source.documentPath);
-    final segments = <String>[];
-    for (final segment in target.split('/')) {
-      final decoded = _decodeSegment(segment);
-      if (decoded.contains('/') || decoded.contains(r'\')) {
-        return false;
+  Map<String, Map<String, String?>> _sourcePaths(KnowledgeSnapshot snapshot) {
+    final paths = <String, Map<String, String?>>{};
+    for (final edge in snapshot.graph.edges) {
+      if (edge.origin == OkfGraphEdgeOrigin.bodyLink) continue;
+      final resolved = resolvePathTarget(
+        edge,
+        inBundle: snapshot.inventoryPaths.contains,
+        rootPath: bundleRoot,
+      );
+      var display = resolved.bundlePath;
+      final raw = edge.rawTarget;
+      if (!resolved.missing &&
+          display == null &&
+          (raw.startsWith('../') || raw.startsWith('./'))) {
+        final cut = raw.indexOf(RegExp(r'[?#]'));
+        display = p.posix.normalize(
+          p.posix.join(
+            p.posix.dirname(edge.source.documentPath),
+            cut < 0 ? raw : raw.substring(0, cut),
+          ),
+        );
       }
-      segments.add(decoded);
+      (paths[edge.source.documentPath] ??= {})[raw] = display;
     }
-    final relative = p.posix.normalize(
-      p.posix.joinAll([...directory.split('/'), ...segments]),
-    );
-    final inBundle = relative != '..' && !relative.startsWith('../');
-    if (inBundle && _snapshotContains(snapshot, relative)) return true;
-    if (!inBundle && target.startsWith('/')) return false;
-    final root = bundleRoot;
-    if (root == null) return !inBundle;
-    return FileSystemEntity.typeSync(
-          p.normalize(p.joinAll([root, ...directory.split('/'), ...segments])),
-        ) !=
-        FileSystemEntityType.notFound;
-  }
-
-  static bool _snapshotContains(KnowledgeSnapshot snapshot, String relative) {
-    if (relative == '.') {
-      return snapshot.sources.isNotEmpty || snapshot.assets.isNotEmpty;
-    }
-    if (snapshot.sources.containsKey(relative) ||
-        snapshot.assets.contains(relative)) {
-      return true;
-    }
-    final prefix = '$relative/';
-    return snapshot.sources.keys.any((path) => path.startsWith(prefix)) ||
-        snapshot.assets.any((path) => path.startsWith(prefix));
-  }
-
-  static String? _pathPart(String raw) {
-    final cut = raw.indexOf(RegExp(r'[?#]'));
-    final path = cut < 0 ? raw : raw.substring(0, cut);
-    return path.isEmpty ? null : path;
-  }
-
-  static String _decodeSegment(String segment) {
-    try {
-      return Uri.decodeComponent(segment);
-    } on ArgumentError {
-      return segment;
-    } on FormatException {
-      return segment;
-    }
+    return paths;
   }
 }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:path/path.dart' as p;
 
 import '../models/chunk.dart';
@@ -36,60 +34,14 @@ String _escapeControlChars(String value) => value.replaceAllMapped(
 String _inline(String value, String Function(String) escape) =>
     escape(value.replaceAll(RegExp(r'[\r\n\u2028\u2029]+'), ' ').trim());
 
-final _uriSchemePattern = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*:');
-final _proseSignalPattern = RegExp(r'[`\s]');
-final _knownFileExtensionPattern = RegExp(
-  r'\.(?:md|markdown|txt|pdf|docx?|xlsx?|pptx?|csv|tsv|json|ya?ml|html?|xml|sql|py|dart|ts|js|sh|png|jpe?g|webp|svg|zip|parquet)$',
-  caseSensitive: false,
-);
-
-bool _isResolvablePath(
-  String rawPath, {
-  required String? bundleRoot,
-  required String sourcePath,
-}) {
-  if (rawPath.isEmpty) return true;
-  if (rawPath.contains('`') || rawPath.startsWith('//')) return false;
-  if (rawPath.startsWith('/')) {
-    final inBundle = p.posix.normalize(rawPath.substring(1));
-    return inBundle != '..' && !inBundle.startsWith('../');
-  }
-  if (rawPath.startsWith('./') || rawPath.startsWith('../')) {
-    return true;
-  }
-  if (bundleRoot != null) {
-    final docDir = p.posix.dirname(sourcePath);
-    final relative = docDir == '.' ? rawPath : p.posix.join(docDir, rawPath);
-    final segments = p.posix.split(relative).map((segment) {
-      try {
-        return Uri.decodeComponent(segment);
-      } on Object {
-        return segment;
-      }
-    });
-    final candidate = p.normalize(p.joinAll([bundleRoot, ...segments]));
-    if (FileSystemEntity.typeSync(candidate) != FileSystemEntityType.notFound) {
-      return true;
-    }
-  }
-  final hasWhitespace = _proseSignalPattern.hasMatch(rawPath);
-  final slashIndex = rawPath.indexOf('/');
-  if (slashIndex > 0) {
-    return !_proseSignalPattern.hasMatch(rawPath.substring(0, slashIndex)) &&
-        _knownFileExtensionPattern.hasMatch(rawPath);
-  }
-  return !hasWhitespace && _knownFileExtensionPattern.hasMatch(rawPath);
-}
-
 List<String> _formatSources(
   Object? rawSources, {
   required String prefix,
-  required String? bundleRoot,
+  required Map<String, String?> sourcePaths,
   required String sourcePath,
 }) {
   if (rawSources is! List) return const [];
   final fullSelfPath = p.posix.normalize('$prefix$sourcePath');
-  final docDir = p.posix.dirname(fullSelfPath);
   final seen = <String>{};
   final formatted = <String>[];
   for (final item in rawSources) {
@@ -104,30 +56,14 @@ List<String> _formatSources(
       String formatEntry(String target) =>
           id == null ? target : '[$id] $target';
       final suffixIndex = trimmed.indexOf(RegExp(r'[?#]'));
-      final rawPath = suffixIndex >= 0
-          ? trimmed.substring(0, suffixIndex)
-          : trimmed;
       final suffix = suffixIndex >= 0 ? trimmed.substring(suffixIndex) : '';
-      if (_uriSchemePattern.hasMatch(trimmed) ||
-          trimmed.startsWith('//') ||
-          !_isResolvablePath(
-            rawPath,
-            bundleRoot: bundleRoot,
-            sourcePath: sourcePath,
-          )) {
+      final display = sourcePaths[trimmed];
+      if (display == null) {
         final entry = formatEntry(trimmed);
-        if (seen.add(entry)) {
-          formatted.add(entry);
-        }
+        if (seen.add(entry)) formatted.add(entry);
         continue;
       }
-      final resolvedPath = rawPath.isEmpty
-          ? fullSelfPath
-          : rawPath.startsWith('/')
-          ? p.posix.normalize('$prefix${rawPath.substring(1)}')
-          : p.posix.normalize(
-              docDir == '.' ? rawPath : p.posix.join(docDir, rawPath),
-            );
+      final resolvedPath = p.posix.normalize('$prefix$display');
       if (resolvedPath == fullSelfPath && suffix.isEmpty) {
         continue;
       }
@@ -158,6 +94,7 @@ String? _formatRelation(
 
 String _renderPassage(
   MarkdownPassage passage, {
+  required Map<String, String?> sourcePaths,
   required Iterable<String> relations,
   required String Function(String) escape,
 }) {
@@ -192,7 +129,7 @@ String _renderPassage(
   final sources = _formatSources(
     frontmatter?['sources'],
     prefix: passage.prefix,
-    bundleRoot: passage.bundleRoot,
+    sourcePaths: sourcePaths,
     sourcePath: chunk.sourcePath,
   );
   if (sources.isNotEmpty) {
@@ -212,6 +149,7 @@ String renderSearchMarkdown({
   required List<MarkdownPassage> matches,
   required List<MarkdownPassage> context,
   required List<String> notices,
+  Map<String, String?> Function(MarkdownPassage passage)? sourcePaths,
 }) {
   const escape = _escapeControlChars;
   final relationsByKey = <_PassageKey, Set<String>>{};
@@ -236,6 +174,7 @@ String renderSearchMarkdown({
       for (final match in matches) ...[
         _renderPassage(
           match,
+          sourcePaths: sourcePaths?.call(match) ?? const {},
           relations: relationsByKey[_keyOf(match)] ?? const {},
           escape: escape,
         ),
@@ -248,6 +187,7 @@ String renderSearchMarkdown({
       for (final item in related) ...[
         _renderPassage(
           item,
+          sourcePaths: sourcePaths?.call(item) ?? const {},
           relations: relationsByKey[_keyOf(item)] ?? const {},
           escape: escape,
         ),
