@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../wayfinder_config.dart';
-import 'exception.dart';
 import 'bundle_roots.dart';
+import 'exception.dart';
 
 /// A configured bundle: its folder [name], its project-relative [path], which
 /// prefixes citations, and its canonical [root].
