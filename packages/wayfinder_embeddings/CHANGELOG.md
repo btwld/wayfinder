@@ -9,6 +9,15 @@
   different layout cannot bypass the reviewed llama.cpp pin at bundle build.
 - Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.
 
+- **BREAKING:** `EmbeddingModelSpec` takes a required `displayName`, the
+  model's name for a person, so a host that shows which model it uses or
+  offers to download need not derive one from the artifact's file name.
+  `localEmbeddingModel` is `Snowflake Arctic Embed XS`. The name is in
+  `toMap()`, so a staged `models/manifest.json` records it, and not in
+  `identityMap`: encoder identities and saved indexes are unchanged, and
+  renaming a model invalidates nothing. A spec constructed outside this
+  package must now pass a `displayName`.
+
 # 0.4.0
 
 - Re-export the shared core `KnowledgeMetadataFilter` through existing public imports; eligibility semantics and search signatures remain unchanged.
