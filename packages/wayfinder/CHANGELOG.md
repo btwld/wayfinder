@@ -24,7 +24,10 @@
   An unrelated, unselected missing bundle still does not prevent selection.
 - A failed adoption step whose own rollback fails now reports `undoFailed`,
   as earlier completed steps already do when their rollback fails. The
-  original failure code and cause remain available.
+  original failure code and cause remain available. `onStep` emits `failed`
+  then `undo-failed` for that step when its own undo fails; the exception
+  keeps one final report per step, so `steps.last` can be `undo-failed`.
+  Hosts must handle that final state rather than assuming `failed`.
 - Clarify composition: all rules use the whole chain's and project's
   vocabulary. Added names can affect inherited findings; inherited rule
   definitions and severities cannot change. This clarification alone changes
