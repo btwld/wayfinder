@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 class EmbeddingModelSpec {
   const EmbeddingModelSpec({
     required this.id,
+    required this.displayName,
     required this.url,
     required this.sha256,
     required this.bytes,
@@ -17,6 +18,13 @@ class EmbeddingModelSpec {
   });
 
   final String id;
+
+  /// The model's name for a person, such as `Snowflake Arctic Embed XS`, for
+  /// a host that shows which model it uses or offers to download.
+  ///
+  /// It is presentation only: [id] identifies the artifact, and renaming a
+  /// model changes neither its [identityMap] nor its stored vectors.
+  final String displayName;
   final String url;
   final String sha256;
   final int bytes;
@@ -50,7 +58,8 @@ class EmbeddingModelSpec {
   ///
   /// Provenance ([url] and [license]) is deliberately excluded so that moving
   /// to another mirror of the same verified bytes does not invalidate stored
-  /// vectors. [sha256] already pins the bytes themselves.
+  /// vectors. [sha256] already pins the bytes themselves. [displayName] is
+  /// excluded too, so renaming a model invalidates nothing.
   Map<String, Object> get identityMap => {
     'id': id,
     'sha256': sha256,
@@ -60,10 +69,12 @@ class EmbeddingModelSpec {
     'queryPrefix': queryPrefix,
   };
 
-  /// Full record for manifests and run provenance, including where the bytes
-  /// came from. Use [identityMap] for anything that keys stored vectors.
+  /// Full record for manifests and run provenance, including the model's
+  /// [displayName] and where the bytes came from. Use [identityMap] for
+  /// anything that keys stored vectors.
   Map<String, Object> toMap() => {
     'id': id,
+    'displayName': displayName,
     'url': url,
     'sha256': sha256,
     'bytes': bytes,
@@ -119,6 +130,7 @@ final class EmbeddingModelMismatchException extends FormatException {
 /// The GGUF is a community conversion of Snowflake's Apache-2.0 model.
 const localEmbeddingModel = EmbeddingModelSpec(
   id: 'arctic-embed-xs-q8_0',
+  displayName: 'Snowflake Arctic Embed XS',
   url:
       'https://huggingface.co/mradermacher/snowflake-arctic-embed-xs-GGUF/'
       'resolve/143419f28857ed7f3b1afd13713f3b3955231338/'
