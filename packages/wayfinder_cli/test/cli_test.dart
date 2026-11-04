@@ -465,7 +465,7 @@ void main() {
           'id': 'wayfinder/profile-unresolved',
           'level': 'error',
           'message': isNotEmpty,
-          'location': {'path': config},
+          'location': {'path': p.normalize(p.absolute(config))},
         },
       ]);
       expect(report['gate'], {'state': 'INCOMPLETE'});
@@ -635,7 +635,7 @@ void main() {
           spawned,
           starts
               ? [
-                  ['index', p.absolute('.'), '--background'],
+                  ['index', p.normalize(p.absolute('.')), '--background'],
                 ]
               : isEmpty,
         );
@@ -701,7 +701,7 @@ void main() {
         0,
       );
       expect(spawned, [
-        ['index', p.absolute('.'), '--background', '--force'],
+        ['index', p.normalize(p.absolute('.')), '--background', '--force'],
       ]);
       expect(jsonDecode(output.single), {'bundle': '.', 'detached': 'started'});
     });
