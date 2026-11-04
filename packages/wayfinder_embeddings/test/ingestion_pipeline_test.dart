@@ -367,8 +367,8 @@ function main() {
         expect(store.storeChunkCalls, 0);
         expect(store.storeEmbeddingCalls, 0);
         expect(store.storeBatchCalls, 1);
-        // Dedupe reads stay at one lookup per chunk, so ingestion is linear.
-        expect(store.getChunkCalls, chunks.length);
+        // Identity preflight and bounded replay keep reads linear in chunks.
+        expect(store.getChunkCalls, lessThanOrEqualTo(chunks.length * 2));
         expect(store.getEmbeddingCalls, 0);
 
         await embedder.dispose();
