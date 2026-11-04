@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import subprocess
 import tempfile
 import urllib.error
@@ -21,7 +22,8 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = 'btwld/wayfinder'
 CLI = Path('packages/wayfinder_cli')
-CLI_SIBLINGS = ('wayfinder', 'wayfinder_embeddings')
+SIBLINGS = runpy.run_path(str(Path(__file__).with_name('verify-siblings-published.py')))
+CLI_SIBLINGS = tuple(SIBLINGS['sibling_versions']('wayfinder_cli', ROOT))
 
 
 @dataclass
@@ -52,15 +54,7 @@ def source_ci(run: dict, sha: str, repository: str = REPOSITORY) -> Gate:
     return Gate('source-ci', 'passed', 'Successful push/main CI names this exact commit.', details)
 
 
-def published_versions(name: str) -> set[str]:
-    try:
-        with urllib.request.urlopen(f'https://pub.dev/api/packages/{name}', timeout=30) as response:
-            return {entry['version'] for entry in json.load(response)['versions']}
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return set()
-        raise
-
+published_versions = SIBLINGS['published_versions']
 
 def hosted_dependencies(versions: dict[str, str], published) -> Gate:
     missing = [f'{name} {version}' for name, version in versions.items()
@@ -70,7 +64,7 @@ def hosted_dependencies(versions: dict[str, str], published) -> Gate:
                     'Publish the CLI sibling versions in dependency order before hosted resolution.',
                     {'unpublished': missing})
     return Gate('hosted-dependencies', 'passed',
-                'Both exact CLI sibling versions are available on pub.dev.', versions)
+                'All exact CLI sibling versions are available on pub.dev.', versions)
 
 
 def standalone_pubspec(text: str) -> str:

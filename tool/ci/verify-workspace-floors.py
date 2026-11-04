@@ -46,14 +46,19 @@ def published(name: str) -> set[str]:
         raise
 
 
-def main() -> int:
-    members = re.findall(r"^  - (\S+)$", (ROOT / "pubspec.yaml").read_text(), re.M)
+def workspace_packages(root: Path) -> dict:
+    members = re.findall(r"^  - (\S+)$", (root / "pubspec.yaml").read_text(), re.M)
     packages = {}
     for member in members:
-        text = (ROOT / member / "pubspec.yaml").read_text()
+        text = (root / member / "pubspec.yaml").read_text()
         name = re.search(r"^name: (\S+)$", text, re.M)[1]
         version = re.search(r"^version: (\S+)$", text, re.M)[1]
         packages[name] = (member, version, dependencies(text))
+    return packages
+
+
+def main() -> int:
+    packages = workspace_packages(ROOT)
     failures = []
     depended = set()
     for member, _, needs in packages.values():

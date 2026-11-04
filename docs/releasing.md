@@ -70,7 +70,10 @@ Publication order:
 
 Each package publication workflow first requires successful push/main source
 CI for the exact tagged commit. Passing PR candidate CI alone does not satisfy
-that gate.
+that gate. Each workflow also derives its sibling dependencies from the
+workspace pubspecs and requires their exact prepared versions on pub.dev,
+excluding retracted versions. If this gate trips, publish the missing siblings
+first and rerun the workflow on the same immutable tag.
 
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.

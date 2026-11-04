@@ -23,7 +23,7 @@ if [[ "$code" != 200 ]]; then
   echo "Unexpected pub.dev response for $package: $code" >&2
   exit 1
 fi
-if jq -e --arg version "$version" '.versions | any(.version == $version)' "$work" >/dev/null; then
+if jq -e --arg version "$version" '.versions | any(.version == $version and .retracted != true)' "$work" >/dev/null; then
   echo "published=true"
 else
   echo "published=false"

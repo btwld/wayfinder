@@ -367,3 +367,25 @@ class PreflightPrerequisiteTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class SiblingPublicationTests(unittest.TestCase):
+    def test_new_workspace_dependency_is_discovered_without_a_second_list(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'pubspec.yaml').write_text('workspace:\n  - cli\n  - added\n')
+            for member, name, deps in [('cli', 'cli', '  added: ^2.0.0\n  http: ^1.0.0\n'),
+                                       ('added', 'added', '')]:
+                (root / member).mkdir()
+                (root / member / 'pubspec.yaml').write_text(
+                    f'name: {name}\nversion: 2.0.0\ndependencies:\n{deps}')
+            versions = preflight.SIBLINGS['sibling_versions']('cli', root)
+            self.assertEqual(versions, {'added': '2.0.0'})
+            missing = preflight.SIBLINGS['missing_siblings'](versions, lambda _: {'1.0.0'})
+            self.assertEqual(missing, ['added 2.0.0'])
+
+    def test_retracted_versions_are_not_publication_prerequisites(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({'versions': [
+            {'version': '1.0.0', 'retracted': True}, {'version': '2.0.0'}]}).encode()
+        with mock.patch('urllib.request.urlopen', return_value=response):
+            self.assertEqual(preflight.SIBLINGS['published_versions']('example'), {'2.0.0'})
