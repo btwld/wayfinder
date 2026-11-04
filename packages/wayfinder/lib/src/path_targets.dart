@@ -65,7 +65,7 @@ import 'package:path/path.dart' as p;
     return (
       missing:
           FileSystemEntity.typeSync(
-            p.joinAll([rootPath, ...relative.split('/')]),
+            p.normalize(p.joinAll([rootPath, ...relative.split('/')])),
           ) ==
           FileSystemEntityType.notFound,
       bundlePath: null,
