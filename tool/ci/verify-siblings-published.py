@@ -3,7 +3,6 @@
 import argparse
 import json
 from pathlib import Path
-import re
 import runpy
 import urllib.error
 import urllib.request
@@ -17,7 +16,7 @@ def sibling_versions(package: str, root: Path = ROOT) -> dict[str, str]:
     if package not in packages:
         raise ValueError(f'Unknown workspace package: {package}')
     dependencies = packages[package][2]
-    return {name: packages[name][1] for name in dependencies if name in packages}
+    return {name: packages[name][1] for name in sorted(dependencies) if name in packages}
 
 
 def published_versions(name: str) -> set[str]:
