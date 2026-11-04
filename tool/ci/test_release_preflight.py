@@ -1,14 +1,17 @@
 """Contract checks for the read-only release preflight; no Dart or network."""
 
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
 import unittest
+from contextlib import redirect_stdout
 from unittest import mock
 
 
@@ -17,6 +20,7 @@ SPEC = importlib.util.spec_from_file_location(
 preflight = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = preflight
 SPEC.loader.exec_module(preflight)
+CLI_VERSIONS = {'wayfinder': '1.0.0', 'wayfinder_embeddings': '1.0.0'}
 
 
 def ci(**changes):
@@ -30,7 +34,7 @@ def graph(**sources):
     return {'root': 'wayfinder_cli', 'packages': [
         {'name': 'wayfinder_cli', 'source': 'root'},
         *[{'name': name, 'source': sources.get(name, 'hosted'), 'version': '1.0.0'}
-          for name in ('wayfinder', 'wayfinder_embeddings')],
+          for name in CLI_VERSIONS],
     ]}
 
 
@@ -144,10 +148,12 @@ class HostedProbeTest(unittest.TestCase):
         (self.cli / 'ignored.txt').write_text('not in the checked source')
         (self.root / 'packages/wayfinder').mkdir()
         (self.root / 'packages/wayfinder' / 'workspace-only.dart').write_text('not hosted')
-        for name in preflight.CLI_SIBLINGS:
+        for name in CLI_VERSIONS:
             directory = self.root / 'packages' / name
             directory.mkdir(exist_ok=True)
             (directory / 'pubspec.yaml').write_text(f'name: {name}\nversion: 1.0.0\n')
+        (self.root / 'pubspec.yaml').write_text('workspace:\n' + ''.join(
+            f'  - packages/{name}\n' for name in (*CLI_VERSIONS, 'wayfinder_cli')))
         (self.root / '.gitignore').write_text('**/.dart_tool/\n**/ignored.txt\n')
         self.sha = repository(self.root)
 
@@ -169,7 +175,7 @@ class HostedProbeTest(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0,
                                                json.dumps(graph()) if command[2] == 'deps' else 'ok', '')
 
-        result = preflight.hosted_cli(self.root, self.sha, None, runner)
+        result = preflight.hosted_cli(self.root, self.sha, None, runner, versions=CLI_VERSIONS)
         self.assertEqual(result.status, 'passed')
         self.assertEqual(calls, [
             ['dart', 'pub', 'get'], ['dart', 'pub', 'deps', '--json'],
@@ -186,7 +192,7 @@ class HostedProbeTest(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0,
                                                json.dumps(graph()) if command[2] == 'deps' else 'ok', '')
 
-        result = preflight.hosted_cli(self.root, self.sha, None, runner)
+        result = preflight.hosted_cli(self.root, self.sha, None, runner, versions=CLI_VERSIONS)
         self.assertEqual(result.status, 'passed')
         self.assertEqual(source.read_text(), 'const untested = true;\n')
 
@@ -201,7 +207,7 @@ class HostedProbeTest(unittest.TestCase):
 
             with self.subTest(source=source):
                 with self.assertRaises(ValueError):
-                    preflight.hosted_cli(self.root, self.sha, None, runner)
+                    preflight.hosted_cli(self.root, self.sha, None, runner, versions=CLI_VERSIONS)
                 self.assertEqual(len(calls), 2)
 
     def test_command_failure_retains_exit_and_logs_without_upload(self):
@@ -209,7 +215,8 @@ class HostedProbeTest(unittest.TestCase):
             logs = Path(temporary)
             result = preflight.hosted_cli(
                 self.root, self.sha, logs,
-                lambda command, cwd, environment: subprocess.CompletedProcess(command, 1, '', 'resolution failed'))
+                lambda command, cwd, environment: subprocess.CompletedProcess(command, 1, '', 'resolution failed'),
+                versions=CLI_VERSIONS)
             self.assertEqual(result.status, 'failed')
             self.assertEqual(result.details[0]['exit_code'], 1)
             self.assertEqual((logs / 'hosted-cli-pub-get.log').read_text(), 'resolution failed')
@@ -224,14 +231,14 @@ class HostedProbeTest(unittest.TestCase):
         (self.cli / 'pubspec_overrides.yaml').write_text('dependency_overrides: {}\n')
         sha = commit(self.root)
         with self.assertRaises(ValueError):
-            preflight.hosted_cli(self.root, sha, None)
+            preflight.hosted_cli(self.root, sha, None, versions=CLI_VERSIONS)
 
     @unittest.skipIf(os.name == 'nt', 'fixture needs a POSIX symlink')
     def test_git_symlink_mode_is_refused(self):
         (self.cli / 'linked.dart').symlink_to('lib/owned.dart')
         sha = commit(self.root)
         with self.assertRaisesRegex(ValueError, 'regular Git file'):
-            preflight.hosted_cli(self.root, sha, None)
+            preflight.hosted_cli(self.root, sha, None, versions=CLI_VERSIONS)
 
 
 class PreflightPrerequisiteTest(unittest.TestCase):
@@ -239,12 +246,105 @@ class PreflightPrerequisiteTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='preflight-committed-')
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        for name in (*preflight.CLI_SIBLINGS, 'wayfinder_cli'):
+        for name in (*CLI_VERSIONS, 'wayfinder_cli'):
             directory = self.root / 'packages' / name
             directory.mkdir(parents=True)
             (directory / 'pubspec.yaml').write_text(
                 f'name: {name}\nversion: 1.0.0\nresolution: workspace\n')
+        (self.root / 'pubspec.yaml').write_text('workspace:\n' + ''.join(
+            f'  - packages/{name}\n' for name in (*CLI_VERSIONS, 'wayfinder_cli')))
+        with (self.root / preflight.CLI / 'pubspec.yaml').open('a') as pubspec:
+            pubspec.write('dependencies:\n  wayfinder: ^1.0.0\n  wayfinder_embeddings: ^1.0.0\n')
         self.sha = repository(self.root)
+
+    def add_chunker(self):
+        directory = self.root / 'packages/wayfinder_dart_chunker'
+        directory.mkdir()
+        (directory / 'pubspec.yaml').write_text('name: wayfinder_dart_chunker\nversion: 2.0.0\n')
+        with (self.root / 'pubspec.yaml').open('a') as pubspec:
+            pubspec.write('  - packages/wayfinder_dart_chunker\n')
+        with (self.root / preflight.CLI / 'pubspec.yaml').open('a') as pubspec:
+            pubspec.write('  wayfinder_dart_chunker: ^2.0.0\n')
+        self.sha = commit(self.root)
+
+    def root_report(self):
+        output = io.StringIO()
+
+        def response(url, **kwargs):
+            versions = ['1.0.0'] if url.rsplit('/', 1)[-1] in CLI_VERSIONS else []
+            return io.BytesIO(json.dumps({'versions': [
+                {'version': version} for version in versions]}).encode())
+
+        with mock.patch.object(sys, 'argv', ['release-preflight.py', '--root', str(self.root)]), \
+                mock.patch('urllib.request.urlopen', side_effect=response), redirect_stdout(output):
+            status = preflight.main()
+        return status, json.loads(output.getvalue())
+
+    def test_root_cli_checks_extra_committed_sibling(self):
+        self.add_chunker()
+        status, report = self.root_report()
+        gates = {gate['name']: gate for gate in report['gates']}
+        self.assertEqual(status, 2)
+        self.assertEqual(gates['source-tree']['status'], 'passed')
+        self.assertEqual(gates['hosted-dependencies']['status'], 'blocked')
+        self.assertEqual(gates['hosted-dependencies']['details']['unpublished'],
+                         ['wayfinder_dart_chunker 2.0.0'])
+
+    def test_root_cli_uses_captured_metadata_even_when_live_files_are_malformed(self):
+        self.add_chunker()
+        for relative in ('pubspec.yaml', 'packages/wayfinder_cli/pubspec.yaml',
+                         'packages/wayfinder_dart_chunker/pubspec.yaml'):
+            (self.root / relative).write_text('not a pubspec\n')
+        status, report = self.root_report()
+        gates = {gate['name']: gate for gate in report['gates']}
+        self.assertEqual(status, 2)
+        self.assertEqual(report['head'], self.sha)
+        self.assertEqual(gates['source-tree']['status'], 'blocked')
+        self.assertEqual(gates['hosted-dependencies']['details']['unpublished'],
+                         ['wayfinder_dart_chunker 2.0.0'])
+
+    def test_root_cli_reports_malformed_committed_metadata_with_completed_gates(self):
+        (self.root / 'packages/wayfinder/pubspec.yaml').write_text('name: wayfinder\n')
+        commit(self.root)
+        status, report = self.root_report()
+        gates = {gate['name']: gate for gate in report['gates']}
+        self.assertEqual(status, 1)
+        self.assertEqual(gates['source-tree']['status'], 'passed')
+        self.assertEqual(gates['source-ci']['status'], 'blocked')
+        self.assertEqual(gates['hosted-dependencies']['status'], 'failed')
+        self.assertIn('packages/wayfinder/pubspec.yaml', gates['hosted-dependencies']['message'])
+        self.assertEqual(gates['hosted-cli']['status'], 'blocked')
+
+    def test_extra_sibling_must_resolve_hosted_at_its_captured_version(self):
+        self.add_chunker()
+        for source, version, accepted in [('hosted', '2.0.0', True), ('hosted', '2.1.0', False),
+                                          ('path', '2.0.0', False), (None, None, False)]:
+            def runner(command, cwd, environment):
+                data = ci(head_sha=self.sha) if command[0] == 'gh' else graph()
+                if command[1:3] == ['pub', 'deps'] and source:
+                    data['packages'].append({'name': 'wayfinder_dart_chunker',
+                                             'source': source, 'version': version})
+                return subprocess.CompletedProcess(command, 0, json.dumps(data), '')
+            with self.subTest(source=source, version=version):
+                report = preflight.preflight(self.root, '123', True, None,
+                                            published=lambda _: {'1.0.0', '2.0.0'}, runner=runner)
+                self.assertEqual(report['status'], 'passed' if accepted else 'failed')
+
+    def test_help_does_not_read_the_script_checkouts_member_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            checkout = Path(temporary)
+            scripts = checkout / 'tool/ci'
+            scripts.mkdir(parents=True)
+            for name in ('release-preflight.py', 'verify-siblings-published.py',
+                         'verify-workspace-floors.py'):
+                shutil.copyfile(preflight.ROOT / 'tool/ci' / name, scripts / name)
+            (checkout / 'pubspec.yaml').write_text('workspace:\n  - broken\n')
+            (checkout / 'broken').mkdir()
+            (checkout / 'broken/pubspec.yaml').write_text('name: broken\n')
+            result = subprocess.run([sys.executable, str(scripts / 'release-preflight.py'), '--help'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('--root', result.stdout)
 
     def test_unpublished_siblings_do_not_run_hosted_commands(self):
         def refuse(command, cwd, environment):

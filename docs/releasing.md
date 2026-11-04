@@ -134,6 +134,12 @@ python3 tool/ci/release-preflight.py \
   --output .context/release-preflight.json
 ```
 
+Sibling names and prepared versions come from the requested root's workspace
+and member pubspecs at the captured commit. That same mapping drives the
+pub.dev availability gate and hosted graph verification; live metadata edits
+cannot change what is checked. Invalid committed metadata is reported with
+the completed gates, and dirty source still requires a rerun.
+
 The opt-in check stages only regular files read from the captured immutable
 Git commit, not the live CLI worktree, in a
 fresh temporary directory **outside the workspace**, removes only its

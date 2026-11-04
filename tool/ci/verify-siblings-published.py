@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 FLOORS = runpy.run_path(str(Path(__file__).with_name('verify-workspace-floors.py')))
 
 
-def sibling_versions(package: str, root: Path = ROOT) -> dict[str, str]:
-    packages = FLOORS['workspace_packages'](root)
+def sibling_versions(package: str, root: Path = ROOT, *, read_text=Path.read_text) -> dict[str, str]:
+    packages = FLOORS['workspace_packages'](root, read_text=read_text)
     if package not in packages:
         raise ValueError(f'Unknown workspace package: {package}')
     dependencies = packages[package][2]
