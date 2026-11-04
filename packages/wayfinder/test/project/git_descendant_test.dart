@@ -82,8 +82,6 @@ Future<Map<String, Object?>> exercise(String cause) async {
     if (numbers == null) {
       cancel.cancel();
       return {
-        'cause': cause,
-        'pass': false,
         'error': await finished,
         'fixture_error': 'SSH fixture never became ready',
       };
@@ -99,19 +97,11 @@ Future<Map<String, Object?>> exercise(String cause) async {
     final afterFirst = await state(firstChildId);
     final afterSecond = await state(secondChildId);
     return {
-      'cause': cause,
       'error': code,
       'descendant_running_before': beforeFirst.running && beforeSecond.running,
       'helper_running_after': afterHelper.running,
       'descendant_running_after': afterFirst.running || afterSecond.running,
       'descendant_state_after': '${afterFirst.text} | ${afterSecond.text}',
-      'pass':
-          beforeFirst.running &&
-          beforeSecond.running &&
-          code == (cause == 'timeout' ? 'git-timeout' : 'cancelled') &&
-          !afterHelper.running &&
-          !afterFirst.running &&
-          !afterSecond.running,
     };
   } finally {
     cancel.cancel();
