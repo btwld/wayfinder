@@ -74,6 +74,9 @@ that gate. Each workflow also derives its sibling dependencies from the
 workspace pubspecs and requires their exact prepared versions on pub.dev,
 excluding retracted versions. If this gate trips, publish the missing siblings
 first and rerun the workflow on the same immutable tag.
+Upload reruns skip an occupied package version, including a retracted one:
+retraction does not free its version number. A retracted sibling still fails
+the dependency gate and needs a new usable version before dependents publish.
 
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Emit published=true/false for GitHub Actions. A missing package is unpublished.
+# Upload idempotency: published=true means the version number is occupied,
+# including retracted versions. verify-siblings-published.py checks usability.
 set -euo pipefail
 package="${1:?package name is required}"
 version="${2:?package version is required}"
@@ -23,8 +24,5 @@ if [[ "$code" != 200 ]]; then
   echo "Unexpected pub.dev response for $package: $code" >&2
   exit 1
 fi
-if jq -e --arg version "$version" '.versions | any(.version == $version and .retracted != true)' "$work" >/dev/null; then
-  echo "published=true"
-else
-  echo "published=false"
-fi
+published="$(jq -r --arg version "$version" '.versions | any(.version == $version)' "$work")"
+echo "published=$published"

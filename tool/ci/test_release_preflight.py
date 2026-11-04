@@ -489,3 +489,98 @@ class SiblingPublicationTests(unittest.TestCase):
             {'version': '1.0.0', 'retracted': True}, {'version': '2.0.0'}]}).encode()
         with mock.patch('urllib.request.urlopen', return_value=response):
             self.assertEqual(preflight.SIBLINGS['published_versions']('example'), {'2.0.0'})
+
+
+@unittest.skipIf(os.name == 'nt', 'publication workflows run in Bash on Linux')
+class PublicationShellTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix='publication-shell-')
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        scripts = self.root / 'tool/ci'
+        scripts.mkdir(parents=True)
+        for name in ('pub-version-published.sh', 'verify-siblings-published.py',
+                     'verify-workspace-floors.py'):
+            shutil.copyfile(preflight.ROOT / 'tool/ci' / name, scripts / name)
+        shutil.copyfile(preflight.ROOT / 'pubspec.yaml', self.root / 'pubspec.yaml')
+        for member, _, _ in preflight.SIBLINGS['FLOORS']['workspace_packages'](preflight.ROOT).values():
+            (self.root / member).mkdir(parents=True)
+            shutil.copyfile(preflight.ROOT / member / 'pubspec.yaml',
+                            self.root / member / 'pubspec.yaml')
+        self.metadata = self.root / 'response.json'
+        self.output = self.root / 'github-output'
+        binaries = self.root / 'bin'
+        binaries.mkdir()
+        (binaries / 'python3').symlink_to(sys.executable)
+        curl = binaries / 'curl'
+        curl.write_text(f'#!{sys.executable}\n' + textwrap.dedent('''\
+            import os, pathlib, sys
+            pathlib.Path(sys.argv[sys.argv.index('--output') + 1]).write_bytes(
+                pathlib.Path(os.environ['PUB_RESPONSE']).read_bytes())
+            print(os.environ['PUB_STATUS'], end='')
+            '''))
+        curl.chmod(0o755)
+        network = self.root / 'network'
+        network.mkdir()
+        (network / 'sitecustomize.py').write_text(textwrap.dedent('''\
+            import io, os, pathlib, urllib.error, urllib.request
+            def response(url, **kwargs):
+                status = int(os.environ['PUB_STATUS'])
+                if status != 200:
+                    raise urllib.error.HTTPError(url, status, 'fixture', {}, None)
+                return io.BytesIO(pathlib.Path(os.environ['PUB_RESPONSE']).read_bytes())
+            urllib.request.urlopen = response
+            '''))
+        self.environment = dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ['PATH'],
+                                PYTHONPATH=str(network), PYTHONDONTWRITEBYTECODE='1',
+                                PUB_RESPONSE=str(self.metadata), PUB_STATUS='200',
+                                GITHUB_WORKSPACE=str(self.root), GITHUB_OUTPUT=str(self.output))
+
+    def test_all_upload_workflow_checks_skip_occupied_versions_including_retracted(self):
+        for package, (member, version, _) in preflight.SIBLINGS['FLOORS']['workspace_packages'](self.root).items():
+            workflow = (preflight.ROOT / '.github/workflows' /
+                        f'publish-{package.replace("_", "-")}.yml').read_text()
+            section = workflow.split('      - name: Check whether pub.dev already has this version\n', 1)[1]
+            command = textwrap.dedent(section.split('        run: |\n', 1)[1].split('      - if:', 1)[0])
+            self.assertIn("if: steps.pub.outputs.published != 'true'\n        run: dart pub publish --force",
+                          section)
+            for entries, status, expected in [([{'version': version}], '200', 'true'),
+                                               ([{'version': version, 'retracted': True}], '200', 'true'),
+                                               ([], '200', 'false'), ([], '404', 'false')]:
+                with self.subTest(package=package, entries=entries, status=status):
+                    self.metadata.write_text(json.dumps({'versions': entries}))
+                    self.output.write_text('')
+                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', command],
+                                            cwd=self.root / member,
+                                            env=dict(self.environment, PUB_STATUS=status),
+                                            capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(self.output.read_text(), f'published={expected}\n')
+
+    def test_sibling_workflow_commands_reject_retracted_versions_and_accept_usable_versions(self):
+        for package in preflight.SIBLINGS['FLOORS']['workspace_packages'](self.root):
+            versions = preflight.SIBLINGS['sibling_versions'](package, self.root)
+            if not versions:
+                continue
+            workflow = (preflight.ROOT / '.github/workflows' /
+                        f'publish-{package.replace("_", "-")}.yml').read_text()
+            command = workflow.split('      - name: Verify exact sibling dependencies are published\n', 1)[1]
+            command = command.split('        run: ', 1)[1].splitlines()[0]
+            for retracted in (False, True):
+                with self.subTest(package=package, retracted=retracted):
+                    self.metadata.write_text(json.dumps({'versions': [
+                        {'version': version, 'retracted': retracted} for version in set(versions.values())]}))
+                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', command], cwd=self.root,
+                                            env=self.environment, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 1 if retracted else 0, result.stderr)
+                    if retracted:
+                        self.assertIn('Unpublished or retracted siblings:', result.stderr)
+                        for name, version in versions.items():
+                            self.assertIn(f'{name} {version}', result.stderr)
+
+    def test_upload_probe_fails_closed_on_unreadable_metadata(self):
+        self.metadata.write_text('not JSON\n')
+        result = subprocess.run(['bash', 'tool/ci/pub-version-published.sh', 'wayfinder', '1.0.0'],
+                                cwd=self.root, env=self.environment, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('published=false', result.stdout)
