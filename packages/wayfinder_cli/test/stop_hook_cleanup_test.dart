@@ -18,6 +18,8 @@ void main() {
         {'type': 'command', 'command': 'echo "Run wayfinder index knowledge"'},
         {'type': 'command', 'command': 'other-wayfinder index knowledge'},
         {'type': 'command', 'command': 'wayfinder indexer knowledge'},
+        {'type': 'command', 'command': 'wayfinder index knowledge --detach'},
+        {'type': 'command', 'command': 'wayfinder index other-bundle --force'},
         {'type': 'prompt', 'command': 'wayfinder index knowledge'},
       ];
       await settings.writeAsString(
@@ -30,10 +32,6 @@ void main() {
                 'timeout': 7,
                 'hooks': [
                   ...unrelated,
-                  {
-                    'type': 'command',
-                    'command': 'wayfinder index knowledge --detach',
-                  },
                   {
                     'type': 'command',
                     'command':

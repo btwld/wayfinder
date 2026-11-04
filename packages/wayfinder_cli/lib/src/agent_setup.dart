@@ -441,7 +441,6 @@ class AgentSetup {
   /// mentioning an index command in another handler does not make it ours.
   static bool _isLegacyIndexHook(Object? entry) => switch (entry) {
     {'type': 'command', 'command': final String command} => const [
-      'wayfinder index ',
       'cd "\$CLAUDE_PROJECT_DIR" && wayfinder index ',
       'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
           'wayfinder index ',
