@@ -151,7 +151,10 @@ void main() {
     await configure(['missing']);
     await expectLater(
       WayfinderProject.discover(project),
-      failsWith('bundle-missing', 'Configured bundle does not exist: missing.'),
+      failsWith(
+        'bundle-missing',
+        'Configured bundle missing does not exist or is unreadable.',
+      ),
     );
     await File(p.join(project.path, 'wayfinder.json')).writeAsString('{}');
     await expectLater(
@@ -191,6 +194,22 @@ void main() {
       );
     },
   );
+
+  test('selection cannot hide a readable alias overlap', () async {
+    await Link(
+      p.join(project.path, 'alias'),
+    ).create(p.join(project.path, 'knowledge'));
+    await configure(['knowledge', 'alias']);
+    for (final selected in ['knowledge', 'alias']) {
+      await expectLater(
+        WayfinderProject.discover(project, bundleName: selected),
+        failsWith(
+          'config-invalid',
+          'Configured bundles overlap after resolving symlinks.',
+        ),
+      );
+    }
+  });
 
   test('keeps a valid disjoint bundle alias', () async {
     final other = await Directory(p.join(project.path, 'other')).create();
@@ -470,7 +489,7 @@ void main() {
             WayfinderProjectConfig.bind(bundlePath, projectRoot: projectRoot),
             unbound(
               DiagnosticCode.configInvalid,
-              startsWith('Bundle ${bundle.path} resolves outside the project'),
+              startsWith('Configured bundle leaves the project:'),
             ),
             reason: '$bundlePath with projectRoot $projectRoot',
           );

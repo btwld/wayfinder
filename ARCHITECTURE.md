@@ -104,7 +104,7 @@ Adoption therefore can remain incomplete after a failed final gate, and existing
 
 ## Immutable plain-file index generations (ADR-0022, ADR-0026)
 
-Date: 2026-10-24; model lookup correction 2026-10-26 (ADR-0028).
+Date: 2026-10-24; model lookup correction 2026-10-26.
 
 Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.

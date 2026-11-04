@@ -105,13 +105,15 @@ def standalone_pubspec(text: str) -> str:
     return ''.join(lines)
 
 
-def check_hosted_graph(graph: dict) -> None:
+def check_hosted_graph(graph: dict, versions: dict[str, str] | None = None) -> None:
     packages = {entry['name']: entry for entry in graph['packages']}
     if graph.get('root') != 'wayfinder_cli':
         raise ValueError('Dependency graph is not the staged standalone CLI.')
     for name in CLI_SIBLINGS:
         if packages.get(name, {}).get('source') != 'hosted':
             raise ValueError(f'{name} did not resolve from a hosted source.')
+        if versions is not None and packages[name].get('version') != versions[name]:
+            raise ValueError(f'{name} did not resolve to prepared version {versions[name]}.')
     if any(entry['source'] not in ('root', 'hosted', 'sdk')
            or (entry['source'] == 'root' and entry['name'] != 'wayfinder_cli')
            for entry in graph['packages']):
@@ -127,61 +129,77 @@ def committed_bytes(root: Path, sha: str, path: str) -> bytes:
     return subprocess.check_output(['git', 'show', f'{sha}:{path}'], cwd=root)
 
 
-def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute) -> Gate:
+def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute,
+               versions: dict[str, str] | None = None) -> Gate:
     """Stage the captured commit, never live workspace files or package config."""
     commands = []
-    tracked = subprocess.check_output(
-        ['git', 'ls-tree', '-rz', sha, '--', CLI.as_posix()], cwd=root)
-    with tempfile.TemporaryDirectory(prefix='wayfinder-hosted-cli-') as temporary:
-        stage = Path(temporary).resolve()
-        if stage == root or root in stage.parents:
-            raise ValueError('TMPDIR must be outside the source workspace.')
-        for entry in tracked.split(b'\0'):
-            if not entry:
-                continue
-            metadata, path = entry.decode().split('\t', 1)
-            mode, kind, _ = metadata.split(' ')
-            relative = path
-            relative_package = Path(relative).relative_to(CLI)
-            if kind != 'blob' or mode not in ('100644', '100755'):
-                raise ValueError(f'Hosted preflight requires a regular Git file: {relative}')
-            if relative_package.parts[0] in ('.dart_tool', 'build') or \
-                    relative_package.name in ('pubspec.lock', 'pubspec_overrides.yaml'):
-                raise ValueError(f'Unexpected tracked resolution/build state: {relative}')
-            target = stage / relative_package
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(committed_bytes(root, sha, relative))
-            target.chmod(0o755 if mode == '100755' else 0o644)
-        pubspec = stage / 'pubspec.yaml'
-        pubspec.write_text(standalone_pubspec(pubspec.read_text()))
-        if (stage / '.dart_tool').exists():
-            raise ValueError('Staged package already has a package configuration.')
-        environment = dict(os.environ, PUB_HOSTED_URL='https://pub.dev')
-        environment.pop('DART_PACKAGE_CONFIG', None)
-        for name, command in [
-            ('pub-get', ['dart', 'pub', 'get']),
-            ('dependencies', ['dart', 'pub', 'deps', '--json']),
-            ('analysis', ['dart', 'analyze', '--fatal-infos']),
-            ('publish-dry-run', ['dart', 'pub', 'publish', '--dry-run']),
-        ]:
-            result = runner(command, stage, environment)
-            log = None
-            if logs:
-                logs.mkdir(parents=True, exist_ok=True)
-                log = logs / f'hosted-cli-{name}.log'
-                log.write_text(result.stdout + result.stderr)
-            commands.append({'command': command, 'exit_code': result.returncode,
-                             'log': str(log) if log else None})
-            if result.returncode:
-                return Gate('hosted-cli', 'failed', f'Standalone CLI {name} failed.', commands)
-            if name == 'dependencies':
-                check_hosted_graph(json.loads(result.stdout))
-    return Gate('hosted-cli', 'passed',
-                'Standalone hosted CLI resolved, analyzed and passed publish --dry-run; no upload.', commands)
+    try:
+        tracked = subprocess.check_output(
+            ['git', 'ls-tree', '-rz', sha, '--', CLI.as_posix()], cwd=root)
+        with tempfile.TemporaryDirectory(prefix='wayfinder-hosted-cli-') as temporary:
+            stage = Path(temporary).resolve()
+            if stage == root or root in stage.parents:
+                raise ValueError('TMPDIR must be outside the source workspace.')
+            for entry in tracked.split(b'\0'):
+                if not entry:
+                    continue
+                metadata, path = entry.decode().split('\t', 1)
+                mode, kind, _ = metadata.split(' ')
+                relative = path
+                relative_package = Path(relative).relative_to(CLI)
+                if kind != 'blob' or mode not in ('100644', '100755'):
+                    raise ValueError(f'Hosted preflight requires a regular Git file: {relative}')
+                if relative_package.parts[0] in ('.dart_tool', 'build') or \
+                        relative_package.name in ('pubspec.lock', 'pubspec_overrides.yaml'):
+                    raise ValueError(f'Unexpected tracked resolution/build state: {relative}')
+                target = stage / relative_package
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(committed_bytes(root, sha, relative))
+                target.chmod(0o755 if mode == '100755' else 0o644)
+            pubspec = stage / 'pubspec.yaml'
+            pubspec.write_text(standalone_pubspec(pubspec.read_text()))
+            if (stage / '.dart_tool').exists():
+                raise ValueError('Staged package already has a package configuration.')
+            environment = dict(os.environ, PUB_HOSTED_URL='https://pub.dev')
+            environment.pop('DART_PACKAGE_CONFIG', None)
+            for name, command in [
+                ('pub-get', ['dart', 'pub', 'get']),
+                ('dependencies', ['dart', 'pub', 'deps', '--json']),
+                ('analysis', ['dart', 'analyze', '--fatal-infos']),
+                ('publish-dry-run', ['dart', 'pub', 'publish', '--dry-run']),
+            ]:
+                result = runner(command, stage, environment)
+                log = None
+                if logs:
+                    logs.mkdir(parents=True, exist_ok=True)
+                    log = logs / f'hosted-cli-{name}.log'
+                    log.write_text(result.stdout + result.stderr)
+                commands.append({'command': command, 'exit_code': result.returncode,
+                                 'log': str(log) if log else None})
+                if result.returncode:
+                    return Gate('hosted-cli', 'failed', f'Standalone CLI {name} failed.', commands)
+                if name == 'dependencies':
+                    check_hosted_graph(json.loads(result.stdout), versions or prepared_versions(root, sha))
+        return Gate('hosted-cli', 'passed',
+                    'Standalone hosted CLI resolved, analyzed and passed publish --dry-run; no upload.', commands)
+    except (OSError, subprocess.SubprocessError) as error:
+        return Gate('hosted-cli', 'blocked',
+                    f'Hosted verification could not run: {error}', commands)
 
 
 def git(root: Path, *arguments: str) -> str:
     return subprocess.check_output(['git', *arguments], cwd=root, text=True).strip()
+
+
+def prepared_versions(root: Path, sha: str) -> dict[str, str]:
+    versions = {}
+    for name in CLI_SIBLINGS:
+        text = committed_bytes(root, sha, f'packages/{name}/pubspec.yaml').decode()
+        match = re.search(r'^version: (\S+)$', text, re.M)
+        if not match:
+            raise ValueError(f'Cannot read checked {name} version.')
+        versions[name] = match[1]
+    return versions
 
 
 def preflight(root: Path, ci_run_id: str | None, hosted_check: bool,
@@ -203,21 +221,18 @@ def preflight(root: Path, ci_run_id: str | None, hosted_check: bool,
         return True
 
     if ci_run_id:
-        result = runner(['gh', 'api', f'repos/{REPOSITORY}/actions/runs/{ci_run_id}'],
-                        root, dict(os.environ))
-        if result.returncode:
-            gates.append(Gate('source-ci', 'blocked', 'Could not read the supplied source CI run.'))
-        else:
-            gates.append(source_ci(json.loads(result.stdout), sha))
+        try:
+            result = runner(['gh', 'api', f'repos/{REPOSITORY}/actions/runs/{ci_run_id}'],
+                            root, dict(os.environ))
+            if result.returncode:
+                gates.append(Gate('source-ci', 'blocked', 'Could not read the supplied source CI run.'))
+            else:
+                gates.append(source_ci(json.loads(result.stdout), sha))
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            gates.append(Gate('source-ci', 'blocked', f'Could not establish source CI: {error}'))
     else:
         gates.append(Gate('source-ci', 'blocked', 'Supply successful exact-source push/main CI with --ci-run-id.'))
-    versions = {}
-    for name in CLI_SIBLINGS:
-        text = committed_bytes(root, sha, f'packages/{name}/pubspec.yaml').decode()
-        match = re.search(r'^version: (\S+)$', text, re.M)
-        if not match:
-            raise ValueError(f'Cannot read checked {name} version.')
-        versions[name] = match[1]
+    versions = prepared_versions(root, sha)
     try:
         dependencies = hosted_dependencies(versions, published)
     except (OSError, ValueError, KeyError) as error:
@@ -230,7 +245,10 @@ def preflight(root: Path, ci_run_id: str | None, hosted_check: bool,
                           'Requires a clean source, published siblings and --hosted-cli-check. '
                           'A workspace dry-run is not hosted-resolution evidence.'))
     else:
-        gates.append(hosted_cli(root, sha, logs, runner))
+        try:
+            gates.append(hosted_cli(root, sha, logs, runner, versions=versions))
+        except (ValueError, KeyError) as error:
+            gates.append(Gate('hosted-cli', 'failed', str(error)))
     recheck_source()
     status = 'failed' if any(g.status == 'failed' for g in gates) else \
         'blocked' if any(g.status == 'blocked' for g in gates) else 'passed'
@@ -252,8 +270,10 @@ def main() -> int:
     logs = args.output.parent / (args.output.stem + '.logs') if args.output else None
     try:
         report = preflight(args.root.resolve(), args.ci_run_id, args.hosted_cli_check, logs)
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        report = {'status': 'failed', 'error': str(error)}
+    except (OSError, subprocess.SubprocessError) as error:
+        report = {'status': 'blocked', 'error': str(error), 'gates': []}
+    except (ValueError, KeyError) as error:
+        report = {'status': 'failed', 'error': str(error), 'gates': []}
     rendered = json.dumps(report, indent=2) + '\n'
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

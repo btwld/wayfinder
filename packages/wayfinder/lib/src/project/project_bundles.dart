@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../wayfinder_config.dart';
+import 'bundle_roots.dart';
 import 'exception.dart';
 
 /// A configured bundle: its folder [name], its project-relative [path], which
@@ -90,35 +91,15 @@ final class WayfinderProject {
             'Pass an explicit bundle path.',
       );
     }
-    final bundles = <ProjectBundle>[];
-    for (final path in selected) {
-      final bundle = Directory(p.join(directory.path, path));
-      if (!await bundle.exists()) {
-        throw WayfinderException(
-          'bundle-missing',
-          'Configured bundle does not exist: $path.',
-        );
-      }
-      final root = await bundle.resolveSymbolicLinks();
-      if (!p.isWithin(directory.path, root)) {
-        throw WayfinderException(
-          'bundle-escapes',
-          'Configured bundle leaves the project: $path.',
-        );
-      }
-      if (bundles.any(
-        (other) =>
-            p.equals(other.root, root) ||
-            p.isWithin(other.root, root) ||
-            p.isWithin(root, other.root),
-      )) {
-        throw const WayfinderException(
-          'config-invalid',
-          'Configured bundles overlap after resolving symlinks.',
-        );
-      }
-      bundles.add(ProjectBundle(p.basename(path), path, root));
-    }
+    final roots = await resolveConfiguredBundleRoots(
+      directory.path,
+      paths,
+      selected: selected,
+    );
+    final bundles = [
+      for (final path in selected)
+        ProjectBundle(p.basename(path), path, roots[path]!),
+    ];
     return WayfinderProject._(
       directory.path,
       config,

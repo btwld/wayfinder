@@ -49,7 +49,12 @@ An example teaches the public API it uses; it does not establish another API.
 - **Dart callers:** the public names, signatures, type constraints and documented
   extension/implementation points, and their documented effects, ownership and
   failure semantics. Adding an enum value or a sealed subtype can break an
-  exhaustive caller; it is not automatically a harmless addition.
+  exhaustive caller. Public Dart enums and sealed hierarchies are closed
+  sets: adding an enum value or sealed subtype requires a major release.
+  This includes `DiagnosticCode`, `KnowledgeNoticeCode`,
+  `AdoptionStepOutcome`, `ProfileBindingState` and the other public enums
+  and sealed types exported by the supported entry points. Wire strings
+  use the owning output contract; they do not open these Dart types.
 - **Machine consumers:** documented command/tool inputs, required output fields
   and their meanings, finding and diagnostic identities, stable failure codes,
   and documented ordering and exit values. Added response fields are compatible

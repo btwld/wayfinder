@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 
 import '../chunking/chunker_registry.dart';
 import '../embedding/base_embedder.dart';
@@ -63,7 +66,7 @@ class IngestionPipeline {
   }) async {
     final chunkBatch = <Chunk>[];
     final embeddingBatch = <Embedding>[];
-    final seenChunkText = <String, String>{};
+    final seenChunkDigests = <String, String>{};
 
     for (final chunked in chunkedFiles) {
       // New or updated chunks, and chunks that still need a vector for this
@@ -72,17 +75,17 @@ class IngestionPipeline {
       final chunksToEmbed = <Chunk>[];
       for (final chunk in chunked.chunks) {
         if (dedupe) {
-          final seenText = seenChunkText[chunk.id];
-          if (seenText != null) {
-            _requireSameContent(seenText, chunk);
+          final seenDigest = seenChunkDigests[chunk.id];
+          if (seenDigest != null) {
+            _requireSameContent(seenDigest, chunk);
             onDuplicateChunk?.call(chunk);
             continue;
           }
-          seenChunkText[chunk.id] = chunk.content;
+          seenChunkDigests[chunk.id] = _digest(chunk.content);
         }
         final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
         if (existingChunk != null) {
-          _requireSameContent(existingChunk.content, chunk);
+          _requireSameContent(_digest(existingChunk.content), chunk);
           onDuplicateChunk?.call(chunk);
           if (existingChunk != chunk) {
             newChunks.add(chunk);
@@ -116,13 +119,16 @@ class IngestionPipeline {
   }
 
   static void _requireSameContent(String existing, Chunk candidate) {
-    if (existing != candidate.content) {
+    if (existing != _digest(candidate.content)) {
       throw StateError(
         'Chunk ID ${candidate.id} was reused for different text. '
         'Use content-derived IDs for changed content.',
       );
     }
   }
+
+  static String _digest(String content) =>
+      sha256.convert(utf8.encode(content)).toString();
 
   /// Embeds every chunk in [chunks] with one embedder call.
   Future<List<Embedding>> _embedChunks(List<Chunk> chunks) async {

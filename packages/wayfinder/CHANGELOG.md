@@ -24,12 +24,15 @@
   its previous findings, with its existing exceptions in its own rule.
 - Git timeout and cancellation cleanup also terminate live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
-- Project discovery rejects selected bundle roots that resolve to the same
-  directory or overlap through aliases, as binding and resolution already do.
+- Discovery, binding and resolution share one canonical root check. All
+  readable configured roots must be disjoint, even when one is selected.
   An unrelated, unselected missing bundle still does not prevent selection.
 - A failed adoption step whose own rollback fails now reports `undoFailed`,
   as earlier completed steps already do when their rollback fails. The
-  original failure code and cause remain available.
+  original failure code and cause remain available. `onStep` emits `failed`
+  then `undo-failed` for that step when its own undo fails; the exception
+  keeps one final report per step, so `steps.last` can be `undo-failed`.
+  Hosts must handle that final state rather than assuming `failed`.
 - Clarify composition: all rules use the whole chain's and project's
   vocabulary. Added names can affect inherited findings; inherited rule
   definitions and severities cannot change. This clarification alone changes
