@@ -4,8 +4,8 @@ import 'package:okf/okf.dart';
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart'
     show ProjectBundle, WayfinderCancellationController, WayfinderException;
-import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder/wayfinder.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
