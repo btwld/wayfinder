@@ -145,21 +145,18 @@ def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute,
                     continue
                 metadata, path = entry.decode().split('\t', 1)
                 mode, kind, _ = metadata.split(' ')
-                relative = path
-                relative_package = Path(relative).relative_to(CLI)
+                relative_package = Path(path).relative_to(CLI)
                 if kind != 'blob' or mode not in ('100644', '100755'):
-                    raise ValueError(f'Hosted preflight requires a regular Git file: {relative}')
+                    raise ValueError(f'Hosted preflight requires a regular Git file: {path}')
                 if relative_package.parts[0] in ('.dart_tool', 'build') or \
                         relative_package.name in ('pubspec.lock', 'pubspec_overrides.yaml'):
-                    raise ValueError(f'Unexpected tracked resolution/build state: {relative}')
+                    raise ValueError(f'Unexpected tracked resolution/build state: {path}')
                 target = stage / relative_package
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(committed_bytes(root, sha, relative))
+                target.write_bytes(committed_bytes(root, sha, path))
                 target.chmod(0o755 if mode == '100755' else 0o644)
             pubspec = stage / 'pubspec.yaml'
             pubspec.write_text(standalone_pubspec(pubspec.read_text()))
-            if (stage / '.dart_tool').exists():
-                raise ValueError('Staged package already has a package configuration.')
             environment = dict(os.environ, PUB_HOSTED_URL='https://pub.dev')
             environment.pop('DART_PACKAGE_CONFIG', None)
             for name, command in [
