@@ -136,6 +136,20 @@ void main() {
     expect(File('${root.path}/knowledge/example.md').existsSync(), isFalse);
   });
 
+  test('case variants of an apply target are refused before any write', () async {
+    final root = await Directory.systemTemp.createTemp('knowledge-import-case-');
+    addTearDown(() => root.delete(recursive: true));
+    final change = File('${root.path}/changes.json');
+    await change.writeAsString(jsonEncode({'version': 1, 'changes': [
+      {'path': 'knowledge/Note.md', 'content': 'First'},
+      {'path': 'knowledge/note.md', 'content': 'Second'},
+    ]}));
+    await expectLater(KnowledgeImporter().apply(root, change), throwsA(
+      isA<FormatException>().having((e) => e.message, 'message',
+        'Duplicate change path: knowledge/note.md')));
+    expect(await Directory('${root.path}/knowledge').exists(), isFalse);
+  });
+
   test('source lock parsing validates nested field types', () {
     final file = {'path': 'docs/note.md', 'sha256': 'abc', 'bytes': 4};
     final source = {

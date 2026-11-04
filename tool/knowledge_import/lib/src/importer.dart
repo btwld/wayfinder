@@ -95,7 +95,7 @@ final class KnowledgeImporter {
         );
       }
       final file = await _projectFile(root, relative);
-      if (!seenTargets.add(file.path)) {
+      if (!seenTargets.add(file.path.toLowerCase())) {
         throw FormatException('Duplicate change path: $relative');
       }
       final expected = rawExpected as String?;
