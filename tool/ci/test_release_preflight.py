@@ -29,7 +29,7 @@ def ci(**changes):
 def graph(**sources):
     return {'root': 'wayfinder_cli', 'packages': [
         {'name': 'wayfinder_cli', 'source': 'root'},
-        *[{'name': name, 'source': sources.get(name, 'hosted')}
+        *[{'name': name, 'source': sources.get(name, 'hosted'), 'version': '1.0.0'}
           for name in ('wayfinder', 'wayfinder_embeddings')],
     ]}
 
@@ -124,6 +124,10 @@ class HostedProbeTest(unittest.TestCase):
         (self.cli / 'ignored.txt').write_text('not in the checked source')
         (self.root / 'packages/wayfinder').mkdir()
         (self.root / 'packages/wayfinder' / 'workspace-only.dart').write_text('not hosted')
+        for name in preflight.CLI_SIBLINGS:
+            directory = self.root / 'packages' / name
+            directory.mkdir(exist_ok=True)
+            (directory / 'pubspec.yaml').write_text(f'name: {name}\nversion: 1.0.0\n')
         (self.root / '.gitignore').write_text('**/.dart_tool/\n**/ignored.txt\n')
         self.sha = repository(self.root)
 
@@ -234,6 +238,29 @@ class PreflightPrerequisiteTest(unittest.TestCase):
         self.assertEqual(gates['hosted-dependencies']['details']['unpublished'],
                          ['wayfinder 1.0.0', 'wayfinder_embeddings 1.0.0'])
         self.assertEqual(gates['hosted-cli']['status'], 'blocked')
+
+    def test_environment_failures_keep_completed_gates(self):
+        for error in (FileNotFoundError('gh'), subprocess.TimeoutExpired('gh', 300)):
+            def runner(command, cwd, environment):
+                raise error
+            report = preflight.preflight(self.root, '123', False, None,
+                                        published=lambda name: {'1.0.0'}, runner=runner)
+            self.assertEqual(report['status'], 'blocked')
+            self.assertEqual(report['gates'][0]['status'], 'passed')
+            self.assertEqual(report['gates'][1]['name'], 'source-ci')
+            self.assertEqual(report['gates'][1]['status'], 'blocked')
+
+    def test_later_hosted_sibling_version_is_not_exact_prepared_evidence(self):
+        def runner(command, cwd, environment):
+            data = ci(head_sha=self.sha) if command[0] == 'gh' else graph()
+            if command[1:3] == ['pub', 'deps']:
+                data['packages'][1]['version'] = '1.1.0'
+            return subprocess.CompletedProcess(command, 0, json.dumps(data), '')
+        report = preflight.preflight(self.root, '123', True, None,
+                                    published=lambda name: {'1.0.0'}, runner=runner)
+        self.assertEqual(report['status'], 'failed')
+        self.assertEqual(report['gates'][0]['status'], 'passed')
+        self.assertIn('prepared version', report['gates'][-1]['message'])
 
     def test_dirty_tracked_or_untracked_source_never_becomes_ready(self):
         def ci_only(command, cwd, environment):
