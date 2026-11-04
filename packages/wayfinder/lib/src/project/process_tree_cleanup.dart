@@ -44,12 +44,12 @@ Future<void> cleanupPosixProcessTree({
         added = false;
         for (final MapEntry(key: child, value: parent) in current.entries) {
           if (child <= 0 || stopped.contains(child)) continue;
-          if (stopped.contains(parent) && stillOwned(parent)) {
-            if (signal(child, ProcessSignal.sigstop)) {
-              ancestry[child] = parent;
-              stopped.add(child);
-              discovered = added = true;
-            }
+          if (stopped.contains(parent) &&
+              stillOwned(parent) &&
+              signal(child, ProcessSignal.sigstop)) {
+            ancestry[child] = parent;
+            stopped.add(child);
+            discovered = added = true;
           }
         }
       }
@@ -57,8 +57,10 @@ Future<void> cleanupPosixProcessTree({
     }
     if (!exited()) {
       for (final child in stopped.toList().reversed) {
-        if (child != root && stillOwned(child)) {
-          if (signal(child, ProcessSignal.sigkill)) killed.add(child);
+        if (child != root &&
+            stillOwned(child) &&
+            signal(child, ProcessSignal.sigkill)) {
+          killed.add(child);
         }
       }
     }

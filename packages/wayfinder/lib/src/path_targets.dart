@@ -37,9 +37,15 @@ import 'package:path/path.dart' as p;
   }
   final decoded = <String>[];
   for (final segment in target.split('/')) {
-    final value = _decodeSegment(segment);
-    if (value == null ||
-        value.contains('/') ||
+    final String value;
+    try {
+      value = segment.contains('%') ? Uri.decodeComponent(segment) : segment;
+    } on ArgumentError {
+      return missing;
+    } on FormatException {
+      return missing;
+    }
+    if (value.contains('/') ||
         value.contains(r'\') ||
         value.runes.any((rune) => rune < 32 || rune == 127)) {
       return missing;
@@ -49,9 +55,7 @@ import 'package:path/path.dart' as p;
   final directory = target.startsWith('/')
       ? '.'
       : p.posix.dirname(edge.source.documentPath);
-  final relative = p.posix.normalize(
-    p.posix.joinAll([...directory.split('/'), ...decoded]),
-  );
+  final relative = p.posix.normalize(p.posix.joinAll([directory, ...decoded]));
   final outside = relative == '..' || relative.startsWith('../');
   if (!outside) {
     return inBundle(relative)
@@ -72,18 +76,5 @@ import 'package:path/path.dart' as p;
     );
   } on FileSystemException {
     return missing;
-  }
-}
-
-// Keep OKF's strict decoding boundary: unescaped Unicode is already text,
-// while a malformed percent sequence is never a literal filename fallback.
-String? _decodeSegment(String segment) {
-  if (!segment.contains('%')) return segment;
-  try {
-    return Uri.decodeComponent(segment);
-  } on ArgumentError {
-    return null;
-  } on FormatException {
-    return null;
   }
 }
