@@ -15,8 +15,6 @@ import re
 import runpy
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,8 +55,7 @@ def source_ci(run: dict, sha: str, repository: str = REPOSITORY) -> Gate:
 published_versions = SIBLINGS['published_versions']
 
 def hosted_dependencies(versions: dict[str, str], published) -> Gate:
-    missing = [f'{name} {version}' for name, version in versions.items()
-               if version not in published(name)]
+    missing = SIBLINGS['missing_siblings'](versions, published)
     if missing:
         return Gate('hosted-dependencies', 'blocked',
                     'Publish the CLI sibling versions in dependency order before hosted resolution.',

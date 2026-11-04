@@ -85,10 +85,10 @@ final class KnowledgeImporter {
         throw const FormatException('Each change must be an object.');
       final relative = raw['path'];
       final content = raw['content'];
-      final rawExpected = raw['expected_sha256'];
+      final expected = raw['expected_sha256'];
       if (relative is! String ||
           content is! String ||
-          (rawExpected != null && rawExpected is! String) ||
+          (expected != null && expected is! String) ||
           isUnsafeRelativePath(relative)) {
         throw const FormatException(
           'Change paths must be safe project-relative paths.',
@@ -98,7 +98,6 @@ final class KnowledgeImporter {
       if (!seenTargets.add(file.path.toLowerCase())) {
         throw FormatException('Duplicate change path: $relative');
       }
-      final expected = rawExpected as String?;
       if (await file.exists()) {
         final current = _sha256(await file.readAsString());
         if (expected == null || current != expected)
