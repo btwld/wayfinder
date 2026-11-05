@@ -68,6 +68,15 @@ No other params are accepted.
 }
 ```
 
+Path-target checks use the loaded inventory for every in-bundle file or
+implied directory, including in-memory candidates; they never recover a removed
+candidate file from disk. Disk lookup applies only to relative targets outside
+the bundle. Bundle-root parent escapes, raw or decoded backslashes, encoded
+separators and malformed percent escapes report a missing target. A literal
+percent in a filename must be encoded as `%25`. URLs and prose source
+descriptors remain outside the path check; an explicit `/`, `./` or `../`
+prefix identifies a path even when it contains whitespace.
+
 ## `matches-generated`
 
 Compares each file a generator writes with the bundle. A file that differs

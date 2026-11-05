@@ -1,16 +1,15 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
-import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart'
     show
         ProjectBundle,
         WayfinderCancellation,
         throwIfCancelled,
         KnowledgeMetadataFilter;
-import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge;
+import 'package:wayfinder/wayfinder.dart'
+    show OkfFieldEdge, pathTargetDisplay, resolvePathTarget;
 
 import '../embedding/base_embedder.dart';
 import '../models/chunk.dart';
@@ -120,7 +119,8 @@ enum KnowledgeNoticeCode {
   governingSourceUnavailable('governing-source-unavailable'),
 
   /// Another operation was refreshing the index, and the search served the
-  /// last published generation (`StaleIndexPolicy.serveWhileRefreshing`).
+  /// last published generation (`StaleIndexPolicy.serveWhileRefreshing` or
+  /// `StaleIndexPolicy.serve`). A first build throws `index-busy` instead.
   refreshInProgress('refresh-in-progress'),
 
   /// Files changed after the served generation was built, so passages cited
@@ -221,9 +221,18 @@ class KnowledgeSearchResponse {
     required List<SearchResult> matches,
     required List<KnowledgeContextHit> context,
     required List<KnowledgeNotice> notices,
+    Map<String, Map<String, String?>> sourcePaths = const {},
   }) : matches = List.unmodifiable(matches),
        context = List.unmodifiable(context),
-       notices = List.unmodifiable(notices);
+       notices = List.unmodifiable(notices),
+       sourcePaths = Map.unmodifiable({
+         for (final entry in sourcePaths.entries)
+           entry.key: Map<String, String?>.unmodifiable(entry.value),
+       });
+
+  /// Per-document source decisions from the same resolver that emits notices.
+  /// Values are bundle-relative display paths, or null to retain the raw label.
+  final Map<String, Map<String, String?>> sourcePaths;
 
   /// Query-ranked matches, one best passage per concept.
   final List<SearchResult> matches;
@@ -664,7 +673,11 @@ class KnowledgeIndex {
         final target = edge.targetConcept?.documentPath;
         if (target != null && byPath.containsKey(target)) {
           add(target, 'relationship', via: source, edge: edge);
-        } else if (_sourceMissing(snapshot, edge)) {
+        } else if (resolvePathTarget(
+          edge,
+          inBundle: snapshot.inventoryPaths.contains,
+          rootPath: bundleRoot,
+        ).missing) {
           notice(
             KnowledgeNoticeCode.unresolvedSource,
             'Unresolved source: ${edge.rawTarget}',
@@ -677,6 +690,7 @@ class KnowledgeIndex {
     return KnowledgeSearchResponse(
       matches: matches,
       context: context,
+      sourcePaths: _sourcePaths(snapshot),
       notices: [
         for (final MapEntry(key: message, :value) in notices.entries)
           KnowledgeNotice(
@@ -689,90 +703,18 @@ class KnowledgeIndex {
     );
   }
 
-  /// Whether the path-valued [edge] names no file or directory, as the
-  /// `path-targets-exist` builtin decides. okf's graph is bundle-scoped: a
-  /// path that climbs out of the bundle is `invalid` to it, and one that
-  /// starts with `/`, `./` or `../` but has whitespace is a `descriptor`,
-  /// so those are looked up under [bundleRoot]. A target that starts with
-  /// `/` does not leave the bundle, `/../` included: joining it to the
-  /// source's directory keeps it absolute. An `invalid` path that stays in
-  /// the bundle is malformed, and validation reports it, so it is not a
-  /// missing source. URLs and prose descriptors name no path.
-  bool _sourceMissing(KnowledgeSnapshot snapshot, OkfGraphEdge edge) {
-    final target = _pathPart(edge.rawTarget);
-    return switch (edge.resolution) {
-      OkfGraphResolution.unresolved => true,
-      OkfGraphResolution.invalid =>
-        _leavesBundle(edge, target) && !_targetExists(snapshot, edge, target),
-      OkfGraphResolution.descriptor =>
-        target != null &&
-            (target.startsWith('/') ||
-                target.startsWith('./') ||
-                target.startsWith('../')) &&
-            !_targetExists(snapshot, edge, target),
-      OkfGraphResolution.resolvedConcept ||
-      OkfGraphResolution.resolvedAsset ||
-      OkfGraphResolution.external => false,
-    };
-  }
-
-  /// As `path-targets-exist` decides: a target that starts with `/` stays in
-  /// the bundle, and any other leaves when joining it to the source's
-  /// directory climbs out.
-  bool _leavesBundle(OkfGraphEdge edge, String? target) {
-    if (target == null || target.startsWith('/')) return false;
-    final joined = p.posix.normalize(
-      p.posix.join(p.posix.dirname(edge.source.documentPath), target),
-    );
-    return joined == '..' || joined.startsWith('../');
-  }
-
-  /// Whether [target] names a file or directory the snapshot holds, or, when
-  /// it leaves the bundle, one on disk under [bundleRoot]. Without a root a
-  /// path that needs the disk counts as present, so it is not reported.
-  bool _targetExists(
-    KnowledgeSnapshot snapshot,
-    OkfGraphEdge edge,
-    String? target,
-  ) {
-    if (target == null) return false;
-    final directory = target.startsWith('/')
-        ? '.'
-        : p.posix.dirname(edge.source.documentPath);
-    final segments = [
-      for (final segment in target.split('/'))
-        _decodeSegment(segment) ?? segment,
-    ];
-    final relative = p.posix.normalize(
-      p.posix.joinAll([...directory.split('/'), ...segments]),
-    );
-    if (relative != '..' &&
-        !relative.startsWith('../') &&
-        (snapshot.sources.containsKey(relative) ||
-            snapshot.assets.contains(relative))) {
-      return true;
+  Map<String, Map<String, String?>> _sourcePaths(KnowledgeSnapshot snapshot) {
+    final paths = <String, Map<String, String?>>{};
+    for (final edge in snapshot.graph.edges) {
+      if (edge.origin == OkfGraphEdgeOrigin.bodyLink) continue;
+      final resolved = resolvePathTarget(
+        edge,
+        inBundle: snapshot.inventoryPaths.contains,
+        rootPath: bundleRoot,
+      );
+      (paths[edge.source.documentPath] ??= {})[edge.rawTarget] =
+          pathTargetDisplay(resolved, edge);
     }
-    final root = bundleRoot;
-    if (root == null) return true;
-    return FileSystemEntity.typeSync(
-          p.normalize(p.joinAll([root, ...directory.split('/'), ...segments])),
-        ) !=
-        FileSystemEntityType.notFound;
-  }
-
-  static String? _pathPart(String raw) {
-    final cut = raw.indexOf(RegExp(r'[?#]'));
-    final path = cut < 0 ? raw : raw.substring(0, cut);
-    return path.isEmpty ? null : path;
-  }
-
-  static String? _decodeSegment(String segment) {
-    try {
-      return Uri.decodeComponent(segment);
-    } on ArgumentError {
-      return null;
-    } on FormatException {
-      return null;
-    }
+    return paths;
   }
 }

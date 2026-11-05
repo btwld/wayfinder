@@ -15,7 +15,8 @@ final class KnowledgeSearchFreshness {
 
   /// Another operation was refreshing the bundle's index, and the search
   /// served the last published generation
-  /// (`StaleIndexPolicy.serveWhileRefreshing`).
+  /// (`StaleIndexPolicy.serveWhileRefreshing` or `StaleIndexPolicy.serve`).
+  /// A first build throws `index-busy` instead.
   final bool refreshing;
 
   /// Bundle-relative paths added, removed or edited after the served
@@ -293,6 +294,14 @@ final class KnowledgeProjectSearch {
   String toMarkdown() => renderSearchMarkdown(
     matches: [for (final match in matches) _passage(match)],
     context: [for (final entry in context) _passage(entry)],
+    sourcePaths: (passage) {
+      final i = bundles.indexWhere(
+        (bundle) => bundle.root == passage.bundleRoot,
+      );
+      return i < 0
+          ? const {}
+          : responses[i].sourcePaths[passage.chunk.sourcePath] ?? const {};
+    },
     notices: [for (final notice in notices) notice.text],
   );
 
@@ -390,6 +399,8 @@ final class KnowledgeBundleSearch {
     return renderSearchMarkdown(
       matches: [for (final match in matches) passage(match)],
       context: [for (final entry in context) passage(entry)],
+      sourcePaths: (passage) =>
+          response.sourcePaths[passage.chunk.sourcePath] ?? const {},
       notices: [for (final notice in notices) notice.text],
     );
   }

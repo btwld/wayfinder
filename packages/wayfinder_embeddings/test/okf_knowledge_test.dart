@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:okf/okf.dart';
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart'
-    show WayfinderCancellationController, WayfinderException;
+    show ProjectBundle, WayfinderCancellationController, WayfinderException;
 import 'package:wayfinder/wayfinder.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
@@ -643,6 +644,7 @@ void main() {
     final project = await Directory.systemTemp.createTemp('wayfinder-sources-');
     addTearDown(() => project.delete(recursive: true));
     await File('${project.path}/lib/billing.dart').create(recursive: true);
+    await File('${project.path}/outside file.txt').create(recursive: true);
     final root = '${project.path}/knowledge';
     final sources = {
       'rules/invoice-tax.md': concept(
@@ -651,13 +653,20 @@ void main() {
             'sources:\n'
             '  - {resource: "../../lib/billing.dart"}\n'
             '  - {resource: "../../lib"}\n'
+            '  - {resource: "/rules"}\n'
             '  - {resource: "../../lib/gone.dart"}\n'
             '  - {resource: /missing.md}\n'
             '  - {resource: "/../outside.txt"}\n'
+            '  - {resource: "/../outside file.txt"}\n'
+            '  - {resource: "/rules%2Finvoice tax.md"}\n'
+            '  - {resource: "/rules%2Finvoice.md"}\n'
+            '  - {resource: "./%FF.json"}\n'
+            '  - {resource: "./rules%5Cinvoice.md"}\n'
             '  - {resource: "foo\\\\bar"}\n'
             '  - {resource: "https://example.invalid/spec"}\n'
             '  - {resource: "the billing team"}\n',
       ),
+      'rules/invoice tax.md': concept('Secondary tax rule.'),
     };
     final built = snapshot(sources);
     expect(
@@ -679,24 +688,42 @@ void main() {
       'InvoiceTax',
       policy: KnowledgeSearchPolicy(expandRelationships: true),
     );
-    expect(result.notices, [
-      _notice(
-        KnowledgeNoticeCode.unresolvedSource,
-        'Unresolved source: ../../lib/gone.dart',
-        paths: ['rules/invoice-tax.md'],
-        target: '../../lib/gone.dart',
+    expect(
+      result.notices.map((notice) => notice.target),
+      unorderedEquals([
+        '../../lib/gone.dart',
+        '/../outside file.txt',
+        '/../outside.txt',
+        '/missing.md',
+        '/rules%2Finvoice tax.md',
+        '/rules%2Finvoice.md',
+        './%FF.json',
+        './rules%5Cinvoice.md',
+      ]),
+    );
+    expect(
+      result.notices.every(
+        (notice) => notice.code == KnowledgeNoticeCode.unresolvedSource,
       ),
-      _notice(
-        KnowledgeNoticeCode.unresolvedSource,
-        'Unresolved source: /missing.md',
-        paths: ['rules/invoice-tax.md'],
-        target: '/missing.md',
-      ),
-    ]);
+      isTrue,
+    );
+    final markdown = KnowledgeBundleSearch(
+      ProjectBundle('test', 'knowledge', root),
+      result,
+    ).toMarkdown(prefix: 'knowledge/');
+    expect(markdown, contains('/rules%2Finvoice.md'));
+    expect(markdown, isNot(contains('knowledge/rules%2Finvoice.md')));
+    expect(markdown, isNot(contains('knowledge/lib/gone.dart')));
+    final paths = result.sourcePaths['rules/invoice-tax.md']!;
+    expect(paths['/rules%2Finvoice tax.md'], isNull);
+    expect(paths['/../outside.txt'], isNull);
+    expect(paths['../../lib/gone.dart'], isNull);
+    expect(paths['/rules'], 'rules');
     expect(KnowledgeNoticeCode.unresolvedSource.wireValue, 'unresolved-source');
 
     // Without the bundle's directory a path that leaves the bundle cannot be
-    // checked, so it is never reported.
+    // checked, so it is never reported; in-bundle paths and slash-prefixed
+    // escapes are still checked against the snapshot.
     final unrooted = KnowledgeIndex(
       store: MemoryStore(),
       embedder: CountingEmbedder(focus: 'InvoiceTax'),
@@ -706,7 +733,18 @@ void main() {
       'InvoiceTax',
       policy: KnowledgeSearchPolicy(expandRelationships: true),
     );
-    expect(plain.notices.map((notice) => notice.target), ['/missing.md']);
+    expect(
+      plain.notices.map((notice) => notice.target),
+      unorderedEquals([
+        '/../outside file.txt',
+        '/../outside.txt',
+        '/missing.md',
+        '/rules%2Finvoice tax.md',
+        '/rules%2Finvoice.md',
+        './%FF.json',
+        './rules%5Cinvoice.md',
+      ]),
+    );
   });
 
   test('search checks its cancellation before it encodes the query and '

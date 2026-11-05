@@ -59,6 +59,7 @@ class TestEmbedder extends DeterministicTestEmbedder {
 
   final bool failDocuments;
   bool failQueries = false;
+  bool malformedQueries = false;
   Future<void> Function(String query)? beforeQuery;
   Future<void> Function(String text)? beforeDocument;
   Future<void> Function()? beforeDispose;
@@ -74,6 +75,7 @@ class TestEmbedder extends DeterministicTestEmbedder {
   Future<List<double>> generateQueryVector(String text) async {
     if (failQueries) throw StateError('Query inference failed');
     await beforeQuery?.call(text);
+    if (malformedQueries) return const [1];
     return super.generateQueryVector(text);
   }
 

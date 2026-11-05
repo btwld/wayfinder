@@ -84,7 +84,7 @@ abstract final class KnowledgeSeeds {
         'Durable project documentation and knowledge live in the OKF bundle at\n'
         '`$root/`. `wayfinder.json` binds it to a Profile, and `wayfinder get`\n'
         "installs each Profile's skill under `.claude/skills/` and `.agents/skills/`.\n"
-        'Start at `$root/index.md`, then the area index, then the concept.\n'
+        'Start at `$root/index.md` and follow links to the relevant directory index or concept.\n'
         '\n'
         'Follow the `author-knowledge-bundle` skill before writing anything under\n'
         '`$root/`, including before creating a directory there. It loads the\n'

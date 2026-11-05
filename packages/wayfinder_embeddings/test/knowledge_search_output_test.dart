@@ -53,6 +53,7 @@ void main() {
                 },
                 {'id': 'S14', 'resource': 'FY2026/Q1'},
                 {'id': 'S15', 'resource': 'archive/%FF.md'},
+                {'id': 'S16', 'resource': '/../outside.txt'},
                 {'resource': 'https://example.test/spec#s1'},
               ],
             },
@@ -105,6 +106,21 @@ void main() {
         relatedHit,
       ],
       notices: const [],
+      sourcePaths: const {
+        'billing/invoicing.md': {
+          '../../captures/pkg/analysis.md#finding-2':
+              '../captures/pkg/analysis.md',
+          '/references/revenue.v2.md#table-1': 'references/revenue.v2.md',
+          'references/source notes.md': 'billing/references/source notes.md',
+          './references/other notes.md': 'billing/references/other notes.md',
+          'references/evidence.parquet': 'billing/references/evidence.parquet',
+          'Makefile': 'billing/Makefile',
+          'raw exports': 'billing/raw exports',
+          'données/rapport_été.md': 'billing/données/rapport_été.md',
+          'references/evidence.parquet?download=1#row-4':
+              'billing/references/evidence.parquet',
+        },
+      },
     );
     final bundle = ProjectBundle('knowledge', 'knowledge', temp.path);
     final markdown = KnowledgeProjectSearch(
@@ -144,7 +160,8 @@ void main() {
         '[S12] //docs.example.test/spec, '
         '[S13] knowledge/billing/references/evidence.parquet?download=1#row-4, '
         '[S14] FY2026/Q1, '
-        '[S15] knowledge/billing/archive/%FF.md, '
+        '[S15] archive/%FF.md, '
+        '[S16] /../outside.txt, '
         'https://example.test/spec#s1',
       ),
     );
@@ -182,6 +199,7 @@ void main() {
       {'id': 'S13', 'resource': 'references/evidence.parquet?download=1#row-4'},
       {'id': 'S14', 'resource': 'FY2026/Q1'},
       {'id': 'S15', 'resource': 'archive/%FF.md'},
+      {'id': 'S16', 'resource': '/../outside.txt'},
       {'resource': 'https://example.test/spec#s1'},
     ]);
   });

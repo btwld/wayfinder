@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'cancellation.dart';
 import 'exception.dart';
+import 'process_tree_cleanup.dart';
 
 /// A finished Git command. [stdout] keeps Git's bytes, because a blob is
 /// not text; [text] decodes them as UTF-8.
@@ -69,9 +70,11 @@ typedef GitProcessStarter =
     });
 
 /// The default [GitProcessStarter]: `Process.start` without the parent's
-/// environment. Its [GitProcess.kill] stops the process and its children:
-/// `taskkill /T /F` on Windows, and `pkill -KILL -P` before the process
-/// itself on POSIX systems.
+/// environment. Its [GitProcess.kill] uses `taskkill /T /F` on Windows.
+/// On POSIX it recursively checks live parentage before killing descendants,
+/// then Git. That is best effort: a helper already reparented, a new child
+/// forked during cleanup or a tree exceeding the cleanup limit may escape.
+/// A host that needs stronger ownership supplies its own process starter.
 Future<GitProcess> startGitProcess(
   String executable,
   List<String> arguments, {
@@ -589,21 +592,74 @@ final class _LocalGitProcess implements GitProcess {
   // runGit closes its end of the pipes instead.
   @override
   void kill() {
-    if (!_exited) unawaited(_killTree(_process));
+    if (!_exited) unawaited(_killTree(_process, exited: () => _exited));
   }
 }
 
-/// Kills [process] and the helpers Git started, such as `ssh` or a remote
-/// helper, so none outlives the command. Returns once the kill is sent.
-Future<void> _killTree(Process process) async {
+/// Sends kills to the live descendants of [process], deepest first, then
+/// the process. The discovered tree is frozen top-down with `SIGSTOP` and
+/// parentage is checked again before sending `SIGKILL`; the owned root must
+/// still be live. POSIX process ids/parentage are not atomic handles:
+/// exit/reparent/fork races remain best effort.
+Future<void> _killTree(
+  Process process, {
+  required bool Function() exited,
+}) async {
   try {
     if (Platform.isWindows) {
       await Process.run('taskkill', ['/T', '/F', '/PID', '${process.pid}']);
     } else {
-      await Process.run('pkill', ['-KILL', '-P', '${process.pid}']);
+      await cleanupPosixProcessTree(
+        root: process.pid,
+        exited: exited,
+        parents: _processParents,
+        signal: Process.killPid,
+        killRoot: () => process.kill(ProcessSignal.sigkill),
+      );
     }
-  } on ProcessException {
-    // The tree kill is best effort; the process itself is killed below.
+  } on Exception {
+    // Listing/termination is best effort; never leave Git alive on failure.
+  } finally {
+    if (!exited()) process.kill(ProcessSignal.sigkill);
   }
-  process.kill(ProcessSignal.sigkill);
+}
+
+/// A bounded live process table. The helper is stopped even when reading it
+/// fails or takes too long. Only numeric ids/parents, never command text,
+/// decide ancestry. No process-group signal can reach the host's own group.
+Future<Map<int, int>> _processParents(Duration timeout) async {
+  if (timeout <= Duration.zero) return const {};
+  final listing = await Process.start('ps', ['-A', '-o', 'pid=,ppid=']);
+  unawaited(listing.stdin.close().catchError((Object _) {}));
+  var ended = false;
+  final exit = listing.exitCode.then((code) {
+    ended = true;
+    return code;
+  });
+  try {
+    final output = listing.stdout.fold(BytesBuilder(copy: false), (
+      buffer,
+      bytes,
+    ) {
+      if (buffer.length + bytes.length > 1 << 20) {
+        throw const FormatException('Process table exceeds the cleanup bound.');
+      }
+      return buffer..add(bytes);
+    });
+    final results = await Future.wait<Object?>([
+      output,
+      listing.stderr.drain<void>(),
+      exit,
+    ]).timeout(timeout);
+    if (results[2] != 0) return const {};
+    return {
+      for (final line in const LineSplitter().convert(
+        utf8.decode((results[0]! as BytesBuilder).takeBytes()),
+      ))
+        if (RegExp(r'^\s*(\d+)\s+(\d+)\s*$').firstMatch(line) case final match?)
+          int.parse(match[1]!): int.parse(match[2]!),
+    };
+  } finally {
+    if (!ended) listing.kill(ProcessSignal.sigkill);
+  }
 }

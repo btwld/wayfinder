@@ -1,0 +1,53 @@
+{
+  "independent_profile": {
+    "okf": "PASS",
+    "gate": "FAIL",
+    "findings": [
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "asset.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "billing.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "department/references.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "interactions.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "interactions/dailies.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "references-extra.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "references.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "references.vendor.md"
+      },
+      {
+        "id": "directory-probe/same-stem-directory",
+        "severity": "error",
+        "path": "references/vendor.md"
+      }
+    ]
+  }
+}

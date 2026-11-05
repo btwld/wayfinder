@@ -13,6 +13,7 @@ void main() {
   final bytes = utf8.encode('a small stand-in for the pinned model');
   final model = EmbeddingModelSpec(
     id: 'fixture',
+    displayName: 'Fixture',
     url: 'https://models.example/revision/model.gguf',
     sha256: sha256.convert(bytes).toString(),
     bytes: bytes.length,
@@ -178,6 +179,7 @@ void main() {
       directory,
       spec: EmbeddingModelSpec(
         id: 'large',
+        displayName: 'Large',
         url: model.url,
         sha256: sha256.convert(large).toString(),
         bytes: large.length,
@@ -638,6 +640,7 @@ void main() {
     addTearDown(() => server.close(force: true));
     EmbeddingModelSpec at(String path) => EmbeddingModelSpec(
       id: model.id,
+      displayName: model.displayName,
       url: 'http://127.0.0.1:${server.port}$path',
       sha256: model.sha256,
       bytes: model.bytes,

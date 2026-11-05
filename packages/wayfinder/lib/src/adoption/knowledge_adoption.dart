@@ -755,11 +755,9 @@ final class KnowledgeAdoption {
             FileSystemEntityType.notFound)
           directory,
     ];
-    run.onUndo(() async {
-      for (final directory in createdRoots.reversed) {
-        await _deleteIfEmpty(Directory(_native(root, directory)));
-      }
-    });
+    for (final directory in createdRoots) {
+      run.onUndo(() => _deleteIfEmpty(Directory(_native(root, directory))));
+    }
     final present = [
       for (final directory in written)
         if (await FileSystemEntity.type(
@@ -788,8 +786,8 @@ final class KnowledgeAdoption {
         backups.remove(backup);
       });
     }
-    run.onUndo(() async {
-      for (final directory in written) {
+    for (final directory in written) {
+      run.onUndo(() async {
         final installed = Directory(_native(root, directory));
         // A directory that was there and is not saved aside is the
         // original: the step failed before moving it.
@@ -797,8 +795,8 @@ final class KnowledgeAdoption {
             await installed.exists()) {
           await installed.delete(recursive: true);
         }
-      }
-    });
+      });
+    }
     final lock = File(p.join(root, 'wayfinder.lock'));
     run.onUndo(() => _deleteIfHolds(lock, utf8.encode(resolution.lockText)));
     await applyCandidateResolution(resolver, resolution);
@@ -1127,13 +1125,7 @@ final class KnowledgeAdoption {
 
   static String _bundlePath(String bundle) {
     final normalized = p.posix.normalize(bundle);
-    if (bundle.contains(r'\') ||
-        p.posix.isAbsolute(normalized) ||
-        RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
-        normalized == '.' ||
-        p.posix
-            .split(normalized)
-            .any((segment) => segment == '..' || segment == '.git')) {
+    if (_isInvalidProjectPath(bundle, normalized)) {
       throw _invalid(
         'Bundle $bundle must be a directory inside the project, as a '
         'relative POSIX path.',
@@ -1146,11 +1138,10 @@ final class KnowledgeAdoption {
     final result = SplayTreeMap<String, String>();
     for (final concept in concepts) {
       final path = concept.path;
+      final normalized = p.posix.normalize(path);
       final name = p.posix.basename(path);
-      if (path.contains(r'\') ||
-          p.posix.isAbsolute(path) ||
-          p.posix.normalize(path) != path ||
-          path.split('/').any((segment) => segment == '..') ||
+      if (_isInvalidProjectPath(path, normalized) ||
+          normalized != path ||
           !name.endsWith('.md') ||
           name == 'index.md' ||
           name == 'log.md') {
@@ -1205,20 +1196,22 @@ final class KnowledgeAdoption {
   static final _anyProfile = ProfileId.parse('profile');
   static final _anyCommit = '0' * 40;
 
+  // Judge `..` before normalization: a symlink in `link/../AGENTS.md`
+  // can leave the project even though the normalized path does not.
+  static bool _isInvalidProjectPath(String path, String normalized) =>
+      path.contains(r'\') ||
+      p.posix.isAbsolute(normalized) ||
+      RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
+      normalized == '.' ||
+      p.posix.split(path).contains('..') ||
+      AdoptionInputs.inGit(normalized);
+
   /// The request's host inputs, normalized, once each and in path order.
   static List<String> _hostInputs(List<String> paths) {
     final result = SplayTreeSet<String>();
     for (final path in paths) {
       final normalized = p.posix.normalize(path);
-      // `..` is judged on the path as given. Normalizing first would remove
-      // it before the later symlink walk, so `link/../AGENTS.md` would be
-      // recorded as `AGENTS.md` when `link` points outside the project.
-      if (path.contains(r'\') ||
-          p.posix.isAbsolute(normalized) ||
-          RegExp(r'^[A-Za-z]:').hasMatch(normalized) ||
-          normalized == '.' ||
-          p.posix.split(path).contains('..') ||
-          AdoptionInputs.inGit(normalized)) {
+      if (_isInvalidProjectPath(path, normalized)) {
         throw _invalid(
           'Host input $path must be a path inside the project, as a relative '
           'POSIX path outside .git.',
@@ -1360,7 +1353,17 @@ final class _Run {
       return undone;
     }
 
-    await undoStep(step);
+    if (!await undoStep(step)) {
+      final failed = records.last;
+      records[records.length - 1] = _StepRecord(
+        failed.step,
+        AdoptionStepOutcome.undoFailed,
+        failed.paths,
+        failed.message,
+        failed.code,
+      );
+      _tell(records.last.report);
+    }
     for (var index = records.length - 1; index >= 0; index--) {
       final record = records[index];
       if (record.outcome != AdoptionStepOutcome.done ||
@@ -1389,7 +1392,7 @@ final class _Run {
       _codeOf(error),
       _undoFailures.isEmpty
           ? message
-          : '$message Undoing the earlier steps also failed, so the '
+          : '$message Undoing the adoption also failed, so the '
                 'project may hold part of the adoption: '
                 '${[for (final (step: _, :failure) in _undoFailures) failure].join('; ')}',
       steps: List.unmodifiable([for (final record in records) record.report]),

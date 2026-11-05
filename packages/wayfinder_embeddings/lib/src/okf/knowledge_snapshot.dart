@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart'
-    show OkfFieldEdge, OkfLinkField, okfFieldEdges;
+    show OkfFieldEdge, OkfLinkField, bundleInventoryPaths, okfFieldEdges;
 
 import '../chunking/documents/markdown_chunker.dart';
 import '../models/chunk.dart';
@@ -52,6 +52,11 @@ class KnowledgeSnapshot {
   /// Original inputs retained to rebuild upstream OKF graph/metadata semantics.
   final Map<String, String> sources;
   final List<String> assets;
+
+  /// Files and implied directories in this immutable inventory.
+  late final Set<String> inventoryPaths = Set.unmodifiable(
+    bundleInventoryPaths([...sources.keys, ...assets]),
+  );
 
   /// Loads a complete inventory using OKF's symlink and parse protections.
   /// No store mutation occurs until the entire snapshot has been read.

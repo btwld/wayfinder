@@ -38,8 +38,8 @@ Explicit paths preserve the single-bundle JSON shape. Do not combine a path and
 For **graph**, `--type`, `--path-prefix` and `--resolution` are repeatable and match the MCP
 `types`, `path_prefixes` and `resolutions` filters.
 
-Use `--output=json` when you will parse results; explicit-path output has the
-same shape a single-bundle MCP launch returns. If neither the tools nor the
+Use CLI `--output=json` for programmatic results. MCP returns JSON for
+`validate`, `index`, and `graph`, and Markdown for `search`. If neither the tools nor the
 `wayfinder` command exist, say so and see [Troubleshooting](#troubleshooting)
 rather than silently falling back to grep-only answers.
 

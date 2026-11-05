@@ -37,6 +37,21 @@ void main() {
     );
   });
 
+  test('rejects the non-integer format representation 3.0', () async {
+    final document = jsonDecode(packageJson()) as Map<String, Object?>;
+    document['format'] = 3.0;
+    final json = jsonEncode(document);
+    await expectLater(
+      ProfilePackage.parseWithin(json),
+      throwsA(
+        isA<ProfilePackageException>()
+            .having((error) => error.where, 'where', 'format')
+            .having((error) => error.message, 'message', 'must be 3')
+            .having((error) => error.unsupported, 'unsupported', isFalse),
+      ),
+    );
+  });
+
   test('throws what parse throws', () async {
     final disagreeing = packageJson(
       rules: [
@@ -57,9 +72,14 @@ void main() {
         ),
       ],
     );
-    final unsupported = (jsonDecode(packageJson()) as Map<String, Object?>)
-      ..['format'] = 3;
-    for (final json in [disagreeing, jsonEncode(unsupported), '{']) {
+    final unsupported = [
+      for (final format in <num>[2, 2.0, 4.0])
+        jsonEncode(
+          (jsonDecode(packageJson()) as Map<String, Object?>)
+            ..['format'] = format,
+        ),
+    ];
+    for (final json in [disagreeing, ...unsupported, '{']) {
       Object? expected;
       try {
         ProfilePackage.parse(json);

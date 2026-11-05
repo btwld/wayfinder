@@ -10,6 +10,7 @@ import '../profile_package.dart';
 import '../rules/profile.dart';
 import '../validation.dart';
 import '../wayfinder_config.dart';
+import 'bundle_roots.dart';
 import 'cancellation.dart';
 import 'exception.dart';
 import 'file_lock.dart';
@@ -1654,30 +1655,13 @@ final class WayfinderProfileResolver {
     WayfinderProjectConfig config,
     String projectRoot,
   ) async {
-    final root = await Directory(projectRoot).resolveSymbolicLinks();
-    final realPaths = <String>{};
-    for (final bundle in config.bundles) {
-      final configured = p.join(projectRoot, bundle.path);
-      String real;
-      try {
-        real = await Directory(configured).resolveSymbolicLinks();
-      } on FileSystemException {
-        throw WayfinderProfileResolutionException(
-          'Configured bundle ${bundle.path} does not exist or is unreadable.',
-        );
-      }
-      if (!p.isWithin(root, real) || !realPaths.add(real)) {
-        throw WayfinderProfileResolutionException(
-          'Configured bundle ${bundle.path} escapes or duplicates a project bundle.',
-        );
-      }
-    }
-    for (final path in realPaths) {
-      if (realPaths.any((other) => other != path && p.isWithin(other, path))) {
-        throw WayfinderProfileResolutionException(
-          'Configured bundle paths must not overlap after resolving symlinks.',
-        );
-      }
+    try {
+      await resolveConfiguredBundleRoots(
+        projectRoot,
+        config.bundles.map((bundle) => bundle.path),
+      );
+    } on WayfinderException catch (error) {
+      throw WayfinderProfileResolutionException(error.message);
     }
   }
 

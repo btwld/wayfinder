@@ -1,10 +1,33 @@
-# Unreleased
+# 1.0.0 (unreleased)
 
 - An interrupted `index` now continues where it stopped: the next run embeds
   only what remains, with the same result as an uninterrupted run. Until then
   the index directory holds `embeddings.partial`, which a run that completes
   deletes. Output and the indexes the command keeps are otherwise unchanged.
-- Requires `wayfinder` `^0.4.1` and `wayfinder_embeddings` `^0.5.0`.
+- Resolve relative paths against the CLI working directory in production and
+  embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
+  commands; only the two historical generated `cd ... &&` forms are removed.
+
+- Prepare the first stable CLI/MCP release. The public compatibility and
+  support boundaries are recorded in [the stability contract](../../docs/stability.md).
+- Resolve explicit MCP bundle paths and detached indexing against the CLI's
+  injected working directory, and pass absolute bundle paths to detached workers.
+- **BREAKING:** Validation reads Profile package format 3. Upgrade a selected
+  format-2 package and its parent chain, point any pinned source ref at the
+  migrated revision, then run `wayfinder upgrade` to refresh the lock and
+  installed skills. Old packages are explicitly unsupported,
+  not silently evaluated with different facts. OKF graph, index and search
+  remain independent of Profile selection.
+- Setup removes only Wayfinder's legacy Stop-hook handlers, preserving
+  unrelated handlers and metadata in the same group. Commands that merely
+  mention `wayfinder index`, similarly named executables/subcommands, and
+  non-command handlers are preserved.
+- Correct the model lookup order in the ADR record to match the implementation,
+  tests and user documentation; no lookup behavior changes. See the
+  model-lookup correction in [the decision log](../../ARCHITECTURE.md).
+- The Windows public-install verifier restores the user's registry PATH after
+  its temporary install, including when verification fails.
+- Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.
 
 # 0.4.0
 

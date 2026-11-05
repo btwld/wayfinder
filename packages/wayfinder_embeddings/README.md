@@ -200,8 +200,11 @@ try {
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
   snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and a hash of the input each row embeds, and a reader checks
-  them before it scores. A 0.2 index, at `indexes/<sha256 of the root>/`, and an
+  count, SHA-256 and a hash of the input each row embeds. Before scoring, a
+  reader checks the vector shape and file digest and the input-hash list's
+  shape; it does not recompute those input hashes from the snapshot. Indexing
+  uses them to decide which vectors it can reuse. A 0.2 index, at
+  `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
   `indexes/<bundle key>/<configuration key>/`, are never read, changed or
   deleted: the first index after an upgrade builds anew. Chunk IDs do not
@@ -404,6 +407,15 @@ Metadata-only updates are persisted without regenerating vectors. Changed text n
 ID; ingestion does not remove obsolete chunks automatically. Delete those
 chunks explicitly or rebuild a fresh store when synchronizing changed files.
 
+`IngestionPipeline` checks all explicit ID/content pairs before writing, using
+SHA-256 digests and a temporary disk spool. Temporary disk grows with corpus
+text; memory retains digests, one chunked file and one write batch. File-progress
+callbacks report chunking before embedding starts. Identical IDs with metadata
+changes retain the last metadata per batch without duplicate rows or vectors.
+An encoder or store failure can leave earlier batches committed: only each
+`storeBatch` is atomic. Retry or rebuild according to the caller's transaction
+boundary; the OKF store stages a generation before publication.
+
 For generic search, an empty-result check rejects eligible content with no
 compatible vectors. Successful ANN queries do not scan the whole collection or
 verify partial coverage; ingestion callers own that boundary. The OKF adapter
@@ -499,9 +511,6 @@ loads the model with `LlamaEngine.load` on the CPU only, with a 512-token
 context, batch and micro-batch, and up to four threads, one fewer than the
 machine's processors. Development and CLI builds
 need Dart 3.11.0+, the minimum every package in the workspace declares.
-llamadart 0.15 requires only 3.10.7, so the declared floor sits above it.
-Build hooks and `dart build cli` were introduced in Dart 3.10; the tested Dart
-3.11 CLI still labels its bundle command as preview.
 
 Another llama.cpp build can give the same model slightly different vectors.
 `wayfinderLlamaCppRuntime` names the `llamadart-native` release Wayfinder
@@ -534,9 +543,10 @@ The prepare step downloads the model once per machine through
 [`EmbeddingModelCache`](#provision-the-model-from-an-application), from an
 immutable revision, into the cache's default directory in the Wayfinder data
 directory, and verifies its size and SHA-256. It then stages a verified copy as
-`models/embedding.gguf` with a manifest; weights stay out of Git. A model that
-an earlier release downloaded into llamadart's shared cache is copied from
-there instead, and stays where it is. `objectbox:install` verifies its pinned
+`models/embedding.gguf` with a manifest, the spec's `toMap()`: its `id`,
+`displayName`, source, size, SHA-256, preprocessing and license. Weights stay
+out of Git. A model that an earlier release downloaded into llamadart's shared
+cache is copied from there instead, and stays where it is. `objectbox:install` verifies its pinned
 release archive the same way, so every native asset a bundle ships is checked
 against a recorded hash. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
@@ -603,8 +613,9 @@ directory of your choice instead. The file inside is `embedding.gguf`, the
 name a staged `models/` directory uses, so a bundle's `models/` directory is a
 cache directory too.
 
-- `target` describes the download to show before asking: the source URL, the
-  25,279,840 bytes, the SHA-256 and the destination file.
+- `target` describes the download to show before asking: the model's name
+  for a person (`target.spec.displayName`, `Snowflake Arctic Embed XS`), the
+  source URL, the 25,279,840 bytes, the SHA-256 and the destination file.
 - `locate()` is offline. It reads files only and returns the verified cached
   model, or the first verified file in `alsoCheck` (for example the
   `models/embedding.gguf` of an installed Wayfinder bundle), or null.
