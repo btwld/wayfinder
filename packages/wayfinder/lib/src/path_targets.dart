@@ -3,6 +3,56 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+/// A path-valued target classified against the loaded bundle and, for a
+/// relative path outside it, the optional bundle root on disk.
+sealed class PathTarget {
+  const PathTarget();
+
+  /// Whether the target is a path that cannot be resolved.
+  bool get missing;
+}
+
+/// A URL, prose, or other value the graph does not treat as a path.
+final class NotAPath extends PathTarget {
+  const NotAPath();
+
+  @override
+  bool get missing => false;
+}
+
+/// A path that is absent, malformed, or an absolute escape from the bundle.
+final class MissingPath extends PathTarget {
+  const MissingPath();
+
+  @override
+  bool get missing => true;
+}
+
+/// A file or implied directory in the loaded inventory.
+final class InBundlePath extends PathTarget {
+  const InBundlePath(this.path);
+
+  /// Decoded bundle-relative path.
+  final String path;
+
+  @override
+  bool get missing => false;
+}
+
+/// A relative path that leaves the bundle.
+///
+/// [missing] is false when no root was supplied, because that caller did not
+/// ask for a disk check, and when the disk entry exists.
+final class OutsidePath extends PathTarget {
+  const OutsidePath({required this.missing, required this.relative});
+
+  @override
+  final bool missing;
+
+  /// Decoded path relative to the bundle root, including a `../` prefix.
+  final String relative;
+}
+
 /// Checks a path-valued field using the loaded inventory inside the bundle,
 /// and optional disk lookup only for relative paths outside it.
 ///
@@ -11,13 +61,13 @@ import 'package:path/path.dart' as p;
 /// prose. Percent decoding follows OKF; malformed escapes, separators within
 /// decoded segments and bundle-root parent escapes are missing. A present
 /// internal target returns its decoded bundle-relative path for display.
-({bool missing, String? bundlePath}) resolvePathTarget(
+PathTarget resolvePathTarget(
   OkfGraphEdge edge, {
   required bool Function(String path) inBundle,
   String? rootPath,
 }) {
-  const notPath = (missing: false, bundlePath: null);
-  const missing = (missing: true, bundlePath: null);
+  const notPath = NotAPath();
+  const missing = MissingPath();
   final raw = edge.rawTarget;
   if (raw.isEmpty || edge.resolution == OkfGraphResolution.external) {
     return notPath;
@@ -32,7 +82,7 @@ import 'package:path/path.dart' as p;
   final target = cut < 0 ? raw : raw.substring(0, cut);
   if (target.isEmpty) {
     return inBundle(edge.source.documentPath)
-        ? (missing: false, bundlePath: edge.source.documentPath)
+        ? InBundlePath(edge.source.documentPath)
         : missing;
   }
   final decoded = <String>[];
@@ -58,23 +108,54 @@ import 'package:path/path.dart' as p;
   final relative = p.posix.normalize(p.posix.joinAll([directory, ...decoded]));
   final outside = relative == '..' || relative.startsWith('../');
   if (!outside) {
-    return inBundle(relative)
-        ? (missing: false, bundlePath: relative)
-        : missing;
+    return inBundle(relative) ? InBundlePath(relative) : missing;
   }
   if (target.startsWith('/')) return missing;
   // An in-memory caller cannot inspect a relative path outside its inventory.
-  if (rootPath == null) return notPath;
+  if (rootPath == null) {
+    return OutsidePath(missing: false, relative: relative);
+  }
   try {
-    return (
+    return OutsidePath(
       missing:
           FileSystemEntity.typeSync(
             p.normalize(p.joinAll([rootPath, ...relative.split('/')])),
           ) ==
           FileSystemEntityType.notFound,
-      bundlePath: null,
+      relative: relative,
     );
   } on FileSystemException {
     return missing;
   }
+}
+
+/// Display path for a non-body citation of [target].
+///
+/// In-bundle targets use their decoded inventory path. Other present `./` and
+/// `../` targets keep the historical undecoded prefix, so a citation label
+/// does not change just because the path was classified. Missing targets stay
+/// unlabeled.
+String? pathTargetDisplay(PathTarget target, OkfGraphEdge edge) {
+  switch (target) {
+    case InBundlePath(:final path):
+      return path;
+    case MissingPath():
+      return null;
+    case NotAPath():
+    case OutsidePath():
+      if (target.missing) return null;
+      return _historicalRelativeDisplay(edge);
+  }
+}
+
+String? _historicalRelativeDisplay(OkfGraphEdge edge) {
+  final raw = edge.rawTarget;
+  if (!raw.startsWith('../') && !raw.startsWith('./')) return null;
+  final cut = raw.indexOf(RegExp(r'[?#]'));
+  return p.posix.normalize(
+    p.posix.join(
+      p.posix.dirname(edge.source.documentPath),
+      cut < 0 ? raw : raw.substring(0, cut),
+    ),
+  );
 }

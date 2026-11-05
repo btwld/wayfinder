@@ -335,8 +335,8 @@ class PreflightPrerequisiteTest(unittest.TestCase):
             checkout = Path(temporary)
             scripts = checkout / 'tool/ci'
             scripts.mkdir(parents=True)
-            for name in ('release-preflight.py', 'verify-siblings-published.py',
-                         'verify-workspace-floors.py'):
+            for name in ('publication.py', 'release-preflight.py',
+                         'verify-siblings-published.py', 'verify-workspace-floors.py'):
                 shutil.copyfile(preflight.ROOT / 'tool/ci' / name, scripts / name)
             (checkout / 'pubspec.yaml').write_text('workspace:\n  - broken\n')
             (checkout / 'broken').mkdir()
@@ -478,9 +478,9 @@ class SiblingPublicationTests(unittest.TestCase):
                 (root / member).mkdir()
                 (root / member / 'pubspec.yaml').write_text(
                     f'name: {name}\nversion: 2.0.0\ndependencies:\n{deps}')
-            versions = preflight.SIBLINGS['sibling_versions']('cli', root)
+            versions = preflight.sibling_versions('cli', root)
             self.assertEqual(versions, {'added': '2.0.0'})
-            missing = preflight.SIBLINGS['missing_siblings'](versions, lambda _: {'1.0.0'})
+            missing = preflight.missing_siblings(versions, lambda _: {'1.0.0'})
             self.assertEqual(missing, ['added 2.0.0'])
 
     def test_retracted_versions_are_not_publication_prerequisites(self):
@@ -488,7 +488,7 @@ class SiblingPublicationTests(unittest.TestCase):
         response.__enter__.return_value.read.return_value = json.dumps({'versions': [
             {'version': '1.0.0', 'retracted': True}, {'version': '2.0.0'}]}).encode()
         with mock.patch('urllib.request.urlopen', return_value=response):
-            self.assertEqual(preflight.SIBLINGS['published_versions']('example'), {'2.0.0'})
+            self.assertEqual(preflight.published_versions('example'), {'2.0.0'})
 
 
 @unittest.skipIf(os.name == 'nt', 'publication workflows run in Bash on Linux')
@@ -499,11 +499,11 @@ class PublicationShellTest(unittest.TestCase):
         self.root = Path(self.temporary.name)
         scripts = self.root / 'tool/ci'
         scripts.mkdir(parents=True)
-        for name in ('pub-version-published.sh', 'verify-siblings-published.py',
-                     'verify-workspace-floors.py'):
+        for name in ('publication.py', 'pub-version-published.sh',
+                     'verify-siblings-published.py', 'verify-workspace-floors.py'):
             shutil.copyfile(preflight.ROOT / 'tool/ci' / name, scripts / name)
         shutil.copyfile(preflight.ROOT / 'pubspec.yaml', self.root / 'pubspec.yaml')
-        for member, _, _ in preflight.SIBLINGS['FLOORS']['workspace_packages'](preflight.ROOT).values():
+        for member, _, _ in preflight.workspace_packages(preflight.ROOT).values():
             (self.root / member).mkdir(parents=True)
             shutil.copyfile(preflight.ROOT / member / 'pubspec.yaml',
                             self.root / member / 'pubspec.yaml')
@@ -537,7 +537,7 @@ class PublicationShellTest(unittest.TestCase):
                                 GITHUB_WORKSPACE=str(self.root), GITHUB_OUTPUT=str(self.output))
 
     def test_all_upload_workflow_checks_skip_occupied_versions_including_retracted(self):
-        for package, (member, version, _) in preflight.SIBLINGS['FLOORS']['workspace_packages'](self.root).items():
+        for package, (member, version, _) in preflight.workspace_packages(self.root).items():
             workflow = (preflight.ROOT / '.github/workflows' /
                         f'publish-{package.replace("_", "-")}.yml').read_text()
             section = workflow.split('      - name: Check whether pub.dev already has this version\n', 1)[1]
@@ -558,8 +558,8 @@ class PublicationShellTest(unittest.TestCase):
                     self.assertEqual(self.output.read_text(), f'published={expected}\n')
 
     def test_sibling_workflow_commands_reject_retracted_versions_and_accept_usable_versions(self):
-        for package in preflight.SIBLINGS['FLOORS']['workspace_packages'](self.root):
-            versions = preflight.SIBLINGS['sibling_versions'](package, self.root)
+        for package in preflight.workspace_packages(self.root):
+            versions = preflight.sibling_versions(package, self.root)
             if not versions:
                 continue
             workflow = (preflight.ROOT / '.github/workflows' /

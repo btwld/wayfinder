@@ -152,6 +152,14 @@ class Chunk extends Equatable {
     );
   }
 
+  /// Creates a chunk from JSON produced by [toMap].
+  factory Chunk.fromJson(Object? json) {
+    if (json is! Map) {
+      throw const FormatException('Chunk JSON must be an object.');
+    }
+    return Chunk.fromMap(Map<String, Object?>.from(json));
+  }
+
   /// Computes the deterministic identifier for stable chunk attributes.
   static String computeId({
     required String sourcePath,
