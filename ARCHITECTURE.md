@@ -121,7 +121,7 @@ This keeps existing verdicts and finding ownership, while requiring authors to t
 
 Date: 2026-10-26; amends ADR-0015/0016.
 
-Read format 3 only and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages.
+Read format 3 only, as a JSON integer, and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages. A non-integer format value is malformed, not a supported spelling of format 3.
 Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#54-identity-release-and-format).
 
 ## Prepared 1.0 compatibility and release evidence
@@ -141,7 +141,7 @@ Use one public path resolver for validation and retrieval, with injected invento
 
 Date: 2026-11-04.
 
-Refuse parent segments and any-case `.git` segments at the adoption request boundary before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget; POSIX PID operations remain best effort because they are not atomic process handles.
+Refuse parent segments and any-case `.git` segments at the adoption request boundary, for the bundle, host inputs and seed concepts, before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget. A failed listing kills those verified descendants with the root and resumes only non-root ids whose parentage no longer matches. POSIX PID operations remain best effort because they are not atomic process handles.
 
 ## Retrieval source decisions and bounded ingestion
 

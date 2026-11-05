@@ -661,9 +661,10 @@ name of the installed skill directory, so no mapping between them exists.
 Profile picks its own scheme; Bitwild uses `<year>.<serial>`.
 
 `format` names what the engine must understand to read the package. This
-engine reads format `3`. A package with another format, including `2`, is
-reported as `wayfinder/profile-unsupported`, never read the old way or partly
-applied.
+engine reads format `3`, and the value is a JSON integer. A non-integer
+number such as `3.0` is malformed, not an alternate spelling of format 3.
+A package with another integer format, including `2`, is reported as
+`wayfinder/profile-unsupported`, never read the old way or partly applied.
 Format 3 removes directory-name policy from the `sibling_directory` fact
 (§5.6). A format 2 package needs an explicit migration, not merely a new
 engine: its author reviews uses of that fact, publishes a format 3 revision,
@@ -911,6 +912,13 @@ Entries below are newest-first decision history. Earlier format numbers and
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
+**Package format is a JSON integer, 2026-11-05.**
+Affected section: §5.4. Driver: accepting a finite whole-number JSON number
+such as `3.0` would make a second spelling of format 3 part of the 1.0
+surface. Implementations report a non-integer format as malformed and an
+integer other than 3 as unsupported. No package migration: a package encodes
+`format` as an integer.
+
 **Retrieval source and ingestion corrections, 2026-11-04.**
 Affected surfaces: retrieval `unresolved-source`, citation Markdown and ingestion.
 Review found copied path classifiers disagreeing with validation; retrieval now
@@ -927,9 +935,11 @@ indexes whose source citations or constructor chunking changed.
 Affected surface: adoption host requests and Git subprocess cleanup. Review
 found normalized parent aliases and any-case `.git` segments accepted at the
 request boundary; they now fail with `adoption-invalid` before planning.
-Hosts must pass a direct project-relative bundle path. Git cleanup keeps the
-root frozen through its kill, discovers late forks and uses one inspection
-budget. Package format and OKF semantics do not change.
+Hosts must pass a direct project-relative bundle path, including seed
+concepts. Git cleanup keeps the root frozen through its kill, discovers late
+forks and uses one inspection budget. A failed listing kills verified
+descendants instead of resuming them. Package format and OKF semantics do
+not change.
 
 **Path-target candidate and decoding corrections, 2026-11-04.**
 Affected sections: §5.6, the builtin reference and public `resolvePathTarget`.

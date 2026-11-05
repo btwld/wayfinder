@@ -1138,11 +1138,10 @@ final class KnowledgeAdoption {
     final result = SplayTreeMap<String, String>();
     for (final concept in concepts) {
       final path = concept.path;
+      final normalized = p.posix.normalize(path);
       final name = p.posix.basename(path);
-      if (path.contains(r'\') ||
-          p.posix.isAbsolute(path) ||
-          p.posix.normalize(path) != path ||
-          path.split('/').any((segment) => segment == '..') ||
+      if (_isInvalidProjectPath(path, normalized) ||
+          normalized != path ||
           !name.endsWith('.md') ||
           name == 'index.md' ||
           name == 'log.md') {
