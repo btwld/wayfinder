@@ -76,15 +76,32 @@ void main() {
       );
 
   group('parse refuses whole what this engine cannot evaluate', () {
-    test('another package format, before any schema check', () {
-      final json = jsonDecode(packageJson()) as Map<String, Object?>;
-      json['format'] = 3;
-      json['surprise'] = true;
-      expect(
-        () => ProfilePackage.parse(jsonEncode(json)),
-        rejectedAt('format', 'format 3 is not supported', unsupported: true),
-      );
-    });
+    for (final format in <int>[2, 4, 9007199254740993]) {
+      test('refuses package format $format before any schema check', () {
+        final json = jsonDecode(packageJson()) as Map<String, Object?>;
+        json['format'] = format;
+        json['surprise'] = true;
+        expect(
+          () => ProfilePackage.parse(jsonEncode(json)),
+          rejectedAt(
+            'format',
+            'package format $format is not supported; this wayfinder reads format 3',
+            unsupported: true,
+          ),
+        );
+      });
+    }
+
+    for (final format in <Object>[2.0, 2.5, 3.0, 4.0, '2']) {
+      test('a non-integer format $format is malformed, not unsupported', () {
+        final json = jsonDecode(packageJson()) as Map<String, Object?>;
+        json['format'] = format;
+        expect(
+          () => ProfilePackage.parse(jsonEncode(json)),
+          rejectedAt('format', 'must be 3', unsupported: false),
+        );
+      });
+    }
 
     test('an OKF release its okf cannot read', () {
       final json = jsonDecode(packageJson()) as Map<String, Object?>;
@@ -369,18 +386,22 @@ void main() {
       final rule = ruleJson(
         'a',
         subject: 'root',
-        schema: true,
-        valid: [<String, Object?>{}],
-        invalid: [
-          {'okf_version': 1},
+        schema: {
+          'required': ['okf_version'],
+        },
+        valid: [
+          {'okf_version': '0.2'},
         ],
+        invalid: [<String, Object?>{}],
       );
-      (rule['tests']! as Map<String, Object?>)['invalid'] = [
-        <String, Object?>{},
-      ];
+      // The first rule must compile before the second can collide with it.
+      expect(
+        ProfilePackage.parse(packageJson(rules: [rule])).rules,
+        hasLength(1),
+      );
       expect(
         () => ProfilePackage.parse(packageJson(rules: [rule, rule])),
-        rejectedAt('rules[0].tests', 'invalid[0] passes'),
+        rejectedAt('rules[1].id', 'duplicate rule id'),
       );
     });
   });

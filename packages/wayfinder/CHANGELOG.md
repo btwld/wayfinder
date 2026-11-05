@@ -1,3 +1,40 @@
+# 1.0.0 (unreleased)
+
+- Prepare the first stable validation/project/adoption/authoring release.
+  The accepted engine contract and [stability boundaries](../../docs/stability.md)
+  define its public API, compatibility and host obligations; publication and
+  exact-source platform verification remain separate release gates.
+
+- **BREAKING:** Reads Profile package format 3 only, as a JSON integer.
+  Format 2 is `profile-unsupported`, never silently reinterpreted. A
+  non-integer value, including `3.0`, is malformed rather than a supported
+  spelling of format 3. The concept fact
+  `sibling_directory` now includes every same-stem sibling directory
+  represented by the loaded file inventory, without directory-name policy
+  (ADR-0029). Package authors review uses of that fact, put any chosen
+  placement exceptions in their rules, and release a format 3 revision.
+  Projects move source refs and pinned parent refs to migrated revisions,
+  then refresh and commit locks and installed skills with `get` or `upgrade`;
+  `upgrade` alone cannot advance an immutable old ref. A package whose own
+  rules do not use the fact needs no rule changes, but its entire parent
+  chain must also be reviewed and migrated. Migrated Bitwild keeps
+  its previous findings, with its existing exceptions in its own rule.
+- Git timeout and cancellation cleanup also terminate live descendants of
+  SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Discovery, binding and resolution share one canonical root check. All
+  readable configured roots must be disjoint, even when one is selected.
+  An unrelated, unselected missing bundle still does not prevent selection.
+- A failed adoption step whose own rollback fails now reports `undoFailed`,
+  as earlier completed steps already do when their rollback fails. The
+  original failure code and cause remain available. `onStep` emits `failed`
+  then `undo-failed` for that step when its own undo fails; the exception
+  keeps one final report per step, so `steps.last` can be `undo-failed`.
+  Hosts must handle that final state rather than assuming `failed`.
+- Clarify composition: all rules use the whole chain's and project's
+  vocabulary. Added names can affect inherited findings; inherited rule
+  definitions and severities cannot change. This clarification alone changes
+  no verdict (ADR-0027); format migration is described separately above.
+
 # 0.4.0
 
 - Add model-free, live structured concept queries, scoped saved query IDs, sorting, pagination and grouped counts through `project.dart`. Share the existing metadata predicate with retrieval while preserving its public import paths. No Profile-format or OKF migration.

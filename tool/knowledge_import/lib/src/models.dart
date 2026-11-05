@@ -33,6 +33,9 @@ final class SourceManifest {
   void validate() {
     final ids = <String>{};
     for (final source in sources) {
+      if (source.id.trim().isEmpty) {
+        throw const FormatException('Source id must be nonblank.');
+      }
       if (!ids.add(source.id))
         throw FormatException('Duplicate source id: ${source.id}');
       if (source.repository.trim().isEmpty || source.ref.trim().isEmpty) {

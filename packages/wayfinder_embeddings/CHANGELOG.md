@@ -1,4 +1,13 @@
-# 0.5.0 (unreleased)
+# 1.0.0 (unreleased)
+
+- Prepare the first stable retrieval-library release, with the public
+  compatibility and support boundaries in [the stability contract](../../docs/stability.md).
+- Ingestion refuses an explicit chunk ID reused for different text within one
+  call, including across files, instead of silently dropping the later chunk.
+  Identical duplicates retain their existing deduplication behavior.
+- Parse native-runtime override keys as YAML, including flow mappings, so a
+  different layout cannot bypass the reviewed llama.cpp pin at bundle build.
+- Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.
 
 - **BREAKING:** `EmbeddingModelSpec` takes a required `displayName`, the
   model's name for a person, so a host that shows which model it uses or
@@ -227,7 +236,7 @@
   `KnowledgeBundleSearch.notices` and `KnowledgeProjectSearch.notices` are
   lists of the new `KnowledgeNotice` instead of strings: a stable `code`
   (`KnowledgeNoticeCode`, whose `wireValue` is `unresolved-relationship`,
-  `governing-source-unavailable`, `refresh-in-progress` or
+  `unresolved-source`, `governing-source-unavailable`, `refresh-in-progress` or
   `source-changed`), the `message`, a sentence for a reader without the code
   or the bundle's name, the bundle-relative `paths` it concerns (the matches
   whose link did not resolve, the governing source, or every changed file,

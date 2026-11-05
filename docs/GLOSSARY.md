@@ -24,7 +24,7 @@ _Avoid_: Format, base Profile, standard
 
 **Profile package**:
 A directory at one Git revision holding `wayfinder-profile.json` in package
-format 2, and optionally a README, a changelog, and a skill. The package is the
+format 3, and optionally a README, a changelog, and a skill. The package is the
 Profile; its prose explains it and adds no requirement.
 _Avoid_: Manifest, rule catalog
 

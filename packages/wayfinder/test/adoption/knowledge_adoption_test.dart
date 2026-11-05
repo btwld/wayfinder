@@ -959,10 +959,7 @@ void main() {
         (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
         (AdoptionStep.host, AdoptionStepOutcome.failed),
       ]);
-      expect(
-        failure.message,
-        contains('Undoing the earlier steps also failed'),
-      );
+      expect(failure.message, contains('Undoing the adoption also failed'));
       expect(await Directory(bundle()).exists(), isTrue);
       expect(
         await File(p.join(project.path, 'wayfinder.json')).exists(),

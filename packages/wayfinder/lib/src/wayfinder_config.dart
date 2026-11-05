@@ -7,6 +7,8 @@ import 'config_layout.dart';
 import 'config_search.dart';
 import 'diagnostics.dart';
 import 'profile_package.dart';
+import 'project/bundle_roots.dart';
+import 'project/exception.dart';
 import 'published_schemas.dart';
 import 'rules/profile.dart';
 
@@ -332,38 +334,17 @@ final class WayfinderProjectConfig {
       );
     }
     WayfinderBundleBinding? selected;
-    final realPaths = <String, String>{};
-    for (final bundle in config.bundles) {
-      final configuredPath = p.normalize(p.join(configRoot, bundle.path));
-      try {
-        final realPath = await Directory(configuredPath).resolveSymbolicLinks();
-        realPaths[configuredPath] = realPath;
-        if (p.equals(realPath, requested)) selected = bundle;
-      } on FileSystemException {
-        unbound(
-          DiagnosticCode.configInvalid,
-          'Configured bundle ${bundle.path} does not exist or is unreadable.',
-        );
-      }
+    final Map<String, String> realPaths;
+    try {
+      realPaths = await resolveConfiguredBundleRoots(
+        configRoot,
+        config.bundles.map((bundle) => bundle.path),
+      );
+    } on WayfinderException catch (error) {
+      unbound(DiagnosticCode.configInvalid, error.message);
     }
-    for (final entry in realPaths.entries) {
-      if (!p.isWithin(configRoot, entry.value)) {
-        unbound(
-          DiagnosticCode.configInvalid,
-          'Bundle ${entry.key} resolves outside the project.',
-        );
-      }
-      for (final other in realPaths.entries) {
-        if (entry.key != other.key &&
-            (p.equals(entry.value, other.value) ||
-                p.isWithin(entry.value, other.value) ||
-                p.isWithin(other.value, entry.value))) {
-          unbound(
-            DiagnosticCode.configInvalid,
-            'Configured bundles overlap after resolving symlinks.',
-          );
-        }
-      }
+    for (final bundle in config.bundles) {
+      if (p.equals(realPaths[bundle.path]!, requested)) selected = bundle;
     }
     if (selected == null) {
       unbound(

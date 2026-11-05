@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 
 import '../chunking/chunker_registry.dart';
 import '../embedding/base_embedder.dart';
@@ -63,7 +66,7 @@ class IngestionPipeline {
   }) async {
     final chunkBatch = <Chunk>[];
     final embeddingBatch = <Embedding>[];
-    final seenChunkIds = <String>{};
+    final seenChunkDigests = <String, String>{};
 
     for (final chunked in chunkedFiles) {
       // New or updated chunks, and chunks that still need a vector for this
@@ -71,18 +74,18 @@ class IngestionPipeline {
       final newChunks = <Chunk>[];
       final chunksToEmbed = <Chunk>[];
       for (final chunk in chunked.chunks) {
-        if (dedupe && !seenChunkIds.add(chunk.id)) {
-          onDuplicateChunk?.call(chunk);
-          continue;
+        if (dedupe) {
+          final seenDigest = seenChunkDigests[chunk.id];
+          if (seenDigest != null) {
+            _requireSameContent(seenDigest, chunk);
+            onDuplicateChunk?.call(chunk);
+            continue;
+          }
+          seenChunkDigests[chunk.id] = _digest(chunk.content);
         }
         final existingChunk = dedupe ? await store.getChunk(chunk.id) : null;
         if (existingChunk != null) {
-          if (existingChunk.content != chunk.content) {
-            throw StateError(
-              'Chunk ID ${chunk.id} was reused for different text. '
-              'Use content-derived IDs for changed content.',
-            );
-          }
+          _requireSameContent(_digest(existingChunk.content), chunk);
           onDuplicateChunk?.call(chunk);
           if (existingChunk != chunk) {
             newChunks.add(chunk);
@@ -114,6 +117,18 @@ class IngestionPipeline {
 
     await _flushBatch(chunks: chunkBatch, embeddings: embeddingBatch);
   }
+
+  static void _requireSameContent(String existing, Chunk candidate) {
+    if (existing != _digest(candidate.content)) {
+      throw StateError(
+        'Chunk ID ${candidate.id} was reused for different text. '
+        'Use content-derived IDs for changed content.',
+      );
+    }
+  }
+
+  static String _digest(String content) =>
+      sha256.convert(utf8.encode(content)).toString();
 
   /// Embeds every chunk in [chunks] with one embedder call.
   Future<List<Embedding>> _embedChunks(List<Chunk> chunks) async {

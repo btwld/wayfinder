@@ -7,6 +7,43 @@ the names of their time. The 2026.2 and 2026.1 entries cite sections of that
 release's prose text, which [`versions/`](versions/) keeps. The 2026.3 prose
 text is gone, so its entries name sections by subject.
 
+## 2026.3 guidance clarification (2026-10-26)
+
+The skill now says to reuse tags declared by the selected chain, not copy them
+into project configuration. The shipped child Profile's `billing` tag exposed
+that contradiction. Its migration example also applies the existing
+lifecycle/verification test conditionally, rather than assuming a capability
+area is always maintained as one unit. No rule, vocabulary or review-map check
+changes. Bundle verdicts are unchanged and no bundle edit is needed.
+
+## 2026.3 revision for package-owned directory policy (2026-10-26)
+
+Release 2026.3 remains unpublished, so this revision keeps its release name
+and changes the package to format 3. The existing
+`concept-area-name-collision` rule now declares its own exceptions for the
+top-level `interactions/` and `references/` trees and the same-named root
+concepts. Its id, severity, message, and findings are unchanged; no rule or
+vocabulary name is added or removed.
+
+Driver: the engine also evaluates independent Profiles, including the
+shipped independent example, but its shared `sibling_directory` fact encoded
+these Bitwild choices for every package. Format 3 makes that fact neutral.
+This revision moves the existing policy into this package's rule and tests,
+with an end-to-end golden covering mirrored-source, time-axis, ordinary area,
+and near-prefix paths. [The compatibility review](compatibility-review.md)
+records the changed rule's OKF basis. No new rule is inferred from that test.
+
+Migration impact: every bundle that passed this Profile still passes after
+moving to this revision, and its findings are preserved. No concept or index
+edit is needed. A format 3 engine refuses an older format 2 copy whole as
+`profile-unsupported`; it does not silently change its facts. Move the
+binding's source ref to this revision, and any child Profile's pinned parent
+ref with it, migrate the child to format 3 through its own release process,
+then refresh and commit the lock and installed skills with `wayfinder get`
+or `wayfinder upgrade`. Merely running `upgrade` cannot advance an immutable
+old source ref. A project intentionally retaining the old package retains
+an engine that reads format 2. No published tag or archived release is moved.
+
 ## 2026.3 revision for Profile independence (2026-10-02)
 
 Release 2026.3 was not yet published, so this revision changes it in place and

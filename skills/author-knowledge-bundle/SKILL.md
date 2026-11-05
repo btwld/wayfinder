@@ -42,7 +42,7 @@ Never guess a Profile or its rules. Diagnose:
 | --- | --- |
 | `config-missing`, `bundle-unbound`, `config-invalid` | Report unusable binding; contextual review cannot run. |
 | `profile-unresolved` | During authorized authoring, run `get` and include lock/skills; otherwise report. Validation never fetches. |
-| `profile-invalid`, `profile-unsupported`, `profile-timeout`, `profile-composition` | No rule ran. Report; unsupported needs a newer engine, composition may need project additions repaired, invalid/timeout needs the Profile author. |
+| `profile-invalid`, `profile-unsupported`, `profile-timeout`, `profile-composition` | No rule ran. Report; unsupported needs a matching engine or package migration, composition may need project additions repaired, invalid/timeout needs the Profile author. |
 | `profile-skill-stale`, missing installed skill from a package shipping one | Run `get` to install the locked skill; never edit installed copies. |
 
 IDs above have the `wayfinder/` prefix. A Profile with no skill contributes rules

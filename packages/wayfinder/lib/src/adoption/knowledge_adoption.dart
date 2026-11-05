@@ -1360,7 +1360,17 @@ final class _Run {
       return undone;
     }
 
-    await undoStep(step);
+    if (!await undoStep(step)) {
+      final failed = records.last;
+      records[records.length - 1] = _StepRecord(
+        failed.step,
+        AdoptionStepOutcome.undoFailed,
+        failed.paths,
+        failed.message,
+        failed.code,
+      );
+      _tell(records.last.report);
+    }
     for (var index = records.length - 1; index >= 0; index--) {
       final record = records[index];
       if (record.outcome != AdoptionStepOutcome.done ||
@@ -1389,7 +1399,7 @@ final class _Run {
       _codeOf(error),
       _undoFailures.isEmpty
           ? message
-          : '$message Undoing the earlier steps also failed, so the '
+          : '$message Undoing the adoption also failed, so the '
                 'project may hold part of the adoption: '
                 '${[for (final (step: _, :failure) in _undoFailures) failure].join('; ')}',
       steps: List.unmodifiable([for (final record in records) record.report]),

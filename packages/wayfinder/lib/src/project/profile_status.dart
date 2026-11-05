@@ -36,7 +36,8 @@ enum ProfileBindingState {
   packageInvalid('package-invalid'),
 
   /// A package of the chain is for another engine (`profile-unsupported`);
-  /// upgrading wayfinder reads it.
+  /// use a matching engine or migrate the package, including when this
+  /// engine no longer reads its older format.
   packageUnsupported('package-unsupported'),
 
   /// Reading a package of the chain, its rule tests included, ran past the

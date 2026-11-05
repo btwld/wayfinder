@@ -1,7 +1,21 @@
-# Unreleased
+# 1.0.0 (unreleased)
 
-- Requires `wayfinder_embeddings` `^0.5.0`. Output and the indexes the
-  command keeps are unchanged.
+- Prepare the first stable CLI/MCP release. The public compatibility and
+  support boundaries are recorded in [the stability contract](../../docs/stability.md).
+- **BREAKING:** Validation reads Profile package format 3. Upgrade a selected
+  format-2 package and its parent chain, point any pinned source ref at the
+  migrated revision, then run `wayfinder upgrade` to refresh the lock and
+  installed skills. Old packages are explicitly unsupported,
+  not silently evaluated with different facts. OKF graph, index and search
+  remain independent of Profile selection.
+- Setup removes only Wayfinder's legacy Stop-hook handlers, preserving
+  unrelated handlers and metadata in the same group.
+- Correct the model lookup order in the ADR record to match the implementation,
+  tests and user documentation; no lookup behavior changes. See the
+  model-lookup correction in [the decision log](../../ARCHITECTURE.md).
+- The Windows public-install verifier restores the user's registry PATH after
+  its temporary install, including when verification fails.
+- Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.
 
 # 0.4.0
 

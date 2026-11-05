@@ -69,9 +69,11 @@ typedef GitProcessStarter =
     });
 
 /// The default [GitProcessStarter]: `Process.start` without the parent's
-/// environment. Its [GitProcess.kill] stops the process and its children:
-/// `taskkill /T /F` on Windows, and `pkill -KILL -P` before the process
-/// itself on POSIX systems.
+/// environment. Its [GitProcess.kill] uses `taskkill /T /F` on Windows.
+/// On POSIX it recursively checks live parentage before killing descendants,
+/// then Git. That is best effort: a helper already reparented, a new child
+/// forked during cleanup or a tree exceeding the cleanup limit may escape.
+/// A host that needs stronger ownership supplies its own process starter.
 Future<GitProcess> startGitProcess(
   String executable,
   List<String> arguments, {
@@ -589,21 +591,99 @@ final class _LocalGitProcess implements GitProcess {
   // runGit closes its end of the pipes instead.
   @override
   void kill() {
-    if (!_exited) unawaited(_killTree(_process));
+    if (!_exited) unawaited(_killTree(_process, exited: () => _exited));
   }
 }
 
-/// Kills [process] and the helpers Git started, such as `ssh` or a remote
-/// helper, so none outlives the command. Returns once the kill is sent.
-Future<void> _killTree(Process process) async {
+/// Sends kills to the live descendants of [process], deepest first, then
+/// the process. Parentage is checked again immediately before each kill;
+/// the owned root must still be live. POSIX process ids/parentage are not
+/// atomic handles: exit/reparent/fork races remain best effort.
+Future<void> _killTree(
+  Process process, {
+  required bool Function() exited,
+}) async {
   try {
     if (Platform.isWindows) {
       await Process.run('taskkill', ['/T', '/F', '/PID', '${process.pid}']);
     } else {
-      await Process.run('pkill', ['-KILL', '-P', '${process.pid}']);
+      final clock = Stopwatch()..start();
+      const limit = Duration(seconds: 2);
+      Future<Map<int, int>> parents() => _processParents(limit - clock.elapsed);
+      if (exited()) return;
+      final initial = await parents();
+      final children = <int, List<int>>{};
+      for (final MapEntry(key: child, value: parent) in initial.entries) {
+        children.putIfAbsent(parent, () => []).add(child);
+      }
+      final owned = <int>{process.pid};
+      final order = [process.pid];
+      for (var i = 0; i < order.length; i++) {
+        for (final child in children[order[i]] ?? const <int>[]) {
+          if (child > 0 && owned.add(child)) order.add(child);
+        }
+      }
+      for (final child in order.skip(1).toList().reversed) {
+        if (exited() || clock.elapsed >= limit) break;
+        final current = await parents();
+        var node = child;
+        var stillOwned = true;
+        while (node != process.pid) {
+          final parent = initial[node];
+          if (parent == null || current[node] != parent) {
+            stillOwned = false;
+            break;
+          }
+          node = parent;
+        }
+        if (stillOwned && !exited()) {
+          Process.killPid(child, ProcessSignal.sigkill);
+        }
+      }
     }
-  } on ProcessException {
-    // The tree kill is best effort; the process itself is killed below.
+  } on Exception {
+    // Listing/termination is best effort; never leave Git alive on failure.
+  } finally {
+    if (!exited()) process.kill(ProcessSignal.sigkill);
   }
-  process.kill(ProcessSignal.sigkill);
+}
+
+/// A bounded live process table. The helper is stopped even when reading it
+/// fails or takes too long. Only numeric ids/parents, never command text,
+/// decide ancestry. No process-group signal can reach the host's own group.
+Future<Map<int, int>> _processParents(Duration timeout) async {
+  if (timeout <= Duration.zero) return const {};
+  final listing = await Process.start('ps', ['-A', '-o', 'pid=,ppid=']);
+  unawaited(listing.stdin.close().catchError((Object _) {}));
+  var ended = false;
+  final exit = listing.exitCode.then((code) {
+    ended = true;
+    return code;
+  });
+  try {
+    final output = listing.stdout.fold(BytesBuilder(copy: false), (
+      buffer,
+      bytes,
+    ) {
+      if (buffer.length + bytes.length > 1 << 20) {
+        throw const FormatException('Process table exceeds the cleanup bound.');
+      }
+      return buffer..add(bytes);
+    });
+    final results = await Future.wait<Object?>([
+      output,
+      listing.stderr.drain<void>(),
+      exit,
+    ]).timeout(timeout);
+    if (results[2] != 0) return const {};
+    return {
+      for (final line in const LineSplitter().convert(
+        utf8.decode((results[0]! as BytesBuilder).takeBytes()),
+      ))
+        if (RegExp(r'^\s*(\d+)\s+(\d+)\s*$').firstMatch(line) case final match?)
+          int.parse(match[1]!): int.parse(match[2]!),
+    };
+  } finally {
+    if (!ended) listing.kill(ProcessSignal.sigkill);
+  }
 }

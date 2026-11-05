@@ -1,6 +1,6 @@
 # Bitwild 2026.3 compatibility with OKF 0.2
 
-Status: Complete for `bitwild-profile` 2026.3
+Status: Complete for `bitwild-profile` 2026.3, package format 3
 
 This non-normative review applies the compatibility test of the
 [engine contract](../../implementation/okf-implementation-guide.md#5-profile-packages)
@@ -50,7 +50,7 @@ authors use an OKF mechanism, never what the mechanism means.
 | `raw-directory-placement`, `raw-directory-markdown` | §3.1 leaves organization to producers and makes only Markdown files concepts; §6.3 defines `references/` | Pass | Narrows where Bitwild keeps verbatim originals. Assets stay non-concepts, and the OKF result is unchanged. |
 | `root-structure-files` | §3.1 reserves `index.md` and `log.md` | Pass | Requiring both reserved files keeps their meaning. |
 | `root-index-lists-log` | §8 defines indexes | Pass | Narrows the content of the root index before the first concept exists. Index syntax is unchanged. |
-| `concept-area-name-collision` | §3 permits both arrangements | Pass | An advisory asking for placement review. It prohibits nothing OKF permits. |
+| `concept-area-name-collision` (format 3 revision, 2026-10-26) | §3 permits both arrangements; §6.3 calls `references/` a naming convention | Pass | An advisory asking for placement review. This package, not the engine, exempts its top-level mirrored-source and time-axis trees and their same-named root concepts. The rule retains its previous findings and prohibits nothing OKF permits. The independent OKF report and graph are unchanged. |
 | `index-current` | §8 makes indexes optional and lets producers generate them | Pass | Requires the output of OKF's own reference generator. A stale index never changes the OKF result. |
 | `log-entry-lead-word` | §9 defines date groups and conventional bold lead words | Pass | Requires a shape OKF already permits and leaves the lead-word vocabulary open. |
 
