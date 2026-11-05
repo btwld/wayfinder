@@ -30,8 +30,13 @@
   `.git` segments with `adoption-invalid` before planning writes.
 - Git timeout and cancellation cleanup freezes the root through its kill,
   discovers late-forked descendants and shares one process-inspection budget.
+  A failed process listing kills verified frozen descendants with the root
+  and resumes only non-root ids whose parentage no longer matches.
   It also terminates live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Adoption seed concepts use the same project-relative path check as the
+  bundle and host inputs, so a drive letter or any-case `.git` segment is
+  `adoption-invalid`.
 - Discovery, binding and resolution share one canonical root check. All
   readable configured roots must be disjoint, even when one is selected.
   An unrelated, unselected missing bundle still does not prevent selection.

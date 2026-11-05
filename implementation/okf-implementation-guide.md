@@ -923,9 +923,11 @@ integer other than 3 as unsupported. No package migration: a package encodes
 Affected surface: adoption host requests and Git subprocess cleanup. Review
 found normalized parent aliases and any-case `.git` segments accepted at the
 request boundary; they now fail with `adoption-invalid` before planning.
-Hosts must pass a direct project-relative bundle path. Git cleanup keeps the
-root frozen through its kill, discovers late forks and uses one inspection
-budget. Package format and OKF semantics do not change.
+Hosts must pass a direct project-relative bundle path, including seed
+concepts. Git cleanup keeps the root frozen through its kill, discovers late
+forks and uses one inspection budget. A failed listing kills verified
+descendants instead of resuming them. Package format and OKF semantics do
+not change.
 
 **Path-target candidate and decoding corrections, 2026-11-04.**
 Affected sections: §5.6, the builtin reference and public `resolvePathTarget`.

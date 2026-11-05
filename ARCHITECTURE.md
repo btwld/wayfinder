@@ -141,4 +141,4 @@ Use one public path resolver for validation and retrieval, with injected invento
 
 Date: 2026-11-04.
 
-Refuse parent segments and any-case `.git` segments at the adoption request boundary before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget; POSIX PID operations remain best effort because they are not atomic process handles.
+Refuse parent segments and any-case `.git` segments at the adoption request boundary, for the bundle, host inputs and seed concepts, before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget. A failed listing kills those verified descendants with the root and resumes only non-root ids whose parentage no longer matches. POSIX PID operations remain best effort because they are not atomic process handles.
