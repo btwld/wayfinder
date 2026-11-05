@@ -259,7 +259,10 @@ void main() {
         );
         codex.writeAsStringSync(
           jsonEncode(
-            stopHooks(['wayfinder index knowledge --detach --output=json']),
+            stopHooks([
+              'cd "\$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && '
+                  'wayfinder index knowledge --detach --output=json',
+            ]),
           ),
         );
         AgentSetup hooked() => setup(

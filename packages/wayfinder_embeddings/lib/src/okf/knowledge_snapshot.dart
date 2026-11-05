@@ -53,6 +53,20 @@ class KnowledgeSnapshot {
   final Map<String, String> sources;
   final List<String> assets;
 
+  /// Files and implied directories in this immutable inventory.
+  late final Set<String> inventoryPaths = Set.unmodifiable({
+    '.',
+    for (final path in [...sources.keys, ...assets]) ...[
+      path,
+      for (
+        var parent = p.posix.dirname(path);
+        parent != '.';
+        parent = p.posix.dirname(parent)
+      )
+        parent,
+    ],
+  });
+
   /// Loads a complete inventory using OKF's symlink and parse protections.
   /// No store mutation occurs until the entire snapshot has been read.
   /// [idNamespace] is passed to [KnowledgeSnapshot.fromSources].

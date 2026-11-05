@@ -5,7 +5,8 @@ import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:okf/okf_io.dart' show okfBundleLockFileName;
+import 'package:okf/okf_io.dart'
+    show OkfBundleLoader, OkfBundleLoadException, okfBundleLockFileName;
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
 
@@ -886,7 +887,7 @@ class WayfinderKnowledgeStore {
   }
 
   /// Runs [action], which may acquire an encoder once through its argument;
-  /// releases it afterwards. A failure that may have come from the encoder
+  /// releases it afterwards. A failure in one of that encoder's own calls
   /// discards it and the snapshot cache.
   Future<T> _encoding<T>(
     Future<T> Function(Future<WayfinderEncoder> Function() acquire) action,
@@ -894,30 +895,19 @@ class WayfinderKnowledgeStore {
     SharedEncoder? held;
     Future<WayfinderEncoder> acquire() async =>
         (held ??= await _acquireEncoder()).encoder;
+
     try {
       return await action(acquire);
-    } catch (error) {
-      if (_mayHaveFailedEncoder(error)) {
+    } catch (_) {
+      if (held case final used? when used.failed) {
         _cachedSavedIndexes.clear();
-        if (held case final used?) _evict(used);
-        if (_retained case final retained?) _evict(retained);
+        _evict(used);
       }
       rethrow;
     } finally {
       if (held case final used?) await _releaseEncoder(used);
     }
   }
-
-  /// Whether [error] may have come from the encoder. Every other
-  /// [WayfinderException] is an expected outcome the store raised itself,
-  /// such as a stale index, a busy lock or a cancellation.
-  static bool _mayHaveFailedEncoder(Object error) => switch (error) {
-    WayfinderException(:final code) => const {
-      'model-missing',
-      'model-invalid',
-    }.contains(code),
-    _ => true,
-  };
 
   /// An encoder for one operation: a new one, or with [retainEncoder] the
   /// shared one, opened once for every operation that waits for it.
@@ -1531,6 +1521,7 @@ class WayfinderKnowledgeStore {
         response = KnowledgeSearchResponse(
           matches: response.matches,
           context: response.context,
+          sourcePaths: response.sourcePaths,
           notices: [
             ...response.notices,
             _refreshNotice(),
@@ -1833,11 +1824,24 @@ class WayfinderKnowledgeStore {
           final path = p.posix.joinAll(
             p.split(p.relative(entry.path, from: root)),
           );
-          final digest = path.endsWith('.md')
-              ? sha256
-                    .convert(utf8.encode(await entry.readAsString()))
-                    .toString()
-              : 'asset';
+          final String digest;
+          if (path.endsWith('.md')) {
+            final bytes = await entry.readAsBytes();
+            // Match the loader's text decoding, including its BOM handling.
+            // Malformed bytes report the loader's invalid-bundle diagnostic,
+            // rather than suggesting that reindexing can repair the input.
+            final String text;
+            try {
+              text = utf8.decode(bytes);
+            } on FormatException {
+              throw OkfBundleLoadException(
+                await const OkfBundleLoader().inspect(root),
+              );
+            }
+            digest = sha256.convert(utf8.encode(text)).toString();
+          } else {
+            digest = 'asset';
+          }
           return MapEntry(path, digest);
         }),
       );

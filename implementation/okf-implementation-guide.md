@@ -919,6 +919,20 @@ surface. Implementations report a non-integer format as malformed and an
 integer other than 3 as unsupported. No package migration: a package encodes
 `format` as an integer.
 
+**Retrieval source and ingestion corrections, 2026-11-04.**
+Affected surfaces: retrieval `unresolved-source`, citation Markdown and ingestion.
+Review found copied path classifiers disagreeing with validation; retrieval now
+uses the §5.6 inventory-first resolver and carries its decisions into display.
+Missing or malformed targets remain raw labels, while valid targets receive a
+bundle prefix. Freshness rejects malformed UTF-8 as invalid bundle input.
+A retained encoder is discarded when its own call throws or returns a vector
+of the wrong dimension or a non-finite component.
+Ingestion validates IDs before writes with digests and temporary disk storage;
+metadata duplicates write one final value per batch. Store-batch atomicity
+remains the transaction boundary. No Profile format or OKF meaning changes;
+callers should fix malformed citations, budget temporary disk, and rebuild
+indexes whose source citations or constructor chunking changed.
+
 **Adoption request and Git cleanup corrections, 2026-11-04.**
 Affected surface: adoption host requests and Git subprocess cleanup. Review
 found normalized parent aliases and any-case `.git` segments accepted at the

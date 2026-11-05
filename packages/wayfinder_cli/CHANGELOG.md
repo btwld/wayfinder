@@ -1,7 +1,13 @@
 # 1.0.0 (unreleased)
 
+- Resolve relative paths against the CLI working directory in production and
+  embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
+  commands; only the two historical generated `cd ... &&` forms are removed.
+
 - Prepare the first stable CLI/MCP release. The public compatibility and
   support boundaries are recorded in [the stability contract](../../docs/stability.md).
+- Resolve explicit MCP bundle paths and detached indexing against the CLI's
+  injected working directory, and pass absolute bundle paths to detached workers.
 - **BREAKING:** Validation reads Profile package format 3. Upgrade a selected
   format-2 package and its parent chain, point any pinned source ref at the
   migrated revision, then run `wayfinder upgrade` to refresh the lock and
@@ -9,7 +15,9 @@
   not silently evaluated with different facts. OKF graph, index and search
   remain independent of Profile selection.
 - Setup removes only Wayfinder's legacy Stop-hook handlers, preserving
-  unrelated handlers and metadata in the same group.
+  unrelated handlers and metadata in the same group. Commands that merely
+  mention `wayfinder index`, similarly named executables/subcommands, and
+  non-command handlers are preserved.
 - Correct the model lookup order in the ADR record to match the implementation,
   tests and user documentation; no lookup behavior changes. See the
   model-lookup correction in [the decision log](../../ARCHITECTURE.md).

@@ -142,3 +142,9 @@ Use one public path resolver for validation and retrieval, with injected invento
 Date: 2026-11-04.
 
 Refuse parent segments and any-case `.git` segments at the adoption request boundary, for the bundle, host inputs and seed concepts, before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget. A failed listing kills those verified descendants with the root and resumes only non-root ids whose parentage no longer matches. POSIX PID operations remain best effort because they are not atomic process handles.
+
+## Retrieval source decisions and bounded ingestion
+
+Date: 2026-11-04.
+
+Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls, including a returned vector with the wrong dimension or a non-finite component, and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.

@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mcp_dart/mcp_dart.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
+import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
@@ -41,7 +43,7 @@ void main() {
     await configure(paths);
     output = [];
     errors = [];
-    knowledge = _ProjectKnowledge();
+    knowledge = _ProjectKnowledge(dataDirectory: project);
     cli = WayfinderCli(
       out: output.add,
       err: errors.add,
@@ -270,22 +272,115 @@ void main() {
     expect(errors.single, contains('leaves the project'));
     expect(knowledge.searched, isEmpty);
   });
+
+  test(
+    'explicit relative bundle paths resolve against workingDirectory',
+    () async {
+      expect(await cli.run(['index', 'knowledge']), 0);
+      expect(knowledge.indexed, [p.join(project.path, 'knowledge')]);
+      expect(await cli.run(['search', 'knowledge', 'caching']), 0);
+      expect(knowledge.searched, [p.join(project.path, 'knowledge')]);
+    },
+  );
+
+  test('MCP resolves its explicit bundle against workingDirectory', () async {
+    late _ProjectMcpServer server;
+    cli = WayfinderCli(
+      out: output.add,
+      err: errors.add,
+      knowledge: () => knowledge,
+      workingDirectory: project,
+      notices: false,
+      mcpServer: ({rootPath, workingDirectory, knowledge, profileResolver}) {
+        expect(workingDirectory, same(project));
+        server = _ProjectMcpServer(rootPath: rootPath, knowledge: knowledge);
+        return server;
+      },
+    );
+
+    expect(await cli.run(['mcp', 'knowledge']), 0);
+    expect(server.rootPath, p.join(project.path, 'knowledge'));
+    expect(server.served, isTrue);
+    expect(errors, isEmpty);
+  });
+
+  test(
+    'detached indexing forwards the root checked against workingDirectory',
+    () async {
+      final spawned = <List<String>>[];
+      cli = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        knowledge: () => knowledge,
+        workingDirectory: project,
+        notices: false,
+        spawnDetached: (arguments) async => spawned.add(arguments),
+      );
+
+      expect(
+        await cli.run(['index', 'knowledge', '--detach', '--output=json']),
+        0,
+      );
+      final root = p.join(project.path, 'knowledge');
+      expect(knowledge.statusChecked, [root]);
+      expect(spawned, [
+        ['index', root, '--background'],
+      ]);
+      expect(p.isAbsolute(spawned.single[1]), isTrue);
+      expect(knowledge.indexed, isEmpty);
+      expect(jsonDecode(output.single), {
+        'bundle': 'knowledge',
+        'detached': 'started',
+      });
+      expect(errors, isEmpty);
+    },
+  );
+}
+
+class _ProjectMcpServer extends WayfinderMcpServer {
+  _ProjectMcpServer({required super.rootPath, required super.knowledge});
+
+  bool served = false;
+
+  @override
+  Future<void> serve({Transport? transport}) async {
+    served = true;
+  }
 }
 
 class _ProjectKnowledge extends WayfinderKnowledgeStore {
-  _ProjectKnowledge()
-    : super(
-        dataDirectory: Directory.systemTemp,
-        encoder: DeterministicEncoderProvider(),
-      );
+  _ProjectKnowledge({required super.dataDirectory})
+    : super(encoder: DeterministicEncoderProvider());
   final searched = <String>[];
   final queries = <String>[];
   final indexed = <String>[];
+  final statusChecked = <String>[];
   final forced = <bool>[];
   KnowledgeMetadataFilter? receivedFilters;
   bool staleIndex = false;
   final policies = <StaleIndexPolicy>[];
   bool related = false;
+
+  @override
+  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) async {
+    statusChecked.add(bundle.root);
+    return const KnowledgeIndexStale([]);
+  }
+
+  @override
+  Future<KnowledgeBundleSearch> searchBundle(
+    ProjectBundle bundle,
+    String query, {
+    int limit = 5,
+    KnowledgeMetadataFilter? filters,
+    StaleIndexPolicy stale = StaleIndexPolicy.refuse,
+    WayfinderCancellation? cancel,
+  }) async {
+    searched.add(bundle.root);
+    queries.add(query);
+    policies.add(stale);
+    return KnowledgeBundleSearch(bundle, _response(bundle.root));
+  }
 
   @override
   Future<KnowledgeProjectSearch> search(
