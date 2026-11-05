@@ -5,8 +5,10 @@
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.
 
-- **BREAKING:** Reads Profile package format 3 only; format 2 is
-  `profile-unsupported`, never silently reinterpreted. The concept fact
+- **BREAKING:** Reads Profile package format 3 only, as a JSON integer.
+  Format 2 is `profile-unsupported`, never silently reinterpreted. A
+  non-integer value, including `3.0`, is malformed rather than a supported
+  spelling of format 3. The concept fact
   `sibling_directory` now includes every same-stem sibling directory
   represented by the loaded file inventory, without directory-name policy
   (ADR-0029). Package authors review uses of that fact, put any chosen
