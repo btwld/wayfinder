@@ -12,8 +12,10 @@
   The accepted engine contract and [stability boundaries](../../docs/stability.md)
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.
-- **BREAKING:** Reads Profile package format 3 only; format 2 is
-  `profile-unsupported`, never silently reinterpreted. The concept fact
+- **BREAKING:** Reads Profile package format 3 only, as a JSON integer.
+  Format 2 is `profile-unsupported`, never silently reinterpreted. A
+  non-integer value, including `3.0`, is malformed rather than a supported
+  spelling of format 3. The concept fact
   `sibling_directory` now includes every same-stem sibling directory
   represented by the loaded file inventory, without directory-name policy
   (ADR-0029). Package authors review uses of that fact, put any chosen
@@ -28,8 +30,13 @@
   `.git` segments with `adoption-invalid` before planning writes.
 - Git timeout and cancellation cleanup freezes the root through its kill,
   discovers late-forked descendants and shares one process-inspection budget.
+  A failed process listing kills verified frozen descendants with the root
+  and resumes only non-root ids whose parentage no longer matches.
   It also terminates live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Adoption seed concepts use the same project-relative path check as the
+  bundle and host inputs, so a drive letter or any-case `.git` segment is
+  `adoption-invalid`.
 - Discovery, binding and resolution share one canonical root check. All
   readable configured roots must be disjoint, even when one is selected.
   An unrelated, unselected missing bundle still does not prevent selection.

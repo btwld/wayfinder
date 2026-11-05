@@ -1235,14 +1235,16 @@ void main() {
         ),
       );
     }
-    await refused(
-      AdoptionRequest(
-        projectRoot: project.path,
-        profile: _bitwild,
-        source: bitwildSource,
-        concepts: const [AdoptionSeedConcept(path: 'index.md', text: '')],
-      ),
-    );
+    for (final invalidConcept in ['index.md', '.GIT/note.md', r'C:/note.md']) {
+      await refused(
+        AdoptionRequest(
+          projectRoot: project.path,
+          profile: _bitwild,
+          source: bitwildSource,
+          concepts: [AdoptionSeedConcept(path: invalidConcept, text: '')],
+        ),
+      );
+    }
     await refused(
       AdoptionRequest(
         projectRoot: project.path,

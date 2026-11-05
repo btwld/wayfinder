@@ -55,22 +55,24 @@ Future<void> cleanupPosixProcessTree({
       }
       if (!discovered) break;
     }
-    if (!exited()) {
-      for (final child in stopped.toList().reversed) {
-        if (child != root &&
-            stillOwned(child) &&
-            signal(child, ProcessSignal.sigkill)) {
-          killed.add(child);
-        }
+  } on Exception {
+    // Inspection can fail or exhaust the budget. Verified descendants still die.
+  } finally {
+    // SIGKILL works while stopped. Kill every verified descendant before the
+    // root, including when a later process listing fails. Resume only a
+    // non-root id whose parentage no longer matches, so a reparented child
+    // is not left stopped and the root never runs again before it dies.
+    for (final child in stopped.toList().reversed) {
+      if (child != root &&
+          !killed.contains(child) &&
+          stillOwned(child) &&
+          signal(child, ProcessSignal.sigkill)) {
+        killed.add(child);
       }
     }
-  } on Exception {
-    // Inspection can fail or exhaust the budget. The owned root still dies.
-  } finally {
-    // SIGKILL works while stopped. Never resume the root into a fork window.
     if (!exited()) killRoot();
     for (final child in stopped) {
-      if (child != root && !killed.contains(child) && stillOwned(child)) {
+      if (child != root && !killed.contains(child) && !stillOwned(child)) {
         signal(child, ProcessSignal.sigcont);
       }
     }

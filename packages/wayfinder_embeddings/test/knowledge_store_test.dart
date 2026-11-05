@@ -299,6 +299,27 @@ void main() {
       }
     });
 
+    test('a malformed query vector evicts the retained encoder', () async {
+      await knowledge.index(bundle);
+      final shared = store(retainEncoder: true);
+      try {
+        await shared.searchBundle(bundle, 'password');
+        final failed = encoders.last..malformedQueries = true;
+        await expectLater(
+          shared.searchBundle(bundle, 'weather'),
+          throwsStateError,
+        );
+        expect(failed.isDisposed, isTrue);
+        expect(
+          (await shared.searchBundle(bundle, 'weather')).matches,
+          isNotEmpty,
+        );
+        expect(encoders.last, isNot(same(failed)));
+      } finally {
+        await shared.dispose();
+      }
+    });
+
     test(
       'failed inference evicts the retained encoder and the next call recovers',
       () async {

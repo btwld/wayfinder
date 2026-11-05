@@ -28,31 +28,29 @@ void main() {
     ]);
   });
 
-  test(
-    'reparented or reused child ids are neither killed nor resumed',
-    () async {
-      final events = <(int, ProcessSignal)>[];
-      var reads = 0;
-      await cleanupPosixProcessTree(
-        root: 10,
-        exited: () => false,
-        parents: (_) async => ++reads == 1 ? {11: 10} : {11: 999},
-        signal: (pid, signal) {
-          events.add((pid, signal));
-          return true;
-        },
-        killRoot: () => events.add((10, ProcessSignal.sigkill)),
-      );
-      expect(events, [
-        (10, ProcessSignal.sigstop),
-        (11, ProcessSignal.sigstop),
-        (10, ProcessSignal.sigkill),
-      ]);
-    },
-  );
+  test('reparented or reused child ids are resumed, not killed', () async {
+    final events = <(int, ProcessSignal)>[];
+    var reads = 0;
+    await cleanupPosixProcessTree(
+      root: 10,
+      exited: () => false,
+      parents: (_) async => ++reads == 1 ? {11: 10} : {11: 999},
+      signal: (pid, signal) {
+        events.add((pid, signal));
+        return true;
+      },
+      killRoot: () => events.add((10, ProcessSignal.sigkill)),
+    );
+    expect(events, [
+      (10, ProcessSignal.sigstop),
+      (11, ProcessSignal.sigstop),
+      (10, ProcessSignal.sigkill),
+      (11, ProcessSignal.sigcont),
+    ]);
+  });
 
   test(
-    'uses the remaining shared budget and kills root before resuming',
+    'uses the remaining shared budget and kills verified descendants',
     () async {
       final budgets = <Duration>[];
       final events = <(int, ProcessSignal)>[];
@@ -78,8 +76,8 @@ void main() {
         const Duration(milliseconds: 500),
       ]);
       expect(events.sublist(2), [
+        (11, ProcessSignal.sigkill),
         (10, ProcessSignal.sigkill),
-        (11, ProcessSignal.sigcont),
       ]);
     },
   );

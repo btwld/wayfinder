@@ -673,7 +673,7 @@ class WayfinderCli {
             _json(
               toSarif(
                 result,
-                bundlePath: bundle,
+                bundlePath: _resolvePath(bundle),
                 toolVersion: wayfinderVersion,
               ),
             );
