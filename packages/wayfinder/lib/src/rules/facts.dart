@@ -231,7 +231,7 @@ final class BundleFacts {
             'is_source_id': sourceIds.contains(label),
           },
       ],
-      'sibling_directory': inventory.hasAreaSibling(path),
+      'sibling_directory': inventory.hasSiblingDirectory(path),
     };
   }
 }
@@ -340,19 +340,12 @@ final class BundleInventory {
   bool contains(String path) =>
       path == '.' || _files.contains(path) || _directorySet.contains(path);
 
-  late final Set<String> _areaDirectories = nonRootDirectories
-      .where(
-        (directory) => switch (p.posix.split(directory).first) {
-          'interactions' || 'references' => false,
-          _ => true,
-        },
-      )
-      .toSet();
-
-  bool hasAreaSibling(String conceptPath) {
+  /// A sibling directory with the concept's filename stem, in the loaded
+  /// inventory. Directory names have no Profile-specific meaning here.
+  bool hasSiblingDirectory(String conceptPath) {
     final parent = parentDirectory(conceptPath);
     final stem = p.posix.basenameWithoutExtension(conceptPath);
-    return _areaDirectories.contains(parent.isEmpty ? stem : '$parent/$stem');
+    return _directorySet.contains(parent.isEmpty ? stem : '$parent/$stem');
   }
 }
 
@@ -361,7 +354,18 @@ String parentDirectory(String path) {
   return directory == '.' ? '' : directory;
 }
 
-List<String> _directories(Iterable<String> paths) {
+List<String> _directories(Iterable<String> paths) =>
+    _impliedDirectories(paths).toList()..sort();
+
+/// The bundle root, every entry of [files], and each directory implied by
+/// those files. The directory walk matches [BundleInventory].
+Set<String> bundleInventoryPaths(Iterable<String> files) => {
+  '.',
+  ...files,
+  ..._impliedDirectories(files),
+};
+
+Set<String> _impliedDirectories(Iterable<String> paths) {
   final directories = <String>{};
   for (final path in paths) {
     var directory = parentDirectory(path);
@@ -370,7 +374,7 @@ List<String> _directories(Iterable<String> paths) {
       directory = parentDirectory(directory);
     }
   }
-  return directories.toList()..sort();
+  return directories;
 }
 
 /// The facts read from the root index are null when it is absent or

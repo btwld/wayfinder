@@ -8,75 +8,47 @@ own version. A sibling with unreleased changes carries a version pub.dev does
 not have yet, so that floor can only resolve to the source it was tested on.
 """
 
-import json
-import re
-import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
+import sys
 
+# publication.py sits beside this script and is not an installed package.
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def dependencies(text: str) -> dict[str, str]:
-    """Each direct dependency and its inline constraint; "" for a map form."""
-    match = re.search(r"^dependencies:\n((?:[ \t]+.*\n|\n)*)", text, re.M)
-    return dict(re.findall(r"^  (\w+):[ \t]*(.*?)[ \t]*$", match[1], re.M)) if match else {}
-
-
-def unreleased(changelog: Path) -> bool:
-    """Whether `# Unreleased` or `# <version> (unreleased)` lists changes."""
-    match = re.search(
-        r"^# (?:Unreleased|\S+ \(unreleased\))\n(.*?)(?=^# |\Z)",
-        changelog.read_text(),
-        re.M | re.S,
-    )
-    return bool(match and match[1].strip())
-
-
-def published(name: str) -> set[str]:
-    url = f"https://pub.dev/api/packages/{name}"
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            return {entry["version"] for entry in json.load(response)["versions"]}
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return set()
-        raise
+from publication import (  # noqa: E402
+    ROOT,
+    listed_versions,
+    unreleased,
+    workspace_packages,
+)
 
 
 def main() -> int:
-    members = re.findall(r"^  - (\S+)$", (ROOT / "pubspec.yaml").read_text(), re.M)
-    packages = {}
-    for member in members:
-        text = (ROOT / member / "pubspec.yaml").read_text()
-        name = re.search(r"^name: (\S+)$", text, re.M)[1]
-        version = re.search(r"^version: (\S+)$", text, re.M)[1]
-        packages[name] = (member, version, dependencies(text))
+    packages = workspace_packages(ROOT)
     failures = []
     depended = set()
-    for member, _, needs in packages.values():
-        for name, constraint in needs.items():
+    for package in packages.values():
+        for name, constraint in package.dependencies.items():
             if name not in packages:
                 continue
             depended.add(name)
-            if constraint != f"^{packages[name][1]}":
+            if constraint != f'^{packages[name].version}':
                 failures.append(
-                    f"{member}: {name} {constraint or '<map form>'}; "
-                    f"expected ^{packages[name][1]}"
+                    f"{package.member}: {name} {constraint or '<map form>'}; "
+                    f'expected ^{packages[name].version}'
                 )
     for name in sorted(depended):
-        member, version, _ = packages[name]
-        if unreleased(ROOT / member / "CHANGELOG.md") and version in published(name):
+        member, version = packages[name].member, packages[name].version
+        if unreleased(ROOT / member / 'CHANGELOG.md') and version in listed_versions(name):
             failures.append(
-                f"{member}: unreleased changes on {version}, which pub.dev already has; "
-                "raise the version"
+                f'{member}: unreleased changes on {version}, which pub.dev already has; '
+                'raise the version'
             )
     for failure in failures:
         print(failure, file=sys.stderr)
     return 1 if failures else 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

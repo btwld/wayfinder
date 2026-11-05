@@ -959,10 +959,7 @@ void main() {
         (AdoptionStep.gitignore, AdoptionStepOutcome.undone),
         (AdoptionStep.host, AdoptionStepOutcome.failed),
       ]);
-      expect(
-        failure.message,
-        contains('Undoing the earlier steps also failed'),
-      );
+      expect(failure.message, contains('Undoing the adoption also failed'));
       expect(await Directory(bundle()).exists(), isTrue);
       expect(
         await File(p.join(project.path, 'wayfinder.json')).exists(),
@@ -1224,22 +1221,30 @@ void main() {
       git: source.path,
       path: 'profiles/bitwild',
     );
-    await refused(
-      AdoptionRequest(
-        projectRoot: project.path,
-        profile: _bitwild,
-        source: bitwildSource,
-        bundle: '../outside',
-      ),
-    );
-    await refused(
-      AdoptionRequest(
-        projectRoot: project.path,
-        profile: _bitwild,
-        source: bitwildSource,
-        concepts: const [AdoptionSeedConcept(path: 'index.md', text: '')],
-      ),
-    );
+    for (final invalidBundle in [
+      '../outside',
+      'sub/../knowledge',
+      '.GIT/knowledge',
+    ]) {
+      await refused(
+        AdoptionRequest(
+          projectRoot: project.path,
+          profile: _bitwild,
+          source: bitwildSource,
+          bundle: invalidBundle,
+        ),
+      );
+    }
+    for (final invalidConcept in ['index.md', '.GIT/note.md', r'C:/note.md']) {
+      await refused(
+        AdoptionRequest(
+          projectRoot: project.path,
+          profile: _bitwild,
+          source: bitwildSource,
+          concepts: [AdoptionSeedConcept(path: invalidConcept, text: '')],
+        ),
+      );
+    }
     await refused(
       AdoptionRequest(
         projectRoot: project.path,

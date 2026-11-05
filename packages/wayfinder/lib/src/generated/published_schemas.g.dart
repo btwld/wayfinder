@@ -230,8 +230,8 @@ const String wayfinderProfileSchema = r'''
       "type": "string"
     },
     "format": {
-      "const": 2,
-      "description": "The package format the engine must read. Engine compatibility is this integer, never a Profile release."
+      "const": 3,
+      "description": "The package format the engine must read. Format 3 makes concept.sibling_directory independent of directory names: it reports a same-stem sibling directory in the loaded bundle inventory. A package owns any placement exceptions in its rules. Older formats are unsupported, never reinterpreted. Engine compatibility is this integer, never a Profile release."
     },
     "id": {
       "$ref": "#/$defs/profileId",
@@ -267,7 +267,7 @@ const String wayfinderProfileSchema = r'''
           "$ref": "#/$defs/otherRevisionParent"
         }
       ],
-      "description": "The Profile this package builds on. Its rules and vocabulary apply first, and this package only adds to them. Without git, the parent is the package at path in the same repository at the same commit as this package, so Profiles hosted together release together. With git, it is the package at path in that repository at ref."
+      "description": "The Profile this package builds on. This package adds rules and vocabulary without changing inherited rule definitions or severities. Every rule uses the whole chain's and project's vocabulary, so an added name can change an inherited finding. Without git, the parent is the package at path in the same repository at the same commit as this package, so Profiles hosted together release together. With git, it is the package at path in that repository at ref."
     },
     "docs": {
       "$ref": "#/$defs/uri",
@@ -314,7 +314,7 @@ const String wayfinderProfileSchema = r'''
       "items": {
         "$ref": "#/$defs/rule"
       },
-      "description": "The rules this Profile adds, each reporting as `<id>/<rule-id>`. A Profile only adds rules; it cannot change an ancestor's."
+      "description": "The rules this Profile adds, each reporting as `<id>/<rule-id>`. A Profile cannot change an ancestor's rule definition or severity. All rules use the effective vocabulary of the whole chain plus the project entry."
     }
   },
   "$defs": {

@@ -103,6 +103,42 @@ void main() {
       );
     }
   });
+
+  test(
+    'relative rootPath resolves against the injected working directory',
+    () async {
+      final project = await Directory.systemTemp.createTemp(
+        'wayfinder-mcp-relative-',
+      );
+      addTearDown(() => project.delete(recursive: true));
+      await Directory(p.join(project.path, 'knowledge')).create();
+      expect(
+        Directory('knowledge').existsSync(),
+        isFalse,
+        reason: 'the process directory must not satisfy a relative root',
+      );
+      final incoming = StreamController<List<int>>();
+      final outgoing = StreamController<List<int>>();
+      final transport = IOStreamTransport(
+        stream: incoming.stream,
+        sink: outgoing.sink,
+      );
+      final serving = WayfinderMcpServer(
+        rootPath: 'knowledge',
+        workingDirectory: project,
+        knowledge: _Knowledge(),
+      ).serve(transport: transport);
+      final client = McpClient(
+        const Implementation(name: 'relative-root', version: '1.0.0'),
+      );
+      await client.connect(
+        IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+      );
+      await client.close();
+      await transport.close();
+      await serving;
+    },
+  );
   test(
     'read-only MCP validate uses the same locked 2026.3 binding as CLI',
     () async {

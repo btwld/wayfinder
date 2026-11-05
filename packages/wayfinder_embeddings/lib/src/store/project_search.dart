@@ -292,6 +292,14 @@ final class KnowledgeProjectSearch {
   String toMarkdown() => renderSearchMarkdown(
     matches: [for (final match in matches) _passage(match)],
     context: [for (final entry in context) _passage(entry)],
+    sourcePaths: (passage) {
+      final i = bundles.indexWhere(
+        (bundle) => bundle.root == passage.bundleRoot,
+      );
+      return i < 0
+          ? const {}
+          : responses[i].sourcePaths[passage.chunk.sourcePath] ?? const {};
+    },
     notices: [for (final notice in notices) notice.text],
   );
 
@@ -389,6 +397,8 @@ final class KnowledgeBundleSearch {
     return renderSearchMarkdown(
       matches: [for (final match in matches) passage(match)],
       context: [for (final entry in context) passage(entry)],
+      sourcePaths: (passage) =>
+          response.sourcePaths[passage.chunk.sourcePath] ?? const {},
       notices: [for (final notice in notices) notice.text],
     );
   }

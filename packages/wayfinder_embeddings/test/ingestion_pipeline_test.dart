@@ -336,6 +336,61 @@ function main() {
     });
 
     test(
+      'reads each id once and keeps equal nested metadata unwritten',
+      () async {
+        final file = File(p.join(tempDir.path, 'guidance.md'));
+        final chunk = Chunk(
+          sourcePath: file.path,
+          lineStart: 1,
+          lineEnd: 2,
+          content: 'Use the recovery link to reset a password.',
+          type: 'paragraph',
+          metadata: {
+            'status': 'stable',
+            'okf': {
+              'headingPath': ['Recovery', 'Password'],
+              'frontmatter': {'description': 'Reset', 'n': 1},
+            },
+          },
+        );
+        final reordered = chunk.copyWith(
+          metadata: {
+            'okf': {
+              'frontmatter': {'n': 1, 'description': 'Reset'},
+              'headingPath': ['Recovery', 'Password'],
+            },
+            'status': 'stable',
+          },
+        );
+        final store = _CountingStore();
+        final embedder = _FakeEmbedder();
+        addTearDown(store.close);
+        addTearDown(embedder.dispose);
+        final pipeline = IngestionPipeline(
+          chunkerRegistry: ChunkerRegistry(),
+          embedder: embedder,
+          store: store,
+        );
+
+        await pipeline.ingest([
+          (file: file, chunks: [chunk]),
+        ]);
+        expect(reordered, chunk);
+        expect(store.getChunkCalls, 1);
+        expect(store.storeBatchCalls, 1);
+
+        await pipeline.ingest([
+          (file: file, chunks: [reordered]),
+        ]);
+        expect(store.getChunkCalls, 2);
+        expect(store.storeBatchCalls, 1);
+        expect(store.getEmbeddingCalls, 1);
+        expect(await store.getChunk(chunk.id), chunk);
+        expect(embedder.embeddedTexts, [chunk.content]);
+      },
+    );
+
+    test(
       'embeds each file in one batch and writes through storeBatch',
       () async {
         final files = [
@@ -367,7 +422,6 @@ function main() {
         expect(store.storeChunkCalls, 0);
         expect(store.storeEmbeddingCalls, 0);
         expect(store.storeBatchCalls, 1);
-        // Dedupe reads stay at one lookup per chunk, so ingestion is linear.
         expect(store.getChunkCalls, chunks.length);
         expect(store.getEmbeddingCalls, 0);
 

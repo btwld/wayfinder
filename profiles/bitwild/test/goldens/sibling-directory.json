@@ -1,0 +1,31 @@
+{
+  "okf": "PASS",
+  "gate": "PASS",
+  "findings": [
+    {
+      "id": "bitwild-profile/concept-area-name-collision",
+      "severity": "advisory",
+      "path": "asset.md"
+    },
+    {
+      "id": "bitwild-profile/concept-area-name-collision",
+      "severity": "advisory",
+      "path": "billing.md"
+    },
+    {
+      "id": "bitwild-profile/concept-area-name-collision",
+      "severity": "advisory",
+      "path": "department/references.md"
+    },
+    {
+      "id": "bitwild-profile/concept-area-name-collision",
+      "severity": "advisory",
+      "path": "references-extra.md"
+    },
+    {
+      "id": "bitwild-profile/concept-area-name-collision",
+      "severity": "advisory",
+      "path": "references.vendor.md"
+    }
+  ]
+}

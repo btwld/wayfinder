@@ -1,0 +1,25 @@
+{
+  "parent_only": {
+    "gate": "FAIL",
+    "chain": [{"id": "bitwild-profile", "release": "2026.3"}],
+    "findings": [{
+      "id": "bitwild-profile/configured-tag-undeclared",
+      "severity": "error",
+      "profile_release": "2026.3",
+      "path": "sample.md"
+    }]
+  },
+  "child_vocabulary": {
+    "gate": "PASS",
+    "chain": [
+      {"id": "bitwild-profile", "release": "2026.3"},
+      {"id": "child-vocabulary", "release": "1.0"}
+    ],
+    "findings": []
+  },
+  "project_vocabulary": {
+    "gate": "PASS",
+    "chain": [{"id": "bitwild-profile", "release": "2026.3"}],
+    "findings": []
+  }
+}

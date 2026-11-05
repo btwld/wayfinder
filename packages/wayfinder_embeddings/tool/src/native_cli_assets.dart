@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
     show wayfinderLlamaCppRuntime;
+import 'package:yaml/yaml.dart';
 
 /// The root `hooks.user_defines.llamadart` keys that make llamadart's build
 /// hook bundle other binaries than the release its version pins: another
@@ -47,14 +48,30 @@ Future<void> verifyLlamaCppRuntime({File? rootPubspec}) async {
 
 /// The [llamaCppRuntimeOverrideKeys] that [pubspec], a pubspec's text, sets
 /// as YAML keys anywhere; a commented-out key is not set.
-List<String> llamaCppRuntimeOverrides(String pubspec) => [
-  for (final key in llamaCppRuntimeOverrideKeys)
-    if (RegExp(
-      '^\\s*["\']?${RegExp.escape(key)}["\']?\\s*:',
-      multiLine: true,
-    ).hasMatch(pubspec))
-      key,
-];
+List<String> llamaCppRuntimeOverrides(String pubspec) {
+  final found = <String>{};
+  void visit(Object? value) {
+    if (value is Map<Object?, Object?>) {
+      for (final entry in value.entries) {
+        final key = entry.key;
+        if (key is String && llamaCppRuntimeOverrideKeys.contains(key)) {
+          found.add(key);
+        }
+        visit(entry.value);
+      }
+    } else if (value is List<Object?>) {
+      for (final entry in value) {
+        visit(entry);
+      }
+    }
+  }
+
+  visit(loadYaml(pubspec));
+  return [
+    for (final key in llamaCppRuntimeOverrideKeys)
+      if (found.contains(key)) key,
+  ];
+}
 
 Future<File> _workspacePubspec() async {
   final config = await Isolate.packageConfig;

@@ -6,11 +6,21 @@ library;
 export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
+export 'src/path_targets.dart'
+    show
+        InBundlePath,
+        MissingPath,
+        NotAPath,
+        OutsidePath,
+        PathTarget,
+        pathTargetDisplay,
+        resolvePathTarget;
 export 'src/profile_finding.dart';
 export 'src/profile_package.dart';
 export 'src/profile_rule_descriptors.dart'
     show ProfileRuleDescriptor, RuleSeverity;
 export 'src/rules/catalog.dart' show BuiltinCheck, CatalogRule, SchemaCheck;
+export 'src/rules/facts.dart' show bundleInventoryPaths;
 export 'src/rules/profile.dart'
     show
         EffectiveProfile,

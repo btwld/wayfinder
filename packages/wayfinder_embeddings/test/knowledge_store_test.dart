@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:okf/okf_io.dart' show OkfBundleLoadException;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
@@ -151,6 +152,19 @@ void main() {
       },
     );
 
+    test('UTF-8 BOM files remain current after indexing', () async {
+      final original = await file('recovery.md').readAsString();
+      await file(
+        'recovery.md',
+      ).writeAsBytes([0xEF, 0xBB, 0xBF, ...utf8.encode(original)]);
+      await knowledge.index(bundle);
+      expect(await knowledge.status(bundle), isA<KnowledgeIndexCurrent>());
+      expect(
+        (await knowledge.searchBundle(bundle, 'password')).matches,
+        isNotEmpty,
+      );
+    });
+
     test('a retained encoder does not bypass source freshness, and survives '
         'the refusal', () async {
       await knowledge.index(bundle);
@@ -184,6 +198,36 @@ void main() {
         await shared.dispose();
       }
       expect(encoders.last.disposals, 1);
+    });
+
+    test('invalid UTF-8 in a Markdown file reports OkfBundleLoadException '
+        'without evicting a retained encoder', () async {
+      await knowledge.index(bundle);
+      final shared = store(retainEncoder: true);
+      final bad = file('broken.md');
+      try {
+        await shared.searchBundle(bundle, 'password');
+        final encoder = encoders.last;
+        final opened = encoders.length;
+        await bad.writeAsBytes(const <int>[0xC3, 0x28]);
+        await expectLater(
+          shared.status(bundle),
+          throwsA(isA<OkfBundleLoadException>()),
+        );
+        await expectLater(
+          shared.searchBundle(bundle, 'password'),
+          throwsA(isA<OkfBundleLoadException>()),
+        );
+        await expectLater(
+          shared.index(bundle),
+          throwsA(isA<OkfBundleLoadException>()),
+        );
+        expect(encoder.isDisposed, isFalse);
+        expect(encoders.length, opened);
+      } finally {
+        if (await bad.exists()) await bad.delete();
+        await shared.dispose();
+      }
     });
 
     test('a retained encoder survives busy, cancelled and limit refusals, '
@@ -255,6 +299,27 @@ void main() {
       }
     });
 
+    test('a malformed query vector evicts the retained encoder', () async {
+      await knowledge.index(bundle);
+      final shared = store(retainEncoder: true);
+      try {
+        await shared.searchBundle(bundle, 'password');
+        final failed = encoders.last..malformedQueries = true;
+        await expectLater(
+          shared.searchBundle(bundle, 'weather'),
+          throwsStateError,
+        );
+        expect(failed.isDisposed, isTrue);
+        expect(
+          (await shared.searchBundle(bundle, 'weather')).matches,
+          isNotEmpty,
+        );
+        expect(encoders.last, isNot(same(failed)));
+      } finally {
+        await shared.dispose();
+      }
+    });
+
     test(
       'failed inference evicts the retained encoder and the next call recovers',
       () async {
@@ -274,6 +339,51 @@ void main() {
           );
           expect(encoders.last, isNot(same(failed)));
         } finally {
+          await shared.dispose();
+        }
+      },
+    );
+
+    test(
+      'a failing released encoder leaves its healthy replacement retained',
+      () async {
+        await knowledge.index(bundle);
+        final shared = store(retainEncoder: true);
+        final entered = Completer<void>();
+        final fail = Completer<void>();
+        try {
+          await shared.searchBundle(bundle, 'password');
+          final old = encoders.last;
+          old.beforeQuery = (_) async {
+            entered.complete();
+            await fail.future;
+            throw StateError('Late inference failure');
+          };
+          final failure = expectLater(
+            shared.searchBundle(bundle, 'password'),
+            throwsStateError,
+          );
+          await entered.future;
+          final releasing = shared.releaseEncoder();
+          expect(
+            (await shared.searchBundle(bundle, 'weather')).matches,
+            isNotEmpty,
+          );
+          final replacement = encoders.last;
+          expect(replacement, isNot(same(old)));
+          final opened = encoders.length;
+          fail.complete();
+          await Future.wait([failure, releasing]);
+          expect(old.isDisposed, isTrue);
+          expect(replacement.isDisposed, isFalse);
+          expect(
+            (await shared.searchBundle(bundle, 'password')).matches,
+            isNotEmpty,
+          );
+          expect(encoders.length, opened);
+          expect(encoders.last, same(replacement));
+        } finally {
+          if (!fail.isCompleted) fail.complete();
           await shared.dispose();
         }
       },

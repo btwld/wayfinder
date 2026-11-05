@@ -12,7 +12,7 @@ import 'wayfinder_config.dart' show WayfinderDefinition, WayfinderProfileSource;
 /// The package `format` this engine evaluates. Engine compatibility is this
 /// integer, never a Profile release. A package with another format is
 /// refused whole, never partially evaluated.
-const supportedPackageFormat = 2;
+const supportedPackageFormat = 3;
 
 /// The OKF release whose bundles this engine's facts and index generator
 /// understand. An engine capability, not vocabulary.
@@ -101,9 +101,10 @@ final class ProfilePackageException implements Exception {
   final String where;
   final String message;
 
-  /// True when the package may be well-formed for another engine (its
-  /// format, OKF release or a builtin is unknown here), so the remedy is to
-  /// upgrade wayfinder rather than to fix the Profile.
+  /// True when the package may be well-formed for another engine: its
+  /// format, OKF release or a builtin is unsupported here. Use a matching
+  /// engine or migrate the package; an older format may need migration
+  /// rather than a newer engine.
   final bool unsupported;
 
   /// True when [ProfilePackage.parseWithin] stopped the parse at its
@@ -250,15 +251,25 @@ final class ProfilePackage {
     } on FormatException catch (error) {
       throw ProfilePackageException('package', error.message);
     }
-    if (decoded case {
-      'format': final int format,
-    } when format != supportedPackageFormat) {
-      throw ProfilePackageException(
-        'format',
-        'package format $format is not supported; this wayfinder reads '
-            'format $supportedPackageFormat',
-        unsupported: true,
-      );
+    // Format is a JSON integer. A whole-number float such as 3.0 is malformed,
+    // not another spelling of the supported format.
+    if (decoded is Map && decoded.containsKey('format')) {
+      final format = decoded['format'];
+      if (format is int && format != supportedPackageFormat) {
+        throw ProfilePackageException(
+          'format',
+          'package format $format is not supported; this wayfinder reads '
+              'format $supportedPackageFormat',
+          unsupported: true,
+        );
+      }
+      if (format is! int) {
+        throw ProfilePackageException(
+          'format',
+          'must be $supportedPackageFormat',
+          unsupported: false,
+        );
+      }
     }
     if (profilePackageSchemaViolation(decoded) case (
       :final where,
