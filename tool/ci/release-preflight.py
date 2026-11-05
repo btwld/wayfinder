@@ -12,16 +12,15 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = 'btwld/wayfinder'
 CLI = Path('packages/wayfinder_cli')
-CLI_SIBLINGS = ('wayfinder', 'wayfinder_embeddings')
+SIBLINGS = runpy.run_path(str(Path(__file__).with_name('verify-siblings-published.py')))
 
 
 @dataclass
@@ -52,25 +51,16 @@ def source_ci(run: dict, sha: str, repository: str = REPOSITORY) -> Gate:
     return Gate('source-ci', 'passed', 'Successful push/main CI names this exact commit.', details)
 
 
-def published_versions(name: str) -> set[str]:
-    try:
-        with urllib.request.urlopen(f'https://pub.dev/api/packages/{name}', timeout=30) as response:
-            return {entry['version'] for entry in json.load(response)['versions']}
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return set()
-        raise
-
+published_versions = SIBLINGS['published_versions']
 
 def hosted_dependencies(versions: dict[str, str], published) -> Gate:
-    missing = [f'{name} {version}' for name, version in versions.items()
-               if version not in published(name)]
+    missing = SIBLINGS['missing_siblings'](versions, published)
     if missing:
         return Gate('hosted-dependencies', 'blocked',
                     'Publish the CLI sibling versions in dependency order before hosted resolution.',
                     {'unpublished': missing})
     return Gate('hosted-dependencies', 'passed',
-                'Both exact CLI sibling versions are available on pub.dev.', versions)
+                'All exact CLI sibling versions are available on pub.dev.', versions)
 
 
 def standalone_pubspec(text: str) -> str:
@@ -105,15 +95,15 @@ def standalone_pubspec(text: str) -> str:
     return ''.join(lines)
 
 
-def check_hosted_graph(graph: dict, versions: dict[str, str] | None = None) -> None:
+def check_hosted_graph(graph: dict, versions: dict[str, str]) -> None:
     packages = {entry['name']: entry for entry in graph['packages']}
     if graph.get('root') != 'wayfinder_cli':
         raise ValueError('Dependency graph is not the staged standalone CLI.')
-    for name in CLI_SIBLINGS:
+    for name, version in versions.items():
         if packages.get(name, {}).get('source') != 'hosted':
             raise ValueError(f'{name} did not resolve from a hosted source.')
-        if versions is not None and packages[name].get('version') != versions[name]:
-            raise ValueError(f'{name} did not resolve to prepared version {versions[name]}.')
+        if packages[name].get('version') != version:
+            raise ValueError(f'{name} did not resolve to prepared version {version}.')
     if any(entry['source'] not in ('root', 'hosted', 'sdk')
            or (entry['source'] == 'root' and entry['name'] != 'wayfinder_cli')
            for entry in graph['packages']):
@@ -129,8 +119,8 @@ def committed_bytes(root: Path, sha: str, path: str) -> bytes:
     return subprocess.check_output(['git', 'show', f'{sha}:{path}'], cwd=root)
 
 
-def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute,
-               versions: dict[str, str] | None = None) -> Gate:
+def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute, *,
+               versions: dict[str, str]) -> Gate:
     """Stage the captured commit, never live workspace files or package config."""
     commands = []
     try:
@@ -178,7 +168,7 @@ def hosted_cli(root: Path, sha: str, logs: Path | None, runner=execute,
                 if result.returncode:
                     return Gate('hosted-cli', 'failed', f'Standalone CLI {name} failed.', commands)
                 if name == 'dependencies':
-                    check_hosted_graph(json.loads(result.stdout), versions or prepared_versions(root, sha))
+                    check_hosted_graph(json.loads(result.stdout), versions)
         return Gate('hosted-cli', 'passed',
                     'Standalone hosted CLI resolved, analyzed and passed publish --dry-run; no upload.', commands)
     except (OSError, subprocess.SubprocessError) as error:
@@ -191,14 +181,9 @@ def git(root: Path, *arguments: str) -> str:
 
 
 def prepared_versions(root: Path, sha: str) -> dict[str, str]:
-    versions = {}
-    for name in CLI_SIBLINGS:
-        text = committed_bytes(root, sha, f'packages/{name}/pubspec.yaml').decode()
-        match = re.search(r'^version: (\S+)$', text, re.M)
-        if not match:
-            raise ValueError(f'Cannot read checked {name} version.')
-        versions[name] = match[1]
-    return versions
+    return SIBLINGS['sibling_versions'](
+        'wayfinder_cli', root,
+        read_text=lambda path: committed_bytes(root, sha, path.relative_to(root).as_posix()).decode())
 
 
 def preflight(root: Path, ci_run_id: str | None, hosted_check: bool,
@@ -231,12 +216,20 @@ def preflight(root: Path, ci_run_id: str | None, hosted_check: bool,
             gates.append(Gate('source-ci', 'blocked', f'Could not establish source CI: {error}'))
     else:
         gates.append(Gate('source-ci', 'blocked', 'Supply successful exact-source push/main CI with --ci-run-id.'))
-    versions = prepared_versions(root, sha)
     try:
-        dependencies = hosted_dependencies(versions, published)
-    except (OSError, ValueError, KeyError) as error:
+        versions = prepared_versions(root, sha)
+    except (ValueError, KeyError) as error:
+        dependencies = Gate('hosted-dependencies', 'failed',
+                            f'Invalid committed sibling metadata: {error}')
+    except (OSError, subprocess.SubprocessError) as error:
         dependencies = Gate('hosted-dependencies', 'blocked',
-                            f'Cannot establish pub.dev availability: {error}')
+                            f'Cannot read committed sibling metadata: {error}')
+    else:
+        try:
+            dependencies = hosted_dependencies(versions, published)
+        except (OSError, ValueError, KeyError) as error:
+            dependencies = Gate('hosted-dependencies', 'blocked',
+                                f'Cannot establish pub.dev availability: {error}')
     gates.append(dependencies)
     current_source = recheck_source()
     if dirty or not current_source or dependencies.status != 'passed' or not hosted_check:

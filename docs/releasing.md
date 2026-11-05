@@ -14,7 +14,9 @@ The public repository is `btwld/wayfinder`. All Dart packages use the
 
 The application retains `wayfinder-v` tags and native archive names for installer
 compatibility. The core uses a distinct tag namespace so independent library
-releases cannot collide with application releases.
+releases cannot collide with application releases. Profile releases follow that
+package's own policy; see the
+[Profile change checklist](contributing.md#profile-changes).
 
 ## Format-3 rollout window
 
@@ -66,7 +68,13 @@ Publication order:
 
 Each package publication workflow first requires successful push/main source
 CI for the exact tagged commit. Passing PR candidate CI alone does not satisfy
-that gate.
+that gate. Each workflow also derives its sibling dependencies from the
+workspace pubspecs and requires their exact prepared versions on pub.dev,
+excluding retracted versions. If this gate trips, publish the missing siblings
+first and rerun the workflow on the same immutable tag.
+Upload reruns skip an occupied package version, including a retracted one:
+retraction does not free its version number. A retracted sibling still fails
+the dependency gate and needs a new usable version before dependents publish.
 
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
@@ -126,6 +134,12 @@ python3 tool/ci/release-preflight.py \
   --hosted-cli-check \
   --output .context/release-preflight.json
 ```
+
+Sibling names and prepared versions come from the requested root's workspace
+and member pubspecs at the captured commit. That same mapping drives the
+pub.dev availability gate and hosted graph verification; live metadata edits
+cannot change what is checked. Invalid committed metadata is reported with
+the completed gates, and dirty source still requires a rerun.
 
 The opt-in check stages only regular files read from the captured immutable
 Git commit, not the live CLI worktree, in a

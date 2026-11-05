@@ -33,6 +33,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tool/ci/verify-release-ci.py
+      - name: Verify exact sibling dependencies are published
+        run: python3 tool/ci/verify-siblings-published.py wayfinder_dart_chunker
       # No OIDC permission here: dependency downloads use normal public access.
       - run: dart pub get
       - run: dart analyze --fatal-infos

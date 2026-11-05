@@ -43,13 +43,14 @@ final class SourceManifest {
           'Source ${source.id} needs a repository and ref.',
         );
       }
+      if (source.repository.trim().startsWith('-') ||
+          source.ref.trim().startsWith('-')) {
+        throw FormatException('Unsafe repository or ref in ${source.id}.');
+      }
       if (source.adapter.trim().isEmpty)
         throw FormatException('Source ${source.id} needs an adapter.');
       for (final path in source.paths) {
-        if (path.isEmpty ||
-            path.startsWith('/') ||
-            path.contains('\\') ||
-            path.split('/').contains('..')) {
+        if (isUnsafeRelativePath(path)) {
           throw FormatException('Unsafe source path in ${source.id}: $path');
         }
       }
@@ -71,18 +72,11 @@ final class SourceSpec {
   factory SourceSpec.fromJson(Map<String, dynamic> json) => SourceSpec(
     id: _string(json, 'id'),
     repository: _string(json, 'repository'),
-    ref:
-        (json['ref'] as String?) ??
-        (json['discovery_ref'] as String?) ??
-        'main',
+    ref: _optionalString(json, 'ref') ?? 'main',
     adapter: _string(json, 'adapter'),
-    paths:
-        ((json['paths'] ?? json['selected_paths']) as List<dynamic>? ??
-                const [])
-            .map((value) => value as String)
-            .toList(growable: false),
-    enabled: json['enabled'] as bool? ?? true,
-    licenseEvidence: json['license_evidence'] as String?,
+    paths: _stringList(json['paths'], 'paths'),
+    enabled: _optionalBool(json, 'enabled') ?? true,
+    licenseEvidence: _optionalString(json, 'license_evidence'),
   );
 
   final String id;
@@ -110,6 +104,18 @@ final class SourceFileLock {
     required this.sha256,
     required this.bytes,
   });
+
+  factory SourceFileLock.fromJson(Object? value) {
+    if (value case {
+      'path': final String path,
+      'sha256': final String sha256,
+      'bytes': final int bytes,
+    }) {
+      return SourceFileLock(path: path, sha256: sha256, bytes: bytes);
+    }
+    throw const FormatException('Invalid source lock.');
+  }
+
   final String path;
   final String sha256;
   final int bytes;
@@ -130,6 +136,29 @@ final class ResolvedSource {
     required this.files,
     this.licenseEvidence,
   });
+
+  factory ResolvedSource.fromJson(Object? value) {
+    if (value case {
+      'id': final String id,
+      'repository': final String repository,
+      'ref': final String ref,
+      'commit': final String commit,
+      'adapter': final String adapter,
+      'files': final List<Object?> files,
+    } when value['license_evidence'] is String?) {
+      return ResolvedSource(
+        id: id,
+        repository: repository,
+        ref: ref,
+        commit: commit,
+        adapter: adapter,
+        licenseEvidence: value['license_evidence'] as String?,
+        files: files.map(SourceFileLock.fromJson).toList(growable: false),
+      );
+    }
+    throw const FormatException('Invalid source lock.');
+  }
+
   final String id;
   final String repository;
   final String ref;
@@ -148,9 +177,113 @@ final class ResolvedSource {
   };
 }
 
+final class SourceLockDocument {
+  const SourceLockDocument({
+    required this.version,
+    required this.manifestSha256,
+    required this.resolvedAt,
+    required this.sources,
+  });
+
+  factory SourceLockDocument.fromJson(Object? value) {
+    if (value case {
+      'version': 1,
+      'manifest_sha256': final String manifestSha256,
+      'resolved_at': final String resolvedAt,
+      'sources': final List<Object?> sources,
+    }) {
+      return SourceLockDocument(
+        version: 1,
+        manifestSha256: manifestSha256,
+        resolvedAt: resolvedAt,
+        sources: sources.map(ResolvedSource.fromJson).toList(growable: false),
+      )..validate();
+    }
+    throw const FormatException('Invalid source lock.');
+  }
+
+  void validate() {
+    final ids = <String>{};
+    for (final source in sources) {
+      if (source.id.trim().isEmpty || !ids.add(source.id)) {
+        throw FormatException(
+          'Invalid or duplicate locked source id: ${source.id}',
+        );
+      }
+      if (!isSourceCommit(source.commit)) {
+        throw FormatException('Invalid commit for ${source.id}.');
+      }
+      final paths = <String>{};
+      for (final file in source.files) {
+        if (isUnsafeRelativePath(file.path)) {
+          throw FormatException(
+            'Unsafe locked source path: ${source.id}:${file.path}',
+          );
+        }
+        if (!paths.add(file.path)) {
+          throw FormatException(
+            'Duplicate locked source path: ${source.id}:${file.path}',
+          );
+        }
+        if (file.bytes < 0 ||
+            !RegExp(r'^[0-9a-f]{64}$').hasMatch(file.sha256)) {
+          throw FormatException(
+            'Invalid locked file metadata: ${source.id}:${file.path}',
+          );
+        }
+      }
+    }
+  }
+
+  final int version;
+  final String manifestSha256;
+  final String resolvedAt;
+  final List<ResolvedSource> sources;
+  Map<String, Object?> toJson() => {
+    'version': version,
+    'manifest_sha256': manifestSha256,
+    'resolved_at': resolvedAt,
+    'sources': sources.map((source) => source.toJson()).toList(growable: false),
+  };
+}
+
+bool isSourceCommit(String value) => RegExp(r'^[0-9a-f]{40}$').hasMatch(value);
+
+bool isUnsafeRelativePath(String path) =>
+    path.isEmpty ||
+    path.startsWith('/') ||
+    path.contains('\\') ||
+    path.split('/').contains('..');
+
 String _string(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty)
     throw FormatException('Source field $key must be a non-empty string.');
   return value;
+}
+
+String? _optionalString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value == null) return null;
+  if (value is! String) {
+    throw FormatException('Source field $key must be a string.');
+  }
+  return value;
+}
+
+bool? _optionalBool(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value == null) return null;
+  if (value is! bool) {
+    throw FormatException('Source field $key must be a boolean.');
+  }
+  return value;
+}
+
+List<String> _stringList(Object? raw, String key) {
+  if (raw == null) return const [];
+  if (raw is! List || raw.any((item) => item is! String)) {
+    throw FormatException('Source field $key must be a list of strings.');
+  }
+  return raw.cast<String>().toList(growable: false);
 }

@@ -79,22 +79,25 @@ final class KnowledgeImporter {
     }
     final root = await project.resolveSymbolicLinks();
     final writes = <({File file, String content})>[];
+    final seenTargets = <String>{};
     for (final raw in (value['changes'] as List)) {
       if (raw is! Map<String, dynamic>)
         throw const FormatException('Each change must be an object.');
       final relative = raw['path'];
       final content = raw['content'];
+      final expected = raw['expected_sha256'];
       if (relative is! String ||
           content is! String ||
-          relative.startsWith('/') ||
-          relative.contains('\\') ||
-          relative.split('/').contains('..')) {
+          (expected != null && expected is! String) ||
+          isUnsafeRelativePath(relative)) {
         throw const FormatException(
           'Change paths must be safe project-relative paths.',
         );
       }
       final file = await _projectFile(root, relative);
-      final expected = raw['expected_sha256'] as String?;
+      if (!seenTargets.add(file.path.toLowerCase())) {
+        throw FormatException('Duplicate change path: $relative');
+      }
       if (await file.exists()) {
         final current = _sha256(await file.readAsString());
         if (expected == null || current != expected)
@@ -136,15 +139,8 @@ final class KnowledgeImporter {
         .map((source) => source.id)
         .toSet();
     final actual = lock.sources.map((source) => source.id).toSet();
-    if (expected.length != actual.length || !expected.containsAll(actual))
+    if (expected.length != actual.length || !expected.containsAll(actual)) {
       findings.add('Source lock does not match enabled source IDs.');
-    for (final source in lock.sources) {
-      if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(source.commit))
-        findings.add('Invalid commit for ${source.id}.');
-      for (final file in source.files) {
-        if (file.path.split('/').contains('..') || file.path.startsWith('/'))
-          findings.add('Unsafe locked source path: ${source.id}:${file.path}');
-      }
     }
     return findings;
   }
@@ -181,11 +177,13 @@ final class KnowledgeImporter {
     final commitResult = await _process([
       'git',
       'rev-parse',
+      '--verify',
+      '--end-of-options',
       '${source.ref}^{commit}',
     ], destination);
     _requireGit(commitResult, 'resolve ${source.id}:${source.ref}');
     final commit = commitResult.stdout.trim();
-    if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(commit))
+    if (!isSourceCommit(commit))
       throw FormatException('Invalid commit for ${source.id}.');
     final files = <SourceFileLock>[];
     for (final path in source.paths) {
@@ -267,61 +265,6 @@ final class KnowledgeImporter {
       '${const JsonEncoder.withIndent('  ').convert(value)}\n',
     );
   }
-}
-
-final class SourceLockDocument {
-  const SourceLockDocument({
-    required this.version,
-    required this.manifestSha256,
-    required this.resolvedAt,
-    required this.sources,
-  });
-
-  factory SourceLockDocument.fromJson(Object? value) {
-    if (value is! Map<String, dynamic> ||
-        value['version'] != 1 ||
-        value['sources'] is! List)
-      throw const FormatException('Invalid source lock.');
-    return SourceLockDocument(
-      version: 1,
-      manifestSha256: value['manifest_sha256'] as String,
-      resolvedAt: value['resolved_at'] as String,
-      sources: (value['sources'] as List)
-          .map((item) {
-            final json = item as Map<String, dynamic>;
-            return ResolvedSource(
-              id: json['id'] as String,
-              repository: json['repository'] as String,
-              ref: json['ref'] as String,
-              commit: json['commit'] as String,
-              adapter: json['adapter'] as String,
-              licenseEvidence: json['license_evidence'] as String?,
-              files: (json['files'] as List)
-                  .map((file) {
-                    final f = file as Map<String, dynamic>;
-                    return SourceFileLock(
-                      path: f['path'] as String,
-                      sha256: f['sha256'] as String,
-                      bytes: f['bytes'] as int,
-                    );
-                  })
-                  .toList(growable: false),
-            );
-          })
-          .toList(growable: false),
-    );
-  }
-
-  final int version;
-  final String manifestSha256;
-  final String resolvedAt;
-  final List<ResolvedSource> sources;
-  Map<String, Object?> toJson() => {
-    'version': version,
-    'manifest_sha256': manifestSha256,
-    'resolved_at': resolvedAt,
-    'sources': sources.map((source) => source.toJson()).toList(growable: false),
-  };
 }
 
 Future<int> main(List<String> arguments) async {
