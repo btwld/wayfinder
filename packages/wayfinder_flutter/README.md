@@ -62,7 +62,10 @@ WayfinderReaderTheme(
 ## Development
 
 This package is outside the repository's Dart workspace, so working on Wayfinder's
-other packages needs no Flutter SDK. From this directory:
+other packages needs no Flutter SDK. `pubspec.yaml` requires Dart `^3.13.0` and
+Flutter `>=3.47.5`. The root contributor checks use Dart 3.11, which is below
+this package's floor, so `flutter pub get` here needs the versions above. From
+this directory:
 
 ```sh
 flutter pub get
@@ -70,3 +73,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze --fatal-infos
 flutter test
 ```
+
+Format with the stable Flutter SDK. Analyze and test on Flutter 3.47.5 and on
+stable, as the package workflow does. Stable defines the format, the same rule
+as the rest of the repository.

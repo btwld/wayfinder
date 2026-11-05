@@ -1,3 +1,4 @@
+import '../model/knowledge_models.dart';
 import '../model/knowledge_severity.dart';
 import '../model/knowledge_words.dart';
 
@@ -34,6 +35,38 @@ class KnowledgeGraphLabels {
 
   /// The legend's name for a dashed line.
   String get inText => 'In text';
+
+  /// A link written in a concept's text, when the edge names no relationship.
+  String get linkedInText => 'Linked in text';
+
+  /// A link from a concept's resource.
+  String get resourceLink => 'Resource';
+
+  /// A link from a concept's source.
+  String get sourceLink => 'Source';
+
+  /// A link from a concept's computation.
+  String get computationLink => 'Computation';
+
+  /// A link from a concept's executor.
+  String get executorLink => 'Executor';
+
+  /// A link from a concept's attester.
+  String get attesterLink => 'Attester';
+
+  /// A typed relationship that names no type of its own.
+  String get relatedLink => 'Related';
+
+  /// What [origin] is called when the edge names no relationship.
+  String linkOrigin(KnowledgeLinkOrigin origin) => switch (origin) {
+    KnowledgeLinkOrigin.body => linkedInText,
+    KnowledgeLinkOrigin.resource => resourceLink,
+    KnowledgeLinkOrigin.sourceResource => sourceLink,
+    KnowledgeLinkOrigin.computation => computationLink,
+    KnowledgeLinkOrigin.executorResource => executorLink,
+    KnowledgeLinkOrigin.attesterResource => attesterLink,
+    KnowledgeLinkOrigin.relationships => relatedLink,
+  };
 
   /// How many concepts and links are in view.
   String stats(int concepts, int links) =>

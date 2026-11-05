@@ -104,6 +104,23 @@ void main() {
       expect(rowLabels(tree.visible((_) => true, query: 'nothing')), isEmpty);
     });
 
+    test('a query opens a collapsed folder that holds a match or the open '
+        'file', () {
+      expect(rowLabels(tree.visible((_) => false, query: 'billing')), [
+        'guides',
+        'deep/only',
+        'note.md',
+      ]);
+      expect(
+        rowLabels(tree.visible((_) => false, query: 'START', keep: _note)),
+        ['guides', 'deep/only', 'note.md', 'Start here'],
+      );
+      expect(
+        rowLabels(tree.visible((_) => false, query: 'START', keep: _rootIndex)),
+        ['guides', 'Start here', 'index.md'],
+      );
+    });
+
     test('a query never hides the file being read', () {
       expect(
         rowLabels(tree.visible((_) => true, query: 'START', keep: _rootIndex)),
@@ -147,6 +164,79 @@ void main() {
     expect(tree.roots.first.kind, KnowledgeTreeNodeKind.group);
     expect(labels(tree.roots[2].children), ['index.md', 'index.md']);
     expect(labels(tree.roots[3].children), ['logo.png', 'wayfinder.json']);
+    expect(tree.byId['group:untyped']!.label, knowledgeUntypedGroup);
+    expect(tree.byId['group:other']!.label, knowledgeOtherFilesGroup);
+    expect(tree.byId['group:attachments']!.label, knowledgeAttachmentsGroup);
+  });
+
+  test('a type named like a synthetic group keeps its own id', () {
+    final tree = KnowledgeFileTreeProjection(const [
+      KnowledgeFileEntry(
+        path: 'named.md',
+        kind: KnowledgeFileKind.concept,
+        title: 'Named untyped',
+        type: 'Untyped',
+      ),
+      KnowledgeFileEntry(
+        path: 'empty.md',
+        kind: KnowledgeFileKind.concept,
+        title: 'Empty type',
+        type: ' ',
+      ),
+      KnowledgeFileEntry(
+        path: 'other.md',
+        kind: KnowledgeFileKind.concept,
+        title: 'Typed other',
+        type: 'Other files',
+      ),
+      KnowledgeFileEntry(
+        path: 'files.md',
+        kind: KnowledgeFileKind.concept,
+        title: 'Typed attachments',
+        type: 'Attachments',
+      ),
+      KnowledgeFileEntry(path: 'index.md', kind: KnowledgeFileKind.indexFile),
+      KnowledgeFileEntry(path: 'logo.png', kind: KnowledgeFileKind.reference),
+    ], grouping: KnowledgeTreeGrouping.types);
+    expect(labels(tree.byId['type:Untyped']!.children), ['Named untyped']);
+    expect(labels(tree.byId['group:untyped']!.children), ['Empty type']);
+    expect(labels(tree.byId['type:Other files']!.children), ['Typed other']);
+    expect(labels(tree.byId['group:other']!.children), ['index.md']);
+    expect(labels(tree.byId['type:Attachments']!.children), [
+      'Typed attachments',
+    ]);
+    expect(labels(tree.byId['group:attachments']!.children), ['logo.png']);
+  });
+
+  test('synthetic groups under a bundle do not share a type id', () {
+    final tree = KnowledgeFileTreeProjection(
+      const [
+        KnowledgeFileEntry(
+          path: 'knowledge/named.md',
+          kind: KnowledgeFileKind.concept,
+          bundle: 'knowledge',
+          title: 'Named',
+          type: 'Untyped',
+        ),
+        KnowledgeFileEntry(
+          path: 'knowledge/empty.md',
+          kind: KnowledgeFileKind.concept,
+          bundle: 'knowledge',
+          title: 'Empty',
+        ),
+      ],
+      grouping: KnowledgeTreeGrouping.types,
+      bundles: const [
+        KnowledgeBundleSummary(
+          name: 'knowledge',
+          path: 'knowledge',
+          conceptCount: 2,
+        ),
+        KnowledgeBundleSummary(name: 'other', path: 'other', conceptCount: 0),
+      ],
+    );
+    expect(labels(tree.byId['type:knowledge/Untyped']!.children), ['Named']);
+    expect(labels(tree.byId['group:knowledge/untyped']!.children), ['Empty']);
   });
 
   group('with several bundles', () {

@@ -94,6 +94,9 @@ class _Portuguese extends KnowledgeGraphLabels {
 
   @override
   String stats(int concepts, int links) => '$concepts conceitos, $links links';
+
+  @override
+  String get linkedInText => 'Ligado no texto';
 }
 
 void main() {
@@ -357,10 +360,32 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await _pump(tester, _scene(), labels: const _Portuguese());
+    final scene = KnowledgeGraphScene(
+      query: const KnowledgeGraphQuery(focus: 'Focus'),
+      nodes: [_node('Focus', distance: 0), _node('Left'), _node('Right')],
+      links: [
+        _link(1),
+        const KnowledgeGraphSceneLink(
+          source: 0,
+          target: 2,
+          backward: false,
+          typed: false,
+          labels: [],
+          origins: [KnowledgeLinkOrigin.body],
+        ),
+      ],
+      positions: Float64List.fromList([0, 0, -160, 0, 160, 0]),
+      focus: 0,
+    );
+    await _pump(tester, scene, labels: const _Portuguese());
     expect(find.text('Outros'), findsOneWidget);
     expect(find.text('Relação'), findsOneWidget);
     expect(find.text('3 conceitos, 2 links'), findsOneWidget);
+    final focus = _state(tester).globalPositionOf('Focus')!;
+    final right = _state(tester).globalPositionOf('Right')!;
+    await tester.tapAt(Offset.lerp(focus, right, 0.5)!);
+    await tester.pump();
+    expect(find.text('Ligado no texto'), findsOneWidget);
     final node = find.semantics.byLabel('Focus, Guide, foco').evaluate().single;
     expect(node.hintOverrides?.onLongPressHint, 'Abrir');
     semantics.dispose();

@@ -6,7 +6,10 @@ import 'package:flutter/widgets.dart';
 
 import '../model/knowledge.dart';
 import '../theme/wayfinder_reader_theme.dart';
+import 'knowledge_graph_hover_card.dart';
 import 'knowledge_graph_labels.dart';
+import 'knowledge_graph_legend.dart';
+import 'knowledge_graph_painter.dart';
 import 'knowledge_type_palette.dart';
 
 /// Wraps [child] in a host's tooltip that says [message].
@@ -15,35 +18,6 @@ typedef KnowledgeTooltipBuilder = Widget Function(
   String message,
   Widget child,
 );
-
-/// Pan and zoom of the canvas: screen = scene × [scale] + [pan].
-final class _Viewport extends ChangeNotifier {
-  double scale = 1;
-  Offset pan = Offset.zero;
-
-  void set(double scale, Offset pan, {bool notify = true}) {
-    this.scale = scale;
-    this.pan = pan;
-    if (notify) notifyListeners();
-  }
-}
-
-/// What the pointer is over: a node or a link, and where.
-@immutable
-final class _Hover {
-  const _Hover({this.node, this.link, required this.at});
-
-  final int? node;
-  final int? link;
-  final Offset at;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _Hover && other.node == node && other.link == link;
-
-  @override
-  int get hashCode => Object.hash(node, link);
-}
 
 /// The laid-out graph, drawn by one painter: nothing rebuilds per node or
 /// per frame while panning, zooming or hovering.
@@ -109,9 +83,9 @@ final class KnowledgeGraphCanvas extends StatefulWidget {
 /// The state of a [KnowledgeGraphCanvas], for moving its view from a toolbar.
 final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
     with TickerProviderStateMixin {
-  final _viewport = _Viewport();
-  final _hover = ValueNotifier<_Hover?>(null);
-  final _labels = _LabelCache();
+  final _viewport = KnowledgeGraphViewport();
+  final _hover = ValueNotifier<KnowledgeGraphHover?>(null);
+  final _labels = KnowledgeGraphLabelCache();
   final _legendKey = GlobalKey();
 
   /// Each node's label size, for framing; cleared with [_labels].
@@ -243,19 +217,22 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   Size _labelSize(int i) {
     final emphasis = _emphasised(i);
     return _labelSizes.putIfAbsent(i * 2 + (emphasis ? 1 : 0), () {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: scene.nodes[i].title,
-          style: _labelStyle(
-            _theme ?? WayfinderReaderTheme.of(context),
-            emphasis: emphasis,
-          ),
-        ),
-        textDirection: _textDirection,
-        textScaler: _textScaler,
-        maxLines: 1,
-        ellipsis: '…',
-      )..layout(maxWidth: _labelMaxWidth(scene, i, emphasis: emphasis));
+      final painter =
+          TextPainter(
+            text: TextSpan(
+              text: scene.nodes[i].title,
+              style: knowledgeGraphLabelStyle(
+                _theme ?? WayfinderReaderTheme.of(context),
+                emphasis: emphasis,
+              ),
+            ),
+            textDirection: _textDirection,
+            textScaler: _textScaler,
+            maxLines: 1,
+            ellipsis: '…',
+          )..layout(
+            maxWidth: knowledgeGraphLabelMaxWidth(scene, i, emphasis: emphasis),
+          );
       final size = painter.size;
       painter.dispose();
       return size;
@@ -270,9 +247,10 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   bool _labelShown(int i, double scale) {
     if (_emphasised(i)) return true;
     final always = scene.query.scope == KnowledgeGraphScope.whole
-        ? _labelRank[i] < _alwaysLabelled
+        ? _labelRank[i] < knowledgeGraphAlwaysLabelled
         : (scene.nodes[i].distance ?? 9) <= 1;
-    return always || _zoomAlpha(scale) >= _minLabelAlpha;
+    return always ||
+        knowledgeGraphZoomAlpha(scale) >= knowledgeGraphMinLabelAlpha;
   }
 
   /// Every node with its ring and its shown label at [scale], in scene
@@ -283,12 +261,21 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
     var right = -double.infinity, bottom = -double.infinity;
     for (var i = 0; i < scene.nodes.length; i++) {
       final x = scene.x(i) * scale, y = scene.y(i) * scale;
-      final ring = _nodeRadius(scene, i, scale) + (_emphasised(i) ? 4.5 : 0);
+      final ring =
+          knowledgeGraphNodeRadius(scene, i, scale) +
+          (_emphasised(i) ? 4.5 : 0);
       var halfWidth = ring, below = ring;
       if (_labelShown(i, scale)) {
         final label = _labelSize(i);
-        halfWidth = math.max(halfWidth, label.width / 2 + _labelHalo);
-        below = _nodeRadius(scene, i, scale) + 3 + label.height + _labelHalo;
+        halfWidth = math.max(
+          halfWidth,
+          label.width / 2 + knowledgeGraphLabelHalo,
+        );
+        below =
+            knowledgeGraphNodeRadius(scene, i, scale) +
+            3 +
+            label.height +
+            knowledgeGraphLabelHalo;
         below = math.max(below, ring);
       }
       left = math.min(left, x - halfWidth);
@@ -469,7 +456,8 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
     scene.y(node) * _viewport.scale + _viewport.pan.dy,
   );
 
-  double _radius(int node) => _nodeRadius(scene, node, _viewport.scale);
+  double _radius(int node) =>
+      knowledgeGraphNodeRadius(scene, node, _viewport.scale);
 
   /// The node under [point], or null. A finger needs more room than a pointer.
   int? _nodeAt(Offset point, {bool touch = false}) {
@@ -515,7 +503,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
     final link = node == null ? _linkAt(point) : null;
     final next = node == null && link == null
         ? null
-        : _Hover(node: node, link: link, at: point);
+        : KnowledgeGraphHover(node: node, link: link, at: point);
     _hover.value = next;
   }
 
@@ -544,7 +532,11 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
       final link = node == null ? _linkAt(details.localPosition) : null;
       _hover.value = node == null && link == null
           ? null
-          : _Hover(node: node, link: link, at: details.localPosition);
+          : KnowledgeGraphHover(
+              node: node,
+              link: link,
+              at: details.localPosition,
+            );
     }
     if (node == null) {
       _lastClick = null;
@@ -585,7 +577,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
           _needsFit = false;
           _fitNow();
         }
-        final painter = _GraphPainter(
+        final painter = KnowledgeGraphPainter(
           scene: scene,
           viewport: _viewport,
           hover: _hover,
@@ -620,7 +612,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
                     );
                   }
                 },
-                child: ValueListenableBuilder<_Hover?>(
+                child: ValueListenableBuilder<KnowledgeGraphHover?>(
                   valueListenable: _hover,
                   builder: (context, hover, child) => MouseRegion(
                     cursor: hover?.node != null
@@ -665,11 +657,11 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
                 ),
               ),
             ),
-            ValueListenableBuilder<_Hover?>(
+            ValueListenableBuilder<KnowledgeGraphHover?>(
               valueListenable: _hover,
               builder: (context, hover, _) => hover == null
                   ? const SizedBox.shrink()
-                  : _HoverCard(
+                  : KnowledgeGraphHoverCard(
                       scene: scene,
                       hover: hover,
                       size: _size,
@@ -681,7 +673,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
               bottom: _legendInset,
               child: KeyedSubtree(
                 key: _legendKey,
-                child: _GraphLegend(
+                child: KnowledgeGraphLegend(
                   scene: scene,
                   palette: widget.palette,
                   typeIconOf: widget.typeIconOf,
@@ -711,707 +703,4 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
       },
     );
   }
-}
-
-/// What a hovered node or link is.
-final class _HoverCard extends StatelessWidget {
-  const _HoverCard({
-    required this.scene,
-    required this.hover,
-    required this.size,
-    required this.labels,
-  });
-
-  final KnowledgeGraphScene scene;
-  final _Hover hover;
-  final Size size;
-  final KnowledgeGraphLabels labels;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = WayfinderReaderTheme.of(context);
-    final String title;
-    final String detail;
-    if (hover.node case final index?) {
-      final node = scene.nodes[index];
-      title = node.title;
-      detail = switch (node.kind) {
-        KnowledgeGraphNodeKind.concept =>
-          node.type.isEmpty ? labels.concept : node.type,
-        KnowledgeGraphNodeKind.attachment => labels.attachment,
-        KnowledgeGraphNodeKind.external => switch (node.target) {
-          final target? => knowledgeResourceLabel(target),
-          null => labels.external,
-        },
-        KnowledgeGraphNodeKind.unresolved => labels.unresolvedTarget(
-          knowledgeResourceLabel(node.target ?? ''),
-        ),
-      };
-    } else {
-      final link = scene.links[hover.link!];
-      title = link.labels.join(' · ');
-      detail =
-          '${scene.nodes[link.source].title} '
-          '${link.backward
-              ? '↔'
-              : Directionality.of(context) == TextDirection.rtl
-              ? '←'
-              : '→'} ${scene.nodes[link.target].title}';
-    }
-    const width = 260.0;
-    final left = math.min(hover.at.dx + 14, size.width - width - 8);
-    // Above the pointer, so the card never covers the label drawn under
-    // the hovered node; below it only when there is no room above.
-    final above = hover.at.dy > 80;
-    return Positioned(
-      left: math.max(8, left),
-      top: above ? null : hover.at.dy + 16,
-      bottom: above ? size.height - hover.at.dy + 12 : null,
-      child: IgnorePointer(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: width),
-          child: Container(
-            key: const Key('graph-hover-card'),
-            decoration: BoxDecoration(
-              color: theme.popover,
-              border: Border.all(color: theme.border),
-              borderRadius: BorderRadius.all(theme.smallRadius),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 2,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.caption.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: theme.popoverForeground,
-                  ),
-                ),
-                Text(
-                  detail,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.caption,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The types in view with their colour and icon, what the lines mean, and
-/// how many concepts and links show.
-final class _GraphLegend extends StatelessWidget {
-  const _GraphLegend({
-    required this.scene,
-    required this.palette,
-    required this.typeIconOf,
-    required this.kindIconOf,
-    required this.tooltipBuilder,
-    required this.labels,
-  });
-
-  final KnowledgeGraphScene scene;
-  final KnowledgeTypePalette palette;
-  final IconData? Function(String type)? typeIconOf;
-  final IconData? Function(KnowledgeGraphNodeKind kind)? kindIconOf;
-  final KnowledgeTooltipBuilder? tooltipBuilder;
-  final KnowledgeGraphLabels labels;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = WayfinderReaderTheme.of(context);
-    final tabular = theme.caption.copyWith(
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    final types = <String, int>{};
-    var other = 0;
-    final otherTypes = <String>{};
-    final kinds = <KnowledgeGraphNodeKind>{};
-    for (final node in scene.nodes) {
-      if (!node.isConcept) {
-        kinds.add(node.kind);
-      } else if (palette.hasHue(node.type)) {
-        types[node.type.trim()] = (types[node.type.trim()] ?? 0) + 1;
-      } else {
-        other++;
-        if (node.type.trim() case final type when type.isNotEmpty) {
-          otherTypes.add(type);
-        }
-      }
-    }
-    final ranked = types.keys.toList()
-      ..sort((a, b) => palette.hued[a]!.compareTo(palette.hued[b]!));
-    final concepts = scene.nodes.where((node) => node.isConcept).length;
-    final links = scene.links.length;
-    if (ranked.isEmpty && other == 0 && kinds.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    Widget row(
-      Color color,
-      IconData? icon,
-      String label, {
-      int? count,
-      Key? key,
-    }) => ConstrainedBox(
-      key: key,
-      constraints: const BoxConstraints(minHeight: 20),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox.square(
-            dimension: 8,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // "Other" stands for several types, so no one type's icon: its
-          // slot stays empty and the labels still line up.
-          if (icon == null)
-            const SizedBox(width: 12)
-          else
-            Icon(icon, size: 12, color: theme.mutedForeground),
-          const SizedBox(width: 4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 150),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.caption.copyWith(color: theme.foreground),
-            ),
-          ),
-          if (count != null) ...[
-            const SizedBox(width: 4),
-            Text('$count', style: tabular),
-          ],
-        ],
-      ),
-    );
-    final otherMessage = otherTypes.isEmpty
-        ? labels.conceptsWithoutType
-        : (otherTypes.toList()..sort()).join(', ');
-    final otherRow = row(
-      theme.mutedForeground,
-      null,
-      labels.other,
-      count: other,
-      key: const Key('graph-legend-other'),
-    );
-    return Container(
-      key: const Key('graph-legend'),
-      decoration: BoxDecoration(
-        color: theme.background.withValues(alpha: 0.88),
-        border: Border.all(color: theme.border),
-        borderRadius: BorderRadius.all(theme.mediumRadius),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final type in ranked)
-            row(
-              palette.colorOf(type, theme.brightness, theme.mutedForeground),
-              typeIconOf?.call(type),
-              type,
-              count: types[type],
-              key: ValueKey('graph-legend-type-$type'),
-            ),
-          if (other > 0)
-            tooltipBuilder?.call(context, otherMessage, otherRow) ??
-                Semantics(tooltip: otherMessage, child: otherRow),
-          for (final kind in kinds)
-            row(
-              theme.mutedForeground.withValues(alpha: 0.5),
-              kindIconOf?.call(kind),
-              switch (kind) {
-                KnowledgeGraphNodeKind.attachment => labels.attachment,
-                KnowledgeGraphNodeKind.external => labels.external,
-                _ => labels.unresolved,
-              },
-            ),
-          const SizedBox(height: 4),
-          Row(
-            key: const Key('graph-line-key'),
-            mainAxisSize: MainAxisSize.min,
-            spacing: 4,
-            children: [
-              _LineSample(color: theme.mutedForeground, dashed: false),
-              Text(labels.relationship, style: theme.caption),
-              const SizedBox(width: 8),
-              _LineSample(color: theme.mutedForeground, dashed: true),
-              Text(labels.inText, style: theme.caption),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            labels.stats(concepts, links),
-            key: const Key('graph-stats'),
-            style: tabular,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A 16px sample of a link's line in the legend: solid for a relationship,
-/// dashed for a link in text, as the canvas draws them.
-final class _LineSample extends StatelessWidget {
-  const _LineSample({required this.color, required this.dashed});
-
-  final Color color;
-  final bool dashed;
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: const Size(16, 12),
-    painter: _LineSamplePainter(color: color, dashed: dashed),
-  );
-}
-
-final class _LineSamplePainter extends CustomPainter {
-  const _LineSamplePainter({required this.color, required this.dashed});
-
-  final Color color;
-  final bool dashed;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2;
-    final y = size.height / 2;
-    if (!dashed) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-      return;
-    }
-    for (var x = 0.0; x < size.width; x += 5) {
-      canvas.drawLine(Offset(x, y), Offset(x + 2.5, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_LineSamplePainter old) =>
-      old.color != color || old.dashed != dashed;
-}
-
-double _nodeRadius(KnowledgeGraphScene scene, int node, double scale) {
-  final zoom = scale.clamp(0.55, 1.5);
-  if (node == scene.focus) return 8.5 * zoom;
-  if (!scene.nodes[node].isConcept) return 3.5 * zoom;
-  final degree = scene.degrees[node];
-  final base = scene.query.scope == KnowledgeGraphScope.whole
-      ? 2.6 + math.min(5.5, math.sqrt(degree) * 0.9)
-      : 4.2 + math.min(3.0, math.sqrt(degree) * 0.6);
-  return base * zoom;
-}
-
-/// How many of a whole-bundle graph's labels show at any zoom.
-const _alwaysLabelled = 14;
-
-/// Below this opacity a label is not drawn.
-const _minLabelAlpha = 0.08;
-
-/// The halo drawn around a label, past its text.
-const _labelHalo = 1.5;
-
-/// How far zoom has revealed the labels that only show close up.
-double _zoomAlpha(double scale) => ((scale - 0.85) / 0.6).clamp(0.0, 1.0);
-
-/// A node label's text style, colour aside.
-TextStyle _labelStyle(
-  WayfinderReaderThemeData theme, {
-  required bool emphasis,
-}) => TextStyle(
-  fontFamily: theme.fontFamily,
-  fontSize: emphasis ? 12.5 : 11.5,
-  fontWeight: emphasis ? FontWeight.w600 : FontWeight.w400,
-  height: 1.2,
-);
-
-/// How wide node [node]'s label may get before it ellipsises.
-double _labelMaxWidth(
-  KnowledgeGraphScene scene,
-  int node, {
-  required bool emphasis,
-}) => emphasis
-    ? 280
-    : (scene.nodes[node].distance ?? 9) <= 1
-    ? 210
-    : 170;
-
-/// Laid-out label text, kept across frames.
-final class _LabelCache {
-  final _painters = <int, TextPainter>{};
-
-  TextPainter get(
-    int key,
-    String text,
-    TextStyle style,
-    double maxWidth,
-    TextScaler textScaler,
-    TextDirection textDirection,
-  ) => _painters.putIfAbsent(
-    key,
-    () => TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: textDirection,
-      textScaler: textScaler,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: maxWidth),
-  );
-
-  void clear() {
-    for (final painter in _painters.values) {
-      painter.dispose();
-    }
-    _painters.clear();
-  }
-}
-
-final class _GraphPainter extends CustomPainter {
-  _GraphPainter({
-    required this.scene,
-    required this.viewport,
-    required this.hover,
-    required this.labels,
-    required this.labelOrder,
-    required this.labelRank,
-    required this.palette,
-    required this.theme,
-    required this.textScaler,
-    required this.textDirection,
-    required this.activeIndex,
-    required this.attention,
-    required this.words,
-    required this.onSelect,
-    required this.onOpen,
-  }) : super(repaint: Listenable.merge([viewport, hover]));
-
-  final KnowledgeGraphScene scene;
-  final _Viewport viewport;
-  final ValueNotifier<_Hover?> hover;
-  final _LabelCache labels;
-  final List<int> labelOrder;
-
-  /// Each node's place in [labelOrder].
-  final List<int> labelRank;
-  final KnowledgeTypePalette palette;
-  final WayfinderReaderThemeData theme;
-  final TextScaler textScaler;
-  final TextDirection textDirection;
-  final int? activeIndex;
-
-  /// What each node's attention dot stands for, or null for no dot.
-  final List<KnowledgeSeverity?> attention;
-
-  /// What the semantics announce.
-  final KnowledgeGraphLabels words;
-  final ValueChanged<String> onSelect;
-  final ValueChanged<String> onOpen;
-
-  Offset _at(int node) => Offset(
-    scene.x(node) * viewport.scale + viewport.pan.dx,
-    scene.y(node) * viewport.scale + viewport.pan.dy,
-  );
-
-  /// The hovered node with its neighbours, or a hovered link's two ends.
-  Set<int>? _highlighted() {
-    final current = hover.value;
-    if (current == null) return null;
-    if (current.node case final node?) return {node, ...scene.neighbours(node)};
-    final link = scene.links[current.link!];
-    return {link.source, link.target};
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final scale = viewport.scale;
-    final highlighted = _highlighted();
-    final hoveredLink = hover.value?.link;
-    final whole = scene.query.scope == KnowledgeGraphScope.whole;
-    final screen = (Offset.zero & size).inflate(40);
-    final positions = [for (var i = 0; i < scene.nodes.length; i++) _at(i)];
-    final radii = [
-      for (var i = 0; i < scene.nodes.length; i++) _nodeRadius(scene, i, scale),
-    ];
-
-    // Lines, batched by style and emphasis into a few paths.
-    final solid = [Path(), Path(), Path()]; // normal, dim, strong
-    final dashed = [Path(), Path(), Path()];
-    final arrows = [Path(), Path(), Path()];
-    final arrowSize = (5.5 * scale.clamp(0.6, 1.4)).toDouble();
-    for (final (l, link) in scene.links.indexed) {
-      final a = positions[link.source], b = positions[link.target];
-      if (!screen.contains(a) && !screen.contains(b)) {
-        final bounds = Rect.fromPoints(a, b);
-        if (!bounds.overlaps(screen)) continue;
-      }
-      final strong =
-          l == hoveredLink ||
-          (highlighted != null &&
-              hover.value?.node != null &&
-              (link.source == hover.value!.node ||
-                  link.target == hover.value!.node));
-      final emphasis = strong
-          ? 2
-          : highlighted != null
-          ? 1
-          : 0;
-      final delta = b - a;
-      final length = delta.distance;
-      if (length < 1) continue;
-      final unit = delta / length;
-      final start = a + unit * (radii[link.source] + 1.5);
-      final end = b - unit * (radii[link.target] + 1.5);
-      if ((end - start).distance < 2) continue;
-      if (link.typed) {
-        solid[emphasis]
-          ..moveTo(start.dx, start.dy)
-          ..lineTo(end.dx, end.dy);
-      } else {
-        final path = dashed[emphasis];
-        final total = (end - start).distance;
-        for (var d = 0.0; d < total; d += 7) {
-          final from = start + unit * d;
-          final to = start + unit * math.min(d + 3.5, total);
-          path
-            ..moveTo(from.dx, from.dy)
-            ..lineTo(to.dx, to.dy);
-        }
-      }
-      if (!whole || strong || scale > 0.9) {
-        _arrow(arrows[emphasis], end, unit, arrowSize);
-        if (link.backward) _arrow(arrows[emphasis], start, -unit, arrowSize);
-      }
-    }
-    final muted = theme.mutedForeground;
-    final lineAlpha = whole ? 0.17 : 0.5;
-    final lineColors = [
-      muted.withValues(alpha: lineAlpha),
-      muted.withValues(alpha: 0.08),
-      theme.foreground.withValues(alpha: 0.85),
-    ];
-    for (var e = 0; e < 3; e++) {
-      final stroke = Paint()
-        ..style = PaintingStyle.stroke
-        ..color = lineColors[e]
-        ..isAntiAlias = true;
-      canvas.drawPath(solid[e], stroke..strokeWidth = e == 2 ? 1.6 : 1.1);
-      canvas.drawPath(dashed[e], stroke..strokeWidth = e == 2 ? 1.3 : 0.9);
-      canvas.drawPath(
-        arrows[e],
-        Paint()
-          ..style = PaintingStyle.fill
-          ..color = lineColors[e],
-      );
-    }
-
-    // Nodes.
-    final background = theme.background;
-    for (var i = 0; i < scene.nodes.length; i++) {
-      final at = positions[i];
-      final r = radii[i];
-      if (!screen.contains(at)) continue;
-      final node = scene.nodes[i];
-      final dim = highlighted != null && !highlighted.contains(i);
-      final base = node.isConcept
-          ? palette.colorOf(node.type, theme.brightness, muted)
-          : muted;
-      final color = base.withValues(alpha: dim ? 0.18 : 1);
-      switch (node.kind) {
-        case KnowledgeGraphNodeKind.concept:
-          canvas.drawCircle(at, r, Paint()..color = color);
-        case KnowledgeGraphNodeKind.attachment:
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromCircle(center: at, radius: r),
-              Radius.circular(r * 0.4),
-            ),
-            Paint()..color = color.withValues(alpha: dim ? 0.15 : 0.7),
-          );
-        case KnowledgeGraphNodeKind.external:
-        case KnowledgeGraphNodeKind.unresolved:
-          canvas.drawCircle(at, r, Paint()..color = background);
-          canvas.drawCircle(
-            at,
-            r,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.2
-              ..color = color.withValues(alpha: dim ? 0.15 : 0.75),
-          );
-      }
-      if (i == scene.focus || i == activeIndex) {
-        canvas.drawCircle(
-          at,
-          r + 3.5,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
-            ..color = theme.foreground.withValues(alpha: dim ? 0.2 : 0.7),
-        );
-      }
-      if (attention[i] case final severity?) {
-        final dot = at + Offset(r * 0.75, -r * 0.75);
-        canvas.drawCircle(dot, 3.6, Paint()..color = background);
-        canvas.drawCircle(
-          dot,
-          2.6,
-          Paint()..color = theme.severityColor(severity),
-        );
-      }
-    }
-
-    // Labels: the focus and first ring always, the rest as zoom allows;
-    // a label never covers one placed before it. Labels that must show
-    // (focus, selection, hover) claim their space first.
-    final placed = <Rect>[];
-    final hoveredNode = hover.value?.node;
-    final zoomAlpha = _zoomAlpha(scale);
-    bool mustShow(int i) =>
-        i == scene.focus ||
-        i == hoveredNode ||
-        i == activeIndex ||
-        (highlighted != null && highlighted.contains(i));
-    final ordered = [
-      ...labelOrder.where(mustShow),
-      ...labelOrder.where((i) => !mustShow(i)),
-    ];
-    for (final i in ordered) {
-      final at = positions[i];
-      if (!screen.contains(at)) continue;
-      final node = scene.nodes[i];
-      final must = mustShow(i);
-      final rank = labelRank[i];
-      double alpha;
-      if (must) {
-        alpha = 1;
-      } else if (whole ? rank < _alwaysLabelled : (node.distance ?? 9) <= 1) {
-        alpha = 1;
-      } else {
-        alpha = zoomAlpha;
-      }
-      if (highlighted != null && !highlighted.contains(i)) alpha *= 0.3;
-      if (alpha < _minLabelAlpha) continue;
-      final tone = alpha > 0.85
-          ? 0
-          : alpha > 0.55
-          ? 1
-          : alpha > 0.3
-          ? 2
-          : 3;
-      final emphasis = i == scene.focus || i == activeIndex;
-      final near = (node.distance ?? 9) <= 1;
-      final style = _labelStyle(theme, emphasis: emphasis).copyWith(
-        color: (emphasis || near || must ? theme.foreground : muted).withValues(
-          alpha: const [0.92, 0.7, 0.45, 0.25][tone],
-        ),
-      );
-      final text = labels.get(
-        i * 8 + tone * 2 + (emphasis ? 1 : 0),
-        node.title,
-        style,
-        _labelMaxWidth(scene, i, emphasis: emphasis),
-        textScaler,
-        textDirection,
-      );
-      final rect = Rect.fromLTWH(
-        at.dx - text.width / 2,
-        at.dy + radii[i] + 3,
-        text.width,
-        text.height,
-      );
-      if (placed.any((other) => other.overlaps(rect.inflate(1)))) {
-        if (!must || i != scene.focus && i != hoveredNode) continue;
-      }
-      placed.add(rect);
-      // A soft halo keeps labels readable over lines.
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          rect.inflate(_labelHalo),
-          const Radius.circular(3),
-        ),
-        Paint()..color = background.withValues(alpha: 0.72 * alpha),
-      );
-      text.paint(canvas, rect.topLeft);
-    }
-  }
-
-  static void _arrow(Path path, Offset tip, Offset unit, double size) {
-    final back = tip - unit * size;
-    final normal = Offset(-unit.dy, unit.dx) * (size * 0.5);
-    path
-      ..moveTo(tip.dx, tip.dy)
-      ..lineTo(back.dx + normal.dx, back.dy + normal.dy)
-      ..lineTo(back.dx - normal.dx, back.dy - normal.dy)
-      ..close();
-  }
-
-  @override
-  bool shouldRepaint(_GraphPainter old) =>
-      !identical(old.scene, scene) ||
-      old.theme != theme ||
-      old.activeIndex != activeIndex ||
-      old.palette != palette ||
-      !_sameList(old.attention, attention);
-
-  static bool _sameList(List<Object?> a, List<Object?> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  @override
-  SemanticsBuilderCallback get semanticsBuilder => (size) {
-    final screen = Offset.zero & size;
-    return [
-      for (var i = 0; i < scene.nodes.length; i++)
-        if (screen.contains(_at(i)))
-          CustomPainterSemantics(
-            key: ValueKey('graph-node-${scene.nodes[i].id}'),
-            rect: Rect.fromCircle(
-              center: _at(i),
-              radius: math.max(8, _nodeRadius(scene, i, viewport.scale) + 4),
-            ),
-            properties: SemanticsProperties(
-              label: [
-                scene.nodes[i].title,
-                if (scene.nodes[i].type.isNotEmpty) scene.nodes[i].type,
-                if (i == scene.focus) words.focus,
-                if (attention[i] case final severity?)
-                  words.hasFindings(severity),
-              ].join(', '),
-              button: true,
-              selected: i == activeIndex,
-              textDirection: textDirection,
-              onTap: () => onSelect(scene.nodes[i].id),
-              // Painted semantics carry no custom actions, so opening is
-              // the long press, as it is with a finger.
-              onLongPress: () => onOpen(scene.nodes[i].id),
-              hintOverrides: SemanticsHintOverrides(
-                onLongPressHint: words.open,
-              ),
-            ),
-          ),
-    ];
-  };
-
-  @override
-  bool shouldRebuildSemantics(_GraphPainter old) => true;
 }

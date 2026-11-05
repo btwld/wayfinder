@@ -1,7 +1,8 @@
 import 'dart:collection';
 
-import 'knowledge.dart';
 import 'knowledge_files.dart';
+import 'knowledge_models.dart';
+import 'knowledge_severity.dart';
 
 /// What a tree row stands for.
 enum KnowledgeTreeNodeKind { bundle, folder, group, file }
@@ -20,8 +21,9 @@ final class KnowledgeFileTreeNode {
   });
 
   /// Unique within one projection: `bundle:<path>`, `directory:<path>`,
-  /// `type:<type>` (`type:<bundle>/<type>` under a bundle) or
-  /// `file:<path>`.
+  /// `type:<type>` (`type:<bundle>/<type>` under a bundle),
+  /// `group:<kind>` (`group:<bundle>/<kind>` under a bundle) for a
+  /// synthetic group, or `file:<path>`.
   final String id;
   final KnowledgeTreeNodeKind kind;
 
@@ -205,10 +207,7 @@ final class KnowledgeFileTreeProjection {
     final bundle = parentId?.substring('bundle:'.length);
     for (final file in members) {
       if (file.isConcept) {
-        final type = file.type.trim().isEmpty
-            ? knowledgeUntypedGroup
-            : file.type.trim();
-        (byType[type] ??= []).add(file);
+        (byType[file.type.trim()] ??= []).add(file);
       } else if (file.isAttachment) {
         attachments.add(file);
       } else {
@@ -217,13 +216,21 @@ final class KnowledgeFileTreeProjection {
     }
     final types = byType.keys.toList()
       ..sort((a, b) {
-        if (a == knowledgeUntypedGroup) return 1;
-        if (b == knowledgeUntypedGroup) return -1;
+        if (a.isEmpty) return 1;
+        if (b.isEmpty) return -1;
         return a.toLowerCase().compareTo(b.toLowerCase());
       });
-    KnowledgeFileTreeNode group(String name, List<KnowledgeFileEntry> files) {
+    KnowledgeFileTreeNode group(
+      String name,
+      List<KnowledgeFileEntry> files, {
+      String? synthetic,
+    }) {
       final path = bundle == null ? name : '$bundle/$name';
-      final id = 'type:$path';
+      final id = synthetic == null
+          ? 'type:$path'
+          : bundle == null
+          ? 'group:$synthetic'
+          : 'group:$bundle/$synthetic';
       return _parent(
         KnowledgeTreeNodeKind.group,
         id,
@@ -235,9 +242,16 @@ final class KnowledgeFileTreeProjection {
     }
 
     return List.unmodifiable([
-      for (final type in types) group(type, byType[type]!),
-      if (others.isNotEmpty) group(knowledgeOtherFilesGroup, others),
-      if (attachments.isNotEmpty) group(knowledgeAttachmentsGroup, attachments),
+      for (final type in types)
+        group(
+          type.isEmpty ? knowledgeUntypedGroup : type,
+          byType[type]!,
+          synthetic: type.isEmpty ? 'untyped' : null,
+        ),
+      if (others.isNotEmpty)
+        group(knowledgeOtherFilesGroup, others, synthetic: 'other'),
+      if (attachments.isNotEmpty)
+        group(knowledgeAttachmentsGroup, attachments, synthetic: 'attachments'),
     ]);
   }
 
@@ -337,7 +351,9 @@ final class KnowledgeFileTreeProjection {
       for (final node in nodes) {
         if (needle.isNotEmpty && !matches(node)) continue;
         rows.add((node: node, depth: depth));
-        if (node.isDirectory && isExpanded(node.id)) {
+        // A filter walks into a match, including one inside a collapsed
+        // folder, and into [keep]. An empty query still obeys [isExpanded].
+        if (node.isDirectory && (isExpanded(node.id) || needle.isNotEmpty)) {
           visit(node.children, depth + 1);
         }
       }

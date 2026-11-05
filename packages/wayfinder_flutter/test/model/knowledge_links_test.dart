@@ -25,6 +25,28 @@ void main() {
     test('a fragment and escapes do not change the file', () {
       expect(file('other.md#a-heading'), 'knowledge/guides/other.md');
       expect(file('my%20notes.md'), 'knowledge/guides/my notes.md');
+      expect(file('a%25b.md'), 'knowledge/guides/a%b.md');
+      expect(file('a%252Fb.md'), 'knowledge/guides/a%2Fb.md');
+      expect(file('%2E%2E/notes/a.md'), 'knowledge/notes/a.md');
+    });
+
+    test('an encoded separator, backslash or control character misses', () {
+      for (final href in [
+        'notes%2Fa.md',
+        'notes%2fa.md',
+        'sub/a%2Fb.md',
+        'a%5Cb.md',
+        'a%5cb.md',
+        r'a\b.md',
+        r'dir\file.md',
+        'a%0Ab.md',
+        'a%00b.md',
+        'a%7Fb.md',
+        'a\u0001b.md',
+        '%FF.md',
+      ]) {
+        expect(link(href), isA<KnowledgeOtherLink>(), reason: href);
+      }
     });
 
     test('a link out of the bundle goes nowhere', () {

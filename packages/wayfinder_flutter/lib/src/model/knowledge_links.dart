@@ -36,7 +36,8 @@ KnowledgeBodyLink knowledgeBodyLink(
   String href,
 ) {
   const other = KnowledgeOtherLink();
-  final uri = Uri.tryParse(href.trim());
+  final trimmed = href.trim();
+  final uri = Uri.tryParse(trimmed);
   if (uri == null) return other;
   if (uri.hasScheme) {
     return (uri.isScheme('http') || uri.isScheme('https')) && uri.host != ''
@@ -44,22 +45,34 @@ KnowledgeBodyLink knowledgeBodyLink(
         : other;
   }
   if (uri.hasAuthority) return other;
-  if (uri.path.isEmpty) {
+  final cut = trimmed.indexOf(RegExp(r'[?#]'));
+  final target = cut < 0 ? trimmed : trimmed.substring(0, cut);
+  if (target.isEmpty) {
     return uri.hasFragment ? const KnowledgeAnchorLink() : other;
   }
-  final String path;
-  try {
-    path = Uri.decodeComponent(uri.path);
-  } on ArgumentError {
-    return other;
-  } on FormatException {
-    // An escape that is not valid UTF-8.
-    return other;
+  // Decode one segment at a time. A decoded separator or control character
+  // misses: `%2F` and `%5C` are not extra slashes, and a literal `%` is `%25`.
+  final decoded = <String>[];
+  for (final segment in target.split('/')) {
+    final String value;
+    try {
+      value = segment.contains('%') ? Uri.decodeComponent(segment) : segment;
+    } on ArgumentError {
+      return other;
+    } on FormatException {
+      return other;
+    }
+    if (value.contains('/') ||
+        value.contains(r'\') ||
+        value.runes.any((rune) => rune < 32 || rune == 127)) {
+      return other;
+    }
+    decoded.add(value);
   }
   final file = documentPath.split('/')..removeLast();
-  final base = path.startsWith('/') ? _segments(bundlePath) : file;
+  final base = target.startsWith('/') ? _segments(bundlePath) : file;
   final resolved = <String>[...base];
-  for (final segment in path.split('/')) {
+  for (final segment in decoded) {
     if (segment.isEmpty || segment == '.') continue;
     if (segment == '..') {
       if (resolved.isEmpty) return other;

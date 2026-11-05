@@ -2,6 +2,7 @@
 // platform answers through okf and Wayfinder; tests answer from memory.
 import 'dart:async';
 
+import 'knowledge_graph_scene.dart';
 import 'knowledge_models.dart';
 
 /// The knowledge bundles of one project root, read-only. The project is
@@ -21,7 +22,7 @@ abstract interface class KnowledgeProject {
   Future<KnowledgeProjectSnapshot> snapshot({
     String? graphBundle,
     String? focus,
-    int depth = 2,
+    int depth = knowledgeGraphDefaultDepth,
   });
 
   /// How the Profile judges [bundle] as the last snapshot read it.
@@ -34,10 +35,14 @@ abstract interface class KnowledgeProject {
 
   /// The link graph of [bundle]; with [focus], only the concepts within
   /// [depth] links of it.
+  ///
+  /// [depth] is [clampKnowledgeGraphDepth], 1 to 3, and defaults to
+  /// [knowledgeGraphDefaultDepth], the same range and default as
+  /// [KnowledgeGraphQuery].
   Future<KnowledgeGraph> graph({
     required String bundle,
     String? focus,
-    int depth = 2,
+    int depth = knowledgeGraphDefaultDepth,
   });
 
   /// Whether semantic search is available here.

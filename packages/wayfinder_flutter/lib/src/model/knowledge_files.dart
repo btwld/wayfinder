@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
-import 'knowledge.dart';
+import 'knowledge_severity.dart';
 
 /// Kind of file inside a workspace's knowledge bundle or root configuration.
 enum KnowledgeFileKind { concept, indexFile, log, config, reference }

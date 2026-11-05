@@ -40,23 +40,48 @@ enum KnowledgeGraphLayer {
 /// What a node of the scene stands for.
 enum KnowledgeGraphNodeKind { concept, attachment, external, unresolved }
 
+/// How many links a local graph reaches when the caller does not choose.
+const knowledgeGraphDefaultDepth = 1;
+
+/// The nearest ring a local graph shows.
+const knowledgeGraphMinDepth = 1;
+
+/// The furthest ring a local graph shows.
+const knowledgeGraphMaxDepth = 3;
+
+/// Brings [depth] into [knowledgeGraphMinDepth]..[knowledgeGraphMaxDepth].
+///
+/// A [KnowledgeGraphQuery] reports this value. A project graph takes the
+/// same range, and the same [knowledgeGraphDefaultDepth] when the caller
+/// does not choose.
+int clampKnowledgeGraphDepth(int depth) => depth < knowledgeGraphMinDepth
+    ? knowledgeGraphMinDepth
+    : depth > knowledgeGraphMaxDepth
+    ? knowledgeGraphMaxDepth
+    : depth;
+
 /// What the Graph was asked to show.
 @immutable
 final class KnowledgeGraphQuery {
   const KnowledgeGraphQuery({
     this.scope = KnowledgeGraphScope.local,
     this.focus,
-    this.depth = 1,
+    int depth = knowledgeGraphDefaultDepth,
     this.layers = const {},
-  });
+  }) : _depth = depth; // ignore: prefer_initializing_formals
 
   final KnowledgeGraphScope scope;
 
   /// The concept at the centre of a local graph.
   final String? focus;
 
+  final int _depth;
+
   /// How many links from [focus] a local graph reaches, 1 to 3.
-  final int depth;
+  ///
+  /// A value outside that range is [clampKnowledgeGraphDepth].
+  int get depth => clampKnowledgeGraphDepth(_depth);
+
   final Set<KnowledgeGraphLayer> layers;
 
   @override
@@ -118,6 +143,7 @@ final class KnowledgeGraphSceneLink {
     required this.backward,
     required this.typed,
     required this.labels,
+    this.origins = const [],
   });
 
   /// Indexes into [KnowledgeGraphScene.nodes]: a link always runs from
@@ -132,8 +158,12 @@ final class KnowledgeGraphSceneLink {
   /// structured link; body links alone are not typed.
   final bool typed;
 
-  /// The relationship names (or link kinds) the line stands for.
+  /// Relationship names the line stands for, in the order they were read.
   final List<String> labels;
+
+  /// Origins of the edges that name no relationship, in the order they
+  /// were read. A hover card asks the canvas labels for their words.
+  final List<KnowledgeLinkOrigin> origins;
 }
 
 /// A laid-out part of a bundle's graph.
@@ -226,7 +256,7 @@ KnowledgeGraphScene knowledgeGraphScene(
   final concepts = {for (final node in graph.nodes) node.id: node};
   final local = query.scope == KnowledgeGraphScope.local;
   final focus = local && concepts.containsKey(query.focus) ? query.focus : null;
-  final depth = query.depth.clamp(1, 3);
+  final depth = query.depth;
 
   // Links from the focus, following concept links either way.
   final distances = <String, int>{};
@@ -330,7 +360,11 @@ KnowledgeGraphScene knowledgeGraphScene(
     }
     final typed = edge.origin != KnowledgeLinkOrigin.body;
     pair.typed |= typed;
-    pair.labels.add(edge.relationship ?? _originLabel(edge.origin));
+    if (edge.relationship case final relationship?) {
+      pair.labels.add(relationship);
+    } else {
+      pair.origins.add(edge.origin);
+    }
   }
 
   final ordered = nodes.values.toList()..sort((a, b) => a.id.compareTo(b.id));
@@ -345,6 +379,7 @@ KnowledgeGraphScene knowledgeGraphScene(
               backward: pair.backward,
               typed: pair.typed,
               labels: pair.labels.toList(),
+              origins: pair.origins.toList(),
             )
           else
             KnowledgeGraphSceneLink(
@@ -353,6 +388,7 @@ KnowledgeGraphScene knowledgeGraphScene(
               backward: false,
               typed: pair.typed,
               labels: pair.labels.toList(),
+              origins: pair.origins.toList(),
             ),
       ]..sort((a, b) {
         final bySource = a.source.compareTo(b.source);
@@ -372,6 +408,7 @@ KnowledgeGraphScene knowledgeGraphScene(
 final class _Pair {
   bool forward = false, backward = false, typed = false;
   final labels = <String>{};
+  final origins = <KnowledgeLinkOrigin>{};
 }
 
 KnowledgeGraphNodeKind? _targetKind(KnowledgeLinkResolution resolution) =>
@@ -389,16 +426,6 @@ KnowledgeGraphLayer _layerOf(KnowledgeGraphNodeKind kind) => switch (kind) {
   KnowledgeGraphNodeKind.attachment => KnowledgeGraphLayer.attachments,
   KnowledgeGraphNodeKind.external => KnowledgeGraphLayer.external,
   _ => KnowledgeGraphLayer.unresolved,
-};
-
-String _originLabel(KnowledgeLinkOrigin origin) => switch (origin) {
-  KnowledgeLinkOrigin.body => 'Linked in text',
-  KnowledgeLinkOrigin.resource => 'Resource',
-  KnowledgeLinkOrigin.sourceResource => 'Source',
-  KnowledgeLinkOrigin.computation => 'Computation',
-  KnowledgeLinkOrigin.executorResource => 'Executor',
-  KnowledgeLinkOrigin.attesterResource => 'Attester',
-  KnowledgeLinkOrigin.relationships => 'Related',
 };
 
 /// A short name for a link target that is no concept: a git pin's short

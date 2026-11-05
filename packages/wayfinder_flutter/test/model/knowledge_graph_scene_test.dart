@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wayfinder_flutter/src/graph/knowledge_graph_labels.dart';
 import 'package:wayfinder_flutter/src/model/knowledge.dart';
 
 KnowledgeGraphNode _node(String id, {String type = 'guide'}) =>
@@ -103,6 +104,69 @@ void main() {
     );
     expect(typed.typed, isTrue);
     expect(typed.labels, ['depends-on']);
+    expect(typed.origins, isEmpty);
+    final body = scene.links.singleWhere(
+      (l) => {scene.nodes[l.source].id, scene.nodes[l.target].id}.contains('b'),
+    );
+    expect(body.labels, isEmpty);
+    expect(body.origins, [KnowledgeLinkOrigin.body]);
+  });
+
+  test('the project default depth and the query show the same ring', () {
+    expect(knowledgeGraphDefaultDepth, const KnowledgeGraphQuery().depth);
+    final byQuery = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(focus: 'focus'),
+    );
+    final byProjectDefault = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(
+        focus: 'focus',
+        depth: knowledgeGraphDefaultDepth,
+      ),
+    );
+    expect(_ids(byQuery), _ids(byProjectDefault));
+    expect(_ids(byQuery), {'focus', 'a', 'b', 'c'});
+    expect(byQuery.nodes.map((node) => node.distance), isNot(contains(2)));
+  });
+
+  test('a depth outside 1 to 3 is the nearest bound', () {
+    expect(const KnowledgeGraphQuery(depth: 0).depth, knowledgeGraphMinDepth);
+    expect(const KnowledgeGraphQuery(depth: 4).depth, knowledgeGraphMaxDepth);
+    expect(
+      const KnowledgeGraphQuery(depth: 0),
+      const KnowledgeGraphQuery(depth: 1),
+    );
+    final near = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(focus: 'focus', depth: 0),
+    );
+    final one = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(focus: 'focus', depth: 1),
+    );
+    final far = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(focus: 'focus', depth: 4),
+    );
+    final three = knowledgeGraphScene(
+      _graph,
+      const KnowledgeGraphQuery(focus: 'focus', depth: 3),
+    );
+    expect(_ids(near), _ids(one));
+    expect(_ids(far), _ids(three));
+    expect(_ids(far), contains('far'));
+  });
+
+  test('link origins keep their enum and the labels supply the words', () {
+    const labels = KnowledgeGraphLabels();
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.body), 'Linked in text');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.resource), 'Resource');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.sourceResource), 'Source');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.computation), 'Computation');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.executorResource), 'Executor');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.attesterResource), 'Attester');
+    expect(labels.linkOrigin(KnowledgeLinkOrigin.relationships), 'Related');
   });
 
   test('depth reaches further rings', () {
