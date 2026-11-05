@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:wayfinder/project.dart' show WayfinderException;
 import 'package:wayfinder_cli/src/agent_setup.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/version.dart';
@@ -173,6 +174,43 @@ void main() {
       'command': 'wayfinder',
       'args': ['mcp'],
     };
+
+    for (final (relative, hooks, sessionHooks) in [
+      ('.mcp.json', false, false),
+      ('.claude/settings.json', true, false),
+      ('.codex/hooks.json', true, false),
+      ('.claude/settings.json', false, true),
+      ('.codex/hooks.json', false, true),
+      ('.gemini/settings.json', false, true),
+    ]) {
+      for (final (contents, message) in [
+        ('{', 'is not valid JSON.'),
+        ('[]', 'must contain a JSON object.'),
+      ]) {
+        test(
+          '$relative $message (hooks: $hooks, session: $sessionHooks)',
+          () async {
+            final file = File(p.join(project, relative));
+            await file.parent.create(recursive: true);
+            await file.writeAsString(contents);
+            final label = relative == '.mcp.json' ? relative : file.path;
+            await expectLater(
+              setup().configureProject(
+                project,
+                hooks: hooks,
+                sessionHooks: sessionHooks,
+              ),
+              throwsA(
+                isA<WayfinderException>()
+                    .having((e) => e.code, 'code', 'setup-failed')
+                    .having((e) => e.message, 'message', '$label $message'),
+              ),
+            );
+            expect(await file.readAsString(), contents);
+          },
+        );
+      }
+    }
 
     test('writes the plugin-equivalent server and is idempotent', () async {
       await setup().configureProject(project);

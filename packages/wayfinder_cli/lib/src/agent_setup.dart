@@ -154,25 +154,9 @@ class AgentSetup {
       );
     }
     final file = File(p.join(project, '.mcp.json'));
-    var config = <String, Object?>{};
-    if (await file.exists()) {
-      final Object? decoded;
-      try {
-        decoded = jsonDecode(await file.readAsString());
-      } on FormatException {
-        throw const WayfinderException(
-          'setup-failed',
-          '.mcp.json is not valid JSON.',
-        );
-      }
-      if (decoded is! Map<String, Object?>) {
-        throw const WayfinderException(
-          'setup-failed',
-          '.mcp.json must contain a JSON object.',
-        );
-      }
-      config = decoded;
-    }
+    final config = await file.exists()
+        ? await _readJsonObject(file, label: '.mcp.json')
+        : <String, Object?>{};
     final servers = config['mcpServers'] ?? <String, Object?>{};
     if (servers is! Map<String, Object?>) {
       throw const WayfinderException(
@@ -217,6 +201,26 @@ class AgentSetup {
     );
   }
 
+  static Future<Map<String, Object?>> _readJsonObject(
+    File file, {
+    String? label,
+  }) async {
+    final name = label ?? file.path;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(await file.readAsString());
+    } on FormatException {
+      throw WayfinderException('setup-failed', '$name is not valid JSON.');
+    }
+    if (decoded is! Map<String, Object?>) {
+      throw WayfinderException(
+        'setup-failed',
+        '$name must contain a JSON object.',
+      );
+    }
+    return decoded;
+  }
+
   /// Installs context-only startup hooks. Grok ignores SessionStart stdout, so
   /// its bootstrap uses the project instructions it reads at startup instead.
   Future<void> _writeSessionHooks(String project) async {
@@ -227,25 +231,9 @@ class AgentSetup {
       ('.gemini', 'settings.json', 5000),
     ]) {
       final file = File(p.join(project, directory, filename));
-      var config = <String, Object?>{};
-      if (await file.exists()) {
-        final Object? decoded;
-        try {
-          decoded = jsonDecode(await file.readAsString());
-        } on FormatException {
-          throw WayfinderException(
-            'setup-failed',
-            '${file.path} is not valid JSON.',
-          );
-        }
-        if (decoded is! Map<String, Object?>) {
-          throw WayfinderException(
-            'setup-failed',
-            '${file.path} must contain a JSON object.',
-          );
-        }
-        config = decoded;
-      }
+      final config = await file.exists()
+          ? await _readJsonObject(file)
+          : <String, Object?>{};
       final hooks = config['hooks'] ?? <String, Object?>{};
       if (hooks is! Map<String, Object?>) {
         throw WayfinderException(
@@ -381,21 +369,7 @@ class AgentSetup {
   /// setting and hook. A file left empty is deleted.
   Future<void> _removeStopHooks(File file) async {
     if (!await file.exists()) return;
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(await file.readAsString());
-    } on FormatException {
-      throw WayfinderException(
-        'setup-failed',
-        '${file.path} is not valid JSON.',
-      );
-    }
-    if (decoded is! Map<String, Object?>) {
-      throw WayfinderException(
-        'setup-failed',
-        '${file.path} must contain a JSON object.',
-      );
-    }
+    final decoded = await _readJsonObject(file);
     if (decoded case {
       'hooks':
           final Map<String, Object?> hooks &&

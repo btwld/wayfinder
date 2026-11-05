@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/src/project/profile_resolver.dart'
-    show resolveDefaultBranch;
+    show resolveDefaultBranch, resolveSourcePackage;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -839,42 +839,74 @@ void main() {
     });
   });
 
-  test('a refresh follows a source that moved its default branch', () async {
-    final resolver = WayfinderProfileResolver(dataDirectory: data);
-    final first = await resolveDefaultBranch(
-      resolver,
-      projectRoot: project.path,
-      git: source.path,
-    );
-    final previous = await _gitOutput(source.path, [
-      'rev-parse',
-      '--abbrev-ref',
-      'HEAD',
-    ]);
-    await _git(source.path, ['checkout', '-q', '-b', 'relocated-default']);
-    await advanceSource();
-    final moved = await sourceCommit();
-    expect(moved, isNot(first.commit));
+  for (final package in [false, true]) {
+    test('default-branch ${package ? 'package' : 'lookup'} respects fetch '
+        'policy and follows a moved branch', () async {
+      final resolver = WayfinderProfileResolver(dataDirectory: data);
+      Future<({String commit, List<ProfileFetch> fetches})> resolve({
+        bool offline = false,
+        ProfileFetchPolicy? allowFetch,
+      }) async {
+        if (!package) {
+          return resolveDefaultBranch(
+            resolver,
+            projectRoot: project.path,
+            git: source.path,
+            offline: offline,
+            allowFetch: allowFetch,
+          );
+        }
+        final result = await resolveSourcePackage(
+          resolver,
+          projectRoot: project.path,
+          git: source.path,
+          ref: null,
+          path: 'profiles/bitwild',
+          offline: offline,
+          allowFetch: allowFetch,
+        );
+        expect(result.package.id, _bitwild);
+        expect(result.package.ref, result.package.commit);
+        return (commit: result.package.commit, fetches: result.fetches);
+      }
 
-    final second = await resolveDefaultBranch(
-      resolver,
-      projectRoot: project.path,
-      git: source.path,
-    );
-    expect(second.commit, moved);
-    expect(second.fetches.single.kind, ProfileFetchKind.refresh);
-    expect(second.fetches.single.ref, isNull);
+      await expectLater(
+        resolve(offline: true),
+        throwsA(isA<ProfileFetchRequiredException>()),
+      );
+      final first = await resolve();
+      expect(first.fetches.single.kind, ProfileFetchKind.clone);
+      expect(first.fetches.single.ref, isNull);
+      final previous = await _gitOutput(source.path, [
+        'rev-parse',
+        '--abbrev-ref',
+        'HEAD',
+      ]);
+      await _git(source.path, ['checkout', '-q', '-b', 'relocated-default']);
+      await advanceSource();
+      final moved = await sourceCommit();
+      expect(moved, isNot(first.commit));
 
-    await _git(source.path, ['branch', '-D', previous]);
-    await advanceSource();
-    final afterDelete = await sourceCommit();
-    final third = await resolveDefaultBranch(
-      resolver,
-      projectRoot: project.path,
-      git: source.path,
-    );
-    expect(third.commit, afterDelete);
-  });
+      final cached = await resolve(offline: true, allowFetch: (_) => false);
+      expect(cached.commit, first.commit);
+      expect(cached.fetches, isEmpty);
+      await expectLater(
+        resolve(allowFetch: (_) => false),
+        throwsA(isA<ProfileFetchRequiredException>()),
+      );
+
+      final second = await resolve();
+      expect(second.commit, moved);
+      expect(second.fetches.single.kind, ProfileFetchKind.refresh);
+      expect(second.fetches.single.ref, isNull);
+
+      await _git(source.path, ['branch', '-D', previous]);
+      await advanceSource();
+      final afterDelete = await sourceCommit();
+      final third = await resolve();
+      expect(third.commit, afterDelete);
+    });
+  }
 
   test('get fetches a locked commit the mirror lacks', () async {
     final branch = await _gitOutput(source.path, [
