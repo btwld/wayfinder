@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Require successful push/main source CI at the immutable publication SHA."""
+from dataclasses import asdict
 import json
 import os
 from pathlib import Path
@@ -10,8 +11,6 @@ import sys
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-
-from dataclasses import asdict  # noqa: E402
 
 from publication import Gate, source_ci  # noqa: E402
 

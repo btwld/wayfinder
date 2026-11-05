@@ -1819,7 +1819,6 @@ class WayfinderKnowledgeStore {
     const batchSize = 32;
     for (var i = 0; i < files.length; i += batchSize) {
       final end = i + batchSize < files.length ? i + batchSize : files.length;
-      var malformed = false;
       final batch = await Future.wait(
         files.getRange(i, end).map((entry) async {
           final path = p.posix.joinAll(
@@ -1831,12 +1830,10 @@ class WayfinderKnowledgeStore {
             // Match the loader's text decoding, including its BOM handling.
             // Malformed bytes report the loader's invalid-bundle diagnostic,
             // rather than suggesting that reindexing can repair the input.
-            // One bad file inspects the bundle once for this batch.
             final String text;
             try {
               text = utf8.decode(bytes);
             } on FormatException {
-              malformed = true;
               return null;
             }
             digest = sha256.convert(utf8.encode(text)).toString();
@@ -1846,7 +1843,8 @@ class WayfinderKnowledgeStore {
           return MapEntry(path, digest);
         }),
       );
-      if (malformed) {
+      // One bad file inspects the bundle once for this batch.
+      if (batch.contains(null)) {
         throw OkfBundleLoadException(
           await const OkfBundleLoader().inspect(root),
         );

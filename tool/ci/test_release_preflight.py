@@ -20,6 +20,7 @@ SPEC = importlib.util.spec_from_file_location(
 preflight = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = preflight
 SPEC.loader.exec_module(preflight)
+publication = importlib.import_module('publication')
 CLI_VERSIONS = {'wayfinder': '1.0.0', 'wayfinder_embeddings': '1.0.0'}
 
 
@@ -107,6 +108,7 @@ class SourceCiTest(unittest.TestCase):
             return json.dumps(run)
 
         original_directory = Path.cwd()
+        original_path = sys.path.copy()
         try:
             os.chdir(preflight.ROOT)
             for event, branch, accepted in [('pull_request', 'feature', False),
@@ -126,6 +128,7 @@ class SourceCiTest(unittest.TestCase):
                         self.assertEqual(commands.call_count, 2)
         finally:
             os.chdir(original_directory)
+            sys.path[:] = original_path
 
 
 class HostedProbeTest(unittest.TestCase):
@@ -335,8 +338,7 @@ class PreflightPrerequisiteTest(unittest.TestCase):
             checkout = Path(temporary)
             scripts = checkout / 'tool/ci'
             scripts.mkdir(parents=True)
-            for name in ('publication.py', 'release-preflight.py',
-                         'verify-siblings-published.py', 'verify-workspace-floors.py'):
+            for name in ('publication.py', 'release-preflight.py'):
                 shutil.copyfile(preflight.ROOT / 'tool/ci' / name, scripts / name)
             (checkout / 'pubspec.yaml').write_text('workspace:\n  - broken\n')
             (checkout / 'broken').mkdir()
@@ -488,7 +490,8 @@ class SiblingPublicationTests(unittest.TestCase):
         response.__enter__.return_value.read.return_value = json.dumps({'versions': [
             {'version': '1.0.0', 'retracted': True}, {'version': '2.0.0'}]}).encode()
         with mock.patch('urllib.request.urlopen', return_value=response):
-            self.assertEqual(preflight.published_versions('example'), {'2.0.0'})
+            self.assertEqual(publication.listed_versions('example'), {'1.0.0', '2.0.0'})
+            self.assertEqual(publication.published_versions('example'), {'2.0.0'})
 
 
 @unittest.skipIf(os.name == 'nt', 'publication workflows run in Bash on Linux')
