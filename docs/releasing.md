@@ -213,10 +213,10 @@ replacing release assets. Reruns verify existing
 release bytes and refuse to overwrite mismatches. The installer verification
 job uses local scripts with `WAYFINDER_VERSION`, so it exercises exactly the new
 version. **Verify public Wayfinder installation** runs on Ubuntu for installer
-changes and weekly. Before distributing a new native release, use the native
-build and installer checks for each target platform. Dispatch **Verify public
-Wayfinder installation** with the macOS or Windows runner to smoke-test the
-published archives on those platforms. The **Installer scripts** workflow
+changes and weekly. Pull requests, pushes, and the weekly run stay on Ubuntu.
+Dispatch **Verify public Wayfinder installation** and choose the macOS or
+Windows runner to smoke-test the published archives on those platforms; that
+choice is the only way those runners start. The **Installer scripts** workflow
 checks Windows PowerShell 5.1 and PowerShell 7 on installer pull requests.
 
 ## Partial recovery
