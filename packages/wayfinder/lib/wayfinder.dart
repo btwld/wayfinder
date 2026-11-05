@@ -6,6 +6,7 @@ library;
 export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
+export 'src/path_targets.dart' show resolvePathTarget;
 export 'src/profile_finding.dart';
 export 'src/profile_package.dart';
 export 'src/profile_rule_descriptors.dart'

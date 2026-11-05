@@ -130,3 +130,15 @@ Date: 2026-10-26.
 
 Define the prepared public surfaces and compatibility obligations in the [1.0 contract](docs/stability.md), because embedders and machine consumers need an explicit boundary across independently versioned packages; public breaking changes carry major releases and migration notes, while Profile releases remain independent.
 Require successful source CI from the exact commit's push to main and independent hosted CLI resolution before release eligibility, because a green PR or workspace resolution cannot establish those facts; the [read-only preflight and remaining distribution gates](docs/releasing.md#release-preflight) can therefore stay blocked on unpublished siblings or missing main evidence without declaring failed candidate code.
+
+## Inventory-authoritative path targets
+
+Date: 2026-11-04.
+
+Use one public path resolver for validation and retrieval, with injected inventory membership and disk lookup only outside the bundle. Candidate deletions and malformed encoded paths previously depended on graph classification or stale files on disk; strict OKF segment decoding and the loaded inventory now determine internal targets. Missing or malformed citations can gain findings/notices, and literal percent signs must be encoded as `%25`.
+
+## Bounded adoption paths and process cleanup
+
+Date: 2026-11-04.
+
+Refuse parent segments and any-case `.git` segments at the adoption request boundary, for the bundle, host inputs and seed concepts, before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget. A failed listing kills those verified descendants with the root and resumes only non-root ids whose parentage no longer matches. POSIX PID operations remain best effort because they are not atomic process handles.

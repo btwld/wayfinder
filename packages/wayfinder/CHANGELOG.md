@@ -1,10 +1,17 @@
 # 1.0.0 (unreleased)
 
+- Correct `path-targets-exist` for no-space invalid paths, encoded separators,
+  backslashes and malformed percent escapes. Encode literal percent as `%25`.
+  Internal files and implied directories come only from the loaded inventory;
+  a candidate deletion cannot resolve through the old disk file. Relative paths
+  outside the bundle may still resolve on disk. The public `resolvePathTarget`
+  shares those decisions with retrieval.
+- Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
+  cannot supply a definition, and unused quoted definitions remain visible.
 - Prepare the first stable validation/project/adoption/authoring release.
   The accepted engine contract and [stability boundaries](../../docs/stability.md)
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.
-
 - **BREAKING:** Reads Profile package format 3 only, as a JSON integer.
   Format 2 is `profile-unsupported`, never silently reinterpreted. A
   non-integer value, including `3.0`, is malformed rather than a supported
@@ -19,8 +26,17 @@
   rules do not use the fact needs no rule changes, but its entire parent
   chain must also be reviewed and migrated. Migrated Bitwild keeps
   its previous findings, with its existing exceptions in its own rule.
-- Git timeout and cancellation cleanup also terminate live descendants of
+- Adoption rejects parent segments such as `sub/../knowledge` and any-case
+  `.git` segments with `adoption-invalid` before planning writes.
+- Git timeout and cancellation cleanup freezes the root through its kill,
+  discovers late-forked descendants and shares one process-inspection budget.
+  A failed process listing kills verified frozen descendants with the root
+  and resumes only non-root ids whose parentage no longer matches.
+  It also terminates live descendants of
   SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Adoption seed concepts use the same project-relative path check as the
+  bundle and host inputs, so a drive letter or any-case `.git` segment is
+  `adoption-invalid`.
 - Discovery, binding and resolution share one canonical root check. All
   readable configured roots must be disjoint, even when one is selected.
   An unrelated, unselected missing bundle still does not prevent selection.

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'cancellation.dart';
 import 'exception.dart';
+import 'process_tree_cleanup.dart';
 
 /// A finished Git command. [stdout] keeps Git's bytes, because a blob is
 /// not text; [text] decodes them as UTF-8.
@@ -596,9 +597,10 @@ final class _LocalGitProcess implements GitProcess {
 }
 
 /// Sends kills to the live descendants of [process], deepest first, then
-/// the process. Parentage is checked again immediately before each kill;
-/// the owned root must still be live. POSIX process ids/parentage are not
-/// atomic handles: exit/reparent/fork races remain best effort.
+/// the process. The discovered tree is frozen top-down with `SIGSTOP` and
+/// parentage is checked again before sending `SIGKILL`; the owned root must
+/// still be live. POSIX process ids/parentage are not atomic handles:
+/// exit/reparent/fork races remain best effort.
 Future<void> _killTree(
   Process process, {
   required bool Function() exited,
@@ -607,39 +609,13 @@ Future<void> _killTree(
     if (Platform.isWindows) {
       await Process.run('taskkill', ['/T', '/F', '/PID', '${process.pid}']);
     } else {
-      final clock = Stopwatch()..start();
-      const limit = Duration(seconds: 2);
-      Future<Map<int, int>> parents() => _processParents(limit - clock.elapsed);
-      if (exited()) return;
-      final initial = await parents();
-      final children = <int, List<int>>{};
-      for (final MapEntry(key: child, value: parent) in initial.entries) {
-        children.putIfAbsent(parent, () => []).add(child);
-      }
-      final owned = <int>{process.pid};
-      final order = [process.pid];
-      for (var i = 0; i < order.length; i++) {
-        for (final child in children[order[i]] ?? const <int>[]) {
-          if (child > 0 && owned.add(child)) order.add(child);
-        }
-      }
-      for (final child in order.skip(1).toList().reversed) {
-        if (exited() || clock.elapsed >= limit) break;
-        final current = await parents();
-        var node = child;
-        var stillOwned = true;
-        while (node != process.pid) {
-          final parent = initial[node];
-          if (parent == null || current[node] != parent) {
-            stillOwned = false;
-            break;
-          }
-          node = parent;
-        }
-        if (stillOwned && !exited()) {
-          Process.killPid(child, ProcessSignal.sigkill);
-        }
-      }
+      await cleanupPosixProcessTree(
+        root: process.pid,
+        exited: exited,
+        parents: _processParents,
+        signal: Process.killPid,
+        killRoot: () => process.kill(ProcessSignal.sigkill),
+      );
     }
   } on Exception {
     // Listing/termination is best effort; never leave Git alive on failure.
