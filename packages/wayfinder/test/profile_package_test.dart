@@ -76,7 +76,7 @@ void main() {
       );
 
   group('parse refuses whole what this engine cannot evaluate', () {
-    for (final format in <num>[2, 2.0, 4, 4.0, 9007199254740993]) {
+    for (final format in <int>[2, 4, 9007199254740993]) {
       test('refuses package format $format before any schema check', () {
         final json = jsonDecode(packageJson()) as Map<String, Object?>;
         json['format'] = format;
@@ -92,16 +92,7 @@ void main() {
       });
     }
 
-    test('the supported integral representation 3.0 is accepted', () {
-      final json = jsonDecode(packageJson()) as Map<String, Object?>;
-      json['format'] = 3.0;
-      expect(
-        ProfilePackage.parse(jsonEncode(json)).id,
-        ProfileId.parse('probe'),
-      );
-    });
-
-    for (final format in <Object>[2.5, '2']) {
+    for (final format in <Object>[2.0, 2.5, 3.0, 4.0, '2']) {
       test('a non-integer format $format is malformed, not unsupported', () {
         final json = jsonDecode(packageJson()) as Map<String, Object?>;
         json['format'] = format;

@@ -251,16 +251,25 @@ final class ProfilePackage {
     } on FormatException catch (error) {
       throw ProfilePackageException('package', error.message);
     }
-    if (decoded case {'format': final num format}
-        when format.isFinite &&
-            format % 1 == 0 &&
-            format != supportedPackageFormat) {
-      throw ProfilePackageException(
-        'format',
-        'package format $format is not supported; this wayfinder reads '
-            'format $supportedPackageFormat',
-        unsupported: true,
-      );
+    // Format is a JSON integer. A whole-number float such as 3.0 is malformed,
+    // not another spelling of the supported format.
+    if (decoded is Map && decoded.containsKey('format')) {
+      final format = decoded['format'];
+      if (format is int && format != supportedPackageFormat) {
+        throw ProfilePackageException(
+          'format',
+          'package format $format is not supported; this wayfinder reads '
+              'format $supportedPackageFormat',
+          unsupported: true,
+        );
+      }
+      if (format is! int) {
+        throw ProfilePackageException(
+          'format',
+          'must be $supportedPackageFormat',
+          unsupported: false,
+        );
+      }
     }
     if (profilePackageSchemaViolation(decoded) case (
       :final where,

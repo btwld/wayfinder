@@ -37,13 +37,19 @@ void main() {
     );
   });
 
-  test('accepts the supported integral format representation 3.0', () async {
+  test('rejects the non-integer format representation 3.0', () async {
     final document = jsonDecode(packageJson()) as Map<String, Object?>;
     document['format'] = 3.0;
     final json = jsonEncode(document);
-    final bounded = await ProfilePackage.parseWithin(json);
-    expect(bounded.id, ProfilePackage.parse(json).id);
-    expect(bounded.id, ProfileId.parse('probe'));
+    await expectLater(
+      ProfilePackage.parseWithin(json),
+      throwsA(
+        isA<ProfilePackageException>()
+            .having((error) => error.where, 'where', 'format')
+            .having((error) => error.message, 'message', 'must be 3')
+            .having((error) => error.unsupported, 'unsupported', isFalse),
+      ),
+    );
   });
 
   test('throws what parse throws', () async {
