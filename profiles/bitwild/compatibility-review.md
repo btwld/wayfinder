@@ -1,6 +1,6 @@
 # Bitwild 2026.3 compatibility with OKF 0.2
 
-Status: Complete for `bitwild-profile` 2026.3
+Status: Complete for `bitwild-profile` 2026.3, package format 3
 
 This non-normative review applies the compatibility test of the
 [engine contract](../../implementation/okf-implementation-guide.md#5-profile-packages)
@@ -36,7 +36,7 @@ authors use an OKF mechanism, never what the mechanism means.
 | `configuration-legacy-registry` | §3.1 makes every non-reserved Markdown file an ordinary concept | Pass | Retiring three legacy registry concepts removes duplicate configuration and changes no OKF requirement. |
 | `configured-tag-undeclared`, `configured-tag-duplicate` | §4.1 keeps tags open | Pass | Declared and unique tag values are producer policy. OKF reading of tags is unchanged. |
 | `concept-baseline-fields` | §4.1 defines `type`, `title`, and `description`; §5.4 defines `status` | Pass | Requiring upstream fields that OKF makes recommended or optional narrows producers. Generic consumers read the same fields. |
-| `frontmatter-fields-declared` | §4.1 permits producer keys and forbids consumers to reject unknown ones | Pass | Bitwild restricts its own output. The engine still loads the concept and keeps the key, and the OKF result is unchanged. |
+| `frontmatter-fields-declared` | §4.1 permits producer keys and forbids consumers to reject unknown ones | Pass | Bitwild restricts its own output; declared keys from the whole selected chain are accepted. The 2026-11-04 message clarification changes no verdict. The engine still loads the concept and keeps the key, and the OKF result is unchanged. |
 | `status-value` | §5.4 defines `draft`, `stable`, and `deprecated` | Pass | The rule restates OKF's values and keeps their document-lifecycle meaning. |
 | `generation-provenance-recommended` | §5.2 defines `generated` | Pass | An advisory recommends an upstream field and never changes the gate. Missing `generated` stays valid OKF. |
 | `used-type-registered` | §4.1 permits any nonempty type | Pass | The rule checks producers against the declared types. Unknown types stay loadable for generic consumers. |
@@ -50,7 +50,7 @@ authors use an OKF mechanism, never what the mechanism means.
 | `raw-directory-placement`, `raw-directory-markdown` | §3.1 leaves organization to producers and makes only Markdown files concepts; §6.3 defines `references/` | Pass | Narrows where Bitwild keeps verbatim originals. Assets stay non-concepts, and the OKF result is unchanged. |
 | `root-structure-files` | §3.1 reserves `index.md` and `log.md` | Pass | Requiring both reserved files keeps their meaning. |
 | `root-index-lists-log` | §8 defines indexes | Pass | Narrows the content of the root index before the first concept exists. Index syntax is unchanged. |
-| `concept-area-name-collision` | §3 permits both arrangements | Pass | An advisory asking for placement review. It prohibits nothing OKF permits. |
+| `concept-area-name-collision` (format 3 revision, 2026-10-26) | §3 permits both arrangements; §6.3 calls `references/` a naming convention | Pass | An advisory asking for placement review. This package, not the engine, exempts its top-level mirrored-source and time-axis trees and their same-named root concepts. The rule retains its previous findings and prohibits nothing OKF permits. The independent OKF report and graph are unchanged. |
 | `index-current` | §8 makes indexes optional and lets producers generate them | Pass | Requires the output of OKF's own reference generator. A stale index never changes the OKF result. |
 | `log-entry-lead-word` | §9 defines date groups and conventional bold lead words | Pass | Requires a shape OKF already permits and leaves the lead-word vocabulary open. |
 

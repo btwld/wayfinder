@@ -1,4 +1,4 @@
-# Package format 2
+# Package format 3
 
 The engine's schema is
 `https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json`.
@@ -23,7 +23,7 @@ name its parent by path, so both release at one commit.
 
 | Field | Required | Holds |
 | --- | --- | --- |
-| `format` | yes | `2` |
+| `format` | yes | `3` |
 | `id` | yes | Lowercase kebab-case, at most 64 characters. Not `okf`, `wayfinder`, or a wayfinder skill name. |
 | `release` | yes | The Profile's own release name: letters, digits, `.`, `+`, `-`. Opaque to the engine. |
 | `implements` | yes | `{"id": "okf", "release": "<OKF release>"}` |
@@ -37,6 +37,9 @@ name its parent by path, so both release at one commit.
 
 A child only adds. It cannot change or remove a parent's rule or
 vocabulary. Names stay unique across the chain and the project entry.
+Every rule uses the vocabulary of the whole chain plus the project entry,
+so an added name can change an inherited rule's findings. It does not change
+that rule's definition, severity, namespace, or release.
 
 ## Rules
 
@@ -48,7 +51,7 @@ vocabulary. Names stay unique across the chain and the project entry.
   "status": "stable",
   "description": "Every concept type MUST be declared.",
   "message": "Type {type} is not declared.",
-  "check": {"subject": "concept", "schema": {"properties": {"type": {"$ref": "#/$defs/type-name"}}}},
+  "check": {"subject": "concept", "schema": {"properties": {"type": {"$ref": "#/$defs/profile.types"}}}},
   "tests": {"slots": {"profile.types": ["Runbook"]}, "valid": [{"type": "Runbook"}], "invalid": [{"type": "Memo"}]}
 }
 ```
@@ -99,9 +102,36 @@ root.
   default.
 - `at` names the location to report, `self` by default.
 
+`sibling_directory` is a boolean: the loaded file inventory contains a
+directory beside the concept with the same name as its filename without
+`.md`. For `references/vendor.md`, that directory is `references/vendor/`.
+No directory name is special. A directory is represented by files in the
+inventory; an empty on-disk directory alone is not included. In-memory
+candidates use their candidate inventory, not a separate disk lookup.
+Use `path` in a rule to express this Profile's own directory exemptions.
+
+## Migrating format 2
+
+This engine refuses format 2 as `profile-unsupported`; it does not give old
+packages new facts silently. Review uses of `sibling_directory`, whose old
+implementation excluded directories under `interactions/` and `references/`.
+If the Profile chose those exemptions, express them in its schema; otherwise
+explicitly accept the neutral fact's additional true cases. Change `format`
+to `3` and follow the Profile's release process, including its compatibility
+and migration record. A package whose own rules do not use this fact needs
+no rule changes, but its parents must also be migrated. Review the entire
+chain: its verdicts stay unchanged only when no rule uses the fact or every
+affected package explicitly preserves its prior policy.
+
+Move project source refs and any pinned parent refs to migrated revisions,
+then refresh and commit locks and installed skills with `get` or `upgrade`.
+Running `upgrade` cannot move an immutable old ref to a new release. A project
+may instead retain an engine that reads its existing format 2 package.
+
 ## Slots
 
 A slot is the composed vocabulary: the whole chain plus the project entry.
+Inherited rules receive these same slots, not an ancestor-only vocabulary.
 The engine supplies a `$defs` entry named by each slot id, so
 `{"$ref": "#/$defs/profile.types"}` stands for "one of these names". A
 package's own `$defs` may not use a slot id.

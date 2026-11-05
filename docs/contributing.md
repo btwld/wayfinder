@@ -67,7 +67,10 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all four packages. For docs/skills, also check
+`dart run melos run lint` checks all four packages. Package test runs are
+serialized because workspace members share native build-hook output; concurrent
+runs can race during library copying or macOS codesigning. Tests within each
+package keep their normal concurrency. For docs/skills, also check
 local links and compare changed wording with its authoritative source. Report
 what ran; validation checks conformance, not the judgment a skill asks for.
 
@@ -146,10 +149,15 @@ bundle validation; search examples and evaluation commands live in the
 
 ## Hosted runner policy
 
-GitHub Actions currently runs Linux jobs only to limit compute usage. macOS
-and Windows test, build, and installation jobs are paused. Native distribution
-is also paused because its release contract requires all three platform
-archives; pub.dev publishing and Linux verification remain available.
+Source tests and native artifact verification currently run on Linux only to
+limit compute usage; their macOS and Windows jobs are paused. Native
+distribution is also paused because its release contract requires all three
+platform archives; pub.dev publishing and Linux verification remain available.
+The separate installer-script workflow checks PowerShell 7 and Windows
+PowerShell 5.1 on installer pull requests. Public installer verification runs
+automatically on Linux and supports manual macOS/Windows smoke tests against
+the published release. These installer checks do not replace source tests or
+verification of new native artifacts on those platforms.
 
 
 The `test` matrix analyzes and tests all packages on Dart 3.11.0 and stable.

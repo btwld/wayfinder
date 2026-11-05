@@ -10,7 +10,7 @@ import 'support.dart';
 
 final acme = ProfilePackage.parse(
   jsonEncode({
-    'format': 2,
+    'format': 3,
     'id': 'acme-notes',
     'release': '1.0',
     'implements': {'id': 'okf', 'release': '0.2'},
@@ -264,7 +264,84 @@ void main() {
     });
   });
 
-  group('a child package only adds findings in its own namespace', () {
+  test('inherited checks use child and project vocabulary', () async {
+    final project = await copyFixture('configured-project');
+    addTearDown(() => project.delete(recursive: true));
+    final bundle = p.join(project.path, 'knowledge');
+    final concept = File(p.join(bundle, 'sample.md'));
+    await concept.writeAsString(
+      (await concept.readAsString()).replaceFirst('[governance]', '[billing]'),
+    );
+    final vocabularyChild = ProfilePackage.parse(
+      packageJson(
+        id: 'child-vocabulary',
+        release: '1.0',
+        extra: {
+          'extends': {'path': 'profiles/bitwild'},
+          'tags': [
+            {'name': 'billing', 'description': 'Billing knowledge'},
+          ],
+        },
+      ),
+    );
+    Future<Map<String, Object?>> assess(
+      List<ProfilePackage> chain, {
+      ProjectVocabulary vocabulary = const ProjectVocabulary(
+        actors: {
+          'process:fixture': WayfinderActorMetadata(name: 'Fixture process'),
+        },
+      ),
+    }) async {
+      final result = await const ProfileValidator().validate(
+        bundle,
+        SelectedProfile(EffectiveProfile.compose(chain, project: vocabulary)),
+      );
+      expect(result.okfState.wireValue, 'PASS');
+      return {
+        'gate': result.gate.wireValue,
+        'chain': [
+          for (final package in result.chain)
+            {'id': package.id, 'release': package.release},
+        ],
+        'findings': [
+          for (final finding in result.findings)
+            {
+              'id': finding.id,
+              'severity': finding.severity.wireValue,
+              'profile_release': finding.profileRelease,
+              'path': (finding.toJson()['location']! as Map)['path'],
+            },
+        ],
+      };
+    }
+
+    final actual = {
+      'parent_only': await assess([bitwild]),
+      'child_vocabulary': await assess([bitwild, vocabularyChild]),
+      'project_vocabulary': await assess(
+        [bitwild],
+        vocabulary: const ProjectVocabulary(
+          actors: {
+            'process:fixture': WayfinderActorMetadata(name: 'Fixture process'),
+          },
+          tags: [
+            WayfinderDefinition(
+              name: 'billing',
+              description: 'Billing knowledge',
+            ),
+          ],
+        ),
+      ),
+    };
+    final expected = jsonDecode(
+      await File(
+        'test/contract_goldens/composition-vocabulary.json',
+      ).readAsString(),
+    );
+    expect(actual, expected);
+  });
+
+  group('a child with no vocabulary only adds its own findings', () {
     final fixtures =
         Directory(p.join('test', 'fixtures'))
             .listSync()

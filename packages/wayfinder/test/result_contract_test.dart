@@ -206,8 +206,8 @@ okf_version: "0.2"
         EngineDiagnostic(
           DiagnosticCode.profileUnsupported,
           'Profile bitwild-profile at https://example.test/wayfinder.git '
-          '(abc) cannot be evaluated by this validator: package format 3 '
-          'is not supported; this wayfinder reads format 2 at format.',
+          '(abc) cannot be evaluated by this validator: package format 2 '
+          'is not supported; this wayfinder reads format 3 at format.',
           location: ProjectFileLocation(path: configPath, file: configPath),
         ),
       ]),
@@ -220,8 +220,8 @@ okf_version: "0.2"
       contains(
         '$configPath: error wayfinder/profile-unsupported: Profile '
         'bitwild-profile at https://example.test/wayfinder.git (abc) cannot '
-        'be evaluated by this validator: package format 3 is not supported; '
-        'this wayfinder reads format 2 at format.',
+        'be evaluated by this validator: package format 2 is not supported; '
+        'this wayfinder reads format 3 at format.',
       ),
     );
     expect(result.gate, GateState.incomplete);

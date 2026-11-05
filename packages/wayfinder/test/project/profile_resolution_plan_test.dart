@@ -982,7 +982,7 @@ void main() {
         p.join(other.path, 'child', 'wayfinder-profile.json'),
       ).writeAsString(
         jsonEncode({
-          'format': 2,
+          'format': 3,
           'id': 'client-profile',
           'release': '1.0',
           'implements': {'id': 'okf', 'release': '0.2'},

@@ -749,7 +749,10 @@ okf_version: "0.2"
     expect(result.okfState, OkfState.pass);
     expect(result.profileState, ProfileState.notAssessed);
     expect(result.diagnostics.single.code, DiagnosticCode.configInvalid);
-    expect(result.diagnostics.single.message, contains('outside the project'));
+    expect(
+      result.diagnostics.single.message,
+      'Configured bundle leaves the project: escape.',
+    );
   });
 
   test('discovers project configuration for a nested bundle path', () async {

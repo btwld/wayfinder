@@ -2,6 +2,15 @@ name: Verify public Wayfinder installation
 
 on:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Platform for the public install smoke test
+        type: choice
+        default: ubuntu-latest
+        options:
+          - ubuntu-latest
+          - macos-15
+          - windows-latest
   schedule:
     - cron: '17 6 * * 1'
   push:
@@ -27,21 +36,14 @@ concurrency:
 
 jobs:
   install:
-    name: install (${{ matrix.os }}${{ matrix.powershell && format(', {0}', matrix.powershell) || '' }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            powershell: ''
-    runs-on: ${{ matrix.os }}
+    name: install (${{ inputs.runner || 'ubuntu-latest' }})
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     timeout-minutes: 15
     env:
-      # Pull requests run their own scripts against the published archives.
-      # Pushes fetch this commit from the public host; other runs fetch main.
-      WAYFINDER_USE_LOCAL_INSTALLER: ${{ github.event_name == 'pull_request' && '1' || '' }}
+      # PRs and manual runs verify the selected ref's installer against published archives.
+      # Pushes fetch this commit from the public host; scheduled runs fetch main.
+      WAYFINDER_USE_LOCAL_INSTALLER: ${{ (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') && '1' || '' }}
       WAYFINDER_INSTALLER_REF: ${{ github.event_name == 'push' && github.sha || 'main' }}
-      WAYFINDER_POWERSHELL: ${{ matrix.powershell }}
     steps:
       - uses: actions/checkout@v7
         with:

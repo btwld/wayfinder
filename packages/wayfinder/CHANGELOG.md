@@ -1,9 +1,59 @@
-# Unreleased
+# 0.5.0 (unreleased)
 
 - Depends on `ack` `^2.0.0-alpha.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
   with `format` as an annotation unless asked, so both imports pass
   `assertFormats: true`.
+- Correct `path-targets-exist` for no-space invalid paths, encoded separators,
+  backslashes and malformed percent escapes. Encode literal percent as `%25`.
+  Internal files and implied directories come only from the loaded inventory;
+  a candidate deletion cannot resolve through the old disk file. Relative paths
+  outside the bundle may still resolve on disk. The public `resolvePathTarget`
+  shares those decisions with retrieval.
+- Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
+  cannot supply a definition, and unused quoted definitions remain visible.
+- Prepare the 0.5 validation/project/adoption/authoring release.
+  The accepted engine contract and [stability boundaries](../../docs/stability.md)
+  define its public API, compatibility and host obligations; publication and
+  exact-source platform verification remain separate release gates.
+- **BREAKING:** Reads Profile package format 3 only, as a JSON integer.
+  Format 2 is `profile-unsupported`, never silently reinterpreted. A
+  non-integer value, including `3.0`, is malformed rather than a supported
+  spelling of format 3. The concept fact
+  `sibling_directory` now includes every same-stem sibling directory
+  represented by the loaded file inventory, without directory-name policy
+  (ADR-0029). Package authors review uses of that fact, put any chosen
+  placement exceptions in their rules, and release a format 3 revision.
+  Projects move source refs and pinned parent refs to migrated revisions,
+  then refresh and commit locks and installed skills with `get` or `upgrade`;
+  `upgrade` alone cannot advance an immutable old ref. A package whose own
+  rules do not use the fact needs no rule changes, but its entire parent
+  chain must also be reviewed and migrated. Migrated Bitwild keeps
+  its previous findings, with its existing exceptions in its own rule.
+- Adoption rejects parent segments such as `sub/../knowledge` and any-case
+  `.git` segments with `adoption-invalid` before planning writes.
+- Git timeout and cancellation cleanup freezes the root through its kill,
+  discovers late-forked descendants and shares one process-inspection budget.
+  A failed process listing kills verified frozen descendants with the root
+  and resumes only non-root ids whose parentage no longer matches.
+  It also terminates live descendants of
+  SSH helpers on POSIX, best effort within the process-tree inspection bound.
+- Adoption seed concepts use the same project-relative path check as the
+  bundle and host inputs, so a drive letter or any-case `.git` segment is
+  `adoption-invalid`.
+- Discovery, binding and resolution share one canonical root check. All
+  readable configured roots must be disjoint, even when one is selected.
+  An unrelated, unselected missing bundle still does not prevent selection.
+- A failed adoption step whose own rollback fails now reports `undoFailed`,
+  as earlier completed steps already do when their rollback fails. The
+  original failure code and cause remain available. `onStep` emits `failed`
+  then `undo-failed` for that step when its own undo fails; the exception
+  keeps one final report per step, so `steps.last` can be `undo-failed`.
+  Hosts must handle that final state rather than assuming `failed`.
+- Clarify composition: all rules use the whole chain's and project's
+  vocabulary. Added names can affect inherited findings; inherited rule
+  definitions and severities cannot change. This clarification alone changes
+  no verdict (ADR-0027); format migration is described separately above.
 
 # 0.4.0
 

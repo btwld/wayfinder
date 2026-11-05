@@ -1,7 +1,7 @@
 name: wayfinder_workspace
 description: >-
-  Workspace for Wayfinder: local knowledge discovery, the Concepta OKF Profile
-  toolchain, and reusable retrieval libraries.
+  Workspace for Wayfinder: OKF Profile validation, local knowledge discovery,
+  and reusable retrieval libraries.
 publish_to: none
 
 environment:
@@ -65,6 +65,8 @@ melos:
     format:check:
       run: dart run melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
     test:
-      run: dart run melos exec --fail-fast -- dart test
+      # Workspace packages share native build-hook output. Parallel test
+      # processes can race while copying or codesigning the same libraries.
+      run: dart run melos exec --concurrency=1 --fail-fast -- dart test
     lint:
       run: dart run melos run analyze && dart run melos run format:check && dart run melos run test

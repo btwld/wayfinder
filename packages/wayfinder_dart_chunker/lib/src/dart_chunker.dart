@@ -291,6 +291,27 @@ class DartChunker extends BaseChunker {
     );
   }
 
+  void _addConstructor(
+    ConstructorDeclaration member,
+    Map<String, Object?> scope,
+    _AddNode addNode,
+  ) {
+    addNode(
+      member,
+      'constructor',
+      metadataOverrides: {
+        ...scope,
+        'name': member.name?.lexeme,
+        'factory': member.factoryKeyword != null,
+        'params': member.parameters.toSource(),
+        if (member.initializers.isNotEmpty)
+          'initializers': [for (final i in member.initializers) i.toSource()],
+        'external': member.externalKeyword != null,
+        'const': member.constKeyword != null,
+      },
+    );
+  }
+
   void _handleClassDeclaration(ClassDeclaration declaration, _AddNode addNode) {
     final className = declaration.namePart.typeName.lexeme;
     addNode(
@@ -319,22 +340,7 @@ class DartChunker extends BaseChunker {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
       } else if (member is ConstructorDeclaration) {
-        addNode(
-          member,
-          'constructor',
-          metadataOverrides: {
-            'class': className,
-            'name': member.name?.lexeme,
-            'factory': member.factoryKeyword != null,
-            'params': member.parameters.toSource(),
-            if (member.initializers.isNotEmpty)
-              'initializers': [
-                for (final i in member.initializers) i.toSource(),
-              ],
-            'external': member.externalKeyword != null,
-            'const': member.constKeyword != null,
-          },
-        );
+        _addConstructor(member, scope, addNode);
       } else if (member is FieldDeclaration) {
         _addField(member, scope, addNode);
       }
@@ -433,6 +439,8 @@ class DartChunker extends BaseChunker {
     for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
+      } else if (member is ConstructorDeclaration) {
+        _addConstructor(member, scope, addNode);
       } else if (member is FieldDeclaration) {
         _addField(member, scope, addNode);
       }
@@ -465,16 +473,9 @@ class DartChunker extends BaseChunker {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode, includeStaticAndTypeParams: false);
       } else if (member is ConstructorDeclaration) {
-        addNode(
-          member,
-          'constructor',
-          metadataOverrides: {
-            'enum': enumName,
-            'name': member.name?.lexeme,
-            'factory': member.factoryKeyword != null,
-            'params': member.parameters.toSource(),
-          },
-        );
+        _addConstructor(member, scope, addNode);
+      } else if (member is FieldDeclaration) {
+        _addField(member, scope, addNode);
       }
     }
   }
