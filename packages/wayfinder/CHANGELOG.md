@@ -9,7 +9,10 @@
   Internal files and implied directories come only from the loaded inventory;
   a candidate deletion cannot resolve through the old disk file. Relative paths
   outside the bundle may still resolve on disk. The public `resolvePathTarget`
-  shares those decisions with retrieval.
+  returns a sealed `PathTarget` (`NotAPath`, `MissingPath`, `InBundlePath`,
+  or `OutsidePath`) so a present external path is distinct from a value that
+  is not a path. `pathTargetDisplay` and `bundleInventoryPaths` share the
+  display and inventory decisions with retrieval.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
 - Prepare the 0.5 validation/project/adoption/authoring release.

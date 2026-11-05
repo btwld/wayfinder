@@ -2,14 +2,14 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
-import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart'
     show
         ProjectBundle,
         WayfinderCancellation,
         throwIfCancelled,
         KnowledgeMetadataFilter;
-import 'package:wayfinder/wayfinder.dart' show OkfFieldEdge, resolvePathTarget;
+import 'package:wayfinder/wayfinder.dart'
+    show OkfFieldEdge, pathTargetDisplay, resolvePathTarget;
 
 import '../embedding/base_embedder.dart';
 import '../models/chunk.dart';
@@ -711,20 +711,8 @@ class KnowledgeIndex {
         inBundle: snapshot.inventoryPaths.contains,
         rootPath: bundleRoot,
       );
-      var display = resolved.bundlePath;
-      final raw = edge.rawTarget;
-      if (!resolved.missing &&
-          display == null &&
-          (raw.startsWith('../') || raw.startsWith('./'))) {
-        final cut = raw.indexOf(RegExp(r'[?#]'));
-        display = p.posix.normalize(
-          p.posix.join(
-            p.posix.dirname(edge.source.documentPath),
-            cut < 0 ? raw : raw.substring(0, cut),
-          ),
-        );
-      }
-      (paths[edge.source.documentPath] ??= {})[raw] = display;
+      (paths[edge.source.documentPath] ??= {})[edge.rawTarget] =
+          pathTargetDisplay(resolved, edge);
     }
     return paths;
   }
