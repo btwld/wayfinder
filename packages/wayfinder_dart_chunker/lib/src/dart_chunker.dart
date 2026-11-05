@@ -4,13 +4,6 @@
 /// once they exceed the non-whitespace budget.
 library;
 
-// Declarations are read through `namePart` and `body`. analyzer 11.0.0
-// removed the members this chunker used to read (`members`, `leftBracket`,
-// `name`, `typeParameters`, `representation`), 12.0.0 split each body into a
-// block and an empty (`;`) form, and 13.1.0 deprecated
-// `ExtensionTypeDeclaration.primaryConstructor` for `namePart`, so the
-// pubspec allows >=13.1.0 <14.0.0.
-
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
