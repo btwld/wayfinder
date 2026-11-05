@@ -124,11 +124,11 @@ Date: 2026-10-26; amends ADR-0015/0016.
 Read format 3 only, as a JSON integer, and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages. A non-integer format value is malformed, not a supported spelling of format 3.
 Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#54-identity-release-and-format).
 
-## Prepared 1.0 compatibility and release evidence
+## Prepared 0.5 compatibility and release evidence
 
-Date: 2026-10-26.
+Date: 2026-10-26; amended 2026-11-05.
 
-Define the prepared public surfaces and compatibility obligations in the [1.0 contract](docs/stability.md), because embedders and machine consumers need an explicit boundary across independently versioned packages; public breaking changes carry major releases and migration notes, while Profile releases remain independent.
+Define the prepared public surfaces and compatibility obligations in the [0.5 contract](docs/stability.md), because embedders and machine consumers need an explicit boundary across independently versioned packages; public breaking changes carry breaking releases (the next 0.x minor) and migration notes, while Profile releases remain independent. The packages stay on 0.x, so the unpublished 1.0.0 became 0.5.0 with the same obligations.
 Require successful source CI from the exact commit's push to main and independent hosted CLI resolution before release eligibility, because a green PR or workspace resolution cannot establish those facts; the [read-only preflight and remaining distribution gates](docs/releasing.md#release-preflight) can therefore stay blocked on unpublished siblings or missing main evidence without declaring failed candidate code.
 
 ## Inventory-authoritative path targets

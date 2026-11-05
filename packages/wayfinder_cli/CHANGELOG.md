@@ -1,10 +1,10 @@
-# 1.0.0 (unreleased)
+# 0.5.0 (unreleased)
 
 - Resolve relative paths against the CLI working directory in production and
   embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
   commands; only the two historical generated `cd ... &&` forms are removed.
 
-- Prepare the first stable CLI/MCP release. The public compatibility and
+- Prepare the 0.5 CLI/MCP release. The public compatibility and
   support boundaries are recorded in [the stability contract](../../docs/stability.md).
 - Resolve explicit MCP bundle paths and detached indexing against the CLI's
   injected working directory, and pass absolute bundle paths to detached workers.
@@ -23,7 +23,7 @@
   model-lookup correction in [the decision log](../../ARCHITECTURE.md).
 - The Windows public-install verifier restores the user's registry PATH after
   its temporary install, including when verification fails.
-- Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.
+- Requires `wayfinder` and `wayfinder_embeddings` `^0.5.0`.
 
 # 0.4.0
 

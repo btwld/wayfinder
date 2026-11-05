@@ -1,4 +1,4 @@
-# 1.0.0 (unreleased)
+# 0.5.0 (unreleased)
 
 - Share core path resolution for `unresolved-source` and Markdown citations.
   Invalid root escapes, encoded separators, backslashes and malformed escapes
@@ -14,7 +14,7 @@
   non-finite component. Unrelated bundle and store errors leave it in place.
   A late failure after `releaseEncoder()` no longer disposes a healthy
   replacement opened by another operation.
-- Prepare the first stable retrieval-library release, with the public
+- Prepare the 0.5 retrieval-library release, with the public
   compatibility and support boundaries in [the stability contract](../../docs/stability.md).
 - Ingestion refuses an explicit chunk ID reused for different text within one
   call, including across files, instead of silently dropping the later chunk.
@@ -26,7 +26,7 @@
   per store batch, not per ingestion call.
 - Parse native-runtime override keys as YAML, including flow mappings, so a
   different layout cannot bypass the reviewed llama.cpp pin at bundle build.
-- Requires `wayfinder` `^1.0.0`, and depends on `ack` `^1.7.0`.
+- Requires `wayfinder` `^0.5.0`, and depends on `ack` `^1.7.0`.
 
 - **BREAKING:** `EmbeddingModelSpec` takes a required `displayName`, the
   model's name for a person, so a host that shows which model it uses or

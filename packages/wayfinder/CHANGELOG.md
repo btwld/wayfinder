@@ -1,4 +1,4 @@
-# 1.0.0 (unreleased)
+# 0.5.0 (unreleased)
 
 - Correct `path-targets-exist` for no-space invalid paths, encoded separators,
   backslashes and malformed percent escapes. Encode literal percent as `%25`.
@@ -8,7 +8,7 @@
   shares those decisions with retrieval.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
-- Prepare the first stable validation/project/adoption/authoring release.
+- Prepare the 0.5 validation/project/adoption/authoring release.
   The accepted engine contract and [stability boundaries](../../docs/stability.md)
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.
