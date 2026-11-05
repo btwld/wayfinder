@@ -1,4 +1,4 @@
-# 0.5.0 (unreleased)
+# 0.5.0-beta.1
 
 - Prepare the 0.5 standalone Dart chunker, with public compatibility
   and support boundaries in [the stability contract](../../docs/stability.md).

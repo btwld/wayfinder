@@ -76,6 +76,11 @@ Upload reruns skip an occupied package version, including a retracted one:
 retraction does not free its version number. A retracted sibling still fails
 the dependency gate and needs a new usable version before dependents publish.
 
+While native distribution is paused, pub.dev-only releases may proceed with
+successful push/main CI for the exact commit and hosted-dependency checks; the
+three-platform native and public installer gates apply when native distribution
+resumes.
+
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
 2. Publish `wayfinder-core-v<version>`, then

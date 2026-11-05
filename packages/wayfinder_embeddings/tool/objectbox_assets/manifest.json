@@ -1,6 +1,6 @@
 {
   "version": "6.0.0-beta2",
-  "dartVersion": "6.0.0-preview.5",
+  "dartVersion": "6.0.0-preview.6",
   "artifacts": {
     "macos-universal": {
       "archiveSha256": "130e702cbc006f1df481016f8550dff7d67334979d4685526d06b77d78e731bd",

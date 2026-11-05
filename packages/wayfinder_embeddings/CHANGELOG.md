@@ -1,10 +1,10 @@
-# 0.5.0 (unreleased)
+# 0.5.0-beta.1
 
-- Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-dev.1`.
-- **BREAKING:** Depends on `objectbox` `^6.0.0-preview.5`, a prerelease, so an
+- Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`.
+- **BREAKING:** Depends on `objectbox` `^6.0.0-preview.6`, a prerelease, so an
   application that also depends on ObjectBox 5 must move to 6 to resolve.
   `lib/objectbox.g.dart` is regenerated with `objectbox_generator`
-  6.0.0-preview.5, and `objectbox:install` pins native 6.0.0-beta2, the
+  6.0.0-preview.6, and `objectbox:install` pins native 6.0.0-beta2, the
   release ObjectBox pairs with that Dart package
   (`tool/objectbox_assets/manifest.json` records both). Every entity,
   property and index id and UID is unchanged, so an existing `ObjectBoxStore`
@@ -36,7 +36,7 @@
   per store batch, not per ingestion call.
 - Parse native-runtime override keys as YAML, including flow mappings, so a
   different layout cannot bypass the reviewed llama.cpp pin at bundle build.
-- Requires `wayfinder` `^0.5.0`, and depends on `ack` `^1.7.0`.
+- Requires `wayfinder` `^0.5.0-beta.1`.
 
 - **BREAKING:** `EmbeddingModelSpec` takes a required `displayName`, the
   model's name for a person, so a host that shows which model it uses or

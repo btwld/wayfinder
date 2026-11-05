@@ -453,8 +453,8 @@ It collapses repeated contexts to the first child hit.
   6.0.0-beta2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
   x64/x86/arm64 - and refuses anything without a pinned hash rather than
   installing another architecture.
-  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.5. The
-  repository's workspace overrides it to 6.0.0-preview.5, the Dart release
+  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.6. The
+  repository's workspace overrides it to 6.0.0-preview.6, the Dart release
   ObjectBox pairs with native 6.0.0-beta2, so its tests and native bundles
   always pair the two; `tool/objectbox_assets/manifest.json` records both
   (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
@@ -697,7 +697,7 @@ Existing databases using the previous vector schema require reindexing into a
 **new directory**. The store refuses to open incompatible databases before
 ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
 when changing the schema; preserve `lib/objectbox-model.json` UID history.
-The committed bindings come from `objectbox_generator` 6.0.0-preview.5 and
+The committed bindings come from `objectbox_generator` 6.0.0-preview.6 and
 keep every id and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
 `test/objectbox_store_test.dart` opens such a store from
 [`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).

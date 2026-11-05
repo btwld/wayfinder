@@ -1,7 +1,7 @@
-# 0.5.0 (unreleased)
+# 0.5.0-beta.1
 
 - Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`
-  `^0.7.0-dev.1`.
+  `^0.7.0-beta.1`.
 - Resolve relative paths against the CLI working directory in production and
   embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
   commands; only the two historical generated `cd ... &&` forms are removed.
@@ -25,7 +25,7 @@
   model-lookup correction in [the decision log](../../ARCHITECTURE.md).
 - The Windows public-install verifier restores the user's registry PATH after
   its temporary install, including when verification fails.
-- Requires `wayfinder` and `wayfinder_embeddings` `^0.5.0`.
+- Requires `wayfinder` and `wayfinder_embeddings` `^0.5.0-beta.1`.
 
 # 0.4.0
 

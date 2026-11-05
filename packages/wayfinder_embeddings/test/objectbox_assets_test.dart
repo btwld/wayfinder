@@ -29,7 +29,7 @@ void main() {
   test(
     'resolves the Dart objectbox the native library is pinned for',
     () async {
-      // The pubspec allows any objectbox 6.x from 6.0.0-preview.5, and the
+      // The pubspec allows any objectbox 6.x from 6.0.0-preview.6, and the
       // lockfile is not committed; the workspace root's dependency override
       // holds the Dart release the manifest pairs with the native one.
       final manifest =
