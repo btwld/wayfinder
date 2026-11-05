@@ -126,7 +126,9 @@ final class RuleSchema {
 
   static AckSchema<Object, Object> _import(Map<String, Object?> document) {
     try {
-      return Ack.fromJsonSchema(document);
+      // The subset evaluates `format` ("date-time" only); Draft 2020-12 makes
+      // it an annotation unless asserted.
+      return Ack.fromJsonSchema(document, assertFormats: true);
     } on JsonSchemaImportException catch (error) {
       final invalid = error.diagnostics
           .where((diagnostic) => !_unsupportedCodes.contains(diagnostic.code))

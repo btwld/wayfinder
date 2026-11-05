@@ -1,10 +1,12 @@
-# 1.0.0 (unreleased)
+# 0.5.0-beta.1
 
+- Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`
+  `^0.7.0-beta.1`.
 - Resolve relative paths against the CLI working directory in production and
   embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
   commands; only the two historical generated `cd ... &&` forms are removed.
 
-- Prepare the first stable CLI/MCP release. The public compatibility and
+- Prepare the 0.5 CLI/MCP release. The public compatibility and
   support boundaries are recorded in [the stability contract](../../docs/stability.md).
 - Resolve explicit MCP bundle paths and detached indexing against the CLI's
   injected working directory, and pass absolute bundle paths to detached workers.
@@ -23,7 +25,7 @@
   model-lookup correction in [the decision log](../../ARCHITECTURE.md).
 - The Windows public-install verifier restores the user's registry PATH after
   its temporary install, including when verification fails.
-- Requires `wayfinder` and `wayfinder_embeddings` `^1.0.0`.
+- Requires `wayfinder` and `wayfinder_embeddings` `^0.5.0-beta.1`.
 
 # 0.4.0
 
@@ -133,7 +135,6 @@
   five minutes is stopped; clones report progress, so a long clone keeps
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
-- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.4.0.
 - `index` and `search` come from the `wayfinder_embeddings` knowledge store,
   and the MCP server's tools with them. The CLI finds the model in its
   bundle and passes it in. It does not load ObjectBox. Output and exit codes

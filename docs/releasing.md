@@ -24,18 +24,18 @@ The published 0.4.0 engine reads format 2. A project tracking Bitwild at
 `ref: main` must pin its last format-2 revision before this preparation lands:
 `6890664959cad82da01bc4d9baeaf210d819055c`, with path `profiles/bitwild`.
 Run `get` with the 0.4.0 engine and commit the refreshed lock and installed
-skills. Keep that pin until a compatible 1.0 runtime is available, then move
+skills. Keep that pin until a compatible 0.5 runtime is available, then move
 the source ref and every parent ref to format 3 and refresh again.
 
 The plugin's skill update becomes available from the default branch at merge;
 it does not wait for a native release. Keep existing plugin/runtime versions
 aligned during this window. Native distribution remains paused; merging the
-preparation does not promise immediate native 1.0 availability. Coordinate
+preparation does not promise immediate native 0.5 availability. Coordinate
 runtime availability and project pins before landing the format/plugin flip.
 
 ## Prepare a release
 
-The [1.0 compatibility contract](stability.md) names the public surfaces and
+The [0.5 compatibility contract](stability.md) names the public surfaces and
 support/migration boundaries.
 
 Preparation does not publish. Publish changed core or `wayfinder_embeddings`
@@ -75,6 +75,11 @@ first and rerun the workflow on the same immutable tag.
 Upload reruns skip an occupied package version, including a retracted one:
 retraction does not free its version number. A retracted sibling still fails
 the dependency gate and needs a new usable version before dependents publish.
+
+While native distribution is paused, pub.dev-only releases may proceed with
+successful push/main CI for the exact commit and hosted-dependency checks; the
+three-platform native and public installer gates apply when native distribution
+resumes.
 
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.

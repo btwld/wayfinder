@@ -28,7 +28,7 @@
 
 ## Operations
 
-[The 1.0 compatibility contract](stability.md) — Public package and machine
+[The 0.5 compatibility contract](stability.md) — Public package and machine
 surfaces, supported verification targets, host ownership and migration boundaries.
 
 [Install Wayfinder](install.md) — Native installation without Dart, plugin setup and migration, usage, upgrades and troubleshooting.

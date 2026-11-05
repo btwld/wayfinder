@@ -4,15 +4,6 @@
 /// once they exceed the non-whitespace budget.
 library;
 
-// analyzer 10.0.0 deprecates the declaration members this chunker reads
-// (`members`, `leftBracket`, `name`, `typeParameters`, `representation`) for
-// `body`, `namePart` and `primaryConstructor`, which analyzer 8 and 9 offer
-// only as experiments that throw by default. Every version the pubspec
-// allows, >=8.4.1 <11.0.0, still has the old members, and the tests pass on
-// 8.4.1, 9.0.0 and 10.2.0. Read the new members once the floor reaches 10.0.0.
-// Each of those reads carries its own ignore, so any other deprecation, such
-// as one in wayfinder_embeddings, still reports.
-
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart'
@@ -110,16 +101,14 @@ class DartChunker extends BaseChunker {
     /// - ctors: '{' or ';'
     /// Returns null if not applicable.
     int? bodyBoundaryOffset(AstNode node) => switch (node) {
-      // ignore: deprecated_member_use
-      ClassDeclaration() => node.leftBracket.offset,
-      // ignore: deprecated_member_use
-      MixinDeclaration() => node.leftBracket.offset,
-      // ignore: deprecated_member_use
-      ExtensionDeclaration() => node.leftBracket.offset,
-      // ignore: deprecated_member_use
-      ExtensionTypeDeclaration() => node.leftBracket.offset,
-      // ignore: deprecated_member_use
-      EnumDeclaration() => node.leftBracket.offset,
+      ClassDeclaration() => _classBodyBoundary(node.body),
+      MixinDeclaration() => _classBodyBoundary(node.body),
+      ExtensionDeclaration() => _classBodyBoundary(node.body),
+      ExtensionTypeDeclaration() => _classBodyBoundary(node.body),
+      EnumDeclaration() => switch (node.body) {
+        BlockEnumBody(:final leftBracket) => leftBracket.offset,
+        EmptyEnumBody(:final semicolon) => semicolon.offset,
+      },
       MethodDeclaration() => fnBodyBoundary(node.body),
       ConstructorDeclaration() => fnBodyBoundary(node.body),
       FunctionDeclaration() => fnBodyBoundary(node.functionExpression.body),
@@ -317,16 +306,14 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleClassDeclaration(ClassDeclaration declaration, _AddNode addNode) {
-    // ignore: deprecated_member_use
-    final className = declaration.name.lexeme;
+    final className = declaration.namePart.typeName.lexeme;
     addNode(
       declaration,
       'class',
       metadataOverrides: {
         'name': className,
         'abstract': declaration.abstractKeyword != null,
-        // ignore: deprecated_member_use
-        'typeParams': ?declaration.typeParameters?.toSource(),
+        'typeParams': ?declaration.namePart.typeParameters?.toSource(),
         'extends': ?declaration.extendsClause?.superclass.toSource(),
         if (declaration.withClause != null)
           'with': [
@@ -342,8 +329,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'class': className};
-    // ignore: deprecated_member_use
-    for (final member in declaration.members) {
+    for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
       } else if (member is ConstructorDeclaration) {
@@ -377,8 +363,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'mixin': mixinName};
-    // ignore: deprecated_member_use
-    for (final member in declaration.members) {
+    for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
       } else if (member is FieldDeclaration) {
@@ -408,8 +393,7 @@ class DartChunker extends BaseChunker {
       'extension': ?extensionName,
       'on': onClause,
     };
-    // ignore: deprecated_member_use
-    for (final member in declaration.members) {
+    for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
       } else if (member is FieldDeclaration) {
@@ -422,17 +406,19 @@ class DartChunker extends BaseChunker {
     ExtensionTypeDeclaration declaration,
     _AddNode addNode,
   ) {
-    // ignore: deprecated_member_use
-    final name = declaration.name.lexeme;
+    final name = declaration.namePart.typeName.lexeme;
+    final representation = switch (declaration.namePart) {
+      PrimaryConstructorDeclaration(:final formalParameters) =>
+        formalParameters.parameters.firstOrNull?.type,
+      _ => null,
+    };
     addNode(
       declaration,
       'extensionType',
       metadataOverrides: {
         'name': name,
-        // ignore: deprecated_member_use
-        'typeParams': ?declaration.typeParameters?.toSource(),
-        // ignore: deprecated_member_use
-        'on': declaration.representation.fieldType.toSource(),
+        'typeParams': ?declaration.namePart.typeParameters?.toSource(),
+        'on': ?representation?.toSource(),
         if (declaration.implementsClause != null)
           'implements': [
             for (final t in declaration.implementsClause!.interfaces)
@@ -443,8 +429,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'extensionType': name};
-    // ignore: deprecated_member_use
-    for (final member in declaration.members) {
+    for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode);
       } else if (member is ConstructorDeclaration) {
@@ -456,15 +441,13 @@ class DartChunker extends BaseChunker {
   }
 
   void _handleEnumDeclaration(EnumDeclaration declaration, _AddNode addNode) {
-    // ignore: deprecated_member_use
-    final enumName = declaration.name.lexeme;
+    final enumName = declaration.namePart.typeName.lexeme;
     addNode(
       declaration,
       'enum',
       metadataOverrides: {
         'name': enumName,
-        // ignore: deprecated_member_use
-        'typeParams': ?declaration.typeParameters?.toSource(),
+        'typeParams': ?declaration.namePart.typeParameters?.toSource(),
         if (declaration.withClause != null)
           'with': [
             for (final t in declaration.withClause!.mixinTypes) t.toSource(),
@@ -479,8 +462,7 @@ class DartChunker extends BaseChunker {
     );
 
     final scope = <String, Object?>{'enum': enumName};
-    // ignore: deprecated_member_use
-    for (final member in declaration.members) {
+    for (final member in declaration.body.members) {
       if (member is MethodDeclaration) {
         _addMethod(member, scope, addNode, includeStaticAndTypeParams: false);
       } else if (member is ConstructorDeclaration) {
@@ -546,3 +528,10 @@ int _nonWhitespaceLength(String value) {
   }
   return count;
 }
+
+/// Where a class, mixin, extension or extension type body begins: its `{`,
+/// or the `;` of an empty body.
+int _classBodyBoundary(ClassBody body) => switch (body) {
+  BlockClassBody(:final leftBracket) => leftBracket.offset,
+  EmptyClassBody(:final semicolon) => semicolon.offset,
+};

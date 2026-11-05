@@ -1,6 +1,6 @@
-# 1.0.0 (unreleased)
+# 0.5.0-beta.1
 
-- Prepare the first stable standalone Dart chunker, with public compatibility
+- Prepare the 0.5 standalone Dart chunker, with public compatibility
   and support boundaries in [the stability contract](../../docs/stability.md).
 - Include fields declared by enhanced enums, with their source lines and enum
   scope, as class fields already are. Re-ingest affected Dart files to include
@@ -17,4 +17,5 @@
 - `defaultCodeRegistry()` registers `DartChunker` beside the TypeScript,
   Markdown and text chunkers of `wayfinder_embeddings`, with optional
   per-chunker budgets.
-- Supports `analyzer` `>=8.4.1 <11.0.0`.
+- Supports `analyzer` `>=13.1.0 <14.0.0`, reading each declaration through
+  `namePart` and `body`.

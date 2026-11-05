@@ -1,6 +1,6 @@
 name: wayfinder_dart_chunker
 description: Analyzer-based Dart source chunking for wayfinder_embeddings, kept apart so the retrieval library needs no analyzer.
-version: 1.0.0
+version: 0.5.0-beta.1
 repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker
 issue_tracker: https://github.com/btwld/wayfinder/issues
 topics:
@@ -14,8 +14,8 @@ environment:
   sdk: ">=3.11.0 <4.0.0"
 
 dependencies:
-  analyzer: ">=8.4.1 <11.0.0"
-  wayfinder_embeddings: ^1.0.0
+  analyzer: ">=13.1.0 <14.0.0"
+  wayfinder_embeddings: ^0.5.0-beta.1
 
 dev_dependencies:
   lints: ^6.0.0
