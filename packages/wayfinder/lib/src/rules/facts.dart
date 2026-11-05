@@ -354,7 +354,18 @@ String parentDirectory(String path) {
   return directory == '.' ? '' : directory;
 }
 
-List<String> _directories(Iterable<String> paths) {
+List<String> _directories(Iterable<String> paths) =>
+    _impliedDirectories(paths).toList()..sort();
+
+/// The bundle root, every entry of [files], and each directory implied by
+/// those files. The directory walk matches [BundleInventory].
+Set<String> bundleInventoryPaths(Iterable<String> files) => {
+  '.',
+  ...files,
+  ..._impliedDirectories(files),
+};
+
+Set<String> _impliedDirectories(Iterable<String> paths) {
   final directories = <String>{};
   for (final path in paths) {
     var directory = parentDirectory(path);
@@ -363,7 +374,7 @@ List<String> _directories(Iterable<String> paths) {
       directory = parentDirectory(directory);
     }
   }
-  return directories.toList()..sort();
+  return directories;
 }
 
 /// The facts read from the root index are null when it is absent or

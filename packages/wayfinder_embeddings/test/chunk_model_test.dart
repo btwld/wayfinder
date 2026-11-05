@@ -43,6 +43,12 @@ void main() {
         throwsA(isA<UnsupportedError>()),
       );
       expect(Chunk.fromMap(chunk.toMap()), chunk);
+      expect(Chunk.fromJson(jsonDecode(jsonEncode(chunk.toMap()))), chunk);
+    });
+
+    test('rejects JSON that is not an object', () {
+      expect(() => Chunk.fromJson(const <Object?>[]), throwsFormatException);
+      expect(() => Chunk.fromJson('chunk'), throwsFormatException);
     });
 
     test('toMap returns a detached mutable metadata snapshot', () {

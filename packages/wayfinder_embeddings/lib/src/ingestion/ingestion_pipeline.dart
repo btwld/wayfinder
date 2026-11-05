@@ -57,8 +57,9 @@ class IngestionPipeline {
   /// appeared earlier in this call, through [onDuplicateChunk]. An existing
   /// chunk still receives a missing embedding for the current source/model.
   /// Metadata changes are persisted without re-embedding unchanged text.
-  /// Identity checks finish before any write using a temporary disk spool;
-  /// memory retains digests plus one file and write batch, not corpus text.
+  /// Identity checks finish before any write using a temporary disk spool
+  /// and one store read per chunk id. Memory retains digests, equality
+  /// fingerprints, and one file plus the current write batch, not corpus text.
   /// File-progress callbacks report chunking, before embedding starts.
   /// Encoder/store failures may leave earlier batches committed: atomicity is
   /// per [BaseStore.storeBatch], not per invocation.
@@ -72,6 +73,7 @@ class IngestionPipeline {
     final spool = await Directory.systemTemp.createTemp('wayfinder-ingest-');
     try {
       final digests = <String, String>{};
+      final storedFingerprints = <String, String>{};
       final paths = <String>[];
       for (final chunked in chunkedFiles) {
         for (final chunk in chunked.chunks) {
@@ -84,6 +86,7 @@ class IngestionPipeline {
             final stored = await store.getChunk(chunk.id);
             if (stored != null) {
               _requireSameContent(_digest(stored.content), chunk);
+              storedFingerprints[chunk.id] = _chunkFingerprint(stored);
             }
             digests[chunk.id] = digest;
           }
@@ -96,6 +99,7 @@ class IngestionPipeline {
       }
       await _ingestPrepared(
         paths,
+        storedFingerprints: storedFingerprints,
         onDuplicateChunk: onDuplicateChunk,
         dedupe: dedupe,
       );
@@ -106,26 +110,31 @@ class IngestionPipeline {
 
   Future<void> _ingestPrepared(
     List<String> paths, {
+    required Map<String, String> storedFingerprints,
     required DuplicateChunkCallback? onDuplicateChunk,
     required bool dedupe,
   }) async {
     final chunkBatch = <String, Chunk>{};
     final embeddingBatch = <String, Embedding>{};
+    final batchFingerprints = <String, String>{};
+    final known = Map<String, String>.of(storedFingerprints);
     final seen = <String>{};
     for (final path in paths) {
       final rows = jsonDecode(await File(path).readAsString()) as List;
       final chunksToEmbed = <String, Chunk>{};
       for (final row in rows) {
-        final chunk = Chunk.fromMap((row as Map).cast<String, Object?>());
+        final chunk = Chunk.fromJson(row);
+        final fingerprint = _chunkFingerprint(chunk);
         final duplicate = dedupe && !seen.add(chunk.id);
         final existing = dedupe
-            ? chunkBatch[chunk.id] ?? await store.getChunk(chunk.id)
+            ? batchFingerprints[chunk.id] ?? known[chunk.id]
             : null;
         if (duplicate || existing != null) onDuplicateChunk?.call(chunk);
-        if (existing != chunk) chunkBatch[chunk.id] = chunk;
-        if (dedupe && (embeddingBatch.containsKey(chunk.id) || duplicate)) {
-          continue;
+        if (existing != fingerprint) {
+          chunkBatch[chunk.id] = chunk;
+          batchFingerprints[chunk.id] = fingerprint;
         }
+        if (duplicate) continue;
         final embedding = dedupe && existing != null
             ? await store.getEmbedding(
                 chunk.id,
@@ -135,12 +144,16 @@ class IngestionPipeline {
             : null;
         if (embedding == null) chunksToEmbed[chunk.id] = chunk;
       }
-      for (final embedding in await _embedChunks(
-        chunksToEmbed.values.toList(),
-      )) {
-        embeddingBatch[embedding.chunkId] = embedding;
+      if (chunksToEmbed.isNotEmpty) {
+        for (final embedding in await _embedChunks(
+          chunksToEmbed.values.toList(),
+        )) {
+          embeddingBatch[embedding.chunkId] = embedding;
+        }
       }
       if (chunkBatch.length + embeddingBatch.length >= _storeBatchSize) {
+        known.addAll(batchFingerprints);
+        batchFingerprints.clear();
         await _flushBatch(chunks: chunkBatch, embeddings: embeddingBatch);
       }
     }
@@ -149,6 +162,44 @@ class IngestionPipeline {
 
   static String _digest(String content) =>
       sha256.convert(utf8.encode(content)).toString();
+
+  /// Equality key for [Chunk]'s fields. Content is hashed so the key does
+  /// not retain text; map keys are sorted so key order does not matter.
+  static String _chunkFingerprint(Chunk chunk) {
+    final contentHash = sha256.convert(utf8.encode(chunk.content)).toString();
+    return sha256
+        .convert(
+          utf8.encode(
+            jsonEncode([
+              chunk.id,
+              chunk.sourcePath,
+              chunk.lineStart,
+              chunk.lineEnd,
+              contentHash,
+              chunk.type,
+              _canonicalValue(chunk.metadata),
+            ]),
+          ),
+        )
+        .toString();
+  }
+
+  static Object? _canonicalValue(Object? value) {
+    switch (value) {
+      case null:
+      case bool():
+      case String():
+      case num():
+        return value;
+      case final Map<String, Object?> map:
+        final keys = map.keys.toList()..sort();
+        return {for (final key in keys) key: _canonicalValue(map[key])};
+      case final List<Object?> list:
+        return [for (final item in list) _canonicalValue(item)];
+      default:
+        throw StateError('Chunk metadata is not JSON-compatible.');
+    }
+  }
 
   static void _requireSameContent(String digest, Chunk candidate) {
     if (digest != _digest(candidate.content)) {

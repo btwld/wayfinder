@@ -1834,9 +1834,7 @@ class WayfinderKnowledgeStore {
             try {
               text = utf8.decode(bytes);
             } on FormatException {
-              throw OkfBundleLoadException(
-                await const OkfBundleLoader().inspect(root),
-              );
+              return null;
             }
             digest = sha256.convert(utf8.encode(text)).toString();
           } else {
@@ -1845,7 +1843,13 @@ class WayfinderKnowledgeStore {
           return MapEntry(path, digest);
         }),
       );
-      paths.addEntries(batch);
+      // One bad file inspects the bundle once for this batch.
+      if (batch.contains(null)) {
+        throw OkfBundleLoadException(
+          await const OkfBundleLoader().inspect(root),
+        );
+      }
+      paths.addEntries(batch.whereType<MapEntry<String, String>>());
     }
     return paths;
   }
