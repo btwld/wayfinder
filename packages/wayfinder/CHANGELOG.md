@@ -1,6 +1,6 @@
 # 0.5.0 (unreleased)
 
-- Depends on `ack` `^2.0.0-alpha.1`. Rule schemas and the published schemas
+- Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-dev.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
   with `format` as an annotation unless asked, so both imports pass
   `assertFormats: true`.

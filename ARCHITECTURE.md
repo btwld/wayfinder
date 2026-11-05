@@ -148,3 +148,9 @@ Refuse parent segments and any-case `.git` segments at the adoption request boun
 Date: 2026-11-04.
 
 Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls, including a returned vector with the wrong dimension or a non-finite component, and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.
+
+## Ack 2, analyzer 13 and ObjectBox 6 preview
+
+Date: 2026-11-05.
+
+Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade, while CLI knowledge indexes keep using plain-file generations. Exit: move the override, installer and manifest to the first stable ObjectBox 6 release, keeping every entity id and UID.

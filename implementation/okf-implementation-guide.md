@@ -131,7 +131,7 @@ the bytes its generator writes with a generator revision,
 `okfIndexGeneratorRevision`: the okf release that last changed that output
 for any bundle. okf changes the output only in a minor release, so every
 release in one minor series writes the same bytes. Wayfinder depends on a
-range of okf releases within one revision (`^0.5.1`, revision 0.5.0) and
+range of okf releases within one revision (`^0.7.0-dev.1`, revision 0.5.0) and
 reports the release it runs, okf's `okfVersion`, as JSON `engine.okf` and a
 SARIF `tool.extensions` entry (§4.1). Golden reports over fixtures with
 generated indexes fail when a resolved `okf` release changes the generator's

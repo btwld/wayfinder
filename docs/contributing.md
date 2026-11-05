@@ -82,7 +82,7 @@ the generated `packages/wayfinder/lib/src/generated/published_schemas.g.dart`. A
 either schema, run `dart run tool/generate_published_schemas.dart` and commit the result;
 `--check` is the CI gate for a stale file. The okf release and its index generator revision
 come from okf itself (`okfVersion` and `okfIndexGeneratorRevision`), so the `okf:` constraint,
-the same `^0.5.1` in every package, is an ordinary range. Moving it to a new minor release
+the same `^0.7.0-dev.1` in every package, is an ordinary range. Moving it to a new minor release
 can move the generator revision, which is a breaking engine change
 ([guide §5.6](../implementation/okf-implementation-guide.md#56-rules-and-builtins)).
 

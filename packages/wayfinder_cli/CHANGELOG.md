@@ -1,6 +1,7 @@
 # 0.5.0 (unreleased)
 
-- Depends on `ack` and `ack_mcp_dart` `^2.0.0-alpha.1`.
+- Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`
+  `^0.7.0-dev.1`.
 - Resolve relative paths against the CLI working directory in production and
   embedded use. Hook cleanup preserves bare user-authored `wayfinder index`
   commands; only the two historical generated `cd ... &&` forms are removed.
@@ -134,7 +135,6 @@
   five minutes is stopped; clones report progress, so a long clone keeps
   running. A second `get` on the same project fails at once while the first
   runs, and `get`s that share a Profile source wait for each other.
-- Builds with Dart `objectbox` 5.3.2 through `wayfinder_embeddings` 0.4.0.
 - `index` and `search` come from the `wayfinder_embeddings` knowledge store,
   and the MCP server's tools with them. The CLI finds the model in its
   bundle and passes it in. It does not load ObjectBox. Output and exit codes

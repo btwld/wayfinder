@@ -1,11 +1,15 @@
 # 0.5.0 (unreleased)
 
-- Depends on `ack` `^2.0.0-alpha.1`.
-- Depends on `objectbox` `^6.0.0-preview.5`. `lib/objectbox.g.dart` is
-  regenerated with `objectbox_generator` 6.0.0-preview.5, and
-  `objectbox:install` pins native 6.0.0-beta2, the release ObjectBox pairs
-  with that Dart package (`tool/objectbox_assets/manifest.json` records both).
-  Every entity, property and index id and UID is unchanged.
+- Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-dev.1`.
+- **BREAKING:** Depends on `objectbox` `^6.0.0-preview.5`, a prerelease, so an
+  application that also depends on ObjectBox 5 must move to 6 to resolve.
+  `lib/objectbox.g.dart` is regenerated with `objectbox_generator`
+  6.0.0-preview.5, and `objectbox:install` pins native 6.0.0-beta2, the
+  release ObjectBox pairs with that Dart package
+  (`tool/objectbox_assets/manifest.json` records both). Every entity,
+  property and index id and UID is unchanged, so an existing `ObjectBoxStore`
+  opens without reindexing. The knowledge store and CLI indexes do not use
+  ObjectBox.
 - Share core path resolution for `unresolved-source` and Markdown citations.
   Invalid root escapes, encoded separators, backslashes and malformed escapes
   now report even without whitespace. In-bundle files and implied directories
