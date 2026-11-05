@@ -91,16 +91,40 @@ final class _LockedEmbedder extends BaseEmbedder {
   int get dimension => delegate.dimension;
 
   @override
-  Future<List<double>> generateEmbedding(String text) =>
-      _guard(() => delegate.generateEmbedding(text));
+  Future<List<double>> generateEmbedding(String text) => _guard(() async {
+    final vector = await delegate.generateEmbedding(text);
+    _requireVector(vector);
+    return vector;
+  });
 
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) =>
-      _guard(() => delegate.generateEmbeddings(texts));
+      _guard(() async {
+        final vectors = await delegate.generateEmbeddings(texts);
+        if (vectors.length != texts.length) {
+          throw StateError('Embedder returned an invalid batch shape.');
+        }
+        for (final vector in vectors) {
+          _requireVector(vector);
+        }
+        return vectors;
+      });
 
   @override
-  Future<List<double>> generateQueryVector(String text) =>
-      _guard(() => delegate.generateQueryVector(text));
+  Future<List<double>> generateQueryVector(String text) => _guard(() async {
+    final vector = await delegate.generateQueryVector(text);
+    _requireVector(vector);
+    return vector;
+  });
+
+  /// A vector the encoder returned is part of that call. A wrong dimension
+  /// or a non-finite component fails the call so a retained encoder is evicted.
+  void _requireVector(List<double> vector) {
+    if (vector.length != delegate.dimension ||
+        vector.any((value) => !value.isFinite)) {
+      throw StateError('Embedder returned an invalid batch shape.');
+    }
+  }
 
   @override
   Future<void> dispose() async {}

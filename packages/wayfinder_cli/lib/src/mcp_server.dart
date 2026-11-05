@@ -41,9 +41,18 @@ class WayfinderMcpServer {
   final WayfinderKnowledgeStore _knowledge;
   final WayfinderProfileResolver _profileResolver;
 
+  /// A relative root is joined to the injected working directory.
+  /// `Directory` alone would resolve it against the process working directory.
+  String _resolveRoot(String? path) {
+    if (path == null) return _workingDirectory.path;
+    return p.isAbsolute(path)
+        ? path
+        : p.normalize(p.join(_workingDirectory.path, path));
+  }
+
   /// Serves JSON-RPC on stdio until EOF, or on an injected transport in tests.
   Future<void> serve({Transport? transport}) async {
-    final directory = Directory(rootPath ?? _workingDirectory.path);
+    final directory = Directory(_resolveRoot(rootPath));
     if (!await directory.exists()) {
       throw FileSystemException(
         'MCP root must be an existing directory.',

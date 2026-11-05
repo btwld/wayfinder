@@ -377,6 +377,37 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  test(
+    'validate sarif uses the bundle resolved from the working directory',
+    () async {
+      final working = await Directory.systemTemp.createTemp(
+        'wayfinder-sarif-wd-',
+      );
+      addTearDown(() => working.delete(recursive: true));
+      final bundle = Directory(p.join(working.path, 'knowledge'));
+      await bundle.create();
+      final source = Directory(
+        '../../packages/wayfinder/test/fixtures/invalid-okf/knowledge',
+      );
+      await for (final entity in source.list()) {
+        if (entity is File) {
+          await entity.copy(p.join(bundle.path, p.basename(entity.path)));
+        }
+      }
+      cli = WayfinderCli(
+        out: output.add,
+        err: errors.add,
+        workingDirectory: working,
+        knowledge: () {
+          throw StateError('Validation must not open retrieval.');
+        },
+      );
+      await cli.run(['validate', 'knowledge', '--output=sarif']);
+      expect(output.single, contains(bundle.path));
+      expect(output.single, contains('untyped.md'));
+    },
+  );
+
   test('validate --output=sarif writes the result as a SARIF log', () async {
     const bundle = '../../examples/bitwild/knowledge';
     final expected = await validateWithProfileSources(

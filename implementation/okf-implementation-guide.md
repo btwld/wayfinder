@@ -925,6 +925,8 @@ Review found copied path classifiers disagreeing with validation; retrieval now
 uses the §5.6 inventory-first resolver and carries its decisions into display.
 Missing or malformed targets remain raw labels, while valid targets receive a
 bundle prefix. Freshness rejects malformed UTF-8 as invalid bundle input.
+A retained encoder is discarded when its own call throws or returns a vector
+of the wrong dimension or a non-finite component.
 Ingestion validates IDs before writes with digests and temporary disk storage;
 metadata duplicates write one final value per batch. Store-batch atomicity
 remains the transaction boundary. No Profile format or OKF meaning changes;

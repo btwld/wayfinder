@@ -9,9 +9,11 @@
   literal percent signs as `%25`.
 - Freshness uses the loader's UTF-8/BOM decoding. Invalid UTF-8 reports
   `OkfBundleLoadException` rather than a stale index that reindexing cannot fix.
-- Evict only an encoder whose own token-count or embedding call threw. A late failure after
-  `releaseEncoder()` no longer disposes a healthy replacement opened by
-  another operation.
+- Evict a retained encoder when one of its own token-count or embedding calls
+  throws, or when that call returns a vector of the wrong dimension or a
+  non-finite component. Unrelated bundle and store errors leave it in place.
+  A late failure after `releaseEncoder()` no longer disposes a healthy
+  replacement opened by another operation.
 - Prepare the first stable retrieval-library release, with the public
   compatibility and support boundaries in [the stability contract](../../docs/stability.md).
 - Ingestion refuses an explicit chunk ID reused for different text within one

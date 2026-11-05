@@ -147,4 +147,4 @@ Refuse parent segments and any-case `.git` segments at the adoption request boun
 
 Date: 2026-11-04.
 
-Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.
+Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls, including a returned vector with the wrong dimension or a non-finite component, and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.
