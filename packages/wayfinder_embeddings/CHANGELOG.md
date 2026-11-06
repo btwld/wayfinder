@@ -1,8 +1,3 @@
-# Unreleased
-
-- Drop Dart source chunking. `wayfinder_dart_chunker` was never published;
-  disregard the earlier instruction to add it.
-
 # 0.5.0-beta.1
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`.
