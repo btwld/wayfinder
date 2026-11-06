@@ -196,14 +196,16 @@ String knowledgeSnippet(String text, String query, {int length = 220}) {
   if (start < 0) start = 0;
   if (start > 0) {
     final space = flat.indexOf(' ', start);
-    start = space < 0 ? start : space + 1;
+    if (space >= 0 && space < ranges.first.start) start = space + 1;
   }
   var end = start + length;
   if (end >= flat.length) {
     end = flat.length;
   } else {
     final space = flat.lastIndexOf(' ', end);
-    if (space > start) end = space;
+    if (space > start && (ranges.isEmpty || space >= ranges.first.end)) {
+      end = space;
+    }
   }
   return '${start > 0 ? '…' : ''}${flat.substring(start, end)}'
       '${end < flat.length ? '…' : ''}';

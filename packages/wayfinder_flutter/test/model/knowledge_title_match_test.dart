@@ -142,6 +142,19 @@ void main() {
       expect(snippet.length, lessThanOrEqualTo(62));
     });
 
+    for (final (boundary, text) in [
+      ('start', '${'x' * 300}needle ${'tail ' * 100}'),
+      ('end', '${'word ' * 100}${'x' * 20}needle${'x' * 300} ${'tail ' * 100}'),
+    ]) {
+      test('$boundary boundary keeps a match inside an unbroken token', () {
+        final snippet = knowledgeSnippet(text, 'needle');
+        expect(snippet, contains('needle'));
+        expect(snippet, startsWith('…'));
+        expect(snippet, endsWith('…'));
+        expect(snippet.length, lessThanOrEqualTo(222));
+      });
+    }
+
     test('with no match, the passage is cut from its start', () {
       final snippet = knowledgeSnippet('word ' * 100, 'absent', length: 60);
       expect(snippet, startsWith('word'));
