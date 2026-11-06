@@ -1,5 +1,9 @@
 # 0.6.0-beta.1 (unreleased)
 
+- Keep a successfully published index successful when listing superseded
+  generations for cleanup fails. A later writer retries that cleanup.
+- Correct retained-encoder documentation: failures in encoder calls clear it
+  and the snapshot cache; unrelated operation failures preserve a healthy encoder.
 - Requires `wayfinder` `^0.5.0-beta.2`. The new public enum value below
   advances retrieval to the next breaking minor; published 0.5 releases
   retain their closed `StaleIndexPolicy` set.

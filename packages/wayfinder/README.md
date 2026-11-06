@@ -61,6 +61,14 @@ Future<void> main() async {
   finds the nearest `wayfinder.json` at or above a directory instead, or the
   nearest `knowledge/` directory below the Git boundary, as the `wayfinder`
   command does from its working directory.
+- `ProjectBundle.name` labels a bundle, `path` prefixes project citations,
+  and `root` locates its files. Its optional `identity` lets an embedded host
+  keep a saved index when that root moves. Give each logical bundle a unique,
+  persistent identity and preserve it when constructing a relocated bundle.
+  Discovery leaves it null; configuration and `toJson` do not carry it.
+  CLI/MCP therefore keep path-keyed indexes. The
+  [knowledge store guide](../wayfinder_embeddings/README.md#knowledge-store)
+  owns index lifecycle and cleanup behavior.
 - Without `configPath`, `WayfinderProjectConfig.bind`, the resolver's
   `select` and `restoreCachedPackages`, and `validateWithProfileSources` find
   a bundle's `wayfinder.json` by climbing from the bundle. With `projectRoot`

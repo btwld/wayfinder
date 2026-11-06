@@ -284,12 +284,14 @@ it one call into the model at a time (a batch of passages or one query), so a
 search runs between an index's batches instead of after it. The CLI delegates
 MCP retrieval ownership to the server, so `wayfinder mcp` uses this persistent
 lifetime. An explicit Dart `knowledge` factory override keeps the caller's
-chosen lifetime. Each call still checks source freshness. Failed calls evict
-the encoder; disconnect drains accepted calls and disposes it. The service also retains parsed snapshots in an
-LRU cache bounded by 64 MiB of UTF-8 JSON text across bundles. Every call rereads
+chosen lifetime. Each call still checks source freshness. Failures in the
+encoder's own calls evict it; unrelated store failures keep a healthy encoder.
+Disconnect drains accepted calls and disposes it. The service also retains
+parsed snapshots in an LRU cache bounded by 64 MiB of UTF-8 JSON text across
+bundles. Every call rereads
 the pointer and snapshot text; reuse requires the same canonical index directory,
-generation, and complete text. Changed, missing, or invalid records, failed
-retrievals, and disconnect clear the affected entry (or cache on dispose). Larger
+generation, and complete text. Changed, missing, or invalid records clear the
+affected entry; encoder failures and disconnect clear the cache. Larger
 records bypass the cache. This avoids repeated parsing and graph reconstruction
 for unchanged snapshots across multi-bundle searches; it retains no open store or
 search response and skips no source freshness check. One-shot CLI commands do not

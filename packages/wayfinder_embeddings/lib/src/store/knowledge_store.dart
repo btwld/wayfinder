@@ -170,11 +170,12 @@ class WayfinderKnowledgeStore {
   /// concurrently: each call into the shared encoder, a batch of document
   /// embeddings, a query vector or a token count, waits for the one before
   /// it, so a search can run between an index's batches. An operation that
-  /// fails in the encoder, or with an error that is not a
-  /// [WayfinderException], discards both, and the encoder is disposed once
-  /// no operation uses it; an expected failure, such as `index-stale`,
-  /// `index-busy` or `cancelled`, keeps them. This suits a long-lived
-  /// server. Without it, each operation opens and disposes its own encoder.
+  /// fails in an encoder call discards both, and the encoder is disposed once
+  /// no operation uses it. Unrelated operation failures and refusals such as
+  /// `index-stale`, `index-busy` or `cancelled` keep a healthy encoder. Missing
+  /// or corrupt saved records invalidate their cached snapshots separately.
+  /// This suits a long-lived server. Without it, each operation opens and
+  /// disposes its own encoder.
   /// [dispose] waits for accepted operations and releases the encoder.
   ///
   /// With [encoderIdleTimeout] as well, the store releases the retained
@@ -533,7 +534,11 @@ class WayfinderKnowledgeStore {
           ).writeAsString(jsonEncode(record), flush: true);
           await _publish(index, p.basename(staged.path));
           published = true;
-          await _collectGarbage(index, keep: p.basename(staged.path));
+          try {
+            await _collectGarbage(index, keep: p.basename(staged.path));
+          } on FileSystemException {
+            // Publication already committed; a later writer retries cleanup.
+          }
           await checkpoint.discard();
           return WayfinderIndexResult(
             bundle: root,

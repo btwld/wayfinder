@@ -224,18 +224,20 @@ try {
   generation. A superseded
   generation stays for `gracePeriod`, ten minutes by default, after the
   publication that replaced it, and a later publication deletes it; a reader
-  that loses that race reads the pointer again. `forget` and
-  `forgetProjectRoot` delete a lock file while holding it, and an operation
-  that has just opened it locks the path again once it has the lock, so it
+  that loses that race reads the pointer again. Cleanup I/O failures after
+  publication leave the new index successful and wait for a later writer.
+  `forget` and `forgetProjectRoot` delete a lock file while holding it. An
+  operation that has just opened it locks the path again once it has the lock, so it
   still excludes the next one; `prune` keeps a lock file until it has gone
   unused for the prune's period. Without `retainEncoder`, each
   operation opens and disposes its own encoder; with it, operations share one
   encoder, one call into it at a time (a batch of passages, a query vector or
   a token count), so a search runs between an index's batches, and share the
-  parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
-  unexpected error, discards the shared encoder and snapshots; a stale, busy
-  or cancelled operation keeps them. `releaseEncoder()` disposes the shared
-  encoder once the operations using it finish and keeps the snapshots, and
+  parsed snapshots, up to `cacheBytes`. A failure in an encoder call discards
+  the shared encoder and snapshot cache. Other operation failures keep a
+  healthy encoder; missing or corrupt saved records still invalidate their
+  cached snapshots separately. `releaseEncoder()` disposes the shared encoder
+  once the operations using it finish and keeps the snapshots, and
   `encoderIdleTimeout` does the same once no index run or search has used
   it for that long; the next operation that needs an encoder opens one
   again. okf's bundle lock does not exclude
