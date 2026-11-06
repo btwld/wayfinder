@@ -133,6 +133,121 @@ void main() {
       expect(twice.files, hasLength(_files.length));
     });
 
+    test(
+      'flattening a bundle preserves files with the same displayed name',
+      () {
+        const files = [
+          KnowledgeFileEntry(
+            path: 'knowledge/wayfinder.json',
+            kind: KnowledgeFileKind.reference,
+          ),
+          KnowledgeFileEntry(
+            path: 'wayfinder.json',
+            kind: KnowledgeFileKind.config,
+          ),
+        ];
+        for (final entries in [files, files.reversed]) {
+          final tree = KnowledgeFileTreeProjection(
+            entries,
+            bundles: _knowledge,
+          );
+          expect(
+            tree.byId.keys,
+            unorderedEquals([
+              'file:knowledge/wayfinder.json',
+              'file:wayfinder.json',
+            ]),
+          );
+          for (final file in files) {
+            final id = KnowledgeFileTreeProjection.fileId(file.path);
+            expect(tree.byId[id]!.file, file);
+            expect(tree.byId[id]!.parentId, isNull);
+            expect(tree.ancestorsOf(id), isEmpty);
+          }
+          expect(
+            tree.visible((_) => false).map((row) => (row.node.id, row.depth)),
+            [('file:knowledge/wayfinder.json', 0), ('file:wayfinder.json', 0)],
+          );
+          expect(
+            tree
+                .visible((_) => false, query: 'knowledge/')
+                .map((row) => row.node.id),
+            ['file:knowledge/wayfinder.json'],
+          );
+        }
+      },
+    );
+
+    test('flattening a bundle keeps same-named folders and ancestry apart', () {
+      const files = [
+        KnowledgeFileEntry(
+          path: 'knowledge/docs/a.md',
+          kind: KnowledgeFileKind.reference,
+        ),
+        KnowledgeFileEntry(
+          path: 'docs/b.md',
+          kind: KnowledgeFileKind.reference,
+        ),
+        KnowledgeFileEntry(
+          path: 'knowledge/docs/deep/c.md',
+          kind: KnowledgeFileKind.reference,
+        ),
+        KnowledgeFileEntry(
+          path: 'docs/deep/d.md',
+          kind: KnowledgeFileKind.reference,
+        ),
+      ];
+      for (final entries in [files, files.reversed]) {
+        final tree = KnowledgeFileTreeProjection(entries, bundles: _knowledge);
+        expect(tree.directoryIds, {
+          'directory:docs',
+          'directory:docs/deep',
+          'directory:knowledge/docs',
+          'directory:knowledge/docs/deep',
+        });
+        expect(labels(tree.roots), ['docs', 'docs']);
+        for (final file in files) {
+          final id = KnowledgeFileTreeProjection.fileId(file.path);
+          final folder = file.path.substring(0, file.path.lastIndexOf('/'));
+          expect(tree.byId[id]!.file, file);
+          expect(tree.byId[id]!.parentId, 'directory:$folder');
+          expect(tree.ancestorsOf(id), [
+            'directory:$folder',
+            if (folder.endsWith('/deep'))
+              'directory:${folder.substring(0, folder.lastIndexOf('/'))}',
+          ]);
+        }
+        expect(
+          tree.visible((_) => true).map((row) => (row.node.id, row.depth)),
+          [
+            ('directory:docs', 0),
+            ('directory:docs/deep', 1),
+            ('file:docs/deep/d.md', 2),
+            ('file:docs/b.md', 1),
+            ('directory:knowledge/docs', 0),
+            ('directory:knowledge/docs/deep', 1),
+            ('file:knowledge/docs/deep/c.md', 2),
+            ('file:knowledge/docs/a.md', 1),
+          ],
+        );
+        expect(
+          tree
+              .visible((id) => id == 'directory:knowledge/docs')
+              .map((row) => row.node.id),
+          [
+            'directory:docs',
+            'directory:knowledge/docs',
+            'directory:knowledge/docs/deep',
+            'file:knowledge/docs/a.md',
+          ],
+        );
+        expect(
+          tree.visible((_) => false, query: 'b.md').map((row) => row.node.id),
+          ['directory:docs', 'file:docs/b.md'],
+        );
+      }
+    });
+
     test('with no bundle or one at the root, there is no prefix to remove', () {
       const atRoot = KnowledgeBundleSummary(
         name: 'root',

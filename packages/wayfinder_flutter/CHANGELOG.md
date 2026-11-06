@@ -16,3 +16,5 @@
 - The graph fills its bounded viewport under loose cross-axis constraints, such
   as an `Expanded` child of a `Column`, rather than collapsing to zero width.
 - `KnowledgeIndexState` and `KnowledgeIndexProgress` are provisional.
+- Flattening a single bundle preserves files and folders with the same displayed
+  names as project files, keeping their project-relative IDs and ancestry.

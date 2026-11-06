@@ -153,12 +153,10 @@ final class KnowledgeFileTreeProjection {
       var branch = root;
       for (var i = 0; i < segments.length - 1; i++) {
         final folder = segments.take(i + 1).join('/');
-        branch = branch.directories.putIfAbsent(
-          segments[i],
-          () => _Branch(inside ? '$prefix$folder' : folder),
-        );
+        final path = inside ? '$prefix$folder' : folder;
+        branch = branch.directories.putIfAbsent(path, () => _Branch(path));
       }
-      branch.files[segments.last] = file;
+      branch.files[file.path] = file;
     }
     return _folderChildren(root, parentId);
   }
@@ -168,15 +166,16 @@ final class KnowledgeFileTreeProjection {
     String? parentId,
   ) {
     final result = <KnowledgeFileTreeNode>[];
-    final names = branch.directories.keys.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    for (final name in names) {
-      var directory = branch.directories[name]!;
-      var label = name;
+    final directories = branch.directories.values.toList()
+      ..sort((a, b) {
+        final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return byName != 0 ? byName : a.path.compareTo(b.path);
+      });
+    for (var directory in directories) {
+      var label = directory.name;
       while (directory.files.isEmpty && directory.directories.length == 1) {
-        final next = directory.directories.entries.single;
-        label = '$label/${next.key}';
-        directory = next.value;
+        directory = directory.directories.values.single;
+        label = '$label/${directory.name}';
       }
       final id = folderId(directory.path);
       final children = _folderChildren(directory, id);
@@ -367,6 +366,9 @@ final class KnowledgeFileTreeProjection {
 final class _Branch {
   _Branch(this.path);
   final String path;
+  String get name => path.substring(path.lastIndexOf('/') + 1);
+
+  // Project-relative keys keep flattened bundle paths distinct from peers.
   final directories = <String, _Branch>{};
   final files = <String, KnowledgeFileEntry>{};
 }
