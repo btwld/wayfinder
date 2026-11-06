@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-"""Keep the analyzer and the Dart chunker out of wayfinder_embeddings.
+"""Keep the analyzer out of wayfinder_embeddings' runtime dependencies.
 
 wayfinder_embeddings does not depend on `analyzer`, so an application can pick
-its own analyzer version; Dart chunking lives in wayfinder_dart_chunker, which
-depends on wayfinder_embeddings. Two rules keep it that way:
-
-- nothing wayfinder_embeddings depends on reaches `analyzer` or
-  `_fe_analyzer_shared`;
-- nothing it depends on, its dev dependencies included, reaches
-  `wayfinder_dart_chunker`, which would be a cycle.
+its own analyzer version. Nothing it depends on at runtime may reach `analyzer`
+or `_fe_analyzer_shared`.
 
 Its dev dependencies still reach `analyzer` through build_runner and
 objectbox_generator; that is expected and allowed.
 
-`dart pub deps` lists every workspace member, so a grep over its output also
-matches the chunker's own `analyzer`. This walks the dependency graph from
-wayfinder_embeddings instead. Run `dart pub get` first.
+`dart pub deps` lists every workspace member and dev dependency. This walks the
+runtime dependency graph from wayfinder_embeddings instead. Run `dart pub get`
+first.
 """
 
 import json
@@ -27,7 +22,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = "wayfinder_embeddings"
 NO_RUNTIME = ("analyzer", "_fe_analyzer_shared")
-NO_EDGE = "wayfinder_dart_chunker"
 
 
 def closure(graph: dict[str, dict], start: list[str]) -> set[str]:
@@ -56,26 +50,19 @@ def main() -> int:
     graph = {entry["name"]: entry for entry in json.loads(output)["packages"]}
     package = graph[PACKAGE]
     runtime = closure(graph, package["directDependencies"])
-    development = closure(graph, package["devDependencies"])
 
     failures = [
         f"{PACKAGE} reaches {name} through its dependencies"
         for name in NO_RUNTIME
         if name in runtime
     ]
-    if NO_EDGE in runtime | development:
-        failures.append(
-            f"{PACKAGE} reaches {NO_EDGE}, which depends on it; move the code "
-            f"that needs the Dart chunker into {NO_EDGE}"
-        )
     for failure in failures:
         print(failure, file=sys.stderr)
     if failures:
         return 1
     print(
         f"{PACKAGE}: {len(runtime)} runtime packages without "
-        f"{' or '.join(NO_RUNTIME)}; {len(development)} dev packages, none of "
-        f"them {NO_EDGE}."
+        f"{' or '.join(NO_RUNTIME)}."
     )
     return 0
 

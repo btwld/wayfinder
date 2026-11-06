@@ -1,6 +1,5 @@
 # Retrieval identities hash fixture contents; preserve them across checkouts.
 packages/wayfinder_embeddings/fixtures/** text eol=lf
-packages/wayfinder_dart_chunker/fixtures/** text eol=lf
 
 # The knowledge store tests edit the store bundle as LF text, and its chunk
 # ids hash the files' bytes.

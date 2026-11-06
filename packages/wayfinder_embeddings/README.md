@@ -7,9 +7,8 @@ locally with dense vectors from an in-process llamadart model.
 
 - **Chunk** TypeScript, Markdown, and text files into addressable segments
   with line ranges and symbol metadata. Chunk ids are stable hashes of the
-  source path, line range, type, and content. Dart chunking lives in
-  [`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker), so this
-  package does not depend on the analyzer.
+  source path, line range, type, and content. The package does not depend on
+  the analyzer.
 - **Rank** chunks for a natural-language query with dense
   retrieval and optional cross-encoder reranking.
 - **Expand** a precise hit to its enclosing class, namespace, or file.
@@ -136,7 +135,7 @@ try {
   `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index of a
   bundle, such as a removed worktree, by the path it had, symbolic links
   included, with its `writer.lock` and the directories that leaves empty;
-  `forgetProjectRoot` does the same for every bundle at or inside a project
+  `forgetProjectRoot` does the same for path-keyed bundles at or inside a project
   root, which it finds by the bundle root each index's `writer.lock`
   records, so it works once the worktree is gone. It is `index-busy`,
   deleting nothing, while an operation holds one of those indexes or one
@@ -145,7 +144,8 @@ try {
   is being indexed, whichever project it belongs to. An index whose lock
   records no root, as an interrupted writer can leave, is not found, and
   `prune` keeps it too while its configuration is the store's; `forget` of
-  its bundle deletes it. `prune` deletes the
+  its bundle deletes it. Identity-keyed indexes are left to `forget`, not
+  `forgetProjectRoot` or `prune`. `prune` deletes path-keyed
   indexes of roots that no longer exist and of other configurations unused
   for 30 days, the `get` locks of project roots that no longer exist
   (`WayfinderProfileResolver.pruneProjectLocks`), and model downloads
@@ -356,8 +356,7 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 Future<void> main() async {
-  // 1. Register a chunker per content type. For Dart sources, add
-  //    DartChunker from package:wayfinder_dart_chunker.
+  // 1. Register a chunker per content type.
   final registry = ChunkerRegistry()
     ..registerChunker(TypeScriptChunker())
     ..registerChunker(MarkdownChunker());
@@ -462,16 +461,18 @@ It collapses repeated contexts to the first child hit.
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 5.3.2, verifies the release archive's SHA-256
-  before extracting it, and writes only to this package's `lib/` directory.
-  It covers every platform upstream publishes for
-  5.3.2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
+  The installer pins native 6.0.0-beta2, verifies the release archive's
+  SHA-256 before extracting it, and writes only to this package's `lib/`
+  directory. It covers every platform upstream publishes for
+  6.0.0-beta2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
   x64/x86/arm64 - and refuses anything without a pinned hash rather than
   installing another architecture.
-  The package accepts any Dart `objectbox` 5.x from 5.3.2. The repository's
-  workspace overrides it to 5.3.2, so its tests and native bundles always pair
-  Dart 5.3.2 with native 5.3.2, and `test/objectbox_assets_test.dart` fails
-  when the two differ.
+  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.6. The
+  repository's workspace overrides it to 6.0.0-preview.6, the Dart release
+  ObjectBox pairs with native 6.0.0-beta2, so its tests and native bundles
+  always pair the two; `tool/objectbox_assets/manifest.json` records both
+  (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
+  when the override and the manifest differ.
   Tests that need the library, such as `test/objectbox_store_test.dart`, skip
   themselves when it is absent; native CI installs it and runs the whole
   package. The knowledge store does not use it.
@@ -495,9 +496,7 @@ It previews a checked-in `fixtures/samples/` file without loading a model and
 creates no searchable index. The sample corpus covers the three built-in
 chunkers, including plain text and Markdown table examples inside code fences.
 Markdown code blocks retain literal table syntax; actual tables inherit their
-heading metadata and are omitted when `includeTables` is false. The Dart sample
-and its code example moved to
-[`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker).
+heading metadata and are omitted when `includeTables` is false.
 
 The sample corpus has its own golden snapshot. The separate `fixtures/corpus/`
 retrieval benchmark retains its recorded queries and metrics.
@@ -710,8 +709,8 @@ Existing databases using the previous vector schema require reindexing into a
 **new directory**. The store refuses to open incompatible databases before
 ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
 when changing the schema; preserve `lib/objectbox-model.json` UID history.
-The committed bindings come from `objectbox_generator` 5.3.2 and keep every id
-and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
+The committed bindings come from `objectbox_generator` 6.0.0-preview.6 and
+keep every id and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
 `test/objectbox_store_test.dart` opens such a store from
 [`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).
 
@@ -755,11 +754,11 @@ TypeScript and Markdown files still go through their chunkers. With `--qrels`,
 has no chunker or, with stable-id matching, when a judged chunk id is missing
 from the corpus, so a run without `--reference-chunks` cannot report collapsed
 recall. The golden tests and `tool/validation.dart` replay the same golden.
-`wayfinder_dart_chunker`'s `test/judged_corpus_test.dart` is the corpus
-golden's only writer: it checks that its chunker still produces those Dart
-chunks and rewrites the whole golden with `UPDATE_GOLDENS=1`, while this
-package only compares against it. Budget experiments apply to the built-in
-chunkers only; score them with `--qrels-match=span-overlap`.
+The committed baseline chunks in `test/goldens/baseline_chunks.json` are the
+source of truth. Tests compare against them and never rewrite them, even with
+`UPDATE_GOLDENS=1`. Review any intended baseline change together with the qrels
+that name its chunk ids. Budget experiments apply to the built-in chunkers only;
+score them with `--qrels-match=span-overlap`.
 
 ## License
 

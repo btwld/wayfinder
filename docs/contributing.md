@@ -67,7 +67,7 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all four packages. Package test runs are
+`dart run melos run lint` checks all three packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Tests within each
 package keep their normal concurrency. For docs/skills, also check
@@ -82,7 +82,7 @@ the generated `packages/wayfinder/lib/src/generated/published_schemas.g.dart`. A
 either schema, run `dart run tool/generate_published_schemas.dart` and commit the result;
 `--check` is the CI gate for a stale file. The okf release and its index generator revision
 come from okf itself (`okfVersion` and `okfIndexGeneratorRevision`), so the `okf:` constraint,
-the same `^0.5.1` in every package, is an ordinary range. Moving it to a new minor release
+the same `^0.7.0-beta.1` in every package, is an ordinary range. Moving it to a new minor release
 can move the generator revision, which is a breaking engine change
 ([guide §5.6](../implementation/okf-implementation-guide.md#56-rules-and-builtins)).
 
@@ -131,13 +131,11 @@ files with `dart run melos run build` only when entity schemas change. The root
 `pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
 natively; change the override, the installer and
 `tool/objectbox_assets/manifest.json` together.
-`wayfinder_dart_chunker` holds the analyzer-based Dart chunker, so
-`wayfinder_embeddings` does not depend on `analyzer`. Nothing in
-`wayfinder_embeddings` may depend on it, including as a dev dependency.
-`python3 tool/ci/verify-embeddings-closure.py` checks both rules in CI. The
-chunker's tests also check the Dart chunks that the judged retrieval corpus
-replays, and write that corpus golden; see
-its [README](../packages/wayfinder_dart_chunker/README.md#development).
+`wayfinder_embeddings` keeps `analyzer` out of its runtime dependencies;
+`python3 tool/ci/verify-embeddings-closure.py` checks that rule in CI.
+The committed baseline chunks are the source of truth for the judged retrieval
+corpus. Its tools and tests replay the Dart chunks and compare against that
+baseline without rewriting it; see its [fixtures README](../packages/wayfinder_embeddings/fixtures/README.md).
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a
@@ -158,6 +156,22 @@ PowerShell 5.1 on installer pull requests. Public installer verification runs
 automatically on Linux and supports manual macOS/Windows smoke tests against
 the published release. These installer checks do not replace source tests or
 verification of new native artifacts on those platforms.
+
+Pull-request workflows use exactly `opened`, `synchronize`, `reopened`, and
+`ready_for_review`. A draft pull request runs zero jobs: classification,
+heavy work, light work, and the required check all stay skipped.
+`ready_for_review` runs the suite once the pull request is ready. A ready
+pull request whose diff is only non-code (documentation outside
+`docs/schemas/`, readmes, licenses, issue and pull-request templates, and
+non-build assets) skips the heavy jobs. The required check still runs and
+succeeds. Schemas, examples, Profile skill text, version snapshots, and
+test fixtures stay with the code jobs, because CI reads them.
+Classification, the required check, and POSIX installer lint use
+`ubuntu-slim`. Package tests and native retrieval stay on `ubuntu-latest`.
+
+No pull request schedules a `macos-*` runner. macOS and Windows public-install
+coverage is the manual dispatch added in #170. The workflow selects that
+runner only for `workflow_dispatch`.
 
 
 The `test` matrix analyzes and tests all packages on Dart 3.11.0 and stable.

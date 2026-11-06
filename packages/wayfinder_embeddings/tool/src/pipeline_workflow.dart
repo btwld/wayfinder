@@ -515,12 +515,9 @@ ChunkerRegistry buildDefaultRegistry({
 
 /// Committed chunks for the fixture files no built-in chunker handles.
 ///
-/// The judged corpus is mostly Dart, and the Dart chunker lives in
-/// `wayfinder_dart_chunker`, which depends on this package, so this package
-/// cannot run it. The corpus golden keeps the Dart chunks its qrels name, and
-/// replaying them keeps the dense gate on those judged chunk ids.
-/// `wayfinder_dart_chunker`'s tests check that its chunker still produces
-/// them, and rewrite them with `UPDATE_GOLDENS=1`.
+/// The committed baseline chunks are the source of truth for the judged
+/// corpus, which is mostly Dart. Replaying them keeps the dense gate on the
+/// chunk ids its qrels name.
 class ReferenceChunks {
   ReferenceChunks._(this.manifest, this.fixturesDir, this._chunksByPath);
 
@@ -584,8 +581,8 @@ class ReferenceChunks {
     final records = _chunksByPath[relative];
     if (records == null) {
       throw StateError(
-        '${manifest.path} has no chunks for $relative. Rewrite it with '
-        "wayfinder_dart_chunker's judged corpus test.",
+        '${manifest.path} has no chunks for $relative. Review the committed '
+        'baseline and the qrels that name its chunk ids.',
       );
     }
     final runtimeIds = <String, String>{};
@@ -610,9 +607,8 @@ class ReferenceChunks {
       if (stableFixtureChunkId(chunk, fixturesDir) != stableId ||
           !content.contains(chunk.content)) {
         throw StateError(
-          '$relative no longer matches ${manifest.path}. Rewrite the manifest '
-          "with wayfinder_dart_chunker's judged corpus test, then review the "
-          'qrels that name its chunk ids.',
+          '$relative no longer matches ${manifest.path}. Review the committed '
+          'baseline and the qrels that name its chunk ids.',
         );
       }
       runtimeIds[stableId] = chunk.id;
@@ -653,16 +649,13 @@ class _ReferenceChunker extends BaseChunker {
 
 /// The judged corpus golden, relative to this package.
 ///
-/// `wayfinder_dart_chunker`'s `test/judged_corpus_test.dart` is its only
-/// writer, because only that package makes the corpus's Dart chunks. This
-/// package replays those chunks from it and only compares against it, even
-/// with `UPDATE_GOLDENS=1`, so the two packages cannot rewrite it in turn.
+/// The committed baseline chunks are the source of truth. This package replays
+/// its Dart chunks and only compares against it, even with `UPDATE_GOLDENS=1`.
 const corpusGoldenPath = 'test/goldens/baseline_chunks.json';
 
 const _rewriteCorpusGolden =
-    'wayfinder_dart_chunker writes it: after reviewing the change, run '
-    'UPDATE_GOLDENS=1 dart test test/judged_corpus_test.dart in '
-    'packages/wayfinder_dart_chunker, then review every qrels id that moved.';
+    'The committed baseline chunks are the source of truth; review any '
+    'intended change together with every qrels id that moved.';
 
 /// Compares [preview]'s chunk manifest with the golden at [goldenPath].
 ///
@@ -1012,11 +1005,6 @@ List<String> _checkWorkflowQueries(List<String> queries) {
 ///
 /// Parent heading references use the same fixture-relative ids as their chunks.
 /// File and type keys are sorted; chunk order within each file is preserved.
-///
-/// `wayfinder_dart_chunker`'s `test/support/chunk_manifest.dart` repeats this
-/// format, with [collectFixtureFiles] and [stableFixtureChunkId], to write the
-/// [corpusGoldenPath] golden. Change both together: the corpus golden test
-/// here fails whenever the two disagree.
 Map<String, Object?> buildChunkManifest(
   List<Chunk> chunks,
   Directory fixturesDir,
