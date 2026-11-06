@@ -6,10 +6,13 @@ on:
     paths:
       - packages/wayfinder_flutter/**
       - .github/workflows/wayfinder-flutter.yml
+      - tool/ci/classify_changes.py
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - packages/wayfinder_flutter/**
       - .github/workflows/wayfinder-flutter.yml
+      - tool/ci/classify_changes.py
 
 permissions:
   contents: read
@@ -19,7 +22,32 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Classify changes
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.classify.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          DIFF_DOTS: ${{ github.event_name == 'pull_request' && '...' || '..' }}
+        run: python3 tool/ci/classify_changes.py --mode code
+
   test:
+    needs: changes
+    if: >-
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.run == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     timeout-minutes: 15
     strategy:
       fail-fast: false
