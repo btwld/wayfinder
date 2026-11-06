@@ -149,6 +149,13 @@ Date: 2026-11-04.
 
 Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls, including a returned vector with the wrong dimension or a non-finite component, and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.
 
+## Flutter reader SDK outside the Dart workspace
+
+Date: 2026-11-03.
+
+Keep Flutter reader models and widgets in `packages/wayfinder_flutter`, free of any design kit, so desktop and phone readers share one implementation while hosts keep sign-in, storage, navigation and chrome.
+The package stays out of the pub workspace and root analysis so that CLI and library contributors need no Flutter SDK; the cost is a separate workflow and dependency resolution for it.
+
 ## Ack 2, analyzer 13 and ObjectBox 6 preview
 
 Date: 2026-11-05.

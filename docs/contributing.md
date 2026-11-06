@@ -67,12 +67,15 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all three packages. Package test runs are
+`dart run melos run lint` checks all three workspace packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Tests within each
 package keep their normal concurrency. For docs/skills, also check
 local links and compare changed wording with its authoritative source. Report
 what ran; validation checks conformance, not the judgment a skill asks for.
+
+`packages/wayfinder_flutter` is outside the workspace and needs Flutter. Its
+[README](../packages/wayfinder_flutter/README.md#development) lists its checks.
 
 ## Schemas and Profile packages
 
