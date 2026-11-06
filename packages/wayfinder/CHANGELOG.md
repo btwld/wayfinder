@@ -1,3 +1,10 @@
+# 0.5.0-beta.2 (unreleased)
+
+- New `ProjectBundle.identity`, a name a host gives a bundle so that
+  `wayfinder_embeddings` keys its saved index by that name instead of the
+  bundle's root, and the index survives the folder moving. It is optional and
+  not part of `toJson`; nothing in this package reads it.
+
 # 0.5.0-beta.1
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas

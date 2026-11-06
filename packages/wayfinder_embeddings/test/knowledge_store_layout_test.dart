@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/src/store/embedding_checkpoint.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support/store_support.dart';
@@ -513,7 +514,7 @@ Future<void> main(List<String> arguments) async {
       );
     });
 
-    test('a cancelled refresh keeps the current generation and writes '
+    test('a cancelled refresh keeps the current generation and publishes '
         'nothing', () async {
       final opened = <TestEmbedder>[];
       final knowledge = store(TestEncoderProvider(opened));
@@ -557,7 +558,14 @@ Future<void> main(List<String> arguments) async {
         expect(seen, isNotNull, reason: '$phase');
         expect(generations(namespace), [generation], reason: '$phase');
         expect(await current.readAsString(), generation);
-        expect(await treeBytes(namespace), saved, reason: '$phase');
+        final tree = await treeBytes(namespace);
+        // Only the vectors of finished batches stay, for the next run.
+        expect(
+          tree.remove(EmbeddingCheckpoint.fileName) != null,
+          phase == IndexPhase.publishing,
+          reason: '$phase',
+        );
+        expect(tree, saved, reason: '$phase');
         expect(opened.every((encoder) => encoder.isDisposed), isTrue);
       }
       expect(await knowledge.status(bundle), isA<KnowledgeIndexStale>());

@@ -114,21 +114,28 @@ try {
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
   index, reports `IndexProgress` (`scanning`, `loading` from before the
   encoder opens, `embedding` with counts, `publishing`) and checks its
-  `WayfinderCancellation` between steps and batches; a cancelled run writes
-  nothing and leaves the current generation. `search` ranks a project's
+  `WayfinderCancellation` between steps and batches; a cancelled run publishes
+  nothing and leaves the current generation. A run that does not publish,
+  whether cancelled, failed or killed, keeps its finished batches in
+  `embeddings.partial` in the index directory, so the next run embeds only
+  what remains; a run that publishes, and one that finds its index current,
+  deletes the file, and `force` starts without it. `search` ranks a project's
   bundles together under one limit; `searchBundle` searches one bundle with
   its own context policy. Both take a `StaleIndexPolicy`: `refuse`, the
   default, refuses a stale index; `serveWhileRefreshing` serves the last
   published generation while another operation indexes the bundle, with a
   `refresh-in-progress` notice, and for files edited since, a
-  `source-changed` notice and `KnowledgeCitation.sourceChanged`. Both also
+  `source-changed` notice and `KnowledgeCitation.sourceChanged`; `serve` does
+  the same with no refresh running, for a host that refreshes on its own
+  schedule or cannot refresh now, and adds the refresh notice only while one
+  runs. A missing or incompatible index is refused either way. Both also
   take a `WayfinderCancellation`, checked before each bundle, before the
   encoder opens and the query is encoded, and before the passages are
   scored; a cancelled search throws `cancelled`. `status` reports
   `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index of a
-  bundle, such as a removed worktree, by the path it had, symbolic links
+  bundle by its identity when supplied, or by the path it had, symbolic links
   included, with its `writer.lock` and the directories that leaves empty;
-  `forgetProjectRoot` does the same for every bundle at or inside a project
+  `forgetProjectRoot` does the same for path-keyed bundles at or inside a project
   root, which it finds by the bundle root each index's `writer.lock`
   records, so it works once the worktree is gone. It is `index-busy`,
   deleting nothing, while an operation holds one of those indexes or one
@@ -137,9 +144,11 @@ try {
   is being indexed, whichever project it belongs to. An index whose lock
   records no root, as an interrupted writer can leave, is not found, and
   `prune` keeps it too while its configuration is the store's; `forget` of
-  its bundle deletes it. `prune` deletes the
+  its bundle deletes it. `forgetProjectRoot` leaves identity-keyed indexes
+  to `forget`. `prune` deletes path-keyed
   indexes of roots that no longer exist and of other configurations unused
-  for 30 days, the `get` locks of project roots that no longer exist
+  for 30 days (including identity-keyed indexes in those old configurations),
+  the `get` locks of project roots that no longer exist
   (`WayfinderProfileResolver.pruneProjectLocks`), and model downloads
   abandoned a day ago (`EmbeddingModelCache.removeAbandonedDownloads`).
 - **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
@@ -166,7 +175,8 @@ try {
   `index-busy`, `index-missing`, `index-stale`, `index-incompatible`,
   `bundle-changed`, `model-missing`, `model-invalid`, `cancelled` and
   `closed`. `index-busy` comes from a second writer, and from a
-  `serveWhileRefreshing` search while a bundle's first index is being built.
+  `serveWhileRefreshing` or `serve` search while a bundle's first index is
+  being built.
   Messages name no command; the host says how to index.
 - **Tool inputs.** `wayfinderSearchInput` and `knowledgeMetadataFilterInput`
   are the Ack schemas of a host's search tool and its frontmatter filters;
@@ -174,12 +184,19 @@ try {
 - **Layout.** Each index lives in
   `indexes/bundles/<bundle key>/<configuration key>/` under the data
   directory. The bundle key hashes the canonical root, so worktrees and copies
-  index separately; the configuration key hashes the chunking, snapshot and
+  index separately. A host whose folders move, such as an iOS app whose
+  container path changes when it is updated, gives the bundle an identity,
+  `ProjectBundle('docs', 'docs', root, identity: 'github:acme/docs')`, and the
+  key hashes that instead, so the index stays with the bundle. A missing old
+  root does not make `prune` delete it, and `forgetProjectRoot` leaves it to
+  `forget`; pruning unused old configurations still applies. Bundles that share an identity share one
+  index. The configuration key hashes the chunking, snapshot and
   storage configuration and the llama.cpp release `wayfinderLlamaCppRuntime`
   names with the encoder identity, so another model, chunker, format or
   runtime release never reads or replaces an index ([what a host
   checks](#local-model-and-builds)). The directory holds
-  `writer.lock`, a `current` pointer, and immutable generations,
+  `writer.lock`, a `current` pointer, after a run that did not finish
+  `embeddings.partial`, and immutable generations,
   `generation-<id>/{snapshot.json, vectors.f32}`: the record, and a header
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
@@ -207,18 +224,20 @@ try {
   generation. A superseded
   generation stays for `gracePeriod`, ten minutes by default, after the
   publication that replaced it, and a later publication deletes it; a reader
-  that loses that race reads the pointer again. `forget` and
-  `forgetProjectRoot` delete a lock file while holding it, and an operation
-  that has just opened it locks the path again once it has the lock, so it
+  that loses that race reads the pointer again. Cleanup I/O failures after
+  publication leave the new index successful and wait for a later writer.
+  `forget` and `forgetProjectRoot` delete a lock file while holding it. An
+  operation that has just opened it locks the path again once it has the lock, so it
   still excludes the next one; `prune` keeps a lock file until it has gone
   unused for the prune's period. Without `retainEncoder`, each
   operation opens and disposes its own encoder; with it, operations share one
   encoder, one call into it at a time (a batch of passages, a query vector or
   a token count), so a search runs between an index's batches, and share the
-  parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
-  unexpected error, discards the shared encoder and snapshots; a stale, busy
-  or cancelled operation keeps them. `releaseEncoder()` disposes the shared
-  encoder once the operations using it finish and keeps the snapshots, and
+  parsed snapshots, up to `cacheBytes`. A failure in an encoder call discards
+  the shared encoder and snapshot cache. Other operation failures keep a
+  healthy encoder; missing or corrupt saved records still invalidate their
+  cached snapshots separately. `releaseEncoder()` disposes the shared encoder
+  once the operations using it finish and keeps the snapshots, and
   `encoderIdleTimeout` does the same once no index run or search has used
   it for that long; the next operation that needs an encoder opens one
   again. okf's bundle lock does not exclude

@@ -7,6 +7,10 @@ breaking-change boundary: `^0.5.0` accepts 0.5 releases, not 0.6. A Profile's
 own release is independent of all three. [Release preparation](releasing.md)
 and exact-source verification still decide whether a candidate can ship.
 
+The prepared retrieval 0.6 release keeps these obligations and adds
+`StaleIndexPolicy.serve`. Callers migrating from retrieval 0.5 must handle that
+value in exhaustive switches; core and CLI remain on their independent 0.5 lines.
+
 ## Supported surfaces
 
 ### Core (`wayfinder`)

@@ -57,6 +57,16 @@ and requires the verified local embedding model. Indexing is explicit in both:
 search does not rebuild a missing or stale index. MCP does not expose
 concept-authoring writes.
 
+An embedded host discovers bundles through the core project API, supplies a
+data directory and encoder to the knowledge store, then indexes explicitly
+before searching. The [project guide](../packages/wayfinder/README.md#projects)
+separates bundle identity from file and citation paths. The
+[store guide](../packages/wayfinder_embeddings/README.md#knowledge-store)
+defines status, checkpoints, progress, cancellation, freshness and disposal.
+Hosts own the adapter, controller and UI; MCP exposes command results rather
+than an indexing progress stream. Preserve source-change notices and verify
+current files before using indexed citation lines.
+
 The Dart OKF adapter also requires an embedder; there is no model-free search
 fallback. Chunk preview and snapshot parsing remain model-free. See the
 [API guide](../packages/wayfinder_embeddings/README.md#search-an-okf-bundle) and

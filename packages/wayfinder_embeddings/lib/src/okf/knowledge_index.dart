@@ -119,7 +119,8 @@ enum KnowledgeNoticeCode {
   governingSourceUnavailable('governing-source-unavailable'),
 
   /// Another operation was refreshing the index, and the search served the
-  /// last published generation (`StaleIndexPolicy.serveWhileRefreshing`).
+  /// last published generation (`StaleIndexPolicy.serveWhileRefreshing` or
+  /// `StaleIndexPolicy.serve`). A first build throws `index-busy` instead.
   refreshInProgress('refresh-in-progress'),
 
   /// Files changed after the served generation was built, so passages cited

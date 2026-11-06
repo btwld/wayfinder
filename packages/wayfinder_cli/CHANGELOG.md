@@ -1,3 +1,12 @@
+# 0.5.0-beta.2 (unreleased)
+
+- Requires `wayfinder` `^0.5.0-beta.2` and `wayfinder_embeddings`
+  `^0.6.0-beta.1`; CLI/MCP output contracts are unchanged.
+- An interrupted `index` now continues where it stopped: the next run embeds
+  only what remains, with the same result as an uninterrupted run. Until then
+  the index directory holds `embeddings.partial`, which a run that completes
+  deletes. Output and the indexes the command keeps are otherwise unchanged.
+
 # 0.5.0-beta.1
 
 - Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`

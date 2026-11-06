@@ -279,7 +279,6 @@ class WorkflowContractTest(unittest.TestCase):
             'publish-wayfinder.yml',
             'publish-wayfinder-cli.yml',
             'publish-wayfinder-embeddings.yml',
-            'publish-wayfinder-dart-chunker.yml',
             'distribute-wayfinder.yml',
         ):
             text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')

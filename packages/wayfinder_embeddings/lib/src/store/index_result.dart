@@ -21,6 +21,9 @@ class WayfinderIndexResult {
 
   /// The index directory of this bundle and the store's configuration.
   final String index;
+
+  /// The passages this run encoded, not counting those it reused from an
+  /// earlier run that did not finish.
   final int embeddedChunks;
   final int removedChunks;
   final int writtenChunks;
@@ -63,7 +66,7 @@ final class KnowledgeIndexCurrent extends KnowledgeIndexStatus {
 }
 
 /// The bundle changed since it was indexed; search refuses the index until
-/// it is indexed again.
+/// it is indexed again, unless its [StaleIndexPolicy] serves it.
 final class KnowledgeIndexStale extends KnowledgeIndexStatus {
   const KnowledgeIndexStale(this.changedPaths);
 
@@ -81,8 +84,8 @@ final class KnowledgeIndexIncompatible extends KnowledgeIndexStatus {
 
 /// An operation is indexing the bundle, or forgetting its index, right now.
 /// Searches still read the last published generation, which [previous]
-/// describes; with [StaleIndexPolicy.serveWhileRefreshing] they serve it
-/// even when it is stale.
+/// describes; with [StaleIndexPolicy.serveWhileRefreshing] or
+/// [StaleIndexPolicy.serve] they serve it even when it is stale.
 final class KnowledgeIndexRefreshing extends KnowledgeIndexStatus {
   const KnowledgeIndexRefreshing(this.previous);
 
@@ -104,6 +107,14 @@ enum StaleIndexPolicy {
   /// files edited since that generation was built. With no refresh running,
   /// refuse a stale index as [refuse] does.
   serveWhileRefreshing,
+
+  /// Serve the last published generation whether or not a refresh is running,
+  /// for a host that refreshes on its own schedule or cannot refresh now,
+  /// such as offline: as [serveWhileRefreshing] does, with a
+  /// `source-changed` notice and [KnowledgeCitation.sourceChanged] for files
+  /// edited since, and a `refresh-in-progress` notice only while a refresh
+  /// runs. An index that is missing or incompatible is still refused.
+  serve,
 }
 
 /// A step of `WayfinderKnowledgeStore.index`.
@@ -130,10 +141,11 @@ final class IndexProgress {
 
   final IndexPhase phase;
 
-  /// Inputs embedded so far, in [IndexPhase.embedding].
+  /// Inputs embedded so far, in [IndexPhase.embedding], counting those it
+  /// reuses from an earlier run that did not finish.
   final int completed;
 
-  /// Inputs this run embeds, in [IndexPhase.embedding].
+  /// Inputs this run needs vectors for, in [IndexPhase.embedding].
   final int total;
 
   @override
