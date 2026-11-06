@@ -106,6 +106,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('fills the available width under Expanded in a Column', (
+    tester,
+  ) async {
+    final selected = <String>[];
+    await tester.pumpWidget(
+      WidgetsApp(
+        color: const Color(0xFF000000),
+        builder: (context, _) => Column(
+          children: [
+            const SizedBox(height: 40),
+            Expanded(
+              child: WayfinderReaderTheme(
+                data: const WayfinderReaderThemeData.dark(),
+                child: KnowledgeGraphCanvas(
+                  scene: _scene(),
+                  palette: KnowledgeTypePalette.of(const []),
+                  activeId: 'focus',
+                  attentionOf: (_) => null,
+                  onSelect: selected.add,
+                  onOpen: (_) {},
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final host = tester.getSize(find.byType(Column).first);
+    final canvas = tester.getRect(find.byType(KnowledgeGraphCanvas));
+    expect(canvas.size, Size(host.width, host.height - 80));
+    expect(
+      tester.getSize(find.byKey(const Key('knowledge-graph-paint'))),
+      canvas.size,
+    );
+    final legend = _state(tester).legendBounds()!;
+    expect(legend.width, greaterThan(0));
+    expect(canvas.contains(legend.topLeft), isTrue);
+    expect(canvas.contains(legend.bottomRight), isTrue);
+    await tester.tapAt(_state(tester).globalPositionOf('right')!);
+    await tester.pump();
+    expect(selected, ['right']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the default theme follows the platform brightness', (
     tester,
   ) async {

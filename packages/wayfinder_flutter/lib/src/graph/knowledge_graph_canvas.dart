@@ -597,6 +597,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
           onOpen: widget.onOpen,
         );
         return Stack(
+          fit: StackFit.expand,
           children: [
             Positioned.fill(
               child: Listener(

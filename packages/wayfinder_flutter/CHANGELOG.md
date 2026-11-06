@@ -13,4 +13,6 @@
   across label caching. Shared graph targets use their nearest ring; resolved
   attachment IDs use their project-relative path rather than a raw link target.
 - Malformed citations with oversized line numbers return null instead of throwing.
+- The graph fills its bounded viewport under loose cross-axis constraints, such
+  as an `Expanded` child of a `Column`, rather than collapsing to zero width.
 - `KnowledgeIndexState` and `KnowledgeIndexProgress` are provisional.
