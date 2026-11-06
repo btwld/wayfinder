@@ -1,6 +1,8 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
@@ -97,6 +99,113 @@ Color? _legendColor(WidgetTester tester) {
 }
 
 void main() {
+  for (final movement in ['zoom', 'left', 'right', 'top', 'bottom']) {
+    testWidgets('clips graph paint to the viewport after $movement', (
+      tester,
+    ) async {
+      const hostKey = Key('host');
+      const hostColor = Color(0xFFFF00FF);
+      await tester.pumpWidget(
+        WidgetsApp(
+          color: hostColor,
+          builder: (context, _) => RepaintBoundary(
+            key: hostKey,
+            child: ColoredBox(
+              color: hostColor,
+              child: Center(
+                child: SizedBox(
+                  width: 400,
+                  height: 300,
+                  child: WayfinderReaderTheme(
+                    data: const WayfinderReaderThemeData.dark(),
+                    child: KnowledgeGraphCanvas(
+                      scene: _scene(),
+                      palette: KnowledgeTypePalette.of(const []),
+                      activeId: 'focus',
+                      attentionOf: (_) => null,
+                      onSelect: (_) {},
+                      onOpen: (_) {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final view = tester.getRect(find.byType(KnowledgeGraphCanvas));
+      final state = _state(tester);
+      final focus = state.globalPositionOf('focus')!;
+      if (movement == 'zoom') {
+        final pointer = TestPointer(1, PointerDeviceKind.mouse);
+        pointer.hover(focus);
+        await tester.sendEventToBinding(pointer.scroll(const Offset(0, -800)));
+        await tester.pumpAndSettle();
+        expect(state.globalPositionOf('left')!.dx, lessThan(view.left));
+        expect(state.globalPositionOf('right')!.dx, greaterThan(view.right));
+      } else {
+        final target = switch (movement) {
+          'left' => Offset(view.left + 4, focus.dy),
+          'right' => Offset(view.right - 4, focus.dy),
+          'top' => Offset(focus.dx, view.top + 4),
+          _ => Offset(focus.dx, view.bottom - 4),
+        };
+        final drag = await tester.startGesture(focus - const Offset(24, 24));
+        await drag.moveTo(focus);
+        await drag.moveTo(target);
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(
+          (state.globalPositionOf('focus')! - target).distance,
+          lessThan(1),
+        );
+      }
+
+      // Capture the larger host, not the canvas: a canvas-sized image would
+      // hide the overflow itself. No parent clips the graph to its viewport.
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(hostKey),
+      );
+      final origin = tester.getTopLeft(find.byKey(hostKey));
+      final viewport = view.shift(-origin);
+      final node = state.globalPositionOf('focus')! - origin;
+      final nodeArea = Rect.fromCircle(center: node, radius: 2);
+      final counts = await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final data = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          var outside = 0, insideNode = 0;
+          for (var y = 0; y < image.height; y++) {
+            for (var x = 0; x < image.width; x++) {
+              final pixel = (y * image.width + x) * 4;
+              final isHost = data.getUint32(pixel) == 0xFF00FFFF;
+              if (isHost) continue;
+              final point = Offset(x + 0.5, y + 0.5);
+              if (!viewport.contains(point)) outside++;
+              if (nodeArea.contains(point)) insideNode++;
+            }
+          }
+          return (outside: outside, insideNode: insideNode);
+        } finally {
+          image.dispose();
+        }
+      });
+      expect(
+        counts!.insideNode,
+        greaterThan(0),
+        reason: 'the graph still paints',
+      );
+      expect(
+        counts.outside,
+        0,
+        reason: 'graph paint must not cover host content',
+      );
+    });
+  }
+
   testWidgets('draws without a theme, a design kit or Material', (
     tester,
   ) async {

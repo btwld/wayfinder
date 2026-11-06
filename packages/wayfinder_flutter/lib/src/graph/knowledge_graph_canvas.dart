@@ -650,10 +650,13 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
                     },
                     child: FadeTransition(
                       opacity: _fade,
-                      child: CustomPaint(
-                        key: const Key('knowledge-graph-paint'),
-                        painter: painter,
-                        size: Size.infinite,
+                      // Stack only clips layout overflow, not painter overflow.
+                      child: ClipRect(
+                        child: CustomPaint(
+                          key: const Key('knowledge-graph-paint'),
+                          painter: painter,
+                          size: Size.infinite,
+                        ),
                       ),
                     ),
                   ),
