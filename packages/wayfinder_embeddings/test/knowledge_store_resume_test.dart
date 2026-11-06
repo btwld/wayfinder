@@ -252,6 +252,34 @@ void main() {
       expect(checkpoint().existsSync(), isFalse);
     });
 
+    test('force ignores a checkpoint whose deletion fails, and a later run '
+        'resumes only the forced batches', () async {
+      await cancelledAt(2 * batch);
+      final file = checkpoint();
+      final undeletable = _UndeletableFile(file);
+
+      encoded.clear();
+      await IOOverrides.runWithIOOverrides(
+        () => cancelledAt(batch, force: true),
+        _CheckpointOverride(undeletable),
+      );
+
+      expect(undeletable.deleteAttempts, 1);
+      expect(encoded, hasLength(batch));
+      expect(file.existsSync(), isTrue);
+
+      encoded.clear();
+      final result = await knowledge.index(bundle);
+
+      expect(result.embeddedChunks, result.writtenChunks - batch);
+      expect(encoded, hasLength(result.writtenChunks - batch));
+      expect(file.existsSync(), isFalse);
+      final whole = await uninterrupted();
+      final resumed = await generationOf(result.index);
+      expect(resumed.vectors, whole.vectors);
+      expect(resumed.record, whole.record);
+    });
+
     test('a cancelled refresh leaves the published generation current for '
         'searches, and the next run continues it', () async {
       final first = await knowledge.index(bundle);
@@ -494,6 +522,43 @@ void main() {
       await first.discard();
     });
   });
+}
+
+/// Leaves one checkpoint readable and writable, but refuses its deletion.
+final class _CheckpointOverride extends IOOverrides {
+  _CheckpointOverride(this.file);
+
+  final _UndeletableFile file;
+
+  @override
+  File createFile(String path) =>
+      path == file.path ? file : super.createFile(path);
+}
+
+final class _UndeletableFile implements File {
+  _UndeletableFile(this.delegate);
+
+  final File delegate;
+  int deleteAttempts = 0;
+
+  @override
+  String get path => delegate.path;
+
+  @override
+  Future<Uint8List> readAsBytes() => delegate.readAsBytes();
+
+  @override
+  Future<RandomAccessFile> open({FileMode mode = FileMode.read}) =>
+      delegate.open(mode: mode);
+
+  @override
+  Future<File> delete({bool recursive = false}) async {
+    deleteAttempts++;
+    throw FileSystemException('Deletion refused', path);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// The files of the generation [index] publishes.

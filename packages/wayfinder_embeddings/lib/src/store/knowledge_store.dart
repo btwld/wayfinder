@@ -459,7 +459,7 @@ class WayfinderKnowledgeStore {
         // The previous generation's passages and vectors, so only changed
         // inputs are embedded.
         final store = compatible ? await _memoryOf(previous!) : MemoryStore();
-        await checkpoint.load(opened.embedder.dimension);
+        await checkpoint.load(opened.embedder.dimension, resume: !force);
         final embedder = ResumingEmbedder(opened.embedder, checkpoint);
         final counts =
             await KnowledgeIndex(

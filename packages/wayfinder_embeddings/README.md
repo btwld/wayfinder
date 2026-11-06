@@ -133,7 +133,7 @@ try {
   encoder opens and the query is encoded, and before the passages are
   scored; a cancelled search throws `cancelled`. `status` reports
   `KnowledgeIndexRefreshing` meanwhile. `forget` deletes every index of a
-  bundle, such as a removed worktree, by the path it had, symbolic links
+  bundle by its identity when supplied, or by the path it had, symbolic links
   included, with its `writer.lock` and the directories that leaves empty;
   `forgetProjectRoot` does the same for path-keyed bundles at or inside a project
   root, which it finds by the bundle root each index's `writer.lock`
@@ -144,10 +144,11 @@ try {
   is being indexed, whichever project it belongs to. An index whose lock
   records no root, as an interrupted writer can leave, is not found, and
   `prune` keeps it too while its configuration is the store's; `forget` of
-  its bundle deletes it. Identity-keyed indexes are left to `forget`, not
-  `forgetProjectRoot` or `prune`. `prune` deletes path-keyed
+  its bundle deletes it. `forgetProjectRoot` leaves identity-keyed indexes
+  to `forget`. `prune` deletes path-keyed
   indexes of roots that no longer exist and of other configurations unused
-  for 30 days, the `get` locks of project roots that no longer exist
+  for 30 days (including identity-keyed indexes in those old configurations),
+  the `get` locks of project roots that no longer exist
   (`WayfinderProfileResolver.pruneProjectLocks`), and model downloads
   abandoned a day ago (`EmbeddingModelCache.removeAbandonedDownloads`).
 - **Results.** `KnowledgeProjectSearch` and `KnowledgeBundleSearch` carry
@@ -186,9 +187,9 @@ try {
   index separately. A host whose folders move, such as an iOS app whose
   container path changes when it is updated, gives the bundle an identity,
   `ProjectBundle('docs', 'docs', root, identity: 'github:acme/docs')`, and the
-  key hashes that instead, so the index stays with the bundle; `prune` and
-  `forgetProjectRoot` then leave it, whatever became of the root it last
-  recorded, and `forget` deletes it. Bundles that share an identity share one
+  key hashes that instead, so the index stays with the bundle. A missing old
+  root does not make `prune` delete it, and `forgetProjectRoot` leaves it to
+  `forget`; pruning unused old configurations still applies. Bundles that share an identity share one
   index. The configuration key hashes the chunking, snapshot and
   storage configuration and the llama.cpp release `wayfinderLlamaCppRuntime`
   names with the encoder identity, so another model, chunker, format or

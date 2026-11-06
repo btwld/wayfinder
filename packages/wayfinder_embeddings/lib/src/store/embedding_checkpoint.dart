@@ -46,11 +46,13 @@ final class EmbeddingCheckpoint {
   var _failed = false;
 
   /// Reads the vectors [file] holds for [dimension]-dimensional embeddings.
-  /// A file with another header holds none.
-  Future<void> load(int dimension) async {
+  /// A file with another header holds none. With [resume] false, starts empty
+  /// without reading the file; the next successful append replaces its contents.
+  Future<void> load(int dimension, {bool resume = true}) async {
     _dimension = dimension;
     _vectors.clear();
     _validBytes = 0;
+    if (!resume) return;
     final Uint8List bytes;
     try {
       bytes = await file.readAsBytes();

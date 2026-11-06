@@ -8,8 +8,9 @@
   name instead of the canonical root and records it as the snapshot's
   `bundleId`, so a host whose folders move, such as an iOS app whose container
   path changes when it is updated, keeps its index without a re-embed. `prune`
-  and `forgetProjectRoot` leave such an index whatever happened to the root it
-  last recorded; `forget` finds it by its identity. A bundle without an
+  does not delete it for a missing root (unused old configurations still
+  expire), and `forgetProjectRoot` leaves it to `forget`, which finds it by
+  its identity. A bundle without an
   identity keeps its key, its note and its index exactly as before.
 - **BREAKING:** `index` keeps the vectors of the batches a run finished. A run
   that is cancelled, fails or is killed used to throw its work away, so a
@@ -17,9 +18,10 @@
   `embeddings.partial` in the index directory, and the next run embeds only
   what remains, reusing a vector only for an identical input, and publishes
   the same bytes as a run nothing interrupted. A run that publishes, and one
-  that finds its index current, deletes the file, and `force` starts without
-  it. A cancelled run still publishes nothing, but no longer leaves the index
-  directory byte-identical. `embeddedChunks` counts what the run encoded, and
+  that finds its index current, deletes the file, and `force` ignores its
+  vectors even when deleting the file fails. A cancelled run still publishes
+  nothing, but no longer leaves the index directory byte-identical.
+  `embeddedChunks` counts what the run encoded, and
   `IndexProgress` counts reused vectors as completed, so its bar shows the
   whole.
 - **BREAKING:** new `StaleIndexPolicy.serve`, which serves the last published

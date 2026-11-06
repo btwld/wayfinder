@@ -207,6 +207,27 @@ void main() {
       expect(await knowledge.forgetProjectRoot(named.root), isEmpty);
     });
 
+    test('prune expires old configurations after a move, but keeps the '
+        'current identity-keyed index', () async {
+      final first = await knowledge.index(named);
+      final moved = await move(named, 'elsewhere');
+      final replacement = WayfinderKnowledgeStore(
+        dataDirectory: data,
+        encoder: TestEncoderProvider(encoders, model: 'fixture-v2'),
+      );
+      addTearDown(replacement.dispose);
+      final current = await replacement.index(moved);
+
+      final pruned = await replacement.prune(unusedFor: Duration.zero);
+
+      expect(pruned.removed, hasLength(1));
+      expect(pruned.removed.single.directory, first.index);
+      expect(pruned.removed.single.reason, 'other-configuration');
+      expect(Directory(first.index).existsSync(), isFalse);
+      expect(Directory(current.index).existsSync(), isTrue);
+      expect(await replacement.status(moved), isA<KnowledgeIndexCurrent>());
+    });
+
     test('a blank identity is refused by every operation', () async {
       final blank = ProjectBundle(
         plain.name,
