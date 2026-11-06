@@ -114,7 +114,9 @@ final class KnowledgeGraphSceneNode {
     this.target,
   });
 
-  /// The concept id, or `<kind>:<target>` for a target that is no concept.
+  /// The concept id, or `<kind>:<path-or-target>` for a target that is no
+  /// concept. Resolved attachments use their project-relative path so the
+  /// same file shares a node and same-named files in different folders do not.
   final String id;
   final String title;
 
@@ -336,19 +338,21 @@ KnowledgeGraphScene knowledgeGraphScene(
       if (kind == null || !query.layers.contains(_layerOf(kind))) continue;
       // Targets that are no concept sit one link beyond their source.
       if (local && distances[edge.source]! >= depth) continue;
-      target = '${kind.name}:${edge.target}';
-      nodes.putIfAbsent(
-        target,
-        () => KnowledgeGraphSceneNode(
+      target = '${kind.name}:${edge.path ?? edge.target}';
+      final distance = local ? distances[edge.source]! + 1 : null;
+      final existing = nodes[target];
+      if (existing == null ||
+          (distance != null && distance < existing.distance!)) {
+        nodes[target] = KnowledgeGraphSceneNode(
           id: target,
           title: knowledgeShortTarget(edge.target),
           type: '',
           kind: kind,
-          distance: local ? distances[edge.source]! + 1 : null,
+          distance: distance,
           path: edge.path,
           target: edge.target,
-        ),
-      );
+        );
+      }
     }
     final forward = edge.source.compareTo(target) <= 0;
     final key = forward ? (edge.source, target) : (target, edge.source);

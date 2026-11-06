@@ -107,8 +107,8 @@ List<String> _segments(String path) => [
   final match = RegExp(r'^(.+):([1-9][0-9]*)-([1-9][0-9]*)$')
       .firstMatch(citation);
   if (match == null) return null;
-  final start = int.parse(match.group(2)!);
-  final end = int.parse(match.group(3)!);
-  if (end < start) return null;
+  final start = int.tryParse(match.group(2)!);
+  final end = int.tryParse(match.group(3)!);
+  if (start == null || end == null || end < start) return null;
   return (path: match.group(1)!, startLine: start, endLine: end);
 }

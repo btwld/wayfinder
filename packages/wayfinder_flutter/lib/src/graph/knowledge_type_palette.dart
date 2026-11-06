@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/widgets.dart';
 
-import '../model/knowledge.dart';
+import '../model/knowledge_models.dart';
 
 /// The hues the Graph gives the eight commonest concept types of a bundle,
 /// most distinct first; every other type is "Other". None is red or amber,

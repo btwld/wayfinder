@@ -225,6 +225,78 @@ void main() {
     expect(scene.links, hasLength(6));
   });
 
+  test(
+    'a shared attachment uses its shortest distance regardless of edge order',
+    () {
+      final edges = [
+        _link('focus', 'neighbour'),
+        _link(
+          'neighbour',
+          'image.png',
+          resolution: KnowledgeLinkResolution.resolvedAsset,
+        ),
+        _link(
+          'focus',
+          'image.png',
+          resolution: KnowledgeLinkResolution.resolvedAsset,
+        ),
+      ];
+      KnowledgeGraphScene scene(List<KnowledgeGraphEdge> edges) =>
+          knowledgeGraphScene(
+            KnowledgeGraph(
+              bundle: 'knowledge',
+              nodes: [_node('focus'), _node('neighbour')],
+              edges: edges,
+            ),
+            const KnowledgeGraphQuery(
+              focus: 'focus',
+              depth: 2,
+              layers: {KnowledgeGraphLayer.attachments},
+            ),
+          );
+      final first = scene(edges);
+      final reversed = scene(edges.reversed.toList());
+      expect(first.nodes.singleWhere((node) => !node.isConcept).distance, 1);
+      expect(reversed.positions, first.positions);
+    },
+  );
+
+  test('same-named attachments in different folders remain separate', () {
+    final scene = knowledgeGraphScene(
+      KnowledgeGraph(
+        bundle: 'knowledge',
+        nodes: [_node('a/doc'), _node('b/doc')],
+        edges: [
+          for (final folder in ['a', 'b'])
+            KnowledgeGraphEdge(
+              source: '$folder/doc',
+              target: 'image.png',
+              origin: KnowledgeLinkOrigin.body,
+              resolution: KnowledgeLinkResolution.resolvedAsset,
+              path: 'knowledge/$folder/image.png',
+            ),
+        ],
+      ),
+      const KnowledgeGraphQuery(
+        scope: KnowledgeGraphScope.whole,
+        layers: {KnowledgeGraphLayer.attachments},
+      ),
+    );
+    final attachments = scene.nodes.where((node) => !node.isConcept).toList();
+    expect(attachments, hasLength(2));
+    expect(attachments.map((node) => node.path).toSet(), {
+      'knowledge/a/image.png',
+      'knowledge/b/image.png',
+    });
+    for (final link in scene.links) {
+      final source = scene.nodes[link.source];
+      final target = scene.nodes[link.target];
+      final concept = source.isConcept ? source : target;
+      final asset = source.isConcept ? target : source;
+      expect(asset.path, 'knowledge/${concept.id.split('/').first}/image.png');
+    }
+  });
+
   test('a local graph without a focus is empty', () {
     final scene = knowledgeGraphScene(_graph, const KnowledgeGraphQuery());
     expect(scene.nodes, isEmpty);

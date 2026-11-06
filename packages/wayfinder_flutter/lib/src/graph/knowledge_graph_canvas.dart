@@ -153,6 +153,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
       _clearLabels();
       _rankLabels();
       _hover.value = null;
+      if (!scene.indexById.containsKey(_lastClick?.id)) _lastClick = null;
       if (!sameKnowledgeGraphLayout(old.scene, scene)) {
         _needsFit = true;
         if (_reduceMotion) {
@@ -554,6 +555,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   }
 
   void _zoomAt(Offset point, double factor) {
+    _move.stop();
     _fitted = false;
     final scale = (_viewport.scale * factor).clamp(0.08, 4.0);
     final world = (point - _viewport.pan) / _viewport.scale;

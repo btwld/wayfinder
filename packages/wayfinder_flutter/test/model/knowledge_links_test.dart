@@ -130,6 +130,7 @@ void main() {
         'concepts/start.md:0-3',
         'concepts/start.md:5-3',
         'concepts/start.md:a-b',
+        'concepts/start.md:999999999999999999999999999-999999999999999999999999999',
       ]) {
         expect(parseKnowledgeCitation(bad), isNull, reason: bad);
       }

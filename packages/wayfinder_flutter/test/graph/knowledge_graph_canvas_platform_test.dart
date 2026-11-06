@@ -391,6 +391,57 @@ void main() {
     semantics.dispose();
   });
 
+  group('gesture lifecycle', () {
+    testWidgets('a removed node cannot open from a pending double click', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      final opened = <String>[];
+      await _pump(tester, _scene(), onSelect: selected.add, onOpen: opened.add);
+      final right = _state(tester).globalPositionOf('Right')!;
+      await tester.tapAt(right, kind: PointerDeviceKind.mouse);
+      await tester.pump();
+      final empty = KnowledgeGraphScene(
+        query: const KnowledgeGraphQuery(scope: KnowledgeGraphScope.whole),
+        nodes: const [],
+        links: const [],
+        positions: Float64List(0),
+        focus: null,
+      );
+      await _pump(
+        tester,
+        empty,
+        onSelect: selected.add,
+        onOpen: opened.add,
+        settle: false,
+      );
+      await tester.tapAt(right, kind: PointerDeviceKind.mouse);
+      await tester.pump();
+      expect(selected, ['Right']);
+      expect(opened, isEmpty);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('wheel zoom interrupts a running Fit animation', (
+      tester,
+    ) async {
+      await _pump(tester, _scene());
+      await tester.drag(_paint, const Offset(40, 60));
+      await tester.pumpAndSettle();
+      final state = _state(tester);
+      state.fit();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      pointer.hover(state.globalPositionOf('Focus')!);
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, -200)));
+      await tester.pump();
+      final zoomed = state.globalPositionOf('Right')!;
+      await tester.pumpAndSettle();
+      expect(state.globalPositionOf('Right'), zoomed);
+    });
+  });
+
   group('the view', () {
     testWidgets('the mouse wheel zooms around the pointer', (tester) async {
       await _pump(tester, _scene());

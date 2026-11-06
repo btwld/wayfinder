@@ -1,4 +1,4 @@
-/// Flutter models, state and widgets for reading OKF knowledge bundles.
+/// Flutter models and widgets for reading OKF knowledge bundles.
 ///
 /// - [KnowledgeProject] is what a reader asks of a project's knowledge, and
 ///   the models it answers with.

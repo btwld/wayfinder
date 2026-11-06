@@ -355,13 +355,15 @@ final class KnowledgeGraphPainter extends CustomPainter {
           : 3;
       final emphasis = i == scene.focus || i == activeIndex;
       final near = (node.distance ?? 9) <= 1;
+      final foreground = emphasis || near || must;
       final style = knowledgeGraphLabelStyle(theme, emphasis: emphasis)
           .copyWith(
-            color: (emphasis || near || must ? theme.foreground : muted)
-                .withValues(alpha: const [0.92, 0.7, 0.45, 0.25][tone]),
+            color: (foreground ? theme.foreground : muted).withValues(
+              alpha: const [0.92, 0.7, 0.45, 0.25][tone],
+            ),
           );
       final text = labels.get(
-        i * 8 + tone * 2 + (emphasis ? 1 : 0),
+        i * 16 + tone * 4 + (emphasis ? 2 : 0) + (foreground ? 1 : 0),
         node.title,
         style,
         knowledgeGraphLabelMaxWidth(scene, i, emphasis: emphasis),
@@ -406,6 +408,8 @@ final class KnowledgeGraphPainter extends CustomPainter {
       old.theme != theme ||
       old.activeIndex != activeIndex ||
       old.palette != palette ||
+      old.textScaler != textScaler ||
+      old.textDirection != textDirection ||
       !_sameList(old.attention, attention);
 
   static bool _sameList(List<Object?> a, List<Object?> b) {
