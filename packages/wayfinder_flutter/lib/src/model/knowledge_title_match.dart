@@ -79,6 +79,8 @@ List<KnowledgeTitleMatch> knowledgeTitleMatches(
         if (inTitle != null) ranges.addAll(inTitle.ranges);
       }
       if (!matchedAll) continue;
+      // Keep per-word matches on the same scale as a whole-title match.
+      score = (score / words.length).round();
     }
     matches.add(
       KnowledgeTitleMatch(

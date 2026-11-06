@@ -21,6 +21,8 @@
   aborting scene construction; valid URL segments still display decoded text.
 - Live text size, direction and font changes refit an already-fitted canvas while
   preserving manually panned or zoomed views.
+- Multiword title searches normalize per-word fallback scores so partial
+  title/id/tag matches cannot outrank an exact title or title prefix.
 - Malformed citations with oversized line numbers return null instead of throwing.
 - The graph fills its bounded viewport under loose cross-axis constraints, such
   as an `Expanded` child of a `Column`, rather than collapsing to zero width.

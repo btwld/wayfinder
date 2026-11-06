@@ -56,6 +56,30 @@ void main() {
       ]);
     });
 
+    for (final query in ['foo bar', 'foo bar baz']) {
+      test('whole-title matches outrank per-word matches for "$query"', () {
+        final candidates = [
+          _concept('foo', tags: query.split(' ').skip(1).toList()),
+          _concept('foo', id: 'bar-baz'),
+          _concept('$query guide'),
+          _concept(query),
+        ];
+        final matches = knowledgeTitleMatches(candidates, query);
+        expect(matches.map((match) => match.concept), [
+          candidates[3],
+          candidates[2],
+          candidates[0],
+          candidates[1],
+        ]);
+        expect(matches.first.score, greaterThan(matches[2].score));
+        expect(matches[2].titleRanges, [(start: 0, end: 3)]);
+        expect(
+          knowledgeTitleMatches(candidates, query, limit: 1).single.concept,
+          same(candidates[3]),
+        );
+      });
+    }
+
     test('marks the matched part of the title', () {
       final match = knowledgeTitleMatches(
         concepts,
