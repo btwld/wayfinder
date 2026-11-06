@@ -17,6 +17,8 @@
   Real concept IDs are unchanged. Hosts storing synthetic IDs must rebuild them
   from the scene; treat IDs as opaque and use node `kind`, `path` and `target`
   for navigation instead of parsing IDs.
+- A non-concept link whose written target equals its source concept ID keeps its
+  target node and edge; self-link suppression applies only to concept links.
 - Graph labels preserve encoded URL path segments with invalid UTF-8 instead of
   aborting scene construction; valid URL segments still display decoded text.
 - Live text size, direction and font changes refit an already-fitted canvas while

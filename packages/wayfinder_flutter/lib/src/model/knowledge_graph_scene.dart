@@ -322,7 +322,9 @@ KnowledgeGraphScene knowledgeGraphScene(
   // One line per pair of nodes, carrying every link between them.
   final pairs = <(String, String), _Pair>{};
   for (final edge in graph.edges) {
-    if (!nodes.containsKey(edge.source) || edge.source == edge.target) {
+    if (!nodes.containsKey(edge.source) ||
+        (edge.resolution == KnowledgeLinkResolution.resolvedConcept &&
+            edge.source == edge.target)) {
       continue;
     }
     final String target;

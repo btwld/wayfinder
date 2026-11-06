@@ -254,6 +254,42 @@ void main() {
       ),
     ];
     for (final scope in KnowledgeGraphScope.values) {
+      test('${scope.name} keeps an attachment whose target equals its source '
+          'concept ID while suppressing concept self-links', () {
+        final scene = knowledgeGraphScene(
+          KnowledgeGraph(
+            bundle: 'knowledge',
+            nodes: [_node('report.pdf')],
+            edges: [
+              _link('report.pdf', 'report.pdf'),
+              const KnowledgeGraphEdge(
+                source: 'report.pdf',
+                target: 'report.pdf',
+                path: 'knowledge/report.pdf',
+                origin: KnowledgeLinkOrigin.body,
+                resolution: KnowledgeLinkResolution.resolvedAsset,
+              ),
+            ],
+          ),
+          KnowledgeGraphQuery(
+            scope: scope,
+            focus: 'report.pdf',
+            layers: {KnowledgeGraphLayer.attachments},
+          ),
+        );
+        expect(scene.nodes, hasLength(2));
+        final concept = scene.nodes.singleWhere((node) => node.isConcept);
+        final attachment = scene.nodes.singleWhere((node) => !node.isConcept);
+        expect(concept.id, 'report.pdf');
+        expect(concept.path, 'knowledge/report.pdf.md');
+        expect(attachment.id, isNot(concept.id));
+        expect(attachment.kind, KnowledgeGraphNodeKind.attachment);
+        expect(attachment.path, 'knowledge/report.pdf');
+        expect(scene.links, hasLength(1));
+        expect(scene.nodes[scene.links.single.source], same(concept));
+        expect(scene.nodes[scene.links.single.target], same(attachment));
+      });
+
       for (final entry in cases) {
         test('${scope.name} keeps ${entry.resolution.name} targets distinct '
             'from valid concepts and links to each separately', () {
