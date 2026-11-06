@@ -69,11 +69,6 @@ jobs:
         working-directory: packages/wayfinder_embeddings
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
-        working-directory: packages/wayfinder_dart_chunker
-      - run: dart test
-        working-directory: packages/wayfinder_dart_chunker
-      - if: matrix.sdk == 'stable'
-        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
       - run: dart test
         working-directory: packages/wayfinder_cli
@@ -182,8 +177,8 @@ jobs:
           mkdir "$RUNNER_TEMP/retrieval-cwd"
           cd "$RUNNER_TEMP/retrieval-cwd"
           corpus="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/corpus"
-          # The corpus's Dart chunks replay from its golden; the bundle has no
-          # Dart chunker (see packages/wayfinder_embeddings/fixtures/README.md).
+          # The committed baseline supplies the corpus's Dart chunks (see
+          # packages/wayfinder_embeddings/fixtures/README.md).
           "$RUNNER_TEMP/retrieval-bundle/bin/compare_embeddings" \
             --fixtures="$corpus" \
             --reference-chunks="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/test/goldens/baseline_chunks.json" \

@@ -7,9 +7,8 @@ locally with dense vectors from an in-process llamadart model.
 
 - **Chunk** TypeScript, Markdown, and text files into addressable segments
   with line ranges and symbol metadata. Chunk ids are stable hashes of the
-  source path, line range, type, and content. Dart chunking lives in
-  [`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker), so this
-  package does not depend on the analyzer.
+  source path, line range, type, and content. The package does not depend on
+  the analyzer.
 - **Rank** chunks for a natural-language query with dense
   retrieval and optional cross-encoder reranking.
 - **Expand** a precise hit to its enclosing class, namespace, or file.
@@ -341,8 +340,7 @@ import 'dart:io';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 Future<void> main() async {
-  // 1. Register a chunker per content type. For Dart sources, add
-  //    DartChunker from package:wayfinder_dart_chunker.
+  // 1. Register a chunker per content type.
   final registry = ChunkerRegistry()
     ..registerChunker(TypeScriptChunker())
     ..registerChunker(MarkdownChunker());
@@ -482,9 +480,7 @@ It previews a checked-in `fixtures/samples/` file without loading a model and
 creates no searchable index. The sample corpus covers the three built-in
 chunkers, including plain text and Markdown table examples inside code fences.
 Markdown code blocks retain literal table syntax; actual tables inherit their
-heading metadata and are omitted when `includeTables` is false. The Dart sample
-and its code example moved to
-[`wayfinder_dart_chunker`](https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_dart_chunker).
+heading metadata and are omitted when `includeTables` is false.
 
 The sample corpus has its own golden snapshot. The separate `fixtures/corpus/`
 retrieval benchmark retains its recorded queries and metrics.
@@ -742,11 +738,11 @@ TypeScript and Markdown files still go through their chunkers. With `--qrels`,
 has no chunker or, with stable-id matching, when a judged chunk id is missing
 from the corpus, so a run without `--reference-chunks` cannot report collapsed
 recall. The golden tests and `tool/validation.dart` replay the same golden.
-`wayfinder_dart_chunker`'s `test/judged_corpus_test.dart` is the corpus
-golden's only writer: it checks that its chunker still produces those Dart
-chunks and rewrites the whole golden with `UPDATE_GOLDENS=1`, while this
-package only compares against it. Budget experiments apply to the built-in
-chunkers only; score them with `--qrels-match=span-overlap`.
+The committed baseline chunks in `test/goldens/baseline_chunks.json` are the
+source of truth. Tests compare against them and never rewrite them, even with
+`UPDATE_GOLDENS=1`. Review any intended baseline change together with the qrels
+that name its chunk ids. Budget experiments apply to the built-in chunkers only;
+score them with `--qrels-match=span-overlap`.
 
 ## License
 

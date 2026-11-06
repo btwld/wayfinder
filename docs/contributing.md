@@ -67,7 +67,7 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all four packages. Package test runs are
+`dart run melos run lint` checks all three packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Tests within each
 package keep their normal concurrency. For docs/skills, also check
@@ -131,13 +131,11 @@ files with `dart run melos run build` only when entity schemas change. The root
 `pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
 natively; change the override, the installer and
 `tool/objectbox_assets/manifest.json` together.
-`wayfinder_dart_chunker` holds the analyzer-based Dart chunker, so
-`wayfinder_embeddings` does not depend on `analyzer`. Nothing in
-`wayfinder_embeddings` may depend on it, including as a dev dependency.
-`python3 tool/ci/verify-embeddings-closure.py` checks both rules in CI. The
-chunker's tests also check the Dart chunks that the judged retrieval corpus
-replays, and write that corpus golden; see
-its [README](../packages/wayfinder_dart_chunker/README.md#development).
+`wayfinder_embeddings` keeps `analyzer` out of its runtime dependencies;
+`python3 tool/ci/verify-embeddings-closure.py` checks that rule in CI.
+The committed baseline chunks are the source of truth for the judged retrieval
+corpus. Its tools and tests replay the Dart chunks and compare against that
+baseline without rewriting it; see its [fixtures README](../packages/wayfinder_embeddings/fixtures/README.md).
 
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a

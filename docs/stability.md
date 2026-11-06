@@ -1,10 +1,10 @@
 # The 0.5 compatibility contract
 
 This is the prepared contract for the 0.5 release line of each of Wayfinder's
-four packages. A prepared version is not a published release. The packages
+three packages. A prepared version is not a published release. The packages
 remain independently versioned on 0.x, where the minor version is the
 breaking-change boundary: `^0.5.0` accepts 0.5 releases, not 0.6. A Profile's
-own release is independent of all four. [Release preparation](releasing.md)
+own release is independent of all three. [Release preparation](releasing.md)
 and exact-source verification still decide whether a candidate can ship.
 
 ## Supported surfaces
@@ -26,11 +26,6 @@ and file-lock helpers exported by `project.dart` are included.
 [`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and
 test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart).
 Custom chunker, encoder, searcher and storage extension points are included.
-
-### Dart chunker (`wayfinder_dart_chunker`)
-
-[`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart):
-`DartChunker` and `defaultCodeRegistry`.
 
 ### Application (`wayfinder_cli`)
 
@@ -105,7 +100,7 @@ introduced by a 0.5 version.
 ## SDK and native verification
 
 The prepared packages declare Dart `>=3.11.0 <4.0.0`. The active source matrix
-analyzes and tests all four packages on Linux with Dart 3.11.0 and stable;
+analyzes and tests all three packages on Linux with Dart 3.11.0 and stable;
 stable is the canonical formatter. The stable-only Linux x64 native job runs
 model/ObjectBox integration, relocated CLI/MCP probes, the judged retrieval
 gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0

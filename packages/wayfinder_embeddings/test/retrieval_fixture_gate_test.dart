@@ -112,8 +112,8 @@ void main() {
   });
 }
 
-/// The built-in chunkers, with the corpus's Dart chunks replayed from its
-/// golden; wayfinder_dart_chunker checks that its chunker still makes them.
+/// The built-in chunkers, with the corpus's Dart chunks replayed from the
+/// committed baseline, their source of truth.
 ChunkerRegistry _corpusRegistry(Directory fixtureDir) =>
     workflow.buildDefaultRegistry(
       reference: workflow.ReferenceChunks.load(

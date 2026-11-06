@@ -76,8 +76,7 @@ class SourceCiTest(unittest.TestCase):
                                             'checked-sha').status, 'failed')
 
     def test_all_publication_workflows_require_source_ci_before_dependencies(self):
-        for package in ['wayfinder', 'wayfinder-embeddings', 'wayfinder-cli',
-                        'wayfinder-dart-chunker']:
+        for package in ['wayfinder', 'wayfinder-embeddings', 'wayfinder-cli']:
             text = (preflight.ROOT / f'.github/workflows/publish-{package}.yml').read_text()
             self.assertLess(text.index('python3 tool/ci/verify-release-ci.py'),
                             text.index('run: dart pub get'))
@@ -260,14 +259,14 @@ class PreflightPrerequisiteTest(unittest.TestCase):
             pubspec.write('dependencies:\n  wayfinder: ^1.0.0\n  wayfinder_embeddings: ^1.0.0\n')
         self.sha = repository(self.root)
 
-    def add_chunker(self):
-        directory = self.root / 'packages/wayfinder_dart_chunker'
+    def add_extra_sibling(self):
+        directory = self.root / 'packages/extra_sibling'
         directory.mkdir()
-        (directory / 'pubspec.yaml').write_text('name: wayfinder_dart_chunker\nversion: 2.0.0\n')
+        (directory / 'pubspec.yaml').write_text('name: extra_sibling\nversion: 2.0.0\n')
         with (self.root / 'pubspec.yaml').open('a') as pubspec:
-            pubspec.write('  - packages/wayfinder_dart_chunker\n')
+            pubspec.write('  - packages/extra_sibling\n')
         with (self.root / preflight.CLI / 'pubspec.yaml').open('a') as pubspec:
-            pubspec.write('  wayfinder_dart_chunker: ^2.0.0\n')
+            pubspec.write('  extra_sibling: ^2.0.0\n')
         self.sha = commit(self.root)
 
     def root_report(self):
@@ -284,19 +283,19 @@ class PreflightPrerequisiteTest(unittest.TestCase):
         return status, json.loads(output.getvalue())
 
     def test_root_cli_checks_extra_committed_sibling(self):
-        self.add_chunker()
+        self.add_extra_sibling()
         status, report = self.root_report()
         gates = {gate['name']: gate for gate in report['gates']}
         self.assertEqual(status, 2)
         self.assertEqual(gates['source-tree']['status'], 'passed')
         self.assertEqual(gates['hosted-dependencies']['status'], 'blocked')
         self.assertEqual(gates['hosted-dependencies']['details']['unpublished'],
-                         ['wayfinder_dart_chunker 2.0.0'])
+                         ['extra_sibling 2.0.0'])
 
     def test_root_cli_uses_captured_metadata_even_when_live_files_are_malformed(self):
-        self.add_chunker()
+        self.add_extra_sibling()
         for relative in ('pubspec.yaml', 'packages/wayfinder_cli/pubspec.yaml',
-                         'packages/wayfinder_dart_chunker/pubspec.yaml'):
+                         'packages/extra_sibling/pubspec.yaml'):
             (self.root / relative).write_text('not a pubspec\n')
         status, report = self.root_report()
         gates = {gate['name']: gate for gate in report['gates']}
@@ -304,7 +303,7 @@ class PreflightPrerequisiteTest(unittest.TestCase):
         self.assertEqual(report['head'], self.sha)
         self.assertEqual(gates['source-tree']['status'], 'blocked')
         self.assertEqual(gates['hosted-dependencies']['details']['unpublished'],
-                         ['wayfinder_dart_chunker 2.0.0'])
+                         ['extra_sibling 2.0.0'])
 
     def test_root_cli_reports_malformed_committed_metadata_with_completed_gates(self):
         (self.root / 'packages/wayfinder/pubspec.yaml').write_text('name: wayfinder\n')
@@ -319,13 +318,13 @@ class PreflightPrerequisiteTest(unittest.TestCase):
         self.assertEqual(gates['hosted-cli']['status'], 'blocked')
 
     def test_extra_sibling_must_resolve_hosted_at_its_captured_version(self):
-        self.add_chunker()
+        self.add_extra_sibling()
         for source, version, accepted in [('hosted', '2.0.0', True), ('hosted', '2.1.0', False),
                                           ('path', '2.0.0', False), (None, None, False)]:
             def runner(command, cwd, environment):
                 data = ci(head_sha=self.sha) if command[0] == 'gh' else graph()
                 if command[1:3] == ['pub', 'deps'] and source:
-                    data['packages'].append({'name': 'wayfinder_dart_chunker',
+                    data['packages'].append({'name': 'extra_sibling',
                                              'source': source, 'version': version})
                 return subprocess.CompletedProcess(command, 0, json.dumps(data), '')
             with self.subTest(source=source, version=version):

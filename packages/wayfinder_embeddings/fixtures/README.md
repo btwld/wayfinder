@@ -18,17 +18,12 @@ slice coverage without loading a model. It is not a relevance gate. Genuine
 dense relevance against `benchmarks/dense_metrics_baseline.json` runs in the
 native CI job when the local model is prepared.
 
-This package has no Dart chunker. The corpus golden,
-`test/goldens/baseline_chunks.json`, keeps the chunks of every corpus file, and
-the tools and tests replay its Dart chunks (`--reference-chunks`), so the qrels
-keep naming the chunks they were judged against.
-[`wayfinder_dart_chunker`](../../wayfinder_dart_chunker/README.md) is that
-golden's only writer and checks that its chunker still produces them. This
-package compares against it but never rewrites it, even with
-`UPDATE_GOLDENS=1`. After an intended change to any corpus chunk, Dart or not,
-rewrite it from that package with
-`UPDATE_GOLDENS=1 dart test test/judged_corpus_test.dart`, then review every
-qrels id that moved.
+The committed baseline chunks in `test/goldens/baseline_chunks.json` are the
+source of truth for every corpus file. This package has no Dart chunker; its
+tools and tests replay the baseline's Dart chunks (`--reference-chunks`), so the
+qrels keep naming the chunks they were judged against. Tests compare against
+the baseline but never rewrite it, even with `UPDATE_GOLDENS=1`. Review any
+intended baseline change together with every qrels id that moved.
 
 ## okf_retrieval/
 
@@ -60,14 +55,13 @@ annotation limits. Current benchmark runners use dense retrieval only.
 ## samples/
 
 Reusable example inputs exercise the three built-in chunkers, including code
-fences and Markdown tables. The Dart sample moved to `wayfinder_dart_chunker`.
+fences and Markdown tables.
 Preview examples read these files without changing them.
 `test/fixtures_pipeline_golden_test.dart` checks corpus and sample chunk content,
 line ranges, metadata, and portable identities. LF line endings are preserved.
 
 After reviewing an intended chunk change, regenerate the sample snapshot from
-the package directory; the corpus snapshot is rewritten from
-`wayfinder_dart_chunker`, as described under `corpus/`:
+the package directory; the committed corpus baseline stays unchanged:
 
 ```sh
 UPDATE_GOLDENS=1 dart test test/fixtures_pipeline_golden_test.dart
