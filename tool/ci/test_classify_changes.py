@@ -1,4 +1,4 @@
-"""Path classification and the draft required-check, without network or Dart."""
+"""Path classification and the required check, without network or Dart."""
 
 import importlib.util
 import os
@@ -121,26 +121,15 @@ class ClassificationTest(unittest.TestCase):
 
 
 class RequiredCheckTest(unittest.TestCase):
-    def test_draft_fails_even_when_heavy_jobs_passed(self):
-        status, message = classify.evaluate(
-            draft=True,
-            changes='success',
-            run=True,
-            results={'test': 'success'},
-            may_skip=set(),
-        )
-        self.assertEqual(status, 'failed')
-        self.assertIn('ready for review', message)
-
     def test_code_changes_require_every_heavy_job(self):
         passed, _ = classify.evaluate(
-            draft=False, changes='success', run=True,
+            changes='success', run=True,
             results={'test': 'success', 'native-retrieval': 'success'},
             may_skip=set(),
         )
         self.assertEqual(passed, 'passed')
         failed, message = classify.evaluate(
-            draft=False, changes='success', run=True,
+            changes='success', run=True,
             results={'test': 'success', 'native-retrieval': 'skipped'},
             may_skip=set(),
         )
@@ -149,7 +138,7 @@ class RequiredCheckTest(unittest.TestCase):
 
     def test_non_code_skip_still_passes_the_required_check(self):
         status, message = classify.evaluate(
-            draft=False, changes='success', run=False,
+            changes='success', run=False,
             results={'test': 'skipped', 'native-retrieval': 'skipped'},
             may_skip=set(),
         )
@@ -158,13 +147,13 @@ class RequiredCheckTest(unittest.TestCase):
 
     def test_an_intentional_platform_skip_is_allowed_only_by_name(self):
         status, _ = classify.evaluate(
-            draft=False, changes='success', run=True,
+            changes='success', run=True,
             results={'posix': 'success', 'windows': 'skipped'},
             may_skip={'windows'},
         )
         self.assertEqual(status, 'passed')
         failed, _ = classify.evaluate(
-            draft=False, changes='success', run=True,
+            changes='success', run=True,
             results={'posix': 'skipped', 'windows': 'skipped'},
             may_skip={'windows'},
         )
@@ -178,7 +167,7 @@ class RequiredCheckTest(unittest.TestCase):
         ):
             with self.subTest(changes=changes, results=results):
                 status, _ = classify.evaluate(
-                    draft=False, changes=changes, run=True,
+                    changes=changes, run=True,
                     results=results, may_skip=set(),
                 )
                 self.assertEqual(status, 'failed')
@@ -191,7 +180,6 @@ class RequiredCheckTest(unittest.TestCase):
             text=True,
             env=dict(
                 os.environ,
-                DRAFT='false',
                 CHANGES='success',
                 RUN='false',
                 RESULTS='test=skipped',
@@ -204,7 +192,13 @@ class RequiredCheckTest(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
-            env=dict(os.environ, DRAFT='true', CHANGES='success', RUN='true', RESULTS=''),
+            env=dict(
+                os.environ,
+                CHANGES='success',
+                RUN='true',
+                RESULTS='test=failure',
+                MAY_SKIP='',
+            ),
         )
         self.assertEqual(failed.returncode, 1)
 
@@ -230,7 +224,23 @@ class WorkflowContractTest(unittest.TestCase):
                 self.assertIn('cancel-in-progress: true', text)
                 self.assertIn('branches: [main]', text)
                 self.assertIn('python3 tool/ci/classify_changes.py --require', text)
-                self.assertIn('github.event.pull_request.draft == false', text)
+                self.assertNotIn('DRAFT:', text)
+                self.assertNotIn('Draft pull requests do not satisfy', text)
+
+    def test_every_pull_request_job_skips_a_draft(self):
+        for name in PULL_REQUEST_WORKFLOWS:
+            text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')
+            jobs = _job_names(text)
+            self.assertGreaterEqual(len(jobs), 2, name)
+            with self.subTest(workflow=name):
+                for job in jobs:
+                    header = _job_section(text, f'{job}:').split('\n    steps:', 1)[0]
+                    self.assertIn('if:', header, job)
+                    self.assertIn(
+                        'github.event.pull_request.draft == false', header, job)
+        source = (ROOT / 'tool/ci/classify_changes.py').read_text(encoding='utf-8')
+        self.assertNotIn("os.environ.get('DRAFT'", source)
+        self.assertNotIn('Draft pull requests do not satisfy', source)
 
     def test_heavy_jobs_skip_drafts_and_light_jobs_use_ubuntu_slim(self):
         expectations = {
@@ -278,6 +288,21 @@ class WorkflowContractTest(unittest.TestCase):
                 self.assertIn('cancel-in-progress: false', text)
                 self.assertNotIn('ubuntu-slim', text)
                 self.assertNotIn('macos', text.casefold())
+
+
+def _job_names(text: str) -> list[str]:
+    """Top-level job ids under ``jobs:``."""
+    jobs = text.split('\njobs:\n', 1)[1]
+    names = []
+    for line in jobs.splitlines():
+        if (
+            line.startswith('  ')
+            and not line.startswith('   ')
+            and line.endswith(':')
+            and ' ' not in line.strip()[:-1]
+        ):
+            names.append(line.strip()[:-1])
+    return names
 
 
 def _job_section(text: str, job: str) -> str:

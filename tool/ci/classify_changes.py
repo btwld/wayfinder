@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Decide which CI jobs a diff must run, and whether the required check passes.
 
-Heavy jobs skip in two cases. A draft pull request has not asked for them
-yet. A diff that is only non-code does not exercise them. The required
-check still finishes: GitHub counts a skipped required check as success, so
-a draft has to fail this check instead of skipping it. ``ready_for_review``
-starts a new run in which the draft flag is clear.
+A draft pull request skips every workflow job, including classification and
+this required check, so this script does not run for one. ``ready_for_review``
+is the run that starts the suite. On that run, and on a push, heavy jobs
+skip when the diff is only non-code. The required check still finishes for
+that skip: GitHub counts a skipped required check as success, so a non-code
+diff reports success here instead of leaving the check unreported.
 
 Non-code is documentation, a readme, a license, an issue or pull-request
 template, or a non-build asset. These stay code even when the filename
@@ -152,7 +153,6 @@ def changed_paths(base: str, head: str, dots: str) -> list[str] | None:
 
 def evaluate(
     *,
-    draft: bool,
     changes: str,
     run: bool,
     results: dict[str, str],
@@ -160,17 +160,9 @@ def evaluate(
 ) -> tuple[str, str]:
     """Return ``passed`` or ``failed`` and the line the required check prints.
 
-    A draft fails even when every heavy job succeeded. Those jobs are
-    supposed to be skipped, and a green draft would satisfy branch
-    protection before ``ready_for_review`` runs them.
+    Draft pull requests never reach this check. Their workflows skip every
+    job, and ``ready_for_review`` is the run that reports it.
     """
-    if draft:
-        return (
-            'failed',
-            'Draft pull requests do not satisfy required checks. '
-            'Heavy jobs stay skipped until the pull request is marked ready '
-            'for review. A skipped required check would count as success.',
-        )
     if changes != 'success':
         return ('failed', f'Change classification did not succeed ({changes}).')
     bad = {
@@ -240,7 +232,6 @@ def classify_from_env(mode: str) -> int:
 
 def require_from_env() -> int:
     status, message = evaluate(
-        draft=os.environ.get('DRAFT', 'false') == 'true',
         changes=os.environ['CHANGES'],
         run=os.environ.get('RUN', '') == 'true',
         results=_parse_results(os.environ.get('RESULTS', '')),
@@ -264,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         '--require',
         action='store_true',
-        help='Exit from the draft and heavy-job results in the environment.',
+        help='Exit from the heavy-job results in the environment.',
     )
     args = parser.parse_args(argv)
     try:

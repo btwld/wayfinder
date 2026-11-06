@@ -9,9 +9,10 @@ on:
   push:
     branches: [main]
   pull_request:
-    # ready_for_review reruns the draft gate. Label and edit events are not
-    # triggers. Path selection is a job below, so this workflow still reports
-    # when the installer files did not change.
+    # A draft skips every job. ready_for_review runs the suite once the
+    # pull request is ready. Label and edit events are not triggers. Path
+    # selection is a job below, so a ready pull request still reports this
+    # check when the installer files did not change.
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -24,6 +25,7 @@ concurrency:
 jobs:
   changes:
     name: Classify installer changes
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     timeout-minutes: 5
     outputs:
@@ -106,7 +108,10 @@ jobs:
   required-checks:
     name: Installer required checks
     needs: [changes, posix, windows]
-    if: always() && !cancelled()
+    if: >-
+      always() &&
+      !cancelled() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
@@ -115,7 +120,6 @@ jobs:
           persist-credentials: false
       - name: Report the required check
         env:
-          DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'true' || 'false' }}
           CHANGES: ${{ needs.changes.result }}
           RUN: ${{ needs.changes.outputs.run }}
           RESULTS: posix=${{ needs.posix.result }},windows=${{ needs.windows.result }}

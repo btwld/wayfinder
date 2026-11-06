@@ -160,16 +160,16 @@ the published release. These installer checks do not replace source tests or
 verification of new native artifacts on those platforms.
 
 Pull-request workflows use exactly `opened`, `synchronize`, `reopened`, and
-`ready_for_review`. Draft pull requests skip the heavy jobs. The slim
-required check fails while the pull request is a draft, because a skipped
-required check counts as success, and `ready_for_review` is what runs the
-check again once the pull request is ready. A diff that is only non-code
-(documentation outside `docs/schemas/`, readmes, licenses, issue and
-pull-request templates, and non-build assets) skips those heavy jobs too.
-The required check still runs and succeeds. Schemas, examples, Profile skill
-text, version snapshots, and test fixtures stay with the code jobs, because
-CI reads them. Classification, the required check, and POSIX installer lint
-use `ubuntu-slim`. Package tests and native retrieval stay on `ubuntu-latest`.
+`ready_for_review`. A draft pull request runs zero jobs: classification,
+heavy work, light work, and the required check all stay skipped.
+`ready_for_review` runs the suite once the pull request is ready. A ready
+pull request whose diff is only non-code (documentation outside
+`docs/schemas/`, readmes, licenses, issue and pull-request templates, and
+non-build assets) skips the heavy jobs. The required check still runs and
+succeeds. Schemas, examples, Profile skill text, version snapshots, and
+test fixtures stay with the code jobs, because CI reads them.
+Classification, the required check, and POSIX installer lint use
+`ubuntu-slim`. Package tests and native retrieval stay on `ubuntu-latest`.
 
 No pull request schedules a `macos-*` runner. macOS and Windows public-install
 coverage is the manual dispatch added in #170. The workflow selects that

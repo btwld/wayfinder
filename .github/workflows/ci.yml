@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    # These four types are the whole pull_request filter. ready_for_review
-    # is what runs this workflow again after a draft is marked ready.
-    # Label, edit, and assignment events are not triggers.
+    # These four types are the whole pull_request filter. A draft skips
+    # every job. ready_for_review runs the suite after a draft is marked
+    # ready. Label, edit, and assignment events are not triggers.
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -23,6 +23,7 @@ concurrency:
 jobs:
   changes:
     name: Classify changes
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     timeout-minutes: 5
     outputs:
@@ -274,7 +275,10 @@ jobs:
   required-checks:
     name: Required checks
     needs: [changes, test, native-retrieval]
-    if: always() && !cancelled()
+    if: >-
+      always() &&
+      !cancelled() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
@@ -283,7 +287,6 @@ jobs:
           persist-credentials: false
       - name: Report the required check
         env:
-          DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'true' || 'false' }}
           CHANGES: ${{ needs.changes.result }}
           RUN: ${{ needs.changes.outputs.run }}
           RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }}
