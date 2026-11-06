@@ -24,13 +24,16 @@ KnowledgeGraphSceneLink _link(int target) => KnowledgeGraphSceneLink(
 );
 
 /// Focus in the middle, a neighbour either side.
-KnowledgeGraphScene _scene({double reach = 160}) => KnowledgeGraphScene(
-  query: const KnowledgeGraphQuery(focus: 'Focus'),
-  nodes: [_node('Focus', distance: 0), _node('Left'), _node('Right')],
-  links: [_link(1), _link(2)],
-  positions: Float64List.fromList([0, 0, -reach, 0, reach, 0]),
-  focus: 0,
-);
+KnowledgeGraphScene _scene({double reach = 160, bool vertical = false}) =>
+    KnowledgeGraphScene(
+      query: const KnowledgeGraphQuery(focus: 'Focus'),
+      nodes: [_node('Focus', distance: 0), _node('Left'), _node('Right')],
+      links: [_link(1), _link(2)],
+      positions: Float64List.fromList(
+        vertical ? [0, 0, 0, -reach, 0, reach] : [0, 0, -reach, 0, reach, 0],
+      ),
+      focus: 0,
+    );
 
 Future<void> _pump(
   WidgetTester tester,
@@ -44,6 +47,7 @@ Future<void> _pump(
   bool disableAnimations = false,
   TextDirection direction = TextDirection.ltr,
   bool settle = true,
+  WayfinderReaderThemeData theme = const WayfinderReaderThemeData.dark(),
 }) async {
   await tester.pumpWidget(
     WidgetsApp(
@@ -55,14 +59,17 @@ Future<void> _pump(
         ),
         child: Directionality(
           textDirection: direction,
-          child: KnowledgeGraphCanvas(
-            scene: scene,
-            palette: KnowledgeTypePalette.of(const []),
-            activeId: activeId,
-            attentionOf: attentionOf ?? (_) => null,
-            onSelect: onSelect ?? (_) {},
-            onOpen: onOpen ?? (_) {},
-            labels: labels,
+          child: WayfinderReaderTheme(
+            data: theme,
+            child: KnowledgeGraphCanvas(
+              scene: scene,
+              palette: KnowledgeTypePalette.of(const []),
+              activeId: activeId,
+              attentionOf: attentionOf ?? (_) => null,
+              onSelect: onSelect ?? (_) {},
+              onOpen: onOpen ?? (_) {},
+              labels: labels,
+            ),
           ),
         ),
       ),
@@ -76,6 +83,18 @@ KnowledgeGraphCanvasState _state(WidgetTester tester) =>
 
 final _card = find.byKey(const Key('graph-hover-card'));
 final _paint = find.byKey(const Key('knowledge-graph-paint'));
+
+// Keep the legend's 12px caption unchanged while enlarging graph labels.
+// This isolates text-scaler invalidation from legend-size invalidation.
+class _GraphTextScaler extends TextScaler {
+  const _GraphTextScaler();
+
+  @override
+  double scale(double fontSize) => fontSize == 12 ? fontSize : fontSize * 2;
+
+  @override
+  double get textScaleFactor => 2;
+}
 
 class _Portuguese extends KnowledgeGraphLabels {
   const _Portuguese();
@@ -269,6 +288,52 @@ void main() {
   });
 
   group('text scaling', () {
+    testWidgets('a fitted view stays framed when text size changes', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final scene = _scene(vertical: true);
+      await _pump(tester, scene);
+      final state = _state(tester);
+      final initialBounds = state.framedBounds();
+
+      await _pump(tester, scene, textScaler: const TextScaler.linear(1.5));
+      final bounds = state.framedBounds();
+      final view = tester.getRect(find.byType(KnowledgeGraphCanvas));
+      expect(_state(tester), same(state));
+      expect(bounds, isNot(initialBounds));
+      expect(view.contains(bounds.topLeft), isTrue);
+      expect(view.contains(bounds.bottomRight), isTrue);
+      expect(bounds.overlaps(state.legendBounds()!), isFalse);
+    });
+
+    testWidgets('a fitted view refits scaled labels with an unchanged legend', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final scene = _scene(vertical: true);
+      await _pump(tester, scene);
+      final state = _state(tester);
+      final initialRight = state.globalPositionOf('Right');
+      final legend = state.legendBounds();
+
+      await _pump(tester, scene, textScaler: const _GraphTextScaler());
+      final positions = [
+        for (final node in scene.nodes) state.globalPositionOf(node.id),
+      ];
+      expect(_state(tester), same(state));
+      expect(state.legendBounds(), legend);
+      expect(state.globalPositionOf('Right'), isNot(initialRight));
+      expect(state.framedBounds().overlaps(legend!), isFalse);
+      state.fit();
+      await tester.pumpAndSettle();
+      expect([
+        for (final node in scene.nodes) state.globalPositionOf(node.id),
+      ], positions);
+    });
+
     testWidgets('the legend grows with the text instead of clipping it', (
       tester,
     ) async {
@@ -334,6 +399,70 @@ void main() {
   });
 
   group('right to left', () {
+    testWidgets('a fitted view follows the legend when direction changes', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // This graph fits beside the legend, not above it.
+      final scene = _scene(vertical: true);
+      await _pump(tester, scene);
+      final state = _state(tester);
+      final initialFocus = state.globalPositionOf('Focus')!;
+      final legendSize = state.legendBounds()!.size;
+      expect(state.framedBounds().overlaps(state.legendBounds()!), isFalse);
+
+      await _pump(tester, scene, direction: TextDirection.rtl);
+      expect(_state(tester), same(state));
+      expect(state.legendBounds()!.size, legendSize);
+      expect(state.framedBounds().overlaps(state.legendBounds()!), isFalse);
+      expect(state.globalPositionOf('Focus')!.dx, lessThan(initialFocus.dx));
+
+      await _pump(tester, scene);
+      expect(state.framedBounds().overlaps(state.legendBounds()!), isFalse);
+      expect(state.globalPositionOf('Focus'), initialFocus);
+    });
+
+    for (final movement in ['pan', 'zoom', 'recentre']) {
+      testWidgets('a manually $movement view '
+          'survives framing changes', (tester) async {
+        await tester.binding.setSurfaceSize(const Size(600, 300));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final scene = _scene(vertical: true);
+        await _pump(tester, scene);
+        final state = _state(tester);
+        if (movement == 'pan') {
+          await tester.drag(_paint, const Offset(40, 60));
+        } else if (movement == 'recentre') {
+          state.recentre();
+        } else {
+          final pointer = TestPointer(1, PointerDeviceKind.mouse);
+          pointer.hover(state.globalPositionOf('Focus')!);
+          await tester.sendEventToBinding(
+            pointer.scroll(const Offset(0, -200)),
+          );
+        }
+        await tester.pumpAndSettle();
+        final positions = [
+          for (final node in scene.nodes) state.globalPositionOf(node.id),
+        ];
+
+        await _pump(
+          tester,
+          scene,
+          direction: TextDirection.rtl,
+          textScaler: const TextScaler.linear(1.5),
+          theme: const WayfinderReaderThemeData.dark(
+            fontFamily: 'Changed font',
+          ),
+        );
+        expect(_state(tester), same(state));
+        expect([
+          for (final node in scene.nodes) state.globalPositionOf(node.id),
+        ], positions);
+      });
+    }
+
     testWidgets('the legend sits at the start and the graph frames clear of '
         'it', (tester) async {
       await tester.binding.setSurfaceSize(const Size(600, 300));

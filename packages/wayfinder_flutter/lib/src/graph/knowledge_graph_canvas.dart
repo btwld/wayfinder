@@ -107,7 +107,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   bool _needsFit = true;
 
   /// Whether the view is still the fitted one: nobody has panned, zoomed
-  /// or re-centred since. A resize or a new legend then fits again.
+  /// or re-centred since. Framing changes then fit again.
   bool _fitted = false;
   Size _legendSize = Size.zero;
   WayfinderReaderThemeData? _theme;
@@ -168,8 +168,18 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _textScaler = MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
-    _textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final textScaler =
+        MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
+    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final theme = WayfinderReaderTheme.of(context);
+    if (_fitted &&
+        (_textScaler != textScaler ||
+            _textDirection != textDirection ||
+            _theme?.fontFamily != theme.fontFamily)) {
+      _needsFit = true;
+    }
+    _textScaler = textScaler;
+    _textDirection = textDirection;
     _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     _clearLabels();
   }

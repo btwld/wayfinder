@@ -1,14 +1,18 @@
 # wayfinder_flutter
 
-Flutter models and widgets for reading OKF knowledge bundles. A host app supplies
-the knowledge and its look; this package supplies what every reader needs.
+Flutter models, graph widgets and reader helpers for OKF knowledge bundles.
+A host app supplies the knowledge, state and look.
 
 The package is unpublished and early. It holds the portable knowledge models, the
-file tree and link helpers, the graph layout, and `KnowledgeGraphCanvas`. State,
-search and the other reader widgets follow.
+file-tree projection and link helpers, the graph layout, and
+`KnowledgeGraphCanvas`. Concrete backends, controllers, search UI and the other
+reader widgets follow; there is no runnable example app yet.
 
 It depends only on Flutter: no design kit and no `MaterialApp`. Hosts own sign-in,
 storage, navigation and app chrome, and widgets report intent through callbacks.
+
+See the [integration and graph guide](doc/integration.md) for the core-to-Flutter
+mapping, graph ownership, indexing branch boundaries and remaining product work.
 
 ## The knowledge graph
 
@@ -39,11 +43,12 @@ A `GlobalKey<KnowledgeGraphCanvasState>` gives a host's own toolbar `fit()` and
 words come from `KnowledgeGraphLabels`; extend that class to translate them.
 
 Keep the same `KnowledgeGraphScene` instance across rebuilds: a new one clears the
-canvas's label cache, and a new layout refits and fades the view.
+canvas's label cache. A changed layout refits and fades the view.
 
 With a mouse, hovering shows a node's card and a double click opens it. With touch,
 a tap selects a node and shows its card, and a long press or a double tap opens it.
 Screen readers open a node with its long-press action, which is hinted as Open.
+Graph keyboard navigation remains product follow-up.
 
 ## Theming
 

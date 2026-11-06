@@ -114,9 +114,12 @@ final class KnowledgeGraphSceneNode {
     this.target,
   });
 
-  /// The concept id, or `<kind>:<path-or-target>` for a target that is no
-  /// concept. Resolved attachments use their project-relative path so the
-  /// same file shares a node and same-named files in different folders do not.
+  /// The unchanged concept id, or an opaque synthetic id in the reserved
+  /// `/<kind>:<path-or-target>` namespace for a target that is no concept.
+  /// The leading slash cannot occur in a valid OKF concept id. Resolved
+  /// attachments use their project-relative path so the same file shares
+  /// a node and same-named files in different folders do not. Inspect [kind],
+  /// [path] and [target] instead of parsing a synthetic id.
   final String id;
   final String title;
 
@@ -338,7 +341,7 @@ KnowledgeGraphScene knowledgeGraphScene(
       if (kind == null || !query.layers.contains(_layerOf(kind))) continue;
       // Targets that are no concept sit one link beyond their source.
       if (local && distances[edge.source]! >= depth) continue;
-      target = '${kind.name}:${edge.path ?? edge.target}';
+      target = '/${kind.name}:${edge.path ?? edge.target}';
       final distance = local ? distances[edge.source]! + 1 : null;
       final existing = nodes[target];
       if (existing == null ||
@@ -439,7 +442,15 @@ String knowledgeShortTarget(String target) {
   if (target.startsWith('http://') || target.startsWith('https://')) {
     final uri = Uri.tryParse(target);
     if (uri != null) {
-      final tail = uri.pathSegments
+      List<String> segments;
+      try {
+        segments = uri.pathSegments;
+      } on FormatException {
+        // A URI can parse while its path contains invalid UTF-8 octets.
+        // Keep its encoded label instead of failing the graph layout.
+        segments = uri.path.split('/');
+      }
+      final tail = segments
           .where((s) => s.isNotEmpty)
           .toList()
           .reversed

@@ -211,8 +211,199 @@ void main() {
         layers: {KnowledgeGraphLayer.unresolved},
       ),
     );
-    expect(_ids(one), contains('unresolved:gone'));
-    expect(_ids(one), isNot(contains('external:https://example.com/spec')));
+    expect(_ids(one), contains('/unresolved:gone'));
+    expect(_ids(one), isNot(contains('/external:https://example.com/spec')));
+  });
+
+  group('target identity', () {
+    final cases = [
+      (
+        kind: KnowledgeGraphNodeKind.attachment,
+        resolution: KnowledgeLinkResolution.resolvedAsset,
+        layer: KnowledgeGraphLayer.attachments,
+        target: 'plan.png',
+        path: 'knowledge/assets/plan.png',
+      ),
+      (
+        kind: KnowledgeGraphNodeKind.external,
+        resolution: KnowledgeLinkResolution.external,
+        layer: KnowledgeGraphLayer.external,
+        target: 'mailto:owner@example.com',
+        path: null,
+      ),
+      (
+        kind: KnowledgeGraphNodeKind.external,
+        resolution: KnowledgeLinkResolution.descriptor,
+        layer: KnowledgeGraphLayer.external,
+        target: 'registry:spec',
+        path: null,
+      ),
+      (
+        kind: KnowledgeGraphNodeKind.unresolved,
+        resolution: KnowledgeLinkResolution.unresolved,
+        layer: KnowledgeGraphLayer.unresolved,
+        target: 'gone',
+        path: null,
+      ),
+      (
+        kind: KnowledgeGraphNodeKind.unresolved,
+        resolution: KnowledgeLinkResolution.invalid,
+        layer: KnowledgeGraphLayer.unresolved,
+        target: 'invalid:target',
+        path: null,
+      ),
+    ];
+    for (final scope in KnowledgeGraphScope.values) {
+      for (final entry in cases) {
+        test('${scope.name} keeps ${entry.resolution.name} targets distinct '
+            'from valid concepts and links to each separately', () {
+          // OKF IDs are relative POSIX paths, not limited to portable ASCII:
+          // colons are legal. These all used to alias a synthetic target.
+          final conceptId = '${entry.kind.name}:${entry.path ?? entry.target}';
+          final scene = knowledgeGraphScene(
+            KnowledgeGraph(
+              bundle: 'knowledge',
+              nodes: [_node('focus'), _node(conceptId)],
+              edges: [
+                _link('focus', conceptId, relationship: 'concept'),
+                KnowledgeGraphEdge(
+                  source: 'focus',
+                  target: entry.target,
+                  origin: KnowledgeLinkOrigin.body,
+                  resolution: entry.resolution,
+                  relationship: 'target',
+                  path: entry.path,
+                ),
+              ],
+            ),
+            KnowledgeGraphQuery(
+              scope: scope,
+              focus: 'focus',
+              layers: {entry.layer},
+            ),
+          );
+          expect(scene.nodes, hasLength(3));
+          expect(scene.indexById, hasLength(3));
+          final concept = scene.nodes[scene.indexById[conceptId]!];
+          expect(concept.id, conceptId);
+          expect(concept.isConcept, isTrue);
+          final target = scene.nodes.singleWhere((node) => !node.isConcept);
+          expect(target.id, isNot(conceptId));
+          expect(target.kind, entry.kind);
+          expect(target.path, entry.path);
+          expect(target.target, entry.target);
+          expect(
+            target.distance,
+            scope == KnowledgeGraphScope.local ? 1 : null,
+          );
+          expect(scene.links, hasLength(2));
+          for (final link in scene.links) {
+            expect(scene.nodes[link.source].id, 'focus');
+            expect(link.backward, isFalse);
+            expect(
+              scene.nodes[link.target],
+              same(link.labels.single == 'concept' ? concept : target),
+            );
+          }
+        });
+      }
+      for (final entry in [cases[0], cases[1], cases[3]]) {
+        test(
+          '${scope.name} shares ${entry.kind.name} identity across sources',
+          () {
+            final scene = knowledgeGraphScene(
+              KnowledgeGraph(
+                bundle: 'knowledge',
+                nodes: [_node('focus'), _node('neighbour')],
+                edges: [
+                  _link('focus', 'neighbour'),
+                  for (final source in ['neighbour', 'focus'])
+                    KnowledgeGraphEdge(
+                      source: source,
+                      // Different relative link spellings resolve to one file.
+                      target: entry.path == null || source == 'focus'
+                          ? entry.target
+                          : '../assets/plan.png',
+                      path: entry.path,
+                      origin: KnowledgeLinkOrigin.body,
+                      resolution: entry.resolution,
+                    ),
+                ],
+              ),
+              KnowledgeGraphQuery(
+                scope: scope,
+                focus: 'focus',
+                depth: 2,
+                layers: {entry.layer},
+              ),
+            );
+            final target = scene.nodes.singleWhere((node) => !node.isConcept);
+            expect(target.kind, entry.kind);
+            expect(target.path, entry.path);
+            expect(
+              target.distance,
+              scope == KnowledgeGraphScope.local ? 1 : null,
+            );
+            final links = scene.links.where(
+              (link) => identical(scene.nodes[link.target], target),
+            );
+            expect(links, hasLength(2));
+            expect(links.map((link) => scene.nodes[link.source].id).toSet(), {
+              'focus',
+              'neighbour',
+            });
+          },
+        );
+      }
+    }
+  });
+
+  group('URL labels', () {
+    for (final (target, label) in [
+      ('https://example.com/%FF', 'example.com/%FF'),
+      ('https://example.com/a/%FF/?q=1#fragment', 'example.com/%FF'),
+      ('https://example.com/caf%C3%A9%20guide', 'example.com/café guide'),
+      ('https://example.com/a%2Fb', 'example.com/a/b'),
+      ('https://example.com/', 'example.com'),
+    ]) {
+      test('shortens $target without throwing', () {
+        expect(knowledgeShortTarget(target), label);
+      });
+    }
+    for (final scope in KnowledgeGraphScope.values) {
+      test(
+        '${scope.name} constructs a graph with an invalid UTF-8 URL path',
+        () {
+          const target = 'https://example.com/%FF';
+          final scene = knowledgeGraphScene(
+            KnowledgeGraph(
+              bundle: 'knowledge',
+              nodes: [_node('focus')],
+              edges: [
+                _link(
+                  'focus',
+                  target,
+                  resolution: KnowledgeLinkResolution.external,
+                ),
+              ],
+            ),
+            KnowledgeGraphQuery(
+              scope: scope,
+              focus: 'focus',
+              layers: {KnowledgeGraphLayer.external},
+            ),
+          );
+          final external = scene.nodes.singleWhere((node) => !node.isConcept);
+          expect(external.title, 'example.com/%FF');
+          expect(external.target, target);
+          expect(external.kind, KnowledgeGraphNodeKind.external);
+          expect(scene.links, hasLength(1));
+          expect(scene.nodes[scene.links.single.source].id, 'focus');
+          expect(scene.nodes[scene.links.single.target], same(external));
+          expect(scene.positions.every((value) => value.isFinite), isTrue);
+        },
+      );
+    }
   });
 
   test('the whole bundle shows every concept and every concept link', () {
@@ -261,41 +452,56 @@ void main() {
     },
   );
 
-  test('same-named attachments in different folders remain separate', () {
-    final scene = knowledgeGraphScene(
-      KnowledgeGraph(
-        bundle: 'knowledge',
-        nodes: [_node('a/doc'), _node('b/doc')],
-        edges: [
-          for (final folder in ['a', 'b'])
-            KnowledgeGraphEdge(
-              source: '$folder/doc',
-              target: 'image.png',
-              origin: KnowledgeLinkOrigin.body,
-              resolution: KnowledgeLinkResolution.resolvedAsset,
-              path: 'knowledge/$folder/image.png',
-            ),
-        ],
-      ),
-      const KnowledgeGraphQuery(
-        scope: KnowledgeGraphScope.whole,
-        layers: {KnowledgeGraphLayer.attachments},
-      ),
+  for (final scope in KnowledgeGraphScope.values) {
+    test(
+      '${scope.name} same-named attachments in different folders remain separate',
+      () {
+        final scene = knowledgeGraphScene(
+          KnowledgeGraph(
+            bundle: 'knowledge',
+            nodes: [_node('a/doc'), _node('b/doc')],
+            edges: [
+              _link('a/doc', 'b/doc'),
+              for (final folder in ['a', 'b'])
+                KnowledgeGraphEdge(
+                  source: '$folder/doc',
+                  target: 'image.png',
+                  origin: KnowledgeLinkOrigin.body,
+                  resolution: KnowledgeLinkResolution.resolvedAsset,
+                  path: 'knowledge/$folder/image.png',
+                ),
+            ],
+          ),
+          KnowledgeGraphQuery(
+            scope: scope,
+            focus: 'a/doc',
+            depth: 2,
+            layers: {KnowledgeGraphLayer.attachments},
+          ),
+        );
+        final attachments = scene.nodes
+            .where((node) => !node.isConcept)
+            .toList();
+        expect(attachments, hasLength(2));
+        expect(attachments.map((node) => node.path).toSet(), {
+          'knowledge/a/image.png',
+          'knowledge/b/image.png',
+        });
+        for (final link in scene.links.where(
+          (link) => !scene.nodes[link.target].isConcept,
+        )) {
+          final source = scene.nodes[link.source];
+          final target = scene.nodes[link.target];
+          final concept = source.isConcept ? source : target;
+          final asset = source.isConcept ? target : source;
+          expect(
+            asset.path,
+            'knowledge/${concept.id.split('/').first}/image.png',
+          );
+        }
+      },
     );
-    final attachments = scene.nodes.where((node) => !node.isConcept).toList();
-    expect(attachments, hasLength(2));
-    expect(attachments.map((node) => node.path).toSet(), {
-      'knowledge/a/image.png',
-      'knowledge/b/image.png',
-    });
-    for (final link in scene.links) {
-      final source = scene.nodes[link.source];
-      final target = scene.nodes[link.target];
-      final concept = source.isConcept ? source : target;
-      final asset = source.isConcept ? target : source;
-      expect(asset.path, 'knowledge/${concept.id.split('/').first}/image.png');
-    }
-  });
+  }
 
   test('a local graph without a focus is empty', () {
     final scene = knowledgeGraphScene(_graph, const KnowledgeGraphQuery());

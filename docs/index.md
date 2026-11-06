@@ -49,6 +49,7 @@ surfaces, supported verification targets, host ownership and migration boundarie
 | Dart adoption | Plan and apply a project's adoption of a Profile: binding, lock, Profile skills, and the seeded bundle. | [`KnowledgeAdoption`](../packages/wayfinder/README.md#adoption) from `package:wayfinder/adoption.dart` |
 | Dart authoring | Write a bundle a Profile governs: prepare one change, judge the candidate in memory, then commit it or report why not. | [`KnowledgeWriter`](../packages/wayfinder/README.md#authoring) from `package:wayfinder/authoring.dart` |
 | Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](../packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` and model provisioning with [`EmbeddingModelCache`](../packages/wayfinder_embeddings/README.md#provision-the-model-from-an-application) in `model_cache.dart` |
+| Flutter reader SDK | Use portable reader models, graph widgets and file-tree/link helpers; hosts supply backends and state. | [Package README](../packages/wayfinder_flutter/README.md) and [integration and graph guide](../packages/wayfinder_flutter/doc/integration.md) |
 
 CLI and MCP search can span configured bundles. CLI search also supports
 [frontmatter filters](../packages/wayfinder_cli/README.md#filter-search-by-frontmatter).

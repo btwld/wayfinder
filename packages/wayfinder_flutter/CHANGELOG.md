@@ -12,6 +12,15 @@
   removed nodes, repaint scaled/directional text, and preserve hover colours
   across label caching. Shared graph targets use their nearest ring; resolved
   attachment IDs use their project-relative path rather than a raw link target.
+- Synthetic graph target IDs now start with `/` (for example,
+  `/unresolved:gone`) so they cannot collide with valid OKF concept IDs.
+  Real concept IDs are unchanged. Hosts storing synthetic IDs must rebuild them
+  from the scene; treat IDs as opaque and use node `kind`, `path` and `target`
+  for navigation instead of parsing IDs.
+- Graph labels preserve encoded URL path segments with invalid UTF-8 instead of
+  aborting scene construction; valid URL segments still display decoded text.
+- Live text size, direction and font changes refit an already-fitted canvas while
+  preserving manually panned or zoomed views.
 - Malformed citations with oversized line numbers return null instead of throwing.
 - The graph fills its bounded viewport under loose cross-axis constraints, such
   as an `Expanded` child of a `Column`, rather than collapsing to zero width.
