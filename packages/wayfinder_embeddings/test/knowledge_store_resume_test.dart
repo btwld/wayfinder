@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -255,7 +256,7 @@ void main() {
     test('force ignores a checkpoint whose deletion fails, and a later run '
         'resumes only the forced batches', () async {
       await cancelledAt(2 * batch);
-      final file = checkpoint();
+      final file = File(await checkpoint().resolveSymbolicLinks());
       final undeletable = _UndeletableFile(file);
 
       encoded.clear();
@@ -529,6 +530,21 @@ final class _CheckpointOverride extends IOOverrides {
   _CheckpointOverride(this.file);
 
   final _UndeletableFile file;
+  final _parentZone = Zone.current;
+
+  // Only checkpoint deletion is mocked. Dart 3.11's default IOOverrides
+  // type queries encode paths differently from the real filesystem API.
+  @override
+  Future<FileSystemEntityType> fseGetType(String path, bool followLinks) =>
+      _parentZone.run(
+        () => FileSystemEntity.type(path, followLinks: followLinks),
+      );
+
+  @override
+  FileSystemEntityType fseGetTypeSync(String path, bool followLinks) =>
+      _parentZone.run(
+        () => FileSystemEntity.typeSync(path, followLinks: followLinks),
+      );
 
   @override
   File createFile(String path) =>
