@@ -1,10 +1,11 @@
-# The 1.0 compatibility contract
+# The 0.5 compatibility contract
 
-This is the prepared contract for the first 1.0 release of each of Wayfinder's
-four packages. A prepared version is not a published release. The packages
-remain independently versioned; a Profile's own release is independent of all
-four. [Release preparation](releasing.md) and exact-source verification still
-decide whether a candidate can ship.
+This is the prepared contract for the 0.5 release line of each of Wayfinder's
+three packages. A prepared version is not a published release. The packages
+remain independently versioned on 0.x, where the minor version is the
+breaking-change boundary: `^0.5.0` accepts 0.5 releases, not 0.6. A Profile's
+own release is independent of all three. [Release preparation](releasing.md)
+and exact-source verification still decide whether a candidate can ship.
 
 ## Supported surfaces
 
@@ -26,11 +27,6 @@ and file-lock helpers exported by `project.dart` are included.
 test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart).
 Custom chunker, encoder, searcher and storage extension points are included.
 
-### Dart chunker (`wayfinder_dart_chunker`)
-
-[`wayfinder_dart_chunker.dart`](../packages/wayfinder_dart_chunker/lib/wayfinder_dart_chunker.dart):
-`DartChunker` and `defaultCodeRegistry`.
-
 ### Application (`wayfinder_cli`)
 
 The documented `wayfinder` commands, options, exit meanings, JSON/SARIF output,
@@ -50,7 +46,7 @@ An example teaches the public API it uses; it does not establish another API.
   extension/implementation points, and their documented effects, ownership and
   failure semantics. Adding an enum value or a sealed subtype can break an
   exhaustive caller. Public Dart enums and sealed hierarchies are closed
-  sets: adding an enum value or sealed subtype requires a major release.
+  sets: adding an enum value or sealed subtype requires a breaking release.
   This includes `DiagnosticCode`, `KnowledgeNoticeCode`,
   `AdoptionStepOutcome`, `ProfileBindingState` and the other public enums
   and sealed types exported by the supported entry points. Wire strings
@@ -74,10 +70,10 @@ An example teaches the public API it uses; it does not establish another API.
   to their project's lock. Skills guide judgment, not a second conformance gate;
   their prose may improve without creating a new validator requirement.
 
-A breaking public-surface change needs a major package release and a migration
-entry naming affected callers or data. A fix, dependency upgrade, or internal
-refactor is not evidence of preservation by itself: the relevant contract and
-regression checks must still pass. Profile rules and vocabulary change through
+A breaking public-surface change needs a breaking package release and a
+migration entry naming affected callers or data. A fix, dependency upgrade, or
+internal refactor is not evidence of preservation by itself: the relevant
+contract and regression checks must still pass. Profile rules and vocabulary change through
 that Profile's release process, not through a CLI patch.
 
 The [engine guide](../implementation/okf-implementation-guide.md), package
@@ -99,12 +95,12 @@ Search returns candidate passages with citations, not generated answers or a
 guarantee of authority, freshness, relevance or deterministic ordering among
 equal-scored candidates. The documented freshness policies and notices still
 apply. No latency, availability, corpus-size or retention service level is
-introduced by a 1.0 version.
+introduced by a 0.5 version.
 
 ## SDK and native verification
 
 The prepared packages declare Dart `>=3.11.0 <4.0.0`. The active source matrix
-analyzes and tests all four packages on Linux with Dart 3.11.0 and stable;
+analyzes and tests all three packages on Linux with Dart 3.11.0 and stable;
 stable is the canonical formatter. The stable-only Linux x64 native job runs
 model/ObjectBox integration, relocated CLI/MCP probes, the judged retrieval
 gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0
@@ -121,7 +117,7 @@ PowerShell 7 and Windows PowerShell 5.1 on installer pull requests; these are
 script and architecture-detection tests, not native artifact verification. The
 [public installer workflow](../.github/workflows/verify-public-install.yml)
 checks the currently published release on Linux automatically and supports
-manual macOS/Windows smoke tests. It does not establish that the prepared 1.0
+manual macOS/Windows smoke tests. It does not establish that the prepared 0.5
 artifacts have been published or verified.
 
 Other native combinations need their own verification before a prebuilt

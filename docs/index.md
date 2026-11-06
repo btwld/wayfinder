@@ -28,7 +28,7 @@
 
 ## Operations
 
-[The 1.0 compatibility contract](stability.md) — Public package and machine
+[The 0.5 compatibility contract](stability.md) — Public package and machine
 surfaces, supported verification targets, host ownership and migration boundaries.
 
 [Install Wayfinder](install.md) — Native installation without Dart, plugin setup and migration, usage, upgrades and troubleshooting.
@@ -48,7 +48,7 @@ surfaces, supported verification targets, host ownership and migration boundarie
 | Dart knowledge store | Embed what `wayfinder index` and `search` do: saved indexes of a project's bundles, status, progress, cancellation, and ranked, cited search that keeps working while an index runs. | [`WayfinderKnowledgeStore`](../packages/wayfinder_embeddings/README.md#knowledge-store) from `package:wayfinder_embeddings/knowledge_store.dart`, with a test encoder in `testing.dart` |
 | Dart adoption | Plan and apply a project's adoption of a Profile: binding, lock, Profile skills, and the seeded bundle. | [`KnowledgeAdoption`](../packages/wayfinder/README.md#adoption) from `package:wayfinder/adoption.dart` |
 | Dart authoring | Write a bundle a Profile governs: prepare one change, judge the candidate in memory, then commit it or report why not. | [`KnowledgeWriter`](../packages/wayfinder/README.md#authoring) from `package:wayfinder/authoring.dart` |
-| Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](../packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` and model provisioning with [`EmbeddingModelCache`](../packages/wayfinder_embeddings/README.md#provision-the-model-from-an-application) in `model_cache.dart`; Dart source chunking in [`wayfinder_dart_chunker`](../packages/wayfinder_dart_chunker/README.md) |
+| Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](../packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` and model provisioning with [`EmbeddingModelCache`](../packages/wayfinder_embeddings/README.md#provision-the-model-from-an-application) in `model_cache.dart` |
 
 CLI and MCP search can span configured bundles. CLI search also supports
 [frontmatter filters](../packages/wayfinder_cli/README.md#filter-search-by-frontmatter).

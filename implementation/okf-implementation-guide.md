@@ -2,9 +2,9 @@
 
 The engine contract for Profile package format **3** and **OKF 0.2 exactly**.
 
-Status: Accepted for wayfinder 1.0.0 (unreleased)
+Status: Accepted for wayfinder 0.5.0 (unreleased)
 
-The [1.0 stability contract](../docs/stability.md) identifies the public
+The [0.5 stability contract](../docs/stability.md) identifies the public
 compatibility and support boundaries. Acceptance of this contract is not
 publication or a claim that release verification has completed.
 
@@ -131,7 +131,7 @@ the bytes its generator writes with a generator revision,
 `okfIndexGeneratorRevision`: the okf release that last changed that output
 for any bundle. okf changes the output only in a minor release, so every
 release in one minor series writes the same bytes. Wayfinder depends on a
-range of okf releases within one revision (`^0.5.1`, revision 0.5.0) and
+range of okf releases within one revision (`^0.7.0-beta.1`, revision 0.5.0) and
 reports the release it runs, okf's `okfVersion`, as JSON `engine.okf` and a
 SARIF `tool.extensions` entry (§4.1). Golden reports over fixtures with
 generated indexes fail when a resolved `okf` release changes the generator's
@@ -914,7 +914,7 @@ format 3 only; historical entries are not compatibility promises for format 2.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number
-such as `3.0` would make a second spelling of format 3 part of the 1.0
+such as `3.0` would make a second spelling of format 3 part of the 0.5
 surface. Implementations report a non-integer format as malformed and an
 integer other than 3 as unsupported. No package migration: a package encodes
 `format` as an integer.
@@ -953,7 +953,7 @@ a literal filename, and candidates require every cited internal target in their
 own inventory. Encode literal percent signs and fix affected citations before
 writing. No OKF field meaning changes.
 
-**Profile-neutral directory facts, package format 3, wayfinder 1.0.0.**
+**Profile-neutral directory facts, package format 3, wayfinder 0.5.0.**
 Affected sections: the guide header, §§4.1, 4.4, 5.4, 5.6, 5.7, and 9; the package
 schema and generic authoring guidance are updated with them (ADR-0029).
 Driver: independent Profiles and Bitwild are both resolved through the

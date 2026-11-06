@@ -15,29 +15,59 @@ on:
     - cron: '17 6 * * 1'
   push:
     branches: [main]
-    paths:
-      - .github/workflows/verify-public-install.yml
-      - tool/verify_public_install.py
-      - tool/install.sh
-      - tool/install.ps1
   pull_request:
-    paths:
-      - .github/workflows/verify-public-install.yml
-      - tool/verify_public_install.py
-      - tool/install.sh
-      - tool/install.ps1
+    # A draft skips every job. ready_for_review runs the suite once the
+    # pull request is ready. Label and edit events are not triggers. Path
+    # selection is a job below, so a ready pull request that does not touch
+    # the installer still reports this check.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
 
 concurrency:
   group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify public-install changes
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.classify.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          DIFF_DOTS: ${{ github.event_name == 'pull_request' && '...' || '..' }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Scheduled and manual runs always install."
+            exit 0
+          fi
+          python3 tool/ci/classify_changes.py --mode public-install
+
   install:
     name: install (${{ inputs.runner || 'ubuntu-latest' }})
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    needs: changes
+    if: >-
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.run == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    # #170 kept macOS and Windows on manual dispatch. A pull request, push,
+    # or weekly run cannot select those inputs; only workflow_dispatch can.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner || 'ubuntu-latest' }}
     timeout-minutes: 15
     env:
       # PRs and manual runs verify the selected ref's installer against published archives.
@@ -51,3 +81,22 @@ jobs:
       - name: Install from public URLs and exercise retrieval without Dart
         run: python tool/verify_public_install.py
 
+  required-checks:
+    name: Public install required checks
+    needs: [changes, install]
+    if: >-
+      always() &&
+      !cancelled() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Report the required check
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          RUN: ${{ needs.changes.outputs.run }}
+          RESULTS: install=${{ needs.install.result }}
+        run: python3 tool/ci/classify_changes.py --require

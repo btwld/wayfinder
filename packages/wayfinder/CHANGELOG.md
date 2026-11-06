@@ -1,5 +1,9 @@
-# 1.0.0 (unreleased)
+# 0.5.0-beta.1
 
+- Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
+  still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
+  with `format` as an annotation unless asked, so both imports pass
+  `assertFormats: true`.
 - Correct `path-targets-exist` for no-space invalid paths, encoded separators,
   backslashes and malformed percent escapes. Encode literal percent as `%25`.
   Internal files and implied directories come only from the loaded inventory;
@@ -11,7 +15,7 @@
   display and inventory decisions with retrieval.
 - Fix footnote facts to use Markdown's parsed definitions: unclosed code fences
   cannot supply a definition, and unused quoted definitions remain visible.
-- Prepare the first stable validation/project/adoption/authoring release.
+- Prepare the 0.5 validation/project/adoption/authoring release.
   The accepted engine contract and [stability boundaries](../../docs/stability.md)
   define its public API, compatibility and host obligations; publication and
   exact-source platform verification remain separate release gates.

@@ -21,8 +21,8 @@ void main() {
           ? workflow.corpusGoldenPath
           : 'test/goldens/sample_chunks.json';
       expect(fixturesDir.existsSync(), isTrue);
-      // The corpus's Dart chunks come from its golden, which
-      // wayfinder_dart_chunker checks; the built-in chunkers make the rest.
+      // The committed baseline is the source of truth for the corpus's Dart
+      // chunks; the built-in chunkers make the rest.
       final preview = workflow.PreviewResult.fromFiles(
         registry: workflow.buildDefaultRegistry(
           reference: fixture == 'corpus'

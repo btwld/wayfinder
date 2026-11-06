@@ -37,8 +37,8 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('\n1. Setting up chunkers and preview pipeline...');
-  // The golden also supplies the chunks of files no built-in chunker handles,
-  // the corpus's Dart sources; wayfinder_dart_chunker's tests check those.
+  // The committed baseline is the source of truth for files no built-in
+  // chunker handles, including the corpus's Dart sources.
   final golden = File(
     p.join(config.packageRoot.path, workflow.corpusGoldenPath),
   );
