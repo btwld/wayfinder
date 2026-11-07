@@ -1,3 +1,19 @@
+# 0.2.0 (unreleased)
+
+- Add shared model-free reader/controller, portable independently leased snapshots,
+  retained-byte memory/local backends and a runnable native example.
+- Move portable concept/graph values to `wayfinder_reader`; existing Flutter
+  imports re-export them. Keep graph/layout/tree/helper behavior.
+- Breaking (unpublished API): replace the provisional absolute-root/last-snapshot
+  project contract with `refresh()` leases and bundle/resource access. Remove
+  provisional mandatory search/index/model APIs and lossy DTOs; no dummy search.
+  See `doc/integration.md` for migration and borrowed teardown.
+- Observe failed retired-lease cleanup immediately and drain all accepted
+  operations/cleanup before reporting the first close error; two controllers
+  sharing coalesced capture retain independent snapshot ownership.
+- Full validation is explicitly unavailable/not assessed pending captured external
+  target/Profile inputs; this milestone does not report PASS or integrate search.
+
 # 0.1.0 (unreleased)
 
 - Initial version, moved from an existing desktop reader: the portable knowledge

@@ -161,3 +161,9 @@ The package stays out of the pub workspace and root analysis so that CLI and lib
 Date: 2026-11-05.
 
 Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade, while CLI knowledge indexes keep using plain-file generations. Exit: move the override, installer and manifest to the first stable ObjectBox 6 release, keeping every entity id and UID.
+
+## Revision-bound model-free reader backends
+
+Date: 2026-11-07.
+
+Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.

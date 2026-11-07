@@ -67,7 +67,7 @@ python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
 ```
 
-`dart run melos run lint` checks all three workspace packages. Package test runs are
+`dart run melos run lint` checks all workspace packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Tests within each
 package keep their normal concurrency. For docs/skills, also check
@@ -183,3 +183,11 @@ retrieval quality, relocated bundles and installer verification. This avoids
 running that complete native pipeline twice per commit; native execution on
 the minimum SDK is no longer a CI promise. Stable Linux artifacts still belong
 to the exact tested commit, and the three-platform distribution remains paused.
+
+Reader packages join the Dart workspace without Flutter or embeddings in their
+runtime closure. Run `dart test` in `packages/wayfinder_reader` and then
+`packages/wayfinder_reader_local`, serialized with the other package tests.
+`python3 tool/ci/verify-reader-closure.py` checks this boundary. The separate
+Flutter workflow tests the shared memory/local reader and existing graph suite
+when reader/local/core dependency sources change; Flutter stays outside the root
+workspace. See [reader integration](../packages/wayfinder_flutter/doc/integration.md).

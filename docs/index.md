@@ -64,3 +64,7 @@ fallback. Chunk preview and snapshot parsing remain model-free. See the
 [dense-only migration](../docs/adr/0017-dense-only-retrieval.md).
 
 - [Structured queries and saved views](queries.md) — model-free concept selection, grouping, CLI/MCP and project query IDs.
+
+Model-free reader backends: [portable contracts and memory](../packages/wayfinder_reader/README.md),
+[local capture](../packages/wayfinder_reader_local/README.md), and
+[shared Flutter integration](../packages/wayfinder_flutter/doc/integration.md).

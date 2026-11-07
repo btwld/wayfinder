@@ -1,0 +1,17 @@
+name: wayfinder_reader
+description: Portable revision-bound read-only knowledge reader contracts and in-memory backend.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/btwld/wayfinder
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+resolution: workspace
+
+dependencies:
+  crypto: ^3.0.3
+  meta: ^1.16.0
+
+dev_dependencies:
+  lints: ">=4.0.0 <7.0.0"
+  test: ^1.25.8

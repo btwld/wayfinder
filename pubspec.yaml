@@ -11,6 +11,8 @@ workspace:
   - packages/wayfinder
   - packages/wayfinder_embeddings
   - packages/wayfinder_cli
+  - packages/wayfinder_reader
+  - packages/wayfinder_reader_local
 
 dev_dependencies:
   melos: ^7.1.1

@@ -31,38 +31,4 @@ void main() {
     );
     expect(summary.revision, 0);
   });
-
-  test('a snapshot starts with no verdicts', () {
-    expect(const KnowledgeProjectSnapshot().validations, isEmpty);
-  });
-
-  test('a bundle index status is equal for one bundle and state', () {
-    final states = KnowledgeIndexState.values;
-    expect(
-      KnowledgeBundleIndexStatus(bundle: 'knowledge', state: states.first),
-      KnowledgeBundleIndexStatus(bundle: 'knowledge', state: states.first),
-    );
-    expect(
-      KnowledgeBundleIndexStatus(
-        bundle: 'knowledge',
-        state: states.first,
-      ).hashCode,
-      KnowledgeBundleIndexStatus(
-        bundle: 'knowledge',
-        state: states.first,
-      ).hashCode,
-    );
-    expect(
-      KnowledgeBundleIndexStatus(bundle: 'knowledge', state: states.first),
-      isNot(
-        KnowledgeBundleIndexStatus(bundle: 'knowledge', state: states.last),
-      ),
-    );
-    expect(
-      KnowledgeBundleIndexStatus(bundle: 'knowledge', state: states.first),
-      isNot(
-        KnowledgeBundleIndexStatus(bundle: 'captures', state: states.first),
-      ),
-    );
-  });
 }

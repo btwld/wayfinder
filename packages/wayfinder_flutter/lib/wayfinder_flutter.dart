@@ -18,3 +18,5 @@ export 'src/model/knowledge_file_tree_projection.dart';
 export 'src/model/knowledge_files.dart';
 export 'src/model/knowledge_links.dart';
 export 'src/theme/wayfinder_reader_theme.dart';
+export 'src/controller/knowledge_reader_controller.dart';
+export 'src/reader/knowledge_reader.dart';

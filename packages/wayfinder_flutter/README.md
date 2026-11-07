@@ -1,18 +1,19 @@
 # wayfinder_flutter
 
-Flutter models, graph widgets and reader helpers for OKF knowledge bundles.
-A host app supplies the knowledge, state and look.
+A shared model-free knowledge reader/controller plus the existing graph SDK.
+The same `KnowledgeReader` selects bundles, concepts, raw files/attachments and
+graph against portable memory or local-file backends. No embeddings dependency,
+model setup or search index is needed. Validation is explicitly unavailable/not
+assessed; semantic search is absent, not simulated.
 
-The package is unpublished and early. It holds the portable knowledge models, the
-file-tree projection and link helpers, the graph layout, and
-`KnowledgeGraphCanvas`. Concrete backends, controllers, search UI and the other
-reader widgets follow; there is no runnable example app yet.
+`wayfinder_reader` owns portable values and revision-bound snapshot contracts;
+Flutter re-exports them at existing import paths. Hosts own grants, source
+selection, storage and teardown. Graph widgets remain design-kit independent;
+the minimal reader uses Material controls under a host `MaterialApp`.
 
-It depends only on Flutter: no design kit and no `MaterialApp`. Hosts own sign-in,
-storage, navigation and app chrome, and widgets report intent through callbacks.
-
-See the [integration and graph guide](doc/integration.md) for the core-to-Flutter
-mapping, graph ownership, indexing branch boundaries and remaining product work.
+See [integration and migration](doc/integration.md) and the
+[runnable native memory/local example](example/README.md). This package remains
+unpublished; 0.2 replaces the provisional 0.1 backend/search signatures.
 
 ## The knowledge graph
 

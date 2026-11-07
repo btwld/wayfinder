@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -538,8 +539,28 @@ class PublicationShellTest(unittest.TestCase):
                                 PUB_RESPONSE=str(self.metadata), PUB_STATUS='200',
                                 GITHUB_WORKSPACE=str(self.root), GITHUB_OUTPUT=str(self.output))
 
+    def _upload_packages(self):
+        # Registry/floor/sibling checks still include every workspace member;
+        # only publication workflow assertions exclude explicit publish_to:none.
+        return {
+            name: package for name, package in preflight.workspace_packages(self.root).items()
+            if not re.search(r'^publish_to:[ \t]*([\'"]?)none\1[ \t]*(?:#.*)?$',
+                             (self.root / package.member / 'pubspec.yaml').read_text(), re.M)
+        }
+
+    def test_unpublished_members_remain_registered_without_upload_workflows(self):
+        manifest = self.root / 'pubspec.yaml'
+        manifest.write_text(manifest.read_text().replace(
+            'workspace:\n', 'workspace:\n  - packages/private_example\n'))
+        private = self.root / 'packages/private_example'
+        private.mkdir()
+        (private / 'pubspec.yaml').write_text(
+            'name: private_example\nversion: 0.1.0\npublish_to: "none"\n')
+        self.assertIn('private_example', preflight.workspace_packages(self.root))
+        self.assertNotIn('private_example', self._upload_packages())
+
     def test_all_upload_workflow_checks_skip_occupied_versions_including_retracted(self):
-        for package, (member, version, _) in preflight.workspace_packages(self.root).items():
+        for package, (member, version, _) in self._upload_packages().items():
             workflow = (preflight.ROOT / '.github/workflows' /
                         f'publish-{package.replace("_", "-")}.yml').read_text()
             section = workflow.split('      - name: Check whether pub.dev already has this version\n', 1)[1]
@@ -560,7 +581,7 @@ class PublicationShellTest(unittest.TestCase):
                     self.assertEqual(self.output.read_text(), f'published={expected}\n')
 
     def test_sibling_workflow_commands_reject_retracted_versions_and_accept_usable_versions(self):
-        for package in preflight.workspace_packages(self.root):
+        for package in self._upload_packages():
             versions = preflight.sibling_versions(package, self.root)
             if not versions:
                 continue
