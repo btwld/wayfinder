@@ -5,3 +5,6 @@ analyzer:
     # its tests out of the workspace analysis; CI analyzes and tests it in its
     # package directory below.
     - tool/knowledge_import/**
+    # The Flutter reader is a standalone package too, so workspace analysis
+    # needs no Flutter. Its own workflow analyzes and tests it.
+    - packages/wayfinder_flutter/**

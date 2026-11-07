@@ -151,3 +151,14 @@ promise for every possible future database schema.
 
 Release readiness is established by the [release preflight](releasing.md#release-preflight)
 and the remaining staged distribution checks, not by this document alone.
+
+
+## Unpublished reader milestone
+
+`wayfinder_reader` and `wayfinder_reader_local` 0.1 and `wayfinder_flutter` 0.2
+remain unpublished, separate from the prepared core/retrieval/CLI 0.5 surface.
+Flutter 0.2 intentionally replaces its provisional 0.1 backend/search API;
+[its migration guide](../packages/wayfinder_flutter/doc/integration.md#migration-from-unpublished-01)
+records the removed signatures. Model-free browsing supplies no conformance
+assessment or semantic search. Local/memory Linux tests do not establish mobile,
+web, remote-provider or other native-platform support.

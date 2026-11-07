@@ -1,0 +1,30 @@
+name: wayfinder_flutter
+description: Flutter models and widgets for reading OKF knowledge bundles, starting with the knowledge graph.
+version: 0.2.0
+publish_to: none
+repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_flutter
+issue_tracker: https://github.com/btwld/wayfinder/issues
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.5"
+
+dependencies:
+  wayfinder_reader: ^0.1.0
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  wayfinder_reader_local: ^0.1.0
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# Unpublished sibling packages; consumers use matching local overrides.
+dependency_overrides:
+  wayfinder_reader:
+    path: ../wayfinder_reader
+  wayfinder_reader_local:
+    path: ../wayfinder_reader_local
+  wayfinder:
+    path: ../wayfinder

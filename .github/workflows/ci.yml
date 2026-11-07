@@ -95,6 +95,13 @@ jobs:
         env:
           WAYFINDER_REQUIRE_JSONSCHEMA: ${{ matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable' && '1' || '' }}
       - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed packages/wayfinder_reader packages/wayfinder_reader_local
+      - run: dart test
+        working-directory: packages/wayfinder_reader
+      - run: dart test
+        working-directory: packages/wayfinder_reader_local
+      - run: python3 tool/ci/verify-reader-closure.py
+      - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings
       - run: dart test
