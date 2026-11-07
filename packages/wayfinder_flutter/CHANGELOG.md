@@ -1,5 +1,8 @@
 # 0.2.0 (unreleased)
 
+- Reload an active graph after successful refresh without overriding navigation
+  away from Graph or an authorized fallback after a refresh error.
+
 - Prefer root `knowledge` over nested namesakes; distinguish project and bundle
   file rows, support graph pointer/semantic selection, and expose an explicit
   reader `maxReadBytes` budget for larger host-approved resources.

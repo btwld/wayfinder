@@ -58,7 +58,19 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
                   },
                 ),
               TextButton(
-                onPressed: c.refreshing ? null : c.refresh,
+                onPressed: c.refreshing
+                    ? null
+                    : () async {
+                        await c.refresh();
+                        if (mounted &&
+                            identical(c, widget.controller) &&
+                            view == _View.graph &&
+                            !c.refreshing &&
+                            c.error == null &&
+                            c.snapshot != null) {
+                          await c.showGraph();
+                        }
+                      },
                 child: const Text('Refresh'),
               ),
               Text(c.searchUnavailableReason),
