@@ -17,6 +17,53 @@ void main() {
     await root.delete(recursive: true);
   });
   test(
+    'computation inputs preserve written targets separately from resolved concepts',
+    () async {
+      await write(
+        'knowledge/data.md',
+        '---\ntype: Guide\n---\n# Section\nData',
+      );
+      await write('knowledge/calc.md', '''---
+type: Attested Computation
+runtime: python
+computation: ./data.md#compute
+executor: {resource: ./data.md#run}
+attester: {resource: ./data.md#check}
+---
+[input](./data.md#section)
+''');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final snapshot = await project.refresh();
+      final bundle = snapshot.bundles.single;
+      final computation = (await bundle.concept('calc')).computation!;
+      final written = {
+        KnowledgeLinkOrigin.body: './data.md#section',
+        KnowledgeLinkOrigin.computation: './data.md#compute',
+        KnowledgeLinkOrigin.executorResource: './data.md#run',
+        KnowledgeLinkOrigin.attesterResource: './data.md#check',
+      };
+      expect(computation.runtime, 'python');
+      expect(computation.reads.length, written.length);
+      for (final entry in written.entries) {
+        final input = computation.reads.singleWhere(
+          (input) => input.origin == entry.key,
+        );
+        expect(input.target, entry.value);
+        expect(input.conceptId, 'data');
+        expect(input.path, 'knowledge/data.md');
+        expect(input.resolution, KnowledgeLinkResolution.resolvedConcept);
+      }
+      final graph = await bundle.graph();
+      expect(
+        graph.edges
+            .where((edge) => edge.source == 'calc')
+            .map((edge) => edge.target),
+        everyElement('data'),
+      );
+    },
+  );
+  test(
     'OKF nested YAML remains immutable and non-JSON scalars remain readable',
     () async {
       await write(

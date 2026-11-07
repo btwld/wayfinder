@@ -94,13 +94,13 @@ KnowledgeCapturedBundle projectCapturedBundle({
         : (doc.bodyStartLine ?? 1).clamp(1, lineCount);
     final filePath = '$path/${entry.key.documentPath}';
     final related = fields.where((e) => e.source == entry.key);
-    final reads = edges.where(
+    final reads = graph.edges.where(
       (e) =>
-          e.source == cid &&
-          (e.origin == KnowledgeLinkOrigin.computation ||
-              e.origin == KnowledgeLinkOrigin.executorResource ||
-              e.origin == KnowledgeLinkOrigin.attesterResource ||
-              e.origin == KnowledgeLinkOrigin.body),
+          e.source == entry.key &&
+          (e.origin == OkfGraphEdgeOrigin.computation ||
+              e.origin == OkfGraphEdgeOrigin.executorResource ||
+              e.origin == OkfGraphEdgeOrigin.attesterResource ||
+              e.origin == OkfGraphEdgeOrigin.bodyLink),
     );
     concepts.add(
       KnowledgeConcept(
@@ -190,15 +190,11 @@ KnowledgeCapturedBundle projectCapturedBundle({
                 reads: [
                   for (final e in reads)
                     KnowledgeComputationInput(
-                      target: e.target,
-                      origin: e.origin,
-                      resolution: e.resolution,
-                      conceptId:
-                          e.resolution ==
-                              KnowledgeLinkResolution.resolvedConcept
-                          ? e.target
-                          : null,
-                      path: e.path,
+                      target: e.rawTarget,
+                      origin: origin(e.origin),
+                      resolution: resolution(e.resolution),
+                      conceptId: e.targetConcept?.value,
+                      path: _projectPath(path, e.resolvedPath),
                     ),
                 ],
               )
