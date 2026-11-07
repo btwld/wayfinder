@@ -7,6 +7,13 @@ The shared `KnowledgeReaderController` and `KnowledgeReader` consume portable
 sign-in, project selection, source grants, app chrome and lifecycle ownership.
 No embedding model, search index or retrieval package is needed.
 
+The controller has a separate per-file read/copy budget, `maxReadBytes` (16 MiB
+by default). If a host raises local capture limits and wants larger files to
+open in the UI, explicitly raise this controller budget too. Direct snapshot
+callers retain their own `read(maxBytes: ...)` limit; inventory size never
+silently increases the UI's memory budget. File labels distinguish project
+configuration from bundle-relative content even when filenames match.
+
 ```dart
 final controller = KnowledgeReaderController(project: project);
 await controller.refresh();

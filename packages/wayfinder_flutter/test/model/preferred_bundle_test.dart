@@ -41,4 +41,15 @@ void main() {
     );
     expect(preferredKnowledgeBundle(const []), isNull);
   });
+
+  test('root knowledge wins over nested namesakes in either order', () {
+    final root = _bundle('knowledge', 1);
+    final nested = _bundle('a/knowledge', 200);
+    for (final bundles in [
+      [nested, root],
+      [root, nested],
+    ]) {
+      expect(preferredKnowledgeBundle(bundles)?.path, 'knowledge');
+    }
+  });
 }

@@ -8,10 +8,24 @@ import '../model/knowledge_graph_scene.dart';
 /// Selection and asynchronous view state shared by every reader backend.
 /// Borrows [project]; closing this controller releases its own lease only.
 final class KnowledgeReaderController extends ChangeNotifier {
-  KnowledgeReaderController({required this.project}) {
+  KnowledgeReaderController({
+    required this.project,
+    this.maxReadBytes = 16 * 1024 * 1024,
+  }) {
+    if (maxReadBytes < 0) {
+      throw ArgumentError.value(
+        maxReadBytes,
+        'maxReadBytes',
+        'Must be nonnegative',
+      );
+    }
     _revocations = project.revocations.listen((_) => _revoke());
   }
   final KnowledgeProject project;
+
+  /// Host-approved per-file read/copy budget, independent of capture limits.
+  /// Raise explicitly when the reader should open larger retained resources.
+  final int maxReadBytes;
   late final StreamSubscription<void> _revocations;
   KnowledgeProjectSnapshot? _snapshot;
   KnowledgeProjectSnapshot? get snapshot => _snapshot;
@@ -22,6 +36,8 @@ final class KnowledgeReaderController extends ChangeNotifier {
   KnowledgeConcept? concept;
   KnowledgeSourceBytes? source;
   KnowledgeGraphScene? scene;
+  String? _selectedGraphNodeId;
+  String? get selectedGraphNodeId => _selectedGraphNodeId;
   Object? error;
   bool refreshing = false;
   bool loading = false;
@@ -108,11 +124,12 @@ final class KnowledgeReaderController extends ChangeNotifier {
     concept = null;
     source = null;
     scene = null;
+    _selectedGraphNodeId = null;
     error = null;
     loading = true;
     notifyListeners();
     try {
-      final bytes = await snapshot.read(file.handle);
+      final bytes = await snapshot.read(file.handle, maxBytes: maxReadBytes);
       KnowledgeConcept? document;
       final bundleId = file.handle.bundle;
       if (bundleId != null) {
@@ -158,12 +175,28 @@ final class KnowledgeReaderController extends ChangeNotifier {
       );
       if (!_current(generation, snapshot)) return;
       scene = next;
+      _selectedGraphNodeId =
+          next.nodes.any((node) => node.isConcept && node.id == concept?.id)
+          ? concept?.id
+          : null;
       loading = false;
       notifyListeners();
     } catch (failure) {
       _failedSelection(generation, snapshot, failure);
     }
   });
+
+  /// Selects a concept in the displayed graph without opening its file.
+  void selectGraphNode(String id) {
+    if (_closed ||
+        _selectedGraphNodeId == id ||
+        !(scene?.nodes.any((node) => node.id == id && node.isConcept) ??
+            false)) {
+      return;
+    }
+    _selectedGraphNodeId = id;
+    notifyListeners();
+  }
 
   bool _current(int generation, KnowledgeProjectSnapshot snapshot) =>
       !_closed &&
@@ -190,6 +223,7 @@ final class KnowledgeReaderController extends ChangeNotifier {
     concept = null;
     source = null;
     scene = null;
+    _selectedGraphNodeId = null;
     loading = false;
   }
 

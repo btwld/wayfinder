@@ -25,14 +25,14 @@ void main() {
       );
       expect(find.text('Semantic search is not configured.'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('file:first.md')));
+      await tester.tap(find.text('knowledge/first.md'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('reader-concept')), findsOneWidget);
       expect(controller.concept!.id, 'first');
       await tester.tap(find.text('Source'));
       await tester.pumpAndSettle();
       expect(find.textContaining('type: Guide'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('file:asset.bin')));
+      await tester.tap(find.text('knowledge/asset.bin'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('reader-binary')), findsOneWidget);
       expect(find.textContaining('00 ff 80'), findsOneWidget);
@@ -49,7 +49,7 @@ void main() {
       await tester.tap(find.text('other').last);
       await tester.pumpAndSettle();
       expect(controller.bundle!.id, 'other');
-      expect(find.byKey(const ValueKey('file:other.md')), findsOneWidget);
+      expect(find.text('other/other.md'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(() async {
         await controller.close();
@@ -91,7 +91,7 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('reader-files')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('local.md').last);
+      await tester.tap(find.text('knowledge/local.md').last);
       await tester.pumpAndSettle();
       expect(find.textContaining('Local body'), findsOneWidget);
       expect(controller.concept!.title, 'Local');

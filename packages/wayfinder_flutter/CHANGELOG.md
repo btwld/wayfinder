@@ -1,5 +1,9 @@
 # 0.2.0 (unreleased)
 
+- Prefer root `knowledge` over nested namesakes; distinguish project and bundle
+  file rows, support graph pointer/semantic selection, and expose an explicit
+  reader `maxReadBytes` budget for larger host-approved resources.
+
 - Add shared model-free reader/controller, portable independently leased snapshots,
   retained-byte memory/local backends and a runnable native example.
 - Move portable concept/graph values to `wayfinder_reader`; existing Flutter

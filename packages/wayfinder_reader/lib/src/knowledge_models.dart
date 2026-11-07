@@ -80,15 +80,17 @@ final class KnowledgeBundleSummary {
   int get hashCode => Object.hash(name, path, conceptCount, revision);
 }
 
-/// The bundle a project reads first: the one named `knowledge`, else the
-/// one with the most concepts, the first by path among equals; null when
-/// there is none.
+/// The bundle a project reads first: exact path `knowledge`, then a bundle
+/// named `knowledge`, else the most concepts (first by path among equals).
+/// Returns null when there is none.
 KnowledgeBundleSummary? preferredKnowledgeBundle(
   Iterable<KnowledgeBundleSummary> bundles,
 ) {
   KnowledgeBundleSummary? preferred;
+  KnowledgeBundleSummary? namedKnowledge;
   for (final bundle in bundles) {
-    if (bundle.name == 'knowledge' || bundle.path == 'knowledge') return bundle;
+    if (bundle.path == 'knowledge') return bundle;
+    if (bundle.name == 'knowledge') namedKnowledge ??= bundle;
     if (preferred == null ||
         bundle.conceptCount > preferred.conceptCount ||
         (bundle.conceptCount == preferred.conceptCount &&
@@ -96,7 +98,7 @@ KnowledgeBundleSummary? preferredKnowledgeBundle(
       preferred = bundle;
     }
   }
-  return preferred;
+  return namedKnowledge ?? preferred;
 }
 
 @immutable

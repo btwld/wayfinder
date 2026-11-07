@@ -112,7 +112,7 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
                                 for (final f in files)
                                   DropdownMenuItem(
                                     value: f,
-                                    child: Text(f.handle.path),
+                                    child: Text(_fileLabel(f, snapshot)),
                                   ),
                               ],
                               onChanged: (file) {
@@ -134,9 +134,9 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
                               children: [
                                 for (final file in files)
                                   ListTile(
-                                    key: ValueKey('file:${file.handle.path}'),
+                                    key: ValueKey(file.handle),
                                     selected: identical(file, c.selectedFile),
-                                    title: Text(file.handle.path),
+                                    title: Text(_fileLabel(file, snapshot)),
                                     onTap: () {
                                       setState(() => view = _View.read);
                                       c.openFile(file);
@@ -156,6 +156,16 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
       );
     },
   );
+
+  String _fileLabel(
+    KnowledgeResourceEntry file,
+    KnowledgeProjectSnapshot snapshot,
+  ) {
+    final bundleId = file.handle.bundle;
+    return bundleId == null
+        ? 'Project: ${file.handle.path}'
+        : '${snapshot.bundle(bundleId).summary.path}/${file.handle.path}';
+  }
 
   Widget _content(
     KnowledgeReaderController c,
@@ -179,10 +189,13 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
         child: KnowledgeGraphCanvas(
           scene: scene,
           palette: KnowledgeTypePalette.of(bundle!.concepts),
-          activeId: c.concept?.id,
+          activeId: c.selectedGraphNodeId,
           attentionOf: (_) => null,
-          onSelect: (_) {},
+          onSelect: c.selectGraphNode,
           onOpen: (id) {
+            if (!scene.nodes.any((node) => node.id == id && node.isConcept)) {
+              return;
+            }
             setState(() => view = _View.read);
             c.openConcept(id);
           },
