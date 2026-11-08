@@ -39,11 +39,11 @@ Future<void> main(List<String> args) async {
   final directory = await Directory.systemTemp.createTemp('retrieval_scale');
   final results = <String, Object?>{};
   try {
-    for (final kind in ['memory', 'objectbox']) {
+    for (final kind in ['memory', 'drift']) {
       final path = '${directory.path}/$kind';
       final store = kind == 'memory'
           ? MemoryStore()
-          : ObjectBoxStore.open(path);
+          : await DriftStore.open(path);
       try {
         final clock = Stopwatch()..start();
         await store.storeBatch(chunks: chunks, embeddings: vectors);

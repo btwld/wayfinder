@@ -9,6 +9,7 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
 
+import 'support/generation_record.dart';
 import 'support/store_support.dart';
 
 /// The index lifecycle: generations, freshness, encoder ownership and
@@ -753,7 +754,7 @@ void main() {
         expect(await file('recovery.md').readAsBytes(), before);
         final current = File(p.join(first.index, 'current'));
         final generation = await current.readAsString();
-        final database = File(p.join(first.index, generation, 'vectors.f32'));
+        final database = File(p.join(first.index, generation, 'index.sqlite'));
         final bytes = await database.readAsBytes();
         reject = true;
         await expectLater(fitting.index(bundle, force: true), throwsStateError);
@@ -792,8 +793,8 @@ void main() {
       final first = await knowledge.index(bundle);
       final current = File(p.join(first.index, 'current'));
       final oldGeneration = await current.readAsString();
-      final recordFile = File(
-        p.join(first.index, oldGeneration, 'snapshot.json'),
+      final recordFile = GenerationRecord(
+        p.join(first.index, oldGeneration, 'index.sqlite'),
       );
       final record = jsonDecode(await recordFile.readAsString()) as Map;
       final configuration =
@@ -973,8 +974,8 @@ void main() {
         ]) {
           final result = await knowledge.index(bundle);
           final current = File(p.join(result.index, 'current'));
-          final recordFile = File(
-            p.join(result.index, await current.readAsString(), 'snapshot.json'),
+          final recordFile = GenerationRecord(
+            p.join(result.index, await current.readAsString(), 'index.sqlite'),
           );
           final record =
               jsonDecode(await recordFile.readAsString())
@@ -1574,13 +1575,12 @@ void main() {
         'scored, and indexing replaces it', () async {
       final first = await knowledge.index(bundle);
       final vectors = File(
-        p.join(currentGeneration(first.index).path, 'vectors.f32'),
+        p.join(currentGeneration(first.index).path, 'index.sqlite'),
       );
       final original = await vectors.readAsBytes();
       for (final corrupt in [
-        original.sublist(0, original.length - 4),
-        [...original.sublist(0, original.length - 1), original.last ^ 1],
-        [...original, 0, 0, 0, 0],
+        original.sublist(0, original.length ~/ 2),
+        [original.first ^ 1, ...original.skip(1)],
         <int>[],
       ]) {
         await vectors.writeAsBytes(corrupt);

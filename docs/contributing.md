@@ -127,13 +127,11 @@ skill judgment separately. See [releasing](releasing.md) for publication/binarie
 
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)
-for the implementation and evaluation commands. Its optional native
-`ObjectBoxStore` backend, which the knowledge store and the `wayfinder` command
-do not use, needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
-files with `dart run melos run build` only when entity schemas change. The root
-`pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
-natively; change the override, the installer and
-`tool/objectbox_assets/manifest.json` together.
+for the implementation and evaluation commands. Its `DriftStore` and immutable
+knowledge generations use typed Drift/SQLite storage. Regenerate committed bindings with `dart run melos run build` when
+tables change; export schema snapshots with `dart run drift_dev make-migrations`
+in the embeddings package and test supported upgrades/refusals. SQLite native
+assets come from the sqlite3 build hook; no separate installer is needed.
 `wayfinder_embeddings` keeps `analyzer` out of its runtime dependencies;
 `python3 tool/ci/verify-embeddings-closure.py` checks that rule in CI.
 The committed baseline chunks are the source of truth for the judged retrieval
@@ -178,7 +176,7 @@ runner only for `workflow_dispatch`.
 
 
 The `test` matrix analyzes and tests all packages on Dart 3.11.0 and stable.
-The stable-only `native-retrieval` job owns model/ObjectBox integration,
+The stable-only `native-retrieval` job owns model/SQLite integration,
 retrieval quality, relocated bundles and installer verification. This avoids
 running that complete native pipeline twice per commit; native execution on
 the minimum SDK is no longer a CI promise. Stable Linux artifacts still belong

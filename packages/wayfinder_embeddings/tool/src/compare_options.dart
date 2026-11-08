@@ -98,7 +98,7 @@ final ArgParser compareArgParser = ArgParser()
   ..addOption(
     'store',
     help: 'Storage backend.',
-    allowed: ['memory', 'objectbox'],
+    allowed: ['memory', 'drift'],
     defaultsTo: 'memory',
   )
   ..addOption('reranker-url', help: 'TEI reranker endpoint.')
@@ -248,7 +248,7 @@ class CompareOptions {
     maxMrrDrop: _unitInterval('max-mrr-drop'),
   );
 
-  /// Storage backend, either `memory` or `objectbox`.
+  /// Storage backend, either `memory` or `drift`.
   String get storeKind => _required('store');
 
   /// TEI reranker endpoint, or null.
@@ -842,9 +842,9 @@ String _requiredDescriptorSuffix({
 
 workflow.StoreFactory storeFactory(String name, String storeKind) {
   switch (storeKind) {
-    case 'objectbox':
-      return (outputDir) =>
-          ObjectBoxStore.open(p.join(outputDir.path, '${name}_objectbox'));
+    case 'drift':
+      return (outputDir) async =>
+          await DriftStore.open(p.join(outputDir.path, '${name}_drift'));
     case 'memory':
       return (_) => MemoryStore();
     default:

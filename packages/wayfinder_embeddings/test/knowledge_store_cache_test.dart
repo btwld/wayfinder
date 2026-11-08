@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 
+import 'support/generation_record.dart';
 import 'support/store_support.dart';
 
 /// A retained store caches parsed snapshots; these tests compare it with an
@@ -572,14 +573,10 @@ class _Harness {
   Future<File> pointer(ProjectBundle bundle) async => pointers[bundle.root] ??=
       File(p.join((await service().index(bundle)).index, 'current'));
 
-  Future<File> snapshot(ProjectBundle bundle) async {
+  Future<GenerationRecord> snapshot(ProjectBundle bundle) async {
     final current = await pointer(bundle);
-    return File(
-      p.join(
-        current.parent.path,
-        await current.readAsString(),
-        'snapshot.json',
-      ),
+    return GenerationRecord(
+      p.join(current.parent.path, await current.readAsString(), 'index.sqlite'),
     );
   }
 

@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'package:test/test.dart';
-import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// Creates a 384-dimensional test vector with a unique pattern based on seed.
 List<double> testVector384({int seed = 0}) {
-  final vector = List<double>.filled(objectBoxEmbeddingDimension, 0.0);
-  vector[seed % objectBoxEmbeddingDimension] = 1.0;
+  final vector = List<double>.filled(384, 0.0);
+  vector[seed % 384] = 1.0;
   if (seed > 0) {
-    vector[(seed + 1) % objectBoxEmbeddingDimension] = 0.5;
+    vector[(seed + 1) % 384] = 0.5;
   }
   return vector;
 }
@@ -15,11 +15,11 @@ List<double> testVector384({int seed = 0}) {
 /// Registers the behavior every [BaseStore] implementation must provide.
 ///
 /// [createStore] builds a fresh store for each test.
-void runStoreContract(BaseStore Function() createStore) {
+void runStoreContract(FutureOr<BaseStore> Function() createStore) {
   late BaseStore store;
 
-  setUp(() {
-    store = createStore();
+  setUp(() async {
+    store = await createStore();
   });
 
   tearDown(() async {

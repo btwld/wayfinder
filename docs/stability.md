@@ -35,7 +35,7 @@ behavior in the [CLI guide](../packages/wayfinder_cli/README.md) and
 [installation guide](install.md). This package has no public Dart library
 entry point.
 
-Imports under `lib/src`, generated ObjectBox bindings, build/evaluation scripts,
+Imports under `lib/src`, generated database bindings, build/evaluation scripts,
 and the illustrative examples are not additional supported Dart entry points.
 An example teaches the public API it uses; it does not establish another API.
 `testing.dart` exercises mechanisms and does not supply a relevance baseline.
@@ -102,7 +102,7 @@ introduced by a 0.5 version.
 The prepared packages declare Dart `>=3.11.0 <4.0.0`. The active source matrix
 analyzes and tests all three packages on Linux with Dart 3.11.0 and stable;
 stable is the canonical formatter. The stable-only Linux x64 native job runs
-model/ObjectBox integration, relocated CLI/MCP probes, the judged retrieval
+model/SQLite integration, relocated CLI/MCP probes, the judged retrieval
 gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0
 is not an active CI guarantee.
 
@@ -145,9 +145,11 @@ runtime identity, index configuration or a storage schema must take the owning
 format/identity path: reject incompatible data or rebuild under the documented
 new identity, rather than reuse incompatible vectors. A changelog names any
 required reindex or reinstall. There is no promise that private cache paths or
-all generations are retained forever. An older ObjectBox store's compatibility
-is the specific migration the retrieval package documents and tests, not a
-promise for every possible future database schema.
+all generations are retained forever. Current plain-file index generations remain readable and migrate on explicit
+indexing without re-embedding unchanged valid vectors. SQLite schema versions
+are explicit; older binaries cannot read new generations. The optional
+`ObjectBoxStore` API is removed in embeddings 0.6.0-beta.1; see the
+[storage compatibility matrix](drift-storage.md#compatibility-and-migration).
 
 Release readiness is established by the [release preflight](releasing.md#release-preflight)
 and the remaining staged distribution checks, not by this document alone.

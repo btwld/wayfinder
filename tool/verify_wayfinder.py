@@ -1,5 +1,8 @@
 """Exercise a relocated Wayfinder bundle in fresh processes using generic fixtures."""
 import argparse
+import sqlite3
+import struct
+from urllib.parse import quote
 import hashlib
 import json
 import os
@@ -27,11 +30,12 @@ def main():
         app = temp / "relocated wayfinder"
         shutil.copytree(Path(args.bundle).resolve(), app)
         binary = app / "bin" / ("wayfinder.exe" if os.name == "nt" else "wayfinder")
-        # Indexes are plain generation files: no ObjectBox library ships.
         assert not [f for f in app.rglob("*objectbox*") if f.is_file()
                     and "licenses" not in f.relative_to(app).parts[:1]], \
-            "the bundle ships an ObjectBox library"
+            "the bundle ships an obsolete ObjectBox library"
         assert not (app / "licenses" / "objectbox").exists()
+        for dependency in ['drift', 'sqlite3']:
+            assert (app / 'licenses' / 'dart' / dependency / 'LICENSE').is_file()
         corpus = temp / "knowledge"
         shutil.copytree(workspace / "packages/wayfinder_cli/test/fixtures/knowledge", corpus)
         cwd = temp / "empty"
@@ -69,14 +73,24 @@ def main():
         assert index.parent.parent.name == "bundles", index
         pointer = index / "current"
         generation = pointer.read_text()
-        snapshot = index / generation / "snapshot.json"
-        checksum = hashlib.sha256(snapshot.read_bytes()).hexdigest()
-        assert sorted(p.name for p in (index / generation).iterdir()) == [
-            "snapshot.json", "vectors.f32"]
-        record = json.loads(snapshot.read_text())
-        vectors = (index / generation / "vectors.f32").read_bytes()
+        database = index / generation / "index.sqlite"
+        checksum = hashlib.sha256(database.read_bytes()).hexdigest()
+        assert sorted(p.name for p in (index / generation).iterdir()) == ["index.sqlite"]
+        with sqlite3.connect(f"file:{quote(str(database))}?mode=ro", uri=True) as db:
+            assert db.execute("PRAGMA user_version").fetchone()[0] == 1
+            assert db.execute("PRAGMA application_id").fetchone()[0] == 0x57465354
+            assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            assert not db.execute("PRAGMA foreign_key_check").fetchall()
+            record_text, record_digest = db.execute(
+                "SELECT record_json, checksum FROM generation_records WHERE id = 1").fetchone()
+            assert hashlib.sha256(record_text.encode()).hexdigest() == record_digest
+            record = json.loads(record_text)
+            rows = db.execute("SELECT c.ordinal, e.vector FROM stored_chunks c "
+                              "JOIN stored_embeddings e ON c.id = e.chunk_id ORDER BY c.ordinal").fetchall()
+            assert [row[0] for row in rows] == list(range(record["vectors"]["count"]))
+            vectors = (b"WFVF32\x00\x01" + struct.pack("<II", record["vectors"]["dimension"],
+                       record["vectors"]["count"]) + b"".join(row[1] for row in rows))
         assert record["vectors"]["sha256"] == hashlib.sha256(vectors).hexdigest()
-        assert vectors[:6] == b"WFVF32"
         assert len(vectors) == 16 + 4 * record["vectors"]["dimension"] * record["vectors"]["count"]
         result = json.loads(run("fresh-search", "search", corpus,
                                 "How do I regain access after forgetting my password?",
@@ -84,7 +98,25 @@ def main():
         assert result["matches"][0]["chunk"]["sourcePath"] == "recovery.md"
         assert result["matches"][0]["chunk"]["lineStart"] > 5
         assert pointer.read_text() == generation
-        assert hashlib.sha256(snapshot.read_bytes()).hexdigest() == checksum
+        assert hashlib.sha256(database.read_bytes()).hexdigest() == checksum
+        # Forward-import the supported legacy representation with the bundled
+        # model hidden. Library tests separately prove no encoder acquisition;
+        # this host can still have a source-package model fallback.
+        # Only the explicit index call may publish a replacement generation.
+        database.unlink()
+        (index / generation / "snapshot.json").write_text(record_text)
+        (index / generation / "vectors.f32").write_bytes(vectors)
+        model_for_import = app / "models/embedding.gguf"
+        hidden_model = app / "models/import-hidden.gguf"
+        model_for_import.rename(hidden_model)
+        try:
+            imported = json.loads(run("legacy-import-with-bundled-model-hidden", "index", corpus, "--output=json").stdout)
+            assert imported["current"] and imported["embeddedChunks"] == 0
+            assert pointer.read_text() != generation
+            assert (index / pointer.read_text() / "index.sqlite").is_file()
+            assert (index / generation / "vectors.f32").read_bytes() == vectors
+        finally:
+            hidden_model.rename(model_for_import)
         repeated = json.loads(run("unchanged-index", "index", corpus, "--output=json").stdout)
         assert repeated["embeddedChunks"] == 0
         reports[-1]["counts"] = repeated
@@ -242,7 +274,7 @@ def main():
         # A genuine load failure must still preserve the published generation.
         generation = pointer.read_text()
         preserved = {name: hashlib.sha256((index / generation / name).read_bytes()).hexdigest()
-                     for name in ("snapshot.json", "vectors.f32")}
+                     for name in ("index.sqlite",)}
         saved = recovery.read_bytes()
         recovery.write_text("---\ntitle: [unterminated\n---\nInvalid frontmatter.\n")
         run("failed-index", "index", corpus, expected=2)

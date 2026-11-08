@@ -89,10 +89,12 @@ for platform in ['linux-x64', 'macos-arm64', 'windows-x64']:
                         'use-wayfinder']]]
         if any(name not in files for name in required):
             raise SystemExit(f'Incomplete native bundle: {platform}')
-        # The command keeps its indexes as plain files and needs no ObjectBox.
         if any('objectbox' in Path(name).name.lower() or
                name.startswith('licenses/objectbox/') for name in files):
             raise SystemExit(f'Unexpected ObjectBox asset: {platform}')
+        for dependency in ['drift', 'sqlite3']:
+            if f'licenses/dart/{dependency}/LICENSE' not in files:
+                raise SystemExit(f'Missing storage license: {platform}/{dependency}')
         check_embedding_runtime(platform, files)
         manifest = bundle.extractfile(files['SHA256SUMS']).read().decode('utf-8')
         checked = set()

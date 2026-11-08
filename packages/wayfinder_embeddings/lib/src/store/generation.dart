@@ -3,11 +3,14 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-/// The files of one index generation, and the vectors file's format.
+import '../storage/float32_vector.dart';
+
+/// Legacy generation filenames and the canonical float32 checksum envelope.
 ///
-/// A generation is a directory that never changes once it is published:
-/// `snapshot.json`, the record of what was indexed, and `vectors.f32`, one
-/// embedding per snapshot chunk in the snapshot's chunk order. The vectors
+/// The read-only legacy decoder loads `snapshot.json`, the record of what was
+/// indexed, and `vectors.f32`, one embedding per snapshot chunk in chunk order.
+/// New SQLite generations retain this envelope for their vector checksum but
+/// write neither legacy file. The vectors
 /// file starts with a 16-byte header, the ASCII magic `WFVF32\0\x01`, then
 /// the dimension and the row count as little-endian unsigned 32-bit
 /// integers, followed by the rows as little-endian IEEE 754 float32 values.
@@ -98,26 +101,16 @@ abstract final class IndexGeneration {
       throw const FormatException('The vectors file failed its checksum.');
     }
     final width = dimension * 4;
-    if (Endian.host == Endian.little) {
-      // A float32 view needs its start aligned to four bytes.
-      final aligned = bytes.offsetInBytes % 4 == 0
-          ? bytes
-          : Uint8List.fromList(bytes);
-      return [
-        for (var row = 0; row < count; row++)
-          Float32List.sublistView(
-            aligned,
+    return [
+      for (var row = 0; row < count; row++)
+        decodeFloat32(
+          Uint8List.sublistView(
+            bytes,
             _headerBytes + row * width,
             _headerBytes + (row + 1) * width,
           ),
-      ];
-    }
-    return [
-      for (var row = 0; row < count; row++)
-        Float32List.fromList([
-          for (var i = 0; i < dimension; i++)
-            data.getFloat32(_headerBytes + row * width + i * 4, Endian.little),
-        ]),
+          dimension,
+        ),
     ];
   }
 

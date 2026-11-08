@@ -36,9 +36,7 @@ try:
     run('cleanNativeBuild',['dart','build','cli','--target=bin/benchmark_retrieval.dart','--output=build/benchmark'])
     results['nativeCacheArtifactBytes']=sum(p.stat().st_size for p in (llama/'.dart_tool').rglob('*') if p.is_file())
     run('cachedNativeBuild',['dart','build','cli','--target=bin/benchmark_retrieval.dart','--output=build/benchmark'])
-    results['cliBeforeModelAndObjectBoxBytes']=sum(p.stat().st_size for p in (target/'build/benchmark/bundle').rglob('*') if p.is_file())
-    run('objectboxSetup',['bash','tool/install_objectbox.sh'])
-    results['objectboxLibraryBytes']=(target/'lib/libobjectbox.dylib').stat().st_size
+    results['cliBeforeModelBytes']=sum(p.stat().st_size for p in (target/'build/benchmark/bundle').rglob('*') if p.is_file())
     results['note']='Task copy with empty project and llamadart native caches. Dart SDK and package cache warm. Model download measured separately. Native cache bytes are disk artifacts, not wire traffic.'
 finally:
     (output/'builds.json').write_text(json.dumps(results,indent=2)+'\n')

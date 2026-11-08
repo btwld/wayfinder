@@ -188,14 +188,8 @@ jobs:
           path: packages/wayfinder_embeddings/models
           key: arctic-xs-q8-a2fe17db11616959ab2235a7727bc7d080becfe77b6ab16671b25866da8ea582
       - run: dart run tool/prepare_model.dart
-      # ObjectBoxStore's tests and the retrieval bundle's compare_embeddings
-      # need it; the knowledge store and the wayfinder bundle do not.
-      - run: dart run melos run objectbox:install
-        working-directory: .
-      # The whole package: the test job skips every test that needs
-      # ObjectBox or the model. WAYFINDER_REQUIRE_NATIVE runs them anyway, as
-      # WAYFINDER_REQUIRE_JSONSCHEMA does for the schema leg, so a missing
-      # install fails this job instead of exiting 0.
+      # Native sqlite3 assets are built automatically; require the real model
+      # tests here so a missing model fails rather than skipping the integration.
       - run: dart test
         env:
           WAYFINDER_REQUIRE_NATIVE: "1"
@@ -231,7 +225,7 @@ jobs:
             --reference-chunks="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/test/goldens/baseline_chunks.json" \
             --queries="$corpus/retrieval_queries.json" \
             --qrels="$corpus/retrieval_qrels.json" \
-            --embedders=dense --store=objectbox \
+            --embedders=dense --store=drift \
             --top=10 --candidates=50 --long-input=truncate \
             --output="$RUNNER_TEMP/retrieval-results" \
             --baseline-metrics="$GITHUB_WORKSPACE/packages/wayfinder_embeddings/fixtures/benchmarks/dense_metrics_baseline.json" \

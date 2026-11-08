@@ -7,7 +7,7 @@ import sys
 from publication import dependencies
 
 ROOT = Path(__file__).resolve().parents[2]
-FORBIDDEN = {'wayfinder_embeddings', 'llamadart', 'objectbox', 'objectbox_flutter_libs'}
+FORBIDDEN = {'wayfinder_embeddings', 'llamadart', 'drift', 'sqlite3', 'objectbox', 'objectbox_flutter_libs'}
 
 
 def main() -> int:

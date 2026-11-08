@@ -1,3 +1,19 @@
+# 0.6.0-beta.1 (unreleased)
+
+- **BREAKING optional Dart API:** Remove `ObjectBoxStore`, its entity/schema
+  helpers, ANN controls, generated bindings, installer and native dependencies.
+  Use `await DriftStore.open(directory)` and await `close()`. Existing generic
+  ObjectBox databases are not imported; ingest source data in a new directory.
+- Persist knowledge indexes as typed, versioned Drift/SQLite generations with
+  background IO, integrity checks and exact float32 vectors. Existing CLI/MCP
+  and knowledge-store APIs, scoring, tie order, filters and citations stay the
+  same. No SQLite vector extension or approximate search is used.
+- Current verified plain-file generations remain readable. Explicit indexing
+  publishes SQLite while reusing unchanged vectors; a current import needs no
+  model. Older generations are retained under the existing grace/GC policy.
+  Old binaries cannot read new SQLite generations; see the
+  [migration and rollback specification](../../docs/drift-storage.md).
+
 # 0.5.0-beta.1
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`.

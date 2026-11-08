@@ -6,7 +6,7 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// Compares storage with precomputed vectors from a dense comparison run.
 ///
-/// Run in the package directory, after installing ObjectBox:
+/// Run in the package directory, with SQLite native assets:
 /// `dart run tool/benchmark_stores.dart path/to/dense output.json`.
 /// Input decoding and model inference are outside the measured intervals.
 Future<void> main(List<String> args) async {
@@ -30,22 +30,22 @@ Future<void> main(List<String> args) async {
   final directory = await Directory.systemTemp.createTemp('store_benchmark');
   final results = <String, Object?>{};
   try {
-    for (final kind in ['memory', 'objectbox']) {
+    for (final kind in ['memory', 'drift']) {
       final db = p.join(directory.path, kind);
       final watch = Stopwatch()..start();
       BaseStore store = kind == 'memory'
           ? MemoryStore()
-          : ObjectBoxStore.open(db);
+          : await DriftStore.open(db);
       final openMs = _ms(watch);
       try {
         watch.reset();
         await store.storeBatch(chunks: chunks, embeddings: embeddings);
         final writeMs = _ms(watch);
         double? reopenMs;
-        if (kind == 'objectbox') {
+        if (kind == 'drift') {
           await store.close();
           watch.reset();
-          store = ObjectBoxStore.open(db);
+          store = await DriftStore.open(db);
           reopenMs = _ms(watch);
         }
         watch.reset();
@@ -83,14 +83,13 @@ Future<void> main(List<String> args) async {
           'reopenMs': ?reopenMs,
           'readChunksMs': readChunksMs,
           'denseSearchMs': _summary(denseMs),
-          'minimumSearchCandidates': kind == 'objectbox' ? 50 : null,
         };
       } finally {
         await store.close();
       }
-      if (kind == 'objectbox') {
+      if (kind == 'drift') {
         (results[kind] as Map<String, Object?>)['databaseBytes'] = await File(
-          p.join(db, 'data.mdb'),
+          p.join(db, 'store.sqlite'),
         ).length();
       }
     }

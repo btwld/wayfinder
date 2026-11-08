@@ -47,7 +47,7 @@ The adapter requires `embedder:` and applies no implicit knowledge policy.
 Enable `includeContext` for title/heading inputs and supply
 `countTokens`/`maxTokens` from the encoder.
 Dense retrieval scores the entire eligible vector set exactly; a persistent
-store such as ObjectBox adds persistence, not a relevance advantage. Search fails if an eligible passage
+store such as Drift adds persistence, not a relevance advantage. Search fails if an eligible passage
 lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
@@ -103,8 +103,8 @@ try {
   `WayfinderEncoderProvider` declares the encoder's identity, which names the
   index without opening a model, and opens encoders on demand;
   `LocalModelEncoderProvider` loads a GGUF file the host located, after
-  checking its size and SHA-256. The store keeps indexes as plain files and
-  needs no database library. The CLI's own host code is
+  checking its size and SHA-256. Index persistence uses background Drift/SQLite
+  connections; sqlite3 native assets are included in application builds. The CLI's own host code is
   `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
   names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
   comes from `knowledge_store.dart`.
@@ -180,13 +180,10 @@ try {
   runtime release never reads or replaces an index ([what a host
   checks](#local-model-and-builds)). The directory holds
   `writer.lock`, a `current` pointer, and immutable generations,
-  `generation-<id>/{snapshot.json, vectors.f32}`: the record, and a header
-  (the magic `WFVF32\0\x01`, then the dimension and row count as
-  little-endian 32-bit integers) followed by one little-endian float32 row per
-  snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and a hash of the input each row embeds. Before scoring, a
-  reader checks the vector shape and file digest and the input-hash list's
-  shape; it does not recompute those input hashes from the snapshot. Indexing
+  `generation-<id>/index.sqlite`. Typed Drift tables retain source order,
+  metadata and exact little-endian float32 vectors. Readers verify schema,
+  database integrity, row identities and checksums before scoring. The record
+  names the dimension, count and hash of each embedding input; indexing
   uses them to decide which vectors it can reuse. A 0.2 index, at
   `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
@@ -319,7 +316,6 @@ dart run example/knowledge_example.dart
 dart run tool/evaluate_okf_retrieval.dart --stores=memory --split=development --output=comparison_results/okf-development.json
 
 # Build the generic corpus evaluation CLI with its native assets.
-# ObjectBox must already be installed: run melos run objectbox:install at root.
 dart run tool/build_wayfinder_embeddings.dart --offline
 ```
 
@@ -442,29 +438,20 @@ It collapses repeated contexts to the first child hit.
 - `MemoryStore` is the default. It performs exact brute-force vector search and
   accepts any embedding dimension. Use it for tests, evaluation, and
   single-repository search.
-- `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
-  index. Its generated entity is fixed at 384 dimensions. It needs a platform
-  library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 6.0.0-beta2, verifies the release archive's
-  SHA-256 before extracting it, and writes only to this package's `lib/`
-  directory. It covers every platform upstream publishes for
-  6.0.0-beta2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
-  x64/x86/arm64 - and refuses anything without a pinned hash rather than
-  installing another architecture.
-  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.6. The
-  repository's workspace overrides it to 6.0.0-preview.6, the Dart release
-  ObjectBox pairs with native 6.0.0-beta2, so its tests and native bundles
-  always pair the two; `tool/objectbox_assets/manifest.json` records both
-  (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
-  when the override and the manifest differ.
-  Tests that need the library, such as `test/objectbox_store_test.dart`, skip
-  themselves when it is absent; native CI installs it and runs the whole
-  package. The knowledge store does not use it.
-  `minimumSearchCandidates` defaults to 50 independently of the result limit,
-  trading extra work for the recall measured on the fixture corpus.
+- `DriftStore` persists chunks and float32 embeddings in typed SQLite tables.
+  Open it with `final store = await DriftStore.open(directory)` and await
+  `store.close()`. Database IO runs in a background isolate; cosine scoring is
+  exhaustive Dart with deterministic score/path/id ordering. Any positive
+  dimension is supported. Batch replacement is transactional and foreign keys
+  reject orphan vectors and cascade chunk deletion.
 
 Both implement `BaseStore`. `storeBatch` writes chunks and embeddings together;
-`ObjectBoxStore` overrides it with one transaction.
+`DriftStore` overrides it with one transaction. This replaces the optional
+`ObjectBoxStore` API in 0.6.0-beta.1; generic ObjectBox databases are not imported.
+Current Wayfinder plain-file generations stay readable, and explicit indexing
+migrates them without loading a model or re-embedding unchanged data. See the
+[storage specification](../../docs/drift-storage.md) for schema, compatibility
+and rollback limits.
 Memory search uses cosine similarity, returns zero for zero vectors, and scales
 finite vectors before scoring to avoid numeric overflow or underflow.
 
@@ -518,7 +505,6 @@ From the repository root:
 
 ```bash
 melos run wayfinder_embeddings:prepare
-melos run objectbox:install
 melos run wayfinder_embeddings:build
 ```
 
@@ -529,9 +515,8 @@ directory, and verifies its size and SHA-256. It then stages a verified copy as
 `models/embedding.gguf` with a manifest, the spec's `toMap()`: its `id`,
 `displayName`, source, size, SHA-256, preprocessing and license. Weights stay
 out of Git. A model that an earlier release downloaded into llamadart's shared
-cache is copied from there instead, and stays where it is. `objectbox:install` verifies its pinned
-release archive the same way, so every native asset a bundle ships is checked
-against a recorded hash. From this package, add `--offline` to
+cache is copied from there instead, and stays where it is. SQLite's native
+asset is provided by the sqlite3 build hook. From this package, add `--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
 require an already staged or cached model. Native build hooks may still need
 their own runtime cache; `--offline` controls model acquisition only.
@@ -572,8 +557,7 @@ bundled. GGUF weights use the explicit preparation/packaging step because
 Dart's `data_assets` support is experimental.
 
 The build creates `build/wayfinder_embeddings/bundle/` with an executable under `bin/`,
-native libraries under `lib/` (ObjectBox's DLL is beside the executable on
-Windows), and weights, manifest, license, and attribution under `models/`.
+native libraries under `lib/`, and weights, manifest, license, and attribution under `models/`.
 Distribute the whole bundle. Its executable passes the model beside it in
 `models/`; the library's `defaultEmbeddingModelFile` never looks next to the
 running executable, and uses an `installation` its caller names, then the
@@ -689,14 +673,12 @@ rejects oversized inputs. Explicit `LongInputPolicy.truncate` (CLI
 chunk text and source ranges remain complete. Prefer splitting oversized source
 chunks when preserving full semantic coverage matters.
 
-Existing databases using the previous vector schema require reindexing into a
-**new directory**. The store refuses to open incompatible databases before
-ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
-when changing the schema; preserve `lib/objectbox-model.json` UID history.
-The committed bindings come from `objectbox_generator` 6.0.0-preview.6 and
-keep every id and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
-`test/objectbox_store_test.dart` opens such a store from
-[`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).
+SQLite schema versions are explicit and unknown versions fail closed.
+Regenerate committed Drift bindings with `melos build` when changing the schema,
+then export and test its migration snapshot with `dart run drift_dev make-migrations`.
+Keep the generated schema snapshots under `test/drift/schemas/` for future
+migration tests. Older ObjectBox databases are left untouched; generic library
+consumers must ingest their source data into a new Drift directory.
 
 Run `dart run example/native_example.dart` after preparing the model.
 Generic Markdown chunking preserves caller-supplied metadata; an OKF adapter

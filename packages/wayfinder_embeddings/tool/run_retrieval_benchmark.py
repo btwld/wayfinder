@@ -30,13 +30,13 @@ cases = [('dense', model, path) for model, path in models] if models else [('den
 for repetition in range(options.starts):
     offset = repetition % len(cases)
     ordered = cases[offset:] + cases[:offset]
-    for store in (['memory', 'objectbox'] if repetition % 2 == 0 else ['objectbox', 'memory']):
+    for store in (['memory', 'drift'] if repetition % 2 == 0 else ['drift', 'memory']):
         for arm, model, model_file in ordered:
             if shutil.disk_usage(output).free < 1024**3:
                 raise RuntimeError('Less than 1 GiB free; benchmark stopped to avoid disk interference')
             case = f'{arm}-{model}' if model else arm
             db = output / f'db-{case}-{store}-{repetition}'
-            for scenario in (['fresh', 'reopen'] if store == 'objectbox' else ['fresh']):
+            for scenario in (['fresh', 'reopen'] if store == 'drift' else ['fresh']):
                 name = f'{case}-{store}-{repetition}-{scenario}'
                 path = output / f'{name}.json'
                 command = [str(binary), f'--arm={arm}', f'--store={store}',

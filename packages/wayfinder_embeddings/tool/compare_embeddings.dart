@@ -128,8 +128,8 @@ Future<void> main(List<String> args) async {
     stdout.writeln('Reranker timeout: ${rerankerRequestTimeout.inSeconds}s.');
   }
   switch (storeKind) {
-    case 'objectbox':
-      stdout.writeln('Storage backend: ObjectBox (persistent)');
+    case 'drift':
+      stdout.writeln('Storage backend: Drift (persistent)');
       break;
     case 'memory':
       stdout.writeln('Storage backend: MemoryStore (in-memory)');

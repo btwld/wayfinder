@@ -286,10 +286,7 @@ void main() {
         CompareOptions.parse(const ['--store=memory']).storeKind,
         'memory',
       );
-      expect(
-        CompareOptions.parse(const ['--store=objectbox']).storeKind,
-        'objectbox',
-      );
+      expect(CompareOptions.parse(const ['--store=drift']).storeKind, 'drift');
     });
 
     test('rejects unsupported store options', () {

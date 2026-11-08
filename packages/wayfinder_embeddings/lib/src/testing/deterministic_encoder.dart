@@ -30,7 +30,7 @@ class DeterministicTestEmbedder extends BaseEmbedder {
   /// The [sourceName] of every [DeterministicTestEmbedder].
   static const source = 'wayfinder-deterministic-test';
 
-  /// The length of every vector, which `ObjectBoxStore` requires.
+  /// The length of every deterministic test vector.
   static const vectorDimension = 384;
 
   static final _word = RegExp(r'[\p{L}\p{N}]+', unicode: true);

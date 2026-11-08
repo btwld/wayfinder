@@ -10,9 +10,9 @@ import 'vector_validation.dart';
 /// An in-memory implementation of [BaseStore].
 ///
 /// This is a supported backend for tests, fixture evaluation, local single-repo
-/// search, and embedding models whose dimensions do not match the current
-/// ObjectBox schema. It performs exact brute-force vector search, trading
-/// persistence and ANN indexing for simple setup and full recall at small scale.
+/// search, and embedding models with arbitrary dimensions. It performs exact
+/// brute-force vector search, trading persistence for simple setup and full
+/// recall at small scale.
 class MemoryStore extends BaseStore {
   /// Creates a new memory store.
   MemoryStore();
@@ -158,7 +158,7 @@ class MemoryStore extends BaseStore {
   Future<void> deleteChunk(String chunkId) async {
     checkNotBlank(chunkId, 'chunkId');
     chunks.remove(chunkId);
-    // Cascade-delete associated embeddings to match ObjectBoxStore behavior.
+    // Cascade-delete associated embeddings to match persistent-store behavior.
     embeddings.removeWhere((_, value) => value.chunkId == chunkId);
   }
 

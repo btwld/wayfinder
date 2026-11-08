@@ -123,8 +123,9 @@ enum IndexPhase {
   publishing,
 }
 
-/// An event `WayfinderKnowledgeStore.index` reports while it runs. A
-/// current index reports only [IndexPhase.scanning].
+/// An event `WayfinderKnowledgeStore.index` reports while it runs. A current
+/// SQLite index reports only [IndexPhase.scanning]; a current legacy index also
+/// reports [IndexPhase.publishing] while importing its existing vectors.
 final class IndexProgress {
   const IndexProgress(this.phase, {this.completed = 0, this.total = 0});
 

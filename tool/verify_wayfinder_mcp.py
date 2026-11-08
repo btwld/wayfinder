@@ -239,13 +239,12 @@ def main():
         finally:
             server.close()
 
-        # The server needs no ObjectBox library, and the bundle ships none.
         assert not [f for f in app.rglob("*objectbox*") if f.is_file()
                     and "licenses" not in f.relative_to(app).parts[:1]]
         server = Session(binary, corpus, cwd, env)
         try:
             server.initialize()
-            found = check("search-without-objectbox", lambda:
+            found = check("search-sqlite-generation", lambda:
                           server.tool("search", {"query": "password"}))
             assert "### knowledge/recovery.md:" in found
             # Only writers lock: while another process holds the writer lock,

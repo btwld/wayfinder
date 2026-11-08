@@ -20,14 +20,6 @@ dev_dependencies:
   args: ^2.7.0
   path: ^1.9.1
 
-# Workspace builds and tests use the Dart objectbox release that matches the
-# native library packages/wayfinder_embeddings/tool/install_objectbox.sh pins;
-# its objectbox_assets_test checks that the two agree. Published packages keep
-# their ranges, and overrides never reach their consumers. Move this, the
-# installer and its manifest together.
-dependency_overrides:
-  objectbox: 6.0.0-preview.6
-
 hooks:
   user_defines:
     llamadart:
@@ -58,9 +50,6 @@ melos:
     wayfinder_embeddings:build:
       description: Build the retrieval CLI with its local model and native libraries
       run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/build_wayfinder_embeddings.dart
-    objectbox:install:
-      description: Install the pinned ObjectBox native library locally
-      run: dart run melos exec --scope=wayfinder_embeddings -- bash tool/install_objectbox.sh
     analyze:
       run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
     format:check:
