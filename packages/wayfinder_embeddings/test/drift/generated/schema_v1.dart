@@ -248,6 +248,10 @@ class DatabaseAtV1 extends GeneratedDatabase {
   late final StoredChunks storedChunks = StoredChunks(this);
   late final StoredEmbeddings storedEmbeddings = StoredEmbeddings(this);
   late final GenerationRecords generationRecords = GenerationRecords(this);
+  late final Index storedChunksOrdinal = Index(
+    'stored_chunks_ordinal',
+    'CREATE INDEX stored_chunks_ordinal ON stored_chunks (ordinal)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -256,6 +260,7 @@ class DatabaseAtV1 extends GeneratedDatabase {
     storedChunks,
     storedEmbeddings,
     generationRecords,
+    storedChunksOrdinal,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

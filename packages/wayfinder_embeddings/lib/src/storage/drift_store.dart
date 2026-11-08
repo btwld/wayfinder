@@ -80,14 +80,32 @@ class DriftStore extends BaseStore {
       for (final embedding in embeddings) encodeFloat32(embedding.vector),
     ];
     await _database.transaction(() async {
-      final existing = await (_database.select(
-        _database.storedChunks,
-      )..orderBy([(t) => OrderingTerm.asc(t.ordinal)])).get();
-      final ordinals = {for (final row in existing) row.id: row.ordinal};
-      var next = existing.fold<int>(
-        0,
-        (value, row) => row.ordinal >= value ? row.ordinal + 1 : value,
-      );
+      final ordinals = <String, int>{};
+      var next = 0;
+      if (chunks.isNotEmpty) {
+        final table = _database.storedChunks;
+        final ids = chunks.map((chunk) => chunk.id).toSet().toList();
+        // Read only incoming identities, with a bounded parameter count even
+        // when callers submit more than the ingestion pipeline's usual batch.
+        for (var offset = 0; offset < ids.length; offset += 500) {
+          final end = offset + 500 < ids.length ? offset + 500 : ids.length;
+          final rows =
+              await (_database.selectOnly(table)
+                    ..addColumns([table.id, table.ordinal])
+                    ..where(table.id.isIn(ids.getRange(offset, end))))
+                  .get();
+          for (final row in rows) {
+            ordinals[row.read(table.id)!] = row.read(table.ordinal)!;
+          }
+        }
+        if (ordinals.length < ids.length) {
+          final maximum = table.ordinal.max();
+          final row = await (_database.selectOnly(
+            table,
+          )..addColumns([maximum])).getSingle();
+          next = (row.read(maximum) ?? -1) + 1;
+        }
+      }
       for (final (i, chunk) in chunks.indexed) {
         final ordinal = ordinals.putIfAbsent(chunk.id, () => next++);
         await _database

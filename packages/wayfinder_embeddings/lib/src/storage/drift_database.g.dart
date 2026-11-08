@@ -1154,6 +1154,10 @@ abstract class _$StorageDatabase extends GeneratedDatabase {
   );
   late final $GenerationRecordsTable generationRecords =
       $GenerationRecordsTable(this);
+  late final Index storedChunksOrdinal = Index(
+    'stored_chunks_ordinal',
+    'CREATE INDEX stored_chunks_ordinal ON stored_chunks (ordinal)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1162,6 +1166,7 @@ abstract class _$StorageDatabase extends GeneratedDatabase {
     storedChunks,
     storedEmbeddings,
     generationRecords,
+    storedChunksOrdinal,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

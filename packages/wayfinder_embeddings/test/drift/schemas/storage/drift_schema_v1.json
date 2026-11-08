@@ -334,6 +334,25 @@
           "id"
         ]
       }
+    },
+    {
+      "id": 3,
+      "references": [
+        0
+      ],
+      "type": "index",
+      "data": {
+        "on": 0,
+        "name": "stored_chunks_ordinal",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "ordinal",
+            "order_by": null
+          }
+        ]
+      }
     }
   ],
   "fixed_sql": [
@@ -361,6 +380,15 @@
         {
           "dialect": "sqlite",
           "sql": "CREATE TABLE IF NOT EXISTS \"generation_records\" (\"id\" INTEGER NOT NULL CHECK(\"id\" = 1), \"record_json\" TEXT NOT NULL, \"checksum\" TEXT NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "stored_chunks_ordinal",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX stored_chunks_ordinal ON stored_chunks (ordinal)"
         }
       ]
     }

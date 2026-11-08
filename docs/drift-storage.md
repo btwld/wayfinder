@@ -13,7 +13,10 @@ ordinal, path, line range, content, type and JSON metadata), `stored_embeddings`
 (composite chunk/source/model primary key, chunk foreign key with cascading
 delete, dimension and little-endian float32 BLOB), and `generation_records`
 (singleton canonical record JSON and SHA-256). Chunk ordinals preserve source
-snapshot order independently of SQLite row order. CHECK constraints enforce
+snapshot order independently of SQLite row order.
+An ordinal index supports ordered reads and the mutable store's next-ordinal
+lookup; incoming batches query only their IDs and ordinals, and embedding-only
+writes do not read chunks. CHECK constraints enforce
 positive dimensions, vector byte lengths and valid line ranges; the Dart codec
 also rejects nonfinite and all-zero float32 vectors before writes and after
 reads. Generation loading checks SQLite integrity/foreign keys, the record

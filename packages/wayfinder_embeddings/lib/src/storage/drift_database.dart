@@ -16,6 +16,7 @@ const _applicationId = 0x57465354;
 const _schemaVersion = 1;
 
 /// Versioned storage shared by immutable knowledge generations and DriftStore.
+@TableIndex(name: 'stored_chunks_ordinal', columns: {#ordinal})
 class StoredChunks extends Table {
   TextColumn get id => text()();
   IntColumn get ordinal => integer().check(ordinal.isBiggerOrEqualValue(0))();
@@ -82,7 +83,8 @@ class StorageDatabase extends _$StorageDatabase {
   final bool readOnly;
 
   @override
-  int get schemaVersion => _schemaVersion;
+  // Drift's schema exporter requires a literal getter.
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

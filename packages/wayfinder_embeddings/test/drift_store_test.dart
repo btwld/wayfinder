@@ -112,6 +112,113 @@ void main() {
     expect(await store.getAllChunks(), isEmpty);
   });
 
+  test(
+    'batch updates preserve ordinals across duplicates, removal and reopen',
+    () async {
+      Chunk chunk(String id) => Chunk(
+        id: id,
+        sourcePath: '$id.md',
+        lineStart: 1,
+        lineEnd: 1,
+        content: id,
+        type: 'text',
+      );
+      final store = await DriftStore.open(directory.path);
+      addTearDown(store.close);
+      final z = chunk('z');
+      final a = chunk('a');
+      final c = chunk('c');
+      final d = chunk('d');
+      final e = chunk('e');
+      await store.storeBatch(chunks: [z, a], embeddings: const []);
+      final changedA = a.copyWith(metadata: const {'updated': true});
+      final changedC = c.copyWith(id: c.id, content: 'last duplicate');
+      await store.storeBatch(
+        chunks: [changedA, c, d, changedC, changedA],
+        embeddings: const [],
+      );
+      expect(await store.getAllChunks(), [z, changedA, changedC, d]);
+      await store.replaceChunks(
+        chunks: [d, e],
+        embeddings: const [],
+        removeChunkIds: {a.id},
+      );
+      final embedding = Embedding(
+        chunkId: e.id,
+        source: 'test',
+        modelName: 'test',
+        vector: [1, 0],
+      );
+      await store.storeEmbedding(embedding);
+      await store.close();
+      final reopened = await DriftStore.open(directory.path);
+      addTearDown(reopened.close);
+      expect(await reopened.getAllChunks(), [z, changedC, d, e]);
+      expect(await reopened.getEmbedding(e.id), embedding);
+      final db = sqlite3.open(
+        '${directory.path}/store.sqlite',
+        mode: OpenMode.readOnly,
+      );
+      try {
+        expect(
+          db.select('SELECT id, ordinal FROM stored_chunks ORDER BY ordinal'),
+          [
+            {'id': 'z', 'ordinal': 0},
+            {'id': 'c', 'ordinal': 2},
+            {'id': 'd', 'ordinal': 3},
+            {'id': 'e', 'ordinal': 4},
+          ],
+        );
+      } finally {
+        db.close();
+      }
+    },
+  );
+
+  test('large incoming ID batches retain their existing order', () async {
+    final store = await DriftStore.open(directory.path);
+    addTearDown(store.close);
+    final chunks = [
+      for (var i = 0; i < 1200; i++)
+        Chunk(
+          id: '$i',
+          sourcePath: '$i.md',
+          lineStart: 1,
+          lineEnd: 1,
+          content: '$i',
+          type: 'text',
+        ),
+    ];
+    await store.storeBatch(chunks: chunks, embeddings: const []);
+    await store.storeBatch(
+      chunks: [
+        for (final chunk in chunks.reversed)
+          chunk.copyWith(metadata: const {'updated': true}),
+      ],
+      embeddings: const [],
+    );
+    final loaded = await store.getAllChunks();
+    expect(loaded.map((chunk) => chunk.id), chunks.map((chunk) => chunk.id));
+    expect(loaded.every((chunk) => chunk.metadata['updated'] == true), isTrue);
+  });
+
+  test('next ordinal lookup uses the covering ordinal index', () async {
+    final database = StorageDatabase.open(
+      File('${directory.path}/schema.sqlite'),
+    );
+    addTearDown(database.close);
+    await database.verifyIntegrity();
+    final plan = await database
+        .customSelect(
+          'EXPLAIN QUERY PLAN SELECT MAX(ordinal) FROM stored_chunks',
+        )
+        .get();
+    expect(
+      plan.map((row) => row.data['detail']),
+      contains(contains('USING COVERING INDEX stored_chunks_ordinal')),
+    );
+  });
+
   for (final kind in [
     'missing',
     'corrupt',
