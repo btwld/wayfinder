@@ -8,12 +8,14 @@
 /// hooks:
 ///
 /// ```sh
-/// dart compile kernel test/support/search_loop.dart --output=search_loop.dill
+/// dart compile kernel test/support/search_loop.dart --output=search_loop.dill \
+///   --extra-gen-kernel-options=--native-assets=<workspace>/.dart_tool/native_assets.yaml
 /// dart search_loop.dill <data> <bundle root> <reference>
 /// ```
 ///
-/// The subprocess prints `refresh` once it has seen a refresh, and a final
-/// `summary <json>` line once its stdin closes.
+/// The subprocess prints `refresh` once it has seen a refresh, the first
+/// `failure <json>` immediately if a search fails, and a final `summary <json>`
+/// line once its stdin closes.
 library;
 
 import 'dart:async';
@@ -46,6 +48,7 @@ Future<Map<String, Object?>> searchLoop({
   required String reference,
   required Future<void> stop,
   void Function()? onRefresh,
+  void Function(String error)? onFailure,
 }) async {
   final store = WayfinderKnowledgeStore(
     dataDirectory: Directory(data),
@@ -78,6 +81,7 @@ Future<Map<String, Object?>> searchLoop({
         final fingerprint = searchFingerprint(result);
         if (fingerprint != reference) mismatches.add(fingerprint);
       } on Object catch (error) {
+        if (failures.isEmpty) onFailure?.call('$error');
         failures.add('$error');
       }
       // Lets the stop signal arrive.
@@ -105,6 +109,10 @@ Future<void> main(List<String> arguments) async {
     reference: await File(referenceFile).readAsString(),
     stop: stop.future,
     onRefresh: () => stdout.writeln('refresh'),
+    onFailure: (error) {
+      stderr.writeln(error);
+      stdout.writeln('failure ${jsonEncode(error)}');
+    },
   );
   stdout.writeln('summary ${jsonEncode(summary)}');
   await stdout.flush();
