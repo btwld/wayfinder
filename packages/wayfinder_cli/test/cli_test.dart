@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:okf/okf_io.dart';
 import 'package:mcp_dart/mcp_dart.dart';
@@ -864,9 +865,29 @@ void main() {
         expect(await store.status(target), isA<KnowledgeIndexCurrent>());
         await store.dispose();
 
+        // Do not rerun build hooks while other suites use their native assets.
+        // A kernel with the existing mapping exercises the real entry point
+        // without replacing the SQLite library loaded by those suites.
+        final packages = (await Isolate.packageConfig)!;
+        final assets = File.fromUri(packages.resolve('native_assets.yaml'));
+        expect(await assets.exists(), isTrue);
+        final snapshot = p.join(temp.path, 'wayfinder.dill');
+        final compiled = await Process.run(Platform.resolvedExecutable, [
+          'compile',
+          'kernel',
+          '--packages=${File.fromUri(packages).path}',
+          '--extra-gen-kernel-options=--native-assets=${assets.path}',
+          'bin/wayfinder.dart',
+          '--output=$snapshot',
+        ]);
+        expect(
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}${compiled.stderr}',
+        );
         final result = await Process.run(
           Platform.resolvedExecutable,
-          ['run', 'bin/wayfinder.dart', 'index', bundle.path, '--detach'],
+          [snapshot, 'index', bundle.path, '--detach'],
           environment: {
             for (final entry in Platform.environment.entries)
               if (entry.key != 'KNOWLEDGE_EMBEDDING_MODEL')
