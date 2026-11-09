@@ -179,6 +179,8 @@ any locked commit. Probe support for `--no-lazy-fetch`, `--no-replace-objects`
 and `--no-optional-locks` before borrowing; unsupported controls retain the
 managed-mirror path and its fetch policy. Missing objects can use an existing
 managed mirror, otherwise resolution fails without applying project writes.
+Absent package or skill paths keep their path diagnostics; tree entries
+distinguish them from unavailable objects that can use mirror recovery.
 Keep mirror keys, fetch consent, package snapshots and Git-free status and
 selection unchanged; the cost is extra discovery calls, with external Git
 changes allowed to fail a plan before application.

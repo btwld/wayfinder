@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/src/project/profile_resolver.dart'
-    show resolveDefaultBranch;
+    show resolveDefaultBranch, resolveSourcePackage;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -214,6 +214,84 @@ void main() {
       },
     );
 
+    for (final path in [
+      'profiles/missing',
+      'missing/bitwild',
+      'profiles/bitwild/skill',
+      'profiles/bitwild/wayfinder-profile.json',
+    ]) {
+      test('absent borrowed package at $path keeps the path error', () async {
+        await configureSelfHostingProfile(source);
+        final configFile = File(p.join(source.path, 'wayfinder.json'));
+        final value = jsonDecode(await configFile.readAsString()) as Map;
+        value['profiles']['bitwild-profile']['source']['path'] = path;
+        await configFile.writeAsString(jsonEncode(value));
+        final commit = await sourceCommit();
+        final calls = <List<String>>[];
+        final resolver = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: _spy(calls),
+        );
+        final error = throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            'Profile package $path at . ($commit) has no package at '
+                '$path/wayfinder-profile.json.',
+          ),
+        );
+        await expectLater(resolver.plan(source.path), error);
+        await expectLater(
+          resolveSourcePackage(
+            resolver,
+            projectRoot: source.path,
+            git: '.',
+            ref: 'v2026.3',
+            path: path,
+          ),
+          error,
+        );
+        expect(calls.where(gitMayReachRemote), isEmpty);
+        await noMirrors();
+      });
+    }
+
+    for (final skill in [
+      'missing',
+      'missing/nested',
+      'wayfinder-profile.json',
+    ]) {
+      test('invalid borrowed skill $skill keeps the directory error', () async {
+        final packageFile = File(
+          p.join(source.path, 'profiles/bitwild/wayfinder-profile.json'),
+        );
+        final package = jsonDecode(await packageFile.readAsString()) as Map;
+        package['skill'] = skill;
+        await packageFile.writeAsString(jsonEncode(package));
+        await _git(source.path, ['add', '.']);
+        await _git(source.path, ['commit', '-q', '-m', 'Invalid skill path']);
+        final commit = await sourceCommit();
+        await configureSelfHostingProfile(source, ref: commit);
+        final calls = <List<String>>[];
+        await expectLater(
+          WayfinderProfileResolver(
+            dataDirectory: data,
+            git: _spy(calls),
+          ).plan(source.path),
+          throwsA(
+            isA<WayfinderProfileResolutionException>().having(
+              (error) => error.message,
+              'message',
+              'Profile bitwild-profile skill profiles/bitwild/$skill at . '
+                  '($commit) is not a directory.',
+            ),
+          ),
+        );
+        expect(calls.where(gitMayReachRemote), isEmpty);
+        await noMirrors();
+      });
+    }
+
     test('default branch resolution uses the source worktree HEAD', () async {
       final old = await sourceCommit();
       final worktree = Directory(p.join(temp.path, 'other worktree'));
@@ -287,7 +365,12 @@ void main() {
       await noMirrors();
     });
 
-    for (final path in ['wayfinder-profile.json', 'skill/SKILL.md']) {
+    for (final path in [
+      'profiles/bitwild/wayfinder-profile.json',
+      'profiles/bitwild/skill/SKILL.md',
+      'profiles/bitwild/skill',
+      'profiles/bitwild',
+    ]) {
       test(
         'missing $path uses an existing mirror at the locked commit',
         () async {
@@ -303,7 +386,7 @@ void main() {
           await configureSelfHostingProfile(source, git: source.path);
           final object = await fixtureGit(source.path, [
             'rev-parse',
-            'HEAD:profiles/bitwild/$path',
+            'HEAD:$path',
           ]);
           await File(
             p.join(
@@ -323,8 +406,18 @@ void main() {
             source.path,
             allowFetch: (_) => false,
           );
+          final discovered = await resolveSourcePackage(
+            resolver,
+            projectRoot: source.path,
+            git: source.path,
+            ref: 'v2026.3',
+            path: 'profiles/bitwild',
+            allowFetch: (_) => false,
+          );
           expect(plan.packages[_bitwild]?.commit, await sourceCommit());
           expect(plan.fetches, isEmpty);
+          expect(discovered.package.commit, await sourceCommit());
+          expect(discovered.fetches, isEmpty);
           expect(await mirror.exists(), isTrue);
           expect(calls.where(gitMayReachRemote), isEmpty);
           expect(await fileSnapshot(source.path), before);

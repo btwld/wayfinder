@@ -2158,6 +2158,42 @@ final class WayfinderProfileResolver {
       )).exitCode ==
       0;
 
+  /// Distinguishes an absent or wrong-kind path from unavailable objects after
+  /// a borrowed read fails. Walk parent trees: an entry records a child's type
+  /// even when that child's object is missing. A missing parent tree, however,
+  /// prevents deciding whether the requested path exists and needs recovery.
+  Future<bool> _borrowedPathHasType(
+    Directory repository,
+    String commit,
+    String path,
+    String expectedType,
+    _Session session,
+  ) async {
+    final segments = p.posix.split(p.posix.normalize(path));
+    var tree = '$commit^{tree}';
+    for (var index = 0; index < segments.length; index++) {
+      final listing = await _git(
+        session,
+        ['ls-tree', '-z', tree],
+        workingDirectory: repository.path,
+        borrowed: true,
+      );
+      if (listing.exitCode != 0) throw const _BorrowedObjectUnavailable();
+      final entry = listing.text.split('\x00').where((entry) {
+        final tab = entry.indexOf('\t');
+        return tab >= 0 && entry.substring(tab + 1) == segments[index];
+      }).firstOrNull;
+      if (entry == null) return false;
+      final [_, type, object] = entry
+          .substring(0, entry.indexOf('\t'))
+          .split(' ');
+      if (index == segments.length - 1) return type == expectedType;
+      if (type != 'tree') return false;
+      tree = object;
+    }
+    return false;
+  }
+
   Future<String> _resolveRefWithFetch(
     Directory repository,
     WayfinderProfileSource source,
@@ -2290,7 +2326,16 @@ final class WayfinderProfileResolver {
       borrowed: borrowed,
     );
     if (listing.exitCode != 0) {
-      if (borrowed) throw const _BorrowedObjectUnavailable();
+      if (borrowed &&
+          await _borrowedPathHasType(
+            repository,
+            locked.commit,
+            tree,
+            'tree',
+            session,
+          )) {
+        throw const _BorrowedObjectUnavailable();
+      }
       throw WayfinderProfileResolutionException('$origin is not a directory.');
     }
     final files = <SkillFile>[];
@@ -2380,7 +2425,16 @@ final class WayfinderProfileResolver {
       borrowed: borrowed,
     );
     if (result.exitCode != 0) {
-      if (borrowed) throw const _BorrowedObjectUnavailable();
+      if (borrowed &&
+          await _borrowedPathHasType(
+            repository,
+            commit,
+            '${source.path}/wayfinder-profile.json',
+            'blob',
+            session,
+          )) {
+        throw const _BorrowedObjectUnavailable();
+      }
       throw WayfinderProfileResolutionException(
         '$origin has no package at ${source.path}/wayfinder-profile.json.',
       );
@@ -2748,7 +2802,16 @@ resolveSourcePackage(
       borrowed: borrowed,
     );
     if (result.exitCode != 0) {
-      if (borrowed) throw const _BorrowedObjectUnavailable();
+      if (borrowed &&
+          await resolver._borrowedPathHasType(
+            repository,
+            commit,
+            '$path/wayfinder-profile.json',
+            'blob',
+            session,
+          )) {
+        throw const _BorrowedObjectUnavailable();
+      }
       throw WayfinderProfileResolutionException(
         '$origin has no package at $path/wayfinder-profile.json.',
       );
