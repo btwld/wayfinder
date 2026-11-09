@@ -36,20 +36,36 @@ Future<String> fixtureGit(String directory, List<String> arguments) async {
 }
 
 /// A Git repository holding Bitwild at tag `v2026.3`, and a project whose
-/// `knowledge/` bundle binds it, under [temp].
+/// `knowledge/` bundle binds it, under [temp]. [sourceFiles] optionally restores
+/// a suite's immutable [fileSnapshot] of an initialized seed. Every file,
+/// including Git objects, refs, config and index, is written independently;
+/// project state, locks and resolver caches remain fresh for each fixture.
 Future<({Directory source, Directory project, Directory data})> bitwildProject(
-  Directory temp,
-) async {
+  Directory temp, {
+  Map<String, List<int>>? sourceFiles,
+}) async {
   final source = await Directory(p.join(temp.path, 'source')).create();
   final project = await Directory(p.join(temp.path, 'project')).create();
   await Directory(p.join(project.path, 'knowledge')).create();
-  await fixtureGit(source.path, ['init', '-q']);
-  await fixtureGit(source.path, ['config', 'user.email', 'test@example.test']);
-  await fixtureGit(source.path, ['config', 'user.name', 'Wayfinder Test']);
-  await copyBitwildPackage(source.path);
-  await fixtureGit(source.path, ['add', '.']);
-  await fixtureGit(source.path, ['commit', '-q', '-m', 'Profile']);
-  await fixtureGit(source.path, ['tag', 'v2026.3']);
+  if (sourceFiles == null) {
+    await fixtureGit(source.path, ['init', '-q']);
+    await fixtureGit(source.path, [
+      'config',
+      'user.email',
+      'test@example.test',
+    ]);
+    await fixtureGit(source.path, ['config', 'user.name', 'Wayfinder Test']);
+    await copyBitwildPackage(source.path);
+    await fixtureGit(source.path, ['add', '.']);
+    await fixtureGit(source.path, ['commit', '-q', '-m', 'Profile']);
+    await fixtureGit(source.path, ['tag', 'v2026.3']);
+  } else {
+    for (final MapEntry(:key, :value) in sourceFiles.entries) {
+      final file = File(p.join(source.path, key));
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(value);
+    }
+  }
   await File(p.join(project.path, 'wayfinder.json')).writeAsString(
     jsonEncode({
       'version': 1,
