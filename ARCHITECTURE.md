@@ -176,9 +176,9 @@ Issue #181 showed a mirror accumulating for each self-hosting checkout, so
 resolve local sources with the same canonical Git common directory through
 read-only object commands in the source worktree's context, after choosing
 any locked commit. Probe support for `--no-lazy-fetch`, `--no-replace-objects`
-and `--no-optional-locks` before borrowing; missing objects can use an existing
+and `--no-optional-locks` before borrowing; unsupported controls retain the
+managed-mirror path and its fetch policy. Missing objects can use an existing
 managed mirror, otherwise resolution fails without applying project writes.
 Keep mirror keys, fetch consent, package snapshots and Git-free status and
-selection unchanged; the cost is extra discovery calls and a Git capability
-requirement for borrowed reads, with external Git changes allowed to fail a
-plan before application.
+selection unchanged; the cost is extra discovery calls, with external Git
+changes allowed to fail a plan before application.

@@ -63,10 +63,11 @@ When the local source shares the project's canonical Git common directory
 (including `"git": "."` and linked worktrees), resolution reads the package
 and skill objects at one commit directly from that source. Uncommitted edits
 are ignored. The source repository is never fetched into or changed, and
-these reads need no fetch consent and create no mirror. Git must support
-`--no-lazy-fetch`, `--no-replace-objects` and `--no-optional-locks`; Wayfinder
-probes those [Git controls](https://git-scm.com/docs/git) before reading
-objects. Missing objects, including shallow history, can use an existing
+these reads need no fetch consent and create no mirror. Wayfinder probes
+`--no-lazy-fetch`, `--no-replace-objects` and `--no-optional-locks`
+[Git controls](https://git-scm.com/docs/git) before borrowing. If unsupported,
+resolution uses the managed-mirror path with its existing fetch policy and
+reporting. Missing objects, including shallow history, can use an existing
 mirror; if neither store supplies them, resolution fails and leaves the
 lock intact. Other repositories keep their existing mirror
 and fetch-consent behavior. Package snapshots still support offline

@@ -1946,13 +1946,7 @@ final class WayfinderProfileResolver {
       workingDirectory: directory.path,
       borrowed: true,
     );
-    if (supported.exitCode != 0) {
-      throw WayfinderProfileResolutionException(
-        'Reading a same-repository Profile requires Git with '
-        '--no-lazy-fetch, --no-replace-objects and --no-optional-locks support. '
-        '${supported.stderr.trim()}',
-      );
-    }
+    if (supported.exitCode != 0) return null;
     return directory;
   }
 
@@ -2704,7 +2698,8 @@ final class SourcePackage {
 /// unless [offline], which reads a cached mirror as it is and throws
 /// [ProfileFetchRequiredException] without one. Same-repository local sources
 /// read committed objects without fetching or mutating the repository, using
-/// an existing mirror only when local objects are unavailable.
+/// an existing mirror only when local objects are unavailable. If Git lacks
+/// the borrowed-read controls, resolution uses the managed-mirror fetch policy.
 ///
 /// It reads the id the package declares and runs none of its rules; a
 /// package with no id it can read is parsed in full, so it fails as

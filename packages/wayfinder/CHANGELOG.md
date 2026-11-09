@@ -3,8 +3,9 @@
 - Read committed Profile packages and skills directly from a local source that
   shares the project's Git common directory, including self-hosting worktrees
   and independent checkouts, without cloning a mirror or changing the source.
-  Borrowed reads disable lazy fetching and replacement objects and require Git
-  support for those controls. Missing objects may use an existing mirror;
+  Borrowed reads disable lazy fetching and replacement objects. If Git lacks
+  support for the controls, resolution uses the managed-mirror path with its
+  existing fetch policy and reporting. Missing objects may use an existing mirror;
   otherwise resolution fails without changing the project lock.
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas

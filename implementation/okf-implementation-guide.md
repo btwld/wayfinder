@@ -506,7 +506,8 @@ objects. A local source sharing the project's canonical Git common directory
 can instead supply committed package and skill objects directly, in the source
 worktree's context. Borrowed reads suppress lazy fetching, replacement objects
 and optional locks after probing Git support; they never fetch into or modify
-the source. Missing objects can use an existing mirror, otherwise resolution
+the source. Unsupported controls use the managed-mirror path with its existing
+fetch policy and reporting. Missing objects can use an existing mirror, otherwise resolution
 fails without changing the lock. Package snapshots, mirror identity and
 Git-free selection/status keep their existing meaning.
 If a current lock's selected commit is absent, a read-only command does not
@@ -924,10 +925,10 @@ Affected surface: §4.7 Profile source resolution. Driver: #181's mirrors
 accumulating across self-hosting checkouts and worktrees. Implementations
 compare canonical Git common directories and separate read-only committed
 object access from managed mirror mutation, retaining exact locked commits,
-source-worktree HEAD, consent gates and snapshot-based selection. Borrowing
-requires Git controls that suppress lazy fetching, replacement objects and
-optional locks; missing objects use an existing mirror or fail before project
-writes. No package format, schema, rule or OKF meaning changes, and no package
+source-worktree HEAD, consent gates and snapshot-based selection. Probe Git
+controls that suppress lazy fetching, replacement objects and optional locks;
+unsupported controls retain the managed-mirror path, fetch policy and reporting.
+Missing objects use an existing mirror or fail before project writes. No package format, schema, rule or OKF meaning changes, and no package
 or cache-key migration.
 
 **Package format is a JSON integer, 2026-11-05.**

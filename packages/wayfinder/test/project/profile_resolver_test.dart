@@ -635,7 +635,7 @@ void main() {
     });
 
     test(
-      'unsupported borrowed Git controls fail before object reads',
+      'unsupported borrowed Git controls use managed fetch policy and reporting',
       () async {
         await configureSelfHostingProfile(source);
         final calls = <List<String>>[];
@@ -655,25 +655,48 @@ void main() {
             );
           },
         );
+        final refused = <ProfileFetch>[];
         await expectLater(
-          resolver.plan(source.path),
-          throwsA(
-            isA<WayfinderProfileResolutionException>().having(
-              (error) => error.message,
-              'message',
-              contains('requires Git'),
-            ),
+          resolver.plan(
+            source.path,
+            allowFetch: (fetch) {
+              refused.add(fetch);
+              return false;
+            },
           ),
+          throwsA(isA<ProfileFetchRequiredException>()),
         );
-        expect(
-          calls.where(
-            (call) =>
-                {'show', 'cat-file', 'ls-tree'}.contains(gitSubcommand(call)),
-          ),
-          isEmpty,
-        );
+        expect(refused.single.kind, ProfileFetchKind.clone);
         expect(calls.where(gitMayReachRemote), isEmpty);
         await noMirrors();
+        calls.clear();
+        final allowed = <ProfileFetch>[];
+        final plan = await resolver.plan(
+          source.path,
+          allowFetch: (fetch) {
+            allowed.add(fetch);
+            return true;
+          },
+        );
+        expect(plan.packages[_bitwild]?.commit, await sourceCommit());
+        expect(plan.fetches.single.kind, ProfileFetchKind.clone);
+        expect(allowed.single.kind, ProfileFetchKind.clone);
+        expect(
+          calls.where((call) => gitSubcommand(call) == 'clone'),
+          hasLength(1),
+        );
+        expect(
+          calls
+              .where(
+                (call) => {
+                  'show',
+                  'cat-file',
+                  'ls-tree',
+                }.contains(gitSubcommand(call)),
+              )
+              .every((call) => !call.contains('--no-lazy-fetch')),
+          isTrue,
+        );
       },
     );
 

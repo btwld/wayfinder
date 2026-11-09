@@ -75,7 +75,9 @@ Future<void> main() async {
   with lazy fetching, replacement objects and optional locks disabled. These
   reads create no mirror, report no fetch and leave source Git storage alone;
   missing objects may use an existing mirror, otherwise resolution fails.
-  Git's support for those controls is probed before borrowing. `select` reads
+  Git's support for those controls is probed before borrowing; unsupported
+  controls use the managed-mirror path with its existing fetch policy and
+  reporting. `select` reads
   the lock and the cache for validation and never runs Git.
   `validateWithProfileSources` selects and validates; on a cache Wayfinder 0.2
   wrote, it first copies the missing package files out of the cached mirrors with `restoreCachedPackages`,
