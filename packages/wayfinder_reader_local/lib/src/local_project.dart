@@ -8,24 +8,48 @@ import 'package:wayfinder_reader/wayfinder_reader.dart';
 
 import 'projection.dart';
 
+/// Bundle inventory policy; this controls browsing scope, not OKF conformance.
+enum KnowledgeInventoryPolicy {
+  /// Include hidden files and directories, excluding the root `.okf.lock`.
+  allRegularFiles,
+
+  /// Exclude dot-prefixed directories, retaining hidden regular files.
+  excludeHiddenDirectories,
+}
+
 /// Granted project directory, captured read-only with no Profile resolution,
 /// fetching, model, cache writes or symlink following. All bytes are retained.
 ///
 /// Bounds apply to raw capture allocation, not just individual read calls.
-/// Capture compares two complete byte manifests, retrying once on ordinary
-/// edits. This is not a filesystem transaction or an adversarial-race guarantee.
+/// Initial/changed capture compares two byte manifests, retrying once on
+/// ordinary edits; idle refresh reuses the last capture after one matching scan.
+/// This is not a filesystem transaction or an adversarial-race guarantee.
 final class LocalKnowledgeProject extends CapturedKnowledgeProject {
-  LocalKnowledgeProject._(super.id, _LocalSource source)
-    : super(capture: source.capture);
+  LocalKnowledgeProject._(super.id, this._source)
+    : super(capture: _source.capture);
+  final _LocalSource _source;
+
+  /// Invalidates leases, drains work and drops the reusable capture.
+  @override
+  Future<void> close() async {
+    await super.close();
+    _source._previous = null;
+  }
 
   /// [bundleIds] optionally binds project-relative bundle paths to host-stable
   /// identities. Otherwise IDs are explicitly location-bound, not portable.
+  /// [inventoryPolicy] controls hidden-directory inclusion within bundle roots;
+  /// configuration and lock files remain captured independently of that policy.
+  /// Existing projects without bundles return an empty snapshot; absent roots
+  /// and missing configured bundles fail with [KnowledgeFailureCode.notFound].
   static Future<LocalKnowledgeProject> open({
     required Directory root,
     required String id,
     Map<String, String> bundleIds = const {},
     int maxFileBytes = 16 * 1024 * 1024,
     int maxCaptureBytes = 64 * 1024 * 1024,
+    KnowledgeInventoryPolicy inventoryPolicy =
+        KnowledgeInventoryPolicy.allRegularFiles,
   }) async {
     knowledgeIdentifier(id, 'project');
     if (maxFileBytes <= 0 || maxCaptureBytes <= 0) {
@@ -36,6 +60,14 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
       knowledgeIdentifier(entry.value, 'bundle');
     }
     try {
+      if (await FileSystemEntity.type(root.path) ==
+          FileSystemEntityType.notFound) {
+        throw KnowledgeFailure(
+          KnowledgeFailureCode.notFound,
+          'open',
+          'The granted project directory does not exist.',
+        );
+      }
       final canonical = await root.resolveSymbolicLinks();
       return LocalKnowledgeProject._(
         id,
@@ -44,6 +76,7 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
           Map.unmodifiable(bundleIds),
           maxFileBytes,
           maxCaptureBytes,
+          inventoryPolicy,
         ),
       );
     } on FileSystemException {
@@ -62,19 +95,39 @@ final class _LocalSource {
     this.bundleIds,
     this.maxFileBytes,
     this.maxCaptureBytes,
+    this.inventoryPolicy,
   );
   final String _root;
   final Map<String, String> bundleIds;
   final int maxFileBytes;
   final int maxCaptureBytes;
+  final KnowledgeInventoryPolicy inventoryPolicy;
+  KnowledgeCapture? _previous;
   Future<KnowledgeCapture> capture() async {
     try {
+      if (await FileSystemEntity.type(_root, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        throw KnowledgeFailure(
+          KnowledgeFailureCode.notFound,
+          'refresh',
+          'The granted project directory no longer exists.',
+        );
+      }
       for (var attempt = 0; attempt < 2; attempt++) {
         final first = await _scan();
+        // A matching full byte scan needs neither another scan nor projection.
+        // No mtime/size heuristic can hide same-length edits.
+        if (_previous?.manifestFingerprint == first.fingerprint) {
+          return _previous!;
+        }
         final second = await _scan();
         if (first.fingerprint != second.fingerprint) continue;
-        return KnowledgeCapture(
+        return _previous = KnowledgeCapture(
           files: first.files,
+          assessmentUnavailableReason:
+              inventoryPolicy == KnowledgeInventoryPolicy.allRegularFiles
+              ? null
+              : 'The inventory policy may omit hidden bundle content.',
           bundles: [
             for (final bundle in first.bundles)
               projectCapturedBundle(
@@ -174,13 +227,8 @@ final class _LocalSource {
       }
     } else if (await _type('knowledge') == FileSystemEntityType.directory) {
       paths = ['knowledge'];
-    } else {
-      throw KnowledgeFailure(
-        KnowledgeFailureCode.notFound,
-        'discovery',
-        'No configured bundles or conventional knowledge directory.',
-      );
     }
+    // An existing project with no discovered bundle is an empty success.
     if (await _type('wayfinder.lock') != FileSystemEntityType.notFound) {
       await add('wayfinder.lock', null, 'wayfinder.lock');
     }
@@ -207,6 +255,11 @@ final class _LocalSource {
           if (childRelative == '.okf.lock') continue;
           final kind = await _type('$path/$childRelative');
           if (kind == FileSystemEntityType.directory) {
+            if (inventoryPolicy ==
+                    KnowledgeInventoryPolicy.excludeHiddenDirectories &&
+                name.startsWith('.')) {
+              continue;
+            }
             await visit(childRelative);
           } else if (kind == FileSystemEntityType.file) {
             await add('$path/$childRelative', bundleId, childRelative);
@@ -300,10 +353,10 @@ final class _Scan {
   _Scan(this.files, this.bundles);
   final List<KnowledgeCapturedFile> files;
   final List<({String id, String path})> bundles;
-  String get fingerprint => jsonEncode([
-    bundles.map((b) => [b.id, b.path]).toList(),
-    files.map((f) => [f.bundle, f.path, f.digest]).toList(),
-  ]);
+  String get fingerprint => knowledgeManifestFingerprint(
+    files: [for (final f in files) (f.bundle, f.path, f.digest)],
+    bundles: [for (final b in bundles) (b.id, b.path)],
+  );
 }
 
 String? _media(String path) => switch (p.posix.extension(path).toLowerCase()) {

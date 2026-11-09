@@ -20,6 +20,113 @@ void main() {
     await root.delete(recursive: true);
   });
   test(
+    'empty project succeeds; missing project or configured bundle is notFound',
+    () async {
+      final empty = await LocalKnowledgeProject.open(root: root, id: 'empty');
+      addTearDown(empty.close);
+      final snapshot = await empty.refresh();
+      expect(snapshot.bundles, isEmpty);
+      expect(snapshot.files, isEmpty);
+      final revision = snapshot.revision;
+      expect((await empty.refresh()).revision, revision);
+      await expectLater(
+        LocalKnowledgeProject.open(
+          root: Directory('${root.path}/missing'),
+          id: 'missing',
+        ),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await write(
+        'wayfinder.json',
+        '{"version":1,"profiles":{"demo":{"source":{"git":"https://invalid.example/never","ref":"main","path":"profile"},"applies_to":["missing"]}}}',
+      );
+      await expectLater(
+        empty.refresh(),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await File('${root.path}/wayfinder.json').delete();
+      await root.delete();
+      await expectLater(
+        empty.refresh(),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await root.create();
+    },
+  );
+
+  test(
+    'hidden-directory policy is explicit, recursive and retains hidden files',
+    () async {
+      await write('knowledge/.hidden.md', 'hidden file');
+      await write('knowledge/.cache/secret.txt', 'hidden directory');
+      await write(
+        'knowledge/visible/.nested/secret.txt',
+        'nested hidden directory',
+      );
+      await write('knowledge/visible/.hidden.txt', 'nested hidden file');
+      await write('knowledge/.okf.lock', 'coordination');
+      final all = await LocalKnowledgeProject.open(root: root, id: 'p');
+      final filtered = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        inventoryPolicy: KnowledgeInventoryPolicy.excludeHiddenDirectories,
+      );
+      addTearDown(all.close);
+      addTearDown(filtered.close);
+      final entire = await all.refresh();
+      final scoped = await filtered.refresh();
+      expect(
+        entire.files.map((f) => f.handle.path),
+        containsAll([
+          '.cache/secret.txt',
+          'visible/.nested/secret.txt',
+          '.hidden.md',
+        ]),
+      );
+      expect(scoped.files.map((f) => f.handle.path), [
+        '.hidden.md',
+        'visible/.hidden.txt',
+      ]);
+      expect(scoped.manifestFingerprint, isNot(entire.manifestFingerprint));
+      await expectLater(
+        scoped.assessBundle(
+          scoped.bundles.single.id,
+          (_) => fail('partial inventory'),
+        ),
+        throwsA(failure(KnowledgeFailureCode.unavailable)),
+      );
+    },
+  );
+
+  test(
+    'idle refresh reuses capture/projection with independent leases; byte edits invalidate',
+    () async {
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: A\n---\nBody\n');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final before = (await first.assess((capture) => capture)).value;
+      final second = await project.refresh();
+      expect(identical(first, second), isFalse);
+      expect((await second.assess((capture) => capture)).value, same(before));
+      expect(first.manifestFingerprint, before.manifestFingerprint);
+      expect(second.manifestFingerprint, first.manifestFingerprint);
+      final file = File('${root.path}/knowledge/a.md');
+      final stamp = await file.lastModified();
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: B\n---\nBody\n');
+      await file.setLastModified(stamp);
+      final changed = await project.refresh();
+      expect(changed.manifestFingerprint, isNot(first.manifestFingerprint));
+      expect((await changed.bundles.single.concept('a')).title, 'B');
+      await first.release();
+      expect((await second.bundles.single.concept('a')).title, 'A');
+      await write('wayfinder.lock', 'new binding');
+      final rebound = await project.refresh();
+      expect(rebound.manifestFingerprint, isNot(changed.manifestFingerprint));
+    },
+  );
+
+  test(
     'captures configured bundles, all files and config/lock without model or source writes',
     () async {
       await write(
