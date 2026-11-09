@@ -22,8 +22,9 @@ final class GitResult {
 
 /// Runs `git` with [arguments] in [workingDirectory]. The resolver's only
 /// way to touch a repository, so a host can supply its own process layer and
-/// a test can prove which commands ran. A runner stops the command and
-/// throws `WayfinderException.cancelled()` when [cancel] fires.
+/// a test can prove which commands ran. Preserve every argument, including
+/// [wayfinderBorrowedGitOptions] on borrowed repository reads. A runner stops
+/// the command and throws `WayfinderException.cancelled()` when [cancel] fires.
 ///
 /// A host that only needs its own way of starting processes passes a
 /// [GitProcessStarter] to [runGit], which keeps every other part of its
@@ -110,6 +111,16 @@ const wayfinderGitOptions = [
   'core.fsmonitor=false',
   '-c',
   'protocol.ext.allow=never',
+];
+
+/// Global options for borrowed repository discovery and object reads. Passed
+/// through [GitRunner], so an injected runner keeps the same controls. Probe
+/// these options before borrowing: older Git versions must fail closed rather
+/// than ignore an environment variable they do not understand.
+const wayfinderBorrowedGitOptions = [
+  '--no-lazy-fetch',
+  '--no-replace-objects',
+  '--no-optional-locks',
 ];
 
 /// [environment] without the `GIT_*` variables that would steer a command
