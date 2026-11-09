@@ -1,4 +1,4 @@
-# 0.5.0-beta.1
+# 0.5.0-beta.2 (unreleased)
 
 - Read committed Profile packages and skills directly from a local source that
   shares the project's Git common directory, including self-hosting worktrees
@@ -6,7 +6,10 @@
   Borrowed reads disable lazy fetching and replacement objects. If Git lacks
   support for the controls, resolution uses the managed-mirror path with its
   existing fetch policy and reporting. Missing objects may use an existing mirror;
-  otherwise resolution fails without changing the project lock.
+  otherwise resolution fails without changing the project lock. Absent package
+  or skill paths retain their package or directory diagnostics.
+
+# 0.5.0-beta.1
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
