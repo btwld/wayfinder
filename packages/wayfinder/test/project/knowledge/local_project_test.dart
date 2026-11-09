@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:wayfinder/knowledge.dart';
-import 'package:wayfinder/project.dart'
-    show LocalKnowledgeProject, buildOkfBundle;
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 Matcher failure(KnowledgeFailureCode code) =>
     isA<KnowledgeFailure>().having((e) => e.code, 'code', code);
@@ -69,6 +68,7 @@ void main() {
       );
       await write('knowledge/visible/.hidden.txt', 'nested hidden file');
       await write('knowledge/.okf.lock', 'coordination');
+      await write('knowledge/visible/.okf.lock', 'nested coordination');
       final all = await LocalKnowledgeProject.open(
         root: root,
         id: 'p',
@@ -90,16 +90,84 @@ void main() {
       expect(scoped.files.map((f) => f.handle.path), [
         '.hidden.md',
         'visible/.hidden.txt',
+        'visible/.okf.lock',
       ]);
       expect(scoped.revision, isNot(entire.revision));
       expect(
-        buildOkfBundle(entire.loadBundle(entire.bundles.single.id)).assets,
+        entire.files.map((f) => f.handle.path),
         containsAll(['.git/objects/secret', '.okf/cache/secret']),
       );
-      expect(
-        buildOkfBundle(scoped.loadBundle(scoped.bundles.single.id)).assets,
-        ['visible/.hidden.txt'],
+      final nestedLock = scoped.files.singleWhere(
+        (f) => f.handle.path == 'visible/.okf.lock',
       );
+      expect(
+        (await scoped.read(nestedLock.handle)).text,
+        'nested coordination',
+      );
+    },
+  );
+
+  test(
+    'idle reuse preserves bundles with IDs ordered differently from paths',
+    () async {
+      await write(
+        'wayfinder.json',
+        '{"version":1,"profiles":{"demo":{"source":{"git":"https://invalid.example/never","ref":"main","path":"profile"},"applies_to":["knowledge","other"]}}}',
+      );
+      for (final path in ['knowledge', 'other']) {
+        await write('$path/a.md', '---\ntype: Guide\ntitle: $path\n---\nBody');
+      }
+      final project = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        bundleIds: {'knowledge': 'z-id', 'other': 'a-id'},
+      );
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final idle = await project.refresh();
+      expect(idle.revision, first.revision);
+      for (final id in ['z-id', 'a-id']) {
+        expect(
+          await idle.bundle(id).concept('a'),
+          same(await first.bundle(id).concept('a')),
+        );
+      }
+    },
+  );
+
+  test(
+    'files outside the browsing inventory do not invalidate an idle capture',
+    () async {
+      await write('knowledge/a.md', '---\nresource: ../outside.txt\n---\nBody');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      await write('outside.txt', 'not inventoried');
+      final idle = await project.refresh();
+      expect(idle.revision, first.revision);
+      expect(idle.files.map((f) => f.handle.path), ['a.md']);
+      expect(
+        await idle.bundles.single.concept('a'),
+        same(await first.bundles.single.concept('a')),
+      );
+    },
+  );
+
+  test(
+    'project lock reads retain captured bytes until the next refresh',
+    () async {
+      await write('knowledge/a.md', 'Body');
+      await write('wayfinder.lock', 'first lock bytes');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final lock = first.files.singleWhere((f) => f.handle.bundle == null);
+      await write('wayfinder.lock', 'next lock bytes');
+      expect((await first.read(lock.handle)).text, 'first lock bytes');
+      final next = await project.refresh();
+      expect(next.revision, isNot(first.revision));
+      final nextLock = next.files.singleWhere((f) => f.handle.bundle == null);
+      expect((await next.read(nextLock.handle)).text, 'next lock bytes');
     },
   );
 

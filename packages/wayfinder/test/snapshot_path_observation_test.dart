@@ -6,7 +6,7 @@ import 'support.dart';
 
 void main() {
   test(
-    'path validation refuses retained roots before loader or write-lock access',
+    'path validation refuses URI roots before loading even with an observation callback',
     () async {
       final selection = UnselectedProfile([
         EngineDiagnostic(DiagnosticCode.configMissing, 'No profile selected.'),
@@ -17,12 +17,12 @@ void main() {
       ]) {
         for (final fix in [false, true]) {
           await expectLater(
-            validator.validate(retainedBundleRoot, selection, fix: fix),
+            validator.validate('memory:bundle', selection, fix: fix),
             throwsA(
               isA<StateError>().having(
                 (e) => e.message,
                 'cause',
-                'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+                'validate requires a filesystem bundle path; use validateLoaded for in-memory input.',
               ),
             ),
           );
@@ -31,38 +31,7 @@ void main() {
     },
   );
 
-  test(
-    'external target enumeration covers builtin fields without disk lookup',
-    () {
-      final bundle = OkfBundle.fromDocuments({
-        'a.md': OkfDocument.parse('''---
-resource: ../resource%20file.txt
-sources:
-  - id: one
-    resource: ../source.txt
-  - id: two
-    resource: https://example.test/source
-computation: ../computation.dart
-executor: {resource: ../executor.txt}
-attester: {resource: ../attester.txt}
----
-[body](../ignored.txt)
-'''),
-        'sub/b.md': OkfDocument.parse('---\nresource: ../../source.txt\n---\n'),
-      });
-      final targets = externalPathTargets(bundle);
-      expect(targets.toList(), [
-        '../attester.txt',
-        '../computation.dart',
-        '../executor.txt',
-        '../resource file.txt',
-        '../source.txt',
-      ]);
-      expect(() => targets.add('../new'), throwsUnsupportedError);
-    },
-  );
-
-  test('retained root refuses resolver disk fallback without observations', () {
+  test('URI root refuses resolver disk fallback without a callback', () {
     final edge = OkfGraph.fromBundle(
       OkfBundle.fromDocuments({
         'note.md': OkfDocument.parse('---\nresource: ../outside.txt\n---\n'),
@@ -72,7 +41,7 @@ attester: {resource: ../attester.txt}
       () => resolvePathTarget(
         edge,
         inBundle: (_) => false,
-        rootPath: retainedBundleRoot,
+        rootPath: 'memory:bundle',
       ),
       throwsA(
         isA<StateError>().having(
@@ -86,11 +55,73 @@ attester: {resource: ../attester.txt}
       resolvePathTarget(
         edge,
         inBundle: (_) => false,
-        rootPath: retainedBundleRoot,
+        rootPath: 'memory:bundle',
         outsideBundleExists: (_) => true,
       ).missing,
       isFalse,
     );
+  });
+
+  test(
+    'loaded URI roots refuse disk fallback unless a callback is supplied',
+    () async {
+      final root = fixtureBundle(fixture('unresolved-source-path'));
+      final disk = await const OkfBundleLoader().inspect(root);
+      final loaded = OkfBundleLoadResult(
+        rootPath: 'memory:bundle',
+        bundle: disk.bundle,
+        documents: disk.documents,
+        indexes: disk.indexes,
+        logs: disk.logs,
+        assets: disk.assets,
+        report: disk.report,
+      );
+      final selection = await selectFixture(root);
+      expect(
+        () => const ProfileValidator().validateLoaded(loaded, selection),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'cause',
+            contains('outsideBundleExists'),
+          ),
+        ),
+      );
+      final queried = <String>[];
+      ProfileValidator(
+        outsideBundleExists: (path) {
+          queried.add(path);
+          return true;
+        },
+      ).validateLoaded(loaded, selection);
+      expect(queried, contains('../nowhere/original.docx'));
+    },
+  );
+
+  test('loaded Windows drive paths are not mistaken for URI roots', () {
+    for (final root in [r'C:\knowledge', 'C:/knowledge']) {
+      final loaded = OkfBundleLoadResult(
+        rootPath: root,
+        bundle: OkfBundle.fromDocuments({}),
+        documents: {},
+        indexes: {},
+        logs: {},
+        assets: [],
+        report: OkfReport(findings: const []),
+      );
+      expect(
+        () => const ProfileValidator().validateLoaded(
+          loaded,
+          UnselectedProfile([
+            EngineDiagnostic(
+              DiagnosticCode.configMissing,
+              'No profile selected.',
+            ),
+          ]),
+        ),
+        returnsNormally,
+      );
+    }
   });
 
   test('external observation replaces disk only for decoded outside paths', () {

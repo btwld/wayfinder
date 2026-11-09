@@ -5,7 +5,6 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
-import 'path_targets.dart' show retainedBundleRoot;
 import 'profile_finding.dart';
 import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
@@ -382,8 +381,8 @@ final class ProfileValidator {
   });
 
   /// Replaces live disk checks for decoded paths outside the loaded bundle.
-  /// Null preserves disk behavior. A snapshot host supplies captured existence
-  /// observations or throws when unavailable; callback errors propagate.
+  /// Null preserves disk behavior. A host supplies coherent existence decisions
+  /// or throws when unavailable; callback errors propagate.
   final bool Function(String relative)? outsideBundleExists;
 
   final OkfBundleLoader loader;
@@ -401,16 +400,17 @@ final class ProfileValidator {
   /// again, writes and validates; one with nothing to write takes no lock.
   /// A lock it cannot take, such as in a bundle it may not write, is a failed
   /// write: the `wayfinder/fix-failed` diagnostic, with nothing written.
-  /// [retainedBundleRoot] is rejected with [StateError] before disk access;
-  /// retained input belongs in [validateLoaded], even when a callback is supplied.
+  /// Non-filesystem URI roots are rejected with [StateError] before disk access,
+  /// even when a callback is supplied. Pass loaded input to [validateLoaded].
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
     bool fix = false,
   }) async {
-    if (bundlePath == retainedBundleRoot) {
+    if (Uri.tryParse(bundlePath)?.hasScheme == true &&
+        p.windows.rootPrefix(bundlePath).isEmpty) {
       throw StateError(
-        'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+        'validate requires a filesystem bundle path; use validateLoaded for in-memory input.',
       );
     }
     final loaded = await loader.inspect(bundlePath);
@@ -483,9 +483,9 @@ final class ProfileValidator {
   /// graph cannot resolve: first in [loaded], so a candidate sees the files
   /// it adds, then on disk relative to the loaded `rootPath`, such as for a
   /// target that leaves the bundle. [outsideBundleExists] replaces that disk
-  /// check when supplied; its errors propagate to the host. A load marked with
-  /// [retainedBundleRoot] requires this callback, otherwise throws [StateError]
-  /// before running any validation or attempting disk access.
+  /// check when supplied; its errors propagate to the host. A non-filesystem
+  /// URI root requires this callback, otherwise throws [StateError] before
+  /// running validation or attempting disk access.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,
@@ -498,9 +498,11 @@ final class ProfileValidator {
     List<EngineDiagnostic> diagnostics = const [],
     List<String>? fixed,
   }) {
-    if (loaded.rootPath == retainedBundleRoot && outsideBundleExists == null) {
+    if (Uri.tryParse(loaded.rootPath)?.hasScheme == true &&
+        p.windows.rootPrefix(loaded.rootPath).isEmpty &&
+        outsideBundleExists == null) {
       throw StateError(
-        'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+        'A non-filesystem bundle root requires outsideBundleExists; disk lookup is forbidden.',
       );
     }
     final okf = validation ?? loaded.validate();

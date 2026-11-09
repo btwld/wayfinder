@@ -3,10 +3,6 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
-/// Non-filesystem root marking a bundle built entirely from retained bytes.
-/// Validators require explicit outside-path observations for this input.
-const String retainedBundleRoot = 'wayfinder:retained-bundle';
-
 /// A path-valued target classified against the loaded bundle and, for a
 /// relative path outside it, the optional bundle root on disk.
 sealed class PathTarget {
@@ -68,7 +64,8 @@ final class OutsidePath extends PathTarget {
 /// [outsideBundleExists], when supplied, replaces disk lookup for decoded
 /// bundle-relative paths leaving the bundle. It is never called for internal
 /// or invalid paths. Hosts must supply coherent observations; callback errors
-/// propagate rather than becoming a successful check.
+/// propagate rather than becoming a successful check. A non-filesystem URI root
+/// requires this callback before any external path can reach disk lookup.
 PathTarget resolvePathTarget(
   OkfGraphEdge edge, {
   required bool Function(String path) inBundle,
@@ -126,9 +123,11 @@ PathTarget resolvePathTarget(
       relative: relative,
     );
   }
-  if (rootPath == retainedBundleRoot) {
+  if (rootPath != null &&
+      Uri.tryParse(rootPath)?.hasScheme == true &&
+      p.windows.rootPrefix(rootPath).isEmpty) {
     throw StateError(
-      'Retained bundle external paths require outsideBundleExists; live disk lookup is forbidden.',
+      'A non-filesystem bundle root requires outsideBundleExists for external paths; disk lookup is forbidden.',
     );
   }
   // An in-memory caller cannot inspect a relative path outside its inventory.
@@ -178,25 +177,4 @@ String? _historicalRelativeDisplay(OkfGraphEdge edge) {
       cut < 0 ? raw : raw.substring(0, cut),
     ),
   );
-}
-
-/// Sorted decoded outside-bundle paths that `path-targets-exist` could query.
-/// This pure superset covers every field the builtin accepts, independently of
-/// Profile selection/configuration; body links and prose/URLs are excluded.
-/// Hosts may observe existence during capture and inject those retained values
-/// through `ProfileValidator.outsideBundleExists` without later disk reads.
-Set<String> externalPathTargets(OkfBundle bundle) {
-  final paths = <String>{};
-  for (final edge in OkfGraph.fromBundle(bundle).edges) {
-    if (edge.origin == OkfGraphEdgeOrigin.bodyLink) continue;
-    resolvePathTarget(
-      edge,
-      inBundle: (_) => false,
-      outsideBundleExists: (relative) {
-        paths.add(relative);
-        return false;
-      },
-    );
-  }
-  return Set.unmodifiable(paths.toList()..sort());
 }

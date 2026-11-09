@@ -3,16 +3,6 @@ import 'package:wayfinder/knowledge.dart';
 
 export 'package:wayfinder/knowledge.dart';
 
-/// A bundle's validation verdict, as `wayfinder validate` derives it.
-enum KnowledgeGate {
-  pass('PASS'),
-  fail('FAIL'),
-  incomplete('INCOMPLETE');
-
-  const KnowledgeGate(this.wireValue);
-  final String wireValue;
-}
-
 enum KnowledgeFindingSeverity { error, warning, advisory, note }
 
 /// Which check reported a finding: okf, the Profile's rules, or Wayfinder
@@ -60,21 +50,4 @@ final class KnowledgeFinding {
   final String? path;
   final int? line;
   final KnowledgeFindingSource source;
-}
-
-/// How `wayfinder validate` judges a bundle: its gate, the Profile it
-/// used, and every finding.
-@immutable
-final class KnowledgeBundleValidation {
-  const KnowledgeBundleValidation({
-    required this.gate,
-    this.profileId,
-    this.findings = const [],
-  });
-
-  final KnowledgeGate gate;
-
-  /// The Profile's id, when one judged the bundle.
-  final String? profileId;
-  final List<KnowledgeFinding> findings;
 }

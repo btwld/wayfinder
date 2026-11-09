@@ -227,11 +227,6 @@ final class _ControlledSnapshot implements KnowledgeProjectSnapshot {
   @override
   KnowledgeBundleSnapshot bundle(String id) => delegate.bundle(id);
   @override
-  KnowledgeRetainedBundle loadBundle(String id) => delegate.loadBundle(id);
-  @override
-  Map<String, Map<String, bool>> get externalPathObservations =>
-      delegate.externalPathObservations;
-  @override
   Future<KnowledgeSourceBytes> read(
     KnowledgeResourceHandle handle, {
     int maxBytes = 16 * 1024 * 1024,
