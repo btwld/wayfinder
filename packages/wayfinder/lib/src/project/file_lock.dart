@@ -46,16 +46,27 @@ final class WayfinderFileLock {
   static const _probeTolerance = Duration(milliseconds: 100);
 
   /// Takes the lock without waiting for a holder; null while another holder
-  /// has it. Creates [file] and its directory when missing.
+  /// has it. Creates [file] and its directory when missing unless [create]
+  /// is false, in which case a missing file also returns null. Existing-only
+  /// locks are for inspection; writing a note is unsupported on Windows.
   ///
   /// An [isHeld] probe holds a shared lock on the file for an instant, and
   /// must not read as a holder, so a refused attempt is tried again for up
   /// to 100 milliseconds before this returns null.
-  static Future<WayfinderFileLock?> tryExclusive(File file) async {
+  static Future<WayfinderFileLock?> tryExclusive(
+    File file, {
+    bool create = true,
+  }) async {
     final watch = Stopwatch()..start();
     var delay = const Duration(milliseconds: 1);
     while (true) {
-      final lock = await _attempt(file);
+      final WayfinderFileLock? lock;
+      try {
+        lock = await _attempt(file, create: create);
+      } on PathNotFoundException {
+        if (create) rethrow;
+        return null;
+      }
       if (lock != null) return lock;
       final left = _probeTolerance - watch.elapsed;
       if (left <= Duration.zero) return null;
@@ -105,9 +116,12 @@ final class WayfinderFileLock {
   /// between this open and this lock, leaving the descriptor on a file no
   /// one else opens, so the lock is returned only while the path still
   /// names the file it locked; otherwise the path is opened again.
-  static Future<WayfinderFileLock?> _attempt(File file) async {
+  static Future<WayfinderFileLock?> _attempt(
+    File file, {
+    bool create = true,
+  }) async {
     for (var opened = 0; opened < 3; opened++) {
-      final handle = await _open(file);
+      final handle = await _open(file, create: create);
       var kept = false;
       try {
         if (!await handle.tryLock(exclusive: true)) return null;
@@ -159,6 +173,14 @@ final class WayfinderFileLock {
 
   static Future<_Handle> _open(File file, {bool create = true}) async {
     if (create) await file.parent.create(recursive: true);
+    // On hosts without the openat syscall helper, errno read after open
+    // can be stale. Establish the usual missing-file case before opening.
+    if (!create && !await file.exists()) {
+      throw PathNotFoundException(
+        file.path,
+        const OSError('File not found', 2),
+      );
+    }
     return Platform.isWindows
         ? _WindowsHandle.open(file, create: create)
         : _PosixHandle.open(file, create: create);
@@ -195,6 +217,8 @@ final class _WindowsHandle extends _Handle {
       );
     }
     return _WindowsHandle(
+      // LockFileEx accepts a read handle for exclusive acquisition too.
+      // FileMode.append would create a file if it disappeared after exists.
       await file.open(mode: create ? FileMode.append : FileMode.read),
       file.path,
     );
