@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'captured_project.dart' show KnowledgeRetainedBundle;
 
 import 'knowledge_models.dart';
 
@@ -111,8 +112,8 @@ final class KnowledgeSourceBytes {
   String get text => utf8.decode(bytes);
 }
 
-/// Browsing does not imply assessment. Hosts must explicitly request any
-/// optional assessment; this value is never a PASS.
+/// Browsing does not imply validation. Hosts must explicitly request any
+/// validation in their own execution context; this value is never a PASS.
 final class KnowledgeValidationUnavailable {
   KnowledgeValidationUnavailable(String reason)
     : reason = knowledgeIdentifier(reason, 'reason');
@@ -162,6 +163,17 @@ abstract interface class KnowledgeProjectSnapshot {
     int maxBytes = 16 * 1024 * 1024,
     KnowledgeCancellation? cancel,
   });
+
+  /// Retained outside-path existence by bundle ID and decoded relative path.
+  /// Missing entries are unknown and must refuse validation when queried.
+  /// Values are immutable and, once obtained, remain usable after lease release.
+  Map<String, Map<String, bool>> get externalPathObservations;
+
+  /// Returns the bundle identity, summary and immutable retained files sorted
+  /// by relative path, excluding only the bundle root coordination lock. It
+  /// performs no I/O, Markdown parsing or file classification; an unknown bundle
+  /// throws `notFound`. The returned value survives lease release/revocation.
+  KnowledgeRetainedBundle loadBundle(String bundleId);
 
   /// Invalidates only this lease and its bundle views; idempotent and draining.
   Future<void> release();

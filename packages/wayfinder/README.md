@@ -23,8 +23,24 @@ adds, then on disk relative to the bundle root. Embedded snapshot hosts may
 supply `ProfileValidator(outsideBundleExists: (relative) => ...)` to replace
 only external disk lookup with captured existence observations. The decoded
 path remains bundle-relative (including `../`); unavailable observations should
-throw, and callback errors propagate. In-bundle targets always use loaded
-inventory. The default constructor preserves live disk checks.
+throw, and callback errors propagate. `externalPathTargets(loaded.bundle)` lists
+the decoded outside paths the builtin could query across all supported fields,
+without Profile resolution or disk reads. Hosts capture this superset within
+their grant and supply retained observations later. In-bundle targets always use
+loaded inventory. Ordinary filesystem roots preserve live disk checks.
+
+Native retained loads from reader_local's `buildOkfBundle` carry the exported
+`retainedBundleRoot` sentinel (`wayfinder:retained-bundle`), never a filesystem
+location. `validateLoaded` requires an explicit `outsideBundleExists` callback
+for this root and throws a `StateError` naming that requirement when absent.
+Direct external-path resolution with that sentinel also refuses disk fallback.
+
+`classifyBundleFile(relativePath)` is the shared pure file classifier:
+`BundleFileKind.indexDocument`, `logDocument`, `concept` or `asset`. It follows
+OKF's exact reserved basenames at any depth and case-sensitive `.md` suffix,
+without validating paths or parsing files. Core adoption, query fingerprinting,
+Markdown facts and reader_local's builder/projection/target capture all use it.
+
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them. `EffectiveProfile.requiredConceptFields` lists
 the frontmatter keys a concept must carry for the gate to pass: those the

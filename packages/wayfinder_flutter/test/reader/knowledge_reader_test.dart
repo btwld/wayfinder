@@ -208,6 +208,11 @@ final class DelayedSnapshot implements KnowledgeProjectSnapshot {
   @override
   KnowledgeBundleSnapshot bundle(String id) => delegate.bundle(id);
   @override
+  KnowledgeRetainedBundle loadBundle(String id) => delegate.loadBundle(id);
+  @override
+  Map<String, Map<String, bool>> get externalPathObservations =>
+      delegate.externalPathObservations;
+  @override
   Future<void> release() => delegate.release();
   @override
   Future<KnowledgeSourceBytes> read(

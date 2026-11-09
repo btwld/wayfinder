@@ -55,22 +55,24 @@ void main() {
   );
 
   test(
-    'hidden-directory policy is explicit, recursive and retains hidden files',
+    'hidden directories are excluded by default with an explicit opt-in',
     () async {
       await write('knowledge/.hidden.md', 'hidden file');
       await write('knowledge/.cache/secret.txt', 'hidden directory');
+      await write('knowledge/.git/objects/secret', 'git objects');
+      await write('knowledge/.okf/cache/secret', 'okf cache');
       await write(
         'knowledge/visible/.nested/secret.txt',
         'nested hidden directory',
       );
       await write('knowledge/visible/.hidden.txt', 'nested hidden file');
       await write('knowledge/.okf.lock', 'coordination');
-      final all = await LocalKnowledgeProject.open(root: root, id: 'p');
-      final filtered = await LocalKnowledgeProject.open(
+      final all = await LocalKnowledgeProject.open(
         root: root,
         id: 'p',
-        inventoryPolicy: KnowledgeInventoryPolicy.excludeHiddenDirectories,
+        includeHiddenDirectories: true,
       );
+      final filtered = await LocalKnowledgeProject.open(root: root, id: 'p');
       addTearDown(all.close);
       addTearDown(filtered.close);
       final entire = await all.refresh();
@@ -88,12 +90,13 @@ void main() {
         'visible/.hidden.txt',
       ]);
       expect(scoped.manifestFingerprint, isNot(entire.manifestFingerprint));
-      await expectLater(
-        scoped.assessBundle(
-          scoped.bundles.single.id,
-          (_) => fail('partial inventory'),
-        ),
-        throwsA(failure(KnowledgeFailureCode.unavailable)),
+      expect(
+        buildOkfBundle(entire.loadBundle(entire.bundles.single.id)).assets,
+        containsAll(['.git/objects/secret', '.okf/cache/secret']),
+      );
+      expect(
+        buildOkfBundle(scoped.loadBundle(scoped.bundles.single.id)).assets,
+        ['visible/.hidden.txt'],
       );
     },
   );
@@ -105,11 +108,10 @@ void main() {
       final project = await LocalKnowledgeProject.open(root: root, id: 'p');
       addTearDown(project.close);
       final first = await project.refresh();
-      final before = (await first.assess((capture) => capture)).value;
+      final before = await first.bundles.single.concept('a');
       final second = await project.refresh();
       expect(identical(first, second), isFalse);
-      expect((await second.assess((capture) => capture)).value, same(before));
-      expect(first.manifestFingerprint, before.manifestFingerprint);
+      expect(await second.bundles.single.concept('a'), same(before));
       expect(second.manifestFingerprint, first.manifestFingerprint);
       final file = File('${root.path}/knowledge/a.md');
       final stamp = await file.lastModified();

@@ -3,18 +3,21 @@
 /// graph projection are in `package:wayfinder/project.dart`.
 library;
 
+export 'src/bundle_file_kind.dart';
 export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;
 export 'src/path_targets.dart'
     show
+        externalPathTargets,
         InBundlePath,
         MissingPath,
         NotAPath,
         OutsidePath,
         PathTarget,
         pathTargetDisplay,
-        resolvePathTarget;
+        resolvePathTarget,
+        retainedBundleRoot;
 export 'src/profile_finding.dart';
 export 'src/profile_package.dart';
 export 'src/profile_rule_descriptors.dart'

@@ -3,4 +3,4 @@ library;
 
 export 'package:wayfinder_reader/wayfinder_reader.dart';
 export 'src/local_project.dart';
-export 'src/assessment.dart';
+export 'src/retained_bundle.dart' show buildOkfBundle;

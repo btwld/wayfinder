@@ -2,20 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_reader/wayfinder_reader.dart';
 
 import 'projection.dart';
-
-/// Bundle inventory policy; this controls browsing scope, not OKF conformance.
-enum KnowledgeInventoryPolicy {
-  /// Include hidden files and directories, excluding the root `.okf.lock`.
-  allRegularFiles,
-
-  /// Exclude dot-prefixed directories, retaining hidden regular files.
-  excludeHiddenDirectories,
-}
 
 /// Granted project directory, captured read-only with no Profile resolution,
 /// fetching, model, cache writes or symlink following. All bytes are retained.
@@ -38,7 +30,7 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
 
   /// [bundleIds] optionally binds project-relative bundle paths to host-stable
   /// identities. Otherwise IDs are explicitly location-bound, not portable.
-  /// [inventoryPolicy] controls hidden-directory inclusion within bundle roots;
+  /// [includeHiddenDirectories] opts into dot-prefixed directories within bundles;
   /// configuration and lock files remain captured independently of that policy.
   /// Existing projects without bundles return an empty snapshot; absent roots
   /// and missing configured bundles fail with [KnowledgeFailureCode.notFound].
@@ -48,8 +40,7 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
     Map<String, String> bundleIds = const {},
     int maxFileBytes = 16 * 1024 * 1024,
     int maxCaptureBytes = 64 * 1024 * 1024,
-    KnowledgeInventoryPolicy inventoryPolicy =
-        KnowledgeInventoryPolicy.allRegularFiles,
+    bool includeHiddenDirectories = false,
   }) async {
     knowledgeIdentifier(id, 'project');
     if (maxFileBytes <= 0 || maxCaptureBytes <= 0) {
@@ -76,7 +67,7 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
           Map.unmodifiable(bundleIds),
           maxFileBytes,
           maxCaptureBytes,
-          inventoryPolicy,
+          includeHiddenDirectories,
         ),
       );
     } on FileSystemException {
@@ -95,14 +86,16 @@ final class _LocalSource {
     this.bundleIds,
     this.maxFileBytes,
     this.maxCaptureBytes,
-    this.inventoryPolicy,
+    this.includeHiddenDirectories,
   );
   final String _root;
   final Map<String, String> bundleIds;
   final int maxFileBytes;
   final int maxCaptureBytes;
-  final KnowledgeInventoryPolicy inventoryPolicy;
+  final bool includeHiddenDirectories;
   KnowledgeCapture? _previous;
+  final _targets = <String, Set<String>>{};
+  String? _targetManifest;
   Future<KnowledgeCapture> capture() async {
     try {
       if (await FileSystemEntity.type(_root, followLinks: false) !=
@@ -117,17 +110,18 @@ final class _LocalSource {
         final first = await _scan();
         // A matching full byte scan needs neither another scan nor projection.
         // No mtime/size heuristic can hide same-length edits.
-        if (_previous?.manifestFingerprint == first.fingerprint) {
+        if (_previous?.manifestFingerprint == first.byteFingerprint &&
+            _sameObservations(
+              _previous!.externalPathObservations,
+              first.externalPathObservations,
+            )) {
           return _previous!;
         }
         final second = await _scan();
         if (first.fingerprint != second.fingerprint) continue;
         return _previous = KnowledgeCapture(
           files: first.files,
-          assessmentUnavailableReason:
-              inventoryPolicy == KnowledgeInventoryPolicy.allRegularFiles
-              ? null
-              : 'The inventory policy may omit hidden bundle content.',
+          externalPathObservations: first.externalPathObservations,
           bundles: [
             for (final bundle in first.bundles)
               projectCapturedBundle(
@@ -251,13 +245,11 @@ final class _LocalSource {
         for (final child in children) {
           final name = p.basename(child.path);
           final childRelative = relative.isEmpty ? name : '$relative/$name';
-          // OKF excludes only the root coordination file.
+          // Browsing excludes only the root lock; loadBundle excludes all locks.
           if (childRelative == '.okf.lock') continue;
           final kind = await _type('$path/$childRelative');
           if (kind == FileSystemEntityType.directory) {
-            if (inventoryPolicy ==
-                    KnowledgeInventoryPolicy.excludeHiddenDirectories &&
-                name.startsWith('.')) {
+            if (!includeHiddenDirectories && name.startsWith('.')) {
               continue;
             }
             await visit(childRelative);
@@ -270,7 +262,38 @@ final class _LocalSource {
 
       await visit('');
     }
-    return _Scan(files, bundles);
+    final scan = _Scan(files, bundles);
+    final reuseTargets = _targetManifest == scan.byteFingerprint;
+    _targetManifest = scan.byteFingerprint;
+    if (!reuseTargets) _targets.clear();
+    for (final bundle in bundles) {
+      final targets = reuseTargets
+          ? _targets[bundle.id]!
+          : _externalTargets(files.where((f) => f.bundle == bundle.id));
+      _targets[bundle.id] = targets;
+      final observations = <String, bool>{};
+      for (final target in targets) {
+        final projectPath = p.posix.normalize(
+          p.posix.join(bundle.path, target),
+        );
+        // Existence outside the grant or through a symbolic link is unknown.
+        if (projectPath == '..' || projectPath.startsWith('../')) continue;
+        try {
+          final type = projectPath == '.'
+              ? FileSystemEntityType.directory
+              : await _type(projectPath);
+          if (type != FileSystemEntityType.link) {
+            observations[target] = type != FileSystemEntityType.notFound;
+          }
+        } on KnowledgeFailure {
+          // No observation means the host must refuse a later query.
+        } on FileSystemException {
+          // An unreadable path cannot establish presence or absence.
+        }
+      }
+      scan.externalPathObservations[bundle.id] = observations;
+    }
+    return scan;
   }
 
   Future<FileSystemEntityType> _type(String relative) async {
@@ -353,7 +376,10 @@ final class _Scan {
   _Scan(this.files, this.bundles);
   final List<KnowledgeCapturedFile> files;
   final List<({String id, String path})> bundles;
-  String get fingerprint => knowledgeManifestFingerprint(
+  final externalPathObservations = <String, Map<String, bool>>{};
+  String get fingerprint =>
+      jsonEncode([byteFingerprint, externalPathObservations]);
+  late final String byteFingerprint = knowledgeManifestFingerprint(
     files: [for (final f in files) (f.bundle, f.path, f.digest)],
     bundles: [for (final b in bundles) (b.id, b.path)],
   );
@@ -381,3 +407,34 @@ void _relativePath(String path) {
     );
   }
 }
+
+Set<String> _externalTargets(Iterable<KnowledgeCapturedFile> files) {
+  final documents = <String, OkfDocument>{};
+  for (final file in files) {
+    if (classifyBundleFile(file.path) != BundleFileKind.concept) {
+      continue;
+    }
+    try {
+      OkfConceptId.fromDocumentPath(file.path);
+      documents[file.path] = OkfDocument.parse(
+        utf8.decode(file.bytes),
+        sourcePath: file.path,
+      );
+    } on FormatException {
+      // Browsing retains malformed bytes; loadBundle will refuse this bundle.
+    }
+  }
+  return externalPathTargets(OkfBundle.fromDocuments(documents));
+}
+
+bool _sameObservations(
+  Map<String, Map<String, bool>> first,
+  Map<String, Map<String, bool>> second,
+) =>
+    first.length == second.length &&
+    first.entries.every((bundle) {
+      final other = second[bundle.key];
+      return other != null &&
+          bundle.value.length == other.length &&
+          bundle.value.entries.every((e) => other[e.key] == e.value);
+    });

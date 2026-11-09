@@ -84,11 +84,10 @@ Flutter Material navigation.
 
 ## Explicitly unavailable, not successful
 
-Snapshots currently return `KnowledgeValidationUnavailable`, not an assessment.
-The UI says **not assessed**, never PASS. Full validation requires captured
-Profile selection plus core external-target observations; no partial validator
-is claimed. Core validator APIs, reports and OKF → engine → Profile authority are
-unchanged.
+Browsing views return `KnowledgeValidationUnavailable`; the UI says **not
+validated**, never PASS. Hosts validate retained bundle bytes separately using
+the displayed configuration and captured outside-path observations. Core reports
+and OKF → engine → Profile authority are unchanged.
 
 Search is absent: no mandatory search/index/status/model stubs or synthetic
 readiness states. Optional semantic search belongs at a future controller

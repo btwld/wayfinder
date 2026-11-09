@@ -1,7 +1,9 @@
 # wayfinder_reader
 
 Pure Dart, model-free knowledge browsing contracts and a retained-byte memory
-backend. No Flutter, filesystem, OKF loader, embeddings or native runtime.
+backend. No Flutter, filesystem operations, embeddings or native runtime.
+The runtime import closure is browser-compatible and excludes OKF and core
+Wayfinder. Native OKF conversion lives in the existing reader_local package.
 This is an unpublished 0.1 API; it does not change core's prepared 0.5 contract.
 
 `KnowledgeProject.refresh()` returns an independently releasable
@@ -35,8 +37,8 @@ Every successful refresh receives a distinct lease, even when capture is
 coalesced. Cancelling one refresh does not cancel another. Bundle views borrow
 the parent lease. Release immediately rejects access through that lease, drains
 its accepted reads and drops its retained capture reference; other leases work.
-Close rejects new work, invalidates all leases and drains accepted captures,
-reads and assessments.
+Close rejects new work, invalidates all leases and drains accepted captures
+and reads.
 Closed/revoked state takes precedence over a late capture error; while open,
 original acquisition errors are preserved.
 Both are idempotent, including reentrant close notifications.
@@ -46,28 +48,44 @@ deny and consumers must clear affected views. Detached immutable values already
 returned cannot be recalled. A transient refresh failure does not revoke an old
 lease. Controllers borrow projects: detach UI, close controller, then close the
 host-owned project. No search/status/index/model methods are mandatory or faked.
-Validation stays explicitly unavailable on bundle browsing views. A host may
-request `snapshot.assess<T>((capture) async => ...)` on retained-capture backends.
-The callback receives immutable retained bytes, configuration and projections;
-its `KnowledgeAssessmentResult<T>` carries `projectId`, `revision` and `value`.
-Compare both identity and revision with the displayed snapshot before publishing.
-Release, close or revocation reject late results and release/close drain accepted
-assessments. Cancellation suppresses publication after the executor returns;
-hosts must cancel/terminate their own executor for bounded draining. No work runs
-unless requested, and no assessment result is implicitly cached. Existing custom
-snapshot implementations need not implement the optional
-`KnowledgeSnapshotAssessmentSource`; unsupported assessment fails `unavailable`.
-Detached inputs already returned to host code cannot be recalled. Captures can
-declare `assessmentUnavailableReason`, for example when an inventory policy
-omits files; local bundle assessment honors that refusal.
+Validation stays unavailable on browsing views. `snapshot.loadBundle(bundleId)`
+returns a `KnowledgeRetainedBundle`: its `id`, captured `summary`, and immutable
+`files` (`KnowledgeCapturedFile` path/bytes values), sorted by full relative path.
+Only the bundle root `.okf.lock` is excluded. It performs no Markdown parsing,
+classification or I/O; malformed/binary bytes remain bytes. Unknown bundle IDs
+throw `notFound`. A detached value survives lease release/revocation.
+
+Native hosts convert the value with
+`buildOkfBundle(snapshot.loadBundle(bundleId))` from
+[reader_local](../wayfinder_reader_local/README.md), where OKF parsing belongs.
+Hosts own Profile selection from captured configuration/lock bytes, isolate
+execution, cancellation and result publication. In this six-line example,
+`validateApart` is the host's native helper that builds the OKF load and validates
+it in an isolate using only the supplied observations. Its context token must
+change on release, revocation, project switch or a new Profile attempt:
+
+```dart
+final context = currentContext;
+final revision = snapshot.revision;
+final retained = snapshot.loadBundle(bundleId);
+final observations = snapshot.externalPathObservations[bundleId] ?? const <String, bool>{};
+final result = await validateApart(retained, selection, observations);
+if (currentContext == context && displayedRevision == revision) publish(result);
+```
+
+`externalPathObservations` is an immutable map by bundle ID, then decoded
+bundle-relative outside path, then existence. Missing entries are unknown, never
+false or permission to consult live disk. Memory captures default to no
+observations; adapters may provide them explicitly. Observations are part of the
+full revision; they do not change the byte-manifest fingerprint.
 
 `snapshot.manifestFingerprint` (also available on `KnowledgeCapture`) is a
 SHA-256 of sorted file addresses/digests and bundle identities/paths, independent
 of semantic projections and enumeration order. It covers configuration/lock
-bytes when captured. Use revision plus Profile/validator inputs for assessment
+bytes when captured. Use revision plus Profile/validator inputs for validation
 caching; the manifest alone cannot identify a changed Profile selection.
 Optional search integration remains deferred.
 
 Run `dart analyze --fatal-infos` and `dart test` from the repository workspace;
-see [contributor checks](../../docs/contributing.md#checks). Runtime verification
-is Linux-only; portable source does not establish other platform support.
+see [contributor checks](../../docs/contributing.md#checks). CI runtime verification
+is Linux-only; these checks do not establish other platform support.

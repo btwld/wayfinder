@@ -16,20 +16,21 @@ KnowledgeCapturedBundle projectCapturedBundle({
   final assets = <String>[];
   final failures = <String>[];
   for (final file in files) {
-    if (!file.path.endsWith('.md')) {
-      assets.add(file.path);
-      continue;
-    }
     try {
-      final text = utf8.decode(file.bytes);
-      if (p.posix.basename(file.path) == 'index.md') {
-        indexes[file.path] = text;
-      } else if (p.posix.basename(file.path) == 'log.md') {
-        logs[file.path] = text;
-      } else {
-        // Invalid semantic concept IDs do not erase the raw inventory.
-        OkfConceptId.fromDocumentPath(file.path);
-        documents[file.path] = OkfDocument.parse(text, sourcePath: file.path);
+      switch (classifyBundleFile(file.path)) {
+        case BundleFileKind.asset:
+          assets.add(file.path);
+        case BundleFileKind.indexDocument:
+          indexes[file.path] = utf8.decode(file.bytes);
+        case BundleFileKind.logDocument:
+          logs[file.path] = utf8.decode(file.bytes);
+        case BundleFileKind.concept:
+          // Invalid semantic IDs do not erase the browsing inventory.
+          OkfConceptId.fromDocumentPath(file.path);
+          documents[file.path] = OkfDocument.parse(
+            utf8.decode(file.bytes),
+            sourcePath: file.path,
+          );
       }
     } on FormatException {
       failures.add(file.path);

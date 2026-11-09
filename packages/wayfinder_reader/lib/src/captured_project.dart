@@ -7,7 +7,7 @@ import 'package:crypto/crypto.dart';
 
 import 'knowledge_models.dart';
 import 'reader.dart';
-import 'snapshot_assessment.dart';
+import 'manifest.dart';
 
 /// One captured file. Adapters enforce acquisition limits before allocating it.
 final class KnowledgeCapturedFile {
@@ -26,9 +26,31 @@ final class KnowledgeCapturedFile {
   late final String digest = sha256.convert(bytes).toString();
 }
 
+/// Plain retained input for host-owned bundle processing, without OKF types.
+final class KnowledgeRetainedBundle {
+  /// Retains files in full-path order and excludes the root coordination lock.
+  KnowledgeRetainedBundle({
+    required this.id,
+    required this.summary,
+    required Iterable<KnowledgeCapturedFile> files,
+  }) : files = List.unmodifiable(
+         files.where((f) => f.path != '.okf.lock').toList()
+           ..sort((a, b) => a.path.compareTo(b.path)),
+       );
+
+  /// Host-owned bundle identity.
+  final String id;
+
+  /// Captured display name, path and concept count.
+  final KnowledgeBundleSummary summary;
+
+  /// Immutable path/byte values, including malformed Markdown and attachments.
+  final List<KnowledgeCapturedFile> files;
+}
+
 /// Adapter semantic projection derived only from captured bytes. A refused graph
 /// is not an empty successful graph. Browsing validation stays unavailable;
-/// assessment is a separate, explicitly requested host operation.
+/// validation is a separate host operation using retained input.
 final class KnowledgeCapturedBundle {
   KnowledgeCapturedBundle({
     required String id,
@@ -37,7 +59,7 @@ final class KnowledgeCapturedBundle {
     KnowledgeGraph? graph,
     this.graphFailure,
     String validationReason =
-        'This browsing backend does not assess conformance. Run wayfinder validate for a full assessment.',
+        'This browsing backend does not validate conformance. Run wayfinder validate for a full result.',
   }) : id = knowledgeIdentifier(id, 'bundle'),
        concepts = Map.unmodifiable({
          for (final c in concepts) c.id: _freezeConcept(c),
@@ -64,14 +86,24 @@ final class KnowledgeCapturedBundle {
 }
 
 /// Immutable retained capture. Its content-addressed revision covers raw bytes
-/// and semantic projections; no mutable session counter acts as a revision.
+/// external observations and semantic projections; no session counter acts as
+/// a revision.
 final class KnowledgeCapture {
+  /// Retains immutable file, projection and optional external-existence inputs.
   KnowledgeCapture({
     required Iterable<KnowledgeCapturedFile> files,
     required Iterable<KnowledgeCapturedBundle> bundles,
-    this.assessmentUnavailableReason,
+    Map<String, Map<String, bool>> externalPathObservations = const {},
   }) : files = List.unmodifiable(files),
-       bundles = List.unmodifiable(bundles) {
+       bundles = List.unmodifiable(bundles),
+       externalPathObservations = Map.unmodifiable({
+         for (final id in externalPathObservations.keys.toList()..sort())
+           id: Map<String, bool>.unmodifiable({
+             for (final path
+                 in externalPathObservations[id]!.keys.toList()..sort())
+               path: externalPathObservations[id]![path]!,
+           }),
+       }) {
     final ids = <String>{};
     for (final bundle in this.bundles) {
       if (!ids.add(bundle.id)) throw ArgumentError('Duplicate bundle identity');
@@ -110,9 +142,9 @@ final class KnowledgeCapture {
   final List<KnowledgeCapturedFile> files;
   final List<KnowledgeCapturedBundle> bundles;
 
-  /// Why adapters cannot offer complete bundle assessment, such as a filtered
-  /// inventory. Null allows an explicit host request, never an implicit PASS.
-  final String? assessmentUnavailableReason;
+  /// Captured existence by bundle ID and decoded outside-bundle relative path.
+  /// Missing keys are unknown, not absent; no live disk fallback is permitted.
+  final Map<String, Map<String, bool>> externalPathObservations;
 
   /// SHA-256 of sorted resource bytes/addresses and bundle identities/paths.
   /// Unlike [revision], this excludes semantic projections.
@@ -125,8 +157,7 @@ final class KnowledgeCapture {
       .convert(
         utf8.encode(
           jsonEncode({
-            if (assessmentUnavailableReason != null)
-              'assessmentUnavailableReason': assessmentUnavailableReason,
+            'externalPathObservations': externalPathObservations,
             'files': [
               for (final f in files) [f.bundle, f.path, f.digest, f.mediaType],
             ],
@@ -368,8 +399,7 @@ final class _MemorySource {
   Future<KnowledgeCapture> load() async => current;
 }
 
-final class _Snapshot
-    implements KnowledgeProjectSnapshot, KnowledgeSnapshotAssessmentSource {
+final class _Snapshot implements KnowledgeProjectSnapshot {
   _Snapshot(this.owner, KnowledgeCapture capture) : _data = capture {
     _files = List.unmodifiable([
       for (final f in data.files)
@@ -504,40 +534,27 @@ final class _Snapshot
   }
 
   @override
-  Future<KnowledgeAssessmentResult<T>> assess<T>(
-    FutureOr<T> Function(KnowledgeCapture capture) assessor, {
-    KnowledgeCancellation? cancel,
-  }) {
-    check('assess');
-    cancel?.check('assess');
-    final capture = data;
-    final future = Future<KnowledgeAssessmentResult<T>>(() async {
-      check('assess');
-      cancel?.check('assess');
-      late final T value;
-      try {
-        value = await assessor(capture);
-      } catch (_) {
-        check('assess');
-        cancel?.check('assess');
-        rethrow;
-      }
-      // A late result must not publish through a released/revoked lease.
-      check('assess');
-      cancel?.check('assess');
-      return KnowledgeAssessmentResult(
-        projectId: owner.id,
-        revision: capture.revision,
-        value: value,
+  Map<String, Map<String, bool>> get externalPathObservations {
+    check('externalPathObservations');
+    return data.externalPathObservations;
+  }
+
+  @override
+  KnowledgeRetainedBundle loadBundle(String bundleId) {
+    check('loadBundle');
+    final captured = data.bundles.where((b) => b.id == bundleId).firstOrNull;
+    if (captured == null) {
+      throw KnowledgeFailure(
+        KnowledgeFailureCode.notFound,
+        'loadBundle',
+        'The bundle is not in this snapshot.',
       );
-    });
-    final done = future.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
+    }
+    return KnowledgeRetainedBundle(
+      id: captured.id,
+      summary: bundle(bundleId).summary,
+      files: data.files.where((f) => f.bundle == bundleId),
     );
-    pending.add(done);
-    unawaited(done.then((_) => pending.remove(done)));
-    return future;
   }
 
   @override
