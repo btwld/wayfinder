@@ -66,6 +66,34 @@ void main() {
       expect(processes.single.stdinClosed, isTrue);
     });
 
+    test(
+      'borrowed controls reach the process starter without SSH lookup',
+      () async {
+        await runGit(
+          [...wayfinderBorrowedGitOptions, 'show', 'HEAD:profile.json'],
+          workingDirectory: '/work',
+          environment: {
+            'GIT_NO_LAZY_FETCH': '0',
+            'GIT_NO_REPLACE_OBJECTS': '0',
+          },
+          start: start,
+        );
+        expect(starts, hasLength(1));
+        expect(starts.single.arguments, [
+          ...wayfinderGitOptions,
+          ...wayfinderBorrowedGitOptions,
+          'show',
+          'HEAD:profile.json',
+        ]);
+        expect(starts.single.environment, isNot(contains('GIT_NO_LAZY_FETCH')));
+        expect(
+          starts.single.environment,
+          isNot(contains('GIT_NO_REPLACE_OBJECTS')),
+        );
+        expect(gitSubcommand(starts.single.arguments), 'show');
+      },
+    );
+
     test('reads core.sshCommand through it before a remote command', () async {
       next = (index) => index == 0
           ? _FakeProcess.exiting(0, stdout: ['ssh -F work.cfg\n'])

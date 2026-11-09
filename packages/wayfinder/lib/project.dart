@@ -62,6 +62,7 @@ export 'src/project/git.dart'
         gitSubcommand,
         runGit,
         startGitProcess,
+        wayfinderBorrowedGitOptions,
         wayfinderConfiguredSshCommand,
         wayfinderGitEnvironment,
         wayfinderGitMaxOutputBytes,
@@ -81,6 +82,12 @@ export 'src/project/graph_input.dart' show wayfinderGraphInput;
 export 'src/project/knowledge/local_loader.dart' show LocalKnowledgeProject;
 export 'src/project/knowledge/retained_bundle.dart' show buildOkfBundle;
 export 'src/project/metadata_filter.dart' show KnowledgeMetadataFilter;
+export 'src/project/profile_cache.dart'
+    show
+        ProfileMirrorPruneEntry,
+        ProfileMirrorPruneError,
+        ProfileMirrorPruneReason,
+        ProfileMirrorPruneResult;
 export 'src/project/profile_resolver.dart'
     show
         LockedPackage,

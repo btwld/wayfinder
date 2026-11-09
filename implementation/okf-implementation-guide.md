@@ -496,12 +496,21 @@ that when it adds each package. When two chains describe one id with
 different sources, `get` fails and names both sources, even when they
 resolve to the same commit. `get` converges.
 With an unchanged configuration, lock and cache, it fetches nothing and
-leaves the lock's bytes alone. `upgrade` deliberately refreshes mutable refs.
+leaves the lock's bytes alone. `upgrade` deliberately resolves mutable refs
+again, refreshing managed mirrors as consent permits.
 A canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
 credentials, vocabulary or rules. The local Git cache holds fetched
-objects.
+objects. Local sources sharing the project's canonical Git common directory
+can supply committed package and skill objects without a mirror; see
+[source resolution](../docs/wayfinder-configuration.md).
+Hosts may explicitly collect managed mirrors with the resolver's
+`pruneMirrors` API, using recorded usage or a demonstrably missing local
+source whose immediate parent can be listed, under each mirror's lock.
+Collection preserves package snapshots used by read-only selection;
+reinstalling skills from an evicted mirror may require fetching again. A dry
+run only reports eligible entries.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -922,14 +931,27 @@ Entries below are newest-first decision history. Earlier format numbers and
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
+**Borrowed same-repository Profile reads, 2026-11-09.**
+§4.7 now permits direct committed-object reads for self-hosting repositories,
+addressing #181's duplicate mirrors; implementations must preserve locked
+commits and managed-mirror fetch policy. No package format, schema, rule or
+OKF meaning changes, and no package or cache-key migration.
+
+**Explicit Profile mirror collection, 2026-11-09.**
+In §4.4, add explicit mirror collection for #181's abandoned worktrees and
+checkouts. Collection uses sibling locks, preserves package snapshots and
+gives legacy mirrors an observation grace period. Implementations need no
+package, lock, schema or OKF migration; evicted mirrors may need fetching to
+reinstall skills.
+
 **Retained native-load boundary and file classification, 2026-11-09.**
 Affected surfaces: §5.6 and public core/native-reader APIs. Driver: synthetic
 roots silently turned unknown external observations into missing-path findings,
 and duplicated classification could diverge between projections, adoption and
 querying. Use a single non-filesystem sentinel with explicit observation-required
 refusal, and one shared classifier with OKF's existing case-sensitive file roles.
-The browser reader returns only its own retained bytes; native conversion stays
-in reader_local. No Profile format/schema/policy change or package migration is
+The portable `knowledge.dart` entry returns only retained bytes; native conversion
+lives in core's `project.dart` entry. No Profile format/schema/policy change or package migration is
 required; hosts must supply observations for sentinel-marked loads.
 
 **Snapshot host observations, 2026-11-08; enumeration added 2026-11-09.**

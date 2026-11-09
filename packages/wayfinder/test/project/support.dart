@@ -78,3 +78,23 @@ Future<Map<String, List<int>>> fileSnapshot(String root) async => {
     if (entity is File)
       p.relative(entity.path, from: root): await entity.readAsBytes(),
 };
+
+/// Binds the committed Bitwild fixture in a self-hosting checkout.
+Future<void> configureSelfHostingProfile(
+  Directory root, {
+  String git = '.',
+  String ref = 'v2026.3',
+}) async {
+  await Directory(p.join(root.path, 'knowledge')).create(recursive: true);
+  await File(p.join(root.path, 'wayfinder.json')).writeAsString(
+    jsonEncode({
+      'version': 1,
+      'profiles': {
+        'bitwild-profile': {
+          'source': {'git': git, 'ref': ref, 'path': 'profiles/bitwild'},
+          'applies_to': ['./knowledge'],
+        },
+      },
+    }),
+  );
+}

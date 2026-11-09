@@ -121,6 +121,38 @@ void main() {
     }
   }
 
+  for (final ref in [null, 'main']) {
+    test(
+      'adoption reads its own committed Profile offline at ${ref ?? 'HEAD'} without a mirror',
+      () async {
+        project = source;
+        final before = await fileSnapshot(source.path);
+        final plan = await adoption.plan(
+          AdoptionRequest(
+            projectRoot: source.path,
+            profile: _bitwild,
+            source: AdoptionSource(
+              git: '.',
+              path: 'profiles/bitwild',
+              ref: ref,
+            ),
+            offline: true,
+          ),
+        );
+        expect(plan.applicable, isTrue);
+        expect(plan.profile.commit, commit);
+        expect(plan.profile.ref, ref ?? commit);
+        expect(plan.fetches, isEmpty);
+        expect(await fileSnapshot(source.path), before);
+        await adoption.apply(plan);
+        expect((await validate()).gate, GateState.pass);
+        final status = await resolver.status(source.path);
+        expect(status.bindings.single.copies.single.hasMirror, isFalse);
+        expect(status.bindings.single.copies.single.hasPackage, isTrue);
+      },
+    );
+  }
+
   group('adopting an empty Git repository', () {
     test('with Bitwild from its default branch, pinned to the resolved '
         'commit', () async {

@@ -86,6 +86,14 @@ Expose project and retrieval behavior as public libraries so IDE/agent hosts nee
 Hosts pay for resource lifecycle, fetch consent and serialization: all okf bundle I/O in one process stays on one isolate because its process-owned locks do not exclude isolates, while Wayfinder uses descriptor-owned locks on local disk.
 Package parsing normally has a ten-second isolate bound but falls back to unbounded synchronous parsing when spawning fails; hosts needing hard bounds must isolate work themselves, as detailed in [host operating boundaries](packages/wayfinder/README.md#host-operating-boundaries).
 
+## Collect abandoned Profile mirrors
+
+Date: 2026-11-09.
+
+Record successful mirror use and collect mirrors of missing local sources or sufficiently unused mirrors under sibling locks, because removed worktrees leave them behind (#181).
+Legacy mirrors get an observation period, dry runs write nothing, and package snapshots survive; reinstalling skills after eviction may require a fetch.
+Keep metadata outside mirrors for partial-deletion retries and require ownership evidence for staging cleanup, retaining lock files and unknown staging directories.
+
 ## Safe writes with a delta gate (ADR-0019, ADR-0024, ADR-0025)
 
 Date: 2026-10-22; empty commits and shared assessor 2026-10-24.
@@ -167,3 +175,13 @@ Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyz
 Date: 2026-11-07; consolidated 2026-11-09.
 
 Keep portable retained values, memory capture and lease mechanics behind core's browser-closed `knowledge.dart`, and native bounded read-only filesystem loading/OKF conversion behind `project.dart`, because entry-point import closures provide the required platform boundary without two extra unpublished packages. Flutter owns widgets/controllers and presentation-only preference/finding values; the separate reader package directories are deleted and their regression tests move to core, at the cost of import updates for unpublished consumers. Capture retains byte manifests and external existence observations without filesystem transactions or source writes, while hosts own Profile selection, validation isolates, cancellation and revision/context checks; the portable closure is checked transitively in CI.
+
+## Borrow committed same-repository Profile objects
+
+Date: 2026-11-09.
+
+Borrow committed Profile objects from the project's own repository to avoid
+duplicate mirrors across self-hosting checkouts and worktrees (#181).
+The cost is extra Git discovery and possible failure if external Git changes
+remove objects during resolution; see
+[source resolution](docs/wayfinder-configuration.md).
