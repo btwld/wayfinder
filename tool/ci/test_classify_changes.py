@@ -288,6 +288,33 @@ class WorkflowContractTest(unittest.TestCase):
                 self.assertNotIn('ubuntu-slim', text)
                 self.assertNotIn('macos', text.casefold())
 
+    def test_native_selection_retains_full_lock_stress_and_bundle_gates(self):
+        ci = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        matrix = _job_section(ci, 'test:')
+        native = _job_section(ci, 'native-retrieval:')
+        self.assertIn('sdk: ["3.11.0", stable]', matrix)
+        self.assertIn('dart test --concurrency=2 --exclude-tags stress', matrix)
+        self.assertIn(
+            'dart test --concurrency=2 --tags stress test/project/file_lock_test.dart',
+            matrix)
+        self.assertIn('dart test --concurrency=2 --exclude-tags native', matrix)
+        self.assertIn('dart test --concurrency=2 --tags native', native)
+        self.assertIn('WAYFINDER_REQUIRE_NATIVE: "1"', native)
+        for command in (
+            'dart run tool/prepare_model.dart',
+            'dart run melos run objectbox:install',
+            'dart run tool/build_wayfinder.dart --offline',
+            'python3 tool/verify_wayfinder.py',
+            'python3 tool/verify_wayfinder_mcp.py',
+            'dart run tool/evaluate_knowledge_cases.dart',
+            '--split=development', '--split=held_out',
+            'dart run tool/build_wayfinder_embeddings.dart --offline',
+            '--embedders=dense --store=objectbox',
+            'python3 tool/verify_installer.py',
+        ):
+            self.assertIn(command, native, command)
+        self.assertLess(native.index('objectbox:install'), native.index('--tags native'))
+
 
 def _job_names(text: str) -> list[str]:
     """Top-level job ids under ``jobs:``."""

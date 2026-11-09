@@ -1,5 +1,9 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Test-only: reuse an immutable initialized Git seed for resolver fixtures,
+  preserving per-test refs/files/locks/cache isolation. Select the full native
+  lock-race stress separately on both CI SDKs without changing its repetitions.
+
 - Add library-only `WayfinderProfileResolver.pruneMirrors` with dry-run results
   for missing local sources, unused mirrors and owned abandoned clone staging.
   Preserve package snapshots; evicted mirrors may need fetching for skills.
