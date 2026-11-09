@@ -35,7 +35,8 @@ Every successful refresh receives a distinct lease, even when capture is
 coalesced. Cancelling one refresh does not cancel another. Bundle views borrow
 the parent lease. Release immediately rejects access through that lease, drains
 its accepted reads and drops its retained capture reference; other leases work.
-Close rejects new work, invalidates all leases and drains accepted capture/reads.
+Close rejects new work, invalidates all leases and drains accepted captures,
+reads and assessments.
 Closed/revoked state takes precedence over a late capture error; while open,
 original acquisition errors are preserved.
 Both are idempotent, including reentrant close notifications.
@@ -45,7 +46,27 @@ deny and consumers must clear affected views. Detached immutable values already
 returned cannot be recalled. A transient refresh failure does not revoke an old
 lease. Controllers borrow projects: detach UI, close controller, then close the
 host-owned project. No search/status/index/model methods are mandatory or faked.
-Full validation and optional search integration are deferred, not successful.
+Validation stays explicitly unavailable on bundle browsing views. A host may
+request `snapshot.assess<T>((capture) async => ...)` on retained-capture backends.
+The callback receives immutable retained bytes, configuration and projections;
+its `KnowledgeAssessmentResult<T>` carries `projectId`, `revision` and `value`.
+Compare both identity and revision with the displayed snapshot before publishing.
+Release, close or revocation reject late results and release/close drain accepted
+assessments. Cancellation suppresses publication after the executor returns;
+hosts must cancel/terminate their own executor for bounded draining. No work runs
+unless requested, and no assessment result is implicitly cached. Existing custom
+snapshot implementations need not implement the optional
+`KnowledgeSnapshotAssessmentSource`; unsupported assessment fails `unavailable`.
+Detached inputs already returned to host code cannot be recalled. Captures can
+declare `assessmentUnavailableReason`, for example when an inventory policy
+omits files; local bundle assessment honors that refusal.
+
+`snapshot.manifestFingerprint` (also available on `KnowledgeCapture`) is a
+SHA-256 of sorted file addresses/digests and bundle identities/paths, independent
+of semantic projections and enumeration order. It covers configuration/lock
+bytes when captured. Use revision plus Profile/validator inputs for assessment
+caching; the manifest alone cannot identify a changed Profile selection.
+Optional search integration remains deferred.
 
 Run `dart analyze --fatal-infos` and `dart test` from the repository workspace;
 see [contributor checks](../../docs/contributing.md#checks). Runtime verification

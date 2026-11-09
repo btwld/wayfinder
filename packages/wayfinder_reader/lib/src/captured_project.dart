@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 
 import 'knowledge_models.dart';
 import 'reader.dart';
+import 'snapshot_assessment.dart';
 
 /// One captured file. Adapters enforce acquisition limits before allocating it.
 final class KnowledgeCapturedFile {
@@ -26,7 +27,8 @@ final class KnowledgeCapturedFile {
 }
 
 /// Adapter semantic projection derived only from captured bytes. A refused graph
-/// is not an empty successful graph. Full validation is deliberately unavailable.
+/// is not an empty successful graph. Browsing validation stays unavailable;
+/// assessment is a separate, explicitly requested host operation.
 final class KnowledgeCapturedBundle {
   KnowledgeCapturedBundle({
     required String id,
@@ -67,6 +69,7 @@ final class KnowledgeCapture {
   KnowledgeCapture({
     required Iterable<KnowledgeCapturedFile> files,
     required Iterable<KnowledgeCapturedBundle> bundles,
+    this.assessmentUnavailableReason,
   }) : files = List.unmodifiable(files),
        bundles = List.unmodifiable(bundles) {
     final ids = <String>{};
@@ -106,10 +109,24 @@ final class KnowledgeCapture {
   }
   final List<KnowledgeCapturedFile> files;
   final List<KnowledgeCapturedBundle> bundles;
+
+  /// Why adapters cannot offer complete bundle assessment, such as a filtered
+  /// inventory. Null allows an explicit host request, never an implicit PASS.
+  final String? assessmentUnavailableReason;
+
+  /// SHA-256 of sorted resource bytes/addresses and bundle identities/paths.
+  /// Unlike [revision], this excludes semantic projections.
+  late final String manifestFingerprint = knowledgeManifestFingerprint(
+    files: [for (final f in files) (f.bundle, f.path, f.digest)],
+    bundles: [for (final b in bundles) (b.id, b.summary.path)],
+  );
+
   late final String revision = sha256
       .convert(
         utf8.encode(
           jsonEncode({
+            if (assessmentUnavailableReason != null)
+              'assessmentUnavailableReason': assessmentUnavailableReason,
             'files': [
               for (final f in files) [f.bundle, f.path, f.digest, f.mediaType],
             ],
@@ -351,7 +368,8 @@ final class _MemorySource {
   Future<KnowledgeCapture> load() async => current;
 }
 
-final class _Snapshot implements KnowledgeProjectSnapshot {
+final class _Snapshot
+    implements KnowledgeProjectSnapshot, KnowledgeSnapshotAssessmentSource {
   _Snapshot(this.owner, KnowledgeCapture capture) : _data = capture {
     _files = List.unmodifiable([
       for (final f in data.files)
@@ -483,6 +501,43 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
       }
       return KnowledgeSourceBytes(entry: _files[index], bytes: file.bytes);
     });
+  }
+
+  @override
+  Future<KnowledgeAssessmentResult<T>> assess<T>(
+    FutureOr<T> Function(KnowledgeCapture capture) assessor, {
+    KnowledgeCancellation? cancel,
+  }) {
+    check('assess');
+    cancel?.check('assess');
+    final capture = data;
+    final future = Future<KnowledgeAssessmentResult<T>>(() async {
+      check('assess');
+      cancel?.check('assess');
+      late final T value;
+      try {
+        value = await assessor(capture);
+      } catch (_) {
+        check('assess');
+        cancel?.check('assess');
+        rethrow;
+      }
+      // A late result must not publish through a released/revoked lease.
+      check('assess');
+      cancel?.check('assess');
+      return KnowledgeAssessmentResult(
+        projectId: owner.id,
+        revision: capture.revision,
+        value: value,
+      );
+    });
+    final done = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    pending.add(done);
+    unawaited(done.then((_) => pending.remove(done)));
+    return future;
   }
 
   @override

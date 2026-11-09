@@ -111,7 +111,8 @@ final class KnowledgeSourceBytes {
   String get text => utf8.decode(bytes);
 }
 
-/// No assessment is performed in this browsing milestone. Never display PASS.
+/// Browsing does not imply assessment. Hosts must explicitly request any
+/// optional assessment; this value is never a PASS.
 final class KnowledgeValidationUnavailable {
   KnowledgeValidationUnavailable(String reason)
     : reason = knowledgeIdentifier(reason, 'reason');
