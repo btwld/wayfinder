@@ -6,7 +6,13 @@ import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/wayfinder.dart'
-    show OkfFieldEdge, OkfLinkField, bundleInventoryPaths, okfFieldEdges;
+    show
+        BundleFileKind,
+        OkfFieldEdge,
+        OkfLinkField,
+        bundleInventoryPaths,
+        classifyBundleFile,
+        okfFieldEdges;
 
 import '../chunking/documents/markdown_chunker.dart';
 import '../models/chunk.dart';
@@ -100,12 +106,13 @@ class KnowledgeSnapshot {
     final indexes = <String, String>{};
     final logs = <String, String>{};
     for (final entry in sources.entries) {
-      switch (p.posix.basename(entry.key)) {
-        case 'index.md':
+      switch (classifyBundleFile(entry.key)) {
+        case BundleFileKind.indexDocument:
           indexes[entry.key] = entry.value;
-        case 'log.md':
+        case BundleFileKind.logDocument:
           logs[entry.key] = entry.value;
-        default:
+        case BundleFileKind.concept || BundleFileKind.asset:
+          // Source-map values remain documents, including non-.md keys.
           documents[entry.key] = OkfDocument.parse(
             entry.value,
             sourcePath: entry.key,
