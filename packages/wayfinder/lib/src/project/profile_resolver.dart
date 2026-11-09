@@ -1688,24 +1688,23 @@ final class WayfinderProfileResolver {
           ? null
           : (configured, 'the configuration');
       final child = members.lastOrNull?.package.id;
-      final (resolved, package) = await _withMirror(source, session, (
-        location,
-        mirror,
-      ) async {
-        final at =
-            commit ??
-            await _checkoutLocked(
-              source,
-              location,
-              mirror,
-              session,
-              child: child,
-            );
-        return (
+      final (resolved, package) = await _withSource(
+        source,
+        session,
+        (repository, at, borrowed) async => (
           at,
-          await _readPackage(mirror, at, source, session, expected: expected),
-        );
-      });
+          await _readPackage(
+            repository,
+            at,
+            source,
+            session,
+            expected: expected,
+            borrowed: borrowed,
+          ),
+        ),
+        commit: commit,
+        child: child,
+      );
       commit = resolved;
       if (members.any((member) => member.package.id == package.id)) {
         throw WayfinderProfileResolutionException(
@@ -1797,6 +1796,219 @@ final class WayfinderProfileResolver {
     }
   }
 
+  /// Chooses a pin before Git discovery, including the locked-only guard.
+  String? _preferredCommit(
+    WayfinderProfileSource source,
+    _Session session, {
+    ProfileId? child,
+  }) {
+    final preferred =
+        session.pinned?.commitOf(source) ??
+        (session.upgrade
+            ? null
+            : session.previous?.packages.values
+                  .where(
+                    (locked) =>
+                        locked.git == source.git &&
+                        locked.requestedRef == source.ref &&
+                        locked.path == source.path,
+                  )
+                  .firstOrNull
+                  ?.commit);
+    if (preferred == null && session.lockedOnly) {
+      throw ProfileLockChangeRequiredException(
+        ProfileLockChange(
+          ProfileLockChangeKind.packageChanged,
+          'Profile lock pins no commit of ${source.git} at ${source.ref} '
+          '(${source.path}), which '
+          '${child == null ? 'a locked package' : 'Profile $child'} names as '
+          'its parent.',
+          packages: [?child],
+        ),
+      );
+    }
+    return preferred;
+  }
+
+  /// Reads one commit from a borrowed repository or a managed mirror. Only
+  /// the managed branch may clone, refresh or rewrite HEAD. Missing borrowed
+  /// objects may use an existing mirror at the exact same commit; a new clone
+  /// cannot recover history absent from its local source.
+  Future<T> _withSource<T>(
+    WayfinderProfileSource source,
+    _Session session,
+    Future<T> Function(Directory repository, String commit, bool borrowed)
+    action, {
+    String? commit,
+    ProfileId? child,
+    bool defaultBranch = false,
+  }) async {
+    var at = commit ?? _preferredCommit(source, session, child: child);
+    final borrowed = await _borrowedRepository(source, session);
+    if (borrowed != null) {
+      at ??= defaultBranch
+          ? await _headCommit(borrowed, source, session, borrowed: true)
+          : await _resolveRef(borrowed, source.ref, session, borrowed: true);
+      if (at != null &&
+          await _hasCommit(borrowed, at, session, borrowed: true)) {
+        try {
+          return await action(borrowed, at, true);
+        } on _BorrowedObjectUnavailable {
+          // Object storage can change outside Wayfinder's lock protocol.
+        }
+      }
+    }
+    return _withMirror(source, session, (location, mirror) async {
+      if (borrowed != null) {
+        // This is recovery from existing storage, never a new clone or a
+        // refresh of a source already known to lack the required objects.
+        if (await mirror.exists()) {
+          at ??= defaultBranch
+              ? await _headCommit(mirror, source, session, borrowed: true)
+              : await _resolveRef(mirror, source.ref, session, borrowed: true);
+          if (at != null &&
+              await _hasCommit(mirror, at!, session, borrowed: true)) {
+            try {
+              return await action(mirror, at!, true);
+            } on _BorrowedObjectUnavailable {
+              // Neither store can supply all objects at this commit.
+            }
+          }
+        }
+        throw WayfinderProfileResolutionException(
+          'Profile revision ${at ?? source.ref} or its objects in ${source.git} '
+          'are unavailable locally and in the cached mirror. '
+          'Make the required objects available in the source repository.',
+        );
+      }
+      final resolved = defaultBranch && at == null
+          ? await _defaultBranchLocked(source, location, mirror, session)
+          : await _checkoutLocked(
+              source,
+              location,
+              mirror,
+              session,
+              child: child,
+              commit: at,
+            );
+      return action(mirror, resolved, false);
+    });
+  }
+
+  /// Canonical common directories identify shared Git storage, including
+  /// gitfiles and linked worktrees. Keep the source worktree as the read
+  /// context: its HEAD can differ from the project's. No Git locks or files
+  /// are written here; external Git changes can make a later read fail.
+  Future<Directory?> _borrowedRepository(
+    WayfinderProfileSource source,
+    _Session session,
+  ) async {
+    final location = _gitLocation(source.git, session.projectRoot);
+    // Convert only native paths and file URLs for discovery. In particular a
+    // Windows drive or UNC path must not become a relative path on POSIX.
+    // The declared/resolved location still keys every managed mirror.
+    Directory directory;
+    if (p.isAbsolute(location)) {
+      directory = Directory(location);
+    } else {
+      final uri = Uri.tryParse(location);
+      if (uri == null || uri.scheme != 'file') return null;
+      try {
+        directory = Directory.fromUri(uri);
+      } on ArgumentError {
+        return null;
+      }
+    }
+    if (!await directory.exists()) return null;
+    Future<String?> commonDirectory(String directory) async {
+      final result = await _git(session, [
+        'rev-parse',
+        '--git-common-dir',
+      ], workingDirectory: directory);
+      if (result.exitCode != 0) return null;
+      final path = p.normalize(p.join(directory, result.text.trim()));
+      try {
+        return await Directory(path).resolveSymbolicLinks();
+      } on FileSystemException {
+        return null;
+      }
+    }
+
+    final projectCommon = await commonDirectory(session.projectRoot);
+    if (projectCommon == null) return null;
+    final sourceCommon = await commonDirectory(directory.path);
+    if (sourceCommon == null || !p.equals(projectCommon, sourceCommon)) {
+      return null;
+    }
+    final supported = await _git(
+      session,
+      ['rev-parse', '--git-dir'],
+      workingDirectory: directory.path,
+      borrowed: true,
+    );
+    if (supported.exitCode != 0) {
+      throw WayfinderProfileResolutionException(
+        'Reading a same-repository Profile requires Git with '
+        '--no-lazy-fetch, --no-replace-objects and --no-optional-locks support. '
+        '${supported.stderr.trim()}',
+      );
+    }
+    return directory;
+  }
+
+  Future<String?> _headCommit(
+    Directory repository,
+    WayfinderProfileSource source,
+    _Session session, {
+    bool borrowed = false,
+  }) async {
+    final result = await _git(
+      session,
+      ['rev-parse', '--verify', 'HEAD^{commit}'],
+      workingDirectory: repository.path,
+      borrowed: borrowed,
+    );
+    if (result.exitCode == 0) return result.text.trim();
+    if (borrowed) return null;
+    throw WayfinderProfileResolutionException(
+      'Profile source ${source.git} has no default branch to resolve. Name a ref.',
+    );
+  }
+
+  /// Resolves HEAD only on a managed mirror, under its lock.
+  Future<String> _defaultBranchLocked(
+    WayfinderProfileSource source,
+    String location,
+    Directory mirror,
+    _Session session,
+  ) async {
+    if (!await mirror.exists()) {
+      await _cloneMirror(
+        source,
+        location,
+        mirror,
+        session,
+        defaultBranch: true,
+      );
+    } else if (!session.offline) {
+      session.fetch(
+        ProfileFetchKind.refresh,
+        source,
+        location,
+        defaultBranch: true,
+      );
+      final result = await _git(session, [
+        'remote',
+        'update',
+        '--prune',
+        'origin',
+      ], workingDirectory: mirror.path);
+      _checkGit(result, 'refresh Profile source ${source.git}');
+      await _pinMirrorHead(this, session, mirror, source.git);
+    }
+    return (await _headCommit(mirror, source, session))!;
+  }
+
   /// Runs [action] on the mirror of [source]'s repository while holding the
   /// mirror's lock, so no other planner clones, refreshes or reads it
   /// meanwhile. Waits up to [mirrorLockTimeout] for another holder. Callers
@@ -1843,32 +2055,9 @@ final class WayfinderProfileResolver {
     Directory root,
     _Session session, {
     ProfileId? child,
+    String? commit,
   }) async {
-    final preferred =
-        session.pinned?.commitOf(source) ??
-        (session.upgrade
-            ? null
-            : session.previous?.packages.values
-                  .where(
-                    (locked) =>
-                        locked.git == source.git &&
-                        locked.requestedRef == source.ref &&
-                        locked.path == source.path,
-                  )
-                  .firstOrNull
-                  ?.commit);
-    if (preferred == null && session.lockedOnly) {
-      throw ProfileLockChangeRequiredException(
-        ProfileLockChange(
-          ProfileLockChangeKind.packageChanged,
-          'Profile lock pins no commit of ${source.git} at ${source.ref} '
-          '(${source.path}), which '
-          '${child == null ? 'a locked package' : 'Profile $child'} names as '
-          'its parent.',
-          packages: [?child],
-        ),
-      );
-    }
+    final preferred = commit ?? _preferredCommit(source, session, child: child);
     if (!await root.exists()) {
       await _cloneMirror(source, location, root, session);
     } else if (preferred == null &&
@@ -1951,10 +2140,11 @@ final class WayfinderProfileResolver {
     _Session session,
     List<String> arguments, {
     String? workingDirectory,
+    bool borrowed = false,
   }) {
     throwIfCancelled(session.cancel);
     return _runGit(
-      arguments,
+      [if (borrowed) ...wayfinderBorrowedGitOptions, ...arguments],
       workingDirectory: workingDirectory,
       cancel: session.cancel,
     );
@@ -1963,13 +2153,15 @@ final class WayfinderProfileResolver {
   Future<bool> _hasCommit(
     Directory repository,
     String commit,
-    _Session session,
-  ) async =>
-      (await _git(session, [
-        'cat-file',
-        '-e',
-        '$commit^{commit}',
-      ], workingDirectory: repository.path)).exitCode ==
+    _Session session, {
+    bool borrowed = false,
+  }) async =>
+      (await _git(
+        session,
+        ['cat-file', '-e', '$commit^{commit}'],
+        workingDirectory: repository.path,
+        borrowed: borrowed,
+      )).exitCode ==
       0;
 
   Future<String> _resolveRefWithFetch(
@@ -2004,18 +2196,20 @@ final class WayfinderProfileResolver {
   Future<String?> _resolveRef(
     Directory repository,
     String ref,
-    _Session session,
-  ) async {
+    _Session session, {
+    bool borrowed = false,
+  }) async {
     final candidates = _commitRef.hasMatch(ref)
         ? <String>['$ref^{commit}']
         : <String>['refs/heads/$ref^{commit}', 'refs/tags/$ref^{commit}'];
     final matches = <String>[];
     for (final candidate in candidates) {
-      final result = await _git(session, [
-        'rev-parse',
-        '--verify',
-        candidate,
-      ], workingDirectory: repository.path);
+      final result = await _git(
+        session,
+        ['rev-parse', '--verify', candidate],
+        workingDirectory: repository.path,
+        borrowed: borrowed,
+      );
       if (result.exitCode == 0) matches.add(result.text.trim());
     }
     if (matches.length == 1) return matches.single;
@@ -2067,7 +2261,8 @@ final class WayfinderProfileResolver {
       );
 
   /// Every file of [locked]'s skill directory [skill] at its locked commit,
-  /// read from the mirror the plan just resolved, under the mirror's lock.
+  /// read from the borrowed repository or managed mirror the plan resolved.
+  /// Managed mirrors are read under their lock.
   /// Only regular files at plain relative paths are installed: a symlink or
   /// submodule could point outside the skill, and git stores tree entry
   /// names such as `..` verbatim, so a crafted tree could name a path
@@ -2076,28 +2271,32 @@ final class WayfinderProfileResolver {
     LockedPackage locked,
     String skill,
     _Session session,
-  ) => _withMirror(
+  ) => _withSource(
     locked.source,
     session,
-    (_, repository) => _readSkillFiles(repository, locked, skill, session),
+    (repository, _, borrowed) =>
+        _readSkillFiles(repository, locked, skill, session, borrowed: borrowed),
+    commit: locked.commit,
   );
 
   Future<List<SkillFile>> _readSkillFiles(
     Directory repository,
     LockedPackage locked,
     String skill,
-    _Session session,
-  ) async {
+    _Session session, {
+    bool borrowed = false,
+  }) async {
     final tree = p.posix.join(locked.path, skill);
     final origin =
         'Profile ${locked.id} skill $tree at ${locked.git} (${locked.commit})';
-    final listing = await _git(session, [
-      'ls-tree',
-      '-r',
-      '-z',
-      '${locked.commit}:$tree',
-    ], workingDirectory: repository.path);
+    final listing = await _git(
+      session,
+      ['ls-tree', '-r', '-z', '${locked.commit}:$tree'],
+      workingDirectory: repository.path,
+      borrowed: borrowed,
+    );
     if (listing.exitCode != 0) {
+      if (borrowed) throw const _BorrowedObjectUnavailable();
       throw WayfinderProfileResolutionException('$origin is not a directory.');
     }
     final files = <SkillFile>[];
@@ -2123,11 +2322,15 @@ final class WayfinderProfileResolver {
           'the installed directory.',
         );
       }
-      final blob = await _git(session, [
-        'cat-file',
-        'blob',
-        object,
-      ], workingDirectory: repository.path);
+      final blob = await _git(
+        session,
+        ['cat-file', 'blob', object],
+        workingDirectory: repository.path,
+        borrowed: borrowed,
+      );
+      if (borrowed && blob.exitCode != 0) {
+        throw const _BorrowedObjectUnavailable();
+      }
       _checkGit(blob, 'read $origin/$path');
       files.add((path: path, bytes: blob.stdout, executable: mode == '100755'));
     }
@@ -2173,13 +2376,17 @@ final class WayfinderProfileResolver {
     WayfinderProfileSource source,
     _Session session, {
     (ProfileId, String)? expected,
+    bool borrowed = false,
   }) async {
     final origin = _packageOrigin(source, commit);
-    final result = await _git(session, [
-      'show',
-      '$commit:${source.path}/wayfinder-profile.json',
-    ], workingDirectory: repository.path);
+    final result = await _git(
+      session,
+      ['show', '$commit:${source.path}/wayfinder-profile.json'],
+      workingDirectory: repository.path,
+      borrowed: borrowed,
+    );
     if (result.exitCode != 0) {
+      if (borrowed) throw const _BorrowedObjectUnavailable();
       throw WayfinderProfileResolutionException(
         '$origin has no package at ${source.path}/wayfinder-profile.json.',
       );
@@ -2427,7 +2634,9 @@ Future<ProfileResolutionResult> applyCandidateResolution(
 /// as resolving it from [projectRoot] reaches it. Clones the source into the
 /// cache when it is missing and refreshes it otherwise, as [allowFetch]
 /// allows, unless [offline], which reads a cached mirror as it is and
-/// throws [ProfileFetchRequiredException] without one.
+/// throws [ProfileFetchRequiredException] without one. A same-repository local
+/// source instead reads its worktree's committed HEAD without fetching or
+/// mutating it; unavailable objects may use an existing mirror.
 Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
   WayfinderProfileResolver resolver, {
   required String projectRoot,
@@ -2445,51 +2654,12 @@ Future<({String commit, List<ProfileFetch> fetches})> resolveDefaultBranch(
     allowFetch: allowFetch,
   );
   final source = WayfinderProfileSource(git: git, ref: 'HEAD', path: '.');
-  final commit = await resolver._withMirror(source, session, (
-    location,
-    mirror,
-  ) async {
-    if (!await mirror.exists()) {
-      await resolver._cloneMirror(
-        source,
-        location,
-        mirror,
-        session,
-        defaultBranch: true,
-      );
-    } else if (!offline) {
-      session.fetch(
-        ProfileFetchKind.refresh,
-        source,
-        location,
-        defaultBranch: true,
-      );
-      final result = await resolver._git(session, [
-        'remote',
-        'update',
-        '--prune',
-        'origin',
-      ], workingDirectory: mirror.path);
-      resolver._checkGit(result, 'refresh Profile source $git');
-      // `remote update` fetches branches and prunes deleted ones. It leaves
-      // the mirror's own HEAD on the default branch from the clone, so a
-      // source that renamed that branch would pin the old commit, or fail
-      // once the old branch is gone. The refresh above already consented to
-      // this remote; reading its symbolic HEAD is part of that refresh.
-      await _pinMirrorHead(resolver, session, mirror, git);
-    }
-    final result = await resolver._git(session, [
-      'rev-parse',
-      '--verify',
-      'HEAD^{commit}',
-    ], workingDirectory: mirror.path);
-    if (result.exitCode != 0) {
-      throw WayfinderProfileResolutionException(
-        'Profile source $git has no default branch to resolve. Name a ref.',
-      );
-    }
-    return result.text.trim();
-  });
+  final commit = await resolver._withSource(
+    source,
+    session,
+    (_, commit, _) async => commit,
+    defaultBranch: true,
+  );
   return (
     commit: commit,
     fetches: List<ProfileFetch>.unmodifiable(session.fetches),
@@ -2532,7 +2702,9 @@ final class SourcePackage {
 /// result records as its ref. Clones the source into the cache when it is
 /// missing and refreshes it as the ref needs, as [allowFetch] allows,
 /// unless [offline], which reads a cached mirror as it is and throws
-/// [ProfileFetchRequiredException] without one.
+/// [ProfileFetchRequiredException] without one. Same-repository local sources
+/// read committed objects without fetching or mutating the repository, using
+/// an existing mirror only when local objects are unavailable.
 ///
 /// It reads the id the package declares and runs none of its rules; a
 /// package with no id it can read is parsed in full, so it fails as
@@ -2563,71 +2735,25 @@ resolveSourcePackage(
     ref: ref ?? 'HEAD',
     path: path,
   );
-  final package = await resolver._withMirror(requested, session, (
-    location,
-    mirror,
+  final package = await resolver._withSource(requested, session, (
+    repository,
+    commit,
+    borrowed,
   ) async {
-    final String commit;
-    if (ref != null) {
-      commit = await resolver._checkoutLocked(
-        requested,
-        location,
-        mirror,
-        session,
-      );
-    } else {
-      if (!await mirror.exists()) {
-        await resolver._cloneMirror(
-          requested,
-          location,
-          mirror,
-          session,
-          defaultBranch: true,
-        );
-      } else if (!offline) {
-        session.fetch(
-          ProfileFetchKind.refresh,
-          requested,
-          location,
-          defaultBranch: true,
-        );
-        final result = await resolver._git(session, [
-          'remote',
-          'update',
-          '--prune',
-          'origin',
-        ], workingDirectory: mirror.path);
-        resolver._checkGit(result, 'refresh Profile source $git');
-        // `remote update` fetches branches and prunes deleted ones. It leaves
-        // the mirror's own HEAD on the default branch from the clone, so a
-        // source that renamed that branch would pin the old commit, or fail
-        // once the old branch is gone. The refresh above already consented to
-        // this remote; reading its symbolic HEAD is part of that refresh.
-        await _pinMirrorHead(resolver, session, mirror, git);
-      }
-      final result = await resolver._git(session, [
-        'rev-parse',
-        '--verify',
-        'HEAD^{commit}',
-      ], workingDirectory: mirror.path);
-      if (result.exitCode != 0) {
-        throw WayfinderProfileResolutionException(
-          'Profile source $git has no default branch to resolve. Name a ref.',
-        );
-      }
-      commit = result.text.trim();
-    }
     final source = WayfinderProfileSource(
       git: git,
       ref: ref ?? commit,
       path: path,
     );
     final origin = WayfinderProfileResolver._packageOrigin(source, commit);
-    final result = await resolver._git(session, [
-      'show',
-      '$commit:$path/wayfinder-profile.json',
-    ], workingDirectory: mirror.path);
+    final result = await resolver._git(
+      session,
+      ['show', '$commit:$path/wayfinder-profile.json'],
+      workingDirectory: repository.path,
+      borrowed: borrowed,
+    );
     if (result.exitCode != 0) {
+      if (borrowed) throw const _BorrowedObjectUnavailable();
       throw WayfinderProfileResolutionException(
         '$origin has no package at $path/wayfinder-profile.json.',
       );
@@ -2641,7 +2767,7 @@ resolveSourcePackage(
           _declaredId(result.stdout) ??
           (await resolver._parsePackage(result.stdout, origin)).id,
     );
-  });
+  }, defaultBranch: ref == null);
   return (
     package: package,
     fetches: List<ProfileFetch>.unmodifiable(session.fetches),
@@ -2805,6 +2931,12 @@ final class ProfileResolutionBusyException extends WayfinderException {
 /// `wayfinder.lock` as one read found it: [lock] null when there is none or
 /// it does not parse, and [error] set when it could not be read.
 typedef _LockRead = ({ProfileLock? lock, FileSystemException? error});
+
+/// A borrowed object disappeared or was never locally available. Only this
+/// failure permits retrying object reads in an existing managed mirror.
+final class _BorrowedObjectUnavailable implements Exception {
+  const _BorrowedObjectUnavailable();
+}
 
 final class _Session {
   _Session({

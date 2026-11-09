@@ -922,23 +922,65 @@ void main() {
     skip: Platform.isWindows ? 'Windows has no executable bit' : false,
   );
 
-  test('a skill that holds a symlink fails get', () async {
-    await Link(
-      p.join(source.path, 'profile', 'skill', 'outside'),
-    ).create('../../../outside');
-    await commitSource();
+  for (final borrowed in [false, true]) {
+    test(
+      'a skill that holds a symlink fails get (borrowed: $borrowed)',
+      () async {
+        await Link(
+          p.join(source.path, 'profile', 'skill', 'outside'),
+        ).create('../../../outside');
+        await commitSource();
+        if (borrowed) {
+          await Directory(p.join(source.path, 'knowledge')).create();
+          await File(
+            p.join(project.path, 'wayfinder.json'),
+          ).copy(p.join(source.path, 'wayfinder.json'));
+          project = source;
+        }
+        await expectLater(
+          resolver.resolve(project.path),
+          throwsA(
+            isA<WayfinderProfileResolutionException>().having(
+              (error) => error.message,
+              'message',
+              'Profile acme-notes skill profile/skill at ${source.path} '
+                  '(${await commit()}) holds outside, which is not a regular file.',
+            ),
+          ),
+        );
+        expect(
+          await Directory(p.join(project.path, '.claude')).exists(),
+          isFalse,
+        );
+      },
+    );
+  }
+
+  test('a borrowed skill gitlink fails before project writes', () async {
+    final at = await commit();
+    await _git(source.path, [
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      '160000,$at,profile/skill/module',
+    ]);
+    await _git(source.path, ['commit', '-q', '-m', 'Skill gitlink']);
+    await Directory(p.join(source.path, 'knowledge')).create();
+    await File(
+      p.join(project.path, 'wayfinder.json'),
+    ).copy(p.join(source.path, 'wayfinder.json'));
     await expectLater(
-      resolver.resolve(project.path),
+      resolver.resolve(source.path),
       throwsA(
         isA<WayfinderProfileResolutionException>().having(
           (error) => error.message,
           'message',
-          'Profile acme-notes skill profile/skill at ${source.path} '
-              '(${await commit()}) holds outside, which is not a regular file.',
+          contains('module, which is not a regular file'),
         ),
       ),
     );
-    expect(await Directory(p.join(project.path, '.claude')).exists(), isFalse);
+    expect(await File(p.join(source.path, 'wayfinder.lock')).exists(), isFalse);
+    expect(await Directory(p.join(source.path, '.claude')).exists(), isFalse);
   });
 
   test('a crafted tree entry outside the skill fails get and writes '
