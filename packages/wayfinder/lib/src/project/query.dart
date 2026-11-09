@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../bundle_file_kind.dart';
 import 'cancellation.dart';
 import 'exception.dart';
 import 'metadata_filter.dart';
@@ -417,7 +418,11 @@ Future<String> _fingerprint(String root, WayfinderCancellation? cancel) async {
     if (entry is Link) {
       values.add([entry.path, 'link', await entry.target()]);
     }
-    if (entry is File && entry.path.endsWith('.md')) {
+    if (entry is File &&
+        classifyBundleFile(
+              p.posix.joinAll(p.split(p.relative(entry.path, from: root))),
+            ) !=
+            BundleFileKind.asset) {
       values.add([
         entry.path,
         sha256.convert(await entry.readAsBytes()).toString(),

@@ -1,6 +1,7 @@
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../bundle_file_kind.dart';
 import '../field_edges.dart';
 import '../finding_helpers.dart';
 import 'body.dart';
@@ -181,7 +182,7 @@ final class BundleFacts {
           {
             'path': path,
             'name': p.posix.basename(path),
-            'markdown': path.endsWith('.md'),
+            'markdown': classifyBundleFile(path) != BundleFileKind.asset,
           },
           {'self': path},
         ),
