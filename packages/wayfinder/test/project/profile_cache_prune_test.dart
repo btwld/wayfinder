@@ -7,6 +7,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
+import 'package:wayfinder/src/project/profile_cache.dart'
+    show ProfileMirrorCache;
 import 'package:wayfinder/wayfinder.dart' show SelectedProfile;
 
 import 'support.dart';
@@ -150,9 +152,9 @@ void main() {
   });
 
   for (final operation in ['record', 'forget']) {
-    for (final cloneFails in [false, true]) {
-      test('$operation staging metadata failure preserves clone '
-          '${cloneFails ? 'exception' : 'success'}', () async {
+    test(
+      '$operation staging metadata failure preserves clone exception',
+      () async {
         final overrides = _FailingStagingMetadata()
           ..fail = operation == 'record';
         final failure = StateError('clone failed');
@@ -163,7 +165,7 @@ void main() {
             if (arguments.first == 'clone') {
               cloned = true;
               overrides.fail = true;
-              if (cloneFails) throw failure;
+              throw failure;
             }
             return runGit(
               arguments,
@@ -172,20 +174,34 @@ void main() {
             );
           },
         );
-        await IOOverrides.runWithIOOverrides(() async {
-          if (cloneFails) {
-            await expectLater(
-              cloning.resolve(project.path),
-              throwsA(same(failure)),
-            );
-          } else {
-            expect((await cloning.resolve(project.path)).packages, isNotEmpty);
-          }
-        }, overrides);
+        await IOOverrides.runWithIOOverrides(
+          () => expectLater(
+            cloning.resolve(project.path),
+            throwsA(same(failure)),
+          ),
+          overrides,
+        );
         expect(cloned, isTrue);
         expect(overrides.failures, greaterThan(0));
-      });
-    }
+      },
+    );
+
+    // Calls the cache directly: a whole resolution inside IOOverrides stalls
+    // package parsing on Dart 3.11.
+    test('$operation staging metadata failure completes normally', () async {
+      final cache = ProfileMirrorCache(data, runGit);
+      final staging = Directory(
+        p.join(data.path, 'profiles', '${'0' * 64}.tmp-1-2'),
+      );
+      final overrides = _FailingStagingMetadata()..fail = true;
+      await IOOverrides.runWithIOOverrides(
+        () => operation == 'record'
+            ? cache.recordTemporary(staging)
+            : cache.forgetTemporary(staging),
+        overrides,
+      );
+      expect(overrides.failures, greaterThan(0));
+    });
   }
 
   test('missing local sources make mirrors eligible', () async {
