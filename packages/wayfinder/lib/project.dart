@@ -8,6 +8,12 @@
 /// directory, and `wayfinder.json` when a host's relock edits it. A host
 /// keeps all okf bundle I/O of one process on one isolate, because okf's
 /// bundle lock does not exclude isolates (ADR-0018).
+/// Read-only browsing uses [LocalKnowledgeProject.open], a bounded filesystem
+/// loader with independently leased snapshots. It resolves no Profiles, runs
+/// no Git and writes no source or coordination files. [buildOkfBundle] converts
+/// retained bytes without reloading them. Import `knowledge.dart` separately
+/// for portable values and lifecycle interfaces.
+///
 /// The resolver parses each Profile package on a short-lived isolate of its
 /// own, so a package whose rule tests stall fails rather than hangs.
 ///
@@ -71,6 +77,9 @@ export 'src/project/graph.dart'
         wayfinderGraphResolutions,
         wayfinderLinkFields;
 export 'src/project/graph_input.dart' show wayfinderGraphInput;
+// Read-only filesystem acquisition is separate from resolution/writing operations.
+export 'src/project/knowledge/local_loader.dart' show LocalKnowledgeProject;
+export 'src/project/knowledge/retained_bundle.dart' show buildOkfBundle;
 export 'src/project/metadata_filter.dart' show KnowledgeMetadataFilter;
 export 'src/project/profile_resolver.dart'
     show
