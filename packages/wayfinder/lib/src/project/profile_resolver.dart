@@ -521,8 +521,10 @@ final class WayfinderProfileResolver {
   final Directory dataDirectory;
   final GitRunner _runGit;
 
-  ProfileMirrorCache get _mirrorCache =>
-      ProfileMirrorCache(dataDirectory, _runGit);
+  late final ProfileMirrorCache _mirrorCache = ProfileMirrorCache(
+    dataDirectory,
+    _runGit,
+  );
 
   /// How long reading one Profile package, its rules' tests included, may
   /// run before it fails with `profile-timeout`.
@@ -1544,6 +1546,8 @@ final class WayfinderProfileResolver {
 
   /// Collects managed Profile mirrors whose local source is demonstrably
   /// missing or which have gone unused for [unusedFor] (30 days by default).
+  /// Only a readable immediate parent listing establishes a missing source;
+  /// a missing parent may be on an unmounted volume.
   /// Legacy mirrors without usage metadata start an observation period,
   /// unless their local origin is already missing. Lookup failures preserve
   /// the entry and appear in the result's errors.
@@ -1847,13 +1851,11 @@ final class WayfinderProfileResolver {
       );
     }
     try {
-      return await action(location, root);
+      final result = await action(location, root);
+      await _mirrorCache.recordUse(root, location);
+      return result;
     } finally {
-      try {
-        await _mirrorCache.recordUse(root, location);
-      } finally {
-        await lock.release();
-      }
+      await lock.release();
     }
   }
 

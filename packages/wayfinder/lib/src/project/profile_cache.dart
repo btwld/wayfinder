@@ -79,13 +79,16 @@ final class ProfileMirrorCache {
           FileSystemEntityType.directory) {
         return;
       }
+      final record = await _read(_metadata(mirror));
       await _write(_metadata(mirror), {
         'version': 1,
         'location': location,
         'last_used': DateTime.now().toUtc().toIso8601String(),
+        if (record != null && record.containsKey('deleting'))
+          'deleting': record['deleting'],
       });
     } on Object {
-      // Bookkeeping must not fail a mirror read or replace its exception.
+      return;
     }
   }
 
@@ -103,7 +106,7 @@ final class ProfileMirrorCache {
         ).toIso8601String(),
       });
     } on Object {
-      // A clone can proceed without staging ownership evidence.
+      return;
     }
   }
 
@@ -112,7 +115,7 @@ final class ProfileMirrorCache {
       final file = _metadata(temporary);
       if (await file.exists()) await file.delete();
     } on Object {
-      // Metadata cleanup must preserve the clone's outcome and exception.
+      return;
     }
   }
 
@@ -325,8 +328,8 @@ final class ProfileMirrorCache {
   }
 
   /// exists/type can return false/notFound for permission errors too. Only
-  /// a successful parent listing proves absence. Recurse if an ancestor is
-  /// gone; access errors propagate rather than turning into deletion evidence.
+  /// a successful immediate-parent listing proves absence. A missing parent
+  /// may be on an unmounted volume; access errors propagate.
   static Future<bool> _demonstrablyMissing(String path) async {
     path = p.normalize(path);
     if (await FileSystemEntity.type(path, followLinks: false) !=
@@ -341,7 +344,7 @@ final class ProfileMirrorCache {
       }
       return true;
     } on PathNotFoundException {
-      return _demonstrablyMissing(parent);
+      return false;
     }
   }
 

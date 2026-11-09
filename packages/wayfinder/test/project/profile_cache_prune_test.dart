@@ -81,6 +81,57 @@ void main() {
     await expectLater(failing.plan(project.path), throwsA(same(failure)));
   });
 
+  test(
+    'a failed mirror read preserves deletion evidence and last use',
+    () async {
+      await resolver.resolve(project.path);
+      await age(mirror());
+      final record = jsonDecode(await metadata(mirror()).readAsString()) as Map;
+      record['deleting'] = 'unused';
+      await metadata(mirror()).writeAsString(jsonEncode(record));
+      final before = await metadata(mirror()).readAsString();
+      await File(p.join(mirror().path, 'config')).delete();
+      final failure = StateError('package read failed');
+      final failing = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: (arguments, {workingDirectory, cancel}) async {
+          if (arguments.first == 'show') throw failure;
+          return runGit(
+            arguments,
+            workingDirectory: workingDirectory,
+            cancel: cancel,
+          );
+        },
+      );
+      await expectLater(failing.plan(project.path), throwsA(same(failure)));
+      expect(await metadata(mirror()).readAsString(), before);
+      expect(
+        (await resolver.pruneMirrors()).removed.single.path,
+        mirror().path,
+      );
+    },
+  );
+
+  test(
+    'a successful mirror read preserves an existing deletion marker',
+    () async {
+      await resolver.resolve(project.path);
+      await age(mirror());
+      final record = jsonDecode(await metadata(mirror()).readAsString()) as Map;
+      record['deleting'] = 'unused';
+      await metadata(mirror()).writeAsString(jsonEncode(record));
+      await resolver.plan(project.path);
+      final updated =
+          jsonDecode(await metadata(mirror()).readAsString()) as Map;
+      expect(updated['last_used'], isNot(record['last_used']));
+      expect(updated['deleting'], 'unused');
+      expect(
+        (await resolver.pruneMirrors()).removed.single.path,
+        mirror().path,
+      );
+    },
+  );
+
   test('restoration succeeds when usage metadata is unwritable', () async {
     await resolver.resolve(project.path);
     await metadata(mirror()).delete();
@@ -202,9 +253,24 @@ void main() {
   });
 
   test('a legacy missing source is eligible without a grace period', () async {
-    final root = await legacy(p.join(temp.path, 'removed', 'source'));
+    final root = await legacy(p.join(temp.path, 'removed-source'));
     expect((await resolver.pruneMirrors()).removed.single.path, root.path);
   });
+
+  test(
+    'a missing source parent leaves the mirror to the unused rule',
+    () async {
+      final root = await legacy(p.join(temp.path, 'unmounted', 'source'));
+      final first = await resolver.pruneMirrors();
+      expect(first.candidates, isEmpty);
+      expect(first.errors, isEmpty);
+      expect(await root.exists(), isTrue);
+      await age(root);
+      final second = await resolver.pruneMirrors();
+      expect(second.removed.single.path, root.path);
+      expect(second.removed.single.reason, ProfileMirrorPruneReason.unused);
+    },
+  );
 
   test(
     'a removed source worktree is eligible while its repository survives',
