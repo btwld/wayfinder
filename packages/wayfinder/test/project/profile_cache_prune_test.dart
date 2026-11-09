@@ -50,6 +50,93 @@ void main() {
     return root;
   }
 
+  test('resolution succeeds when usage metadata is unwritable', () async {
+    await Directory(metadata(mirror()).path).create(recursive: true);
+    final result = await resolver.resolve(project.path);
+    expect(result.packages, isNotEmpty);
+    expect(
+      await resolver.select(p.join(project.path, 'knowledge')),
+      isA<SelectedProfile>(),
+    );
+    // Explicit pruning still reports the metadata error.
+    expect((await resolver.pruneMirrors()).errors, hasLength(1));
+  });
+
+  test('usage metadata failure preserves the action exception', () async {
+    await resolver.resolve(project.path);
+    await metadata(mirror()).delete();
+    await Directory(metadata(mirror()).path).create();
+    final failure = StateError('package read failed');
+    final failing = WayfinderProfileResolver(
+      dataDirectory: data,
+      git: (arguments, {workingDirectory, cancel}) async {
+        if (arguments.first == 'show') throw failure;
+        return runGit(
+          arguments,
+          workingDirectory: workingDirectory,
+          cancel: cancel,
+        );
+      },
+    );
+    await expectLater(failing.plan(project.path), throwsA(same(failure)));
+  });
+
+  test('restoration succeeds when usage metadata is unwritable', () async {
+    await resolver.resolve(project.path);
+    await metadata(mirror()).delete();
+    await Directory(metadata(mirror()).path).create();
+    await Directory(
+      p.join(data.path, 'profiles', 'packages'),
+    ).delete(recursive: true);
+    expect(
+      await resolver.restoreCachedPackages(p.join(project.path, 'knowledge')),
+      1,
+    );
+    expect(
+      await resolver.select(p.join(project.path, 'knowledge')),
+      isA<SelectedProfile>(),
+    );
+  });
+
+  for (final operation in ['record', 'forget']) {
+    for (final cloneFails in [false, true]) {
+      test('$operation staging metadata failure preserves clone '
+          '${cloneFails ? 'exception' : 'success'}', () async {
+        final overrides = _FailingStagingMetadata()
+          ..fail = operation == 'record';
+        final failure = StateError('clone failed');
+        var cloned = false;
+        final cloning = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: (arguments, {workingDirectory, cancel}) async {
+            if (arguments.first == 'clone') {
+              cloned = true;
+              overrides.fail = true;
+              if (cloneFails) throw failure;
+            }
+            return runGit(
+              arguments,
+              workingDirectory: workingDirectory,
+              cancel: cancel,
+            );
+          },
+        );
+        await IOOverrides.runWithIOOverrides(() async {
+          if (cloneFails) {
+            await expectLater(
+              cloning.resolve(project.path),
+              throwsA(same(failure)),
+            );
+          } else {
+            expect((await cloning.resolve(project.path)).packages, isNotEmpty);
+          }
+        }, overrides);
+        expect(cloned, isTrue);
+        expect(overrides.failures, greaterThan(0));
+      });
+    }
+  }
+
   test('missing local sources make mirrors eligible', () async {
     await resolver.resolve(project.path);
     await source.delete(recursive: true);
@@ -470,6 +557,20 @@ void main() {
     }
     expect(await mirror().exists(), isFalse);
   });
+}
+
+final class _FailingStagingMetadata extends IOOverrides {
+  bool fail = false;
+  int failures = 0;
+
+  @override
+  File createFile(String path) {
+    if (fail && RegExp(r'\.tmp-\d+-\d+\.metadata\.json$').hasMatch(path)) {
+      failures++;
+      throw FileSystemException('Staging metadata is unwritable', path);
+    }
+    return super.createFile(path);
+  }
 }
 
 Future<Map<String, DateTime>> _modifiedTimes(Directory root) async => {

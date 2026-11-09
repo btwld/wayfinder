@@ -74,34 +74,46 @@ final class ProfileMirrorCache {
       File('${directory.path}.metadata.json');
 
   Future<void> recordUse(Directory mirror, String location) async {
-    if (await FileSystemEntity.type(mirror.path, followLinks: false) !=
-        FileSystemEntityType.directory) {
-      return;
+    try {
+      if (await FileSystemEntity.type(mirror.path, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        return;
+      }
+      await _write(_metadata(mirror), {
+        'version': 1,
+        'location': location,
+        'last_used': DateTime.now().toUtc().toIso8601String(),
+      });
+    } on Object {
+      // Bookkeeping must not fail a mirror read or replace its exception.
     }
-    await _write(_metadata(mirror), {
-      'version': 1,
-      'location': location,
-      'last_used': DateTime.now().toUtc().toIso8601String(),
-    });
   }
 
   /// Called before clone under the destination mirror's lock. Old staging
   /// names alone do not prove ownership and are deliberately left alone.
   Future<void> recordTemporary(Directory temporary) async {
-    final match = _temporaryName.firstMatch(p.basename(temporary.path))!;
-    await _write(_metadata(temporary), {
-      'version': 1,
-      'mirror': match[1],
-      'created_at': DateTime.fromMicrosecondsSinceEpoch(
-        int.parse(match[2]!),
-        isUtc: true,
-      ).toIso8601String(),
-    });
+    try {
+      final match = _temporaryName.firstMatch(p.basename(temporary.path))!;
+      await _write(_metadata(temporary), {
+        'version': 1,
+        'mirror': match[1],
+        'created_at': DateTime.fromMicrosecondsSinceEpoch(
+          int.parse(match[2]!),
+          isUtc: true,
+        ).toIso8601String(),
+      });
+    } on Object {
+      // A clone can proceed without staging ownership evidence.
+    }
   }
 
   Future<void> forgetTemporary(Directory temporary) async {
-    final file = _metadata(temporary);
-    if (await file.exists()) await file.delete();
+    try {
+      final file = _metadata(temporary);
+      if (await file.exists()) await file.delete();
+    } on Object {
+      // Metadata cleanup must preserve the clone's outcome and exception.
+    }
   }
 
   Future<ProfileMirrorPruneResult> prune({

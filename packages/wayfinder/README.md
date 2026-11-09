@@ -88,6 +88,9 @@ Future<void> main() async {
   sibling mirror lock; package-only selection does not. Legacy mirrors read
   their origin locally and start a new observation period unless that local
   source is already missing. Lookup failures preserve the entry.
+  Usage and clone staging metadata are best-effort: bookkeeping failures
+  preserve resolution, restoration and cloning outcomes and exceptions.
+  Pruning still reports metadata errors.
   `dryRun: true` reports eligibility without creating locks or metadata,
   deleting files or changing modification times. Collection takes each
   mirror's lock without waiting for a holder and checks eligibility under

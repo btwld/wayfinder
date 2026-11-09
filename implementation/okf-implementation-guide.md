@@ -507,6 +507,9 @@ Hosts may explicitly collect managed mirrors with the resolver's
 source, under each mirror's lock. Collection preserves package snapshots
 used by read-only selection; reinstalling skills from an evicted mirror
 may require fetching again. A dry run only reports eligible entries.
+Usage and staging metadata are best-effort: bookkeeping failures preserve
+resolution, restoration and cloning outcomes and exceptions. Explicit
+collection still reports metadata errors.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -922,6 +925,8 @@ Affected section: §4.4 (local Profile cache lifecycle). Driver: #181's
 abandoned mirrors from removed worktrees and checkouts. The library records
 mirror use under sibling locks and exposes dry-run collection, with a
 conservative legacy observation period and retryable partial deletion.
+Usage and staging bookkeeping failures preserve resolution, restoration
+and cloning outcomes and exceptions; collection still reports metadata errors.
 Package snapshots survive, preserving offline selection and planned package
 digests. Implementations may expose the API; evicted mirrors may require a
 later fetch for skill installation. No package, lock, schema or OKF migration;
