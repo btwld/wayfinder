@@ -104,6 +104,11 @@ directory:
    directory it applies to. Run `wayfinder get`. It
    parses the package, runs every rule's `tests`, and installs the skill.
    Check that `.claude/skills/<id>/SKILL.md` exists.
+   For a self-hosting project, `"git": "."` reads committed package and skill
+   objects directly from its repository. Commit edits before the first `get`;
+   use `upgrade` to move an existing pin of a mutable ref.
+   See [source resolution](../../docs/wayfinder-configuration.md) for Git
+   capabilities and missing-object behavior.
 3. Write a small valid sample bundle that uses the Profile's vocabulary. Run
    `wayfinder validate <bundle> --fix`, then `wayfinder validate <bundle>`.
    The gate must be `PASS`.

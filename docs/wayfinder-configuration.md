@@ -58,6 +58,20 @@ For a local Git source, a relative `source.git` path is resolved from the
 directory containing `wayfinder.json`, not the caller's working directory.
 The lock retains the declared spelling; the local cache keys the resolved
 location. Drive-relative paths such as `C:profile` are not supported.
+
+When the local source shares the project's canonical Git common directory
+(including `"git": "."` and linked worktrees), resolution reads the package
+and skill objects at one commit directly from that source. Uncommitted edits
+are ignored. The source repository is never fetched into or changed, and
+these reads need no fetch consent and create no mirror. Git must support
+`--no-lazy-fetch`, `--no-replace-objects` and `--no-optional-locks`; Wayfinder
+probes those [Git controls](https://git-scm.com/docs/git) before reading
+objects. Missing objects, including shallow history, can use an existing
+mirror; if neither store supplies them, resolution fails and leaves the
+lock intact. Other repositories keep their existing mirror
+and fetch-consent behavior. Package snapshots still support offline
+validation; `status` reports `hasMirror: false` when no mirror exists.
+
 Passwordless SSH URLs such as `ssh://git@github.com/org/repo.git` and Git's
 SCP-style `git@github.com:org/repo.git` are supported. Do not put credentials
 in the source URL. Wayfinder runs Git without prompts or hooks, ignores

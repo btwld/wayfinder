@@ -167,3 +167,18 @@ Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyz
 Date: 2026-11-07.
 
 Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.
+
+## Borrow committed same-repository Profile objects
+
+Date: 2026-11-09.
+
+Issue #181 showed a mirror accumulating for each self-hosting checkout, so
+resolve local sources with the same canonical Git common directory through
+read-only object commands in the source worktree's context, after choosing
+any locked commit. Probe support for `--no-lazy-fetch`, `--no-replace-objects`
+and `--no-optional-locks` before borrowing; missing objects can use an existing
+managed mirror, otherwise resolution fails without applying project writes.
+Keep mirror keys, fetch consent, package snapshots and Git-free status and
+selection unchanged; the cost is extra discovery calls and a Git capability
+requirement for borrowed reads, with external Git changes allowed to fail a
+plan before application.

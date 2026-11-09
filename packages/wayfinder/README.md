@@ -70,10 +70,15 @@ Future<void> main() async {
 - `WayfinderProfileResolver` resolves Git Profile sources. `plan` may fetch
   into the cache but writes nothing in the project; `apply` writes the lock and
   Profile skills, and refuses a plan whose configuration, lock or cache changed
-  since; `resolve` is both. `select` reads the lock and the cache for
-  validation and never runs Git. `validateWithProfileSources` selects and
-  validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
-  package files out of the cached mirrors with `restoreCachedPackages`,
+  since; `resolve` is both. A local source sharing the project's canonical
+  Git common directory is borrowed for committed package and skill reads,
+  with lazy fetching, replacement objects and optional locks disabled. These
+  reads create no mirror, report no fetch and leave source Git storage alone;
+  missing objects may use an existing mirror, otherwise resolution fails.
+  Git's support for those controls is probed before borrowing. `select` reads
+  the lock and the cache for validation and never runs Git.
+  `validateWithProfileSources` selects and validates; on a cache Wayfinder 0.2
+  wrote, it first copies the missing package files out of the cached mirrors with `restoreCachedPackages`,
   without fetching.
   `pruneProjectLocks` deletes the `get` locks of project roots that no longer
   exist once they have gone unused for its period (30 days by default),
@@ -88,9 +93,10 @@ Future<void> main() async {
   names:
   - `copies`, one `ProfileLocalCopy` per chain member: its source's
     `location` and whether its mirror (`hasMirror`) and package file
-    (`hasPackage`) are in the Profile cache. A locked-only plan contacts a
-    source only to clone a missing mirror, or to refresh one that lacks the
-    locked commit;
+    (`hasPackage`) are in the Profile cache. `hasMirror` still reports only
+    an actual cached mirror. A locked-only plan first tries the local
+    repository when it shares the project's Git common directory; managed sources
+    fetch only to clone a missing mirror or recover the locked commit;
   - `skillDirectories`, each `.claude/skills/<id>` and `.agents/skills/<id>`
     a resolved chain's skills install into, with a
     `ProfileSkillDirectoryState`: `current`, `missing`, `stale` (Wayfinder's
@@ -106,9 +112,9 @@ Future<void> main() async {
     refuse before running Git, a lock entry no chain reaches included.
 - `plan(root, lockedOnly: true)` resolves exactly the commits
   `wayfinder.lock` pins and leaves the lock as written: it fetches a source
-  only when its mirror lacks the locked commit and never re-resolves a ref,
-  so the lock's commits stay as written. A lock that would change, because
-  it is missing or stale or does not hold each binding's chain, fails with
+  only when managed storage lacks the locked commit and never re-resolves
+  a ref, so the lock's commits stay as written. A lock that would change,
+  because it is missing or stale or does not hold each binding's chain, fails with
   `lock-change-required` before any Git command, and the
   `ProfileLockChangeRequiredException` carries that `ProfileLockChange`.
   Apply the plan to reinstall the locked Profile skills.
@@ -194,9 +200,10 @@ Future<void> main() async {
   `maxOutputBytes` (64 MiB), or fails; it never returns part of it. It starts
   Git through `start`, a `GitProcessStarter`: a host whose process layer must
   start every process passes its own and keeps the rest of the hardening. A
-  host's own `GitRunner` applies `wayfinderGitOptions`,
-  `wayfinderGitEnvironment` and `wayfinderConfiguredSshCommand`, with
-  `gitMayReachRemote` and `wayfinderSshCommand` for the rules they follow,
+  host's own `GitRunner` preserves every argument, including
+  `wayfinderBorrowedGitOptions` on borrowed reads, and applies
+  `wayfinderGitOptions`, `wayfinderGitEnvironment` and
+  `wayfinderConfiguredSshCommand`, with `gitMayReachRemote` and `wayfinderSshCommand` for the rules they follow,
   and on cancellation throws `WayfinderException.cancelled()`;
   `throwIfCancelled` checks between steps.
 - Failures are `WayfinderException`s with a stable `code` and a message
