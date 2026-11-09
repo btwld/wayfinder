@@ -79,30 +79,14 @@ Future<void> main() async {
   exist once they have gone unused for its period (30 days by default),
   reading a lock's note only while the lock is free;
   `WayfinderKnowledgeStore.prune` calls it.
-- `pruneMirrors(unusedFor: const Duration(days: 30), dryRun: false)` is a
-  library-only cleanup operation. It returns a `ProfileMirrorPruneResult`
-  with eligible `candidates`, successfully `removed` directories, `busy`
-  paths and per-entry `errors`. A mirror is eligible when its local source
-  is demonstrably missing or its last recorded use is at least `unusedFor`
-  old. Planning, skill reads and package restoration record use under the
-  sibling mirror lock; package-only selection does not. Legacy mirrors read
-  their origin locally and start a new observation period unless that local
-  source is already missing. Lookup failures preserve the entry.
-  Usage and clone staging metadata are best-effort: bookkeeping failures
-  preserve resolution, restoration and cloning outcomes and exceptions.
-  Pruning still reports metadata errors.
-  `dryRun: true` reports eligibility without creating locks or metadata,
-  deleting files or changing modification times. Collection takes each
-  mirror's lock without waiting for a holder and checks eligibility under
-  it. Package snapshots in `profiles/packages` always survive, so ordinary
-  offline validation still works; reinstalling skills after eviction may
-  require fetching. Cache-entry symlinks are never followed. Old clone
-  staging directories are collected only with matching Wayfinder ownership
-  metadata and a free governing mirror lock; unknown staging layouts stay.
-  Version 1 usage and staging metadata live in sibling `*.metadata.json`
-  files. A deletion record survives a partial deletion for a later retry,
-  and sibling lock files stay in place for planners that already opened
-  them. Results count directories, without estimating physical space freed.
+- `pruneMirrors(unusedFor: const Duration(days: 30), dryRun: false)` cleans
+  mirrors whose local source is demonstrably missing or whose last use is at
+  least `unusedFor` old, plus owned abandoned clone staging directories.
+  It skips held locks and returns candidates, removals, busy paths and errors.
+  Legacy mirrors get an observation grace period; bookkeeping is best-effort.
+  `dryRun: true` writes nothing. Package snapshots, symlinks and unknown staging
+  directories survive; lookup failures preserve entries. Reinstalling skills
+  after eviction may require fetching.
 - `status(root)` says, offline and without Git, where each binding's Profile
   stands as `select` would find it: a `ProfileBindingState` (`resolved`,
   `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,

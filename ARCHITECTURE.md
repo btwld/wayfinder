@@ -90,9 +90,9 @@ Package parsing normally has a ten-second isolate bound but falls back to unboun
 
 Date: 2026-11-09.
 
-Record actual mirror use and collect missing local sources or sufficiently unused mirrors under their existing sibling locks, because removed worktrees leave location-keyed mirrors behind (#181).
-Legacy mirrors start a conservative observation period, dry runs write nothing, and package snapshots remain available for offline validation; reinstalling skills after eviction may require a fetch.
-Keep metadata outside the mirror for partial-deletion retries and collect clone staging directories only with matching ownership metadata, at the cost of retained lock files and unrecognized legacy staging directories; usage and staging bookkeeping is best-effort so its failures preserve operation outcomes and exceptions, while pruning reports metadata errors.
+Record successful mirror use and collect mirrors of missing local sources or sufficiently unused mirrors under sibling locks, because removed worktrees leave them behind (#181).
+Legacy mirrors get an observation period, dry runs write nothing, and package snapshots survive; reinstalling skills after eviction may require a fetch.
+Keep metadata outside mirrors for partial-deletion retries and require ownership evidence for staging cleanup, retaining lock files and unknown staging directories.
 
 ## Safe writes with a delta gate (ADR-0019, ADR-0024, ADR-0025)
 

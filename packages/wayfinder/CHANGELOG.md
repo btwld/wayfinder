@@ -1,14 +1,9 @@
 # 0.5.0-beta.2 (unreleased)
 
-- Add the library-only `WayfinderProfileResolver.pruneMirrors` API with a
-  dry run and structured candidate, removed, busy and error results. Record
-  mirror use during resolution and package restoration; collect missing
-  local sources, unused mirrors and owned abandoned clone staging directories
-  under mirror locks. Legacy mirrors get an observation grace period, and
-  package snapshots remain available for offline validation. Evicted mirrors
-  may need fetching again to reinstall skills. Usage and staging metadata
-  are best-effort and preserve operation outcomes and exceptions. No CLI
-  command is added.
+- Add library-only `WayfinderProfileResolver.pruneMirrors` with dry-run results
+  for missing local sources, unused mirrors and owned abandoned clone staging.
+  Preserve package snapshots; evicted mirrors may need fetching for skills.
+  Usage and staging bookkeeping is best-effort.
 
 # 0.5.0-beta.1
 

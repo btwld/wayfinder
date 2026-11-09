@@ -504,12 +504,10 @@ credentials, vocabulary or rules. The local Git cache holds fetched
 objects.
 Hosts may explicitly collect managed mirrors with the resolver's
 `pruneMirrors` API, using recorded usage or a demonstrably missing local
-source, under each mirror's lock. Collection preserves package snapshots
-used by read-only selection; reinstalling skills from an evicted mirror
+source whose immediate parent can be listed, under each mirror's lock.
+Collection preserves package snapshots used by read-only selection;
+reinstalling skills from an evicted mirror
 may require fetching again. A dry run only reports eligible entries.
-Usage and staging metadata are best-effort: bookkeeping failures preserve
-resolution, restoration and cloning outcomes and exceptions. Explicit
-collection still reports metadata errors.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -921,16 +919,11 @@ additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
 **Explicit Profile mirror collection, 2026-11-09.**
-Affected section: §4.4 (local Profile cache lifecycle). Driver: #181's
-abandoned mirrors from removed worktrees and checkouts. The library records
-mirror use under sibling locks and exposes dry-run collection, with a
-conservative legacy observation period and retryable partial deletion.
-Usage and staging bookkeeping failures preserve resolution, restoration
-and cloning outcomes and exceptions; collection still reports metadata errors.
-Package snapshots survive, preserving offline selection and planned package
-digests. Implementations may expose the API; evicted mirrors may require a
-later fetch for skill installation. No package, lock, schema or OKF migration;
-CLI exposure and automatic maintenance are separate work.
+In §4.4, add explicit mirror collection for #181's abandoned worktrees and
+checkouts. Collection uses sibling locks, preserves package snapshots and
+gives legacy mirrors an observation grace period. Implementations need no
+package, lock, schema or OKF migration; evicted mirrors may need fetching to
+reinstall skills.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number
