@@ -73,51 +73,48 @@ final class ProfileMirrorCache {
   static File _metadata(Directory directory) =>
       File('${directory.path}.metadata.json');
 
-  Future<void> recordUse(Directory mirror, String location) async {
+  /// Usage and staging metadata never change the outcome or the exception of
+  /// the operation they describe.
+  static Future<void> _bestEffort(Future<void> Function() update) async {
     try {
-      if (await FileSystemEntity.type(mirror.path, followLinks: false) !=
-          FileSystemEntityType.directory) {
-        return;
-      }
-      final record = await _read(_metadata(mirror));
-      await _write(_metadata(mirror), {
-        'version': 1,
-        'location': location,
-        'last_used': DateTime.now().toUtc().toIso8601String(),
-        if (record != null && record.containsKey('deleting'))
-          'deleting': record['deleting'],
-      });
-    } on Object {
-      return;
-    }
+      await update();
+    } on Object catch (_) {}
   }
+
+  Future<void> recordUse(Directory mirror, String location) =>
+      _bestEffort(() async {
+        if (await FileSystemEntity.type(mirror.path, followLinks: false) !=
+            FileSystemEntityType.directory) {
+          return;
+        }
+        final record = await _read(_metadata(mirror));
+        await _write(_metadata(mirror), {
+          'version': 1,
+          'location': location,
+          'last_used': DateTime.now().toUtc().toIso8601String(),
+          if (record != null && record.containsKey('deleting'))
+            'deleting': record['deleting'],
+        });
+      });
 
   /// Called before clone under the destination mirror's lock. Old staging
   /// names alone do not prove ownership and are deliberately left alone.
-  Future<void> recordTemporary(Directory temporary) async {
-    try {
-      final match = _temporaryName.firstMatch(p.basename(temporary.path))!;
-      await _write(_metadata(temporary), {
-        'version': 1,
-        'mirror': match[1],
-        'created_at': DateTime.fromMicrosecondsSinceEpoch(
-          int.parse(match[2]!),
-          isUtc: true,
-        ).toIso8601String(),
-      });
-    } on Object {
-      return;
-    }
-  }
+  Future<void> recordTemporary(Directory temporary) => _bestEffort(() async {
+    final match = _temporaryName.firstMatch(p.basename(temporary.path))!;
+    await _write(_metadata(temporary), {
+      'version': 1,
+      'mirror': match[1],
+      'created_at': DateTime.fromMicrosecondsSinceEpoch(
+        int.parse(match[2]!),
+        isUtc: true,
+      ).toIso8601String(),
+    });
+  });
 
-  Future<void> forgetTemporary(Directory temporary) async {
-    try {
-      final file = _metadata(temporary);
-      if (await file.exists()) await file.delete();
-    } on Object {
-      return;
-    }
-  }
+  Future<void> forgetTemporary(Directory temporary) => _bestEffort(() async {
+    final file = _metadata(temporary);
+    if (await file.exists()) await file.delete();
+  });
 
   Future<ProfileMirrorPruneResult> prune({
     required Duration unusedFor,
