@@ -293,7 +293,10 @@ void main() {
       expect(result.gate, GateState.pass);
       final next = await project.refresh();
       expect(next.externalPathObservations['docs'], {'../outside.txt': false});
-      expect(next.manifestFingerprint, snapshot.manifestFingerprint);
+      expect(
+        next.files.map((f) => (f.handle.bundle, f.handle.path, f.digest)),
+        snapshot.files.map((f) => (f.handle.bundle, f.handle.path, f.digest)),
+      );
       expect(next.revision, isNot(snapshot.revision));
       expect(
         retainedValidator(next.externalPathObservations['docs']!)

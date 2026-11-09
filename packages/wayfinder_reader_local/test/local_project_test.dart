@@ -89,7 +89,7 @@ void main() {
         '.hidden.md',
         'visible/.hidden.txt',
       ]);
-      expect(scoped.manifestFingerprint, isNot(entire.manifestFingerprint));
+      expect(scoped.revision, isNot(entire.revision));
       expect(
         buildOkfBundle(entire.loadBundle(entire.bundles.single.id)).assets,
         containsAll(['.git/objects/secret', '.okf/cache/secret']),
@@ -112,19 +112,19 @@ void main() {
       final second = await project.refresh();
       expect(identical(first, second), isFalse);
       expect(await second.bundles.single.concept('a'), same(before));
-      expect(second.manifestFingerprint, first.manifestFingerprint);
+      expect(second.revision, first.revision);
       final file = File('${root.path}/knowledge/a.md');
       final stamp = await file.lastModified();
       await write('knowledge/a.md', '---\ntype: Guide\ntitle: B\n---\nBody\n');
       await file.setLastModified(stamp);
       final changed = await project.refresh();
-      expect(changed.manifestFingerprint, isNot(first.manifestFingerprint));
+      expect(changed.revision, isNot(first.revision));
       expect((await changed.bundles.single.concept('a')).title, 'B');
       await first.release();
       expect((await second.bundles.single.concept('a')).title, 'A');
       await write('wayfinder.lock', 'new binding');
       final rebound = await project.refresh();
-      expect(rebound.manifestFingerprint, isNot(changed.manifestFingerprint));
+      expect(rebound.revision, isNot(changed.revision));
     },
   );
 

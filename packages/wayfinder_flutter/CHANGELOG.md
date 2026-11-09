@@ -18,8 +18,9 @@
 - Observe failed retired-lease cleanup immediately and drain all accepted
   operations/cleanup before reporting the first close error; two controllers
   sharing coalesced capture retain independent snapshot ownership.
-- Full validation is explicitly unavailable/not assessed pending captured external
-  target/Profile inputs; this milestone does not report PASS or integrate search.
+- Browsing views do not report validation results or PASS. Hosts can validate
+  retained bundle bytes separately using captured external observations and the
+  displayed Profile configuration; search remains separate.
 
 # 0.1.0 (unreleased)
 

@@ -401,11 +401,18 @@ final class ProfileValidator {
   /// again, writes and validates; one with nothing to write takes no lock.
   /// A lock it cannot take, such as in a bundle it may not write, is a failed
   /// write: the `wayfinder/fix-failed` diagnostic, with nothing written.
+  /// [retainedBundleRoot] is rejected with [StateError] before disk access;
+  /// retained input belongs in [validateLoaded], even when a callback is supplied.
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
     bool fix = false,
   }) async {
+    if (bundlePath == retainedBundleRoot) {
+      throw StateError(
+        'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+      );
+    }
     final loaded = await loader.inspect(bundlePath);
     if (!fix) return validateLoaded(loaded, selection);
     final unfixed = _fixNotApplied(loaded, selection);

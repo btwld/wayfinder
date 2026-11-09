@@ -9,6 +9,8 @@ import 'package:okf/okf_io.dart'
     show OkfBundleLoader, OkfBundleLoadException, okfBundleLockFileName;
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
+import 'package:wayfinder/wayfinder.dart'
+    show BundleFileKind, classifyBundleFile;
 
 import '../embedding/base_embedder.dart';
 import '../embedding/llama_embedder.dart' show wayfinderLlamaCppRuntime;
@@ -1825,7 +1827,7 @@ class WayfinderKnowledgeStore {
             p.split(p.relative(entry.path, from: root)),
           );
           final String digest;
-          if (path.endsWith('.md')) {
+          if (classifyBundleFile(path) != BundleFileKind.asset) {
             final bytes = await entry.readAsBytes();
             // Match the loader's text decoding, including its BOM handling.
             // Malformed bytes report the loader's invalid-bundle diagnostic,

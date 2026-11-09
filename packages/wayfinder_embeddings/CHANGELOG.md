@@ -1,5 +1,8 @@
 # 0.5.0-beta.1
 
+- Reuse core file roles for inventory freshness: hash all case-sensitive `.md`
+  files (indexes, logs and concepts); other files retain the asset marker.
+
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`.
 - **BREAKING:** Depends on `objectbox` `^6.0.0-preview.6`, a prerelease, so an
   application that also depends on ObjectBox 5 must move to 6 to resolve.

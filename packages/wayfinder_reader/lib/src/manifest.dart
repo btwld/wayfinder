@@ -2,17 +2,6 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
-import 'reader.dart';
-
-/// Byte-manifest identity independent of semantic projections.
-extension KnowledgeSnapshotManifest on KnowledgeProjectSnapshot {
-  /// SHA-256 of sorted resource addresses/digests and bundle identities/paths.
-  String get manifestFingerprint => knowledgeManifestFingerprint(
-    files: [for (final f in files) (f.handle.bundle, f.handle.path, f.digest)],
-    bundles: [for (final b in bundles) (b.id, b.summary.path)],
-  );
-}
-
 /// Computes the canonical byte-manifest fingerprint used by retained adapters.
 /// [files] contains (bundle identity or null, relative path, SHA-256 digest);
 /// [bundles] contains (bundle identity, project-relative bundle path).

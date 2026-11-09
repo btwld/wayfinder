@@ -9,7 +9,8 @@
   and reader_local use it without changing their file roles.
 - Export the non-filesystem `retainedBundleRoot` sentinel; retained validation
   without `outsideBundleExists` throws an explicit `StateError` before disk I/O.
-  Ordinary roots keep their default disk lookup.
+  Path-based `validate` also rejects the sentinel before loading or locking;
+  retained input must use `validateLoaded`. Ordinary roots keep disk lookup.
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema

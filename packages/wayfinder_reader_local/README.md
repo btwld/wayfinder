@@ -44,7 +44,8 @@ Markdown references confer no file-open permission.
 Each scan enforces **16 MiB per file and 64 MiB aggregate retained source bytes**
 by default; hosts can lower or explicitly raise both at `open`. A bounded read
 also checks size and SHA-256. An unchanged refresh performs one full byte scan and reuses the previous
-capture/projections when its `manifestFingerprint` and external existence observations match. Changed/initial
+capture/projections when the capture's `manifestFingerprint` and external
+existence observations match. Changed/initial
 captures compare two full scans and their external observations, with one retry
 on mutation. This catches
 same-size edits even with restored mtimes; it is not a stat-only cache.

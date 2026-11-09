@@ -79,9 +79,11 @@ false or permission to consult live disk. Memory captures default to no
 observations; adapters may provide them explicitly. Observations are part of the
 full revision; they do not change the byte-manifest fingerprint.
 
-`snapshot.manifestFingerprint` (also available on `KnowledgeCapture`) is a
-SHA-256 of sorted file addresses/digests and bundle identities/paths, independent
-of semantic projections and enumeration order. It covers configuration/lock
+`KnowledgeCapture.manifestFingerprint` is a SHA-256 of sorted file
+addresses/digests and bundle identities/paths, independent
+of semantic projections and enumeration order. The pure
+`knowledgeManifestFingerprint` function computes the same identity from file
+addresses/digests and bundle identities/paths. It covers configuration/lock
 bytes when captured. Use revision plus Profile/validator inputs for validation
 caching; the manifest alone cannot identify a changed Profile selection.
 Optional search integration remains deferred.

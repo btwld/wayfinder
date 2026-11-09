@@ -6,6 +6,32 @@ import 'support.dart';
 
 void main() {
   test(
+    'path validation refuses retained roots before loader or write-lock access',
+    () async {
+      final selection = UnselectedProfile([
+        EngineDiagnostic(DiagnosticCode.configMissing, 'No profile selected.'),
+      ]);
+      for (final validator in [
+        const ProfileValidator(),
+        ProfileValidator(outsideBundleExists: (_) => true),
+      ]) {
+        for (final fix in [false, true]) {
+          await expectLater(
+            validator.validate(retainedBundleRoot, selection, fix: fix),
+            throwsA(
+              isA<StateError>().having(
+                (e) => e.message,
+                'cause',
+                'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+              ),
+            ),
+          );
+        }
+      }
+    },
+  );
+
+  test(
     'external target enumeration covers builtin fields without disk lookup',
     () {
       final bundle = OkfBundle.fromDocuments({

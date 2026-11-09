@@ -13,7 +13,7 @@
   for host-owned validation; missing observations remain explicitly unknown.
   Observation changes affect revision even when the byte manifest is unchanged.
 - Reuse unchanged captures/projections after one full byte scan plus existence
-  checks; expose the canonical manifest fingerprint through snapshots/captures.
+  checks; retain canonical capture fingerprints via the shared pure function.
 - Exclude hidden directories recursively by default; `includeHiddenDirectories`
   opts in, while hidden regular files remain included. The flag does not gate
   bundle loading or validation.
