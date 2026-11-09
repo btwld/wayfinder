@@ -276,15 +276,18 @@ class DriftStore extends BaseStore {
   @override
   Future<Map<String, Object?>> getStats() async {
     _ensureOpen();
-    return _database.transaction(
-      () async => {
-        'chunks': (await getAllChunks()).length,
-        'embeddings': (await getAllEmbeddings()).length,
-        'mode': 'drift-exact',
-        'directory': directory,
-        'persistent': true,
-      },
-    );
+    final counts = await _database
+        .customSelect(
+          'SELECT (SELECT COUNT(*) FROM stored_chunks) AS chunks, '
+          '(SELECT COUNT(*) FROM stored_embeddings) AS embeddings',
+        )
+        .getSingle();
+    return {
+      ...counts.data,
+      'mode': 'drift-exact',
+      'directory': directory,
+      'persistent': true,
+    };
   }
 
   Future<void>? _closing;

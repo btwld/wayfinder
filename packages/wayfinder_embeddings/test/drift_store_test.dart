@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:drift/isolate.dart' show DriftRemoteException;
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
@@ -52,13 +54,27 @@ void main() {
           ),
       ],
     );
-    final expected = await store.getAllEmbeddings();
+    final expected = Float32List.fromList([1, .1, -.3]).toList();
     await store.close();
     final reopened = await DriftStore.open(directory.path);
     addTearDown(reopened.close);
     expect(await reopened.getAllChunks(), chunks);
-    expect(await reopened.getAllEmbeddings(), expected);
-    expect(expected.first.vector[1], isNot(.1));
+    expect((await reopened.getAllEmbeddings()).map((e) => e.vector), [
+      expected,
+      expected,
+    ]);
+    final raw = sqlite3.open(
+      '${directory.path}/store.sqlite',
+      mode: OpenMode.readOnly,
+    );
+    try {
+      expect(
+        raw.select('SELECT vector FROM stored_embeddings').first['vector'],
+        [0, 0, 128, 63, 205, 204, 204, 61, 154, 153, 153, 190],
+      );
+    } finally {
+      raw.close();
+    }
     expect(await File('${directory.path}/store.sqlite-wal').exists(), isFalse);
     await store.close();
     await expectLater(store.getAllChunks(), throwsStateError);
@@ -107,7 +123,7 @@ void main() {
           ),
         ],
       ),
-      throwsA(anything),
+      sqliteConstraint(787),
     );
     expect(await store.getAllChunks(), isEmpty);
   });
@@ -304,19 +320,19 @@ void main() {
         database.customStatement(
           "INSERT INTO stored_embeddings VALUES ('id','s','m',2,X'0000803f')",
         ),
-        throwsA(anything),
+        sqliteConstraint(275),
       );
       await expectLater(
         database.customStatement(
           "INSERT INTO stored_chunks VALUES ('bad', 1, 'b.md', 0, 1, 'b', 'text', '{}')",
         ),
-        throwsA(anything),
+        sqliteConstraint(275),
       );
       await expectLater(
         database.customStatement(
           "INSERT INTO stored_chunks VALUES ('id', 1, 'b.md', 1, 1, 'b', 'text', '{}')",
         ),
-        throwsA(anything),
+        sqliteConstraint(1555),
       );
       expect((await database.select(database.storedChunks).get()).length, 1);
     },
@@ -452,3 +468,11 @@ void main() {
     expect(await file.readAsBytes(), before);
   });
 }
+
+Matcher sqliteConstraint(int code) => throwsA(
+  isA<DriftRemoteException>().having(
+    (error) => error.toString(),
+    'SQLite result',
+    startsWith('SqliteException($code):'),
+  ),
+);

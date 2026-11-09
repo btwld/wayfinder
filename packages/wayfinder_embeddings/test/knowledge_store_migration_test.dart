@@ -35,6 +35,12 @@ void main() {
     await temp.delete(recursive: true);
   });
 
+  Future<String> fixtureText(String name) async {
+    final root = jsonEncode(bundle.root);
+    return (await File('test/fixtures/plain-generation/$name').readAsString())
+        .replaceAll('@BUNDLE_ROOT@', root.substring(1, root.length - 1));
+  }
+
   Future<
     ({String namespace, Directory generation, String text, Uint8List vectors})
   >
@@ -44,8 +50,10 @@ void main() {
     final generation = Directory(
       p.join(result.index, await pointer.readAsString()),
     );
-    final record = await generationRecord(generation).readAsString();
-    final vectors = await generationVectors(generation);
+    final record = await fixtureText('snapshot.json');
+    final vectors = await File(
+      'test/fixtures/plain-generation/vectors.f32',
+    ).readAsBytes();
     await File('${generation.path}/index.sqlite').delete();
     await File(
       '${generation.path}/snapshot.json',
@@ -65,10 +73,12 @@ void main() {
     'current legacy reads then migrates without opening a model or changing results',
     () async {
       final old = await legacy();
-      final expected = (await store.searchBundle(
+      final expected = jsonDecode(await fixtureText('search.json')) as Map;
+      final before = (await store.searchBundle(
         bundle,
         'password recovery',
-      )).toJson();
+      )).toJson()..remove('elapsedMs');
+      expect(before, expected);
       final opened = encoders.length;
       final bytes = await File(
         '${old.generation.path}/vectors.f32',
@@ -120,10 +130,13 @@ void main() {
         '${await recovery.readAsString()}\nNew recovery instruction.\n',
       );
       await File('${bundle.root}/weather.md').delete();
+      final opened = encoders.length;
       final result = await store.index(bundle);
       expect(result.current, isFalse);
-      expect(result.embeddedChunks, greaterThan(0));
-      expect(result.removedChunks, greaterThan(0));
+      expect(result.embeddedChunks, 1);
+      expect(result.removedChunks, 1);
+      expect(encoders.length, opened + 1);
+      expect(encoders.last.documents, 1);
       expect(await store.status(bundle), isA<KnowledgeIndexCurrent>());
       expect(
         await File('${old.generation.path}/vectors.f32').readAsBytes(),
@@ -229,38 +242,104 @@ void main() {
     },
   );
 
-  test(
-    'newer database and changed vector identity refuse before inference',
-    () async {
-      final result = await store.index(bundle);
-      final generation = await File('${result.index}/current').readAsString();
-      final file = File(
-        '${result.index}/$generation/${SqliteGeneration.fileName}',
-      );
-      final db = sqlite3.open(file.path);
-      db.userVersion = 999;
-      db.close();
-      final bytes = await file.readAsBytes();
-      final opened = encoders.length;
-      expect(
-        await store.status(bundle).timeout(const Duration(seconds: 5)),
-        isA<KnowledgeIndexIncompatible>(),
-      );
-      expect(await file.readAsBytes(), bytes);
-      await expectLater(
-        store
-            .searchBundle(bundle, 'password')
-            .timeout(const Duration(seconds: 5)),
-        throwsA(
-          isA<WayfinderException>().having(
-            (e) => e.code,
-            'code',
-            'index-incompatible',
+  for (final corruption in [
+    'schema',
+    'record-checksum',
+    'vector-checksum',
+    'vector-source',
+    'vector-model',
+    'vector-dimension',
+    'chunk-projection',
+    'ordinal',
+    'missing-vector',
+  ]) {
+    test(
+      'SQLite $corruption is refused before inference without modifying it',
+      () async {
+        final result = await store.index(bundle);
+        final file = File(
+          '${currentGeneration(result.index).path}/${SqliteGeneration.fileName}',
+        );
+        final db = sqlite3.open(file.path);
+        try {
+          final row = db
+              .select('SELECT chunk_id, vector FROM stored_embeddings LIMIT 1')
+              .single;
+          final id = row['chunk_id'] as String;
+          final vector = Uint8List.fromList(row['vector'] as List<int>);
+          switch (corruption) {
+            case 'schema':
+              db.userVersion = 999;
+            case 'record-checksum':
+              db.execute('UPDATE generation_records SET checksum = ?', [
+                '0' * 64,
+              ]);
+            case 'vector-checksum':
+              final data = ByteData.sublistView(vector);
+              data.setFloat32(
+                0,
+                data.getFloat32(0, Endian.little) + .25,
+                Endian.little,
+              );
+              db.execute(
+                'UPDATE stored_embeddings SET vector = ? WHERE chunk_id = ?',
+                [vector, id],
+              );
+            case 'vector-source':
+              db.execute(
+                "UPDATE stored_embeddings SET source = 'other-source' WHERE chunk_id = ?",
+                [id],
+              );
+            case 'vector-model':
+              db.execute(
+                "UPDATE stored_embeddings SET model = 'other-model' WHERE chunk_id = ?",
+                [id],
+              );
+            case 'vector-dimension':
+              db.execute(
+                'UPDATE stored_embeddings SET dimension = dimension + 1, vector = ? WHERE chunk_id = ?',
+                [
+                  Uint8List.fromList([...vector, 0, 0, 128, 63]),
+                  id,
+                ],
+              );
+            case 'chunk-projection':
+              db.execute(
+                "UPDATE stored_chunks SET content = content || 'changed' WHERE id = ?",
+                [id],
+              );
+            case 'ordinal':
+              db.execute('UPDATE stored_chunks SET ordinal = ordinal + 1');
+            case 'missing-vector':
+              db.execute('DELETE FROM stored_embeddings WHERE chunk_id = ?', [
+                id,
+              ]);
+          }
+        } finally {
+          db.close();
+        }
+        final bytes = await file.readAsBytes();
+        final opened = encoders.length;
+        expect(
+          await store.status(bundle).timeout(const Duration(seconds: 5)),
+          isA<KnowledgeIndexIncompatible>(),
+        );
+        await expectLater(
+          store
+              .searchBundle(bundle, 'password')
+              .timeout(const Duration(seconds: 5)),
+          throwsA(
+            isA<WayfinderException>().having(
+              (e) => e.code,
+              'code',
+              'index-incompatible',
+            ),
           ),
-        ),
-      );
-      expect(encoders.length, opened);
-      expect((await store.index(bundle)).embeddedChunks, greaterThan(0));
-    },
-  );
+        );
+        expect(encoders.length, opened);
+        expect(await file.readAsBytes(), bytes);
+        expect((await store.index(bundle)).embeddedChunks, 3);
+      },
+    );
+  }
 }
