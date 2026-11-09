@@ -505,6 +505,12 @@ credentials, vocabulary or rules. The local Git cache holds fetched
 objects. Local sources sharing the project's canonical Git common directory
 can supply committed package and skill objects without a mirror; see
 [source resolution](../docs/wayfinder-configuration.md).
+Hosts may explicitly collect managed mirrors with the resolver's
+`pruneMirrors` API, using recorded usage or a demonstrably missing local
+source whose immediate parent can be listed, under each mirror's lock.
+Collection preserves package snapshots used by read-only selection;
+reinstalling skills from an evicted mirror may require fetching again. A dry
+run only reports eligible entries.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -920,6 +926,13 @@ format 3 only; historical entries are not compatibility promises for format 2.
 addressing #181's duplicate mirrors; implementations must preserve locked
 commits and managed-mirror fetch policy. No package format, schema, rule or
 OKF meaning changes, and no package or cache-key migration.
+
+**Explicit Profile mirror collection, 2026-11-09.**
+In §4.4, add explicit mirror collection for #181's abandoned worktrees and
+checkouts. Collection uses sibling locks, preserves package snapshots and
+gives legacy mirrors an observation grace period. Implementations need no
+package, lock, schema or OKF migration; evicted mirrors may need fetching to
+reinstall skills.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number

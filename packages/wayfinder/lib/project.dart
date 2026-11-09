@@ -73,6 +73,12 @@ export 'src/project/graph.dart'
         wayfinderLinkFields;
 export 'src/project/graph_input.dart' show wayfinderGraphInput;
 export 'src/project/metadata_filter.dart' show KnowledgeMetadataFilter;
+export 'src/project/profile_cache.dart'
+    show
+        ProfileMirrorPruneEntry,
+        ProfileMirrorPruneError,
+        ProfileMirrorPruneReason,
+        ProfileMirrorPruneResult;
 export 'src/project/profile_resolver.dart'
     show
         LockedPackage,

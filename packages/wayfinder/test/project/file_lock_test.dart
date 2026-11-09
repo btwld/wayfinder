@@ -22,6 +22,24 @@ void main() {
 
   tearDown(() => temp.delete(recursive: true));
 
+  test(
+    'an existing-only acquisition never creates or changes a file',
+    () async {
+      expect(await WayfinderFileLock.tryExclusive(file, create: false), isNull);
+      expect(await file.parent.exists(), isFalse);
+      final created = await WayfinderFileLock.exclusive(file);
+      await created.writeNote('keep');
+      await created.release();
+      final modified = (await file.stat()).modified;
+      final held = await WayfinderFileLock.tryExclusive(file, create: false);
+      expect(held, isNotNull);
+      expect(await WayfinderFileLock.tryExclusive(file, create: false), isNull);
+      await held!.release();
+      expect(await file.readAsString(), 'keep');
+      expect((await file.stat()).modified, modified);
+    },
+  );
+
   Future<Map<String, Object?>> probeFromSubprocess() async {
     final result = await Process.run(Platform.resolvedExecutable, [
       'run',
