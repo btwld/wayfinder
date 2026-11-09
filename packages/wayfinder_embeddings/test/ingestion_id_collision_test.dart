@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
+import 'support/counting_embedder.dart';
+
 void main() {
   for (final acrossFiles in [false, true]) {
     test(
@@ -21,7 +23,7 @@ void main() {
         final conflict = first.copyWith(id: first.id, content: 'Different');
         final pipeline = IngestionPipeline(
           chunkerRegistry: ChunkerRegistry(),
-          embedder: _Encoder(),
+          embedder: CountingEmbedder(),
           store: store,
         );
         await expectLater(
@@ -46,7 +48,7 @@ void main() {
     addTearDown(store.close);
     final pipeline = IngestionPipeline(
       chunkerRegistry: ChunkerRegistry(),
-      embedder: _Encoder(),
+      embedder: CountingEmbedder(),
       store: store,
     );
     final many = [
@@ -150,7 +152,7 @@ void main() {
       );
       await IngestionPipeline(
         chunkerRegistry: ChunkerRegistry(),
-        embedder: _Encoder(),
+        embedder: CountingEmbedder(),
         store: store,
       ).ingest([
         (
@@ -164,30 +166,12 @@ void main() {
       expect((await store.getAllChunks()).single.metadata, const {'v': 2});
       expect(await store.getAllEmbeddings(), hasLength(1));
     },
-    skip:
-        !File('/usr/local/lib/libobjectbox.so').existsSync() &&
-            !File('lib/libobjectbox.so').existsSync() &&
-            Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1'
-        ? 'ObjectBox native library unavailable'
-        : false,
+    tags: ['native'],
+    skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1',
   );
 }
 
-class _Encoder extends BaseEmbedder {
-  @override
-  String get sourceName => 'test';
-  @override
-  String get modelName => 'fixed';
-  @override
-  int get dimension => 384;
-  @override
-  Future<List<double>> generateEmbedding(String text) async => [
-    1,
-    ...List.filled(383, 0.0),
-  ];
-}
-
-class _FailSecondBatch extends _Encoder {
+class _FailSecondBatch extends CountingEmbedder {
   int calls = 0;
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) {

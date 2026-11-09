@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -141,19 +144,7 @@ void main() {
       }
       expect(embedder.truncatedInputs, 0);
     },
-    skip:
-        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
-            (model.existsSync() &&
-                File(
-                  'lib/${Platform.isMacOS
-                      ? 'libobjectbox.dylib'
-                      : Platform.isWindows
-                      ? 'objectbox.dll'
-                      : 'libobjectbox.so'}',
-                ).existsSync())
-        ? false
-        : 'Prepare the model and install ObjectBox for strict persistent '
-              'recovery. Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
+    skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1',
     timeout: const Timeout(Duration(minutes: 3)),
   );
   test(
@@ -192,12 +183,7 @@ void main() {
       );
       expect(embedder.truncatedInputs, 0);
     },
-    skip:
-        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
-            model.existsSync()
-        ? false
-        : 'Prepare the model for strict body-only fitting. '
-              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
+    skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1',
     timeout: const Timeout(Duration(minutes: 3)),
   );
   test(
@@ -314,12 +300,7 @@ void main() {
         isTrue,
       );
     },
-    skip:
-        Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
-            model.existsSync()
-        ? false
-        : 'Run melos run wayfinder_embeddings:prepare for native model tests. '
-              'Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
+    skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1',
     timeout: const Timeout(Duration(minutes: 2)),
   );
 }
