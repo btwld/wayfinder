@@ -765,13 +765,13 @@ the bundle. Embedded hosts may replace only that external lookup through
 `ProfileValidator.outsideBundleExists` (or `resolvePathTarget`'s matching
 argument), supplying observations coherent with their loaded input. Callback
 errors propagate so an unavailable observation cannot silently pass; omitted
-callbacks preserve disk behavior for ordinary filesystem roots. An in-memory
-load marked with the exported `retainedBundleRoot` sentinel MUST supply this
-callback; validation refuses it with an explicit error when absent and MUST NOT
-interpret the sentinel as a filesystem path. The pure `externalPathTargets` helper enumerates
-a superset across supported fields so hosts can capture existence before later
-validation without selecting a Profile. This changes neither package interpretation
-nor builtin policy. Bundle-root parent escapes, raw or decoded backslashes, encoded
+callbacks preserve disk behavior for ordinary filesystem roots. A loaded
+non-filesystem URI root MUST supply this callback; validation and external-path
+resolution MUST refuse filesystem fallback without it. Path-based `validate`
+requires a filesystem path, even when a callback is supplied; in-memory input
+belongs in `validateLoaded`. Browsing snapshots expose raw reads and no
+conformance-validation conversion or captured external-path observations.
+This changes neither package interpretation nor builtin policy. Bundle-root parent escapes, raw or decoded backslashes, encoded
 separators and malformed percent escapes report a missing target. A literal
 percent in a filename must be encoded as `%25`. URLs and prose source
 descriptors remain outside the path check; an explicit `/`, `./` or `../`
@@ -944,23 +944,24 @@ gives legacy mirrors an observation grace period. Implementations need no
 package, lock, schema or OKF migration; evicted mirrors may need fetching to
 reinstall skills.
 
-**Retained native-load boundary and file classification, 2026-11-09.**
-Affected surfaces: §5.6 and public core/native-reader APIs. Driver: synthetic
-roots silently turned unknown external observations into missing-path findings,
-and duplicated classification could diverge between projections, adoption and
-querying. Use a single non-filesystem sentinel with explicit observation-required
-refusal, and one shared classifier with OKF's existing case-sensitive file roles.
-The portable `knowledge.dart` entry returns only retained bytes; native conversion
-lives in core's `project.dart` entry. No Profile format/schema/policy change or package migration is
-required; hosts must supply observations for sentinel-marked loads.
+**Browsing boundary and file classification, 2026-11-09; unpublished scope corrected 2026-11-09.**
+Affected section: §5.6 and public core/native-reader APIs. Use one shared
+classifier with OKF's existing case-sensitive file roles across browsing
+projections, adoption and querying. The portable `knowledge.dart` entry owns
+leased browsing values/raw reads and `project.dart` owns read-only filesystem
+capture. Remove the unused snapshot-to-OKF conversion and capture-time external
+observations; keep separate validation entry guards fail-closed for
+non-filesystem URI roots. No schema, golden, Profile format, generic skill rule
+or package interpretation changes are required; unpublished consumers recompile
+against the reduced reader interface.
 
-**Snapshot host observations, 2026-11-08; enumeration added 2026-11-09.**
-Affected section: §5.6 and public validation/path-target APIs. Driver: reader
-hosts need assessment against retained displayed bytes instead of external
-existence checks on newer disk state. Optional external-observation injection
-replaces only the disk seam; the default remains unchanged. No schema, golden,
-Profile format, generic skill rule or package migration changes are required:
-this is an additive host I/O seam, not a reinterpretation of packages.
+**External lookup injection, 2026-11-08.**
+Affected section: §5.6 and public validation/path-target APIs. Optional
+`outsideBundleExists` injection replaces only external disk lookup with a
+host-owned existence decision; errors propagate. Ordinary filesystem defaults
+are unchanged. This additive native I/O seam remains separate from browsing,
+with no enumeration helper or snapshot validation API. No schema, golden,
+Profile format, generic skill rule or package migration changes are required.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number

@@ -7,8 +7,8 @@ model setup or search index is needed. Validation is explicitly unavailable/not
 assessed; semantic search is absent, not simulated.
 
 `package:wayfinder/knowledge.dart` owns portable values and revision-bound snapshots;
-Flutter re-exports them at existing model import paths. Native loading and
-`buildOkfBundle` come from `package:wayfinder/project.dart`; the UI depends only
+Flutter re-exports them through its public entry. Native loading comes from
+`package:wayfinder/project.dart`; the UI depends only
 on the portable entry. Hosts own grants, source
 selection, storage and teardown. Graph widgets remain design-kit independent;
 the minimal reader uses Material controls under a host `MaterialApp`.

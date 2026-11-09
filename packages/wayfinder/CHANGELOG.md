@@ -1,5 +1,9 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Keep the unpublished reader surface focused on leased browsing and raw reads;
+  conformance validation remains a separate native API. Non-filesystem URI roots
+  refuse filesystem fallback at the validation boundaries.
+
 - Test-only: reuse an immutable initialized Git seed for resolver fixtures,
   preserving per-test refs/files/locks/cache isolation. Select the full native
   lock-race stress separately on both CI SDKs without changing its repetitions.
@@ -20,28 +24,26 @@
   directories are deleted without forwarding packages or deprecation aliases.
   Preserve bounded captures/reads, grant revocation and close/drain, symlink
   confinement, hidden-directory exclusion with one opt-in boolean, empty versus
-  missing roots, canonical manifest reuse, captured external observations and
-  retained-versus-disk OKF parity, with their regression tests moved to core.
+  missing roots and canonical manifest reuse, with their regression tests moved
+  to core.
 
   | Former location | New location |
   | --- | --- |
-  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, retained bundles, cancellation/lease mechanics, memory backend and manifest function | `package:wayfinder/knowledge.dart` |
-  | `wayfinder_reader_local`: `LocalKnowledgeProject.open` bounded read-only filesystem loader, external observations and `buildOkfBundle` | `package:wayfinder/project.dart` |
-  | `preferredKnowledgeBundle`, finding/gate/verdict presentation values | `wayfinder_flutter` model layer |
+  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, cancellation/lease mechanics, memory backend and manifest function | `package:wayfinder/knowledge.dart` |
+  | `wayfinder_reader_local`: `LocalKnowledgeProject.open` bounded read-only filesystem loader | `package:wayfinder/project.dart` |
+  | `preferredKnowledgeBundle`, finding presentation values | `wayfinder_flutter` model layer |
   | Reader contract regression tests | Core `test/knowledge/` |
-  | Native loader/conversion/parity regression tests | Core `test/project/knowledge/` |
+  | Native browsing loader regression tests | Core `test/project/knowledge/` |
 
 - Add optional `ProfileValidator.outsideBundleExists` and matching
   `resolvePathTarget` observation injection for snapshot-bound hosts. Default
   validation keeps its live disk behavior; injected callback errors propagate.
-  Add pure `externalPathTargets` enumeration for retained existence capture.
 - Export shared `BundleFileKind`/`classifyBundleFile` classification matching OKF's
   reserved basenames and case-sensitive Markdown suffix; adoption, query facts
   and native loading use it without changing their file roles.
-- Export the non-filesystem `retainedBundleRoot` sentinel; retained validation
-  without `outsideBundleExists` throws an explicit `StateError` before disk I/O.
-  Path-based `validate` also rejects the sentinel before loading or locking;
-  retained input must use `validateLoaded`. Ordinary roots keep disk lookup.
+- Reject non-filesystem URI roots before path-based validation reads or locks.
+  Loaded validation and external-path resolution require an explicit external
+  lookup callback for those roots; ordinary filesystem behavior is unchanged.
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema

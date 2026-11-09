@@ -12,7 +12,7 @@
 - Consume portable concepts/graphs, snapshots and memory captures from
   `package:wayfinder/knowledge.dart`, and native loading from `project.dart`.
   Delete the separate reader packages; depend only on `wayfinder` plus Flutter.
-  Keep preference/finding/verdict presentation models in Flutter's model layer.
+  Keep preference/finding presentation models in Flutter's model layer.
   Graph/layout/tree/helper behavior and borrowed ownership remain unchanged.
 - Breaking (unpublished API): replace the provisional absolute-root/last-snapshot
   project contract with `refresh()` leases and bundle/resource access. Remove
@@ -22,8 +22,8 @@
   operations/cleanup before reporting the first close error; two controllers
   sharing coalesced capture retain independent snapshot ownership.
 - Browsing views do not report validation results or PASS. Hosts can validate
-  retained bundle bytes separately using captured external observations and the
-  displayed Profile configuration; search remains separate.
+  bundle content separately through the native validator; browsing exposes
+  leased raw reads. Search remains separate.
 
 # 0.1.0 (unreleased)
 

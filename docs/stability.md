@@ -157,7 +157,7 @@ and the remaining staged distribution checks, not by this document alone.
 ## Knowledge entry points and unpublished Flutter milestone
 
 `package:wayfinder/knowledge.dart` is the portable, browser-closed retained-value
-and lease entry. `project.dart` owns read-only native capture and OKF conversion;
+and lease entry. `project.dart` owns read-only native browsing capture;
 `wayfinder.dart` remains native validation. These entry points share one package,
 but only the portable source closure is promised free of native/OKF/Flutter
 imports, enforced by the transitive CI guard. Existing validation/project release
@@ -168,6 +168,6 @@ and are deleted, without aliases. Their tests move into core; native callers
 update imports to `knowledge.dart` plus `project.dart`. `wayfinder_flutter` 0.2
 remains unpublished and intentionally replaces its provisional 0.1 backend/search
 API; [its migration guide](../packages/wayfinder_flutter/doc/integration.md#migration-from-unpublished-01)
-records the signatures. Hosts own validation execution/context checks. Browsing
+records the signatures. Validation is a separate native API. Browsing
 supplies no implicit conformance or semantic search. Local/memory Linux tests
 do not establish mobile, remote-provider or other native-platform support.

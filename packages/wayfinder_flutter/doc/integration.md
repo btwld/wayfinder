@@ -85,9 +85,10 @@ Flutter Material navigation.
 ## Explicitly unavailable, not successful
 
 Browsing views return `KnowledgeValidationUnavailable`; the UI says **not
-validated**, never PASS. Hosts validate retained bundle bytes separately using
-the displayed configuration and captured outside-path observations. Core reports
-and OKF → engine → Profile authority are unchanged.
+validated**, never PASS. Snapshots expose leased raw reads for browsing.
+Conformance validation remains a separate native operation; this reader has no
+validation execution or bundle-conversion surface. Core reports and
+OKF → engine → Profile authority are unchanged.
 
 Search is absent: no mandatory search/index/status/model stubs or synthetic
 readiness states. Optional semantic search belongs at a future controller
@@ -110,9 +111,9 @@ Portable concept/graph/source values now live in `wayfinder/knowledge.dart` and 
 re-exported from `wayfinder_flutter` and the existing model import paths. Existing
 graph/helper consumers do not need import-path changes. Existing presentation
 file-entry/tree models remain projections, not an alternative source backend.
-Preferred-bundle policy and finding/verdict display values live in Flutter.
+Preferred-bundle policy and finding display values live in Flutter.
 The two unpublished reader package directories were removed with no aliases.
-Native hosts import `wayfinder/project.dart` for the read-only filesystem loader
-and `buildOkfBundle`; widgets and controllers use only `wayfinder/knowledge.dart`.
+Native hosts import `wayfinder/project.dart` for the read-only filesystem loader;
+widgets and controllers use only `wayfinder/knowledge.dart`.
 The package remains unpublished; local development overrides only core, as the
 example shows. No validation/Health feature or execution framework is added.

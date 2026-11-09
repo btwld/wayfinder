@@ -174,7 +174,7 @@ Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyz
 
 Date: 2026-11-07; consolidated 2026-11-09.
 
-Keep portable retained values, memory capture and lease mechanics behind core's browser-closed `knowledge.dart`, and native bounded read-only filesystem loading/OKF conversion behind `project.dart`, because entry-point import closures provide the required platform boundary without two extra unpublished packages. Flutter owns widgets/controllers and presentation-only preference/finding values; the separate reader package directories are deleted and their regression tests move to core, at the cost of import updates for unpublished consumers. Capture retains byte manifests and external existence observations without filesystem transactions or source writes, while hosts own Profile selection, validation isolates, cancellation and revision/context checks; the portable closure is checked transitively in CI.
+Keep portable retained values, memory capture and lease mechanics behind core's browser-closed `knowledge.dart`, and native bounded read-only filesystem browsing behind `project.dart`, because import closures provide the platform boundary without two extra unpublished packages. Flutter owns widgets/controllers and preference/finding presentation; reader regression tests live in core and the portable closure is checked transitively in CI. The unpublished snapshot-validation conversion and capture-time external observations leave this change because they have no production caller; raw reads, byte revisions, grant/lifecycle safety, shared file classification and the native validator's optional external-lookup callback remain, with no Profile/OKF policy migration.
 
 ## Borrow committed same-repository Profile objects
 
