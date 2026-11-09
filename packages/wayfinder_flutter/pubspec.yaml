@@ -10,21 +10,16 @@ environment:
   flutter: ">=3.47.5"
 
 dependencies:
-  wayfinder_reader: ^0.1.0
+  wayfinder: ^0.5.0-beta.1
   flutter:
     sdk: flutter
 
 dev_dependencies:
-  wayfinder_reader_local: ^0.1.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-# Unpublished sibling packages; consumers use matching local overrides.
+# Core entry points are resolved from this checkout during development.
 dependency_overrides:
-  wayfinder_reader:
-    path: ../wayfinder_reader
-  wayfinder_reader_local:
-    path: ../wayfinder_reader_local
   wayfinder:
     path: ../wayfinder
