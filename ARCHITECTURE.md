@@ -172,15 +172,8 @@ Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native boun
 
 Date: 2026-11-09.
 
-Issue #181 showed a mirror accumulating for each self-hosting checkout, so
-resolve local sources with the same canonical Git common directory through
-read-only object commands in the source worktree's context, after choosing
-any locked commit. Probe support for `--no-lazy-fetch`, `--no-replace-objects`
-and `--no-optional-locks` before borrowing; unsupported controls retain the
-managed-mirror path and its fetch policy. Missing objects can use an existing
-managed mirror, otherwise resolution fails without applying project writes.
-Absent package or skill paths keep their path diagnostics; tree entries
-distinguish them from unavailable objects that can use mirror recovery.
-Keep mirror keys, fetch consent, package snapshots and Git-free status and
-selection unchanged; the cost is extra discovery calls, with external Git
-changes allowed to fail a plan before application.
+Borrow committed Profile objects from the project's own repository to avoid
+duplicate mirrors across self-hosting checkouts and worktrees (#181).
+The cost is extra Git discovery and possible failure if external Git changes
+remove objects during resolution; see
+[source resolution](docs/wayfinder-configuration.md).

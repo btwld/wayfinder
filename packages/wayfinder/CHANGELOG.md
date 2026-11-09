@@ -1,13 +1,8 @@
 # 0.5.0-beta.2 (unreleased)
 
-- Read committed Profile packages and skills directly from a local source that
-  shares the project's Git common directory, including self-hosting worktrees
-  and independent checkouts, without cloning a mirror or changing the source.
-  Borrowed reads disable lazy fetching and replacement objects. If Git lacks
-  support for the controls, resolution uses the managed-mirror path with its
-  existing fetch policy and reporting. Missing objects may use an existing mirror;
-  otherwise resolution fails without changing the project lock. Absent package
-  or skill paths retain their package or directory diagnostics.
+- Read committed Profile packages and skills from the project's own repository
+  without cloning a mirror or changing the source; see
+  [source resolution](../../docs/wayfinder-configuration.md).
 
 # 0.5.0-beta.1
 

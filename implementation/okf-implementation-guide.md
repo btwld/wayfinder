@@ -502,15 +502,9 @@ A canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
 credentials, vocabulary or rules. The local Git cache holds fetched
-objects. A local source sharing the project's canonical Git common directory
-can instead supply committed package and skill objects directly, in the source
-worktree's context. Borrowed reads suppress lazy fetching, replacement objects
-and optional locks after probing Git support; they never fetch into or modify
-the source. Unsupported controls use the managed-mirror path with its existing
-fetch policy and reporting. Missing objects can use an existing mirror,
-otherwise resolution fails without changing the lock. Absent package or skill
-paths retain their package or directory diagnostics. Package snapshots, mirror
-identity and Git-free selection/status keep their existing meaning.
+objects. Local sources sharing the project's canonical Git common directory
+can supply committed package and skill objects without a mirror; see
+[source resolution](../docs/wayfinder-configuration.md).
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
@@ -922,16 +916,10 @@ additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
 **Borrowed same-repository Profile reads, 2026-11-09.**
-Affected surface: §4.7 Profile source resolution. Driver: #181's mirrors
-accumulating across self-hosting checkouts and worktrees. Implementations
-compare canonical Git common directories and separate read-only committed
-object access from managed mirror mutation, retaining exact locked commits,
-source-worktree HEAD, consent gates and snapshot-based selection. Probe Git
-controls that suppress lazy fetching, replacement objects and optional locks;
-unsupported controls retain the managed-mirror path, fetch policy and reporting.
-Missing objects use an existing mirror or fail before project writes; absent
-package or skill paths retain their path diagnostics. No package format,
-schema, rule or OKF meaning changes, and no package or cache-key migration.
+§4.7 now permits direct committed-object reads for self-hosting repositories,
+addressing #181's duplicate mirrors; implementations must preserve locked
+commits and managed-mirror fetch policy. No package format, schema, rule or
+OKF meaning changes, and no package or cache-key migration.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number
