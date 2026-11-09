@@ -11,3 +11,6 @@
 - Add an explicit hidden-directory inventory policy (all regular files remains
   the default). Existing empty projects now open successfully with no bundles;
   missing projects/configured bundles remain `notFound`.
+- Match OKF loader assessment inventory and ordering: exclude `.okf.lock` at
+  every depth while retaining nested locks for browsing, and sort full relative
+  paths so first-use actor findings match ordinary validation.

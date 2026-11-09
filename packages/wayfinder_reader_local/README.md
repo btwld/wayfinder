@@ -69,8 +69,11 @@ Malformed Markdown remains raw-readable and refuses the graph rather than
 returning a misleading empty success. Bundle browsing views keep validation
 **unavailable/not assessed**. Optional
 `snapshot.assessBundle(bundleId, assessor)` prepares an in-memory
-`KnowledgeBundleAssessmentInput` from the same retained files. The host owns
-Profile selection using the input's captured `wayfinder.json`/`wayfinder.lock`,
+`KnowledgeBundleAssessmentInput` from the same retained files. Assessment
+excludes `.okf.lock` at every depth and sorts full relative paths like the OKF
+loader; nested coordination files remain readable in the browsing inventory.
+The host owns Profile selection using the input's captured
+`wayfinder.json`/`wayfinder.lock`,
 Profile fetching outside this backend, shared attempts, retries and executors.
 The callback may run `input.validate(selection)` synchronously, or pass input
 and selection to a top-level helper that calls

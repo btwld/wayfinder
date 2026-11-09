@@ -8,35 +8,64 @@ import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
 
 import 'local_project_test.dart' show failure;
 
-ProfileSelection selection({bool paths = false}) => SelectedProfile(
-  EffectiveProfile.compose([
-    ProfilePackage.parse(
-      jsonEncode({
-        'format': 3,
-        'id': 'test-profile',
-        'release': '1.0',
-        'implements': {'id': 'okf', 'release': '0.2'},
-        'rules': [
-          if (paths)
-            {
-              'id': 'paths',
-              'category': 'structure',
-              'severity': 'error',
-              'status': 'stable',
-              'description': 'Resources must exist.',
-              'message': 'Missing {target}.',
-              'check': {
-                'builtin': 'path-targets-exist',
-                'params': {
-                  'fields': ['resource'],
+ProfileSelection selection({bool paths = false, bool actors = false}) =>
+    SelectedProfile(
+      EffectiveProfile.compose([
+        ProfilePackage.parse(
+          jsonEncode({
+            'format': 3,
+            'id': 'test-profile',
+            'release': '1.0',
+            'implements': {'id': 'okf', 'release': '0.2'},
+            'rules': [
+              if (actors)
+                {
+                  'id': 'used-actor-registered',
+                  'category': 'vocabulary',
+                  'severity': 'error',
+                  'status': 'stable',
+                  'description': 'Used actors must be registered.',
+                  'message': 'Used actor {id} must be registered.',
+                  'check': {
+                    'subject': 'actor',
+                    'schema': {
+                      'properties': {
+                        'id': {r'$ref': r'#/$defs/profile.actors'},
+                      },
+                    },
+                  },
+                  'tests': {
+                    'slots': {
+                      'profile.actors': ['process:registered'],
+                    },
+                    'valid': [
+                      {'id': 'process:registered', 'first_use': 'a.md'},
+                    ],
+                    'invalid': [
+                      {'id': 'process:unregistered', 'first_use': 'a.md'},
+                    ],
+                  },
                 },
-              },
-            },
-        ],
-      }),
-    ),
-  ]),
-);
+              if (paths)
+                {
+                  'id': 'paths',
+                  'category': 'structure',
+                  'severity': 'error',
+                  'status': 'stable',
+                  'description': 'Resources must exist.',
+                  'message': 'Missing {target}.',
+                  'check': {
+                    'builtin': 'path-targets-exist',
+                    'params': {
+                      'fields': ['resource'],
+                    },
+                  },
+                },
+            ],
+          }),
+        ),
+      ]),
+    );
 
 Future<ProfileValidationResult> validateApart(
   KnowledgeBundleAssessmentInput input,
@@ -156,6 +185,74 @@ void main() {
       );
     },
   );
+
+  test(
+    'nested coordination files stay browsable but are not assessment assets',
+    () async {
+      await write(
+        'knowledge/a.md',
+        '---\ntype: Guide\ntitle: A\nresource: /a/.okf.lock\n---\nBody\n',
+      );
+      await write('knowledge/a/.okf.lock', 'nested coordination file');
+      final snapshot = await project.refresh();
+      final lock = snapshot.files.singleWhere(
+        (f) => f.handle.path == 'a/.okf.lock',
+      );
+      expect(
+        (await snapshot.read(lock.handle)).text,
+        'nested coordination file',
+      );
+      final selected = selection(paths: true);
+      final result = await snapshot.assessBundle('docs', (input) {
+        expect(input.loaded.assets, isNot(contains('a/.okf.lock')));
+        expect(input.loaded.paths, isNot(contains('a/.okf.lock')));
+        return input.validate(selected);
+      });
+      final live = await const ProfileValidator().validate(
+        '${root.path}/knowledge',
+        selected,
+      );
+      expect(live.gate, GateState.fail);
+      expect(live.findings.single.id, 'test-profile/paths');
+      expect(live.findings.single.path, 'a.md');
+      expect(result.value.toJson(), live.toJson());
+    },
+  );
+
+  test('actor first-use findings follow the core loader full-path order', () async {
+    await write(
+      'knowledge/a.md',
+      '---\ntype: Guide\ntitle: A\ngenerated: {by: process:unregistered, at: 2026-11-08T00:00:00Z}\n---\nBody\n',
+    );
+    await write(
+      'knowledge/a/b.md',
+      '---\ntype: Guide\ntitle: B\ngenerated: {by: process:unregistered, at: 2026-11-08T00:00:00Z}\n---\nBody\n',
+    );
+    await write(
+      'knowledge/a/index.md',
+      '# Notes\n\n* [B](b.md) - Another note.\n',
+    );
+    final snapshot = await project.refresh();
+    // Directory traversal intentionally differs from full-path lexical order.
+    final capturedPaths = snapshot.files.map((f) => f.handle.path).toList();
+    expect(
+      capturedPaths.indexOf('a/b.md'),
+      lessThan(capturedPaths.indexOf('a.md')),
+    );
+    final selected = selection(actors: true);
+    final result = await snapshot.assessBundle('docs', (input) {
+      expect(input.loaded.documents.keys.toList(), ['a.md', 'a/b.md']);
+      return input.validate(selected);
+    });
+    final live = await const ProfileValidator().validate(
+      '${root.path}/knowledge',
+      selected,
+    );
+    expect(live.gate, GateState.fail);
+    expect(live.findings.single.id, 'test-profile/used-actor-registered');
+    expect(live.findings.single.path, 'a.md');
+    expect(result.value.toJson(), live.toJson());
+  });
 
   test('malformed Markdown refuses without assessing partial bytes', () async {
     await write('knowledge/bad.md', '---\ntype: [\n---\n');

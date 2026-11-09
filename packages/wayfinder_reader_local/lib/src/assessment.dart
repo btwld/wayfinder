@@ -71,7 +71,17 @@ extension KnowledgeBundleAssessment on KnowledgeProjectSnapshot {
     final indexes = <String, String>{};
     final logs = <String, String>{};
     final assets = <String>[];
-    for (final file in capture.files.where((f) => f.bundle == bundleId)) {
+    // Match OKF's loader without removing protocol files from browsing.
+    final files =
+        capture.files
+            .where(
+              (f) =>
+                  f.bundle == bundleId &&
+                  p.posix.basename(f.path) != okfBundleLockFileName,
+            )
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+    for (final file in files) {
       if (!file.path.endsWith('.md')) {
         assets.add(file.path);
         continue;
