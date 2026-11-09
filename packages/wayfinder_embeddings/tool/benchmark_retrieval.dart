@@ -15,7 +15,7 @@ Future<void> main(List<String> args) async {
   final total = Stopwatch()..start();
   final parser = ArgParser()
     ..addOption('arm', defaultsTo: 'dense', help: 'Dense retrieval only.')
-    ..addOption('store', allowed: ['memory', 'objectbox'], defaultsTo: 'memory')
+    ..addOption('store', allowed: ['memory', 'drift'], defaultsTo: 'memory')
     ..addOption(
       'split',
       allowed: ['development', 'test'],
@@ -73,7 +73,7 @@ Future<void> main(List<String> args) async {
     final store = MeasuredStore(
       options.option('store') == 'memory'
           ? MemoryStore()
-          : ObjectBoxStore.open(options.option('database')!),
+          : await DriftStore.open(options.option('database')!),
     );
     final storeOpenMs = elapsed(watch);
     try {

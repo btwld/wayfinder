@@ -1,3 +1,11 @@
+# 0.6.0-beta.1 (unreleased)
+
+- Use embeddings `^0.6.0-beta.1` and typed SQLite index generations, preserving
+  CLI/MCP output and lifecycle. Current plain-file indexes are readable and
+  migrate on explicit indexing without re-embedding unchanged passages. Native
+  bundles include SQLite through native assets. Old binaries cannot read new
+  generations; see [storage compatibility](../../docs/drift-storage.md).
+
 # 0.5.0-beta.1
 
 - Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`

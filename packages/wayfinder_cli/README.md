@@ -221,8 +221,8 @@ size and SHA-256 match the pinned model. When it finds none, the failure
 lists each location it searched, in order, and what puts a model there; a
 cached copy that fails the check is reported as such rather than as missing.
 
-Indexes are plain files, so the command needs no database library; native
-builds ship only the embedding runtime and the model.
+Indexes use typed Drift/SQLite generations. Native builds include SQLite,
+the embedding runtime and the model; no separate database installation is needed.
 
 ## MCP server
 
@@ -373,11 +373,14 @@ once in a directory of its own.
 - Windows: `%LOCALAPPDATA%/Wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
 
 An index directory holds `writer.lock`, a `current` pointer and immutable
-generations, `generation-<id>/` with `snapshot.json` (the indexed bundle text,
-passages, metadata and the record of the vectors) and `vectors.f32` (a header,
-then one little-endian float32 row per passage, checked against the SHA-256 the
-record names). There is no database: search loads the generation it reads and
-scores every eligible passage exactly.
+generations, `generation-<id>/index.sqlite`, containing the indexed text,
+passages, metadata and exact little-endian float32 vectors. Readers verify
+schema, integrity, identities and checksums before exhaustive Dart scoring.
+Current `snapshot.json` + `vectors.f32` generations remain readable; explicit
+indexing migrates them without re-embedding unchanged passages, and a current
+migration needs no model. Older binaries cannot read new SQLite generations;
+see [storage compatibility and rollback](../../docs/drift-storage.md).
+
 
 Wayfinder 0.2 kept one index per bundle directly under `indexes/<bundle-key>/`,
 with a different bundle key, and earlier 0.3 builds kept ObjectBox databases in

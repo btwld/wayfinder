@@ -6,7 +6,7 @@ its own analyzer version. Nothing it depends on at runtime may reach `analyzer`
 or `_fe_analyzer_shared`.
 
 Its dev dependencies still reach `analyzer` through build_runner and
-objectbox_generator; that is expected and allowed.
+drift_dev; that is expected and allowed.
 
 `dart pub deps` lists every workspace member and dev dependency. This walks the
 runtime dependency graph from wayfinder_embeddings instead. Run `dart pub get`

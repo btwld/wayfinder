@@ -18,10 +18,10 @@ Future<void> main(List<String> args) async {
   try {
     embedder = await LlamaEmbedder.open(modelFile: defaultEmbeddingModelFile());
     final results = <String, Object?>{};
-    for (final kind in ['memory', 'objectbox']) {
+    for (final kind in ['memory', 'drift']) {
       final BaseStore store = kind == 'memory'
           ? MemoryStore()
-          : ObjectBoxStore.open(p.join(directory.path, 'db'));
+          : await DriftStore.open(p.join(directory.path, 'db'));
       try {
         results[kind] = await fixture.evaluate(store, embedder: embedder);
       } finally {

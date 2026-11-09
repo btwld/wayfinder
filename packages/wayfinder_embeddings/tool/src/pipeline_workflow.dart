@@ -701,7 +701,7 @@ Future<void> validateAgainstGolden({
 
 typedef EmbedderFactory = FutureOr<BaseEmbedder> Function(List<Chunk> chunks);
 typedef RerankerFactory = SearchReranker Function();
-typedef StoreFactory = BaseStore Function(Directory outputDir);
+typedef StoreFactory = FutureOr<BaseStore> Function(Directory outputDir);
 
 /// Builds the first-pass [Searcher] a comparison run uses.
 ///
@@ -823,7 +823,7 @@ Future<IngestionResult> persistAndSearch({
     );
     final embedder = _QueryVectorCache(baseEmbedder);
     final store = scope.track(
-      storeFactory == null ? MemoryStore() : storeFactory.call(outputDir),
+      storeFactory == null ? MemoryStore() : await storeFactory.call(outputDir),
       (s) => s.close(),
     );
     final reranker = rerankerFactory == null

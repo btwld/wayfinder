@@ -23,6 +23,7 @@ import 'generation_pin_hook.dart';
 import 'index_result.dart';
 import 'project_search.dart';
 import 'shared_encoder.dart';
+import 'sqlite_generation.dart';
 
 typedef _SavedIndex = ({
   String configuration,
@@ -41,7 +42,7 @@ typedef _CachedSavedIndex = ({String text, int bytes, _SavedIndex index});
 
 /// A published generation a reader holds: its record and its vectors, one
 /// row per snapshot chunk.
-typedef _Pinned = ({_SavedIndex saved, List<Float32List> vectors});
+typedef _Pinned = ({_SavedIndex saved, List<Float32List> vectors, bool legacy});
 
 /// A bundle's index for the store's configuration: its canonical `root`,
 /// the namespace `directory` that holds its generations, and the `writer`
@@ -90,13 +91,13 @@ final class _GenerationUnreadable implements Exception {
 /// builds anew.
 ///
 /// An index is a sequence of immutable generations,
-/// `generation-<id>/{snapshot.json, vectors.f32}`, and a `current` pointer
+/// `generation-<id>/index.sqlite`, and a `current` pointer
 /// that names the published one. [index] embeds only passages whose inputs
 /// changed, writes a complete generation and then replaces the pointer
 /// atomically, so a failed or cancelled run leaves the previous generation
 /// current. A search reads the pointer and the generation it names, checks
-/// the vectors' checksum, and scores every eligible passage exactly in a
-/// `MemoryStore`. [search] refuses an index that is missing, stale or
+/// the generation's integrity and vector checksum, and scores every eligible
+/// passage exactly in a `MemoryStore`. [search] refuses an index that is missing, stale or
 /// incompatible, and never indexes implicitly.
 ///
 /// Only writers lock. [index], [forget] and [forgetProjectRoot] hold the
@@ -220,8 +221,10 @@ class WayfinderKnowledgeStore {
   final Duration? encoderIdleTimeout;
 
   // Increment when chunking, snapshot or application input semantics change.
-  // `store` names the generation format. The encoder's identity is part of
-  // the configuration key beside it. The configuration names the llama.cpp
+  // `store` retains the canonical float32 format identity across the SQLite
+  // container migration, so valid old vectors remain reusable. SQLite schema
+  // versions are checked separately. The encoder's identity is part of the
+  // configuration key beside it. The configuration names the llama.cpp
   // release Wayfinder reviewed, because another llama.cpp build can give the
   // same model other vectors; moving wayfinderLlamaCppRuntime builds every
   // index anew. Version 5 is the first to name it.
@@ -372,6 +375,19 @@ class WayfinderKnowledgeStore {
           previous = null;
         } else if (_assess(index, files, previous?.saved)
             case KnowledgeIndexCurrent(:final warnings)) {
+          if (previous!.legacy) {
+            onProgress?.call(const IndexProgress(IndexPhase.publishing));
+            throwIfCancelled(cancel);
+            await _writeGeneration(
+              index,
+              previous.saved.snapshot,
+              previous.vectors,
+              previous.saved.inputs,
+              previous.saved.dimension,
+              inventory,
+              cancel: cancel,
+            );
+          }
           return WayfinderIndexResult(
             bundle: root,
             index: directory.path,
@@ -461,49 +477,24 @@ class WayfinderKnowledgeStore {
           inputs.add(input);
         }
         final dimension = opened.embedder.dimension;
-        final bytes = IndexGeneration.encode(rows, dimension);
-        await directory.create(recursive: true);
-        final staged = await _stageGeneration(directory);
-        var published = false;
-        try {
-          await File(
-            p.join(staged.path, IndexGeneration.vectorsFile),
-          ).writeAsBytes(bytes, flush: true);
-          final record = {
-            'configuration': _configuration,
-            'model': _space,
-            'source': encoder.identity.source,
-            'inventory': inventory,
-            'vectors': {
-              'file': IndexGeneration.vectorsFile,
-              'format': IndexGeneration.format,
-              'dimension': dimension,
-              'count': rows.length,
-              'sha256': IndexGeneration.digest(bytes),
-              'inputs': inputs,
-            },
-            'snapshot': fitted.toMap(),
-          };
-          await File(
-            p.join(staged.path, IndexGeneration.snapshotFile),
-          ).writeAsString(jsonEncode(record), flush: true);
-          await _publish(index, p.basename(staged.path));
-          published = true;
-          await _collectGarbage(index, keep: p.basename(staged.path));
-          return WayfinderIndexResult(
-            bundle: root,
-            index: directory.path,
-            warnings: fitted.diagnostics,
-            embeddedChunks: counts.embeddedChunks,
-            removedChunks: counts.removedChunks,
-            writtenChunks: counts.writtenChunks,
-            elapsedMs: watch.elapsedMilliseconds,
-          );
-        } finally {
-          if (!published && await staged.exists()) {
-            await staged.delete(recursive: true);
-          }
-        }
+        await _writeGeneration(
+          index,
+          fitted,
+          rows,
+          inputs,
+          dimension,
+          inventory,
+          cancel: cancel,
+        );
+        return WayfinderIndexResult(
+          bundle: root,
+          index: directory.path,
+          warnings: fitted.diagnostics,
+          embeddedChunks: counts.embeddedChunks,
+          removedChunks: counts.removedChunks,
+          writtenChunks: counts.writtenChunks,
+          elapsedMs: watch.elapsedMilliseconds,
+        );
       });
     } finally {
       await lock.release();
@@ -1480,7 +1471,7 @@ class WayfinderKnowledgeStore {
       case KnowledgeIndexRefreshing():
         throw StateError('An assessment is never refreshing.');
     }
-    final (:saved, :vectors) = pinned!;
+    final saved = pinned!.saved;
     final snapshot = saved.snapshot;
     throwIfCancelled(cancel);
     final activeEncoder = await encoder();
@@ -1555,6 +1546,62 @@ class WayfinderKnowledgeStore {
     'completed index.',
   );
 
+  /// Builds one complete immutable database before publishing its pointer.
+  Future<void> _writeGeneration(
+    _Namespace index,
+    KnowledgeSnapshot snapshot,
+    List<List<double>> rows,
+    List<String> inputs,
+    int dimension,
+    String inventory, {
+    WayfinderCancellation? cancel,
+  }) async {
+    final bytes = IndexGeneration.encode(rows, dimension);
+    final record = jsonEncode({
+      'configuration': _configuration,
+      'model': _space,
+      'source': encoder.identity.source,
+      'inventory': inventory,
+      'vectors': {
+        'file': IndexGeneration.vectorsFile,
+        'format': IndexGeneration.format,
+        'dimension': dimension,
+        'count': rows.length,
+        'sha256': IndexGeneration.digest(bytes),
+        'inputs': inputs,
+      },
+      'snapshot': snapshot.toMap(),
+    });
+    await index.directory.create(recursive: true);
+    final staged = await _stageGeneration(index.directory);
+    var published = false;
+    try {
+      await SqliteGeneration.write(
+        staged,
+        record: record,
+        chunks: snapshot.chunks,
+        vectors: rows,
+        source: encoder.identity.source,
+        model: _space,
+      );
+      throwIfCancelled(cancel);
+      if (_inventoryHash(await _inventory(index.root)) != inventory) {
+        throw const WayfinderException(
+          'bundle-changed',
+          'Knowledge changed while indexing.',
+        );
+      }
+      throwIfCancelled(cancel);
+      await _publish(index, p.basename(staged.path));
+      published = true;
+      await _collectGarbage(index, keep: p.basename(staged.path));
+    } finally {
+      if (!published && await staged.exists()) {
+        await staged.delete(recursive: true);
+      }
+    }
+  }
+
   /// The generation [index]'s pointer names now, or null.
   static Future<String?> _pointedGeneration(_Namespace index) async {
     try {
@@ -1585,7 +1632,8 @@ class WayfinderKnowledgeStore {
   /// passages with a hash of the embedding input each vector encodes, which
   /// `KnowledgeIndex.synchronize` compares to reuse it.
   Future<MemoryStore> _memoryOf(_Pinned pinned, {bool chunks = true}) async {
-    final (:saved, :vectors) = pinned;
+    final saved = pinned.saved;
+    final vectors = pinned.vectors;
     final store = MemoryStore();
     final snapshot = saved.snapshot.chunks;
     await store.replaceChunks(
@@ -1705,6 +1753,53 @@ class WayfinderKnowledgeStore {
     String generation,
     String? cacheKey,
   ) async {
+    final generationDirectory = Directory(p.join(directory.path, generation));
+    final databaseFile = File(
+      p.join(generationDirectory.path, SqliteGeneration.fileName),
+    );
+    if (await databaseFile.exists()) {
+      try {
+        final loaded = await SqliteGeneration.read(generationDirectory);
+        final saved = _parseRecord(generation, loaded.record, cacheKey);
+        if (loaded.chunks.length != saved.count ||
+            loaded.embeddings.length != saved.count) {
+          throw const FormatException(
+            'Database row count differs from record.',
+          );
+        }
+        final vectorsById = {for (final e in loaded.embeddings) e.chunkId: e};
+        final vectors = <Float32List>[];
+        for (final (i, chunk) in saved.snapshot.chunks.indexed) {
+          if (jsonEncode(loaded.chunks[i].toMap()) !=
+              jsonEncode(chunk.toMap())) {
+            throw const FormatException(
+              'Database passage differs from snapshot.',
+            );
+          }
+          final embedding = vectorsById[chunk.id];
+          if (embedding == null ||
+              embedding.source != saved.source ||
+              embedding.modelName != saved.model ||
+              embedding.vector.length != saved.dimension) {
+            throw const FormatException(
+              'Database vector identity differs from record.',
+            );
+          }
+          vectors.add(Float32List.fromList(embedding.vector));
+        }
+        if (IndexGeneration.digest(
+              IndexGeneration.encode(vectors, saved.dimension),
+            ) !=
+            saved.checksum) {
+          throw const FormatException('Database vectors failed checksum.');
+        }
+        return (saved: saved, vectors: vectors, legacy: false);
+      } catch (_) {
+        _cachedSavedIndexes.remove(cacheKey);
+        if (!await databaseFile.exists()) throw const _GenerationUnreadable();
+        throw _incomplete;
+      }
+    }
     final String text;
     final Uint8List bytes;
     try {
@@ -1721,6 +1816,7 @@ class WayfinderKnowledgeStore {
       final saved = _parseRecord(generation, text, cacheKey);
       return (
         saved: saved,
+        legacy: true,
         vectors: IndexGeneration.decode(
           bytes,
           dimension: saved.dimension,
@@ -1763,7 +1859,18 @@ class WayfinderKnowledgeStore {
         Map<String, Object?>.from(snapshot),
         linkFields: wayfinderLinkFields,
       );
-      if (count != parsed.chunks.length || inputs.length != count) {
+      if (dimension <= 0 ||
+          count < 0 ||
+          configuration.isEmpty ||
+          model.isEmpty ||
+          source.isEmpty ||
+          !_key.hasMatch(inventory) ||
+          !_key.hasMatch(checksum) ||
+          parsed.chunks.map((c) => c.id).toSet().length !=
+              parsed.chunks.length ||
+          inputs.any((input) => input is! String || !_key.hasMatch(input)) ||
+          count != parsed.chunks.length ||
+          inputs.length != count) {
         throw const FormatException('The record does not match its vectors.');
       }
       final saved = (

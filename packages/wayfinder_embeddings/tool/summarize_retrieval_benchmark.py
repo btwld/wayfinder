@@ -60,7 +60,7 @@ for split in ['development', 'test']:
     cases = sorted({case_name(r) for r in runs})
     for arm in cases:
         report['splits'][split][arm] = {}
-        for store in ['memory', 'objectbox']:
+        for store in ['memory', 'drift']:
             selected = [r for r in runs if case_name(r)==arm and r['store']==store]
             fresh = [r for r in selected if r['scenario']=='fresh']
             measured = next(r for r in fresh if r['repetition']==0)
@@ -76,11 +76,11 @@ for split in ['development', 'test']:
                        'fresh': {key: distribution([r[key] for r in fresh]) for key in
                                  ['timeToFirstResultMs','modelOpenMs','parseMs','syncMs','peakRssBytes','databaseBytes']},
                        'reopen': {key: distribution([r[key] for r in selected if r['scenario']=='reopen']) for key in
-                                  ['timeToFirstResultMs','syncMs']} if store=='objectbox' else None,
+                                  ['timeToFirstResultMs','syncMs']} if store=='drift' else None,
                        **{key: measured[key] for key in ['uncached','cached','queryEncoding','rankingAndRawContext','policyAssembly','updates','initialEmbedded','initialDocumentEncodingMs','initialWriteMs','uncachedQueryEncodings','cachedQueryEncodings','modelOpened','totalDocumentEncodings','totalQueryEncodings','passageManifestSha256']},
                        'queries': [{key: q[key] for key in ['id','topic','group','raw','context']} for q in rows]}
             report['splits'][split][arm][store] = summary
-        assert report['splits'][split][arm]['memory']['queries']==report['splits'][split][arm]['objectbox']['queries']
+        assert report['splits'][split][arm]['memory']['queries']==report['splits'][split][arm]['drift']['queries']
     if args.models:
         pairs = report.setdefault('modelComparisons', {}).setdefault(split, [])
         for baseline_name, candidate in itertools.combinations(cases, 2):

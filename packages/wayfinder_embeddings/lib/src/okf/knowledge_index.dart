@@ -249,7 +249,7 @@ class KnowledgeSearchResponse {
 /// The caller owns the store and embedder. Synchronization must not
 /// overlap searches on this instance. Separate instances should coordinate
 /// writes to the same bundle. Dense scoring is exact after eligibility filtering;
-/// ObjectBox supplies indexed vector reads rather than a post-filtered ANN pool.
+/// Persistent stores supply identity-filtered vector reads.
 class KnowledgeIndex {
   /// Opens the snapshot and store from the same completed index generation.
   ///

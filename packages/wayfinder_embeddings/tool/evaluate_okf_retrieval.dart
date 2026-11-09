@@ -18,7 +18,7 @@ Future<void> main(List<String> args) async {
       defaultsTo: 'development',
     )
     ..addOption('output', mandatory: true)
-    ..addOption('stores', defaultsTo: 'memory,objectbox')
+    ..addOption('stores', defaultsTo: 'memory,drift')
     ..addFlag('timing', defaultsTo: true, help: 'Measure warm query latency.');
   final options = parser.parse(args);
   if (options.rest.isNotEmpty) {
@@ -26,8 +26,8 @@ Future<void> main(List<String> args) async {
   }
   final measureTiming = options.flag('timing');
   final stores = options.option('stores')!.split(',');
-  if (stores.any((kind) => !['memory', 'objectbox'].contains(kind))) {
-    throw ArgumentError('--stores accepts memory,objectbox');
+  if (stores.any((kind) => !['memory', 'drift'].contains(kind))) {
+    throw ArgumentError('--stores accepts memory,drift');
   }
   final queryText = await File(
     'fixtures/okf_retrieval/queries.json',
@@ -69,7 +69,9 @@ Future<void> main(List<String> args) async {
       for (final contextual in [false, true]) {
         final BaseStore store = kind == 'memory'
             ? MemoryStore()
-            : ObjectBoxStore.open(p.join(directory.path, '$kind-$contextual'));
+            : await DriftStore.open(
+                p.join(directory.path, '$kind-$contextual'),
+              );
         try {
           final index = KnowledgeIndex(
             store: store,

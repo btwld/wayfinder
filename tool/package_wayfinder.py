@@ -28,11 +28,16 @@ for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
              'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:
     if not (bundle / name).is_file():
         parser.error(f'Incomplete bundle: {name}')
-# The command keeps its indexes as plain files and needs no ObjectBox.
+# Reject obsolete libraries even when packaging a stale prebuilt bundle.
 for name in ['lib/libobjectbox.so', 'lib/libobjectbox.dylib',
              'bin/objectbox.dll', 'licenses/objectbox']:
     if (bundle / name).exists():
         parser.error(f'Unexpected ObjectBox asset: {name}')
+# Dependency license inventory covers Drift and SQLite; native assets are
+# copied by dart build cli and verified in the complete bundle.
+for name in ['drift', 'sqlite3']:
+    if not (bundle / 'licenses' / 'dart' / name / 'LICENSE').is_file():
+        parser.error(f'Missing storage license: {name}')
 for command in ['wayfinder']:
     if not any((bundle / 'bin' / (command + suffix)).is_file()
                for suffix in ['', '.exe']):

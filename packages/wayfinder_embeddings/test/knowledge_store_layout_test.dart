@@ -11,6 +11,7 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
+import 'support/generation_record.dart';
 import 'support/store_support.dart';
 
 /// The index layout on disk, okf's lock file in a bundle, progress,
@@ -127,15 +128,10 @@ void main() {
       );
       expect(
         generation.listSync().map((entry) => p.basename(entry.path)).toSet(),
-        {'snapshot.json', 'vectors.f32'},
+        {'index.sqlite'},
       );
       final record =
-          jsonDecode(
-                await File(
-                  p.join(generation.path, 'snapshot.json'),
-                ).readAsString(),
-              )
-              as Map;
+          jsonDecode(await generationRecord(generation).readAsString()) as Map;
       final configuration = Map<String, Object?>.from(
         jsonDecode(record['configuration'] as String) as Map,
       );
@@ -157,9 +153,7 @@ void main() {
         'sha256': isA<String>(),
         'inputs': hasLength(chunks),
       });
-      final bytes = await File(
-        p.join(generation.path, 'vectors.f32'),
-      ).readAsBytes();
+      final bytes = await generationVectors(generation);
       expect(sha256.convert(bytes).toString(), vectors['sha256']);
       expect(bytes.length, 16 + chunks * 384 * 4);
       expect(ascii.decode(bytes.sublist(0, 6)), 'WFVF32');
@@ -279,8 +273,8 @@ void main() {
         final built = await store().index(bundle);
         final record = Map<String, Object?>.from(
           jsonDecode(
-                await File(
-                  p.join(currentGeneration(built.index).path, 'snapshot.json'),
+                await generationRecord(
+                  currentGeneration(built.index),
                 ).readAsString(),
               )
               as Map,
@@ -597,8 +591,8 @@ Future<void> main(List<String> arguments) async {
         ),
       );
       final current = File(p.join(result.index, 'current'));
-      await File(
-        p.join(result.index, await current.readAsString(), 'snapshot.json'),
+      await GenerationRecord(
+        p.join(result.index, await current.readAsString(), 'index.sqlite'),
       ).writeAsString('{}');
       expect(
         await knowledge.status(bundle),

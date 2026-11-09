@@ -83,7 +83,7 @@ void main() {
         );
       }
       final database = '${temp.path}/database';
-      final store = ObjectBoxStore.open(database);
+      final store = await DriftStore.open(database);
       try {
         final writer = KnowledgeIndex(
           store: store,
@@ -111,7 +111,7 @@ void main() {
         saved.diagnostics.map((d) => d.toJson()),
         fitted.diagnostics.map((d) => d.toJson()),
       );
-      final reopened = ObjectBoxStore.open(database);
+      final reopened = await DriftStore.open(database);
       try {
         final reader = KnowledgeIndex.fromSnapshot(
           snapshot: saved,
@@ -143,16 +143,9 @@ void main() {
     },
     skip:
         Platform.environment['WAYFINDER_REQUIRE_NATIVE'] == '1' ||
-            (model.existsSync() &&
-                File(
-                  'lib/${Platform.isMacOS
-                      ? 'libobjectbox.dylib'
-                      : Platform.isWindows
-                      ? 'objectbox.dll'
-                      : 'libobjectbox.so'}',
-                ).existsSync())
+            model.existsSync()
         ? false
-        : 'Prepare the model and install ObjectBox for strict persistent '
+        : 'Prepare the model for strict persistent '
               'recovery. Set WAYFINDER_REQUIRE_NATIVE=1 to fail instead.',
     timeout: const Timeout(Duration(minutes: 3)),
   );

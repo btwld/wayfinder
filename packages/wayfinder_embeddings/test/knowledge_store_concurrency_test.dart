@@ -67,22 +67,40 @@ void main() {
       // The isolate.
       final fromIsolate = ReceivePort();
       final isolateMessages = StreamIterator(fromIsolate);
-      await Isolate.spawn(_searchingIsolate, (
+      final exited = ReceivePort();
+      final isolateExit = exited.first;
+      final isolate = await Isolate.spawn(_searchingIsolate, (
         fromIsolate.sendPort,
         data.path,
         bundle.root,
         reference,
-      ));
+      ), onExit: exited.sendPort);
       expect(await isolateMessages.moveNext(), isTrue);
       final stopIsolate = isolateMessages.current as SendPort;
+      addTearDown(() async {
+        stopIsolate.send('stop');
+        await isolateExit.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => isolate.kill(priority: Isolate.immediate),
+        );
+        exited.close();
+        fromIsolate.close();
+      });
 
       // The subprocess, from a kernel snapshot. `dart run` would run the
       // package's build hooks again, which write llamadart's library into
       // .dart_tool/lib anew while other suites of this run load it.
+      // Embed the mapping those hooks already built, so the child resolves
+      // SQLite through the same native asset rather than process symbols.
+      final packages = (await Isolate.packageConfig)!;
+      final nativeAssets = File.fromUri(packages.resolve('native_assets.yaml'));
+      expect(await nativeAssets.exists(), isTrue);
       final snapshot = p.join(temp.path, 'search_loop.dill');
       final compiled = await Process.run(Platform.resolvedExecutable, [
         'compile',
         'kernel',
+        '--packages=${File.fromUri(packages).path}',
+        '--extra-gen-kernel-options=--native-assets=${nativeAssets.path}',
         p.join('test', 'support', 'search_loop.dart'),
         '--output=$snapshot',
       ]);
@@ -97,6 +115,10 @@ void main() {
         bundle.root,
         referenceFile.path,
       ]);
+      addTearDown(() async {
+        subprocess.kill();
+        await subprocess.exitCode.timeout(const Duration(seconds: 5));
+      });
       final errors = StringBuffer();
       subprocess.stderr.transform(utf8.decoder).listen(errors.write);
       final lines = StreamIterator(
@@ -108,11 +130,16 @@ void main() {
       final isolateSawRefresh = Completer<void>();
       final subprocessSawRefresh = Completer<void>();
       final isolateSummary = Completer<Map<String, Object?>>();
+      final readerFailure = Completer<String>();
       unawaited(() async {
         while (await isolateMessages.moveNext()) {
           switch (isolateMessages.current) {
             case 'refresh':
               isolateSawRefresh.complete();
+            case final String message when message.startsWith('failure '):
+              if (!readerFailure.isCompleted) {
+                readerFailure.complete('Isolate: $message');
+              }
             case final Map<Object?, Object?> summary:
               isolateSummary.complete(Map<String, Object?>.from(summary));
           }
@@ -123,6 +150,9 @@ void main() {
         while (await lines.moveNext()) {
           final line = lines.current;
           if (line == 'refresh') subprocessSawRefresh.complete();
+          if (line.startsWith('failure ') && !readerFailure.isCompleted) {
+            readerFailure.complete('Subprocess: $line');
+          }
           if (line.startsWith('summary ')) {
             subprocessSummary.complete(
               Map<String, Object?>.from(
@@ -130,6 +160,9 @@ void main() {
               ),
             );
           }
+        }
+        if (!subprocessSummary.isCompleted && !readerFailure.isCompleted) {
+          readerFailure.complete('Subprocess stopped without a summary.');
         }
       }());
 
@@ -141,9 +174,14 @@ void main() {
         beforeDocument: (_) async {
           if (!waited) {
             waited = true;
-            await Future.wait([
-              isolateSawRefresh.future,
-              subprocessSawRefresh.future,
+            await Future.any<void>([
+              Future.wait([
+                isolateSawRefresh.future,
+                subprocessSawRefresh.future,
+              ]).then((_) {}),
+              readerFailure.future.then(
+                (failure) => fail('$failure\nSubprocess stderr: $errors'),
+              ),
             ]).timeout(
               const Duration(minutes: 2),
               onTimeout: () =>
@@ -370,6 +408,7 @@ Future<void> _searchingIsolate(
     reference: reference,
     stop: stop.future,
     onRefresh: () => reply.send('refresh'),
+    onFailure: (error) => reply.send('failure $error'),
   );
   commands.close();
   reply.send(summary);
