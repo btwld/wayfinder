@@ -167,3 +167,9 @@ Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyz
 Date: 2026-11-07.
 
 Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.
+
+## Optional assessment of retained reader bytes
+
+Date: 2026-11-08.
+
+Keep assessment explicitly host-invoked and lease-bound, carrying the displayed revision, because the Knowledge Workbench's fingerprint cache and background Profile lifecycle cannot safely validate newer disk bytes behind an older view. A narrow external-path observation callback preserves core's default disk behavior while reader assessment refuses uncaptured observations; Profile selection/fetching, execution bounds and result caches remain host-owned. Idle local refreshes reuse capture/projections after one matching full byte manifest, trading one scan per refresh and a retained latest capture for byte-based freshness without stat heuristics.

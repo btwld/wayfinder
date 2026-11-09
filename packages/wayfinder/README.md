@@ -19,7 +19,12 @@ and writes a Profile governs are in `package:wayfinder/authoring.dart`
 such as a candidate built in memory, without reading its files again; only the
 `path-targets-exist` builtin looks further, for a path target okf's graph
 cannot resolve: first in the loaded bundle, so a candidate sees the files it
-adds, then on disk relative to the bundle root.
+adds, then on disk relative to the bundle root. Embedded snapshot hosts may
+supply `ProfileValidator(outsideBundleExists: (relative) => ...)` to replace
+only external disk lookup with captured existence observations. The decoded
+path remains bundle-relative (including `../`); unavailable observations should
+throw, and callback errors propagate. In-bundle targets always use loaded
+inventory. The default constructor preserves live disk checks.
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them. `EffectiveProfile.requiredConceptFields` lists
 the frontmatter keys a concept must carry for the gate to pass: those the

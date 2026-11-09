@@ -752,7 +752,12 @@ particular names expresses that policy in its rule schema over `path` and
 Path-target checks use the loaded inventory for every in-bundle file or
 implied directory, including in-memory candidates; they never recover a removed
 candidate file from disk. Disk lookup applies only to relative targets outside
-the bundle. Bundle-root parent escapes, raw or decoded backslashes, encoded
+the bundle. Embedded hosts may replace only that external lookup through
+`ProfileValidator.outsideBundleExists` (or `resolvePathTarget`'s matching
+argument), supplying observations coherent with their loaded input. Callback
+errors propagate so an unavailable observation cannot silently pass; omitted
+callbacks preserve disk behavior. This changes neither package interpretation
+nor builtin policy. Bundle-root parent escapes, raw or decoded backslashes, encoded
 separators and malformed percent escapes report a missing target. A literal
 percent in a filename must be encoded as `%25`. URLs and prose source
 descriptors remain outside the path check; an explicit `/`, `./` or `../`
@@ -911,6 +916,14 @@ Entries below are newest-first decision history. Earlier format numbers and
 "next wayfinder release" wording describe the decision at that time, not
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
+
+**Snapshot host observations, 2026-11-08.**
+Affected section: §5.6 and public validation/path-target APIs. Driver: reader
+hosts need assessment against retained displayed bytes instead of external
+existence checks on newer disk state. Optional external-observation injection
+replaces only the disk seam; the default remains unchanged. No schema, golden,
+Profile format, generic skill rule or package migration changes are required:
+this is an additive host I/O seam, not a reinterpretation of packages.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number

@@ -377,7 +377,13 @@ final class ProfileValidator {
   const ProfileValidator({
     this.loader = const OkfBundleLoader(),
     this.buildGraph = OkfGraph.fromBundle,
+    this.outsideBundleExists,
   });
+
+  /// Replaces live disk checks for decoded paths outside the loaded bundle.
+  /// Null preserves disk behavior. A snapshot host supplies captured existence
+  /// observations or throws when unavailable; callback errors propagate.
+  final bool Function(String relative)? outsideBundleExists;
 
   final OkfBundleLoader loader;
 
@@ -468,7 +474,8 @@ final class ProfileValidator {
   /// `path-targets-exist` builtin looks further, for a path target okf's
   /// graph cannot resolve: first in [loaded], so a candidate sees the files
   /// it adds, then on disk relative to the loaded `rootPath`, such as for a
-  /// target that leaves the bundle.
+  /// target that leaves the bundle. [outsideBundleExists] replaces that disk
+  /// check when supplied; its errors propagate to the host.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,
@@ -576,6 +583,7 @@ final class ProfileValidator {
       loaded,
       profile: profile,
       buildGraph: buildGraph,
+      outsideBundleExists: outsideBundleExists,
     );
     final results = evaluate(profile, facts);
     final notes = profile.rules.any(

@@ -122,11 +122,13 @@ final class BundleFacts {
   BundleFacts.project(
     this.loaded, {
     required this.profile,
+    this.outsideBundleExists,
     OkfGraph Function(OkfBundle) buildGraph = OkfGraph.fromBundle,
   }) : _buildGraph = buildGraph;
 
   final OkfBundleLoadResult loaded;
   final EffectiveProfile profile;
+  final bool Function(String relative)? outsideBundleExists;
 
   final OkfGraph Function(OkfBundle) _buildGraph;
 

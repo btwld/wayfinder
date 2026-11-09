@@ -40,6 +40,7 @@ Iterable<Violation> pathTargetsExist(
       edge,
       inBundle: facts.inventory.contains,
       rootPath: facts.loaded.rootPath,
+      outsideBundleExists: facts.outsideBundleExists,
     ).missing;
     if (missing && emitted.add((edge.source.documentPath, edge.rawTarget))) {
       yield Violation(

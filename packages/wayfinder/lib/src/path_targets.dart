@@ -61,10 +61,15 @@ final class OutsidePath extends PathTarget {
 /// prose. Percent decoding follows OKF; malformed escapes, separators within
 /// decoded segments and bundle-root parent escapes are missing. A present
 /// internal target returns its decoded bundle-relative path for display.
+/// [outsideBundleExists], when supplied, replaces disk lookup for decoded
+/// bundle-relative paths leaving the bundle. It is never called for internal
+/// or invalid paths. Hosts must supply coherent observations; callback errors
+/// propagate rather than becoming a successful check.
 PathTarget resolvePathTarget(
   OkfGraphEdge edge, {
   required bool Function(String path) inBundle,
   String? rootPath,
+  bool Function(String relative)? outsideBundleExists,
 }) {
   const notPath = NotAPath();
   const missing = MissingPath();
@@ -111,6 +116,12 @@ PathTarget resolvePathTarget(
     return inBundle(relative) ? InBundlePath(relative) : missing;
   }
   if (target.startsWith('/')) return missing;
+  if (outsideBundleExists != null) {
+    return OutsidePath(
+      missing: !outsideBundleExists(relative),
+      relative: relative,
+    );
+  }
   // An in-memory caller cannot inspect a relative path outside its inventory.
   if (rootPath == null) {
     return OutsidePath(missing: false, relative: relative);

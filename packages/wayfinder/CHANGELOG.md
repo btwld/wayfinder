@@ -1,5 +1,9 @@
 # 0.5.0-beta.1
 
+- Add optional `ProfileValidator.outsideBundleExists` and matching
+  `resolvePathTarget` observation injection for snapshot-bound hosts. Default
+  validation keeps its live disk behavior; injected callback errors propagate.
+
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
   with `format` as an annotation unless asked, so both imports pass
