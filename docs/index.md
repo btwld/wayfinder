@@ -44,6 +44,8 @@ surfaces, supported verification targets, host ownership and migration boundarie
 | CLI | Terminal workflows and CI, with text or JSON results; validation also supports SARIF. | [`wayfinder`](../packages/wayfinder_cli/README.md) |
 | MCP | Agent access to `validate`, `index`, `search`, and `graph` across configured project bundles (or one explicit bundle) over stdio. | [`wayfinder mcp <bundle>`](../packages/wayfinder_cli/README.md#mcp-server) |
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](../packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
+| Portable knowledge | Retained byte values, snapshots, independent leases, cancellation and the memory backend without native dependencies in the import closure. | [`knowledge.dart`](../packages/wayfinder/README.md#portable-retained-knowledge) from `package:wayfinder/knowledge.dart` |
+| Read-only local knowledge | Bounded filesystem capture, external existence observations and pure OKF conversion, without Profile fetching or source writes. | [`LocalKnowledgeProject.open` and `buildOkfBundle`](../packages/wayfinder/README.md#read-only-filesystem-loader) from `package:wayfinder/project.dart` |
 | Dart projects | Embed what the CLI does with a project: discover its bundles, resolve and select Profiles, relock an edit of `wayfinder.json` offline, validate, and project the graph. | [`WayfinderProject` and `WayfinderProfileResolver`](../packages/wayfinder/README.md#projects) from `package:wayfinder/project.dart` |
 | Dart knowledge store | Embed what `wayfinder index` and `search` do: saved indexes of a project's bundles, status, progress, cancellation, and ranked, cited search that keeps working while an index runs. | [`WayfinderKnowledgeStore`](../packages/wayfinder_embeddings/README.md#knowledge-store) from `package:wayfinder_embeddings/knowledge_store.dart`, with a test encoder in `testing.dart` |
 | Dart adoption | Plan and apply a project's adoption of a Profile: binding, lock, Profile skills, and the seeded bundle. | [`KnowledgeAdoption`](../packages/wayfinder/README.md#adoption) from `package:wayfinder/adoption.dart` |
@@ -65,6 +67,7 @@ fallback. Chunk preview and snapshot parsing remain model-free. See the
 
 - [Structured queries and saved views](queries.md) — model-free concept selection, grouping, CLI/MCP and project query IDs.
 
-Model-free reader backends: [portable contracts and memory](../packages/wayfinder_reader/README.md),
-[local capture](../packages/wayfinder_reader_local/README.md), and
+Model-free knowledge: [portable values and memory leases](../packages/wayfinder/README.md#portable-retained-knowledge)
+from `package:wayfinder/knowledge.dart`, [native read-only filesystem loading](../packages/wayfinder/README.md#read-only-filesystem-loader)
+from `package:wayfinder/project.dart`, and
 [shared Flutter integration](../packages/wayfinder_flutter/doc/integration.md).

@@ -162,14 +162,8 @@ Date: 2026-11-05.
 
 Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade, while CLI knowledge indexes keep using plain-file generations. Exit: move the override, installer and manifest to the first stable ObjectBox 6 release, keeping every entity id and UID.
 
-## Revision-bound model-free reader backends
+## Consolidated knowledge entries and model-free reader backends
 
-Date: 2026-11-07.
+Date: 2026-11-07; consolidated 2026-11-09.
 
-Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.
-
-## Pure retained reader input for host validation
-
-Date: 2026-11-08; simplified 2026-11-09.
-
-Keep the reader's synchronous `loadBundle` as an OKF-free retained-byte value, because browser hosts need neither native parsing nor execution policy; reader_local owns the top-level OKF builder while hosts retain Profile selection, isolates, cancellation and revision checks. Share one core file-role classifier across native callers and mark retained OKF input with one non-filesystem sentinel, refusing validation without captured external observations rather than reading a synthetic disk location. Local capture records granted nonsymlinked existence and reuses idle captures when byte manifests and observations match; hidden directories are excluded by default with a boolean opt-in, without gating validation.
+Keep portable retained values, memory capture and lease mechanics behind core's browser-closed `knowledge.dart`, and native bounded read-only filesystem loading/OKF conversion behind `project.dart`, because entry-point import closures provide the required platform boundary without two extra unpublished packages. Flutter owns widgets/controllers and presentation-only preference/finding values; the separate reader package directories are deleted and their regression tests move to core, at the cost of import updates for unpublished consumers. Capture retains byte manifests and external existence observations without filesystem transactions or source writes, while hosts own Profile selection, validation isolates, cancellation and revision/context checks; the portable closure is checked transitively in CI.

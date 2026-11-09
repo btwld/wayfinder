@@ -1,12 +1,29 @@
 # 0.5.0-beta.1
 
+- Consolidate the unpublished reader packages into core entry points. The
+  portable entry remains browser-closed; native acquisition stays read-only,
+  model-free and separate from Profile resolution or authoring. The two package
+  directories are deleted without forwarding packages or deprecation aliases.
+  Preserve bounded captures/reads, grant revocation and close/drain, symlink
+  confinement, hidden-directory exclusion with one opt-in boolean, empty versus
+  missing roots, canonical manifest reuse, captured external observations and
+  retained-versus-disk OKF parity, with their regression tests moved to core.
+
+  | Former location | New location |
+  | --- | --- |
+  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, retained bundles, cancellation/lease mechanics, memory backend and manifest function | `package:wayfinder/knowledge.dart` |
+  | `wayfinder_reader_local`: `LocalKnowledgeProject.open` bounded read-only filesystem loader, external observations and `buildOkfBundle` | `package:wayfinder/project.dart` |
+  | `preferredKnowledgeBundle`, finding/gate/verdict presentation values | `wayfinder_flutter` model layer |
+  | Reader contract regression tests | Core `test/knowledge/` |
+  | Native loader/conversion/parity regression tests | Core `test/project/knowledge/` |
+
 - Add optional `ProfileValidator.outsideBundleExists` and matching
   `resolvePathTarget` observation injection for snapshot-bound hosts. Default
   validation keeps its live disk behavior; injected callback errors propagate.
   Add pure `externalPathTargets` enumeration for retained existence capture.
 - Export shared `BundleFileKind`/`classifyBundleFile` classification matching OKF's
   reserved basenames and case-sensitive Markdown suffix; adoption, query facts
-  and reader_local use it without changing their file roles.
+  and native loading use it without changing their file roles.
 - Export the non-filesystem `retainedBundleRoot` sentinel; retained validation
   without `outsideBundleExists` throws an explicit `StateError` before disk I/O.
   Path-based `validate` also rejects the sentinel before loading or locking;

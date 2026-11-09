@@ -2,8 +2,8 @@
 
 The shared `KnowledgeReaderController` and `KnowledgeReader` consume portable
 `KnowledgeProject` leases. The same widgets run against
-[`MemoryKnowledgeProject`](../../wayfinder_reader/README.md) and
-[`LocalKnowledgeProject`](../../wayfinder_reader_local/README.md). Hosts retain
+[`MemoryKnowledgeProject`](../../wayfinder/README.md#portable-retained-knowledge) and
+[`LocalKnowledgeProject`](../../wayfinder/README.md#read-only-filesystem-loader). Hosts retain
 sign-in, project selection, source grants, app chrome and lifecycle ownership.
 No embedding model, search index or retrieval package is needed.
 
@@ -56,7 +56,7 @@ Background retirement failures are observed immediately and carried to awaited
 `close()`, which rethrows the first cleanup error with its original stack after
 all cleanup drains. Dispose-initiated failure is reported through Flutter.
 
-Local capture retains all bounded raw bytes and compares two manifests. See its
+Local capture retains all bounded raw bytes and compares two manifests. See the core loader
 README for limits and nontransactional filesystem guarantees. A remote backend
 must supply the same revision-conditioned/retained-byte semantics; no remote
 transport/provider is supplied here.
@@ -106,10 +106,13 @@ borrowed ownership explicitly. `KnowledgeException` becomes typed `KnowledgeFail
 Provisional index/search/model DTOs were removed;
 there is no compatibility shim or second backend contract.
 
-Portable concept/graph/finding values now live in `wayfinder_reader` and are
+Portable concept/graph/source values now live in `wayfinder/knowledge.dart` and are
 re-exported from `wayfinder_flutter` and the existing model import paths. Existing
 graph/helper consumers do not need import-path changes. Existing presentation
 file-entry/tree models remain projections, not an alternative source backend.
-The package remains unpublished; this is an intentional breaking minor, not a
-change to the stable core/CLI/retrieval contract. Sibling packages are unpublished,
-so local composition needs matching overrides as demonstrated by the example.
+Preferred-bundle policy and finding/verdict display values live in Flutter.
+The two unpublished reader package directories were removed with no aliases.
+Native hosts import `wayfinder/project.dart` for the read-only filesystem loader
+and `buildOkfBundle`; widgets and controllers use only `wayfinder/knowledge.dart`.
+The package remains unpublished; local development overrides only core, as the
+example shows. No validation/Health feature or execution framework is added.

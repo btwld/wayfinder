@@ -29,23 +29,253 @@ without Profile resolution or disk reads. Hosts capture this superset within
 their grant and supply retained observations later. In-bundle targets always use
 loaded inventory. Ordinary filesystem roots preserve live disk checks.
 
-Native retained loads from reader_local's `buildOkfBundle` carry the exported
+Native retained loads from `project.dart`'s `buildOkfBundle` carry the exported
 `retainedBundleRoot` sentinel (`wayfinder:retained-bundle`), never a filesystem
 location. `validateLoaded` requires an explicit `outsideBundleExists` callback
 for this root and throws a `StateError` naming that requirement when absent.
+Path-based `validate` also refuses this sentinel before opening or locking.
 Direct external-path resolution with that sentinel also refuses disk fallback.
 
 `classifyBundleFile(relativePath)` is the shared pure file classifier:
 `BundleFileKind.indexDocument`, `logDocument`, `concept` or `asset`. It follows
 OKF's exact reserved basenames at any depth and case-sensitive `.md` suffix,
 without validating paths or parsing files. Core adoption, query fingerprinting,
-Markdown facts and reader_local's builder/projection/target capture all use it.
+Markdown facts and the filesystem loader's builder/projection/target capture all use it.
 
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them. `EffectiveProfile.requiredConceptFields` lists
 the frontmatter keys a concept must carry for the gate to pass: those the
 Profile's error rules require of every concept, for Bitwild `type`, `title`,
 `description` and `status`.
+
+## Portable retained knowledge
+
+Import `package:wayfinder/knowledge.dart` for browser-closed source values,
+captured files/bundles, snapshot/project interfaces, retained bundles, failure
+codes, cancellation and independent lease mechanics, the memory backend and
+`knowledgeManifestFingerprint`. This entry exports only portable source modules;
+it does not export `wayfinder.dart`, `project.dart`, validation, OKF, I/O or FFI.
+Core's native dependencies do not imply imports in this entry's closure.
+
+Flutter owns controllers, selection/presentation state, preferred-bundle policy
+and finding/verdict display models. None of those UI policies are in this entry.
+
+`KnowledgeProject.refresh()` returns an independently releasable
+`KnowledgeProjectSnapshot`. Its bundles expose concepts, a complete permitted
+file inventory, a graph (or typed refusal) and explicit validation-unavailable.
+`read(handle)` returns immutable verified bytes, with strict UTF-8 decoding and a
+caller byte limit. Binary or malformed content is not discarded.
+
+Identity, project-relative display paths and opaque content revisions are
+separate. Handles contain project ID, optional bundle ID, snapshot revision and
+safe POSIX scope-relative path. A null bundle identifies project configuration.
+`CapturedKnowledgeProject` currently gives every bundle the whole-project capture
+revision. This is correct but conservative: unrelated bundle/config changes can
+invalidate a bundle view; these are not independent per-bundle versions.
+They contain neither absolute roots nor credentials. Paths are never decoded
+into permission, and handles must belong to the lease's permitted inventory.
+
+## Backends and ownership
+
+`MemoryKnowledgeProject(id: ..., capture: ...)` uses `KnowledgeCapture`, captured
+files and semantic bundle projections. Updating `current` affects only later
+refreshes. Captures defensively retain bytes and nested concept metadata. Their
+SHA-256 revision covers bytes and projected content, not a load counter. Nested
+YAML metadata preserves scalar mapping keys, dates and nonfinite numbers; all
+returned mappings/collections are immutable rather than coerced to JSON.
+`CapturedKnowledgeProject` supplies the same lifecycle to an adapter with a
+private asynchronous capture callback; adapters own their acquisition bounds
+and semantic correctness. It deliberately provides no filesystem abstraction.
+
+Every successful refresh receives a distinct lease, even when capture is
+coalesced. Cancelling one refresh does not cancel another. Bundle views borrow
+the parent lease. Release immediately rejects access through that lease, drains
+its accepted reads and drops its retained capture reference; other leases work.
+Close rejects new work, invalidates all leases and drains accepted captures
+and reads.
+Closed/revoked state takes precedence over a late capture error; while open,
+original acquisition errors are preserved.
+Both are idempotent, including reentrant close notifications.
+
+`revocations` synchronously announces permanent grant loss; retained reads then
+deny and consumers must clear affected views. Detached immutable values already
+returned cannot be recalled. A transient refresh failure does not revoke an old
+lease. Controllers borrow projects: detach UI, close controller, then close the
+host-owned project. No search/status/index/model methods are mandatory or faked.
+Validation stays unavailable on browsing views. `snapshot.loadBundle(bundleId)`
+returns a `KnowledgeRetainedBundle`: its `id`, captured `summary`, and immutable
+`files` (`KnowledgeCapturedFile` path/bytes values), sorted by full relative path.
+Only the bundle root `.okf.lock` is excluded. It performs no Markdown parsing,
+classification or I/O; malformed/binary bytes remain bytes. Unknown bundle IDs
+throw `notFound`. A detached value survives lease release/revocation.
+
+Native hosts import `project.dart` for
+`buildOkfBundle(snapshot.loadBundle(bundleId))`; OKF parsing stays outside the
+portable entry point.
+Hosts own Profile selection from captured configuration/lock bytes, isolate
+execution, cancellation and result publication. In this six-line example,
+`validateApart` is the host's native helper that builds the OKF load and validates
+it in an isolate using only the supplied observations. Its context token must
+change on release, revocation, project switch or a new Profile attempt:
+
+```dart
+final context = currentContext;
+final revision = snapshot.revision;
+final retained = snapshot.loadBundle(bundleId);
+final observations = snapshot.externalPathObservations[bundleId] ?? const <String, bool>{};
+final result = await validateApart(retained, selection, observations);
+if (currentContext == context && displayedRevision == revision) publish(result);
+```
+
+`externalPathObservations` is an immutable map by bundle ID, then decoded
+bundle-relative outside path, then existence. Missing entries are unknown, never
+false or permission to consult live disk. Memory captures default to no
+observations; adapters may provide them explicitly. Observations are part of the
+full revision; they do not change the byte-manifest fingerprint.
+
+`KnowledgeCapture.manifestFingerprint` is a SHA-256 of sorted file
+addresses/digests and bundle identities/paths, independent
+of semantic projections and enumeration order. The pure
+`knowledgeManifestFingerprint` function computes the same identity from file
+addresses/digests and bundle identities/paths. It covers configuration/lock
+bytes when captured. Use revision plus Profile/validator inputs for validation
+caching; the manifest alone cannot identify a changed Profile selection.
+Optional search integration remains deferred.
+
+## Read-only filesystem loader
+
+Import both entries for native browsing:
+
+```dart
+import 'dart:io';
+import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/project.dart';
+
+final project = await LocalKnowledgeProject.open(
+  root: Directory('/granted/project'), id: 'host:project',
+  bundleIds: {'knowledge': 'host:stable-docs'},
+);
+final snapshot = await project.refresh();
+final loaded = buildOkfBundle(snapshot.loadBundle(snapshot.bundles.first.id));
+await snapshot.release();
+await project.close();
+```
+
+`LocalKnowledgeProject.open` is filesystem acquisition, exposed as a lease-owning
+project. Its loader retains bounded bytes and never invokes resolver/fetch/write
+operations merely because they share the native entry point. This is distinct
+from `WayfinderProject.discover` and Profile resolution: browsing never runs Git,
+writes coordination locks or mutates source/user data.
+
+Discovery uses only the granted root's `wayfinder.json` (`applies_to` through the
+core parser), or conventional `knowledge/`. It does not search ancestors or
+resolve selected Profiles. An existing project with neither configuration nor
+`knowledge/` returns a successful snapshot with no bundles; a missing project or
+a missing configured bundle returns `notFound`. Supplied bundle IDs can survive
+relocation; fallback IDs are explicitly location-bound. Display paths are not identities.
+
+## Capture and access limits
+
+Inventory includes every regular bundle file (malformed Markdown, indexes,
+logs, attachments, hidden files), plus root `wayfinder.json`/`wayfinder.lock`
+when present. The bundle root `.okf.lock` protocol file is excluded. Dot-prefixed directories
+(including `.git` and `.okf` caches) are pruned recursively by default, while
+hidden regular files remain included. `open(includeHiddenDirectories: true)`
+opts into hidden directories. This controls captured scope; `loadBundle` works
+with either setting and does not gate validation based on the flag. References into
+excluded inventory gain no read permission. Links
+and nonregular devices are not granted inventory; linked configuration, bundle
+roots or path traversal refuse. POSIX resource paths must be portable safe
+relative addresses; no parent, empty or dot segments, backslashes, colons or
+ASCII/C1 control characters. Unsupported filesystem addresses return a typed, file-specific
+`invalidContent` refusal; they are not an added OKF conformance rule. An invalid
+semantic concept ID instead retains its raw file and refuses the graph. External
+Markdown references confer no file-open permission.
+
+Each scan enforces **16 MiB per file and 64 MiB aggregate retained source bytes**
+by default; hosts can lower or explicitly raise both at `open`. A bounded read
+also checks size and SHA-256. An unchanged refresh performs one full byte scan and reuses the previous
+capture/projections when the capture's `manifestFingerprint` and external
+existence observations match. Changed/initial
+captures compare two full scans and their external observations, with one retry
+on mutation. This catches
+same-size edits even with restored mtimes; it is not a stat-only cache.
+Concurrent refreshes coalesce capture but return independent leases. The latest
+capture stays cached until replaced or project close; old leases retain their
+own captures. Sequential idle refreshes still scan once each; hosts should
+coalesce/debounce focus and watcher notifications if that cost matters. Up to two scan-sized raw captures coexist during
+comparison (plus bounded temporary reads, semantic models and consumer copies).
+This is not a project transaction, lock/snapshot filesystem, or protection
+against adversarial replacement/ABA races. No source files or lock files are
+written. Source operations stay on one isolate.
+
+All captured bytes are retained, including attachments, so an old revision never
+substitutes fresh filesystem bytes. Reads recheck project/lease/grant state and
+handle membership, not live file freshness. Changed sources appear only after
+explicit successful refresh; transient refresh failure leaves the old authorized
+lease readable. Host-observed grant loss calls `revoke()` immediately, clearing
+attached controllers and denying even retained reads. New permission requires a
+new project. OS failures alone are not treated as grant revocation.
+
+Concepts/graph derive only from captured Markdown via OKF. Both ordinary edges
+and Wayfinder relationship field edges retain origins, resolutions and names.
+Malformed Markdown remains raw-readable and refuses the graph rather than
+returning a misleading empty success. Bundle browsing views keep validation
+**unavailable/not validated**. `snapshot.loadBundle(bundleId)` returns the
+reader's plain `KnowledgeRetainedBundle` value. The single native conversion is:
+
+```dart
+final loaded = buildOkfBundle(snapshot.loadBundle(bundleId));
+```
+
+`buildOkfBundle` is a top-level function exported by `project.dart`, with no
+callback/class/interface. It
+uses core's `classifyBundleFile` for indexes, logs, concepts and assets, and
+excludes `.okf.lock` at every depth. The reader value still retains nested
+coordination files. The shared classifier is also used by browsing projections,
+external-target capture, core adoption and query fingerprinting, so their file
+roles agree. Malformed Markdown/UTF-8 throws `invalidContent` from the builder;
+the reader never parses it. Full malformed-file report parity remains deferred.
+
+The resulting `rootPath` is core's `retainedBundleRoot`, a non-filesystem sentinel.
+`ProfileValidator.validateLoaded` throws a `StateError` naming the missing
+`outsideBundleExists` callback when it receives this root without observations,
+before validation can read disk. The resolver also refuses a direct outside-path
+query using the sentinel without a callback. Ordinary on-disk roots keep their
+existing behavior.
+
+At capture time, `externalPathTargets` in core enumerates a superset of all
+outside paths the `path-targets-exist` builtin could ask about, across every
+supported field, without requiring Profile configuration or fetching. This
+backend observes existence only within the granted root, without traversing
+symlinks or reading target content. Unreadable, symlinked or out-of-grant targets
+remain unknown. `snapshot.externalPathObservations[bundleId]` holds immutable
+booleans keyed by decoded, normalized bundle-relative outside paths. Observed
+absence is `false`; missing keys are unknown and must throw `unavailable` when
+queried. Existence is compared alongside both capture manifests; refresh also
+rechecks it before reusing the previous capture. Changes affect the snapshot
+revision even when every retained file byte stays the same. This remains a
+best-effort capture, without a filesystem transaction or adversarial-race promise.
+
+The host can validate the returned load on its own isolate using only captured
+observations, never live external disk lookup:
+
+```dart
+final observations = snapshot.externalPathObservations[bundleId] ?? const <String, bool>{};
+final validator = ProfileValidator(outsideBundleExists: (path) =>
+  observations[path] ?? (throw KnowledgeFailure(
+    KnowledgeFailureCode.unavailable, 'validate', 'No captured observation.', path: path)));
+final loaded = buildOkfBundle(snapshot.loadBundle(bundleId));
+// Pass loaded, selection and observations to a top-level Isolate.run helper.
+```
+
+Profile selection must use the displayed `wayfinder.json`/`wayfinder.lock`
+bytes. Fetching, shared attempts, retries, execution bounds, cancellation and
+revision/context checks belong to the host. A later Profile cache fill can
+validate the same load again without rereading source files. The inventory flag
+never gates validation; conformance applies to the captured inventory, which
+can intentionally differ from an unfiltered on-disk load under hidden directories.
+
 
 ## Projects
 

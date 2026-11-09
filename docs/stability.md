@@ -11,6 +11,7 @@ and exact-source verification still decide whether a candidate can ship.
 
 ### Core (`wayfinder`)
 
+[`knowledge.dart`](../packages/wayfinder/lib/knowledge.dart),
 [`wayfinder.dart`](../packages/wayfinder/lib/wayfinder.dart),
 [`project.dart`](../packages/wayfinder/lib/project.dart),
 [`adoption.dart`](../packages/wayfinder/lib/adoption.dart), and
@@ -153,12 +154,20 @@ Release readiness is established by the [release preflight](releasing.md#release
 and the remaining staged distribution checks, not by this document alone.
 
 
-## Unpublished reader milestone
+## Knowledge entry points and unpublished Flutter milestone
 
-`wayfinder_reader` and `wayfinder_reader_local` 0.1 and `wayfinder_flutter` 0.2
-remain unpublished, separate from the prepared core/retrieval/CLI 0.5 surface.
-Flutter 0.2 intentionally replaces its provisional 0.1 backend/search API;
-[its migration guide](../packages/wayfinder_flutter/doc/integration.md#migration-from-unpublished-01)
-records the removed signatures. Model-free browsing supplies no conformance
-assessment or semantic search. Local/memory Linux tests do not establish mobile,
-web, remote-provider or other native-platform support.
+`package:wayfinder/knowledge.dart` is the portable, browser-closed retained-value
+and lease entry. `project.dart` owns read-only native capture and OKF conversion;
+`wayfinder.dart` remains native validation. These entry points share one package,
+but only the portable source closure is promised free of native/OKF/Flutter
+imports, enforced by the transitive CI guard. Existing validation/project release
+obligations are unchanged; no Profile/OKF semantics or package version changed.
+
+The separate `wayfinder_reader`/`wayfinder_reader_local` packages were unpublished
+and are deleted, without aliases. Their tests move into core; native callers
+update imports to `knowledge.dart` plus `project.dart`. `wayfinder_flutter` 0.2
+remains unpublished and intentionally replaces its provisional 0.1 backend/search
+API; [its migration guide](../packages/wayfinder_flutter/doc/integration.md#migration-from-unpublished-01)
+records the signatures. Hosts own validation execution/context checks. Browsing
+supplies no implicit conformance or semantic search. Local/memory Linux tests
+do not establish mobile, remote-provider or other native-platform support.

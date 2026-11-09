@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - packages/wayfinder_flutter/**
-      - packages/wayfinder_reader/**
-      - packages/wayfinder_reader_local/**
       - packages/wayfinder/**
       - pubspec.yaml
       - pubspec.lock
@@ -17,8 +15,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - packages/wayfinder_flutter/**
-      - packages/wayfinder_reader/**
-      - packages/wayfinder_reader_local/**
       - packages/wayfinder/**
       - pubspec.yaml
       - pubspec.lock
@@ -76,10 +72,20 @@ jobs:
           flutter-version: ${{ matrix.flutter }}
           channel: stable
           cache: true
+      - run: dart pub get
+        working-directory: .
       - run: flutter pub get
-      - run: python3 ../../tool/ci/verify-reader-closure.py
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python3.13 verify-reader-closure.py
+        working-directory: tool/ci
       # dart format's output depends on the version; stable defines the style.
       - if: matrix.flutter == 'any'
         run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos
-      - run: flutter test
+      - run: flutter test --concurrency=2
+      - run: flutter pub get
+        working-directory: packages/wayfinder_flutter/example
+      - run: flutter analyze --fatal-infos
+        working-directory: packages/wayfinder_flutter/example

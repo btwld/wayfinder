@@ -184,10 +184,13 @@ running that complete native pipeline twice per commit; native execution on
 the minimum SDK is no longer a CI promise. Stable Linux artifacts still belong
 to the exact tested commit, and the three-platform distribution remains paused.
 
-Reader packages join the Dart workspace without Flutter or embeddings in their
-runtime closure. Run `dart test` in `packages/wayfinder_reader` and then
-`packages/wayfinder_reader_local`, serialized with the other package tests.
-`python3 tool/ci/verify-reader-closure.py` checks this boundary. The separate
-Flutter workflow tests the shared memory/local reader and existing graph suite
-when reader/local/core dependency sources change; Flutter stays outside the root
-workspace. See [reader integration](../packages/wayfinder_flutter/doc/integration.md).
+Portable knowledge contracts and native loader regression tests now run in the
+core suite (`test/knowledge/` and `test/project/knowledge/`). From `tool/ci`, run
+`python3.13 verify-reader-closure.py` after `dart pub get`: it follows the actual
+transitive import/export/part closure of `package:wayfinder/knowledge.dart`,
+including every conditional branch, and rejects native/OKF/Flutter imports.
+The existing `wayfinder.dart` and `project.dart` remain native entries; package
+runtime dependencies are not confused with a portable entry's import closure.
+The separate Flutter workflow tests the memory/local reader and graph suite
+when core/Flutter sources change; Flutter stays outside the root workspace.
+See [reader integration](../packages/wayfinder_flutter/doc/integration.md).
