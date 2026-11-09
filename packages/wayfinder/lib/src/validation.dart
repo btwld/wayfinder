@@ -5,6 +5,7 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
+import 'path_targets.dart' show retainedBundleRoot;
 import 'profile_finding.dart';
 import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
@@ -475,7 +476,9 @@ final class ProfileValidator {
   /// graph cannot resolve: first in [loaded], so a candidate sees the files
   /// it adds, then on disk relative to the loaded `rootPath`, such as for a
   /// target that leaves the bundle. [outsideBundleExists] replaces that disk
-  /// check when supplied; its errors propagate to the host.
+  /// check when supplied; its errors propagate to the host. A load marked with
+  /// [retainedBundleRoot] requires this callback, otherwise throws [StateError]
+  /// before running any validation or attempting disk access.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,
@@ -488,6 +491,11 @@ final class ProfileValidator {
     List<EngineDiagnostic> diagnostics = const [],
     List<String>? fixed,
   }) {
+    if (loaded.rootPath == retainedBundleRoot && outsideBundleExists == null) {
+      throw StateError(
+        'Retained bundle validation requires outsideBundleExists; its sentinel root must never be read from disk.',
+      );
+    }
     final okf = validation ?? loaded.validate();
     switch (selection) {
       case _ when !okf.isConformant:

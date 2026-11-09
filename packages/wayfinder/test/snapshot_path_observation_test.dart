@@ -5,6 +5,68 @@ import 'package:wayfinder/wayfinder.dart';
 import 'support.dart';
 
 void main() {
+  test(
+    'external target enumeration covers builtin fields without disk lookup',
+    () {
+      final bundle = OkfBundle.fromDocuments({
+        'a.md': OkfDocument.parse('''---
+resource: ../resource%20file.txt
+sources:
+  - id: one
+    resource: ../source.txt
+  - id: two
+    resource: https://example.test/source
+computation: ../computation.dart
+executor: {resource: ../executor.txt}
+attester: {resource: ../attester.txt}
+---
+[body](../ignored.txt)
+'''),
+        'sub/b.md': OkfDocument.parse('---\nresource: ../../source.txt\n---\n'),
+      });
+      final targets = externalPathTargets(bundle);
+      expect(targets.toList(), [
+        '../attester.txt',
+        '../computation.dart',
+        '../executor.txt',
+        '../resource file.txt',
+        '../source.txt',
+      ]);
+      expect(() => targets.add('../new'), throwsUnsupportedError);
+    },
+  );
+
+  test('retained root refuses resolver disk fallback without observations', () {
+    final edge = OkfGraph.fromBundle(
+      OkfBundle.fromDocuments({
+        'note.md': OkfDocument.parse('---\nresource: ../outside.txt\n---\n'),
+      }),
+    ).edges.single;
+    expect(
+      () => resolvePathTarget(
+        edge,
+        inBundle: (_) => false,
+        rootPath: retainedBundleRoot,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'cause',
+          contains('outsideBundleExists'),
+        ),
+      ),
+    );
+    expect(
+      resolvePathTarget(
+        edge,
+        inBundle: (_) => false,
+        rootPath: retainedBundleRoot,
+        outsideBundleExists: (_) => true,
+      ).missing,
+      isFalse,
+    );
+  });
+
   test('external observation replaces disk only for decoded outside paths', () {
     OkfGraphEdge edge(String target) => OkfGraph.fromBundle(
       OkfBundle.fromDocuments({

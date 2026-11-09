@@ -756,7 +756,12 @@ the bundle. Embedded hosts may replace only that external lookup through
 `ProfileValidator.outsideBundleExists` (or `resolvePathTarget`'s matching
 argument), supplying observations coherent with their loaded input. Callback
 errors propagate so an unavailable observation cannot silently pass; omitted
-callbacks preserve disk behavior. This changes neither package interpretation
+callbacks preserve disk behavior for ordinary filesystem roots. An in-memory
+load marked with the exported `retainedBundleRoot` sentinel MUST supply this
+callback; validation refuses it with an explicit error when absent and MUST NOT
+interpret the sentinel as a filesystem path. The pure `externalPathTargets` helper enumerates
+a superset across supported fields so hosts can capture existence before later
+validation without selecting a Profile. This changes neither package interpretation
 nor builtin policy. Bundle-root parent escapes, raw or decoded backslashes, encoded
 separators and malformed percent escapes report a missing target. A literal
 percent in a filename must be encoded as `%25`. URLs and prose source
@@ -917,7 +922,17 @@ Entries below are newest-first decision history. Earlier format numbers and
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
-**Snapshot host observations, 2026-11-08.**
+**Retained native-load boundary and file classification, 2026-11-09.**
+Affected surfaces: §5.6 and public core/native-reader APIs. Driver: synthetic
+roots silently turned unknown external observations into missing-path findings,
+and duplicated classification could diverge between projections, adoption and
+querying. Use a single non-filesystem sentinel with explicit observation-required
+refusal, and one shared classifier with OKF's existing case-sensitive file roles.
+The browser reader returns only its own retained bytes; native conversion stays
+in reader_local. No Profile format/schema/policy change or package migration is
+required; hosts must supply observations for sentinel-marked loads.
+
+**Snapshot host observations, 2026-11-08; enumeration added 2026-11-09.**
 Affected section: §5.6 and public validation/path-target APIs. Driver: reader
 hosts need assessment against retained displayed bytes instead of external
 existence checks on newer disk state. Optional external-observation injection
