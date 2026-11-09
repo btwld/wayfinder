@@ -75,6 +75,8 @@ Future<void> main() async {
   validates; on a cache Wayfinder 0.2 wrote, it first copies the missing
   package files out of the cached mirrors with `restoreCachedPackages`,
   without fetching.
+  Sources in the project's own repository can supply committed objects without
+  a mirror; see [source resolution](../../docs/wayfinder-configuration.md).
   `pruneProjectLocks` deletes the `get` locks of project roots that no longer
   exist once they have gone unused for its period (30 days by default),
   reading a lock's note only while the lock is free;
@@ -97,8 +99,8 @@ Future<void> main() async {
   - `copies`, one `ProfileLocalCopy` per chain member: its source's
     `location` and whether its mirror (`hasMirror`) and package file
     (`hasPackage`) are in the Profile cache. A locked-only plan contacts a
-    source only to clone a missing mirror, or to refresh one that lacks the
-    locked commit;
+    managed source only to clone a missing mirror, or to refresh one that
+    lacks the locked commit;
   - `skillDirectories`, each `.claude/skills/<id>` and `.agents/skills/<id>`
     a resolved chain's skills install into, with a
     `ProfileSkillDirectoryState`: `current`, `missing`, `stale` (Wayfinder's
@@ -114,7 +116,7 @@ Future<void> main() async {
     refuse before running Git, a lock entry no chain reaches included.
 - `plan(root, lockedOnly: true)` resolves exactly the commits
   `wayfinder.lock` pins and leaves the lock as written: it fetches a source
-  only when its mirror lacks the locked commit and never re-resolves a ref,
+  only when managed storage lacks the locked commit and never re-resolves a ref,
   so the lock's commits stay as written. A lock that would change, because
   it is missing or stale or does not hold each binding's chain, fails with
   `lock-change-required` before any Git command, and the
@@ -207,6 +209,8 @@ Future<void> main() async {
   `gitMayReachRemote` and `wayfinderSshCommand` for the rules they follow,
   and on cancellation throws `WayfinderException.cancelled()`;
   `throwIfCancelled` checks between steps.
+  Custom `GitRunner`s must preserve all arguments, including
+  `wayfinderBorrowedGitOptions` on borrowed reads.
 - Failures are `WayfinderException`s with a stable `code` and a message
   that says what happened and names no command; the `wayfinder` command adds
   what to run. A selection's or status's diagnostic carries a

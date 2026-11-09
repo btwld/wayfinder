@@ -175,3 +175,13 @@ Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyz
 Date: 2026-11-07.
 
 Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.
+
+## Borrow committed same-repository Profile objects
+
+Date: 2026-11-09.
+
+Borrow committed Profile objects from the project's own repository to avoid
+duplicate mirrors across self-hosting checkouts and worktrees (#181).
+The cost is extra Git discovery and possible failure if external Git changes
+remove objects during resolution; see
+[source resolution](docs/wayfinder-configuration.md).

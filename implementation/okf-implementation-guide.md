@@ -496,12 +496,15 @@ that when it adds each package. When two chains describe one id with
 different sources, `get` fails and names both sources, even when they
 resolve to the same commit. `get` converges.
 With an unchanged configuration, lock and cache, it fetches nothing and
-leaves the lock's bytes alone. `upgrade` deliberately refreshes mutable refs.
+leaves the lock's bytes alone. `upgrade` deliberately resolves mutable refs
+again, refreshing managed mirrors as consent permits.
 A canonical-JSON hash invalidates the lock on semantic config changes, not
 formatting changes; an unchanged source retains its locked commit during
 `get`. The lock contains revision metadata, never project knowledge,
 credentials, vocabulary or rules. The local Git cache holds fetched
-objects.
+objects. Local sources sharing the project's canonical Git common directory
+can supply committed package and skill objects without a mirror; see
+[source resolution](../docs/wayfinder-configuration.md).
 Hosts may explicitly collect managed mirrors with the resolver's
 `pruneMirrors` API, using recorded usage or a demonstrably missing local
 source whose immediate parent can be listed, under each mirror's lock.
@@ -917,6 +920,12 @@ Entries below are newest-first decision history. Earlier format numbers and
 "next wayfinder release" wording describe the decision at that time, not
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
+
+**Borrowed same-repository Profile reads, 2026-11-09.**
+§4.7 now permits direct committed-object reads for self-hosting repositories,
+addressing #181's duplicate mirrors; implementations must preserve locked
+commits and managed-mirror fetch policy. No package format, schema, rule or
+OKF meaning changes, and no package or cache-key migration.
 
 **Explicit Profile mirror collection, 2026-11-09.**
 In §4.4, add explicit mirror collection for #181's abandoned worktrees and

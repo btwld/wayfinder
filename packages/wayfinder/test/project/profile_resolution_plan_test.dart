@@ -66,6 +66,39 @@ void main() {
     ),
   );
 
+  test(
+    'borrowed reads succeed with fetch refused and report no fetches',
+    () async {
+      await configureSelfHostingProfile(source);
+      final before = await fileSnapshot(source.path);
+      final plan = await resolver.plan(source.path, allowFetch: (_) => false);
+      expect(plan.fetches, isEmpty);
+      expect(await fileSnapshot(source.path), before);
+      expect(
+        await Directory(p.join(data.path, 'profiles')).list().any(
+          (entry) => entry is Directory && p.basename(entry.path) != 'packages',
+        ),
+        isFalse,
+      );
+      await resolver.apply(plan);
+      final status = await resolver.status(source.path);
+      expect(status.bindings.single.copies.single.hasMirror, isFalse);
+      calls.clear();
+      await resolver.select(p.join(source.path, 'knowledge'));
+      await resolver.status(source.path);
+      expect(calls, isEmpty);
+    },
+  );
+
+  test('locked-only rejection precedes borrowed Git discovery', () async {
+    await configureSelfHostingProfile(source);
+    await expectLater(
+      resolver.plan(source.path, lockedOnly: true),
+      failsWith('lock-change-required'),
+    );
+    expect(calls, isEmpty);
+  });
+
   test('plan writes nothing in the project; apply writes what it '
       'planned', () async {
     final before = await fileSnapshot(project.path);
@@ -197,12 +230,18 @@ void main() {
     expect(validation.profileId, _bitwild);
   });
 
-  test('every Git command of a plan runs under the mirror lock', () async {
+  test('every managed-mirror Git command runs under the mirror lock', () async {
     final unlocked = <String>[];
     final locking = WayfinderProfileResolver(
       dataDirectory: data,
       git: (arguments, {workingDirectory, cancel}) async {
-        if (!await WayfinderFileLock.isHeld(mirrorLock())) {
+        final discovery =
+            arguments.length == 2 &&
+            arguments[0] == 'rev-parse' &&
+            arguments[1] == '--git-common-dir';
+        if (discovery) {
+          expect(workingDirectory, anyOf(project.path, source.path));
+        } else if (!await WayfinderFileLock.isHeld(mirrorLock())) {
           unlocked.add(arguments.join(' '));
         }
         calls.add(arguments);
@@ -404,7 +443,7 @@ void main() {
     });
     await Future<void>.delayed(const Duration(milliseconds: 300));
     expect(planned, isFalse);
-    expect(calls, isEmpty);
+    expect(calls, everyElement(equals(['rev-parse', '--git-common-dir'])));
     await held.release();
     expect((await planning).packages.keys, [_bitwild]);
   });
@@ -430,7 +469,7 @@ void main() {
     } finally {
       await held.release();
     }
-    expect(calls, isEmpty);
+    expect(calls, everyElement(equals(['rev-parse', '--git-common-dir'])));
   });
 
   test('a cancelled Git command fails the plan with cancelled', () async {
@@ -500,7 +539,12 @@ void main() {
         'clone',
       ]);
       expect(calls, anyElement(equals(['cat-file', '-e', '$locked^{commit}'])));
-      expect(calls.where((call) => call.first == 'rev-parse'), isEmpty);
+      expect(
+        calls.where(
+          (call) => call.first == 'rev-parse' && call.contains('--verify'),
+        ),
+        isEmpty,
+      );
       expect(
         calls.where((call) => call.first == 'show').map((call) => call[1]),
         everyElement(startsWith('$locked:')),
@@ -535,7 +579,12 @@ void main() {
       expect(calls.where(gitMayReachRemote).map((call) => call.first), [
         'remote',
       ]);
-      expect(calls.where((call) => call.first == 'rev-parse'), isEmpty);
+      expect(
+        calls.where(
+          (call) => call.first == 'rev-parse' && call.contains('--verify'),
+        ),
+        isEmpty,
+      );
     });
 
     test('runs no Git command and fetches nothing when the lock as written '

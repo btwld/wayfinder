@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/src/project/profile_resolver.dart'
-    show resolveDefaultBranch;
+    show resolveDefaultBranch, resolveSourcePackage;
 import 'package:wayfinder/wayfinder.dart';
 
 import 'support.dart';
@@ -115,6 +115,704 @@ void main() {
     await _git(source.path, ['add', '.']);
     await _git(source.path, ['commit', '-q', '-m', 'Advance Profile']);
   }
+
+  group('borrowed repositories', () {
+    Future<void> noMirrors() async {
+      final profiles = Directory(p.join(data.path, 'profiles'));
+      if (!await profiles.exists()) return;
+      expect(
+        await profiles
+            .list()
+            .where(
+              (entry) =>
+                  entry is Directory && p.basename(entry.path) != 'packages',
+            )
+            .toList(),
+        isEmpty,
+      );
+    }
+
+    test(
+      'same-repository worktrees and independent clones create no mirrors',
+      () async {
+        await configureSelfHostingProfile(source);
+        await _git(source.path, ['add', 'wayfinder.json']);
+        await _git(source.path, ['commit', '-q', '-m', 'Bind own Profile']);
+        final worktree = Directory(p.join(temp.path, 'work tree'));
+        final clone = Directory(p.join(temp.path, 'independent clone'));
+        await _git(source.path, ['worktree', 'add', '--detach', worktree.path]);
+        await _git(temp.path, ['clone', '--no-local', source.path, clone.path]);
+        final resolver = WayfinderProfileResolver(dataDirectory: data);
+        for (final root in [source, worktree, clone]) {
+          await Directory(
+            p.join(root.path, 'knowledge'),
+          ).create(recursive: true);
+          final common = await fixtureGit(root.path, [
+            'rev-parse',
+            '--git-common-dir',
+          ]);
+          final gitDirectory = p.normalize(p.join(root.path, common));
+          final before = await fileSnapshot(gitDirectory);
+          await resolver.resolve(root.path, allowFetch: (_) => false);
+          expect(await fileSnapshot(gitDirectory), before);
+        }
+        await noMirrors();
+      },
+    );
+
+    test(
+      'a same-repository file URL is borrowed without changing its spelling',
+      () async {
+        await configureSelfHostingProfile(source, git: source.uri.toString());
+        final plan = await WayfinderProfileResolver(
+          dataDirectory: data,
+        ).plan(source.path, allowFetch: (_) => false);
+        expect(plan.packages[_bitwild]?.git, source.uri.toString());
+        expect(plan.fetches, isEmpty);
+        await noMirrors();
+      },
+    );
+
+    test(
+      'borrowed resolution reads committed package and skill bytes',
+      () async {
+        await configureSelfHostingProfile(source);
+        final package = File(
+          p.join(source.path, 'profiles/bitwild/wayfinder-profile.json'),
+        );
+        final skill = File(
+          p.join(source.path, 'profiles/bitwild/skill/SKILL.md'),
+        );
+        final committedSkill = await skill.readAsBytes();
+        await package.writeAsString('uncommitted invalid package');
+        await skill.writeAsString('uncommitted invalid skill');
+        final before = await fileSnapshot(source.path);
+        final calls = <List<String>>[];
+        final resolver = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: _spy(calls),
+        );
+        final plan = await resolver.plan(source.path);
+        expect(await fileSnapshot(source.path), before);
+        expect(plan.packages[_bitwild]?.commit, await sourceCommit());
+        expect(plan.fetches, isEmpty);
+        for (final call in calls.where(
+          (call) =>
+              {'show', 'cat-file', 'ls-tree'}.contains(gitSubcommand(call)),
+        )) {
+          expect(call.take(3), wayfinderBorrowedGitOptions);
+        }
+        await resolver.apply(plan);
+        expect(
+          await File(
+            p.join(source.path, '.agents/skills/bitwild-profile/SKILL.md'),
+          ).readAsBytes(),
+          committedSkill,
+        );
+        expect(await package.readAsString(), 'uncommitted invalid package');
+        await noMirrors();
+      },
+    );
+
+    for (final path in [
+      'profiles/missing',
+      'missing/bitwild',
+      'profiles/bitwild/skill',
+      'profiles/bitwild/wayfinder-profile.json',
+    ]) {
+      test('absent borrowed package at $path keeps the path error', () async {
+        await configureSelfHostingProfile(source);
+        final configFile = File(p.join(source.path, 'wayfinder.json'));
+        final value = jsonDecode(await configFile.readAsString()) as Map;
+        value['profiles']['bitwild-profile']['source']['path'] = path;
+        await configFile.writeAsString(jsonEncode(value));
+        final commit = await sourceCommit();
+        final calls = <List<String>>[];
+        final resolver = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: _spy(calls),
+        );
+        final error = throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            'Profile package $path at . ($commit) has no package at '
+                '$path/wayfinder-profile.json.',
+          ),
+        );
+        await expectLater(resolver.plan(source.path), error);
+        await expectLater(
+          resolveSourcePackage(
+            resolver,
+            projectRoot: source.path,
+            git: '.',
+            ref: 'v2026.3',
+            path: path,
+          ),
+          error,
+        );
+        expect(calls.where(gitMayReachRemote), isEmpty);
+        await noMirrors();
+      });
+    }
+
+    for (final skill in [
+      'missing',
+      'missing/nested',
+      'wayfinder-profile.json',
+    ]) {
+      test('invalid borrowed skill $skill keeps the directory error', () async {
+        final packageFile = File(
+          p.join(source.path, 'profiles/bitwild/wayfinder-profile.json'),
+        );
+        final package = jsonDecode(await packageFile.readAsString()) as Map;
+        package['skill'] = skill;
+        await packageFile.writeAsString(jsonEncode(package));
+        await _git(source.path, ['add', '.']);
+        await _git(source.path, ['commit', '-q', '-m', 'Invalid skill path']);
+        final commit = await sourceCommit();
+        await configureSelfHostingProfile(source, ref: commit);
+        final calls = <List<String>>[];
+        await expectLater(
+          WayfinderProfileResolver(
+            dataDirectory: data,
+            git: _spy(calls),
+          ).plan(source.path),
+          throwsA(
+            isA<WayfinderProfileResolutionException>().having(
+              (error) => error.message,
+              'message',
+              'Profile bitwild-profile skill profiles/bitwild/$skill at . '
+                  '($commit) is not a directory.',
+            ),
+          ),
+        );
+        expect(calls.where(gitMayReachRemote), isEmpty);
+        await noMirrors();
+      });
+    }
+
+    test('default branch resolution uses the source worktree HEAD', () async {
+      final old = await sourceCommit();
+      final worktree = Directory(p.join(temp.path, 'other worktree'));
+      await _git(source.path, [
+        'worktree',
+        'add',
+        '--detach',
+        worktree.path,
+        old,
+      ]);
+      await advanceSource();
+      final before = await fileSnapshot(p.join(source.path, '.git'));
+      final resolver = WayfinderProfileResolver(dataDirectory: data);
+      final result = await resolveDefaultBranch(
+        resolver,
+        projectRoot: source.path,
+        git: worktree.path,
+        offline: true,
+        allowFetch: (_) => false,
+      );
+      expect(result.commit, old);
+      expect(result.commit, isNot(await sourceCommit()));
+      expect(result.fetches, isEmpty);
+      expect(await fileSnapshot(p.join(source.path, '.git')), before);
+      await noMirrors();
+    });
+
+    test('missing shallow history never fetches into the project', () async {
+      await configureSelfHostingProfile(source);
+      final resolver = WayfinderProfileResolver(dataDirectory: data);
+      await resolver.resolve(source.path);
+      final old = await sourceCommit();
+      await advanceSource();
+      final shallow = Directory(p.join(temp.path, 'shallow'));
+      await _git(temp.path, [
+        'clone',
+        '--depth=1',
+        '--no-tags',
+        source.uri.toString(),
+        shallow.path,
+      ]);
+      await Directory(
+        p.join(shallow.path, 'knowledge'),
+      ).create(recursive: true);
+      expect(
+        (await runGit([
+          'cat-file',
+          '-e',
+          old,
+        ], workingDirectory: shallow.path)).exitCode,
+        isNot(0),
+      );
+      final before = await fileSnapshot(shallow.path);
+      final calls = <List<String>>[];
+      final using = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+      );
+      await expectLater(
+        using.plan(shallow.path, lockedOnly: true, allowFetch: (_) => false),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            contains('unavailable locally'),
+          ),
+        ),
+      );
+      expect(calls.where(gitMayReachRemote), isEmpty);
+      expect(await fileSnapshot(shallow.path), before);
+      await noMirrors();
+    });
+
+    for (final path in [
+      'profiles/bitwild/wayfinder-profile.json',
+      'profiles/bitwild/skill/SKILL.md',
+      'profiles/bitwild/skill',
+      'profiles/bitwild',
+    ]) {
+      test(
+        'missing $path uses an existing mirror at the locked commit',
+        () async {
+          // Seed the pre-existing mirror through a different, non-Git project.
+          await get();
+          final mirror = Directory(
+            p.join(
+              data.path,
+              'profiles',
+              sha256.convert(utf8.encode(source.path)).toString(),
+            ),
+          );
+          await configureSelfHostingProfile(source, git: source.path);
+          final object = await fixtureGit(source.path, [
+            'rev-parse',
+            'HEAD:$path',
+          ]);
+          await File(
+            p.join(
+              source.path,
+              '.git/objects',
+              object.substring(0, 2),
+              object.substring(2),
+            ),
+          ).delete();
+          final before = await fileSnapshot(source.path);
+          final calls = <List<String>>[];
+          final resolver = WayfinderProfileResolver(
+            dataDirectory: data,
+            git: _spy(calls),
+          );
+          final plan = await resolver.plan(
+            source.path,
+            allowFetch: (_) => false,
+          );
+          final discovered = await resolveSourcePackage(
+            resolver,
+            projectRoot: source.path,
+            git: source.path,
+            ref: 'v2026.3',
+            path: 'profiles/bitwild',
+            allowFetch: (_) => false,
+          );
+          expect(plan.packages[_bitwild]?.commit, await sourceCommit());
+          expect(plan.fetches, isEmpty);
+          expect(discovered.package.commit, await sourceCommit());
+          expect(discovered.fetches, isEmpty);
+          expect(await mirror.exists(), isTrue);
+          expect(calls.where(gitMayReachRemote), isEmpty);
+          expect(await fileSnapshot(source.path), before);
+        },
+      );
+    }
+
+    test(
+      'an externally removed skill object fails without applying partial results',
+      () async {
+        await configureSelfHostingProfile(source);
+        final resolver = WayfinderProfileResolver(dataDirectory: data);
+        await resolver.resolve(source.path);
+        final lock = await File(
+          p.join(source.path, 'wayfinder.lock'),
+        ).readAsBytes();
+        for (final agents in ['.agents', '.claude']) {
+          await Directory(
+            p.join(source.path, agents, 'skills', 'bitwild-profile'),
+          ).delete(recursive: true);
+        }
+        final object = await fixtureGit(source.path, [
+          'rev-parse',
+          'HEAD:profiles/bitwild/skill/SKILL.md',
+        ]);
+        final file = File(
+          p.join(
+            source.path,
+            '.git/objects',
+            object.substring(0, 2),
+            object.substring(2),
+          ),
+        );
+        var removed = false;
+        final using = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: (arguments, {workingDirectory, cancel}) async {
+            if (!removed &&
+                gitSubcommand(arguments) == 'cat-file' &&
+                arguments.last == object) {
+              await file.delete();
+              removed = true;
+            }
+            return runGit(
+              arguments,
+              workingDirectory: workingDirectory,
+              cancel: cancel,
+            );
+          },
+        );
+        await expectLater(
+          using.resolve(source.path),
+          throwsA(isA<WayfinderProfileResolutionException>()),
+        );
+        expect(removed, isTrue);
+        expect(
+          await File(p.join(source.path, 'wayfinder.lock')).readAsBytes(),
+          lock,
+        );
+        await noMirrors();
+      },
+    );
+
+    test(
+      'replacement objects cannot change borrowed package or skill bytes',
+      () async {
+        await configureSelfHostingProfile(source);
+        final original = await sourceCommit();
+        final package = File(
+          p.join(source.path, 'profiles/bitwild/wayfinder-profile.json'),
+        );
+        final changed =
+            jsonDecode(await package.readAsString()) as Map<String, dynamic>;
+        changed['release'] = 'replacement';
+        await package.writeAsString(jsonEncode(changed));
+        await _git(source.path, [
+          'add',
+          'profiles/bitwild/wayfinder-profile.json',
+        ]);
+        await _git(source.path, ['commit', '-q', '-m', 'Replacement']);
+        await _git(source.path, ['replace', original, await sourceCommit()]);
+        final before = await fileSnapshot(source.path);
+        final plan = await WayfinderProfileResolver(
+          dataDirectory: data,
+        ).plan(source.path);
+        expect(plan.packages[_bitwild]?.release, '2026.3');
+        expect(plan.packages[_bitwild]?.commit, original);
+        expect(await fileSnapshot(source.path), before);
+        await noMirrors();
+      },
+    );
+
+    test(
+      'foreign Windows paths retain their normal source spelling on POSIX',
+      () async {
+        for (final location in [r'C:\profiles\repo', r'\\server\share\repo']) {
+          final value = await config();
+          (value['profiles']['bitwild-profile']['source'] as Map)['git'] =
+              location;
+          await saveConfig(value);
+          final calls = <List<String>>[];
+          final resolver = WayfinderProfileResolver(
+            dataDirectory: data,
+            git: _spy(calls),
+          );
+          await expectLater(
+            resolver.plan(project.path, allowFetch: (_) => false),
+            throwsA(
+              isA<ProfileFetchRequiredException>().having(
+                (error) => error.fetch.location,
+                'location',
+                location,
+              ),
+            ),
+          );
+          expect(calls, isEmpty);
+        }
+      },
+      skip: Platform.isWindows ? 'exercises foreign paths on POSIX' : false,
+    );
+
+    test('partial-clone object reads cannot lazy-fetch', () async {
+      await configureSelfHostingProfile(source);
+      final remote = p.join(temp.path, 'promisor.git');
+      await _git(temp.path, [
+        'clone',
+        '--bare',
+        '--no-hardlinks',
+        source.path,
+        remote,
+      ]);
+      await _git(source.path, ['config', 'remote.origin.url', remote]);
+      await _git(source.path, ['config', 'remote.origin.promisor', 'true']);
+      await _git(source.path, [
+        'config',
+        'remote.origin.partialclonefilter',
+        'blob:none',
+      ]);
+      final object = await fixtureGit(source.path, [
+        'rev-parse',
+        'HEAD:profiles/bitwild/wayfinder-profile.json',
+      ]);
+      await File(
+        p.join(
+          source.path,
+          '.git/objects',
+          object.substring(0, 2),
+          object.substring(2),
+        ),
+      ).delete();
+      final starts = <List<String>>[];
+      final errors = <String>[];
+      final resolver = WayfinderProfileResolver(
+        dataDirectory: data,
+        git: (arguments, {workingDirectory, cancel}) async {
+          starts.add(arguments);
+          final result = await runGit(
+            arguments,
+            workingDirectory: workingDirectory,
+            cancel: cancel,
+          );
+          errors.add(result.stderr);
+          return result;
+        },
+      );
+      final before = await fileSnapshot(source.path);
+      await expectLater(
+        resolver.plan(source.path, allowFetch: (_) => false),
+        throwsA(isA<WayfinderProfileResolutionException>()),
+      );
+      expect(starts.where(gitMayReachRemote), isEmpty);
+      // The origin has the blob: an implicit fetch would recover it and change
+      // the source object store, even though the injected runner saw no fetch.
+      expect(errors.join(), isNot(contains('From ')));
+      expect(await fileSnapshot(source.path), before);
+      await noMirrors();
+      // Prove this fixture really can lazy-fetch, rather than merely having a
+      // remote setting Git ignores. Only this positive control is unguarded.
+      final recovered = await runGit([
+        'cat-file',
+        'blob',
+        object,
+      ], workingDirectory: source.path);
+      expect(recovered.exitCode, 0, reason: recovered.stderr);
+      expect(recovered.stdout, isNotEmpty);
+    });
+
+    test('nested submodules use the normal source path', () async {
+      await _git(project.path, ['init', '-q']);
+      await _git(project.path, [
+        '-c',
+        'protocol.file.allow=always',
+        'submodule',
+        'add',
+        source.path,
+        'nested',
+      ]);
+      final value = await config();
+      (value['profiles']['bitwild-profile']['source'] as Map)['git'] =
+          './nested';
+      await saveConfig(value);
+      final calls = <List<String>>[];
+      await WayfinderProfileResolver(
+        dataDirectory: data,
+        git: _spy(calls),
+      ).resolve(project.path);
+      expect(
+        calls.where((call) => gitSubcommand(call) == 'clone'),
+        hasLength(1),
+      );
+    });
+
+    test(
+      'a nested independent repository is not borrowed by path containment',
+      () async {
+        await _git(project.path, ['init', '-q']);
+        final nested = p.join(project.path, 'nested');
+        await _git(project.path, ['clone', source.path, nested]);
+        final value = await config();
+        (value['profiles']['bitwild-profile']['source'] as Map)['git'] =
+            './nested';
+        await saveConfig(value);
+        final calls = <List<String>>[];
+        await WayfinderProfileResolver(
+          dataDirectory: data,
+          git: _spy(calls),
+        ).resolve(project.path);
+        expect(
+          calls.where((call) => gitSubcommand(call) == 'clone'),
+          hasLength(1),
+        );
+      },
+    );
+
+    test(
+      'locked borrowed plans keep the exact commit after a branch moves',
+      () async {
+        final branch = await fixtureGit(source.path, [
+          'branch',
+          '--show-current',
+        ]);
+        await configureSelfHostingProfile(source, ref: branch);
+        final resolver = WayfinderProfileResolver(dataDirectory: data);
+        final initial = await resolver.resolve(source.path);
+        final locked = initial.packages[_bitwild]!.commit;
+        final lock = await File(
+          p.join(source.path, 'wayfinder.lock'),
+        ).readAsBytes();
+        await advanceSource();
+        final pinned = await resolver.plan(
+          source.path,
+          lockedOnly: true,
+          allowFetch: (_) => false,
+        );
+        expect(pinned.packages[_bitwild]?.commit, locked);
+        expect(pinned.lockChanged, isFalse);
+        await resolver.apply(pinned);
+        expect(
+          await File(p.join(source.path, 'wayfinder.lock')).readAsBytes(),
+          lock,
+        );
+        final upgrade = await resolver.plan(
+          source.path,
+          upgrade: true,
+          allowFetch: (_) => false,
+        );
+        expect(upgrade.packages[_bitwild]?.commit, await sourceCommit());
+        expect(upgrade.fetches, isEmpty);
+        await noMirrors();
+      },
+    );
+
+    test(
+      'Windows absolute backslash source and worktree gitfile are borrowed',
+      () async {
+        final worktree = Directory(p.join(temp.path, 'windows worktree'));
+        await _git(source.path, ['worktree', 'add', '--detach', worktree.path]);
+        expect(await File(p.join(worktree.path, '.git')).exists(), isTrue);
+        await configureSelfHostingProfile(
+          worktree,
+          git: p.windows.normalize(worktree.path),
+        );
+        final plan = await WayfinderProfileResolver(
+          dataDirectory: data,
+        ).plan(worktree.path, allowFetch: (_) => false);
+        expect(plan.fetches, isEmpty);
+        await noMirrors();
+      },
+      skip: !Platform.isWindows ? 'requires native Windows paths' : false,
+    );
+
+    test('borrowed branch and tag ambiguity is rejected', () async {
+      await configureSelfHostingProfile(source);
+      await _git(source.path, ['branch', 'v2026.3']);
+      final before = await fileSnapshot(source.path);
+      await expectLater(
+        WayfinderProfileResolver(dataDirectory: data).plan(source.path),
+        throwsA(
+          isA<WayfinderProfileResolutionException>().having(
+            (error) => error.message,
+            'message',
+            contains('ambiguous'),
+          ),
+        ),
+      );
+      expect(await fileSnapshot(source.path), before);
+      await noMirrors();
+    });
+
+    test(
+      'unsupported borrowed Git controls use managed fetch policy and reporting',
+      () async {
+        await configureSelfHostingProfile(source);
+        final calls = <List<String>>[];
+        final resolver = WayfinderProfileResolver(
+          dataDirectory: data,
+          git: (arguments, {workingDirectory, cancel}) {
+            calls.add(arguments);
+            if (arguments.contains('--no-lazy-fetch')) {
+              return Future.value(
+                const GitResult(129, [], 'unknown option: --no-lazy-fetch'),
+              );
+            }
+            return runGit(
+              arguments,
+              workingDirectory: workingDirectory,
+              cancel: cancel,
+            );
+          },
+        );
+        final refused = <ProfileFetch>[];
+        await expectLater(
+          resolver.plan(
+            source.path,
+            allowFetch: (fetch) {
+              refused.add(fetch);
+              return false;
+            },
+          ),
+          throwsA(isA<ProfileFetchRequiredException>()),
+        );
+        expect(refused.single.kind, ProfileFetchKind.clone);
+        expect(calls.where(gitMayReachRemote), isEmpty);
+        await noMirrors();
+        calls.clear();
+        final allowed = <ProfileFetch>[];
+        final plan = await resolver.plan(
+          source.path,
+          allowFetch: (fetch) {
+            allowed.add(fetch);
+            return true;
+          },
+        );
+        expect(plan.packages[_bitwild]?.commit, await sourceCommit());
+        expect(plan.fetches.single.kind, ProfileFetchKind.clone);
+        expect(allowed.single.kind, ProfileFetchKind.clone);
+        expect(
+          calls.where((call) => gitSubcommand(call) == 'clone'),
+          hasLength(1),
+        );
+        expect(
+          calls
+              .where(
+                (call) => {
+                  'show',
+                  'cat-file',
+                  'ls-tree',
+                }.contains(gitSubcommand(call)),
+              )
+              .every((call) => !call.contains('--no-lazy-fetch')),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'concurrent borrowed resolutions leave repository state unchanged',
+      () async {
+        await configureSelfHostingProfile(source);
+        final worktree = Directory(p.join(temp.path, 'worktree'));
+        await _git(source.path, ['worktree', 'add', '--detach', worktree.path]);
+        await configureSelfHostingProfile(worktree);
+        final before = await fileSnapshot(source.path);
+        final otherBefore = await fileSnapshot(worktree.path);
+        final plans = await Future.wait([
+          WayfinderProfileResolver(dataDirectory: data).plan(source.path),
+          WayfinderProfileResolver(dataDirectory: data).plan(worktree.path),
+        ]);
+        expect(plans.map((plan) => plan.fetches), everyElement(isEmpty));
+        expect(await fileSnapshot(source.path), before);
+        expect(await fileSnapshot(worktree.path), otherBefore);
+        await noMirrors();
+      },
+    );
+  });
 
   test('resolves a Git Profile and writes a lock', () async {
     final result = await WayfinderProfileResolver(

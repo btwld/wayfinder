@@ -56,6 +56,7 @@ export 'src/project/git.dart'
         gitSubcommand,
         runGit,
         startGitProcess,
+        wayfinderBorrowedGitOptions,
         wayfinderConfiguredSshCommand,
         wayfinderGitEnvironment,
         wayfinderGitMaxOutputBytes,

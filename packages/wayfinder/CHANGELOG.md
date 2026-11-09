@@ -4,6 +4,9 @@
   for missing local sources, unused mirrors and owned abandoned clone staging.
   Preserve package snapshots; evicted mirrors may need fetching for skills.
   Usage and staging bookkeeping is best-effort.
+- Read committed Profile packages and skills from the project's own repository
+  without cloning a mirror or changing the source; see
+  [source resolution](../../docs/wayfinder-configuration.md).
 
 # 0.5.0-beta.1
 
