@@ -1,5 +1,12 @@
 # 0.5.0-beta.1
 
+- Add the library-only `WayfinderProfileResolver.pruneMirrors` API with a
+  dry run and structured candidate, removed, busy and error results. Record
+  mirror use during resolution and package restoration; collect missing
+  local sources, unused mirrors and owned abandoned clone staging directories
+  under mirror locks. Legacy mirrors get an observation grace period, and
+  package snapshots remain available for offline validation. Evicted mirrors
+  may need fetching again to reinstall skills. No CLI command is added.
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema
   with `format` as an annotation unless asked, so both imports pass
