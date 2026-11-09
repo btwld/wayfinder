@@ -79,6 +79,14 @@ Future<void> main() async {
   exist once they have gone unused for its period (30 days by default),
   reading a lock's note only while the lock is free;
   `WayfinderKnowledgeStore.prune` calls it.
+- `pruneMirrors(unusedFor: const Duration(days: 30), dryRun: false)` cleans
+  mirrors whose local source is demonstrably missing or whose last use is at
+  least `unusedFor` old, plus owned abandoned clone staging directories.
+  It skips held locks and returns candidates, removals, busy paths and errors.
+  Legacy mirrors get an observation grace period; bookkeeping is best-effort.
+  `dryRun: true` writes nothing. Package snapshots, symlinks and unknown staging
+  directories survive; lookup failures preserve entries. Reinstalling skills
+  after eviction may require fetching.
 - `status(root)` says, offline and without Git, where each binding's Profile
   stands as `select` would find it: a `ProfileBindingState` (`resolved`,
   `lock-missing`, `lock-stale`, `cache-missing`, `package-invalid`,

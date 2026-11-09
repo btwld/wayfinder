@@ -15,6 +15,7 @@ import 'cancellation.dart';
 import 'exception.dart';
 import 'file_lock.dart';
 import 'git.dart';
+import 'profile_cache.dart';
 import 'profile_skills.dart';
 import 'profile_status.dart';
 
@@ -519,6 +520,11 @@ final class WayfinderProfileResolver {
 
   final Directory dataDirectory;
   final GitRunner _runGit;
+
+  late final ProfileMirrorCache _mirrorCache = ProfileMirrorCache(
+    dataDirectory,
+    _runGit,
+  );
 
   /// How long reading one Profile package, its rules' tests included, may
   /// run before it fails with `profile-timeout`.
@@ -1165,6 +1171,10 @@ final class WayfinderProfileResolver {
         final held = await WayfinderFileLock.tryExclusive(_mirrorLock(mirror));
         if (held == null) continue;
         try {
+          await _mirrorCache.recordUse(
+            mirror,
+            _gitLocation(locked.git, bound.projectRoot),
+          );
           final result = await _git(session, [
             'show',
             '${locked.commit}:${locked.path}/wayfinder-profile.json',
@@ -1534,6 +1544,24 @@ final class WayfinderProfileResolver {
     '$what changed after resolution was planned.',
   );
 
+  /// Collects managed Profile mirrors whose local source is demonstrably
+  /// missing or which have gone unused for [unusedFor] (30 days by default).
+  /// Only a readable immediate parent listing establishes a missing source;
+  /// a missing parent may be on an unmounted volume.
+  /// Legacy mirrors without usage metadata start an observation period,
+  /// unless their local origin is already missing. Lookup failures preserve
+  /// the entry and appear in the result's errors.
+  ///
+  /// Each entry is checked under its existing sibling mirror lock; held
+  /// entries are skipped. [dryRun] reports candidates without creating locks,
+  /// writing metadata or deleting files. Package snapshots, symlink entries
+  /// and unrecognized clone staging directories are always preserved.
+  /// Eviction can require fetching again to reinstall Profile skills.
+  Future<ProfileMirrorPruneResult> pruneMirrors({
+    Duration unusedFor = const Duration(days: 30),
+    bool dryRun = false,
+  }) => _mirrorCache.prune(unusedFor: unusedFor, dryRun: dryRun);
+
   /// Deletes the `get` lock file of each project whose root no longer
   /// exists, such as a removed worktree, once no `get` has used it for
   /// [unusedFor], and returns the deleted files.
@@ -1823,7 +1851,9 @@ final class WayfinderProfileResolver {
       );
     }
     try {
-      return await action(location, root);
+      final result = await action(location, root);
+      await _mirrorCache.recordUse(root, location);
+      return result;
     } finally {
       await lock.release();
     }
@@ -1928,6 +1958,7 @@ final class WayfinderProfileResolver {
     final temporary = Directory(
       '${root.path}.tmp-$pid-${DateTime.now().microsecondsSinceEpoch}',
     );
+    await _mirrorCache.recordTemporary(temporary);
     try {
       // --progress keeps a long clone writing, so runGit's inactivity
       // timeout stops only a clone that stalls.
@@ -1944,6 +1975,11 @@ final class WayfinderProfileResolver {
     } on Object {
       if (await temporary.exists()) await temporary.delete(recursive: true);
       rethrow;
+    } finally {
+      // Retain ownership evidence if a partial clone cannot be deleted.
+      if (!await temporary.exists()) {
+        await _mirrorCache.forgetTemporary(temporary);
+      }
     }
   }
 

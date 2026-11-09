@@ -1,3 +1,10 @@
+# 0.5.0-beta.2 (unreleased)
+
+- Add library-only `WayfinderProfileResolver.pruneMirrors` with dry-run results
+  for missing local sources, unused mirrors and owned abandoned clone staging.
+  Preserve package snapshots; evicted mirrors may need fetching for skills.
+  Usage and staging bookkeeping is best-effort.
+
 # 0.5.0-beta.1
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
