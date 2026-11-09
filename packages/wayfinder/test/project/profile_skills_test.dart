@@ -118,6 +118,66 @@ void main() {
     expect(again.skills.single.written, isFalse);
   });
 
+  for (final missingMirror in [true, false]) {
+    test(
+      'managed skill reads never ${missingMirror ? 'clone a missing mirror' : 'refresh a missing commit'}',
+      () async {
+        final at = await commit();
+        final calls = <List<String>>[];
+        var damaged = false;
+        resolver = WayfinderProfileResolver(
+          dataDirectory: Directory(p.join(temp.path, 'data')),
+          git: (arguments, {workingDirectory, cancel}) async {
+            if (damaged) calls.add(arguments);
+            final result = await runGit(
+              arguments,
+              workingDirectory: workingDirectory,
+              cancel: cancel,
+            );
+            if (arguments.first == 'show' &&
+                arguments.last == '$at:profile/wayfinder-profile.json') {
+              expect(result.exitCode, 0);
+              if (missingMirror) {
+                await Directory(workingDirectory!).delete(recursive: true);
+              } else {
+                await File(
+                  p.join(
+                    workingDirectory!,
+                    'objects',
+                    at.substring(0, 2),
+                    at.substring(2),
+                  ),
+                ).delete();
+              }
+              damaged = true;
+            }
+            return result;
+          },
+        );
+        await expectLater(
+          resolver.plan(project.path),
+          throwsA(
+            missingMirror
+                ? isA<ProcessException>()
+                : isA<WayfinderProfileResolutionException>(),
+          ),
+        );
+        expect(damaged, isTrue);
+        expect(calls.any((args) => args.first == 'ls-tree'), isTrue);
+        expect(
+          calls.where(
+            (args) => ['clone', 'remote', 'fetch'].contains(args.first),
+          ),
+          isEmpty,
+        );
+        expect(
+          await File(p.join(project.path, 'wayfinder.lock')).exists(),
+          isFalse,
+        );
+      },
+    );
+  }
+
   test('a directory without the marker belongs to the user', () async {
     final mine = File(p.join(project.path, _agents, 'SKILL.md'));
     await mine.parent.create(recursive: true);

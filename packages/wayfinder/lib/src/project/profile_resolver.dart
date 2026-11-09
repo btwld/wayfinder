@@ -1796,7 +1796,6 @@ final class WayfinderProfileResolver {
     }
   }
 
-  /// Chooses a pin before Git discovery, including the locked-only guard.
   String? _preferredCommit(
     WayfinderProfileSource source,
     _Session session, {
@@ -1830,10 +1829,8 @@ final class WayfinderProfileResolver {
     return preferred;
   }
 
-  /// Reads one commit from a borrowed repository or a managed mirror. Only
-  /// the managed branch may clone, refresh or rewrite HEAD. Missing borrowed
-  /// objects may use an existing mirror at the exact same commit; a new clone
-  /// cannot recover history absent from its local source.
+  /// Missing borrowed objects may use an existing mirror at the same commit.
+  /// [readOnlyMirror] skips checkout for reads of already-resolved pins.
   Future<T> _withSource<T>(
     WayfinderProfileSource source,
     _Session session,
@@ -1842,6 +1839,7 @@ final class WayfinderProfileResolver {
     String? commit,
     ProfileId? child,
     bool defaultBranch = false,
+    bool readOnlyMirror = false,
   }) async {
     var at = commit ?? _preferredCommit(source, session, child: child);
     final borrowed = await _borrowedRepository(source, session);
@@ -1854,7 +1852,7 @@ final class WayfinderProfileResolver {
         try {
           return await action(borrowed, at, true);
         } on _BorrowedObjectUnavailable {
-          // Object storage can change outside Wayfinder's lock protocol.
+          // Retry the existing mirror.
         }
       }
     }
@@ -1871,7 +1869,7 @@ final class WayfinderProfileResolver {
             try {
               return await action(mirror, at!, true);
             } on _BorrowedObjectUnavailable {
-              // Neither store can supply all objects at this commit.
+              // Neither store has the objects.
             }
           }
         }
@@ -1881,6 +1879,7 @@ final class WayfinderProfileResolver {
           'Make the required objects available in the source repository.',
         );
       }
+      if (readOnlyMirror) return action(mirror, at!, false);
       final resolved = defaultBranch && at == null
           ? await _defaultBranchLocked(source, location, mirror, session)
           : await _checkoutLocked(
@@ -1969,7 +1968,6 @@ final class WayfinderProfileResolver {
     );
   }
 
-  /// Resolves HEAD only on a managed mirror, under its lock.
   Future<String> _defaultBranchLocked(
     WayfinderProfileSource source,
     String location,
@@ -2307,6 +2305,7 @@ final class WayfinderProfileResolver {
     (repository, _, borrowed) =>
         _readSkillFiles(repository, locked, skill, session, borrowed: borrowed),
     commit: locked.commit,
+    readOnlyMirror: true,
   );
 
   Future<List<SkillFile>> _readSkillFiles(
