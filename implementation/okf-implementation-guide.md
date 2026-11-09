@@ -506,8 +506,8 @@ Hosts may explicitly collect managed mirrors with the resolver's
 `pruneMirrors` API, using recorded usage or a demonstrably missing local
 source whose immediate parent can be listed, under each mirror's lock.
 Collection preserves package snapshots used by read-only selection;
-reinstalling skills from an evicted mirror
-may require fetching again. A dry run only reports eligible entries.
+reinstalling skills from an evicted mirror may require fetching again. A dry
+run only reports eligible entries.
 If a current lock's selected commit is absent, a read-only command does not
 substitute the current branch tip: run `get` to recover the exact commit or
 `upgrade` to select a new revision deliberately. Failed resolution leaves the
