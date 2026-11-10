@@ -4,12 +4,7 @@ import 'package:wayfinder_flutter/src/model/knowledge.dart';
 KnowledgeFinding _finding(
   KnowledgeFindingSeverity severity, [
   String id = 'r',
-]) => KnowledgeFinding(
-  id: id,
-  severity: severity,
-  message: 'message',
-  source: KnowledgeFindingSource.profile,
-);
+]) => KnowledgeFinding(id: id, severity: severity, message: 'message');
 
 void main() {
   test('advisories and notes are suggestions', () {

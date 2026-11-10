@@ -953,7 +953,14 @@ capture. Remove the unused snapshot-to-OKF conversion and capture-time external
 observations; keep separate validation entry guards fail-closed for
 non-filesystem URI roots. No schema, golden, Profile format, generic skill rule
 or package interpretation changes are required; unpublished consumers recompile
-against the reduced reader interface.
+against the reduced reader interface. Maintenance for #180’s desktop consumer
+rejects file/symbolic project roots at open and excludes every dot-prefixed
+browsing entry without an opt-in; the unused Flutter finding-source field is
+removed. Query and embeddings inventories still follow
+OKF; these browsing limits change no conformance rule, schema or golden.
+The shared native validation guard distinguishes explicit `memory:`/`scheme://`
+roots from legal POSIX colon filenames; loaded explicit URI roots still require
+the callback before validation, including bundles without external links.
 
 **External lookup injection, 2026-11-08.**
 Affected section: §5.6 and public validation/path-target APIs. Optional

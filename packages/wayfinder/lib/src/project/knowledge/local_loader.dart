@@ -32,8 +32,7 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
 
   /// [bundleIds] optionally binds project-relative bundle paths to host-stable
   /// identities. Otherwise IDs are explicitly location-bound, not portable.
-  /// [includeHiddenDirectories] opts into dot-prefixed directories within bundles;
-  /// configuration and lock files remain captured independently of that policy.
+  /// Browsing excludes every dot-prefixed bundle entry.
   /// Existing projects without bundles return an empty snapshot; absent roots
   /// and missing configured bundles fail with [KnowledgeFailureCode.notFound].
   static Future<LocalKnowledgeProject> open({
@@ -42,7 +41,6 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
     Map<String, String> bundleIds = const {},
     int maxFileBytes = 16 * 1024 * 1024,
     int maxCaptureBytes = 64 * 1024 * 1024,
-    bool includeHiddenDirectories = false,
   }) async {
     knowledgeIdentifier(id, 'project');
     if (maxFileBytes <= 0 || maxCaptureBytes <= 0) {
@@ -53,12 +51,14 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
       knowledgeIdentifier(entry.value, 'bundle');
     }
     try {
-      if (await FileSystemEntity.type(root.path) ==
-          FileSystemEntityType.notFound) {
+      final type = await FileSystemEntity.type(root.path, followLinks: false);
+      if (type != FileSystemEntityType.directory) {
         throw KnowledgeFailure(
-          KnowledgeFailureCode.notFound,
+          type == FileSystemEntityType.notFound
+              ? KnowledgeFailureCode.notFound
+              : KnowledgeFailureCode.denied,
           'open',
-          'The granted project directory does not exist.',
+          'The granted project root must be an existing directory, not a file or symbolic link.',
         );
       }
       final canonical = await root.resolveSymbolicLinks();
@@ -69,7 +69,6 @@ final class LocalKnowledgeProject extends CapturedKnowledgeProject {
           Map.unmodifiable(bundleIds),
           maxFileBytes,
           maxCaptureBytes,
-          includeHiddenDirectories,
         ),
       );
     } on FileSystemException {
@@ -88,13 +87,11 @@ final class _LocalSource {
     this.bundleIds,
     this.maxFileBytes,
     this.maxCaptureBytes,
-    this.includeHiddenDirectories,
   );
   final String _root;
   final Map<String, String> bundleIds;
   final int maxFileBytes;
   final int maxCaptureBytes;
-  final bool includeHiddenDirectories;
   ({KnowledgeCapture capture, String fingerprint})? _previous;
   Future<KnowledgeCapture> capture() async {
     try {
@@ -240,14 +237,11 @@ final class _LocalSource {
         children.sort((a, b) => a.path.compareTo(b.path));
         for (final child in children) {
           final name = p.basename(child.path);
+          // For browsing, hidden means any entry whose name starts with a dot.
+          if (name.startsWith('.')) continue;
           final childRelative = relative.isEmpty ? name : '$relative/$name';
-          // The root coordination lock is outside the browsing inventory.
-          if (childRelative == '.okf.lock') continue;
           final kind = await _type('$path/$childRelative');
           if (kind == FileSystemEntityType.directory) {
-            if (!includeHiddenDirectories && name.startsWith('.')) {
-              continue;
-            }
             await visit(childRelative);
           } else if (kind == FileSystemEntityType.file) {
             await add('$path/$childRelative', bundleId, childRelative);

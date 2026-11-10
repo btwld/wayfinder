@@ -5,10 +5,6 @@ export 'package:wayfinder/knowledge.dart';
 
 enum KnowledgeFindingSeverity { error, warning, advisory, note }
 
-/// Which check reported a finding: okf, the Profile's rules, or Wayfinder
-/// itself (a Profile it could not resolve, for example).
-enum KnowledgeFindingSource { okf, profile, engine }
-
 /// The bundle a project reads first: exact path `knowledge`, then a bundle
 /// named `knowledge`, else the most concepts (first by path among equals).
 /// Returns null when there is none.
@@ -38,7 +34,6 @@ final class KnowledgeFinding {
     required this.message,
     this.path,
     this.line,
-    required this.source,
   });
 
   /// The rule or check id, such as an okf code or a Profile rule.
@@ -49,5 +44,4 @@ final class KnowledgeFinding {
   /// The file relative to the project root, when the finding names one.
   final String? path;
   final int? line;
-  final KnowledgeFindingSource source;
 }

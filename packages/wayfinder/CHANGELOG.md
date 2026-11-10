@@ -1,5 +1,15 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Maintenance for #180's desktop browsing consumer: reject non-directory and
+  symbolic project roots at open, exclude every dot-prefixed bundle entry,
+  and remove the unused `includeHiddenDirectories` option. Reuse remains
+  byte-based; canonical manifest sorting encodes each row once. Share the
+  validation root check: `memory:` and `scheme://` identify explicit URI roots;
+  other colon-containing names remain filesystem paths.
+- Harden the portable reader's CI closure guard: join adjacent URI strings,
+  parse conditional URI positions, reject unsupported/interpolated directives,
+  stop at declarations, and check resolved-file package ownership.
+
 - Keep the unpublished reader surface focused on leased browsing and raw reads;
   conformance validation remains a separate native API. Non-filesystem URI roots
   refuse filesystem fallback at the validation boundaries.

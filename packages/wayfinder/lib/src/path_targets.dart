@@ -3,6 +3,17 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+/// Explicit URI roots use an authority (`scheme://`) or the reserved `memory:`
+/// scheme. A colon alone is a legal POSIX filename character, not a URI marker.
+/// Windows drive prefixes remain filesystem paths.
+bool isNonFilesystemRoot(String path) {
+  final uri = Uri.tryParse(path);
+  return uri != null &&
+      uri.hasScheme &&
+      p.windows.rootPrefix(path).isEmpty &&
+      (uri.hasAuthority || uri.scheme == 'memory');
+}
+
 /// A path-valued target classified against the loaded bundle and, for a
 /// relative path outside it, the optional bundle root on disk.
 sealed class PathTarget {
@@ -123,9 +134,7 @@ PathTarget resolvePathTarget(
       relative: relative,
     );
   }
-  if (rootPath != null &&
-      Uri.tryParse(rootPath)?.hasScheme == true &&
-      p.windows.rootPrefix(rootPath).isEmpty) {
+  if (rootPath != null && isNonFilesystemRoot(rootPath)) {
     throw StateError(
       'A non-filesystem bundle root requires outsideBundleExists for external paths; disk lookup is forbidden.',
     );

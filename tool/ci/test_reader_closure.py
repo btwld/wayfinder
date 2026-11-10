@@ -29,6 +29,7 @@ class ReaderClosureTest(unittest.TestCase):
             config.write_text(json.dumps({'packages': [
                 {'name': 'wayfinder', 'rootUri': '../packages/wayfinder', 'packageUri': 'lib/'},
                 {'name': 'portable', 'rootUri': '../packages/portable', 'packageUri': 'lib/'},
+                {'name': 'okf', 'rootUri': '../packages/okf', 'packageUri': 'lib/'},
             ]}))
             output = io.StringIO()
             with patch.object(closure, 'ROOT', root), contextlib.redirect_stderr(output):
@@ -73,12 +74,58 @@ class ReaderClosureTest(unittest.TestCase):
             'packages/wayfinder/lib/knowledge.dart': '''
 // import 'dart:io';
 /* outer /* nested */ export 'dart:ffi'; */
+export 'value.dart';
 const example = "import 'dart:io';";
-const url = 'https://example.test'; export 'value.dart';
+const url = 'https://example.test';
 ''',
             'packages/wayfinder/lib/value.dart': "const part = 'not a directive';",
         }, 0)
         self.assertIn('(2 source files)', output)
+
+    def test_adjacent_strings_are_joined(self):
+        output = self.check_sources({
+            'packages/wayfinder/lib/knowledge.dart': "import 'dart:' /* join */ 'io';",
+            'packages/wayfinder/lib/io': '',
+        }, 1)
+        self.assertIn('dart:io: nonportable SDK import', output)
+
+    def test_comparison_string_is_not_a_directive_uri(self):
+        output = self.check_sources({
+            'packages/wayfinder/lib/knowledge.dart':
+                "export 'web.dart' if (dart.library.io == 'true') 'other.dart';",
+            'packages/wayfinder/lib/web.dart': '',
+            'packages/wayfinder/lib/other.dart': '',
+        }, 0)
+        self.assertIn('(3 source files)', output)
+
+    def test_interpolation_in_a_directive_fails_closed(self):
+        for uri in ["${'nested'}", '$name']:
+            with self.subTest(uri=uri):
+                output = self.check_sources({
+                    'packages/wayfinder/lib/knowledge.dart':
+                        "import '" + uri + "'; import 'dart:io';",
+                }, 1)
+                self.assertIn('interpolation', output)
+
+    def test_scanning_stops_at_first_declaration(self):
+        output = self.check_sources({
+            'packages/wayfinder/lib/knowledge.dart':
+                "const text = '${\"quotes\"}'; import 'dart:io';",
+        }, 0)
+        self.assertIn('(1 source files)', output)
+
+    def test_malformed_directives_fail_closed(self):
+        for source in ["import 'dart:io", "export 'web.dart'", "import dynamicUri;", "#!/usr/bin/dart\nimport 'dart:io';",
+                       "import 'dart\\x3aio';", "export 'a.dart' if (a == ) 'b.dart';"]:
+            with self.subTest(source=source):
+                self.check_sources({'packages/wayfinder/lib/knowledge.dart': source}, 1)
+
+    def test_relative_directive_cannot_enter_forbidden_package(self):
+        output = self.check_sources({
+            'packages/wayfinder/lib/knowledge.dart': "export '../../okf/lib/api.dart';",
+            'packages/okf/lib/api.dart': '',
+        }, 1)
+        self.assertIn('forbidden package', output)
 
     def test_missing_transitive_source_fails_closed(self):
         output = self.check_sources({

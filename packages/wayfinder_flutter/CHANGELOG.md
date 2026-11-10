@@ -1,5 +1,9 @@
 # 0.2.0 (unreleased)
 
+- Remove unused `KnowledgeFindingSource` and `KnowledgeFinding.source` (including
+  the constructor argument); finding grouping/severity helpers retain their
+  existing behavior and coverage. The desktop browsing consumer uses neither.
+
 - Reload an active graph after successful refresh without overriding navigation
   away from Graph or an authorized fallback after a refresh error.
 

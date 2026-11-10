@@ -55,10 +55,34 @@ void main() {
     },
   );
 
+  test('open refuses files and symbolic roots before refresh', () async {
+    await write('file.txt', 'not a directory');
+    await Link('${root.path}/linked').create(root.path);
+    for (final path in ['file.txt', 'linked']) {
+      await expectLater(
+        LocalKnowledgeProject.open(
+          root: Directory('${root.path}/$path'),
+          id: 'p',
+        ),
+        throwsA(
+          isA<KnowledgeFailure>()
+              .having((e) => e.code, 'code', KnowledgeFailureCode.denied)
+              .having((e) => e.operation, 'operation', 'open')
+              .having((e) => e.message, 'message', contains('directory')),
+        ),
+      );
+    }
+  });
+
   test(
-    'hidden directories are excluded by default with an explicit opt-in',
+    'browsing excludes every dot-prefixed entry before inspecting it',
     () async {
-      await write('knowledge/.hidden.md', 'hidden file');
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: A\n---\nBody');
+      await write(
+        'knowledge/.hidden.md',
+        '---\ntype: [\n---\ninvalid hidden Markdown',
+      );
+      await write('knowledge/.md', '---\ntype: Guide\n---\ninvalid hidden ID');
       await write('knowledge/.cache/secret.txt', 'hidden directory');
       await write('knowledge/.git/objects/secret', 'git objects');
       await write('knowledge/.okf/cache/secret', 'okf cache');
@@ -69,41 +93,14 @@ void main() {
       await write('knowledge/visible/.hidden.txt', 'nested hidden file');
       await write('knowledge/.okf.lock', 'coordination');
       await write('knowledge/visible/.okf.lock', 'nested coordination');
-      final all = await LocalKnowledgeProject.open(
-        root: root,
-        id: 'p',
-        includeHiddenDirectories: true,
-      );
-      final filtered = await LocalKnowledgeProject.open(root: root, id: 'p');
-      addTearDown(all.close);
-      addTearDown(filtered.close);
-      final entire = await all.refresh();
-      final scoped = await filtered.refresh();
-      expect(
-        entire.files.map((f) => f.handle.path),
-        containsAll([
-          '.cache/secret.txt',
-          'visible/.nested/secret.txt',
-          '.hidden.md',
-        ]),
-      );
-      expect(scoped.files.map((f) => f.handle.path), [
-        '.hidden.md',
-        'visible/.hidden.txt',
-        'visible/.okf.lock',
-      ]);
-      expect(scoped.revision, isNot(entire.revision));
-      expect(
-        entire.files.map((f) => f.handle.path),
-        containsAll(['.git/objects/secret', '.okf/cache/secret']),
-      );
-      final nestedLock = scoped.files.singleWhere(
-        (f) => f.handle.path == 'visible/.okf.lock',
-      );
-      expect(
-        (await scoped.read(nestedLock.handle)).text,
-        'nested coordination',
-      );
+      await Link('${root.path}/knowledge/visible/.linked').create('../a.md');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final snapshot = await project.refresh();
+      expect(snapshot.files.map((f) => f.handle.path), ['a.md']);
+      expect((await snapshot.bundles.single.graph()).nodes.single.id, 'a');
+      await write('knowledge/.hidden.md', 'changed hidden file');
+      expect((await project.refresh()).revision, snapshot.revision);
     },
   );
 

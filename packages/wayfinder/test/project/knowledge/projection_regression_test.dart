@@ -147,7 +147,7 @@ attester: {resource: ./data.md#check}
   test(
     'invalid concept paths retain raw files and refuse semantic graph',
     () async {
-      await write('knowledge/.md', '---\ntype: Guide\n---\nraw');
+      await write('knowledge/invalid.md.md', '---\ntype: Guide\n---\nraw');
       final p = await LocalKnowledgeProject.open(root: root, id: 'p');
       final lease = await p.refresh();
       expect(

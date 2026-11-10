@@ -128,17 +128,17 @@ Discovery uses only the granted root's `wayfinder.json` (`applies_to` through th
 core parser), or conventional `knowledge/`. It does not search ancestors or
 resolve selected Profiles. An existing project with neither configuration nor
 `knowledge/` returns a successful snapshot with no bundles; a missing project or
-a missing configured bundle returns `notFound`. Supplied bundle IDs can survive
+a missing configured bundle returns `notFound`. Opening a file or symbolic root
+returns `denied` during `open`, before any refresh. Supplied bundle IDs can survive
 relocation; fallback IDs are explicitly location-bound. Display paths are not identities.
 
 ## Capture and access limits
 
 Inventory includes every regular bundle file (malformed Markdown, indexes,
-logs, attachments, hidden files), plus root `wayfinder.json`/`wayfinder.lock`
-when present. The bundle root `.okf.lock` protocol file is excluded. Dot-prefixed directories
-(including `.git` and `.okf` caches) are pruned recursively by default, while
-hidden regular files remain included. `open(includeHiddenDirectories: true)`
-opts into hidden directories. This controls captured scope. References into
+logs and attachments), plus root `wayfinder.json`/`wayfinder.lock` when present.
+For browsing, hidden means any entry whose name starts with a dot; these entries
+are skipped before type checks, including `.git`, `.okf` and `.okf.lock` at every
+depth. There is no hidden-entry opt-in. This controls captured scope. References into
 excluded inventory gain no read permission. Links
 and nonregular devices are not granted inventory; linked configuration, bundle
 roots or path traversal refuse. POSIX resource paths must be portable safe
@@ -158,8 +158,9 @@ same-size edits even with restored mtimes; it is not a stat-only cache.
 Concurrent refreshes coalesce capture but return independent leases. The latest
 capture stays cached until replaced or project close; old leases retain their
 own captures. Sequential idle refreshes still scan once each; hosts should
-coalesce/debounce focus and watcher notifications if that cost matters. Up to two scan-sized raw captures coexist during
-comparison (plus bounded temporary reads, semantic models and consumer copies).
+coalesce/debounce focus and watcher notifications if that cost matters. A changed
+refresh can retain the previous capture plus two scan-sized captures during comparison (plus bounded temporary reads, semantic models and consumer
+copies). Hosts must close the project when switching away to drop its cache.
 This is not a project transaction, lock/snapshot filesystem, or protection
 against adversarial replacement/ABA races. No source files or lock files are
 written. Source operations stay on one isolate.

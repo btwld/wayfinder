@@ -10,14 +10,16 @@ String knowledgeManifestFingerprint({
   required Iterable<(String, String)> bundles,
 }) {
   final fileRows = [
-    for (final f in files) [f.$1, f.$2, f.$3],
+    for (final f in files) jsonEncode([f.$1, f.$2, f.$3]),
   ];
   final bundleRows = [
-    for (final b in bundles) [b.$1, b.$2],
+    for (final b in bundles) jsonEncode([b.$1, b.$2]),
   ];
-  fileRows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
-  bundleRows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+  fileRows.sort();
+  bundleRows.sort();
   return sha256
-      .convert(utf8.encode(jsonEncode([bundleRows, fileRows])))
+      .convert(
+        utf8.encode('[[${bundleRows.join(',')}],[${fileRows.join(',')}]]'),
+      )
       .toString();
 }
