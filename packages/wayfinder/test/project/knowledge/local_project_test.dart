@@ -5,6 +5,16 @@ import 'package:test/test.dart';
 import 'package:wayfinder/knowledge.dart';
 import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
+/// On older SDKs the type lookup inherited inside `IOOverrides.runZoned`
+/// passes the native call a path without its terminating NUL and reports
+/// every path as missing, so the real lookup runs in [zone], outside the
+/// overrides.
+Future<FileSystemEntityType> _typeIn(
+  Zone zone,
+  String path,
+  bool followLinks,
+) => zone.run(() => FileSystemEntity.type(path, followLinks: followLinks));
+
 Matcher failure(KnowledgeFailureCode code) =>
     isA<KnowledgeFailure>().having((e) => e.code, 'code', code);
 void main() {
@@ -371,6 +381,7 @@ void main() {
     var deleted = false;
     final snapshot = await IOOverrides.runZoned(
       project.refresh,
+      fseGetType: (path, followLinks) => _typeIn(zone, path, followLinks),
       stat: (path) async {
         if (path == target.path && !deleted) {
           deleted = true;
@@ -400,6 +411,7 @@ void main() {
       await expectLater(
         IOOverrides.runZoned(
           project.refresh,
+          fseGetType: (path, followLinks) => _typeIn(zone, path, followLinks),
           stat: (path) async {
             if (path == target.path) {
               stats++;
@@ -435,6 +447,7 @@ void main() {
       var grown = false;
       final first = await IOOverrides.runZoned(
         project.refresh,
+        fseGetType: (path, followLinks) => _typeIn(zone, path, followLinks),
         stat: (path) async {
           final before = await zone.run(() => FileStat.stat(path));
           if (path == target.path && !grown) {
@@ -477,6 +490,7 @@ void main() {
         await expectLater(
           IOOverrides.runZoned(
             project.refresh,
+            fseGetType: (path, followLinks) => _typeIn(zone, path, followLinks),
             stat: (path) async {
               if (path == target.path && !swapped) {
                 swapped = true;
