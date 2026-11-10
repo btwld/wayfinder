@@ -38,7 +38,8 @@ summaries carry project-relative display paths; concept IDs remain OKF
 bundle-relative IDs. Resource handles carry a revision and safe path relative to
 their bundle, or explicit project scope for config/lock. Do not construct native
 paths from display labels or synthetic graph IDs. Full lease revisions identify
-content; the summary integer is only a compact display/cache fingerprint.
+retained content and uncaptured file facts; the summary integer is only a compact
+display/cache fingerprint.
 The retained-capture backends currently use the project-wide revision for each
 bundle. Changes to another bundle or project config/lock may invalidate it too;
 this conservative revision is not independent per-bundle versioning.
@@ -56,7 +57,14 @@ Background retirement failures are observed immediately and carried to awaited
 `close()`, which rethrows the first cleanup error with its original stack after
 all cleanup drains. Dispose-initiated failure is reported through Flutter.
 
-Local capture retains all bounded raw bytes; changed captures compare two manifests.
+Local capture retains bounded Markdown/config bytes. Attachments and documents
+that exceed capture budgets remain listed with size and a `captureFailure`;
+the reader shows the same capture reason in the file label and on selection.
+Their `digest` is null and reads refuse without live I/O.
+Their revision identity uses bundle/path, media type, size, modification instant
+and refusal code, excluding refusal wording. A same-size edit with restored mtime
+is not detected; captured document edits remain byte-identified. Changed captures
+compare two inventory manifests.
 See the [core loader README](../../wayfinder/README.md#capture-and-access-limits)
 for limits and nontransactional filesystem guarantees. A remote backend
 must supply the same revision-conditioned/retained-byte semantics; no remote
@@ -70,7 +78,8 @@ independent reload calls. It preserves ordinary and field edges, origins,
 resolutions and relationship labels. Concept targets use their canonical IDs;
 nonconcept targets retain their written value. Node/edge display paths prefix
 the project-relative bundle path exactly once. Malformed Markdown refuses the
-graph while leaving the raw inventory readable.
+graph while leaving captured raw files readable. Uncaptured Markdown also refuses
+its bundle graph rather than returning a partial success.
 
 `layOutKnowledgeGraph`, `knowledgeGraphScene`, canvas, painter, palette, theme,
 labels and helpers keep their canonical paths/behavior. Layout owns focus,

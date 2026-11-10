@@ -191,3 +191,17 @@ duplicate mirrors across self-hosting checkouts and worktrees (#181).
 The cost is extra Git discovery and possible failure if external Git changes
 remove objects during resolution; see
 [source resolution](docs/wayfinder-configuration.md).
+
+## Bounded document capture with attachment inventory
+
+Date: 2026-11-10.
+
+For the desktop reader's real attachment-heavy repository (4 MB knowledge plus
+154 MB captures under a 32 MB capture budget), capture only classified Markdown
+and project configuration/lock bytes, failing capture if either present input
+cannot fit; inventory attachments and over-budget documents with size, modification
+instant and per-file refusals. Share file identity between manifests and revisions,
+excluding per-file refusal wording. Keep exact retained-byte reads
+and metadata-only revisions for omitted files, refusing their reads and any
+incomplete bundle graph; the cost is inventory-only attachments and inability
+to detect their same-size/restored-mtime edits, with no OKF/Profile change.

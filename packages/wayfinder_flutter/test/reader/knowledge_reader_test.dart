@@ -107,6 +107,75 @@ void main() {
       });
     },
   );
+  for (final width in [400.0, 1000.0]) {
+    testWidgets(
+      'local file refusals show size and preserve reading at width $width',
+      (tester) async {
+        late Directory root;
+        late LocalKnowledgeProject project;
+        late KnowledgeReaderController controller;
+        await tester.runAsync(() async {
+          root = await Directory.systemTemp.createTemp('reader-limits-');
+          await Directory('${root.path}/knowledge').create();
+          for (final entry in {
+            'a.md': 'body',
+            'big.md': 'oversized',
+            'asset.bin': 'x' * 20,
+          }.entries) {
+            await File('${root.path}/knowledge/${entry.key}')
+                .writeAsString(entry.value);
+          }
+          project = await LocalKnowledgeProject.open(
+            root: root,
+            id: 'local',
+            maxFileBytes: 10,
+            maxCaptureBytes: 8,
+          );
+          controller = KnowledgeReaderController(project: project);
+          await controller.refresh();
+        });
+        addTearDown(() async {
+          await controller.close();
+          controller.dispose();
+          await project.close();
+          await root.delete(recursive: true);
+        });
+        expect(controller.error, isNull);
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: KnowledgeReader(controller: controller)),
+          ),
+        );
+        for (final label in [
+          'knowledge/big.md · Not captured: exceeds the remaining project capture budget. · 9 bytes',
+          'knowledge/asset.bin · Attachment not captured; only its metadata is available. · 20 bytes',
+          'knowledge/a.md',
+        ]) {
+          if (width < 700) {
+            await tester.tap(find.byKey(const Key('reader-files')));
+            await tester.pumpAndSettle();
+          }
+          await tester.tap(find.text(label).last);
+          await tester.pumpAndSettle();
+          expect(controller.snapshot, isNotNull);
+          if (label != 'knowledge/a.md') {
+            expect(
+              find.byKey(const Key('reader-not-captured')),
+              findsOneWidget,
+            );
+            expect(controller.source, isNull);
+          }
+        }
+        expect(controller.error, isNull);
+        expect(find.textContaining('body'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   test('transient refresh retains authorized view; revocation clears and prevents late repopulation', () async {
     Object? failure;
     final project = CallbackProject(() async {

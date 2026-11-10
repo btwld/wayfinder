@@ -1,5 +1,18 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Fix desktop browsing of attachment-heavy projects: read only bounded Markdown
+  and project configuration/lock bytes; inventory attachments and omitted
+  documents with size, modification time and a per-file refusal. The unpublished
+  reader API makes captured-file `bytes` and entry `digest` nullable and adds
+  `captureFailure`; uncaptured reads refuse rather than reload live files.
+  Present config/lock inputs fail capture if they exceed either limit. Scan and
+  revision identity share size, UTC epoch modification instant and refusal code,
+  excluding per-file refusal wording; captured bytes retain SHA-256 identity.
+  Metadata recording rechecks regular-file access and retries on deletion or
+  truncation during acquisition. Captured-file metadata is private; its
+  `metadata` constructor inventories omissions without redundant failure paths.
+  An incomplete Markdown capture refuses only that bundle's graph.
+
 - Maintenance for #180's desktop browsing consumer: reject non-directory and
   symbolic project roots at open, exclude every dot-prefixed bundle entry,
   and remove the unused `includeHiddenDirectories` option. Reuse remains

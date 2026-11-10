@@ -13,7 +13,7 @@ void main() {
     addTearDown(() => root.delete(recursive: true));
     await Directory('${root.path}/knowledge').create();
     final bytes = Uint8List(defaultLimit + 1)..last = 255;
-    await File('${root.path}/knowledge/large.bin').writeAsBytes(bytes);
+    await File('${root.path}/knowledge/large.md').writeAsBytes(bytes);
     final project = await LocalKnowledgeProject.open(
       root: root,
       id: 'p',

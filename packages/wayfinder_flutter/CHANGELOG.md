@@ -1,5 +1,9 @@
 # 0.2.0 (unreleased)
 
+- Show uncaptured local files with their byte size and capture reason in wide
+  and narrow file selection. Oversized documents/attachment bundles no longer
+  prevent reading the captured documents; selection retains the inventory.
+
 - Remove unused `KnowledgeFindingSource` and `KnowledgeFinding.source` (including
   the constructor argument); finding grouping/severity helpers retain their
   existing behavior and coverage. The desktop browsing consumer uses neither.

@@ -53,7 +53,9 @@ and finding display models. None of those UI policies are in this entry.
 `KnowledgeProjectSnapshot`. Its bundles expose concepts, a complete permitted
 file inventory, a graph (or typed refusal) and explicit validation-unavailable.
 `read(handle)` returns immutable verified bytes, with strict UTF-8 decoding and a
-caller byte limit. Binary or malformed content is not discarded.
+caller byte limit. Captured binary or malformed content is not discarded.
+Inventory-only entries carry a size and `captureFailure`, with a null digest;
+reading those entries refuses without acquiring new bytes.
 
 Identity, project-relative display paths and opaque content revisions are
 separate. Handles contain project ID, optional bundle ID, snapshot revision and
@@ -69,8 +71,9 @@ into permission, and handles must belong to the lease's permitted inventory.
 `MemoryKnowledgeProject(id: ..., capture: ...)` uses `KnowledgeCapture`, captured
 files and semantic bundle projections. Updating `current` affects only later
 refreshes. Captures defensively retain bytes and nested concept metadata. Their
-SHA-256 revision covers bytes and projected content, not a load counter. Nested
-YAML metadata preserves scalar mapping keys, dates and nonfinite numbers; all
+SHA-256 revision covers bytes, projected content and uncaptured file facts,
+excluding per-file refusal wording, rather than a load counter. Nested YAML
+metadata preserves scalar mapping keys, dates and nonfinite numbers; all
 returned mappings/collections are immutable rather than coerced to JSON.
 `CapturedKnowledgeProject` supplies the same lifecycle to an adapter with a
 private asynchronous capture callback; adapters own their acquisition bounds
@@ -148,13 +151,36 @@ ASCII/C1 control characters. Unsupported filesystem addresses return a typed, fi
 semantic concept ID instead retains its raw file and refuses the graph. External
 Markdown references confer no file-open permission.
 
-Each scan enforces **16 MiB per file and 64 MiB aggregate retained source bytes**
-by default; hosts can lower or explicitly raise both at `open`. A bounded read
-also checks size and SHA-256. An unchanged refresh performs one full byte scan and reuses the previous
-capture/projections when the byte manifest matches. Changed/initial
-captures compare two full byte scans, with one retry
-on mutation. This catches
-same-size edits even with restored mtimes; it is not a stat-only cache.
+By default, each scan retains at most **16 MiB per file and 64 MiB aggregate
+source bytes**; hosts can lower or explicitly raise both at `open`. Bundle
+files are classified by `classifyBundleFile`: only Markdown documents are read
+at refresh. Attachments are listed with their size and capture reason, never
+opened or hashed. Their modification instant is retained privately for identity.
+Documents already known to exceed the file or remaining aggregate budget are
+also inventoried without reading; bounded reads catch growth after stat. The order
+is sorted bundle paths, then sorted depth-first directory traversal; a skipped file spends
+no budget, so later smaller documents can still fit. Config/lock bytes count
+first toward the same budget. Both files, when present, must be captured within
+these limits; failure to acquire either fails capture. Invalid `wayfinder.json`
+also refuses discovery.
+
+An entry's `captureFailure` explains why its bytes were omitted, and `sizeBytes`
+gives its observed size. Its `digest` is null. Reading it returns that per-file
+failure, without touching the filesystem; attachments are inventory-only in this
+backend, including small ones. Captured entries retain their SHA-256 digest and
+exact bytes. Snapshot `read(maxBytes: ...)` separately bounds returned bytes and
+verifies size and SHA-256.
+
+An unchanged refresh scans captured document/config bytes and uncaptured file
+metadata once, reusing the previous capture/projections when the inventory
+manifest matches. Changed/initial captures compare two manifests, with one retry
+on mutation. Captured byte identity catches same-size edits even with restored
+mtimes. Both manifests and revisions use one file identity: bundle/path, media
+type and either a retained-byte digest or observed size, modification instant
+(in microseconds since the UTC epoch) and refusal code. Per-file refusal wording
+is excluded; same-size edits with restored mtimes are **not** detected for
+uncaptured files. These files never serve bytes under that metadata revision.
+
 Concurrent refreshes coalesce capture but return independent leases. The latest
 capture stays cached until replaced or project close; old leases retain their
 own captures. Sequential idle refreshes still scan once each; hosts should
@@ -165,9 +191,10 @@ This is not a project transaction, lock/snapshot filesystem, or protection
 against adversarial replacement/ABA races. No source files or lock files are
 written. Source operations stay on one isolate.
 
-All captured bytes are retained, including attachments, so an old revision never
-substitutes fresh filesystem bytes. Reads recheck project/lease/grant state and
-handle membership, not live file freshness. Changed sources appear only after
+All captured bytes are retained, so an old revision never substitutes fresh
+filesystem bytes. Uncaptured entries keep their metadata and refusal unchanged.
+Reads recheck project/lease/grant state and handle membership, not live file
+freshness. Changed sources appear only after
 explicit successful refresh; transient refresh failure leaves the old authorized
 lease readable. Host-observed grant loss calls `revoke()` immediately, clearing
 attached controllers and denying even retained reads. New permission requires a
@@ -175,10 +202,12 @@ new project. OS failures alone are not treated as grant revocation.
 
 Concepts/graph derive only from captured Markdown via OKF. Both ordinary edges
 and Wayfinder relationship field edges retain origins, resolutions and names.
-Malformed Markdown remains raw-readable and refuses the graph rather than
-returning a misleading empty success. Bundle browsing views keep validation
-**unavailable/not validated**. The loader captures the permitted browsing files
-and their semantic projections. Paths referenced outside that inventory neither
+Malformed captured Markdown remains raw-readable and refuses the graph rather
+than returning a misleading empty success. Any uncaptured Markdown also refuses
+that bundle's graph; other captured documents and bundles remain readable. Bundle
+browsing views keep validation **unavailable/not validated**. The loader
+inventories permitted browsing files and derives semantics only from captured
+Markdown. Paths referenced outside that inventory neither
 grant reads nor participate in the capture revision.
 
 

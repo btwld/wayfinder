@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../knowledge.dart';
+import '../../bundle_file_kind.dart';
 import '../../knowledge/manifest.dart';
 import '../../knowledge/reader.dart'
     show knowledgeIdentifier, knowledgeRelativePath;
@@ -12,10 +13,13 @@ import '../../wayfinder_config.dart';
 import 'projection.dart';
 
 /// Filesystem loader for a granted project, captured read-only with no Profile resolution,
-/// fetching, model, cache writes or symlink following. All bytes are retained.
+/// fetching, model, cache writes or symlink following. Markdown that fits the
+/// capture limits retains exact bytes. Attachments and omitted documents retain
+/// only path, size, modification time and a per-file refusal; reads never reload
+/// them. Their metadata identity does not detect same-size/restored-mtime edits.
 ///
 /// Bounds apply to raw capture allocation, not just individual read calls.
-/// Initial/changed capture compares two byte manifests, retrying once on
+/// Initial/changed capture compares two inventory manifests, retrying once on
 /// ordinary edits; idle refresh reuses the last capture after one matching scan.
 /// This is not a filesystem transaction or an adversarial-race guarantee.
 final class LocalKnowledgeProject extends CapturedKnowledgeProject {
@@ -104,27 +108,33 @@ final class _LocalSource {
         );
       }
       for (var attempt = 0; attempt < 2; attempt++) {
-        final first = await _scan();
-        // A matching full byte scan needs neither another scan nor projection.
-        // No mtime/size heuristic can hide same-length edits.
-        if (_previous?.fingerprint == first.byteFingerprint) {
-          return _previous!.capture;
+        try {
+          final first = await _scan();
+          // Captured bytes are hashed; uncaptured files contribute metadata only.
+          // A matching inventory needs neither another scan nor projection.
+          if (_previous?.fingerprint == first.fingerprint) {
+            return _previous!.capture;
+          }
+          final second = await _scan();
+          if (first.fingerprint != second.fingerprint) continue;
+          final capture = KnowledgeCapture(
+            files: first.files,
+            bundles: [
+              for (final bundle in first.bundles)
+                projectCapturedBundle(
+                  id: bundle.id,
+                  path: bundle.path,
+                  files: first.files
+                      .where((f) => f.bundle == bundle.id)
+                      .toList(),
+                ),
+            ],
+          );
+          _previous = (capture: capture, fingerprint: first.fingerprint);
+          return capture;
+        } on _SourceChanged {
+          continue;
         }
-        final second = await _scan();
-        if (first.byteFingerprint != second.byteFingerprint) continue;
-        final capture = KnowledgeCapture(
-          files: first.files,
-          bundles: [
-            for (final bundle in first.bundles)
-              projectCapturedBundle(
-                id: bundle.id,
-                path: bundle.path,
-                files: first.files.where((f) => f.bundle == bundle.id).toList(),
-              ),
-          ],
-        );
-        _previous = (capture: capture, fingerprint: first.byteFingerprint);
-        return capture;
       }
       throw KnowledgeFailure(
         KnowledgeFailureCode.sourceChanged,
@@ -159,13 +169,56 @@ final class _LocalSource {
       await _regular(projectPath);
       final file = File(p.join(_root, projectPath));
       final stat = await file.stat();
-      if (stat.size > maxFileBytes || stat.size > maxCaptureBytes - total) {
-        throw KnowledgeFailure(
-          KnowledgeFailureCode.tooLarge,
-          'capture',
-          'Source capture exceeds its configured byte limit.',
-          path: projectPath,
+      if (stat.type != FileSystemEntityType.file) throw const _SourceChanged();
+      final attachment =
+          bundle != null &&
+          classifyBundleFile(relative) == BundleFileKind.asset;
+      Future<void> omit(
+        FileStat identity,
+        KnowledgeFailureCode code,
+        String message,
+      ) async {
+        await _regular(projectPath);
+        if (bundle == null) {
+          // Discovery inputs must belong to the capture, even under tight budgets.
+          throw KnowledgeFailure(
+            code,
+            'capture',
+            '$projectPath cannot be captured: $message',
+            path: projectPath,
+          );
+        }
+        files.add(
+          KnowledgeCapturedFile.metadata(
+            bundle: bundle,
+            path: relative,
+            sizeBytes: identity.size,
+            modifiedAt: identity.modified,
+            mediaType: _media(relative),
+            code: code,
+            reason: message,
+          ),
         );
+      }
+
+      String limitMessage(int size) => size > maxFileBytes
+          ? 'Too large to open here: exceeds the per-file capture limit.'
+          : 'Not captured: exceeds the remaining project capture budget.';
+      if (attachment) {
+        await omit(
+          stat,
+          KnowledgeFailureCode.unavailable,
+          'Attachment not captured; only its metadata is available.',
+        );
+        return;
+      }
+      if (stat.size > maxFileBytes || stat.size > maxCaptureBytes - total) {
+        await omit(
+          stat,
+          KnowledgeFailureCode.tooLarge,
+          limitMessage(stat.size),
+        );
+        return;
       }
       // Read at most the bound even if a writer grows a file after stat.
       final remaining = maxCaptureBytes - total;
@@ -178,12 +231,16 @@ final class _LocalSource {
         await reader.close();
       }
       if (bytes.length > limit) {
-        throw KnowledgeFailure(
+        final after = await file.stat();
+        if (after.type != FileSystemEntityType.file || after.size <= limit) {
+          throw const _SourceChanged();
+        }
+        await omit(
+          after,
           KnowledgeFailureCode.tooLarge,
-          'capture',
-          'Source capture exceeds its configured byte limit.',
-          path: projectPath,
+          limitMessage(after.size),
         );
+        return;
       }
       await _regular(projectPath);
       total += bytes.length;
@@ -203,7 +260,7 @@ final class _LocalSource {
       await add('wayfinder.json', null, 'wayfinder.json');
       try {
         paths = WayfinderProjectConfig.parse(
-          utf8.decode(files.last.bytes),
+          utf8.decode(files.last.bytes!),
         ).bundles.map((b) => b.path).toList();
       } on FormatException {
         throw KnowledgeFailure(
@@ -282,13 +339,14 @@ final class _LocalSource {
 
   Future<void> _regular(String path) async {
     final type = await _type(path);
+    if (type == FileSystemEntityType.notFound) throw const _SourceChanged();
     if (type != FileSystemEntityType.file) {
       throw KnowledgeFailure(
         type == FileSystemEntityType.link
             ? KnowledgeFailureCode.denied
             : KnowledgeFailureCode.unavailable,
-        'read',
-        'Only granted regular files can be read.',
+        'capture',
+        'Only granted regular files can be captured.',
         path: path,
       );
     }
@@ -297,7 +355,7 @@ final class _LocalSource {
         !p.equals(canonical, p.join(_root, path))) {
       throw KnowledgeFailure(
         KnowledgeFailureCode.denied,
-        'read',
+        'capture',
         'The file is outside the granted source path.',
         path: path,
       );
@@ -331,12 +389,16 @@ final class _LocalSource {
   }
 }
 
+final class _SourceChanged implements Exception {
+  const _SourceChanged();
+}
+
 final class _Scan {
   _Scan(this.files, this.bundles);
   final List<KnowledgeCapturedFile> files;
   final List<({String id, String path})> bundles;
-  late final String byteFingerprint = knowledgeManifestFingerprint(
-    files: [for (final f in files) (f.bundle, f.path, f.digest)],
+  late final String fingerprint = knowledgeManifestFingerprint(
+    files: files,
     bundles: [for (final b in bundles) (b.id, b.path)],
   );
 }
