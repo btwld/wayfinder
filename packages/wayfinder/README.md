@@ -15,16 +15,172 @@ A project on disk is in `package:wayfinder/project.dart` ([Projects](#projects))
 and writes a Profile governs are in `package:wayfinder/authoring.dart`
 ([Authoring](#authoring)).
 
-`ProfileValidator.validateLoaded` validates a bundle okf has already loaded,
-such as a candidate built in memory, without reading its files again; only the
-`path-targets-exist` builtin looks further, for a path target okf's graph
-cannot resolve: first in the loaded bundle, so a candidate sees the files it
-adds, then on disk relative to the bundle root.
+`ProfileValidator.validateLoaded` validates an OKF load, including an in-memory
+candidate, without reading bundle files again. In-bundle path targets use the
+loaded inventory; ordinary filesystem roots retain live external-path checks.
+`ProfileValidator(outsideBundleExists: (relative) => ...)` replaces only that
+external lookup. The host supplies coherent observations for decoded
+bundle-relative paths (including `../`); callback errors propagate.
+Non-filesystem URI roots require this callback in `validateLoaded` and external
+path resolution. Path-based `validate` requires a filesystem path even when a
+callback is supplied; it rejects URI roots before loading or locking.
+
+`classifyBundleFile(relativePath)` is the shared pure file classifier:
+`BundleFileKind.indexDocument`, `logDocument`, `concept` or `asset`. It follows
+OKF's exact reserved basenames at any depth and case-sensitive `.md` suffix,
+without validating paths or parsing files. Core adoption, query fingerprinting,
+Markdown facts and the filesystem loader's browsing projection all use it.
+
 `ProfileProjection.generatedFiles` returns the files `validate --fix` would
 write, without writing them. `EffectiveProfile.requiredConceptFields` lists
 the frontmatter keys a concept must carry for the gate to pass: those the
 Profile's error rules require of every concept, for Bitwild `type`, `title`,
 `description` and `status`.
+
+## Portable retained knowledge
+
+Import `package:wayfinder/knowledge.dart` for browser-closed source values,
+captured files/bundles, snapshot/project interfaces, failure
+codes, cancellation and independent lease mechanics, and the memory backend.
+This entry exports only portable source modules;
+it does not export `wayfinder.dart`, `project.dart`, validation, OKF, I/O or FFI.
+Core's native dependencies do not imply imports in this entry's closure.
+
+Flutter owns controllers, selection/presentation state, preferred-bundle policy
+and finding display models. None of those UI policies are in this entry.
+
+`KnowledgeProject.refresh()` returns an independently releasable
+`KnowledgeProjectSnapshot`. Its bundles expose concepts, a complete permitted
+file inventory, a graph (or typed refusal) and explicit validation-unavailable.
+`read(handle)` returns immutable verified bytes, with strict UTF-8 decoding and a
+caller byte limit. Binary or malformed content is not discarded.
+
+Identity, project-relative display paths and opaque content revisions are
+separate. Handles contain project ID, optional bundle ID, snapshot revision and
+safe POSIX scope-relative path. A null bundle identifies project configuration.
+`CapturedKnowledgeProject` currently gives every bundle the whole-project capture
+revision. This is correct but conservative: unrelated bundle/config changes can
+invalidate a bundle view; these are not independent per-bundle versions.
+They contain neither absolute roots nor credentials. Paths are never decoded
+into permission, and handles must belong to the lease's permitted inventory.
+
+## Backends and ownership
+
+`MemoryKnowledgeProject(id: ..., capture: ...)` uses `KnowledgeCapture`, captured
+files and semantic bundle projections. Updating `current` affects only later
+refreshes. Captures defensively retain bytes and nested concept metadata. Their
+SHA-256 revision covers bytes and projected content, not a load counter. Nested
+YAML metadata preserves scalar mapping keys, dates and nonfinite numbers; all
+returned mappings/collections are immutable rather than coerced to JSON.
+`CapturedKnowledgeProject` supplies the same lifecycle to an adapter with a
+private asynchronous capture callback; adapters own their acquisition bounds
+and semantic correctness. It deliberately provides no filesystem abstraction.
+
+Every successful refresh receives a distinct lease, even when capture is
+coalesced. Cancelling one refresh does not cancel another. Bundle views borrow
+the parent lease. Release immediately rejects access through that lease, drains
+its accepted reads and drops its retained capture reference; other leases work.
+Close rejects new work, invalidates all leases and drains accepted captures
+and reads.
+Closed/revoked state takes precedence over a late capture error; while open,
+original acquisition errors are preserved.
+Both are idempotent, including reentrant close notifications.
+
+`revocations` synchronously announces permanent grant loss; retained reads then
+deny and consumers must clear affected views. Detached immutable values already
+returned cannot be recalled. A transient refresh failure does not revoke an old
+lease. Controllers borrow projects: detach UI, close controller, then close the
+host-owned project. No search/status/index/model methods are mandatory or faked.
+Browsing views expose explicit validation-unavailable and revision-bound raw
+reads. They perform no conformance validation or Profile resolution. Validation
+is a separate native API, with its own input and execution ownership.
+
+Optional search integration remains deferred.
+
+## Read-only filesystem loader
+
+Import both entries for native browsing:
+
+```dart
+import 'dart:io';
+import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/project.dart';
+
+final project = await LocalKnowledgeProject.open(
+  root: Directory('/granted/project'), id: 'host:project',
+  bundleIds: {'knowledge': 'host:stable-docs'},
+);
+final snapshot = await project.refresh();
+for (final file in snapshot.files) {
+  print(file.handle.path);
+}
+await snapshot.release();
+await project.close();
+```
+
+`LocalKnowledgeProject.open` is filesystem acquisition, exposed as a lease-owning
+project. Its loader retains bounded bytes and never invokes resolver/fetch/write
+operations merely because they share the native entry point. This is distinct
+from `WayfinderProject.discover` and Profile resolution: browsing never runs Git,
+writes coordination locks or mutates source/user data.
+
+Discovery uses only the granted root's `wayfinder.json` (`applies_to` through the
+core parser), or conventional `knowledge/`. It does not search ancestors or
+resolve selected Profiles. An existing project with neither configuration nor
+`knowledge/` returns a successful snapshot with no bundles; a missing project or
+a missing configured bundle returns `notFound`. Opening a file or symbolic root
+returns `denied` during `open`, before any refresh. Supplied bundle IDs can survive
+relocation; fallback IDs are explicitly location-bound. Display paths are not identities.
+
+## Capture and access limits
+
+Inventory includes every regular bundle file (malformed Markdown, indexes,
+logs and attachments), plus root `wayfinder.json`/`wayfinder.lock` when present.
+For browsing, hidden means any entry whose name starts with a dot; these entries
+are skipped before type checks, including `.git`, `.okf` and `.okf.lock` at every
+depth. There is no hidden-entry opt-in. This controls captured scope. References into
+excluded inventory gain no read permission. Links
+and nonregular devices are not granted inventory; linked configuration, bundle
+roots or path traversal refuse. POSIX resource paths must be portable safe
+relative addresses; no parent, empty or dot segments, backslashes, colons or
+ASCII/C1 control characters. Unsupported filesystem addresses return a typed, file-specific
+`invalidContent` refusal; they are not an added OKF conformance rule. An invalid
+semantic concept ID instead retains its raw file and refuses the graph. External
+Markdown references confer no file-open permission.
+
+Each scan enforces **16 MiB per file and 64 MiB aggregate retained source bytes**
+by default; hosts can lower or explicitly raise both at `open`. A bounded read
+also checks size and SHA-256. An unchanged refresh performs one full byte scan and reuses the previous
+capture/projections when the byte manifest matches. Changed/initial
+captures compare two full byte scans, with one retry
+on mutation. This catches
+same-size edits even with restored mtimes; it is not a stat-only cache.
+Concurrent refreshes coalesce capture but return independent leases. The latest
+capture stays cached until replaced or project close; old leases retain their
+own captures. Sequential idle refreshes still scan once each; hosts should
+coalesce/debounce focus and watcher notifications if that cost matters. A changed
+refresh can retain the previous capture plus two scan-sized captures during comparison (plus bounded temporary reads, semantic models and consumer
+copies). Hosts must close the project when switching away to drop its cache.
+This is not a project transaction, lock/snapshot filesystem, or protection
+against adversarial replacement/ABA races. No source files or lock files are
+written. Source operations stay on one isolate.
+
+All captured bytes are retained, including attachments, so an old revision never
+substitutes fresh filesystem bytes. Reads recheck project/lease/grant state and
+handle membership, not live file freshness. Changed sources appear only after
+explicit successful refresh; transient refresh failure leaves the old authorized
+lease readable. Host-observed grant loss calls `revoke()` immediately, clearing
+attached controllers and denying even retained reads. New permission requires a
+new project. OS failures alone are not treated as grant revocation.
+
+Concepts/graph derive only from captured Markdown via OKF. Both ordinary edges
+and Wayfinder relationship field edges retain origins, resolutions and names.
+Malformed Markdown remains raw-readable and refuses the graph rather than
+returning a misleading empty success. Bundle browsing views keep validation
+**unavailable/not validated**. The loader captures the permitted browsing files
+and their semantic projections. Paths referenced outside that inventory neither
+grant reads nor participate in the capture revision.
+
 
 ## Projects
 

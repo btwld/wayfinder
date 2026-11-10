@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 void main() {
   test('larger retained files require an explicit reader budget; direct reads stay bounded', () async {

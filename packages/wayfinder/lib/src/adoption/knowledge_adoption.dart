@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../bundle_file_kind.dart';
 import '../diagnostics.dart';
 import '../knowledge_assessment.dart';
 import '../profile_package.dart';
@@ -1139,12 +1140,9 @@ final class KnowledgeAdoption {
     for (final concept in concepts) {
       final path = concept.path;
       final normalized = p.posix.normalize(path);
-      final name = p.posix.basename(path);
       if (_isInvalidProjectPath(path, normalized) ||
           normalized != path ||
-          !name.endsWith('.md') ||
-          name == 'index.md' ||
-          name == 'log.md') {
+          classifyBundleFile(path) != BundleFileKind.concept) {
         throw _invalid(
           'Seed concept $path must be a bundle-relative POSIX path to a '
           'Markdown file other than index.md or log.md.',

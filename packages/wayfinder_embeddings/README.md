@@ -457,9 +457,10 @@ It collapses repeated contexts to the first child hit.
   always pair the two; `tool/objectbox_assets/manifest.json` records both
   (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
   when the override and the manifest differ.
-  Tests that need the library, such as `test/objectbox_store_test.dart`, skip
-  themselves when it is absent; native CI installs it and runs the whole
-  package. The knowledge store does not use it.
+  Tests that need the library, such as `test/objectbox_store_test.dart`, are
+  tagged `native` and enabled only with `WAYFINDER_REQUIRE_NATIVE=1`, regardless
+  of installed assets. Native CI installs it and selects `--tags native`;
+  missing prerequisites fail. The knowledge store does not use it.
   `minimumSearchCandidates` defaults to 50 independently of the result limit,
   trading extra work for the recall measured on the fixture corpus.
 
@@ -707,6 +708,31 @@ still needs to parse and supply the concept metadata.
 Extend `BaseChunker` or `BaseEmbedder`. Register a chunker with
 `ChunkerRegistry` so files route to it by content type or extension. Override
 `BaseEmbedder.generateEmbeddings` when the backend accepts a batch.
+
+## Test lanes
+
+Run packages sequentially with concurrency 2. The model-free lane keeps
+CountingEmbedder/fake-engine behavior, MemoryStore and pure ObjectBox
+schema/scoring checks; it does not load a real model or open ObjectBox:
+
+```sh
+dart test --concurrency=2 --exclude-tags native
+```
+
+The real inference, ObjectBox contract/persistence/migration, duplicate-id
+persistence and installed-library checks are tagged `native`. After preparing
+the pinned assets with the existing commands above, explicitly request them:
+
+```sh
+WAYFINDER_REQUIRE_NATIVE=1 dart test --concurrency=2 --tags native
+```
+
+Both flag and selector make the intended run clear. The flag makes missing
+prerequisites fail rather than skip. Native tests never auto-enable because
+assets exist; plain `dart test` skips them unless the flag is set. CI keeps
+model-free coverage on minimum/stable and native coverage on stable, along
+with the existing real bundle and retrieval checks. No model identity or
+persistence schema changes with this test scheduling.
 
 ## Evaluation
 

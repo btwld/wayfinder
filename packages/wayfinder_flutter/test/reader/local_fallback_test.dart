@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 void main() {
   test('temporarily missing configured local bundle retains authorized content and recovers', () async {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:test/test.dart';
-import 'package:wayfinder_reader/wayfinder_reader.dart';
+import 'package:wayfinder/knowledge.dart';
 
 KnowledgeCapture fixture([String text = 'hello']) => KnowledgeCapture(
   files: [

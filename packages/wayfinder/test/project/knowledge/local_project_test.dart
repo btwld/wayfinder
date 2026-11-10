@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:test/test.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 Matcher failure(KnowledgeFailureCode code) =>
     isA<KnowledgeFailure>().having((e) => e.code, 'code', code);
@@ -19,6 +20,181 @@ void main() {
   tearDown(() async {
     await root.delete(recursive: true);
   });
+  test(
+    'empty project succeeds; missing project or configured bundle is notFound',
+    () async {
+      final empty = await LocalKnowledgeProject.open(root: root, id: 'empty');
+      addTearDown(empty.close);
+      final snapshot = await empty.refresh();
+      expect(snapshot.bundles, isEmpty);
+      expect(snapshot.files, isEmpty);
+      final revision = snapshot.revision;
+      expect((await empty.refresh()).revision, revision);
+      await expectLater(
+        LocalKnowledgeProject.open(
+          root: Directory('${root.path}/missing'),
+          id: 'missing',
+        ),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await write(
+        'wayfinder.json',
+        '{"version":1,"profiles":{"demo":{"source":{"git":"https://invalid.example/never","ref":"main","path":"profile"},"applies_to":["missing"]}}}',
+      );
+      await expectLater(
+        empty.refresh(),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await File('${root.path}/wayfinder.json').delete();
+      await root.delete();
+      await expectLater(
+        empty.refresh(),
+        throwsA(failure(KnowledgeFailureCode.notFound)),
+      );
+      await root.create();
+    },
+  );
+
+  test('open refuses files and symbolic roots before refresh', () async {
+    await write('file.txt', 'not a directory');
+    await Link('${root.path}/linked').create(root.path);
+    for (final path in ['file.txt', 'linked']) {
+      await expectLater(
+        LocalKnowledgeProject.open(
+          root: Directory('${root.path}/$path'),
+          id: 'p',
+        ),
+        throwsA(
+          isA<KnowledgeFailure>()
+              .having((e) => e.code, 'code', KnowledgeFailureCode.denied)
+              .having((e) => e.operation, 'operation', 'open')
+              .having((e) => e.message, 'message', contains('directory')),
+        ),
+      );
+    }
+  });
+
+  test(
+    'browsing excludes every dot-prefixed entry before inspecting it',
+    () async {
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: A\n---\nBody');
+      await write(
+        'knowledge/.hidden.md',
+        '---\ntype: [\n---\ninvalid hidden Markdown',
+      );
+      await write('knowledge/.md', '---\ntype: Guide\n---\ninvalid hidden ID');
+      await write('knowledge/.cache/secret.txt', 'hidden directory');
+      await write('knowledge/.git/objects/secret', 'git objects');
+      await write('knowledge/.okf/cache/secret', 'okf cache');
+      await write(
+        'knowledge/visible/.nested/secret.txt',
+        'nested hidden directory',
+      );
+      await write('knowledge/visible/.hidden.txt', 'nested hidden file');
+      await write('knowledge/.okf.lock', 'coordination');
+      await write('knowledge/visible/.okf.lock', 'nested coordination');
+      await Link('${root.path}/knowledge/visible/.linked').create('../a.md');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final snapshot = await project.refresh();
+      expect(snapshot.files.map((f) => f.handle.path), ['a.md']);
+      expect((await snapshot.bundles.single.graph()).nodes.single.id, 'a');
+      await write('knowledge/.hidden.md', 'changed hidden file');
+      expect((await project.refresh()).revision, snapshot.revision);
+    },
+  );
+
+  test(
+    'idle reuse preserves bundles with IDs ordered differently from paths',
+    () async {
+      await write(
+        'wayfinder.json',
+        '{"version":1,"profiles":{"demo":{"source":{"git":"https://invalid.example/never","ref":"main","path":"profile"},"applies_to":["knowledge","other"]}}}',
+      );
+      for (final path in ['knowledge', 'other']) {
+        await write('$path/a.md', '---\ntype: Guide\ntitle: $path\n---\nBody');
+      }
+      final project = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        bundleIds: {'knowledge': 'z-id', 'other': 'a-id'},
+      );
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final idle = await project.refresh();
+      expect(idle.revision, first.revision);
+      for (final id in ['z-id', 'a-id']) {
+        expect(
+          await idle.bundle(id).concept('a'),
+          same(await first.bundle(id).concept('a')),
+        );
+      }
+    },
+  );
+
+  test(
+    'files outside the browsing inventory do not invalidate an idle capture',
+    () async {
+      await write('knowledge/a.md', '---\nresource: ../outside.txt\n---\nBody');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      await write('outside.txt', 'not inventoried');
+      final idle = await project.refresh();
+      expect(idle.revision, first.revision);
+      expect(idle.files.map((f) => f.handle.path), ['a.md']);
+      expect(
+        await idle.bundles.single.concept('a'),
+        same(await first.bundles.single.concept('a')),
+      );
+    },
+  );
+
+  test(
+    'project lock reads retain captured bytes until the next refresh',
+    () async {
+      await write('knowledge/a.md', 'Body');
+      await write('wayfinder.lock', 'first lock bytes');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final lock = first.files.singleWhere((f) => f.handle.bundle == null);
+      await write('wayfinder.lock', 'next lock bytes');
+      expect((await first.read(lock.handle)).text, 'first lock bytes');
+      final next = await project.refresh();
+      expect(next.revision, isNot(first.revision));
+      final nextLock = next.files.singleWhere((f) => f.handle.bundle == null);
+      expect((await next.read(nextLock.handle)).text, 'next lock bytes');
+    },
+  );
+
+  test(
+    'idle refresh reuses capture/projection with independent leases; byte edits invalidate',
+    () async {
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: A\n---\nBody\n');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final before = await first.bundles.single.concept('a');
+      final second = await project.refresh();
+      expect(identical(first, second), isFalse);
+      expect(await second.bundles.single.concept('a'), same(before));
+      expect(second.revision, first.revision);
+      final file = File('${root.path}/knowledge/a.md');
+      final stamp = await file.lastModified();
+      await write('knowledge/a.md', '---\ntype: Guide\ntitle: B\n---\nBody\n');
+      await file.setLastModified(stamp);
+      final changed = await project.refresh();
+      expect(changed.revision, isNot(first.revision));
+      expect((await changed.bundles.single.concept('a')).title, 'B');
+      await first.release();
+      expect((await second.bundles.single.concept('a')).title, 'A');
+      await write('wayfinder.lock', 'new binding');
+      final rebound = await project.refresh();
+      expect(rebound.revision, isNot(changed.revision));
+    },
+  );
+
   test(
     'captures configured bundles, all files and config/lock without model or source writes',
     () async {

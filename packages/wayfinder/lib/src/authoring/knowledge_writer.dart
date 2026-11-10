@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../bundle_file_kind.dart';
 import '../diagnostics.dart';
 import '../field_edges.dart';
 import '../knowledge_assessment.dart';
@@ -720,7 +721,7 @@ final class KnowledgeWriter {
         // okf regenerates every ancestor index of a changed concept; one
         // whose generated text the change leaves alone keeps its own.
         for (final path in input.changedFiles.keys) {
-          if (p.posix.basename(path) == _index) {
+          if (classifyBundleFile(path) == BundleFileKind.indexDocument) {
             projection.putIfAbsent(path, () => null);
           }
         }
@@ -879,9 +880,14 @@ final class _Preparation {
 
   /// The text [path] holds in the base, read under the shared claim.
   Future<String?> before(OkfBundleLoadResult base, String path) async {
-    final name = p.posix.basename(path);
-    if (name == _index) return base.indexes[path];
-    if (name == _log) return base.logs[path];
+    switch (classifyBundleFile(path)) {
+      case BundleFileKind.indexDocument:
+        return base.indexes[path];
+      case BundleFileKind.logDocument:
+        return base.logs[path];
+      case BundleFileKind.concept || BundleFileKind.asset:
+        break;
+    }
     if (target case (
       :final id,
       :final text,
@@ -894,7 +900,6 @@ final class _Preparation {
   }
 }
 
-const _index = 'index.md';
 const _log = 'log.md';
 const _generated = 'generated';
 const _verified = 'verified';

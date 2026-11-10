@@ -6,13 +6,8 @@ KnowledgeFinding _finding(
   KnowledgeFindingSeverity severity, {
   String? path,
   String message = 'Message',
-}) => KnowledgeFinding(
-  id: id,
-  severity: severity,
-  message: message,
-  path: path,
-  source: KnowledgeFindingSource.okf,
-);
+}) =>
+    KnowledgeFinding(id: id, severity: severity, message: message, path: path);
 
 void main() {
   final warningX = _finding('a', KnowledgeFindingSeverity.warning, path: 'x');

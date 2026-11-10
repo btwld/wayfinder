@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 import 'reader_fixture.dart';
 
@@ -197,8 +197,6 @@ final class DelayedSnapshot implements KnowledgeProjectSnapshot {
   DelayedSnapshot(this.delegate, this.gate);
   final KnowledgeProjectSnapshot delegate;
   final Completer<KnowledgeSourceBytes> gate;
-  @override
-  String get projectId => delegate.projectId;
   @override
   String get revision => delegate.revision;
   @override

@@ -1,5 +1,9 @@
 # 0.2.0 (unreleased)
 
+- Remove unused `KnowledgeFindingSource` and `KnowledgeFinding.source` (including
+  the constructor argument); finding grouping/severity helpers retain their
+  existing behavior and coverage. The desktop browsing consumer uses neither.
+
 - Reload an active graph after successful refresh without overriding navigation
   away from Graph or an authorized fallback after a refresh error.
 
@@ -9,8 +13,11 @@
 
 - Add shared model-free reader/controller, portable independently leased snapshots,
   retained-byte memory/local backends and a runnable native example.
-- Move portable concept/graph values to `wayfinder_reader`; existing Flutter
-  imports re-export them. Keep graph/layout/tree/helper behavior.
+- Consume portable concepts/graphs, snapshots and memory captures from
+  `package:wayfinder/knowledge.dart`, and native loading from `project.dart`.
+  Delete the separate reader packages; depend only on `wayfinder` plus Flutter.
+  Keep preference/finding presentation models in Flutter's model layer.
+  Graph/layout/tree/helper behavior and borrowed ownership remain unchanged.
 - Breaking (unpublished API): replace the provisional absolute-root/last-snapshot
   project contract with `refresh()` leases and bundle/resource access. Remove
   provisional mandatory search/index/model APIs and lossy DTOs; no dummy search.
@@ -18,8 +25,9 @@
 - Observe failed retired-lease cleanup immediately and drain all accepted
   operations/cleanup before reporting the first close error; two controllers
   sharing coalesced capture retain independent snapshot ownership.
-- Full validation is explicitly unavailable/not assessed pending captured external
-  target/Profile inputs; this milestone does not report PASS or integrate search.
+- Browsing views do not report validation results or PASS. Hosts can validate
+  bundle content separately through the native validator; browsing exposes
+  leased raw reads. Search remains separate.
 
 # 0.1.0 (unreleased)
 

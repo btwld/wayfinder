@@ -59,7 +59,8 @@ final class KnowledgeAssessmentInput {
   ///
   /// Synchronous, and reads no bundle file and takes no lock; only the
   /// `path-targets-exist` builtin checks the disk, for a path target the
-  /// loaded bundle does not hold. A Profile rule can be slow, such as a
+  /// loaded bundle does not hold, unless the validator supplies captured
+  /// external observations. A Profile rule can be slow, such as a
   /// `pattern` that backtracks without end on a concept's text, and nothing
   /// on the calling isolate can interrupt it: [assessWithin] bounds it.
   KnowledgeAssessment assess() {
@@ -83,6 +84,7 @@ final class KnowledgeAssessmentInput {
             base,
             profile: profile,
             buildGraph: validator.buildGraph,
+            outsideBundleExists: validator.outsideBundleExists,
           ),
         ).findings,
         _ => const [],

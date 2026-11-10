@@ -83,28 +83,28 @@ jobs:
         working-directory: packages/wayfinder
       - run: dart analyze --fatal-infos
       # sarif_test.dart checks SARIF logs with python3 -m jsonschema and skips
-      # where that is missing, so one leg provides it and requires it.
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
-        uses: actions/setup-python@v6
+      # where that is missing, so one leg provides it and requires it. Python
+      # 3.13 also runs the portable-entry closure guard in both SDK legs.
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: python3 -m pip install jsonschema==4.23.0
-      - run: dart test
+      - run: dart test --concurrency=2 --exclude-tags stress
         working-directory: packages/wayfinder
         env:
           WAYFINDER_REQUIRE_JSONSCHEMA: ${{ matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable' && '1' || '' }}
-      - if: matrix.sdk == 'stable'
-        run: dart format --output=none --set-exit-if-changed packages/wayfinder_reader packages/wayfinder_reader_local
-      - run: dart test
-        working-directory: packages/wayfinder_reader
-      - run: dart test
-        working-directory: packages/wayfinder_reader_local
-      - run: python3 tool/ci/verify-reader-closure.py
+      # Keep the real FFI errno race at full strength on both supported SDKs.
+      - run: dart test --concurrency=2 --tags stress test/project/file_lock_test.dart
+        working-directory: packages/wayfinder
+      - run: python3.13 verify-reader-closure.py
+        working-directory: tool/ci
+      - run: python3.13 -B -m unittest test_reader_closure.py -v
+        working-directory: tool/ci
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_embeddings
-      - run: dart test
+      - run: dart test --concurrency=2 --exclude-tags native
         working-directory: packages/wayfinder_embeddings
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
@@ -192,11 +192,10 @@ jobs:
       # need it; the knowledge store and the wayfinder bundle do not.
       - run: dart run melos run objectbox:install
         working-directory: .
-      # The whole package: the test job skips every test that needs
-      # ObjectBox or the model. WAYFINDER_REQUIRE_NATIVE runs them anyway, as
-      # WAYFINDER_REQUIRE_JSONSCHEMA does for the schema leg, so a missing
-      # install fails this job instead of exiting 0.
-      - run: dart test
+      # Model-free coverage runs on minimum/stable above. Select only genuine
+      # inference, ObjectBox persistence and installed-asset checks here. The
+      # explicit requirement flag makes missing prerequisites fail, never skip.
+      - run: dart test --concurrency=2 --tags native
         env:
           WAYFINDER_REQUIRE_NATIVE: "1"
       - run: dart test

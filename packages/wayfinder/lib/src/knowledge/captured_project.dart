@@ -26,7 +26,8 @@ final class KnowledgeCapturedFile {
 }
 
 /// Adapter semantic projection derived only from captured bytes. A refused graph
-/// is not an empty successful graph. Full validation is deliberately unavailable.
+/// is not an empty successful graph. Browsing validation stays unavailable;
+/// validation is a separate host operation using retained input.
 final class KnowledgeCapturedBundle {
   KnowledgeCapturedBundle({
     required String id,
@@ -34,8 +35,6 @@ final class KnowledgeCapturedBundle {
     required Iterable<KnowledgeConcept> concepts,
     KnowledgeGraph? graph,
     this.graphFailure,
-    String validationReason =
-        'This browsing backend does not assess conformance. Run wayfinder validate for a full assessment.',
   }) : id = knowledgeIdentifier(id, 'bundle'),
        concepts = Map.unmodifiable({
          for (final c in concepts) c.id: _freezeConcept(c),
@@ -47,7 +46,9 @@ final class KnowledgeCapturedBundle {
                nodes: List.unmodifiable(graph.nodes),
                edges: List.unmodifiable(graph.edges),
              ),
-       validation = KnowledgeValidationUnavailable(validationReason) {
+       validation = KnowledgeValidationUnavailable(
+         'This browsing backend does not validate conformance. Validate retained content separately.',
+       ) {
     knowledgeRelativePath(summary.path);
     if ((graph == null) == (graphFailure == null)) {
       throw ArgumentError('Supply a graph or its refusal, not both.');
@@ -62,7 +63,8 @@ final class KnowledgeCapturedBundle {
 }
 
 /// Immutable retained capture. Its content-addressed revision covers raw bytes
-/// and semantic projections; no mutable session counter acts as a revision.
+/// and semantic projections; no session counter acts as
+/// a revision.
 final class KnowledgeCapture {
   KnowledgeCapture({
     required Iterable<KnowledgeCapturedFile> files,
@@ -106,6 +108,7 @@ final class KnowledgeCapture {
   }
   final List<KnowledgeCapturedFile> files;
   final List<KnowledgeCapturedBundle> bundles;
+
   late final String revision = sha256
       .convert(
         utf8.encode(
@@ -341,7 +344,6 @@ final class MemoryKnowledgeProject extends CapturedKnowledgeProject {
   MemoryKnowledgeProject._(super.id, this._source)
     : super(capture: _source.load);
   final _MemorySource _source;
-  KnowledgeCapture get current => _source.current;
   set current(KnowledgeCapture value) => _source.current = value;
 }
 
@@ -388,12 +390,6 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
         'The snapshot lease was released.',
       );
     }
-  }
-
-  @override
-  String get projectId {
-    check('snapshot');
-    return owner.id;
   }
 
   @override
@@ -616,19 +612,19 @@ Object? _scalarKey(Object? key) {
 // entries preserve scalar key types, dates and nonfinite numbers without
 // coercing or altering the source's supported YAML values.
 Object? _yamlRevision(Object? value) => switch (value) {
-  Map<Object?, Object?> map => [
+  final Map<Object?, Object?> map => [
     'map',
     [
       for (final e in map.entries)
         [_yamlRevision(e.key), _yamlRevision(e.value)],
     ],
   ],
-  Iterable<Object?> list => ['list', list.map(_yamlRevision).toList()],
-  DateTime date => ['date', date.toIso8601String()],
-  String string => ['string', string],
-  bool boolean => ['bool', boolean],
-  int integer => ['int', integer.toString()],
-  double number => ['double', number.toString()],
+  final Iterable<Object?> list => ['list', list.map(_yamlRevision).toList()],
+  final DateTime date => ['date', date.toIso8601String()],
+  final String string => ['string', string],
+  final bool boolean => ['bool', boolean],
+  final int integer => ['int', integer.toString()],
+  final double number => ['double', number.toString()],
   null => ['null'],
   _ => throw ArgumentError('Unsupported metadata value: ${value.runtimeType}.'),
 };

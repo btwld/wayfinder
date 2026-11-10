@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

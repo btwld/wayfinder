@@ -6,8 +6,10 @@ graph against portable memory or local-file backends. No embeddings dependency,
 model setup or search index is needed. Validation is explicitly unavailable/not
 assessed; semantic search is absent, not simulated.
 
-`wayfinder_reader` owns portable values and revision-bound snapshot contracts;
-Flutter re-exports them at existing import paths. Hosts own grants, source
+`package:wayfinder/knowledge.dart` owns portable values and revision-bound snapshots;
+Flutter re-exports them through its public entry. Native loading comes from
+`package:wayfinder/project.dart`; the UI depends only
+on the portable entry. Hosts own grants, source
 selection, storage and teardown. Graph widgets remain design-kit independent;
 the minimal reader uses Material controls under a host `MaterialApp`.
 
@@ -77,7 +79,7 @@ this directory:
 flutter pub get
 dart format --output=none --set-exit-if-changed .
 flutter analyze --fatal-infos
-flutter test
+flutter test --concurrency=2
 ```
 
 Format with the stable Flutter SDK. Analyze and test on Flutter 3.47.5 and on

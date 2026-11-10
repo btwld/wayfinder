@@ -3,6 +3,7 @@
 /// graph projection are in `package:wayfinder/project.dart`.
 library;
 
+export 'src/bundle_file_kind.dart';
 export 'src/diagnostics.dart';
 export 'src/field_edges.dart'
     show OkfFieldEdge, OkfLinkField, okfFieldEdges, relationshipsLinkField;

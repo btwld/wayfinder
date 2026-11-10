@@ -2,8 +2,8 @@
 
 The shared `KnowledgeReaderController` and `KnowledgeReader` consume portable
 `KnowledgeProject` leases. The same widgets run against
-[`MemoryKnowledgeProject`](../../wayfinder_reader/README.md) and
-[`LocalKnowledgeProject`](../../wayfinder_reader_local/README.md). Hosts retain
+[`MemoryKnowledgeProject`](../../wayfinder/README.md#portable-retained-knowledge) and
+[`LocalKnowledgeProject`](../../wayfinder/README.md#read-only-filesystem-loader). Hosts retain
 sign-in, project selection, source grants, app chrome and lifecycle ownership.
 No embedding model, search index or retrieval package is needed.
 
@@ -56,8 +56,9 @@ Background retirement failures are observed immediately and carried to awaited
 `close()`, which rethrows the first cleanup error with its original stack after
 all cleanup drains. Dispose-initiated failure is reported through Flutter.
 
-Local capture retains all bounded raw bytes and compares two manifests. See its
-README for limits and nontransactional filesystem guarantees. A remote backend
+Local capture retains all bounded raw bytes; changed captures compare two manifests.
+See the [core loader README](../../wayfinder/README.md#capture-and-access-limits)
+for limits and nontransactional filesystem guarantees. A remote backend
 must supply the same revision-conditioned/retained-byte semantics; no remote
 transport/provider is supplied here.
 
@@ -84,11 +85,11 @@ Flutter Material navigation.
 
 ## Explicitly unavailable, not successful
 
-Snapshots currently return `KnowledgeValidationUnavailable`, not an assessment.
-The UI says **not assessed**, never PASS. Full validation requires captured
-Profile selection plus core external-target observations; no partial validator
-is claimed. Core validator APIs, reports and OKF → engine → Profile authority are
-unchanged.
+Browsing views return `KnowledgeValidationUnavailable`; the UI says **not
+assessed**, never PASS. Snapshots expose leased raw reads for browsing.
+Conformance validation remains a separate native operation; this reader has no
+validation execution or bundle-conversion surface. Core reports and
+OKF → engine → Profile authority are unchanged.
 
 Search is absent: no mandatory search/index/status/model stubs or synthetic
 readiness states. Optional semantic search belongs at a future controller
@@ -107,10 +108,13 @@ borrowed ownership explicitly. `KnowledgeException` becomes typed `KnowledgeFail
 Provisional index/search/model DTOs were removed;
 there is no compatibility shim or second backend contract.
 
-Portable concept/graph/finding values now live in `wayfinder_reader` and are
+Portable concept/graph/source values now live in `wayfinder/knowledge.dart` and are
 re-exported from `wayfinder_flutter` and the existing model import paths. Existing
 graph/helper consumers do not need import-path changes. Existing presentation
 file-entry/tree models remain projections, not an alternative source backend.
-The package remains unpublished; this is an intentional breaking minor, not a
-change to the stable core/CLI/retrieval contract. Sibling packages are unpublished,
-so local composition needs matching overrides as demonstrated by the example.
+Preferred-bundle policy and finding display values live in Flutter.
+The two unpublished reader package directories were removed with no aliases.
+Native hosts import `wayfinder/project.dart` for the read-only filesystem loader;
+widgets and controllers use only `wayfinder/knowledge.dart`.
+The package remains unpublished; local development overrides only core, as the
+example shows. No validation/Health feature or execution framework is added.

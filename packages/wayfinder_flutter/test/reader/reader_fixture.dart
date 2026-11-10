@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:wayfinder_reader/wayfinder_reader.dart';
+import 'package:wayfinder/knowledge.dart';
 
 KnowledgeCapture readerFixture() => KnowledgeCapture(
   files: [

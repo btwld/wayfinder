@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:wayfinder_reader/wayfinder_reader.dart';
+import 'package:wayfinder/knowledge.dart';
 
 import '../model/knowledge_graph_scene.dart';
+import '../model/knowledge_models.dart' show preferredKnowledgeBundle;
 
 /// Selection and asynchronous view state shared by every reader backend.
 /// Borrows [project]; closing this controller releases its own lease only.

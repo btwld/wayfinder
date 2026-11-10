@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:test/test.dart';
-import 'package:wayfinder_reader/wayfinder_reader.dart';
+import 'package:wayfinder/knowledge.dart';
 
 void main() {
   test(

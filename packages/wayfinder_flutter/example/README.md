@@ -21,3 +21,9 @@ contains only illustrative content. Local source access is read-only, with
 explicit validation-unavailable and no semantic-search control. Widget tests
 exercise the actual shared navigation against memory and local backends; they do
 not claim interactive/native-window smoke verification.
+
+Portable values and the memory backend are re-exported by `wayfinder_flutter`
+from `package:wayfinder/knowledge.dart`. Local mode imports the read-only
+`LocalKnowledgeProject` loader from `package:wayfinder/project.dart`; neither
+mode resolves/fetches Profiles, writes locks or loads an embedding model.
+The example depends on core directly; no separate reader packages are needed.

@@ -3,6 +3,17 @@ import 'dart:io';
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+/// Explicit URI roots use an authority (`scheme://`) or the reserved `memory:`
+/// scheme. A colon alone is a legal POSIX filename character, not a URI marker.
+/// Windows drive prefixes remain filesystem paths.
+bool isNonFilesystemRoot(String path) {
+  final uri = Uri.tryParse(path);
+  return uri != null &&
+      uri.hasScheme &&
+      p.windows.rootPrefix(path).isEmpty &&
+      (uri.hasAuthority || uri.scheme == 'memory');
+}
+
 /// A path-valued target classified against the loaded bundle and, for a
 /// relative path outside it, the optional bundle root on disk.
 sealed class PathTarget {
@@ -61,10 +72,16 @@ final class OutsidePath extends PathTarget {
 /// prose. Percent decoding follows OKF; malformed escapes, separators within
 /// decoded segments and bundle-root parent escapes are missing. A present
 /// internal target returns its decoded bundle-relative path for display.
+/// [outsideBundleExists], when supplied, replaces disk lookup for decoded
+/// bundle-relative paths leaving the bundle. It is never called for internal
+/// or invalid paths. Hosts must supply coherent observations; callback errors
+/// propagate rather than becoming a successful check. A non-filesystem URI root
+/// requires this callback before any external path can reach disk lookup.
 PathTarget resolvePathTarget(
   OkfGraphEdge edge, {
   required bool Function(String path) inBundle,
   String? rootPath,
+  bool Function(String relative)? outsideBundleExists,
 }) {
   const notPath = NotAPath();
   const missing = MissingPath();
@@ -111,6 +128,17 @@ PathTarget resolvePathTarget(
     return inBundle(relative) ? InBundlePath(relative) : missing;
   }
   if (target.startsWith('/')) return missing;
+  if (outsideBundleExists != null) {
+    return OutsidePath(
+      missing: !outsideBundleExists(relative),
+      relative: relative,
+    );
+  }
+  if (rootPath != null && isNonFilesystemRoot(rootPath)) {
+    throw StateError(
+      'A non-filesystem bundle root requires outsideBundleExists for external paths; disk lookup is forbidden.',
+    );
+  }
   // An in-memory caller cannot inspect a relative path outside its inventory.
   if (rootPath == null) {
     return OutsidePath(missing: false, relative: relative);

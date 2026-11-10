@@ -94,7 +94,6 @@ final class KnowledgeResourceEntry {
   final int sizeBytes;
   final String digest;
   final String? mediaType;
-  String get name => handle.path.split('/').last;
 }
 
 /// Verified immutable bytes; strict UTF-8 decoding never invents replacement text.
@@ -111,7 +110,8 @@ final class KnowledgeSourceBytes {
   String get text => utf8.decode(bytes);
 }
 
-/// No assessment is performed in this browsing milestone. Never display PASS.
+/// Browsing does not imply validation. Hosts must explicitly request any
+/// validation in their own execution context; this value is never a PASS.
 final class KnowledgeValidationUnavailable {
   KnowledgeValidationUnavailable(String reason)
     : reason = knowledgeIdentifier(reason, 'reason');
@@ -151,7 +151,6 @@ abstract interface class KnowledgeProject {
 }
 
 abstract interface class KnowledgeProjectSnapshot {
-  String get projectId;
   String get revision;
   List<KnowledgeBundleSnapshot> get bundles;
   List<KnowledgeResourceEntry> get files;

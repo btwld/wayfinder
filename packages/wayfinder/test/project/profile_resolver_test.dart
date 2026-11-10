@@ -26,33 +26,29 @@ void main() {
   late Directory project;
   late Directory data;
 
+  late Map<String, List<int>> sourceFiles;
+  setUpAll(() async {
+    final seed = await Directory.systemTemp.createTemp(
+      'wayfinder-profile-seed-',
+    );
+    try {
+      final fixture = await bitwildProject(seed);
+      sourceFiles = Map.unmodifiable({
+        for (final MapEntry(:key, :value) in (await fileSnapshot(
+          fixture.source.path,
+        )).entries)
+          key: List<int>.unmodifiable(value),
+      });
+    } finally {
+      await seed.delete(recursive: true);
+    }
+  });
+
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('wayfinder-profile-source-');
-    source = await Directory(p.join(temp.path, 'source')).create();
-    project = await Directory(p.join(temp.path, 'project')).create();
-    await Directory(p.join(project.path, 'knowledge')).create();
-    data = Directory(p.join(temp.path, 'data'));
-    await _git(source.path, ['init', '-q']);
-    await _git(source.path, ['config', 'user.email', 'test@example.test']);
-    await _git(source.path, ['config', 'user.name', 'Wayfinder Test']);
-    await copyBitwildPackage(source.path);
-    await _git(source.path, ['add', '.']);
-    await _git(source.path, ['commit', '-q', '-m', 'Profile']);
-    await _git(source.path, ['tag', 'v2026.3']);
-    await File(p.join(project.path, 'wayfinder.json')).writeAsString(
-      jsonEncode({
-        'version': 1,
-        'profiles': {
-          'bitwild-profile': {
-            'source': {
-              'git': source.path,
-              'ref': 'v2026.3',
-              'path': 'profiles/bitwild',
-            },
-            'applies_to': ['./knowledge'],
-          },
-        },
-      }),
+    (:source, :project, :data) = await bitwildProject(
+      temp,
+      sourceFiles: sourceFiles,
     );
   });
 
@@ -115,6 +111,49 @@ void main() {
     await _git(source.path, ['add', '.']);
     await _git(source.path, ['commit', '-q', '-m', 'Advance Profile']);
   }
+
+  test(
+    'seeded fixtures isolate refs, working files, index locks and caches',
+    () async {
+      final siblingRoot = await Directory(
+        p.join(temp.path, 'sibling'),
+      ).create();
+      final sibling = await bitwildProject(
+        siblingRoot,
+        sourceFiles: sourceFiles,
+      );
+      final siblingBefore = await fileSnapshot(sibling.source.path);
+      final originalCommit = await sourceCommit();
+      await advanceSource();
+      await _git(source.path, ['tag', 'isolated']);
+      await _git(source.path, ['tag', '-d', 'v2026.3']);
+      await _git(source.path, ['config', 'user.name', 'Only this fixture']);
+      await File(
+        p.join(source.path, '.git', 'index.lock'),
+      ).writeAsString('held');
+      await data.create();
+      await File(p.join(data.path, 'cache')).writeAsString('private');
+
+      expect(await fileSnapshot(sibling.source.path), siblingBefore);
+      expect(
+        await fixtureGit(sibling.source.path, ['rev-parse', 'HEAD']),
+        originalCommit,
+      );
+      expect(await fixtureGit(sibling.source.path, ['tag']), 'v2026.3');
+      expect(
+        await fixtureGit(sibling.source.path, ['status', '--porcelain']),
+        isEmpty,
+      );
+      expect(
+        await fixtureGit(sibling.source.path, ['config', 'user.name']),
+        'Wayfinder Test',
+      );
+      expect(await sibling.data.exists(), isFalse);
+      expect(sibling.project.path, isNot(project.path));
+      expect(() => sourceFiles.clear(), throwsUnsupportedError);
+      expect(() => sourceFiles.values.first.clear(), throwsUnsupportedError);
+    },
+  );
 
   group('borrowed repositories', () {
     Future<void> noMirrors() async {

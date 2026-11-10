@@ -1,6 +1,7 @@
 import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
+import '../bundle_file_kind.dart';
 import '../field_edges.dart';
 import '../finding_helpers.dart';
 import 'body.dart';
@@ -122,11 +123,13 @@ final class BundleFacts {
   BundleFacts.project(
     this.loaded, {
     required this.profile,
+    this.outsideBundleExists,
     OkfGraph Function(OkfBundle) buildGraph = OkfGraph.fromBundle,
   }) : _buildGraph = buildGraph;
 
   final OkfBundleLoadResult loaded;
   final EffectiveProfile profile;
+  final bool Function(String relative)? outsideBundleExists;
 
   final OkfGraph Function(OkfBundle) _buildGraph;
 
@@ -179,7 +182,7 @@ final class BundleFacts {
           {
             'path': path,
             'name': p.posix.basename(path),
-            'markdown': path.endsWith('.md'),
+            'markdown': classifyBundleFile(path) != BundleFileKind.asset,
           },
           {'self': path},
         ),

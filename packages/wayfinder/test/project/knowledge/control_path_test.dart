@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:test/test.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 void main() {
   for (final relative in ['bad\u0085.txt', 'dir\u0085/index.md']) {

@@ -1,2 +1,47 @@
-// Canonical import path retained for graph/helper consumers.
-export 'package:wayfinder_reader/wayfinder_reader.dart';
+import 'package:flutter/foundation.dart' show immutable;
+import 'package:wayfinder/knowledge.dart';
+
+export 'package:wayfinder/knowledge.dart';
+
+enum KnowledgeFindingSeverity { error, warning, advisory, note }
+
+/// The bundle a project reads first: exact path `knowledge`, then a bundle
+/// named `knowledge`, else the most concepts (first by path among equals).
+/// Returns null when there is none.
+KnowledgeBundleSummary? preferredKnowledgeBundle(
+  Iterable<KnowledgeBundleSummary> bundles,
+) {
+  KnowledgeBundleSummary? preferred;
+  KnowledgeBundleSummary? namedKnowledge;
+  for (final bundle in bundles) {
+    if (bundle.path == 'knowledge') return bundle;
+    if (bundle.name == 'knowledge') namedKnowledge ??= bundle;
+    if (preferred == null ||
+        bundle.conceptCount > preferred.conceptCount ||
+        (bundle.conceptCount == preferred.conceptCount &&
+            bundle.path.compareTo(preferred.path) < 0)) {
+      preferred = bundle;
+    }
+  }
+  return namedKnowledge ?? preferred;
+}
+
+@immutable
+final class KnowledgeFinding {
+  const KnowledgeFinding({
+    required this.id,
+    required this.severity,
+    required this.message,
+    this.path,
+    this.line,
+  });
+
+  /// The rule or check id, such as an okf code or a Profile rule.
+  final String id;
+  final KnowledgeFindingSeverity severity;
+  final String message;
+
+  /// The file relative to the project root, when the finding names one.
+  final String? path;
+  final int? line;
+}

@@ -5,6 +5,7 @@ import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostics.dart';
+import 'path_targets.dart' show isNonFilesystemRoot;
 import 'profile_finding.dart';
 import 'profile_package.dart';
 import 'profile_rule_descriptors.dart';
@@ -377,7 +378,13 @@ final class ProfileValidator {
   const ProfileValidator({
     this.loader = const OkfBundleLoader(),
     this.buildGraph = OkfGraph.fromBundle,
+    this.outsideBundleExists,
   });
+
+  /// Replaces live disk checks for decoded paths outside the loaded bundle.
+  /// Null preserves disk behavior. A host supplies coherent existence decisions
+  /// or throws when unavailable; callback errors propagate.
+  final bool Function(String relative)? outsideBundleExists;
 
   final OkfBundleLoader loader;
 
@@ -394,11 +401,18 @@ final class ProfileValidator {
   /// again, writes and validates; one with nothing to write takes no lock.
   /// A lock it cannot take, such as in a bundle it may not write, is a failed
   /// write: the `wayfinder/fix-failed` diagnostic, with nothing written.
+  /// Explicit URI roots (`memory:` or `scheme://`) are rejected with [StateError]
+  /// before disk access, even with a callback. Use [validateLoaded] for those.
   Future<ProfileValidationResult> validate(
     String bundlePath,
     ProfileSelection selection, {
     bool fix = false,
   }) async {
+    if (isNonFilesystemRoot(bundlePath)) {
+      throw StateError(
+        'validate requires a filesystem bundle path; use validateLoaded for in-memory input.',
+      );
+    }
     final loaded = await loader.inspect(bundlePath);
     if (!fix) return validateLoaded(loaded, selection);
     final unfixed = _fixNotApplied(loaded, selection);
@@ -468,7 +482,10 @@ final class ProfileValidator {
   /// `path-targets-exist` builtin looks further, for a path target okf's
   /// graph cannot resolve: first in [loaded], so a candidate sees the files
   /// it adds, then on disk relative to the loaded `rootPath`, such as for a
-  /// target that leaves the bundle.
+  /// target that leaves the bundle. [outsideBundleExists] replaces that disk
+  /// check when supplied; its errors propagate to the host. An explicit URI
+  /// root (`memory:` or `scheme://`) requires this callback even without external
+  /// links, otherwise throws [StateError] before validation or disk access.
   ProfileValidationResult validateLoaded(
     OkfBundleLoadResult loaded,
     ProfileSelection selection,
@@ -481,6 +498,11 @@ final class ProfileValidator {
     List<EngineDiagnostic> diagnostics = const [],
     List<String>? fixed,
   }) {
+    if (isNonFilesystemRoot(loaded.rootPath) && outsideBundleExists == null) {
+      throw StateError(
+        'A non-filesystem bundle root requires outsideBundleExists; disk lookup is forbidden.',
+      );
+    }
     final okf = validation ?? loaded.validate();
     switch (selection) {
       case _ when !okf.isConformant:
@@ -576,6 +598,7 @@ final class ProfileValidator {
       loaded,
       profile: profile,
       buildGraph: buildGraph,
+      outsideBundleExists: outsideBundleExists,
     );
     final results = evaluate(profile, facts);
     final notes = profile.rules.any(

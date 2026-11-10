@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:test/test.dart';
-import 'package:wayfinder_reader_local/wayfinder_reader_local.dart';
+import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 
 void main() {
   late Directory root;
@@ -146,7 +147,7 @@ attester: {resource: ./data.md#check}
   test(
     'invalid concept paths retain raw files and refuse semantic graph',
     () async {
-      await write('knowledge/.md', '---\ntype: Guide\n---\nraw');
+      await write('knowledge/invalid.md.md', '---\ntype: Guide\n---\nraw');
       final p = await LocalKnowledgeProject.open(root: root, id: 'p');
       final lease = await p.refresh();
       expect(

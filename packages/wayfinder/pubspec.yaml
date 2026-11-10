@@ -21,6 +21,7 @@ dependencies:
   crypto: ^3.0.3
   ffi: ^2.1.4
   markdown: ^7.3.0
+  meta: ^1.16.0
   okf: ^0.7.0-beta.1
   path: ^1.9.1
 

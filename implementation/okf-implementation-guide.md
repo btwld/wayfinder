@@ -761,7 +761,17 @@ particular names expresses that policy in its rule schema over `path` and
 Path-target checks use the loaded inventory for every in-bundle file or
 implied directory, including in-memory candidates; they never recover a removed
 candidate file from disk. Disk lookup applies only to relative targets outside
-the bundle. Bundle-root parent escapes, raw or decoded backslashes, encoded
+the bundle. Embedded hosts may replace only that external lookup through
+`ProfileValidator.outsideBundleExists` (or `resolvePathTarget`'s matching
+argument), supplying observations coherent with their loaded input. Callback
+errors propagate so an unavailable observation cannot silently pass; omitted
+callbacks preserve disk behavior for ordinary filesystem roots. A loaded
+non-filesystem URI root MUST supply this callback; validation and external-path
+resolution MUST refuse filesystem fallback without it. Path-based `validate`
+requires a filesystem path, even when a callback is supplied; in-memory input
+belongs in `validateLoaded`. Browsing snapshots expose raw reads and no
+conformance-validation conversion or captured external-path observations.
+This changes neither package interpretation nor builtin policy. Bundle-root parent escapes, raw or decoded backslashes, encoded
 separators and malformed percent escapes report a missing target. A literal
 percent in a filename must be encoded as `%25`. URLs and prose source
 descriptors remain outside the path check; an explicit `/`, `./` or `../`
@@ -933,6 +943,32 @@ checkouts. Collection uses sibling locks, preserves package snapshots and
 gives legacy mirrors an observation grace period. Implementations need no
 package, lock, schema or OKF migration; evicted mirrors may need fetching to
 reinstall skills.
+
+**Browsing boundary and file classification, 2026-11-09; unpublished scope corrected 2026-11-09.**
+Affected section: §5.6 and public core/native-reader APIs. Use one shared
+classifier with OKF's existing case-sensitive file roles across browsing
+projections, adoption and querying. The portable `knowledge.dart` entry owns
+leased browsing values/raw reads and `project.dart` owns read-only filesystem
+capture. Remove the unused snapshot-to-OKF conversion and capture-time external
+observations; keep separate validation entry guards fail-closed for
+non-filesystem URI roots. No schema, golden, Profile format, generic skill rule
+or package interpretation changes are required; unpublished consumers recompile
+against the reduced reader interface. Maintenance for #180’s desktop consumer
+rejects file/symbolic project roots at open and excludes every dot-prefixed
+browsing entry without an opt-in; the unused Flutter finding-source field is
+removed. Query and embeddings inventories still follow
+OKF; these browsing limits change no conformance rule, schema or golden.
+The shared native validation guard distinguishes explicit `memory:`/`scheme://`
+roots from legal POSIX colon filenames; loaded explicit URI roots still require
+the callback before validation, including bundles without external links.
+
+**External lookup injection, 2026-11-08.**
+Affected section: §5.6 and public validation/path-target APIs. Optional
+`outsideBundleExists` injection replaces only external disk lookup with a
+host-owned existence decision; errors propagate. Ordinary filesystem defaults
+are unchanged. This additive native I/O seam remains separate from browsing,
+with no enumeration helper or snapshot validation API. No schema, golden,
+Profile format, generic skill rule or package migration changes are required.
 
 **Package format is a JSON integer, 2026-11-05.**
 Affected section: §5.4. Driver: accepting a finite whole-number JSON number

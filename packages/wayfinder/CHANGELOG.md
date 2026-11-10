@@ -1,5 +1,23 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Maintenance for #180's desktop browsing consumer: reject non-directory and
+  symbolic project roots at open, exclude every dot-prefixed bundle entry,
+  and remove the unused `includeHiddenDirectories` option. Reuse remains
+  byte-based; canonical manifest sorting encodes each row once. Share the
+  validation root check: `memory:` and `scheme://` identify explicit URI roots;
+  other colon-containing names remain filesystem paths.
+- Harden the portable reader's CI closure guard: join adjacent URI strings,
+  parse conditional URI positions, reject unsupported/interpolated directives,
+  stop at declarations, and check resolved-file package ownership.
+
+- Keep the unpublished reader surface focused on leased browsing and raw reads;
+  conformance validation remains a separate native API. Non-filesystem URI roots
+  refuse filesystem fallback at the validation boundaries.
+
+- Test-only: reuse an immutable initialized Git seed for resolver fixtures,
+  preserving per-test refs/files/locks/cache isolation. Select the full native
+  lock-race stress separately on both CI SDKs without changing its repetitions.
+
 - Add library-only `WayfinderProfileResolver.pruneMirrors` with dry-run results
   for missing local sources, unused mirrors and owned abandoned clone staging.
   Preserve package snapshots; evicted mirrors may need fetching for skills.
@@ -9,6 +27,33 @@
   [source resolution](../../docs/wayfinder-configuration.md).
 
 # 0.5.0-beta.1
+
+- Consolidate the unpublished reader packages into core entry points. The
+  portable entry remains browser-closed; native acquisition stays read-only,
+  model-free and separate from Profile resolution or authoring. The two package
+  directories are deleted without forwarding packages or deprecation aliases.
+  Preserve bounded captures/reads, grant revocation and close/drain, symlink
+  confinement, hidden-directory exclusion with one opt-in boolean, empty versus
+  missing roots and canonical manifest reuse, with their regression tests moved
+  to core.
+
+  | Former location | New location |
+  | --- | --- |
+  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, cancellation/lease mechanics, memory backend | `package:wayfinder/knowledge.dart` |
+  | `wayfinder_reader_local`: `LocalKnowledgeProject.open` bounded read-only filesystem loader | `package:wayfinder/project.dart` |
+  | `preferredKnowledgeBundle`, finding presentation values | `wayfinder_flutter` model layer |
+  | Reader contract regression tests | Core `test/knowledge/` |
+  | Native browsing loader regression tests | Core `test/project/knowledge/` |
+
+- Add optional `ProfileValidator.outsideBundleExists` and matching
+  `resolvePathTarget` observation injection for snapshot-bound hosts. Default
+  validation keeps its live disk behavior; injected callback errors propagate.
+- Export shared `BundleFileKind`/`classifyBundleFile` classification matching OKF's
+  reserved basenames and case-sensitive Markdown suffix; adoption, query facts
+  and native loading use it without changing their file roles.
+- Reject non-filesystem URI roots before path-based validation reads or locks.
+  Loaded validation and external-path resolution require an explicit external
+  lookup callback for those roots; ordinary filesystem behavior is unchanged.
 
 - Depends on `ack` `^2.0.0-beta.2` and `okf` `^0.7.0-beta.1`. Rule schemas and the published schemas
   still assert `format` (`date-time`): Ack 2 imports a Draft 2020-12 schema

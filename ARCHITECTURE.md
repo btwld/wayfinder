@@ -170,11 +170,17 @@ Date: 2026-11-05.
 
 Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade, while CLI knowledge indexes keep using plain-file generations. Exit: move the override, installer and manifest to the first stable ObjectBox 6 release, keeping every entity id and UID.
 
-## Revision-bound model-free reader backends
+## Consolidated knowledge entries and model-free reader backends
 
-Date: 2026-11-07.
+Date: 2026-11-07; consolidated 2026-11-09.
 
-Place portable snapshot/value/lease mechanics in `wayfinder_reader`, native bounded retained-byte capture in `wayfinder_reader_local`, and one borrowed-backend controller/presentation in `wayfinder_flutter`, because local and memory consumers must browse the same content without embeddings; replace the unpublished provisional reader/search interfaces while re-exporting canonical graph/helper models. Capture compares byte manifests without promising filesystem transactions, retains complete permitted file bytes, and distinguishes transient refresh fallback from grant revocation; costs include bounded capture memory, independent leases/draining and explicit identity/path/revision handling. Full validation remains unavailable until core can observe external targets and Profile inputs coherently, while optional search/provenance, remote providers and alternative vector persistence stay deferred; core/OKF/Profile/retrieval contracts are unchanged.
+Keep portable retained values, memory capture and lease mechanics behind core's browser-closed `knowledge.dart`, and native bounded read-only filesystem browsing behind `project.dart`, because import closures provide the platform boundary without two extra unpublished packages. Flutter owns widgets/controllers and preference/finding presentation; reader regression tests live in core and the portable closure is checked transitively in CI. The unpublished snapshot-validation conversion and capture-time external observations leave this change because they have no production caller; raw reads, byte revisions, grant/lifecycle safety, shared file classification and the native validator's optional external-lookup callback remain, with no Profile/OKF policy migration.
+
+## Desktop browsing maintenance
+
+Date: 2026-11-09.
+
+For #180's desktop caller, reject file/symbolic project roots at open and exclude every dot-prefixed browsing entry before inspection, removing the unused hidden-entry option and finding-source field without changing OKF inventories or conformance. Native validation reserves `memory:` and authority-bearing `scheme://` roots for URI inputs, treating other colon-containing names as filesystem paths to avoid conflating POSIX names with URI schemes. Keep idle capture reuse until close because the host closes projects on worktree changes, accepting the retained capture and two-scan peak allocation.
 
 ## Borrow committed same-repository Profile objects
 
