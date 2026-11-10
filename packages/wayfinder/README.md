@@ -41,13 +41,13 @@ Profile's error rules require of every concept, for Bitwild `type`, `title`,
 
 Import `package:wayfinder/knowledge.dart` for browser-closed source values,
 captured files/bundles, snapshot/project interfaces, failure
-codes, cancellation and independent lease mechanics, the memory backend and
-`knowledgeManifestFingerprint`. This entry exports only portable source modules;
+codes, cancellation and independent lease mechanics, and the memory backend.
+This entry exports only portable source modules;
 it does not export `wayfinder.dart`, `project.dart`, validation, OKF, I/O or FFI.
 Core's native dependencies do not imply imports in this entry's closure.
 
 Flutter owns controllers, selection/presentation state, preferred-bundle policy
-and finding/verdict display models. None of those UI policies are in this entry.
+and finding display models. None of those UI policies are in this entry.
 
 `KnowledgeProject.refresh()` returns an independently releasable
 `KnowledgeProjectSnapshot`. Its bundles expose concepts, a complete permitted
@@ -95,13 +95,6 @@ Browsing views expose explicit validation-unavailable and revision-bound raw
 reads. They perform no conformance validation or Profile resolution. Validation
 is a separate native API, with its own input and execution ownership.
 
-`KnowledgeCapture.manifestFingerprint` is a SHA-256 of sorted file
-addresses/digests and bundle identities/paths, independent
-of semantic projections and enumeration order. The pure
-`knowledgeManifestFingerprint` function computes the same identity from file
-addresses/digests and bundle identities/paths. It covers configuration/lock
-bytes when captured. Use revision plus Profile/validator inputs for validation
-caching; the manifest alone cannot identify a changed Profile selection.
 Optional search integration remains deferred.
 
 ## Read-only filesystem loader
@@ -158,7 +151,7 @@ Markdown references confer no file-open permission.
 Each scan enforces **16 MiB per file and 64 MiB aggregate retained source bytes**
 by default; hosts can lower or explicitly raise both at `open`. A bounded read
 also checks size and SHA-256. An unchanged refresh performs one full byte scan and reuses the previous
-capture/projections when the capture's `manifestFingerprint` matches. Changed/initial
+capture/projections when the byte manifest matches. Changed/initial
 captures compare two full byte scans, with one retry
 on mutation. This catches
 same-size edits even with restored mtimes; it is not a stat-only cache.

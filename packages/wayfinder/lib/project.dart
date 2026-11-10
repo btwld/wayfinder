@@ -77,7 +77,6 @@ export 'src/project/graph.dart'
         wayfinderGraphResolutions,
         wayfinderLinkFields;
 export 'src/project/graph_input.dart' show wayfinderGraphInput;
-// Read-only filesystem acquisition is separate from resolution/writing operations.
 export 'src/project/knowledge/local_loader.dart' show LocalKnowledgeProject;
 export 'src/project/metadata_filter.dart' show KnowledgeMetadataFilter;
 export 'src/project/profile_cache.dart'

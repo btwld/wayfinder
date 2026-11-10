@@ -29,7 +29,7 @@
 
   | Former location | New location |
   | --- | --- |
-  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, cancellation/lease mechanics, memory backend and manifest function | `package:wayfinder/knowledge.dart` |
+  | `wayfinder_reader/wayfinder_reader.dart`: source values, snapshots, captures, cancellation/lease mechanics, memory backend | `package:wayfinder/knowledge.dart` |
   | `wayfinder_reader_local`: `LocalKnowledgeProject.open` bounded read-only filesystem loader | `package:wayfinder/project.dart` |
   | `preferredKnowledgeBundle`, finding presentation values | `wayfinder_flutter` model layer |
   | Reader contract regression tests | Core `test/knowledge/` |

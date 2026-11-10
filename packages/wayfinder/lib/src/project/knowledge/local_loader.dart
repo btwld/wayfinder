@@ -5,6 +5,9 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../knowledge.dart';
+import '../../knowledge/manifest.dart';
+import '../../knowledge/reader.dart'
+    show knowledgeIdentifier, knowledgeRelativePath;
 import '../../wayfinder_config.dart';
 import 'projection.dart';
 
@@ -92,7 +95,7 @@ final class _LocalSource {
   final int maxFileBytes;
   final int maxCaptureBytes;
   final bool includeHiddenDirectories;
-  KnowledgeCapture? _previous;
+  ({KnowledgeCapture capture, String fingerprint})? _previous;
   Future<KnowledgeCapture> capture() async {
     try {
       if (await FileSystemEntity.type(_root, followLinks: false) !=
@@ -107,12 +110,12 @@ final class _LocalSource {
         final first = await _scan();
         // A matching full byte scan needs neither another scan nor projection.
         // No mtime/size heuristic can hide same-length edits.
-        if (_previous?.manifestFingerprint == first.byteFingerprint) {
-          return _previous!;
+        if (_previous?.fingerprint == first.byteFingerprint) {
+          return _previous!.capture;
         }
         final second = await _scan();
         if (first.byteFingerprint != second.byteFingerprint) continue;
-        return _previous = KnowledgeCapture(
+        final capture = KnowledgeCapture(
           files: first.files,
           bundles: [
             for (final bundle in first.bundles)
@@ -123,6 +126,8 @@ final class _LocalSource {
               ),
           ],
         );
+        _previous = (capture: capture, fingerprint: first.byteFingerprint);
+        return capture;
       }
       throw KnowledgeFailure(
         KnowledgeFailureCode.sourceChanged,
@@ -214,7 +219,6 @@ final class _LocalSource {
     } else if (await _type('knowledge') == FileSystemEntityType.directory) {
       paths = ['knowledge'];
     }
-    // An existing project with no discovered bundle is an empty success.
     if (await _type('wayfinder.lock') != FileSystemEntityType.notFound) {
       await add('wayfinder.lock', null, 'wayfinder.lock');
     }

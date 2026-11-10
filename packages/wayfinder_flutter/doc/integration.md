@@ -56,8 +56,9 @@ Background retirement failures are observed immediately and carried to awaited
 `close()`, which rethrows the first cleanup error with its original stack after
 all cleanup drains. Dispose-initiated failure is reported through Flutter.
 
-Local capture retains all bounded raw bytes and compares two manifests. See the core loader
-README for limits and nontransactional filesystem guarantees. A remote backend
+Local capture retains all bounded raw bytes; changed captures compare two manifests.
+See the [core loader README](../../wayfinder/README.md#capture-and-access-limits)
+for limits and nontransactional filesystem guarantees. A remote backend
 must supply the same revision-conditioned/retained-byte semantics; no remote
 transport/provider is supplied here.
 
@@ -85,7 +86,7 @@ Flutter Material navigation.
 ## Explicitly unavailable, not successful
 
 Browsing views return `KnowledgeValidationUnavailable`; the UI says **not
-validated**, never PASS. Snapshots expose leased raw reads for browsing.
+assessed**, never PASS. Snapshots expose leased raw reads for browsing.
 Conformance validation remains a separate native operation; this reader has no
 validation execution or bundle-conversion surface. Core reports and
 OKF → engine → Profile authority are unchanged.

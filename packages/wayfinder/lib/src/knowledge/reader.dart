@@ -94,7 +94,6 @@ final class KnowledgeResourceEntry {
   final int sizeBytes;
   final String digest;
   final String? mediaType;
-  String get name => handle.path.split('/').last;
 }
 
 /// Verified immutable bytes; strict UTF-8 decoding never invents replacement text.
@@ -152,7 +151,6 @@ abstract interface class KnowledgeProject {
 }
 
 abstract interface class KnowledgeProjectSnapshot {
-  String get projectId;
   String get revision;
   List<KnowledgeBundleSnapshot> get bundles;
   List<KnowledgeResourceEntry> get files;

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:test/test.dart';
 import 'package:wayfinder/knowledge.dart';
+import 'package:wayfinder/src/knowledge/manifest.dart';
 
 import 'reader_test.dart' show fixture;
 
@@ -12,11 +13,15 @@ void main() {
       files: original.files.reversed,
       bundles: original.bundles,
     );
-    expect(reordered.manifestFingerprint, original.manifestFingerprint);
-    expect(
-      fixture('changed').manifestFingerprint,
-      isNot(original.manifestFingerprint),
-    );
+    final fingerprints = [
+      for (final capture in [original, reordered, fixture('changed')])
+        knowledgeManifestFingerprint(
+          files: [for (final f in capture.files) (f.bundle, f.path, f.digest)],
+          bundles: [for (final b in capture.bundles) (b.id, b.summary.path)],
+        ),
+    ];
+    expect(fingerprints[1], fingerprints[0]);
+    expect(fingerprints[2], isNot(fingerprints[0]));
   });
 
   test('raw reads preserve malformed UTF-8 and Markdown bytes', () async {

@@ -198,8 +198,6 @@ final class DelayedSnapshot implements KnowledgeProjectSnapshot {
   final KnowledgeProjectSnapshot delegate;
   final Completer<KnowledgeSourceBytes> gate;
   @override
-  String get projectId => delegate.projectId;
-  @override
   String get revision => delegate.revision;
   @override
   List<KnowledgeBundleSnapshot> get bundles => delegate.bundles;

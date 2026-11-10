@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 import 'knowledge_models.dart';
-import 'manifest.dart';
 import 'reader.dart';
 
 /// One captured file. Adapters enforce acquisition limits before allocating it.
@@ -36,8 +35,6 @@ final class KnowledgeCapturedBundle {
     required Iterable<KnowledgeConcept> concepts,
     KnowledgeGraph? graph,
     this.graphFailure,
-    String validationReason =
-        'This browsing backend does not validate conformance. Validate retained content separately.',
   }) : id = knowledgeIdentifier(id, 'bundle'),
        concepts = Map.unmodifiable({
          for (final c in concepts) c.id: _freezeConcept(c),
@@ -49,7 +46,9 @@ final class KnowledgeCapturedBundle {
                nodes: List.unmodifiable(graph.nodes),
                edges: List.unmodifiable(graph.edges),
              ),
-       validation = KnowledgeValidationUnavailable(validationReason) {
+       validation = KnowledgeValidationUnavailable(
+         'This browsing backend does not validate conformance. Validate retained content separately.',
+       ) {
     knowledgeRelativePath(summary.path);
     if ((graph == null) == (graphFailure == null)) {
       throw ArgumentError('Supply a graph or its refusal, not both.');
@@ -67,7 +66,6 @@ final class KnowledgeCapturedBundle {
 /// and semantic projections; no session counter acts as
 /// a revision.
 final class KnowledgeCapture {
-  /// Retains immutable files and their semantic projections.
   KnowledgeCapture({
     required Iterable<KnowledgeCapturedFile> files,
     required Iterable<KnowledgeCapturedBundle> bundles,
@@ -110,13 +108,6 @@ final class KnowledgeCapture {
   }
   final List<KnowledgeCapturedFile> files;
   final List<KnowledgeCapturedBundle> bundles;
-
-  /// SHA-256 of sorted resource bytes/addresses and bundle identities/paths.
-  /// Unlike [revision], this excludes semantic projections.
-  late final String manifestFingerprint = knowledgeManifestFingerprint(
-    files: [for (final f in files) (f.bundle, f.path, f.digest)],
-    bundles: [for (final b in bundles) (b.id, b.summary.path)],
-  );
 
   late final String revision = sha256
       .convert(
@@ -353,7 +344,6 @@ final class MemoryKnowledgeProject extends CapturedKnowledgeProject {
   MemoryKnowledgeProject._(super.id, this._source)
     : super(capture: _source.load);
   final _MemorySource _source;
-  KnowledgeCapture get current => _source.current;
   set current(KnowledgeCapture value) => _source.current = value;
 }
 
@@ -400,12 +390,6 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
         'The snapshot lease was released.',
       );
     }
-  }
-
-  @override
-  String get projectId {
-    check('snapshot');
-    return owner.id;
   }
 
   @override

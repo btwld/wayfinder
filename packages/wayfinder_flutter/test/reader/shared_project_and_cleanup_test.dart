@@ -217,8 +217,6 @@ final class _ControlledSnapshot implements KnowledgeProjectSnapshot {
   var releaseCalls = 0;
   Future<void>? _release;
   @override
-  String get projectId => delegate.projectId;
-  @override
   String get revision => delegate.revision;
   @override
   List<KnowledgeBundleSnapshot> get bundles => delegate.bundles;

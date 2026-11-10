@@ -6,5 +6,5 @@ library;
 
 export 'src/knowledge/captured_project.dart';
 export 'src/knowledge/knowledge_models.dart';
-export 'src/knowledge/manifest.dart' show knowledgeManifestFingerprint;
-export 'src/knowledge/reader.dart';
+export 'src/knowledge/reader.dart'
+    hide knowledgeIdentifier, knowledgeRelativePath;

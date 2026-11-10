@@ -18,16 +18,13 @@ enum KnowledgeLinkResolution {
 /// Where a link comes from: okf's link origins, plus Wayfinder's typed
 /// `relationships` entries.
 enum KnowledgeLinkOrigin {
-  body('body'),
-  resource('resource'),
-  sourceResource('sources.resource'),
-  computation('computation'),
-  executorResource('executor.resource'),
-  attesterResource('attester.resource'),
-  relationships('relationships');
-
-  const KnowledgeLinkOrigin(this.wireValue);
-  final String wireValue;
+  body,
+  resource,
+  sourceResource,
+  computation,
+  executorResource,
+  attesterResource,
+  relationships,
 }
 
 /// One bundle the project's `wayfinder.json` binds, or its conventional
@@ -183,9 +180,6 @@ final class KnowledgeComputation {
   /// What the recipe reads: the files its `computation`, `executor` and
   /// `attester` name, then the documents its body links to.
   final List<KnowledgeComputationInput> reads;
-
-  /// How many concepts of the bundle it reads.
-  int get conceptCount => reads.where((read) => read.conceptId != null).length;
 }
 
 /// One thing an Attested Computation reads.
