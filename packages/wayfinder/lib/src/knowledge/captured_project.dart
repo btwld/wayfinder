@@ -8,7 +8,15 @@ import 'package:crypto/crypto.dart';
 import 'knowledge_models.dart';
 import 'reader.dart';
 
-/// One captured file. Adapters enforce acquisition limits before allocating it.
+typedef _FileMetadata = ({
+  int size,
+  int modifiedMicros,
+  KnowledgeFailureCode code,
+  String reason,
+});
+
+/// One inventoried file: retained bytes or a metadata-only capture refusal.
+/// Adapters enforce acquisition limits before allocating retained bytes.
 final class KnowledgeCapturedFile {
   KnowledgeCapturedFile({
     String? bundle,
@@ -17,13 +25,69 @@ final class KnowledgeCapturedFile {
     this.mediaType,
   }) : bundle = bundle == null ? null : knowledgeIdentifier(bundle, 'bundle'),
        path = knowledgeRelativePath(path),
-       bytes = Uint8List.fromList(bytes).asUnmodifiableView();
+       _content = Uint8List.fromList(bytes).asUnmodifiableView();
+
+  /// Inventories metadata without claiming the file's bytes were captured.
+  /// Reads refuse with [captureFailure]; they never substitute live bytes.
+  KnowledgeCapturedFile.metadata({
+    String? bundle,
+    required String path,
+    required int sizeBytes,
+    required DateTime modifiedAt,
+    required KnowledgeFailureCode code,
+    required String reason,
+    this.mediaType,
+  }) : bundle = bundle == null ? null : knowledgeIdentifier(bundle, 'bundle'),
+       path = knowledgeRelativePath(path),
+       _content = (
+         size: sizeBytes,
+         modifiedMicros: modifiedAt.microsecondsSinceEpoch,
+         code: code,
+         reason: reason,
+       ) {
+    if (sizeBytes < 0) throw ArgumentError.value(sizeBytes, 'sizeBytes');
+  }
   final String? bundle;
   final String path;
-  final Uint8List bytes;
+  final Object _content;
   final String? mediaType;
-  late final String digest = sha256.convert(bytes).toString();
+  Uint8List? get bytes => switch (_content) {
+    final Uint8List bytes => bytes,
+    _ => null,
+  };
+  int get _sizeBytes => switch (_content) {
+    final Uint8List bytes => bytes.length,
+    final _FileMetadata metadata => metadata.size,
+    _ => throw StateError('Unknown file content'),
+  };
+  KnowledgeFailure? get captureFailure => switch (_content) {
+    final _FileMetadata metadata => KnowledgeFailure(
+      metadata.code,
+      'read',
+      metadata.reason,
+      path: path,
+    ),
+    _ => null,
+  };
+  late final String? digest = bytes == null
+      ? null
+      : sha256.convert(bytes!).toString();
 }
+
+/// Internal canonical file identity shared by scans and snapshot revisions.
+List<Object?> knowledgeFileIdentity(KnowledgeCapturedFile file) => [
+  file.bundle,
+  file.path,
+  file.mediaType,
+  switch (file._content) {
+    final _FileMetadata metadata => [
+      metadata.size,
+      metadata.modifiedMicros,
+      metadata.code.name,
+    ],
+    _ => file.digest,
+  },
+];
 
 /// Adapter semantic projection derived only from captured bytes. A refused graph
 /// is not an empty successful graph. Browsing validation stays unavailable;
@@ -62,9 +126,12 @@ final class KnowledgeCapturedBundle {
   final KnowledgeValidationUnavailable validation;
 }
 
-/// Immutable retained capture. Its content-addressed revision covers raw bytes
-/// and semantic projections; no session counter acts as
-/// a revision.
+/// Immutable inventory and retained bytes. The revision covers captured bytes,
+/// semantic projections and uncaptured file facts, excluding per-file refusal
+/// wording.
+/// Uncaptured identity is bundle/path, media type, size, modification instant
+/// and refusal code, not a byte digest;
+/// same-size edits with restored mtimes are not detectable for those files.
 final class KnowledgeCapture {
   KnowledgeCapture({
     required Iterable<KnowledgeCapturedFile> files,
@@ -113,9 +180,7 @@ final class KnowledgeCapture {
       .convert(
         utf8.encode(
           jsonEncode({
-            'files': [
-              for (final f in files) [f.bundle, f.path, f.digest, f.mediaType],
-            ],
+            'files': [for (final f in files) knowledgeFileIdentity(f)],
             'bundles': [
               for (final b in bundles)
                 {
@@ -364,8 +429,9 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
             bundle: f.bundle,
             path: f.path,
           ),
-          sizeBytes: f.bytes.length,
+          sizeBytes: f._sizeBytes,
           digest: f.digest,
+          captureFailure: f.captureFailure,
           mediaType: f.mediaType,
         ),
     ]);
@@ -469,7 +535,8 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
         );
       }
       final file = data.files[index];
-      if (file.bytes.length > maxBytes) {
+      if (file.captureFailure != null) throw file.captureFailure!;
+      if (file._sizeBytes > maxBytes) {
         throw KnowledgeFailure(
           KnowledgeFailureCode.tooLarge,
           'read',
@@ -477,7 +544,7 @@ final class _Snapshot implements KnowledgeProjectSnapshot {
           path: handle.path,
         );
       }
-      return KnowledgeSourceBytes(entry: _files[index], bytes: file.bytes);
+      return KnowledgeSourceBytes(entry: _files[index], bytes: file.bytes!);
     });
   }
 

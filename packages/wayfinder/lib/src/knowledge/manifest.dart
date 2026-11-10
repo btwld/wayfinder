@@ -2,15 +2,17 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
-/// Computes the canonical byte-manifest fingerprint used by retained adapters.
-/// [files] contains (bundle identity or null, relative path, SHA-256 digest);
+import 'captured_project.dart';
+
+/// Computes the canonical inventory-manifest fingerprint used by retained adapters.
+/// [files] contributes the same file identity as the snapshot revision;
 /// [bundles] contains (bundle identity, project-relative bundle path).
 String knowledgeManifestFingerprint({
-  required Iterable<(String?, String, String)> files,
+  required Iterable<KnowledgeCapturedFile> files,
   required Iterable<(String, String)> bundles,
 }) {
   final fileRows = [
-    for (final f in files) jsonEncode([f.$1, f.$2, f.$3]),
+    for (final f in files) jsonEncode(knowledgeFileIdentity(f)),
   ];
   final bundleRows = [
     for (final b in bundles) jsonEncode([b.$1, b.$2]),

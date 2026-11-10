@@ -931,6 +931,20 @@ Entries below are newest-first decision history. Earlier format numbers and
 additional formats this engine reads. The current contract in §5.4 reads
 format 3 only; historical entries are not compatibility promises for format 2.
 
+**Bounded browsing document capture, 2026-11-10.**
+Affected surface: public core/native reader APIs and capture documentation; no
+conformance section changes. The desktop caller's real 154 MB attachment bundle
+exhausted a 32 MB project budget, blocking even a separate 4 MB document bundle.
+Classified Markdown/config bytes retain exact byte identity; attachments and
+omitted documents retain path, size, mtime and per-file refusals, with nullable
+byte digests and no live-byte substitution. Present config/lock inputs must fit
+capture limits or capture fails. Manifests and revisions share file identity using
+UTC epoch modification instants and refusal codes, excluding per-file refusal
+wording. Unpublished reader consumers handle
+`captureFailure` and nullable captured-file bytes/entry digests; Flutter displays
+size and reason. No Profile/package format, schema, golden or generic skill rule
+changes are needed: this changes browsing acquisition, not package interpretation.
+
 **Borrowed same-repository Profile reads, 2026-11-09.**
 §4.7 now permits direct committed-object reads for self-hosting repositories,
 addressing #181's duplicate mirrors; implementations must preserve locked

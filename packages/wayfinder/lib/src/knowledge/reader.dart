@@ -50,7 +50,7 @@ String knowledgeRelativePath(String value) {
   return value;
 }
 
-/// A file address in one exact snapshot. A null bundle means project config.
+/// A file address in one snapshot inventory. A null bundle means project config.
 final class KnowledgeResourceHandle {
   KnowledgeResourceHandle({
     required String project,
@@ -82,17 +82,43 @@ final class KnowledgeResourceEntry {
   KnowledgeResourceEntry({
     required this.handle,
     required this.sizeBytes,
-    required this.digest,
+    required String? digest,
+    KnowledgeFailure? captureFailure,
     this.mediaType,
-  }) {
+  }) : _capture = captureFailure == null
+           ? (digest ?? '')
+           : (
+               code: captureFailure.code,
+               operation: captureFailure.operation,
+               message: captureFailure.message,
+             ) {
     if (sizeBytes < 0) throw ArgumentError.value(sizeBytes, 'sizeBytes');
-    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
+    if ((digest == null) != (captureFailure != null)) {
+      throw ArgumentError('Supply a byte digest or a capture refusal.');
+    }
+    if (digest != null && !RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
       throw ArgumentError.value(digest, 'digest', 'Expected SHA-256');
     }
   }
   final KnowledgeResourceHandle handle;
+
+  /// Retained byte length, or the observed file size when bytes were omitted.
   final int sizeBytes;
-  final String digest;
+
+  /// SHA-256 of retained bytes; null when only metadata was inventoried.
+  String? get digest => _capture is String ? _capture : null;
+
+  /// Why bytes were not captured. Reads of this entry refuse with this failure.
+  KnowledgeFailure? get captureFailure => switch (_capture) {
+    (
+      code: final KnowledgeFailureCode code,
+      operation: final String operation,
+      message: final String message,
+    ) =>
+      KnowledgeFailure(code, operation, message, path: handle.path),
+    _ => null,
+  };
+  final Object _capture;
   final String? mediaType;
 }
 
@@ -155,6 +181,9 @@ abstract interface class KnowledgeProjectSnapshot {
   List<KnowledgeBundleSnapshot> get bundles;
   List<KnowledgeResourceEntry> get files;
   KnowledgeBundleSnapshot bundle(String id);
+
+  /// Returns exact retained bytes under the caller's bound. An inventoried file
+  /// without bytes refuses with its entry's captureFailure, never live content.
   Future<KnowledgeSourceBytes> read(
     KnowledgeResourceHandle handle, {
     int maxBytes = 16 * 1024 * 1024,

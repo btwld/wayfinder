@@ -80,13 +80,14 @@ void main() {
           await tester.pumpAndSettle();
         }
         expect(find.text('Project: $name'), findsWidgets);
-        expect(find.text('knowledge/$name'), findsWidgets);
-        await tester.tap(find.text('knowledge/$name').last);
+        final label =
+            'knowledge/$name · Attachment not captured; only its metadata is available. · ${name.endsWith('.json') ? 13 : 11} bytes';
+        expect(find.text(label), findsWidgets);
+        await tester.tap(find.text(label).last);
         await tester.pumpAndSettle();
-        expect(
-          controller.source!.text,
-          name.endsWith('.json') ? 'bundle config' : 'bundle lock',
-        );
+        expect(controller.source, isNull);
+        expect(controller.selectedFile!.captureFailure, isNotNull);
+        expect(find.byKey(const Key('reader-not-captured')), findsOneWidget);
         if (width < 700) {
           await tester.tap(find.byKey(const Key('reader-files')));
           await tester.pumpAndSettle();

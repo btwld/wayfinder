@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -15,7 +16,8 @@ void main() {
   }
 
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('reader-local-');
+    final temp = await Directory.systemTemp.createTemp('reader-local-');
+    root = Directory(await temp.resolveSymbolicLinks());
   });
   tearDown(() async {
     await root.delete(recursive: true);
@@ -196,7 +198,7 @@ void main() {
   );
 
   test(
-    'captures configured bundles, all files and config/lock without model or source writes',
+    'captures documents and inventories attachments/config/lock without model or source writes',
     () async {
       await write(
         'knowledge/a.md',
@@ -253,7 +255,11 @@ void main() {
       expect(a.path, 'knowledge/a.md');
       expect(a.relationships.single.conceptId, 'b');
       final binary = old.files.singleWhere((f) => f.handle.path == 'image.bin');
-      expect((await old.read(binary.handle)).bytes, [255, 0, 128]);
+      await expectLater(
+        old.read(binary.handle),
+        throwsA(failure(KnowledgeFailureCode.unavailable)),
+      );
+      expect(binary.digest, isNull);
       await write(
         'knowledge/a.md',
         '---\ntype: Guide\ntitle: New\n---\nChanged',
@@ -261,7 +267,11 @@ void main() {
       await File('${root.path}/knowledge/image.bin').writeAsBytes([4, 5, 6]);
       final next = await project.refresh();
       expect(next.revision, isNot(old.revision));
-      expect((await old.read(binary.handle)).bytes, [255, 0, 128]);
+      await expectLater(
+        old.read(binary.handle),
+        throwsA(failure(KnowledgeFailureCode.unavailable)),
+      );
+      expect(binary.digest, isNull);
       expect((await old.bundle('stable:docs').concept('a')).title, 'A');
       expect((await next.bundle('stable:docs').concept('a')).title, 'New');
       expect(await File('${root.path}/knowledge/.okf.lock').exists(), isFalse);
@@ -324,32 +334,312 @@ void main() {
       await denied.close();
     },
   );
+  for (final path in ['wayfinder.json', 'wayfinder.lock']) {
+    for (final aggregate in [false, true]) {
+      test(
+        '$path fails capture closed at ${aggregate ? "aggregate" : "file"} limit',
+        () async {
+          await write(path, 'x' * 9);
+          final project = await LocalKnowledgeProject.open(
+            root: root,
+            id: 'p',
+            maxFileBytes: aggregate ? 20 : 4,
+            maxCaptureBytes: aggregate ? 4 : 20,
+          );
+          addTearDown(project.close);
+          await expectLater(
+            project.refresh(),
+            throwsA(
+              isA<KnowledgeFailure>()
+                  .having((e) => e.code, 'code', KnowledgeFailureCode.tooLarge)
+                  .having((e) => e.operation, 'operation', 'capture')
+                  .having((e) => e.path, 'path', path)
+                  .having((e) => e.message, 'message', contains(path)),
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  test('deletion between regular check and stat retries inventory', () async {
+    await write('knowledge/a.bin', 'attachment');
+    final target = File('${root.path}/knowledge/a.bin');
+    final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+    addTearDown(project.close);
+    final zone = Zone.current;
+    var deleted = false;
+    final snapshot = await IOOverrides.runZoned(
+      project.refresh,
+      stat: (path) async {
+        if (path == target.path && !deleted) {
+          deleted = true;
+          await target.delete();
+        }
+        return zone.run(() => FileStat.stat(path));
+      },
+    );
+    expect(deleted, isTrue);
+    expect(snapshot.files, isEmpty);
+  });
+
   test(
-    'per-file and aggregate limits refuse before publishing any snapshot',
+    'repeated truncation after overflowing bounded read retries then fails',
     () async {
-      await write('knowledge/a.md', '12345');
-      await write('knowledge/b.md', '67890');
-      final fileLimited = await LocalKnowledgeProject.open(
+      await write('knowledge/a.md', 'tiny');
+      final target = File('${root.path}/knowledge/a.md');
+      final stamp = await target.lastModified();
+      final project = await LocalKnowledgeProject.open(
         root: root,
         id: 'p',
         maxFileBytes: 4,
       );
+      addTearDown(project.close);
+      final zone = Zone.current;
+      var stats = 0;
       await expectLater(
-        fileLimited.refresh(),
+        IOOverrides.runZoned(
+          project.refresh,
+          stat: (path) async {
+            if (path == target.path) {
+              stats++;
+              if (stats.isOdd) {
+                final before = await zone.run(() => FileStat.stat(path));
+                await target.writeAsString('grown beyond limit');
+                return before;
+              }
+              await target.writeAsString('tiny');
+              await target.setLastModified(stamp);
+            }
+            return zone.run(() => FileStat.stat(path));
+          },
+        ),
+        throwsA(failure(KnowledgeFailureCode.sourceChanged)),
+      );
+      expect(stats, 4);
+    },
+  );
+
+  test(
+    'bounded growth and fresh open reproduce the same metadata revision',
+    () async {
+      await write('knowledge/a.md', 'tiny');
+      final target = File('${root.path}/knowledge/a.md');
+      final project = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        maxFileBytes: 4,
+      );
+      addTearDown(project.close);
+      final zone = Zone.current;
+      var grown = false;
+      final first = await IOOverrides.runZoned(
+        project.refresh,
+        stat: (path) async {
+          final before = await zone.run(() => FileStat.stat(path));
+          if (path == target.path && !grown) {
+            grown = true;
+            await target.writeAsString('grown beyond limit');
+          }
+          return before;
+        },
+      );
+      final fresh = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        maxFileBytes: 4,
+      );
+      addTearDown(fresh.close);
+      expect((await project.refresh()).revision, first.revision);
+      expect((await fresh.refresh()).revision, first.revision);
+      expect(
+        first.files.single.captureFailure!.message,
+        (await fresh.refresh()).files.single.captureFailure!.message,
+      );
+    },
+  );
+
+  for (final name in ['a.bin', 'a.md']) {
+    test(
+      '$name rechecks regular-file grant before recording metadata',
+      () async {
+        await write('knowledge/$name', 'x' * 9);
+        await write('outside', 'target metadata must not enter inventory');
+        final target = File('${root.path}/knowledge/$name');
+        final project = await LocalKnowledgeProject.open(
+          root: root,
+          id: 'p',
+          maxFileBytes: 4,
+        );
+        addTearDown(project.close);
+        final zone = Zone.current;
+        var swapped = false;
+        await expectLater(
+          IOOverrides.runZoned(
+            project.refresh,
+            stat: (path) async {
+              if (path == target.path && !swapped) {
+                swapped = true;
+                await target.delete();
+                await Link(target.path).create('../outside');
+              }
+              return zone.run(() => FileStat.stat(path));
+            },
+          ),
+          throwsA(failure(KnowledgeFailureCode.denied)),
+        );
+        expect(swapped, isTrue);
+      },
+    );
+  }
+
+  test('large attachment bundle does not prevent document reads', () async {
+    await write(
+      'wayfinder.json',
+      '{"version":1,"profiles":{"demo":{"source":{"git":"https://invalid.example/never","ref":"main","path":"profile"},"applies_to":["knowledge","captures"]}}}',
+    );
+    await write('knowledge/a.md', 'small document');
+    await write('captures/b.md', 'another document');
+    await write('captures/large.pdf', 'x' * 4096);
+    final project = await LocalKnowledgeProject.open(
+      root: root,
+      id: 'p',
+      maxFileBytes: 1024,
+      maxCaptureBytes: 2048,
+    );
+    addTearDown(project.close);
+    final snapshot = await project.refresh();
+    expect(snapshot.bundles.map((b) => b.summary.path), [
+      'captures',
+      'knowledge',
+    ]);
+    final attachment = snapshot.files.singleWhere(
+      (f) => f.handle.path == 'large.pdf',
+    );
+    expect(attachment.sizeBytes, 4096);
+    expect(attachment.captureFailure!.code, KnowledgeFailureCode.unavailable);
+    expect(
+      attachment.captureFailure!.message,
+      contains('Attachment not captured'),
+    );
+    expect(attachment.digest, isNull);
+    await expectLater(
+      snapshot.read(attachment.handle),
+      throwsA(failure(KnowledgeFailureCode.unavailable)),
+    );
+    for (final name in ['a.md', 'b.md']) {
+      final file = snapshot.files.singleWhere((f) => f.handle.path == name);
+      expect((await snapshot.read(file.handle)).text, contains('document'));
+    }
+  });
+
+  test(
+    'oversized document is a per-file refusal; smaller documents still open',
+    () async {
+      await write('knowledge/a.md', 'oversized');
+      await write('knowledge/b.md', 'body');
+      final project = await LocalKnowledgeProject.open(
+        root: root,
+        id: 'p',
+        maxFileBytes: 4,
+      );
+      addTearDown(project.close);
+      final snapshot = await project.refresh();
+      expect(snapshot.files.first.sizeBytes, 9);
+      expect(snapshot.files.first.digest, isNull);
+      await expectLater(
+        snapshot.read(snapshot.files.first.handle),
         throwsA(failure(KnowledgeFailureCode.tooLarge)),
       );
-      await fileLimited.close();
-      final totalLimited = await LocalKnowledgeProject.open(
+      expect((await snapshot.read(snapshot.files.last.handle)).text, 'body');
+      await expectLater(
+        snapshot.bundles.single.graph(),
+        throwsA(failure(KnowledgeFailureCode.graphRefused)),
+      );
+    },
+  );
+
+  test(
+    'aggregate budget captures what fits in sorted traversal order',
+    () async {
+      for (final entry in {
+        'z.md': 'end',
+        'b.md': '12345',
+        'a.md': 'first',
+      }.entries) {
+        await write('knowledge/${entry.key}', entry.value);
+      }
+      final project = await LocalKnowledgeProject.open(
         root: root,
         id: 'p',
         maxFileBytes: 5,
-        maxCaptureBytes: 9,
+        maxCaptureBytes: 8,
       );
+      addTearDown(project.close);
+      final snapshot = await project.refresh();
+      expect(snapshot.files.map((f) => f.handle.path), [
+        'a.md',
+        'b.md',
+        'z.md',
+      ]);
+      expect((await snapshot.read(snapshot.files.first.handle)).text, 'first');
       await expectLater(
-        totalLimited.refresh(),
+        snapshot.read(snapshot.files[1].handle),
         throwsA(failure(KnowledgeFailureCode.tooLarge)),
       );
-      await totalLimited.close();
+      expect((await snapshot.read(snapshot.files.last.handle)).text, 'end');
+      expect((await project.refresh()).revision, snapshot.revision);
+    },
+  );
+
+  test('unreadable attachments are inventoried without opening them', () async {
+    await write('knowledge/a.md', 'body');
+    await write('knowledge/private.bin', 'attachment');
+    final attachment = File('${root.path}/knowledge/private.bin');
+    await Process.run('chmod', ['000', attachment.path]);
+    addTearDown(() => Process.run('chmod', ['600', attachment.path]));
+    await expectLater(
+      attachment.readAsBytes(),
+      throwsA(isA<FileSystemException>()),
+    );
+    final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+    addTearDown(project.close);
+    final snapshot = await project.refresh();
+    final entry = snapshot.files.last;
+    expect(entry.sizeBytes, 10);
+    expect(entry.captureFailure!.message, contains('Attachment not captured'));
+    expect(entry.digest, isNull);
+    await expectLater(
+      snapshot.read(entry.handle),
+      throwsA(failure(KnowledgeFailureCode.unavailable)),
+    );
+    expect((await snapshot.read(snapshot.files.first.handle)).text, 'body');
+  }, skip: Platform.isWindows ? 'POSIX file permissions' : false);
+
+  test(
+    'attachment metadata changes invalidate idle capture and revision',
+    () async {
+      await write('knowledge/a.md', 'body');
+      await write('knowledge/file.bin', 'first');
+      final project = await LocalKnowledgeProject.open(root: root, id: 'p');
+      addTearDown(project.close);
+      final first = await project.refresh();
+      final attachment = first.files.last;
+      expect(attachment.digest, isNull);
+      expect((await project.refresh()).revision, first.revision);
+      final file = File('${root.path}/knowledge/file.bin');
+      final stamp = await file.lastModified();
+      await file.setLastModified(stamp.add(const Duration(seconds: 2)));
+      final touched = await project.refresh();
+      expect(touched.revision, isNot(first.revision));
+      await file.writeAsString('larger attachment');
+      await file.setLastModified(stamp.add(const Duration(seconds: 2)));
+      final resized = await project.refresh();
+      expect(resized.revision, isNot(touched.revision));
+      await expectLater(
+        first.read(attachment.handle),
+        throwsA(failure(KnowledgeFailureCode.unavailable)),
+      );
     },
   );
   test(

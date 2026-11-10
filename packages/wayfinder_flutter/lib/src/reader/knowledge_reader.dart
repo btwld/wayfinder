@@ -174,9 +174,12 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
     KnowledgeProjectSnapshot snapshot,
   ) {
     final bundleId = file.handle.bundle;
-    return bundleId == null
+    final path = bundleId == null
         ? 'Project: ${file.handle.path}'
         : '${snapshot.bundle(bundleId).summary.path}/${file.handle.path}';
+    final failure = file.captureFailure;
+    if (failure == null) return path;
+    return '$path · ${failure.message} · ${file.sizeBytes} bytes';
   }
 
   Widget _content(
@@ -215,7 +218,16 @@ final class _KnowledgeReaderState extends State<KnowledgeReader> {
       );
     }
     final source = c.source;
-    if (source == null) return const Center(child: Text('Select a file.'));
+    if (source == null) {
+      final file = c.selectedFile;
+      if (file?.captureFailure != null) {
+        return _text(
+          '${file!.captureFailure!.message}\n${file.sizeBytes} bytes',
+          key: const Key('reader-not-captured'),
+        );
+      }
+      return const Center(child: Text('Select a file.'));
+    }
     if (view == _View.read && c.concept != null) {
       final concept = c.concept!;
       return _text(

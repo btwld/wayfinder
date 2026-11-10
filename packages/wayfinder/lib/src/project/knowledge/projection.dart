@@ -18,19 +18,26 @@ KnowledgeCapturedBundle projectCapturedBundle({
   final assets = <String>[];
   final failures = <String>[];
   for (final file in files) {
+    final kind = classifyBundleFile(file.path);
+    final bytes = file.bytes;
+    if (kind != BundleFileKind.asset && bytes == null) {
+      // A partial document inventory cannot yield an honest complete graph.
+      failures.add(file.path);
+      continue;
+    }
     try {
-      switch (classifyBundleFile(file.path)) {
+      switch (kind) {
         case BundleFileKind.asset:
           assets.add(file.path);
         case BundleFileKind.indexDocument:
-          indexes[file.path] = utf8.decode(file.bytes);
+          indexes[file.path] = utf8.decode(bytes!);
         case BundleFileKind.logDocument:
-          logs[file.path] = utf8.decode(file.bytes);
+          logs[file.path] = utf8.decode(bytes!);
         case BundleFileKind.concept:
           // Invalid semantic IDs do not erase the browsing inventory.
           OkfConceptId.fromDocumentPath(file.path);
           documents[file.path] = OkfDocument.parse(
-            utf8.decode(file.bytes),
+            utf8.decode(bytes!),
             sourcePath: file.path,
           );
       }
@@ -235,7 +242,7 @@ KnowledgeCapturedBundle projectCapturedBundle({
         : KnowledgeFailure(
             KnowledgeFailureCode.graphRefused,
             'graph',
-            'Graph refused: malformed Markdown in ${failures.join(', ')}.',
+            'Graph refused: uncaptured or malformed Markdown in ${failures.join(', ')}.',
           ),
   );
 }

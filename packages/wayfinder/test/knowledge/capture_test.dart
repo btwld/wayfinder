@@ -16,12 +16,56 @@ void main() {
     final fingerprints = [
       for (final capture in [original, reordered, fixture('changed')])
         knowledgeManifestFingerprint(
-          files: [for (final f in capture.files) (f.bundle, f.path, f.digest)],
+          files: capture.files,
           bundles: [for (final b in capture.bundles) (b.id, b.summary.path)],
         ),
     ];
     expect(fingerprints[1], fingerprints[0]);
     expect(fingerprints[2], isNot(fingerprints[0]));
+  });
+
+  test(
+    'uncaptured identity ignores failure wording but detects metadata changes',
+    () {
+      KnowledgeCapture capture(DateTime time, String message) =>
+          KnowledgeCapture(
+            files: [
+              KnowledgeCapturedFile.metadata(
+                path: 'asset.bin',
+                sizeBytes: 8,
+                modifiedAt: time,
+                code: KnowledgeFailureCode.unavailable,
+                reason: message,
+              ),
+            ],
+            bundles: [],
+          );
+      final time = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+      final first = capture(time, 'first wording');
+      expect(capture(time, 'other wording').revision, first.revision);
+
+      expect(
+        capture(time.add(const Duration(seconds: 1)), 'first wording').revision,
+        isNot(first.revision),
+      );
+    },
+  );
+
+  test('uncaptured identity uses instants across local and UTC times', () {
+    KnowledgeCapture capture(DateTime time) => KnowledgeCapture(
+      files: [
+        KnowledgeCapturedFile.metadata(
+          path: 'asset.bin',
+          sizeBytes: 8,
+          modifiedAt: time,
+          code: KnowledgeFailureCode.unavailable,
+          reason: 'omitted',
+        ),
+      ],
+      bundles: [],
+    );
+    final local = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+    expect(capture(local).revision, capture(local.toUtc()).revision);
   });
 
   test('raw reads preserve malformed UTF-8 and Markdown bytes', () async {
