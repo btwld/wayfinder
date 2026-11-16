@@ -1,5 +1,11 @@
 # 0.5.0-beta.2 (unreleased)
 
+- Fix a Windows race in Profile snapshot caching: two concurrent resolutions
+  writing the same snapshot could fail with access-denied or sharing-violation
+  errors when one renamed over a file the other held open. A snapshot's name
+  fixes its bytes, so the write now succeeds when the file already holds them.
+  Other write failures, and lock and configuration writes, are unchanged.
+
 - Fix desktop browsing of attachment-heavy projects: read only bounded Markdown
   and project configuration/lock bytes; inventory attachments and omitted
   documents with size, modification time and a per-file refusal. The unpublished
