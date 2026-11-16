@@ -2527,7 +2527,21 @@ final class WayfinderProfileResolver {
     final current = await _readBytes(file);
     if (current == null || !_sameBytes(current, bytes)) {
       await file.parent.create(recursive: true);
-      await _replace(file, bytes);
+      try {
+        await _replace(file, bytes);
+      } on FileSystemException {
+        // A snapshot's name fixes its bytes, so a concurrent resolver may
+        // already have written them. Windows refuses a rename over a file
+        // another handle holds open (errno 5 or 32); that is not a failure
+        // when the file now holds exactly [bytes]. Anything else is.
+        List<int>? now;
+        try {
+          now = await _readBytes(file);
+        } on FileSystemException {
+          now = null;
+        }
+        if (now == null || !_sameBytes(now, bytes)) rethrow;
+      }
     }
     return sha256.convert(bytes).toString();
   }
