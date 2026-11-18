@@ -450,7 +450,7 @@ directories, a locked-only plan with skills, which now fetches nothing,
 installs them.
 
 Run all okf bundle I/O of a process on one isolate: okf's bundle lock does
-not exclude isolates. [ADR-0018](../../docs/adr/0018-embeddable-libraries.md)
+not exclude isolates. [Expose embeddable libraries and leave resources to the host](../../knowledge/architecture/expose-embeddable-libraries.md)
 records these decisions.
 
 `WayfinderProjectConfig.toJson`, `WayfinderConfigEncoder` and
@@ -481,7 +481,7 @@ await resolver.relock(
 
 ## Host operating boundaries
 
-The [decision log](../../ARCHITECTURE.md#embeddable-libraries-and-host-ownership-adr-0018-adr-0023)
+[Expose embeddable libraries and leave resources to the host](../../knowledge/architecture/expose-embeddable-libraries.md)
 records the library boundary; hosts must also observe these operating constraints:
 
 - Run all okf bundle I/O in one process on one isolate: validate, graph, reads,
@@ -631,7 +631,7 @@ and `assessment-failed` when the assessment stops on an error.
 `KnowledgeAdoption` takes the same assessor. Run every other step on the
 isolate that does the process's other okf bundle I/O. A commit leaves okf's
 `.okf.lock` in the bundle, as `validate --fix` does; ignore it in Git.
-[ADR-0019](../../docs/adr/0019-profile-aware-writes.md) records these
+[Write through one path with a delta gate](../../knowledge/authoring/write-through-a-delta-gate.md) records these
 decisions.
 
 For the command and MCP server, install **wayfinder_cli**:
@@ -762,7 +762,7 @@ Future<void> main() async {
   nothing.
 - `KnowledgeSeeds` holds the generic seed text.
 
-[ADR-0020](../../docs/adr/0020-programmatic-adoption.md) records these
+[Adopt by plan, then apply](../../knowledge/authoring/adopt-by-plan-then-apply.md) records these
 decisions.
 
 ## Structured knowledge queries

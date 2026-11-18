@@ -1,21 +1,33 @@
-# Engine compatibility with OKF 0.2
+---
+type: Analysis
+title: Engine compatibility with OKF
+description: The four-part compatibility test and one row per engine behavior that reads, writes or reports on a bundle, redone for each OKF release.
+status: stable
+generated:
+  by: claude-code/fable-5
+  at: 2026-11-18T14:28:19Z
+sources:
+  - id: compatibility-review
+    title: Engine compatibility with OKF 0.2
+    resource: https://github.com/btwld/wayfinder/blob/e06df73055b1e20599a5aca3df4fd96ddee558e3/docs/compatibility-review.md
+---
 
 Status: Complete for package format 3, `okf` 0.7.0-beta.1, and OKF 0.2
 
 This non-normative review records whether the wayfinder engine keeps the
 pinned OKF 0.2 contract intact. The specification pin is
 `open-knowledge-format` at `ad30107`, vendored in
-[`OKF-0.2.md`](../skills/author-knowledge-bundle/references/OKF-0.2.md). The
+[`OKF-0.2.md`](../../skills/author-knowledge-bundle/references/OKF-0.2.md). The
 `okf` package constraint is `^0.7.0-beta.1`, whose index generator revision is
 0.5.0. The
-[engine contract](../implementation/okf-implementation-guide.md) is
+[engine contract](../../implementation/okf-implementation-guide.md) is
 authoritative over every summary here.
 
 This review covers the engine only. Each Profile reviews its own rules and
 declared keys against OKF in its own release records (guide §5.10). Bitwild's
-review is [`profiles/bitwild/compatibility-review.md`](../profiles/bitwild/compatibility-review.md).
+review is [`profiles/bitwild/compatibility-review.md`](../../profiles/bitwild/compatibility-review.md).
 
-## Compatibility test
+# Compatibility test
 
 An engine behavior passes only when all four answers are yes:
 
@@ -24,26 +36,26 @@ An engine behavior passes only when all four answers are yes:
 3. Does a bundle that is valid OKF stay loadable whatever Profile a project selects?
 4. Does the engine add nothing to a bundle that a generic OKF consumer would have to understand?
 
-## Engine review
+# Engine review
 
 | Engine behavior | OKF basis | Result | Reasoning |
 | --- | --- | --- | --- |
 | Runs okf's validation first and reports its findings in okf's own projection; OKF conformance is `PASS` exactly when okf reports no error | §11 defines OKF conformance and its rejection conditions | Pass | The engine judges okf's report non-strictly and never reclassifies a finding, so an OKF advisory never fails OKF conformance and a Profile finding never enters the OKF report. |
 | Validation stops Profile evaluation when OKF fails (`BLOCKED BY OKF`) | §11 | Pass | A Profile never reports on content OKF rejected, so its findings cannot be read as OKF findings. |
-| Reports Profile findings in the package's namespace and engine diagnostics as `wayfinder/*` | §11 fixes only OKF's own result | Pass | Neither namespace is `okf/*`, so a consumer of okf's finding contract (ADR-0008) sees okf's findings alone. |
+| Reports Profile findings in the package's namespace and engine diagnostics as `wayfinder/*` | §11 fixes only OKF's own result | Pass | Neither namespace is `okf/*`, so a consumer of okf's finding contract ([Publish okf's finding report unchanged](../validation/publish-upstream-findings-unchanged.md)) sees okf's findings alone. |
 | Rejects a package that declares a key OKF 0.2 defines, using the key list of the pinned `okf` package | §4.1 permits additional producer keys | Pass | A Profile can add a key OKF permits but can never redeclare an OKF field. Whether a declared key gives an OKF field another meaning is each Profile's review. |
 | Reads a `relationships` entry as a typed edge beside the OKF graph, resolved as OKF resolves a link target | §§4.1 and 6.1 | Pass | The engine adds edges under its own key and never changes OKF's nodes, edges, or their meanings. A generic consumer reads `relationships` as an unknown key and preserves it. |
 | `matches-generated` with `generator: "okf-index"` compares indexes with `OkfIndexGenerator` output, and `--fix` writes only that output | §8 defines indexes and lets producers generate them | Pass | The engine uses OKF's own reference generator and writes only reserved `index.md` files whose bytes differ. A missing or stale index never changes the OKF result. |
 | Reads `okf_version` from the root index and checks each package's `implements.release` against the OKF releases okf can read | §12 | Pass | The engine reads the marker with its upstream meaning and never writes it outside a generated index. |
 | `graph`, `index`, and `search` read the explicit bundle without resolving Profile sources | §11 tolerant reading | Pass | A broken or absent Profile selection never makes ordinary OKF reading fail. |
 | Keeps `wayfinder.json`, `wayfinder.lock`, and installed skills outside the bundle | §3.1 reserves `index.md` and `log.md` and makes every other Markdown file a concept | Pass | Project configuration never becomes a concept, frontmatter, or an index entry. |
-| Profile-aware writes prepare and commit through okf, with the whole candidate's OKF verdict and an additional Profile delta gate | §§4, 8, 9, and 11 | Pass | The writer preserves okf's report, projects affected indexes with okf's generator, and retains authored log history. Caller-supplied or okf lifecycle entries do not invent history from current concepts. The Profile delta never waives an OKF error; an unselected Profile remains unassessed. The judged bytes commit through okf's transaction ([guide §3.5](../implementation/okf-implementation-guide.md#35-writes-a-profile-governs), ADR-0019). |
-| Adoption seeds ordinary OKF root files and caller-supplied concepts, or binds an existing bundle without rewriting it | §§3, 8, 9, and 11 | Pass | Seed concepts use okf's document parser; generated indexes use the selected chain's projection. The plan and closing validation use the normal OKF/Profile gate. Binding, lock and skills stay outside the bundle; adoption adds no OKF field or reserved filename ([guide §2](../implementation/okf-implementation-guide.md#2-adoption), ADR-0020). |
+| Profile-aware writes prepare and commit through okf, with the whole candidate's OKF verdict and an additional Profile delta gate | §§4, 8, 9, and 11 | Pass | The writer preserves okf's report, projects affected indexes with okf's generator, and retains authored log history. Caller-supplied or okf lifecycle entries do not invent history from current concepts. The Profile delta never waives an OKF error; an unselected Profile remains unassessed. The judged bytes commit through okf's transaction ([guide §3.5](../../implementation/okf-implementation-guide.md#35-writes-a-profile-governs), [Profile-aware writes](../authoring/write-through-a-delta-gate.md)). |
+| Adoption seeds ordinary OKF root files and caller-supplied concepts, or binds an existing bundle without rewriting it | §§3, 8, 9, and 11 | Pass | Seed concepts use okf's document parser; generated indexes use the selected chain's projection. The plan and closing validation use the normal OKF/Profile gate. Binding, lock and skills stay outside the bundle; adoption adds no OKF field or reserved filename ([guide §2](../../implementation/okf-implementation-guide.md#2-adoption), [Programmatic adoption as plan, then apply](../authoring/adopt-by-plan-then-apply.md)). |
 | Never probes the network during validation | §11 does not make network resolution a rejection condition | Pass | An external resource that no longer resolves stays ordinary provenance or a body link. |
-| Format 3 reports `sibling_directory` from all directories represented by the loaded file inventory, with no directory-name exemptions; format 2 is refused before evaluation | §3 leaves organization to producers; §6.3 makes `references/` a convention, not a requirement | Pass | A fact describes the bundle rather than imposing a Profile's placement policy. A Profile may apply its own exceptions over the fact and path. Empty disk directories are not newly inspected, and in-memory candidates use their own inventory. No OKF field, loader, reserved filename, graph or generator meaning changes. Old packages are `profile-unsupported`, not silently reinterpreted (ADR-0029). |
-| Runs `okf` 0.7.0-beta.1, generator unchanged: the same validator, finding report, defined keys and loader as 0.5.0, and `OkfIndexGenerator` at revision 0.5.0 | §§4.1, 8, and 11 | Pass | 0.6.0 makes update, link and deprecate changes edit a concept's existing bytes in place, and 0.7.0-beta.1 moves okf to Ack 2; neither is on the validation path. okf's report, its key list and the generated bytes are those of 0.5.0, so every fixture golden, Bitwild 2026.3 and each `examples/*` project keep their verdicts. Profile-aware writes still judge and commit okf's candidate bytes (ADR-0019). Only `engine.okf` reads 0.7.0-beta.1. |
+| Format 3 reports `sibling_directory` from all directories represented by the loaded file inventory, with no directory-name exemptions; format 2 is refused before evaluation | §3 leaves organization to producers; §6.3 makes `references/` a convention, not a requirement | Pass | A fact describes the bundle rather than imposing a Profile's placement policy. A Profile may apply its own exceptions over the fact and path. Empty disk directories are not newly inspected, and in-memory candidates use their own inventory. No OKF field, loader, reserved filename, graph or generator meaning changes. Old packages are `profile-unsupported`, not silently reinterpreted ([Profile-owned directory policy](../profiles/express-rules-as-data.md)). |
+| Runs `okf` 0.7.0-beta.1, generator unchanged: the same validator, finding report, defined keys and loader as 0.5.0, and `OkfIndexGenerator` at revision 0.5.0 | §§4.1, 8, and 11 | Pass | 0.6.0 makes update, link and deprecate changes edit a concept's existing bytes in place, and 0.7.0-beta.1 moves okf to Ack 2; neither is on the validation path. okf's report, its key list and the generated bytes are those of 0.5.0, so every fixture golden, Bitwild 2026.3 and each `examples/*` project keep their verdicts. Profile-aware writes still judge and commit okf's candidate bytes ([Profile-aware writes](../authoring/write-through-a-delta-gate.md)). Only `engine.okf` reads 0.7.0-beta.1. |
 
-## When to redo this review
+# When to redo this review
 
 An upstream OKF specification release needs a new review before the engine
 reads it, even when no engine behavior otherwise changes. An `okf` package
@@ -53,7 +65,7 @@ version it ran as `engine.okf`. A generator change moves okf's generator
 revision, and moving the engine onto a new revision is a breaking engine
 change (guide §5.6).
 
-## Completion gate
+# Completion gate
 
 Every engine behavior that reads, writes, or reports on a bundle has a row,
 and every row passes the four-part test. No behavior passes by silence.

@@ -303,7 +303,7 @@ disconnects. On disconnect, other active operations finish, an `index`
 included, and release their resources; cancellation does not roll back
 indexing. The
 server projects the ordinary OKF graph and does not expose upstream OKF's
-concept-authoring write tools. See [ADR-0012](../../docs/adr/0012-wayfinder-graph-projection.md).
+concept-authoring write tools. See [Project the ordinary OKF graph](../../knowledge/architecture/project-the-ordinary-okf-graph.md).
 
 The `mcp_dart` stdio transport defaults to a 10 MiB incoming frame limit;
 oversized client requests close the transport.
@@ -313,7 +313,7 @@ Tool argument contracts use Ack through `ack_mcp_dart`; versions are in the
 default and normalizes integral JSON numbers before the callback. It preserves
 the advertised nonblank query, 1–100 limit and closed-object constraints.
 
-See [ADR-0011](../../docs/adr/0011-wayfinder-mcp.md) for the MCP adapter's
+See [Serve MCP over the CLI's services](../../knowledge/architecture/serve-mcp-over-shared-services.md) for the MCP adapter's
 decision rationale.
 
 ## Agent skills, project setup and updates
@@ -451,7 +451,7 @@ The checked-in fixture is generic; it is not a conformant profile template or
 independent model-quality benchmark. The [CI workflow](../../.github/workflows/ci.yml)
 runs these checks on the supported native targets.
 
-See [ADR-0010](../../docs/adr/0010-wayfinder-cli.md) for the application decision
+See [Run explicit local operations from one CLI](../../knowledge/architecture/run-explicit-local-operations.md) for the application decision
 and [Embed with a verified local model](../../knowledge/retrieval/embed-with-a-local-model.md) for model and
 ranking limitations.
 

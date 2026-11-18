@@ -1,1 +1,0 @@
-ADR-0025: Give a host the adoption seams it runs — accepted amendment consolidated with [ADR-0019](../../ARCHITECTURE.md#safe-writes-with-a-delta-gate-adr-0019-adr-0024-adr-0025), [ADR-0020](../../ARCHITECTURE.md#adoption-as-plan-then-apply-adr-0020-adr-0024-adr-0025); dated 2026-10-24.

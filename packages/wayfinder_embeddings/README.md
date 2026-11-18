@@ -223,7 +223,7 @@ try {
   it for that long; the next operation that needs an encoder opens one
   again. okf's bundle lock does not exclude
   isolates, so keep a process's okf bundle I/O, this store's included, on one
-  isolate ([ADR-0018](../../docs/adr/0018-embeddable-libraries.md)).
+  isolate ([Expose embeddable libraries and leave resources to the host](../../knowledge/architecture/expose-embeddable-libraries.md)).
 
 `package:wayfinder_embeddings/testing.dart` has `DeterministicTestEmbedder` and
 `DeterministicEncoderProvider`: 384-dimension vectors from hashed words, which

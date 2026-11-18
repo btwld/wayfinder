@@ -1,1 +1,0 @@
-ADR-0011: Serve Wayfinder tools over local MCP stdio — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#local-mcp-over-shared-services-adr-0011); original dates and amendment IDs are retained there.

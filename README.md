@@ -76,7 +76,7 @@ Exact metadata views and saved query IDs are documented in [structured queries](
 | --- | --- |
 | Install or configure | [Install](docs/install.md), [project configuration](docs/wayfinder-configuration.md) |
 | Author, review or adopt knowledge | [Skills](skills/README.md), [examples](examples/README.md) |
-| Embed or understand the engine | [API routes](docs/index.md#cli-mcp-and-dart-apis), [contract](implementation/README.md), [decisions](ARCHITECTURE.md) |
+| Embed or understand the engine | [API routes](knowledge/architecture/entry-points.md#cli-mcp-and-dart-apis), [contract](implementation/okf-implementation-guide.md), [decisions](knowledge/index.md) |
 | Integrate against the prepared 0.5 surface | [Compatibility and support contract](docs/stability.md) |
 | Develop or release | [Contributing](docs/contributing.md), [releasing](docs/releasing.md) |
 
@@ -85,8 +85,9 @@ Exact metadata views and saved query IDs are documented in [structured queries](
 `packages/` holds core validation/projects and portable/native knowledge entry
 points, CLI/MCP, embeddings and the Flutter reader SDK.
 `profiles/bitwild/` owns Bitwild's rules, skill and history; `skills/` is generic.
-`implementation/` and `docs/schemas/` hold the engine contract. `examples/` holds
-illustrative bundles; `docs/` holds guides and decisions; `tool/` holds tooling.
+`implementation/` and `docs/schemas/` hold the engine contract. `knowledge/` holds
+Wayfinder's own decisions, vocabulary and ways of working. `examples/` holds
+illustrative bundles; `docs/` holds user and contributor guides; `tool/` holds tooling.
 
 ## Contributing
 
