@@ -59,15 +59,17 @@ project's knowledge. A project's knowledge belongs in that project's bundle.
 ## A deleted path gets no stub
 
 A document that moves into `knowledge/` is deleted at its old path in the same
-change, with no forwarding stub. Every reader is repointed in that change, and
-`python3 tool/ci/verify-links.py` fails until each one is.
+change, with no forwarding stub. Every reader is repointed in that change.
+`python3 tool/ci/verify-links.py` fails while a Markdown link, an anchor or a
+URL of this repository's `main` still names the old path.
 
 # Why
 
 A link in a released binary, a published package page, an installed skill or
 a package's `$schema` cannot be repaired after release. Keeping these
 documents in place costs a `docs/` directory that survives with four guides
-and two schemas. In exchange, no URL that already shipped goes dead.
+and two schemas. In exchange, the URLs that released binaries, installed
+skills and `$schema` fields carry keep working.
 
 A stub is one more document for its subject, and an unattended agent acts on
 whichever single document it opens. Deleting without a stub costs a 404 for a
