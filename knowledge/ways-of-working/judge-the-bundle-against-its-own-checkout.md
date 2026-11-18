@@ -3,7 +3,7 @@ type: Decision
 title: Judge the bundle against its own checkout
 description: The gate binds the working tree's Profile packages, the lock and installed skills are not committed, and every link, anchor and rule help link must resolve.
 status: stable
-generated: { by: claude-code/fable-5, at: "2026-11-18T13:53:00Z" }
+generated: { by: claude-code/fable-5, at: "2026-11-18T14:04:55Z" }
 ---
 
 # Decision
@@ -32,8 +32,9 @@ into `knowledge/` and writes nothing else.
 The root `wayfinder.json` names this repository at `"ref": "main"`.
 `wayfinder.lock`, `.claude/skills/bitwild-profile/` and
 `.agents/skills/bitwild-profile/` are ignored local state. A contributor who
-runs `wayfinder get .` resolves the local `main` branch, which is enough for
-`wayfinder query`, search and MCP. The gate never reads that lock.
+runs `wayfinder get .` resolves the local `main` branch, and plain
+`wayfinder validate knowledge` then reads that lock. `wayfinder query` needs
+no lock. The gate never reads the local lock.
 
 ## Every link, anchor and help link resolves
 
@@ -57,8 +58,8 @@ branch or a tag
 ([`profile_resolver.dart`](../../packages/wayfinder/lib/src/project/profile_resolver.dart)),
 and `wayfinder get` refuses `"ref": "HEAD"`. A committed lock is therefore
 always one commit behind the packages beside it. A squash merge can orphan
-the commit it pins. A pull request that bumps the package `format` cannot
-pass, because the engine reads one format
+the commit it pins. With a committed lock, a pull request that bumps the
+package `format` cannot pass, because the engine reads one format
 ([decision log](../../ARCHITECTURE.md#profile-owned-directory-policy-adr-0029))
 and the lock still pins a package in the old one.
 
