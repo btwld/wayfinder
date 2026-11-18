@@ -2,6 +2,13 @@
 
 ## 2026-11-18
 
+* **Creation**: [Release Wayfinder](ways-of-working/release-wayfinder.md) Package tags, preparation, publication order, the read-only preflight, release gates, native distribution and partial recovery.
+* **Creation**: [Ration hosted runners](ways-of-working/ration-hosted-runners.md) Linux-only source tests, paused native distribution, zero jobs on a draft, heavy jobs skipped on a non-code diff, and the always-on knowledge job.
+* **Creation**: [Develop in the Dart workspace](ways-of-working/develop-in-the-dart-workspace.md) Workspace layout, ObjectBox installation, the pinned model and native bundle builds.
+* **Creation**: [Regenerate schemas and goldens](ways-of-working/regenerate-schemas-and-goldens.md) When and how to regenerate the embedded schemas and each golden file.
+* **Creation**: [Run the contributor checks](ways-of-working/run-contributor-checks.md) The core commands, the test lanes, formatting, and the two knowledge commands.
+* **Creation**: [Change a Profile](ways-of-working/change-a-profile.md) The same-change checklist for a Bitwild rule or vocabulary change, stable paths, and the skill wording search.
+* **Creation**: [Change the engine contract](ways-of-working/change-the-engine-contract.md) The same-change checklist for a contract change and the review an OKF release needs.
 * **Creation**: [Define compatibility in the stability contract and release on main evidence](ways-of-working/define-compatibility-and-release-evidence.md) Public surfaces and obligations live in `docs/stability.md`, and a release needs successful CI from the exact commit's push to main plus hosted CLI resolution.
 * **Creation**: [Bound document capture and inventory the rest](reader/bound-document-capture.md) Only classified Markdown and configuration bytes are captured, and attachments and over-budget documents are inventoried with refusals.
 * **Creation**: [Browse read-only through core entry points](reader/browse-read-only-through-core-entry-points.md) Portable values behind `knowledge.dart`, bounded native browsing behind `project.dart`, and the rules for roots, hidden entries and capture reuse.
