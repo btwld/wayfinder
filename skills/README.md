@@ -14,9 +14,8 @@ OKF/CLI mechanics; a Profile's installed skill owns its conventions and judgment
 Install the family together: sibling references make partial copies incomplete.
 The [installation guide](../docs/install.md) covers plugin/skill installation,
 updates, MCP and startup hooks. Startup does no indexing. Default MCP discovers
-configured project bundles; explicit launches restrict it to one. This source
-repository has no root `knowledge/`, so select an example project when using it
-here. Wayfinder MCP does not expose concept-authoring tools.
+configured project bundles; explicit launches restrict it to one. Wayfinder MCP
+does not expose concept-authoring tools.
 
 ## Profile skills
 

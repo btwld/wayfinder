@@ -11,7 +11,7 @@ Wayfinder validates and searches project knowledge kept beside code.
 - **Search is local and explicitly indexed.** It returns cited evidence, not answers. During refresh it can return the previous snapshot with notices; verify changed sources before relying on them.
 - **Source files are authoritative.** Search indexes and graph views are derived and rebuildable.
 - **Skills separate mechanics from conventions.** Generic skills handle OKF and Wayfinder; each Profile's skill carries its judgment.
-- **Libraries power CLI and MCP.** Public Dart APIs support embedding. Project knowledge belongs in the project's bundle; this repository holds reusable tools, Profiles and illustrative examples.
+- **Libraries power CLI and MCP.** Public Dart APIs support embedding. Project knowledge belongs in the project's bundle; this repository holds reusable tools, Profiles, illustrative examples and its own bundle, [`knowledge/`](knowledge/index.md).
 
 ## Install
 
@@ -51,7 +51,8 @@ and asks which Profile to use. [Bitwild](profiles/bitwild/README.md) is one opti
 
 ### Try an example
 
-This repository has no root `knowledge/`. In a clone, substitute
+The root [`knowledge/`](knowledge/index.md) is this repository's own bundle;
+the illustrative project is `examples/bitwild`. In a clone, substitute
 `examples/bitwild` for the `get` path and `examples/bitwild/knowledge` for the
 bundle path in the commands above. See [examples](examples/README.md).
 

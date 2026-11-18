@@ -64,7 +64,7 @@ Validation derives the deterministic gate; contextual Profile judgment remains a
 agent/reviewer responsibility. Indexing and search require the full runtime
 bundle, so do not copy just the executable. The source repository's illustrative
 project is `examples/bitwild`, whose bundle is `examples/bitwild/knowledge`; the
-repository has no root `knowledge/` directory. Run `wayfinder get
+root `knowledge/` directory is the repository's own bundle. Run `wayfinder get
 examples/bitwild` first, because validation reads the Profile from the lock and
 never fetches it.
 
