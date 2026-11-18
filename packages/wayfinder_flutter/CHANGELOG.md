@@ -1,5 +1,8 @@
 # 0.2.0 (unreleased)
 
+- Import Material widgets from `material_ui`, which Flutter 3.50 names as the
+  replacement for `package:flutter/material.dart`.
+
 - Show uncaptured local files with their byte size and capture reason in wide
   and narrow file selection. Oversized documents/attachment bundles no longer
   prevent reading the captured documents; selection retains the inventory.
