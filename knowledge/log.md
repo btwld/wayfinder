@@ -2,6 +2,7 @@
 
 ## 2026-11-18
 
+* **Update**: [Keep published documents at their paths](ways-of-working/keep-published-documents-at-their-paths.md) names `.github/CONTRIBUTING.md` as GitHub's pointer file, not a stub.
 * **Creation**: [Release Wayfinder](ways-of-working/release-wayfinder.md) Package tags, preparation, publication order, the read-only preflight, release gates, native distribution and partial recovery.
 * **Creation**: [Ration hosted runners](ways-of-working/ration-hosted-runners.md) Linux-only source tests, paused native distribution, zero jobs on a draft, heavy jobs skipped on a non-code diff, and the always-on knowledge job.
 * **Creation**: [Develop in the Dart workspace](ways-of-working/develop-in-the-dart-workspace.md) Workspace layout, ObjectBox installation, the pinned model and native bundle builds.

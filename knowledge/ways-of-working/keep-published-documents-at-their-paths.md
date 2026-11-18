@@ -3,7 +3,7 @@ type: Decision
 title: Keep published documents at their paths
 description: The contract, the schemas, the user guides, package guides, Profile packages and skills stay where their readers' links point; `docs/` holds only the four user guides and the two schemas.
 status: stable
-generated: { by: claude-code/fable-5, at: "2026-11-18T13:53:00Z" }
+generated: { by: claude-code/fable-5, at: "2026-11-18T14:53:18Z" }
 sources:
   - resource: https://github.com/btwld/wayfinder/blob/e06df73055b1e20599a5aca3df4fd96ddee558e3/README.md#try-an-example
     title: README, "Try an example"
@@ -61,6 +61,10 @@ project's knowledge. A project's knowledge belongs in that project's bundle.
 A document that moves into `knowledge/` is deleted at its old path in the same
 change, with no forwarding stub. Every reader is repointed in that change, and
 `python3 tool/ci/verify-links.py` fails until each one is.
+
+[`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) is not a stub. It is
+the file GitHub shows to a person who opens an issue or a pull request, and it
+holds only a pointer to `AGENTS.md` and to [ways of working](index.md).
 
 # Why
 
