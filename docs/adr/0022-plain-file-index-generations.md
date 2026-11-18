@@ -1,1 +1,0 @@
-ADR-0022: Keep indexes as plain-file generations — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#immutable-plain-file-index-generations-adr-0022-adr-0026); original dates and amendment IDs are retained there.

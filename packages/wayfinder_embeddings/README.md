@@ -229,7 +229,7 @@ try {
 `DeterministicEncoderProvider`: 384-dimension vectors from hashed words, which
 exercise indexing, storage and search in tests without a model. They check
 mechanisms; they are no relevance evidence
-([ADR-0017](../../docs/adr/0017-dense-only-retrieval.md)).
+([Retrieve with dense search only](../../knowledge/retrieval/retrieve-with-dense-search-only.md)).
 
 ### Markdown retrieval context
 
@@ -329,7 +329,7 @@ are fixed in its source. The basic example is a model-free preview.
 evaluation; it is not an interactive OKF bundle search interface. Use the
 `KnowledgeSnapshot`/`KnowledgeIndex` API for a consumer's own bundle and query.
 
-The [accepted decision](../../docs/adr/0009-local-knowledge-retrieval.md) keeps
+The [accepted decision](../../knowledge/retrieval/embed-with-a-local-model.md) keeps
 XS as the local model.
 
 ## Ingest and search
@@ -778,7 +778,7 @@ its license and conversion attribution are in `tool/model_assets/`.
 ## Dense-only migration
 
 This is a breaking Dart and command-contract change, selected for product
-simplicity in [ADR-0017](../../docs/adr/0017-dense-only-retrieval.md):
+simplicity in [Retrieve with dense search only](../../knowledge/retrieval/retrieve-with-dense-search-only.md):
 
 - Supply `embedder:` to `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot`.
 - Remove `KnowledgeRetrievalMode`, search `mode:`, and OKF `candidateLimit:`.

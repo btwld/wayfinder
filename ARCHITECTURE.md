@@ -10,14 +10,6 @@ The [engine contract and schemas](implementation/README.md) govern exact behavio
 [contribution requirements](docs/contributing.md) govern contract/Profile changes.
 Specs, API references and runbooks stay separate from this log.
 
-## Local embeddings with Arctic XS (ADR-0009)
-
-Date: 2026-09-09.
-
-Use verified local Arctic Embed XS Q8_0 weights: in [synthetic comparisons](packages/wayfinder_embeddings/fixtures/README.md), XS matched larger Q8 models on 50 of 60 first-context judgments with lower per-query cost, supporting a size/cost choice rather than a general accuracy claim.
-Local inference costs model download, startup and disk space; omitting footnote definitions beside ordinary body passages reduces citation competition but can miss useful support, so reviewed regressions or independent-corpus gains should trigger reconsideration.
-Retrieval modes were replaced by ADR-0017; model/input identity remains [pinned separately](packages/wayfinder_embeddings/lib/src/embedding/embedding_model_spec.dart).
-
 ## Explicit local CLI operations (ADR-0010)
 
 Date: 2026-09-09; dense-only amendment 2026-10-18; encoder/output update 2026-10-20.
@@ -40,20 +32,6 @@ Date: 2026-09-11; typed edges 2026-10-01; library relocation 2026-10-24.
 Project the ordinary OKF graph and add typed relationships beside it, avoiding a competing graph model while exposing the loaded graph to CLI/MCP and embedded hosts.
 The projection and `wayfinderLinkFields` live in the project library (ADR-0021), with Profile-agnostic field-list injection into graph/retrieval; this graph is discardable, and consumers needing different semantics must seek a compatibility review rather than treating it as a new source of truth.
 [Graph output](packages/wayfinder_cli/README.md) remains okf JSON/Mermaid/DOT plus relationship edges.
-
-## Exact queries over live concepts
-
-Date: 2026-10-31.
-
-Add read-only structured queries to the core project library and share their contract through CLI/MCP, so reusable metadata views need neither a per-project renderer script nor semantic ranking. Saved query IDs resolve versioned local JSON in the consuming project's `.wayfinder/queries/`; the existing metadata predicate remains available to embeddings consumers, and no OKF/Profile semantics change. Every query scans/fingerprints live sources and refuses partial data, paying filesystem cost without promising a transactional snapshot or computation attestation; see [queries](docs/queries.md).
-
-## Dense-only retrieval (ADR-0017)
-
-Date: 2026-10-18.
-
-Use dense retrieval throughout actual library, CLI/MCP and evaluation searches, removing lexical/hybrid modes and implicit fallback to reduce maintained APIs, fixtures and command contracts; this is a product/maintenance choice, not proof that dense is universally better.
-Consumers must supply an embedder and migrate retired arguments, while preview/parsing remain model-free, compatible snapshots remain usable and model failures stay errors.
-The [migration/evaluation guide](packages/wayfinder_embeddings/README.md#dense-only-migration) retains generic reranking/context policy and historical evidence attribution; another method needs a concrete need and reviewed quality/cost evidence.
 
 ## Embeddable libraries and host ownership (ADR-0018, ADR-0023)
 
@@ -79,14 +57,6 @@ Provide a previewable plan then guarded apply for hosts, approving each fetched 
 Planning may populate the external cache, but applying refuses stale/conflicting inputs and holds the project lock across owned writes/undo; failed steps roll back where possible, host writes require host-managed cleanup, and final validation runs after unlock without undoing applied files.
 Adoption therefore can remain incomplete after a failed final gate, and existing bindings remain migration work; [adoption API/seeds](packages/wayfinder/README.md#adoption) keep agent configuration and invented concepts outside the library's ownership.
 
-## Immutable plain-file index generations (ADR-0022, ADR-0026)
-
-Date: 2026-10-24; model lookup correction 2026-10-26.
-
-Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
-Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
-[Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
-
 ## Prepared 0.5 compatibility and release evidence
 
 Date: 2026-10-26; amended 2026-11-05.
@@ -99,12 +69,6 @@ Require successful source CI from the exact commit's push to main and independen
 Date: 2026-11-04.
 
 Refuse parent segments and any-case `.git` segments at the adoption request boundary, for the bundle, host inputs and seed concepts, before preparing writes, because normalized aliases hid unsafe intent. Freeze Git's root through termination and discover descendants until the frozen tree stops growing within one inspection budget. A failed listing kills those verified descendants with the root and resumes only non-root ids whose parentage no longer matches. POSIX PID operations remain best effort because they are not atomic process handles.
-
-## Retrieval source decisions and bounded ingestion
-
-Date: 2026-11-04.
-
-Carry the shared resolver's source decisions from the snapshot into search Markdown so displayed paths agree with `unresolved-source` notices. Attribute encoder failure at its own calls, including a returned vector with the wrong dimension or a non-finite component, and decode freshness through the loader's UTF-8 rules, preserving healthy models when bundle I/O fails; ingestion uses digest validation and a temporary spool to bound retained text, while keeping store-batch atomicity rather than promising call-wide rollback.
 
 ## Flutter reader SDK outside the Dart workspace
 

@@ -16,6 +16,7 @@ Read [README.md](README.md) for the layout, then the task's relevant files:
 | Validator, retrieval or release tooling | Relevant [package](packages/), [decision log](ARCHITECTURE.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
 | Profile vocabulary, composition or source mirrors | [Profiles](knowledge/profiles/index.md) |
 | Validation results, diagnostics, the gate or path targets | [Validation](knowledge/validation/index.md) |
+| Embedding, search, index storage or exact queries | [Retrieval](knowledge/retrieval/index.md) |
 | `knowledge/`, its gate or the link checker | [Ways of working](knowledge/ways-of-working/index.md) |
 
 ## Authority and scope

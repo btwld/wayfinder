@@ -2,6 +2,12 @@
 
 ## 2026-11-18
 
+* **Creation**: [Query live concepts exactly](retrieval/query-live-concepts-exactly.md) Read-only structured queries in the core project library, shared by CLI and MCP, with saved query ids in `.wayfinder/queries/`.
+* **Creation**: [Bound ingestion and cite resolved sources](retrieval/bound-ingestion-and-cite-resolved-sources.md) Search Markdown shows the shared resolver's source decisions, encoder failure is attributed at its own calls, and ingestion is bounded by digests and a temporary spool.
+* **Creation**: [Publish indexes as immutable plain-file generations](retrieval/publish-indexes-as-immutable-generations.md) Snapshot and vector generations with an atomically replaced pointer, readable during refresh, plus the model lookup order.
+* **Creation**: [Retrieve with dense search only](retrieval/retrieve-with-dense-search-only.md) Library, CLI, MCP and evaluation searches are dense, with no lexical or hybrid mode and no implicit fallback.
+* **Creation**: [Embed with a verified local model](retrieval/embed-with-a-local-model.md) Verified local Arctic Embed XS Q8_0 weights, chosen on size and cost.
+* **Area created**: [retrieval](retrieval/index.md) holds finding knowledge: the embedding model, dense search, index storage, ingestion, exact queries.
 * **Creation**: [Read Profile sources from the project's repository or a managed mirror](profiles/manage-profile-source-mirrors.md) Committed objects of the project's own repository are borrowed without a mirror, and abandoned mirrors are collected under sibling locks.
 * **Creation**: [Keep every Profile independent](profiles/keep-every-profile-independent.md) Every Profile is its own package with its own parent and executable rules, and every rule sees the vocabulary of the whole chain plus the project.
 * **Creation**: [Express Profile rules as data](profiles/express-rules-as-data.md) Rules are schemas over parsed facts or named builtins, facts carry no Profile's directory policy, the engine reads one package format, and generated output is pinned to the generator revision.

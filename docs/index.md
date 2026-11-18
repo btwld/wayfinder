@@ -24,7 +24,7 @@
 
 ## Retrieval evidence
 
-[Retrieval fixtures and benchmarks](../packages/wayfinder_embeddings/fixtures/README.md) — Judged queries, recorded results, and links to the protocols behind them. [ADR-0009](adr/0009-local-knowledge-retrieval.md) records the model choice they support.
+[Retrieval fixtures and benchmarks](../packages/wayfinder_embeddings/fixtures/README.md) — Judged queries, recorded results, and links to the protocols behind them. [ADR-0009](../knowledge/retrieval/embed-with-a-local-model.md) records the model choice they support.
 
 ## Operations
 
@@ -63,7 +63,7 @@ concept-authoring writes.
 The Dart OKF adapter also requires an embedder; there is no model-free search
 fallback. Chunk preview and snapshot parsing remain model-free. See the
 [API guide](../packages/wayfinder_embeddings/README.md#search-an-okf-bundle) and
-[dense-only migration](../docs/adr/0017-dense-only-retrieval.md).
+[dense-only migration](../knowledge/retrieval/retrieve-with-dense-search-only.md).
 
 - [Structured queries and saved views](queries.md) — model-free concept selection, grouping, CLI/MCP and project query IDs.
 
