@@ -3,7 +3,7 @@ type: Decision
 title: Keep one living concept per subject
 description: Every concept states current truth and is edited in place; nothing is deprecated or superseded, and the `current-truth` Profile enforces it.
 status: stable
-generated: { by: claude-code/fable-5, at: "2026-11-18T13:53:00Z" }
+generated: { by: claude-code/fable-5, at: "2026-11-18T14:07:09Z" }
 sources:
   - resource: https://github.com/btwld/wayfinder/blob/e06df73055b1e20599a5aca3df4fd96ddee558e3/ARCHITECTURE.md#architecture-decision-log
     title: Architecture decision log, header
@@ -70,9 +70,14 @@ declares `superseded-by` as a standard relationship and accepts `deprecated`
 as a status ([status-value](../../profiles/bitwild/README.md#status-value)),
 so it passes both shapes.
 
-This model departs from Bitwild's guidance in two places. Bitwild itself does
-not change.
+This model departs from Bitwild's guidance in three places. Bitwild itself
+does not change.
 
+- [Migration invariant 2](../../profiles/bitwild/skill/references/migration.md#three-invariants),
+  "IDs survive verbatim". A record number does not survive as a concept id,
+  because a numbered concept per old record keeps each record open to read as
+  if it were current. The number survives as a `sources` id, so one `grep`
+  still resolves it.
 - [Migration invariant 3](../../profiles/bitwild/skill/references/migration.md#three-invariants),
   "Supersession is preserved, not deleted". Superseded material does not
   migrate as deprecated concepts, because a deprecated concept stays one
