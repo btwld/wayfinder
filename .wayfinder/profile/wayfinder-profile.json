@@ -25,6 +25,7 @@
           "properties": {
             "status": {
               "not": {
+                "type": "string",
                 "pattern": "^\\s*deprecated\\s*$"
               }
             }
@@ -38,6 +39,9 @@
           },
           {
             "status": "draft"
+          },
+          {
+            "status": 3
           },
           {}
         ],

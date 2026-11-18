@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "where": { "types": ["Architecture Decision Record", "Decision"], "statuses": ["stable"] },
+  "where": { "types": ["Architecture Decision Record", "Decision"] },
   "select": ["title", "type", "description"],
   "order_by": [{ "field": "path", "direction": "asc" }]
 }
