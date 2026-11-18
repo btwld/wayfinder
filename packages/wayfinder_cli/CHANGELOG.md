@@ -22,7 +22,7 @@
   non-command handlers are preserved.
 - Correct the model lookup order in the ADR record to match the implementation,
   tests and user documentation; no lookup behavior changes. See the
-  model-lookup correction in [the decision log](../../ARCHITECTURE.md).
+  model-lookup correction in [the decision log](https://github.com/btwld/wayfinder/blob/e06df73055b1e20599a5aca3df4fd96ddee558e3/ARCHITECTURE.md#immutable-plain-file-index-generations-adr-0022-adr-0026).
 - The Windows public-install verifier restores the user's registry PATH after
   its temporary install, including when verification fails.
 - Requires `wayfinder` and `wayfinder_embeddings` `^0.5.0-beta.1`.
