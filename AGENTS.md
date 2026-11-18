@@ -2,25 +2,25 @@
 
 Wayfinder holds OKF validation, a Profile-rule engine, local retrieval, public
 Dart libraries, CLI/MCP, generic agent skills and Bitwild, the first Profile.
-Its own knowledge lives in its bundle, [`knowledge/`](knowledge/index.md).
-Another project's knowledge belongs in that project's bundle. Examples are
-illustrative.
+Its own decisions, vocabulary and ways of working live in its bundle,
+[`knowledge/`](knowledge/index.md). Another project's knowledge belongs in that
+project's bundle. Examples are illustrative.
 
 Read [README.md](README.md) for the layout, then the task's relevant files:
 
 | Changing | Read |
 | --- | --- |
 | Profile format, selection, evaluation, adoption or generation | [Engine contract](implementation/okf-implementation-guide.md), [schemas](docs/schemas/), [pinned OKF 0.2](skills/author-knowledge-bundle/references/OKF-0.2.md) |
-| Bitwild rules or vocabulary | [README](profiles/bitwild/README.md), [package](profiles/bitwild/wayfinder-profile.json), [changelog](profiles/bitwild/CHANGELOG.md) |
+| Bitwild rules or vocabulary | [README](profiles/bitwild/README.md), [package](profiles/bitwild/wayfinder-profile.json), [changelog](profiles/bitwild/CHANGELOG.md), [change a Profile](knowledge/ways-of-working/change-a-profile.md) |
 | Agent workflows | [Skills](skills/README.md), affected `SKILL.md` and routed references |
-| Validator, retrieval or release tooling | Relevant [package](packages/), [decisions](knowledge/index.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
+| Validator, retrieval or release tooling | Relevant [package](packages/), [decisions](knowledge/index.md), [contributor guide](knowledge/ways-of-working/index.md) and [CI](.github/workflows/ci.yml) |
 | CLI, MCP, graph or library boundaries, dependencies or OKF compatibility | [Architecture](knowledge/architecture/index.md) |
 | Governed writes or programmatic adoption | [Authoring](knowledge/authoring/index.md) |
 | Read-only browsing, document capture or the Flutter reader | [Reader](knowledge/reader/index.md) |
 | Profile vocabulary, composition or source mirrors | [Profiles](knowledge/profiles/index.md) |
 | Validation results, diagnostics, the gate or path targets | [Validation](knowledge/validation/index.md) |
 | Embedding, search, index storage or exact queries | [Retrieval](knowledge/retrieval/index.md) |
-| `knowledge/`, its gate or the link checker | [Ways of working](knowledge/ways-of-working/index.md) |
+| Checks, CI, releases, `knowledge/`, its gate or the link checker | [Ways of working](knowledge/ways-of-working/index.md) |
 
 ## Authority and scope
 
@@ -45,8 +45,8 @@ it here, including in `knowledge/` and `.context/`.
 
 ## Change requirements
 
-Follow the [engine-contract](docs/contributing.md#engine-contract-changes) or
-[Profile](docs/contributing.md#profile-changes) checklist in the same change.
+Follow the [engine-contract](knowledge/ways-of-working/change-the-engine-contract.md#engine-contract-changes) or
+[Profile](knowledge/ways-of-working/change-a-profile.md#profile-changes) checklist in the same change.
 They cover ADR/change records, compatibility, schemas/goldens, migration and
 release requirements. Never silently reinterpret a package or claim unreviewed
 upstream compatibility.
@@ -68,8 +68,9 @@ search a Profile's skill for withdrawn wording when changing its rules.
 change knowledge:
 
 1. Edit the owning concept in place. The position that lost becomes one bullet
-   under its `# Rejected`. Bitwild's skill says to deprecate a retired concept;
-   here the `current-truth` rules decide: no `deprecated`, no `superseded-by`.
+   under its `# Rejected`. Bitwild's skill (`profiles/bitwild/skill/`) says to
+   deprecate a retired concept and to keep numbered ids; here the
+   `current-truth` rules decide: no `deprecated`, no `superseded-by`.
 2. Add one `Update` or `Creation` entry to `knowledge/log.md`.
 3. Run `python3 tool/ci/verify-knowledge.py --fix`. It regenerates the indexes
    and judges the bundle against this checkout's Profile packages. Never
@@ -91,6 +92,6 @@ add nothing new under `docs/`.
 Use issue scope, or state maintenance scope in the PR. Update affected docs.
 Complete authorized inspection and reversible fixes; ask only when missing
 information materially changes scope or correctness, without repeating approval.
-Run the [contributor checks](docs/contributing.md#checks) and report results.
+Run the [contributor checks](knowledge/ways-of-working/run-contributor-checks.md#checks) and report results.
 Keep review notes/probes in `.context/`; durable guidance belongs in tracked docs.
 Fixtures deliberately include invalid bundles: do not normalize them.
