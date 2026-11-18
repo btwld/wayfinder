@@ -10,8 +10,10 @@ A change to what a package is, how the engine reads or composes one, its
 results, its diagnostics, or its builtins needs all of the following in the
 same change:
 
-1. A titled, dated entry or amendment in [ARCHITECTURE.md](../ARCHITECTURE.md),
-   using 1–3 sentences for the choice, reason and cost; no new numbered ADR file.
+1. An edit to the decision where it lives: its concept under
+   [`knowledge/`](../knowledge/index.md) once migrated, otherwise its
+   [ARCHITECTURE.md](../ARCHITECTURE.md) entry. A new decision is a new concept.
+   See [one living concept per subject](../knowledge/ways-of-working/keep-one-living-concept-per-subject.md).
 2. The guide's §9 change-record entry naming affected sections, the real-use
    driver, and the migration impact for implementations and packages.
 3. A package `format` bump when an existing package would read differently.
@@ -66,6 +68,8 @@ dart analyze --fatal-infos
 dart run tool/generate_published_schemas.dart --check
 python3 tool/ci/verify-configured-example.py
 python3 tool/ci/verify-independent-profile.py
+python3 tool/ci/verify-knowledge.py
+python3 tool/ci/verify-links.py
 ```
 
 The quick core lane excludes only `stress`. The explicit stress lane above keeps
@@ -95,9 +99,10 @@ minimum/stable keep the complete model-free suite.
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Use concurrency 2 for
 the commands above and coordinate heavy invocations with other agents on the
-machine; separate test invocations do not share that limit. For docs/skills, also
-check local links and compare changed wording with its authoritative source. Report
-what ran; validation checks conformance, not the judgment a skill asks for.
+machine; separate test invocations do not share that limit. `verify-links.py`
+checks every local link and anchor; compare changed wording with its
+authoritative source yourself. Report what ran; validation checks conformance,
+not the judgment a skill asks for.
 
 `packages/wayfinder_flutter` is outside the workspace and needs Flutter. Its
 [README](../packages/wayfinder_flutter/README.md#development) lists its checks.
@@ -194,8 +199,12 @@ pull request whose diff is only non-code (documentation outside
 non-build assets) skips the heavy jobs. The required check still runs and
 succeeds. Schemas, examples, Profile skill text, version snapshots, and
 test fixtures stay with the code jobs, because CI reads them.
+The `knowledge` job is not classified: it runs on every ready pull request
+and every push, because it is the only job that reads `knowledge/` and
+Markdown links. It needs no model.
 Classification, the required check, and POSIX installer lint use
-`ubuntu-slim`. Package tests and native retrieval stay on `ubuntu-latest`.
+`ubuntu-slim`. Package tests, native retrieval and the `knowledge` job stay
+on `ubuntu-latest`.
 
 No pull request schedules a `macos-*` runner. macOS and Windows public-install
 coverage is the manual dispatch added in #170. The workflow selects that

@@ -34,3 +34,10 @@ packages/wayfinder_cli/test/goldens/** text eol=lf
 # seeds_test compares SEEDING.md's blocks with KnowledgeSeeds byte for byte,
 # and the skills are installed as written.
 skills/** text eol=lf
+
+# index-current compares exact bytes and the Profile package is read verbatim.
+knowledge/** text eol=lf
+.wayfinder/** text eol=lf
+# Every knowledge change adds a log entry at the top; union keeps stacked
+# pull requests from conflicting there.
+knowledge/log.md merge=union

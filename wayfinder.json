@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "profiles": {
+    "current-truth": {
+      "source": {
+        "git": ".",
+        "ref": "main",
+        "path": ".wayfinder/profile"
+      },
+      "applies_to": ["./knowledge"],
+      "actors": {
+        "human:chrishiguto": {
+          "name": "Christiano Higuto",
+          "organization": "Concepta",
+          "side": "internal",
+          "role": "Maintainer"
+        },
+        "claude-code/opus-5-5": {
+          "name": "Claude Code (Opus 5.5)",
+          "organization": "Anthropic",
+          "side": "tool",
+          "role": "Authoring agent"
+        },
+        "claude-code/fable-5": {
+          "name": "Claude Code (Fable 5)",
+          "organization": "Anthropic",
+          "side": "tool",
+          "role": "Authoring agent"
+        }
+      }
+    }
+  }
+}

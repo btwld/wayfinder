@@ -275,9 +275,36 @@ jobs:
             ${{ runner.temp }}/okf-development.json
             ${{ runner.temp }}/okf-held-out.json
 
+  # Not gated on `changes`: a Markdown-only pull request skips the heavy jobs,
+  # and this is the job that reads Markdown.
+  knowledge:
+    name: Knowledge bundle and links
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: python3 tool/ci/verify-links.py
+      - run: python3 -B -m unittest discover -s tool/ci -p "test_verify_*.py" -v
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      # As in the test job: the CLI reaches llamadart's build hook.
+      - id: llamadart
+        shell: bash
+        run: python3 tool/ci/llamadart-native-cache.py
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.llamadart.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.llamadart.outputs.key }}
+      - run: python3 tool/ci/verify-knowledge.py
+
   required-checks:
     name: Required checks
-    needs: [changes, test, native-retrieval]
+    needs: [changes, test, native-retrieval, knowledge]
     if: >-
       always() &&
       !cancelled() &&
@@ -292,7 +319,8 @@ jobs:
         env:
           CHANGES: ${{ needs.changes.result }}
           RUN: ${{ needs.changes.outputs.run }}
-          RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }}
+          RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }},knowledge=${{ needs.knowledge.result }}
+          ALWAYS_RUN: knowledge
         run: python3 tool/ci/classify_changes.py --require
 
 

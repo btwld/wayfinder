@@ -47,10 +47,10 @@ resolves both from a synthetic local Git source, checks the lock and the
 reported chain, and validates after the source is gone, because validation
 reads only the lock and the cache.
 
-**This is not this repository's adopted bundle.** Conformance does not fix
-where a bundle lives or how many a repository holds. This illustrative project
-lives under `examples/` so nobody mistakes it for this repository's own
-knowledge.
+**This is not this repository's adopted bundle**, which is the root
+[`knowledge/`](../knowledge/index.md). Conformance does not fix where a bundle
+lives or how many a repository holds. This illustrative project lives under
+`examples/` so nobody mistakes it for this repository's own knowledge.
 
 ## The story it tells
 
