@@ -1,1 +1,0 @@
-ADR-0008: Publish okf's finding report unchanged — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#publish-upstream-findings-unchanged-adr-0008); original dates and amendment IDs are retained there.

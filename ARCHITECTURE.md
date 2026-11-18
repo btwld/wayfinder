@@ -10,13 +10,6 @@ The [engine contract and schemas](implementation/README.md) govern exact behavio
 [contribution requirements](docs/contributing.md) govern contract/Profile changes.
 Specs, API references and runbooks stay separate from this log.
 
-## Publish upstream findings unchanged (ADR-0008)
-
-Date: 2026-08-26; namespace/diagnostic amendment 2026-10-02.
-
-Publish okf's report unchanged and use its finding grammar for Profile results, keeping engine health in separate diagnostics, because translating findings would lose identifiers/severity semantics and create a second wire contract.
-Advisories cannot become strict failures, and a Profile finding never enters the OKF report; consumers must read the separate components defined by the [result contract](implementation/okf-implementation-guide.md#41-results-and-exit-codes).
-
 ## Local embeddings with Arctic XS (ADR-0009)
 
 Date: 2026-09-09.
@@ -54,22 +47,6 @@ Date: 2026-10-31.
 
 Add read-only structured queries to the core project library and share their contract through CLI/MCP, so reusable metadata views need neither a per-project renderer script nor semantic ranking. Saved query IDs resolve versioned local JSON in the consuming project's `.wayfinder/queries/`; the existing metadata predicate remains available to embeddings consumers, and no OKF/Profile semantics change. Every query scans/fingerprints live sources and refuses partial data, paying filesystem cost without promising a transactional snapshot or computation attestation; see [queries](docs/queries.md).
 
-## Profile rules are data (ADR-0015, ADR-0024)
-
-Date: 2026-10-01; Ack evaluation 2026-10-07; generator identity 2026-10-24.
-
-Represent Profile rules as schemas over parsed facts or named builtins, with engine-owned finding identity and messages the engine renders from Profile-supplied templates, so authors can change rules without a binary release; a fixture probe reproduced compiled findings and avoided the review/runtime cost of a new expression language.
-This limits rules to shared facts/capabilities, requires engine releases for new ones and trusts source-provided regular expressions; bounded package parsing does not bound bundle assessment.
-Pin generated-output assumptions to `okfIndexGeneratorRevision`, not the dependency release (ADR-0024), so a generator change requires explicit compatibility/migration review under the [package contract](implementation/okf-implementation-guide.md#56-rules-and-builtins).
-
-## Independent Profile packages (ADR-0016)
-
-Date: 2026-10-02.
-
-Make every Profile an independent package with its own parent and executable conformance rules, because a second corpus needed no Bitwild base and prose authority had made “passes validation but fails the Profile” possible.
-Authority is OKF → engine contract → package; README/skills explain judgment, `get` pins sources, and validation reads the local lock/cache, reporting unassessed execution as INCOMPLETE rather than silently passing rules.
-This gives up consumer overrides and inherited-rule relaxation: changes need the package/engine release processes, and the flat lock cannot represent two revisions of one id; see [Profile packages](implementation/okf-implementation-guide.md#5-profile-packages).
-
 ## Dense-only retrieval (ADR-0017)
 
 Date: 2026-10-18.
@@ -85,14 +62,6 @@ Date: 2026-10-22; host resolution controls 2026-10-24.
 Expose project and retrieval behavior as public libraries so IDE/agent hosts need no CLI internals, with injected resources, bounded project roots, typed failures, hardened origin-only Git and checked skill paths (ADR-0023).
 Hosts pay for resource lifecycle, fetch consent and serialization: all okf bundle I/O in one process stays on one isolate because its process-owned locks do not exclude isolates, while Wayfinder uses descriptor-owned locks on local disk.
 Package parsing normally has a ten-second isolate bound but falls back to unbounded synchronous parsing when spawning fails; hosts needing hard bounds must isolate work themselves, as detailed in [host operating boundaries](packages/wayfinder/README.md#host-operating-boundaries).
-
-## Collect abandoned Profile mirrors
-
-Date: 2026-11-09.
-
-Record successful mirror use and collect mirrors of missing local sources or sufficiently unused mirrors under sibling locks, because removed worktrees leave them behind (#181).
-Legacy mirrors get an observation period, dry runs write nothing, and package snapshots survive; reinstalling skills after eviction may require a fetch.
-Keep metadata outside mirrors for partial-deletion retries and require ownership evidence for staging cleanup, retaining lock files and unknown staging directories.
 
 ## Safe writes with a delta gate (ADR-0019, ADR-0024, ADR-0025)
 
@@ -118,32 +87,12 @@ Replace application ObjectBox indexes with immutable snapshot/vector generations
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
 
-## Shared effective vocabulary (ADR-0027)
-
-Date: 2026-10-26; clarifies ADR-0015/0016 without changing interpretation.
-
-Give every rule the vocabulary of the whole Profile chain plus the project, because the shipped child Profile extends tags accepted by inherited rules; children cannot replace, remove or re-grade inherited definitions, but their vocabulary can change inherited findings.
-This keeps existing verdicts and finding ownership, while requiring authors to test inherited checks affected by additions; the [composition contract](implementation/okf-implementation-guide.md#57-composition) governs exact behavior.
-
-## Profile-owned directory policy (ADR-0029)
-
-Date: 2026-10-26; amends ADR-0015/0016.
-
-Read format 3 only, as a JSON integer, and derive `sibling_directory` from the loaded file inventory without directory-name exceptions, because hard-coded Bitwild exclusions leaked placement policy into independent Profiles and deleting them under format 2 would silently reinterpret packages. A non-integer format value is malformed, not a supported spelling of format 3.
-Bitwild preserves its prior findings through its existing schema rule; every format 2 chain needs an explicit package migration or matching older engine, and valid OKF with an unmigrated Profile remains INCOMPLETE, as detailed in the [format and migration contract](implementation/okf-implementation-guide.md#54-identity-release-and-format).
-
 ## Prepared 0.5 compatibility and release evidence
 
 Date: 2026-10-26; amended 2026-11-05.
 
 Define the prepared public surfaces and compatibility obligations in the [0.5 contract](docs/stability.md), because embedders and machine consumers need an explicit boundary across independently versioned packages; public breaking changes carry breaking releases (the next 0.x minor) and migration notes, while Profile releases remain independent. The packages stay on 0.x, so the unpublished 1.0.0 became 0.5.0 with the same obligations.
 Require successful source CI from the exact commit's push to main and independent hosted CLI resolution before release eligibility, because a green PR or workspace resolution cannot establish those facts; the [read-only preflight and remaining distribution gates](docs/releasing.md#release-preflight) can therefore stay blocked on unpublished siblings or missing main evidence without declaring failed candidate code.
-
-## Inventory-authoritative path targets
-
-Date: 2026-11-04.
-
-Use one public path resolver for validation and retrieval, with injected inventory membership and disk lookup only outside the bundle. Candidate deletions and malformed encoded paths previously depended on graph classification or stale files on disk; strict OKF segment decoding and the loaded inventory now determine internal targets. Missing or malformed citations can gain findings/notices, and literal percent signs must be encoded as `%25`.
 
 ## Bounded adoption paths and process cleanup
 
@@ -181,16 +130,6 @@ Keep portable retained values, memory capture and lease mechanics behind core's 
 Date: 2026-11-09.
 
 For #180's desktop caller, reject file/symbolic project roots at open and exclude every dot-prefixed browsing entry before inspection, removing the unused hidden-entry option and finding-source field without changing OKF inventories or conformance. Native validation reserves `memory:` and authority-bearing `scheme://` roots for URI inputs, treating other colon-containing names as filesystem paths to avoid conflating POSIX names with URI schemes. Keep idle capture reuse until close because the host closes projects on worktree changes, accepting the retained capture and two-scan peak allocation.
-
-## Borrow committed same-repository Profile objects
-
-Date: 2026-11-09.
-
-Borrow committed Profile objects from the project's own repository to avoid
-duplicate mirrors across self-hosting checkouts and worktrees (#181).
-The cost is extra Git discovery and possible failure if external Git changes
-remove objects during resolution; see
-[source resolution](docs/wayfinder-configuration.md).
 
 ## Bounded document capture with attachment inventory
 

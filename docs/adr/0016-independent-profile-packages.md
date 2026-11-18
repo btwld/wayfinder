@@ -1,1 +1,0 @@
-ADR-0016: Every Profile is an independent package the validator enforces — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#independent-profile-packages-adr-0016); original dates and amendment IDs are retained there.
