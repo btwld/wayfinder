@@ -1,0 +1,106 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 3,
+  "id": "current-truth",
+  "release": "1",
+  "implements": {
+    "id": "okf",
+    "release": "0.2"
+  },
+  "extends": {
+    "path": "profiles/bitwild"
+  },
+  "docs": "https://github.com/btwld/wayfinder/blob/main/knowledge/ways-of-working/keep-one-living-concept-per-subject.md",
+  "rules": [
+    {
+      "id": "a-concept-is-never-deprecated",
+      "category": "history",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept's `status` MUST NOT be `deprecated`: a change edits the owning concept in place, and retired knowledge is deleted.",
+      "message": "This bundle keeps no deprecated concept. Edit the owning concept in place, or delete this one; Git holds what it said.",
+      "check": {
+        "subject": "frontmatter",
+        "schema": {
+          "properties": {
+            "status": {
+              "not": {
+                "pattern": "^\\s*deprecated\\s*$"
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "status": "stable"
+          },
+          {
+            "status": "draft"
+          },
+          {}
+        ],
+        "invalid": [
+          {
+            "status": "deprecated"
+          },
+          {
+            "status": " deprecated "
+          }
+        ]
+      }
+    },
+    {
+      "id": "a-concept-names-no-successor",
+      "category": "history",
+      "severity": "error",
+      "status": "stable",
+      "description": "A concept MUST NOT carry a `superseded-by` relationship: every concept in the bundle is current truth.",
+      "message": "A concept names a successor ({failing}). State current truth here, or delete this concept.",
+      "check": {
+        "subject": "concept",
+        "each": "relationships",
+        "failing_field": "entry",
+        "schema": {
+          "properties": {
+            "entry": {
+              "not": {
+                "type": "object",
+                "required": [
+                  "relationship"
+                ],
+                "properties": {
+                  "relationship": {
+                    "const": "superseded-by"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "valid": [
+          {
+            "entry": {
+              "relationship": "depends-on",
+              "resource": "/a.md"
+            }
+          },
+          {
+            "entry": "not a mapping"
+          }
+        ],
+        "invalid": [
+          {
+            "entry": {
+              "relationship": "superseded-by",
+              "resource": "/a.md"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

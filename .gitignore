@@ -25,3 +25,10 @@ HANDOFF.md
 
 # Python bytecode from tool/ci scripts.
 __pycache__/
+
+# The root binding follows this repository's own branch, so what `wayfinder get .`
+# writes is local state here, as examples/README.md says of the example projects.
+# Why: knowledge/ways-of-working/judge-the-bundle-against-its-own-checkout.md
+/wayfinder.lock
+/.claude/skills/bitwild-profile/
+/.agents/skills/bitwild-profile/
