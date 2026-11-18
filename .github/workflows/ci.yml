@@ -132,9 +132,11 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+      # The release tooling runs on the SDK distribute-wayfinder.yml pins, not
+      # stable: its cli_pkg 2.15.2 needs xml 7 and rejects Dart 3.14's ABIs.
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         run: dart pub -C tool/release get --enforce-lockfile
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         working-directory: tool/release
         run: |
           dart format --output=none --set-exit-if-changed .
