@@ -429,7 +429,7 @@ skill's guidance as checked.
 
 ### 4.6 Compatibility evidence
 
-[`docs/compatibility-review.md`](../knowledge/architecture/engine-compatibility-with-okf.md) records the
+[Engine compatibility with OKF](../knowledge/architecture/engine-compatibility-with-okf.md) records the
 engine's review against its `okf` package and the pinned OKF specification.
 It answers whether the engine keeps OKF's result and meaning intact. Each
 Profile records the OKF review of its own rules and declared keys in its
@@ -863,7 +863,7 @@ record (§9), and a wayfinder release. A change that would make the engine
 read an existing package differently bumps `format`, so an older package is
 reported as unsupported rather than reinterpreted. An upstream OKF
 specification release needs an engine compatibility review
-([`docs/compatibility-review.md`](../knowledge/architecture/engine-compatibility-with-okf.md)) before
+([Engine compatibility with OKF](../knowledge/architecture/engine-compatibility-with-okf.md)) before
 the engine reads it.
 
 Each Profile changes through its own release process, in its own repository.
