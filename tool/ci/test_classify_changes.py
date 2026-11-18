@@ -29,8 +29,7 @@ DISPATCH_RUNNER = (
 class ClassificationTest(unittest.TestCase):
     def test_documentation_readme_license_template_and_assets_are_non_code(self):
         non_code = [
-            'docs/contributing.md',
-            'docs/adr/0009-local-knowledge-retrieval.md',
+            'docs/install.md',
             'README.md',
             'readme',
             'packages/wayfinder/README.md',
@@ -48,6 +47,7 @@ class ClassificationTest(unittest.TestCase):
             'AGENTS.md',
             'examples/README.md',
             'knowledge/ways-of-working/keep-one-living-concept-per-subject.md',
+            'knowledge/architecture/entry-points.md',
             'knowledge/log.md',
         ]
         for path in non_code:
@@ -81,7 +81,7 @@ class ClassificationTest(unittest.TestCase):
 
     def test_one_code_path_keeps_heavy_jobs(self):
         self.assertTrue(classify.should_run(
-            ['docs/contributing.md', 'packages/wayfinder/lib/wayfinder.dart'],
+            ['docs/install.md', 'packages/wayfinder/lib/wayfinder.dart'],
             'code',
         ))
 
@@ -92,7 +92,7 @@ class ClassificationTest(unittest.TestCase):
 
     def test_installer_and_public_install_watch_their_own_files(self):
         self.assertTrue(classify.should_run(['tool/install.sh'], 'installer'))
-        self.assertFalse(classify.should_run(['docs/contributing.md'], 'installer'))
+        self.assertFalse(classify.should_run(['docs/install.md'], 'installer'))
         self.assertTrue(classify.should_run(
             ['tool/verify_public_install.py'], 'public-install'))
         self.assertFalse(classify.should_run(
