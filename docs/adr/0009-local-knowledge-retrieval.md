@@ -1,1 +1,0 @@
-ADR-0009: Use Arctic Embed XS for local knowledge embeddings — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#local-embeddings-with-arctic-xs-adr-0009); original dates and amendment IDs are retained there.

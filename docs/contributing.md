@@ -173,7 +173,7 @@ baseline without rewriting it; see its [fixtures README](../packages/wayfinder_e
 For native semantic retrieval, `dart run melos run wayfinder_embeddings:prepare` stages the pinned
 25.28 MB model. `dart run melos run wayfinder_embeddings:build` creates a
 CLI bundle containing the model and native libraries. The model choice is
-recorded in [ADR-0009](adr/0009-local-knowledge-retrieval.md). `wayfinder validate` provides
+recorded in [Embed with a verified local model](../knowledge/retrieval/embed-with-a-local-model.md). `wayfinder validate` provides
 bundle validation; search examples and evaluation commands live in the
 [embedding package](../packages/wayfinder_embeddings/README.md#command-line-entry-points).
 

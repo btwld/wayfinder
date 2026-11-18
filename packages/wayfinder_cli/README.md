@@ -452,7 +452,7 @@ independent model-quality benchmark. The [CI workflow](../../.github/workflows/c
 runs these checks on the supported native targets.
 
 See [ADR-0010](../../docs/adr/0010-wayfinder-cli.md) for the application decision
-and [ADR-0009](../../docs/adr/0009-local-knowledge-retrieval.md) for model and
+and [Embed with a verified local model](../../knowledge/retrieval/embed-with-a-local-model.md) for model and
 ranking limitations.
 
 CLI and MCP search share the ACK query, limit, and default contract. The CLI
@@ -503,7 +503,7 @@ Remove CLI `--mode`, including `--mode=dense`, and MCP `mode` from callers.
 Retired BM25/hybrid requests are rejected explicitly, not reinterpreted as
 dense. MCP rejects unsupported fields rather than silently discarding them;
 refresh tool discovery after upgrading. This is a breaking command-contract
-change. See [ADR-0017](../../docs/adr/0017-dense-only-retrieval.md).
+change. See [Retrieve with dense search only](../../knowledge/retrieval/retrieve-with-dense-search-only.md).
 
 Dart callers remove retrieval `mode:` and supply the required encoder to the
 index. [Embeddings migration](../wayfinder_embeddings/README.md#dense-only-migration)
