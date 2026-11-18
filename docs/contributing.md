@@ -199,8 +199,12 @@ pull request whose diff is only non-code (documentation outside
 non-build assets) skips the heavy jobs. The required check still runs and
 succeeds. Schemas, examples, Profile skill text, version snapshots, and
 test fixtures stay with the code jobs, because CI reads them.
+The `knowledge` job is not classified: it runs on every ready pull request
+and every push, because it is the only job that reads `knowledge/` and
+Markdown links. It needs no model.
 Classification, the required check, and POSIX installer lint use
-`ubuntu-slim`. Package tests and native retrieval stay on `ubuntu-latest`.
+`ubuntu-slim`. Package tests, native retrieval and the `knowledge` job stay
+on `ubuntu-latest`.
 
 No pull request schedules a `macos-*` runner. macOS and Windows public-install
 coverage is the manual dispatch added in #170. The workflow selects that
