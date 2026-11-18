@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
 import 'package:wayfinder/wayfinder.dart';
 
 /// One severity/id/path line per profile finding, in report order.
@@ -35,7 +36,14 @@ Future<ProfileValidationResult> validateFixture(
   ProfileValidator validator = const ProfileValidator(),
 }) async {
   final config = p.posix.join(path, 'wayfinder.json');
-  final bundle = fixtureBundle(path);
+  var bundle = fixtureBundle(path);
+  if (!discoverConfig && !File(config).existsSync()) {
+    // Inside the checkout, an unconfigured bundle would discover any
+    // wayfinder.json above it, so it is validated from a copy outside.
+    final copy = await _copyDirectory(bundle);
+    addTearDown(() => copy.delete(recursive: true));
+    bundle = copy.path;
+  }
   return validator.validate(
     bundle,
     await selectFixture(
@@ -108,8 +116,10 @@ Map<String, Object?> ruleJson(
   'tests': {'valid': valid, 'invalid': invalid},
 };
 
-Future<Directory> copyFixture(String name) async {
-  final source = Directory(fixture(name));
+Future<Directory> copyFixture(String name) => _copyDirectory(fixture(name));
+
+Future<Directory> _copyDirectory(String path) async {
+  final source = Directory(path);
   final destination = await Directory.systemTemp.createTemp('okfp-fixture-');
   await for (final entity in source.list(recursive: true)) {
     if (entity is! File) continue;
