@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -43,20 +44,6 @@ GateState = Literal["PASS", "FAIL", "INCOMPLETE"]
 
 class GateDidNotRun(Exception):
     """The binding could not be built, or Wayfinder printed no report."""
-
-
-@dataclass(frozen=True)
-class BoundProject:
-    """A temporary copy of the project, bound to the working tree's packages.
-
-    Invariant: `root` holds exactly `wayfinder.json` and `knowledge/`, and
-    every `source` in that `wayfinder.json` names `source_repo` at `commit`.
-    The tracked `wayfinder.json` is never rewritten.
-    """
-
-    root: Path
-    source_repo: Path
-    commit: str
 
 
 @dataclass(frozen=True)
@@ -91,39 +78,35 @@ def chain_paths(root: Path) -> tuple[str, ...]:
     Today: `.wayfinder/profile`, `profiles/bitwild`.
     """
     paths: list[str] = []
-    try:
-        for profile_id, entry in _json(root / CONFIG)["profiles"].items():
-            source = entry["source"]
-            if source["git"] != ".":
+    for profile_id, entry in _json(root / CONFIG)["profiles"].items():
+        source = entry["source"]
+        if source["git"] != ".":
+            raise GateDidNotRun(
+                f"{CONFIG}: Profile {profile_id} names the source {source['git']}; "
+                "this gate binds only packages of this repository."
+            )
+        path = source["path"]
+        while path not in paths:
+            paths.append(path)
+            parent = _json(root / path / PACKAGE).get("extends")
+            if parent is None:
+                break
+            if "git" in parent:
                 raise GateDidNotRun(
-                    f"{CONFIG}: Profile {profile_id} names the source {source['git']}; "
+                    f"{path}/{PACKAGE}: extends names the repository {parent['git']}; "
                     "this gate binds only packages of this repository."
                 )
-            path = source["path"]
-            while path not in paths:
-                paths.append(path)
-                parent = _json(root / path / PACKAGE).get("extends")
-                if parent is None:
-                    break
-                if "git" in parent:
-                    raise GateDidNotRun(
-                        f"{path}/{PACKAGE}: extends names the repository {parent['git']}; "
-                        "this gate binds only packages of this repository."
-                    )
-                path = parent["path"]
-    except (KeyError, TypeError, AttributeError) as error:
-        # An uncaught error would exit 1, which is Wayfinder's code for FAIL.
-        raise GateDidNotRun(
-            f"{CONFIG} or a package it names is not shaped as its schema requires: {error!r}"
-        ) from error
+            path = parent["path"]
     return tuple(paths)
 
 
-def bind_working_tree(work: Path) -> BoundProject:
+def bind_working_tree(work: Path) -> Path:
     """Commit the working tree's Profile packages once and bind a project copy to them.
 
     Reads uncommitted edits, so a rule change and the concept that satisfies
-    it are judged together in one pull request.
+    it are judged together in one pull request. Returns the copy's root, which
+    holds exactly `wayfinder.json` and `knowledge/`. The tracked
+    `wayfinder.json` is never rewritten.
 
     Idempotent: `work` is a fresh temporary directory per run.
     """
@@ -138,10 +121,10 @@ def bind_working_tree(work: Path) -> BoundProject:
         entry["source"]["git"] = str(source_repo)
         entry["source"]["ref"] = commit
     (project / CONFIG).write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    return BoundProject(root=project, source_repo=source_repo, commit=commit)
+    return project
 
 
-def judge(project: BoundProject, *, fix: bool) -> Verdict:
+def judge(project: Path, *, fix: bool) -> Verdict:
     """Run `get`, then `validate knowledge --output json` (with `--fix` when asked).
 
     `WAYFINDER_DATA_DIR` points inside the temporary directory, so no run
@@ -151,7 +134,7 @@ def judge(project: BoundProject, *, fix: bool) -> Verdict:
     parse, including one whose rule `tests` disagree with its check, stops here.
     """
     env = with_git(
-        {**os.environ, "WAYFINDER_DATA_DIR": str(project.root.parent / "data")}
+        {**os.environ, "WAYFINDER_DATA_DIR": str(project.parent / "data")}
     )
 
     def run(*args: str) -> subprocess.CompletedProcess:
@@ -159,12 +142,12 @@ def judge(project: BoundProject, *, fix: bool) -> Verdict:
             [*WAYFINDER, *args], cwd=ROOT, env=env, text=True, capture_output=True
         )
 
-    got = run("get", str(project.root))
+    got = run("get", str(project))
     if got.returncode != 0:
         raise GateDidNotRun(f"wayfinder get failed ({got.returncode})\n{got.stderr}")
     validated = run(
         "validate",
-        str(project.root / BUNDLE),
+        str(project / BUNDLE),
         "--output=json",
         *(["--fix"] if fix else []),
     )
@@ -182,7 +165,7 @@ def judge(project: BoundProject, *, fix: bool) -> Verdict:
     )
 
 
-def copy_back(project: BoundProject, written: tuple[str, ...]) -> None:
+def copy_back(project: Path, written: tuple[str, ...]) -> None:
     """Copy each generated `index.md` that `--fix` wrote into the real `knowledge/`.
 
     Writes only paths named in `written`, and only files named `index.md`,
@@ -190,7 +173,7 @@ def copy_back(project: BoundProject, written: tuple[str, ...]) -> None:
     """
     for path in written:
         if Path(path).name == "index.md":
-            shutil.copyfile(project.root / BUNDLE / path, ROOT / BUNDLE / path)
+            shutil.copyfile(project / BUNDLE / path, ROOT / BUNDLE / path)
             print(f"wrote {BUNDLE}/{path}")
 
 
@@ -235,15 +218,21 @@ def main(argv: list[str]) -> int:
         print(__doc__.split("Usage:\n", 1)[1], file=sys.stderr)
         return 2
     fix = bool(argv)
-    with tempfile.TemporaryDirectory(prefix="wayfinder-knowledge-") as tmp:
-        try:
+    try:
+        with tempfile.TemporaryDirectory(prefix="wayfinder-knowledge-") as tmp:
             project = bind_working_tree(Path(tmp))
             verdict = judge(project, fix=fix)
-        except GateDidNotRun as error:
-            print(error, file=sys.stderr)
-            return 2
-        copy_back(project, verdict.written)
-    print("\n".join(describe(verdict)))
+            copy_back(project, verdict.written)
+        lines = describe(verdict)
+    except GateDidNotRun as error:
+        print(error, file=sys.stderr)
+        return 2
+    except Exception:
+        # Exit 1 is Wayfinder's FAIL. A missing `dart`, a failed `git commit` or
+        # an unexpected report stops the gate without a verdict, so it is 2.
+        traceback.print_exc()
+        return 2
+    print("\n".join(lines))
     return verdict.exit_code
 
 

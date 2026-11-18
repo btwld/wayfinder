@@ -162,6 +162,20 @@ class RequiredCheckTest(unittest.TestCase):
         self.assertEqual(status, 'failed')
         self.assertIn('knowledge=failure', message)
 
+    def test_a_skipped_always_run_job_fails_a_non_code_pull_request(self):
+        status, message = classify.evaluate(
+            changes='success', run=False,
+            results={
+                'test': 'skipped',
+                'native-retrieval': 'skipped',
+                'knowledge': 'skipped',
+            },
+            may_skip=set(),
+            always_run={'knowledge'},
+        )
+        self.assertEqual(status, 'failed')
+        self.assertIn('knowledge=skipped', message)
+
     def test_an_intentional_platform_skip_is_allowed_only_by_name(self):
         status, _ = classify.evaluate(
             changes='success', run=True,
@@ -286,6 +300,7 @@ class WorkflowContractTest(unittest.TestCase):
         required = _job_section(ci, 'required-checks:')
         self.assertIn('knowledge]', required)
         self.assertIn('knowledge=${{ needs.knowledge.result }}', required)
+        self.assertIn('ALWAYS_RUN: knowledge', required)
 
     def test_macos_is_not_a_pull_request_runner(self):
         for path in (ROOT / '.github/workflows').glob('*.yml'):

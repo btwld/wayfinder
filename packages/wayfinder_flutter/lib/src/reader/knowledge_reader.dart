@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:wayfinder/knowledge.dart';
 
 import '../controller/knowledge_reader_controller.dart';

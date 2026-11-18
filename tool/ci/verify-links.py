@@ -29,6 +29,13 @@ from typing import Iterable, Iterator, Literal
 from urllib.parse import unquote
 
 SELF_URL = "https://github.com/btwld/wayfinder/blob/main/"
+SELF_PREFIXES = (
+    SELF_URL,
+    "https://github.com/btwld/wayfinder/tree/main/",
+    "https://raw.githubusercontent.com/btwld/wayfinder/main/",
+)
+"""How readers outside the checkout address `main`: a page, a directory (a
+pubspec `repository`), and raw bytes (the install one-liners)."""
 
 UNCHECKED: tuple[tuple[str, str], ...] = (
     (r"(^|/)(test|tests|fixtures|goldens)/", "fixtures deliberately hold invalid bundles and dead links"),
@@ -59,7 +66,9 @@ _DEFINITION = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:\s*<?([^\s>]+)")
 _SCHEME = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*:|//")
 _HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
 _LINK_TEXT = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
-_SELF = re.compile(re.escape(SELF_URL) + r"""([^\s"'`<>()\[\]{}#\\]*)(?:#([\w.%-]*))?""")
+_SELF = re.compile(
+    "(?:" + "|".join(map(re.escape, SELF_PREFIXES)) + ")" + r"""([^\s"'`<>()\[\]{}#\\]*)(?:#([\w.%-]*))?"""
+)
 
 
 @dataclass(frozen=True)
@@ -198,14 +207,16 @@ def markdown_references(path: str, text: str) -> Iterator[Reference]:
 
 
 def self_url_references(path: str, text: str) -> Iterator[Reference]:
-    """Every `SELF_URL…` in any tracked text file: Dart, JSON, Python, shell, YAML, Markdown.
+    """Every URL under a `SELF_PREFIXES` entry in any text file: Dart, JSON, Python,
+    shell, YAML, Markdown.
 
     Trailing sentence punctuation is not part of the URL.
     """
     for number, line in enumerate(text.splitlines(), start=1):
         for match in _SELF.finditer(line):
             written = match.group(0).rstrip(".,;:!?")
-            target, fragment = _resolve("", "/" + written[len(SELF_URL):])
+            path_start = match.start(1) - match.start(0)
+            target, fragment = _resolve("", "/" + written[path_start:])
             yield Reference(path, number, written, target, fragment)
 
 
@@ -356,13 +367,14 @@ def anchor_names_a_heading(tree: Tree, reference: Reference) -> Issue | None:
 
 
 def self_url_resolves(tree: Tree, reference: Reference) -> Issue | None:
-    """Contract: a `blob/main` URL of this repository names a path the tree holds,
+    """Contract: a URL of this repository's `main` names a path the tree holds,
     and its fragment a heading when the path is Markdown.
 
     Defect it catches: a URL that ships inside an artifact goes dead on
-    merge: the install guide URL the CLI prints, the query guide link in
-    `skills/use-wayfinder/SKILL.md`, a schema `$id`, a Profile's `docs`. These
-    are the links nobody can repair after release.
+    merge: the install guide URL the CLI prints, the install script URL, a
+    pubspec `repository`, the query guide link in `skills/use-wayfinder/SKILL.md`,
+    a schema `$id`, a Profile's `docs`. These are the links nobody can repair
+    after release.
     """
     if not _exists(tree, reference.target):
         reason = "names a path that does not exist"

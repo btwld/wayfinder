@@ -24,7 +24,7 @@
 * **Creation**: [Serve MCP over the CLI's services](architecture/serve-mcp-over-shared-services.md) Validate, index, search, query and graph over local MCP stdio on the CLI's own services, with no HTTP, authentication or authoring tool.
 * **Creation**: [Run explicit local operations from one CLI](architecture/run-explicit-local-operations.md) One CLI validates, indexes and searches; no command downloads a model or rebuilds an index implicitly.
 * **Creation**: [Engine compatibility with OKF](architecture/engine-compatibility-with-okf.md) The four-part compatibility test and one row per engine behavior that reads, writes or reports on a bundle, redone for each OKF release.
-* **Creation**: [Entry points](architecture/entry-points.md) Which interface serves which caller: the CLI, MCP, each public Dart library, the Flutter SDK, the skills and the user guides, with the document that owns each.
+* **Creation**: [Entry points](architecture/entry-points.md) Which interface serves which caller: the CLI, MCP, each public Dart library and the Flutter SDK, with the document that owns each.
 * **Creation**: [Engine contract](architecture/engine-contract.md) The implementation guide and the two published JSON Schemas, ranked below OKF and above every Profile.
 * **Creation**: [OKF Specification](architecture/okf-specification.md) The authoritative Open Knowledge Format specification that the engine contract and every Profile build on.
 * **Area created**: [architecture](architecture/index.md) holds the system as a whole: the authority chain, the entry points, the CLI, MCP, graph and library boundaries, dependency policy, the OKF compatibility review.

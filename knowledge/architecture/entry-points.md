@@ -17,7 +17,7 @@ sources:
 | Interface | Use it for | Entry point |
 | --- | --- | --- |
 | CLI | Terminal workflows and CI, with text or JSON results; validation also supports SARIF. | [`wayfinder`](../../packages/wayfinder_cli/README.md) |
-| MCP | Agent access to `validate`, `index`, `search`, and `graph` across configured project bundles (or one explicit bundle) over stdio. | [`wayfinder mcp <bundle>`](../../packages/wayfinder_cli/README.md#mcp-server) |
+| MCP | Agent access to `validate`, `index`, `search`, `query`, and `graph` across configured project bundles (or one explicit bundle) over stdio. | [`wayfinder mcp <bundle>`](../../packages/wayfinder_cli/README.md#mcp-server) |
 | Dart validation | Embed validation and consume typed findings, diagnostics, and gate results. | [`ProfileValidator`](../../packages/wayfinder/README.md) from `package:wayfinder/wayfinder.dart` |
 | Portable knowledge | Retained byte values, snapshots, independent leases, cancellation and the memory backend without native dependencies in the import closure. | [`knowledge.dart`](../../packages/wayfinder/README.md#portable-retained-knowledge) from `package:wayfinder/knowledge.dart` |
 | Read-only local knowledge | Bounded filesystem browsing capture without Profile fetching or source writes. | [`LocalKnowledgeProject.open`](../../packages/wayfinder/README.md#read-only-filesystem-loader) from `package:wayfinder/project.dart` |
