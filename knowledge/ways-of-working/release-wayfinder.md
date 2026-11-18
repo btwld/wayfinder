@@ -1,9 +1,21 @@
-# Release Wayfinder
+---
+type: Guide
+title: Release Wayfinder
+description: Package tags, preparation, publication order, the read-only preflight, release gates, native distribution and partial recovery.
+status: stable
+generated:
+  by: claude-code/fable-5
+  at: 2026-11-18T14:32:44Z
+sources:
+  - id: releasing
+    title: Release Wayfinder
+    resource: https://github.com/btwld/wayfinder/blob/e06df73055b1e20599a5aca3df4fd96ddee558e3/docs/releasing.md
+---
 
 The public repository is `btwld/wayfinder`. All Dart packages use the
 `concepta.dev` publisher.
 
-## Packages and tags
+# Packages and tags
 
 | Package | Purpose | Publication tag | Workflow |
 | --- | --- | --- | --- |
@@ -15,9 +27,9 @@ The application retains `wayfinder-v` tags and native archive names for installe
 compatibility. The core uses a distinct tag namespace so independent library
 releases cannot collide with application releases. Profile releases follow that
 package's own policy; see the
-[Profile change checklist](contributing.md#profile-changes).
+[Profile change checklist](change-a-profile.md#profile-changes).
 
-## Format-3 rollout window
+# Format-3 rollout window
 
 The published 0.4.0 engine reads format 2. A project tracking Bitwild at
 `ref: main` must pin its last format-2 revision before this preparation lands:
@@ -32,9 +44,9 @@ aligned during this window. Native distribution remains paused; merging the
 preparation does not promise immediate native 0.5 availability. Coordinate
 runtime availability and project pins before landing the format/plugin flip.
 
-## Prepare a release
+# Prepare a release
 
-The [0.5 compatibility contract](stability.md) names the public surfaces and
+The [0.5 compatibility contract](../../docs/stability.md) names the public surfaces and
 support/migration boundaries.
 
 Preparation does not publish. Publish changed core or `wayfinder_embeddings`
@@ -91,7 +103,7 @@ resumes.
    `wayfinder-v<version>` with that successful source CI run ID, then verify
    the public installer jobs.
 
-### Release preflight
+## Release preflight
 
 Before publication, run the read-only preflight against the clean prepared
 commit. It reads public pub.dev metadata and, when supplied, the source CI
@@ -158,7 +170,7 @@ the authorized publication tasks and pinned/public installer verification
 remain separate gates. The source CI runs the preflight's offline unit tests,
 not this necessarily blocked release-stage command while its own run is pending.
 
-### Release gates
+## Release gates
 
 Run contributor checks, native builds and the CLI/MCP installer checks before
 tagging. `wayfinder update` offers only stable `wayfinder-v` releases, so
@@ -178,10 +190,10 @@ configuration accepts `btwld/wayfinder` tags matching
 workflow token must not be relied on to trigger publication. Each publish
 workflow recognizes an already-published version and skips upload.
 
-## Native distribution
+# Native distribution
 
 Native distribution is currently paused under the
-[hosted runner policy](contributing.md#hosted-runner-policy). Active Linux CI
+[hosted runner policy](ration-hosted-runners.md). Active Linux CI
 does not provide the complete three-platform inputs required below. Resume
 the paused platform verification before attempting native publication.
 
@@ -209,7 +221,7 @@ Windows runner to smoke-test the published archives on those platforms; that
 choice is the only way those runners start. The **Installer scripts** workflow
 checks Windows PowerShell 5.1 and PowerShell 7 on installer pull requests.
 
-## Partial recovery
+# Partial recovery
 
 If only some channels finished, continue from the failed job. Do not recreate
 tags, replace published archives or republish a version that pub.dev already
