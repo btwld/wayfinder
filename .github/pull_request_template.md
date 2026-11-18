@@ -6,8 +6,8 @@
 
 Follow the applicable checklist:
 
-- [ ] [Engine contract](../knowledge/ways-of-working/change-the-engine-contract.md): owning decision concept edited in place, log entry, §9 record, format bump when needed, schemas/goldens/skills
-- [ ] [Profile](../knowledge/ways-of-working/change-a-profile.md): tested rules, rationale, changelog/migration, compatibility review and skill wording; release/tag/snapshot on publication
+- [ ] [Engine contract](https://github.com/btwld/wayfinder/blob/main/knowledge/ways-of-working/change-the-engine-contract.md): owning decision concept edited in place, log entry, §9 record, format bump when needed, schemas/goldens/skills
+- [ ] [Profile](https://github.com/btwld/wayfinder/blob/main/knowledge/ways-of-working/change-a-profile.md): tested rules, rationale, changelog/migration, compatibility review and skill wording; release/tag/snapshot on publication
 - [ ] Scope and authority respected; no client data or project-specific vocabulary added
 
 ## Checks
