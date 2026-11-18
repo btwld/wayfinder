@@ -61,7 +61,7 @@ and `wayfinder get` refuses `"ref": "HEAD"`. A committed lock is therefore
 always one commit behind the packages beside it. A squash merge can orphan
 the commit it pins. With a committed lock, a pull request that bumps the
 package `format` cannot pass, because the engine reads one format
-([decision log](../../ARCHITECTURE.md#profile-owned-directory-policy-adr-0029))
+([Express Profile rules as data](../profiles/express-rules-as-data.md#profile-owned-directory-policy))
 and the lock still pins a package in the old one.
 
 [`examples/README.md`](../../examples/README.md) states the same convention

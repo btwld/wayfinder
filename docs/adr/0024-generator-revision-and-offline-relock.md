@@ -1,1 +1,0 @@
-ADR-0024: Pin the generator revision, and relock offline — accepted amendment consolidated with [ADR-0015](../../ARCHITECTURE.md#profile-rules-are-data-adr-0015-adr-0024), [ADR-0019](../../ARCHITECTURE.md#safe-writes-with-a-delta-gate-adr-0019-adr-0024-adr-0025), [ADR-0020](../../ARCHITECTURE.md#adoption-as-plan-then-apply-adr-0020-adr-0024-adr-0025); dated 2026-10-24.

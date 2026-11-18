@@ -14,6 +14,8 @@ Read [README.md](README.md) for the layout, then the task's relevant files:
 | Bitwild rules or vocabulary | [README](profiles/bitwild/README.md), [package](profiles/bitwild/wayfinder-profile.json), [changelog](profiles/bitwild/CHANGELOG.md) |
 | Agent workflows | [Skills](skills/README.md), affected `SKILL.md` and routed references |
 | Validator, retrieval or release tooling | Relevant [package](packages/), [decision log](ARCHITECTURE.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
+| Profile vocabulary, composition or source mirrors | [Profiles](knowledge/profiles/index.md) |
+| Validation results, diagnostics, the gate or path targets | [Validation](knowledge/validation/index.md) |
 | `knowledge/`, its gate or the link checker | [Ways of working](knowledge/ways-of-working/index.md) |
 
 ## Authority and scope

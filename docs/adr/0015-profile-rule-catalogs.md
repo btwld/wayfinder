@@ -1,1 +1,0 @@
-ADR-0015: Profile rules are data — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#profile-rules-are-data-adr-0015-adr-0024); original dates and amendment IDs are retained there.
