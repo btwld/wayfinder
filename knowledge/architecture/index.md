@@ -12,7 +12,7 @@
 
 # Architecture Document
 
-* [Entry points](entry-points.md) - Which interface serves which caller: the CLI, MCP, each public Dart library, the Flutter SDK, the skills and the user guides, with the document that owns each.
+* [Entry points](entry-points.md) - Which interface serves which caller: the CLI, MCP, each public Dart library and the Flutter SDK, with the document that owns each.
 
 # Glossary Definition
 

@@ -1,11 +1,11 @@
 ---
 type: Architecture Document
 title: Entry points
-description: "Which interface serves which caller: the CLI, MCP, each public Dart library, the Flutter SDK, the skills and the user guides, with the document that owns each."
+description: "Which interface serves which caller: the CLI, MCP, each public Dart library and the Flutter SDK, with the document that owns each."
 status: stable
 generated:
   by: claude-code/fable-5
-  at: 2026-11-18T14:28:19Z
+  at: 2026-11-18T14:46:30Z
 sources:
   - id: docs-index
     title: Documentation index
