@@ -38,13 +38,14 @@ no lock. The gate never reads the local lock.
 
 ## Every link, anchor and help link resolves
 
-`python3 tool/ci/verify-links.py` reads the repository's tracked text and
-applies four rules. It reads no frontmatter and knows no concept type.
+`python3 tool/ci/verify-links.py` reads every text file of the checkout that
+Git does not ignore and applies four rules. It reads no frontmatter and knows no concept type.
 
 - `link-resolves`: a relative Markdown link names an existing path.
 - `anchor-names-a-heading`: a `#fragment` is a heading slug of its target.
-- `self-url-resolves`: a `blob/main` URL of this repository names an existing
-  path and heading.
+- `self-url-resolves`: a `blob/main`, `tree/main` or
+  `raw.githubusercontent.com/…/main` URL of this repository names an existing
+  path, and a page's fragment names a heading.
 - `rule-help-link-lands`: every rule id of a Profile package in this
   repository is a heading of the page its `docs` names.
 

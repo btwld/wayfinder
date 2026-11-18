@@ -145,6 +145,24 @@ class LinkRulesTest(unittest.TestCase):
             ('self-url-resolves', 'lib/update.dart', 5),
         ])
 
+    def test_tree_and_raw_urls_of_main_are_checked(self):
+        tree_url, raw_url = links.SELF_PREFIXES[1:]
+        files = {
+            'packages/cli/pubspec.yaml': (
+                f'repository: {tree_url}packages/cli\n'
+                f'homepage: {tree_url}packages/gone\n'
+            ),
+            'README.md': (
+                f'curl -fsSL {raw_url}tool/install.sh | sh\n'
+                f'curl -fsSL {raw_url}tool/install-gone.sh | sh\n'
+            ),
+            'tool/install.sh': '',
+        }
+        self.assertEqual(self.issues(files), [
+            ('self-url-resolves', 'README.md', 2),
+            ('self-url-resolves', 'packages/cli/pubspec.yaml', 2),
+        ])
+
     def test_profile_rule_without_a_heading_is_an_issue(self):
         package = json.dumps({
             'docs': f'{links.SELF_URL}profile/README.md',

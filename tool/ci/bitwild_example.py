@@ -20,10 +20,13 @@ MARKER = ".wayfinder-profile"
 
 
 def _git(*args: str, cwd: Path) -> str:
+    # A contributor's own Git configuration (commit signing, hooks) must not
+    # decide whether the synthetic source can be committed.
     return subprocess.run(
         ["git", "-c", "user.name=Wayfinder Example",
          "-c", "user.email=example@example.test", *args],
         cwd=cwd, check=True, text=True, capture_output=True,
+        env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"},
     ).stdout.strip()
 
 
