@@ -4,7 +4,7 @@ This is the prepared contract for the 0.5 release line of each of Wayfinder's
 three packages. A prepared version is not a published release. The packages
 remain independently versioned on 0.x, where the minor version is the
 breaking-change boundary: `^0.5.0` accepts 0.5 releases, not 0.6. A Profile's
-own release is independent of all three. [Release preparation](releasing.md)
+own release is independent of all three. [Release preparation](../knowledge/ways-of-working/release-wayfinder.md)
 and exact-source verification still decide whether a candidate can ship.
 
 ## Supported surfaces
@@ -64,7 +64,7 @@ An example teaches the public API it uses; it does not establish another API.
   Profile equally. All inherited rules use the effective chain/project
   vocabulary; additions may change findings but cannot override an inherited
   rule's definition or severity. A package interpretation change follows the
-  [contract-change process](contributing.md#engine-contract-changes), including
+  [contract-change process](../knowledge/ways-of-working/change-the-engine-contract.md#engine-contract-changes), including
   a format bump when an existing package would read differently.
 - **Agent integrations:** generic skill names and the CLI installation/status
   operations remain part of the application surface. Profile skills are pinned
@@ -108,7 +108,7 @@ gate and no-Dart POSIX installer verification. Native execution on Dart 3.11.0
 is not an active CI guarantee.
 
 The [CI workflow](../.github/workflows/ci.yml) is the executable matrix.
-Under the [hosted runner policy](contributing.md#hosted-runner-policy), macOS
+Under the [hosted runner policy](../knowledge/ways-of-working/ration-hosted-runners.md), macOS
 and Windows source tests and native artifact verification are paused. Native
 distribution is also paused: its release contract requires Linux x64, macOS
 ARM64 and Windows x64 archives with exact-source verification. Active Linux CI
@@ -150,7 +150,7 @@ all generations are retained forever. An older ObjectBox store's compatibility
 is the specific migration the retrieval package documents and tests, not a
 promise for every possible future database schema.
 
-Release readiness is established by the [release preflight](releasing.md#release-preflight)
+Release readiness is established by the [release preflight](../knowledge/ways-of-working/release-wayfinder.md#release-preflight)
 and the remaining staged distribution checks, not by this document alone.
 
 
