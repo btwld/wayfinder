@@ -8,7 +8,7 @@ to every rule, declared key, and vocabulary list in
 [`wayfinder-profile.json`](wayfinder-profile.json). The OKF pin is
 `open-knowledge-format` at `ad30107`. The package is authoritative over every
 summary here. The engine's own review is
-[`docs/compatibility-review.md`](../../docs/compatibility-review.md).
+[Engine compatibility with OKF](../../knowledge/architecture/engine-compatibility-with-okf.md).
 
 A row passes only when the rule uses only constructs OKF 0.2 permits, keeps
 every OKF field's and reserved file's upstream meaning, leaves the OKF graph

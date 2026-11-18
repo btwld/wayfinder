@@ -92,7 +92,7 @@ directories.
 A host can adopt in process with Wayfinder's `KnowledgeAdoption`. It plans
 steps 1 and 2 without writing in the project, so a person sees every file
 first, then applies them whole or not at all
-([ADR-0020](../docs/adr/0020-programmatic-adoption.md)). It returns step 3's
+([ADR-0020](../knowledge/authoring/adopt-by-plan-then-apply.md)). It returns step 3's
 paragraph as text, because a repository's agent configuration is its own,
 and adds the bundle's `.okf.lock`, which okf keeps at the bundle root, to
 `.gitignore`.
@@ -195,7 +195,7 @@ generator is an implementation convenience, not a required bundle artifact.
 
 A tool that changes a bundle on its author's behalf, such as `KnowledgeWriter`
 in `package:wayfinder/authoring.dart`, applies the change through okf's write
-path and judges the result before it writes ([ADR-0019](../docs/adr/0019-profile-aware-writes.md)).
+path and judges the result before it writes ([ADR-0019](../knowledge/authoring/write-through-a-delta-gate.md)).
 It MUST:
 
 - **Rewrite only the generated files the change affects.** When a rule in the
@@ -429,7 +429,7 @@ skill's guidance as checked.
 
 ### 4.6 Compatibility evidence
 
-[`docs/compatibility-review.md`](../docs/compatibility-review.md) records the
+[`docs/compatibility-review.md`](../knowledge/architecture/engine-compatibility-with-okf.md) records the
 engine's review against its `okf` package and the pinned OKF specification.
 It answers whether the engine keeps OKF's result and meaning intact. Each
 Profile records the OKF review of its own rules and declared keys in its
@@ -863,7 +863,7 @@ record (§9), and a wayfinder release. A change that would make the engine
 read an existing package differently bumps `format`, so an older package is
 reported as unsupported rather than reinterpreted. An upstream OKF
 specification release needs an engine compatibility review
-([`docs/compatibility-review.md`](../docs/compatibility-review.md)) before
+([`docs/compatibility-review.md`](../knowledge/architecture/engine-compatibility-with-okf.md)) before
 the engine reads it.
 
 Each Profile changes through its own release process, in its own repository.

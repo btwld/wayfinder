@@ -1,1 +1,0 @@
-ADR-0019: Profile-aware writes — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#safe-writes-with-a-delta-gate-adr-0019-adr-0024-adr-0025); original dates and amendment IDs are retained there.

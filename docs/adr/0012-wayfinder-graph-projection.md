@@ -1,1 +1,0 @@
-ADR-0012: Project the ordinary OKF graph — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#project-the-ordinary-okf-graph-adr-0012-adr-0021); original dates and amendment IDs are retained there.

@@ -1,1 +1,0 @@
-ADR-0020: Programmatic adoption as plan, then apply — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#adoption-as-plan-then-apply-adr-0020-adr-0024-adr-0025); original dates and amendment IDs are retained there.

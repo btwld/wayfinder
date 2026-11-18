@@ -1,1 +1,0 @@
-ADR-0018: Embeddable project and retrieval libraries — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#embeddable-libraries-and-host-ownership-adr-0018-adr-0023); original dates and amendment IDs are retained there.

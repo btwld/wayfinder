@@ -1,1 +1,0 @@
-ADR-0010: One CLI validates, indexes, and searches local knowledge — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#explicit-local-cli-operations-adr-0010); original dates and amendment IDs are retained there.

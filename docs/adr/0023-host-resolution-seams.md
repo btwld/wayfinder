@@ -1,1 +1,0 @@
-ADR-0023: Give a host the resolution seams it runs — accepted decision consolidated in [ARCHITECTURE.md](../../ARCHITECTURE.md#embeddable-libraries-and-host-ownership-adr-0018-adr-0023); original dates and amendment IDs are retained there.
