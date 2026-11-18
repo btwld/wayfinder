@@ -10,9 +10,8 @@ A change to what a package is, how the engine reads or composes one, its
 results, its diagnostics, or its builtins needs all of the following in the
 same change:
 
-1. An edit to the decision where it lives: its concept under
-   [`knowledge/`](../knowledge/index.md) once migrated, otherwise its
-   [ARCHITECTURE.md](../ARCHITECTURE.md) entry. A new decision is a new concept.
+1. An edit in place to the owning decision concept under
+   [`knowledge/`](../knowledge/index.md), plus one log entry. A new decision is a new concept.
    See [one living concept per subject](../knowledge/ways-of-working/keep-one-living-concept-per-subject.md).
 2. The guide's §9 change-record entry naming affected sections, the real-use
    driver, and the migration impact for implementations and packages.
@@ -21,7 +20,7 @@ same change:
 4. Updated schemas, goldens, and the generic skills that teach the contract.
 
 An upstream OKF **specification** release requires an engine compatibility
-review in [`docs/compatibility-review.md`](compatibility-review.md) before
+review in [`docs/compatibility-review.md`](../knowledge/architecture/engine-compatibility-with-okf.md) before
 the engine reads it. An `okf` package release that changes what okf reports or
 what its index generator writes needs a review row and a changelog entry that
 names it as breaking for every Profile using `matches-generated`. Never claim
