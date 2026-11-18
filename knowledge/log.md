@@ -2,6 +2,24 @@
 
 ## 2026-11-18
 
+* **Creation**: [Define compatibility in the stability contract and release on main evidence](ways-of-working/define-compatibility-and-release-evidence.md) Public surfaces and obligations live in `docs/stability.md`, and a release needs successful CI from the exact commit's push to main plus hosted CLI resolution.
+* **Creation**: [Bound document capture and inventory the rest](reader/bound-document-capture.md) Only classified Markdown and configuration bytes are captured, and attachments and over-budget documents are inventoried with refusals.
+* **Creation**: [Browse read-only through core entry points](reader/browse-read-only-through-core-entry-points.md) Portable values behind `knowledge.dart`, bounded native browsing behind `project.dart`, and the rules for roots, hidden entries and capture reuse.
+* **Creation**: [Keep the Flutter reader outside the Dart workspace](reader/keep-the-flutter-reader-outside-the-workspace.md) Reader models and widgets live in `packages/wayfinder_flutter`, free of any design kit and out of the pub workspace.
+* **Area created**: [reader](reader/index.md) holds read-only browsing: the core entry points, capture limits, the Flutter SDK.
+* **Creation**: [Adopt by plan, then apply](authoring/adopt-by-plan-then-apply.md) A previewable plan and a guarded apply, offline relock, and adoption requests that refuse parent and `.git` segments.
+* **Creation**: [Write through one path with a delta gate](authoring/write-through-a-delta-gate.md) One prepare, assess and commit path through okf: the whole candidate passes OKF, and the Profile may gain no error.
+* **Area created**: [authoring](authoring/index.md) holds changing a bundle through the libraries: governed writes and adoption.
+* **Creation**: [Keep dependencies compatible with hosts](architecture/keep-dependencies-host-compatible.md) Ack 2 and analyzer 13 are adopted for host compatibility, which moves ObjectBox to its 6 preview until the first stable 6 release.
+* **Creation**: [Expose embeddable libraries and leave resources to the host](architecture/expose-embeddable-libraries.md) Project and retrieval behavior are public libraries with injected resources, bounded roots, typed failures and host-owned lifecycle.
+* **Creation**: [Project the ordinary OKF graph](architecture/project-the-ordinary-okf-graph.md) The graph is OKF's own, with typed relationship edges beside it, projected in the project library and never a source of truth.
+* **Creation**: [Serve MCP over the CLI's services](architecture/serve-mcp-over-shared-services.md) Validate, index, search, query and graph over local MCP stdio on the CLI's own services, with no HTTP, authentication or authoring tool.
+* **Creation**: [Run explicit local operations from one CLI](architecture/run-explicit-local-operations.md) One CLI validates, indexes and searches; no command downloads a model or rebuilds an index implicitly.
+* **Creation**: [Engine compatibility with OKF](architecture/engine-compatibility-with-okf.md) The four-part compatibility test and one row per engine behavior that reads, writes or reports on a bundle, redone for each OKF release.
+* **Creation**: [Entry points](architecture/entry-points.md) Which interface serves which caller: the CLI, MCP, each public Dart library, the Flutter SDK, the skills and the user guides, with the document that owns each.
+* **Creation**: [Engine contract](architecture/engine-contract.md) The implementation guide and the two published JSON Schemas, ranked below OKF and above every Profile.
+* **Creation**: [OKF Specification](architecture/okf-specification.md) The authoritative Open Knowledge Format specification that the engine contract and every Profile build on.
+* **Area created**: [architecture](architecture/index.md) holds the system as a whole: the authority chain, the entry points, the CLI, MCP, graph and library boundaries, dependency policy, the OKF compatibility review.
 * **Creation**: [Query live concepts exactly](retrieval/query-live-concepts-exactly.md) Read-only structured queries in the core project library, shared by CLI and MCP, with saved query ids in `.wayfinder/queries/`.
 * **Creation**: [Bound ingestion and cite resolved sources](retrieval/bound-ingestion-and-cite-resolved-sources.md) Search Markdown shows the shared resolver's source decisions, encoder failure is attributed at its own calls, and ingestion is bounded by digests and a temporary spool.
 * **Creation**: [Publish indexes as immutable plain-file generations](retrieval/publish-indexes-as-immutable-generations.md) Snapshot and vector generations with an atomically replaced pointer, readable during refresh, plus the model lookup order.
