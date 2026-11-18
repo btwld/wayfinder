@@ -47,6 +47,8 @@ class ClassificationTest(unittest.TestCase):
             'profiles/bitwild/README.md',
             'AGENTS.md',
             'examples/README.md',
+            'knowledge/ways-of-working/keep-one-living-concept-per-subject.md',
+            'knowledge/log.md',
         ]
         for path in non_code:
             with self.subTest(path=path):
@@ -70,6 +72,8 @@ class ClassificationTest(unittest.TestCase):
             'tool/install.sh',
             'tool/ci/classify_changes.py',
             'pubspec.yaml',
+            'wayfinder.json',
+            '.wayfinder/profile/wayfinder-profile.json',
         ]
         for path in code:
             with self.subTest(path=path):
@@ -144,6 +148,19 @@ class RequiredCheckTest(unittest.TestCase):
         )
         self.assertEqual(status, 'passed')
         self.assertIn('still reports success', message)
+
+    def test_a_knowledge_failure_fails_a_non_code_pull_request(self):
+        status, message = classify.evaluate(
+            changes='success', run=False,
+            results={
+                'test': 'skipped',
+                'native-retrieval': 'skipped',
+                'knowledge': 'failure',
+            },
+            may_skip=set(),
+        )
+        self.assertEqual(status, 'failed')
+        self.assertIn('knowledge=failure', message)
 
     def test_an_intentional_platform_skip_is_allowed_only_by_name(self):
         status, _ = classify.evaluate(
@@ -256,6 +273,19 @@ class WorkflowContractTest(unittest.TestCase):
                     section = _job_section(text, job)
                     self.assertIn('needs.changes.outputs.run', section)
                     self.assertIn('github.event.pull_request.draft == false', section)
+
+    def test_the_knowledge_job_ignores_classification_and_is_required(self):
+        ci = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        knowledge = _job_section(ci, 'knowledge:')
+        self.assertNotIn('needs', knowledge.split('\n    steps:', 1)[0])
+        for command in (
+            'python3 tool/ci/verify-links.py',
+            'python3 tool/ci/verify-knowledge.py',
+        ):
+            self.assertIn(command, knowledge)
+        required = _job_section(ci, 'required-checks:')
+        self.assertIn('knowledge]', required)
+        self.assertIn('knowledge=${{ needs.knowledge.result }}', required)
 
     def test_macos_is_not_a_pull_request_runner(self):
         for path in (ROOT / '.github/workflows').glob('*.yml'):
