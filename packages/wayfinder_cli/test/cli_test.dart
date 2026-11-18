@@ -23,18 +23,20 @@ void main() {
   late List<String> errors;
   late WayfinderCli cli;
   late int retrievalOpens;
+  WayfinderCli countingCli({Directory? workingDirectory}) => WayfinderCli(
+    out: output.add,
+    err: errors.add,
+    workingDirectory: workingDirectory,
+    knowledge: () {
+      retrievalOpens++;
+      throw StateError('Validation/help must not open retrieval.');
+    },
+  );
   setUp(() {
     output = [];
     errors = [];
     retrievalOpens = 0;
-    cli = WayfinderCli(
-      out: output.add,
-      err: errors.add,
-      knowledge: () {
-        retrievalOpens++;
-        throw StateError('Validation/help must not open retrieval.');
-      },
-    );
+    cli = countingCli();
   });
 
   test('store failures name the command that fixes them', () {
@@ -296,6 +298,10 @@ void main() {
     ['session-context', 'extra'],
   ]) {
     test('rejects invalid usage $args', () async {
+      // An omitted or `.` bundle resolves here, away from any wayfinder.json.
+      final working = await Directory.systemTemp.createTemp('wayfinder-usage-');
+      addTearDown(() => working.delete(recursive: true));
+      cli = countingCli(workingDirectory: working);
       expect(await cli.run(args), 2);
       expect(errors, isNotEmpty);
       expect(retrievalOpens, 0);
@@ -561,7 +567,17 @@ void main() {
   });
 
   test('validate preserves an unconfigured result', () async {
-    const bundle = 'test/fixtures/knowledge';
+    // A copy outside the checkout cannot find a wayfinder.json above it.
+    final copy = await Directory.systemTemp.createTemp(
+      'wayfinder-unconfigured-',
+    );
+    addTearDown(() => copy.delete(recursive: true));
+    await for (final entity in Directory('test/fixtures/knowledge').list()) {
+      if (entity is File) {
+        await entity.copy(p.join(copy.path, p.basename(entity.path)));
+      }
+    }
+    final bundle = copy.path;
     final expected = await validateWithProfileSources(
       bundle,
       resolver: _defaultResolver(),
