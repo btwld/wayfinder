@@ -13,7 +13,10 @@ Read [README.md](README.md) for the layout, then the task's relevant files:
 | Profile format, selection, evaluation, adoption or generation | [Engine contract](implementation/okf-implementation-guide.md), [schemas](docs/schemas/), [pinned OKF 0.2](skills/author-knowledge-bundle/references/OKF-0.2.md) |
 | Bitwild rules or vocabulary | [README](profiles/bitwild/README.md), [package](profiles/bitwild/wayfinder-profile.json), [changelog](profiles/bitwild/CHANGELOG.md) |
 | Agent workflows | [Skills](skills/README.md), affected `SKILL.md` and routed references |
-| Validator, retrieval or release tooling | Relevant [package](packages/), [decision log](ARCHITECTURE.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
+| Validator, retrieval or release tooling | Relevant [package](packages/), [decisions](knowledge/index.md), [contributor guide](docs/contributing.md) and [CI](.github/workflows/ci.yml) |
+| CLI, MCP, graph or library boundaries, dependencies or OKF compatibility | [Architecture](knowledge/architecture/index.md) |
+| Governed writes or programmatic adoption | [Authoring](knowledge/authoring/index.md) |
+| Read-only browsing, document capture or the Flutter reader | [Reader](knowledge/reader/index.md) |
 | Profile vocabulary, composition or source mirrors | [Profiles](knowledge/profiles/index.md) |
 | Validation results, diagnostics, the gate or path targets | [Validation](knowledge/validation/index.md) |
 | Embedding, search, index storage or exact queries | [Retrieval](knowledge/retrieval/index.md) |
@@ -73,9 +76,8 @@ change knowledge:
    hand-edit an `index.md`.
 4. Run `python3 tool/ci/verify-links.py`.
 
-The migration into the bundle is in progress. Until a decision or a term has a
-concept, it lives in its [ARCHITECTURE.md](ARCHITECTURE.md) entry or in
-[docs/GLOSSARY.md](docs/GLOSSARY.md); edit it there.
+`wayfinder query --saved decisions` lists every decision, and
+`wayfinder query --saved glossary` lists every term.
 
 `wayfinder.lock` and installed Profile skills are ignored local state here,
 because the binding follows this repository's own branch
