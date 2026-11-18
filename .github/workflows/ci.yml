@@ -132,9 +132,11 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+      # The release tooling runs on the SDK distribute-wayfinder.yml pins, not
+      # stable: its cli_pkg 2.15.2 needs xml 7 and rejects Dart 3.14's ABIs.
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         run: dart pub -C tool/release get --enforce-lockfile
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         working-directory: tool/release
         run: |
           dart format --output=none --set-exit-if-changed .
@@ -285,7 +287,7 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tool/ci/verify-links.py
-      - run: python3 -B -m unittest discover -s tool/ci -p test_verify_links.py -v
+      - run: python3 -B -m unittest discover -s tool/ci -p "test_verify_*.py" -v
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
@@ -318,6 +320,7 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           RUN: ${{ needs.changes.outputs.run }}
           RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }},knowledge=${{ needs.knowledge.result }}
+          ALWAYS_RUN: knowledge
         run: python3 tool/ci/classify_changes.py --require
 
 

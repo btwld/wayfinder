@@ -157,8 +157,12 @@ def evaluate(
     run: bool,
     results: dict[str, str],
     may_skip: set[str],
+    always_run: frozenset[str] | set[str] = frozenset(),
 ) -> tuple[str, str]:
     """Return ``passed`` or ``failed`` and the line the required check prints.
+
+    ``always_run`` names jobs that ignore classification, so a skip of one is
+    a failure even when the heavy jobs may skip.
 
     Draft pull requests never reach this check. Their workflows skip every
     job, and ``ready_for_review`` is the run that reports it.
@@ -172,6 +176,13 @@ def evaluate(
     }
     if bad:
         return ('failed', f'Jobs did not succeed: {_format(bad)}.')
+    unrun = {
+        name: results.get(name, 'missing')
+        for name in always_run
+        if results.get(name) != 'success'
+    }
+    if unrun:
+        return ('failed', f'Jobs that always run did not succeed: {_format(unrun)}.')
     if run:
         missing = {
             name: result
@@ -230,16 +241,21 @@ def classify_from_env(mode: str) -> int:
     return 0
 
 
+def _names(variable: str) -> set[str]:
+    return {
+        item.strip()
+        for item in os.environ.get(variable, '').split(',')
+        if item.strip()
+    }
+
+
 def require_from_env() -> int:
     status, message = evaluate(
         changes=os.environ['CHANGES'],
         run=os.environ.get('RUN', '') == 'true',
         results=_parse_results(os.environ.get('RESULTS', '')),
-        may_skip={
-            item.strip()
-            for item in os.environ.get('MAY_SKIP', '').split(',')
-            if item.strip()
-        },
+        may_skip=_names('MAY_SKIP'),
+        always_run=_names('ALWAYS_RUN'),
     )
     print(message)
     return 0 if status == 'passed' else 1
