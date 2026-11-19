@@ -17,10 +17,12 @@ class WayfinderIndexResult {
 
   final List<KnowledgeInputDiagnostic> warnings;
 
-  /// Bundle-relative paths of the files the index holds no passages for:
-  /// everything the bundle carries that is not a Markdown concept, index or
-  /// log (PDF, DOCX, HTML, images and other assets), sorted. Search cannot
-  /// find their content. Reported on completed and current results alike.
+  /// Bundle-relative paths, in path order, of the bundle's assets: files okf
+  /// does not read as Markdown because their names do not end in lowercase
+  /// `.md` (PDF, DOCX, HTML, images, but also `.MD` or `.markdown`). They are
+  /// never embedded, so search cannot find their content. Files inside a
+  /// dot-prefixed file or folder (such as `.DS_Store` or `.git/`) are left
+  /// out. Reported on completed and current results alike.
   final List<String> unindexedFiles;
 
   /// The canonical bundle root.

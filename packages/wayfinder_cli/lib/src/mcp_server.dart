@@ -179,7 +179,9 @@ class WayfinderMcpServer {
           'already matches the bundle; otherwise encodes changed inputs and '
           'removes obsolete passages. Writes only derived app data; source '
           'files are unchanged. May take longer than a minute on first use or '
-          'a large bundle.',
+          'a large bundle. Results list unindexedFiles: files search cannot '
+          'see, such as PDF or DOCX; a search miss is no evidence a fact is '
+          'absent from them.',
       input: emptyInput,
       annotations: const ToolAnnotations(
         readOnlyHint: false,

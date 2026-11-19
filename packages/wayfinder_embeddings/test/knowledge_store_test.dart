@@ -883,9 +883,17 @@ void main() {
         p.join(bundle.root, 'specs', 'vault-policy.pdf'),
       ).create(recursive: true).then((f) => f.writeAsBytes([0x25, 0x50]));
       await file('notes.json').writeAsString('{"rotation": "37 days"}');
+      // OS and VCS metadata is an asset too, but holds no knowledge: it is
+      // never reported.
+      await file('.DS_Store').writeAsBytes([0]);
+      await File(
+        p.join(bundle.root, 'specs', '.git', 'config'),
+      ).create(recursive: true);
       final completed = await knowledge.index(bundle);
       expect(completed.current, isFalse);
       expect(completed.embeddedChunks, 0);
+      // An asset-only refresh drops no passage.
+      expect(completed.removedChunks, 0);
       expect(completed.unindexedFiles, [
         'notes.json',
         'specs/vault-policy.pdf',
@@ -894,8 +902,7 @@ void main() {
       final current = await knowledge.index(bundle);
       expect(current.current, isTrue);
       expect(current.unindexedFiles, completed.unindexedFiles);
-      // The refresh keeps every searchable passage: the Markdown answer is
-      // still found, and no asset ever becomes a match.
+      // The Markdown answer is still found, and no asset becomes a match.
       final recovery = await knowledge.searchBundle(
         bundle,
         'password recovery',

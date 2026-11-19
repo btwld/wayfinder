@@ -697,7 +697,7 @@ void main() {
         // so the warning stays on one physical line.
         expect(
           errors.single,
-          r'Warning: 7 files are not indexed (not Markdown): 3 .json, '
+          r'Warning: 7 files are not indexed (only .md files are): 3 .json, '
           r'1 (no extension), 1 .MD, 1 .p\ndf, 1 .pdf. '
           "Search can't find their content.",
         );

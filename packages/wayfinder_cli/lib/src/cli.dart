@@ -1018,7 +1018,9 @@ class WayfinderCli {
         .map((e) => '${e.value} ${_singleLine(e.key)}')
         .join(', ');
     final noun = files.length == 1 ? 'file is' : 'files are';
-    return 'Warning: ${files.length} $noun not indexed (not Markdown): '
+    // Not "not Markdown": `.MD` and `.markdown` files are Markdown too; only
+    // names ending in lowercase `.md` are read.
+    return 'Warning: ${files.length} $noun not indexed (only .md files are): '
         "$summary. Search can't find their content.";
   }
 
