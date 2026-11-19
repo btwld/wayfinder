@@ -12,9 +12,18 @@ class WayfinderIndexResult {
     required this.elapsedMs,
     this.current = false,
     this.warnings = const [],
+    this.unindexedFiles = const [],
   });
 
   final List<KnowledgeInputDiagnostic> warnings;
+
+  /// Bundle-relative paths, in path order, of the bundle's assets: files okf
+  /// does not read as Markdown because their names do not end in lowercase
+  /// `.md` (PDF, DOCX, HTML, images, but also `.MD` or `.markdown`). They are
+  /// never embedded, so search cannot find their content. Files inside a
+  /// dot-prefixed file or folder (such as `.DS_Store` or `.git/`) are left
+  /// out. Reported on completed and current results alike.
+  final List<String> unindexedFiles;
 
   /// The canonical bundle root.
   final String bundle;
@@ -39,6 +48,7 @@ class WayfinderIndexResult {
     'elapsedMs': elapsedMs,
     'current': current,
     'warnings': [for (final warning in warnings) warning.toJson()],
+    'unindexedFiles': unindexedFiles,
   };
 }
 

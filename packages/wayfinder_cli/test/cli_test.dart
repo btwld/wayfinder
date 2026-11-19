@@ -630,10 +630,12 @@ void main() {
     _IndexKnowledge knowledgeIn(
       String state, {
       List<KnowledgeInputDiagnostic> warnings = const [],
+      List<String> unindexed = const [],
       Completer<void>? hold,
     }) => _IndexKnowledge(
       state,
       warnings: warnings,
+      unindexed: unindexed,
       hold: hold,
       dataDirectory: data,
     );
@@ -673,6 +675,51 @@ void main() {
         expect(errors, isEmpty);
       });
     }
+
+    test('unindexed files print one stderr warning grouped by type; JSON '
+        'lists every path; exit status is unchanged', () async {
+      const files = [
+        'a.json',
+        'b.JSON',
+        'notes.MD',
+        'raw/Makefile',
+        'specs/odd.p\ndf',
+        'specs/vault-policy.pdf',
+        'x.json',
+      ];
+      for (final state in ['stale', 'current']) {
+        final knowledge = knowledgeIn(state, unindexed: files);
+        output.clear();
+        errors.clear();
+        expect(await indexCli(knowledge).run(['index', '.']), 0);
+        // `.json`/`.JSON` group; `.MD` keeps its case, since that is why it
+        // was skipped; a control character inside an extension is escaped,
+        // so the warning stays on one physical line.
+        expect(
+          errors.single,
+          r'Warning: 7 files are not indexed (only .md files are): 3 .json, '
+          r'1 (no extension), 1 .MD, 1 .p\ndf, 1 .pdf. '
+          "Search can't find their content.",
+        );
+        expect(errors.single, isNot(contains('\n')));
+        output.clear();
+        errors.clear();
+        expect(
+          await indexCli(knowledge).run(['index', '.', '--output=json']),
+          0,
+        );
+        expect(errors, isEmpty);
+        expect(jsonDecode(output.join('\n'))['unindexedFiles'], files);
+      }
+      output.clear();
+      errors.clear();
+      final none = knowledgeIn('stale');
+      expect(await indexCli(none).run(['index', '.']), 0);
+      expect(errors, isEmpty);
+      final one = knowledgeIn('stale', unindexed: ['only.pdf']);
+      expect(await indexCli(one).run(['index', '.']), 0);
+      expect(errors.single, contains('1 file is not indexed'));
+    });
 
     test(
       'completed and current warnings use stderr; JSON stays structured',
@@ -1201,6 +1248,7 @@ class _IndexKnowledge extends WayfinderKnowledgeStore {
   _IndexKnowledge(
     this.state, {
     this.warnings = const [],
+    this.unindexed = const [],
     this.hold,
     Directory? dataDirectory,
   }) : super(
@@ -1208,6 +1256,7 @@ class _IndexKnowledge extends WayfinderKnowledgeStore {
          encoder: DeterministicEncoderProvider(),
        );
   final List<KnowledgeInputDiagnostic> warnings;
+  final List<String> unindexed;
   final String state;
   final Completer<void>? hold;
   final forced = <bool>[];
@@ -1235,6 +1284,7 @@ class _IndexKnowledge extends WayfinderKnowledgeStore {
       bundle: bundle.root,
       index: 'saved',
       warnings: warnings,
+      unindexedFiles: unindexed,
       embeddedChunks: 0,
       removedChunks: 0,
       writtenChunks: 0,

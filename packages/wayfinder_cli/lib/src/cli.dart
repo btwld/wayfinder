@@ -988,6 +988,40 @@ class WayfinderCli {
         '(${warning.affectedChunks} original chunks)',
       );
     }
+    if (result.unindexedFiles.isNotEmpty) {
+      _err(_unindexedWarning(result.unindexedFiles));
+    }
+  }
+
+  /// One stderr line for the files an index holds no passages for, counted by
+  /// extension, most frequent first. Extensions group case-insensitively,
+  /// except a suffix that differs from `.md` only by case (such as `.MD`),
+  /// which keeps its spelling: that spelling is why the file was skipped.
+  static String _unindexedWarning(List<String> files) {
+    final counts = <String, int>{};
+    for (final file in files) {
+      final extension = p.extension(file);
+      final lowercase = extension.toLowerCase();
+      final kind = extension.isEmpty
+          ? '(no extension)'
+          : lowercase == '.md'
+          ? extension
+          : lowercase;
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+    final kinds = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    final summary = kinds
+        .map((e) => '${e.value} ${_singleLine(e.key)}')
+        .join(', ');
+    final noun = files.length == 1 ? 'file is' : 'files are';
+    // Not "not Markdown": `.MD` and `.markdown` files are Markdown too; only
+    // names ending in lowercase `.md` are read.
+    return 'Warning: ${files.length} $noun not indexed (only .md files are): '
+        "$summary. Search can't find their content.";
   }
 
   void _json(Object? value) =>

@@ -148,7 +148,8 @@ Saved warnings replay on current-index calls without loading the model. Detached
 launch/current/running acknowledgements keep their status-only shape; once a
 background index completes, the next foreground call reports its saved warnings.
 Consumers enforcing a closed JSON response shape must allow the new `warnings`
-field.
+field. The CLI warns about unindexed assets, and foreground JSON and MCP results
+list their paths in `unindexedFiles`.
 
 This changes application index configuration to version 4 (excluding
 `Attested Computation` body passages from embedding while retaining their

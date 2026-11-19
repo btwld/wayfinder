@@ -30,7 +30,7 @@
     },
     {
       "name": "index",
-      "description": "Explicitly create or refresh saved local embeddings for all configured project bundles, or the explicit startup bundle. Returns immediately when a saved index already matches the bundle; otherwise encodes changed inputs and removes obsolete passages. Writes only derived app data; source files are unchanged. May take longer than a minute on first use or a large bundle.",
+      "description": "Explicitly create or refresh saved local embeddings for all configured project bundles, or the explicit startup bundle. Returns immediately when a saved index already matches the bundle; otherwise encodes changed inputs and removes obsolete passages. Writes only derived app data; source files are unchanged. May take longer than a minute on first use or a large bundle. Results list unindexedFiles: files search cannot see, such as PDF or DOCX; a search miss is no evidence a fact is absent from them.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false
@@ -341,7 +341,7 @@
       },
       {
         "name": "index",
-        "description": "Explicitly create or refresh saved local embeddings for all configured project bundles, or the explicit startup bundle. Returns immediately when a saved index already matches the bundle; otherwise encodes changed inputs and removes obsolete passages. Writes only derived app data; source files are unchanged. May take longer than a minute on first use or a large bundle.",
+        "description": "Explicitly create or refresh saved local embeddings for all configured project bundles, or the explicit startup bundle. Returns immediately when a saved index already matches the bundle; otherwise encodes changed inputs and removes obsolete passages. Writes only derived app data; source files are unchanged. May take longer than a minute on first use or a large bundle. Results list unindexedFiles: files search cannot see, such as PDF or DOCX; a search miss is no evidence a fact is absent from them.",
         "inputSchema": {
           "type": "object",
           "additionalProperties": false
