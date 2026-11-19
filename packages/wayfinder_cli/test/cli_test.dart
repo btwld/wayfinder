@@ -681,8 +681,9 @@ void main() {
       const files = [
         'a.json',
         'b.JSON',
+        'notes.MD',
         'raw/Makefile',
-        'specs/odd\nname.pdf',
+        'specs/odd.p\ndf',
         'specs/vault-policy.pdf',
         'x.json',
       ];
@@ -691,11 +692,16 @@ void main() {
         output.clear();
         errors.clear();
         expect(await indexCli(knowledge).run(['index', '.']), 0);
+        // `.json`/`.JSON` group; `.MD` keeps its case, since that is why it
+        // was skipped; a control character inside an extension is escaped,
+        // so the warning stays on one physical line.
         expect(
           errors.single,
-          'Warning: 6 files are not indexed (not Markdown): 3 .json, '
-          "2 .pdf, 1 (no extension). Search can't find their content.",
+          r'Warning: 7 files are not indexed (not Markdown): 3 .json, '
+          r'1 (no extension), 1 .MD, 1 .p\ndf, 1 .pdf. '
+          "Search can't find their content.",
         );
+        expect(errors.single, isNot(contains('\n')));
         output.clear();
         errors.clear();
         expect(

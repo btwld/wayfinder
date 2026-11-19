@@ -1,10 +1,3 @@
-# 0.5.0-beta.2 (unreleased)
-
-- Report files the index cannot search (#201): `wayfinder index` prints one
-  stderr warning counting a bundle's non-Markdown files by extension, and CLI
-  JSON and MCP `index` results add `unindexedFiles`. Exit status and indexed
-  content are unchanged; closed-shape JSON consumers must allow the new field.
-
 # 0.5.0-beta.1
 
 - Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`

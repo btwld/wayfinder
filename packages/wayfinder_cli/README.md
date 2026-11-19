@@ -148,21 +148,8 @@ Saved warnings replay on current-index calls without loading the model. Detached
 launch/current/running acknowledgements keep their status-only shape; once a
 background index completes, the next foreground call reports its saved warnings.
 Consumers enforcing a closed JSON response shape must allow the new `warnings`
-field.
-
-### Files the index cannot search
-
-Only Markdown concepts become passages. Every other file in a bundle (PDF, DOCX,
-HTML, JSON, images) is an asset: it is inventoried but never read, so search
-cannot find its content. Completed and current foreground index results include
-`unindexedFiles`, the sorted bundle-relative paths of those files (an empty
-array when none). Human-readable indexing prints one stderr line counting them by
-extension, for example
-`Warning: 3 files are not indexed (not Markdown): 2 .pdf, 1 .docx. Search can't
-find their content.` Exit status stays 0, and what gets indexed is unchanged.
-CLI JSON and MCP return the same list in their existing payload; detached
-acknowledgements keep their status-only shape. Consumers enforcing a closed JSON
-response shape must allow the new `unindexedFiles` field.
+field. The CLI warns about unindexed assets, and foreground JSON and MCP results
+list their paths in `unindexedFiles`.
 
 This changes application index configuration to version 4 (excluding
 `Attested Computation` body passages from embedding while retaining their

@@ -994,12 +994,19 @@ class WayfinderCli {
   }
 
   /// One stderr line for the files an index holds no passages for, counted by
-  /// lowercase extension, most frequent first.
+  /// extension, most frequent first. Extensions group case-insensitively,
+  /// except a suffix that differs from `.md` only by case (such as `.MD`),
+  /// which keeps its spelling: that spelling is why the file was skipped.
   static String _unindexedWarning(List<String> files) {
     final counts = <String, int>{};
     for (final file in files) {
-      final extension = p.extension(file).toLowerCase();
-      final kind = extension.isEmpty ? '(no extension)' : extension;
+      final extension = p.extension(file);
+      final lowercase = extension.toLowerCase();
+      final kind = extension.isEmpty
+          ? '(no extension)'
+          : lowercase == '.md'
+          ? extension
+          : lowercase;
       counts[kind] = (counts[kind] ?? 0) + 1;
     }
     final kinds = counts.entries.toList()

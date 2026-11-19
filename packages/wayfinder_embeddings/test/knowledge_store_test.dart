@@ -894,10 +894,18 @@ void main() {
       final current = await knowledge.index(bundle);
       expect(current.current, isTrue);
       expect(current.unindexedFiles, completed.unindexedFiles);
-      final results = await knowledge.searchBundle(bundle, 'rotation 37 days');
+      // The refresh keeps every searchable passage: the Markdown answer is
+      // still found, and no asset ever becomes a match.
+      final recovery = await knowledge.searchBundle(
+        bundle,
+        'password recovery',
+      );
+      expect(recovery.matches.first.sourcePath, 'recovery.md');
+      final rotation = await knowledge.searchBundle(bundle, 'rotation 37 days');
+      expect(rotation.matches, isNotEmpty);
       expect(
-        results.matches.every((hit) => hit.sourcePath.endsWith('.md')),
-        isTrue,
+        rotation.matches.map((hit) => hit.sourcePath),
+        everyElement(endsWith('.md')),
       );
     });
 
