@@ -88,9 +88,13 @@ clamps to 1–3; Whole bundle is opt-in. Attachment/external/unresolved layers s
 hidden unless requested. Synthetic scene IDs are opaque `/<kind>:...` values;
 resolve them through scene nodes, never as concept IDs. The bundled reader opens
 the whole graph only when Graph is selected. Existing custom hosts can keep
-cached scenes and their own toolbar/query controls. Graph keyboard navigation
-and richer Markdown rendering remain follow-up; ordinary controls are native
-Flutter Material navigation.
+cached scenes and their own toolbar/query controls. The canvas is keyboard
+operable: it takes focus on a click or Tab, arrow keys call `onSelect` with the
+nearest node in that direction from `activeId` (the host must move `activeId`
+to it), Enter and Space call `onOpen` for the active node, `+`, `-` and `0`
+zoom and fit, and Escape dismisses the hover card. Keys with Ctrl, Cmd or Alt
+are left to the host. Richer Markdown rendering remains follow-up; ordinary
+controls are native Flutter Material navigation.
 
 ## Explicitly unavailable, not successful
 
