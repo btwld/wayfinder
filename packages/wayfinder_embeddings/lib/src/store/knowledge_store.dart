@@ -45,6 +45,10 @@ typedef _CachedSavedIndex = ({String text, int bytes, _SavedIndex index});
 /// row per snapshot chunk.
 typedef _Pinned = ({_SavedIndex saved, List<Float32List> vectors});
 
+/// [paths] sorted, as an unmodifiable list; empty when null.
+List<String> _sorted(Iterable<String>? paths) =>
+    List.unmodifiable([...?paths]..sort());
+
 /// A bundle's index for the store's configuration: its canonical `root`,
 /// the namespace `directory` that holds its generations, and the `writer`
 /// lock file in that directory.
@@ -383,6 +387,7 @@ class WayfinderKnowledgeStore {
             elapsedMs: watch.elapsedMilliseconds,
             current: true,
             warnings: warnings,
+            unindexedFiles: _sorted(previous?.saved.snapshot.assets),
           );
         }
         onProgress?.call(const IndexProgress(IndexPhase.loading));
@@ -496,6 +501,7 @@ class WayfinderKnowledgeStore {
             bundle: root,
             index: directory.path,
             warnings: fitted.diagnostics,
+            unindexedFiles: _sorted(fitted.assets),
             embeddedChunks: counts.embeddedChunks,
             removedChunks: counts.removedChunks,
             writtenChunks: counts.writtenChunks,

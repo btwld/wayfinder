@@ -988,6 +988,31 @@ class WayfinderCli {
         '(${warning.affectedChunks} original chunks)',
       );
     }
+    if (result.unindexedFiles.isNotEmpty) {
+      _err(_unindexedWarning(result.unindexedFiles));
+    }
+  }
+
+  /// One stderr line for the files an index holds no passages for, counted by
+  /// lowercase extension, most frequent first.
+  static String _unindexedWarning(List<String> files) {
+    final counts = <String, int>{};
+    for (final file in files) {
+      final extension = p.extension(file).toLowerCase();
+      final kind = extension.isEmpty ? '(no extension)' : extension;
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+    final kinds = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        return byCount != 0 ? byCount : a.key.compareTo(b.key);
+      });
+    final summary = kinds
+        .map((e) => '${e.value} ${_singleLine(e.key)}')
+        .join(', ');
+    final noun = files.length == 1 ? 'file is' : 'files are';
+    return 'Warning: ${files.length} $noun not indexed (not Markdown): '
+        "$summary. Search can't find their content.";
   }
 
   void _json(Object? value) =>

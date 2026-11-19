@@ -63,6 +63,9 @@ State remaining gaps without inventing facts.
   before citing them.
 - Navigation/history files such as `index.md` and `log.md` are not indexed
   passages. Read them directly. Search does not read binary payloads.
+- An index result's `unindexedFiles` lists files search cannot see (PDF, DOCX,
+  HTML, images). A search miss is not evidence a fact is absent from them; name
+  those files when they could hold the answer.
 - For setup, index, validate, graph, or runtime failures, read the relevant
   [operations](references/operations.md) section. Do not install hooks or change
   setup merely to answer a working search.

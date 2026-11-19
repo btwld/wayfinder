@@ -12,9 +12,16 @@ class WayfinderIndexResult {
     required this.elapsedMs,
     this.current = false,
     this.warnings = const [],
+    this.unindexedFiles = const [],
   });
 
   final List<KnowledgeInputDiagnostic> warnings;
+
+  /// Bundle-relative paths of the files the index holds no passages for:
+  /// everything the bundle carries that is not a Markdown concept, index or
+  /// log (PDF, DOCX, HTML, images and other assets), sorted. Search cannot
+  /// find their content. Reported on completed and current results alike.
+  final List<String> unindexedFiles;
 
   /// The canonical bundle root.
   final String bundle;
@@ -39,6 +46,7 @@ class WayfinderIndexResult {
     'elapsedMs': elapsedMs,
     'current': current,
     'warnings': [for (final warning in warnings) warning.toJson()],
+    'unindexedFiles': unindexedFiles,
   };
 }
 

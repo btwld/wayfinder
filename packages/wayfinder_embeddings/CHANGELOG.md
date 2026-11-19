@@ -1,3 +1,10 @@
+# 0.5.0-beta.2 (unreleased)
+
+- Add `WayfinderIndexResult.unindexedFiles` (#201): the sorted bundle-relative
+  paths of the assets an index holds no passages for (PDF, DOCX, HTML, images
+  and other non-Markdown files), on completed and current results, and in
+  `toJson()`. Indexing itself is unchanged; no index rebuild is required.
+
 # 0.5.0-beta.1
 
 - Test-only: make inference/ObjectBox coverage explicitly opt in with

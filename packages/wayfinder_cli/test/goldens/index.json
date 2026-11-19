@@ -10,7 +10,8 @@
       "writtenChunks": 1,
       "elapsedMs": 0,
       "current": false,
-      "warnings": []
+      "warnings": [],
+      "unindexedFiles": []
     },
     {
       "name": "knowledge",
@@ -30,7 +31,8 @@
           "lineEnd": 11,
           "affectedChunks": 1
         }
-      ]
+      ],
+      "unindexedFiles": []
     }
   ]
 }

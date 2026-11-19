@@ -876,6 +876,31 @@ void main() {
       );
     });
 
+    test('non-Markdown files are reported as unindexed, never as passages, '
+        'on completed and current results', () async {
+      expect((await knowledge.index(bundle)).unindexedFiles, isEmpty);
+      await File(
+        p.join(bundle.root, 'specs', 'vault-policy.pdf'),
+      ).create(recursive: true).then((f) => f.writeAsBytes([0x25, 0x50]));
+      await file('notes.json').writeAsString('{"rotation": "37 days"}');
+      final completed = await knowledge.index(bundle);
+      expect(completed.current, isFalse);
+      expect(completed.embeddedChunks, 0);
+      expect(completed.unindexedFiles, [
+        'notes.json',
+        'specs/vault-policy.pdf',
+      ]);
+      expect(completed.toJson()['unindexedFiles'], completed.unindexedFiles);
+      final current = await knowledge.index(bundle);
+      expect(current.current, isTrue);
+      expect(current.unindexedFiles, completed.unindexedFiles);
+      final results = await knowledge.searchBundle(bundle, 'rotation 37 days');
+      expect(
+        results.matches.every((hit) => hit.sourcePath.endsWith('.md')),
+        isTrue,
+      );
+    });
+
     test('failed inference keeps the previous generation current', () async {
       await knowledge.index(bundle);
       final current = await pointer();
