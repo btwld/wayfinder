@@ -51,7 +51,7 @@ canvas's label cache. A changed layout refits and fades the view.
 With a mouse, hovering shows a node's card and a double click opens it. With touch,
 a tap selects a node and shows its card, and a long press or a double tap opens it.
 Screen readers open a node with its long-press action, which is hinted as Open.
-Graph keyboard navigation remains product follow-up.
+The graph canvas is keyboard operable; see [integration](doc/integration.md).
 
 ## Theming
 
