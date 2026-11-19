@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wayfinder_flutter/wayfinder_flutter.dart';
@@ -334,6 +335,92 @@ void main() {
     await tester.tapAt(right);
     await tester.pumpAndSettle();
     expect(opened, ['right']);
+  });
+
+  group('keyboard', () {
+    Future<void> focus(WidgetTester tester) async {
+      // A click on nothing takes focus without selecting.
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('an arrow selects the nearest node in its direction', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      await _pump(tester, _scene(), onSelect: selected.add);
+      await focus(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      expect(selected, ['right', 'left']);
+    });
+
+    testWidgets('an arrow with no node that way selects nothing', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      await _pump(tester, _scene(), onSelect: selected.add);
+      await focus(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(selected, isEmpty);
+    });
+
+    testWidgets('with nothing active the first arrow selects the focus', (
+      tester,
+    ) async {
+      final selected = <String>[];
+      await _pump(tester, _scene(), activeId: null, onSelect: selected.add);
+      await focus(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      expect(selected, ['focus']);
+    });
+
+    testWidgets('Enter and Space open the active node', (tester) async {
+      final opened = <String>[];
+      await _pump(tester, _scene(), activeId: 'left', onOpen: opened.add);
+      await focus(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      expect(opened, ['left', 'left']);
+    });
+
+    testWidgets('keys with a modifier are left to the host', (tester) async {
+      final selected = <String>[];
+      await _pump(tester, _scene(), onSelect: selected.add);
+      await focus(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      expect(selected, isEmpty);
+    });
+
+    testWidgets('plus and minus zoom and zero fits', (tester) async {
+      await _pump(tester, _scene());
+      await focus(tester);
+      final fitted = _state(tester).globalPositionOf('right')!;
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+      expect(
+        (_state(tester).globalPositionOf('right')! -
+                _state(tester).globalPositionOf('focus')!)
+            .distance,
+        greaterThan(
+          (fitted - _state(tester).globalPositionOf('focus')!).distance,
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+      await tester.pumpAndSettle();
+      expect(
+        _state(tester).globalPositionOf('right')!.dx,
+        closeTo(fitted.dx, 1),
+      );
+    });
+
+    testWidgets('unrelated keys are not handled', (tester) async {
+      await _pump(tester, _scene());
+      await focus(tester);
+      expect(await simulateKeyDownEvent(LogicalKeyboardKey.keyA), isFalse);
+      await simulateKeyUpEvent(LogicalKeyboardKey.keyA);
+    });
   });
 
   testWidgets('a click on nothing selects nothing', (tester) async {

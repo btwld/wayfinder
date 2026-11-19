@@ -1,5 +1,9 @@
 # 0.2.0 (unreleased)
 
+- Make `KnowledgeGraphCanvas` keyboard operable: focus on click or Tab with a
+  visible ring, arrow keys select the nearest node in that direction through
+  `onSelect`, Enter/Space open the active node, `+`/`-`/`0` zoom and fit.
+
 - Show uncaptured local files with their byte size and capture reason in wide
   and narrow file selection. Oversized documents/attachment bundles no longer
   prevent reading the captured documents; selection retains the inventory.

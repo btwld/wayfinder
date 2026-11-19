@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../model/knowledge.dart';
@@ -23,6 +24,12 @@ typedef KnowledgeTooltipBuilder = Widget Function(
 /// per frame while panning, zooming or hovering.
 ///
 /// The host owns [scene], [activeId] and what selecting and opening a node do.
+///
+/// The canvas takes keyboard focus on a click or a Tab. The arrow keys select
+/// the nearest node in that direction from [activeId] (from the focus of a
+/// local graph when nothing is active) by calling [onSelect], so [activeId]
+/// must follow it; Enter and Space open the active node through [onOpen];
+/// `+`, `-` and `0` zoom in, zoom out and fit; Escape dismisses the hover card.
 /// Give it a [GlobalKey] to reach [KnowledgeGraphCanvasState.fit] and
 /// [KnowledgeGraphCanvasState.recentre] from a toolbar. Keep the same [scene]
 /// instance across rebuilds: a new one clears the label cache.
@@ -87,6 +94,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   final _hover = ValueNotifier<KnowledgeGraphHover?>(null);
   final _labels = KnowledgeGraphLabelCache();
   final _legendKey = GlobalKey();
+  final _focusNode = FocusNode(debugLabel: 'KnowledgeGraphCanvas');
 
   /// Each node's label size, for framing; cleared with [_labels].
   final _labelSizes = <int, Size>{};
@@ -193,6 +201,7 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
   void dispose() {
     _viewport.dispose();
     _hover.dispose();
+    _focusNode.dispose();
     _clearLabels();
     _fade.dispose();
     _move.dispose();
@@ -564,6 +573,93 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
     if (node != null) widget.onOpen(scene.nodes[node].id);
   }
 
+  /// The node the keyboard starts from: the active one, else the focus.
+  int? get _keyboardOrigin =>
+      scene.indexById[widget.activeId] ??
+      scene.focus ??
+      (scene.nodes.isEmpty ? null : 0);
+
+  /// The node nearest to [from] in the direction of [direction] on screen, or
+  /// null. Nodes within 45 degrees of the direction come first; any node
+  /// ahead of [from] is the fallback.
+  int? _neighbourToward(int from, Offset direction) {
+    final origin = _screen(from);
+    int? best;
+    var bestScore = double.infinity;
+    var bestInCone = false;
+    for (var i = 0; i < scene.nodes.length; i++) {
+      if (i == from) continue;
+      final delta = _screen(i) - origin;
+      final ahead = delta.dx * direction.dx + delta.dy * direction.dy;
+      if (ahead <= 0) continue;
+      final aside = (delta.dx * direction.dy - delta.dy * direction.dx).abs();
+      final inCone = aside <= ahead;
+      if (bestInCone && !inCone) continue;
+      final score = ahead + 2 * aside;
+      if ((inCone && !bestInCone) || score < bestScore) {
+        best = i;
+        bestScore = score;
+        bestInCone = inCone;
+      }
+    }
+    return best;
+  }
+
+  KeyEventResult _key(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final keys = HardwareKeyboard.instance;
+    if (keys.isControlPressed || keys.isMetaPressed || keys.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final direction = switch (key) {
+      LogicalKeyboardKey.arrowLeft => const Offset(-1, 0),
+      LogicalKeyboardKey.arrowRight => const Offset(1, 0),
+      LogicalKeyboardKey.arrowUp => const Offset(0, -1),
+      LogicalKeyboardKey.arrowDown => const Offset(0, 1),
+      _ => null,
+    };
+    if (direction != null) {
+      final from = _keyboardOrigin;
+      if (from == null) return KeyEventResult.ignored;
+      // Nothing is active yet: the first arrow selects the origin itself.
+      if (scene.indexById[widget.activeId] == null) {
+        widget.onSelect(scene.nodes[from].id);
+        return KeyEventResult.handled;
+      }
+      final next = _neighbourToward(from, direction);
+      if (next != null) widget.onSelect(scene.nodes[next].id);
+      return KeyEventResult.handled;
+    }
+    final centre = _size.center(Offset.zero);
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space) {
+      if (scene.indexById[widget.activeId] case final active?) {
+        widget.onOpen(scene.nodes[active].id);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.equal ||
+        key == LogicalKeyboardKey.add ||
+        key == LogicalKeyboardKey.numpadAdd) {
+      _zoomAt(centre, 1.25);
+    } else if (key == LogicalKeyboardKey.minus ||
+        key == LogicalKeyboardKey.numpadSubtract) {
+      _zoomAt(centre, 0.8);
+    } else if (key == LogicalKeyboardKey.digit0 ||
+        key == LogicalKeyboardKey.numpad0) {
+      fit();
+    } else if (key == LogicalKeyboardKey.escape) {
+      if (_hover.value == null) return KeyEventResult.ignored;
+      _hover.value = null;
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
   void _zoomAt(Offset point, double factor) {
     _move.stop();
     _fitted = false;
@@ -606,115 +702,139 @@ final class KnowledgeGraphCanvasState extends State<KnowledgeGraphCanvas>
           onSelect: widget.onSelect,
           onOpen: widget.onOpen,
         );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(
-              child: Listener(
-                onPointerDown: (event) => _pointerKind = event.kind,
-                onPointerSignal: (event) {
-                  if (event is PointerScrollEvent) {
-                    GestureBinding.instance.pointerSignalResolver.register(
-                      event,
-                      (event) => _zoomAt(
-                        event.localPosition,
-                        math.exp(
-                          -(event as PointerScrollEvent).scrollDelta.dy / 400,
-                        ),
+        return Focus(
+          focusNode: _focusNode,
+          onKeyEvent: _key,
+          child: ListenableBuilder(
+            listenable: _focusNode,
+            builder: (context, child) => DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                border:
+                    _focusNode.hasFocus &&
+                        FocusManager.instance.highlightMode ==
+                            FocusHighlightMode.traditional
+                    ? Border.all(color: theme.foreground, width: 2)
+                    : null,
+                borderRadius: BorderRadius.all(theme.smallRadius),
+              ),
+              child: child,
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    onPointerDown: (event) {
+                      _pointerKind = event.kind;
+                      _focusNode.requestFocus();
+                    },
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent) {
+                        GestureBinding.instance.pointerSignalResolver.register(
+                          event,
+                          (event) => _zoomAt(
+                            event.localPosition,
+                            math.exp(
+                              -(event as PointerScrollEvent).scrollDelta.dy /
+                                  400,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: ValueListenableBuilder<KnowledgeGraphHover?>(
+                      valueListenable: _hover,
+                      builder: (context, hover, child) => MouseRegion(
+                        cursor: hover?.node != null
+                            ? SystemMouseCursors.click
+                            : MouseCursor.defer,
+                        onHover: (event) => _hoverAt(event.localPosition),
+                        onExit: (_) => _hover.value = null,
+                        child: child,
                       ),
-                    );
-                  }
-                },
-                child: ValueListenableBuilder<KnowledgeGraphHover?>(
-                  valueListenable: _hover,
-                  builder: (context, hover, child) => MouseRegion(
-                    cursor: hover?.node != null
-                        ? SystemMouseCursors.click
-                        : MouseCursor.defer,
-                    onHover: (event) => _hoverAt(event.localPosition),
-                    onExit: (_) => _hover.value = null,
-                    child: child,
-                  ),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapUp: _tap,
-                    onLongPressStart: _longPress,
-                    onScaleEnd: (_) => _viewSettled(),
-                    onScaleStart: (details) {
-                      _move.stop();
-                      _fitted = false;
-                      _startScale = _viewport.scale;
-                      _startPan = _viewport.pan;
-                      _startFocal = details.localFocalPoint;
-                    },
-                    onScaleUpdate: (details) {
-                      final scale = (_startScale * details.scale).clamp(
-                        0.08,
-                        4.0,
-                      );
-                      final world = (_startFocal - _startPan) / _startScale;
-                      _viewport.set(
-                        scale,
-                        details.localFocalPoint - world * scale,
-                      );
-                    },
-                    child: FadeTransition(
-                      opacity: _fade,
-                      // Stack only clips layout overflow, not painter overflow.
-                      child: ClipRect(
-                        child: CustomPaint(
-                          key: const Key('knowledge-graph-paint'),
-                          painter: painter,
-                          size: Size.infinite,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: _tap,
+                        onLongPressStart: _longPress,
+                        onScaleEnd: (_) => _viewSettled(),
+                        onScaleStart: (details) {
+                          _move.stop();
+                          _fitted = false;
+                          _startScale = _viewport.scale;
+                          _startPan = _viewport.pan;
+                          _startFocal = details.localFocalPoint;
+                        },
+                        onScaleUpdate: (details) {
+                          final scale = (_startScale * details.scale).clamp(
+                            0.08,
+                            4.0,
+                          );
+                          final world = (_startFocal - _startPan) / _startScale;
+                          _viewport.set(
+                            scale,
+                            details.localFocalPoint - world * scale,
+                          );
+                        },
+                        child: FadeTransition(
+                          opacity: _fade,
+                          // Stack only clips layout overflow, not painter overflow.
+                          child: ClipRect(
+                            child: CustomPaint(
+                              key: const Key('knowledge-graph-paint'),
+                              painter: painter,
+                              size: Size.infinite,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            ValueListenableBuilder<KnowledgeGraphHover?>(
-              valueListenable: _hover,
-              builder: (context, hover, _) => hover == null
-                  ? const SizedBox.shrink()
-                  : KnowledgeGraphHoverCard(
+                ValueListenableBuilder<KnowledgeGraphHover?>(
+                  valueListenable: _hover,
+                  builder: (context, hover, _) => hover == null
+                      ? const SizedBox.shrink()
+                      : KnowledgeGraphHoverCard(
+                          scene: scene,
+                          hover: hover,
+                          size: _size,
+                          labels: widget.labels,
+                        ),
+                ),
+                PositionedDirectional(
+                  start: _legendInset,
+                  bottom: _legendInset,
+                  child: KeyedSubtree(
+                    key: _legendKey,
+                    child: KnowledgeGraphLegend(
                       scene: scene,
-                      hover: hover,
-                      size: _size,
+                      palette: widget.palette,
+                      typeIconOf: widget.typeIconOf,
+                      kindIconOf: widget.kindIconOf,
+                      tooltipBuilder: widget.tooltipBuilder,
                       labels: widget.labels,
                     ),
-            ),
-            PositionedDirectional(
-              start: _legendInset,
-              bottom: _legendInset,
-              child: KeyedSubtree(
-                key: _legendKey,
-                child: KnowledgeGraphLegend(
-                  scene: scene,
-                  palette: widget.palette,
-                  typeIconOf: widget.typeIconOf,
-                  kindIconOf: widget.kindIconOf,
-                  tooltipBuilder: widget.tooltipBuilder,
-                  labels: widget.labels,
-                ),
-              ),
-            ),
-            if (scene.links.isEmpty && scene.nodes.length <= 1)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 32,
-                child: Center(
-                  child: Text(
-                    scene.query.scope == KnowledgeGraphScope.local
-                        ? widget.labels.noLinksWithin(scene.query.depth)
-                        : widget.labels.noLinksInBundle,
-                    key: const Key('graph-no-links'),
-                    style: theme.caption,
                   ),
                 ),
-              ),
-          ],
+                if (scene.links.isEmpty && scene.nodes.length <= 1)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 32,
+                    child: Center(
+                      child: Text(
+                        scene.query.scope == KnowledgeGraphScope.local
+                            ? widget.labels.noLinksWithin(scene.query.depth)
+                            : widget.labels.noLinksInBundle,
+                        key: const Key('graph-no-links'),
+                        style: theme.caption,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
