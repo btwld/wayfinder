@@ -1,0 +1,11 @@
+{
+  "$schema": "https://github.com/btwld/wayfinder/blob/main/docs/schemas/wayfinder-profile.schema.json",
+  "format": 3,
+  "id": "dora-profile",
+  "release": "1.0",
+  "implements": {"id": "okf", "release": "0.2"},
+  "extends": {"path": "profiles/bitwild"},
+  "docs": "https://github.com/btwld/wayfinder/blob/main/profiles/dora/README.md",
+  "skill": "skill",
+  "rules": []
+}
