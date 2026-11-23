@@ -11,5 +11,9 @@ dependencies:
   grinder: 0.10.1
 
 dev_dependencies:
-  lints: ^6.0.0
+  bitwild_analysis:
+    git:
+      url: https://github.com/btwld/lints.git
+      path: packages/bitwild_analysis
+      ref: v0.3.0
   test: ^1.32.0

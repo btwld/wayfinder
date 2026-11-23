@@ -13,9 +13,13 @@ workspace:
   - packages/wayfinder_cli
 
 dev_dependencies:
-  melos: ^7.1.1
-
   args: ^2.7.0
+  bitwild_analysis:
+    git:
+      url: https://github.com/btwld/lints.git
+      path: packages/bitwild_analysis
+      ref: v0.3.0
+  melos: ^7.1.1
   path: ^1.9.1
 
 # Workspace builds and tests use the Dart objectbox release that matches the
