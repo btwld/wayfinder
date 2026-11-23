@@ -36,8 +36,9 @@ final class SourceManifest {
       if (source.id.trim().isEmpty) {
         throw const FormatException('Source id must be nonblank.');
       }
-      if (!ids.add(source.id))
+      if (!ids.add(source.id)) {
         throw FormatException('Duplicate source id: ${source.id}');
+      }
       if (source.repository.trim().isEmpty || source.ref.trim().isEmpty) {
         throw FormatException(
           'Source ${source.id} needs a repository and ref.',
@@ -47,8 +48,9 @@ final class SourceManifest {
           source.ref.trim().startsWith('-')) {
         throw FormatException('Unsafe repository or ref in ${source.id}.');
       }
-      if (source.adapter.trim().isEmpty)
+      if (source.adapter.trim().isEmpty) {
         throw FormatException('Source ${source.id} needs an adapter.');
+      }
       for (final path in source.paths) {
         if (isUnsafeRelativePath(path)) {
           throw FormatException('Unsafe source path in ${source.id}: $path');
@@ -257,8 +259,9 @@ bool isUnsafeRelativePath(String path) =>
 
 String _string(Map<String, dynamic> json, String key) {
   final value = json[key];
-  if (value is! String || value.trim().isEmpty)
+  if (value is! String || value.trim().isEmpty) {
     throw FormatException('Source field $key must be a non-empty string.');
+  }
   return value;
 }
 

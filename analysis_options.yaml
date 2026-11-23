@@ -1,3 +1,7 @@
+include:
+  - package:bitwild_analysis/dart.yaml
+  - package:bitwild_analysis/plugin.yaml
+
 analyzer:
   exclude:
     - tool/release/**
@@ -8,3 +12,10 @@ analyzer:
     # The Flutter reader is a standalone package too, so workspace analysis
     # needs no Flutter. Its own workflow analyzes and tests it.
     - packages/wayfinder_flutter/**
+
+linter:
+  rules:
+    # Long strings in lists are wrapped as adjacent strings, and
+    # unnecessary_parenthesis rejects the parentheses this rule asks for.
+    # bitwild_analysis 0.4.0 drops it from the preset.
+    no_adjacent_strings_in_list: false

@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:okf/okf.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../knowledge.dart';
 import '../../bundle_file_kind.dart';
 import '../../field_edges.dart';
+import '../../knowledge/captured_project.dart';
+import '../../knowledge/knowledge_models.dart';
+import '../../knowledge/reader.dart';
 
 KnowledgeCapturedBundle projectCapturedBundle({
   required String id,

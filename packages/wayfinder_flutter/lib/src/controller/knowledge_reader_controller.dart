@@ -27,6 +27,8 @@ final class KnowledgeReaderController extends ChangeNotifier {
   /// Host-approved per-file read/copy budget, independent of capture limits.
   /// Raise explicitly when the reader should open larger retained resources.
   final int maxReadBytes;
+  // Cancelled in _drain, through a tear-off the lint does not follow.
+  // ignore: cancel_subscriptions
   late final StreamSubscription<void> _revocations;
   KnowledgeProjectSnapshot? _snapshot;
   KnowledgeProjectSnapshot? get snapshot => _snapshot;
@@ -83,7 +85,7 @@ final class KnowledgeReaderController extends ChangeNotifier {
       }
       final previous = _snapshot;
       _snapshot = next;
-      if (previous != null) _retire(previous);
+      if (previous != null) unawaited(_retire(previous));
       final preferred = preferredKnowledgeBundle(
         next.bundles.map((b) => b.summary),
       );
@@ -284,7 +286,7 @@ final class KnowledgeReaderController extends ChangeNotifier {
 
   Future<void> _drain(KnowledgeProjectSnapshot? snapshot) async {
     final cancellation = _cleanUp(_revocations.cancel);
-    if (snapshot != null) _retire(snapshot);
+    if (snapshot != null) unawaited(_retire(snapshot));
     await Future.wait([
       cancellation,
       for (final pending in _pending.toList()) _cleanUp(() => pending),

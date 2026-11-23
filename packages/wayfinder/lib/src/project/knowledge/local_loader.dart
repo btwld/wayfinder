@@ -4,11 +4,10 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
-import '../../../knowledge.dart';
 import '../../bundle_file_kind.dart';
+import '../../knowledge/captured_project.dart';
 import '../../knowledge/manifest.dart';
-import '../../knowledge/reader.dart'
-    show knowledgeIdentifier, knowledgeRelativePath;
+import '../../knowledge/reader.dart';
 import '../../wayfinder_config.dart';
 import 'projection.dart';
 

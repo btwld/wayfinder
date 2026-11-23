@@ -28,7 +28,9 @@ void main() {
       await file.copy(p.join(bundle.path, p.basename(file.path)));
     }
     final incoming = StreamController<List<int>>();
+    addTearDown(() => incoming.close());
     final outgoing = StreamController<List<int>>();
+    addTearDown(() => outgoing.close());
     final transport = IOStreamTransport(
       stream: incoming.stream,
       sink: outgoing.sink,
@@ -118,7 +120,9 @@ void main() {
         reason: 'the process directory must not satisfy a relative root',
       );
       final incoming = StreamController<List<int>>();
+      addTearDown(() => incoming.close());
       final outgoing = StreamController<List<int>>();
+      addTearDown(() => outgoing.close());
       final transport = IOStreamTransport(
         stream: incoming.stream,
         sink: outgoing.sink,
@@ -201,7 +205,9 @@ void main() {
       final lock = File(p.join(project.path, 'wayfinder.lock'));
       final lockedBytes = await lock.readAsBytes();
       final incoming = StreamController<List<int>>();
+      addTearDown(() => incoming.close());
       final outgoing = StreamController<List<int>>();
+      addTearDown(() => outgoing.close());
       final transport = IOStreamTransport(
         stream: incoming.stream,
         sink: outgoing.sink,
@@ -246,10 +252,9 @@ void main() {
         final configFile = File(p.join(project.path, 'wayfinder.json'));
         final config =
             jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
-        (((config['profiles'] as Map)['bitwild-profile']['tags']) as List).add({
-          'name': 'new-topic',
-          'description': 'A new project topic',
-        });
+        ((((config['profiles'] as Map)['bitwild-profile'] as Map)['tags'])
+                as List)
+            .add({'name': 'new-topic', 'description': 'A new project topic'});
         await configFile.writeAsString(jsonEncode(config));
         cliOutput.clear();
         expect(await cli.run(['validate', root.path, '--output=json']), 2);
@@ -289,7 +294,9 @@ void main() {
         ).resolveSymbolicLinks();
         knowledge = _Knowledge();
         final incoming = StreamController<List<int>>();
+        addTearDown(() => incoming.close());
         final outgoing = StreamController<List<int>>();
+        addTearDown(() => outgoing.close());
         serverTransport = IOStreamTransport(
           stream: incoming.stream,
           sink: outgoing.sink,
@@ -741,7 +748,9 @@ void main() {
         await configure(paths);
         knowledge = _Knowledge();
         final incoming = StreamController<List<int>>();
+        addTearDown(() => incoming.close());
         final outgoing = StreamController<List<int>>();
+        addTearDown(() => outgoing.close());
         serverTransport = IOStreamTransport(
           stream: incoming.stream,
           sink: outgoing.sink,
@@ -826,7 +835,7 @@ void main() {
           );
           expect(result.isError, isNot(true));
           final bundles = _payload(result)['bundles'] as List;
-          expect(bundles.map((bundle) => bundle['path']), paths);
+          expect(bundles.map((bundle) => (bundle as Map)['path']), paths);
           expect(knowledge.calls.map((call) => p.basename(call)), [
             'shared-kit',
             'knowledge',
@@ -886,7 +895,9 @@ void main() {
           p.join(project.path, 'lib', 'ui'),
         ).create(recursive: true);
         final incoming = StreamController<List<int>>();
+        addTearDown(() => incoming.close());
         final outgoing = StreamController<List<int>>();
+        addTearDown(() => outgoing.close());
         final transport = IOStreamTransport(
           stream: incoming.stream,
           sink: outgoing.sink,
@@ -1042,7 +1053,9 @@ void main() {
     addTearDown(() => temp.delete(recursive: true));
     await File('${temp.path}/broken.md').writeAsBytes(const [0xff, 0xfe]);
     final incoming = StreamController<List<int>>();
+    addTearDown(() => incoming.close());
     final outgoing = StreamController<List<int>>();
+    addTearDown(() => outgoing.close());
     final serverTransport = IOStreamTransport(
       stream: incoming.stream,
       sink: outgoing.sink,
@@ -1090,7 +1103,9 @@ void main() {
       for (final workingDir in [siblingDir, docsDir, bundle]) {
         final knowledge = _HitKnowledge();
         final incoming = StreamController<List<int>>();
+        addTearDown(() => incoming.close());
         final outgoing = StreamController<List<int>>();
+        addTearDown(() => outgoing.close());
         final serverTransport = IOStreamTransport(
           stream: incoming.stream,
           sink: outgoing.sink,

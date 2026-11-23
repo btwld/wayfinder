@@ -22,7 +22,7 @@ void main() {
     ).allMatches(script);
     expect(pins.length, entries.length);
     for (final pin in pins) {
-      expect(entries[pin[1]]['archiveSha256'], pin[2]);
+      expect((entries[pin[1]] as Map)['archiveSha256'], pin[2]);
     }
   });
 

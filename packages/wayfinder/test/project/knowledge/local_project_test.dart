@@ -12,6 +12,8 @@ import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
 Future<FileSystemEntityType> _typeIn(
   Zone zone,
   String path,
+  // Matches the positional signature of IOOverrides.fseGetType.
+  // ignore: bitwild_lints/prefer_named_boolean_parameters
   bool followLinks,
 ) => zone.run(() => FileSystemEntity.type(path, followLinks: followLinks));
 

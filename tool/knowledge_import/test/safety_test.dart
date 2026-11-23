@@ -22,11 +22,7 @@ void main() {
       jsonEncode({
         'version': 1,
         'changes': [
-          {
-            'path': path,
-            'content': content,
-            if (expected != null) 'expected_sha256': expected,
-          },
+          {'path': path, 'content': content, 'expected_sha256': ?expected},
         ],
       }),
     );

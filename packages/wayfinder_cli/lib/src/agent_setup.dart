@@ -299,7 +299,7 @@ class AgentSetup {
     final existing = await instructions.exists()
         ? await instructions.readAsString()
         : '';
-    final block = '$_routingStart\n$wayfinderSessionContext\n$_routingEnd';
+    const block = '$_routingStart\n$wayfinderSessionContext\n$_routingEnd';
     final start = existing.indexOf(_routingStart);
     final end = existing.indexOf(_routingEnd);
     if (start >= 0 && end >= start) {

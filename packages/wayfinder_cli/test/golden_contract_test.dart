@@ -424,6 +424,7 @@ final class _ContractProject {
     McpProtocol protocol = McpProtocol.legacy,
   }) async {
     final toServer = StreamController<List<int>>();
+    addTearDown(() => toServer.close());
     final fromServer = StreamController<List<int>>();
     final toClient = StreamController<List<int>>();
     final tap = StreamController<List<int>>();

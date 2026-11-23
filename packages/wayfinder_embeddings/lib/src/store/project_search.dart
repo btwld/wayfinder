@@ -112,7 +112,7 @@ final class KnowledgeCitation {
   }
 
   Map<Object?, Object?>? get _frontmatter =>
-      ((chunk.metadata['okf'] as Map?)?['frontmatter']) as Map?;
+      (chunk.metadata['okf'] as Map?)?['frontmatter'] as Map?;
 
   String? _field(String name) => switch (_frontmatter?[name]) {
     final String value when value.trim().isNotEmpty => value,

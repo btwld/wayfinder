@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
+// ObjectBox generates its model at the package root.
+// ignore: bitwild_lints/avoid_barrel_imports_in_src
 import 'package:wayfinder_embeddings/objectbox.g.dart';
 
 import '../models/chunk.dart';

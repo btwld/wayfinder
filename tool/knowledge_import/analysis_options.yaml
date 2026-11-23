@@ -1,0 +1,3 @@
+include:
+  - package:bitwild_analysis/dart.yaml
+  - package:bitwild_analysis/plugin.yaml

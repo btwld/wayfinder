@@ -6,11 +6,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  wayfinder: ^0.5.0-beta.2
   wayfinder_flutter:
     path: ..
-  wayfinder: ^0.5.0-beta.2
 dev_dependencies:
-  flutter_lints: ^6.0.0
+  bitwild_analysis:
+    git:
+      url: https://github.com/btwld/lints.git
+      path: packages/bitwild_analysis
+      ref: v0.3.0
 dependency_overrides:
   wayfinder:
     path: ../../wayfinder

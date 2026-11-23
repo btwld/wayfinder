@@ -116,17 +116,17 @@ void main() {
         0,
       );
       final result = jsonDecode(output.single) as Map;
-      final hits = result['matches'] as List;
+      final hits = (result['matches'] as List).cast<Map<String, Object?>>();
       expect(hits.map((hit) => hit['bundle']), [
         'knowledge',
         'flutter-dev-kit',
       ]);
-      expect(hits.map((hit) => hit['chunk']['sourcePath']), [
+      expect(hits.map((hit) => (hit['chunk'] as Map)['sourcePath']), [
         'guide.md',
         'guide.md',
       ]);
       expect(result['context'], hasLength(2));
-      expect((result['bundles'] as List), hasLength(2));
+      expect(result['bundles'] as List, hasLength(2));
       expect(knowledge.queries, ['caching']);
       expect(knowledge.policies, [StaleIndexPolicy.serveWhileRefreshing]);
       expect(errors, isEmpty);
@@ -140,7 +140,10 @@ void main() {
         0,
       );
       final result = jsonDecode(output.single) as Map;
-      expect((result['matches'] as List).single['bundle'], 'knowledge');
+      expect(
+        ((result['matches'] as List).single as Map)['bundle'],
+        'knowledge',
+      );
       expect(result['context'], hasLength(1));
     },
   );
@@ -257,7 +260,7 @@ void main() {
         0,
       );
       final result = jsonDecode(output.single) as Map;
-      final context = result['context'] as List;
+      final context = (result['context'] as List).cast<Map<String, Object?>>();
       expect(context.map((hit) => hit['reason']), ['match', 'relationship']);
       expect(context.last['bundle'], 'knowledge');
       expect(context.last['viaPath'], 'guide.md');

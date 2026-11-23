@@ -253,7 +253,7 @@ void main() {
             'ref': 'main',
             'commit': 'bad',
             'adapter': 'skills',
-            'files': [],
+            'files': <Object?>[],
           },
         ],
       }),

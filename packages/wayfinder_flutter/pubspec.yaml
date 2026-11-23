@@ -10,14 +10,18 @@ environment:
   flutter: ">=3.47.5"
 
 dependencies:
-  wayfinder: ^0.5.0-beta.2
   flutter:
     sdk: flutter
+  wayfinder: ^0.5.0-beta.2
 
 dev_dependencies:
+  bitwild_analysis:
+    git:
+      url: https://github.com/btwld/lints.git
+      path: packages/bitwild_analysis
+      ref: v0.3.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
 
 # Core entry points are resolved from this checkout during development.
 dependency_overrides:
