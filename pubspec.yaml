@@ -64,7 +64,9 @@ melos:
       description: Install the pinned ObjectBox native library locally
       run: dart run melos exec --scope=wayfinder_embeddings -- bash tool/install_objectbox.sh
     analyze:
-      run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
+      # One package at a time: parallel analysis servers race to build the
+      # shared bitwild_lints plugin snapshot.
+      run: dart run melos exec -c 1 --fail-fast -- dart analyze --fatal-infos
     format:check:
       run: dart run melos exec --fail-fast -- dart format --output=none --set-exit-if-changed .
     test:
