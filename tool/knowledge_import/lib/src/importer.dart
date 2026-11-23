@@ -81,8 +81,9 @@ final class KnowledgeImporter {
     final writes = <({File file, String content})>[];
     final seenTargets = <String>{};
     for (final raw in (value['changes'] as List)) {
-      if (raw is! Map<String, dynamic>)
+      if (raw is! Map<String, dynamic>) {
         throw const FormatException('Each change must be an object.');
+      }
       final relative = raw['path'];
       final content = raw['content'];
       final expected = raw['expected_sha256'];
@@ -100,10 +101,11 @@ final class KnowledgeImporter {
       }
       if (await file.exists()) {
         final current = _sha256(await file.readAsString());
-        if (expected == null || current != expected)
+        if (expected == null || current != expected) {
           throw FormatException(
             'Stale change set for $relative; refusing to overwrite.',
           );
+        }
       } else if (expected != null) {
         throw FormatException('Expected existing file is missing: $relative');
       }
@@ -132,8 +134,9 @@ final class KnowledgeImporter {
     final lock = SourceLockDocument.fromJson(
       jsonDecode(await lockFile.readAsString()),
     );
-    if (lock.manifestSha256 != _sha256(manifestText))
+    if (lock.manifestSha256 != _sha256(manifestText)) {
       findings.add('Source lock is stale for sources.json.');
+    }
     final expected = manifest.sources
         .where((source) => source.enabled)
         .map((source) => source.id)
@@ -182,9 +185,10 @@ final class KnowledgeImporter {
       '${source.ref}^{commit}',
     ], destination);
     _requireGit(commitResult, 'resolve ${source.id}:${source.ref}');
-    final commit = commitResult.stdout.trim();
-    if (!isSourceCommit(commit))
+    final commit = (commitResult.stdout as String).trim();
+    if (!isSourceCommit(commit)) {
       throw FormatException('Invalid commit for ${source.id}.');
+    }
     final files = <SourceFileLock>[];
     for (final path in source.paths) {
       final result = await _process([
@@ -193,7 +197,7 @@ final class KnowledgeImporter {
         '$commit:$path',
       ], destination);
       _requireGit(result, 'read ${source.id}:$path');
-      final bytes = utf8.encode(result.stdout);
+      final bytes = utf8.encode(result.stdout as String);
       files.add(
         SourceFileLock(
           path: path,
@@ -249,12 +253,13 @@ final class KnowledgeImporter {
         workingDirectory: cwd?.path,
       );
   static void _requireGit(ProcessResult result, String operation) {
-    if (result.exitCode != 0)
+    if (result.exitCode != 0) {
       throw ProcessException(
         'git',
         const [],
         'Failed to $operation: ${result.stderr}',
       );
+    }
   }
 
   static String _sha256(String value) =>
@@ -293,14 +298,17 @@ Future<int> main(List<String> arguments) async {
         stdout.writeln('Plan: ${(await importer.plan(project)).path}');
       case 'apply':
         final path = parsed['changeset'] as String?;
-        if (path == null)
+        if (path == null) {
           throw const FormatException('--changeset is required for apply.');
+        }
         await importer.apply(project, File(path));
         stdout.writeln('Applied reviewed change set.');
       case 'check':
         final findings = await importer.check(project);
         if (findings.isNotEmpty) {
-          for (final finding in findings) stderr.writeln(finding);
+          for (final finding in findings) {
+            stderr.writeln(finding);
+          }
           return 1;
         }
         stdout.writeln('Source manifest and lock are consistent.');

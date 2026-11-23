@@ -205,11 +205,11 @@ Future<void> main(List<String> args) async {
     stdout.writeln('Resolving stable qrels ids to reference source spans...');
     try {
       final referenceChunks = chunking.hasOverrides
-          ? (workflow.PreviewResult.fromFiles(
+          ? workflow.PreviewResult.fromFiles(
               registry: workflow.buildDefaultRegistry(reference: reference),
               files: files,
               fixturesDir: config.fixturesRoot,
-            )).chunks
+            ).chunks
           : preview.chunks;
       spanRelevance = workflow.FixtureSpanRelevance.fromJudgments(
         judgments: judgments,

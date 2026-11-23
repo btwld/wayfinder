@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
+import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 
 import 'reader_fixture.dart';
 

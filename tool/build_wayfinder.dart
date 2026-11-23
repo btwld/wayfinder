@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
 import '../packages/wayfinder_embeddings/tool/src/dependency_licenses.dart';
+import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
 import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
 
 /// Builds Wayfinder from the workspace root with verified model/native assets.

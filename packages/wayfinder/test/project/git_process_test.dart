@@ -588,7 +588,9 @@ final class _FakeProcess implements GitProcess {
 
   Future<void> closeOutput() => _closeOutput();
 
+  // The fake owns this sink; the code under test closes it.
   @override
+  // ignore: close_sinks
   late final IOSink stdin = IOSink(_StdinTarget(this));
 
   @override

@@ -19,8 +19,9 @@ Future<void> stageDependencyLicenses(
   }
   final graph = jsonDecode(result.stdout as String) as Map<String, dynamic>;
   final packages = {
-    for (final package in graph['packages'] as List)
-      package['name'] as String: package as Map<String, dynamic>,
+    for (final package
+        in (graph['packages'] as List).cast<Map<String, dynamic>>())
+      package['name'] as String: package,
   };
   final configUri = await Isolate.packageConfig;
   if (configUri == null) {
@@ -30,7 +31,8 @@ Future<void> stageDependencyLicenses(
       jsonDecode(await File.fromUri(configUri).readAsString())
           as Map<String, dynamic>;
   final locations = {
-    for (final package in config['packages'] as List)
+    for (final package
+        in (config['packages'] as List).cast<Map<String, dynamic>>())
       package['name'] as String: configUri.resolve(
         package['rootUri'] as String,
       ),

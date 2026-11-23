@@ -10,6 +10,7 @@
 /// through callbacks.
 library;
 
+export 'src/controller/knowledge_reader_controller.dart';
 export 'src/graph/knowledge_graph_canvas.dart';
 export 'src/graph/knowledge_graph_labels.dart';
 export 'src/graph/knowledge_type_palette.dart';
@@ -17,6 +18,5 @@ export 'src/model/knowledge.dart';
 export 'src/model/knowledge_file_tree_projection.dart';
 export 'src/model/knowledge_files.dart';
 export 'src/model/knowledge_links.dart';
-export 'src/theme/wayfinder_reader_theme.dart';
-export 'src/controller/knowledge_reader_controller.dart';
 export 'src/reader/knowledge_reader.dart';
+export 'src/theme/wayfinder_reader_theme.dart';

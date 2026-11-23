@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
+import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 
 void main() {
   test('larger retained files require an explicit reader budget; direct reads stay bounded', () async {

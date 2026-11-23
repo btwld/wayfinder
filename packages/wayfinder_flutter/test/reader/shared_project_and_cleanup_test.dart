@@ -69,6 +69,8 @@ void main() {
       StackTrace? closeStack;
       Object? bodyError;
       final completed = Completer<void>();
+      // The test awaits `completed`, which the zone completes.
+      // ignore: unawaited_futures
       runZonedGuarded(() async {
         final controller = KnowledgeReaderController(project: project);
         try {
@@ -115,6 +117,8 @@ void main() {
       );
       final releaseFailure = StateError('active release failed');
       var cancelled = false;
+      // The test checks that the reader cancels its subscription instead.
+      // ignore: close_sinks
       final events = StreamController<void>(
         sync: true,
         onCancel: () {

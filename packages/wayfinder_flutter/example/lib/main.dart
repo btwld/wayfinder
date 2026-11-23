@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 import 'package:wayfinder/project.dart' show LocalKnowledgeProject;
+import 'package:wayfinder_flutter/wayfinder_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

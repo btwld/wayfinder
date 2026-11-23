@@ -255,7 +255,7 @@ Future<WayfinderQueryResult> queryWayfinderBundles(
       field == 'effective_status'
       ? (raw.containsKey('status') ? raw['status'] : 'stable')
       : raw[field];
-  int compare(Object? a, Object? b, bool desc) {
+  int compare(Object? a, Object? b, {required bool desc}) {
     if (a is! String) return b is String ? 1 : 0;
     if (b is! String) return -1;
     final result = a.compareTo(b);
@@ -274,7 +274,7 @@ Future<WayfinderQueryResult> queryWayfinderBundles(
         'path' => b.path,
         _ => value(b.metadata, order.field),
       };
-      final result = compare(left, right, order.descending);
+      final result = compare(left, right, desc: order.descending);
       if (result != 0) return result;
     }
     final bundleOrder = a.bundle.path.compareTo(b.bundle.path);
@@ -293,7 +293,8 @@ Future<WayfinderQueryResult> queryWayfinderBundles(
       final key = raw is String ? raw : null;
       counts.update(key, (n) => n + 1, ifAbsent: () => 1);
     }
-    final keys = counts.keys.toList()..sort((a, b) => compare(a, b, false));
+    final keys = counts.keys.toList()
+      ..sort((a, b) => compare(a, b, desc: false));
     output.addAll([
       for (final key in keys) {'key': key, 'count': counts[key]},
     ]);

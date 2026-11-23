@@ -204,14 +204,22 @@ abstract final class ProfileSkills {
       installed: installed,
       state: outside
           ? ProfileSkillDirectoryState.outside
-          : !await _occupied(directory)
-          ? ProfileSkillDirectoryState.missing
-          : installed == null
-          ? ProfileSkillDirectoryState.unmarked
-          : installed == revision
-          ? ProfileSkillDirectoryState.current
-          : ProfileSkillDirectoryState.stale,
+          : await _installedState(directory, installed, revision),
     );
+  }
+
+  /// The state of an inside [directory] that holds [installed], or nothing.
+  static Future<ProfileSkillDirectoryState> _installedState(
+    Directory directory,
+    SkillRevision? installed,
+    SkillRevision revision,
+  ) async {
+    if (!await _occupied(directory)) return ProfileSkillDirectoryState.missing;
+    if (installed == null) return ProfileSkillDirectoryState.unmarked;
+
+    return installed == revision
+        ? ProfileSkillDirectoryState.current
+        : ProfileSkillDirectoryState.stale;
   }
 
   /// Whether anything is at [directory]'s path, a symbolic link included,

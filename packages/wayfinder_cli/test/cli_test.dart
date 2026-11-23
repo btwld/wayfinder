@@ -2,19 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:okf/okf_io.dart';
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:okf/okf_io.dart';
 import 'package:path/path.dart' as p;
-import 'package:wayfinder_cli/src/mcp_server.dart';
-import 'package:wayfinder_cli/src/messages.dart';
-import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/testing.dart';
-
+import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
+import 'package:wayfinder_cli/src/mcp_server.dart';
+import 'package:wayfinder_cli/src/messages.dart';
 import 'package:wayfinder_cli/src/version.dart';
-import 'package:test/test.dart';
+import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support.dart';
 
@@ -340,7 +339,11 @@ void main() {
       expect(errors, isEmpty);
       expect(
         output.map(jsonDecode),
-        everyElement({'matches': [], 'context': [], 'notices': []}),
+        everyElement(<String, Object?>{
+          'matches': <Object?>[],
+          'context': <Object?>[],
+          'notices': <Object?>[],
+        }),
       );
     },
   );
@@ -828,7 +831,7 @@ void main() {
         final result = jsonDecode(output.single) as Map;
         expect(result['current'], isTrue);
         expect(
-          (result['warnings'] as List).single['code'],
+          ((result['warnings'] as List).single as Map)['code'],
           'oversized_segment_split',
         );
         expect(provider.opened.length, opened, reason: 'no model was opened');
@@ -957,7 +960,7 @@ void main() {
         const notices = [refreshLine, changedLine];
         expect(result['notices'], notices);
         final match = (result['matches'] as List).first as Map;
-        expect(match['chunk']['sourcePath'], 'recovery.md');
+        expect((match['chunk'] as Map)['sourcePath'], 'recovery.md');
         expect(match['sourceChanged'], isTrue);
         output.clear();
         expect(await command.run(['search', bundle.path, 'password']), 0);

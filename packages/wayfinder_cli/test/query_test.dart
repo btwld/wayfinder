@@ -97,7 +97,7 @@ void main() {
           reason: flags.toString(),
         );
         expect(err, isNotEmpty);
-        expect(result(), isA<Map>());
+        expect(result(), isA<Map<String, Object?>>());
       }
     },
   );
@@ -111,7 +111,9 @@ void main() {
   });
   test('real MCP, CLI and Dart agree; query never opens an encoder', () async {
     final incoming = StreamController<List<int>>();
+    addTearDown(() => incoming.close());
     final outgoing = StreamController<List<int>>();
+    addTearDown(() => outgoing.close());
     final encoder = _NoEncoder();
     final store = WayfinderKnowledgeStore(
       dataDirectory: Directory(p.join(project.path, 'unused-data')),
@@ -170,12 +172,12 @@ void main() {
       );
       for (final input in <Map<String, dynamic>>[
         {},
-        {'saved': 'guides', 'query': {}},
+        {'saved': 'guides', 'query': <String, Object?>{}},
         {
           'query': {'sql': 'select'},
         },
-        {'query': {}, 'root': '/tmp'},
-        {'query': {}, 'limit': 0},
+        {'query': <String, Object?>{}, 'root': '/tmp'},
+        {'query': <String, Object?>{}, 'limit': 0},
         {'saved': '../private'},
         {
           'query': {
@@ -235,7 +237,9 @@ void main() {
     ]);
 
     final incoming = StreamController<List<int>>();
+    addTearDown(() => incoming.close());
     final outgoing = StreamController<List<int>>();
+    addTearDown(() => outgoing.close());
     final transport = IOStreamTransport(
       stream: incoming.stream,
       sink: outgoing.sink,

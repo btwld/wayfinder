@@ -380,7 +380,7 @@ class KnowledgeSnapshot {
       }
 
       Future<({List<Chunk> chunks, Map<String, String> texts, bool split})?>
-      attempt(bool context, {bool restart = false}) async {
+      attempt({required bool context, bool restart = false}) async {
         final staged = <Chunk>[];
         final inputs = <String, String>{};
         var segmentSplit = false;
@@ -515,9 +515,9 @@ class KnowledgeSnapshot {
         return (chunks: staged, texts: inputs, split: segmentSplit);
       }
 
-      var result = await attempt(includeContext);
+      var result = await attempt(context: includeContext);
       if (result == null && includeContext) {
-        result = await attempt(false, restart: true);
+        result = await attempt(context: false, restart: true);
         if (result != null) record('embedding_context_omitted');
       }
       if (result == null) {

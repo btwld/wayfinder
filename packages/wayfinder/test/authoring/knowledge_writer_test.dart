@@ -231,7 +231,7 @@ void main() {
       'authored byte', () async {
     final before = read('log.md');
     await write(_createContract(), log: _creation);
-    final created =
+    const created =
         '## 2026-10-22\n'
         '* **Creation**: Recorded [Pagination contract]'
         '(/reporting/pagination-contract.md).\n\n';
@@ -289,7 +289,7 @@ void main() {
   test('a log entry dated within the history, or written to a CRLF log, '
       'keeps every authored byte; a malformed log is not rewritten', () async {
     final before = read('log.md');
-    final created =
+    const created =
         '* **Creation**: Recorded [Pagination contract]'
         '(/reporting/pagination-contract.md).';
     Future<String> createOn(DateTime day) async {
