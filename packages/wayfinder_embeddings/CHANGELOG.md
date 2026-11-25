@@ -1,4 +1,4 @@
-# Unreleased
+# 0.6.0-beta.1
 
 - Add pluggable generation storage and filtered nearest-row search. Keep the
   existing plain-file layout and citation ranking, and republish into another
