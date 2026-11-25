@@ -379,6 +379,11 @@ then one little-endian float32 row per passage, checked against the SHA-256 the
 record names). There is no database: search loads the generation it reads and
 scores every eligible passage exactly.
 
+`wayfinder status <bundle> [--output=json]` checks the saved record and every
+vector against its checksum without loading a model. It reports `missing`,
+`current`, `stale`, `incompatible`, or `refreshing`. Search checks the saved
+record and vector shape but does not verify the full checksum.
+
 Wayfinder 0.2 kept one index per bundle directly under `indexes/<bundle-key>/`,
 with a different bundle key, and earlier 0.3 builds kept ObjectBox databases in
 `indexes/<bundle-key>/<configuration-key>/`. This version never reads, changes

@@ -108,7 +108,8 @@ try {
   `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
   names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
   comes from `knowledge_store.dart`.
-- **Operations.** `status` compares the saved index with the bundle without
+- **Operations.** `verify` checks the complete vector checksum without loading
+  an encoder. `status` compares the saved index with the bundle without
   an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
   input warnings), `KnowledgeIndexStale` (the changed paths) or
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
@@ -176,7 +177,7 @@ try {
   directory. The bundle key hashes the canonical root, so worktrees and copies
   index separately; the configuration key hashes the chunking, snapshot and
   storage configuration and the llama.cpp release `wayfinderLlamaCppRuntime`
-  names with the encoder identity, so another model, chunker, format or
+  names with the encoder identity, so another model, chunker, record codec or
   runtime release never reads or replaces an index ([what a host
   checks](#local-model-and-builds)). The directory holds
   `writer.lock`, a `current` pointer, and immutable generations,
@@ -184,9 +185,9 @@ try {
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
   snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and a hash of the input each row embeds. Before scoring, a
-  reader checks the vector shape and file digest and the input-hash list's
-  shape; it does not recompute those input hashes from the snapshot. Indexing
+  count, SHA-256 and a hash of the input each row embeds. Before scoring, the
+  store checks the record and vector shape, not the digest. Publication,
+  reuse by `index`, and `verify` hash the canonical float32 rows. Indexing
   uses them to decide which vectors it can reuse. A 0.2 index, at
   `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
@@ -215,7 +216,8 @@ try {
   operation opens and disposes its own encoder; with it, operations share one
   encoder, one call into it at a time (a batch of passages, a query vector or
   a token count), so a search runs between an index's batches, and share the
-  parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
+  parsed snapshots and detached verified rows, up to `cacheBytes`. Readers
+  close after each operation even when those rows are cached. Only a failure in the encoder, or an
   unexpected error, discards the shared encoder and snapshots; a stale, busy
   or cancelled operation keeps them. `releaseEncoder()` disposes the shared
   encoder once the operations using it finish and keeps the snapshots, and
@@ -230,6 +232,43 @@ try {
 exercise indexing, storage and search in tests without a model. They check
 mechanisms; they are no relevance evidence
 ([ADR-0017](../../docs/adr/0017-dense-only-retrieval.md)).
+
+## Write a storage driver
+
+Implement `GenerationFormat` and `GenerationReader` from
+`package:wayfinder_embeddings/knowledge_store.dart` for saved OKF indexes.
+Pass `formats: [yourWriter, ...otherReaders]` to `WayfinderKnowledgeStore`.
+The first format writes; readers are selected by the first registered marker
+present. Plain files are always readable. To switch an unchanged index back,
+register the plain-file format first and the old format as a reader, then run
+`index`. That republishes the original record and rows without opening a model.
+
+- Write only under the supplied staging directory; flush the contents and write
+  a unique marker last. Keep the canonical record opaque and preserve every
+  float32 bit in snapshot chunk order. `IndexGeneration` provides the canonical
+  little-endian codec; formats can use their own physical encoding. The supplied
+  width covers empty generations; readers can report it via `GenerationRowDimensions`.
+- Open read-only. Missing files raise `GenerationGone` so the core can repin.
+  Corruption raises a different error. Return selected rows in request order
+  and release native resources when the reader closes.
+- `nearest` accepts an allowed ordinal set and returns the requested number of
+  nearest cosine rows, or all allowed rows if there are fewer. Return original
+  vectors. The core rescores with the original query and applies its path/chunk
+  tie-break. It may request more candidates for duplicate paths or an ambiguous
+  cutoff, and fetches related context separately. A short answer is an error,
+  not an invitation to scan. `exactNearestRows` is the reference scan.
+
+The second driver contract, `BaseStore.findSimilar` from
+`package:wayfinder_embeddings/wayfinder_embeddings.dart`, serves generic chunk
+and embedding search, not generation publication. Implement it for drivers
+that also back `BaseStore`: restrict by source/model before enforcing the
+requested limit and return best-first `SearchResult`s with cosine scores
+(see the method's contract).
+
+The workspace-only `wayfinder_storage_testing` package runs
+`runGenerationFormatContract` and `runKnowledgeStoreSuites` with a format
+harness; `runStoreContract` exercises `BaseStore`. These model-free tests check
+raw row fidelity, filtering, ranking, and index lifecycle.
 
 ### Markdown retrieval context
 

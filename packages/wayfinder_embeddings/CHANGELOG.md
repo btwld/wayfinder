@@ -1,3 +1,10 @@
+# Unreleased
+
+- Add pluggable generation storage and filtered nearest-row search. Keep the
+  existing plain-file layout and citation ranking, and republish into another
+  registered format without embedding. `WayfinderKnowledgeStore.verify`
+  checks the complete vector checksum without opening an encoder.
+
 # 0.5.0-beta.1
 
 - Test-only: make inference/ObjectBox coverage explicitly opt in with

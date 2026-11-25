@@ -1,5 +1,4 @@
-/// A hook this package's tests set on a `WayfinderKnowledgeStore`. No
-/// public library exports it, so it is not part of the store's API.
+/// A hook for the storage contract suites, exported only by `testing.dart`.
 library;
 
 /// Runs after a reader of a store reads the `current` pointer and before it

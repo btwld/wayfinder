@@ -27,6 +27,9 @@ and file-lock helpers exported by `project.dart` are included.
 [`model_cache.dart`](../packages/wayfinder_embeddings/lib/model_cache.dart), and
 test-only [`testing.dart`](../packages/wayfinder_embeddings/lib/testing.dart).
 Custom chunker, encoder, searcher and storage extension points are included.
+`GenerationFormat` / `GenerationReader` and `BaseStore.findSimilar` are public
+driver contracts. They may evolve during 0.x; breaking driver changes follow
+the 0.x breaking-release and migration rules below.
 
 ### Application (`wayfinder_cli`)
 

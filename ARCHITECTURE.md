@@ -112,11 +112,19 @@ Adoption therefore can remain incomplete after a failed final gate, and existing
 
 ## Immutable plain-file index generations (ADR-0022, ADR-0026)
 
-Date: 2026-10-24; model lookup correction 2026-10-26.
+Date: 2026-10-24; model lookup correction 2026-10-26; storage/search amendment 2026-11-25.
 
-Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
+Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock. The plain-file implementation still scans eligible rows exactly; other formats can supply candidates as specified in [Storage and search abstraction](#storage-and-search-abstraction).
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
+
+## Storage and search abstraction
+
+Date: 2026-11-25. Amends ADR-0022.
+
+Keep immutable publication, the canonical record and its `f32-v1` checksum in the core; a registered generation format owns files, row reads and nearest-neighbor lookup over explicitly eligible rows. The core rescoring and tie-break remain authoritative, and relationship and governing passages are selected by exact score even outside the nearest set. A short read is an incompatible index, not a trigger for a fallback scan. Verify all vector bits on publication, reuse and explicit verification, not on every search.
+
+Plain files remain the default and an always-available reader. Registered format changes republish a current generation without inference; the configuration key and existing bytes are unchanged. Readers release file handles when each operation finishes; bounded retained caches hold detached data only. No new database dependency or driver ships with the core. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
 ## Shared effective vocabulary (ADR-0027)
 

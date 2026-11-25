@@ -15,4 +15,5 @@
 /// ```
 library;
 
+export 'src/store/generation_pin_hook.dart' show generationPinned;
 export 'src/testing/deterministic_encoder.dart';

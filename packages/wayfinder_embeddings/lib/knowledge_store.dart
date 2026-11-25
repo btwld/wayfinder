@@ -64,7 +64,11 @@ export 'src/okf/knowledge_index.dart'
         KnowledgeSearchResponse;
 export 'src/okf/knowledge_input_diagnostic.dart';
 export 'src/store/encoder.dart';
+export 'src/store/generation.dart' show IndexGeneration;
+export 'src/store/generation_format.dart';
 export 'src/store/index_result.dart';
 export 'src/store/knowledge_store.dart';
+export 'src/store/plain_file_generation.dart'
+    show PlainFileGenerationFormat, exactNearestRows;
 export 'src/store/project_search.dart';
 export 'src/store/search_input.dart';

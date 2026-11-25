@@ -1,13 +1,13 @@
 import 'package:test/test.dart';
-import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// Creates a 384-dimensional test vector with a unique pattern based on seed.
 List<double> testVector384({int seed = 0}) {
-  final vector = List<double>.filled(objectBoxEmbeddingDimension, 0.0);
-  vector[seed % objectBoxEmbeddingDimension] = 1.0;
+  const dimension = 384;
+  final vector = List<double>.filled(dimension, 0.0);
+  vector[seed % dimension] = 1.0;
   if (seed > 0) {
-    vector[(seed + 1) % objectBoxEmbeddingDimension] = 0.5;
+    vector[(seed + 1) % dimension] = 0.5;
   }
   return vector;
 }

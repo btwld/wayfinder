@@ -159,7 +159,7 @@ files with `dart run melos run build` only when entity schemas change. The root
 `pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
 natively; change the override, the installer and
 `tool/objectbox_assets/manifest.json` together.
-`wayfinder_embeddings` keeps `analyzer` out of its runtime dependencies;
+`wayfinder_embeddings` keeps `analyzer`, `drift`, and `sqlite3` out of its runtime dependencies;
 `python3 tool/ci/verify-embeddings-closure.py` checks that rule in CI.
 The committed baseline chunks are the source of truth for the judged retrieval
 corpus. Its tools and tests replay the Dart chunks and compare against that

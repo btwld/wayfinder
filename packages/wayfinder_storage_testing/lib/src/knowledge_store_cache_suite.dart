@@ -7,18 +7,19 @@ import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 
-import 'support/store_support.dart';
+import 'generation_format_harness.dart';
+import 'store_support.dart';
 
 /// A retained store caches parsed snapshots; these tests compare it with an
 /// uncached one after every kind of change to the saved files and sources.
-void main() {
+void runCacheSuite(GenerationFormatHarness harness) {
   group('retained snapshot cache', () {
     late _Harness h;
     late WayfinderKnowledgeStore retained;
     late WayfinderKnowledgeStore uncached;
 
     setUp(() async {
-      h = await _Harness.create();
+      h = await _Harness.create(harness);
       retained = h.service(retain: true);
       uncached = h.service();
       await uncached.index(h.bundle);
@@ -70,12 +71,17 @@ void main() {
         'the cache does not hide a $corruption failure or recovery',
         () async {
           final first = await search(retained);
-          final file = await h.snapshot(h.bundle);
-          final original = await file.readAsString();
+          final generation = await h.generation(h.bundle);
+          final file = harness.marker(generation);
+          final bytes = await file.readAsBytes();
+          final original = await harness.readRecord(generation);
           final modified = (await file.stat()).modified;
           if (corruption == 'json') {
             // Equal length and mtime cannot authorize reuse.
-            await file.writeAsString('[${original.substring(1)}');
+            await harness.rewriteRecord(
+              generation,
+              '[${original.substring(1)}',
+            );
             await file.setLastModified(modified);
           } else if (corruption == 'missing') {
             await file.delete();
@@ -86,7 +92,7 @@ void main() {
             } else {
               record['inventory'] = null;
             }
-            await file.writeAsString(jsonEncode(record));
+            await harness.rewriteRecord(generation, jsonEncode(record));
           }
           final expected = await _failure(() => search(uncached));
           expect(await _failure(() => search(retained)), expected);
@@ -94,7 +100,7 @@ void main() {
             expected,
             contains('Saved index is incomplete or incompatible'),
           );
-          await file.writeAsString(original);
+          await file.writeAsBytes(bytes);
           final recovered = await search(retained);
           expect(_response(recovered), _response(first));
           expect(
@@ -107,8 +113,9 @@ void main() {
 
     test('a same-size, same-mtime snapshot change is read again', () async {
       final first = await search(retained);
-      final file = await h.snapshot(h.bundle);
-      final original = await file.readAsString();
+      final generation = await h.generation(h.bundle);
+      final file = harness.marker(generation);
+      final original = await harness.readRecord(generation);
       final modified = (await file.stat()).modified;
       final changed = original.replaceAll(
         'Account recovery',
@@ -116,7 +123,7 @@ void main() {
       );
       expect(changed, isNot(original));
       expect(utf8.encode(changed).length, utf8.encode(original).length);
-      await file.writeAsString(changed);
+      await harness.rewriteRecord(generation, changed);
       await file.setLastModified(modified);
       final actual = await search(retained);
       expect(_response(actual), _response(await search(uncached)));
@@ -432,8 +439,8 @@ void main() {
       'the UTF-8 cap admits the boundary, then evicts and bypasses larger text',
       () async {
         final first = await search(retained);
-        final file = await h.snapshot(h.bundle);
-        final original = await file.readAsString();
+        final generation = await h.generation(h.bundle);
+        final original = await harness.readRecord(generation);
         final record = jsonDecode(original) as Map;
         const limit = 64 * 1024 * 1024;
         record['ignoredPadding'] = '';
@@ -442,7 +449,7 @@ void main() {
             '${'é' * (paddingBytes ~/ 2)}${paddingBytes.isOdd ? 'a' : ''}';
         final boundary = jsonEncode(record);
         expect(utf8.encode(boundary).length, limit);
-        await file.writeAsString(boundary);
+        await harness.rewriteRecord(generation, boundary);
         final boundaryFirst = await search(retained);
         final boundarySecond = await search(retained);
         expect(_response(boundaryFirst), _response(first));
@@ -455,7 +462,7 @@ void main() {
         final enlarged = jsonEncode(record);
         expect(enlarged.length, lessThan(limit));
         expect(utf8.encode(enlarged).length, greaterThan(limit));
-        await file.writeAsString(enlarged);
+        await harness.rewriteRecord(generation, enlarged);
         final largeFirst = await search(retained);
         final largeSecond = await search(retained);
         expect(_response(largeFirst), _response(first));
@@ -464,7 +471,7 @@ void main() {
           largeSecond.matches.first.chunk,
           isNot(same(largeFirst.matches.first.chunk)),
         );
-        await file.writeAsString(original);
+        await harness.rewriteRecord(generation, original);
         final restored = await search(retained);
         expect(_response(restored), _response(first));
         expect(
@@ -526,21 +533,23 @@ Future<String> _code(Future<Object?> Function() action) async {
 }
 
 class _Harness {
-  _Harness(this.temp, this.bundle, this.data);
+  _Harness(this.temp, this.bundle, this.data, this.format);
   final Directory temp;
   final ProjectBundle bundle;
   final Directory data;
+  final GenerationFormat format;
   final services = <WayfinderKnowledgeStore>[];
   final encoders = <TestEmbedder>[];
   final pointers = <String, File>{};
   Future<void> Function(String)? beforeQuery;
 
-  static Future<_Harness> create() async {
+  static Future<_Harness> create(GenerationFormatHarness harness) async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-cache-test-');
     return _Harness(
       temp,
       await copyStoreBundle(temp),
       Directory(p.join(temp.path, 'data')),
+      harness.format,
     );
   }
 
@@ -552,6 +561,7 @@ class _Harness {
     Duration? encoderIdleTimeout,
   }) {
     final service = WayfinderKnowledgeStore(
+      formats: [format],
       dataDirectory: data,
       retainEncoder: retain,
       cacheBytes: cacheBytes,
@@ -572,15 +582,9 @@ class _Harness {
   Future<File> pointer(ProjectBundle bundle) async => pointers[bundle.root] ??=
       File(p.join((await service().index(bundle)).index, 'current'));
 
-  Future<File> snapshot(ProjectBundle bundle) async {
+  Future<Directory> generation(ProjectBundle bundle) async {
     final current = await pointer(bundle);
-    return File(
-      p.join(
-        current.parent.path,
-        await current.readAsString(),
-        'snapshot.json',
-      ),
-    );
+    return Directory(p.join(current.parent.path, await current.readAsString()));
   }
 
   Future<void> close() async {

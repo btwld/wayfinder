@@ -11,11 +11,12 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
-import 'support/store_support.dart';
+import 'generation_format_harness.dart';
+import 'store_support.dart';
 
 /// The index layout on disk, okf's lock file in a bundle, progress,
 /// cancellation, and reclaiming indexes, with deterministic vectors only.
-void main() {
+void runLayoutSuite(GenerationFormatHarness harness) {
   late Directory temp;
   late Directory data;
   late ProjectBundle bundle;
@@ -29,6 +30,7 @@ void main() {
 
   WayfinderKnowledgeStore store([WayfinderEncoderProvider? encoder]) =>
       WayfinderKnowledgeStore(
+        formats: [harness.format],
         dataDirectory: data,
         encoder: encoder ?? DeterministicEncoderProvider(),
       );
@@ -127,15 +129,9 @@ void main() {
       );
       expect(
         generation.listSync().map((entry) => p.basename(entry.path)).toSet(),
-        {'snapshot.json', 'vectors.f32'},
+        harness.files,
       );
-      final record =
-          jsonDecode(
-                await File(
-                  p.join(generation.path, 'snapshot.json'),
-                ).readAsString(),
-              )
-              as Map;
+      final record = jsonDecode(await harness.readRecord(generation)) as Map;
       final configuration = Map<String, Object?>.from(
         jsonDecode(record['configuration'] as String) as Map,
       );
@@ -157,16 +153,22 @@ void main() {
         'sha256': isA<String>(),
         'inputs': hasLength(chunks),
       });
-      final bytes = await File(
-        p.join(generation.path, 'vectors.f32'),
-      ).readAsBytes();
-      expect(sha256.convert(bytes).toString(), vectors['sha256']);
-      expect(bytes.length, 16 + chunks * 384 * 4);
-      expect(ascii.decode(bytes.sublist(0, 6)), 'WFVF32');
-      expect(bytes.sublist(6, 8), [0, 1]);
-      final header = ByteData.sublistView(bytes);
-      expect(header.getUint32(8, Endian.little), 384);
-      expect(header.getUint32(12, Endian.little), chunks);
+      if (harness.format is PlainFileGenerationFormat) {
+        final bytes = await File(
+          p.join(generation.path, 'vectors.f32'),
+        ).readAsBytes();
+        expect(sha256.convert(bytes).toString(), vectors['sha256']);
+        expect(bytes.length, 16 + chunks * 384 * 4);
+        expect(ascii.decode(bytes.sublist(0, 6)), 'WFVF32');
+        expect(bytes.sublist(6, 8), [0, 1]);
+        final header = ByteData.sublistView(bytes);
+        expect(header.getUint32(8, Endian.little), 384);
+        expect(header.getUint32(12, Endian.little), chunks);
+      }
+      expect(
+        await store(provider).verify(bundle),
+        isA<KnowledgeIndexCurrent>(),
+      );
 
       final other = await store(
         DeterministicEncoderProvider(model: 'another-model'),
@@ -278,11 +280,7 @@ void main() {
         // for this bundle and encoder.
         final built = await store().index(bundle);
         final record = Map<String, Object?>.from(
-          jsonDecode(
-                await File(
-                  p.join(currentGeneration(built.index).path, 'snapshot.json'),
-                ).readAsString(),
-              )
+          jsonDecode(await harness.readRecord(currentGeneration(built.index)))
               as Map,
         );
         final configuration = Map<String, Object?>.from(
@@ -309,7 +307,7 @@ void main() {
           p.join(old.path, key, 'generation-objectbox'),
         ).create(recursive: true);
         for (final file in Directory(
-          p.join('test', 'fixtures', 'objectbox-0.2.0'),
+          p.join(await embeddingsRoot(), 'test', 'fixtures', 'objectbox-0.2.0'),
         ).listSync().whereType<File>()) {
           if (p.extension(file.path) == '.md') continue;
           await file.copy(p.join(generation.path, p.basename(file.path)));
@@ -596,10 +594,7 @@ Future<void> main(List<String> arguments) async {
           ['diagram.png', 'notes/new.md', 'recovery.md', 'weather.md'],
         ),
       );
-      final current = File(p.join(result.index, 'current'));
-      await File(
-        p.join(result.index, await current.readAsString(), 'snapshot.json'),
-      ).writeAsString('{}');
+      await harness.rewriteRecord(currentGeneration(result.index), '{}');
       expect(
         await knowledge.status(bundle),
         isA<KnowledgeIndexIncompatible>().having(
