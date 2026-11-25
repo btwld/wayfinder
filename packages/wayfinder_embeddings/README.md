@@ -235,18 +235,19 @@ mechanisms; they are no relevance evidence
 
 ## Write a storage driver
 
-Implement `GenerationFormat` and `GenerationReader` from
-`package:wayfinder_embeddings/knowledge_store.dart`; their doc comments state
-the contract. Pass `formats: [yourWriter, ...otherReaders]` to
-`WayfinderKnowledgeStore`. The first format writes, and a saved index opens with
-the first format whose marker it holds. Plain files stay readable. After a
-format change, `index` republishes an unchanged index without opening a model.
-The core scores the rows a reader returns, so every format ranks the same.
-`BaseStore.findSimilar` is the search hook for drivers that back `BaseStore`.
+A storage driver implements `GenerationFormat` and `GenerationReader` from
+`package:wayfinder_embeddings/knowledge_store.dart`. Their doc comments state
+the contract. Register a driver with the `formats` argument of
+`WayfinderKnowledgeStore`, whose doc comment says which format writes and
+which formats read. Wayfinder computes the final score of every row a reader
+returns, so search results are the same in every format.
 
-The workspace-only `wayfinder_storage_testing` package checks a driver:
-`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a format
-harness, and `runStoreContract` takes a `BaseStore`.
+Drivers that also back `BaseStore` implement `BaseStore.findSimilar` for its
+search.
+
+The workspace-only `wayfinder_storage_testing` package tests a driver.
+`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a
+`GenerationFormatHarness`, and `runStoreContract` takes a `BaseStore`.
 
 ### Markdown retrieval context
 

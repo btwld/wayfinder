@@ -229,8 +229,11 @@ class WayfinderKnowledgeStore {
   /// A superseded generation stays readable for [gracePeriod] after a newer
   /// one is published, and the next [index] or [prune] after that deletes
   /// it.
-  /// The first of [formats] writes; readers are tried in order by marker,
-  /// with plain files always supported.
+  ///
+  /// The first of [formats] writes new generations. A saved generation opens
+  /// with the first of [formats] whose marker it holds; plain files always
+  /// open. When the write format changes, [index] republishes a current index
+  /// in the new format from its saved rows, without opening an encoder.
   WayfinderKnowledgeStore({
     required this.dataDirectory,
     required this.encoder,

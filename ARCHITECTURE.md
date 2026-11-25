@@ -122,7 +122,7 @@ Search exposes refresh/source-change notices and refuses stale snapshots outside
 
 Date: 2026-11-25. Amends ADR-0022.
 
-A registered generation format stores each immutable generation and returns nearest rows; the core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. Plain files stay the default and are always readable. Every vector is hashed when a generation is published, reused or verified, not on each search. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
+A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. This lets a database driver search a generation without a full scan. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
 ## Shared effective vocabulary (ADR-0027)
 

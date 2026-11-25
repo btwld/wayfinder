@@ -8,7 +8,7 @@ import '../util/similarity.dart';
 import 'generation.dart';
 import 'generation_format.dart';
 
-/// The original Wayfinder `snapshot.json` and `vectors.f32` generation.
+/// The default format: a `snapshot.json` record and a `vectors.f32` file.
 final class PlainFileGenerationFormat implements GenerationFormat {
   const PlainFileGenerationFormat();
 
@@ -138,8 +138,12 @@ final class _PlainFileReader implements GenerationReader {
   Future<void> close() => _file.close();
 }
 
-/// Reference exact cosine scan. Equal scores break by ordinal.
-/// The returned vectors are the original rows, not copies or native scores.
+/// Returns the [count] rows of [vectors] nearest to [query] by exact cosine
+/// similarity, best first, with equal scores in ordinal order.
+///
+/// When [allowed] is not null, only those ordinals are eligible. The
+/// returned rows are the given rows, not copies. Drivers can use this scan
+/// as a reference in tests.
 List<NearRow> exactNearestRows(
   List<Float32List> vectors,
   Float32List query,

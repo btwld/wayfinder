@@ -147,8 +147,8 @@ abstract final class IndexGeneration {
   /// The SHA-256 of [bytes], in lowercase hexadecimal.
   static String digest(List<int> bytes) => sha256.convert(bytes).toString();
 
-  /// The record's `sha256` of [rows]: the digest of their canonical encoding,
-  /// whatever layout a format stores them in.
+  /// Returns the `sha256` the record stores for [rows]: the digest of
+  /// [encode]'s output.
   static String checksum(List<List<double>> rows, int dimension) =>
       digest(encode(rows, dimension));
 }
