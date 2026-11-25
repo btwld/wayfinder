@@ -170,7 +170,8 @@ void runGenerationRandomParity(
         }
       }
     }
-  }, timeout: const Timeout(Duration(minutes: 2)));
+    // One-shot searches reopen and parse the saved snapshot throughout the matrix.
+  }, timeout: Timeout(Duration(minutes: retainEncoder ? 2 : 5)));
 }
 
 final class _Provider implements WayfinderEncoderProvider {
