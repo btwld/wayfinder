@@ -1010,9 +1010,6 @@ class WayfinderCli {
       _out(const JsonEncoder.withIndent('  ').convert(value));
 }
 
-/// The machine-wide right to run a background index: an exclusive
-/// [WayfinderFileLock] on `background-index.lock` in the Wayfinder data
-/// directory, which excludes other processes and other isolates alike.
 Map<String, Object?> _indexStatus(KnowledgeIndexStatus state) =>
     switch (state) {
       KnowledgeIndexMissing() => {'status': 'missing'},
@@ -1034,6 +1031,9 @@ Map<String, Object?> _indexStatus(KnowledgeIndexStatus state) =>
       },
     };
 
+/// The machine-wide right to run a background index: an exclusive
+/// [WayfinderFileLock] on `background-index.lock` in the Wayfinder data
+/// directory, which excludes other processes and other isolates alike.
 class _BackgroundSlot {
   _BackgroundSlot._(this._lock);
 
