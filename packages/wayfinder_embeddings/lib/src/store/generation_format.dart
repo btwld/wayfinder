@@ -26,7 +26,10 @@ final class GenerationGone implements Exception {
 final class NearRow {
   const NearRow(this.ordinal, this.vector);
 
+  /// The row's position in snapshot chunk order.
   final int ordinal;
+
+  /// The stored row.
   final Float32List vector;
 }
 
@@ -74,8 +77,9 @@ abstract interface class GenerationReader {
   /// Returns the rows at [ordinals], in the order given, including repeats.
   Future<List<Float32List>> rows(List<int> ordinals);
 
-  /// Returns the [count] rows nearest to [query] by cosine similarity, best
-  /// first.
+  /// Returns the [count] rows nearest to [query] by exact cosine similarity,
+  /// best first, ranked as `exactNearestRows`
+  /// ranks them.
   ///
   /// When [allowed] is not null, only those ordinals are eligible. Return
   /// fewer than [count] rows only when fewer rows are eligible; the core

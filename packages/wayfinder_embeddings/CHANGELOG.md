@@ -4,6 +4,8 @@
   existing plain-file layout and citation ranking, and republish into another
   registered format without embedding. `WayfinderKnowledgeStore.verify`
   checks the complete vector checksum without opening an encoder.
+- `status` and search no longer hash every vector. They check the record, the
+  row count and the row width. Call `verify` to check the vector checksum.
 
 # 0.5.0-beta.1
 

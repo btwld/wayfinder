@@ -23,10 +23,11 @@ abstract final class IndexGeneration {
   /// The value of the record's `vectors.format`.
   static const format = 'f32-v1';
 
+  /// The length of the vectors file header, in bytes.
   static const headerBytes = 16;
   static final _magic = Uint8List.fromList([...ascii.encode('WFVF32'), 0, 1]);
 
-  /// [rows] as a vectors file. Every row must have [dimension] values that
+  /// Returns [rows] encoded as a vectors file. Every row must have [dimension] values that
   /// stay finite as float32, and at least one that stays nonzero, so that
   /// cosine scoring is defined.
   static Uint8List encode(List<List<double>> rows, int dimension) {
@@ -68,7 +69,7 @@ abstract final class IndexGeneration {
     return bytes;
   }
 
-  /// The rows of a vectors file whose record says it holds [count] rows of
+  /// Returns the rows of a vectors file whose record says it holds [count] rows of
   /// [dimension] values. Checks the SHA-256 when [checksum] is supplied.
   /// Throws [FormatException] for a mismatched header, length or checksum.
   static List<Float32List> decode(

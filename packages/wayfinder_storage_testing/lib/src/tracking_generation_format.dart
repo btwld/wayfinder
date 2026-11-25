@@ -4,16 +4,31 @@ import 'dart:typed_data';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 
 /// Wraps a format and records what the core asks of its readers.
-/// Set [short] to make `nearest` return one row fewer than asked.
 final class TrackingGenerationFormat implements GenerationFormat {
   TrackingGenerationFormat(this.delegate);
+
+  /// The format that does the work.
   final GenerationFormat delegate;
+
+  /// The `count` of each `nearest` call.
   final nearestCounts = <int>[];
+
+  /// The ordinals each `nearest` call returned.
   final nearestOrdinals = <List<int>>[];
+
+  /// The ordinals of each `rows` call.
   final rowRequests = <List<int>>[];
+
+  /// How many readers opened.
   int opens = 0;
+
+  /// How many readers closed.
   int closes = 0;
+
+  /// How many `vectors` calls the readers answered.
   int vectorReads = 0;
+
+  /// Whether `nearest` returns one row fewer than asked.
   bool short = false;
 
   @override

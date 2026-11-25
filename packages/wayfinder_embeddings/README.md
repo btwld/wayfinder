@@ -233,22 +233,6 @@ exercise indexing, storage and search in tests without a model. They check
 mechanisms; they are no relevance evidence
 ([ADR-0017](../../docs/adr/0017-dense-only-retrieval.md)).
 
-## Write a storage driver
-
-A storage driver implements `GenerationFormat` and `GenerationReader` from
-`package:wayfinder_embeddings/knowledge_store.dart`. Their doc comments state
-the contract. Register a driver with the `formats` argument of
-`WayfinderKnowledgeStore`, whose doc comment says which format writes and
-which formats read. Wayfinder computes the final score of every row a reader
-returns, so search results are the same in every format.
-
-Drivers that also back `BaseStore` implement `BaseStore.findSimilar` for its
-search.
-
-The workspace-only `wayfinder_storage_testing` package tests a driver.
-`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a
-`GenerationFormatHarness`, and `runStoreContract` takes a `BaseStore`.
-
 ### Markdown retrieval context
 
 Contextual inputs use labeled document title, optional description, full heading
@@ -311,6 +295,22 @@ Alternative model weights stay in benchmark tooling:
 `tool/prepare_benchmark_models.dart --output=DIR` downloads each one straight
 into `DIR/<model-id>/`, never into the Wayfinder data directory. The
 application model remains Arctic XS Q8_0.
+
+## Write a storage driver
+
+A storage driver implements `GenerationFormat` and `GenerationReader` from
+`package:wayfinder_embeddings/knowledge_store.dart`. Their doc comments state
+the contract. Register a driver with the `formats` argument of
+`WayfinderKnowledgeStore`, whose doc comment says which format writes and
+which formats read. Wayfinder computes the final score of every row a reader
+returns, so search results are the same in every format.
+
+Drivers that also back `BaseStore` implement `BaseStore.findSimilar` for its
+search.
+
+The workspace-only `wayfinder_storage_testing` package tests a driver.
+`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a
+`GenerationFormatHarness`, and `runStoreContract` takes a `BaseStore`.
 
 ## Command-line entry points
 

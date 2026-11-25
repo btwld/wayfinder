@@ -51,7 +51,7 @@ void runConcurrencySuite(GenerationFormatHarness harness) {
     ),
   );
 
-  if (harness.format is PlainFileGenerationFormat)
+  if (harness.format is PlainFileGenerationFormat) {
     test(
       'searches from another isolate and a subprocess never fail '
       'during index --force, see the refresh, and read only whole generations',
@@ -199,6 +199,7 @@ void runConcurrencySuite(GenerationFormatHarness harness) {
       },
       timeout: const Timeout(Duration(minutes: 4)),
     );
+  }
 
   test(
     'searches that probe the writer lock never make a lone writer busy',

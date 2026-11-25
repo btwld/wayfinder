@@ -183,10 +183,6 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
                   isTrue,
                   reason: reason,
                 );
-                final scored = [
-                  for (final row in rows)
-                    (row.ordinal, _cosine(query, row.vector)),
-                ];
                 for (final row in rows) {
                   expect(
                     _bits(row.vector),
@@ -194,11 +190,17 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
                     reason: reason,
                   );
                 }
-                final expected = [
-                  for (final ordinal in eligible)
-                    (ordinal, _cosine(query, corpus.passages[ordinal])),
-                ]..sort((left, right) => right.$2.compareTo(left.$2));
-                expect(scored, expected.take(count), reason: reason);
+                final expected = exactNearestRows(
+                  corpus.passages,
+                  query,
+                  count,
+                  allowed: allowed,
+                );
+                expect(
+                  rows.map((row) => row.ordinal),
+                  expected.map((row) => row.ordinal),
+                  reason: reason,
+                );
               }
             }
           }
@@ -233,15 +235,3 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
 
 List<int> _bits(Float32List row) =>
     row.buffer.asUint32List(row.offsetInBytes, row.length);
-
-double _cosine(Float32List query, Float32List row) {
-  var dot = 0.0;
-  var queryNorm = 0.0;
-  var rowNorm = 0.0;
-  for (var index = 0; index < row.length; index++) {
-    dot += query[index] * row[index];
-    queryNorm += query[index] * query[index];
-    rowNorm += row[index] * row[index];
-  }
-  return dot / (math.sqrt(queryNorm) * math.sqrt(rowNorm));
-}

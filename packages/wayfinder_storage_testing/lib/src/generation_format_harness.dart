@@ -11,12 +11,17 @@ final class GenerationFormatHarness {
     : format = const PlainFileGenerationFormat(),
       files = const {IndexGeneration.snapshotFile, IndexGeneration.vectorsFile};
 
+  /// The format under test.
   final GenerationFormat format;
+
+  /// Every file a written generation holds, relative to its directory.
   final Set<String> files;
 
+  /// The marker file of [generation].
   File marker(Directory generation) =>
       File(p.join(generation.path, format.marker));
 
+  /// Opens [generation] with [format] and returns its record.
   Future<String> readRecord(Directory generation) async {
     final reader = await format.open(generation);
     try {

@@ -71,8 +71,6 @@ final class _MissingFormatMarker extends WayfinderException {
       );
 }
 
-/// One query vector for every bundle of a project search; the encoder stays
-/// owned by the operation.
 /// Serves rows the store already verified and detached.
 final class _VerifiedRowsReader implements GenerationReader {
   _VerifiedRowsReader(this._reader, this._rows);
@@ -108,6 +106,8 @@ final class _VerifiedRowsReader implements GenerationReader {
   Future<void> close() => _reader.close();
 }
 
+/// One query vector for every bundle of a project search; the encoder stays
+/// owned by the operation.
 class _SharedQueryEmbedder extends BaseEmbedder {
   _SharedQueryEmbedder(this.delegate);
   final BaseEmbedder delegate;
