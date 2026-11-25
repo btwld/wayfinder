@@ -3,14 +3,14 @@ import 'dart:typed_data';
 
 /// A canonical record and its float32 rows in snapshot chunk order.
 final class GenerationData {
-  const GenerationData(this.record, this.vectors, {this.dimension});
+  const GenerationData(this.record, this.vectors, {required this.dimension});
 
   /// Opaque to the format; return this text verbatim on read.
   final String record;
   final List<Float32List> vectors;
 
-  /// The width even when there are no rows to infer it from.
-  final int? dimension;
+  /// The row width, also when there are no rows.
+  final int dimension;
 }
 
 /// A generation or a required file disappeared or could not be opened.
@@ -44,6 +44,9 @@ abstract interface class GenerationFormat {
 /// A read-only view of one generation. Returned row data remains valid until
 /// the reader closes. The core detaches any data it keeps beyond that point.
 abstract interface class GenerationReader {
+  /// The row width the generation was written with.
+  int get dimension;
+
   Future<String> record();
   Future<int> rowCount();
 
@@ -64,10 +67,4 @@ abstract interface class GenerationReader {
   });
 
   Future<void> close();
-}
-
-/// Optional schema metadata to check the width even for an empty generation.
-/// Without it the core checks a sample row and every row it consumes.
-abstract interface class GenerationRowDimensions {
-  int get dimension;
 }

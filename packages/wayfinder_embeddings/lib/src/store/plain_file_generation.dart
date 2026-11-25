@@ -20,9 +20,8 @@ final class PlainFileGenerationFormat implements GenerationFormat {
 
   @override
   Future<void> write(Directory staged, GenerationData data) async {
-    final dimension = data.dimension ?? data.vectors.first.length;
     await File(p.join(staged.path, IndexGeneration.vectorsFile)).writeAsBytes(
-      IndexGeneration.encode(data.vectors, dimension),
+      IndexGeneration.encode(data.vectors, data.dimension),
       flush: true,
     );
     await File(
@@ -53,15 +52,10 @@ final class PlainFileGenerationFormat implements GenerationFormat {
   }
 }
 
-/// Attaches detached, already verified rows only to a plain-file reader.
-void usePlainFileVerifiedRows(GenerationReader reader, List<Float32List> rows) {
-  if (reader is _PlainFileReader) reader._verified = rows;
-}
-
-final class _PlainFileReader
-    implements GenerationReader, GenerationRowDimensions {
+final class _PlainFileReader implements GenerationReader {
   _PlainFileReader(this._record, this._file, this._count, this.dimension);
 
+  /// A filter that allows at least a quarter of the rows reads the whole file.
   static const _bulkReadDivisor = 4;
 
   final String _record;
@@ -69,7 +63,7 @@ final class _PlainFileReader
   final int _count;
   @override
   final int dimension;
-  List<Float32List>? _verified;
+  Future<List<Float32List>>? _all;
 
   @override
   Future<String> record() async => _record;
@@ -91,21 +85,34 @@ final class _PlainFileReader
     }
   }
 
+  /// Read once per reader: the core may ask again while it widens a search.
   @override
-  Future<List<Float32List>> vectors() => _read(0, _count);
+  Future<List<Float32List>> vectors() => _all ??= _read(0, _count);
 
+  /// Reads each run of consecutive ordinals with one call.
   @override
   Future<List<Float32List>> rows(List<int> ordinals) async {
-    final cached = _verified;
-    return [
-      for (final ordinal in ordinals)
-        cached != null
-            ? cached[ordinal]
-            : (await _read(
-                RangeError.checkValueInInterval(ordinal, 0, _count - 1),
-                1,
-              )).single,
-    ];
+    for (final ordinal in ordinals) {
+      RangeError.checkValueInInterval(ordinal, 0, _count - 1);
+    }
+    if (_all case final all?) {
+      final loaded = await all;
+      return [for (final ordinal in ordinals) loaded[ordinal]];
+    }
+    final sorted = ordinals.toSet().toList()..sort();
+    final found = <int, Float32List>{};
+    for (var index = 0; index < sorted.length;) {
+      var end = index + 1;
+      while (end < sorted.length && sorted[end] == sorted[end - 1] + 1) {
+        end++;
+      }
+      final run = await _read(sorted[index], end - index);
+      for (var offset = 0; offset < run.length; offset++) {
+        found[sorted[index + offset]] = run[offset];
+      }
+      index = end;
+    }
+    return [for (final ordinal in ordinals) found[ordinal]!];
   }
 
   @override
@@ -114,18 +121,12 @@ final class _PlainFileReader
     int count, {
     Set<int>? allowed,
   }) async {
-    final cached = _verified;
     if (allowed == null ||
         allowed.length * _bulkReadDivisor >= _count ||
-        cached != null) {
-      return exactNearestRows(
-        cached ?? await vectors(),
-        query,
-        count,
-        allowed: allowed,
-      );
+        _all != null) {
+      return exactNearestRows(await vectors(), query, count, allowed: allowed);
     }
-    final ordinals = allowed.toList();
+    final ordinals = allowed.toList()..sort();
     final selected = await rows(ordinals);
     return [
       for (final row in exactNearestRows(selected, query, count))

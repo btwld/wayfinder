@@ -236,39 +236,17 @@ mechanisms; they are no relevance evidence
 ## Write a storage driver
 
 Implement `GenerationFormat` and `GenerationReader` from
-`package:wayfinder_embeddings/knowledge_store.dart` for saved OKF indexes.
-Pass `formats: [yourWriter, ...otherReaders]` to `WayfinderKnowledgeStore`.
-The first format writes; readers are selected by the first registered marker
-present. Plain files are always readable. To switch an unchanged index back,
-register the plain-file format first and the old format as a reader, then run
-`index`. That republishes the original record and rows without opening a model.
+`package:wayfinder_embeddings/knowledge_store.dart`; their doc comments state
+the contract. Pass `formats: [yourWriter, ...otherReaders]` to
+`WayfinderKnowledgeStore`. The first format writes, and a saved index opens with
+the first format whose marker it holds. Plain files stay readable. After a
+format change, `index` republishes an unchanged index without opening a model.
+The core scores the rows a reader returns, so every format ranks the same.
+`BaseStore.findSimilar` is the search hook for drivers that back `BaseStore`.
 
-- Write only under the supplied staging directory; flush the contents and write
-  a unique marker last. Keep the canonical record opaque and preserve every
-  float32 bit in snapshot chunk order. `IndexGeneration` provides the canonical
-  little-endian codec; formats can use their own physical encoding. The supplied
-  width covers empty generations; readers can report it via `GenerationRowDimensions`.
-- Open read-only. Missing files raise `GenerationGone` so the core can repin.
-  Corruption raises a different error. Return selected rows in request order
-  and release native resources when the reader closes.
-- `nearest` accepts an allowed ordinal set and returns the requested number of
-  nearest cosine rows, or all allowed rows if there are fewer. Return original
-  vectors. The core rescores with the original query and applies its path/chunk
-  tie-break. It may request more candidates for duplicate paths or an ambiguous
-  cutoff, and fetches related context separately. A short answer is an error,
-  not an invitation to scan. `exactNearestRows` is the reference scan.
-
-The second driver contract, `BaseStore.findSimilar` from
-`package:wayfinder_embeddings/wayfinder_embeddings.dart`, serves generic chunk
-and embedding search, not generation publication. Implement it for drivers
-that also back `BaseStore`: restrict by source/model before enforcing the
-requested limit and return best-first `SearchResult`s with cosine scores
-(see the method's contract).
-
-The workspace-only `wayfinder_storage_testing` package runs
-`runGenerationFormatContract` and `runKnowledgeStoreSuites` with a format
-harness; `runStoreContract` exercises `BaseStore`. These model-free tests check
-raw row fidelity, filtering, ranking, and index lifecycle.
+The workspace-only `wayfinder_storage_testing` package checks a driver:
+`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a format
+harness, and `runStoreContract` takes a `BaseStore`.
 
 ### Markdown retrieval context
 

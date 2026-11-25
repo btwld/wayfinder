@@ -22,7 +22,7 @@ void main() {
           for (var ordinal = 0; ordinal < 100; ordinal++)
             Float32List.fromList([1, ordinal.toDouble()]),
         ];
-        await format.write(folder, GenerationData('{}', vectors));
+        await format.write(folder, GenerationData('{}', vectors, dimension: 2));
         final query = Float32List.fromList([1, 12]);
         final allowed = {
           for (var ordinal = 0; ordinal < vectors.length; ordinal += step)

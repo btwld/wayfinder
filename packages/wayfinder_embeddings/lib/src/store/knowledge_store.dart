@@ -73,6 +73,41 @@ final class _MissingFormatMarker extends WayfinderException {
 
 /// One query vector for every bundle of a project search; the encoder stays
 /// owned by the operation.
+/// Serves rows the store already verified and detached.
+final class _VerifiedRowsReader implements GenerationReader {
+  _VerifiedRowsReader(this._reader, this._rows);
+
+  final GenerationReader _reader;
+  final List<Float32List> _rows;
+
+  @override
+  int get dimension => _reader.dimension;
+
+  @override
+  Future<String> record() => _reader.record();
+
+  @override
+  Future<int> rowCount() => _reader.rowCount();
+
+  @override
+  Future<List<Float32List>> vectors() async => _rows;
+
+  @override
+  Future<List<Float32List>> rows(List<int> ordinals) async => [
+    for (final ordinal in ordinals) _rows[ordinal],
+  ];
+
+  @override
+  Future<List<NearRow>> nearest(
+    Float32List query,
+    int count, {
+    Set<int>? allowed,
+  }) async => exactNearestRows(_rows, query, count, allowed: allowed);
+
+  @override
+  Future<void> close() => _reader.close();
+}
+
 class _SharedQueryEmbedder extends BaseEmbedder {
   _SharedQueryEmbedder(this.delegate);
   final BaseEmbedder delegate;
@@ -521,9 +556,7 @@ class WayfinderKnowledgeStore {
           inputs.add(input);
         }
         final dimension = opened.embedder.dimension;
-        final checksum = IndexGeneration.digest(
-          IndexGeneration.encode(rows, dimension),
-        );
+        final checksum = IndexGeneration.checksum(rows, dimension);
         final record = {
           'configuration': _configuration,
           'model': _space,
@@ -1827,13 +1860,12 @@ class WayfinderKnowledgeStore {
       final text = await reader.record();
       final saved = _parseRecord(generation, text, cacheKey);
       if (await reader.rowCount() != saved.count) throw _incomplete;
+      if (reader.dimension != saved.dimension) throw _incomplete;
       final List<Float32List>? vectors;
       if (verify) {
         final stored = await reader.vectors();
         if (stored.length != saved.count ||
-            IndexGeneration.digest(
-                  IndexGeneration.encode(stored, saved.dimension),
-                ) !=
+            IndexGeneration.checksum(stored, saved.dimension) !=
                 saved.checksum) {
           throw _incomplete;
         }
@@ -1841,25 +1873,18 @@ class WayfinderKnowledgeStore {
       } else {
         vectors = null;
       }
-      if (reader is GenerationRowDimensions) {
-        if ((reader as GenerationRowDimensions).dimension != saved.dimension) {
-          throw _incomplete;
-        }
-      } else if (!verify && saved.count != 0) {
-        final sample = await reader.rows(const [0]);
-        if (sample.length != 1 || sample.single.length != saved.dimension) {
-          throw _incomplete;
-        }
-      }
       if (cacheKey != null) {
         if (vectors != null && _closing == null && text.length <= cacheBytes) {
           _remember(cacheKey, text, saved, vectors: vectors);
         } else {
+          // Plain files scan every allowed row anyway, so verified rows in
+          // memory replace the file reads. Other formats keep their own search.
           final cached = _cachedSavedIndexes[cacheKey];
-          if (cached != null &&
+          if (selected is PlainFileGenerationFormat &&
+              cached != null &&
               identical(saved, cached.index) &&
               cached.vectors != null) {
-            usePlainFileVerifiedRows(reader, cached.vectors!);
+            reader = _VerifiedRowsReader(reader, cached.vectors!);
           }
         }
       }

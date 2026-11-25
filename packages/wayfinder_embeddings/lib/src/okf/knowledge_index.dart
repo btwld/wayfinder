@@ -484,28 +484,9 @@ class KnowledgeIndex {
     try {
       final dense = <SearchResult>[];
       if (eligible.isNotEmpty) {
-        final stored = _reader == null
-            ? await store.getEmbeddingsForChunks(
-                eligible.keys.toSet(),
-                source: embedder.sourceName,
-                modelName: embeddingModelName,
-              )
-            : null;
-        if (stored != null && stored.length != eligible.length) {
-          throw StateError(
-            'Dense search requires compatible embeddings for every eligible '
-            'passage. Synchronize the index again.',
-          );
-        }
-        final key = query.trim();
-        final vector =
-            _queryCache.remove(key) ?? await embedder.generateQueryVector(key);
-        _queryCache[key] = vector;
-        if (_queryCache.length > 100) {
-          _queryCache.remove(_queryCache.keys.first);
-        }
-        throwIfCancelled(cancel);
         if (_reader case final reader?) {
+          final vector = await _queryVector(query);
+          throwIfCancelled(cancel);
           return await _searchGeneration(
             reader,
             snapshot,
@@ -517,7 +498,20 @@ class KnowledgeIndex {
             cancel: cancel,
           );
         }
-        for (final embedding in stored!) {
+        final stored = await store.getEmbeddingsForChunks(
+          eligible.keys.toSet(),
+          source: embedder.sourceName,
+          modelName: embeddingModelName,
+        );
+        if (stored.length != eligible.length) {
+          throw StateError(
+            'Dense search requires compatible embeddings for every eligible '
+            'passage. Synchronize the index again.',
+          );
+        }
+        final vector = await _queryVector(query);
+        throwIfCancelled(cancel);
+        for (final embedding in stored) {
           dense.add(
             SearchResult(
               chunk: eligible[embedding.chunkId]!,
@@ -539,6 +533,18 @@ class KnowledgeIndex {
     } finally {
       _searches--;
     }
+  }
+
+  /// The query embedding, kept for the 100 most recent queries.
+  Future<List<double>> _queryVector(String query) async {
+    final key = query.trim();
+    final vector =
+        _queryCache.remove(key) ?? await embedder.generateQueryVector(key);
+    _queryCache[key] = vector;
+    if (_queryCache.length > 100) {
+      _queryCache.remove(_queryCache.keys.first);
+    }
+    return vector;
   }
 
   static int _compareHits(SearchResult left, SearchResult right) {

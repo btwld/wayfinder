@@ -10,8 +10,10 @@ import 'package:wayfinder_embeddings/src/okf/knowledge_index.dart';
 import 'package:wayfinder_embeddings/src/okf/knowledge_snapshot.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
-import 'generation_format_plugin_test.dart'
-    show SingleFileFormat, TrackingGenerationFormat;
+import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart'
+    show TrackingGenerationFormat, currentGeneration;
+
+import 'generation_format_plugin_test.dart' show SingleFileFormat;
 
 void main() {
   for (final format in [
@@ -51,10 +53,7 @@ void main() {
         );
         addTearDown(service.dispose);
         final built = await service.index(bundle);
-        final current = File(p.join(built.index, 'current')).readAsStringSync();
-        final reader = await format.open(
-          Directory(p.join(built.index, current)),
-        );
+        final reader = await format.open(currentGeneration(built.index));
         final List<Float32List> vectors;
         final KnowledgeSnapshot snapshot;
         try {

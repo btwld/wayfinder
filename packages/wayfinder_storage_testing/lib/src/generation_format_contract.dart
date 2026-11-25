@@ -56,7 +56,7 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
             0x3f800000 + index,
           ]).buffer.asFloat32List(),
         );
-        await format.write(folder, GenerationData(record, rows));
+        await format.write(folder, GenerationData(record, rows, dimension: 4));
         final before = await treeBytes(folder);
         expect(before.keys.toSet(), harness.files);
         final reader = await format.open(folder);
@@ -100,7 +100,7 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
           folder,
           GenerationData(record, [
             Float32List.fromList([1]),
-          ]),
+          ], dimension: 1),
         );
         if (target == 'folder') {
           await folder.delete(recursive: true);
@@ -123,7 +123,7 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
         folder,
         GenerationData(record, [
           Float32List.fromList([1]),
-        ]),
+        ], dimension: 1),
       );
       final dataFile = harness.files.firstWhere(
         (name) => name != format.marker,
@@ -144,7 +144,14 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
       '40 queries match exact cosine with all, 50% and 5% allowed',
       () async {
         final corpus = SyntheticGenerationCorpus();
-        await format.write(folder, GenerationData(record, corpus.passages));
+        await format.write(
+          folder,
+          GenerationData(
+            record,
+            corpus.passages,
+            dimension: SyntheticGenerationCorpus.dimension,
+          ),
+        );
         final before = await treeBytes(folder);
         final reader = await format.open(folder);
         try {
@@ -211,7 +218,7 @@ void runGenerationFormatContract(GenerationFormatHarness harness) {
         Uint32List.fromList([0x3f800000, 0x3f800001]).buffer.asFloat32List(),
         Float32List.fromList([1, 1]),
       ];
-      await format.write(folder, GenerationData(record, rows));
+      await format.write(folder, GenerationData(record, rows, dimension: 2));
       final reader = await format.open(folder);
       try {
         final near = await reader.nearest(Float32List.fromList([1, 0]), 2);

@@ -9,7 +9,7 @@ final class GenerationFormatHarness {
 
   const GenerationFormatHarness.plain()
     : format = const PlainFileGenerationFormat(),
-      files = const {'snapshot.json', 'vectors.f32'};
+      files = const {IndexGeneration.snapshotFile, IndexGeneration.vectorsFile};
 
   final GenerationFormat format;
   final Set<String> files;
@@ -33,13 +33,7 @@ final class GenerationFormatHarness {
     final GenerationData data;
     try {
       final rows = await reader.vectors();
-      data = GenerationData(
-        record,
-        rows,
-        dimension: reader is GenerationRowDimensions
-            ? (reader as GenerationRowDimensions).dimension
-            : rows.firstOrNull?.length,
-      );
+      data = GenerationData(record, rows, dimension: reader.dimension);
     } finally {
       await reader.close();
     }

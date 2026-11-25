@@ -61,7 +61,7 @@ void main() {
         final result = await service.index(bundle);
         expect(tracked.opens, tracked.closes);
         expect(
-          _generation(
+          currentGeneration(
             result.index,
           ).listSync().map((file) => p.basename(file.path)),
           [single.marker],
@@ -101,9 +101,11 @@ void main() {
       () async {
         final plainStore = store([plain]);
         final original = await plainStore.index(bundle);
-        final plainFolder = _generation(original.index);
-        final plainBytes = await _files(plainFolder);
-        final record = await _record(plain, plainFolder);
+        final plainFolder = currentGeneration(original.index);
+        final plainBytes = await treeBytes(plainFolder);
+        final record = await const GenerationFormatHarness.plain().readRecord(
+          plainFolder,
+        );
         final opens = encoder.opens;
         final documents = encoder.documents;
 
@@ -114,18 +116,18 @@ void main() {
         expect(migrated.writtenChunks, original.writtenChunks);
         expect(migrated.embeddedChunks, 0);
         expect((await pluginStore.index(bundle)).current, isTrue);
-        final singleFolder = _generation(original.index);
-        final singleBytes = await _files(singleFolder);
-        expect(await _record(single, singleFolder), record);
-        expect(await _files(plainFolder), plainBytes);
+        final singleFolder = currentGeneration(original.index);
+        final singleBytes = await treeBytes(singleFolder);
+        expect(await harness.readRecord(singleFolder), record);
+        expect(await treeBytes(plainFolder), plainBytes);
 
         final restored = await store([plain, single]).index(bundle);
         expect(restored.index, original.index);
         expect(restored.current, isFalse);
         expect(restored.embeddedChunks, 0);
-        expect(await _files(_generation(original.index)), plainBytes);
-        expect(await _files(plainFolder), plainBytes);
-        expect(await _files(singleFolder), singleBytes);
+        expect(await treeBytes(currentGeneration(original.index)), plainBytes);
+        expect(await treeBytes(plainFolder), plainBytes);
+        expect(await treeBytes(singleFolder), singleBytes);
         expect(encoder.opens, opens);
         expect(encoder.documents, documents);
       },
@@ -137,7 +139,10 @@ void main() {
         final service = store([plain]);
         final result = await service.index(bundle);
         final vectors = File(
-          p.join(_generation(result.index).path, IndexGeneration.vectorsFile),
+          p.join(
+            currentGeneration(result.index).path,
+            IndexGeneration.vectorsFile,
+          ),
         );
         final bytes = await vectors.readAsBytes();
         bytes.fillRange(IndexGeneration.headerBytes, bytes.length, 0);
@@ -152,7 +157,7 @@ void main() {
     test('unknown marker is incompatible and indexing repairs it', () async {
       final service = store([single]);
       final result = await service.index(bundle);
-      final generation = _generation(result.index);
+      final generation = currentGeneration(result.index);
       await harness
           .marker(generation)
           .rename(p.join(generation.path, 'unregistered.marker'));
@@ -218,8 +223,7 @@ final class SingleFileFormat implements GenerationFormat {
   @override
   Future<void> write(Directory staged, GenerationData data) async {
     final text = utf8.encode(data.record);
-    final width = data.dimension ?? data.vectors.first.length;
-    final vectors = IndexGeneration.encode(data.vectors, width);
+    final vectors = IndexGeneration.encode(data.vectors, data.dimension);
     final bytes = Uint8List(4 + text.length + vectors.length)
       ..setRange(4, 4 + text.length, text)
       ..setRange(4 + text.length, 4 + text.length + vectors.length, vectors);
@@ -243,17 +247,16 @@ final class SingleFileFormat implements GenerationFormat {
     final header = IndexGeneration.inspectHeader(payload, payload.length);
     return _SingleReader(
       text,
-      IndexGeneration.decode(
-        payload,
-        dimension: header.dimension,
-        count: header.count,
+      IndexGeneration.decodeRows(
+        Uint8List.sublistView(payload, IndexGeneration.headerBytes),
+        header.dimension,
       ),
       header.dimension,
     );
   }
 }
 
-final class _SingleReader implements GenerationReader, GenerationRowDimensions {
+final class _SingleReader implements GenerationReader {
   const _SingleReader(this._text, this._rows, this.dimension);
 
   final String _text;
@@ -279,76 +282,6 @@ final class _SingleReader implements GenerationReader, GenerationRowDimensions {
   }) async => exactNearestRows(_rows, query, count, allowed: allowed);
   @override
   Future<void> close() async {}
-}
-
-final class TrackingGenerationFormat implements GenerationFormat {
-  TrackingGenerationFormat(this.delegate);
-  final GenerationFormat delegate;
-  final nearestCounts = <int>[];
-  final nearestOrdinals = <List<int>>[];
-  final rowRequests = <List<int>>[];
-  int opens = 0;
-  int closes = 0;
-  int vectorReads = 0;
-  bool short = false;
-
-  @override
-  String get name => delegate.name;
-  @override
-  String get marker => delegate.marker;
-  @override
-  Future<void> write(Directory staged, GenerationData data) =>
-      delegate.write(staged, data);
-  @override
-  Future<GenerationReader> open(Directory generation) async {
-    final reader = await delegate.open(generation);
-    opens++;
-    return _TrackingReader(this, reader);
-  }
-}
-
-final class _TrackingReader implements GenerationReader {
-  const _TrackingReader(this.tracking, this.delegate);
-  final TrackingGenerationFormat tracking;
-  final GenerationReader delegate;
-
-  @override
-  Future<String> record() => delegate.record();
-  @override
-  Future<int> rowCount() => delegate.rowCount();
-  @override
-  Future<List<Float32List>> vectors() {
-    tracking.vectorReads++;
-    return delegate.vectors();
-  }
-
-  @override
-  Future<List<Float32List>> rows(List<int> ordinals) {
-    tracking.rowRequests.add(ordinals);
-    return delegate.rows(ordinals);
-  }
-
-  @override
-  Future<List<NearRow>> nearest(
-    Float32List query,
-    int count, {
-    Set<int>? allowed,
-  }) async {
-    tracking.nearestCounts.add(count);
-    final rows = await delegate.nearest(
-      query,
-      tracking.short ? count - 1 : count,
-      allowed: allowed,
-    );
-    tracking.nearestOrdinals.add(rows.map((row) => row.ordinal).toList());
-    return rows;
-  }
-
-  @override
-  Future<void> close() async {
-    await delegate.close();
-    tracking.closes++;
-  }
 }
 
 final class _CountingProvider implements WayfinderEncoderProvider {
@@ -382,20 +315,3 @@ final class _CountingEmbedder extends BaseEmbedder {
   @override
   Future<List<double>> generateQueryVector(String text) async => [1, 0];
 }
-
-Directory _generation(String index) =>
-    Directory(p.join(index, File(p.join(index, 'current')).readAsStringSync()));
-
-Future<String> _record(GenerationFormat format, Directory folder) async {
-  final reader = await format.open(folder);
-  try {
-    return await reader.record();
-  } finally {
-    await reader.close();
-  }
-}
-
-Future<Map<String, List<int>>> _files(Directory folder) async => {
-  await for (final file in folder.list())
-    if (file is File) p.basename(file.path): await file.readAsBytes(),
-};

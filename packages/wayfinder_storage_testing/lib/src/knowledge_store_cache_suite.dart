@@ -150,9 +150,7 @@ void runCacheSuite(GenerationFormatHarness harness) {
       () async {
         final first = await search(retained);
         final pointer = await h.pointer(h.bundle);
-        final original = Directory(
-          p.join(pointer.parent.path, await pointer.readAsString()),
-        );
+        final original = await h.generation(h.bundle);
         final replacement = await Directory(
           p.join(pointer.parent.path, 'generation-republished'),
         ).create();

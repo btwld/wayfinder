@@ -122,9 +122,7 @@ Search exposes refresh/source-change notices and refuses stale snapshots outside
 
 Date: 2026-11-25. Amends ADR-0022.
 
-Keep immutable publication, the canonical record and its `f32-v1` checksum in the core; a registered generation format owns files, row reads and nearest-neighbor lookup over explicitly eligible rows. The core rescoring and tie-break remain authoritative, and relationship and governing passages are selected by exact score even outside the nearest set. A short read is an incompatible index, not a trigger for a fallback scan. Verify all vector bits on publication, reuse and explicit verification, not on every search.
-
-Plain files remain the default and an always-available reader. Registered format changes republish a current generation without inference; the configuration key and existing bytes are unchanged. Readers release file handles when each operation finishes; bounded retained caches hold detached data only. No new database dependency or driver ships with the core. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
+A registered generation format stores each immutable generation and returns nearest rows; the core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. Plain files stay the default and are always readable. Every vector is hashed when a generation is published, reused or verified, not on each search. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
 ## Shared effective vocabulary (ADR-0027)
 
