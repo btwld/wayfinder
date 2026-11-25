@@ -33,7 +33,7 @@ and held-out splits contain 18 and 17 questions. This unprofiled fixture is not
 a normative bundle template. Do not adjust judgments to fit model output.
 
 `dart run tool/evaluate_okf_retrieval.dart --output=REPORT` requires the local
-model. It reports dense results for both stores and the context-policy variants.
+model. It reports dense results for the memory store and the context-policy variants.
 See the [evaluation guide](../README.md#evaluation).
 
 ## knowledge_retrieval/
@@ -43,7 +43,7 @@ scope, authority conflicts, stale guidance, paraphrases, negation, missing
 verification, and an unanswerable question. Metadata is caller-projected.
 
 `dart run tool/evaluate_knowledge_cases.dart REPORT` requires the local model
-and evaluates dense retrieval with both stores. These diagnostics are separate
+and evaluates dense retrieval with the memory store. These diagnostics are separate
 from the 65-query corpus gate.
 
 ## embedding_comparison/

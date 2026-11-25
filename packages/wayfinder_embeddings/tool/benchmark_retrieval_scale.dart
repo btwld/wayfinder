@@ -8,7 +8,16 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'benchmark_retrieval.dart' show elapsed, summarize;
 
 /// Synthetic storage/ranking stress only; no model or semantic quality claims.
-Future<void> main(List<String> args) async {
+Future<void> main(List<String> args) => runScaleBenchmark(args);
+
+Future<void> runScaleBenchmark(
+  List<String> args, {
+  Map<String, BaseStore Function(String)> additionalStores = const {},
+}) async {
+  final stores = <String, BaseStore Function(String)>{
+    'memory': (_) => MemoryStore(),
+    ...additionalStores,
+  };
   if (args.length != 2) throw ArgumentError('SIZE OUTPUT');
   final size = int.parse(args[0]);
   if (size <= 0) throw ArgumentError.value(size, 'SIZE', 'must be positive');
@@ -39,11 +48,9 @@ Future<void> main(List<String> args) async {
   final directory = await Directory.systemTemp.createTemp('retrieval_scale');
   final results = <String, Object?>{};
   try {
-    for (final kind in ['memory', 'objectbox']) {
+    for (final MapEntry(key: kind, value: open) in stores.entries) {
       final path = '${directory.path}/$kind';
-      final store = kind == 'memory'
-          ? MemoryStore()
-          : ObjectBoxStore.open(path);
+      final store = open(path);
       try {
         final clock = Stopwatch()..start();
         await store.storeBatch(chunks: chunks, embeddings: vectors);

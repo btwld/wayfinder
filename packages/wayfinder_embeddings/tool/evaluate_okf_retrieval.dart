@@ -10,7 +10,17 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// Evaluates each component against fixed, passage-level judgments. Run the
 /// development split before selecting defaults; inspect held-out results later.
-Future<void> main(List<String> args) async {
+Future<void> main(List<String> args) => evaluate(args);
+
+Future<void> evaluate(
+  List<String> args, {
+  Map<String, BaseStore Function(String)> additionalStores = const {},
+  String fixture = 'fixtures/okf_retrieval',
+}) async {
+  final stores = <String, BaseStore Function(String)>{
+    'memory': (_) => MemoryStore(),
+    ...additionalStores,
+  };
   final parser = ArgParser()
     ..addOption(
       'split',
@@ -18,27 +28,25 @@ Future<void> main(List<String> args) async {
       defaultsTo: 'development',
     )
     ..addOption('output', mandatory: true)
-    ..addOption('stores', defaultsTo: 'memory,objectbox')
+    ..addOption('stores', defaultsTo: stores.keys.join(','))
     ..addFlag('timing', defaultsTo: true, help: 'Measure warm query latency.');
   final options = parser.parse(args);
   if (options.rest.isNotEmpty) {
     throw ArgumentError('Unexpected positional arguments.');
   }
   final measureTiming = options.flag('timing');
-  final stores = options.option('stores')!.split(',');
-  if (stores.any((kind) => !['memory', 'objectbox'].contains(kind))) {
-    throw ArgumentError('--stores accepts memory,objectbox');
+  final selectedStores = options.option('stores')!.split(',');
+  if (selectedStores.any((kind) => !stores.containsKey(kind))) {
+    throw ArgumentError('--stores accepts ${stores.keys.join(',')}');
   }
-  final queryText = await File(
-    'fixtures/okf_retrieval/queries.json',
-  ).readAsString();
+  final queryText = await File('$fixture/queries.json').readAsString();
   final data = jsonDecode(queryText) as Map<String, Object?>;
   final queries = (data['queries']! as List)
       .cast<Map<String, Object?>>()
       .where((row) => row['split'] == options.option('split'))
       .toList();
   final snapshot = await KnowledgeSnapshot.load(
-    'fixtures/okf_retrieval/bundle',
+    '$fixture/bundle',
     bundleId: 'evaluation',
   );
   final governors = (data['governingSources']! as Map).cast<String, String>();
@@ -64,12 +72,12 @@ Future<void> main(List<String> args) async {
           : 'Disabled; correctness results only',
     });
     final runs = <String, Object?>{};
-    for (final kind in stores) {
+    for (final kind in selectedStores) {
       final storeRuns = <String, Object?>{};
       for (final contextual in [false, true]) {
-        final BaseStore store = kind == 'memory'
-            ? MemoryStore()
-            : ObjectBoxStore.open(p.join(directory.path, '$kind-$contextual'));
+        final store = stores[kind]!(
+          p.join(directory.path, '$kind-$contextual'),
+        );
         try {
           final index = KnowledgeIndex(
             store: store,

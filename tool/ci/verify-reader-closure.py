@@ -8,7 +8,10 @@ from urllib.parse import unquote, urlparse
 from publication import dependencies
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL_PACKAGES = {'wayfinder_embeddings', 'llamadart', 'objectbox', 'objectbox_flutter_libs'}
+MODEL_PACKAGES = {
+    'wayfinder_embeddings', 'wayfinder_objectbox', 'llamadart', 'objectbox',
+    'objectbox_flutter_libs',
+}
 FORBIDDEN_PACKAGES = {'ffi', 'okf', 'flutter'} | MODEL_PACKAGES
 FORBIDDEN_SDK = {'dart:io', 'dart:ffi', 'dart:ui', 'dart:mirrors'}
 

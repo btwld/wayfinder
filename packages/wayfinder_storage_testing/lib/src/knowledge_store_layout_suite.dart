@@ -84,9 +84,6 @@ void runLayoutSuite(GenerationFormatHarness harness) {
     },
   };
 
-  String objectBoxConfigurationKey(String model) =>
-      keyFor(model, objectBoxConfiguration);
-
   List<String> generations(Directory namespace) => [
     for (final entry in namespace.listSync().whereType<Directory>())
       p.basename(entry.path),
@@ -269,84 +266,6 @@ void runLayoutSuite(GenerationFormatHarness harness) {
       await store().forget(bundle);
       expect(await Directory(p.dirname(result.index)).exists(), isFalse);
     });
-
-    test(
-      'an ObjectBox-backed index is never read, changed or deleted',
-      () async {
-        // The layout an ObjectBox-backed store wrote:
-        // indexes/<bundle key>/<configuration key>.lock beside
-        // <configuration key>/{current,generation-*/{data.mdb,schema
-        // markers,snapshot.json}}, with a record that, read, would be current
-        // for this bundle and encoder.
-        final built = await store().index(bundle);
-        final record = Map<String, Object?>.from(
-          jsonDecode(await harness.readRecord(currentGeneration(built.index)))
-              as Map,
-        );
-        final configuration = Map<String, Object?>.from(
-          jsonDecode(record['configuration']! as String) as Map,
-        );
-        configuration['store'] = '384-v1';
-        record
-          ..['configuration'] = jsonEncode(configuration)
-          ..remove('vectors');
-        final key = objectBoxConfigurationKey(
-          DeterministicTestEmbedder.defaultModelName,
-        );
-        final old = Directory(
-          p.join(
-            temp.path,
-            'wave1-data',
-            'indexes',
-            sha256
-                .convert(utf8.encode(jsonEncode({'root': bundle.root})))
-                .toString(),
-          ),
-        );
-        final generation = await Directory(
-          p.join(old.path, key, 'generation-objectbox'),
-        ).create(recursive: true);
-        for (final file in Directory(
-          p.join(await embeddingsRoot(), 'test', 'fixtures', 'objectbox-0.2.0'),
-        ).listSync().whereType<File>()) {
-          if (p.extension(file.path) == '.md') continue;
-          await file.copy(p.join(generation.path, p.basename(file.path)));
-        }
-        await File(
-          p.join(generation.path, 'snapshot.json'),
-        ).writeAsString(jsonEncode(record));
-        await File(
-          p.join(old.path, key, 'current'),
-        ).writeAsString('generation-objectbox');
-        final lock = File(p.join(old.path, '$key.lock'));
-        await lock.writeAsString('${jsonEncode({'root': bundle.root})}\n');
-        // Unused for long, so a prune that reached it would delete it.
-        await lock.setLastModified(
-          DateTime.now().subtract(const Duration(days: 400)),
-        );
-        final before = await treeBytes(old);
-        final modified = (await lock.stat()).modified;
-
-        data = Directory(p.join(temp.path, 'wave1-data'));
-        final upgraded = store();
-        expect(await upgraded.status(bundle), isA<KnowledgeIndexMissing>());
-        final rebuilt = await upgraded.index(bundle);
-        expect(rebuilt.current, isFalse);
-        expect(rebuilt.embeddedChunks, built.embeddedChunks);
-        expect(p.isWithin(old.path, rebuilt.index), isFalse);
-        expect(
-          (await upgraded.searchBundle(bundle, 'password')).matches,
-          isNotEmpty,
-        );
-        await upgraded.index(bundle, force: true);
-        await upgraded.forget(bundle);
-        await upgraded.prune(unusedFor: Duration.zero);
-        await Directory(bundle.root).rename('${bundle.root}-moved');
-        await upgraded.prune(unusedFor: Duration.zero);
-        expect(await treeBytes(old), before);
-        expect((await lock.stat()).modified, modified);
-      },
-    );
   });
 
   group('okf lock file', () {

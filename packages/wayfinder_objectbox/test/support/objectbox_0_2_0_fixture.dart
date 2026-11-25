@@ -12,6 +12,7 @@ library;
 import 'dart:io';
 
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_objectbox/wayfinder_objectbox.dart';
 
 /// The model name every fixture embedding uses, except the second identity.
 const fixtureModelName = 'fixture-model';

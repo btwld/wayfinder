@@ -1,0 +1,8 @@
+# Native runtime and generated local files.
+/lib/libobjectbox.dylib
+/lib/libobjectbox.so
+/lib/objectbox.dll
+/.obx/
+/objectbox_sql_classes.dart
+/download/
+/comparison_results/

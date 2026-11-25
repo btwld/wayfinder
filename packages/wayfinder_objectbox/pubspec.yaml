@@ -1,0 +1,28 @@
+name: wayfinder_objectbox
+description: Persistent ObjectBox storage with HNSW vector search for Wayfinder embeddings.
+version: 0.1.0
+repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_objectbox
+issue_tracker: https://github.com/btwld/wayfinder/issues
+topics:
+  - objectbox
+  - embeddings
+  - search
+resolution: workspace
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+dependencies:
+  flat_buffers: ^25.9.23
+  meta: ^1.16.0
+  objectbox: ^6.0.0-preview.6
+  wayfinder_embeddings: ^0.7.0-beta.1
+
+dev_dependencies:
+  build_runner: ^2.10.1
+  crypto: ^3.0.3
+  lints: ^6.0.0
+  objectbox_generator: ^6.0.0-preview.6
+  path: ^1.9.1
+  test: ^1.26.3
+  wayfinder_storage_testing: any
