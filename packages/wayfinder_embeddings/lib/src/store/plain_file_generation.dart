@@ -62,6 +62,8 @@ final class _PlainFileReader
     implements GenerationReader, GenerationRowDimensions {
   _PlainFileReader(this._record, this._file, this._count, this.dimension);
 
+  static const _bulkReadDivisor = 4;
+
   final String _record;
   final RandomAccessFile _file;
   final int _count;
@@ -113,7 +115,9 @@ final class _PlainFileReader
     Set<int>? allowed,
   }) async {
     final cached = _verified;
-    if (allowed == null || allowed.length == _count || cached != null) {
+    if (allowed == null ||
+        allowed.length * _bulkReadDivisor >= _count ||
+        cached != null) {
       return exactNearestRows(
         cached ?? await vectors(),
         query,

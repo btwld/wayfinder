@@ -565,9 +565,7 @@ class KnowledgeIndex {
     };
     final (:vector, :scoreError) = _nearestQuery(query);
     SearchResult score(int ordinal, Float32List row) {
-      if (row.length != query.length ||
-          row.any((value) => !value.isFinite) ||
-          row.every((value) => value == 0)) {
+      if (row.length != query.length || row.any((value) => !value.isFinite)) {
         throw const FormatException(
           'A vector has the wrong dimension or values.',
         );

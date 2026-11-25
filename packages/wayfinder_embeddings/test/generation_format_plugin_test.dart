@@ -131,6 +131,24 @@ void main() {
       },
     );
 
+    test(
+      'search scores zero rows while verification rejects the file',
+      () async {
+        final service = store([plain]);
+        final result = await service.index(bundle);
+        final vectors = File(
+          p.join(_generation(result.index).path, IndexGeneration.vectorsFile),
+        );
+        final bytes = await vectors.readAsBytes();
+        bytes.fillRange(IndexGeneration.headerBytes, bytes.length, 0);
+        await vectors.writeAsBytes(bytes);
+
+        final found = await service.searchBundle(bundle, 'password', limit: 1);
+        expect(found.matches.single.similarity, 0);
+        expect(await service.verify(bundle), isA<KnowledgeIndexIncompatible>());
+      },
+    );
+
     test('unknown marker is incompatible and indexing repairs it', () async {
       final service = store([single]);
       final result = await service.index(bundle);
