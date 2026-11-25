@@ -132,12 +132,17 @@ jobs:
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
         run: dart pub publish --dry-run
         working-directory: packages/wayfinder
+      # The release tool runs on Dart 3.11.0 in distribute-wayfinder.yml, so its
+      # analysis and tests run on that leg. Its pinned cli_pkg rejects
+      # architectures that newer SDKs add, such as arm64e in Dart 3.14.
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: tool/release
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         run: dart pub -C tool/release get --enforce-lockfile
-      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
+      - if: matrix.os == 'ubuntu-latest' && matrix.sdk == '3.11.0'
         working-directory: tool/release
         run: |
-          dart format --output=none --set-exit-if-changed .
           dart analyze --fatal-infos
           dart run test
       - if: matrix.os == 'ubuntu-latest' && matrix.sdk == 'stable'
