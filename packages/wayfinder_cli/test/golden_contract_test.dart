@@ -11,6 +11,7 @@ import 'package:wayfinder/project.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/version.dart';
+import 'package:wayfinder_drift/wayfinder_drift.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
@@ -387,6 +388,7 @@ final class _ContractProject {
       WayfinderKnowledgeStore(
         dataDirectory: _data,
         retainEncoder: retainEncoder,
+        formats: const [SqliteGenerationFormat()],
         // Space-separated words as tokens. Every passage fits 28 with its
         // context except weather.md's, whose long description alone exceeds
         // it, so indexing embeds that passage body-only and reports one

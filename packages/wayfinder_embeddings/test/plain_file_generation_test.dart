@@ -4,8 +4,33 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart';
 
 void main() {
+  test(
+    'reads the pinned plain generation and returns its recorded search',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'wayfinder-plain-fixture-',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+      final bundle = await copyStoreBundle(temp);
+      final store = WayfinderKnowledgeStore(
+        dataDirectory: Directory(p.join(temp.path, 'data')),
+        encoder: TestEncoderProvider([]),
+      );
+      addTearDown(store.dispose);
+      final indexed = await store.index(bundle);
+      final expected = await installPlainGenerationFixture(
+        currentGeneration(indexed.index),
+        bundle.root,
+      );
+      expect(await store.verify(bundle), isA<KnowledgeIndexCurrent>());
+      final actual = await store.searchBundle(bundle, 'password recovery');
+      expect(actual.toJson()..remove('elapsedMs'), expected);
+    },
+  );
+
   for (final (filter, step, expectedReads) in [
     ('broad', 4, 1),
     ('sparse', 20, 5),

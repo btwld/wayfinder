@@ -221,8 +221,7 @@ size and SHA-256 match the pinned model. When it finds none, the failure
 lists each location it searched, in order, and what puts a model there; a
 cached copy that fails the check is reported as such rather than as missing.
 
-Indexes are plain files, so the command needs no database library; native
-builds ship only the embedding runtime and the model.
+Native builds include the embedding runtime, model, SQLite and sqlite-vec.
 
 ## MCP server
 
@@ -361,8 +360,8 @@ stderr is not a terminal, or when `CI` or `WAYFINDER_NO_UPDATE_CHECK` is set.
 ## Local storage
 
 Wayfinder stores each index under a hash of the canonical absolute bundle
-path, then a hash of the index configuration: chunking, snapshot and storage
-format, and the model's identity. Separate worktrees get separate indexes;
+path, then a hash of the index configuration: chunking, snapshot and vector
+encoding, and the model's identity. Separate worktrees get separate indexes;
 symlink aliases resolve to the same root. Moving a bundle requires indexing its
 new location, and a release that changes the configuration builds each index
 once in a directory of its own.
@@ -373,10 +372,11 @@ once in a directory of its own.
 - Windows: `%LOCALAPPDATA%/Wayfinder/indexes/bundles/<bundle-key>/<configuration-key>/`
 
 An index directory holds `writer.lock`, a `current` pointer and immutable
-generations, `generation-<id>/` with `snapshot.json` (the indexed bundle text,
-passages, metadata and the record of the vectors) and `vectors.f32` (a header,
-then one little-endian float32 row per passage). There is no database: search
-reads the generation and scores every eligible passage exactly.
+generations, each with one `generation-<id>/index.sqlite` containing the index
+record and its float32 vectors. The first `index` after upgrading republishes
+a current, verified plain-file generation without embedding. Older CLI
+releases rebuild a SQLite index from sources when asked to index, which
+embeds the passages again. See the [storage driver](../wayfinder_drift/README.md).
 
 `wayfinder status <bundle> [--output=json]` checks the saved record and every
 vector against its checksum without loading a model. It reports `missing`,

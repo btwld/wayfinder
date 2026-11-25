@@ -124,6 +124,12 @@ Date: 2026-11-25. Amends ADR-0022.
 
 A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. This lets a database driver search a generation without a full scan. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
+## SQLite generation storage for CLI and MCP
+
+2026-11-25.
+
+Use a single SQLite file with sqlite-vec for CLI and MCP generations to move filtered nearest-row selection into native code while preserving the generation contract and republishing verified plain-file indexes without inference. Float32 distance rounding and the native candidate limit require exact fallback, and the CLI bundle carries the pinned platform extension. See [wayfinder_drift](packages/wayfinder_drift/README.md).
+
 ## Shared effective vocabulary (ADR-0027)
 
 Date: 2026-10-26; clarifies ADR-0015/0016 without changing interpretation.

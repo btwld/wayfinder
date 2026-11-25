@@ -64,10 +64,11 @@ typedef _Pinned = ({
 typedef _Namespace = ({String root, Directory directory, File writer});
 
 final class _MissingFormatMarker extends WayfinderException {
-  _MissingFormatMarker(String markers)
+  _MissingFormatMarker(String markers, String files)
     : super(
         'index-incompatible',
-        'Saved index is incomplete or incompatible: missing a known format marker ($markers).',
+        'Saved index is incomplete or incompatible: missing a known format marker '
+            '($markers). Generation files: $files.',
       );
 }
 
@@ -1564,55 +1565,23 @@ class WayfinderKnowledgeStore {
     KnowledgeMetadataFilter? filters,
   }) async {
     _Pinned? pinned;
-    Map<String, String> files;
-    KnowledgeIndexStatus status;
-    bool refreshing;
     try {
-      for (var attempt = 0; ; attempt++) {
-        WayfinderException? unusable;
-        try {
-          pinned = await _pin(index);
-        } on WayfinderException catch (error) {
-          if (error.code != 'index-incompatible') rethrow;
-          pinned = null;
-          unusable = error;
-        }
-        files = await _inventory(index.root);
-        status = unusable == null
-            ? _assess(index, files, pinned?.saved)
-            : KnowledgeIndexIncompatible(unusable.message);
-        refreshing =
-            stale == StaleIndexPolicy.serveWhileRefreshing &&
-            await WayfinderFileLock.isHeld(index.writer);
-        if (status is KnowledgeIndexCurrent || refreshing || attempt > 0) break;
-        // A writer may have published, and released its lock, since the read:
-        // read once more when the pointer moved.
-        if (await _pointedGeneration(index) == pinned?.saved.generation) break;
-        await pinned?.reader.close();
-        pinned = null;
+      // Reject unusable indexes before loading a model. Release the preflight
+      // reader before acquisition can block generation cleanup. A retained
+      // encoder can be acquired immediately.
+      _Pinned? checked;
+      if (_retained == null) {
+        checked = (await _pinSearch(index, stale, notify: false)).pinned;
+        await checked.reader.close();
       }
-      final Set<String> changed;
-      switch (status) {
-        case KnowledgeIndexCurrent():
-          changed = const {};
-        case KnowledgeIndexStale(:final changedPaths) when refreshing:
-          changed = changedPaths.toSet();
-        case KnowledgeIndexMissing() || KnowledgeIndexIncompatible()
-            when refreshing:
-          throw _building;
-        case KnowledgeIndexMissing():
-          throw const WayfinderException('index-missing', 'Index is missing.');
-        case KnowledgeIndexStale():
-          throw const WayfinderException('index-stale', 'Index is stale.');
-        case KnowledgeIndexIncompatible(:final reason):
-          throw WayfinderException('index-incompatible', reason);
-        case KnowledgeIndexRefreshing():
-          throw StateError('An assessment is never refreshing.');
-      }
-      final saved = pinned!.saved;
-      final snapshot = saved.snapshot;
       throwIfCancelled(cancel);
       final activeEncoder = await encoder();
+      throwIfCancelled(cancel);
+      final found = await _pinSearch(index, stale, checked: checked);
+      pinned = found.pinned;
+      final (:files, :refreshing, :changed, pinned: _) = found;
+      final saved = pinned.saved;
+      final snapshot = saved.snapshot;
       if (activeEncoder.embedder.dimension != saved.dimension) {
         throw WayfinderException(
           'index-incompatible',
@@ -1674,6 +1643,78 @@ class WayfinderKnowledgeStore {
       throw _incomplete;
     } finally {
       await pinned?.reader.close();
+    }
+  }
+
+  Future<
+    ({
+      _Pinned pinned,
+      Map<String, String> files,
+      bool refreshing,
+      Set<String> changed,
+    })
+  >
+  _pinSearch(
+    _Namespace index,
+    StaleIndexPolicy stale, {
+    bool notify = true,
+    _Pinned? checked,
+  }) async {
+    _Pinned? pinned;
+    Map<String, String> files;
+    KnowledgeIndexStatus status;
+    bool refreshing;
+    try {
+      for (var attempt = 0; ; attempt++) {
+        WayfinderException? unusable;
+        try {
+          pinned = await _pin(index, notify: notify, checked: checked);
+        } on WayfinderException catch (error) {
+          if (error.code != 'index-incompatible') rethrow;
+          pinned = null;
+          unusable = error;
+        }
+        files = await _inventory(index.root);
+        status = unusable == null
+            ? _assess(index, files, pinned?.saved)
+            : KnowledgeIndexIncompatible(unusable.message);
+        refreshing =
+            stale == StaleIndexPolicy.serveWhileRefreshing &&
+            await WayfinderFileLock.isHeld(index.writer);
+        if (status is KnowledgeIndexCurrent || refreshing || attempt > 0) break;
+        // A writer may have published, and released its lock, since the read:
+        // read once more when the pointer moved.
+        if (await _pointedGeneration(index) == pinned?.saved.generation) break;
+        await pinned?.reader.close();
+        pinned = null;
+      }
+      final Set<String> changed;
+      switch (status) {
+        case KnowledgeIndexCurrent():
+          changed = const {};
+        case KnowledgeIndexStale(:final changedPaths) when refreshing:
+          changed = changedPaths.toSet();
+        case KnowledgeIndexMissing() || KnowledgeIndexIncompatible()
+            when refreshing:
+          throw _building;
+        case KnowledgeIndexMissing():
+          throw const WayfinderException('index-missing', 'Index is missing.');
+        case KnowledgeIndexStale():
+          throw const WayfinderException('index-stale', 'Index is stale.');
+        case KnowledgeIndexIncompatible(:final reason):
+          throw WayfinderException('index-incompatible', reason);
+        case KnowledgeIndexRefreshing():
+          throw StateError('An assessment is never refreshing.');
+      }
+      return (
+        pinned: pinned!,
+        files: files,
+        refreshing: refreshing,
+        changed: changed,
+      );
+    } catch (_) {
+      await pinned?.reader.close();
+      rethrow;
     }
   }
 
@@ -1789,7 +1830,12 @@ class WayfinderKnowledgeStore {
   /// is read again after each of [_pointerRetryDelays]. A generation that
   /// cannot be read while the pointer still names it is
   /// `index-incompatible`.
-  Future<_Pinned?> _pin(_Namespace index, {bool verify = false}) async {
+  Future<_Pinned?> _pin(
+    _Namespace index, {
+    bool verify = false,
+    bool notify = true,
+    _Pinned? checked,
+  }) async {
     final directory = index.directory;
     final cacheKey = retainEncoder && await directory.exists()
         ? await directory.resolveSymbolicLinks()
@@ -1815,13 +1861,14 @@ class WayfinderKnowledgeStore {
       if (!_generationName.hasMatch(generation) || generation == unreadable) {
         break;
       }
-      await generationPinned[this]?.call(generation);
+      if (notify) await generationPinned[this]?.call(generation);
       try {
         return await _readGeneration(
           directory,
           generation,
           cacheKey,
           verify: verify,
+          checked: checked,
         );
       } on GenerationGone {
         unreadable = generation;
@@ -1840,6 +1887,7 @@ class WayfinderKnowledgeStore {
     String generation,
     String? cacheKey, {
     required bool verify,
+    _Pinned? checked,
   }) async {
     final folder = Directory(p.join(directory.path, generation));
     GenerationFormat? selected;
@@ -1855,13 +1903,34 @@ class WayfinderKnowledgeStore {
       final markers = _formats.map(
         (format) => '${format.name}: ${format.marker}',
       );
-      throw _MissingFormatMarker(markers.join(', '));
+      final List<String> files;
+      try {
+        files = await folder
+            .list()
+            .where((entry) => entry is File)
+            .map((entry) => p.basename(entry.path))
+            .toList();
+      } on PathNotFoundException {
+        throw const GenerationGone();
+      }
+      files.sort();
+      throw _MissingFormatMarker(
+        markers.join(', '),
+        files.isEmpty ? '(none)' : files.join(', '),
+      );
     }
     GenerationReader? reader;
     try {
       reader = await selected.open(folder);
       final text = await reader.record();
-      final saved = _parseRecord(generation, text, cacheKey);
+      // The search preflight already parsed this exact record. Reuse it
+      // after reopening so a one-shot search parses the snapshot only once.
+      final saved =
+          checked != null &&
+              checked.saved.generation == generation &&
+              checked.record == text
+          ? checked.saved
+          : _parseRecord(generation, text, cacheKey);
       if (await reader.rowCount() != saved.count) throw _incomplete;
       if (reader.dimension != saved.dimension) throw _incomplete;
       final List<Float32List>? vectors;
@@ -1898,6 +1967,10 @@ class WayfinderKnowledgeStore {
         record: text,
         verified: vectors,
       );
+    } on GenerationOpenException catch (error) {
+      await reader?.close();
+      _cachedSavedIndexes.remove(cacheKey);
+      throw WayfinderException('index-incompatible', error.message);
     } on GenerationGone {
       await reader?.close();
       _cachedSavedIndexes.remove(cacheKey);

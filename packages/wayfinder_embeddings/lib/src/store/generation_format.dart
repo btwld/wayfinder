@@ -22,6 +22,17 @@ final class GenerationGone implements Exception {
   const GenerationGone();
 }
 
+/// A format could not open a generation and has a diagnostic for the caller.
+final class GenerationOpenException implements Exception {
+  const GenerationOpenException(this.message);
+
+  /// The diagnostic reported with `index-incompatible`.
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// An original float32 row and its ordinal in snapshot chunk order.
 final class NearRow {
   const NearRow(this.ordinal, this.vector);
@@ -52,7 +63,8 @@ abstract interface class GenerationFormat {
   /// Opens [generation] for reading and leaves it unchanged.
   ///
   /// Throws [GenerationGone] when a file is missing. Throws a different error
-  /// when the content is corrupt.
+  /// when the content is corrupt. Use [GenerationOpenException] to report a
+  /// format-specific diagnostic to the caller.
   Future<GenerationReader> open(Directory generation);
 }
 

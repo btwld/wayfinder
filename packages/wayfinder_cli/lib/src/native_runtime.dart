@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
+import 'package:wayfinder_drift/wayfinder_drift.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/model_cache.dart';
 
@@ -21,7 +22,7 @@ WayfinderKnowledgeStore openKnowledgeStore({bool retainEncoder = false}) =>
       dataDirectory: WayfinderDataDirectory.resolve(),
       encoder: const _InstalledModel(),
       retainEncoder: retainEncoder,
-      formats: const [PlainFileGenerationFormat()],
+      formats: const [SqliteGenerationFormat()],
     );
 
 /// Fails with `model-missing` or `model-invalid` when

@@ -10,6 +10,7 @@ environment:
 workspace:
   - packages/wayfinder
   - packages/wayfinder_embeddings
+  - packages/wayfinder_drift
   - packages/wayfinder_cli
   - packages/wayfinder_storage_testing
 

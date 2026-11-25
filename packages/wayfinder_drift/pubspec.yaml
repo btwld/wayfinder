@@ -1,0 +1,30 @@
+name: wayfinder_drift
+description: SQLite and sqlite-vec storage drivers for Wayfinder retrieval.
+version: 0.1.0-beta.1
+repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_drift
+issue_tracker: https://github.com/btwld/wayfinder/issues
+topics:
+  - sqlite
+  - embeddings
+  - search
+resolution: workspace
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+
+dependencies:
+  code_assets: ^2.1.0
+  crypto: ^3.0.3
+  drift: ^2.34.3
+  hooks: ^2.0.0
+  sqlite3: ^3.9.1
+  wayfinder_embeddings: ^0.6.0-beta.1
+
+dev_dependencies:
+  build_runner: ^2.10.1
+  drift_dev: ^2.34.3
+  lints: ^6.0.0
+  path: ^1.9.1
+  test: ^1.26.3
+  wayfinder: ^0.5.0-beta.2
+  wayfinder_storage_testing: any

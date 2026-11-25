@@ -16,6 +16,7 @@ looks like documentation, because CI reads them:
 - ``examples/`` bundles and profiles are validated, except a readme or license
 - Profile ``skill/`` text is compared to the package vocabulary
 - ``test``, ``tests``, ``goldens``, ``fixtures``, and Profile ``versions/``
+- the vendored sqlite-vec libraries and license copied into native bundles
 """
 
 from __future__ import annotations
@@ -84,6 +85,8 @@ def _template(path: str) -> bool:
 def _forced_code(path: str) -> bool:
     if path.startswith('docs/schemas/'):
         return True
+    if path.startswith('packages/wayfinder_drift/third_party/sqlite_vec/'):
+        return _name(path) != 'readme.md'
     if path.startswith('examples/') and not _readme_or_license(path):
         return True
     if path.startswith('profiles/') and (

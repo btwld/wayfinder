@@ -1,4 +1,4 @@
-# 0.6.0-beta.1
+# 0.6.0-beta.1 (unreleased)
 
 - Add pluggable generation storage and filtered nearest-row search. Keep the
   existing plain-file layout and citation ranking, and republish into another
@@ -6,6 +6,9 @@
   checks the complete vector checksum without opening an encoder.
 - `status` and search no longer hash every vector. They check the record, the
   row count and the row width. Call `verify` to check the vector checksum.
+- Release preflight readers before encoder acquisition, then pin the generation
+  used for searching. Preserve format diagnostics on an incompatible index and
+  expose shared scoring and validation to storage drivers.
 
 # 0.5.0-beta.1
 

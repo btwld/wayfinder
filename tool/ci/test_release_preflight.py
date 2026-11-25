@@ -77,7 +77,7 @@ class SourceCiTest(unittest.TestCase):
                                             'checked-sha').status, 'failed')
 
     def test_all_publication_workflows_require_source_ci_before_dependencies(self):
-        for package in ['wayfinder', 'wayfinder-embeddings', 'wayfinder-cli']:
+        for package in ['wayfinder', 'wayfinder-embeddings', 'wayfinder-drift', 'wayfinder-cli']:
             text = (preflight.ROOT / f'.github/workflows/publish-{package}.yml').read_text()
             self.assertLess(text.index('python3 tool/ci/verify-release-ci.py'),
                             text.index('run: dart pub get'))
@@ -484,6 +484,18 @@ class SiblingPublicationTests(unittest.TestCase):
             self.assertEqual(versions, {'added': '2.0.0'})
             missing = preflight.missing_siblings(versions, lambda _: {'1.0.0'})
             self.assertEqual(missing, ['added 2.0.0'])
+
+    def test_drift_is_discovered_by_the_floor_and_sibling_checks(self):
+        packages = publication.workspace_packages(publication.ROOT)
+        driver = packages['wayfinder_drift']
+        embeddings = packages['wayfinder_embeddings'].version
+        self.assertEqual(driver.dependencies['wayfinder_embeddings'], f'^{embeddings}')
+        self.assertEqual(packages['wayfinder_cli'].dependencies['wayfinder_drift'],
+                         f'^{driver.version}')
+        self.assertEqual(publication.sibling_versions('wayfinder_drift'),
+                         {'wayfinder_embeddings': embeddings})
+        self.assertEqual(publication.sibling_versions('wayfinder_cli')['wayfinder_drift'],
+                         driver.version)
 
     def test_retracted_versions_are_not_publication_prerequisites(self):
         response = mock.MagicMock()

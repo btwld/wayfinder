@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
@@ -15,11 +17,11 @@ List<double> testVector384({int seed = 0}) {
 /// Registers the behavior every [BaseStore] implementation must provide.
 ///
 /// [createStore] builds a fresh store for each test.
-void runStoreContract(BaseStore Function() createStore) {
+void runStoreContract(FutureOr<BaseStore> Function() createStore) {
   late BaseStore store;
 
-  setUp(() {
-    store = createStore();
+  setUp(() async {
+    store = await createStore();
   });
 
   tearDown(() async {

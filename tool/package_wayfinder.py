@@ -25,14 +25,23 @@ skills = [f'skills/{name}/SKILL.md' for name in [
     'author-knowledge-bundle', 'create-profile', 'use-wayfinder']]
 for name in ['LICENSE', 'models/embedding.gguf', 'models/manifest.json',
              'licenses/wayfinder/LICENSE',
-             'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE', *skills]:
+             'licenses/dart/packages.json', 'licenses/dart-sdk/LICENSE',
+             'licenses/sqlite_vec/LICENSE-MIT', *skills]:
     if not (bundle / name).is_file():
         parser.error(f'Incomplete bundle: {name}')
-# The command keeps its indexes as plain files and needs no ObjectBox.
+# Reject obsolete libraries even when packaging a stale prebuilt bundle.
 for name in ['lib/libobjectbox.so', 'lib/libobjectbox.dylib',
              'bin/objectbox.dll', 'licenses/objectbox']:
     if (bundle / name).exists():
         parser.error(f'Unexpected ObjectBox asset: {name}')
+# Dependency license inventory covers Drift and SQLite; native assets are
+# copied by dart build cli and verified in the complete bundle.
+for name in ['drift', 'sqlite3']:
+    if not (bundle / 'licenses' / 'dart' / name / 'LICENSE').is_file():
+        parser.error(f'Missing storage license: {name}')
+if not any((bundle / 'lib' / f'vec0.{suffix}').is_file()
+           for suffix in ['so', 'dylib', 'dll']):
+    parser.error('Missing sqlite-vec library in lib/')
 for command in ['wayfinder']:
     if not any((bundle / 'bin' / (command + suffix)).is_file()
                for suffix in ['', '.exe']):

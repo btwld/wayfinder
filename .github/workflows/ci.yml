@@ -113,6 +113,11 @@ jobs:
         working-directory: packages/wayfinder_storage_testing
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_drift
+      - run: dart test --concurrency=2
+        working-directory: packages/wayfinder_drift
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
       - run: dart test
         working-directory: packages/wayfinder_cli
